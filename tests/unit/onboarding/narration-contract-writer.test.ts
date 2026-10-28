@@ -5,6 +5,8 @@ import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import {
   buildNarrationContractBody,
   buildNarrationContractDocument,
+  ONE_DEVELOPMENT_AGENT_PARAGRAPH,
+  PARALLEL_REVIEW_AND_DOCS_PARAGRAPH,
   RESUME_HANDOVER_TOKENS,
 } from '@/onboarding/narration-contract-writer.js';
 import { PAQAD_TERM_TRANSLATIONS, PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
@@ -165,6 +167,75 @@ describe('narration-contract-writer', () => {
     }
     expect(sentence).toContain('keep the fresh-dispatch flow');
     expect(sentence).not.toMatch(/SendMessage|send_input/);
+  });
+
+  describe('review and documentation sync side by side', () => {
+    const router = () => readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+
+    it('AC-9: dispatches both together per host, after the one development agent, with step 4 pointing at it', () => {
+      const body = buildNarrationContractBody();
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'dispatch `paqad-review` and `paqad-documentation-sync` together',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain('two Agent calls in one message');
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'two `spawn_agent` calls, then `wait_agent` on both',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain('never on the first one back');
+      expect(body.indexOf(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH)).toBeGreaterThan(
+        body.indexOf(ONE_DEVELOPMENT_AGENT_PARAGRAPH),
+      );
+      expect(body.indexOf(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH)).toBeLessThan(
+        body.indexOf('**The resume protocol.**'),
+      );
+      const step4 = body.split('\n').find((line) => line.startsWith('4. On `completed`'))!;
+      expect(step4).toContain('Review and documentation sync side by side');
+      expect(router()).toContain(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH);
+      expect(router()).toContain(step4);
+    });
+
+    it('AC-9: keeps the one-after-another sequence where parallel subagents are not available', () => {
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'On the fast lane, on a host without parallel subagents, and on a host with no subagent dispatch, keep the one-after-another sequence: review, then documentation sync, then checks.',
+      );
+    });
+
+    it('AC-10: a review fix goes through the one development agent, docs re-run only when affected, then checks once', () => {
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'apply it only after both have returned, by resuming the one development agent',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'whether the fix changes what the docs describe',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'dispatch `paqad-documentation-sync` again only when the fix changes what the docs describe, otherwise go straight to checks',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'dispatch `paqad-checks` once, on the final tree',
+      );
+    });
+
+    it('AC-11: keeps a completed stage when the other fails or pauses, and checks waits for both', () => {
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'fails, is blocked or pauses on a decision while the other completes, keep the completed stage and do not re-run it',
+      );
+      expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(
+        'only after review and documentation sync have both returned completed',
+      );
+    });
+
+    it('AC-12: the Background dispatch release list keeps a hold through another stage agent’s start', () => {
+      const body = buildNarrationContractBody();
+      const background = body.split('\n').find((line) => line.startsWith('**Background dispatch'))!;
+      expect(background).toContain(
+        "A `stage_start` written by a different paqad stage agent does not release a running agent's hold",
+      );
+      expect(background).toContain(
+        "when documentation sync starts while review runs, review's hold stays",
+      );
+      expect(background).not.toContain('that does not carry the running agent');
+      expect(router()).toContain(background);
+    });
   });
 
   it('is a pure builder — repeated calls return identical content', () => {

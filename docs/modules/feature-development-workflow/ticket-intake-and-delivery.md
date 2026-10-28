@@ -8,6 +8,9 @@
 ticket_intake → planning → specification → development → review → checks → documentation_sync → delivery
 ```
 
+This is the registry order. In practice, after development the orchestrator runs
+review and documentation_sync side by side, then runs checks once on the final tree.
+
 Both new stages are framework-owned (defined in
 [`src/pipeline/feature-development-policy.ts`](../../../src/pipeline/feature-development-policy.ts))
 and project-overridable via `merge_mode: append` in

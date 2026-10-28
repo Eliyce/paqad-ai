@@ -1,0 +1,47 @@
+{
+  "id": "D-01M61TBM1P0E3H76W6YVMTX5X5",
+  "category": "spec.change",
+  "title": "Fix marked-start auto-close of a running stage in #753",
+  "context": "Review found closeOpenStagesForMarkedStart (src/stage-evidence/live-writer.ts) ends every open stage when another stage starts, so docs sync starting closes the running review without an artifact. Needs a change outside the plan's file list.",
+  "options": [
+    {
+      "option_key": "fix-in-pr",
+      "label": "Fix it in this PR",
+      "one_line_preview": "Fix it in this PR",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ship-sequential",
+      "label": "Ship sequential and record tech debt",
+      "one_line_preview": "Ship sequential and record tech debt",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fix-in-pr",
+  "created_at": "2026-10-28T17:54:04.470Z",
+  "status": "resolved",
+  "change": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "chosen": "fix-in-pr",
+  "rationale": "Owner: expand scope to live-writer.ts so a stage held by a different live agent is not auto-closed",
+  "resolved_at": "2026-10-28T17:54:05.355Z",
+  "decision_id": "D-01M61TBM1P0E3H76W6YVMTX5X5",
+  "fingerprint": "sha256:de015e187abe42cb29d1f19c53b2d59e31461bd0ef732df0e485d47a4f5b9b9a",
+  "question": "Fix marked-start auto-close of a running stage in #753",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "ttl_until": "2026-11-27T17:54:04.470Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix-in-pr",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T17:54:05.355Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: expand scope to live-writer.ts so a stage held by a different live agent is not auto-closed"
+  }
+}

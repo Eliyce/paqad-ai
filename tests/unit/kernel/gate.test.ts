@@ -12,8 +12,9 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readRuleStopRecord } from '@/hud/last-block.js';
-import { runCapabilityGate } from '@/kernel/gate.js';
+import { hudLastBlockPath } from '@/hud/files.js';
+import { markRuleStopAllowedOnce, readRuleStopRecord } from '@/hud/last-block.js';
+import { ALLOW_ONCE_REASON, runCapabilityGate } from '@/kernel/gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { startStage } from '@/stage-evidence/recorder.js';
@@ -528,5 +529,129 @@ describe('runCapabilityGate rule-stop record', () => {
     expect(log).toHaveLength(1);
     expect(log[0]).toMatch(/rule-stop record not written: E[A-Z]+ /);
     expect(log[0]).not.toContain('- a');
+  });
+});
+
+describe('runCapabilityGate allowed once', () => {
+  const PAYLOAD = {
+    sessionId: 'sess-once',
+    toolUseId: 'tu_1',
+    toolInput: { old_string: 'a', new_string: 'b' },
+  };
+
+  function gate(root: string, overrides: Partial<Parameters<typeof runCapabilityGate>[0]> = {}) {
+    return runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+      entryLoaded: () => true,
+      ...overrides,
+    });
+  }
+
+  async function allowedOnceRoot(policy?: string): Promise<string> {
+    const root = setupChanged('strict', 'debugger;\n');
+    if (policy) write(join(root, '.paqad/configs/.config.policy'), policy);
+    expect((await gate(root)).block).toBe(true);
+    markRuleStopAllowedOnce(root, readRuleStopRecord(root, 'sess-once')!);
+    return root;
+  }
+
+  function hooksLog(root: string): string {
+    const path = join(root, '.paqad/logs/hooks.log');
+    return existsSync(path) ? readFileSync(path, 'utf8') : '';
+  }
+
+  it('AC-7: answers ask once for the exact call, consumes the mark and blocks the same call after', async () => {
+    const root = await allowedOnceRoot();
+    const marked = readRuleStopRecord(root, 'sess-once')!;
+    const result = await gate(root);
+    expect(result).toMatchObject({ block: false, ask: ALLOW_ONCE_REASON, summary: '' });
+    expect(readRuleStopRecord(root, 'sess-once')).toEqual({ ...marked, allowed_once: false });
+    expect(hooksLog(root)).toContain(`allowed once: asked for ${marked.rule} on src/app.ts`);
+    expect(hooksLog(root)).toContain('tool_use_id tu_1');
+    const again = await gate(root);
+    expect(again.block).toBe(true);
+    expect(again.ask).toBeUndefined();
+  });
+
+  it('AC-8: a leftover mark never answers another tool_use_id or a call with none', async () => {
+    for (const payload of [
+      { ...PAYLOAD, toolUseId: 'tu_2' },
+      { ...PAYLOAD, toolUseId: undefined },
+    ]) {
+      const root = await allowedOnceRoot();
+      const result = await gate(root, { payload });
+      expect(result.block).toBe(true);
+      expect(result.ask).toBeUndefined();
+      expect(hooksLog(root)).not.toContain('allowed once');
+    }
+  });
+
+  it('AC-8: a mark for another rule or file is not consumed', async () => {
+    for (const change of [{ rule: 'RL-other' }, { file: 'src/other.ts' }]) {
+      const root = await allowedOnceRoot();
+      const record = readRuleStopRecord(root, 'sess-once')!;
+      markRuleStopAllowedOnce(root, { ...record, ...change });
+      const result = await gate(root);
+      expect(result.block).toBe(true);
+      expect(result.ask).toBeUndefined();
+      expect(hooksLog(root)).not.toContain('allowed once');
+    }
+  });
+
+  it('AC-9: two blocking capabilities or two violations never answer ask', async () => {
+    const twoGates = await allowedOnceRoot('rule_compliance=strict\n');
+    const both = await gate(twoGates);
+    expect(both.block).toBe(true);
+    expect(both.ask).toBeUndefined();
+
+    const twoFiles = await allowedOnceRoot();
+    write(join(twoFiles, 'src/b.ts'), 'debugger;\n');
+    seedGitChangedFiles(twoFiles, ['src/app.ts', 'src/b.ts']);
+    const two = await gate(twoFiles);
+    expect(two.block).toBe(true);
+    expect(two.ask).toBeUndefined();
+    expect(hooksLog(twoGates) + hooksLog(twoFiles)).not.toContain('allowed once');
+  });
+
+  it('AC-9: paqad managed mode and a Codex hook never answer ask', async () => {
+    for (const overrides of [
+      { env: { PAQAD_MANAGED: '1' } },
+      { payload: { ...PAYLOAD, adapter: 'codex-cli' } },
+    ]) {
+      const root = await allowedOnceRoot();
+      const result = await gate(root, overrides);
+      expect(result.block).toBe(true);
+      expect(result.ask).toBeUndefined();
+      expect(hooksLog(root)).not.toContain('allowed once');
+    }
+    const claude = await allowedOnceRoot();
+    expect((await gate(claude, { payload: { ...PAYLOAD, adapter: 'claude-code' } })).ask).toBe(
+      ALLOW_ONCE_REASON,
+    );
+  });
+
+  it('AC-9: a missing, unparseable or pre-change record blocks', async () => {
+    const root = setupChanged('strict', 'debugger;\n');
+    expect((await gate(root)).ask).toBeUndefined();
+    const path = hudLastBlockPath(root, 'sess-once');
+    const record = readRuleStopRecord(root, 'sess-once')!;
+    const preChange: Record<string, unknown> = { ...record, used: true };
+    delete preChange.allowed_once;
+    for (const text of ['{not json', JSON.stringify(preChange)]) {
+      writeFileSync(path, text);
+      const result = await gate(root);
+      expect(result.block).toBe(true);
+      expect(result.ask).toBeUndefined();
+    }
+  });
+
+  it('AC-10: two gate runs for the same call at once answer ask at most once', async () => {
+    const root = await allowedOnceRoot();
+    const results = await Promise.all([gate(root), gate(root), gate(root)]);
+    expect(results.filter((result) => result.ask === ALLOW_ONCE_REASON)).toHaveLength(1);
+    expect(results.filter((result) => result.block)).toHaveLength(2);
   });
 });

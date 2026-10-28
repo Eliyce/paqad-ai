@@ -1,0 +1,54 @@
+{
+  "id": "D-01M61YBQRTATPQMVBQWC3M7TEG",
+  "category": "intake.requirement",
+  "title": "What the override record says when an allowed-once edit never lands",
+  "context": "After someone picks Allow once in the HUD, the edit can still not happen: they say no in Claude Code's own approval box, or something else (their own settings, another tool, their organization, a second paqad rule) still stops it. The override line in rule-overrides.jsonl is written before that final answer, so today it can read as an edit that ran. Reviewers read these records as proof of what happened. Grounded in docs/modules/feature-evidence/features/rule-override/business.md.",
+  "options": [
+    {
+      "option_key": "outcome-line",
+      "label": "Keep the override line and add a second line saying whether the edit landed, was refused, or stayed blocked",
+      "one_line_preview": "Keep the override line and add a second line saying whether the edit landed, was refused, or stayed blocked",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "choice-only",
+      "label": "Keep the override line as it is today: it records the choice only",
+      "one_line_preview": "Keep the override line as it is today: it records the choice only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "write-on-land",
+      "label": "Only write the override once the edit actually lands",
+      "one_line_preview": "Only write the override once the edit actually lands",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "outcome-line",
+  "created_at": "2026-10-28T19:04:02.587Z",
+  "status": "resolved",
+  "change": "01M61XDEFF9BAS6V560PT6PMK4",
+  "chosen": "outcome-line",
+  "rationale": "Owner: keep the override line and add an outcome line (landed/refused/still blocked)",
+  "resolved_at": "2026-10-28T19:06:53.634Z",
+  "decision_id": "D-01M61YBQRTATPQMVBQWC3M7TEG",
+  "fingerprint": "sha256:f5d66e39ff9eb0c6ab9ddd4c1a45074e1edce07169d9ea0beb847b98677062ad",
+  "question": "What the override record says when an allowed-once edit never lands",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M61XDEFF9BAS6V560PT6PMK4",
+  "ttl_until": "2026-11-11T19:04:02.587Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "outcome-line",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T19:06:53.634Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep the override line and add an outcome line (landed/refused/still blocked)"
+  }
+}

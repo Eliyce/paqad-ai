@@ -79,8 +79,15 @@ call, so a static reader sees it:
   trailing separator is dropped once when the session binds, and a root of `/` stays `/`.
   `heartbeatPath` and `lastBlockPath` in `model.ts` stay for the reads and the tests.
 - It starts one program, `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`,
-  only after a person picks Allow once. `paqad-cli.ts` keeps only the 15 s timeout and the result
-  type.
+  only after a person picks Allow once: once for the override and once more with `--outcome`
+  after the retried edit returns. `paqad-cli.ts` keeps only the 15 s timeout and the result type.
+- It never answers a permission check of its own. Allow once lives in a `tool.call` hook on Edit,
+  Write and NotebookEdit, registered after the unmatched `tool.call` hook: when the call comes back
+  denied (`deny` or `isError`) and a fresh paqad stop names this `tool_use_id`, it asks the rule
+  stop question and, after a recorded override, runs the same call once more so paqad's gate can
+  answer `ask` for it. Its one `tool.check` hook only reads the answer for the band and returns it
+  unchanged. The flow is in
+  [rule-override technical](../../feature-evidence/features/rule-override/technical.md).
 - It plays the chime as `$.audio.play({ base64: chimeBase64(), mime: 'audio/wav' })` through one
   `playChime`, so the clip is bytes and never a URL.
 - It registers `/paqad`, then `/paqad-hud`, as two literal calls, answers each with its own

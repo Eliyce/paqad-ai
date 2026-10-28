@@ -31,6 +31,21 @@ const STAGES_MODES = ['off', 'warn', 'strict'];
 const SEAM = process.argv[2] === 'completion' ? 'completion' : 'pre-mutation';
 const ADAPTER = process.argv[3] || undefined;
 
+const ASK_OFF_ROUTE =
+  '[paqad] You allowed this edit once in the paqad HUD, but only Claude Code can ask you to approve it, so it stays blocked.';
+
+export function preToolUseAsk(result, seam = SEAM, adapter = ADAPTER) {
+  if (seam !== 'pre-mutation' || adapter !== undefined) return null;
+  if (typeof result?.ask !== 'string' || result.ask === '') return null;
+  const output = {
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'ask',
+    permissionDecisionReason: result.ask,
+    ...(result.context ? { additionalContext: result.context } : {}),
+  };
+  return `${JSON.stringify({ hookSpecificOutput: output })}\n`;
+}
+
 function seamHasWork(projectRoot, seam) {
   if (seam === 'pre-mutation') {
     return true;
@@ -152,6 +167,15 @@ export async function main(input, seam = SEAM) {
         return 0;
       }
       return 2;
+    }
+    if (result.ask) {
+      const answer = preToolUseAsk(result, seam, ADAPTER);
+      if (answer === null) {
+        process.stderr.write(`${ASK_OFF_ROUTE}\n`);
+        return 2;
+      }
+      process.stdout.write(answer);
+      return 0;
     }
     if (seam === 'pre-mutation' && result.context && ADAPTER === undefined) {
       process.stdout.write(

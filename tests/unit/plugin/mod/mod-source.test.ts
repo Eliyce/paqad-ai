@@ -90,18 +90,39 @@ describe('the HUD mod source', () => {
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
   });
 
-  it('the permission hook never hands its verdict on', () => {
+  it('AC-4: no tool.check hook answers a permission check of its own', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
-    const startMarker = "on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
-    const start = register.indexOf(startMarker);
-    expect(start, 'the Edit, Write and NotebookEdit tool.check hook').toBeGreaterThan(-1);
+    expect(register).not.toMatch(/on\('tool\.check',\s*\{\s*tool:/);
+    const checks = [...register.matchAll(/on\('tool\.check',/g)];
+    expect(checks).toHaveLength(1);
+    const start = checks[0]!.index;
     const end = register.indexOf('.catch(', start);
     expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
     const hook = register.slice(start, end);
+    expect(hook).toContain('return verdict;');
+    expect(hook).not.toMatch(/decision:\s*['"]/);
+    expect(hook).not.toMatch(/return\s*\{/);
+    expect(register.slice(end, register.indexOf('\n', end))).toContain(
+      '.catch(($, e, next) => next(e));',
+    );
+  });
+
+  it('AC-2: the edit tools retry a denied call once, and only after allowRuleStopOnce returns a stop', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const startMarker = "on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
+    const start = register.indexOf(startMarker);
+    expect(start, 'the Edit, Write and NotebookEdit tool.call hook').toBeGreaterThan(-1);
+    expect(start, 'it sits after the unmatched tool.call hook').toBeGreaterThan(
+      register.indexOf("on('tool.call', async ($, e, next) => {"),
+    );
+    const end = register.indexOf('.catch(', start);
+    const hook = register.slice(start, end);
     expect(hook).toContain('allowRuleStopOnce($, e.tool_use_id)');
-    expect(hook).not.toMatch(/\bverdict\s*[,)]/);
-    expect(hook).not.toContain('catch {');
-    expect(hook).not.toContain('let ');
+    expect(hook.match(/next\(e\)/g)).toHaveLength(2);
+    expect(hook).not.toMatch(/\b(for|while)\s*\(/);
+    expect(register.slice(end, register.indexOf('\n', end))).toContain(
+      '.catch(($, e, next) => next(e));',
+    );
   });
 
   it('every $.audio.play call writes its clip as an object literal with base64 and mime', () => {
@@ -163,7 +184,19 @@ describe('the HUD mod source', () => {
     expect(vars.length).toBeGreaterThan(0);
     for (const name of vars) expect(section).toContain(`\`${name}\``);
     expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
-    expect(section).toContain('**Its permission hooks:** two hooks');
+    expect(section).toContain('--outcome landed');
+  });
+
+  it('AC-18: the README names the hooks on your edits word for word, and the old permission hooks bullet is gone', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    expect(readme).toContain(
+      [
+        '- **Its hooks on your edits:**',
+        "  - When one of paqad's rules stops an Edit, Write or NotebookEdit, the HUD asks you what should happen. If you allow it once, paqad records the override and runs the same edit again. paqad's own gate then asks Claude Code to show you its permission dialog for that one edit, and you approve it there. The HUD never approves an edit and never changes a permission answer. A deny from your settings rules, from another tool's hook or from a stop your organization enforces still blocks the edit. If anything fails, the edit stays blocked.",
+        "  - One hook reads Claude Code's permission answer for every tool call, so the band can say when a call is waiting for you. It passes the answer on unchanged.",
+      ].join('\n'),
+    );
+    expect(readme).not.toContain('**Its permission hooks:**');
   });
 
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {

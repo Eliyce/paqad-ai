@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -179,6 +180,30 @@ describe('paqad-ai review digest', () => {
     expect(readFileSync(join(root, '.paqad/session/review-digest.md'), 'utf8')).toContain(
       'src/a.ts:4',
     );
+  });
+
+  it('AC-14: a digest run again after a doc edit lists that doc among the changed files', async () => {
+    const git = (command: string) => execSync(command, { cwd: root, stdio: 'ignore' });
+    git('git init');
+    git('git config user.email "test@test.com"');
+    git('git config user.name "Test"');
+    writeFileSync(join(root, 'README.md'), '# base\n');
+    git('git add README.md');
+    git('git commit -m init');
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src/a.ts'), 'export const a = 1;\n');
+    const digest = () => readFileSync(join(root, '.paqad/session/review-digest.md'), 'utf8');
+
+    await run();
+    expect(digest()).toContain('src/a.ts');
+    expect(digest()).not.toContain('docs/guide.md');
+
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'docs/guide.md'), '# guide\n');
+    await run();
+
+    expect(process.exitCode).toBeUndefined();
+    expect(digest()).toContain('docs/guide.md');
   });
 
   it('succeeds with an honest empty digest when nothing has been recorded', async () => {

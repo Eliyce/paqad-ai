@@ -1,5 +1,6 @@
 import {
   OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
+  REVIEW_DIGEST_REFRESH_INSTRUCTION,
   STAGE_ORDER,
 } from '@/pipeline/feature-development-policy.js';
 
@@ -221,6 +222,7 @@ export const DEVELOPMENT_RESUME_LINE =
 const STAGE_NOTES: Readonly<Record<string, readonly string[]>> = {
   specification: [SPEC_FOREGROUND_START_LINE],
   development: [DEVELOPMENT_RESUME_LINE],
+  review: [REVIEW_DIGEST_REFRESH_INSTRUCTION],
 };
 
 export function stageNoteLines(ledgerStage: string): string[] {

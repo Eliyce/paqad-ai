@@ -8,6 +8,19 @@ Three capabilities — `content`, `coding`, `security` — that gate which
 rules, skills, and agents activate. Content is always on; coding
 activates on a pack match; security follows coding.
 
+## What the capability gate answers
+
+The capability gate (`runCapabilityGate` in `src/kernel/gate.ts`) answers a call in one of three
+ways:
+
+- **Pass:** nothing blocked. Advisory findings and context may ride along.
+- **Block:** a capability blocked, and the hook exits 2.
+- **Ask:** pre-mutation only. The person chose Allow once in the HUD for this exact call, so the
+  gate returns `block: false` with `ask` set to `ALLOW_ONCE_REASON`, and the hook writes a
+  PreToolUse `ask` so Claude Code's own dialog decides. It happens at most once per allowed
+  call. The rules are in
+  [rule-override technical](../../feature-evidence/features/rule-override/technical.md).
+
 ## Source Footprint
 
 - `src/core/capabilities.ts`

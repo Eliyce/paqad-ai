@@ -1,0 +1,48 @@
+{
+  "id": "D-01M61Y7ZRSN0CC37AS2H506A33",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/hooks/capability-gate.mjs",
+  "context": "Chief architect: both are fail-closed rules and fit together; the security claim covers every error path, and the architect's Claude-Code-route-only rule is already accepted through EX-integration-architect-4, so nothing is lost by recommending the security claim\n\nTarget: runtime/hooks/capability-gate.mjs\n- security-auditor: the PreToolUse ask is written only on the pre-mutation seam and only when result.ask is set; any error in the allow-once path falls back to exit 2 (blocked), never to allow\n- application-architect: the new PreToolUse ask output must only be written when ADAPTER is undefined (the Claude Code route, like the existing additionalContext write); on any other adapter a result with ask must fall back to the block path (exit 2), because exit 0 with a Claude-only JSON shape would let the edit through with no dialog\n\n[expert-conflict-fork:4a23b9aa08af7ed0]",
+  "options": [
+    {
+      "option_key": "the-pretooluse-ask-is-written-only-on-th",
+      "label": "the PreToolUse ask is written only on the pre-mutation seam and only when result.ask is set; any error in the allow-once path falls back to exit 2 (blocked), never to allow — security-auditor",
+      "one_line_preview": "the PreToolUse ask is written only on the pre-mutation seam and only when result.ask is set; any error in the allow-once path falls back to exit 2 (blocked), never to allow — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-new-pretooluse-ask-output-must-only-",
+      "label": "the new PreToolUse ask output must only be written when ADAPTER is undefined (the Claude Code route, like the existing additionalContext write); on any other adapter a result with ask must fall back to the block path (exit 2), because exit 0 with a Claude-only JSON shape would let the edit through with no dialog — application-architect",
+      "one_line_preview": "the new PreToolUse ask output must only be written when ADAPTER is undefined (the Claude Code route, like the existing additionalContext write); on any other adapter a result with ask must fall back to the block path (exit 2), because exit 0 with a Claude-only JSON shape would let the edit through with no dialog — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-pretooluse-ask-is-written-only-on-th",
+  "created_at": "2026-10-28T19:01:59.705Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M61XDEFF9BAS6V560PT6PMK4",
+  "chosen": "the-pretooluse-ask-is-written-only-on-th",
+  "rationale": "Owner: pre-mutation only, fail closed to exit 2; Claude-Code-only already accepted",
+  "resolved_at": "2026-10-28T19:06:53.361Z",
+  "decision_id": "D-01M61Y7ZRSN0CC37AS2H506A33",
+  "fingerprint": "sha256:8b841f7a9b375833110c8488673468f41ea378eb3e655fd0d6f2ca90ee64caa2",
+  "question": "Experts disagree on runtime/hooks/capability-gate.mjs",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M61XDEFF9BAS6V560PT6PMK4",
+  "ttl_until": "2026-11-27T19:01:59.705Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-pretooluse-ask-is-written-only-on-th",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T19:06:53.361Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: pre-mutation only, fail closed to exit 2; Claude-Code-only already accepted"
+  }
+}

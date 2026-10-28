@@ -48,7 +48,7 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | Command            | File                                | Purpose                                        |
 | ------------------ | ----------------------------------- | ---------------------------------------------- |
 | `debt`             | `src/cli/commands/debt.ts`          | Record findings a change will not fix as `TD-<ULID>` items under `docs/instructions/tech-debt/` (`add`/`list`/`promote`/`close`) |
-| `rules override`   | `src/cli/commands/rules.ts`         | Record a person allowing one edit past a rule-script stop with the stop's one-time token; refused for a stop enforced by managed settings |
+| `rules override`   | `src/cli/commands/rules.ts`         | Record a person allowing one edit past a rule-script stop with the stop's one-time token; refused for a stop enforced by managed settings. With `--outcome landed|refused|still-blocked` it records, once per tool call, what happened to that edit |
 | `fix prove`        | `src/cli/commands/fix.ts`           | Run the proof test for a fix and record `red` (before the fix) or `green` (after it) in the bundle's `fix-proof.json` |
 | `report speed`     | `src/cli/commands/report.ts`        | Read-only report of where each change's time went (busy time by owner, owner wait, edit gate, test runs) from the ledger and the session transcripts; `--change`, `--since`, `--json`, `--transcripts-root` |
 | `delivery-link merge` | `src/cli/commands/delivery-link.ts` | Stamp HEAD as the merge commit on the bundle whose branch matches the current branch only; with no match it stamps nothing (it no longer falls back to the active change) |

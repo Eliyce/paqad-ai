@@ -5,7 +5,7 @@ import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { hashRuleSources, writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { compileRuleScripts } from '@/rule-scripts/compile.js';
-import { applyRuleOverride } from '@/rule-scripts/override.js';
+import { applyRuleOverride, recordEditOutcome } from '@/rule-scripts/override.js';
 
 export function createRulesCommand(): Command {
   const command = new Command('rules').description('Manage the rules-as-scripts enforcement map');
@@ -110,26 +110,55 @@ export function createRulesCommand(): Command {
     .command('override')
     .description(
       'Record a person allowing one edit past a rule-script stop, using the one-time token ' +
-        'from that stop (refused for a stop enforced by managed settings)',
+        'from that stop (refused for a stop enforced by managed settings). With --outcome, ' +
+        'record once what happened to that allowed-once edit',
     )
     .requiredOption('--rule <id>', 'Rule id from the stop')
     .requiredOption('--file <path>', 'File named by the stop')
-    .requiredOption('--token <token>', 'One-time token from the stop')
+    .option('--token <token>', 'One-time token from the stop (required unless --outcome)')
     .option('--tool-use-id <id>', 'Tool call the stop was for')
     .option('--reason <text>', 'Why the person allowed it')
+    .option(
+      '--outcome <landed|refused|still-blocked>',
+      'Record what happened to the allowed-once edit, once, after its override line',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
     .action((options: RuleOverrideOptions) => {
+      const sessionHint =
+        options.session ??
+        process.env.SE_SESSION ??
+        process.env.CLAUDE_SESSION_ID ??
+        readLedgerSessionId(options.projectRoot);
+      if (options.outcome !== undefined) {
+        const recorded = recordEditOutcome({
+          projectRoot: options.projectRoot,
+          sessionHint,
+          rule: options.rule,
+          file: options.file,
+          toolUseId: options.toolUseId,
+          outcome: options.outcome,
+        });
+        if (!recorded.ok) {
+          console.error(`**▸ paqad** · outcome not recorded: ${recorded.reason}.`);
+          process.exitCode = 1;
+          return;
+        }
+        console.log(
+          `**▸ paqad** · recorded that the allowed-once edit of ${recorded.row.file} ` +
+            `${OUTCOME_WORDS[recorded.row.outcome]}.`,
+        );
+        console.log(
+          JSON.stringify({ outcome_recorded: true, ...recorded.row, bundle: recorded.dirName }),
+        );
+        return;
+      }
       const outcome = applyRuleOverride({
         projectRoot: options.projectRoot,
-        sessionHint:
-          options.session ??
-          process.env.SE_SESSION ??
-          process.env.CLAUDE_SESSION_ID ??
-          readLedgerSessionId(options.projectRoot),
+        sessionHint,
         rule: options.rule,
         file: options.file,
-        token: options.token,
+        token: options.token ?? '',
         toolUseId: options.toolUseId,
         reason: options.reason,
       });
@@ -148,10 +177,17 @@ export function createRulesCommand(): Command {
   return command;
 }
 
+const OUTCOME_WORDS = {
+  landed: 'landed',
+  refused: 'was refused',
+  'still-blocked': 'stayed blocked',
+} as const;
+
 interface RuleOverrideOptions {
   rule: string;
   file: string;
-  token: string;
+  token?: string;
+  outcome?: string;
   toolUseId?: string;
   reason?: string;
   projectRoot: string;

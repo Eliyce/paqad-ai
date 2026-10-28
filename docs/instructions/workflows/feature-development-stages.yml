@@ -4,7 +4,7 @@
 # applicable code change. This file is the tracked, human-readable mirror of the
 # canonical source — `STAGE_ORDER` in src/pipeline/feature-development-policy.ts —
 # from which the stage-evidence ledger derives its ordering checks. A test
-# (tests/unit/stage-evidence/registry-drift.test.ts) fails if the two ever drift.
+# (tests/unit/stage-evidence/independence.test.ts) fails if the two ever drift.
 #
 # The stage-evidence ledger is always-on and independent of any enterprise /
 # AI-BOM flag: it records, in order, the start and end datetime of each stage, and
@@ -18,8 +18,10 @@ schema_version: "1"
 # mandatory stages read not-applicable when they never ran.
 #
 # development, checks and documentation_sync are the edit stages. They are recorded
-# whenever an edit touches them and are not ordered against each other. Planning and
-# specification before code, and review after code, are still enforced.
+# whenever an edit touches them. development, checks and documentation_sync are not
+# ordered against each other. Planning and specification come before code. Review must
+# be present with its artifact; it is not ordered by time. After development the
+# orchestrator runs review and documentation_sync side by side, then checks.
 stages:
   - id: ticket_intake
     mandatory: false

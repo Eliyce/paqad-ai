@@ -1,0 +1,48 @@
+{
+  "id": "D-01M61Y7ZRSN0CC37AS2H506A32",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/claude-plugin/mod/register.tsx",
+  "context": "Chief architect: both claims hold together, but a must-level security claim forces a pick; the security claim carries the at-most-once retry bound the architect's claim lacks, and the architect's placement detail (one tool.check hook, the new tool.call hook after the unmatched one) is a build note that does not contradict it\n\nTarget: runtime/claude-plugin/mod/register.tsx\n- security-auditor: no tool.check hook in the mod returns anything except what next(e) gave it, and the new tool.call hook retries next(e) at most once per call\n- application-architect: the mod keeps exactly one tool.check hook and it returns what next(e) gave it; Allow once moves to a tool.call hook on Edit, Write and NotebookEdit placed after the unmatched tool.call hook so that hook stays outermost\n\n[expert-conflict-fork:493f84e0db89dd05]",
+  "options": [
+    {
+      "option_key": "no-tool-check-hook-in-the-mod-returns-an",
+      "label": "no tool.check hook in the mod returns anything except what next(e) gave it, and the new tool.call hook retries next(e) at most once per call — security-auditor",
+      "one_line_preview": "no tool.check hook in the mod returns anything except what next(e) gave it, and the new tool.call hook retries next(e) at most once per call — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-mod-keeps-exactly-one-tool-check-hoo",
+      "label": "the mod keeps exactly one tool.check hook and it returns what next(e) gave it; Allow once moves to a tool.call hook on Edit, Write and NotebookEdit placed after the unmatched tool.call hook so that hook stays outermost — application-architect",
+      "one_line_preview": "the mod keeps exactly one tool.check hook and it returns what next(e) gave it; Allow once moves to a tool.call hook on Edit, Write and NotebookEdit placed after the unmatched tool.call hook so that hook stays outermost — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-tool-check-hook-in-the-mod-returns-an",
+  "created_at": "2026-10-28T19:01:59.705Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M61XDEFF9BAS6V560PT6PMK4",
+  "chosen": "no-tool-check-hook-in-the-mod-returns-an",
+  "rationale": "Owner: no tool.check answers; retry at most once; architect placement as build note",
+  "resolved_at": "2026-10-28T19:06:53.085Z",
+  "decision_id": "D-01M61Y7ZRSN0CC37AS2H506A32",
+  "fingerprint": "sha256:a62e07a21cf016ad3a957b7efff71046e5b73c97537357ec61669a9b7317869f",
+  "question": "Experts disagree on runtime/claude-plugin/mod/register.tsx",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M61XDEFF9BAS6V560PT6PMK4",
+  "ttl_until": "2026-11-27T19:01:59.705Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "no-tool-check-hook-in-the-mod-returns-an",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T19:06:53.085Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: no tool.check answers; retry at most once; architect placement as build note"
+  }
+}

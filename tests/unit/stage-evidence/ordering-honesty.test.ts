@@ -121,6 +121,77 @@ describe('a stage inverted against itself', () => {
   });
 });
 
+describe('review and documentation sync running side by side', () => {
+  function upToDevelopment(): SessionLedgerRow[] {
+    return [
+      row({ kind: 'open', ts: '2026-01-01T10:00:00.000Z' }),
+      ...stagePair('planning', '2026-01-01T10:01:00.000Z', '2026-01-01T10:02:00.000Z'),
+      ...stagePair('specification', '2026-01-01T10:03:00.000Z', '2026-01-01T10:04:00.000Z'),
+      ...stagePair('development', '2026-01-01T10:05:00.000Z', '2026-01-01T10:06:00.000Z'),
+    ];
+  }
+
+  function interleaved(docsEndedAt: string): SessionLedgerRow[] {
+    const [reviewStart, reviewEnd] = stagePair(
+      'review',
+      '2026-01-01T10:07:00.000Z',
+      '2026-01-01T10:10:00.000Z',
+    );
+    const [docsStart, docsEnd] = stagePair(
+      'documentation_sync',
+      '2026-01-01T10:07:10.000Z',
+      docsEndedAt,
+    );
+    return [...upToDevelopment(), reviewStart!, docsStart!, docsEnd!, reviewEnd!];
+  }
+
+  it('AC-7: folds a change complete with no ordering violation when checks starts after both end', () => {
+    const rows = [
+      ...interleaved('2026-01-01T10:09:00.000Z'),
+      ...stagePair('checks', '2026-01-01T10:11:00.000Z', '2026-01-01T10:12:00.000Z'),
+    ];
+
+    const folded = fold(rows);
+
+    expect(folded.completeness.missing_stages).toEqual([]);
+    expect(folded.completeness.ordering_violations).toEqual([]);
+    expect(folded.completeness.verdict).toBe('complete');
+  });
+
+  it('AC-7: pins today’s fold when checks starts before documentation sync ends: edit stages are unordered', () => {
+    const [docsStart, docsEnd] = stagePair(
+      'documentation_sync',
+      '2026-01-01T10:07:10.000Z',
+      '2026-01-01T10:13:00.000Z',
+    );
+    const [reviewStart, reviewEnd] = stagePair(
+      'review',
+      '2026-01-01T10:07:00.000Z',
+      '2026-01-01T10:10:00.000Z',
+    );
+    const [checksStart, checksEnd] = stagePair(
+      'checks',
+      '2026-01-01T10:11:00.000Z',
+      '2026-01-01T10:12:00.000Z',
+    );
+    const rows = [
+      ...upToDevelopment(),
+      reviewStart!,
+      docsStart!,
+      reviewEnd!,
+      checksStart!,
+      checksEnd!,
+      docsEnd!,
+    ];
+
+    const folded = fold(rows);
+
+    expect(folded.completeness.missing_stages).toEqual([]);
+    expect(folded.completeness.ordering_violations).toEqual([]);
+    expect(folded.completeness.verdict).toBe('complete');
+  });
+});
+
 describe('the gate names what actually blocked', () => {
   function verifyResult(partial: Partial<VerifyResult>): VerifyResult {
     return {

@@ -21,6 +21,7 @@ export interface World {
   answers: Array<string | null>;
   runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
+  marksAllowedOnce: boolean;
   toasts: string[];
   logs: Array<{ text: string; to: string | undefined }>;
   writes: Array<{ path: string; text: string }>;
@@ -56,6 +57,15 @@ export const ONBOARDED = { '.paqad/framework-path.txt': '~/.paqad-ai/current\n' 
 const relOf = (path: string): string =>
   path.startsWith(`${ROOT}/`) ? path.slice(ROOT.length + 1) : path;
 
+function markAllowedOnce(world: World): void {
+  const stop = world.files.get(LAST_BLOCK);
+  if (stop === undefined || !stop.startsWith('{')) return;
+  world.files.set(
+    LAST_BLOCK,
+    JSON.stringify({ ...JSON.parse(stop), used: true, allowed_once: true }),
+  );
+}
+
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const world: World = {
     files: new Map(Object.entries(options.files ?? {})),
@@ -70,6 +80,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     answers: [],
     runs: [],
     run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
+    marksAllowedOnce: true,
     toasts: [],
     logs: [],
     writes: [],
@@ -174,6 +185,8 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   });
   on('process.run', ($, e) => {
     world.runs.push({ argv: e.argv, cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs });
+    const marks = world.marksAllowedOnce && e.argv.includes('--token');
+    if (marks && world.run !== 'reject' && world.run.exitCode === 0) markAllowedOnce(world);
     return world.run === 'reject'
       ? { deny: 'spawn failed' }
       : { value: { ...world.run, isStdoutTruncated: false, isStderrTruncated: false } };

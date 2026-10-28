@@ -1345,6 +1345,8 @@ modules:
     sources:
       - docs/instructions/workflows/feature-development.yaml
       - src/workflows
+      - src/stage-evidence
+      - src/stage-isolation
     features:
       - slug: routing
         name: Lane & Complexity Routing

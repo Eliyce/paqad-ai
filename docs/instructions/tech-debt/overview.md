@@ -26,6 +26,10 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M620JJV8ZAXHJ5XVSRNXWZT3](TD-01M620JJV8ZAXHJ5XVSRNXWZT3.md) (debt, low): The HUD's askedCalls set grows by every permission prompt and is never pruned
+- [TD-01M620JHFSGZA47GPHC90GW7RG](TD-01M620JHFSGZA47GPHC90GW7RG.md) (gap, low): The allowed_once mark and the outcome line are local state the agent can write directly
+- [TD-01M61S8PK7DH82AZ5M2JAR853B](TD-01M61S8PK7DH82AZ5M2JAR853B.md) (bug, low): module-map.yml has no last_updated_at, so InstructionsDocsStructureGate rejects it
+- [TD-01M61S8MPPFR7YXT3TRC458B71](TD-01M61S8MPPFR7YXT3TRC458B71.md) (debt, low): Host task-list order (Plan, Spec, Load rules, Build, Review, Checks, Docs) does not show review and documentation sync side by side
 - [TD-01M61HS7NMY1VRWSS20DFGZ8P7](TD-01M61HS7NMY1VRWSS20DFGZ8P7.md) (follow-up, low): Correct the plugin-directory issue text that still says ^@ (FR-12)
 - [TD-01M61HS58RN3KXZJC8SCT3VETP](TD-01M61HS58RN3KXZJC8SCT3VETP.md) (follow-up, low): Write the SubagentStart/Stop-on-resume observation into the one-development-agent issue (FR-57)
 - [TD-01M61HS3CPS1RWVF61QYS7NSW9](TD-01M61HS3CPS1RWVF61QYS7NSW9.md) (follow-up, low): Regenerate .paqad/.config.example so it lists spec_grounding_budget_ms (FR-39)
@@ -67,7 +71,6 @@ Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, new
 - [TD-01M5DFWBB40C2D5J1EBEFQ3TEC](TD-01M5DFWBB40C2D5J1EBEFQ3TEC.md) (bug, medium): Capability-gate pre-mutation hook times out on a cold run (about 10.4s vs its 10s timeout), blocking the first edit after a tree change
 - [TD-01M5D6STQ75DHDQ4Y05KCWB4TT](TD-01M5D6STQ75DHDQ4Y05KCWB4TT.md) (debt, medium): The build rewrites the tracked plugin.json version and flips two hook file modes
 - [TD-01M5D0M3XDBWAMK4H8DV6AJ543](TD-01M5D0M3XDBWAMK4H8DV6AJ543.md) (bug, medium): Commits after a bundle closes open a stray fast-lane bundle
-- [TD-01M5CY6GZB3NG4PMAG57YYMV9Z](TD-01M5CY6GZB3NG4PMAG57YYMV9Z.md) (gap, medium): Allow once also replaces a deny from another tool's PreToolUse hook on the same edit
 - [TD-01M5CW8WGAFVSRZ3AHEKD9VMS8](TD-01M5CW8WGAFVSRZ3AHEKD9VMS8.md) (gap, medium): Rule override rows claim by human but the agent can read the stop token and call the verb
 - [TD-01M5CW8DEWNY2P12TPR53RH4ZQ](TD-01M5CW8DEWNY2P12TPR53RH4ZQ.md) (bug, medium): Implementation-review gate demands citations for duplication rows outside the change diff
 - [TD-01M5CW8D61K3PJVG7NW6Y2YQ52](TD-01M5CW8D61K3PJVG7NW6Y2YQ52.md) (bug, medium): Stop gate judges a change while High Table expert subagents still run in the background

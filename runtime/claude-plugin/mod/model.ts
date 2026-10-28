@@ -76,6 +76,8 @@ export function heartbeatPath(root: string, sessionId: string): string {
 }
 
 export const ORG_ENFORCED = "This rule is enforced by your organization's settings.";
+export const ALLOW_ONCE_STALE_CLI =
+  'Allow once could not take effect because paqad-ai is older than the HUD, so the edit stays blocked. Update paqad-ai and try again.';
 
 export const RULE_STOP_FIX = 'Let Claude fix it';
 export const RULE_STOP_ALLOW = 'Allow once, recorded';
@@ -183,6 +185,29 @@ export function freshRuleStop(
   };
 }
 
+export function isDenied(result: unknown): boolean {
+  const raw = rec(result);
+  return raw !== null && (raw.deny !== undefined || raw.isError === true);
+}
+
+export type EditOutcome = 'landed' | 'refused' | 'still-blocked';
+
+export function editOutcome(result: unknown, askSeen: boolean): EditOutcome {
+  if (!isDenied(result)) return 'landed';
+  return askSeen ? 'refused' : 'still-blocked';
+}
+
+export function isAllowedOnce(text: string | null, stop: RuleStop): boolean {
+  if (text === null) return false;
+  let raw: Rec | null;
+  try {
+    raw = rec(JSON.parse(text));
+  } catch {
+    return false;
+  }
+  return raw?.allowed_once === true && str(raw.tool_use_id) === stop.toolUseId;
+}
+
 export function ruleStopQuestion(stop: RuleStop): string {
   return `${stop.rule} stopped this edit to ${stop.file}. What should happen?`;
 }
@@ -211,6 +236,28 @@ export function overrideArgs(
     '--project-root',
     root,
     ...(reason ? [`--reason=${reason}`] : []),
+  ];
+}
+
+export function outcomeArgs(
+  stop: RuleStop,
+  sessionId: string,
+  root: string,
+  outcome: EditOutcome,
+): string[] {
+  return [
+    '--outcome',
+    outcome,
+    '--rule',
+    stop.rule,
+    '--file',
+    stop.file,
+    '--tool-use-id',
+    stop.toolUseId,
+    '--session',
+    sessionId,
+    '--project-root',
+    root,
   ];
 }
 

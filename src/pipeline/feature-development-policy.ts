@@ -85,6 +85,11 @@ const REVIEW_DIGEST_INSTRUCTION =
   'finding — an unaddressed deterministic finding is itself a review finding, and the review ' +
   'gate fails when a deterministic high-severity row is never cited by file:line.';
 
+export const REVIEW_DIGEST_REFRESH_INSTRUCTION =
+  'Just before `paqad-ai review record`, run `paqad-ai review digest` again so edits made by ' +
+  'documentation sync while you worked are included. If that digest run fails, do not record ' +
+  'the review; return blocked with the digest error.';
+
 export const OUT_OF_SCOPE_FINDINGS_INSTRUCTION =
   'Out-of-scope findings: when you find a real problem the change will not fix (a bug next ' +
   'to the change, a shortcut you had to take, a limit you chose to keep), record it with ' +
@@ -214,6 +219,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
           REVIEW_DIGEST_INSTRUCTION,
+          REVIEW_DIGEST_REFRESH_INSTRUCTION,
           OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
           "Record the review with `paqad-ai review record`. The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
         ],
@@ -682,6 +688,7 @@ stages:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
       - "${REVIEW_DIGEST_INSTRUCTION}"
+      - "${REVIEW_DIGEST_REFRESH_INSTRUCTION}"
       - "${OUT_OF_SCOPE_FINDINGS_INSTRUCTION}"
     required_inputs:
       - code diff

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -103,5 +103,15 @@ describe('the release changeset', { timeout: 60_000 }, () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the parallel review and docs changeset', () => {
+  const CHANGESET = join(REPO, '.changeset/parallel-review-docs.md');
+
+  it('AC-22: releases paqad-ai as a minor bump', (ctx) => {
+    if (!existsSync(CHANGESET)) return ctx.skip('the changeset was consumed by a release');
+    const front = readFileSync(CHANGESET, 'utf8').split('---')[1] ?? '';
+    expect(front.trim()).toBe("'paqad-ai': minor");
   });
 });

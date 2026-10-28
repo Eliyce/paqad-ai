@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync, rmSync } from 'node:fs';
 
+import { toProjectRelativePath } from '@/core/path-utils.js';
+
 import { hudLastBlockPath, writeFileAtomic } from './files.js';
 
 export const LAST_BLOCK_DIFF_MAX_BYTES = 2048;
@@ -16,6 +18,7 @@ export interface RuleStopRecord {
   diff: string;
   token: string;
   used: boolean;
+  allowed_once: boolean;
   session: string;
 }
 
@@ -85,6 +88,7 @@ export function writeRuleStopRecord(input: RuleStopInput): RuleStopRecord {
     diff: shortDiff(input.toolInput),
     token: input.token ?? randomBytes(16).toString('hex'),
     used: false,
+    allowed_once: false,
     session: input.sessionId,
   };
   writeFileAtomic(
@@ -117,6 +121,7 @@ export function parseRuleStopRecord(value: unknown): RuleStopRecord | null {
     diff: typeof raw.diff === 'string' ? raw.diff : '',
     token,
     used: raw.used === true,
+    allowed_once: raw.allowed_once === true,
     session,
   };
 }
@@ -132,11 +137,38 @@ export function readRuleStopRecord(projectRoot: string, sessionId: string): Rule
   return record && record.session === sessionId ? record : null;
 }
 
-export function markRuleStopTokenUsed(projectRoot: string, record: RuleStopRecord): void {
+function writeRecord(projectRoot: string, record: RuleStopRecord): void {
   writeFileAtomic(
     hudLastBlockPath(projectRoot, record.session),
-    `${JSON.stringify({ ...record, used: true }, null, 2)}\n`,
+    `${JSON.stringify(record, null, 2)}\n`,
   );
+}
+
+export function markRuleStopAllowedOnce(projectRoot: string, record: RuleStopRecord): void {
+  writeRecord(projectRoot, { ...record, used: true, allowed_once: true });
+}
+
+export interface AllowedOnceCall {
+  toolUseId: string | null | undefined;
+  rule: string;
+  file: string;
+}
+
+export function takeAllowedOnce(
+  projectRoot: string,
+  sessionId: string,
+  call: AllowedOnceCall,
+): boolean {
+  const record = readRuleStopRecord(projectRoot, sessionId);
+  if (!record?.allowed_once || !call.toolUseId || record.tool_use_id !== call.toolUseId) {
+    return false;
+  }
+  if (record.rule !== call.rule) return false;
+  const recordFile = toProjectRelativePath(projectRoot, record.file);
+  const callFile = toProjectRelativePath(projectRoot, call.file);
+  if (recordFile === null || callFile === null || recordFile !== callFile) return false;
+  writeRecord(projectRoot, { ...record, allowed_once: false });
+  return true;
 }
 
 export function clearRuleStopRecord(projectRoot: string, sessionId: string): void {

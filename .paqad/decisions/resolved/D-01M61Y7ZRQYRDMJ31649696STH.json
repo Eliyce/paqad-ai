@@ -1,0 +1,48 @@
+{
+  "id": "D-01M61Y7ZRQYRDMJ31649696STH",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/kernel/gate.ts allowedOnce",
+  "context": "Chief architect: the two claims agree (a leftover mark for an older tool_use_id cannot match, so the new call blocks), but a must-level security-auditor claim makes this the owner's pick; the security claim is the stronger rule and the qa case becomes its boundary test\n\nTarget: src/kernel/gate.ts allowedOnce\n- security-auditor: the gate answers ask only when the stop record's tool_use_id, rule and file all equal the current call's, and refuses when the call carries no tool_use_id; it never falls back to matching on rule and file alone, because the unguessable tool_use_id is the only thing stopping the model from forging allowed_once: true into the stop record with a shell write\n- qa-engineer: Given a leftover allowed_once mark for an older tool_use_id (override recorded but retry never reached the gate), when a new call with another id is blocked by the same rule, then it blocks and the mark is not consumed\n\n[expert-conflict-fork:bac2743ea0c4b433]",
+  "options": [
+    {
+      "option_key": "the-gate-answers-ask-only-when-the-stop-",
+      "label": "the gate answers ask only when the stop record's tool_use_id, rule and file all equal the current call's, and refuses when the call carries no tool_use_id; it never falls back to matching on rule and file alone, because the unguessable tool_use_id is the only thing stopping the model from forging allowed_once: true into the stop record with a shell write — security-auditor",
+      "one_line_preview": "the gate answers ask only when the stop record's tool_use_id, rule and file all equal the current call's, and refuses when the call carries no tool_use_id; it never falls back to matching on rule and file alone, because the unguessable tool_use_id is the only thing stopping the model from forging allowed_once: true into the stop record with a shell write — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-a-leftover-allowed-once-mark-for-a",
+      "label": "Given a leftover allowed_once mark for an older tool_use_id (override recorded but retry never reached the gate), when a new call with another id is blocked by the same rule, then it blocks and the mark is not consumed — qa-engineer",
+      "one_line_preview": "Given a leftover allowed_once mark for an older tool_use_id (override recorded but retry never reached the gate), when a new call with another id is blocked by the same rule, then it blocks and the mark is not consumed — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-gate-answers-ask-only-when-the-stop-",
+  "created_at": "2026-10-28T19:01:59.704Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M61XDEFF9BAS6V560PT6PMK4",
+  "chosen": "the-gate-answers-ask-only-when-the-stop-",
+  "rationale": "Owner: exact tool_use_id+rule+file match; leftover old mark is the boundary test",
+  "resolved_at": "2026-10-28T19:06:52.548Z",
+  "decision_id": "D-01M61Y7ZRQYRDMJ31649696STH",
+  "fingerprint": "sha256:5d8fb471cb408f80db07b532975d6b12c2dcb6b765b2c4eaaff5cb692adcd117",
+  "question": "Experts disagree on src/kernel/gate.ts allowedOnce",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M61XDEFF9BAS6V560PT6PMK4",
+  "ttl_until": "2026-11-27T19:01:59.704Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-gate-answers-ask-only-when-the-stop-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T19:06:52.548Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: exact tool_use_id+rule+file match; leftover old mark is the boundary test"
+  }
+}

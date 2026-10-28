@@ -1,0 +1,48 @@
+{
+  "id": "D-01M61Y7ZRSN0CC37AS2H506A31",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/hud/last-block.ts takeAllowedOnce",
+  "context": "Chief architect: single consumption is the security invariant; the qa race concern is answered by the exact tool_use_id match (only the one retried call can match), and the plan should still add a parallel-read test so the race is proven harmless rather than assumed\n\nTarget: src/hud/last-block.ts takeAllowedOnce\n- security-auditor: an allowed_once mark is consumed on the first gate read that matches, so a second identical call, or a replay of the same retry, is denied again\n- qa-engineer: takeAllowedOnce reads then rewrites the record without a lock, so two parallel subagent PreToolUse runs on the same session can both read allowed_once true; the test plan needs a case proving at most one call is asked, or the spec must state that the tool_use_id match makes the race harmless\n\n[expert-conflict-fork:098e09b63798170a]",
+  "options": [
+    {
+      "option_key": "an-allowed-once-mark-is-consumed-on-the-",
+      "label": "an allowed_once mark is consumed on the first gate read that matches, so a second identical call, or a replay of the same retry, is denied again — security-auditor",
+      "one_line_preview": "an allowed_once mark is consumed on the first gate read that matches, so a second identical call, or a replay of the same retry, is denied again — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "takeallowedonce-reads-then-rewrites-the-",
+      "label": "takeAllowedOnce reads then rewrites the record without a lock, so two parallel subagent PreToolUse runs on the same session can both read allowed_once true; the test plan needs a case proving at most one call is asked, or the spec must state that the tool_use_id match makes the race harmless — qa-engineer",
+      "one_line_preview": "takeAllowedOnce reads then rewrites the record without a lock, so two parallel subagent PreToolUse runs on the same session can both read allowed_once true; the test plan needs a case proving at most one call is asked, or the spec must state that the tool_use_id match makes the race harmless — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "an-allowed-once-mark-is-consumed-on-the-",
+  "created_at": "2026-10-28T19:01:59.705Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M61XDEFF9BAS6V560PT6PMK4",
+  "chosen": "an-allowed-once-mark-is-consumed-on-the-",
+  "rationale": "Owner: consume on first read, plus a parallel-subagent at-most-once test",
+  "resolved_at": "2026-10-28T19:06:52.812Z",
+  "decision_id": "D-01M61Y7ZRSN0CC37AS2H506A31",
+  "fingerprint": "sha256:bfec57666d31fb40c97417d7ff7045443ece76b4f828cda4420487d0a1104d21",
+  "question": "Experts disagree on src/hud/last-block.ts takeAllowedOnce",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M61XDEFF9BAS6V560PT6PMK4",
+  "ttl_until": "2026-11-27T19:01:59.705Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "an-allowed-once-mark-is-consumed-on-the-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T19:06:52.812Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: consume on first read, plus a parallel-subagent at-most-once test"
+  }
+}

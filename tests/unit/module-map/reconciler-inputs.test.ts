@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -162,5 +162,23 @@ describe('module-map reconciler inputs', () => {
   it('reads an unreadable drift report as missing', () => {
     write(PATHS.MODULE_MAP_DRIFT, '{not json');
     expect(readDriftReport(root)).toBeNull();
+  });
+});
+
+describe('this repo’s module map', () => {
+  const repoRoot = join(__dirname, '../../..');
+
+  it('AC-17: files the stage ledger and stage agents under the feature-development workflow', () => {
+    const map = readRawModuleMap(repoRoot);
+    expect(map).not.toBeNull();
+    const slugs = map!.modules.map((module) => module.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    const workflow = map!.modules.find((module) => module.slug === 'feature-development-workflow');
+    expect(workflow?.sources).toEqual(
+      expect.arrayContaining(['src/stage-evidence', 'src/stage-isolation']),
+    );
+    for (const source of ['src/stage-evidence', 'src/stage-isolation']) {
+      expect(existsSync(join(repoRoot, source))).toBe(true);
+    }
   });
 });
