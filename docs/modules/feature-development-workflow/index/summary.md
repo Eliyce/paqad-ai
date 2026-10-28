@@ -13,6 +13,8 @@ and verification. Conditional and parallel steps supported.
 
 - `docs/instructions/workflows/feature-development.yaml`
 - `src/workflows`
+- `src/stage-evidence`
+- `src/stage-isolation`
 
 ## Features
 

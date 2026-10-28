@@ -1,0 +1,61 @@
+{
+  "id": "D-01M61P1DB2TC749WQT6AHMDQCC",
+  "category": "architecture-path",
+  "title": "Which module this change belongs to",
+  "context": "Most of this change lives in src/stage-evidence (the stage ledger and when a running stage agent stops holding the turn) and src/stage-isolation (the stage agent briefs). Neither folder is in the module map yet, and the automatic attribution was not confident (top match 0.18), so planning went ahead with no module. Pick where these two folders belong so this change, its docs and later changes are filed in the right place.",
+  "options": [
+    {
+      "option_key": "feature-development-workflow",
+      "label": "Add them to Feature Development Workflow (the stage pipeline they run)",
+      "one_line_preview": "Add them to Feature Development Workflow (the stage pipeline they run)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "feature-evidence",
+      "label": "Add them to Per-Feature Evidence Bundle (the change record they write)",
+      "one_line_preview": "Add them to Per-Feature Evidence Bundle (the change record they write)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Create a new module for stage evidence and stage agents",
+      "one_line_preview": "Create a new module for stage evidence and stage agents",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "none",
+      "label": "Leave them unmapped for now",
+      "one_line_preview": "Leave them unmapped for now",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "feature-development-workflow",
+  "created_at": "2026-10-28T16:38:35.618Z",
+  "status": "resolved",
+  "change": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "chosen": "feature-development-workflow",
+  "rationale": "Owner: stage order, hold release and stage agents serve the feature-development workflow",
+  "resolved_at": "2026-10-28T17:06:24.548Z",
+  "decision_id": "D-01M61P1DB2TC749WQT6AHMDQCC",
+  "fingerprint": "sha256:da861457912576965c48e77e9f4c5ac6235afd89a99506338d69ab9d437182c5",
+  "question": "Which module this change belongs to",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "ttl_until": "2027-01-26T16:38:35.618Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "feature-development-workflow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T17:06:24.548Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: stage order, hold release and stage agents serve the feature-development workflow"
+  }
+}
