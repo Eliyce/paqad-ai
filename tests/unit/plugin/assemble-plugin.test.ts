@@ -8,15 +8,18 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   assemblePlugin,
+  escapeControlBytes,
   NEVER_SHIPPED,
   PLUGIN_MARKETPLACE,
   PLUGIN_REPO,
@@ -280,4 +283,93 @@ describe('scripts/assemble-plugin.mjs', () => {
     }
     expect(failed).toBe(true);
   });
+});
+
+describe('scripts/assemble-plugin.mjs — what the directory reads', () => {
+  function importsOf(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return importsOf(full);
+      if (!/\.(m?js|tsx?)$/.test(entry.name)) return [];
+      return readFileSync(full, 'utf8').includes('dist/plugin') ? [full] : [];
+    });
+  }
+
+  it('AC-16: leaves dist/plugin out of the plugin tree and keeps the rest of dist', () => {
+    const repoRoot = builtRepo();
+    write(repoRoot, 'dist/plugin/manifest-build.js', 'export const x = 1;\n');
+    write(repoRoot, 'dist/plugin/manifest-build.d.ts', 'export declare const x: number;\n');
+    write(repoRoot, 'dist/plugins-other/keep.js', 'export const y = 1;\n');
+    const outDir = join(tempDir('paqad-assemble-out-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    expect(existsSync(join(outDir, 'dist/plugin'))).toBe(false);
+    expect(existsSync(join(outDir, 'dist/cli/index.js'))).toBe(true);
+    expect(existsSync(join(outDir, 'dist/plugins-other/keep.js'))).toBe(true);
+    expect(importsOf(resolve('runtime'))).toEqual([]);
+  });
+
+  const RAW = Buffer.concat([
+    Buffer.from('export const S = "'),
+    Buffer.from([0x01, 0x02, 0x18, 0x1f, 0x0b, 0x0c]),
+    Buffer.from('";\n'),
+  ]);
+
+  it('AC-17: rewrites raw control bytes in assembled .js as \\xNN text that still parses', async () => {
+    const repoRoot = builtRepo();
+    write(repoRoot, 'dist/chunk-raw.js', '');
+    writeFileSync(join(repoRoot, 'dist/chunk-raw.js'), RAW);
+    const clean = Buffer.from('export const T = "\\t tab and\\nnewline";\n\t// tab\r\n');
+    writeFileSync(join(repoRoot, 'dist/chunk-clean.js'), clean);
+    const outDir = join(tempDir('paqad-assemble-bytes-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    const text = readFileSync(join(outDir, 'dist/chunk-raw.js'));
+    expect(text.toString('latin1')).toBe('export const S = "\\x01\\x02\\x18\\x1f\\x0b\\x0c";\n');
+    expect(readFileSync(join(outDir, 'dist/chunk-clean.js')).equals(clean)).toBe(true);
+    expect(readFileSync(join(outDir, 'dist/cli/index.js'), 'utf8')).toBe('x');
+    execFileSync(process.execPath, ['--check', join(outDir, 'dist/chunk-raw.js')]);
+    const loaded = (await import(pathToFileURL(join(outDir, 'dist/chunk-raw.js')).href)) as {
+      S: string;
+    };
+    expect([...loaded.S].map((char) => char.charCodeAt(0))).toEqual([
+      0x01, 0x02, 0x18, 0x1f, 0x0b, 0x0c,
+    ]);
+    expect(escapeControlBytes(clean)).toBeNull();
+  });
+
+  it('AC-17: fails assembly when an escaped file no longer parses', () => {
+    const repoRoot = builtRepo();
+    writeFileSync(
+      join(repoRoot, 'dist/broken.js'),
+      Buffer.concat([Buffer.from('const a = 1;'), Buffer.from([0x01]), Buffer.from('\n')]),
+    );
+    expect(() =>
+      assemblePlugin({ repoRoot, outDir: join(tempDir('paqad-assemble-broken-'), 'plugin') }),
+    ).toThrow(/dist\/broken\.js does not parse after its control bytes were escaped/);
+  });
+
+  const built = existsSync(resolve('dist/cli/index.js'));
+
+  it.skipIf(!built)(
+    'AC-17: yaml loaded from the assembled dist still parses a document that starts with ---',
+    async () => {
+      const repoRoot = builtRepo();
+      cpSync(resolve('dist'), join(repoRoot, 'dist'), { recursive: true });
+      const outDir = join(tempDir('paqad-assemble-yaml-'), 'plugin');
+      assemblePlugin({ repoRoot, outDir });
+      symlinkSync(resolve('node_modules'), join(outDir, 'node_modules'), 'dir');
+      const chunk = readdirSync(join(outDir, 'dist'))
+        .filter((name) => name.endsWith('.js'))
+        .map((name) => join(outDir, 'dist', name))
+        .find((path) => readFileSync(path, 'latin1').includes('var DOCUMENT = "\\x02"'));
+      expect(chunk, 'the assembled chunk that bundles yaml').toBeDefined();
+      expect(readFileSync(chunk!).some((byte) => byte === 0x02)).toBe(false);
+      const loaded = (await import(pathToFileURL(chunk!).href)) as {
+        require_dist: () => { parse: (text: string) => unknown };
+      };
+      expect(loaded.require_dist().parse('---\nname: paqad\nlist:\n  - a\n')).toEqual({
+        name: 'paqad',
+        list: ['a'],
+      });
+    },
+  );
 });

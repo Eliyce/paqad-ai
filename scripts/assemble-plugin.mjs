@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -58,12 +59,58 @@ function readVersion(path) {
   }
 }
 
-function isShippedFile(runtimeRoot, path) {
+function isShippedFile(runtimeRoot, distPluginRoot, path) {
   if (NEVER_SHIPPED.has(basename(path)) || path.endsWith('.map')) return false;
+  if (path === distPluginRoot || path.startsWith(`${distPluginRoot}${sep}`)) return false;
   const rel = relative(runtimeRoot, path).split(sep).join('/');
   if (rel.startsWith('..') || !rel.startsWith('claude-plugin/mod')) return true;
   if (rel === 'claude-plugin/mod/test' || rel.startsWith('claude-plugin/mod/test/')) return false;
   return !/\.test\.tsx?$/.test(rel);
+}
+
+function isControlByte(byte) {
+  return (
+    (byte >= 0x01 && byte <= 0x08) ||
+    byte === 0x0b ||
+    byte === 0x0c ||
+    (byte >= 0x0e && byte <= 0x1f)
+  );
+}
+
+export function escapeControlBytes(bytes) {
+  if (!bytes.some(isControlByte)) return null;
+  const out = [];
+  for (const byte of bytes) {
+    if (isControlByte(byte)) out.push(...Buffer.from(`\\x${byte.toString(16).padStart(2, '0')}`));
+    else out.push(byte);
+  }
+  return Buffer.from(out);
+}
+
+function jsFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (KEEP_IN_OUTPUT.has(entry.name)) return [];
+    if (entry.isDirectory()) return jsFiles(path);
+    return entry.isFile() && entry.name.endsWith('.js') ? [path] : [];
+  });
+}
+
+function escapeTreeControlBytes(out) {
+  for (const path of jsFiles(out)) {
+    const escaped = escapeControlBytes(readFileSync(path));
+    if (escaped === null) continue;
+    writeFileSync(path, escaped);
+    try {
+      execFileSync(process.execPath, ['--check', path], { stdio: 'pipe' });
+    } catch (error) {
+      const detail = error instanceof Error && 'stderr' in error ? String(error.stderr).trim() : '';
+      throw new Error(
+        `${relative(out, path)} does not parse after its control bytes were escaped.${detail ? ` ${detail}` : ''}`,
+        { cause: error },
+      );
+    }
+  }
 }
 
 export function assemblePlugin({ repoRoot, outDir }) {
@@ -89,13 +136,15 @@ export function assemblePlugin({ repoRoot, outDir }) {
     if (!KEEP_IN_OUTPUT.has(name)) rmSync(join(out, name), { recursive: true, force: true });
   }
   const runtimeRoot = join(root, 'runtime');
+  const distPluginRoot = join(root, 'dist', 'plugin');
   for (const name of PLUGIN_TREE) {
     mkdirSync(dirname(join(out, name)), { recursive: true });
     cpSync(join(root, name), join(out, name), {
       recursive: true,
-      filter: (path) => isShippedFile(runtimeRoot, path),
+      filter: (path) => isShippedFile(runtimeRoot, distPluginRoot, path),
     });
   }
+  escapeTreeControlBytes(out);
   writeFileSync(
     join(out, '.claude-plugin', 'marketplace.json'),
     `${JSON.stringify(PLUGIN_MARKETPLACE, null, 2)}\n`,
