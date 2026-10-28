@@ -1,7 +1,7 @@
 import { isManagedEnv } from '@/core/framework-enabled.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { hudLastBlockPath } from '@/hud/files.js';
-import { clearRuleStopRecord, writeRuleStopRecord } from '@/hud/last-block.js';
+import { clearRuleStopRecord, takeAllowedOnce, writeRuleStopRecord } from '@/hud/last-block.js';
 import { visualEvidenceReminder } from '@/visual-evidence/reminder.js';
 
 import { CAPABILITY_IMPLS, type CapabilityOutcome } from './capability.js';
@@ -17,8 +17,12 @@ export interface CapabilityGateInput {
   now?: () => number;
 }
 
+export const ALLOW_ONCE_REASON =
+  'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.';
+
 export interface CapabilityGateResult {
   block: boolean;
+  ask?: string;
   summary: string;
   narration: string;
   context: string;
@@ -95,6 +99,37 @@ function syncRuleStopRecord(
   }
 }
 
+function allowedOnce(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  payload: CapabilityPayload | undefined,
+  blocking: CapabilityOutcome[],
+): boolean {
+  try {
+    const sessionId = payload?.sessionId ?? env.CLAUDE_SESSION_ID;
+    if (!sessionId || isManagedEnv(env)) return false;
+    if (payload?.adapter !== undefined && payload.adapter !== 'claude-code') return false;
+    const violations = blocking.length === 1 ? (blocking[0]?.violations ?? []) : [];
+    const violation = violations.length === 1 ? violations[0] : undefined;
+    if (!violation) return false;
+    const taken = takeAllowedOnce(projectRoot, sessionId, {
+      toolUseId: payload?.toolUseId,
+      rule: violation.rule_id,
+      file: violation.file,
+    });
+    if (taken) {
+      appendHooksLog(
+        projectRoot,
+        `capability-gate allowed once: asked for ${violation.rule_id} on ${violation.file} (tool_use_id ${payload?.toolUseId})`,
+      );
+    }
+    return taken;
+  } catch (error) {
+    appendHooksLog(projectRoot, `capability-gate allowed-once check failed: ${errorKind(error)}`);
+    return false;
+  }
+}
+
 export async function runCapabilityGate(input: CapabilityGateInput): Promise<CapabilityGateResult> {
   const { projectRoot, seam, env = process.env, payload, entryLoaded, startedAt, now } = input;
   const outcomes: CapabilityOutcome[] = [];
@@ -129,6 +164,9 @@ export async function runCapabilityGate(input: CapabilityGateInput): Promise<Cap
       ? [...contexts, reminderContext(projectRoot, env, payload)].filter(Boolean).join('\n')
       : '';
   const blocking = outcomes.filter((outcome) => outcome.blocking);
+  if (seam === 'pre-mutation' && allowedOnce(projectRoot, env, payload, blocking)) {
+    return { block: false, ask: ALLOW_ONCE_REASON, summary: '', narration, context };
+  }
   if (seam === 'pre-mutation') {
     syncRuleStopRecord(projectRoot, env, payload, blocking, entryLoaded);
   }
