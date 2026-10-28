@@ -1,0 +1,61 @@
+{
+  "id": "D-01M61P1CRKXFNZ66QND19P0N2P",
+  "category": "workflow-or-tool",
+  "title": "Docs after a review fix",
+  "context": "When review asks for a fix after the docs were already updated, what should happen to the docs before the final checks? Docs are now updated while review runs, so a review fix can leave the docs describing the code as it was before the fix. Running the docs step again costs back some of the 3 to 8 minutes this change saves. Five experts raised this; the flow, the tests and the done-when depend on the answer.",
+  "options": [
+    {
+      "option_key": "rerun-always",
+      "label": "Always run the docs step again after a review fix",
+      "one_line_preview": "Always run the docs step again after a review fix",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "rerun-if-docs-affected",
+      "label": "Run the docs step again only when the fix changes what the docs describe",
+      "one_line_preview": "Run the docs step again only when the fix changes what the docs describe",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "dev-updates-docs",
+      "label": "The developer updates the docs as part of the fix, no second docs step",
+      "one_line_preview": "The developer updates the docs as part of the fix, no second docs step",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "never",
+      "label": "Never update them again; leave it to the next change",
+      "one_line_preview": "Never update them again; leave it to the next change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "rerun-if-docs-affected",
+  "created_at": "2026-10-28T16:38:35.027Z",
+  "status": "resolved",
+  "change": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "chosen": "rerun-if-docs-affected",
+  "rationale": "Owner: run docs sync again only when the review fix changes what the docs describe",
+  "resolved_at": "2026-10-28T17:06:23.835Z",
+  "decision_id": "D-01M61P1CRKXFNZ66QND19P0N2P",
+  "fingerprint": "sha256:ccb0f10d0370f7ba5f4ecc0ef95bf2ccc8df6cbfde824099849a349d2ba551ac",
+  "question": "Docs after a review fix",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M61NGBS49BQFVVNHE5YVH0XQ",
+  "ttl_until": "2026-11-04T16:38:35.027Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "rerun-if-docs-affected",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T17:06:23.835Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: run docs sync again only when the review fix changes what the docs describe"
+  }
+}
