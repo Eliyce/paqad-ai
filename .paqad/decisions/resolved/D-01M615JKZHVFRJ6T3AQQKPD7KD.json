@@ -1,0 +1,54 @@
+{
+  "id": "D-01M615JKZHVFRJ6T3AQQKPD7KD",
+  "category": "finding.triage",
+  "title": "Review of #749 found two blocking gaps in confirmed invariants (INV-4, INV-2)",
+  "context": "review_findings stop from the review stage. RV-1 (INV-4/AC-7): the same-role collapse in src/spec-pipeline/experts/merge.ts:60-81 keeps the longest claim and that claim's severity. A must-level security-auditor finding next to a longer should-level one from the same auditor drops out of conflict.severities, so src/spec-pipeline/experts/synthesis.ts:323 lets the chief rule the conflict compatible and the owner is never asked. A probe confirmed it (validation ok:true). RV-2 (INV-2/AC-14): for an unknown session the gate's resolver uses branch adoption (src/feature-evidence/adoption.ts:123-137). With one in-flight change it adopts that change, writes session control from inside the PreToolUse gate, and lets an edit through on a packet for a different change. A probe confirmed it (exit 0). The AC-14 test at tests/unit/runtime/decision-pause-gate.test.ts:97 passes only because two changes are in flight. Everything else checks out; see review.json.",
+  "options": [
+    {
+      "option_key": "fix-both",
+      "label": "Fix both in development: carry the strongest severity and kind through the same-role collapse, make the gate resolve without adoption, and add a failing-first test for each",
+      "one_line_preview": "Fix both in development: carry the strongest severity and kind through the same-role collapse, make the gate resolve without adoption, and add a failing-first test for each",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-rv1-accept-adoption",
+      "label": "Fix RV-1 only; accept branch adoption as a positive change match and amend AC-14/INV-2 through spec.change",
+      "one_line_preview": "Fix RV-1 only; accept branch adoption as a positive change match and amend AC-14/INV-2 through spec.change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ship-with-debt",
+      "label": "Ship as is and record both as tech debt",
+      "one_line_preview": "Ship as is and record both as tech debt",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fix-both",
+  "created_at": "2026-10-28T11:50:53.681Z",
+  "status": "resolved",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "fix-both",
+  "rationale": "Owner: fix both RV-1 and RV-2 in development with failing-first tests",
+  "resolved_at": "2026-10-28T11:55:35.733Z",
+  "decision_id": "D-01M615JKZHVFRJ6T3AQQKPD7KD",
+  "fingerprint": "sha256:45ed368fa2c5d47289c0e1096e645ce1da053f86a6f521058e63a186fb247015",
+  "question": "Review of #749 found two blocking gaps in confirmed invariants (INV-4, INV-2)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2026-11-27T11:50:53.681Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix-both",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T11:55:35.733Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: fix both RV-1 and RV-2 in development with failing-first tests"
+  }
+}
