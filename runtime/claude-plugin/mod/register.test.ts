@@ -2656,6 +2656,18 @@ describe('the rule stop answer on tool.check', () => {
     expect(await check($)).toEqual(DENY);
     expect(world.runs).toHaveLength(2);
     expect(world.toasts).toHaveLength(2);
+    const failures = world.logs.filter((log) => log.text.startsWith('paqad-ai rules override'));
+    expect(failures).toHaveLength(2);
+    expect(failures.every((log) => log.to === 'debug')).toBe(true);
+    expect(failures[0]!.text).toContain('refused');
+  });
+
+  test('Allow once still runs the same override argv', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(ASK);
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expect(world.runs[0]!.timeoutMs).toBe(15_000);
   });
 
   test('Allow once covers one call and the next identical call is denied again', async ($, on) => {

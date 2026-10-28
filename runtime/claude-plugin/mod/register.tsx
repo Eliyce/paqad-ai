@@ -89,7 +89,7 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { PAQAD_CLI_TIMEOUT_MS, paqadArgv, type PaqadRunResult, type PaqadVerb } from './paqad-cli';
+import { PAQAD_CLI_TIMEOUT_MS, type PaqadRunResult } from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -124,16 +124,16 @@ import { FEATURE_ROUTE } from './status-entry';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
-async function runPaqad(
+async function recordOverride(
   $: EngineInterface,
-  verb: PaqadVerb,
   args: readonly string[],
   cwd: string,
 ): Promise<PaqadRunResult> {
-  const argv = paqadArgv(verb, args);
-  if (!argv) return { ok: false, stdout: '', stderr: `paqad-ai ${verb} is not allowed here` };
   try {
-    const result = await $.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS });
+    const result = await $.process.run(['paqad-ai', 'rules', 'override', ...args], {
+      cwd,
+      timeoutMs: PAQAD_CLI_TIMEOUT_MS,
+    });
     return { ok: result.exitCode === 0, stdout: result.stdout, stderr: result.stderr };
   } catch (error) {
     return {
@@ -518,6 +518,14 @@ async function hasPendingDecision($: EngineInterface, root: string): Promise<boo
   }
 }
 
+async function logOverrideFailure($: EngineInterface, stderr: string): Promise<void> {
+  try {
+    await $.ui.log(`paqad-ai rules override failed: ${stderr.trim() || 'no output'}`, {
+      to: 'debug',
+    });
+  } catch {}
+}
+
 async function markRuleStopAnswered(
   $: EngineInterface,
   root: string,
@@ -562,14 +570,10 @@ async function allowRuleStopOnce(
     await moveLive($, questionShown);
     const reason = await askReason($);
     await moveLive($, questionClosed);
-    const ran = await runPaqad(
-      $,
-      'rules override',
-      overrideArgs(stop, at.sessionId, at.root, reason),
-      at.root,
-    );
+    const ran = await recordOverride($, overrideArgs(stop, at.sessionId, at.root, reason), at.root);
     if (!ran.ok) {
       $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+      await logOverrideFailure($, ran.stderr);
       return null;
     }
     await refresh($);

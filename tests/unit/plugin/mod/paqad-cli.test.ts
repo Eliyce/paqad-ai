@@ -8,25 +8,9 @@ import {
   ruleStopQuestion,
   ruleTextQuestion,
 } from '../../../../runtime/claude-plugin/mod/model.ts';
-import {
-  PAQAD_CLI_TIMEOUT_MS,
-  paqadArgv,
-  type PaqadVerb,
-} from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
+import { PAQAD_CLI_TIMEOUT_MS } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 
 describe('the mod paqad-ai helper', () => {
-  it('builds the argv for an allowed verb and refuses any other', () => {
-    expect(paqadArgv('rules override', ['--rule', 'R; rm -rf /'])).toEqual([
-      'paqad-ai',
-      'rules',
-      'override',
-      '--rule',
-      'R; rm -rf /',
-    ]);
-    expect(paqadArgv('stage start' as PaqadVerb, [])).toBeNull();
-    expect(paqadArgv('x' as PaqadVerb, [])).toBeNull();
-  });
-
   it('gives paqad-ai its own timeout', () => {
     expect(PAQAD_CLI_TIMEOUT_MS).toBe(15_000);
   });

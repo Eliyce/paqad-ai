@@ -81,16 +81,13 @@ describe('the HUD mod source', () => {
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
   });
 
-  it('runs processes only through the one paqad-ai helper, by argument vector', () => {
+  it('starts one program, paqad-ai rules override, with its argv written at the call', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(register.match(/\$\.process\./g)).toEqual(['$.process.']);
-    expect(register).toContain('const argv = paqadArgv(verb, args);');
-    expect(register).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');
+    expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
     expect(register).not.toMatch(/\$\.process\.spawn/);
-    expect(helper).toContain("export const PAQAD_BIN = 'paqad-ai';");
-    expect(helper).toContain("return [PAQAD_BIN, ...verb.split(' '), ...args];");
-    expect(helper).not.toMatch(/spawn|shell|exec/);
+    expect(helper).not.toMatch(/spawn|shell|exec|argv/);
   });
 
   it('the permission hook never hands its verdict on', () => {
