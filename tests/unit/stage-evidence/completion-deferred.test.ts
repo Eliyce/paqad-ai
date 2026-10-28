@@ -1168,9 +1168,7 @@ describe('review and documentation sync running side by side', () => {
     startStage(root, 'review', { ...ctx(dirName, 2), agentId: 'r1' });
     agentRow(root, dirName, 'documentation_sync', 'paqad-documentation-sync', 'd1', 'started', 3);
     startStage(root, 'documentation_sync', { ...ctx(dirName, 4), agentId: 'd1' });
-    expect(new Set(holds(root, dirName))).toEqual(
-      new Set(['review:r1', 'documentation_sync:d1']),
-    );
+    expect(new Set(holds(root, dirName))).toEqual(new Set(['review:r1', 'documentation_sync:d1']));
     endStage(root, 'documentation_sync', {}, ctx(dirName, 5));
     expect(holds(root, dirName)).toEqual(['review:r1']);
     endStage(root, 'review', {}, ctx(dirName, 6));

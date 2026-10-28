@@ -226,9 +226,7 @@ describe('narration-contract-writer', () => {
 
     it('AC-12: the Background dispatch release list keeps a hold through another stage agent’s start', () => {
       const body = buildNarrationContractBody();
-      const background = body
-        .split('\n')
-        .find((line) => line.startsWith('**Background dispatch'))!;
+      const background = body.split('\n').find((line) => line.startsWith('**Background dispatch'))!;
       expect(background).toContain(
         "A `stage_start` written by a different paqad stage agent does not release a running agent's hold",
       );
