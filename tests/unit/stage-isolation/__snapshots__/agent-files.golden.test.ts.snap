@@ -311,6 +311,8 @@ The orchestrator passes you the change ref, the lane, the previous stage pillar 
 \`SE_SESSION\` — the orchestrator's session id. **Export \`SE_SESSION\` for every command you run**
 so every row and artifact you write is recorded under the one change identity.
 
+Just before \`paqad-ai review record\`, run \`paqad-ai review digest\` again so edits made by documentation sync while you worked are included. If that digest run fails, do not record the review; return blocked with the digest error.
+
 ## Run your stage
 
 1. Read the \`review\` stage's \`read:\` list and \`instructions\` from
@@ -689,6 +691,8 @@ feature-development change in your own isolated context and then return. Your jo
 The orchestrator passes you the change ref, the lane, the previous stage pillar file(s), and
 \`SE_SESSION\` — the orchestrator's session id. **Export \`SE_SESSION\` for every command you run**
 so every row and artifact you write is recorded under the one change identity.
+
+Just before \`paqad-ai review record\`, run \`paqad-ai review digest\` again so edits made by documentation sync while you worked are included. If that digest run fails, do not record the review; return blocked with the digest error.
 
 ## Run your stage
 

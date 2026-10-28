@@ -13,8 +13,10 @@ import {
   OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
   renderDefaultFeatureDevelopmentPolicyYaml,
   resolveFeatureDevelopmentCheckCommands,
+  REVIEW_DIGEST_REFRESH_INSTRUCTION,
   reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
+import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
 
 describe('feature development policy', () => {
   it('returns framework defaults when the project policy file is missing', () => {
@@ -476,6 +478,50 @@ describe('feature development policy', () => {
       }
       expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
         OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
+      );
+    });
+  });
+
+  describe('review digest refresh before review record', () => {
+    const repo = (path: string): string =>
+      readFileSync(resolve(__dirname, '../../..', path), 'utf8');
+
+    it('AC-15: tells review to re-run the digest and to return blocked when the re-run fails', () => {
+      expect(REVIEW_DIGEST_REFRESH_INSTRUCTION).toContain('Just before `paqad-ai review record`');
+      expect(REVIEW_DIGEST_REFRESH_INSTRUCTION).toContain('run `paqad-ai review digest` again');
+      expect(REVIEW_DIGEST_REFRESH_INSTRUCTION).toContain('do not record the review');
+      expect(REVIEW_DIGEST_REFRESH_INSTRUCTION).toContain('return blocked with the digest error');
+    });
+
+    it('AC-13: the default review stage carries it right after the review digest instruction', () => {
+      const { instructions } = defaultFeatureDevelopmentPolicy().stages.review;
+      const digestAt = instructions.findIndex((line) => line.startsWith('Review digest:'));
+      expect(digestAt).toBeGreaterThanOrEqual(0);
+      expect(instructions[digestAt + 1]).toBe(REVIEW_DIGEST_REFRESH_INSTRUCTION);
+    });
+
+    it('AC-13: the rendered yaml and the live contract carry it in the review stage', () => {
+      const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
+        stages: Record<string, { instructions: string[] }>;
+      };
+      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+        stages: Record<string, { instructions: string[] }>;
+      };
+      for (const doc of [parsed, live]) {
+        const { instructions } = doc.stages.review!;
+        const digestAt = instructions.findIndex((line) => line.startsWith('Review digest:'));
+        expect(instructions[digestAt + 1]).toBe(REVIEW_DIGEST_REFRESH_INSTRUCTION);
+      }
+    });
+
+    it('AC-13: the review stage brief and review agent carry it; development does not', () => {
+      expect(stageNoteLines('review')).toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
+      expect(stageNoteLines('development')).not.toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
+      expect(repo('runtime/claude-plugin/agents/paqad-review.md')).toContain(
+        REVIEW_DIGEST_REFRESH_INSTRUCTION,
+      );
+      expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
+        REVIEW_DIGEST_REFRESH_INSTRUCTION,
       );
     });
   });
