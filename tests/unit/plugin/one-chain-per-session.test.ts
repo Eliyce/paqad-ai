@@ -4,7 +4,6 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,6 +13,7 @@ import { execa } from 'execa';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ensureBuiltDist } from '../../e2e/helpers/ensure-built';
+import { removeTempProject } from '../runtime/temp-project';
 
 const REPO = process.cwd();
 const HOOKS = resolve(REPO, 'runtime/hooks');
@@ -34,7 +34,7 @@ function tempDir(prefix: string): string {
   return dir;
 }
 afterEach(() => {
-  while (dirs.length > 0) rmSync(dirs.pop()!, { recursive: true, force: true });
+  while (dirs.length > 0) removeTempProject(dirs.pop()!);
 });
 
 interface Fixture {
