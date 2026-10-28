@@ -2,6 +2,7 @@ import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
 import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, recordTime } from './desktop-view';
+import { ALLOW_ONCE_STALE_CLI } from './model';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
@@ -32,6 +33,7 @@ import {
   HEARTBEAT,
   LAST_BLOCK,
   ONBOARDED,
+  OVERRIDE_RECORDED,
   RECEIPT,
   SESSION_ID,
   SNAPSHOT,
@@ -45,6 +47,7 @@ import {
   toolGroup,
   toolUse,
   worldOf,
+  type World,
 } from './test/world';
 
 const SURFACES = ['terminal', 'desktop'] as const;
@@ -2442,9 +2445,11 @@ describe('the task list carries the stages (AC-18)', () => {
 type TestEngine = Parameters<Parameters<typeof test>[1]>[0];
 type TestOn = Parameters<Parameters<typeof test>[1]>[1];
 
+type PreToolUseAnswer = Record<string, unknown> | (() => unknown);
+
 interface PreToolUseGate {
   seen: unknown[];
-  answers: Array<Record<string, unknown>>;
+  answers: PreToolUseAnswer[];
   calls: number;
 }
 
@@ -2459,14 +2464,16 @@ const GATE_ASK = { ask: 'You allowed this edit once' };
 
 function preToolUse(
   on: TestOn,
-  answers: ReadonlyArray<Record<string, unknown>> = [GATE_DENY, GATE_ASK],
+  answers: readonly PreToolUseAnswer[] = [GATE_DENY, GATE_ASK],
 ): PreToolUseGate {
   const gate: PreToolUseGate = { seen: [], answers: [...answers], calls: 0 };
   const hook: PreToolUseHook = ($, e, next) => {
     if (e.tool === 'AskUserQuestion') return next(e);
     gate.seen.push(e.tool_use_id);
     gate.calls += 1;
-    return gate.answers[gate.calls - 1] ?? next(e);
+    const answer = gate.answers[gate.calls - 1];
+    if (typeof answer === 'function') return answer();
+    return answer ?? next(e);
   };
   on('classic.PreToolUse' as never, hook as never);
   return gate;
@@ -2547,13 +2554,33 @@ const OVERRIDE_ARGV = [
   '/work',
 ];
 
+const outcomeArgv = (outcome: string) => [
+  'paqad-ai',
+  'rules',
+  'override',
+  '--outcome',
+  outcome,
+  '--rule',
+  'RL-13',
+  '--file',
+  'src/x.ts',
+  '--tool-use-id',
+  'tu_1',
+  '--session',
+  SESSION_ID,
+  '--project-root',
+  '/work',
+];
+
+const overrideRuns = (world: World) => world.runs.filter((run) => run.argv.includes('--token'));
+
 describe('a retried edit reaches PreToolUse again', () => {
   test('AC-1: Allow once runs the override and the same tool_use_id meets PreToolUse a second time', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
     const result = await editCall($, gate);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
-    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV, outcomeArgv('landed')]);
     expectLanded(result);
   });
 });
@@ -2569,7 +2596,7 @@ describe('the rule stop answer on a denied edit', () => {
       'Show the rule',
     ]);
     expect(world.asked[0]!.question).toContain('RL-13 stopped this edit to src/x.ts');
-    expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(overrideRuns(world)).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2577,14 +2604,17 @@ describe('the rule stop answer on a denied edit', () => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'needed for the hotfix');
     expectLanded(await editCall($, gate));
-    expect(world.runs[0]!.argv).toEqual([...OVERRIDE_ARGV, '--reason=needed for the hotfix']);
+    expect(overrideRuns(world)[0]!.argv).toEqual([
+      ...OVERRIDE_ARGV,
+      '--reason=needed for the hotfix',
+    ]);
   });
 
   test('a dismissed reason still records the override without one and retries the call', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded');
     expectLanded(await editCall($, gate));
-    expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
+    expect(overrideRuns(world)[0]!.argv).toEqual(OVERRIDE_ARGV);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2696,7 +2726,7 @@ describe('the rule stop answer on a denied edit', () => {
     world.answers.push('Allow once, recorded', 'No reason');
     expectLanded(await editCall($, gate, 'tu_1', 'Edit', { agentId: 'agent-a1' }));
     expect(world.asked[0]!.options).toContain('Allow once, recorded');
-    expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(overrideRuns(world)).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2749,7 +2779,7 @@ describe('the rule stop answer on a denied edit', () => {
     world.answers.push('Allow once, recorded', 'No reason');
     expectLanded(await editCall($, gate));
     expectDenied(await editCall($, gate, 'tu_2'));
-    expect(world.runs).toHaveLength(1);
+    expect(overrideRuns(world)).toHaveLength(1);
     expect(gate.seen).toEqual(['tu_1', 'tu_1', 'tu_2']);
   });
 
@@ -2763,13 +2793,13 @@ describe('the rule stop answer on a denied edit', () => {
     expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
       2,
     );
-    expect(world.runs.map((run) => run.argv)).toEqual([
+    expect(overrideRuns(world).map((run) => run.argv)).toEqual([
       OVERRIDE_ARGV,
       OVERRIDE_ARGV.map((arg) => (arg === 'tok' ? 'tok2' : arg === 'tu_1' ? 'tu_2' : arg)),
     ]);
   });
 
-  test('AC-2: a question that throws keeps the deny and runs nothing', async ($, on) => {
+  test('AC-2, AC-6: a question that throws after the first call keeps the deny and runs nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('throw');
     expectDenied(await editCall($, gate));
@@ -2786,6 +2816,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
       1,
     );
+    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('still-blocked'));
   });
 
   test('an edit that fails as a tool with no paqad stop for its call is never retried', async ($, on) => {
@@ -2813,7 +2844,7 @@ describe('the rule stop answer on a denied edit', () => {
       expectLanded(await editCall($, gate, 'tu_1', tool));
     }
     expect(gate.seen).toEqual(['tu_1', 'tu_1', 'tu_1', 'tu_1']);
-    expect(world.runs).toHaveLength(2);
+    expect(overrideRuns(world)).toHaveLength(2);
   });
 
   test('AC-6: a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
@@ -2845,6 +2876,78 @@ describe('the rule stop answer on a denied edit', () => {
       results.push(await editCall($, gate));
     }
     for (const result of results) expectDenied(result);
+  });
+});
+
+describe('the outcome line after an allowed-once retry', () => {
+  test('AC-14: a retry that lands records landed', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectLanded(await editCall($, gate));
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV, outcomeArgv('landed')]);
+    expect(world.runs[1]!.timeoutMs).toBe(15_000);
+  });
+
+  test('AC-14: a retry Claude Code asked about and then denied records refused', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    gate.answers = [
+      GATE_DENY,
+      async () => {
+        world.verdict = { decision: 'ask', reason: 'approve?' };
+        await $.tool.check({ tool: 'Edit', input: {}, tool_use_id: 'tu_1' });
+        return { deny: 'RL-13 blocked the edit: the person said no' };
+      },
+    ];
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('refused'));
+  });
+
+  test('AC-14: an ask seen before the retry does not count, so a deny with no ask records still-blocked', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({ tool: 'Edit', input: {}, tool_use_id: 'tu_1' });
+    gate.answers = [GATE_DENY, GATE_DENY];
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('still-blocked'));
+  });
+
+  test('AC-14: a failed outcome run leaves the returned result as it was', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    for (const failure of [
+      'reject',
+      { exitCode: 1, stdout: '', stderr: 'outcome not recorded' },
+    ] as const) {
+      world.put(LAST_BLOCK, JSON.stringify(RULE_STOP));
+      world.run = { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' };
+      world.logs.length = 0;
+      gate.answers = [
+        GATE_DENY,
+        () => {
+          world.run = failure;
+          return GATE_ASK;
+        },
+      ];
+      world.answers.push('Allow once, recorded', 'No reason');
+      expectLanded(await editCall($, gate));
+      expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('landed'));
+      expect(
+        world.logs.some(
+          (log) => log.to === 'debug' && log.text.startsWith('paqad-ai rules override failed'),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  test('AC-15: an override that leaves no allowed-once mark shows the update toast, keeps the deny and retries nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.marksAllowedOnce = false;
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expect(world.toasts).toEqual([ALLOW_ONCE_STALE_CLI]);
   });
 });
 

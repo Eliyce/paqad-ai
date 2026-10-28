@@ -45,6 +45,7 @@ import {
   type TableSitting,
 } from './desktop-view';
 import {
+  ALLOW_ONCE_STALE_CLI,
   ORG_ENFORCED,
   PENDING_DECISIONS_DIR,
   RULE_STOP_ALLOW,
@@ -55,14 +56,17 @@ import {
   RULE_STOP_REASON_HEADER,
   RULE_STOP_SHOW,
   buildBandView,
+  editOutcome,
   entrySentinelPath,
   freshRuleStop,
+  isAllowedOnce,
   isDenied,
   isLive,
   isRefreshTool,
   isStageAgent,
   joinPath,
   lastBlockPath,
+  outcomeArgs,
   overrideArgs,
   parseSnapshot,
   receiptPath,
@@ -217,6 +221,7 @@ let live: Live | null = null;
 let ticker: Timer | null = null;
 let agentCalls = 0;
 const foregroundAgents = new ForegroundAgents();
+const askedCalls = new Set<string>();
 let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
@@ -589,6 +594,39 @@ async function allowRuleStopOnce(
   } catch {
     return null;
   }
+}
+
+async function stopAllowedOnce($: EngineInterface, stop: RuleStop): Promise<boolean> {
+  try {
+    const at = live;
+    if (at && isAllowedOnce(await readText($, lastBlockPath(at.root, at.sessionId)), stop)) {
+      return true;
+    }
+    $.ui.toast(ALLOW_ONCE_STALE_CLI);
+  } catch (error) {
+    await logOverrideFailure($, error instanceof Error ? error.message : String(error));
+  }
+  return false;
+}
+
+async function retryAllowedOnce(
+  $: EngineInterface,
+  stop: RuleStop,
+  retry: () => Promise<unknown>,
+): Promise<unknown> {
+  askedCalls.delete(stop.toolUseId);
+  const result = await retry();
+  const askSeen = askedCalls.delete(stop.toolUseId);
+  const at = live;
+  if (at) {
+    const ran = await recordOverride(
+      $,
+      outcomeArgs(stop, at.sessionId, at.root, editOutcome(result, askSeen)),
+      at.root,
+    );
+    if (ran.stderr.trim() !== '') await logOverrideFailure($, ran.stderr);
+  }
+  return result;
 }
 
 type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
@@ -1070,8 +1108,8 @@ export const register: Register = (on) => {
     const result = await next(e);
     if (!isDenied(result)) return result;
     const allowed = await allowRuleStopOnce($, e.tool_use_id);
-    if (allowed === null) return result;
-    return next(e);
+    if (allowed === null || !(await stopAllowedOnce($, allowed))) return result;
+    return retryAllowedOnce($, allowed, () => next(e));
   }).catch(($, e, next) => next(e));
 
   on('turn.start', async ($, e, next) => {
@@ -1085,8 +1123,9 @@ export const register: Register = (on) => {
 
   on('tool.check', async ($, e, next) => {
     const verdict = await next(e);
+    const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
+    if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
     if (live) {
-      const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
       const agentId = (e as { agentId?: unknown }).agentId;
       const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
       if (agent !== null) foregroundAgents.agentSeen(agent);
