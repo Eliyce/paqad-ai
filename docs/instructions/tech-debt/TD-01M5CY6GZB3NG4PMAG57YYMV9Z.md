@@ -3,7 +3,7 @@ id: "TD-01M5CY6GZB3NG4PMAG57YYMV9Z"
 title: "Allow once also replaces a deny from another tool's PreToolUse hook on the same edit"
 kind: "gap"
 severity: "medium"
-status: "open"
+status: "closed"
 files:
   - "docs/modules/feature-evidence/features/rule-override/technical.md"
   - "runtime/claude-plugin/mod/register.tsx"
@@ -16,7 +16,7 @@ session: "d789e5c2-ce91-442b-a379-7e12b94b7dd9"
 created_at: "2026-10-20T15:17:08.709Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "Fixed: the HUD no longer answers a permission check. After Allow once it runs the same call again and paqad's gate answers ask for that one call, so a deny from another tool's PreToolUse hook still blocks the edit."
 ---
 
 ## What
