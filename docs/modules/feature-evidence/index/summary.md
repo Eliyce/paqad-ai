@@ -603,8 +603,8 @@ network, and starts no process.
   default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env
   variable first, then `.paqad/.config`, then `.paqad/configs/.config.*` with the last file name
   winning. Off, the mod draws no band, reads nothing and registers no `/paqad` command. The
-  plugin declares no `userConfig`, because Claude Code lists every declared option with no saved
-  value as "not yet set" when the plugin is installed, even one with a default.
+  plugin's only `userConfig` options are the two optional API keys (the Claude plugin page has
+  them); `hud_view` stays a paqad config key.
 - **The `hud_chime` setting.** The config key `hud_chime` (env `PAQAD_HUD_CHIME`, off by default)
   makes the mod play one short chime when a verdict lands, once per verdict. It resolves like
   `hud_view`, lives in the team app config, and is a chime only: the mod never speaks.

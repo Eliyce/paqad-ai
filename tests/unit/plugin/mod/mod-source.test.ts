@@ -135,6 +135,37 @@ describe('the HUD mod source', () => {
     expect(register).toContain("name: 'paqad-hud',");
   });
 
+  it('the README HUD section names every program, file, sound, variable and command the mod uses', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    const start = readme.indexOf('### What the HUD does (Claude Code)');
+    const end = readme.indexOf('\n### ', start + 1);
+    expect(start).toBeGreaterThan(-1);
+    const section = readme.slice(start, end);
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const used = sources
+      .filter((s) => !s.name.endsWith('.test.ts') && !s.name.startsWith('test/'))
+      .flatMap((s) =>
+        s.text
+          .split('\n')
+          .filter((line) =>
+            /process\.run|fs\.write|audio\.play|env\.get\(|command\.register/.test(line),
+          )
+          .map((line) => ({ name: s.name, line })),
+      );
+    expect(new Set(used.map((u) => u.name))).toEqual(new Set(['register.tsx']));
+    expect(section).toContain('one program, and only after you choose **Allow once, recorded**');
+    expect(section).toContain('`paqad-ai rules override --rule <id>');
+    for (const file of ['`<session>.live`', '`<session>.last-block.json`']) {
+      expect(section).toContain(file);
+    }
+    expect(section).toContain('The chime (off unless you set `hud_chime=true`)');
+    const vars = [...register.matchAll(/\$\.env\.get\('([A-Z_]+)'\)/g)].map((m) => m[1]!);
+    expect(vars.length).toBeGreaterThan(0);
+    for (const name of vars) expect(section).toContain(`\`${name}\``);
+    expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
+    expect(section).toContain('**Its permission hooks:** two hooks');
+  });
+
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {
     for (const { name, text } of sources) {
       if (name === 'register.tsx' || name.endsWith('.test.ts')) continue;
