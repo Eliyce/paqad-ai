@@ -41,6 +41,7 @@ export interface WorldOptions {
   band?: RenderElement;
   refuse?: Readonly<Record<string, string>>;
   sessionId?: string | null;
+  root?: string;
 }
 
 export const TAKEN = `"/paqad" refused: it is the plugin's /paqad-product-discovery:paqad`;
@@ -109,7 +110,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     };
   });
   on('env.get', ($, e) => ({ value: options.env?.[e.name] }));
-  on('session.root', () => ({ value: ROOT }));
+  on('session.root', () => ({ value: options.root ?? ROOT }));
   on('session.id', () =>
     options.sessionId === null
       ? { deny: 'the session id is not available' }

@@ -3203,6 +3203,38 @@ describe('the heartbeat and the chime', () => {
     expect(new Set(world.writes.map((write) => write.path))).toEqual(new Set([HEARTBEAT]));
   });
 
+  test('a root with a trailing separator writes under <root>/.paqad/session/hud/', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },
+      root: '/work/',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: '/work/' });
+    expect(world.writes.map((write) => write.path)).toEqual([HEARTBEAT]);
+  });
+
+  test('a session id with path characters is made safe in the heartbeat file name', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, '.paqad/session/hud/s_1_x.json': fileText(FAST_ORD_490) },
+      sessionId: 's/1:x',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.writes.map((write) => write.path)).toEqual(['.paqad/session/hud/s_1_x.live']);
+  });
+
+  test('a project root of / stays / and writes under /.paqad/session/hud/', async ($, on) => {
+    const world = worldOf(on, {
+      files: { '/.paqad/framework-path.txt': '~/.paqad-ai/current\n' },
+      root: '/',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: '/' });
+    expect(world.writes.map((write) => write.path)).toEqual([
+      `/.paqad/session/hud/${SESSION_ID}.live`,
+    ]);
+  });
+
   test('a mod that stands down writes no heartbeat', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },

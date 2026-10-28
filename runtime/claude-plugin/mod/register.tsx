@@ -34,7 +34,6 @@ import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
   ANSWER_TOAST,
-  UPDATE_PLAN_TOOL,
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
@@ -58,7 +57,6 @@ import {
   buildBandView,
   entrySentinelPath,
   freshRuleStop,
-  heartbeatPath,
   isLive,
   isRefreshTool,
   isStageAgent,
@@ -69,6 +67,7 @@ import {
   receiptPath,
   ruleStopQuestion,
   ruleTextQuestion,
+  safeSessionId,
   snapshotPath,
   type RuleStop,
 } from './model';
@@ -143,6 +142,8 @@ async function recordOverride(
     };
   }
 }
+
+const COMMAND_UNREADABLE = 'paqad could not read its record for this session. Try again.';
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
@@ -326,7 +327,7 @@ async function beat($: EngineInterface): Promise<void> {
   try {
     const now = await $.clock.now();
     await $.fs.write(
-      heartbeatPath(at.root, at.sessionId),
+      `${at.root}/.paqad/session/hud/${safeSessionId(at.sessionId)}.live`,
       `${JSON.stringify({ session_id: at.sessionId, written_at: new Date(now).toISOString() })}\n`,
     );
   } catch {}
@@ -531,11 +532,13 @@ async function markRuleStopAnswered(
   root: string,
   sessionId: string,
 ): Promise<void> {
-  const path = lastBlockPath(root, sessionId);
-  const text = answeredRuleStopText(await readText($, path));
+  const text = answeredRuleStopText(await readText($, lastBlockPath(root, sessionId)));
   if (text === null) return;
   try {
-    await $.fs.write(path, text);
+    await $.fs.write(
+      `${root}/.paqad/session/hud/${safeSessionId(sessionId)}.last-block.json`,
+      text,
+    );
   } catch {}
 }
 
@@ -903,7 +906,7 @@ async function bind($: EngineInterface, root: string, chime: boolean): Promise<v
     } catch {}
     return;
   }
-  live = { root, sessionId };
+  live = { root: root.replace(/[\\/]+$/, '') || root, sessionId };
   try {
     const minimised = (await storeGet($, MINIMISED_KEY)) === true;
     const hidden = (await storeGet($, hiddenKey(root))) === true;
@@ -920,21 +923,29 @@ async function bind($: EngineInterface, root: string, chime: boolean): Promise<v
 
 async function registerCommand($: EngineInterface): Promise<void> {
   const refusals: string[] = [];
-  for (const name of COMMAND_NAMES) {
-    try {
-      await $.command.register({
-        name,
-        description: COMMAND_DESCRIPTION,
-        argumentHint: ARGUMENT_HINT,
-        immediate: true,
-      });
-      setCommandName(name);
-      break;
-    } catch (error) {
-      refusals.push(refusalReason(error));
-    }
+  try {
+    await $.command.register({
+      name: 'paqad',
+      description: COMMAND_DESCRIPTION,
+      argumentHint: ARGUMENT_HINT,
+      immediate: true,
+    });
+    setCommandName('paqad');
+    return;
+  } catch (error) {
+    refusals.push(refusalReason(error));
   }
-  if (refusals.length === 0) return;
+  try {
+    await $.command.register({
+      name: 'paqad-hud',
+      description: COMMAND_DESCRIPTION,
+      argumentHint: ARGUMENT_HINT,
+      immediate: true,
+    });
+    setCommandName('paqad-hud');
+  } catch (error) {
+    refusals.push(refusalReason(error));
+  }
   try {
     await $.ui.log(takenLine(refusals), { to: 'debug' });
   } catch {}
@@ -988,11 +999,14 @@ export const register: Register = (on) => {
     return next(e);
   });
 
-  for (const name of COMMAND_NAMES) {
-    on('command.run', { command: name }, async ($, e) => answerCommand($, e.args)).catch(() => ({
-      text: 'paqad could not read its record for this session. Try again.',
-    }));
-  }
+  on('command.run', { command: 'paqad' }, async ($, e) => answerCommand($, e.args)).catch(() => ({
+    text: COMMAND_UNREADABLE,
+  }));
+  on('command.run', { command: 'paqad-hud' }, async ($, e) => answerCommand($, e.args)).catch(
+    () => ({
+      text: COMMAND_UNREADABLE,
+    }),
+  );
 
   on('prompt.submit', async ($, e, next) => {
     taskListRefused = false;
@@ -1008,7 +1022,7 @@ export const register: Register = (on) => {
     return result;
   }).catch(($, e, next) => next(e));
 
-  on('tool.call', { tool: UPDATE_PLAN_TOOL }, async ($, e, next) => {
+  on('tool.call', { tool: 'mcp__ccd_turn__update_plan' }, async ($, e, next) => {
     if (!live || taskListRefused) return next(e);
     const snapshot = await read($, snapshotAtom);
     if (snapshot?.route !== FEATURE_ROUTE) return next(e);

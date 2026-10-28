@@ -113,6 +113,28 @@ describe('the HUD mod source', () => {
     }
   });
 
+  it('every $.fs.write path names .paqad/session/hud/ at the call', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const writes = [...register.matchAll(/\$\.fs\.write\(\s*([^,]+),/g)].map((m) => m[1]!);
+    expect(writes).toHaveLength(2);
+    for (const path of writes) {
+      expect(path).toMatch(
+        /^`\$\{[a-z.]+\}\/\.paqad\/session\/hud\/\$\{safeSessionId\([a-zA-Z.]+\)\}\.(live|last-block\.json)`$/,
+      );
+    }
+  });
+
+  it('command and tool matchers are literal', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    expect(register).not.toContain('{ command: name }');
+    expect(register).not.toContain('{ tool: UPDATE_PLAN_TOOL }');
+    expect(register).toContain("on('command.run', { command: 'paqad' }");
+    expect(register).toContain("on('command.run', { command: 'paqad-hud' }");
+    expect(register).toContain("on('tool.call', { tool: 'mcp__ccd_turn__update_plan' }");
+    expect(register).toContain("name: 'paqad',");
+    expect(register).toContain("name: 'paqad-hud',");
+  });
+
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {
     for (const { name, text } of sources) {
       if (name === 'register.tsx' || name.endsWith('.test.ts')) continue;
