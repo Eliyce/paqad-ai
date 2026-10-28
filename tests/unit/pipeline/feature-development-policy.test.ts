@@ -97,7 +97,12 @@ describe('feature development policy', () => {
     const result = loadFeatureDevelopmentPolicy(root);
 
     expect(result.policy.stages.planning.read).toEqual(
-      expect.arrayContaining(['docs/modules/**', 'docs/instructions/**', 'docs/custom/**']),
+      expect.arrayContaining([
+        'docs/instructions/stack/**',
+        'docs/instructions/design-system/**',
+        'docs/instructions/workflows/**',
+        'docs/custom/**',
+      ]),
     );
     expect(result.policy.stages.checks.checks?.commands).toEqual(
       expect.arrayContaining(['format', 'test', 'build', 'lint']),

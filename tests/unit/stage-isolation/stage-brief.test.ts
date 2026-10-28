@@ -226,6 +226,81 @@ describe('buildStageBrief', () => {
     );
   });
 
+  describe('the planning read list', () => {
+    const SHARED = [
+      'docs/instructions/stack/**',
+      'docs/instructions/design-system/**',
+      'docs/instructions/workflows/**',
+    ];
+
+    function readSection(brief: string): string[] {
+      const start = brief.indexOf('## Read first');
+      const end = brief.indexOf('## Stage instructions');
+      return brief
+        .slice(start, end)
+        .split('\n')
+        .filter((line) => line.startsWith('- '))
+        .map((line) => line.slice(2));
+    }
+
+    function changeTitled(root: string, title: string): void {
+      openFeatureChange(root, SESSION, {
+        adapter: 'claude-code',
+        title,
+        issue: '12',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      });
+      persistLedgerSessionId(root, SESSION);
+    }
+
+    it('reads the three shared folders and the index query instruction when no module is named', () => {
+      const root = withRepoPolicy(tempRoot());
+      mkdirSync(join(root, 'docs/modules/billing'), { recursive: true });
+      changeTitled(root, 'Speed up the stage brief');
+      const brief = buildStageBrief('planning', root, SESSION);
+      expect(readSection(brief)).toEqual(SHARED);
+      expect(brief).toContain('paqad-ai index query');
+    });
+
+    it('adds docs/modules/<module>/** for each module the attribution names', () => {
+      const root = withRepoPolicy(tempRoot());
+      for (const slug of ['billing', 'auth']) {
+        mkdirSync(join(root, `docs/modules/${slug}`), { recursive: true });
+      }
+      changeTitled(root, 'Fix rounding in the billing module');
+      expect(readSection(buildStageBrief('planning', root, SESSION))).toEqual([
+        ...SHARED,
+        'docs/modules/billing/**',
+      ]);
+    });
+
+    it('skips a named module with no docs/modules folder and keeps the shared folders', () => {
+      const root = withRepoPolicy(tempRoot());
+      mkdirSync(join(root, 'docs/modules/auth'), { recursive: true });
+      changeTitled(root, 'Fix rounding in the billing module');
+      expect(readSection(buildStageBrief('planning', root, SESSION))).toEqual(SHARED);
+    });
+
+    it('reads the module from request.md when the title names none', () => {
+      const root = withRepoPolicy(tempRoot());
+      mkdirSync(join(root, 'docs/modules/billing'), { recursive: true });
+      changeTitled(root, 'Rounding fix');
+      const dir = openFeatureChange(root, SESSION, {
+        adapter: 'claude-code',
+        title: 'Rounding fix',
+        issue: '12',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      });
+      writeFileSync(join(root, featureFilePath(dir, 'request')), 'Module: billing\n', 'utf8');
+      expect(readSection(buildStageBrief('planning', root, SESSION))).toContain(
+        'docs/modules/billing/**',
+      );
+      expect(readSection(buildStageBrief('specification', root, SESSION))).not.toContain(
+        'docs/modules/billing/**',
+      );
+    });
+  });
+
   it('throws on an unknown stage or an unsafe session id', () => {
     const root = tempRoot();
     expect(() => buildStageBrief('delivery', root, SESSION)).toThrow(/unknown stage/);

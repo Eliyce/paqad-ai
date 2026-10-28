@@ -1,10 +1,14 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PAQAD_STAGE_HELPER_MATCHER } from '@/adapters/shared/paqad-hooks.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import type { FeatureDevelopmentStageName } from '@/core/types/feature-development-policy.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
 import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
+import { extractCandidates } from '@/module-decisions/extractor.js';
 import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import {
   keepingLedgerSessionCache,
@@ -82,6 +86,45 @@ function changeSection(projectRoot: string, sessionId: string, stage: string): s
     ...pillars.map((path) => `  - \`${path}\``),
     '',
   ];
+}
+
+function documentedModules(projectRoot: string): string[] {
+  try {
+    return readdirSync(join(projectRoot, 'docs/modules'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+function changeRequestText(projectRoot: string, dirName: string): string {
+  const title = (readFeatureRecord(projectRoot, dirName)?.title ?? '').replace(/-/g, ' ');
+  const request = readTextIfExistsSync(join(projectRoot, featureFilePath(dirName, 'request')));
+  return [title, request === null ? '' : splitFrontMatter(request).body].join('\n');
+}
+
+export function attributedModuleReads(projectRoot: string, sessionId: string): string[] {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) return [];
+  const slugs = documentedModules(projectRoot);
+  if (slugs.length === 0) return [];
+  return extractCandidates({
+    prompt: changeRequestText(projectRoot, dirName),
+    existingSlugs: slugs,
+  })
+    .filter((candidate) => candidate.kind === 'exact-match')
+    .map((candidate) => `docs/modules/${candidate.slug}/**`);
+}
+
+function stageReads(
+  stage: string,
+  projectRoot: string,
+  sessionId: string,
+  read: readonly string[],
+): string[] {
+  if (stage !== 'planning') return [...read];
+  return [...new Set([...read, ...attributedModuleReads(projectRoot, sessionId)])];
 }
 
 function bulletList(items: readonly string[], empty: string): string[] {
@@ -218,7 +261,7 @@ export function buildStageBrief(
   ];
   return fitToBudget({
     head,
-    read: policy.read,
+    read: stageReads(stage, projectRoot, sessionId, policy.read),
     instructions: policy.instructions,
     tail,
   });

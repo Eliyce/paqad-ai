@@ -98,6 +98,13 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `SE_AGENT_ID=<id>`, because a subagent cannot learn its own id; the verb takes `--agent-id`, then
   `SE_AGENT_ID`, then the session's open `started` stage-agent row. An unknown stage or a session
   with no active change exits non-zero with a plain message and prints no brief.
+- **What planning reads.** Planning's `read:` list is the three folders the contract loads
+  (`docs/instructions/stack/**`, `docs/instructions/design-system/**`,
+  `docs/instructions/workflows/**`). When the brief is built, `attributedModuleReads` runs the
+  module-attribution extractor over the change's title and `request.md` and adds
+  `docs/modules/<module>/**` for each exact match that has a `docs/modules/<module>/` folder. With
+  no named module the brief keeps the three folders, and the rest of `docs/modules` stays reachable
+  through `paqad-ai index query`.
 - **Claude Code versions.** The SubagentStart brief works on any Claude Code that runs paqad's
   hooks. `omitClaudeMd` needs 2.1.271 or later, and `effort` (in agent files and on the Agent
   tool) needs 2.1.292 or later. paqad does no version check: an older build ignores a key it does
