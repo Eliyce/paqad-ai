@@ -173,7 +173,11 @@ any turn the session-ownership check skips (see below).
   from that subagent transcript (about 4 characters per token), and the row says
   `estimate: false`, so the receipt's `context:` line reads `(exact)`. With no agent
   transcript the row keeps the earlier estimate from the parent transcript and says
-  `estimate: true`.
+  `estimate: true`. A resumed agent writes one cumulative row per return, so
+  `summarizeStageIsolation` takes the largest `tokens_not_recarried` per `agent_id` before
+  summing (the same per-agent keying `src/cost/change-cost.ts` uses), and the figure does not
+  grow with each resume. A row with no or an empty `agent_id` is counted once on its own, so an
+  older bundle sums exactly as before.
 - **Rule-loading gate** (`rules-loaded-gate.ts`) — the completion-seam backstop
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically
