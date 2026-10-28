@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M61S8PK7DH82AZ5M2JAR853B](TD-01M61S8PK7DH82AZ5M2JAR853B.md) (bug, low): module-map.yml has no last_updated_at, so InstructionsDocsStructureGate rejects it
+- [TD-01M61S8MPPFR7YXT3TRC458B71](TD-01M61S8MPPFR7YXT3TRC458B71.md) (debt, low): Host task-list order (Plan, Spec, Load rules, Build, Review, Checks, Docs) does not show review and documentation sync side by side
 - [TD-01M61HS7NMY1VRWSS20DFGZ8P7](TD-01M61HS7NMY1VRWSS20DFGZ8P7.md) (follow-up, low): Correct the plugin-directory issue text that still says ^@ (FR-12)
 - [TD-01M61HS58RN3KXZJC8SCT3VETP](TD-01M61HS58RN3KXZJC8SCT3VETP.md) (follow-up, low): Write the SubagentStart/Stop-on-resume observation into the one-development-agent issue (FR-57)
 - [TD-01M61HS3CPS1RWVF61QYS7NSW9](TD-01M61HS3CPS1RWVF61QYS7NSW9.md) (follow-up, low): Regenerate .paqad/.config.example so it lists spec_grounding_budget_ms (FR-39)
