@@ -1,0 +1,5 @@
+---
+'paqad-ai': minor
+---
+
+paqad can be listed in Anthropic's Claude plugin directory, and a full-lane change spends less time starting agents. The HUD's permission hook now reads Claude Code's answer itself and never hands it on, so the directory can prove the decision stays with you; the one program it starts, its two files, its chime and its commands are written out where the directory reads them, and the README says what each one does. The OpenAI and Cohere keys can be saved as sensitive plugin options; a saved key wins over the environment, which wins over the project file. On a host that can resume a subagent, the planning agent carries on as the specification stage and one development agent serves the whole change, resumed for each next task, with the new `paqad-ai stage brief <stage>` printing a resumed agent's brief. `spec pipeline start` runs in the foreground and returns within 20 seconds: it grounds on the docs alone when the index is empty, no embedding key is set or retrieval runs past `spec_grounding_budget_ms` (default 15000), and it reuses its grounding for the same request.
