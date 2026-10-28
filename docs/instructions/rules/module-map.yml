@@ -2312,7 +2312,7 @@ modules:
     features:
       - slug: ask-owner-once
         name: Ask the owner once per change (expert-conflict minting, change-scoped pause gate, batched question round)
-        sources: [src/spec-pipeline/experts/conflicts.ts, runtime/hooks/decision-pause-gate.mjs, src/onboarding/decision-pause-contract-writer.ts]
+        sources: [src/spec-pipeline/experts/conflicts.ts, runtime/hooks/decision-pause-gate.mjs, src/onboarding/decision-pause-contract-writer.ts, src/spec-pipeline/experts/merge.ts, src/spec-pipeline/experts/synthesis.ts, src/module-decisions/inferencer.ts, src/pipeline/feature-development-policy.ts, src/spec-pipeline/round.ts]
     evidence:
       symbols:
         - DEFAULT_PRECEDENT_LIMIT

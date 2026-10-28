@@ -46,8 +46,9 @@ screenshots here yet", lists the reasons, and offers `setup`, `attach` and `waiv
 context carries a `[paqad-ve-readiness <bundle>]` token, so a re-run of `plan compile` for
 the same change opens no second packet, and the visual-evidence gate can find the answer: a
 resolved packet with `waive` makes a strict "nothing captured" read `skipped` ("waived by
-D-<id>"), never pass. Like every pending packet it holds the next edit until it is resolved
-(`src/visual-evidence/readiness.ts`).
+D-<id>"), never pass. It carries its change, so it holds up only that change's edits. On the
+graduated and full lanes it does not stop work when it is raised: it is asked with the rest of
+the change's questions at the spec questions step (`src/visual-evidence/readiness.ts`).
 
 ## Source Footprint
 
@@ -56,7 +57,8 @@ D-<id>"), never pass. Like every pending packet it holds the next edit until it 
 
 ## Features
 
-_This module has no enumerated features in the map; the module itself is the unit of work._
+- [Ask the owner once](../features/ask-owner-once/technical.md): compatible expert rulings, one
+  question round per change, and a pause gate scoped to the change a packet names.
 
 ## Why the `src/planning/` code works the way it does
 
