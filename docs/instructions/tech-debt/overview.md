@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M616ZT0ARBYJ18X6Y4XXFY5X](TD-01M616ZT0ARBYJ18X6Y4XXFY5X.md) (bug, medium): Fix proof ignores a red run recorded after a green, and fix prove drops a cd in --command
 - [TD-01M615FW3JHA1R00HCN8ZX5KBM](TD-01M615FW3JHA1R00HCN8ZX5KBM.md) (gap, low): spec pipeline round does not surface the auto-applied module choice (FR-22 is prose-only)
 - [TD-01M615FTCQJ8K37EKJV2R2E6QM](TD-01M615FTCQJ8K37EKJV2R2E6QM.md) (gap, low): Question round omits pending packets with no change, though they still block edits
 - [TD-01M5ZM757VEE01R4HPT1N7G4TM](TD-01M5ZM757VEE01R4HPT1N7G4TM.md) (gap, low): The pre-edit rule gate judges the edit target before the edit, so strict mode refuses an edit that removes a violation already in that file
