@@ -382,11 +382,7 @@ describe('groundAreaAsync budget, mode and query', () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     vi.stubEnv('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY', '');
     const root = tempRoot();
-    writeDoc(
-      root,
-      '.paqad/.config',
-      'rag_enabled=true\nrag_embedding_provider=openai\n',
-    );
+    writeDoc(root, '.paqad/.config', 'rag_enabled=true\nrag_embedding_provider=openai\n');
     writeDoc(
       root,
       '.paqad/project-profile.yaml',
