@@ -26,7 +26,7 @@ stages:
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
-      - "Attribution Gate: before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
+      - "Attribution Gate: before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. When the inferencer is confident (top score 0.5 or more), apply the top choice through src/module-decisions/apply.ts (the only writer of module-map.yml) with no packet, and record it in the plan's reuse.consulted as auto-applied with its score, so the owner can see and change it in the spec question round. When it is not confident, keep planning with no-attribution as a provisional label and do not stop: the attribution packet (with its change set) is raised in the spec question round instead (attribution_pending: defer). A project whose policy sets attribution_pending: stop still stops and asks here."
       - "Design-system: if the change touches UI, plan against the design system. Identify tokens, components, and states involved. Flag additions that require extending docs/instructions/design-system/* before extending the code. Missing design-system contract degrades planning to bare-minimum mode (warn, not stop)."
       - "Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
       - "Reuse before you build: consult the Existing surface section (and `npx paqad-ai index query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / Extend / Build-new, and record a rejection rationale for every Build-new."
@@ -42,7 +42,7 @@ stages:
       require_rule_scripts_synced: true
     escalation:
       missing_docs_context: warn
-      attribution_pending: stop
+      attribution_pending: defer
       missing_design_system: warn
       rule_scripts_stale: ask
       rule_scripts_missing: warn
@@ -58,7 +58,7 @@ stages:
         - skill: module-attribution-inferencer
           when: extractor_returned_empty
           on_confident: continue
-          on_not_confident: ask
+          on_not_confident: defer
         - apply: src/module-decisions/apply.ts
           when: decision_accepted
 
@@ -68,7 +68,7 @@ stages:
       - "Design-system: if the feature includes new or changed UI, the spec must declare component states, breakpoints exercised, and the a11y contract (WCAG criteria the change must satisfy). This extends the spec-quality-review rubric — incomplete UI contracts surface as findings during review."
       - "Spec sign-off: on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently. require_spec_signoff is framework-owned and cannot be downgraded by a project override."
       - "Spec-review enforcement: SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the spec-quality review itself and refuses to freeze while a critical defect is open, so never run `compliance review` by hand to satisfy the clause above. Major and minor findings never block. The defect summary is folded into the bundle's specification.json and no .paqad/compliance/<slug>/spec-review.json is written by this workflow. Author the spec markdown inside the project: a path resolving outside the project root is rejected."
-      - "Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through `paqad-ai spec pipeline` (start, experts when enabled, questions, task, craft, finish) and freeze it with `paqad-ai spec freeze <spec.md> --from-pipeline`. The pipeline grounds the request in the project's own docs, brings in the domain experts the request needs, asks the owner one batch of plain-language questions only when something is genuinely undecided, and writes the spec in the format the freeze accepts. Under spec_pipeline_adoption=strict a hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and the record says pipeline.produced=false. The pipeline, its experts and strict adoption are on by default on the graduated and full lanes; a fast-lane change never runs the pipeline and freezes a hand-written spec."
+      - "Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through `paqad-ai spec pipeline` (start, experts when enabled, questions, task, craft, finish) and freeze it with `paqad-ai spec freeze <spec.md> --from-pipeline`. The pipeline grounds the request in the project's own docs, brings in the domain experts the request needs, asks the owner one batch of plain-language questions only when something is genuinely undecided, and writes the spec in the format the freeze accepts. Under spec_pipeline_adoption=strict a hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and the record says pipeline.produced=false. The pipeline, its experts and strict adoption are on by default on the graduated and full lanes; a fast-lane change never runs the pipeline and freezes a hand-written spec. At the questions step, run `paqad-ai spec pipeline round` and ask the owner every pending question for this change in one round: the expert disagreements the chief ruled pick, the enrichment, expert and chief questions, the deferred module-attribution question, the fix proof method and the visual-evidence readiness pause. When the round prints an opener (The experts agreed on N points after merging overlaps, with the merged claims in a details list), start with it. Show a module choice that was applied automatically as a choice already made that the owner can change. Ask up to 4 questions per call, back to back with nothing in between, and resolve each packet with `paqad-ai decision resolve`. Development starts only after every packet in the round is resolved."
       - "Visual evidence: SCRIPT-ENFORCED. When visual_evidence is on and the change touches frontend files, `paqad-ai spec freeze` refuses a spec with no acceptance criterion marked `(proof: visual)`. Name the criterion the screenshots prove."
     required_inputs:
       - approved spec boundary

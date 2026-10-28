@@ -51,7 +51,7 @@ Do **not** run this when the extractor already produced candidates — that path
    ```
    The wrapper shells out to `paqad-ai module-decisions infer --project-root <root> --prompt-file <tmp> [--max-choices N]`.
 3. Parse the emitted JSON. Fields: `choices[]` (sorted by `score` desc, with fallbacks last), `prompt_tokens`, `confident`.
-4. Surface a single Decision Pause packet to the user (one packet for the inferencer, not one-per-choice).
+4. If `confident` is true, apply the top choice with no packet (see Confidence Handling). Otherwise create a single Decision Pause packet (one packet for the inferencer, not one-per-choice) with its change set, and leave it for the spec question round.
 
 ## Decision Pause Packet Shape
 
@@ -66,15 +66,16 @@ Only an explicit `Extend` selection promotes a draft to `proposed → accepted`;
 
 ## Output Contract
 
-- Zero or one MD-XXXX YAML file written under `.paqad/decisions/module-decisions/<id>.yml` (only when the user picks `Extend "<name>"` or accepts the new-module fallback).
-- Exactly one Decision Pause packet surfaced per inferencer invocation.
+- When `confident` is true: auto-apply the top choice with no packet. Apply it through `src/module-decisions/apply.ts` and record it in the plan's `reuse.consulted` as auto-applied, with its score (for example `{ "source": "module-doc", "query": "module attribution: auto-applied extend <slug> (score 0.62)", "target": "docs/instructions/rules/module-map.yml", "hits": 1 }`). The spec question round shows it to the owner as a choice already made that they can change; it is not a blocking question.
+- When `confident` is false: zero or one MD-XXXX YAML file written under `.paqad/decisions/module-decisions/<id>.yml` (only when the owner picks `Extend "<name>"` or accepts the new-module fallback), and exactly one Decision Pause packet, created with its change set. Planning does not stop for it: it continues with `no-attribution` as a provisional label, and the packet is asked in the spec question round.
 - The selected option drives the state transition; only an explicit `Extend` answer promotes a draft to `accepted`.
 - `no-attribution` records nothing and returns control to planning.
+- A project whose policy sets `attribution_pending: stop` keeps the old behaviour: the packet is asked during planning and planning waits for it.
 
 ## Confidence Handling
 
-- `confident: true` (at least one existing-module choice scored ≥ 0.2) → present the packet normally.
-- `confident: false` → present the same packet but lead the question with `No existing module clearly matches — pick one of:` so the user knows the inferencer is uncertain. This avoids the agent silently picking a weak match (spec risk-mitigations table: "Attribution Gate gated by a new planning step that no-ops when the inferencer is confident").
+- `confident: true` (at least one existing-module choice scored 0.5 or more) → auto-apply the top choice, raise no packet, and record it as auto-applied with its score in `reuse.consulted`. A wrong choice made this way can be found later from the plan and changed by the owner in the spec question round.
+- `confident: false` → raise the packet (change set), lead the question with `No existing module clearly matches — pick one of:` so the owner knows the inferencer is uncertain, and carry on planning with `no-attribution` as a provisional label. The packet waits for the spec question round; planning never stops for it.
 
 ## Escalate / Stop Conditions
 

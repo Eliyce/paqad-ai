@@ -9,7 +9,6 @@ import { GithubIssuesTicketProvider, type GhInvoke } from '@/providers/index.js'
 
 import { classifyRef } from './intake.js';
 
-import { readContractDecisions } from '@/decisions/authoring.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
@@ -19,7 +18,10 @@ import {
   renderExpertBrief,
   rosterEntryFor,
 } from '@/spec-pipeline/experts/brief.js';
-import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
+import {
+  hasPendingExpertConflict,
+  mintExpertConflictDecisions,
+} from '@/spec-pipeline/experts/conflicts.js';
 import {
   fixProofMethodLine,
   raiseFixProofMethodDecision,
@@ -34,7 +36,11 @@ import {
   buildRunMetrics,
   listRunDirs,
 } from '@/spec-pipeline/metrics.js';
-import { applyRenames, validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import {
+  applyCompatibleRulings,
+  applyRenames,
+  validateExpertSynthesis,
+} from '@/spec-pipeline/experts/synthesis.js';
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
@@ -45,6 +51,7 @@ import {
   recordWritingRow,
 } from '@/spec-pipeline/high-table.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
+import { buildQuestionRound } from '@/spec-pipeline/round.js';
 import {
   assertCanRunStep,
   nextStep,
@@ -137,12 +144,6 @@ function resolveProjectVoice(projectRoot: string, dirName: string): string {
 
 function reportedTokens(content: string): unknown {
   return (JSON.parse(content) as { tokens?: unknown }).tokens;
-}
-
-function hasPendingExpertConflict(projectRoot: string): boolean {
-  return readContractDecisions(projectRoot).some(
-    ({ packet, status }) => status === 'pending' && packet.category === 'spec.expert_conflict',
-  );
 }
 
 async function resolveRequestText(options: {
@@ -274,6 +275,19 @@ export function createSpecPipelineCommand(): Command {
     });
 
   command
+    .command('round')
+    .description(
+      "List this change's pending questions to ask the owner in one round, with the opening line",
+    )
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((options: CommonOptions) => {
+      const resolved = resolveDir(options);
+      if (!resolved) return;
+      console.log(JSON.stringify(buildQuestionRound(options.projectRoot, resolved.dirName)));
+    });
+
+  command
     .command('ground')
     .description('S0 — assemble grounding from the docs (zero model tokens)')
     .option('--modules <list>', 'Comma-separated module slugs to scope grounding to')
@@ -361,7 +375,8 @@ export function createSpecPipelineCommand(): Command {
       const pipelineStep = step as PipelineStep;
       const gate = assertCanRunStep(options.projectRoot, resolved.dirName, pipelineStep, {
         hasPendingExpertConflict:
-          pipelineStep === 'questions' && hasPendingExpertConflict(options.projectRoot),
+          pipelineStep === 'questions' &&
+          hasPendingExpertConflict(options.projectRoot, resolved.dirName),
       });
       if (!gate.allowed) {
         console.error(gate.message);
@@ -908,22 +923,27 @@ function createExpertsCommand(): Command {
         check.artifact.conflicts,
         resolved.dirName,
       );
-      const synthesis =
-        autoResolved.length > 0
-          ? { ...check.artifact, auto_resolved: autoResolved }
-          : check.artifact;
+      const compatible = applyCompatibleRulings(
+        experts?.findings ?? [],
+        check.artifact.conflicts,
+        check.artifact.accepted,
+      );
+      const synthesis = {
+        ...check.artifact,
+        accepted: compatible.accepted,
+        ...(autoResolved.length > 0 ? { auto_resolved: autoResolved } : {}),
+      };
       let renamed = 0;
+      let findings = compatible.findings;
       if (synthesis.renames && synthesis.renames.length > 0 && experts?.findings) {
-        const updated = applyRenames(experts.findings, synthesis.renames);
+        const updated = applyRenames(findings, synthesis.renames);
         renamed = updated.filter(
-          (finding, index) => finding.target !== experts.findings![index]!.target,
+          (finding, index) => finding.target !== findings[index]!.target,
         ).length;
-        writeExpertFindings(
-          options.projectRoot,
-          resolved.dirName,
-          updated as typeof experts.findings,
-          resolved.store,
-        );
+        findings = updated as typeof findings;
+      }
+      if (experts?.findings && (renamed > 0 || compatible.merged > 0)) {
+        writeExpertFindings(options.projectRoot, resolved.dirName, findings, resolved.store);
       }
       writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis, resolved.store);
       recordHighTable('done', () =>
@@ -937,7 +957,7 @@ function createExpertsCommand(): Command {
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
       const proofMethod = raiseFixProofMethodDecision(options.projectRoot, resolved.dirName);
       if (proofMethod?.raised) {
-        console.warn(fixProofMethodLine(proofMethod.id));
+        console.warn(fixProofMethodLine(proofMethod.id, { deferred: true }));
       }
       console.log(
         JSON.stringify({
@@ -946,6 +966,7 @@ function createExpertsCommand(): Command {
           accepted: synthesis.accepted.length,
           declined: synthesis.declined.length,
           conflicts_pending: minted.length,
+          compatible: compatible.merged,
           auto_resolved: autoResolved.length,
           gaps: synthesis.gaps.length,
           renamed,

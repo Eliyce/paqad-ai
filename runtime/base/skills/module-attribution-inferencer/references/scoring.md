@@ -30,7 +30,7 @@ appearing inside an unrelated module's source path.
 weighted_matches / max(1, prompt_token_count)
 ```
 
-Capped at 1.0. The default confidence floor is 0.2.
+Capped at 1.0. The default confidence floor is 0.5.
 
 ## Fallback choices
 

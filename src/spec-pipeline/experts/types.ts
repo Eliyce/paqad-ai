@@ -27,6 +27,7 @@ export interface ExpertFinding {
   severity?: FindingSeverity;
   evidence?: string;
   renamed_from?: string;
+  merged_from?: string[];
 }
 
 export interface ExpertNote {
@@ -40,6 +41,7 @@ export interface ExpertConflict {
   roles: AgentRole[];
   claims: string[];
   finding_ids: string[];
+  severities?: (FindingSeverity | null)[];
 }
 
 export interface MergedExpertNotes {

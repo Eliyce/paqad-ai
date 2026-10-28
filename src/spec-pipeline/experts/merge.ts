@@ -4,6 +4,8 @@ import type {
   ExpertConflict,
   ExpertFinding,
   ExpertNote,
+  FindingKind,
+  FindingSeverity,
   MergedExpertNotes,
   VoiceWarning,
 } from './types.js';
@@ -33,7 +35,7 @@ export function mergeExpertNotes(
   const findings: ExpertFinding[] = [];
   const conflicts: ExpertConflict[] = [];
   for (const key of order) {
-    const group = byTarget.get(key)!;
+    const group = collapseSameRole(byTarget.get(key)!);
     const distinctClaims = [...new Set(group.map((entry) => normalize(entry.finding.claim)))];
     if (distinctClaims.length <= 1) {
       findings.push(group[0]!.finding);
@@ -44,6 +46,9 @@ export function mergeExpertNotes(
       roles: group.map((entry) => entry.role),
       claims: group.map((entry) => entry.finding.claim),
       finding_ids: group.map((entry) => entry.finding.id ?? ''),
+      ...(group.some((entry) => entry.finding.severity !== undefined)
+        ? { severities: group.map((entry) => entry.finding.severity ?? null) }
+        : {}),
     });
   }
 
@@ -52,6 +57,55 @@ export function mergeExpertNotes(
     conflicts,
     ...(voiceWarnings.length > 0 ? { voice_warnings: [...voiceWarnings] } : {}),
   };
+}
+
+function collapseSameRole(group: readonly AttributedFinding[]): AttributedFinding[] {
+  const byRole = new Map<AgentRole, AttributedFinding[]>();
+  for (const entry of group) {
+    const list = byRole.get(entry.role);
+    if (list) list.push(entry);
+    else byRole.set(entry.role, [entry]);
+  }
+  return [...byRole.values()].map((entries) => {
+    if (entries.length === 1) return entries[0]!;
+    let kept = entries[0]!;
+    for (const entry of entries.slice(1)) {
+      if (entry.finding.claim.trim().length > kept.finding.claim.trim().length) kept = entry;
+    }
+    const mergedFrom = entries
+      .flatMap((entry) => [entry.finding.id, ...(entry.finding.merged_from ?? [])])
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const findings = entries.map((entry) => entry.finding);
+    const severity = strongestSeverity(findings);
+    const kind = mergedKind(findings);
+    return {
+      role: kept.role,
+      finding: {
+        ...kept.finding,
+        ...(severity ? { severity } : {}),
+        ...(kind ? { kind } : {}),
+        merged_from: [...new Set(mergedFrom)],
+      },
+    };
+  });
+}
+
+const SEVERITY_RANK: Record<FindingSeverity, number> = { must: 3, should: 2, could: 1 };
+
+export function strongestSeverity(findings: readonly ExpertFinding[]): FindingSeverity | undefined {
+  let best: FindingSeverity | undefined;
+  for (const finding of findings) {
+    if (finding.severity === undefined) continue;
+    if (best === undefined || SEVERITY_RANK[finding.severity] > SEVERITY_RANK[best]) {
+      best = finding.severity;
+    }
+  }
+  return best;
+}
+
+export function mergedKind(findings: readonly ExpertFinding[]): FindingKind | undefined {
+  if (findings.some((finding) => finding.kind === 'invariant')) return 'invariant';
+  return findings.find((finding) => finding.kind !== undefined)?.kind;
 }
 
 function normalize(text: string): string {

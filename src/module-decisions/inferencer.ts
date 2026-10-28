@@ -144,7 +144,7 @@ function scoreModule(
 
 export function inferAttribution(opts: InferencerOptions): InferenceResult {
   const maxChoices = opts.maxChoices ?? 3;
-  const scoreFloor = opts.scoreFloor ?? 0.2;
+  const scoreFloor = opts.scoreFloor ?? 0.5;
   const promptTokens = uniq(tokenize(opts.prompt));
   const promptSet = new Set(promptTokens);
 

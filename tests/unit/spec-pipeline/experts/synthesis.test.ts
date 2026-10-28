@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  applyCompatibleRulings,
   applyRenames,
   isSynthesisShaped,
   validateExpertSynthesis,
@@ -405,5 +406,205 @@ describe('validateExpertSynthesis edge branches', () => {
         noConf,
       ).error,
     ).toMatch(/non-empty why_it_matters/);
+  });
+});
+
+describe('compatible and pick rulings', () => {
+  const securityMerged: MergedExpertNotes = {
+    findings: [],
+    conflicts: [
+      {
+        target: 'tokens',
+        roles: ['security-auditor', 'performance-analyst'],
+        claims: ['rotate tokens hourly', 'cache tokens'],
+        finding_ids: ['EX-security-auditor-1', 'EX-performance-analyst-1'],
+        severities: ['must', 'should'],
+      },
+    ],
+  };
+
+  function base(conflicts: unknown[], m: MergedExpertNotes = merged): unknown {
+    return {
+      verdict: 'ready',
+      accepted: m.findings.map((finding) => finding.id),
+      declined: [],
+      conflicts,
+      gaps: [],
+      questions: [],
+    };
+  }
+
+  it('AC-3: refuses a compatible ruling with an empty or missing merged_claim', () => {
+    for (const merged_claim of [undefined, '', '   ']) {
+      const result = validateExpertSynthesis(
+        base([{ target: 'orders', ruling: 'compatible', merged_claim, rationale: 'both hold' }]),
+        merged,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toBe(
+        'conflicts[0] is ruled compatible and needs a non-empty merged_claim',
+      );
+      expect(result.error).not.toContain('\n');
+    }
+  });
+
+  it('AC-3: refuses an unknown ruling value', () => {
+    const result = validateExpertSynthesis(
+      base([
+        { target: 'orders', ruling: 'merge', recommendation: 'keep normalised', rationale: 'x' },
+      ]),
+      merged,
+    );
+    expect(result.error).toBe('conflicts[0] ruling must be one of pick | compatible');
+  });
+
+  it('AC-3: refuses a pick whose recommendation is not a verbatim claim', () => {
+    const result = validateExpertSynthesis(
+      base([
+        { target: 'orders', ruling: 'pick', recommendation: 'something else', rationale: 'x' },
+      ]),
+      merged,
+    );
+    expect(result.error).toBe(
+      'conflicts[0] recommendation must be one of the conflicting claims verbatim',
+    );
+  });
+
+  it('AC-3: refuses a merge conflict that has no ruling entry', () => {
+    const result = validateExpertSynthesis(base([]), merged);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('resolve each exactly once');
+    expect(result.error).not.toContain('\n');
+  });
+
+  it('AC-4: a synthesis written before rulings existed still validates and reads as pick', () => {
+    const result = validateExpertSynthesis(validSynthesis(), merged);
+    expect(result.ok).toBe(true);
+    expect(result.artifact?.conflicts).toEqual([
+      {
+        target: 'orders',
+        ruling: 'pick',
+        recommendation: 'denormalise for reads',
+        rationale: 'reads dominate',
+      },
+    ]);
+  });
+
+  it('AC-6: a compatible ruling validates and keeps the original claims and finding ids', () => {
+    const result = validateExpertSynthesis(
+      base([
+        {
+          target: 'orders',
+          ruling: 'compatible',
+          merged_claim: 'denormalise the read model and keep the write model normalised',
+          rationale: 'both hold at once',
+        },
+      ]),
+      merged,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.artifact?.conflicts).toEqual([
+      {
+        target: 'orders',
+        ruling: 'compatible',
+        merged_claim: 'denormalise the read model and keep the write model normalised',
+        rationale: 'both hold at once',
+        claims: ['denormalise for reads', 'keep normalised'],
+        finding_ids: ['EX-db-expert-2', 'EX-data-modeler-1'],
+      },
+    ]);
+  });
+
+  it('AC-7: refuses a compatible ruling on a conflict with a must-level security-auditor finding', () => {
+    const compatible = validateExpertSynthesis(
+      base(
+        [
+          {
+            target: 'tokens',
+            ruling: 'compatible',
+            merged_claim: 'rotate and cache',
+            rationale: 'x',
+          },
+        ],
+        securityMerged,
+      ),
+      securityMerged,
+    );
+    expect(compatible.ok).toBe(false);
+    expect(compatible.error).toContain('must-level security-auditor finding');
+
+    const pick = validateExpertSynthesis(
+      base(
+        [
+          {
+            target: 'tokens',
+            ruling: 'pick',
+            recommendation: 'rotate tokens hourly',
+            rationale: 'x',
+          },
+        ],
+        securityMerged,
+      ),
+      securityMerged,
+    );
+    expect(pick.ok).toBe(true);
+  });
+
+  it('AC-6 / AC-8: applyCompatibleRulings writes one merged finding with the strongest severity and invariant kind', () => {
+    const findings = [
+      {
+        id: 'EX-db-expert-2',
+        role: 'db-expert' as const,
+        target: 'orders',
+        claim: 'denormalise for reads',
+        kind: 'requirement' as const,
+        severity: 'should' as const,
+      },
+      {
+        id: 'EX-data-modeler-1',
+        role: 'data-modeler' as const,
+        target: 'orders',
+        claim: 'keep normalised',
+        kind: 'invariant' as const,
+        severity: 'must' as const,
+      },
+    ];
+    const result = applyCompatibleRulings(
+      findings,
+      [
+        {
+          target: 'orders',
+          ruling: 'compatible',
+          merged_claim: 'denormalise reads, keep writes normalised',
+          rationale: 'both hold',
+          claims: ['denormalise for reads', 'keep normalised'],
+          finding_ids: ['EX-db-expert-2', 'EX-data-modeler-1'],
+        },
+      ],
+      ['EX-db-expert-1'],
+    );
+    expect(result.merged).toBe(1);
+    expect(result.accepted).toEqual(['EX-db-expert-1', 'EX-db-expert-2']);
+    expect(result.findings).toHaveLength(2);
+    expect(result.findings[0]).toEqual({
+      id: 'EX-db-expert-2',
+      role: 'db-expert',
+      target: 'orders',
+      claim: 'denormalise reads, keep writes normalised',
+      kind: 'invariant',
+      severity: 'must',
+      merged_from: ['EX-db-expert-2', 'EX-data-modeler-1'],
+    });
+    expect(result.findings[1]).toEqual(findings[1]);
+  });
+
+  it('applyCompatibleRulings leaves pick rulings alone', () => {
+    const findings = [{ id: 'EX-db-expert-2', target: 'orders', claim: 'a' }];
+    const result = applyCompatibleRulings(
+      findings,
+      [{ target: 'orders', ruling: 'pick', recommendation: 'a', rationale: 'x' }],
+      [],
+    );
+    expect(result).toEqual({ findings, accepted: [], merged: 0 });
   });
 });

@@ -12,7 +12,10 @@ derivation: agent
 steps:
   - surface: node-cli-plan
     action: Run `paqad-ai plan compile` to record the plan (with its reuse section).
-    expect: A plan.json artifact minted into the feature bundle.
+    expect: A plan.json artifact minted into the feature bundle. Planning does not stop to ask the owner; questions it raises wait for the spec question round.
+  - surface: node-cli-spec
+    action: At the spec questions step, run `paqad-ai spec pipeline round` and ask the owner every pending question for the change in one round.
+    expect: The owner answers once per change, up to 4 questions at a time; each answer is resolved with `paqad-ai decision resolve` before development starts.
   - surface: node-cli-spec
     action: Run `paqad-ai spec freeze` to freeze the specification.
     expect: A specification.json artifact with confirmed invariants.

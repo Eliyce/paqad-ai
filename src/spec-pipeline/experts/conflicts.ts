@@ -7,7 +7,11 @@ import {
 } from '@/decisions/authoring.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 
-import type { SynthesisAutoResolved, SynthesisConflict } from './synthesis.js';
+import {
+  isCompatibleRuling,
+  type SynthesisAutoResolved,
+  type SynthesisConflict,
+} from './synthesis.js';
 import type { ExpertConflict, MergedExpertNotes } from './types.js';
 
 const CATEGORY = 'spec.expert_conflict';
@@ -44,13 +48,21 @@ function optionKeyFor(claim: string, used: Set<string>): string {
   return key;
 }
 
+export function hasPendingExpertConflict(projectRoot: string, dirName: string): boolean {
+  const change = featureChangeKey(dirName);
+  return readContractDecisions(projectRoot).some(({ packet, status }) => {
+    if (status !== 'pending' || packet.category !== CATEGORY) return false;
+    return !packet.change || packet.change === change;
+  });
+}
+
 export function mintExpertConflictDecisions(
   projectRoot: string,
   merged: MergedExpertNotes,
   synthesisConflicts: readonly SynthesisConflict[],
   dirName: string | null = null,
 ): ConflictMintResult {
-  const resolvedForks = collectResolvedForks(projectRoot);
+  const knownForks = collectKnownForks(projectRoot);
   const recommendationByTarget = new Map(
     synthesisConflicts.map((conflict) => [normalize(conflict.target), conflict]),
   );
@@ -58,13 +70,15 @@ export function mintExpertConflictDecisions(
   const autoResolved: SynthesisAutoResolved[] = [];
 
   for (const conflict of merged.conflicts) {
+    const chief = recommendationByTarget.get(normalize(conflict.target));
+    if (chief && isCompatibleRuling(chief)) continue;
     const token = forkToken(conflict.target, conflict.claims);
-    const prior = resolvedForks.get(token);
+    const prior = knownForks.get(token);
+    if (prior?.status === 'pending') continue;
     if (prior) {
       autoResolved.push({ target: conflict.target, chosen: prior.chosen, source: prior.id });
       continue;
     }
-    const chief = recommendationByTarget.get(normalize(conflict.target));
     const { options, recommendation } = buildOptions(conflict, chief?.recommendation);
     const context = buildContext(conflict, chief?.rationale, token);
     const { id } = createPendingDecision(projectRoot, {
@@ -82,21 +96,27 @@ export function mintExpertConflictDecisions(
   return { minted, autoResolved };
 }
 
-interface ResolvedFork {
-  id: string;
-  chosen: string;
-}
+type KnownFork =
+  { status: 'pending'; id: string } | { status: 'resolved'; id: string; chosen: string };
 
-function collectResolvedForks(projectRoot: string): Map<string, ResolvedFork> {
-  const forks = new Map<string, ResolvedFork>();
+function collectKnownForks(projectRoot: string): Map<string, KnownFork> {
+  const forks = new Map<string, KnownFork>();
   for (const { packet, status } of readContractDecisions(projectRoot)) {
-    if (status !== 'resolved' || packet.category !== CATEGORY) continue;
-    const resolved = packet as typeof packet & { chosen?: string };
+    if (packet.category !== CATEGORY) continue;
     const match = /\[expert-conflict-fork:[0-9a-f]{16}\]/.exec(packet.context);
-    if (!match || typeof resolved.chosen !== 'string') continue;
+    if (!match) continue;
+    if (status === 'pending') {
+      if (!forks.has(match[0])) forks.set(match[0], { status: 'pending', id: packet.id });
+      continue;
+    }
+    if (status !== 'resolved') continue;
+    const resolved = packet as typeof packet & { chosen?: string };
+    if (typeof resolved.chosen !== 'string') continue;
     const chosenOption = packet.options.find((option) => option.option_key === resolved.chosen);
     if (!chosenOption) continue;
-    if (!forks.has(match[0])) forks.set(match[0], { id: packet.id, chosen: chosenOption.label });
+    if (forks.get(match[0])?.status !== 'resolved') {
+      forks.set(match[0], { status: 'resolved', id: packet.id, chosen: chosenOption.label });
+    }
   }
   return forks;
 }

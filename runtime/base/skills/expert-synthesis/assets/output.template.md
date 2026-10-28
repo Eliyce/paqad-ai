@@ -12,8 +12,15 @@ Return exactly this JSON shape:
   "conflicts": [
     {
       "target": "orders",
+      "ruling": "pick",
       "recommendation": "generate the file in a background job and email a link",
       "rationale": "a bulk export on a large table is too slow to stream in the request path"
+    },
+    {
+      "target": "export file name",
+      "ruling": "compatible",
+      "merged_claim": "name the file after the account and the date range, and never include the customer email",
+      "rationale": "one expert asked for a readable name and the other for no personal data; both hold at once"
     }
   ],
   "gaps": [
@@ -36,6 +43,6 @@ Return exactly this JSON shape:
 
 - `verdict`: `ready | needs-answers | not-ready`.
 - Every merged finding id appears once across `accepted` and `declined`.
-- Each merge conflict gets one row; `recommendation` is one of its claims verbatim.
+- Each merge conflict gets one row with a `ruling`. Rule `compatible` with a non-empty `merged_claim` when the claims can all be true at once; rule `pick` with a `recommendation` that is one of its claims verbatim only when following one claim means not following another. Never pick between claims that agree.
 - A gap's `question` is optional.
 - `renames` is optional: for each voice warning, rename the finding's target to the project's word, or leave it out when the word stands. Every `id` must be one the merge knows.

@@ -1,0 +1,3297 @@
+version: 2
+generatedAt: 2026-06-13
+confidence: high
+notes: |
+  paqad-ai is a documentation-first npm package that helps LLM coding agents
+  (Claude Code, Codex, Cursor, Copilot, etc.) work effectively in any project.
+  It ships two product surfaces:
+
+    1. cli-commands       — what a human runs in the terminal. No LLM in loop.
+                            Scaffolds project metadata, docs, rules, adapter
+                            entry files, RAG indexes, graphs, etc.
+    2. agent-workflows    — what an LLM does when it loads the adapter entry
+                            file (CLAUDE.md / AGENTS.md / .cursor/rules/…) and
+                            follows the runtime rules, skills, and agent roles
+                            shipped inside this package.
+
+  Plus a third grouping:
+    3. framework-internals — engines and runtime assets that power both
+                             surfaces (workflow engine, skill runtime, RAG,
+                             context intelligence, agent roles, packs, etc.).
+                             These docs are written for paqad-ai contributors,
+                             not end users.
+
+  Every module's `layer:` field marks which group it belongs to. Stage 2
+  (`create module documentation`) will use this file as the sole authority
+  for slugs, feature names, and source paths.
+
+modules:
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 1 — cli-commands (non-AI surface, user runs these directly)
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: cli-lifecycle
+    name: Project Lifecycle Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      The day-one and day-N commands that bootstrap, refresh, and upgrade
+      a project's framework footprint without re-running full onboarding.
+    sources:
+      - src/cli/commands/install.ts
+      - src/cli/commands/join.ts
+      - src/cli/commands/onboard.ts
+      - src/cli/commands/refresh.ts
+      - src/cli/commands/update.ts
+      - src/cli/commands/managed-settings.ts
+      - src/cli/commands/hook.ts
+    features:
+      - slug: install
+        name: paqad-ai install
+        sources: [src/cli/commands/install.ts, src/install]
+      - slug: onboard
+        name: paqad-ai onboard
+        sources: [src/cli/commands/onboard.ts, src/onboarding]
+      - slug: join
+        name: paqad-ai join
+        sources: [src/cli/commands/join.ts]
+      - slug: refresh
+        name: paqad-ai refresh
+        sources: [src/cli/commands/refresh.ts]
+      - slug: update
+        name: paqad-ai update
+        sources: [src/cli/commands/update.ts, src/update]
+      - slug: managed-settings
+        name: paqad-ai managed-settings and paqad-ai hook (organization rollout)
+        sources: [src/cli/commands/managed-settings.ts, src/cli/commands/hook.ts]
+    evidence:
+      symbols:
+        - BootstrapOptions
+        - ConsumerCompatibility
+        - DecisionIdMigration
+        - EngineVersionReport
+        - EntryStub
+        - EntryStubWireResult
+        - FrameworkUpdater
+        - FrameworkUpdaterOptions
+        - InstallResult
+        - JOIN_NOT_ONBOARDED_MESSAGE
+        - JOIN_RAG_BUILDING_MESSAGE
+        - JOIN_RAG_OFF_MESSAGE
+        - JOIN_RAG_PRESENT_MESSAGE
+        - JOIN_READY_MESSAGE
+        - JoinProjectOptions
+        - MANAGED_HEADER
+        - MIN_CONSUMER_VERSION
+        - ModuleFeatureEntry
+        - ModuleMap
+        - ModuleMapEntry
+        - OnboardingOptions
+        - OnboardingOrchestrator
+        - OnboardingSelections
+        - RagSelection
+        - RulesRefreshReport
+        - UpdateCandidate
+        - UpdateDiff
+        - UpdateReport
+        - VERSION_UNKNOWN
+        - appendAuditLog
+        - appendAuditLogFailure
+        - applyRagSelection
+        - bootstrapFramework
+        - buildAgentBootstrapDocument
+        - buildDecisionPauseContractBody
+        - buildDecisionPauseContractDocument
+        - buildNarrationContractBody
+        - buildNarrationContractDocument
+        - compareConsumerCompatibility
+        - createInstallCommand
+        - createJoinCommand
+        - createOnboardCommand
+        - createRefreshCommand
+        - createUpdateCommand
+        - deleteOnboardingCheckpoint
+        - deriveRecordedProviders
+        - discoverBusinessModules
+        - discoverModules
+        - enableRagDuringOnboarding
+        - generateDeliveryPolicy
+        - generateDocumentationScaffold
+        - generateFeatureDevelopmentPolicy
+        - generateInitialRegistries
+        - generateModuleMapYaml
+        - generateModuleScaffold
+        - generateProjectRules
+        - generateReferenceGuides
+        - getEngineVersionReport
+        - getStackPromptChoices
+        - joinProject
+        - loadModuleMap
+        - migrateLegacyDecisionIds
+        - normalizeEngineVersion
+        - readOnboardingCheckpoint
+        - refreshProjectRules
+        - removeObsoleteContractDocs
+        - renderStackConfirmationSummary
+        - resolveRagSelection
+        - resolveSelections
+        - serializeModuleMap
+        - wireEntryStubs
+        - writeGitignore
+        - writeModuleMap
+        - writeOnboardingCheckpoint
+
+  - slug: cli-health
+    name: Health & Diagnostics Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Validate that the framework's generated artifacts, copied instructions,
+      docs, and module ledger are intact and current, and list the MCP servers recommended for the stack.
+    sources:
+      - src/cli/commands/doctor.ts
+      - src/cli/commands/module-health.ts
+    features:
+      - slug: doctor
+        name: paqad-ai doctor
+        sources: [src/cli/commands/doctor.ts]
+      - slug: module-health
+        name: paqad-ai module-health
+        sources: [src/cli/commands/module-health.ts, src/module-health]
+    evidence:
+      symbols:
+        - CoverageFormat
+        - CoverageRow
+        - DEFAULT_GIT_WINDOW_DAYS
+        - ModuleRollup
+        - ParsedReport
+        - Parser
+        - RollupBlocked
+        - RollupOptions
+        - RollupReport
+        - TestRow
+        - assignToModule
+        - createDoctorCommand
+        - createModuleHealthCommand
+        - getParser
+        - listSupportedFormats
+        - parseReport
+        - rollupModuleHealth
+
+  - slug: cli-rag
+    name: RAG Index Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Build, inspect, clear, and benchmark the optional hybrid RAG vector
+      index that augments agent retrieval.
+    sources:
+      - src/cli/commands/rag.ts
+    features:
+      - slug: rag-init
+        name: rag init
+        sources: [src/cli/commands/rag.ts]
+      - slug: rag-rebuild
+        name: rag rebuild
+      - slug: rag-status
+        name: rag status
+      - slug: rag-clear
+        name: rag clear
+      - slug: rag-eval
+        name: rag eval
+    evidence:
+      symbols:
+        - InitializeRagIndexOptions
+        - createRagCommand
+        - initializeRagIndex
+
+  - slug: cli-graph
+    name: Project Graph Command
+    layer: cli-commands
+    confidence: high
+    summary: |
+      One-command WebGL map of modules, files, chunks, symbols, imports, and
+      similarity neighbours. Server, frontend, and layout worker all ship
+      inside the package.
+    sources:
+      - src/cli/commands/graph.ts
+      - src/graph
+      - graph-ui
+    features:
+      - slug: graph-server
+        name: Graph Server
+        sources: [src/cli/commands/graph.ts, src/graph]
+      - slug: graph-ui
+        name: Graph UI (React 19 + Vite SPA)
+        sources: [graph-ui]
+      - slug: similarity-overlay
+        name: Similarity & Intelligence Overlays
+        sources: [src/graph]
+    evidence:
+      symbols:
+        - ActivityByModule
+        - AiBomResponse
+        - App
+        - AppState
+        - ApprovalsFeed
+        - ApprovalsPauseItem
+        - ApprovalsPauseOption
+        - ApprovalsProposalItem
+        - AttentionItem
+        - AuditFeedEntry
+        - AuditFeedPage
+        - CHUNK_PREVIEW_CLIP_CHARS
+        - ChunkContentRecord
+        - ChunkContentResponse
+        - ComplianceCitation
+        - DashboardArea
+        - DashboardPack
+        - DashboardReport
+        - DeliveryPolicyConfigResponse
+        - DeliveryPolicyIssue
+        - DeliveryPolicyView
+        - DeliverySectionKey
+        - DesignTokensConfigResponse
+        - DesignTokensView
+        - DisclosureMode
+        - EvidenceFeed
+        - EvidenceRow
+        - ExtractOptions
+        - Graph
+        - GraphEdge
+        - GraphEdgeAttributes
+        - GraphEdgeType
+        - GraphExtraction
+        - GraphMeta
+        - GraphMetaCounts
+        - GraphNode
+        - GraphNodeAttributes
+        - GraphNodeType
+        - GraphOverlaysAvailable
+        - GraphRoutes
+        - GraphView
+        - ImportEdgeResolved
+        - ImportScannerOptions
+        - InstallPackResult
+        - InstructionsFileResponse
+        - InstructionsTreeNode
+        - InstructionsTreeResponse
+        - InstructionsView
+        - InventoryClass
+        - InventoryItem
+        - InventoryItemState
+        - InventoryOwner
+        - InventoryReport
+        - KnowledgeRagPanel
+        - LayerVisibility
+        - LayoutRequest
+        - LayoutResponse
+        - LegendStop
+        - MaintenanceMode
+        - ManagedFileInfo
+        - ModuleActivity
+        - ModuleHealthTier
+        - ModuleMapConfigResponse
+        - ModuleMapDrift
+        - ModuleMapDriftFinding
+        - ModuleMapFeature
+        - ModuleMapModule
+        - ModuleMapView
+        - MutationOutcome
+        - NeighbourIndex
+        - NodeDetail
+        - OnboardingChecklist
+        - OnboardingChecklistStep
+        - OpenBrowserOptions
+        - OpenBrowserResult
+        - OpsAction
+        - OpsJob
+        - OpsProgressEvent
+        - OverlayKind
+        - OverlayMetrics
+        - PackSource
+        - ProfileConfigResponse
+        - PutDeliveryPolicyOutcome
+        - PutDesignTokensResult
+        - PutManagedFileResult
+        - PutModuleMapResult
+        - PutProfileResult
+        - PutRagResult
+        - RagConfigResponse
+        - RagStatus
+        - ReceiptCard
+        - ReceiptCheck
+        - ReceiptFeed
+        - RemovePackResult
+        - ResolvedDeliveryBranch
+        - ResolvedDeliveryCi
+        - ResolvedDeliveryCommit
+        - ResolvedDeliveryHost
+        - ResolvedDeliveryIntakeDecisions
+        - ResolvedDeliveryPolicy
+        - ResolvedDeliveryPr
+        - ResolvedDeliveryProcess
+        - ResolvedDeliveryTicket
+        - Route
+        - RunningWatcher
+        - SavedView
+        - SavedViewArea
+        - ScoreBand
+        - SearchState
+        - SectionData
+        - SectionMetric
+        - SetCapabilityResult
+        - SetupView
+        - SimilarityRequest
+        - SimilarityRequestScope
+        - SimilarityResolver
+        - SimilarityResolverOptions
+        - SimilarityResponse
+        - SimilarityState
+        - ThemeMode
+        - ValidationIssue
+        - WatcherOptions
+        - actOnModuleProposal
+        - applyTheme
+        - buildNeighbourIndex
+        - buildNodeDetail
+        - colorForNodeWithOverlay
+        - computeActivity
+        - computeOverlayMetrics
+        - createGraphCommand
+        - createGraphRoutes
+        - deleteSavedView
+        - extractGraph
+        - extractGraphWithSidecar
+        - extractImportSpecifiers
+        - fetchAiBom
+        - fetchApprovals
+        - fetchAudit
+        - fetchChunkContent
+        - fetchDashboard
+        - fetchDeliveryPolicyConfig
+        - fetchDesignTokensConfig
+        - fetchEvidence
+        - fetchEvidencePacketMarkdown
+        - fetchGraph
+        - fetchInstructionsFile
+        - fetchInstructionsTree
+        - fetchInventory
+        - fetchModuleMapConfig
+        - fetchNodeDetail
+        - fetchOnboardingChecklist
+        - fetchOps
+        - fetchOpsJob
+        - fetchPacks
+        - fetchPrComment
+        - fetchProfileConfig
+        - fetchRagConfig
+        - fetchReceipts
+        - fetchSavedViews
+        - fetchSimilar
+        - getThemeMode
+        - initTheme
+        - installPack
+        - isRecent
+        - legendForOverlay
+        - openBrowser
+        - putDeliveryPolicy
+        - putDesignTokens
+        - putInstructionsFile
+        - putModuleMap
+        - putProfile
+        - putRagConfig
+        - putSavedView
+        - removePack
+        - resolvePause
+        - scanImports
+        - setCapability
+        - setThemeMode
+        - shouldSkipBrowser
+        - startOp
+        - startPaqadWatcher
+        - useAppStore
+        - useHashRoute
+
+  - slug: cli-dashboard
+    name: Project Dashboard & Status Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Living single-pane "where am I on this project?" view (paqad-ai
+      dashboard) plus the one-shot LLM-friendly snapshot of the same data
+      (paqad-ai status). Score is existence + freshness only — no
+      content-quality heuristics in phase 1. Shares the graph-ui bundle
+      via a hash router so the graph view becomes one section inside the
+      dashboard. It also serves the approvals inbox (resolve decision
+      pauses and module proposals on the web through the same stores the
+      agent uses), the read-only trust area (evidence timeline, DSSE
+      receipt cards, AI-BOM, PR-comment export), the seven-area management
+      IA (Pulse, Approvals, Trust, Build, Automation, Knowledge, Setup)
+      with the comprehension layer (ownership badges, why sentences, why
+      drawers, empty states), and the audited write pipeline behind the
+      web editors.
+    sources:
+      - src/cli/commands/dashboard.ts
+      - src/cli/commands/status.ts
+      - src/dashboard
+      - graph-ui/src/views/DashboardView.tsx
+      - graph-ui/src/views/ApprovalsView.tsx
+      - graph-ui/src/views/TrustView.tsx
+      - graph-ui/src/components/SectionCard.tsx
+      - graph-ui/src/components/ScoreBadge.tsx
+      - graph-ui/src/components/SummaryBand.tsx
+      - graph-ui/src/components/DashboardChrome.tsx
+      - graph-ui/src/components/HelperPopover.tsx
+    features:
+      - slug: dashboard-server
+        name: Dashboard HTTP + SSE Server
+        sources: [src/dashboard/server.ts]
+      - slug: status-printer
+        name: Status (JSON / Markdown) Printer
+        sources: [src/cli/commands/status.ts, src/dashboard/markdown.ts]
+      - slug: dashboard-collectors
+        name: Section Collectors (13 sections)
+        sources: [src/dashboard/collectors]
+      - slug: dashboard-scoring
+        name: Scoring Primitives (freshness, presence, band)
+        sources: [src/dashboard/scoring]
+      - slug: dashboard-report
+        name: Report Builder (single source of truth)
+        sources: [src/dashboard/report.ts, src/dashboard/types.ts]
+      - slug: dashboard-ui
+        name: Dashboard View + Section Components
+        sources: [graph-ui/src/views/DashboardView.tsx, graph-ui/src/components]
+      - slug: dashboard-approvals
+        name: Approvals Inbox (feed + resolve/accept/reject write paths)
+        sources: [src/dashboard/approvals.ts, graph-ui/src/views/ApprovalsView.tsx]
+      - slug: dashboard-trust
+        name: Trust Area (evidence, receipts, AI-BOM — view and export only)
+        sources: [src/dashboard/trust.ts, graph-ui/src/views/TrustView.tsx]
+      - slug: dashboard-inventory
+        name: Functionality Inventory (web / prompt / evidence classification)
+        sources: [src/dashboard/inventory.ts]
+      - slug: dashboard-ia
+        name: Seven-Area IA + Comprehension Layer (Pulse, areas, badges, drawers)
+        sources: [graph-ui/src/views/PulseView.tsx, graph-ui/src/views/AreaView.tsx, graph-ui/src/lib/copy.ts]
+      - slug: dashboard-write-pipeline
+        name: Audited Write Pipeline (allowlist, hash guard, atomic write, audit)
+        sources: [src/dashboard/write-pipeline.ts]
+      - slug: dashboard-config-editors
+        name: Config Editors (delivery policy first; instructions file store)
+        sources: [src/dashboard/config-delivery-policy.ts, src/dashboard/instructions-files.ts]
+    evidence:
+      symbols:
+        - ApprovalConflictError
+        - ApprovalNotFoundError
+        - ApprovalsFeed
+        - ApprovalsPauseItem
+        - ApprovalsProposalItem
+        - ApprovalsView
+        - AreaView
+        - AttentionItem
+        - AttestationResult
+        - AuditFeedEntry
+        - AuditFeedOptions
+        - AuditFeedPage
+        - BuildReportOptions
+        - ChecklistStep
+        - CodeEditor
+        - CodeEditorLang
+        - CodebaseHealthResult
+        - CommandPalette
+        - ConflictPanel
+        - DASHBOARD_ACTOR
+        - DASHBOARD_SECTION_IDS
+        - DEFAULT_FRESH_WINDOW_DAYS
+        - DEFAULT_STALE_CLIFF_DAYS
+        - DashboardArea
+        - DashboardChrome
+        - DashboardPack
+        - DashboardReport
+        - DashboardSectionId
+        - DashboardServerOptions
+        - DashboardView
+        - DecisionsResult
+        - DeleteSavedViewResult
+        - DeliveryPolicyConfig
+        - DeliveryPolicyValidationError
+        - DesignTokensConfig
+        - DesignTokensValidationError
+        - DetailPanel
+        - DocsAreaSpec
+        - DriftSignals
+        - EmptyState
+        - EvidenceFeed
+        - EvidenceFeedQuery
+        - EvidencePacket
+        - FrameworkVersionSection
+        - FreshnessOptions
+        - GraphCanvas
+        - HEALTH_STATE
+        - HealthHeadline
+        - HelperPopover
+        - INSTRUCTIONS_AREA_IDS
+        - InstallPackInput
+        - InstallPackResult
+        - InstructionsFile
+        - InstructionsTree
+        - InstructionsTreeNode
+        - InventoryClass
+        - InventoryItem
+        - InventoryItemState
+        - InventoryOptions
+        - InventoryOwner
+        - InventoryReport
+        - ItemCard
+        - Legend
+        - ManagedFile
+        - ModuleDecisionsResult
+        - ModuleEventsResult
+        - ModuleHealthResult
+        - ModuleMapConfig
+        - ModuleMapDriftResult
+        - ModuleMapValidationError
+        - ModuleProposalResult
+        - OPS_ACTIONS
+        - OnboardingChecklist
+        - OpButton
+        - OpsAction
+        - OpsConflictError
+        - OpsExecutor
+        - OpsJob
+        - OpsJobHelpers
+        - OpsJobRunner
+        - OpsJobRunnerOptions
+        - OpsProgressEvent
+        - OwnershipBadge
+        - PAGE_WHY
+        - PackNameError
+        - PackSource
+        - PacksRootsOverrides
+        - PathNotAllowedError
+        - PentestResult
+        - PresenceCounts
+        - PresenceOptions
+        - ProfileConfig
+        - ProfileValidationError
+        - ProjectProfileSection
+        - PulseView
+        - PutDeliveryPolicyInput
+        - PutDeliveryPolicyResult
+        - PutDesignTokensInput
+        - PutDesignTokensResult
+        - PutModuleMapInput
+        - PutModuleMapResult
+        - PutProfileResult
+        - PutRagConfigResult
+        - PutSavedViewInput
+        - RagConfig
+        - RagStatus
+        - RagValidationError
+        - RawModule
+        - ReceiptCard
+        - ReceiptFeed
+        - RemovePackInput
+        - RemovePackResult
+        - ResolvePauseInput
+        - ResolvePauseResult
+        - RunningDashboardServer
+        - SCORE_BAND_THRESHOLDS
+        - SavedView
+        - SavedViewArea
+        - SavedViewNotFoundError
+        - SavedViewsBar
+        - ScanOptions
+        - ScannedEntry
+        - SchemaForm
+        - ScoreBadge
+        - ScoreBand
+        - SearchBar
+        - SectionCard
+        - SectionData
+        - SectionMetric
+        - SetCapabilityResult
+        - Sidebar
+        - StackDriftResult
+        - StatCard
+        - SummaryBand
+        - TrustView
+        - WHY_DRAWER
+        - WhyDrawer
+        - WhyDrawerCopy
+        - WhySentence
+        - WinLine
+        - WriteConflictError
+        - WriteManagedFileInput
+        - WriteManagedFileResult
+        - acceptModuleProposal
+        - ageInDays
+        - appendDashboardAudit
+        - bandForScore
+        - buildApprovalsFeed
+        - buildEvidenceFeed
+        - buildEvidencePacket
+        - buildInventory
+        - buildModuleSnapshot
+        - buildOnboardingChecklist
+        - buildPrCommentMarkdown
+        - buildReceiptFeed
+        - buildReceiptSnapshot
+        - buildReport
+        - collectArchitecture
+        - collectAttestation
+        - collectChangeMetrics
+        - collectCodebaseHealth
+        - collectDecisions
+        - collectDelivery
+        - collectDocsArea
+        - collectDriftSignals
+        - collectFrameworkVersion
+        - collectInstructionsAreas
+        - collectModuleDecisions
+        - collectModuleDocs
+        - collectModuleEvents
+        - collectModuleHealth
+        - collectModuleMapDrift
+        - collectPentest
+        - collectProjectProfile
+        - collectRagStatus
+        - collectRuleCompliance
+        - collectRules
+        - collectSession
+        - collectStackDrift
+        - collectWorkflows
+        - contentHash
+        - createDashboardCommand
+        - createStatusCommand
+        - deleteSavedView
+        - driftSignalsTrip
+        - fileMtime
+        - getDeliveryPolicyConfig
+        - getDesignTokensConfig
+        - getModuleMapConfig
+        - getProfileConfig
+        - getRagConfig
+        - healthLabel
+        - installPack
+        - isOpsAction
+        - listInstructionsTree
+        - listPacks
+        - listSavedViews
+        - putDeliveryPolicy
+        - putDesignTokens
+        - putModuleMap
+        - putProfile
+        - putRagConfig
+        - putSavedView
+        - readAiBomDocument
+        - readAuditFeed
+        - readInstructionsFile
+        - readManagedFile
+        - rejectModuleProposal
+        - removePack
+        - renderMarkdown
+        - resolveManagedPath
+        - resolvePauseDecision
+        - scanDirectory
+        - scoreFreshness
+        - scoreFreshnessAverage
+        - scorePresence
+        - setCapability
+        - startDashboardServer
+        - writeManagedFile
+
+  - slug: cli-packs
+    name: Pack Management Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Install, remove, validate, scaffold, and inspect stack packs (built-in,
+      global, or project-scoped overrides).
+    sources:
+      - src/cli/commands/packs.ts
+    features:
+      - slug: packs-list
+        name: packs list
+      - slug: packs-install
+        name: packs install
+      - slug: packs-remove
+        name: packs remove
+      - slug: packs-validate
+        name: packs validate
+      - slug: packs-create
+        name: packs create
+    evidence:
+      symbols:
+        - createPacksCommand
+
+  - slug: cli-capabilities
+    name: Capability Toggle Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      List and toggle the content / coding / security capability layers with
+      dependency rules enforced (e.g. removing coding also removes security).
+    sources:
+      - src/cli/commands/capabilities.ts
+    features:
+      - slug: capabilities-list
+        name: capabilities list / available
+      - slug: capabilities-add
+        name: capabilities add
+      - slug: capabilities-remove
+        name: capabilities remove
+    evidence:
+      symbols:
+        - createCapabilitiesCommand
+
+  - slug: cli-patterns
+    name: Pattern Library Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Query, prune, and export the cross-project pattern library stored at
+      `~/.paqad/patterns/`.
+    sources:
+      - src/cli/commands/patterns.ts
+    features:
+      - slug: patterns-list
+        name: patterns list
+      - slug: patterns-prune
+        name: patterns prune
+      - slug: patterns-export
+        name: patterns export
+    evidence:
+      symbols:
+        - createPatternsCommand
+
+  - slug: cli-compliance
+    name: Spec Compliance Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Extract obligations from structured Markdown specs, check tests for
+      explicit evidence, generate failing Vitest skeletons, and validate
+      compliance indexes.
+    sources:
+      - src/cli/commands/compliance.ts
+      - src/compliance
+    features:
+      - slug: compliance-extract
+        name: compliance extract
+      - slug: compliance-check
+        name: compliance check
+      - slug: compliance-review
+        name: compliance review
+      - slug: compliance-skeleton
+        name: compliance skeleton
+      - slug: compliance-doctor
+        name: compliance doctor
+      - slug: compliance-boundary
+        name: compliance boundary
+      - slug: compliance-patterns
+        name: compliance patterns
+    evidence:
+      symbols:
+        - BOUNDARY_SCHEMA_VERSION
+        - BoundaryInterface
+        - BoundaryInterfaceReport
+        - BoundaryManifest
+        - BoundaryRelationship
+        - BoundaryReport
+        - CLASSIFICATION_RULES
+        - COMPLIANCE_SCHEMA_VERSION
+        - CheckComplianceOptions
+        - ClassificationRule
+        - ComplianceReport
+        - ComplianceReportObligation
+        - ComplianceReportSummary
+        - ComplianceState
+        - DEFAULT_BOUNDARY_REPORT_PATH
+        - DEFAULT_OBLIGATION_INDEX_PATH
+        - DEFECT_PATTERN_SCHEMA_VERSION
+        - DefectFinding
+        - DefectPatternEntry
+        - DefectPatternIndex
+        - DefectPatternIndexEntry
+        - DefectSource
+        - DoctorIssue
+        - DoctorResult
+        - ExtractObligationsOptions
+        - ExtractionResult
+        - GenerateBoundaryTestsOptions
+        - GenerateVitestSkeletonOptions
+        - GeneratedBoundaryTest
+        - LoadObligationIndexOptions
+        - LoadSpecReviewOptions
+        - MarkdownHeading
+        - MarkdownSection
+        - Obligation
+        - ObligationCategory
+        - ObligationIndex
+        - ObligationIndexMetadata
+        - PatternAdvisory
+        - PatternQueryOptions
+        - RawSpecDefect
+        - RecordFromComplianceOptions
+        - ReviewContext
+        - ReviewLine
+        - ReviewSpecOptions
+        - SPEC_REVIEW_DETECTORS
+        - SPEC_REVIEW_DETECTOR_INTERFACE_VERSION
+        - SPEC_REVIEW_SCHEMA_VERSION
+        - SaveObligationIndexOptions
+        - SaveSpecReviewOptions
+        - ScanBoundariesOptions
+        - SpecDefectSeverity
+        - SpecPatternAdvisory
+        - SpecReviewDefect
+        - SpecReviewDefectCategory
+        - SpecReviewDefectStatus
+        - SpecReviewDetector
+        - SpecReviewLocation
+        - SpecReviewReport
+        - SpecReviewReportMetadata
+        - StackContext
+        - UnhandledVariant
+        - assertComplianceSummaryInvariants
+        - attachSpecDefectsToObligations
+        - boundaryDetector
+        - buildBoundaryReport
+        - buildHeadingPath
+        - buildPatternAdvisories
+        - checkSpecCompliance
+        - classifyDefect
+        - classifySection
+        - compareDefects
+        - contradictionDetector
+        - createComplianceCommand
+        - dedupeByLineAndCategory
+        - defaultStoreRoot
+        - detectBoundariesInSource
+        - doctorBoundaryReport
+        - doctorObligationIndex
+        - doctorSpecReview
+        - ensureStoreDir
+        - extractObligationIndex
+        - extractUnhandledVariants
+        - formatAgentContextWarnings
+        - formatBoundaryReport
+        - formatSpecReviewSummary
+        - formulaDetector
+        - generateBoundaryTests
+        - generateVitestSkeletons
+        - goalConflictDetector
+        - hasNegativePath
+        - isEnoentError
+        - loadBoundaryReport
+        - loadEntry
+        - loadIndex
+        - loadObligationIndex
+        - loadSpecReviewReport
+        - makeDeterministicGeneratedId
+        - makeLocation
+        - markStaleEntries
+        - missingNegativeDetector
+        - normalizeCell
+        - normalizeText
+        - parseHeadings
+        - prunePatterns
+        - queryPatterns
+        - recordFindings
+        - recordFromComplianceReport
+        - referenceDetector
+        - renderVitestSkeleton
+        - reviewSpecification
+        - saveBoundaryReport
+        - saveObligationIndex
+        - saveSpecReviewReport
+        - scanBoundaries
+        - sha256Hex
+        - slugifySpec
+        - specIndexPath
+        - specReportPath
+        - specReviewPath
+        - splitLines
+
+  - slug: cli-audit
+    name: Trust Export Commands (audit + evidence)
+    layer: cli-commands
+    confidence: high
+    summary: |
+      The two read-only, local-first exporters that turn the unified
+      evidence ledger into something an outside system can consume. `audit
+      export` is the SIEM projector — OCSF (primary), Elastic ECS, ArcSight
+      CEF, and a canonical JSONL passthrough — writing a file or stdout for
+      the customer's own collector to ship (no paqad-hosted endpoint, stream,
+      or network push; `--since` windows it, `--redact` strips free-text
+      detail and human identities). `evidence` renders the same verification
+      evidence as a scannable PR comment (Markdown or JSON) for a human
+      reviewer at merge time.
+    sources:
+      - src/cli/commands/audit.ts
+      - src/cli/commands/evidence.ts
+      - src/audit
+      - src/evidence
+    features:
+      - slug: audit-export
+        name: paqad-ai audit export
+        sources: [src/cli/commands/audit.ts, src/audit]
+      - slug: evidence-comment
+        name: paqad-ai evidence (PR-comment renderer)
+        sources: [src/cli/commands/evidence.ts, src/verification/evidence-markdown.ts]
+    evidence:
+      symbols:
+        - ECS_VERSION
+        - ExportOptions
+        - ExportResult
+        - OCSF_SCHEMA_VERSION
+        - REDACTED
+        - RenderEvidenceMarkdownOptions
+        - SIEM_FORMATS
+        - SiemAuthorship
+        - SiemEvent
+        - SiemEventKind
+        - SiemFormat
+        - SiemSubject
+        - ZERO_DIGEST
+        - aggregateSiemEvents
+        - buildEvidenceComment
+        - cefSeverity
+        - computeChangeSubjectDigest
+        - computeFileDigests
+        - createAuditCommand
+        - createEvidenceCommand
+        - ecsOutcome
+        - epochMs
+        - escapeCefExtension
+        - escapeCefHeader
+        - eventMessage
+        - exportAuditEvents
+        - ocsfSeverityId
+        - ocsfStatusId
+        - readVerificationEvidence
+        - redactEvent
+        - renderAuthorshipLine
+        - renderComplianceLines
+        - renderEvidenceMarkdown
+        - renderReproducibilityLine
+        - toCef
+        - toEcs
+        - toEcsRecord
+        - toOcsf
+        - toOcsfRecord
+
+  - slug: cli-module-map
+    name: Module Map Inspection Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      The terminal surface over the module-map engine's reconciliation and
+      audit trail. `module-map reconcile` scans the source roots,
+      compares them to `module-map.yml` and `docs/modules/`, and writes
+      `.paqad/module-map/drift.json` (with `--fail-on-drift` for CI).
+      `module-decisions` inspects the MD-XXXX prospective decisions
+      (list / show / expire-stale / extract); `module-events` reads the
+      append-only `.paqad/module-map/events.jsonl` audit trail
+      (list / since / for-module).
+    sources:
+      - src/cli/commands/module-map.ts
+      - src/cli/commands/module-decisions.ts
+      - src/cli/commands/module-events.ts
+      - src/module-map
+      - src/module-decisions
+    features:
+      - slug: module-map-reconcile
+        name: module-map reconcile
+        sources: [src/cli/commands/module-map.ts, src/module-map]
+      - slug: module-decisions
+        name: module-decisions (list / show / expire-stale / extract)
+        sources: [src/cli/commands/module-decisions.ts, src/module-decisions]
+      - slug: module-events
+        name: module-events (list / since / for-module)
+        sources: [src/cli/commands/module-events.ts]
+    evidence:
+      symbols:
+        - ApplyOptions
+        - ApplyResult
+        - DEFAULT_PROPOSED_TTL_DAYS
+        - DiscoveredModuleHealth
+        - DiscoveredSourceRoots
+        - ExtractedCandidate
+        - ExtractorHitKind
+        - ExtractorOptions
+        - InferenceChoice
+        - InferenceChoiceKind
+        - InferenceResult
+        - InferencerOptions
+        - MMFinding
+        - MMFindingCode
+        - ModuleDecision
+        - ModuleDecisionConfidence
+        - ModuleDecisionDisposition
+        - ModuleDecisionFeatureDraft
+        - ModuleDecisionLayer
+        - ModuleDecisionSource
+        - ModuleDecisionSourceType
+        - ModuleDecisionState
+        - ModuleMapDriftReport
+        - ModuleMapEvent
+        - ModuleMapEventType
+        - ModuleSensitivity
+        - RawFeature
+        - RawMap
+        - RawModule
+        - ReconcilerOptions
+        - appendModuleMapEvent
+        - appendRunCancelledEvent
+        - applyModuleMapMutation
+        - assertTransition
+        - atomicWriteModuleMap
+        - canTransition
+        - candidatesNeedingDecision
+        - createModuleDecisionsCommand
+        - createModuleEventsCommand
+        - createModuleMapCommand
+        - deleteDecision
+        - discoverModuleHealth
+        - discoverSourceRoots
+        - driftReportBlockedReason
+        - driftReportHasFindings
+        - emitContextTruncated
+        - expireStaleDecisions
+        - extractCandidates
+        - formatDecisionId
+        - inferAttribution
+        - isExpired
+        - isValidDecisionId
+        - isValidSlug
+        - levenshtein
+        - listDecisionIds
+        - listDecisions
+        - listDecisionsByState
+        - nextDecisionId
+        - normaliseSlug
+        - parseDecisionId
+        - readDecision
+        - readDriftReport
+        - readModuleMapEvents
+        - readModuleMapEventsForSlug
+        - readModuleMapEventsSince
+        - readRawModuleMap
+        - reconcileModuleMap
+        - resolvePathSensitivity
+        - snapshotModuleMap
+        - ttlExpiresAt
+        - writeDecision
+
+  - slug: adapter-onboarding
+    name: Adapter Onboarding (LLM platform entry files)
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Generates the thin entry file each external LLM agent platform reads on
+      startup. All entry files point back to the same shared instruction
+      bundles under `docs/instructions/` and the framework runtime, so one
+      onboarding configures every supported platform.
+    sources:
+      - src/adapters
+      - src/onboarding/file-writer.ts
+    features:
+      - slug: claude-code
+        name: Claude Code (CLAUDE.md)
+        outputs: [CLAUDE.md]
+      - slug: codex-cli
+        name: Codex CLI (AGENTS.md)
+        outputs: [AGENTS.md]
+      - slug: antigravity
+        name: Google Antigravity (ANTIGRAVITY.md)
+        outputs: [ANTIGRAVITY.md]
+      - slug: gemini-cli
+        name: Gemini CLI (GEMINI.md)
+        outputs: [GEMINI.md]
+      - slug: junie
+        name: JetBrains Junie
+        outputs: [.junie/AGENTS.md]
+      - slug: cursor
+        name: Cursor
+        outputs: [.cursor/rules/paqad.mdc]
+      - slug: github-copilot
+        name: GitHub Copilot
+        outputs: [.github/copilot-instructions.md]
+      - slug: windsurf
+        name: Windsurf
+        outputs: [.windsurfrules]
+      - slug: continue
+        name: Continue
+        outputs: [.continue/rules/paqad.md]
+      - slug: aider
+        name: Aider (config-only)
+        outputs: [CONVENTIONS.md]
+      - slug: aiassistant
+        name: JetBrains AI Assistant (rules-only)
+        outputs: [.aiassistant/rules/guidelines.md]
+    evidence:
+      symbols:
+        - AdapterCapabilities
+        - AdapterContext
+        - AdapterFactory
+        - AdapterHookCoverage
+        - AdapterInterface
+        - AiAssistantAdapter
+        - AiderAdapter
+        - AntigravityAdapter
+        - BaseAdapter
+        - ClaudeCodeAdapter
+        - CodexCliAdapter
+        - ContinueAdapter
+        - CursorAdapter
+        - DECISION_PAUSE_UI_FALLBACK
+        - DECISION_PAUSE_UI_NOTES
+        - FileWriteResult
+        - GeminiCliAdapter
+        - GeneratedFile
+        - GithubCopilotAdapter
+        - HOOK_COVERAGE_MATRIX
+        - JunieAdapter
+        - NativeCompletionHookOptions
+        - PAQAD_LIVE_HOOKS
+        - PAQAD_MUTATING_TOOL_MATCHER
+        - PAQAD_RUNTIME_PREFIX
+        - PaqadHookEvent
+        - PaqadLiveHookSpec
+        - WindsurfAdapter
+        - WriteGeneratedFilesOptions
+        - buildFrameworkFallbackClause
+        - buildNativeCompletionHookFile
+        - capabilityGateCommand
+        - completionRecordCommand
+        - decisionPauseUiNote
+        - frameworkHomeAbsolute
+        - hasPreMutationBlock
+        - hookCommand
+        - isLiveHookCapable
+        - planGeneratedFiles
+        - writeGeneratedFiles
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 2 — agent-workflows (LLM-facing surface)
+  # Invoked by the agent when the human types a short Paqad phrase like
+  # "create documentation" inside Claude Code / Codex / Cursor.
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: documentation-workflow
+    name: Documentation Workflow
+    layer: agent-workflows
+    confidence: high
+    summary: |
+      The two-stage flow triggered by "create documentation" (Stage 1 —
+      foundation docs + module map) and "create module documentation"
+      (Stage 2 — per-module business + technical docs). Re-reads live
+      manifests, syncs the stored stack profile, then writes
+      `docs/instructions/**` and `docs/modules/**`.
+    sources:
+      - runtime/base/skills/documentation-workflow
+      - src/stack-docs
+      - src/document
+    features:
+      - slug: foundation-stage
+        name: Stage 1 — Foundation Docs
+      - slug: module-stage
+        name: Stage 2 — Module Docs
+      - slug: module-map-discovery
+        name: Module Map Discovery
+        sources: [src/module-map, src/introspection]
+      - slug: differential-refresh
+        name: Differential Refresh
+    evidence:
+      symbols:
+        - DocumentPipeline
+        - DocumentPipelineOptions
+        - DocumentProgressTracker
+        - DocumentRunResult
+        - DocumentationWorkflow
+        - DocumentationWorkflowMode
+        - DocumentationWorkflowOptions
+        - DocumentationWorkflowResult
+        - DocumentationWorkflowStep
+        - EcosystemParser
+        - EcosystemParserRegistry
+        - EnvironmentTraitDetection
+        - ParsedLockfile
+        - ParsedLockfilePackage
+        - ParsedManifest
+        - ParsedManifestPackage
+        - ParsedProjectResult
+        - StackIntrospector
+        - StackSnapshotCache
+        - WriteStackArtifactsOptions
+        - buildAnalytics
+        - createDefaultEcosystemParserRegistry
+        - dartParser
+        - detectEnvironmentTraits
+        - goParser
+        - hashSourceFiles
+        - jvmParser
+        - normalizeConstraint
+        - npmParser
+        - parseComposerProject
+        - parseDartProject
+        - parseKeyValueLines
+        - parseNpmProject
+        - parsePnpmProject
+        - phpParser
+        - pnpmParser
+        - pythonParser
+        - readJson
+        - readJsonFile
+        - readProjectFile
+        - readStackSnapshotSync
+        - readTextFile
+        - resetGeneratingEntries
+        - rubyParser
+        - rustParser
+        - writeStackArtifacts
+
+  - slug: pentest-workflow
+    name: Security Pentest Workflow
+    layer: agent-workflows
+    confidence: high
+    summary: |
+      Resumable 5-step "break locally first" workflow with OWASP Top 10 2025
+      and OWASP API Security 2023 coverage. Generates local-only curl attack
+      playbooks; never auto-executes. Has an incremental retest mode keyed
+      off stable PT-XXXX finding IDs.
+    sources:
+      - src/workflows/pentest.ts
+      - src/workflows/pentest-retest.ts
+      - src/pentest
+    features:
+      - slug: pentest-run
+        name: Run Pentest
+      - slug: pentest-retest
+        name: Retest
+        sources: [src/workflows/pentest-retest.ts]
+      - slug: finding-normalizer
+        name: Finding Normalizer (PT-XXXX IDs)
+      - slug: local-attack-playbook
+        name: Local Attack Playbook
+    evidence:
+      symbols:
+        - EnsurePentestRunOptions
+        - FileCheckMapper
+        - FileCheckMapping
+        - IncrementalScanOptions
+        - IncrementalScanResult
+        - IncrementalScanner
+        - MergeResult
+        - ModuleDocEvidence
+        - NarrowedScope
+        - OsvVulnerabilityRecord
+        - PentestProgressTracker
+        - PentestRetestWorkflow
+        - PentestRetestWorkflowOptions
+        - PentestRetestWorkflowResult
+        - PentestWorkflow
+        - PentestWorkflowOptions
+        - PentestWorkflowResult
+        - ProjectScriptResult
+        - ReportMerger
+        - SuspiciousRoute
+        - TestEvidence
+        - assignFindingIds
+        - buildCurrentPentestReport
+        - buildDependencyFindings
+        - buildModuleFindings
+        - buildPentestMarkdown
+        - buildRetestFindings
+        - buildRuntimeFindings
+        - buildSecretFindings
+        - discoverTargetUrl
+        - extractRelevantTestPaths
+        - hashRelevantInputs
+        - inferSourceArtifacts
+        - loadModuleDocs
+        - loadTests
+        - parseSecretMatches
+        - parseSuspiciousRoutes
+        - queryOsv
+        - readJsonIfExists
+        - remediationPriorities
+        - runArtifactsDir
+        - runLogsDir
+        - runProjectScript
+        - runStatusForSteps
+        - safeBaseName
+        - skillPath
+        - slugify
+        - summarizeCommandAvailability
+        - toLocalTimestamp
+        - toReportId
+        - toolReferencePath
+        - writeJson
+
+  - slug: feature-development-workflow
+    name: Feature Development Workflow
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      Generic feature-delivery pipeline assembled from YAML in
+      `docs/instructions/workflows/`. Routes through requirement analysis,
+      story design, parallel implementation + tests, adversarial review,
+      and verification. Conditional and parallel steps supported.
+    sources:
+      - docs/instructions/workflows/feature-development.yaml
+      - src/workflows
+    features:
+      - slug: routing
+        name: Lane & Complexity Routing
+      - slug: parallel-execution
+        name: Parallel Step Execution
+        sources: [src/workflows/parallel-executor.ts]
+      - slug: conditional-steps
+        name: Conditional / Failure Handling
+      - slug: resumable-runs
+        name: Resumable Runs
+    evidence:
+      symbols:
+        - OnFailureDirective
+        - ParallelExecutor
+        - ParallelGroup
+        - ParallelResult
+        - StepCondition
+        - TemplateStep
+        - WorkflowRunProgress
+        - WorkflowStep
+        - WorkflowStepProgress
+        - WorkflowTemplate
+
+  - slug: root-cause-analysis-workflow
+    name: Root Cause Analysis Workflow
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      Structured RCA workflow used by agents when a bug or incident needs
+      a postmortem-style write-up.
+    sources:
+      - src/workflows/root-cause-analysis.ts
+    evidence:
+      symbols:
+        - RootCauseAnalysisWorkflow
+        - RootCauseAnalysisWorkflowOptions
+        - RootCauseAnalysisWorkflowResult
+
+  - slug: agent-routing
+    name: Agent Routing & Capability Lanes
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      How the router agent picks the right downstream specialist, how
+      capabilities (content / coding / security) gate which agents are
+      callable, and how strictness flags promote tasks to the full lane
+      (requires adversarial review, blocks on stale docs, etc.).
+    sources:
+      - runtime/base/agents/router.md
+      - src/core/capabilities.ts
+    evidence:
+      symbols:
+        - ACTIVE_CAPABILITY_ORDER
+        - MANAGEABLE_ACTIVE_CAPABILITIES
+        - addActiveCapability
+        - assertActiveCapability
+        - isActiveCapability
+        - isManageableActiveCapability
+        - listAvailableActiveCapabilities
+        - normalizeActiveCapabilities
+        - removeActiveCapability
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 3 — framework-internals (engine + runtime; for paqad-ai contributors)
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: stack-detection-engine
+    name: Stack Detection Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Lockfile-first detection of frameworks, traits, and archetypes across
+      9 ecosystems. Drives onboarding, refresh, docs, MCP recommendations, and
+      security workflows from a single resolved stack profile.
+    sources:
+      - src/detection
+      - src/core/stack-profile.ts
+    features:
+      - slug: manifest-scanner
+        name: Manifest & Lockfile Scanner
+      - slug: archetype-resolution
+        name: Archetype Resolution
+      - slug: drift-tracking
+        name: Drift Tracking
+        sources: [.paqad/stack-snapshot.json, .paqad/stack-drift.json]
+    evidence:
+      symbols:
+        - AIDetector
+        - AIDetectorOptions
+        - Detector
+        - DetectorOptions
+        - FRAMEWORK_PACKAGE_MAP
+        - LaravelDetectionResult
+        - ReactDetectionResult
+        - StackDetectionPermissions
+        - StackDetectionResource
+        - SvelteDetectionResult
+        - ToStackDetectionResourceOptions
+        - VueDetectionResult
+        - buildDetectedStackProfile
+        - buildDetectionReport
+        - compareStackProfiles
+        - detectAnalyticsSignals
+        - detectFlutterSignals
+        - detectLaravelSignals
+        - detectReactSignals
+        - detectShortVideoSignals
+        - detectSvelteSignals
+        - detectVueSignals
+        - ecosystemToLanguage
+        - getLegacyCapabilities
+        - getPrimaryStack
+        - summarizeStack
+        - toStackDetectionResource
+
+  - slug: pack-system
+    name: Pack System
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Declarative packs with deterministic built-in < global < project
+      precedence. Two kinds: `pack.yaml` stack packs (bind a stack to its
+      detection signals, docs, MCP recommendations, security mappings; 19 framework +
+      3 archetype packs) and `compliance-pack.yaml` compliance packs
+      that map verification gates to legal-framework clauses (EU AI Act /
+      NIST / ISO) using OSCAL relations, so a passing gate on the receipt can
+      cite which clause it produces evidence toward. Compliance packs carry no
+      detection fields and live in their own roots (runtime
+      capabilities/compliance, ~/.paqad/compliance-packs, .paqad/compliance-packs).
+    sources:
+      - src/packs
+    features:
+      - slug: pack-schema
+        name: Pack Schema (pack.yaml)
+      - slug: compliance-pack-schema
+        name: Compliance Pack Schema (compliance-pack.yaml — gate→clause)
+      - slug: built-in-packs
+        name: 22 Built-in Packs + EU AI Act compliance pack
+      - slug: pack-overrides
+        name: Override Precedence
+      - slug: pack-authoring
+        name: Custom Pack Authoring
+    evidence:
+      symbols:
+        - CompliancePackLoader
+        - CompliancePackLoaderOptions
+        - CreatePackOptions
+        - InstallPackOptions
+        - ListedPack
+        - PackManagerRoots
+        - StackPackLoader
+        - StackPackLoaderOptions
+        - createPack
+        - getPackManifestMap
+        - getPackTestRunners
+        - getPacksForFrameworks
+        - installPack
+        - listPacks
+        - loadCompliancePacks
+        - loadProjectPackRegistry
+        - removePack
+        - resolveCompliancePackRoots
+        - resolvePackManagerRoots
+        - validatePackAt
+
+  - slug: capability-model
+    name: Capability Model
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Three capabilities — `content`, `coding`, `security` — that gate which
+      rules, skills, and agents activate. Content is always on; coding
+      activates on a pack match; security follows coding.
+    sources:
+      - src/core/capabilities.ts
+
+  - slug: workflow-engine
+    name: Workflow Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Loads YAML workflow definitions, validates them, and runs steps with
+      sequential, parallel, conditional, and resumable semantics. Handlebars
+      templates render step inputs.
+    sources:
+      - src/workflows/engine.ts
+      - src/workflows/step-executor.ts
+      - src/workflows/parallel-executor.ts
+      - src/workflows/template-loader.ts
+      - src/workflows/template-validator.ts
+    evidence:
+      symbols:
+        - StepExecutionContext
+        - StepExecutionResult
+        - StepExecutor
+        - StepExecutorOptions
+        - WorkflowEngine
+        - WorkflowEngineOptions
+        - WorkflowRunOptions
+        - WorkflowStepRunner
+        - WorkflowTemplateLoader
+        - WorkflowTemplateValidator
+
+  - slug: skill-runtime
+    name: Skill Runtime
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Discovers and invokes the 27+ skills shipped under
+      `runtime/base/skills/**`. Skills are the smallest reusable unit of
+      agent behaviour (scope-check, spec-diff, adversarial-review, etc.).
+    sources:
+      - src/skills
+      - runtime/base/skills
+    evidence:
+      symbols:
+        - ConditionalSectionProcessor
+        - DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY
+        - GeneratedSkillIndexEntry
+        - ParsedSkillDocument
+        - RuntimeSkillRegistry
+        - SkillAuditBuffer
+        - SkillAuditEvent
+        - SkillAuditEventType
+        - SkillCacheManager
+        - SkillFrontmatterParser
+        - SkillLoadFailedEvent
+        - SkillLoader
+        - SkillPackLoadFailedEvent
+        - SkillTriggerEvaluator
+        - appendSkillAuditEvent
+        - buildSkillIndex
+        - emitSkillAuditEvent
+        - generateSkillIndex
+        - getSharedSkillAuditBuffer
+        - readSkillAuditEvents
+        - selectModelForTier
+        - toLoadedSkill
+        - writeSkillIndex
+        - writeSkillIndexFromArtifacts
+
+  - slug: agent-runtime
+    name: Built-in Agent Roles
+    layer: framework-internals
+    confidence: high
+    summary: |
+      22 roles shipped in `runtime/base/agents` and capability sub-trees,
+      backed by 26 persona files: 9 workflow roles (context-curator,
+      product-owner, verifier, test-planner, requirement-analyst, …), 12
+      coding specialists (solution-architect, application-architect,
+      database-expert, devops-engineer, qa-engineer, user-flow-writer,
+      chief-architect, …), and 1 security specialist (security-auditor).
+      Six personas back no role id and are reused (router, story-designer,
+      final-reviewer, adversarial-reviewer, app-cartographer, journey-designer).
+    sources:
+      - runtime/base/agents
+      - runtime/capabilities
+
+  - slug: rules-runtime
+    name: Rules Bundle
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Canonical rules loaded by every agent invocation. Shipped under
+      `runtime/base/rules` and copied / linked into `docs/instructions/rules`
+      during onboarding.
+    sources:
+      - runtime/base/rules
+      - docs/instructions/rules
+
+  - slug: template-engine
+    name: Template Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Handlebars templates for spec documents, user flows, registry pages,
+      sequence plans, phase handoffs, adversarial review reports, and
+      design-system docs.
+    sources:
+      - src/templates
+      - runtime/templates
+      - src/design-tokens
+    evidence:
+      symbols:
+        - DESIGN_TOKENS_PLACEHOLDER_NOTE
+        - DesignTokenService
+        - DesignTokensMissingError
+        - DesignTokensPlaceholderError
+        - PLACEHOLDER_DESIGN_TOKENS
+        - TemplateDescriptor
+        - TemplateEngine
+        - TemplateRegistry
+        - buildAgentConfigContext
+        - buildApiDocContext
+        - buildDesignSystemContext
+        - buildErrorCatalogContext
+        - buildIntegrationDocContext
+        - buildModuleScaffoldContext
+        - buildRegistryContext
+        - buildRunnerScriptContext
+
+  - slug: context-intelligence
+    name: Context Intelligence
+    layer: framework-internals
+    confidence: high
+    summary: |
+      AST-aware semantic loader, 4-tier budget optimizer, deduplication,
+      pure-regex turn summarizer, and per-tier stream truncator. Makes
+      every token count regardless of whether RAG is on.
+    sources:
+      - src/context
+      - src/token-efficiency
+    features:
+      - slug: semantic-loader
+        name: Semantic Loader
+      - slug: budget-optimizer
+        name: Budget Optimizer (green→yellow→amber→red)
+      - slug: deduplication
+        name: Artifact Deduplication
+      - slug: turn-summarizer
+        name: Turn Summarizer
+      - slug: stream-truncator
+        name: Stream Truncator
+      - slug: existing-surface
+        name: Existing-Surface Planning Digest (repo-map-ranked reuse cards)
+    evidence:
+      symbols:
+        - ActionRecommendation
+        - ActionRouter
+        - AstChunker
+        - BudgetAllocation
+        - BudgetAllocator
+        - BudgetCheckResult
+        - BudgetClassificationHints
+        - BudgetDecision
+        - BudgetEvaluation
+        - BudgetOptimizerConfig
+        - BudgetVerdict
+        - CHUNKER_VERSION
+        - CONTEXT_HASH_ALGO_VERSION
+        - Chunk
+        - ChunkIndex
+        - ChunkIndexEntry
+        - ChunkIndexManager
+        - CodebaseMemoryEntry
+        - CodebaseMemoryStore
+        - CohereReranker
+        - ComposeExistingSurfaceOptions
+        - ComposeMemoryOptions
+        - ContextBudgetEnforcer
+        - ContextBudgetOptimizer
+        - ContextEvictor
+        - ContextHashInput
+        - ContextHitTracker
+        - ContextPackEntry
+        - ContextPriorityTier
+        - DEFAULT_REBUILD_CACHE_MAX_SIZE
+        - DepthRoutingInput
+        - DifferentialRefresh
+        - DistillOptions
+        - EXISTING_SURFACE_FRAMING
+        - EXISTING_SURFACE_HEADING
+        - EvictionResult
+        - ExistingSurfaceCard
+        - FileReader
+        - FileRegistryMapper
+        - FilterFallbackReason
+        - FusionDiagnostic
+        - GatherExistingSurfaceOptions
+        - HEURISTIC_TOKENIZER_VERSION
+        - HitTrackerInput
+        - InferenceCompleteOptions
+        - InferenceMessage
+        - InferenceProvider
+        - InferredTurnClassifierModel
+        - LoadStats
+        - LoadedTokenizer
+        - LocalReranker
+        - MAX_CONTEXT_PACK_ENTRIES
+        - MAX_MEMORY_ENTRIES
+        - MEMORY_KINDS
+        - MEMORY_SECTION_CHAR_BUDGET
+        - MemoryInput
+        - MemoryKind
+        - MetadataFilter
+        - MetadataFilterResult
+        - MetadataFilterType
+        - PassthroughReranker
+        - PriorityClassifier
+        - RebuildCache
+        - RebuildInput
+        - RefreshResult
+        - RelevanceScorer
+        - RerankResult
+        - Reranker
+        - RerankingConfig
+        - RetrievalDepth
+        - RetrievalGate
+        - ScoringContext
+        - SemanticLoadClassification
+        - SemanticLoadOptions
+        - SemanticLoader
+        - SemanticLoaderOptions
+        - SummariseOptions
+        - TurnClassifierModel
+        - TurnSummarizer
+        - __tokenEfficiencyInternals
+        - applyDisclosurePolicy
+        - applyMetadataFilters
+        - buildCompactArtifact
+        - buildContextHashPreimage
+        - buildControlLayerAudit
+        - buildDriftDeltaReasoningPayload
+        - buildReasoningInputPayload
+        - buildTestDeltaReasoningPayload
+        - buildVerificationDeltaReasoningPayload
+        - castMerge
+        - clearTokenizerCache
+        - composeContextPack
+        - composeExistingSurfaceSection
+        - composeMemorySection
+        - computeContextHash
+        - createDriftDelta
+        - createReranker
+        - createTestDelta
+        - createVerificationDelta
+        - distillSlices
+        - emptyMemoryStore
+        - escalateDepth
+        - evaluateEscalation
+        - evaluateRetrievalGate
+        - gateRetrieval
+        - gatherCodebaseMemory
+        - gatherExistingSurface
+        - getOrLoad
+        - loadCodebaseMemory
+        - locateLineRange
+        - memoryStorePath
+        - rebuildApiConversation
+        - recordCodebaseMemory
+        - resolveActiveLineage
+        - runRoutingDecision
+        - selectCandidateFiles
+        - selectRetrievalDepth
+        - topNForDepth
+        - upsertMemoryEntry
+        - writeCodebaseMemory
+
+  - slug: hybrid-rag
+    name: Hybrid RAG Runtime
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Optional vector index under `.paqad/vectors/`, hybrid scoring (vector
+      + keyword + symbol + path), adaptive depth (none/standard/deep),
+      metadata filters, reranking (passthrough / local cross-encoder /
+      Cohere), and eval gates. Plugs into the semantic loader, not off
+      to the side.
+    sources:
+      - src/rag
+      - src/project-knowledge
+      - src/context/retrieval-context.ts
+    features:
+      - slug: vector-index
+        name: Vector Index
+      - slug: embedding-providers
+        name: Embedding Providers (local / openai)
+      - slug: hybrid-scoring
+        name: Hybrid Scoring
+      - slug: reranking
+        name: Reranking
+      - slug: pattern-vectors
+        name: Pattern Vectors
+      - slug: eval-gates
+        name: Eval Gates (hit@5, success, correction turns)
+      - slug: branch-aware-index
+        name: Branch-Aware Index (branch/commit/base metadata)
+      - slug: embedding-cache
+        name: Embedding Cache (content-addressed, model-scoped)
+      - slug: incremental-sync
+        name: Incremental Sync (working-tree-following, background)
+      - slug: session-retrieval
+        name: Session Retrieval (top-k slices injected on the seam)
+      - slug: repo-map
+        name: Structural Repo-Map (embedding-free PageRank skeleton)
+      - slug: codebase-memory
+        name: Codebase Memory (deterministic cross-session repo facts)
+      - slug: cast-chunking
+        name: cAST Chunking (split-then-merge, chunker-versioned index)
+      - slug: contextual-blurbs
+        name: Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)
+      - slug: context-pack
+        name: Context Pack (distilled path:line pointers for long workflows)
+      - slug: base-drift
+        name: Base-Drift Awareness (debounced origin/<base> heads-up, off-path)
+    evidence:
+      symbols:
+        - ALL_QUERY_CLASSES
+        - ANSWER_GROUNDING_STATES
+        - ANSWER_MODES
+        - ATTACHMENT_RETRY_BUDGET_MS
+        - AnswerGroundingState
+        - AnswerMode
+        - AnswerQuery
+        - ArchiveInspection
+        - ArchiveInspector
+        - AttachmentCollectionScope
+        - AttachmentContentKind
+        - AttachmentEvent
+        - AttachmentEventInput
+        - AttachmentEventKind
+        - AttachmentEventSink
+        - AttachmentIndexingDegradedSignal
+        - AttachmentIndexingOutcome
+        - AttachmentIndexingResult
+        - AttachmentOrphanPurgeRecord
+        - AttachmentPathError
+        - AttachmentRecord
+        - AttachmentRecordStatus
+        - AttachmentRejection
+        - AttachmentRejectionOutcome
+        - AttachmentRejectionReason
+        - AttachmentSessionKind
+        - AttachmentStoredChunk
+        - BackgroundSyncResult
+        - BaseDriftOptions
+        - BaseDriftSnapshot
+        - BlurbChunk
+        - BlurbContext
+        - Bm25Document
+        - Bm25Hit
+        - Bm25Index
+        - BuildIndexOptions
+        - BuildProjectRepoMapOptions
+        - CITATION_SOURCE_CLASSES
+        - ChunkIndexSyncResult
+        - Citation
+        - CitationSourceClass
+        - ComparisonMode
+        - ConfigurationComparisonResult
+        - Contradiction
+        - ContradictionDetector
+        - CorruptVectorIndexError
+        - CrsBacklogPersist
+        - CrsBacklogQueue
+        - CrsChunk
+        - CrsChunkInput
+        - CrsCollectionId
+        - CrsIndexedSessionEvent
+        - CrsRetrievalResult
+        - DEFAULT_BASE_DRIFT_INTERVAL_MS
+        - DEFAULT_CRS_BACKLOG_CAP
+        - DEFAULT_REPO_MAP_TOKEN_BUDGET
+        - DOC_SCOPE_PREFIXES
+        - EMBEDDING_CACHE_RELPATH
+        - EVAL_DATASET
+        - EmbeddingBacklogOverflow
+        - EmbeddingCache
+        - EmbeddingProvider
+        - EmbeddingProviderError
+        - EmbeddingProviderErrorCode
+        - EphemeralCollectionId
+        - EvalDatasetItem
+        - EvalQueryClass
+        - EvalRunResult
+        - EvalRunner
+        - EvalTrace
+        - EvidenceFile
+        - EvidenceRetriever
+        - ExtractionKind
+        - FeatureOffVsOnResult
+        - FileProbeResult
+        - FileVectorIndex
+        - FilterDiagnostics
+        - FilterStats
+        - FreshnessChecker
+        - FreshnessMetadata
+        - GatherOptions
+        - GatherResult
+        - GitRunner
+        - GitState
+        - GitStateOptions
+        - IndexAttachmentFailure
+        - IndexAttachmentOutcome
+        - IndexAttachmentParams
+        - IndexAttachmentResult
+        - KnowledgeAnswer
+        - LocalEmbeddingExtractor
+        - LocalEmbeddingOutput
+        - LocalEmbeddingProgress
+        - LocalEmbeddingProvider
+        - MAX_RETRIEVAL_SLICES
+        - MAX_SLICE_CHARS
+        - ModelGradedScores
+        - ModelGrader
+        - OpenAiEmbeddingClient
+        - OpenAiEmbeddingProvider
+        - PAGERANK_DAMPING
+        - PDF_PAGE_CAP
+        - PageRankOptions
+        - ParseAttachmentOptions
+        - ParseAttachmentResult
+        - ParsedAttachment
+        - PdfExtraction
+        - PdfTextExtractor
+        - ProjectKnowledgeAnswerer
+        - ProviderFactory
+        - ProviderProgressUpdate
+        - REMOVED_EMBEDDING_PROVIDERS
+        - REMOVED_EMBEDDING_PROVIDER_MESSAGE
+        - RRF_K
+        - RagBenchmarkEvaluation
+        - RagBenchmarkMetricResult
+        - RagBenchmarkSnapshot
+        - RagFileFilter
+        - RagFileFilterOptions
+        - RagIgnoreConfig
+        - RagIndexMeta
+        - RagIngestError
+        - RagIngestErrorCode
+        - RagPromptTokenGateResult
+        - RagRetrievalResult
+        - RagScoredCandidate
+        - RagService
+        - RagStatus
+        - RefreshBaseDriftOptions
+        - RefreshBaseDriftResult
+        - ReindexProgressEvent
+        - ReindexProgressHandler
+        - RemovedEmbeddingProviderError
+        - RemovedEmbeddingProviderName
+        - RepoEdge
+        - RepoFile
+        - RepoMapEntry
+        - RepoMapResult
+        - RetrievalScope
+        - RetrievalSlice
+        - RetrievalSource
+        - RrfResult
+        - SUPPORTED_EXTRACTION_KINDS
+        - SUPPORTED_VISION_EXTENSIONS
+        - SessionAttachmentIndexer
+        - StoredVectorChunk
+        - StoredVectorItem
+        - StoredVisionChunk
+        - TransformersRuntimeEnv
+        - VectorIndexPayload
+        - VectorQueryResult
+        - VisionChunk
+        - VisionIngestInput
+        - VisionIngestResult
+        - ZIP_DECOMPRESSED_LIMIT_BYTES
+        - appendAttachmentEvent
+        - appendRagAudit
+        - assertEmbeddingProviderAvailable
+        - attachmentCollectionsRoot
+        - backgroundIndexSync
+        - buildContextualBlurb
+        - buildFeatureOffTraces
+        - buildModuleRoleResolver
+        - buildProjectRepoMap
+        - buildRepoMap
+        - chunkHash
+        - clearEphemeralCollection
+        - collectionVectorPaths
+        - compareConfigurations
+        - composeBaseDriftSection
+        - composeRetrievalSection
+        - computeBaseDrift
+        - computeCorrectionTurns
+        - computeHitAtK
+        - computePromptTokensSent
+        - computeTaskSuccessRate
+        - contextualizeChunkText
+        - createEmbeddingProvider
+        - crsCollectionDir
+        - crsCollectionLayout
+        - crsCollectionPaths
+        - dedupeSlices
+        - deregisterCollection
+        - deriveScopeFromWorkingSet
+        - escapeCollectionId
+        - evaluateBenchmarkGates
+        - extractKeywords
+        - filterToScope
+        - findRemovedEmbeddingProvider
+        - gatherWorkingSetSlices
+        - getCollectionId
+        - getDatasetByClass
+        - getProjectSecret
+        - getSecretPermissionWarning
+        - indexAttachment
+        - isAttachmentIndexingDegraded
+        - isDocScopedPath
+        - isEmbeddingBacklogOverflow
+        - isEmbeddingProviderError
+        - isIndexAttachmentFailure
+        - isRagIngestError
+        - isRemovedEmbeddingProviderError
+        - lexicalDocumentText
+        - listCollections
+        - loadBaseDrift
+        - pageRank
+        - parseAttachment
+        - readAttachmentEvents
+        - readGitState
+        - readProjectSecrets
+        - reciprocalRankFusion
+        - redactSecrets
+        - refreshBaseDrift
+        - registerCollection
+        - removeProjectSecrets
+        - reorderByRankedIds
+        - resolveCollectionDir
+        - resolveRemovedEmbeddingProvider
+        - retrieveFromAttachments
+        - runFeatureOffVsOnGate
+        - runOrphanSweep
+        - scopeForWorkflow
+        - scoreFile
+        - snapshotFromTraces
+        - toCrsCollectionId
+        - toEphemeralCollectionId
+        - tokenize
+        - validateDatasetCoverage
+        - writeProjectSecret
+
+  - slug: background-harness
+    name: Background-Worker Harness
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The "never block coding" keystone (RAG buildout F1). One reusable
+      mechanism to keep any precomputed artifact fresh in a detached worker
+      while the prompt path only ever reads the finished artifact: a
+      debounce marker that coalesces a burst of prompts, a single-flight
+      `mkdir` lock that serialises workers and reclaims a crashed worker's
+      stale lock, a detached `spawn`/`unref` that returns in well under the
+      hook time budget, and a build-to-temp + atomic-rename swap so a reader
+      never sees a half-written artifact. Smart rule loading, the
+      branch-aware vector index sync, and the codebase-memory tier all ride
+      on it.
+    sources:
+      - src/background
+    features:
+      - slug: trigger-refresh
+        name: Trigger Refresh (debounce → single-flight → detached spawn)
+      - slug: single-flight-lock
+        name: Single-Flight Lock (mkdir + stale reclaim)
+      - slug: debounce-marker
+        name: Debounce Marker (burst coalescing)
+      - slug: atomic-artifact-swap
+        name: Atomic Artifact Swap (build-to-temp + rename)
+    evidence:
+      symbols:
+        - LockOutcome
+        - RefreshJobSpec
+        - TriggerDeps
+        - TriggerResult
+        - WorkerCommand
+        - atomicWriteFile
+        - buildAndSwap
+        - releaseLock
+        - runRefreshJob
+        - shouldDebounce
+        - spawnDetachedWorker
+        - touchMarker
+        - triggerRefresh
+        - tryAcquireLock
+
+  - slug: context-seam
+    name: Context Injection Seam
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The session-time delivery channel for everything paqad wants in front
+      of the model (RAG buildout F2). A `UserPromptSubmit` hook reads a
+      precomputed context artifact off disk and emits it as a
+      `[paqad-context]` block on stdout, so the host injects it into the
+      model context before the turn. The seam does no heavy work — only a
+      stat + read of a finished artifact under a hard time budget (the
+      background harness keeps the artifact fresh). Smart rule loading,
+      wired retrieval, stage gating, and the codebase-memory tier all ride
+      on this one channel. A missing, empty, disabled, or too-slow artifact
+      emits nothing, so the agent falls back to grep/read exactly as today.
+    sources:
+      - runtime/scripts/context-seam.mjs
+      - runtime/hooks/context-seam-inject.mjs
+    features:
+      - slug: budgeted-read
+        name: Budgeted Artifact Read (resolve + read + ceiling)
+      - slug: context-block-emit
+        name: Context Block Emit ([paqad-context] + hook wiring)
+    evidence:
+      symbols:
+        - BLOCK_CLOSE
+        - BLOCK_OPEN
+        - CONTEXT_ARTIFACT_RELPATH
+        - DEFAULT_BUDGET_MS
+        - DEFAULT_MAX_BYTES
+        - buildInjection
+        - formatContextBlock
+        - isLeanRulesEnabledValue
+        - isRagEnabledValue
+        - readContextUnderBudget
+        - resolveContextArtifactPath
+
+  - slug: smart-rule-loading
+    name: Smart Rule Loading
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Replace "load all ~50K of rule text every session" with a
+      deterministic, token-lean scheme (RAG buildout Phase 2). The model
+      always knows every rule exists and when it applies, while a rule's
+      full text is deferred until its declared triggers match what is being
+      touched, and script-enforced rules stay enforced regardless of context.
+      Deliberately deterministic (declared triggers + scripts), never an
+      embedding-RAG guess — omitting a rule is a correctness failure. Rides
+      the context-seam for delivery and the background harness for freshness.
+    sources:
+      - src/context/rule-manifest.ts
+      - src/context/rule-context.ts
+      - src/pipeline/rule-trigger-matcher.ts
+      - src/rule-scripts/enforce.ts
+      - src/rule-scripts/compile.ts
+      - src/cli/commands/rules.ts
+    features:
+      - slug: rule-manifest
+        name: Rule Manifest (always-resident index of every rule)
+      - slug: trigger-load
+        name: Trigger-Load (full rule text for the files in play)
+      - slug: script-enforcement
+        name: Script Enforcement (scripted rules enforced regardless of context)
+        sources: [src/rule-scripts/enforce.ts, src/rule-scripts/compile.ts, src/cli/commands/rules.ts]
+    evidence:
+      symbols:
+        - CompileRuleScriptsResult
+        - ComposeRuleContextOptions
+        - DECISION_PAUSE_REMINDER
+        - EnforceOptions
+        - EnforcementResult
+        - LEAN_RULE_CONTEXT_BUDGET_BYTES
+        - RULES_MISSING_FALLBACK_MARKER
+        - RuleManifestOptions
+        - RuleSelection
+        - RuleViolation
+        - WriteRuleContextOptions
+        - compileRuleScripts
+        - composeRuleContext
+        - createRulesCommand
+        - enforceRuleScripts
+        - formatEnforcementSummary
+        - generateRuleManifest
+        - isAlwaysLoadRule
+        - isRuleScriptMapStale
+        - matchRuleTriggers
+        - matchesGlobish
+        - refreshRuleContext
+        - ruleTriggersMatch
+        - scriptedSourcePaths
+        - selectTriggeredRules
+        - writeRuleContext
+
+  - slug: mcp-config
+    name: MCP Configuration
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Recommends stack-scoped MCP servers in .paqad/mcp-recommendations.json
+      and never writes another tool's MCP config file. Removes only the
+      legacy MCP files older paqad versions wrote.
+    sources:
+      - src/mcp
+    evidence:
+      symbols:
+        - DataRetrievalDecider
+        - MCP_SERVERS
+        - McpConfigManager
+        - McpServerRegistry
+        - getServersForStack
+
+  - slug: module-map-engine
+    name: Module Map Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Builds the business-language module map from codebase signals using
+      the documented precedence: user-provided → locked entries →
+      codebase-native containers → deterministic inference → LLM fallback.
+      Powers Stage 1 of the documentation workflow.
+    sources:
+      - src/module-map
+      - src/introspection
+
+  - slug: module-health-ledger
+    name: Module Health Ledger
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Per-module health, defect density, risk floor, and complexity scores
+      stored under `.paqad/module-health/`. Sync ingests pending provider
+      evidence; record writes normalized entries directly. Drives the
+      graph's intelligence overlays.
+    sources:
+      - src/module-health
+      - .paqad/module-health
+
+  - slug: session-handoff
+    name: Session Handoff & Predictive Cache
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Structured v2 handoff (active task, decisions, files, blockers, next
+      steps) — 70–85% smaller than raw dumps, in JSON and Markdown. Plus
+      a predictive skill cache that pre-warms when P(next | current) ≥ 0.7
+      (disabled by default; transition data accumulates passively).
+    sources:
+      - src/session
+      - src/cache
+    evidence:
+      symbols:
+        - ActiveImplementationSessionArtifact
+        - CacheMetrics
+        - CacheMetricsTracker
+        - CacheWarmer
+        - DEFAULT_PREDICTIVE_CACHE_OPTIONS
+        - HandoffParser
+        - HandoffWriter
+        - ParsedHandoff
+        - PredictiveCache
+        - PredictiveCacheOptions
+        - ResumeImplementationDecision
+        - SessionResumeValidation
+        - SessionResumeValidator
+        - StructuredHandoff
+        - TransitionEntry
+        - TransitionLog
+        - TransitionLogManager
+        - UnsupportedStructuredHandoff
+        - UnsupportedStructuredHandoffVersionError
+        - applyActiveImplementationSession
+        - createActiveImplementationSession
+        - isExplicitExplanationOnlyIntent
+        - readActiveImplementationSession
+        - writeActiveImplementationSession
+
+  - slug: decision-pause-contract
+    name: Decision Pause Contract
+    layer: framework-internals
+    confidence: high
+    # Enforcement spine: human-decision gate — floor to full.
+    sensitivity: high
+    summary: |
+      Agent-side contract enforced by `CLAUDE.md` / `AGENTS.md`: before any
+      flagged choice the agent writes a Decision Packet to
+      `.paqad/decisions/pending/D-{id}.json` and stops until the resolved
+      packet exists. Routed through the interactive question UI when
+      available. On a new pause, the packet context is enriched with the top
+      similar prior resolved decisions (deterministic, embedding-free) so the
+      developer sees the precedents they already set (RAG buildout F25).
+    sources:
+      - .paqad/decisions
+      - src/planning/decision-precedents.ts
+    evidence:
+      symbols:
+        - DEFAULT_PRECEDENT_LIMIT
+        - DecisionPrecedent
+        - FindPrecedentsOptions
+        - PRECEDENT_BLOCK_HEADING
+        - PRECEDENT_SCORE_FLOOR
+        - PrecedentQuery
+        - findDecisionPrecedents
+        - formatDecisionPrecedents
+        - scorePrecedent
+
+  - slug: pattern-library
+    name: Cross-Project Pattern Library
+    layer: framework-internals
+    confidence: medium
+    summary: |
+      Verified solutions stored globally under `~/.paqad/patterns/`. Scored
+      by framework overlap + keyword match with a staleness penalty after
+      180 days.
+    sources:
+      - src/patterns
+    evidence:
+      symbols:
+        - Pattern
+        - PatternCli
+        - PatternFilter
+        - PatternIndex
+        - PatternIndexEntry
+        - PatternMatch
+        - PatternRecorder
+        - PatternSemanticScorer
+        - PatternStore
+        - PatternSuggester
+        - PatternVectorService
+        - RecordPatternInput
+        - StoredPatternVector
+        - getGlobalPatternVectorPaths
+        - suggestPatternsForProject
+
+  - slug: compliance-engine
+    name: Spec Compliance Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Parses structured Markdown specs into deterministic obligation
+      indexes, scans tests for explicit `@obligation` evidence, generates
+      failing Vitest skeletons, and validates index schema + duplicate IDs.
+    sources:
+      - src/compliance
+
+  - slug: traceability-engine
+    name: Bidirectional Traceability Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Rebuilds a two-way promise ↔ code ↔ test map from reality each run by
+      joining the compliance forward link (spec→test), the module map, the
+      import graph, and verification-evidence `ac_id`. Flags promises with no
+      proving check (TR-UNTESTED-PROMISE) and code that answers to no promise
+      and that nothing-with-a-promise uses (TR-CODE-ORPHAN, by reachability —
+      not a label). Writes `.paqad/traceability/map.json`. In production the map is
+      the change map: the frozen spec's automated acceptance
+      criteria against the test files changed on the branch, built at Stop
+      verification and at `checks run`, and read by the `ac-test-mapping` gate.
+    sources:
+      - src/traceability
+    evidence:
+      symbols:
+        - GatherOptions
+        - ReachabilityInput
+        - ReachabilityResult
+        - buildChangeTraceabilityMap
+        - buildTraceabilityMap
+        - gatherTraceabilityInputs
+        - readTraceabilityMap
+        - solveReachability
+        - traceabilityMapPath
+        - writeTraceabilityMap
+
+  - slug: quality-ratchet
+    name: Quality Ratchet
+    layer: framework-internals
+    confidence: high
+    # Enforcement spine: a change here floors the lane to full.
+    sensitivity: high
+    summary: |
+      Records four quality measures at the project's real level today
+      (`.paqad/quality-baseline.json`) and from then on only allows a change
+      that keeps each measure equal or better. Measures — tangledness, dead/
+      unused code (consumed from the reachability index output, not re-scanned),
+      risky patterns, and strictness — are normalised to a deficiency count
+      (lower is better) and rolled up per module + project. A verification gate
+      refuses any worsening; the recorded level only ever tightens, except a
+      legitimate regression approved once via the `quality.ratchet_exception`
+      Decision Pause and reused for the same kind.
+    sources:
+      - src/quality-ratchet
+    evidence:
+      symbols:
+        - CollectQualityMeasuresOptions
+        - EvaluateRatchetOptions
+        - FileDeficiency
+        - MeasureRunOptions
+        - MeasureRunResult
+        - QualityCollectorDeps
+        - RATCHET_EXCEPTION_APPROVE
+        - RATCHET_EXCEPTION_REFUSE
+        - RatchetExceptionInput
+        - RunQualityRatchetOptions
+        - StrictnessMeasure
+        - applyApprovedRegressions
+        - buildRatchetExceptionPacket
+        - collectQualityMeasures
+        - createBaseline
+        - evaluateRatchet
+        - exceptionKind
+        - measureStrictness
+        - measureStrictnessFromOptions
+        - parseTsconfig
+        - qualityBaselinePath
+        - readQualityBaseline
+        - resolveReusableExceptionKinds
+        - runQualityRatchetGate
+        - sampleKey
+        - tightenBaseline
+        - writeQualityBaseline
+
+  - slug: verification
+    name: Verification Gates
+    layer: framework-internals
+    confidence: high
+    # Enforcement spine: the gates decide what lands — floor to full.
+    sensitivity: high
+    summary: |
+      The gate runner and the bank of verification gates that
+      decide whether a change is allowed to land. Each gate under
+      `src/verification/gates/` returns a pass / block verdict with computed
+      judgment inputs — ac-test-mapping, behavioral-correctness, change-
+      completeness, code-tests-lint, mutation-testing, quality-ratchet,
+      spec-review, implementation-review, requirement-completeness,
+      documentation-freshness / -checks / -structure, architecture- and
+      database-quality, and extension-surface. The runner aggregates verdicts,
+      computes a delta versus the last run, and emits the evidence the ledger
+      and receipt consume. Gates fire from hooks with a git/CI backstop.
+    sources:
+      - src/verification
+      - src/verification/gates
+      - src/verification/repository
+      - src/checks
+      - src/review-digest
+    features:
+      - slug: gate-runner
+        name: Gate Runner & Verdict Aggregation
+        sources: [src/verification/gate-runner.ts, src/verification/delta.ts]
+      - slug: verification-gates
+        name: Gate Bank (16 gates)
+        sources: [src/verification/gates]
+      - slug: verification-evidence
+        name: Evidence Emission (markdown + structured)
+        sources: [src/verification/evidence.ts, src/verification/evidence-markdown.ts]
+      - slug: check-runner
+        name: Deterministic Check Runner (format/test/build → structured results)
+        sources: [src/checks/run-checks.ts, src/checks/report-store.ts, src/cli/commands/checks.ts]
+      - slug: review-digest
+        name: Review Evidence Digest (machine findings the review must address)
+        sources: [src/review-digest, src/cli/commands/review.ts]
+    evidence:
+      symbols:
+        - AC_ID_PATTERN
+        - AcTestMappingGate
+        - ArchitectureComplianceGate
+        - BehavioralCorrectnessGate
+        - BuildRepositoryVerificationContextOptions
+        - BuildVerificationEvidenceInput
+        - CHECKS_REPORT_SCHEMA_VERSION
+        - ChangeCompletenessGate
+        - CheckCommandOutcome
+        - ChecksReport
+        - ChecksRunResult
+        - CodeTestsLintGate
+        - ComposeChangeReceiptInput
+        - DIGEST_LINE_CAP
+        - DatabaseQualityGate
+        - DigestCriterion
+        - DigestStage
+        - DocumentationFreshnessGate
+        - DuplicationGate
+        - ExtensionSurfaceGate
+        - Gate
+        - ImplementationReviewGate
+        - InstructionsDocsStructureGate
+        - JudgmentSignal
+        - MachineFinding
+        - MachineFindingSeverity
+        - MachineFindingTier
+        - ModuleDocsStructureGate
+        - MutationTestingGate
+        - QualityRatchetGate
+        - RepositoryVerificationContextResult
+        - RepositoryVerificationGateVerdict
+        - RepositoryVerificationVerdict
+        - RequirementCompletenessGate
+        - ReviewDigestInput
+        - RunChecksOptions
+        - RunRepositoryVerificationOptions
+        - SURFACE_DOC_PATH
+        - SpecReviewGate
+        - StoryQualityGate
+        - TEST_EVIDENCE_STRENGTH
+        - TestEvidenceAssessment
+        - TestEvidenceStrength
+        - VERIFICATION_EVIDENCE_RELATIVE_PATH
+        - VERIFICATION_EVIDENCE_STDERR_BUDGET_BYTES
+        - VerificationGateRunner
+        - WriteVerificationEvidenceOptions
+        - WrittenDigest
+        - anchoringFindings
+        - areRegistriesStale
+        - assessTestEvidence
+        - backstopGates
+        - buildDocumentationDriftDeltaPayload
+        - buildRepositoryVerificationContext
+        - buildRepositoryVerificationVerdict
+        - buildReviewDigest
+        - buildVerificationEvidence
+        - buildVerificationGateDeltaPayload
+        - checkBooleanGate
+        - checksEvidenceGate
+        - checksReportPath
+        - collectCanonicalDocumentationFailures
+        - collectMachineFindings
+        - collectObservedAcIds
+        - collectScopeDriftPaths
+        - collectUnresolvedDocTargets
+        - composeChangeReceipt
+        - computeAcTestMapping
+        - computeImplementationReview
+        - computeSpecReview
+        - createChecksCommand
+        - createFail
+        - createInconclusive
+        - createPass
+        - createReviewCommand
+        - extractAcIdFromIssue
+        - findingAnchor
+        - formatCanonicalDocTarget
+        - formatStageEvidenceReceipt
+        - formatVerdictSummary
+        - identity
+        - inconclusiveChecksGate
+        - readChecksReport
+        - runChecks
+        - runRepositoryVerification
+        - stageEvidenceGate
+        - toVerificationSnapshots
+        - unanchoredMachineFindings
+        - writeChecksReport
+        - writeReviewDigest
+        - writeVerificationEvidence
+
+  - slug: evidence-ledger
+    name: Evidence Ledger & Provenance Receipt
+    layer: framework-internals
+    confidence: high
+    # Enforcement spine: the append-only trust record — floor to full.
+    sensitivity: high
+    summary: |
+      One unified, append-only evidence ledger that every
+      verification gate and correctness engine writes to, plus the per-change
+      provenance receipt (an AI-BOM) projected from it at merge time. Each row
+      carries a `strength_class` — deterministic (A), llm-judged (B), or
+      blocked (C) — so a receipt reports "8 deterministic + 3 llm-judged
+      passed, 1 ratchet blocked, 1 inconclusive" instead of a pooled total.
+      `src/evidence/grading.ts` is the single source of truth for the A/B
+      split; `reproducibility.ts` stamps the receipt for replay.
+    sources:
+      - src/evidence
+      - src/evidence/receipt
+      - src/evidence/compliance
+    features:
+      - slug: unified-ledger
+        name: Unified Append-Only Ledger
+        sources: [src/evidence/ledger.ts, src/evidence/fan-in.ts]
+      - slug: evidence-grading
+        name: Evidence Grading (A/B/C strength classes)
+        sources: [src/evidence/grading.ts]
+      - slug: provenance-receipt
+        name: Per-Change Provenance Receipt (AI-BOM)
+        sources: [src/evidence/receipt, src/evidence/reproducibility.ts]
+      - slug: compliance-citations
+        name: Compliance Citations on the Receipt
+        sources: [src/evidence/compliance]
+    evidence:
+      symbols:
+        - AiBomDocument
+        - BuildAiBomInput
+        - BuildAuthorshipInput
+        - BuildStatementInput
+        - CycloneDxComponent
+        - CycloneDxProperty
+        - DSSE_PAYLOAD_TYPE
+        - EngineFinding
+        - EvidenceRowIdentity
+        - GATE_STRENGTH_TIER
+        - GitIdentity
+        - GradedGateResult
+        - NewEvidenceRow
+        - ProjectReceiptInput
+        - ProjectReceiptResult
+        - ReproducibilityStamp
+        - ResolveAuthorshipInput
+        - ResolveComplianceCitationsInput
+        - RowContext
+        - SignReceiptInput
+        - appendEvidenceRows
+        - buildAiBom
+        - buildChangeAuthorship
+        - buildEvidenceRow
+        - buildInTotoStatement
+        - buildReproducibilityStamp
+        - computeRowContentHash
+        - decodeReceiptStatement
+        - deriveVerificationResult
+        - detectSigningMode
+        - findingRowsFrom
+        - gateResultsToRows
+        - gradeGateResult
+        - latestReceiptAuthorship
+        - latestReceiptHash
+        - latestReceiptTrustExtras
+        - pae
+        - projectReceipt
+        - ratchetResultToRows
+        - readEvidenceLedger
+        - readEvidenceWindow
+        - readGitIdentity
+        - readOnboardedAgent
+        - readReceiptChain
+        - readReproducibilityPredicate
+        - readReproducibilityStamp
+        - recordReproducibilityStamp
+        - resolveChangeAuthorship
+        - resolveComplianceCitations
+        - signReceipt
+        - statementPayload
+        - summarizeGradedEvidence
+        - verifyReceiptChain
+
+  - slug: session-ledger
+    name: Session-Scoped Evidence Substrate
+    layer: framework-internals
+    confidence: high
+    # Enforcement spine: the shared evidence substrate — floor to full.
+    sensitivity: high
+    summary: |
+      The reusable script-written, session-scoped, append-only JSONL evidence
+      primitive under `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`:
+      atomic ordinal allocation (exclusive-create, race-safe across the background
+      worker and the prompt seam), an `.open` pointer, a script-clock `ts` + identity
+      `content_hash` stamped on every row, a tolerant reader, and an injectable
+      per-row validator. The RAG-evidence ledger and the stage-evidence ledger
+      both consume this instead of duplicating it. Imports no enterprise code —
+      always-on, AI-BOM-independent.
+    sources:
+      - src/session-ledger
+    evidence:
+      symbols:
+        - AppendOptions
+        - DISABLED_SESSION_DOC_TYPE
+        - DISABLED_SESSION_SCHEMA_VERSION
+        - OpenSessionDocResult
+        - RecordDisabledSessionContext
+        - SessionLedgerRow
+        - SessionRowValidator
+        - allocateOrdinal
+        - appendSessionEvent
+        - appendStampedRowToUnit
+        - closeSessionOrdinal
+        - computeSessionRowHash
+        - currentOrdinal
+        - foldByOrdinal
+        - listSessionIds
+        - openSessionDoc
+        - readAllSessionRows
+        - readLatestProjectEvent
+        - readProjectEvents
+        - readSessionDoc
+        - readSessionUnit
+        - readUnitFile
+        - recordDisabledSession
+        - recordProjectEvent
+        - sessionLedgerDir
+        - sessionLedgerPath
+        - sessionOpenPointerPath
+        - stampSessionRow
+
+  - slug: framework-api
+    name: Installed Framework-API Index
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The deterministic backend that verifies framework reuse claims.
+      A plan can DECLARE it reuses a framework API; this module checks that claim.
+      This module reads the `.d.ts` declaration layer shipped inside the installed
+      package and answers, for the version actually installed, whether the symbol
+      exists and whether it carries a static `@deprecated` marker — zero model
+      tokens, zero network. Built as an ecosystem-adapter registry (mirroring
+      EcosystemParserRegistry) with only the node/JS-TS adapter implemented, so
+      later PHP/Python/JVM adapters plug in and a non-node project records
+      `no-adapter` rather than running the wrong code path. `typescript` is an
+      OPTIONAL peer dependency lazy-resolved from the onboarded project, because
+      paqad-ai installs into projects of any stack. Only `absent` and `deprecated`
+      block a `plan compile`; everything unresolved warns, because a false "absent"
+      hard-blocks a valid plan.
+    sources:
+      - src/framework-api
+    evidence:
+      symbols:
+        - BuildFrameworkApiOptions
+        - BuildFrameworkApiResult
+        - DYNAMIC_MEMBER_SUFFIX
+        - DeprecationVerdict
+        - FRAMEWORK_API_SCHEMA_VERSION
+        - FrameworkApiAdapter
+        - FrameworkApiAdapterInput
+        - FrameworkApiAdapterRegistry
+        - FrameworkApiAdapterResult
+        - FrameworkApiBlocked
+        - FrameworkApiHeader
+        - FrameworkApiIndex
+        - FrameworkApiPackage
+        - FrameworkApiProvenance
+        - FrameworkApiQueryResult
+        - FrameworkApiSymbol
+        - FrameworkApiSymbolKind
+        - FrameworkApiValidation
+        - FrameworkApiVerdict
+        - InstalledLocation
+        - JsDocTagLike
+        - TsProgram
+        - TypeScriptModule
+        - buildFrameworkApiIndex
+        - clearTypeScriptCache
+        - createDefaultFrameworkApiAdapterRegistry
+        - frameworkApiIndexPath
+        - loadTypeScript
+        - nearestFrameworkSymbol
+        - nodeFrameworkApiAdapter
+        - queryFrameworkApi
+        - readDeprecation
+        - readFrameworkApiIndex
+        - resolveInstalledVersion
+        - resolveTypesEntry
+        - typesFromExports
+        - typesPackageName
+        - validateFrameworkApiIndex
+        - writeFrameworkApiIndex
+
+  - slug: feature-evidence
+    name: Per-Feature Evidence Bundle
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The per-feature evidence bundle — one directory per feature at
+      `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` holding its whole
+      workflow record plus its compliance bundle. Phase 1 lays the dark, unwired
+      foundation: a path layer that resolves the layout, the `_session` control,
+      and the `_chat` home and round-trips a dir name to its `{issue, slug, ulid}`
+      parts; rigid framework-owned AJV schemas for `feature.json` and `plan.json`
+      (unknown keys rejected) with content-hashed record builders (`specification.json`
+      reuses the existing FeatureSpec shape); and the per-session active +
+      paused-feature control that folds today's `.open` + `.pending-lane` at feature
+      grain. Nothing writes here until later phases wire the recorder in, so the
+      live stage spine is untouched. Also home to the paqad HUD's data layer:
+      the per-session snapshot, receipt and verdict files built from the bundle, and
+      the change cost (`src/cost`, Part 23): transcript usage, the dated price table and cost.json.
+    sources:
+      - src/feature-evidence
+      - src/hud
+      - src/cost
+      - src/tech-debt
+      - src/core/text/marker-block.ts
+      - src/cli/commands/debt.ts
+      - src/fix-protocol/fix-prove.ts
+      - src/fix-protocol/fix-proof-record.ts
+      - src/fix-protocol/fix-change.ts
+      - src/cli/commands/fix.ts
+      - src/rule-scripts/override.ts
+      - src/speed-report
+      - src/cli/commands/report.ts
+    features:
+      - slug: tech-debt
+        name: Tech-Debt Items (paqad-ai debt)
+        sources: [src/tech-debt, src/core/text/marker-block.ts, src/feature-evidence/tech-debt-index.ts, src/cli/commands/debt.ts]
+      - slug: fix-proof
+        name: Fix Proof (paqad-ai fix prove)
+        sources: [src/fix-protocol/fix-prove.ts, src/fix-protocol/fix-proof-record.ts, src/fix-protocol/fix-change.ts, src/verification/repository/fix-proof-gate.ts, src/cli/commands/fix.ts]
+      - slug: rule-override
+        name: Rule Stop and Allow Once (paqad-ai rules override)
+        sources: [src/rule-scripts/override.ts, src/feature-evidence/rule-overrides.ts, src/hud/last-block.ts, src/cli/commands/rules.ts]
+      - slug: speed-report
+        name: Speed Report (paqad-ai report speed)
+        sources: [src/speed-report, src/cli/commands/report.ts]
+    evidence:
+      symbols:
+        - ALLOWED_BUNDLE_FILENAMES
+        - BuildFeatureRecordInput
+        - BuildPlanRecordInput
+        - BuildReviewRecordInput
+        - BundlePathClassification
+        - CREATE_KEYWORDS
+        - CompiledArtifact
+        - DELIVERY_DOC_TYPE
+        - DELIVERY_SCHEMA_VERSION
+        - DeliveryCommit
+        - DeliveryRecord
+        - FEATURE_BUNDLE_FILES
+        - FEATURE_DOC_TYPE
+        - FEATURE_EVIDENCE_SCHEMA_VERSION
+        - FEATURE_SCHEMA
+        - FEATURE_SESSION_DOC_TYPE
+        - FRAMEWORK_API_INDEX_ABSENT_WARNING
+        - FeatureBundleExport
+        - FeatureBundleFile
+        - FeatureDirName
+        - FeatureLane
+        - FeatureRecord
+        - FeatureSessionControl
+        - FeatureStatus
+        - FrameworkChecked
+        - GIT_HOOK_MARKER
+        - INDEX_ABSENT_WARNING
+        - InstallGitHooksResult
+        - MintFeatureDirNameInput
+        - MintedFeatureDirName
+        - NewConstruct
+        - NoActiveFeatureError
+        - OpenFeatureChangeInput
+        - PLAN_DOC_TYPE
+        - PLAN_SCHEMA
+        - PlanCompileInput
+        - PlanRecord
+        - PlanReuse
+        - PlanRisk
+        - PlanStep
+        - PlanStepClassification
+        - ProjectFeatureReceiptInput
+        - ProjectFeatureReceiptResult
+        - PruneResult
+        - REVIEW_DOC_TYPE
+        - REVIEW_SCHEMA
+        - RULE_RUN_DOC_TYPE
+        - RULE_RUN_SCHEMA_VERSION
+        - ReceiptIntegrity
+        - RenderFeatureReportOptions
+        - ResolveFeatureInput
+        - ReuseClaim
+        - ReuseConsulted
+        - ReuseConsultedSource
+        - ReuseCounts
+        - ReuseDeclarationError
+        - ReuseProvenance
+        - ReuseValidation
+        - ReviewFinding
+        - ReviewFindingSeverity
+        - ReviewRecord
+        - ReviewRecordInput
+        - ReviewVerdict
+        - RuleRunEntry
+        - SNAPSHOT_ABSENT_WARNING
+        - SetActiveOptions
+        - SlugBackfillResult
+        - UNTITLED_FEATURE_TITLE
+        - ValidateReuseInput
+        - WriteFeatureReportOptions
+        - WriteFeatureReportResult
+        - appendCommitToFeature
+        - appendFeatureStageRow
+        - appendRuleRun
+        - backfillFeatureSlug
+        - buildFeatureRecord
+        - buildPlanRecord
+        - buildReviewRecord
+        - chatDir
+        - chatRagPath
+        - classifyBundlePath
+        - closeActiveFeature
+        - commitsSinceBase
+        - computeContentHash
+        - currentFeature
+        - deriveReportVerdict
+        - emptyControl
+        - exportFeatureBundle
+        - featureBranch
+        - featureDir
+        - featureEvidenceDir
+        - featureFilePath
+        - featureReportEnabled
+        - featureReportPath
+        - featureSessionControlPath
+        - featureStagePath
+        - foldFeature
+        - formatDuration
+        - formatFeatureDirName
+        - formatValidationError
+        - frameworkClaimKey
+        - hookBlock
+        - installGitHooks
+        - isBundleMaterialized
+        - isFeatureDirName
+        - listAdoptableFeatures
+        - listFeatureDirs
+        - listInFlightFeatures
+        - markDone
+        - mintFeatureDirName
+        - mirrorRagRow
+        - openFeatureChange
+        - parseFeatureDirName
+        - pauseActive
+        - projectAiBomFromFeatures
+        - projectFeatureAiBom
+        - projectFeatureReceipt
+        - pruneFeatureBundles
+        - readAllFeatureRuleRuns
+        - readAllFeatureSpecifications
+        - readAllFeatureStageRows
+        - readFeatureAiBom
+        - readFeatureDelivery
+        - readFeaturePlan
+        - readFeatureReceipt
+        - readFeatureReview
+        - readFeatureSpecification
+        - readFeatureStageUnit
+        - readRuleRun
+        - readSessionControl
+        - reconcileDeliveryFromGit
+        - reconcileSessionControl
+        - recordCommitForBranch
+        - renderFeatureReportHtml
+        - resolveActiveFeature
+        - resolveDeliveryFeatureByBranch
+        - resolveFeatureRef
+        - resolveHooksDir
+        - resolveRagHome
+        - resolveReportFeatureRef
+        - resumeFeature
+        - resumeFeatureByRef
+        - reuseCounts
+        - setActiveFeature
+        - setLane
+        - stampMergeCommit
+        - strayBundleFiles
+        - validateFeatureRecord
+        - validatePlanRecord
+        - validateReuseSection
+        - validateReviewRecord
+        - verifyFeatureReceiptSelf
+        - writeFeatureDelivery
+        - writeFeaturePlan
+        - writeFeatureReport
+        - writeFeatureReview
+        - writeFeatureSpecification
+        - writeSessionControl
+
+  - slug: rag-evidence-ledger
+    name: RAG-Evidence Ledger
+    layer: framework-internals
+    confidence: high
+    summary: |
+      A script-written, per-(session, conversation) record of what the RAG layer
+      actually did at runtime: when the index was REFRESHED, when
+      retrieval was CALLED, when the precomputed context was USED (injected into a
+      prompt), and when it FELL BACK to grep. Built on the session-ledger substrate;
+      validated by an AJV schema. The seams (background worker, prompt hook) record it;
+      the LLM never hand-authors a row. `appendRagAudit` dual-writes into it so the
+      structured ledger is the queryable source of truth without losing an event.
+      Honest by design: proof of OCCURRENCE (a slice was injected), never of benefit.
+      `rag-evidence show` folds a session into a use-rate / fallback rollup.
+    sources:
+      - src/rag-ledger
+      - runtime/scripts/rag-evidence-record.mjs
+    features:
+      - slug: rag-evidence-recorder
+        name: Recorder + AJV schema (open/refreshed/called/used/fallback)
+        sources: [src/rag-ledger/recorder.ts, src/rag-ledger/schema.ts, src/rag-ledger/types.ts]
+      - slug: rag-evidence-audit-bridge
+        name: appendRagAudit → structured-ledger bridge
+        sources: [src/rag-ledger/audit-bridge.ts]
+      - slug: rag-evidence-show
+        name: rag-evidence show (use-rate / fallback fold)
+        sources: [src/rag-ledger/fold.ts, src/cli/commands/rag-evidence.ts]
+    evidence:
+      symbols:
+        - RAG_EVIDENCE_DOC_TYPE
+        - RAG_EVIDENCE_SCHEMA
+        - RAG_EVIDENCE_SCHEMA_VERSION
+        - RagEvidenceContext
+        - RagEvidenceConversationFold
+        - RagEvidenceFields
+        - RagEvidenceKind
+        - RagEvidenceRow
+        - RagEvidenceSessionFold
+        - RagFallbackReason
+        - RagInjectedSection
+        - RagQueryScope
+        - RagRefreshKind
+        - createRagEvidenceCommand
+        - foldRagEvidenceRows
+        - foldRagEvidenceSession
+        - mapAuditEventToEvidence
+        - mapFallbackReason
+        - openRagConversation
+        - persistLedgerSessionId
+        - recordRagEvidence
+        - recordRagEvidenceFromAudit
+        - recordSeamOutcome
+        - resolveSeamSessionId
+        - resolveSessionId
+        - sectionsFromBlock
+        - validateRagEvidenceRow
+
+  - slug: delivery-workflow
+    name: Provider-Agnostic Delivery Workflow
+    layer: framework-internals
+    confidence: high
+    summary: |
+      On-by-default delivery automation whose branch, CI, and
+      ticket conventions are detected from the team's real git history rather
+      than authored. The capability is two provider-neutral contracts —
+      `TicketProvider` (tracker-neutral; Jira first) and `HostProvider` (VCS +
+      code-host-neutral; GitHub first) — with vendors as adapters resolved by
+      `src/providers/registry.ts`. A delivery-policy.yaml carries the detected
+      conventions; a CI gate enforces them; graceful degradation kicks in when
+      a provider is not connected.
+    sources:
+      - src/delivery
+      - src/providers
+      - src/cli/commands/delivery-link.ts
+      - docs/instructions/workflows/delivery-policy.yaml
+    features:
+      - slug: ticket-provider
+        name: TicketProvider Contract (Jira adapter)
+        sources: [src/providers/ticket-provider.ts, src/providers/jira-ticket-provider.ts]
+      - slug: host-provider
+        name: HostProvider Contract (GitHub adapter)
+        sources: [src/providers/host-provider.ts, src/providers/github-host-provider.ts]
+      - slug: delivery-detection
+        name: Convention Detection from Git History
+        sources: [src/delivery/detection.ts, src/delivery/detect-run.ts]
+      - slug: delivery-ci-gate
+        name: Delivery CI Gate + Graceful Degradation
+        sources: [src/delivery/ci-gate.ts, src/delivery/degradation.ts]
+      - slug: commit-decision
+        name: Shipped Commits and the Commit Question (paqad-ai delivery-link commit-decision)
+        sources: [src/delivery/commit-split.ts, src/cli/commands/delivery-link.ts]
+    evidence:
+      symbols:
+        - CheckRun
+        - ChecksState
+        - ChecksStatus
+        - CiGateAction
+        - CiGateOptions
+        - CiGateResult
+        - CommandRun
+        - CommandRunner
+        - DELIVERY_EVIDENCE_DOC_TYPE
+        - DELIVERY_EVIDENCE_SCHEMA_VERSION
+        - DeliveryCheckResult
+        - DeliveryDetectionResult
+        - DeliveryFinding
+        - DeliveryHost
+        - DeliveryPlan
+        - DeliveryRenderInputs
+        - DeliveryRunInputs
+        - DeliveryRunResult
+        - DeliveryShell
+        - DeliveryStepResult
+        - DetectedDelivery
+        - DetectedField
+        - EvaluateDeliveryInput
+        - GITHUB_ISSUE_JSON_FIELDS
+        - GhInvoke
+        - GitSnapshot
+        - GithubHostProvider
+        - GithubIssuesTicketProvider
+        - HostEnvironment
+        - HostProvider
+        - HostProviderResolution
+        - HostStepResult
+        - JIRA_MCP_TOOLS
+        - JiraMcpInvoke
+        - JiraTicketProvider
+        - NormalizedTicket
+        - OpenPrInput
+        - PullRequest
+        - RenderedDelivery
+        - TicketFieldUpdate
+        - TicketProvider
+        - TicketProviderResolution
+        - TicketTransition
+        - aggregate
+        - buildConnectNudge
+        - createDeliveryShell
+        - detectBase
+        - detectBranchTemplate
+        - detectCommitConvention
+        - detectDelivery
+        - detectDeliveryHost
+        - detectHost
+        - detectionPath
+        - evaluateDelivery
+        - execaCommandRunner
+        - extractAcceptanceCriteria
+        - formatDeliverySummary
+        - gatherGitSnapshot
+        - hasDetection
+        - normalizeCheckState
+        - normalizeGithubIssue
+        - normalizeIssueNumber
+        - normalizeJiraIssue
+        - normalizeJiraTransitions
+        - overlayDetection
+        - parseOwnerRepo
+        - parsePrUrl
+        - planDelivery
+        - readDetection
+        - readLatestDeliveryEvidence
+        - recordDeliveryEvidence
+        - renderDelivery
+        - renderTemplate
+        - resolveConventionalType
+        - resolveHostProvider
+        - resolveTicketProvider
+        - runCiGate
+        - runDelivery
+        - runDeliveryCapability
+        - runDeliveryDetection
+        - slugify
+        - summarizeDetection
+        - writeDetection
+
+  - slug: pentest-engine
+    name: Pentest Engine (12 Skills)
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The 12 security skills (input-validation, auth-mechanism, crypto,
+      BOLA, business-logic, runtime-surface, STRIDE, dependency-advisory,
+      logging-monitoring, rate-limiting, finding-normalizer, retest-
+      verification), validators, and verification helpers that back the
+      pentest workflow.
+    sources:
+      - src/pentest
+      - src/validators
+    evidence:
+      symbols:
+        - MarkdownValidationResult
+        - SchemaValidationIssue
+        - SchemaValidator
+        - ValidationResult
+        - validateAcStatements
+        - validateApiDoc
+        - validateErrorCatalogMarkdown
+        - validateRequiredHeadings
+        - validateSpecDocument
+        - validateUserFlow
+
+  - slug: project-profile-schema
+    name: Project Profile & Onboarding Manifest
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The shape, defaults, and writers for `.paqad/project-profile.yaml`,
+      `.paqad/onboarding-manifest.json`, and the resolved
+      `project-intelligence` context that every other module reads.
+    sources:
+      - src/core/project-profile.ts
+      - src/core/project-intelligence.ts
+      - src/core/runtime-paths.ts
+      - src/onboarding/manifest-writer.ts
+    evidence:
+      symbols:
+        - DEFAULT_ACTION_ROUTING
+        - DEFAULT_ADAPTIVE_RETRIEVAL
+        - DEFAULT_BENCHMARK_EVAL
+        - DEFAULT_BENCHMARK_GATES
+        - DEFAULT_EXISTING_SURFACE_TOKENS
+        - DEFAULT_LOCAL_EMBEDDING_MODEL
+        - DEFAULT_METADATA_FILTERS
+        - DEFAULT_RERANKING
+        - EMBEDDING_PROVIDERS
+        - LOCAL_EMBEDDING_MODELS
+        - LocalEmbeddingModel
+        - ReadProjectProfileOptions
+        - defaultIntelligenceConfig
+        - getDefaultEmbeddingModel
+        - getPackageRoot
+        - getProfileDomain
+        - getRuntimeRoot
+        - getRuntimeTemplatesRoot
+        - isCodeTunedLocalModel
+        - migrateProjectProfile
+        - normalizeIntelligenceConfig
+        - readExistingOnboardingManifest
+        - readProjectProfile
+        - resolveFrameworkInstallPath
+        - sanitizeStackSnapshotRepository
+        - writeDetectionReport
+        - writeFrameworkMetadata
+        - writeFrameworkVersionPreservingTimestamp
+        - writeJsonPreservingTimestamp
+        - writeOnboardingManifest
+        - writeProjectProfile
+
+  - slug: repository-resolver
+    name: Repository Resolver
+    layer: framework-internals
+    confidence: medium
+    summary: |
+      Detects the repository root, sub-projects (e.g. `graph-ui/` inside
+      this repo), and ecosystem markers. Used by detection, onboarding,
+      and the module-map engine.
+    sources:
+      - src/repository
+      - src/resolver
+    evidence:
+      symbols:
+        - ARTIFACT_OUTPUT_KEYS
+        - ARTIFACT_TYPES
+        - ArtifactType
+        - COLLISION_MAP
+        - CollisionBehavior
+        - ContextDeduplicator
+        - DeduplicatorArtifact
+        - InheritanceDirectory
+        - Resolver
+        - ResolverOptions
+        - discoverRepositoryContext
+        - getInheritanceDirectories
+        - prefixRepositoryPath
+        - resolveCapabilityDirectories
+
+  - slug: claude-plugin
+    name: Claude Plugin (paqad plugin for Claude Code, Cowork and claude.ai chat)
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      The one `paqad` Claude plugin: its generated manifest, hooks file and
+      stage agents, the HUD mod, the bundled launcher, the developer skills
+      (onboard, join, dashboard) and the product-owner discovery skills built
+      from plugins/discovery, plus the scripts that assemble, validate and
+      test the plugin tree that release pushes to Eliyce/paqad-claude-plugin.
+    sources:
+      - src/plugin
+      - runtime/claude-plugin
+      - plugins/discovery
+      - scripts/assemble-plugin.mjs
+      - scripts/build-plugin-manifest.mjs
+      - scripts/validate-plugin.mjs
+      - scripts/test-plugin.mjs
+      - scripts/build-discovery.mjs
+      - scripts/check-plugin-skills.mjs
+    features:
+      - slug: plugin-manifest
+        name: Generated plugin manifest, hooks file and stage agents
+        sources: [src/plugin/manifest-build.ts, scripts/build-plugin-manifest.mjs]
+      - slug: plugin-assembly
+        name: Plugin assembly, validation and tests
+        sources: [scripts/assemble-plugin.mjs, scripts/validate-plugin.mjs, scripts/test-plugin.mjs]
+      - slug: plugin-runtime
+        name: Plugin runtime (hooks.json, agents, bin launcher, HUD mod)
+        sources: [runtime/claude-plugin/hooks.json, runtime/claude-plugin/agents, runtime/claude-plugin/bin, runtime/claude-plugin/mod]
+      - slug: plugin-skills
+        name: Plugin skills (developer skills and generated discovery skills)
+        sources: [runtime/claude-plugin/skills, scripts/check-plugin-skills.mjs]
+      - slug: discovery-skills
+        name: Product-owner discovery skills source and Python build
+        sources: [plugins/discovery, scripts/build-discovery.mjs]
+
+lowConfidenceModules:
+  - root-cause-analysis-workflow
+  - agent-routing
+  - feature-development-workflow
+  - pattern-library
+  - repository-resolver

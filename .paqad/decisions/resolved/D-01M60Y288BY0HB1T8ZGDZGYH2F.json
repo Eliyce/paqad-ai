@@ -1,0 +1,56 @@
+{
+  "id": "D-01M60Y288BY0HB1T8ZGDZGYH2F",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/hooks/decision-pause-gate.mjs",
+  "context": "Chief architect: These ten claims fit together; nobody disagrees. Every seat that spoke (security-auditor, solution-architect, application-architect, qa-engineer) says the same thing: if the edit's own change cannot be worked out, or a pending file has no change or cannot be read, the edit stays blocked as it is today, and change ids match exactly. The rest are test cases and how to reach the session's change from the plain .mjs hook. The only difference in wording is the route: solution-architect says a lazy import of the built resolver (like hud-snapshot.mjs), application-architect says a small hook-side reader of the same on-disk record. Both read one source of truth and both fail closed, so this is a build detail, not an owner choice. The owner can confirm this one quickly; the matching owner question is folded into question 1 of the round.\n\nTarget: runtime/hooks/decision-pause-gate.mjs\n- security-auditor: when any pending packet exists and the active change of the editing session cannot be resolved (missing pointer, unreadable file, session id mismatch), the gate must block the edit, never let it through\n- security-auditor: a pending packet whose change field is missing, empty or not a string must keep blocking every edit, exactly as today\n- security-auditor: a pending packet file that cannot be read or parsed must count as blocking, so a broken file can never open the gate\n- security-auditor: the active change must be looked up with the same session-scoped helper the stage writer uses, keyed by the hook payload session, not by a value the agent passes on the command line or in an environment variable it can set freely\n- security-auditor: change ids must be compared exactly (no prefix, case-folded or substring match), so change A cannot be mistaken for change B\n- security-auditor: a failed change lookup must be tested: pending packet for this change plus unresolvable session change still blocks; pending packet for change B plus a resolved change A passes\n- solution-architect: the hook is plain .mjs with no TS imports today; reach the change resolver through a lazy dist import like runtime/hooks/lib/hud-snapshot.mjs does (new URL('../../../dist/...')), and on any resolver failure fall back to today's block-everything behaviour so the gate never stops enforcing\n- application-architect: The gate is a plain .mjs hook and cannot import the TypeScript stage-writer helper; the per-change filter needs a hook-side active-change reader under runtime/hooks/lib that reads the same on-disk session-to-change record the stage writer writes, so both sides agree on one source of truth\n- application-architect: When the active change for the editing session cannot be resolved, the gate must fall back to today's project-wide block, never to allow; a pending packet with no change keeps blocking every edit\n- qa-engineer: Hook tests must cover four cases: pending decision for change B does not block an edit in change A; pending decision for change A blocks change A; a pending decision with no change still blocks everyone; a malformed or unreadable pending decision file still blocks (fail closed)\n\n[expert-conflict-fork:05f67ff096eb5a09]",
+  "options": [
+    {
+      "option_key": "when-any-pending-packet-exists-and-the-a",
+      "label": "when any pending packet exists and the active change of the editing session cannot be resolved (missing pointer, unreadable file, session id mismatch), the gate must block the edit, never let it through — security-auditor"
+    },
+    {
+      "option_key": "a-pending-packet-whose-change-field-is-m",
+      "label": "a pending packet whose change field is missing, empty or not a string must keep blocking every edit, exactly as today — security-auditor"
+    },
+    {
+      "option_key": "a-pending-packet-file-that-cannot-be-rea",
+      "label": "a pending packet file that cannot be read or parsed must count as blocking, so a broken file can never open the gate — security-auditor"
+    },
+    {
+      "option_key": "the-active-change-must-be-looked-up-with",
+      "label": "the active change must be looked up with the same session-scoped helper the stage writer uses, keyed by the hook payload session, not by a value the agent passes on the command line or in an environment variable it can set freely — security-auditor"
+    },
+    {
+      "option_key": "change-ids-must-be-compared-exactly-no-p",
+      "label": "change ids must be compared exactly (no prefix, case-folded or substring match), so change A cannot be mistaken for change B — security-auditor"
+    },
+    {
+      "option_key": "a-failed-change-lookup-must-be-tested-pe",
+      "label": "a failed change lookup must be tested: pending packet for this change plus unresolvable session change still blocks; pending packet for change B plus a resolved change A passes — security-auditor"
+    },
+    {
+      "option_key": "the-hook-is-plain-mjs-with-no-ts-imports",
+      "label": "the hook is plain .mjs with no TS imports today; reach the change resolver through a lazy dist import like runtime/hooks/lib/hud-snapshot.mjs does (new URL('../../../dist/...')), and on any resolver failure fall back to today's block-everything behaviour so the gate never stops enforcing — solution-architect"
+    },
+    {
+      "option_key": "the-gate-is-a-plain-mjs-hook-and-cannot-",
+      "label": "The gate is a plain .mjs hook and cannot import the TypeScript stage-writer helper; the per-change filter needs a hook-side active-change reader under runtime/hooks/lib that reads the same on-disk session-to-change record the stage writer writes, so both sides agree on one source of truth — application-architect"
+    },
+    {
+      "option_key": "when-the-active-change-for-the-editing-s",
+      "label": "When the active change for the editing session cannot be resolved, the gate must fall back to today's project-wide block, never to allow; a pending packet with no change keeps blocking every edit — application-architect"
+    },
+    {
+      "option_key": "hook-tests-must-cover-four-cases-pending",
+      "label": "Hook tests must cover four cases: pending decision for change B does not block an edit in change A; pending decision for change A blocks change A; a pending decision with no change still blocks everyone; a malformed or unreadable pending decision file still blocks (fail closed) — qa-engineer"
+    }
+  ],
+  "recommendation": "when-the-active-change-for-the-editing-s",
+  "created_at": "2026-10-28T09:39:37.355Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "when-the-active-change-for-the-editing-s",
+  "rationale": "Owner accepted the chief's pick: the claims fit together",
+  "resolved_at": "2026-10-28T10:55:26.842Z"
+}

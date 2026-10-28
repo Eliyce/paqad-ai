@@ -60,4 +60,22 @@ describe('decision-pause-contract-writer', () => {
     expect(doc).toBe(`${MANAGED_HEADER}\n\n${body}\n`);
     expect(doc).toContain(body);
   });
+
+  it('AC-19: asks every pending packet for the change in one round, never one at a time', () => {
+    const body = buildDecisionPauseContractBody();
+    expect(body).not.toContain('one at a time in creation order');
+    expect(body).toContain('Ask every pending packet for this change in one round');
+    expect(body).toContain('up to 4 packets per question call');
+    expect(body).toContain('back to back and no other work between them');
+    expect(body).toContain('`paqad-ai spec pipeline round`');
+  });
+
+  it('AC-20: keeps spec.change and spec.contradiction immediate and scopes a packet to its change', () => {
+    const body = buildDecisionPauseContractBody();
+    expect(body).toContain(
+      'A `spec.change` or `spec.contradiction` raised during development is still asked straight away.',
+    );
+    expect(body).toContain('A pending packet holds up only the change it names');
+    expect(body).toContain('nothing is auto-answered');
+  });
 });

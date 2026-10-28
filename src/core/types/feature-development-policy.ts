@@ -13,7 +13,7 @@ export const FEATURE_DEVELOPMENT_STAGE_NAMES = [
 
 export type FeatureDevelopmentStageName = (typeof FEATURE_DEVELOPMENT_STAGE_NAMES)[number];
 
-export const FEATURE_DEVELOPMENT_ESCALATION_ACTIONS = ['warn', 'ask', 'stop'] as const;
+export const FEATURE_DEVELOPMENT_ESCALATION_ACTIONS = ['warn', 'ask', 'stop', 'defer'] as const;
 export type FeatureDevelopmentEscalationAction =
   (typeof FEATURE_DEVELOPMENT_ESCALATION_ACTIONS)[number];
 

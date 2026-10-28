@@ -8,10 +8,8 @@ import {
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
-import { featureChangeKey } from '@/feature-evidence/paths.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { activeChangeKey, resolveActiveChange } from '@/feature-evidence/stage-ledger.js';
 import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
 
 function collectOption(
   value: string,
@@ -48,18 +46,6 @@ function nearestCategory(input: string): string {
     }
   }
   return best;
-}
-
-function activeChange(
-  projectRoot: string,
-  session: string | undefined,
-): { dirName: string; sessionId: string } | null {
-  const sessionId = resolveSessionId(
-    projectRoot,
-    session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-  );
-  const dirName = currentFeature(projectRoot, sessionId);
-  return dirName ? { dirName, sessionId } : null;
 }
 
 function fail(message: string): void {
@@ -114,10 +100,7 @@ export function createDecisionCommand(): Command {
           context: options.context,
           options: options.option ?? [],
           recommendation: options.recommendation ?? null,
-          change: (() => {
-            const active = activeChange(options.projectRoot, options.session);
-            return active ? featureChangeKey(active.dirName) : null;
-          })(),
+          change: activeChangeKey(options.projectRoot, options.session),
         });
         console.log(JSON.stringify(result, null, 2));
       } catch (error) {
@@ -139,13 +122,13 @@ export function createDecisionCommand(): Command {
         const chosenKey = options.other
           ? addWriteInOption(options.projectRoot, id, options.other)
           : chosen;
-        const active = activeChange(options.projectRoot, options.session);
+        const active = resolveActiveChange(options.projectRoot, options.session);
         const { path } = resolvePendingDecision(
           options.projectRoot,
           id,
           chosenKey,
           rationale.join(' '),
-          { change: active ? featureChangeKey(active.dirName) : null },
+          { change: active ? active.key : null },
         );
         if (active) {
           writeFeatureDecisionsIndex(options.projectRoot, active.dirName, {

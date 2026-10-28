@@ -99,6 +99,7 @@ export type PaqadRulings = {
   accepted: string[];
   declined: Array<{ id: string; reason: string }>;
   conflicts: Array<{ target: string; recommendation: string; rationale: string }>;
+  merged: Array<{ target: string; merged_claim: string; rationale: string }>;
   renames: Array<{ id: string; target: string }>;
   settled: Array<{ target: string; chosen: string; source: string }>;
 };

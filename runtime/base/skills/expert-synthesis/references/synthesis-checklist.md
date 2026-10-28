@@ -18,12 +18,12 @@ For each finding, do one of two things and say why:
 - **Accept** it, with a reason.
 - **Decline** it, with a reason.
 
-For each conflict between findings, write:
+For each conflict between findings, first ask: can all of these claims be true at once?
 
-- A **recommendation**: one of the conflicting claims, copied verbatim.
-- A **rationale**: why that one over the other.
+- **Yes**: rule it `compatible`. Write a **merged_claim** that says all of them, and a **rationale** for why they fit together. The merged claim restates every must-level constraint of the claims it merges. Nobody is asked; the merged claim becomes one accepted finding.
+- **No**, following one claim means not following another: rule it `pick`. Write a **recommendation** (one of the conflicting claims, copied verbatim) and a **rationale** for why that one over the other. The owner decides.
 
-The chief recommends a resolution. The chief never applies it. The owner decides.
+Never pick between claims that agree. A conflict that includes a must-level security-auditor finding is always a pick, so the owner decides it.
 
 Then:
 

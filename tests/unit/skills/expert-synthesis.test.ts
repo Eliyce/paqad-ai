@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -61,6 +62,52 @@ describe('expert-synthesis', () => {
 
     it('fails invalid JSON', () => {
       expect(runScript(path, [], { input: 'nope' }).status).toBe(1);
+    });
+
+    it('AC-3: passes a compatible row with a merged_claim and fails one without', () => {
+      const ok = JSON.stringify({
+        ...JSON.parse(VALID),
+        conflicts: [
+          { target: 'orders', ruling: 'compatible', merged_claim: 'both', rationale: 'x' },
+        ],
+      });
+      expect(runScript(path, [], { input: ok }).status).toBe(0);
+      const bad = JSON.stringify({
+        ...JSON.parse(VALID),
+        conflicts: [{ target: 'orders', ruling: 'compatible', merged_claim: ' ', rationale: 'x' }],
+      });
+      const r = runScript(path, [], { input: bad });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/needs a merged_claim/);
+    });
+
+    it('AC-3 / AC-4: a pick needs a recommendation, a row with no ruling reads as pick, and an unknown ruling fails', () => {
+      const legacy = JSON.stringify({
+        ...JSON.parse(VALID),
+        conflicts: [{ target: 'orders', recommendation: 'a', rationale: 'x' }],
+      });
+      expect(runScript(path, [], { input: legacy }).status).toBe(0);
+      const noRec = JSON.stringify({
+        ...JSON.parse(VALID),
+        conflicts: [{ target: 'orders', ruling: 'pick', rationale: 'x' }],
+      });
+      expect(runScript(path, [], { input: noRec }).stderr).toMatch(/needs a recommendation/);
+      const unknown = JSON.stringify({
+        ...JSON.parse(VALID),
+        conflicts: [{ target: 'orders', ruling: 'merge', rationale: 'x' }],
+      });
+      expect(runScript(path, [], { input: unknown }).stderr).toMatch(
+        /ruling must be pick or compatible/,
+      );
+    });
+  });
+
+  describe('SKILL.md', () => {
+    it('replaces the never-resolve rule with the compatible/pick rule', () => {
+      const body = readFileSync(join(SKILL, 'SKILL.md'), 'utf8');
+      expect(body).not.toContain('Never resolve a conflict yourself');
+      expect(body).toContain('If the claims can all be true at once, rule compatible');
+      expect(body).toContain('Never pick between claims that agree');
     });
   });
 });

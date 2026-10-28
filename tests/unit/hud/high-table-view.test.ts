@@ -51,6 +51,7 @@ describe('buildHighTableView with sparse expert records', () => {
       accepted: ['EX-qa-engineer-1'],
       declined: [{ id: '', reason: '' }],
       conflicts: [{ target: '', recommendation: '', rationale: '' }],
+      merged: [],
       renames: [{ id: '', target: '' }],
       settled: [{ target: '', chosen: '', source: '' }],
     });
@@ -72,5 +73,31 @@ describe('buildHighTableView with sparse expert records', () => {
     expect(view?.questions).toEqual({ asked: 0, auto_answered: [] });
     expect(view?.credits).toEqual([]);
     expect(view?.seats[0]?.findings).toBeNull();
+  });
+
+  it('AC-6: shows the merged claim for a compatible ruling and keeps it out of the disagreements', () => {
+    writeBundle('experts', {
+      roster: [{ role: 'db-expert' }],
+      synthesis: {
+        accepted: [],
+        declined: [],
+        conflicts: [
+          { target: 'orders', ruling: 'pick', recommendation: 'stream', rationale: 'fast' },
+          {
+            target: 'tokens',
+            ruling: 'compatible',
+            merged_claim: 'rotate hourly and cache',
+            rationale: 'both hold',
+          },
+        ],
+      },
+    });
+    const view = buildHighTableView(root, DIR, {}, null);
+    expect(view?.rulings?.conflicts).toEqual([
+      { target: 'orders', recommendation: 'stream', rationale: 'fast' },
+    ]);
+    expect(view?.rulings?.merged).toEqual([
+      { target: 'tokens', merged_claim: 'rotate hourly and cache', rationale: 'both hold' },
+    ]);
   });
 });

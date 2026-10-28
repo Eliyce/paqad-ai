@@ -140,6 +140,7 @@ describe('the snapshot table, read defensively (FR-24)', () => {
       accepted: [],
       declined: [{ id: '', reason: '' }],
       conflicts: [],
+      merged: [],
       renames: [],
       settled: [],
     });

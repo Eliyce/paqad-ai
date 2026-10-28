@@ -309,6 +309,7 @@ const ORD_501_RULINGS = {
         'The security auditor wants it masked and the product owner wants it for support; an opt-in keeps both.',
     },
   ],
+  merged: [],
   renames: [{ id: 'EX-user-flow-writer-1', target: 'Export orders' }],
   settled: [{ target: 'Date range limit', chosen: '90 days at most', source: SETTLED_DECISION }],
 };
@@ -435,6 +436,7 @@ export function ord482Table(phase: Ord482Phase): Raw {
           ],
           declined: [],
           conflicts: [],
+          merged: [],
           renames: [],
           settled: [],
         }

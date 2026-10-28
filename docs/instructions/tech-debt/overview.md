@@ -26,6 +26,10 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6175EPP38AV2SDJ74TQXDQ6](TD-01M6175EPP38AV2SDJ74TQXDQ6.md) (bug, medium): A new change reuses a stale change key, so another session's old delivery rows make the stage order fail
+- [TD-01M616ZT0ARBYJ18X6Y4XXFY5X](TD-01M616ZT0ARBYJ18X6Y4XXFY5X.md) (bug, medium): Fix proof ignores a red run recorded after a green, and fix prove drops a cd in --command
+- [TD-01M615FW3JHA1R00HCN8ZX5KBM](TD-01M615FW3JHA1R00HCN8ZX5KBM.md) (gap, low): spec pipeline round does not surface the auto-applied module choice (FR-22 is prose-only)
+- [TD-01M615FTCQJ8K37EKJV2R2E6QM](TD-01M615FTCQJ8K37EKJV2R2E6QM.md) (gap, low): Question round omits pending packets with no change, though they still block edits
 - [TD-01M5ZM757VEE01R4HPT1N7G4TM](TD-01M5ZM757VEE01R4HPT1N7G4TM.md) (gap, low): The pre-edit rule gate judges the edit target before the edit, so strict mode refuses an edit that removes a violation already in that file
 - [TD-01M5ZM74HQ27Q37PMD5SDAP6MJ](TD-01M5ZM74HQ27Q37PMD5SDAP6MJ.md) (bug, medium): ac-test-mapping marks a criterion failing when a failing test from another spec names the same AC id
 - [TD-01M5ZK3MN3MMFR0AC9VM588ANQ](TD-01M5ZK3MN3MMFR0AC9VM588ANQ.md) (gap, low): The pre-edit rule-gate budget does not cover the synchronous tree scan and hashing, so rule_gate_pre_edit=all can still hit the host timeout on a large tree
