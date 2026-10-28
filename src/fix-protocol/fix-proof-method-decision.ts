@@ -137,7 +137,13 @@ export function raiseFixProofMethodDecision(
   return { id, raised: true };
 }
 
-export function fixProofMethodLine(id: string): string {
+export function fixProofMethodLine(id: string, options: { deferred?: boolean } = {}): string {
+  if (options.deferred) {
+    return (
+      `**▸ paqad** · This is a fix, so I need to know how to prove it. I raised ${id} and will ask ` +
+      `it with the rest of this change's questions at the spec questions step. Nothing to answer yet.`
+    );
+  }
   return (
     `**▸ paqad** · This is a fix, so I need to know how to prove it. Answer ${id} ` +
     `(\`paqad-ai decision resolve ${id} failing-test\` is my pick), then I'll continue.`

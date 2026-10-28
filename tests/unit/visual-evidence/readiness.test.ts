@@ -20,8 +20,10 @@ import {
   resolvePendingDecision,
   createPendingDecision,
 } from '@/decisions/authoring.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { HealthChecker } from '@/health/checker.js';
 import { readAllJourneys } from '@/site-map/store.js';
+import { buildQuestionRound } from '@/spec-pipeline/round.js';
 import { listCaptureScriptIds } from '@/visual-evidence/capture-script.js';
 import { browserStatus } from '@/visual-evidence/provision.js';
 import {
@@ -186,6 +188,18 @@ describe('openVisualEvidenceReadinessPause', () => {
     expect(packet.context).toContain(readinessToken(DIR));
     expect(packet.context).toContain('site_map is off');
     expect(packet.options.map((o) => o.option_key)).toEqual(['setup', 'attach', 'waive']);
+  });
+
+  it("AC-17: the readiness pause carries its change and joins that change's question round", () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    const id = openVisualEvidenceReadinessPause({
+      projectRoot: root,
+      dirName: DIR,
+      files: ['src/pages/Goals.tsx'],
+    });
+    expect(readContractDecisions(root)[0]!.packet.change).toBe(featureChangeKey(DIR));
+    expect(buildQuestionRound(root, DIR).packets.map((entry) => entry.id)).toEqual([id]);
   });
 
   it('opens nothing when a resolved packet for the change already exists', () => {

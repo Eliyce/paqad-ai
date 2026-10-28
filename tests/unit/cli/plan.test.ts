@@ -199,7 +199,7 @@ describe('paqad-ai plan compile', () => {
       writeFileSync(join(root, '.paqad', '.config'), 'visual_evidence=true\n');
     }
 
-    it('AC-13: opens one readiness pause for a frontend plan, and a re-run opens no second', async () => {
+    it('AC-13 / AC-16: opens one readiness pause for a frontend plan without asking it, and a re-run opens no second', async () => {
       frontendProject();
       openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
       const warnings: string[] = [];
@@ -211,14 +211,28 @@ describe('paqad-ai plan compile', () => {
       expect(packets).toHaveLength(1);
       const id = packets[0]!.packet.id;
       expect(warnings.join('\n')).toContain(
-        `Visual evidence is on, but I can't capture screenshots here yet. Answer ${id}`,
+        `Visual evidence is on, but I can't capture screenshots here yet. I raised ${id}`,
       );
+      expect(warnings.join('\n')).not.toContain(`Answer ${id}`);
       expect(lines.some((l) => l.includes(`"readiness_decision":"${id}"`))).toBe(true);
       const dir = currentFeature(root, SES)!;
       expect(readFeaturePlan(root, dir)?.steps[0]?.files).toEqual(['src/pages/Goals.tsx']);
 
       await run(writeTemplate({ summary: 'goals page again', steps }));
       expect(readContractDecisions(root)).toHaveLength(1);
+    });
+
+    it('asks the readiness pause at once on the fast lane, where no question round follows', async () => {
+      frontendProject();
+      const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 8 });
+      recordChangeConstants(root, dir, { lane: 'fast', kind: 'other' });
+      const warnings: string[] = [];
+      vi.spyOn(console, 'warn').mockImplementation((l: string) => warnings.push(String(l)));
+      const steps = [{ id: 's1', description: 'add the page', files: ['src/pages/Goals.tsx'] }];
+
+      await run(writeTemplate({ summary: 'goals page fast', steps }));
+      const id = readContractDecisions(root)[0]!.packet.id;
+      expect(warnings.join('\n')).toContain(`Answer ${id}`);
     });
 
     it('AC-8: opens no pause for a plan with no frontend files', async () => {

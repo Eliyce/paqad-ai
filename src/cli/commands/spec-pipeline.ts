@@ -51,6 +51,7 @@ import {
   recordWritingRow,
 } from '@/spec-pipeline/high-table.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
+import { buildQuestionRound } from '@/spec-pipeline/round.js';
 import {
   assertCanRunStep,
   nextStep,
@@ -271,6 +272,19 @@ export function createSpecPipelineCommand(): Command {
       console.log(
         JSON.stringify({ enabled: config.enabled, next_step: next, enforcement: config }),
       );
+    });
+
+  command
+    .command('round')
+    .description(
+      "List this change's pending questions to ask the owner in one round, with the opening line",
+    )
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((options: CommonOptions) => {
+      const resolved = resolveDir(options);
+      if (!resolved) return;
+      console.log(JSON.stringify(buildQuestionRound(options.projectRoot, resolved.dirName)));
     });
 
   command
@@ -943,7 +957,7 @@ function createExpertsCommand(): Command {
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
       const proofMethod = raiseFixProofMethodDecision(options.projectRoot, resolved.dirName);
       if (proofMethod?.raised) {
-        console.warn(fixProofMethodLine(proofMethod.id));
+        console.warn(fixProofMethodLine(proofMethod.id, { deferred: true }));
       }
       console.log(
         JSON.stringify({

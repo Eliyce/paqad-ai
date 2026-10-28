@@ -18,6 +18,7 @@ import {
 } from '@/fix-protocol/fix-proof-method-decision.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { questionRoundAhead } from '@/spec-pipeline/round.js';
 
 interface PlanCompileOptions {
   projectRoot: string;
@@ -29,6 +30,19 @@ function fastLaneFixProofMethod(root: string, sessionId: string): RaiseFixProofM
   const dirName = currentFeature(root, sessionId);
   if (!dirName || readChangeConstants(root, dirName).lane !== 'fast') return null;
   return raiseFixProofMethodDecision(root, dirName);
+}
+
+export function readinessLine(id: string, deferred: boolean): string {
+  if (deferred) {
+    return (
+      `**▸ paqad** · Visual evidence is on, but I can't capture screenshots here yet. I raised ${id} ` +
+      `and will ask it with the rest of this change's questions at the spec questions step. Keep going.`
+    );
+  }
+  return (
+    `**▸ paqad** · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
+    `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`
+  );
 }
 
 export function createPlanCommand(): Command {
@@ -103,10 +117,8 @@ export function createPlanCommand(): Command {
         console.warn(fixProofMethodLine(proofMethod.id));
       }
       if (result.readinessDecision) {
-        const id = result.readinessDecision;
         console.warn(
-          `**▸ paqad** · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
-            `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
+          readinessLine(result.readinessDecision, questionRoundAhead(root, result.dirName)),
         );
       }
       if (!options.keepInput) {

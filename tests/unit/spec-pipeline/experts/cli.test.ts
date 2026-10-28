@@ -500,7 +500,7 @@ describe('spec pipeline experts CLI', () => {
     expect(err.join('\n')).toMatch(/could not read notes artifact/);
   });
 
-  it('raises fix.proof_method with the QA engineer findings after the synthesis of a fix', async () => {
+  it('AC-16: raises fix.proof_method after the synthesis of a fix without asking it, and the round lists it', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     recordChangeConstants(root, dir, { kind: 'fix', lane: 'full' });
@@ -529,10 +529,18 @@ describe('spec pipeline experts CLI', () => {
       questions: [],
       tokens: 100,
     });
+    const warned: string[] = [];
+    vi.spyOn(console, 'warn').mockImplementation((m?: unknown) => void warned.push(String(m)));
     const { out } = await run(root, ['experts', 'synthesis', synthesis]);
     const packets = readContractDecisions(root).filter(
       ({ packet }) => packet.category === 'fix.proof_method',
     );
+    expect(warned.join('\n')).toContain('spec questions step');
+    expect(warned.join('\n')).not.toContain('Answer');
+    const round = await run(root, ['round']);
+    expect(JSON.parse(round.out.at(-1)!).packets.map((p: { id: string }) => p.id)).toEqual([
+      packets[0]!.packet.id,
+    ]);
     expect(packets).toHaveLength(1);
     const packet = packets[0]!.packet;
     expect(JSON.parse(out.at(-1)!).fix_proof_method).toBe(packet.id);

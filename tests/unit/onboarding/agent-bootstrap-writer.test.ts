@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -67,6 +68,13 @@ describe('agent bootstrap gate document', () => {
 describe('agent router document', () => {
   it('matches the committed runtime/AGENT-ROUTER.md (golden)', async () => {
     await expect(buildAgentRouterDocument()).toMatchFileSnapshot(COMMITTED_ROUTER);
+  });
+
+  it('AC-19: the committed router carries the one-round wording and not the old sentence', () => {
+    const committed = readFileSync(COMMITTED_ROUTER, 'utf8');
+    expect(committed).toContain('Ask every pending packet for this change in one round');
+    expect(committed).not.toContain('one at a time in creation order');
+    expect(buildAgentRouterDocument()).not.toContain('one at a time in creation order');
   });
 
   it('states it is reached from the gate once enablement resolved ON', () => {

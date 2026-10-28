@@ -47,6 +47,7 @@ Use this when the spec pipeline's `label` step rated the request `vague` or `oka
 5. Where current behaviour is documented, cite it in the question ("Today, exports include hidden columns — keep that, or leave them out?").
 6. Write one plain sentence of `why_it_matters`. Set `grounded_in` to the doc/glossary ref the wording came from, or `null` when it cannot be tied to project evidence. Put any internal mechanism note in `technical_note` (never shown to the user).
 7. Emit the batch per `assets/output.template.md`; validate the shape with `scripts/lint-output.sh` (exit 0). Hand the file to `paqad-ai spec pipeline record questions <file>`, which runs the ledger auto-answer pre-step and persists the surviving batch.
+8. These questions are not asked on their own. They join the change's one question round at the spec questions step, together with every pending packet `paqad-ai spec pipeline round` lists for this change (expert picks, the deferred module attribution, the fix proof method, the visual-evidence readiness pause). The owner is asked once, up to 4 questions per call, back to back.
 
 ## Output Contract
 

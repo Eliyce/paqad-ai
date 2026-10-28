@@ -65,7 +65,8 @@ const SPEC_PIPELINE_INSTRUCTION =
   'hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and ' +
   'the record says pipeline.produced=false. The pipeline, its experts and strict adoption are on ' +
   'by default on the graduated and full lanes; a fast-lane change never runs the ' +
-  'pipeline and freezes a hand-written spec.';
+  'pipeline and freezes a hand-written spec. ' +
+  'At the questions step, run `paqad-ai spec pipeline round` and ask the owner every pending question for this change in one round: the expert disagreements the chief ruled pick, the enrichment, expert and chief questions, the deferred module-attribution question, the fix proof method and the visual-evidence readiness pause. When the round prints an opener (The experts agreed on N points after merging overlaps, with the merged claims in a details list), start with it. Show a module choice that was applied automatically as a choice already made that the owner can change. Ask up to 4 questions per call, back to back with nothing in between, and resolve each packet with `paqad-ai decision resolve`. Development starts only after every packet in the round is resolved.';
 
 const REUSE_PLANNING_INSTRUCTION =
   'Reuse before you build: consult the Existing surface section (and `paqad-ai index ' +
