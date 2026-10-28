@@ -34,7 +34,11 @@ import {
   buildRunMetrics,
   listRunDirs,
 } from '@/spec-pipeline/metrics.js';
-import { applyRenames, validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import {
+  applyCompatibleRulings,
+  applyRenames,
+  validateExpertSynthesis,
+} from '@/spec-pipeline/experts/synthesis.js';
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
@@ -908,22 +912,27 @@ function createExpertsCommand(): Command {
         check.artifact.conflicts,
         resolved.dirName,
       );
-      const synthesis =
-        autoResolved.length > 0
-          ? { ...check.artifact, auto_resolved: autoResolved }
-          : check.artifact;
+      const compatible = applyCompatibleRulings(
+        experts?.findings ?? [],
+        check.artifact.conflicts,
+        check.artifact.accepted,
+      );
+      const synthesis = {
+        ...check.artifact,
+        accepted: compatible.accepted,
+        ...(autoResolved.length > 0 ? { auto_resolved: autoResolved } : {}),
+      };
       let renamed = 0;
+      let findings = compatible.findings;
       if (synthesis.renames && synthesis.renames.length > 0 && experts?.findings) {
-        const updated = applyRenames(experts.findings, synthesis.renames);
+        const updated = applyRenames(findings, synthesis.renames);
         renamed = updated.filter(
-          (finding, index) => finding.target !== experts.findings![index]!.target,
+          (finding, index) => finding.target !== findings[index]!.target,
         ).length;
-        writeExpertFindings(
-          options.projectRoot,
-          resolved.dirName,
-          updated as typeof experts.findings,
-          resolved.store,
-        );
+        findings = updated as typeof findings;
+      }
+      if (experts?.findings && (renamed > 0 || compatible.merged > 0)) {
+        writeExpertFindings(options.projectRoot, resolved.dirName, findings, resolved.store);
       }
       writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis, resolved.store);
       recordHighTable('done', () =>
@@ -946,6 +955,7 @@ function createExpertsCommand(): Command {
           accepted: synthesis.accepted.length,
           declined: synthesis.declined.length,
           conflicts_pending: minted.length,
+          compatible: compatible.merged,
           auto_resolved: autoResolved.length,
           gaps: synthesis.gaps.length,
           renamed,

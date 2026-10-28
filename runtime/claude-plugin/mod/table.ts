@@ -231,6 +231,7 @@ export function rulingCounts(table: PaqadHighTable): string {
     parts.push(`${rulings.accepted.length} accepted`, `${rulings.declined.length} declined`);
     if (rulings.renames.length > 0) parts.push(`${rulings.renames.length} renamed`);
     if (rulings.conflicts.length > 0) parts.push(plural(rulings.conflicts.length, 'disagreement'));
+    if (rulings.merged.length > 0) parts.push(`${rulings.merged.length} merged`);
     if (rulings.settled.length > 0) parts.push(`${rulings.settled.length} settled before`);
   }
   if (table.gaps.length > 0) parts.push(plural(table.gaps.length, 'gap'));
@@ -456,6 +457,13 @@ function rulingLines(snapshot: PaqadHudSnapshot & { table: PaqadHighTable }): Ta
           text: ` The chief architect recommends: ${conflict.recommendation}${conflict.rationale ? ` Why: ${conflict.rationale}` : ''}`,
         },
         ...(open ? [{ text: ' The choice is yours.' }] : []),
+      ]);
+    }
+    for (const merged of rulings.merged) {
+      lines.push([
+        {
+          text: `  Merged: ${merged.target}. The experts agree: ${merged.merged_claim}${merged.rationale ? ` Why: ${merged.rationale}` : ''}`,
+        },
       ]);
     }
     for (const settled of rulings.settled) lines.push([{ text: '  ' }, ...settledLine(settled)]);

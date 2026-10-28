@@ -326,6 +326,88 @@ describe('spec pipeline experts CLI', () => {
     expect(finding.renamed_from).toBe('users table');
   });
 
+  it('AC-6: a compatible ruling persists one merged finding into experts.findings and accepts it', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExperts(root);
+    await groundAndLabel(root);
+    await run(root, [
+      'experts',
+      'record',
+      writeArtifact(root, 'need.json', {
+        experts: [
+          { role: 'db-expert', reason: 'schema' },
+          { role: 'data-modeler', reason: 'model' },
+        ],
+      }),
+    ]);
+    await run(root, [
+      'experts',
+      'notes',
+      writeArtifact(root, 'notes.json', {
+        notes: [
+          {
+            role: 'db-expert',
+            findings: [{ target: 'orders', claim: 'denormalise for reads', severity: 'should' }],
+          },
+          {
+            role: 'data-modeler',
+            findings: [
+              { target: 'orders', claim: 'keep normalised', kind: 'invariant', severity: 'must' },
+            ],
+          },
+        ],
+      }),
+    ]);
+    const synth = await run(root, [
+      'experts',
+      'synthesis',
+      writeArtifact(root, 'synth.json', {
+        verdict: 'ready',
+        accepted: [],
+        declined: [],
+        conflicts: [
+          {
+            target: 'orders',
+            ruling: 'compatible',
+            merged_claim: 'denormalise the read model and keep writes normalised',
+            rationale: 'both hold at once',
+          },
+        ],
+        gaps: [],
+      }),
+    ]);
+    const summary = JSON.parse(synth.out.at(-1)!);
+    expect(summary.compatible).toBe(1);
+    expect(summary.conflicts_pending).toBe(0);
+    expect(
+      readContractDecisions(root).filter(
+        ({ packet }) => packet.category === 'spec.expert_conflict',
+      ),
+    ).toEqual([]);
+    const experts = readExperts(root, dir)!;
+    expect(experts.findings).toHaveLength(2);
+    expect(experts.findings![0]).toMatchObject({
+      id: 'EX-db-expert-1',
+      claim: 'denormalise the read model and keep writes normalised',
+      merged_from: ['EX-db-expert-1', 'EX-data-modeler-1'],
+      severity: 'must',
+      kind: 'invariant',
+    });
+    expect(experts.findings![1]).toMatchObject({
+      id: 'EX-data-modeler-1',
+      claim: 'keep normalised',
+    });
+    expect(experts.synthesis!.accepted).toEqual(['EX-db-expert-1']);
+    expect(experts.synthesis!.conflicts[0]).toMatchObject({
+      ruling: 'compatible',
+      rationale: 'both hold at once',
+      claims: ['denormalise for reads', 'keep normalised'],
+      finding_ids: ['EX-db-expert-1', 'EX-data-modeler-1'],
+    });
+    expect(readExpertNotes(root, dir)!.notes.flatMap((note) => note.findings)).toHaveLength(1);
+  });
+
   it('rejects a need artifact naming a role outside the roster (AC-8)', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);

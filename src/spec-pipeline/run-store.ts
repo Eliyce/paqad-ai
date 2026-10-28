@@ -522,7 +522,15 @@ export function readExpertNotes(projectRoot: string, dirName: string): ExpertNot
     byRole.set(role, created);
     return created;
   };
-  for (const { role, ...finding } of experts.findings) noteFor(role).findings.push(finding);
+  const superseded = new Set(
+    experts.findings.flatMap((finding) =>
+      (finding.merged_from ?? []).filter((id) => id !== finding.id),
+    ),
+  );
+  for (const { role, ...finding } of experts.findings) {
+    if (superseded.has(finding.id)) continue;
+    noteFor(role).findings.push(finding);
+  }
   for (const { role, questions } of readStagedExpertQuestions(projectRoot, dirName)) {
     noteFor(role).questions = questions;
   }

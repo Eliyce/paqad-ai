@@ -339,6 +339,11 @@ function readTable(value: unknown): PaqadHighTable | null {
             recommendation: str(e.recommendation) ?? '',
             rationale: str(e.rationale) ?? '',
           })),
+          merged: each(rulings.merged, (e) => ({
+            target: str(e.target) ?? '',
+            merged_claim: str(e.merged_claim) ?? '',
+            rationale: str(e.rationale) ?? '',
+          })),
           renames: each(rulings.renames, (e) => ({
             id: str(e.id) ?? '',
             target: str(e.target) ?? '',

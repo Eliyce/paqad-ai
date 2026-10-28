@@ -1,7 +1,13 @@
 import type { PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { validateQuestion } from './notes.js';
-import type { ExpertFinding, MergedExpertNotes } from './types.js';
+import type {
+  ExpertConflict,
+  ExpertFinding,
+  FindingKind,
+  FindingSeverity,
+  MergedExpertNotes,
+} from './types.js';
 
 export type SynthesisVerdict = 'ready' | 'needs-answers' | 'not-ready';
 
@@ -12,10 +18,18 @@ export interface SynthesisDeclined {
   reason: string;
 }
 
+export type SynthesisRuling = 'pick' | 'compatible';
+
+const RULINGS: readonly SynthesisRuling[] = ['pick', 'compatible'];
+
 export interface SynthesisConflict {
   target: string;
-  recommendation: string;
+  ruling?: SynthesisRuling;
+  recommendation?: string;
+  merged_claim?: string;
   rationale: string;
+  claims?: string[];
+  finding_ids?: string[];
 }
 
 export interface SynthesisGap {
@@ -225,6 +239,9 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
       conflicts,
     };
   }
+  const conflictByTarget = new Map(
+    merged.conflicts.map((conflict) => [normalize(conflict.target), conflict]),
+  );
   const claimsByTarget = new Map(
     merged.conflicts.map((conflict) => [
       normalize(conflict.target),
@@ -236,7 +253,10 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
       return { ok: false, error: `conflicts[${index}] must be an object`, conflicts };
     }
-    const { target, recommendation, rationale } = entry as Record<string, unknown>;
+    const { target, ruling, recommendation, merged_claim, rationale } = entry as Record<
+      string,
+      unknown
+    >;
     if (typeof target !== 'string' || !claimsByTarget.has(normalize(target))) {
       return {
         ok: false,
@@ -249,6 +269,42 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
       return { ok: false, error: `conflicts names "${target}" twice`, conflicts };
     }
     seenTargets.add(key);
+    if (ruling !== undefined && !RULINGS.includes(ruling as SynthesisRuling)) {
+      return {
+        ok: false,
+        error: `conflicts[${index}] ruling must be one of ${RULINGS.join(' | ')}`,
+        conflicts,
+      };
+    }
+    if (typeof rationale !== 'string' || rationale.trim().length === 0) {
+      return { ok: false, error: `conflicts[${index}] needs a non-empty rationale`, conflicts };
+    }
+    if (ruling === 'compatible') {
+      const conflict = conflictByTarget.get(key)!;
+      if (typeof merged_claim !== 'string' || merged_claim.trim().length === 0) {
+        return {
+          ok: false,
+          error: `conflicts[${index}] is ruled compatible and needs a non-empty merged_claim`,
+          conflicts,
+        };
+      }
+      if (hasMustSecurityFinding(conflict)) {
+        return {
+          ok: false,
+          error: `conflicts[${index}] includes a must-level security-auditor finding; rule it pick so the owner decides`,
+          conflicts,
+        };
+      }
+      conflicts.push({
+        target,
+        ruling: 'compatible',
+        merged_claim: merged_claim.trim(),
+        rationale: rationale.trim(),
+        claims: [...conflict.claims],
+        finding_ids: [...conflict.finding_ids],
+      });
+      continue;
+    }
     if (
       typeof recommendation !== 'string' ||
       !claimsByTarget.get(key)!.includes(normalize(recommendation))
@@ -259,12 +315,75 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
         conflicts,
       };
     }
-    if (typeof rationale !== 'string' || rationale.trim().length === 0) {
-      return { ok: false, error: `conflicts[${index}] needs a non-empty rationale`, conflicts };
-    }
-    conflicts.push({ target, recommendation, rationale: rationale.trim() });
+    conflicts.push({ target, ruling: 'pick', recommendation, rationale: rationale.trim() });
   }
   return { ok: true, conflicts };
+}
+
+function hasMustSecurityFinding(conflict: ExpertConflict): boolean {
+  return conflict.roles.some(
+    (role, index) => role === 'security-auditor' && conflict.severities?.[index] === 'must',
+  );
+}
+
+export function isCompatibleRuling(conflict: SynthesisConflict): boolean {
+  return conflict.ruling === 'compatible';
+}
+
+const SEVERITY_RANK: Record<FindingSeverity, number> = { must: 3, should: 2, could: 1 };
+
+export interface CompatibleMergeResult<T extends ExpertFinding> {
+  findings: T[];
+  accepted: string[];
+  merged: number;
+}
+
+export function applyCompatibleRulings<T extends ExpertFinding & { id: string }>(
+  findings: readonly T[],
+  conflicts: readonly SynthesisConflict[],
+  accepted: readonly string[],
+): CompatibleMergeResult<T> {
+  let next = [...findings];
+  const acceptedIds = [...accepted];
+  let mergedCount = 0;
+  for (const conflict of conflicts) {
+    if (!isCompatibleRuling(conflict)) continue;
+    const ids = (conflict.finding_ids ?? []).filter((id) => id.length > 0);
+    const sources = ids
+      .map((id) => next.find((finding) => finding.id === id))
+      .filter((finding): finding is T => finding !== undefined);
+    const first = sources[0];
+    if (!first) continue;
+    const severity = strongestSeverity(sources);
+    const kind = mergedKind(sources);
+    const mergedFinding: T = {
+      ...first,
+      claim: conflict.merged_claim!,
+      merged_from: ids,
+      ...(severity ? { severity } : {}),
+      ...(kind ? { kind } : {}),
+    };
+    next = next.map((finding) => (finding.id === first.id ? mergedFinding : finding));
+    if (!acceptedIds.includes(first.id)) acceptedIds.push(first.id);
+    mergedCount += 1;
+  }
+  return { findings: next, accepted: acceptedIds, merged: mergedCount };
+}
+
+function strongestSeverity(findings: readonly ExpertFinding[]): FindingSeverity | undefined {
+  let best: FindingSeverity | undefined;
+  for (const finding of findings) {
+    if (finding.severity === undefined) continue;
+    if (best === undefined || SEVERITY_RANK[finding.severity] > SEVERITY_RANK[best]) {
+      best = finding.severity;
+    }
+  }
+  return best;
+}
+
+function mergedKind(findings: readonly ExpertFinding[]): FindingKind | undefined {
+  if (findings.some((finding) => finding.kind === 'invariant')) return 'invariant';
+  return findings.find((finding) => finding.kind !== undefined)?.kind;
 }
 
 interface GapResult {

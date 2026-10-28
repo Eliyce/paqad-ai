@@ -1350,6 +1350,7 @@ describe('the live High Table on the snapshot', () => {
       conflicts: [
         { target: 'Customer email in the export', recommendation: 'mask', rationale: 'pii' },
       ],
+      merged: [],
       renames: [{ id: 'EX-qa-engineer-1', target: 'CSV export' }],
       settled: [],
     });

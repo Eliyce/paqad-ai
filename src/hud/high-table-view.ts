@@ -50,6 +50,7 @@ export interface HudChiefRulings {
   accepted: string[];
   declined: Array<{ id: string; reason: string }>;
   conflicts: Array<{ target: string; recommendation: string; rationale: string }>;
+  merged: Array<{ target: string; merged_claim: string; rationale: string }>;
   renames: Array<{ id: string; target: string }>;
   settled: Array<{ target: string; chosen: string; source: string }>;
 }
@@ -157,11 +158,20 @@ function rulingsFrom(synthesis: Record<string, unknown>): HudChiefRulings {
       id: str(entry.id) ?? '',
       reason: str(entry.reason) ?? '',
     })),
-    conflicts: records(synthesis.conflicts).map((entry) => ({
-      target: str(entry.target) ?? '',
-      recommendation: str(entry.recommendation) ?? '',
-      rationale: str(entry.rationale) ?? '',
-    })),
+    conflicts: records(synthesis.conflicts)
+      .filter((entry) => entry.ruling !== 'compatible')
+      .map((entry) => ({
+        target: str(entry.target) ?? '',
+        recommendation: str(entry.recommendation) ?? '',
+        rationale: str(entry.rationale) ?? '',
+      })),
+    merged: records(synthesis.conflicts)
+      .filter((entry) => entry.ruling === 'compatible')
+      .map((entry) => ({
+        target: str(entry.target) ?? '',
+        merged_claim: str(entry.merged_claim) ?? '',
+        rationale: str(entry.rationale) ?? '',
+      })),
     renames: records(synthesis.renames).map((entry) => ({
       id: str(entry.id) ?? '',
       target: str(entry.target) ?? '',

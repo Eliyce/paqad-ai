@@ -44,6 +44,9 @@ export function mergeExpertNotes(
       roles: group.map((entry) => entry.role),
       claims: group.map((entry) => entry.finding.claim),
       finding_ids: group.map((entry) => entry.finding.id ?? ''),
+      ...(group.some((entry) => entry.finding.severity !== undefined)
+        ? { severities: group.map((entry) => entry.finding.severity ?? null) }
+        : {}),
     });
   }
 

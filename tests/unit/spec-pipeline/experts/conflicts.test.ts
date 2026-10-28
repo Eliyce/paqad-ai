@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -129,5 +129,45 @@ describe('mintExpertConflictDecisions edge branches', () => {
     const packet = pending(root)[0]!.packet;
     expect(new Set(packet.options.map((o) => o.option_key)).size).toBe(2);
     expect(packet.options[1]!.label).toContain('unknown');
+  });
+});
+
+describe('mintExpertConflictDecisions rulings and duplicates', () => {
+  function pendingFiles(root: string): string[] {
+    const dir = join(root, '.paqad', 'decisions', 'pending');
+    return existsSync(dir) ? readdirSync(dir) : [];
+  }
+
+  it('AC-5: re-running with the same fork pending mints nothing and leaves the pending count unchanged', () => {
+    const root = tempRoot();
+    const dirName = 'export-orders-01M5JAC57SYAJ69SV5MZN8A40K';
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    expect(first.minted).toHaveLength(1);
+    const before = pendingFiles(root);
+    expect(before).toHaveLength(1);
+
+    const second = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    expect(second).toEqual({ minted: [], autoResolved: [] });
+    expect(pendingFiles(root)).toEqual(before);
+  });
+
+  it('AC-5: a compatible ruling mints nothing and a pick mints exactly one', () => {
+    const root = tempRoot();
+    const compatible = mintExpertConflictDecisions(root, merged, [
+      {
+        target: 'orders',
+        ruling: 'compatible',
+        merged_claim: 'stream in pages from a background job',
+        rationale: 'both hold',
+      },
+    ]);
+    expect(compatible).toEqual({ minted: [], autoResolved: [] });
+    expect(pendingFiles(root)).toEqual([]);
+
+    const pick = mintExpertConflictDecisions(root, merged, [
+      { ...synthesisConflicts[0]!, ruling: 'pick' },
+    ]);
+    expect(pick.minted).toHaveLength(1);
+    expect(pendingFiles(root)).toHaveLength(1);
   });
 });

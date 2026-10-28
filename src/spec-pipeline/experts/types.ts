@@ -41,6 +41,7 @@ export interface ExpertConflict {
   roles: AgentRole[];
   claims: string[];
   finding_ids: string[];
+  severities?: (FindingSeverity | null)[];
 }
 
 export interface MergedExpertNotes {

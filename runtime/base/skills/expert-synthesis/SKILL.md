@@ -58,8 +58,14 @@ Read `references/synthesis-checklist.md` for the gap categories to look for.
    grounding, the notes and the merge in it.
 2. For every merged finding id, accept it, or decline it with a one-line reason. Cover each id
    exactly once — an unaccounted finding is a gap in your own read.
-3. For each conflict in the merge, write a recommendation that is one of that conflict's claims,
-   verbatim, plus a rationale. Do not apply it; it becomes a decision the human resolves.
+3. Rule every conflict in the merge, with a rationale. If the claims can all be true at once,
+   rule it `compatible` and write the `merged_claim` that says all of them; the merged claim
+   restates every must-level constraint of the claims it merges. Use `pick` only when following
+   one claim means not following another, and copy the claim you recommend verbatim into
+   `recommendation`. Never pick between claims that agree. A pick becomes a decision the owner
+   makes; a compatible ruling becomes one accepted finding and asks the owner nothing.
+   A conflict that includes a must-level security-auditor finding is always a pick, so the owner
+   decides it.
 4. List the gaps by the categories in `references/synthesis-checklist.md`: an uncovered area, a
    contradiction with the grounding docs, a requirement with no owner answer, a missing non-goal, a
    missing failure path. Attach a plain-language question to a gap that needs one.
@@ -72,15 +78,19 @@ Read `references/synthesis-checklist.md` for the gap categories to look for.
 ## Output Contract
 
 - A JSON object shaped like `assets/output.template.md`:
-  `{ "verdict", "accepted": ["EX-…"], "declined": [ { "id", "reason" } ], "conflicts": [ { "target", "recommendation", "rationale" } ], "gaps": [ { "area", "why_it_matters", "question"? } ], "questions": [ PipelineQuestion ], "tokens" }`.
+  `{ "verdict", "accepted": ["EX-…"], "declined": [ { "id", "reason" } ], "conflicts": [ { "target", "ruling": "pick", "recommendation", "rationale" } | { "target", "ruling": "compatible", "merged_claim", "rationale" } ], "gaps": [ { "area", "why_it_matters", "question"? } ], "questions": [ PipelineQuestion ], "tokens" }`.
 - `verdict` is one of `ready | needs-answers | not-ready`.
 - Every merged finding id appears exactly once across `accepted` and `declined`; every conflict in
-  the merge has exactly one row whose `recommendation` is one of its claims verbatim.
+  the merge has exactly one row. A `pick` row's `recommendation` is one of its claims verbatim. A
+  `compatible` row carries a non-empty `merged_claim`. A row with no `ruling` reads as `pick`.
 
 ## Escalate / Stop Conditions
 
 - Never accept or decline an id the merge does not know — you cannot add a finding.
-- Never resolve a conflict yourself; recommend, and let the decision packet carry the choice.
+- If the claims can all be true at once, rule compatible and write the merged claim. Use pick only
+  when following one claim means not following another. Never pick between claims that agree.
+- Never rule compatible on a conflict that includes a must-level security-auditor finding, and never
+  drop a must-level constraint from a merged claim.
 - Never leave a merged finding unaccounted for, and never write a question in mechanism words.
 
 ## Resources
