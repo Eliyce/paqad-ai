@@ -56,8 +56,12 @@ export function readProjectSecrets(projectRoot: string): Record<string, string> 
   }
 }
 
+export function pluginOptionOrEnv(key: string): string | undefined {
+  return process.env[`CLAUDE_PLUGIN_OPTION_${key}`] || process.env[key] || undefined;
+}
+
 export function getProjectSecret(projectRoot: string, key: string): string | undefined {
-  return process.env[key] ?? readProjectSecrets(projectRoot)[key];
+  return pluginOptionOrEnv(key) || readProjectSecrets(projectRoot)[key];
 }
 
 export function writeProjectSecret(projectRoot: string, key: string, value: string): string {

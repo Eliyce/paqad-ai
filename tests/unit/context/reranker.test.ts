@@ -217,3 +217,38 @@ describe('createReranker factory', () => {
     expect(r.backend).toBe('passthrough');
   });
 });
+
+describe('the Cohere key order', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  async function bearerFor(apiKey: string | undefined): Promise<string> {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: [] }) });
+    vi.stubGlobal('fetch', mockFetch);
+    await createReranker({ enabled: true, backend: 'cohere', api_key: apiKey }).rerank(
+      'auth',
+      CHUNKS,
+    );
+    const init = mockFetch.mock.calls[0]![1] as { headers: Record<string, string> };
+    return init.headers.Authorization!;
+  }
+
+  it('takes the plugin option first, then COHERE_API_KEY, then the config key', async () => {
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_COHERE_API_KEY', 'from-option');
+    vi.stubEnv('COHERE_API_KEY', 'from-env');
+    expect(await bearerFor('from-config')).toBe('Bearer from-option');
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_COHERE_API_KEY', '');
+    expect(await bearerFor('from-config')).toBe('Bearer from-env');
+    vi.stubEnv('COHERE_API_KEY', '');
+    expect(await bearerFor('from-config')).toBe('Bearer from-config');
+    expect(await bearerFor(undefined)).toBe('Bearer ');
+  });
+
+  it('never lets a committed config key win over the plugin option', async () => {
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_COHERE_API_KEY', 'from-option');
+    vi.stubEnv('COHERE_API_KEY', '');
+    expect(await bearerFor('from-config')).toBe('Bearer from-option');
+  });
+});

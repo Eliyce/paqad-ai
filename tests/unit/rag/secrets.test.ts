@@ -21,7 +21,36 @@ describe('RAG secrets helpers', () => {
 
   afterEach(() => {
     delete process.env.OPENAI_API_KEY;
+    delete process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY;
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('takes the plugin option first, then the environment, then .paqad/secrets.env', () => {
+    writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-from-file');
+    process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY = 'sk-from-option';
+    process.env.OPENAI_API_KEY = 'sk-from-env';
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-option');
+    delete process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY;
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-env');
+    delete process.env.OPENAI_API_KEY;
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-file');
+  });
+
+  it('lets an empty plugin option or environment value fall through to the next source', () => {
+    process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY = '';
+    process.env.OPENAI_API_KEY = 'sk-from-env';
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-env');
+    process.env.OPENAI_API_KEY = '';
+    writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-from-file');
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-file');
+  });
+
+  it('reads the environment and the secrets file as before when no plugin option is set', () => {
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBeUndefined();
+    writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-from-file');
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-file');
+    process.env.OPENAI_API_KEY = 'sk-from-env';
+    expect(getProjectSecret(projectRoot, 'OPENAI_API_KEY')).toBe('sk-from-env');
   });
 
   it('clears an existing secrets file in place and never creates a missing one', () => {
