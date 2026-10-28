@@ -846,12 +846,12 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     ).toBe('a1');
   });
 
-  it('a stage_start of another stage stamped with a different agent id still releases it', () => {
+  it('a stage_start of another stage stamped with a different agent id keeps its hold: another stage agent wrote it', () => {
     const root = tempRoot();
     const dirName = openFull(root);
     started(root, dirName, 'planning', 'a1', 1);
     startBy(root, dirName, 'specification', 2, 'b2');
-    expect(live(root, dirName)).toEqual([]);
+    expect(live(root, dirName)).toEqual(['a1']);
   });
 
   it('a stage_start with no or an empty agent id releases the hold as before', () => {
@@ -1017,6 +1017,199 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     expect(stop(root, 2).deferred).toBe(true);
     expect(stop(root, 3).deferred).toBe(true);
     expect(live(root, dirName)).toEqual(['a1']);
+  });
+});
+
+describe('review and documentation sync running side by side', () => {
+  const MINUTE = 60_000;
+  const at = (minutes: number) => () => new Date(NOW().getTime() + minutes * MINUTE);
+
+  function openGraduated(root: string): string {
+    return openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'parallel review and docs',
+      issue: null,
+      lane: 'graduated',
+      now: NOW,
+    });
+  }
+
+  function agentRow(
+    root: string,
+    dirName: string,
+    stage: string,
+    agent: string,
+    id: string,
+    status: 'started' | 'completed',
+    minutes: number,
+  ) {
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      {
+        kind: 'stage-agent',
+        stage,
+        agent,
+        agent_id: id,
+        event_status: status,
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      at(minutes),
+    );
+  }
+
+  const ctx = (dirName: string, minutes: number) => ({
+    sessionId: SESSION,
+    dirName,
+    adapter: 'claude-code',
+    now: at(minutes),
+  });
+
+  const holds = (root: string, dirName: string) =>
+    liveStageAgents(readFeatureStageUnit(root, dirName)).map(
+      (agent) => `${agent.stage}:${agent.agentId}`,
+    );
+
+  it('AC-1: a hook-written docs-sync stage_start by paqad-documentation-sync keeps the review hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', {
+      ...ctx(dirName, 2),
+      agent: 'paqad-documentation-sync',
+      agentId: 'd1',
+    });
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+  });
+
+  it('AC-1: the stage agent name alone, with no agent id, keeps the hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', {
+      ...ctx(dirName, 2),
+      agent: 'paqad-documentation-sync',
+    });
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+  });
+
+  it('AC-2: plugin-namespaced agent names keep the hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad:paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', {
+      ...ctx(dirName, 2),
+      agent: 'paqad:paqad-documentation-sync',
+    });
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+  });
+
+  it('AC-3: a CLI-written docs-sync stage_start (agent orchestrator, agent id d1) keeps the hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agentId: 'd1' });
+    const start = readFeatureStageUnit(root, dirName).find((row) => row.kind === 'stage_start');
+    expect(start?.agent).toBe('orchestrator');
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+  });
+
+  it.each([
+    ['the orchestrator', 'orchestrator'],
+    ['the backstop', 'backstop'],
+  ])('AC-4: a stage_start of another stage by %s releases the hold', (_label, agent) => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agent });
+    expect(holds(root, dirName)).toEqual([]);
+  });
+
+  it('AC-4: a stage_start of another stage with no agent and no agent id releases the hold', () => {
+    const base = { session_id: SESSION, recorded_at: NOW().toISOString() };
+    const rows = [
+      {
+        ...base,
+        kind: 'stage-agent',
+        event_status: 'started',
+        stage: 'review',
+        agent: 'paqad-review',
+        agent_id: 'r1',
+        content_hash: 'h1',
+      },
+      { ...base, kind: 'stage_start', stage: 'documentation_sync', content_hash: 'h2' },
+    ] as unknown as SessionLedgerRow[];
+    expect(liveStageAgents(rows)).toEqual([]);
+  });
+
+  it('AC-4: a non-stage paqad agent name does not count as a stage agent', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agent: 'paqad-expert' });
+    expect(holds(root, dirName)).toEqual([]);
+  });
+
+  it('AC-5: a stage_start of another stage carrying the held agent id keeps the hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agentId: 'r1' });
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+  });
+
+  it('AC-6: the docs-sync stage_end releases only its own hold; review holds until its own end', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'review', { ...ctx(dirName, 2), agentId: 'r1' });
+    agentRow(root, dirName, 'documentation_sync', 'paqad-documentation-sync', 'd1', 'started', 3);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 4), agentId: 'd1' });
+    expect(new Set(holds(root, dirName))).toEqual(
+      new Set(['review:r1', 'documentation_sync:d1']),
+    );
+    endStage(root, 'documentation_sync', {}, ctx(dirName, 5));
+    expect(holds(root, dirName)).toEqual(['review:r1']);
+    endStage(root, 'review', {}, ctx(dirName, 6));
+    expect(holds(root, dirName)).toEqual([]);
+  });
+
+  it('AC-24: review’s completed stage-agent row releases its hold', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agentId: 'd1' });
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'completed', 3);
+    expect(holds(root, dirName)).toEqual([]);
+  });
+
+  it('AC-21: every interleaved row of the two stage agents is read back in order', () => {
+    const root = tempRoot();
+    const dirName = openGraduated(root);
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'started', 1);
+    agentRow(root, dirName, 'documentation_sync', 'paqad-documentation-sync', 'd1', 'started', 1);
+    startStage(root, 'review', { ...ctx(dirName, 2), agentId: 'r1' });
+    startStage(root, 'documentation_sync', { ...ctx(dirName, 2), agentId: 'd1' });
+    endStage(root, 'documentation_sync', {}, ctx(dirName, 3));
+    agentRow(root, dirName, 'documentation_sync', 'paqad-documentation-sync', 'd1', 'completed', 3);
+    endStage(root, 'review', {}, ctx(dirName, 4));
+    agentRow(root, dirName, 'review', 'paqad-review', 'r1', 'completed', 4);
+    const rows = readFeatureStageUnit(root, dirName)
+      .filter((row) => row.stage === 'review' || row.stage === 'documentation_sync')
+      .map((row) => `${row.kind}:${row.stage}:${String(row.event_status ?? '')}`);
+    expect(rows).toEqual([
+      'stage-agent:review:started',
+      'stage-agent:documentation_sync:started',
+      'stage_start:review:started',
+      'stage_start:documentation_sync:started',
+      'stage_end:documentation_sync:completed',
+      'stage-agent:documentation_sync:completed',
+      'stage_end:review:completed',
+      'stage-agent:review:completed',
+    ]);
   });
 });
 

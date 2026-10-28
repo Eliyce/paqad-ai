@@ -17,6 +17,7 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
+import { isStageAgent } from './agent-identity.js';
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
 import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND, STAGE_AGENT_KIND } from './types.js';
 
@@ -100,9 +101,21 @@ function stringOrNull(value: unknown): string | null {
 export const STAGE_AGENT_SESSION_RELEASE =
   'a new session began, so stage agents left from the last session no longer hold the turn-end judgement';
 
+function agentNameOf(row: SessionLedgerRow): string | null {
+  const agent = stringOrNull(row.agent);
+  return agent === null ? null : stripPluginAgentNamespace(agent);
+}
+
+function startedByStageAgent(later: SessionLedgerRow, agent: string | null): boolean {
+  if (stringOrNull(later.agent_id) !== null) return true;
+  const laterAgent = agentNameOf(later);
+  return isStageAgent(laterAgent) && laterAgent !== agent;
+}
+
 function releasesStartedAgent(
   later: SessionLedgerRow,
   stage: string,
+  agent: string | null,
   agentId: string | null,
   startedHash: string,
 ): boolean {
@@ -116,7 +129,7 @@ function releasesStartedAgent(
   }
   if (later.kind === 'stage_end') return laterStage === stage;
   if (later.kind === 'stage_start') {
-    return laterStage !== null && laterStage !== stage && (laterId === null || laterId !== agentId);
+    return laterStage !== null && laterStage !== stage && !startedByStageAgent(later, agent);
   }
   if (later.kind !== RECORD_REPAIR_KIND || later.reason !== STAGE_AGENT_SESSION_RELEASE) {
     return false;
@@ -132,9 +145,10 @@ export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAge
     if (stage === null) return;
     const agentId = stringOrNull(row.agent_id);
     if (Number.isNaN(rowTime(row))) return;
+    const agent = agentNameOf(row);
     const released = rows
       .slice(index + 1)
-      .some((later) => releasesStartedAgent(later, stage, agentId, row.content_hash));
+      .some((later) => releasesStartedAgent(later, stage, agent, agentId, row.content_hash));
     if (released) return;
     live.push({
       stage,

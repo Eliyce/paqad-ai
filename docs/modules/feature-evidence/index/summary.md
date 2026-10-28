@@ -846,9 +846,14 @@ obvious from its code, grouped by file.
   change's ledger. The SubagentStart seed hook writes one `started` stage-agent row, and that row
   holds the judgement on every host until something releases it: the stage's `stage_end`, the
   agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage that
-  carries no `agent_id` or a different one (`stage start` stamps `agent_id` from `SE_AGENT_ID`, so
-  an agent resumed for the next stage keeps its own hold), or a `record-repair` row written at SessionStart (startup or resume) for agents of the same session
-  or of a host process that is gone. No clock releases a ledger hold. Holds seen only in
+  carries no `agent_id` and is not written by a different stage agent, or a `record-repair` row written at SessionStart (startup or resume) for agents of the same session
+  or of a host process that is gone. `stage start` stamps `agent_id` from `SE_AGENT_ID`, so an
+  agent resumed for the next stage keeps its own hold. A stage start written by a different stage
+  agent does not release a running agent's hold: one that carries another agent's `agent_id`, or
+  whose `agent` (with the plugin namespace stripped) names a different `paqad-<stage>` agent
+  (`isStageAgent`). So when documentation sync starts while review runs, review keeps its hold
+  until its own `stage_end` or stop. Only an orchestrator, backstop or agentless start of another
+  stage releases it. No clock releases a ledger hold. Holds seen only in
   `background_tasks` or a live checks marker keep the 30-minute ceiling. A turn end between
   stages (the last stage ended with its artifact, the next has not started) judges nothing and
   turns nothing red; the turn is held once with a plain nudge naming the next stage, unless a
