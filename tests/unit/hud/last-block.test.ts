@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,10 +8,11 @@ import { hudLastBlockPath } from '@/hud/files.js';
 import {
   clearRuleStopRecord,
   LAST_BLOCK_DIFF_MAX_BYTES,
-  markRuleStopTokenUsed,
+  markRuleStopAllowedOnce,
   parseRuleStopRecord,
   readRuleStopRecord,
   shortDiff,
+  takeAllowedOnce,
   truncateUtf8,
   writeRuleStopRecord,
 } from '@/hud/last-block.js';
@@ -65,7 +66,7 @@ describe('shortDiff', () => {
 });
 
 describe('rule-stop record', () => {
-  it('writes, reads back and marks the token used', () => {
+  it('AC-12: writes, reads back and marks the token used and allowed once', () => {
     const dir = root();
     const record = writeRuleStopRecord({
       projectRoot: dir,
@@ -89,12 +90,13 @@ describe('rule-stop record', () => {
       at: '2026-10-20T10:00:00.000Z',
       diff: '+ x',
       used: false,
+      allowed_once: false,
       session: 's1',
     });
     expect(record.token).toMatch(/^[0-9a-f]{32}$/);
     expect(readRuleStopRecord(dir, 's1')).toEqual(record);
-    markRuleStopTokenUsed(dir, record);
-    expect(readRuleStopRecord(dir, 's1')).toEqual({ ...record, used: true });
+    markRuleStopAllowedOnce(dir, record);
+    expect(readRuleStopRecord(dir, 's1')).toEqual({ ...record, used: true, allowed_once: true });
     clearRuleStopRecord(dir, 's1');
     expect(existsSync(hudLastBlockPath(dir, 's1'))).toBe(false);
     expect(readRuleStopRecord(dir, 's1')).toBeNull();
@@ -136,7 +138,100 @@ describe('rule-stop record', () => {
       diff: '',
       token: 't',
       used: false,
+      allowed_once: false,
       session: 's',
     });
+  });
+
+  it('AC-9: reads a record written before allowed_once existed as not allowed', () => {
+    expect(
+      parseRuleStopRecord({ rule: 'R', file: 'f', at: 'x', token: 't', session: 's', used: true })
+        ?.allowed_once,
+    ).toBe(false);
+  });
+});
+
+describe('takeAllowedOnce', () => {
+  const CALL = { toolUseId: 'tu_1', rule: 'RL-1', file: 'src/x.ts' };
+
+  function marked(dir: string) {
+    const record = writeRuleStopRecord({
+      projectRoot: dir,
+      sessionId: 's1',
+      rule: 'RL-1',
+      file: 'src/x.ts',
+      toolUseId: 'tu_1',
+      managed: false,
+      sole: true,
+      now: NOW,
+    });
+    markRuleStopAllowedOnce(dir, record);
+    return record;
+  }
+
+  const onDisk = (dir: string) => readFileSync(hudLastBlockPath(dir, 's1'), 'utf8');
+
+  it('AC-7: a matching call consumes the mark once and keeps the token', () => {
+    const dir = root();
+    const record = marked(dir);
+    expect(takeAllowedOnce(dir, 's1', { ...CALL, file: join(dir, 'src/x.ts') })).toBe(true);
+    expect(readRuleStopRecord(dir, 's1')).toEqual({ ...record, used: true, allowed_once: false });
+    expect(takeAllowedOnce(dir, 's1', CALL)).toBe(false);
+  });
+
+  it('AC-8: another tool_use_id, rule or file, or no tool_use_id, leaves the mark on disk', () => {
+    const dir = root();
+    marked(dir);
+    const before = onDisk(dir);
+    for (const call of [
+      { ...CALL, toolUseId: 'tu_0' },
+      { ...CALL, toolUseId: '' },
+      { ...CALL, toolUseId: null },
+      { ...CALL, toolUseId: undefined },
+      { ...CALL, rule: 'RL-2' },
+      { ...CALL, file: 'src/y.ts' },
+      { ...CALL, file: '../outside.ts' },
+    ]) {
+      expect(takeAllowedOnce(dir, 's1', call)).toBe(false);
+    }
+    expect(onDisk(dir)).toBe(before);
+    expect(takeAllowedOnce(dir, 'other', CALL)).toBe(false);
+    expect(onDisk(dir)).toBe(before);
+  });
+
+  it('AC-9: an unmarked, missing or garbled record answers false and is left alone', () => {
+    const dir = root();
+    expect(takeAllowedOnce(dir, 's1', CALL)).toBe(false);
+    writeRuleStopRecord({
+      projectRoot: dir,
+      sessionId: 's1',
+      rule: 'RL-1',
+      file: 'src/x.ts',
+      toolUseId: 'tu_1',
+      managed: false,
+    });
+    const unmarked = onDisk(dir);
+    expect(takeAllowedOnce(dir, 's1', CALL)).toBe(false);
+    expect(onDisk(dir)).toBe(unmarked);
+    writeFileSync(hudLastBlockPath(dir, 's1'), '{not json');
+    expect(takeAllowedOnce(dir, 's1', CALL)).toBe(false);
+    expect(onDisk(dir)).toBe('{not json');
+  });
+
+  it('AC-10: parallel reads for the same tool_use_id let at most one through', async () => {
+    const dir = root();
+    marked(dir);
+    const taken = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        Promise.resolve().then(() => takeAllowedOnce(dir, 's1', CALL)),
+      ),
+    );
+    expect(taken.filter(Boolean)).toHaveLength(1);
+    marked(dir);
+    const other = await Promise.all([
+      Promise.resolve().then(() => takeAllowedOnce(dir, 's1', { ...CALL, toolUseId: 'tu_2' })),
+      Promise.resolve().then(() => takeAllowedOnce(dir, 's1', { ...CALL, toolUseId: 'tu_3' })),
+    ]);
+    expect(other).toEqual([false, false]);
   });
 });

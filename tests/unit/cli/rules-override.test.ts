@@ -93,10 +93,16 @@ describe('paqad-ai rules override', () => {
       },
     });
     expect(readRuleOverrides(root, dir)).toHaveLength(1);
-    expect(readRuleStopRecord(root, SES)?.used).toBe(true);
+    expect(readRuleStopRecord(root, SES)).toMatchObject({ used: true, allowed_once: true });
     expect(buildHudSnapshot(root, SES, { now: NOW }).rule_overrides).toEqual([
       { rule: 'RL-1', file: 'src/x.ts', by: 'human', at: '2026-10-20T10:00:00.000Z' },
     ]);
+  });
+
+  it('AC-12: a successful override marks the stop allowed once, and the old token-only mark is gone', async () => {
+    override(stop());
+    expect(readRuleStopRecord(root, SES)).toMatchObject({ used: true, allowed_once: true });
+    expect('markRuleStopTokenUsed' in (await import('@/hud/last-block.js'))).toBe(false);
   });
 
   it('AC-19: refuses no token, a wrong token, another tool call and a used token, writing nothing', () => {

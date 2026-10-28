@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { toProjectRelativePath } from '@/core/path-utils.js';
 import { appendRuleOverride, type RuleOverrideRow } from '@/feature-evidence/rule-overrides.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { markRuleStopTokenUsed, readRuleStopRecord } from '@/hud/last-block.js';
+import { markRuleStopAllowedOnce, readRuleStopRecord } from '@/hud/last-block.js';
 import { defaultManagedSettingsPaths } from '@/install/plugin-migration.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
@@ -99,7 +99,7 @@ export function applyRuleOverride(request: RuleOverrideRequest): RuleOverrideOut
   if (!dirName) {
     return { ok: false, reason: 'no active change to record the override in' };
   }
-  markRuleStopTokenUsed(projectRoot, record);
+  markRuleStopAllowedOnce(projectRoot, record);
   const row = appendRuleOverride(projectRoot, dirName, {
     rule: record.rule,
     file,
