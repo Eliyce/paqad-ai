@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
+import { validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
 import type { ExpertNote } from '@/spec-pipeline/experts/types.js';
 
 describe('mergeExpertNotes', () => {
@@ -142,5 +143,90 @@ describe('mergeExpertNotes', () => {
       'EX-db-expert-2',
       'EX-db-expert-3',
     ]);
+  });
+
+  it('AC-7 / INV-4: a same-role collapse keeps the strongest severity and the invariant kind', () => {
+    const notes: ExpertNote[] = [
+      {
+        role: 'security-auditor',
+        findings: [
+          {
+            id: 'EX-security-auditor-1',
+            target: 'tokens',
+            claim: 'rotate tokens',
+            severity: 'must',
+            kind: 'invariant',
+          },
+          {
+            id: 'EX-security-auditor-2',
+            target: 'tokens',
+            claim: 'rotate tokens on a schedule the team can audit',
+            severity: 'should',
+            kind: 'requirement',
+          },
+        ],
+      },
+      {
+        role: 'performance-analyst',
+        findings: [
+          {
+            id: 'EX-performance-analyst-1',
+            target: 'tokens',
+            claim: 'cache tokens',
+            severity: 'could',
+          },
+        ],
+      },
+    ];
+    const result = mergeExpertNotes(notes);
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]?.severities).toEqual(['must', 'could']);
+
+    const alone = mergeExpertNotes([notes[0]!]);
+    expect(alone.findings[0]).toMatchObject({
+      claim: 'rotate tokens on a schedule the team can audit',
+      severity: 'must',
+      kind: 'invariant',
+    });
+  });
+
+  it('AC-7 / INV-4: the chief cannot rule compatible once a collapsed must-level security finding is in the conflict', () => {
+    const merged = mergeExpertNotes([
+      {
+        role: 'security-auditor',
+        findings: [
+          { id: 'EX-security-auditor-1', target: 'tokens', claim: 'rotate', severity: 'must' },
+          {
+            id: 'EX-security-auditor-2',
+            target: 'tokens',
+            claim: 'rotate tokens on a schedule',
+            severity: 'should',
+          },
+        ],
+      },
+      {
+        role: 'performance-analyst',
+        findings: [{ id: 'EX-performance-analyst-1', target: 'tokens', claim: 'cache tokens' }],
+      },
+    ]);
+    const result = validateExpertSynthesis(
+      {
+        verdict: 'ready',
+        accepted: [],
+        declined: [],
+        conflicts: [
+          {
+            target: 'tokens',
+            ruling: 'compatible',
+            merged_claim: 'rotate and cache',
+            rationale: 'x',
+          },
+        ],
+        gaps: [],
+      },
+      merged,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('must-level security-auditor finding');
   });
 });

@@ -4,6 +4,8 @@ import type {
   ExpertConflict,
   ExpertFinding,
   ExpertNote,
+  FindingKind,
+  FindingSeverity,
   MergedExpertNotes,
   VoiceWarning,
 } from './types.js';
@@ -73,11 +75,37 @@ function collapseSameRole(group: readonly AttributedFinding[]): AttributedFindin
     const mergedFrom = entries
       .flatMap((entry) => [entry.finding.id, ...(entry.finding.merged_from ?? [])])
       .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const findings = entries.map((entry) => entry.finding);
+    const severity = strongestSeverity(findings);
+    const kind = mergedKind(findings);
     return {
       role: kept.role,
-      finding: { ...kept.finding, merged_from: [...new Set(mergedFrom)] },
+      finding: {
+        ...kept.finding,
+        ...(severity ? { severity } : {}),
+        ...(kind ? { kind } : {}),
+        merged_from: [...new Set(mergedFrom)],
+      },
     };
   });
+}
+
+const SEVERITY_RANK: Record<FindingSeverity, number> = { must: 3, should: 2, could: 1 };
+
+export function strongestSeverity(findings: readonly ExpertFinding[]): FindingSeverity | undefined {
+  let best: FindingSeverity | undefined;
+  for (const finding of findings) {
+    if (finding.severity === undefined) continue;
+    if (best === undefined || SEVERITY_RANK[finding.severity] > SEVERITY_RANK[best]) {
+      best = finding.severity;
+    }
+  }
+  return best;
+}
+
+export function mergedKind(findings: readonly ExpertFinding[]): FindingKind | undefined {
+  if (findings.some((finding) => finding.kind === 'invariant')) return 'invariant';
+  return findings.find((finding) => finding.kind !== undefined)?.kind;
 }
 
 function normalize(text: string): string {

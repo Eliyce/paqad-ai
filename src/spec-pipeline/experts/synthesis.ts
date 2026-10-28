@@ -1,13 +1,8 @@
 import type { PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { validateQuestion } from './notes.js';
-import type {
-  ExpertConflict,
-  ExpertFinding,
-  FindingKind,
-  FindingSeverity,
-  MergedExpertNotes,
-} from './types.js';
+import { mergedKind, strongestSeverity } from './merge.js';
+import type { ExpertConflict, ExpertFinding, MergedExpertNotes } from './types.js';
 
 export type SynthesisVerdict = 'ready' | 'needs-answers' | 'not-ready';
 
@@ -330,8 +325,6 @@ export function isCompatibleRuling(conflict: SynthesisConflict): boolean {
   return conflict.ruling === 'compatible';
 }
 
-const SEVERITY_RANK: Record<FindingSeverity, number> = { must: 3, should: 2, could: 1 };
-
 export interface CompatibleMergeResult<T extends ExpertFinding> {
   findings: T[];
   accepted: string[];
@@ -368,22 +361,6 @@ export function applyCompatibleRulings<T extends ExpertFinding & { id: string }>
     mergedCount += 1;
   }
   return { findings: next, accepted: acceptedIds, merged: mergedCount };
-}
-
-function strongestSeverity(findings: readonly ExpertFinding[]): FindingSeverity | undefined {
-  let best: FindingSeverity | undefined;
-  for (const finding of findings) {
-    if (finding.severity === undefined) continue;
-    if (best === undefined || SEVERITY_RANK[finding.severity] > SEVERITY_RANK[best]) {
-      best = finding.severity;
-    }
-  }
-  return best;
-}
-
-function mergedKind(findings: readonly ExpertFinding[]): FindingKind | undefined {
-  if (findings.some((finding) => finding.kind === 'invariant')) return 'invariant';
-  return findings.find((finding) => finding.kind !== undefined)?.kind;
 }
 
 interface GapResult {
