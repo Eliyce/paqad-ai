@@ -17,9 +17,9 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
-import { isStageAgent } from './agent-identity.js';
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
-import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND, STAGE_AGENT_KIND } from './types.js';
+import { liveStageAgents, STAGE_AGENT_SESSION_RELEASE } from './stage-agent-holds.js';
+import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND } from './types.js';
 
 const AGENT_TYPE_FIELDS = ['agent_type', 'agentType', 'subagent_type', 'subagentType'] as const;
 
@@ -81,86 +81,11 @@ export function tasksCarryAgentType(tasks: readonly unknown[]): boolean {
   return runningTasks(tasks).some((task) => agentTypeOf(task) !== undefined);
 }
 
-export interface LiveStageAgent {
-  stage: string;
-  agentId: string | null;
-  startedAt: string;
-  sessionId: string;
-  hostPid: number | null;
-  rowHash: string;
-}
-
-function rowTime(row: SessionLedgerRow): number {
-  return Date.parse(rowRecordedAt(row) ?? '');
-}
-
-function stringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
-}
-
-export const STAGE_AGENT_SESSION_RELEASE =
-  'a new session began, so stage agents left from the last session no longer hold the turn-end judgement';
-
-function agentNameOf(row: SessionLedgerRow): string | null {
-  const agent = stringOrNull(row.agent);
-  return agent === null ? null : stripPluginAgentNamespace(agent);
-}
-
-function startedByStageAgent(later: SessionLedgerRow, agent: string | null): boolean {
-  if (stringOrNull(later.agent_id) !== null) return true;
-  const laterAgent = agentNameOf(later);
-  return isStageAgent(laterAgent) && laterAgent !== agent;
-}
-
-function releasesStartedAgent(
-  later: SessionLedgerRow,
-  stage: string,
-  agent: string | null,
-  agentId: string | null,
-  startedHash: string,
-): boolean {
-  const laterStage = stringOrNull(later.stage);
-  const laterId = stringOrNull(later.agent_id);
-  if (later.kind === STAGE_AGENT_KIND && later.event_status === 'started') {
-    return laterStage === stage && (agentId === null || laterId !== agentId);
-  }
-  if (later.kind === STAGE_AGENT_KIND) {
-    return agentId !== null && laterId !== null ? laterId === agentId : laterStage === stage;
-  }
-  if (later.kind === 'stage_end') return laterStage === stage;
-  if (later.kind === 'stage_start') {
-    return laterStage !== null && laterStage !== stage && !startedByStageAgent(later, agent);
-  }
-  if (later.kind !== RECORD_REPAIR_KIND || later.reason !== STAGE_AGENT_SESSION_RELEASE) {
-    return false;
-  }
-  return !Array.isArray(later.releases) || later.releases.includes(startedHash);
-}
-
-export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAgent[] {
-  const live: LiveStageAgent[] = [];
-  rows.forEach((row, index) => {
-    if (row.kind !== STAGE_AGENT_KIND || row.event_status !== 'started') return;
-    const stage = stringOrNull(row.stage);
-    if (stage === null) return;
-    const agentId = stringOrNull(row.agent_id);
-    if (Number.isNaN(rowTime(row))) return;
-    const agent = agentNameOf(row);
-    const released = rows
-      .slice(index + 1)
-      .some((later) => releasesStartedAgent(later, stage, agent, agentId, row.content_hash));
-    if (released) return;
-    live.push({
-      stage,
-      agentId,
-      startedAt: rowRecordedAt(row)!,
-      sessionId: row.session_id,
-      hostPid: typeof row.host_pid === 'number' ? row.host_pid : null,
-      rowHash: row.content_hash,
-    });
-  });
-  return live;
-}
+export {
+  liveStageAgents,
+  STAGE_AGENT_SESSION_RELEASE,
+  type LiveStageAgent,
+} from './stage-agent-holds.js';
 
 const NEW_HOST_SESSION_SOURCES: ReadonlySet<string> = new Set(['startup', 'resume']);
 

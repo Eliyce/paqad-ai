@@ -14,7 +14,12 @@ import {
 import { foldRowsWithKey, openStageEvidence, startStage } from '@/stage-evidence/index.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { liveStageAgents } from '@/stage-evidence/stage-agent-holds.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
@@ -623,5 +628,126 @@ describe('recordLiveStageEdit — interleaved edit sequence', () => {
     expect(started('checks')).toHaveLength(1);
     const fold = foldRowsWithKey(rows(), { sessionId: SES, changeKey: 'c', promptOrdinal: 0 });
     expect(fold.completeness.ordering_violations).toEqual([]);
+  });
+});
+
+describe('a marked start beside another running stage agent', () => {
+  let root: string;
+  const SES = 'ses_beside';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-live-beside-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function openReview(now: () => Date): string {
+    recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now });
+    const dir = currentFeature(root, SES)!;
+    appendFeatureStageRow(
+      root,
+      SES,
+      dir,
+      {
+        kind: 'stage-agent',
+        stage: 'review',
+        agent: 'paqad-review',
+        agent_id: 'r1',
+        event_status: 'started',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      now,
+    );
+    return dir;
+  }
+
+  const reviewEnds = (dir: string) =>
+    readFeatureStageUnit(root, dir).filter((r) => r.kind === 'stage_end' && r.stage === 'review');
+
+  it('AC-1, AC-3: a documentation_sync start by another agent leaves review open and its hold live', () => {
+    const now = clock();
+    const dir = openReview(now);
+    expect(
+      recordMarkedStage(root, {
+        sessionId: SES,
+        stage: 'documentation_sync',
+        phase: 'start',
+        agentId: 'd1',
+        now,
+      }),
+    ).toBe(true);
+    expect(reviewEnds(dir)).toHaveLength(0);
+    expect(liveStageAgents(readFeatureStageUnit(root, dir)).map((h) => h.agentId)).toEqual(['r1']);
+  });
+
+  it('AC-1: a start named for another stage agent, with no agent id, leaves review open', () => {
+    const now = clock();
+    const dir = openReview(now);
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'documentation_sync',
+      phase: 'start',
+      agent: 'paqad:paqad-documentation-sync',
+      now,
+    });
+    expect(reviewEnds(dir)).toHaveLength(0);
+  });
+
+  it('AC-6: review folds complete after its own stage end with its artifact', () => {
+    const now = clock();
+    const dir = openReview(now);
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'documentation_sync',
+      phase: 'start',
+      agentId: 'd1',
+      now,
+    });
+    recordMarkedStage(root, { sessionId: SES, stage: 'documentation_sync', phase: 'end', now });
+    expect(reviewEnds(dir)).toHaveLength(0);
+    writeFileSync(join(root, 'review.json'), '{"verdict":"safe-to-merge"}');
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'review',
+      phase: 'end',
+      artifactPaths: ['review.json'],
+      now,
+    });
+    const rows = readFeatureStageUnit(root, dir);
+    expect(reviewEnds(dir)).toHaveLength(1);
+    expect(liveStageAgents(rows)).toEqual([]);
+    const fold = foldRowsWithKey(rows, { sessionId: SES, changeKey: 'c', promptOrdinal: 0 });
+    expect(fold.stages.find((s) => s.stage === 'review')?.state).toBe('complete');
+  });
+
+  it('still closes an open stage when no other agent holds it', () => {
+    const now = clock();
+    recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now });
+    const dir = currentFeature(root, SES)!;
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'documentation_sync',
+      phase: 'start',
+      agentId: 'd1',
+      now,
+    });
+    expect(reviewEnds(dir)).toHaveLength(1);
+  });
+
+  it('still closes a stage the starting agent itself holds', () => {
+    const now = clock();
+    const dir = openReview(now);
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'documentation_sync',
+      phase: 'start',
+      agentId: 'r1',
+      now,
+    });
+    expect(reviewEnds(dir)).toHaveLength(1);
   });
 });

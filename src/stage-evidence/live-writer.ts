@@ -8,7 +8,9 @@ import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { resolveEffectiveLane } from './effective-lane.js';
+import { agentForWriter } from './agent-identity.js';
 import { endStage, openStageEvidence, startStage } from './recorder.js';
+import { liveStageAgents, stageAgentIdentity, startedByAnotherAgent } from './stage-agent-holds.js';
 import { startedAfterLastEnd } from './fold.js';
 import {
   isEditStage,
@@ -198,6 +200,8 @@ function closeOpenStagesForMarkedStart(
     sessionId?: string | null;
     sessionSource?: StageSessionSource;
     adapter: string;
+    agent?: string;
+    agentId?: string;
     now?: () => Date;
   },
 ): void {
@@ -207,10 +211,16 @@ function closeOpenStagesForMarkedStart(
   const rows = readFeatureStageUnit(projectRoot, dirName);
   const started = stagesWithKind(rows, 'stage_start');
   const ended = stagesWithKind(rows, 'stage_end');
+  const starter = stageAgentIdentity(ctx.agent ?? agentForWriter(ctx.adapter), ctx.agentId);
+  const heldByAnother = new Set(
+    liveStageAgents(rows)
+      .filter((hold) => startedByAnotherAgent(starter, hold))
+      .map((hold) => hold.stage),
+  );
   for (const row of rows) {
     if (row.kind !== 'stage_start' || typeof row.stage !== 'string') continue;
     const s = row.stage;
-    if (s !== targetStage && started.has(s) && !ended.has(s)) {
+    if (s !== targetStage && started.has(s) && !ended.has(s) && !heldByAnother.has(s)) {
       ended.add(s);
       try {
         endStage(
@@ -239,16 +249,14 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
     agent: input.agent,
     now: input.now,
   };
+  const agentId = input.agentId?.trim() ? input.agentId.trim() : undefined;
   try {
     if (input.phase === 'start' && input.title !== undefined) {
       openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
     }
     if (input.phase === 'start') {
-      closeOpenStagesForMarkedStart(projectRoot, input.stage, ctx);
-      startStage(projectRoot, input.stage, {
-        ...ctx,
-        ...(input.agentId?.trim() ? { agentId: input.agentId.trim() } : {}),
-      });
+      closeOpenStagesForMarkedStart(projectRoot, input.stage, { ...ctx, agentId });
+      startStage(projectRoot, input.stage, { ...ctx, ...(agentId ? { agentId } : {}) });
     } else {
       endStage(projectRoot, input.stage, { artifactPaths: input.artifactPaths ?? [] }, ctx);
     }
