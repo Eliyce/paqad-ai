@@ -8,9 +8,21 @@ import {
   ruleStopQuestion,
   ruleTextQuestion,
 } from '../../../../runtime/claude-plugin/mod/model.ts';
-import { PAQAD_CLI_TIMEOUT_MS } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
+import {
+  PAQAD_CLI_TIMEOUT_MS,
+  overrideRecorded,
+} from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 
 describe('the mod paqad-ai helper', () => {
+  it('counts an override as recorded only when the CLI printed its success line', () => {
+    expect(overrideRecorded('**▸ paqad** · recorded a one-time override of RL-1 on a.ts')).toBe(
+      true,
+    );
+    expect(overrideRecorded('{"overridden":true,"rule":"RL-1"}')).toBe(true);
+    expect(overrideRecorded('')).toBe(false);
+    expect(overrideRecorded('{"overridden":false}')).toBe(false);
+  });
+
   it('gives paqad-ai its own timeout', () => {
     expect(PAQAD_CLI_TIMEOUT_MS).toBe(15_000);
   });

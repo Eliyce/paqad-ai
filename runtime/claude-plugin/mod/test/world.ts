@@ -44,6 +44,9 @@ export interface WorldOptions {
   root?: string;
 }
 
+export const OVERRIDE_RECORDED =
+  '**▸ paqad** · recorded a one-time override of RL-13 on src/x.ts by a person. It shows on the receipt.\n{"overridden":true}\n';
+
 export const TAKEN = `"/paqad" refused: it is the plugin's /paqad-product-discovery:paqad`;
 
 export const ENGINE_CARD = { type: 'engine', ref: 0 } as const;
@@ -66,7 +69,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     asked: [],
     answers: [],
     runs: [],
-    run: { exitCode: 0, stdout: '', stderr: '' },
+    run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
     toasts: [],
     logs: [],
     writes: [],

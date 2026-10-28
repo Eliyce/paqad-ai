@@ -88,7 +88,7 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { PAQAD_CLI_TIMEOUT_MS, type PaqadRunResult } from './paqad-cli';
+import { PAQAD_CLI_TIMEOUT_MS, overrideRecorded, type PaqadRunResult } from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -133,7 +133,11 @@ async function recordOverride(
       cwd,
       timeoutMs: PAQAD_CLI_TIMEOUT_MS,
     });
-    return { ok: result.exitCode === 0, stdout: result.stdout, stderr: result.stderr };
+    return {
+      ok: result.exitCode === 0 && overrideRecorded(result.stdout),
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
   } catch (error) {
     return {
       ok: false,

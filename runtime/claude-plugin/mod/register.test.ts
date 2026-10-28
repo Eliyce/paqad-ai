@@ -2662,6 +2662,22 @@ describe('the rule stop answer on tool.check', () => {
     expect(failures[0]!.text).toContain('refused');
   });
 
+  test('an override that exits 0 without its recorded line keeps the deny', async ($, on) => {
+    const world = await stopped($, on);
+    world.run = { exitCode: 0, stdout: '', stderr: '' };
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
+    expect(world.runs).toHaveLength(1);
+    expect(world.toasts).toEqual([
+      'paqad could not record the override, so the edit stays blocked.',
+    ]);
+    expect(
+      world.logs.some(
+        (log) => log.to === 'debug' && log.text.startsWith('paqad-ai rules override'),
+      ),
+    ).toBe(true);
+  });
+
   test('Allow once still runs the same override argv', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
