@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -8,6 +9,10 @@ import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { gatherWorkingSetSlices } from '@/context/retrieval-context.js';
 import type { RetrievalSource } from '@/context/retrieval-context.js';
+import { getProjectSecret } from '@/rag/secrets.js';
+import { FileVectorIndex } from '@/rag/vector-index.js';
+
+import { DEFAULT_GROUNDING_BUDGET_MS } from './config.js';
 
 import type { GroundingArtifact, GroundingReference, VocabularyEntry } from './types.js';
 
@@ -22,6 +27,19 @@ export interface GroundAsyncOptions extends GroundOptions {
   query?: string;
   changedPaths?: readonly string[];
   service?: RetrievalSource;
+  budgetMs?: number;
+}
+
+export const GROUNDING_FALLBACK_REASONS = {
+  ragDisabled: 'rag-disabled',
+  missingKey: 'missing-embedding-key',
+  coldIndex: 'cold-index',
+  budget: 'budget-exceeded',
+  noResults: 'no-retrieval-results',
+} as const;
+
+export function requestDigest(request: string): string {
+  return `sha256:${createHash('sha256').update(request).digest('hex')}`;
 }
 
 const DEFAULT_MAX_FILES = 40;
@@ -285,6 +303,53 @@ function referenceKindFor(sourceFile: string): GroundingReference['kind'] {
   return /(^|\/)rules?\//.test(sourceFile.replace(/\\/g, '/')) ? 'rule' : 'doc';
 }
 
+function lexicalFallback(
+  projectRoot: string,
+  options: GroundOptions,
+  reason: string,
+): GroundingArtifact {
+  return { ...groundArea(projectRoot, options), mode: 'lexical-fallback', fallback_reason: reason };
+}
+
+async function indexIsWarm(projectRoot: string): Promise<boolean> {
+  if (!existsSync(join(projectRoot, PATHS.CHUNK_INDEX))) return false;
+  try {
+    const status = await new FileVectorIndex().status(projectRoot);
+    return status.present && !status.corrupt && (status.meta?.chunk_count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function projectIndexBlocker(projectRoot: string): Promise<string | null> {
+  const intelligence = normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence);
+  if (
+    intelligence.embedding_provider === 'openai' &&
+    !getProjectSecret(projectRoot, 'OPENAI_API_KEY')
+  ) {
+    return GROUNDING_FALLBACK_REASONS.missingKey;
+  }
+  return (await indexIsWarm(projectRoot)) ? null : GROUNDING_FALLBACK_REASONS.coldIndex;
+}
+
+const BUDGET_SPENT = Symbol('budget-spent');
+
+async function withinBudget<T>(
+  work: Promise<T>,
+  budgetMs: number,
+): Promise<T | typeof BUDGET_SPENT> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const spent = new Promise<typeof BUDGET_SPENT>((resolve) => {
+    timer = setTimeout(() => resolve(BUDGET_SPENT), budgetMs);
+  });
+  work.catch(() => undefined);
+  try {
+    return await Promise.race([work, spent]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function groundAreaAsync(
   projectRoot: string,
   options: GroundAsyncOptions = {},
@@ -292,13 +357,22 @@ export async function groundAreaAsync(
   const ragEnabled =
     options.ragEnabled ??
     normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence).rag_enabled;
-
-  if (ragEnabled) {
-    const rag = await groundViaRetrieval(projectRoot, options);
-    if (rag && rag.terms.length > 0) return rag;
+  if (!ragEnabled) {
+    return lexicalFallback(projectRoot, options, GROUNDING_FALLBACK_REASONS.ragDisabled);
   }
 
-  return groundArea(projectRoot, options);
+  const blocker = options.service ? null : await projectIndexBlocker(projectRoot);
+  if (blocker) return lexicalFallback(projectRoot, options, blocker);
+
+  const rag = await withinBudget(
+    groundViaRetrieval(projectRoot, options),
+    options.budgetMs ?? DEFAULT_GROUNDING_BUDGET_MS,
+  );
+  if (rag === BUDGET_SPENT) {
+    return lexicalFallback(projectRoot, options, GROUNDING_FALLBACK_REASONS.budget);
+  }
+  if (rag && rag.terms.length > 0) return { ...rag, mode: 'retrieval' };
+  return lexicalFallback(projectRoot, options, GROUNDING_FALLBACK_REASONS.noResults);
 }
 
 async function groundViaRetrieval(
@@ -317,6 +391,7 @@ async function groundViaRetrieval(
     ({ slices } = await gatherWorkingSetSlices(projectRoot, {
       scope: 'docs',
       topN: maxFiles,
+      skipSync: true,
       ...(query ? { query } : {}),
       ...(options.changedPaths ? { changedPaths: options.changedPaths } : {}),
       ...(options.service ? { service: options.service } : {}),

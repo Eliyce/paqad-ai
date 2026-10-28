@@ -10,9 +10,9 @@ Every verb takes `--project-root <path>` (default: the current directory) and `-
 
 | Verb | What it does |
 |---|---|
-| `start --request-file <path>` or `start --ticket <ref>` | Grounds and labels the request in one go. `--ticket` fetches a GitHub issue through `gh`. `--modules <list>` scopes grounding to named module slugs. |
+| `start --request-file <path>` or `start --ticket <ref>` | Grounds and labels the request in one go. `--ticket` fetches a GitHub issue through `gh`. `--modules <list>` scopes grounding to named module slugs. Runs in the foreground and returns within 20 seconds; its JSON line says `grounding`: `retrieval`, `lexical-fallback` (with `grounding_reason`) or `reused`, and a reuse also prints `grounding reused` first. |
 | `status` | Shows the next step and the enforcement config in effect. |
-| `ground [--modules <list>]` | Assembles grounding from the docs. |
+| `ground [--modules <list>]` | Assembles grounding from the docs, under the same budget and with the same `grounding` field. |
 | `label <prompt>` | Rates how clear the request is against the grounding. |
 | `record <step> <file>` | Hands an agent-made artifact back for `questions`, `task` or `craft`. For `craft`, `--trace <path>` points at the trace that ties every spec line to a source. |
 | `finish` | Decides freeze or non-blocking review and records where the spec came from. |
@@ -62,6 +62,7 @@ Each key can be set in the usual layers. The first one found wins: the `PAQAD_*`
 | `spec_pipeline_clarification` | `PAQAD_SPEC_PIPELINE_CLARIFICATION` | `warn` | `off`, `warn` or `strict` for the question round. |
 | `spec_pipeline_final_review` | `PAQAD_SPEC_PIPELINE_FINAL_REVIEW` | `off` | `off`, `warn` or `strict` for the review before freeze. |
 | `spec_pipeline_token_ceiling` | `PAQAD_SPEC_PIPELINE_TOKEN_CEILING` | `40000` | Per-run token budget. Going over is a recorded warning, never a block. |
+| `spec_grounding_budget_ms` | `PAQAD_SPEC_GROUNDING_BUDGET_MS` | `15000` | Milliseconds `start` and `ground` give retrieval. Past it, grounding uses the docs alone and records `grounding.mode=lexical-fallback` with reason `budget-exceeded`. |
 | `spec_pipeline_standing_experts` | | the four standing roles | Comma-separated role ids. Empty means none. |
 
 The first three defaults were turned on later: the pipeline, the experts and strict adoption are now on. They apply on the graduated and full lanes only. The fast lane never runs the pipeline, whatever these keys say.

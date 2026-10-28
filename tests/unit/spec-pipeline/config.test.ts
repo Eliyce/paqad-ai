@@ -29,6 +29,7 @@ describe('readPipelineConfig', () => {
       clarification: 'warn',
       final_review: 'off',
       token_ceiling: 40000,
+      grounding_budget_ms: 15000,
       experts_enabled: true,
       adoption: 'strict',
       standing_experts: [
@@ -50,6 +51,7 @@ describe('readPipelineConfig', () => {
         'spec_pipeline_clarification=strict',
         'spec_pipeline_final_review=warn',
         'spec_pipeline_token_ceiling=5000',
+        'spec_grounding_budget_ms=8000',
         'spec_pipeline_experts_enabled=on',
         'spec_pipeline_adoption=strict',
         'spec_pipeline_standing_experts=qa-engineer,product-owner',
@@ -60,11 +62,21 @@ describe('readPipelineConfig', () => {
       clarification: 'strict',
       final_review: 'warn',
       token_ceiling: 5000,
+      grounding_budget_ms: 8000,
       experts_enabled: true,
       adoption: 'strict',
       standing_experts: ['qa-engineer', 'product-owner'],
       standing_experts_dropped: [],
     });
+  });
+
+  it('reads spec_grounding_budget_ms from the env, and a bad value keeps the 15000 default', () => {
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_grounding_budget_ms=-5');
+    expect(readPipelineConfig(root, {}).grounding_budget_ms).toBe(15000);
+    expect(
+      readPipelineConfig(root, { PAQAD_SPEC_GROUNDING_BUDGET_MS: '2500' }).grounding_budget_ms,
+    ).toBe(2500);
   });
 
   it('reads spec_pipeline_adoption (default strict; garbage degrades to strict — RULE-16)', () => {

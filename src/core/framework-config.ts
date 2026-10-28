@@ -885,6 +885,18 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
   },
   {
+    key: 'spec_grounding_budget_ms',
+    env: 'PAQAD_SPEC_GROUNDING_BUDGET_MS',
+    type: 'number',
+    default: 15000,
+    group: 'policy',
+    section: 'Spec pipeline',
+    comment:
+      'Milliseconds `spec pipeline start` gives retrieval to ground the request. Past it, or ' +
+      'with an empty index or no embedding key, start grounds on the docs alone and records ' +
+      'grounding.mode=lexical-fallback with the reason.',
+  },
+  {
     key: 'spec_pipeline_experts_enabled',
     env: 'PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED',
     type: 'boolean',
@@ -2048,6 +2060,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',
       'spec_pipeline_token_ceiling',
+      'spec_grounding_budget_ms',
       'spec_pipeline_experts_enabled',
       'spec_pipeline_adoption',
       'spec_pipeline_standing_experts',

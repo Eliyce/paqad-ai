@@ -2,11 +2,15 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RetrievalSource } from '@/context/retrieval-context.js';
 import type { RagRetrievalResult } from '@/rag/types.js';
-import { groundArea, groundAreaAsync } from '@/spec-pipeline/grounding.js';
+import {
+  GROUNDING_FALLBACK_REASONS,
+  groundArea,
+  groundAreaAsync,
+} from '@/spec-pipeline/grounding.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -289,5 +293,124 @@ describe('groundAreaAsync', () => {
       ]),
     });
     expect(listFiles(root)).toEqual(before);
+  });
+});
+
+describe('groundAreaAsync budget, mode and query', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  const REQUEST = 'Let customers download their invoices as CSV.';
+  const CHUNK = {
+    id: 'c1',
+    source_file: 'docs/modules/export/business.md',
+    content: '# Report export\nAn export excludes **hidden columns**.\n',
+  };
+
+  function recordingRetrieval(): {
+    service: RetrievalSource;
+    calls: Array<{ input: { taskDescription?: string }; options?: { skipSync?: boolean } }>;
+  } {
+    const calls: Array<{ input: { taskDescription?: string }; options?: { skipSync?: boolean } }> =
+      [];
+    const base = stubRetrieval([CHUNK]);
+    return {
+      calls,
+      service: {
+        retrieveForEval: async (input, topN, options) => {
+          calls.push({ input, options });
+          return base.retrieveForEval(input, topN, options);
+        },
+      },
+    };
+  }
+
+  it('passes the request text as the retrieval query with skipSync on, and records retrieval mode', async () => {
+    const { service, calls } = recordingRetrieval();
+    const g = await groundAreaAsync(tempRoot(), {
+      ragEnabled: true,
+      query: REQUEST,
+      changedPaths: [],
+      service,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.input.taskDescription).toBe(REQUEST);
+    expect(calls[0]!.options?.skipSync).toBe(true);
+    expect(g.mode).toBe('retrieval');
+    expect(g).not.toHaveProperty('fallback_reason');
+  });
+
+  it('abandons a slow retrieval when the budget runs out and grounds on the docs', async () => {
+    vi.useFakeTimers();
+    const root = tempRoot();
+    writeDoc(root, 'docs/modules/export/business.md', '## Clean export\n**hidden columns**\n');
+    const never: RetrievalSource = { retrieveForEval: () => new Promise(() => undefined) };
+    const pending = groundAreaAsync(root, {
+      ragEnabled: true,
+      modules: ['export'],
+      query: REQUEST,
+      changedPaths: [],
+      service: never,
+      budgetMs: 15000,
+    });
+    await vi.advanceTimersByTimeAsync(14999);
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const g = await pending;
+    expect(g.mode).toBe('lexical-fallback');
+    expect(g.fallback_reason).toBe(GROUNDING_FALLBACK_REASONS.budget);
+    expect(g.path).toBe('docs-fallback');
+    expect(g.terms).toContain('Clean export');
+  });
+
+  it('goes straight to the docs with its own reason when the project index is cold', async () => {
+    const root = tempRoot();
+    writeDoc(root, 'docs/modules/export/business.md', '## Clean export\n**hidden columns**\n');
+    const g = await groundAreaAsync(root, { ragEnabled: true, query: REQUEST, budgetMs: 15000 });
+    expect(g.mode).toBe('lexical-fallback');
+    expect(g.fallback_reason).toBe(GROUNDING_FALLBACK_REASONS.coldIndex);
+  });
+
+  it('records the missing-key reason for the openai provider with no key, without waiting', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '');
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY', '');
+    const root = tempRoot();
+    writeDoc(
+      root,
+      '.paqad/.config',
+      'rag_enabled=true\nrag_embedding_provider=openai\n',
+    );
+    writeDoc(
+      root,
+      '.paqad/project-profile.yaml',
+      'intelligence:\n  rag_enabled: true\n  embedding_provider: openai\n',
+    );
+    vi.useFakeTimers();
+    const g = await groundAreaAsync(root, { query: REQUEST, budgetMs: 15000 });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(g.mode).toBe('lexical-fallback');
+    expect(g.fallback_reason).toBe(GROUNDING_FALLBACK_REASONS.missingKey);
+  });
+
+  it('names the reason when RAG is off or retrieval finds nothing', async () => {
+    const off = await groundAreaAsync(tempRoot(), { ragEnabled: false });
+    expect(off).toMatchObject({ mode: 'lexical-fallback', fallback_reason: 'rag-disabled' });
+    const empty = await groundAreaAsync(tempRoot(), {
+      ragEnabled: true,
+      changedPaths: [],
+      query: REQUEST,
+      service: stubRetrieval([]),
+    });
+    expect(empty).toMatchObject({
+      mode: 'lexical-fallback',
+      fallback_reason: GROUNDING_FALLBACK_REASONS.noResults,
+    });
   });
 });

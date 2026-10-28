@@ -36,6 +36,8 @@ export interface GroundingReference {
 
 export type GroundingPath = 'rag' | 'docs-fallback';
 
+export type GroundingMode = 'retrieval' | 'lexical-fallback';
+
 export interface VocabularyEntry {
   term: string;
   definition?: string;
@@ -49,6 +51,11 @@ export interface GroundingArtifact {
   vocabulary?: VocabularyEntry[];
   sparse: boolean;
   path: GroundingPath;
+  mode?: GroundingMode;
+  fallback_reason?: string;
+  fallback_retried?: boolean;
+  request_digest?: string;
+  modules?: string[];
 }
 
 export interface PipelineQuestion {
