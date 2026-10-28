@@ -28,6 +28,7 @@ export interface World {
   spoken: string[];
   verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string; rule?: string } | 'throw';
   during: Map<string, () => Promise<void>>;
+  unreadable: Set<string>;
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -72,6 +73,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     spoken: [],
     verdict: { decision: 'allow' },
     during: new Map(),
+    unreadable: new Set(),
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -82,7 +84,11 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     const text = world.files.get(relOf(e.path));
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text };
   });
-  on('fs.exists', ($, e) => ({ value: world.files.has(relOf(e.path)) || isDir(relOf(e.path)) }));
+  on('fs.exists', ($, e) =>
+    world.unreadable.has(relOf(e.path))
+      ? { deny: `EACCES: ${e.path}` }
+      : { value: world.files.has(relOf(e.path)) || isDir(relOf(e.path)) },
+  );
   on('fs.list', ($, e) => {
     const dir = relOf(e.path);
     if (!isDir(dir)) return { deny: `ENOENT: ${e.path}` };

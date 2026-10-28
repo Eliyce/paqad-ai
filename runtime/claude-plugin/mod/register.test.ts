@@ -2456,7 +2456,8 @@ describe('the rule stop answer on tool.check', () => {
   const DENY = { decision: 'deny' as const, reason: 'RL-13 blocked the edit' };
   const ASK = {
     decision: 'ask',
-    reason: 'Allowed once by a person, recorded as an override of RL-13. Approve to run it.',
+    reason:
+      'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
   };
   const OVERRIDE_ARGV = [
     'paqad-ai',
@@ -2594,12 +2595,22 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([]);
   });
 
-  test('a deny from a permissions rule in settings offers nothing', async ($, on) => {
+  test('a deny from a settings rule is passed on untouched and nothing is asked', async ($, on) => {
     const world = await stopped($, on);
-    const ruled = { ...DENY, rule: 'Edit(src/**)' };
+    const ruled = { decision: 'deny' as const, rule: 'Edit(src/**)' };
     world.verdict = ruled;
+    world.answers.push('Allow once, recorded', 'No reason');
     expect(await check($)).toEqual(ruled);
     expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+    expect(world.toasts).toEqual([]);
+  });
+
+  test('a failure inside the offer keeps the deny', async ($, on) => {
+    const world = await stopped($, on);
+    world.unreadable.add(ENTRY_SENTINEL);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
     expect(world.runs).toEqual([]);
   });
 
@@ -2704,12 +2715,19 @@ describe('the rule stop answer on tool.check', () => {
       ['Let Claude fix it'],
       ['Show the rule', 'Allow once, recorded', 'needed'],
       [null],
+      [],
     ]) {
       world.put(LAST_BLOCK, JSON.stringify(STOP));
       world.answers.push(...answers);
       verdicts.push(await check($));
     }
-    expect(verdicts.map((verdict) => verdict.decision)).toEqual(['ask', 'deny', 'ask', 'deny']);
+    expect(verdicts.map((verdict) => verdict.decision)).toEqual([
+      'ask',
+      'deny',
+      'ask',
+      'deny',
+      'deny',
+    ]);
     expect(verdicts.some((verdict) => verdict.decision === 'allow')).toBe(false);
   });
 });

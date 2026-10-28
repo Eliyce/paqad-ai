@@ -124,8 +124,6 @@ import { FEATURE_ROUTE } from './status-entry';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
-type ToolCheckResult = Awaited<ReturnType<EngineInterface['tool']['check']>>;
-
 async function runPaqad(
   $: EngineInterface,
   verb: PaqadVerb,
@@ -535,46 +533,49 @@ async function markRuleStopAnswered(
 async function allowRuleStopOnce(
   $: EngineInterface,
   toolUseId: string | undefined,
-  verdict: ToolCheckResult,
 ): Promise<RuleStop | null> {
-  const at = live;
-  if (!at) return null;
-  const stop = freshRuleStop(
-    await readText($, lastBlockPath(at.root, at.sessionId)),
-    at.sessionId,
-    toolUseId,
-  );
-  if (!stop || verdict.rule !== undefined) return null;
-  if (stop.managed) {
-    $.ui.toast(ORG_ENFORCED);
-    return null;
-  }
-  if (!stop.sole || (await hasPendingDecision($, at.root))) return null;
-  if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return null;
-  await moveLive($, questionShown);
-  let choice: string | null = null;
   try {
-    choice = await chooseRuleStop($, stop);
-  } finally {
+    const at = live;
+    if (!at) return null;
+    const stop = freshRuleStop(
+      await readText($, lastBlockPath(at.root, at.sessionId)),
+      at.sessionId,
+      toolUseId,
+    );
+    if (!stop) return null;
+    if (stop.managed) {
+      $.ui.toast(ORG_ENFORCED);
+      return null;
+    }
+    if (!stop.sole || (await hasPendingDecision($, at.root))) return null;
+    if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return null;
+    await moveLive($, questionShown);
+    let choice: string | null = null;
+    try {
+      choice = await chooseRuleStop($, stop);
+    } finally {
+      await moveLive($, questionClosed);
+      if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
+    }
+    if (choice !== RULE_STOP_ALLOW) return null;
+    await moveLive($, questionShown);
+    const reason = await askReason($);
     await moveLive($, questionClosed);
-    if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
-  }
-  if (choice !== RULE_STOP_ALLOW) return null;
-  await moveLive($, questionShown);
-  const reason = await askReason($);
-  await moveLive($, questionClosed);
-  const ran = await runPaqad(
-    $,
-    'rules override',
-    overrideArgs(stop, at.sessionId, at.root, reason),
-    at.root,
-  );
-  if (!ran.ok) {
-    $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+    const ran = await runPaqad(
+      $,
+      'rules override',
+      overrideArgs(stop, at.sessionId, at.root, reason),
+      at.root,
+    );
+    if (!ran.ok) {
+      $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+      return null;
+    }
+    await refresh($);
+    return stop;
+  } catch {
     return null;
   }
-  await refresh($);
-  return stop;
 }
 
 type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
@@ -1043,17 +1044,13 @@ export const register: Register = (on) => {
 
   on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
     const verdict = await next(e);
-    if (verdict.decision !== 'deny') return verdict;
-    let allowed: RuleStop | null;
-    try {
-      allowed = await allowRuleStopOnce($, e.tool_use_id, verdict);
-    } catch {
-      return verdict;
-    }
-    if (!allowed) return verdict;
+    if (verdict.decision !== 'deny' || verdict.rule !== undefined) return verdict;
+    const allowed = await allowRuleStopOnce($, e.tool_use_id);
+    if (allowed === null) return verdict;
     return {
       decision: 'ask',
-      reason: `Allowed once by a person, recorded as an override of ${allowed.rule}. Approve to run it.`,
+      reason:
+        'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
     };
   }).catch(() => ({ decision: 'deny' }));
 

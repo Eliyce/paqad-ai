@@ -93,6 +93,20 @@ describe('the HUD mod source', () => {
     expect(helper).not.toMatch(/spawn|shell|exec/);
   });
 
+  it('the permission hook never hands its verdict on', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const startMarker = "on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
+    const start = register.indexOf(startMarker);
+    expect(start, 'the Edit, Write and NotebookEdit tool.check hook').toBeGreaterThan(-1);
+    const end = register.indexOf('.catch(', start);
+    expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
+    const hook = register.slice(start, end);
+    expect(hook).toContain('allowRuleStopOnce($, e.tool_use_id)');
+    expect(hook).not.toMatch(/\bverdict\s*[,)]/);
+    expect(hook).not.toContain('catch {');
+    expect(hook).not.toContain('let ');
+  });
+
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {
     for (const { name, text } of sources) {
       if (name === 'register.tsx' || name.endsWith('.test.ts')) continue;
