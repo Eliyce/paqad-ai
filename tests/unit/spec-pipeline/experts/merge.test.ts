@@ -68,4 +68,79 @@ describe('mergeExpertNotes', () => {
     const result = mergeExpertNotes(notes);
     expect(result.conflicts[0]?.target).toBe(' Orders ');
   });
+
+  it('AC-1: collapses two same-role findings on one target into one merged finding with no conflict', () => {
+    const notes: ExpertNote[] = [
+      {
+        role: 'security-auditor',
+        findings: [
+          { id: 'EX-security-auditor-1', target: 'Auth Token', claim: 'rotate tokens' },
+          {
+            id: 'EX-security-auditor-2',
+            target: 'auth token',
+            claim: 'rotate tokens every hour',
+          },
+        ],
+      },
+    ];
+    const result = mergeExpertNotes(notes);
+    expect(result.conflicts).toEqual([]);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      id: 'EX-security-auditor-2',
+      claim: 'rotate tokens every hour',
+      merged_from: ['EX-security-auditor-1', 'EX-security-auditor-2'],
+    });
+  });
+
+  it('AC-1: different roles with different claims on one target still conflict', () => {
+    const notes: ExpertNote[] = [
+      {
+        role: 'security-auditor',
+        findings: [
+          { id: 'EX-security-auditor-1', target: 'auth', claim: 'rotate tokens' },
+          { id: 'EX-security-auditor-2', target: 'auth', claim: 'rotate tokens hourly' },
+        ],
+      },
+      {
+        role: 'performance-analyst',
+        findings: [{ id: 'EX-performance-analyst-1', target: 'auth', claim: 'cache tokens' }],
+      },
+    ];
+    const result = mergeExpertNotes(notes);
+    expect(result.findings).toEqual([]);
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]).toEqual({
+      target: 'auth',
+      roles: ['security-auditor', 'performance-analyst'],
+      claims: ['rotate tokens hourly', 'cache tokens'],
+      finding_ids: ['EX-security-auditor-2', 'EX-performance-analyst-1'],
+    });
+  });
+
+  it('AC-2: three same-role findings keep the longest claim, ties go to the first in note order', () => {
+    const findings = [
+      { id: 'EX-db-expert-1', target: 'orders', claim: 'index a' },
+      { id: 'EX-db-expert-2', target: 'orders', claim: 'index bb' },
+      { id: 'EX-db-expert-3', target: 'orders', claim: 'index cc' },
+    ];
+    const forward = mergeExpertNotes([{ role: 'db-expert', findings }]);
+    expect(forward.conflicts).toEqual([]);
+    expect(forward.findings).toHaveLength(1);
+    expect(forward.findings[0]?.claim).toBe('index bb');
+    expect(forward.findings[0]?.merged_from).toEqual([
+      'EX-db-expert-1',
+      'EX-db-expert-2',
+      'EX-db-expert-3',
+    ]);
+
+    const reversed = mergeExpertNotes([{ role: 'db-expert', findings: [...findings].reverse() }]);
+    expect(reversed.findings).toHaveLength(1);
+    expect(reversed.findings[0]?.claim).toBe('index cc');
+    expect([...(reversed.findings[0]?.merged_from ?? [])].sort()).toEqual([
+      'EX-db-expert-1',
+      'EX-db-expert-2',
+      'EX-db-expert-3',
+    ]);
+  });
 });

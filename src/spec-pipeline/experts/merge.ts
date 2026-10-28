@@ -33,7 +33,7 @@ export function mergeExpertNotes(
   const findings: ExpertFinding[] = [];
   const conflicts: ExpertConflict[] = [];
   for (const key of order) {
-    const group = byTarget.get(key)!;
+    const group = collapseSameRole(byTarget.get(key)!);
     const distinctClaims = [...new Set(group.map((entry) => normalize(entry.finding.claim)))];
     if (distinctClaims.length <= 1) {
       findings.push(group[0]!.finding);
@@ -52,6 +52,29 @@ export function mergeExpertNotes(
     conflicts,
     ...(voiceWarnings.length > 0 ? { voice_warnings: [...voiceWarnings] } : {}),
   };
+}
+
+function collapseSameRole(group: readonly AttributedFinding[]): AttributedFinding[] {
+  const byRole = new Map<AgentRole, AttributedFinding[]>();
+  for (const entry of group) {
+    const list = byRole.get(entry.role);
+    if (list) list.push(entry);
+    else byRole.set(entry.role, [entry]);
+  }
+  return [...byRole.values()].map((entries) => {
+    if (entries.length === 1) return entries[0]!;
+    let kept = entries[0]!;
+    for (const entry of entries.slice(1)) {
+      if (entry.finding.claim.trim().length > kept.finding.claim.trim().length) kept = entry;
+    }
+    const mergedFrom = entries
+      .flatMap((entry) => [entry.finding.id, ...(entry.finding.merged_from ?? [])])
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    return {
+      role: kept.role,
+      finding: { ...kept.finding, merged_from: [...new Set(mergedFrom)] },
+    };
+  });
 }
 
 function normalize(text: string): string {

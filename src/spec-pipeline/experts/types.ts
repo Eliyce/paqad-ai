@@ -27,6 +27,7 @@ export interface ExpertFinding {
   severity?: FindingSeverity;
   evidence?: string;
   renamed_from?: string;
+  merged_from?: string[];
 }
 
 export interface ExpertNote {
