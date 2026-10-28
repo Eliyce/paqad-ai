@@ -7,6 +7,7 @@ import {
   agentNameForStage,
   AGENT_ENTRY_MARKER_FALLBACK,
   buildStageAgentBody,
+  SPEC_FOREGROUND_START_LINE,
   STAGE_BRIEF_FALLBACK_LINE,
   WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
@@ -83,6 +84,19 @@ describe('stage-agent definitions', () => {
       const quick = def.ledgerStage === 'checks' || def.ledgerStage === 'documentation_sync';
       for (const host of ['claude-code', 'codex-cli']) {
         expect(buildStageAgentBody(def, host).includes(WORK_QUICKLY_LINE)).toBe(quick);
+      }
+    }
+  });
+
+  it('only the specification body says to run spec pipeline start in the foreground', () => {
+    expect(SPEC_FOREGROUND_START_LINE).toBe(
+      'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.',
+    );
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host).includes(SPEC_FOREGROUND_START_LINE)).toBe(
+          def.ledgerStage === 'specification',
+        );
       }
     }
   });

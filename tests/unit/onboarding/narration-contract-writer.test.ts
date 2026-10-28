@@ -5,6 +5,7 @@ import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import {
   buildNarrationContractBody,
   buildNarrationContractDocument,
+  RESUME_HANDOVER_TOKENS,
 } from '@/onboarding/narration-contract-writer.js';
 import { PAQAD_TERM_TRANSLATIONS, PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 
@@ -108,6 +109,40 @@ describe('narration-contract-writer', () => {
     expect(body).toContain('On a host with no subagents');
     const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
     expect(router).toContain('dispatch one `paqad-expert` subagent per seated role');
+  });
+
+  it('resumes the planning agent as the specification stage on the full lane', () => {
+    const body = buildNarrationContractBody();
+    expect(body).toContain(
+      '**Planning and specification in one agent (full lane).** When `paqad-planning` returns `completed`, do not dispatch `paqad-specification`. Resume the same agent with: "Planning is done. Continue as the specification stage for the same change. Run `paqad-ai stage brief specification` and follow it." When it returns after `experts record`, dispatch the expert seats and the chief in parallel as below, then resume the same agent again with: "The High Table has ruled. Continue the specification stage from the questions step." Follow the resume protocol below; its fresh-dispatch exit applies here the same way.',
+    );
+    expect(body).toContain(
+      'then resume that same agent (the resume protocol above) to carry on from the questions step.',
+    );
+    expect(body).not.toContain('then dispatch the specification stage again');
+  });
+
+  it('writes the resume protocol once, with one 150000-token threshold', () => {
+    const body = buildNarrationContractBody();
+    const protocol =
+      "**The resume protocol.** On Claude Code resume a stage agent with `SendMessage` and its agent id; on Codex use `send_input`. A resumed agent keeps its whole conversation, so it does not re-read what it already read, and it gets no new stage brief: when it moves to another stage, the resume message tells it to run `paqad-ai stage brief <stage>`. Dispatch a fresh agent instead only when the host cannot resume, refuses the resume or reports the agent gone, or when that agent's latest completion row (its newest `stage-agent` row with `event_status: completed` for that `agent_id`, never a sum of its rows) shows `tokens_not_recarried` above 150000. A fresh dispatch hands over in its prompt the files changed so far, the decisions made and what is left. Hosts with no resume (Cursor, Gemini CLI, Copilot, Windsurf, Junie and the rest) keep the fresh-dispatch flow: every stage in a new agent, and a stage that paused dispatched again after `paqad-ai decision resolve`.";
+    expect(RESUME_HANDOVER_TOKENS).toBe(150000);
+    expect(body).toContain(protocol);
+    expect(body.split('**The resume protocol.**')).toHaveLength(2);
+    expect(body.match(/150000/g)).toHaveLength(1);
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).toContain(protocol);
+  });
+
+  it('never tells a host without resume to call SendMessage or send_input', () => {
+    const body = buildNarrationContractBody();
+    const noResume = body.slice(body.indexOf('Hosts with no resume'));
+    const sentence = noResume.slice(0, noResume.indexOf('\n'));
+    for (const host of ['Cursor', 'Gemini CLI', 'Copilot', 'Windsurf', 'Junie']) {
+      expect(sentence).toContain(host);
+    }
+    expect(sentence).toContain('keep the fresh-dispatch flow');
+    expect(sentence).not.toMatch(/SendMessage|send_input/);
   });
 
   it('is a pure builder — repeated calls return identical content', () => {

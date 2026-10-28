@@ -301,6 +301,17 @@ describe('buildStageBrief', () => {
     });
   });
 
+  it('tells the specification stage to run spec pipeline start in the foreground', () => {
+    const root = withRepoPolicy(tempRoot());
+    activeChange(root);
+    const line =
+      'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.';
+    for (const resumed of [false, true]) {
+      expect(buildStageBrief('specification', root, SESSION, { resumed })).toContain(line);
+    }
+    expect(buildStageBrief('planning', root, SESSION)).not.toContain(line);
+  });
+
   it('throws on an unknown stage or an unsafe session id', () => {
     const root = tempRoot();
     expect(() => buildStageBrief('delivery', root, SESSION)).toThrow(/unknown stage/);

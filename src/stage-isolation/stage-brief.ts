@@ -19,6 +19,7 @@ import {
 import {
   MANDATORY_STAGE_AGENTS,
   STAGE_AGENT_HARD_RULES,
+  stageNoteLines,
   type StageAgentDef,
 } from './stage-agents.js';
 import { isSafeSessionId } from './stage-settings.js';
@@ -246,9 +247,11 @@ export function buildStageBrief(
   const agentId = safeAgentId(options.agentId);
   const policy =
     loadFeatureDevelopmentPolicy(projectRoot).policy.stages[stage as FeatureDevelopmentStageName];
+  const notes = stageNoteLines(stage);
   const head = [
     ...introLines(stage, def.role, options.resumed === true),
     '',
+    ...(notes.length === 0 ? [] : [...notes, '']),
     ...changeSection(projectRoot, sessionId, stage),
   ];
   const tail = [

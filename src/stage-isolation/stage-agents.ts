@@ -212,6 +212,18 @@ const STAGE_BRIEF_SECTION: readonly string[] = [
 export const WORK_QUICKLY_LINE =
   "Work quickly: skip anything this stage doesn't need, and return as soon as the result is correct.";
 
+export const SPEC_FOREGROUND_START_LINE =
+  'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.';
+
+export function stageNoteLines(ledgerStage: string): string[] {
+  return ledgerStage === 'specification' ? [SPEC_FOREGROUND_START_LINE] : [];
+}
+
+function stageNoteSection(ledgerStage: string): string[] {
+  const lines = stageNoteLines(ledgerStage);
+  return lines.length === 0 ? [] : [...lines, ''];
+}
+
 const QUICK_STAGES: ReadonlySet<string> = new Set(['checks', 'documentation_sync']);
 
 function workQuicklySection(ledgerStage: string): string[] {
@@ -232,6 +244,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     'so every row and artifact you write is recorded under the one change identity.',
     '',
     ...workQuicklySection(def.ledgerStage),
+    ...stageNoteSection(def.ledgerStage),
     '## Run your stage',
     '',
     `1. Read the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from`,
