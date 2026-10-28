@@ -189,6 +189,43 @@ describe('buildStageBrief', () => {
     }
   });
 
+  it('puts SE_AGENT_ID on every command line when an agent id is known', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const brief = buildStageBrief('planning', root, SESSION, { agentId: 'agent-a1' });
+    const prefix = `SE_SESSION=${SESSION} SE_AGENT_ID=agent-a1 paqad-ai`;
+    expect(brief).toContain(`\`${prefix} stage start planning\``);
+    expect(brief).toContain(`\`${prefix} stage end planning --artifact`);
+    expect(brief).toContain('**Export `SE_AGENT_ID=agent-a1`**');
+    expect(brief.match(/SE_SESSION=\S+ paqad-ai/g)).toBeNull();
+  });
+
+  it('leaves SE_AGENT_ID out for a missing, empty or unsafe agent id', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const plain = buildStageBrief('planning', root, SESSION);
+    for (const agentId of [undefined, null, '', '  ', 'a b', '$(id)', 42]) {
+      expect(buildStageBrief('planning', root, SESSION, { agentId })).toBe(plain);
+    }
+    expect(plain).not.toContain('SE_AGENT_ID');
+  });
+
+  it('words the head for a resumed agent without the started-and-return lines', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const fresh = buildStageBrief('specification', root, SESSION);
+    const resumed = buildStageBrief('specification', root, SESSION, { resumed: true });
+    expect(fresh).toContain('added this stage brief to your context when you started');
+    expect(fresh).toContain('in your own isolated context and then return');
+    expect(resumed).toContain('resumed for the same feature-development change');
+    expect(resumed).toContain(STAGE_BRIEF_ENTRY_LINE);
+    expect(resumed).not.toContain('when you started');
+    expect(resumed).not.toContain('and then return');
+    expect(resumed.slice(resumed.indexOf('## Your change'))).toBe(
+      fresh.slice(fresh.indexOf('## Your change')),
+    );
+  });
+
   it('throws on an unknown stage or an unsafe session id', () => {
     const root = tempRoot();
     expect(() => buildStageBrief('delivery', root, SESSION)).toThrow(/unknown stage/);
@@ -283,5 +320,19 @@ describe('resolveBriefSession and seedStageAgent', () => {
     expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     expect(output.hookSpecificOutput.additionalContext).toContain('stage start review');
     expect(readFileSync(cache, 'utf8')).toBe('someone_else');
+  });
+
+  it('writes the SubagentStart agent_id on the brief command lines', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const output = JSON.parse(
+      seedStageAgent('planning', root, { session_id: SESSION, agent_id: 'agent-p1' }, {}),
+    );
+    expect(output.hookSpecificOutput.additionalContext).toBe(
+      buildStageBrief('planning', root, SESSION, { agentId: 'agent-p1' }),
+    );
+    expect(output.hookSpecificOutput.additionalContext).toContain(
+      `SE_SESSION=${SESSION} SE_AGENT_ID=agent-p1 paqad-ai stage start planning`,
+    );
   });
 });

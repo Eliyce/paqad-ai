@@ -88,8 +88,22 @@ function bulletList(items: readonly string[], empty: string): string[] {
   return items.length === 0 ? [empty] : items.map((item) => `- ${item}`);
 }
 
-function commandsSection(stage: string, sessionId: string): string[] {
-  const prefix = `SE_SESSION=${sessionId} paqad-ai`;
+export interface StageBriefOptions {
+  agentId?: unknown;
+  resumed?: boolean;
+}
+
+export function safeAgentId(agentId: unknown): string | null {
+  if (typeof agentId !== 'string') return null;
+  const trimmed = agentId.trim();
+  return isSafeSessionId(trimmed) ? trimmed : null;
+}
+
+function commandsSection(stage: string, sessionId: string, agentId: string | null): string[] {
+  const prefix =
+    agentId === null
+      ? `SE_SESSION=${sessionId} paqad-ai`
+      : `SE_SESSION=${sessionId} SE_AGENT_ID=${agentId} paqad-ai`;
   const rulesLoad = CODE_EDITING_STAGES.has(stage)
     ? [`- \`${prefix} rules load\` before your first source edit.`]
     : [];
@@ -144,19 +158,53 @@ function fitToBudget(parts: BriefParts): string {
   return text;
 }
 
-export function buildStageBrief(stage: string, projectRoot: string, sessionId: string): string {
+function introLines(stage: string, role: string, resumed: boolean): string[] {
+  if (resumed) {
+    return [
+      `You are the paqad **${stage}** stage agent, resumed for the same feature-development change.`,
+      `Your job: ${role}.`,
+      '',
+      `This is the ${stage} stage brief, so you do not need to load AGENT-BOOTSTRAP.md or`,
+      `AGENT-ROUTER.md. ${STAGE_BRIEF_ENTRY_LINE}`,
+    ];
+  }
+  return [
+    `You are the paqad **${stage}** stage agent. You run one stage of one feature-development`,
+    `change in your own isolated context and then return. Your job: ${role}.`,
+    '',
+    'paqad added this stage brief to your context when you started, so you do not need to load',
+    `AGENT-BOOTSTRAP.md or AGENT-ROUTER.md. ${STAGE_BRIEF_ENTRY_LINE}`,
+  ];
+}
+
+function exportLines(sessionId: string, agentId: string | null): string[] {
+  const session = [
+    `- **Export \`SE_SESSION=${sessionId}\`** for every \`paqad-ai\` command you run, so every row`,
+    '  and artifact you write is recorded under the one change.',
+  ];
+  if (agentId === null) return session;
+  return [
+    ...session,
+    `- **Export \`SE_AGENT_ID=${agentId}\`** with it, so a stage you start for this change is`,
+    '  recorded as yours.',
+  ];
+}
+
+export function buildStageBrief(
+  stage: string,
+  projectRoot: string,
+  sessionId: string,
+  options: StageBriefOptions = {},
+): string {
   const def = stageDef(stage);
   if (!isSafeSessionId(sessionId)) {
     throw new Error('unsafe session id');
   }
+  const agentId = safeAgentId(options.agentId);
   const policy =
     loadFeatureDevelopmentPolicy(projectRoot).policy.stages[stage as FeatureDevelopmentStageName];
   const head = [
-    `You are the paqad **${stage}** stage agent. You run one stage of one feature-development`,
-    `change in your own isolated context and then return. Your job: ${def.role}.`,
-    '',
-    'paqad added this stage brief to your context when you started, so you do not need to load',
-    `AGENT-BOOTSTRAP.md or AGENT-ROUTER.md. ${STAGE_BRIEF_ENTRY_LINE}`,
+    ...introLines(stage, def.role, options.resumed === true),
     '',
     ...changeSection(projectRoot, sessionId, stage),
   ];
@@ -164,10 +212,9 @@ export function buildStageBrief(stage: string, projectRoot: string, sessionId: s
     '## Hard rules',
     '',
     ...STAGE_AGENT_HARD_RULES,
-    `- **Export \`SE_SESSION=${sessionId}\`** for every \`paqad-ai\` command you run, so every row`,
-    '  and artifact you write is recorded under the one change.',
+    ...exportLines(sessionId, agentId),
     '',
-    ...commandsSection(stage, sessionId),
+    ...commandsSection(stage, sessionId, agentId),
   ];
   return fitToBudget({
     head,
@@ -199,12 +246,14 @@ export function resolveBriefSession(
 export function seedStageAgent(
   stage: string,
   projectRoot: string,
-  payload: HookSessionPayload,
+  payload: HookSessionPayload & { agent_id?: unknown },
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   return keepingLedgerSessionCache(projectRoot, () =>
     stageBriefHookOutput(
-      buildStageBrief(stage, projectRoot, resolveBriefSession(projectRoot, payload, env)),
+      buildStageBrief(stage, projectRoot, resolveBriefSession(projectRoot, payload, env), {
+        agentId: payload.agent_id,
+      }),
     ),
   );
 }

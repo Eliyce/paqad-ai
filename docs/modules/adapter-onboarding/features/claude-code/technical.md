@@ -84,6 +84,14 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   default it says to pass nothing. The SubagentStop recorder copies that stage's values onto its one `stage-agent`
   row as `requested_effort` and `requested_model`: what the project asked for, not what the
   helper ran at.
+- **The brief for a resumed agent.** A stage agent resumed with `SendMessage` gets no new
+  SubagentStart brief, so `paqad-ai stage brief <stage>` (beside `stage settings` in
+  `src/cli/commands/stage.ts`) prints the same `buildStageBrief` text for the given stage and the
+  calling session's active change, with a head that says the agent was resumed instead of started.
+  The SubagentStart brief writes the hook's `agent_id` on its command lines as
+  `SE_AGENT_ID=<id>`, because a subagent cannot learn its own id; the verb takes `--agent-id`, then
+  `SE_AGENT_ID`, then the session's open `started` stage-agent row. An unknown stage or a session
+  with no active change exits non-zero with a plain message and prints no brief.
 - **Claude Code versions.** The SubagentStart brief works on any Claude Code that runs paqad's
   hooks. `omitClaudeMd` needs 2.1.271 or later, and `effort` (in agent files and on the Agent
   tool) needs 2.1.292 or later. paqad does no version check: an older build ignores a key it does
