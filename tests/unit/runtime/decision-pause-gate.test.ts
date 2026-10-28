@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,6 +16,10 @@ const SES_B = 'ses_gate_change_b';
 
 const srcResolver = () => import('@/stage-evidence/live-writer.js');
 const brokenResolver = () => Promise.reject(new Error('dist is missing'));
+const DIST_LIVE_WRITER = resolve(__dirname, '../../../dist/stage-evidence/live-writer.js');
+const distHasResolver =
+  existsSync(DIST_LIVE_WRITER) &&
+  readFileSync(DIST_LIVE_WRITER, 'utf8').includes('peekActiveChangeKey');
 
 let root: string;
 let stderr: string;
@@ -149,6 +153,18 @@ describe('the decision-pause gate holds only the change a packet belongs to', ()
     expect(await edit(SES_A)).toBe(2);
     expect(await edit(SES_B)).toBe(0);
   });
+
+  it.skipIf(!distHasResolver)(
+    'AC-12: the default loader resolves the change from the built dist',
+    async () => {
+      openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');
+      const dirB = openChange(SES_B, '01JABCDEFGHJKMNPQRSTVWXYZ2');
+      packet('spec.expert_conflict', featureChangeKey(dirB));
+      const payload = JSON.stringify({ cwd: root, tool_name: 'Edit', session_id: SES_A });
+      expect(await evaluateDecisionPauseGate(payload)).toBe(0);
+      expect(await evaluateDecisionPauseGate(payload.replace(SES_A, 'ses_nobody'))).toBe(2);
+    },
+  );
 
   it('lets an edit through when nothing is pending', async () => {
     openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');

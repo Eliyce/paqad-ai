@@ -7,8 +7,6 @@ import { readExperts } from './run-store.js';
 
 export const ROUND_BATCH_SIZE = 4;
 
-const IMMEDIATE_CATEGORIES: ReadonlySet<string> = new Set(['spec.change', 'spec.contradiction']);
-
 export interface RoundPacket {
   id: string;
   category: string;
@@ -27,10 +25,6 @@ export interface QuestionRound {
   merged: RoundMergedClaim[];
   packets: RoundPacket[];
   batches: string[][];
-}
-
-export function isImmediateCategory(category: string): boolean {
-  return IMMEDIATE_CATEGORIES.has(category);
 }
 
 export function questionRoundAhead(projectRoot: string, dirName: string): boolean {

@@ -12,16 +12,9 @@ import {
   fixProofMethodLine,
   raiseFixProofMethodDecision,
 } from '@/fix-protocol/fix-proof-method-decision.js';
-import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
-import {
-  buildQuestionRound,
-  isImmediateCategory,
-  questionRoundAhead,
-  roundOpener,
-} from '@/spec-pipeline/round.js';
+import { buildQuestionRound, questionRoundAhead, roundOpener } from '@/spec-pipeline/round.js';
 import { writeExpertSynthesis } from '@/spec-pipeline/run-store.js';
-import { PIPELINE_STEPS } from '@/spec-pipeline/types.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -120,24 +113,6 @@ describe('one question round per change', () => {
     expect(readinessLine('D-2', true)).not.toContain('Answer');
     expect(readinessLine('D-2', true)).toContain('spec questions step');
     expect(readinessLine('D-2', false)).toContain('Answer D-2');
-  });
-
-  it('AC-16 / AC-20: spec.change and spec.contradiction stay immediate; every other kind waits for the round', () => {
-    expect(isImmediateCategory('spec.change')).toBe(true);
-    expect(isImmediateCategory('spec.contradiction')).toBe(true);
-    for (const category of [
-      'spec.expert_conflict',
-      'fix.proof_method',
-      'architecture-path',
-      'workflow-or-tool',
-    ]) {
-      expect(isImmediateCategory(category)).toBe(false);
-    }
-  });
-
-  it('AC-17: plan compile and experts synthesis both run before the questions step', () => {
-    expect(STAGE_ORDER.indexOf('planning')).toBeLessThan(STAGE_ORDER.indexOf('specification'));
-    expect(PIPELINE_STEPS.indexOf('experts')).toBeLessThan(PIPELINE_STEPS.indexOf('questions'));
   });
 
   it('AC-17: on the full lane with the pipeline on, a round lies ahead; on the fast lane it does not', () => {

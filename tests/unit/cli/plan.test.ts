@@ -199,7 +199,7 @@ describe('paqad-ai plan compile', () => {
       writeFileSync(join(root, '.paqad', '.config'), 'visual_evidence=true\n');
     }
 
-    it('AC-13 / AC-16: opens one readiness pause for a frontend plan without asking it, and a re-run opens no second', async () => {
+    it('AC-16: plan compile opens one readiness pause for a frontend plan without asking it, and a re-run opens no second', async () => {
       frontendProject();
       openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
       const warnings: string[] = [];
