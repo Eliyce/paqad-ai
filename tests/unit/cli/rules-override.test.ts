@@ -298,6 +298,74 @@ describe('paqad-ai rules override', () => {
       expect(rows()).toBe(1);
     });
 
+    function fileRows(): Array<Record<string, unknown>> {
+      const path = join(root, featureFilePath(dir, 'ruleOverrides'));
+      if (!existsSync(path)) return [];
+      return readFileSync(path, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+    }
+
+    const OUTCOME = ['--rule', 'RL-1', '--file', 'src/x.ts', '--tool-use-id', 'tu_1'];
+
+    it('AC-13: writes exactly one outcome line after the override line for that tool call', async () => {
+      await run('--rule', 'RL-1', '--file', 'src/x.ts', '--token', stop(), '--tool-use-id', 'tu_1');
+      lines = [];
+      await run(...OUTCOME, '--outcome', 'landed');
+      expect(process.exitCode).toBeUndefined();
+      expect(lines[0]).toContain('recorded that the allowed-once edit of src/x.ts landed');
+      expect(JSON.parse(lines.at(-1)!)).toMatchObject({
+        outcome_recorded: true,
+        kind: 'rule-override-outcome',
+        outcome: 'landed',
+        tool_use_id: 'tu_1',
+        bundle: dir,
+      });
+      expect(fileRows().map((row) => [row.kind, row.tool_use_id, row.outcome])).toEqual([
+        ['rule-override', 'tu_1', undefined],
+        ['rule-override-outcome', 'tu_1', 'landed'],
+      ]);
+      expect(readRuleOverrides(root, dir)).toHaveLength(1);
+    });
+
+    it('AC-13: a second outcome, an unknown tool call or a bad outcome writes nothing', async () => {
+      await run('--rule', 'RL-1', '--file', 'src/x.ts', '--token', stop(), '--tool-use-id', 'tu_1');
+      await run(...OUTCOME, '--outcome', 'refused');
+      expect(fileRows()).toHaveLength(2);
+      for (const args of [
+        [...OUTCOME, '--outcome', 'landed'],
+        ['--rule', 'RL-1', '--file', 'src/x.ts', '--tool-use-id', 'tu_9', '--outcome', 'landed'],
+        ['--rule', 'RL-1', '--file', 'src/x.ts', '--outcome', 'landed'],
+        ['--rule', 'RL-2', '--file', 'src/x.ts', '--tool-use-id', 'tu_1', '--outcome', 'landed'],
+        [...OUTCOME, '--outcome', 'maybe'],
+      ]) {
+        process.exitCode = undefined;
+        await run(...args);
+        expect(process.exitCode).toBe(1);
+      }
+      expect(fileRows()).toHaveLength(2);
+      expect(errors.every((line) => line.includes('outcome not recorded'))).toBe(true);
+    });
+
+    it('AC-13: an outcome with no override line before it writes nothing', async () => {
+      stop();
+      await run(...OUTCOME, '--outcome', 'still-blocked');
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain(
+        'no override for this tool call is waiting for its outcome',
+      );
+      expect(fileRows()).toEqual([]);
+    });
+
+    it('an override with no token is refused without writing', async () => {
+      stop();
+      await run('--rule', 'RL-1', '--file', 'src/x.ts');
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('override refused');
+      expect(fileRows()).toEqual([]);
+    });
+
     it('exits 1 with the reason when refused', async () => {
       stop();
       await run('--rule', 'RL-1', '--file', 'src/x.ts', '--token', 'wrong');

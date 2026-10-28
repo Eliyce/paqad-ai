@@ -2,7 +2,14 @@ import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { toProjectRelativePath } from '@/core/path-utils.js';
-import { appendRuleOverride, type RuleOverrideRow } from '@/feature-evidence/rule-overrides.js';
+import {
+  appendRuleOverride,
+  appendRuleOverrideOutcome,
+  isEditOutcome,
+  overrideAwaitsOutcome,
+  type RuleOverrideOutcomeRow,
+  type RuleOverrideRow,
+} from '@/feature-evidence/rule-overrides.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { markRuleStopAllowedOnce, readRuleStopRecord } from '@/hud/last-block.js';
 import { defaultManagedSettingsPaths } from '@/install/plugin-migration.js';
@@ -105,6 +112,49 @@ export function applyRuleOverride(request: RuleOverrideRequest): RuleOverrideOut
     file,
     toolUseId: record.tool_use_id,
     reason: request.reason?.trim() || undefined,
+    sessionId: hint,
+    now: request.now,
+  });
+  return { ok: true, row, dirName };
+}
+
+export interface EditOutcomeRequest {
+  projectRoot: string;
+  sessionHint: string | null;
+  rule: string;
+  file: string;
+  toolUseId?: string;
+  outcome: string;
+  now?: () => Date;
+}
+
+export type EditOutcomeResult =
+  { ok: true; row: RuleOverrideOutcomeRow; dirName: string } | { ok: false; reason: string };
+
+export function recordEditOutcome(request: EditOutcomeRequest): EditOutcomeResult {
+  const { projectRoot, outcome } = request;
+  const hint = request.sessionHint?.trim() ?? '';
+  if (hint === '') return { ok: false, reason: 'no session id, so there is no override to follow' };
+  if (!isEditOutcome(outcome)) {
+    return { ok: false, reason: `${outcome} is not landed, refused or still-blocked` };
+  }
+  const toolUseId = request.toolUseId?.trim() ?? '';
+  if (toolUseId === '') return { ok: false, reason: 'an outcome needs the tool call it follows' };
+  const file = toProjectRelativePath(projectRoot, request.file);
+  if (file === null) return { ok: false, reason: `${request.file} is outside this project` };
+  const dirName = currentFeature(projectRoot, resolveSessionId(projectRoot, hint));
+  if (!dirName) return { ok: false, reason: 'no active change to record the outcome in' };
+  if (!overrideAwaitsOutcome(projectRoot, dirName, { rule: request.rule, file, toolUseId })) {
+    return {
+      ok: false,
+      reason: 'no override for this tool call is waiting for its outcome',
+    };
+  }
+  const row = appendRuleOverrideOutcome(projectRoot, dirName, {
+    rule: request.rule,
+    file,
+    toolUseId,
+    outcome,
     sessionId: hint,
     now: request.now,
   });
