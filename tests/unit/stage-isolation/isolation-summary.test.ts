@@ -102,6 +102,68 @@ describe('stage-agent rows', () => {
   });
 });
 
+describe('tokens not re-carried, once per agent', () => {
+  function completed(root: string, stage: string, notRecarried: number, agentId?: string): void {
+    appendFeatureStageRow(
+      root,
+      'ses_orch',
+      DIR,
+      {
+        kind: 'stage-agent',
+        stage,
+        agent: `paqad-${stage}`,
+        ...(agentId === undefined ? {} : { agent_id: agentId }),
+        event_status: 'completed',
+        tokens_used: 100,
+        tokens_not_recarried: notRecarried,
+        estimate: false,
+      },
+      clock,
+    );
+  }
+
+  it('AC-37: counts one row unchanged', () => {
+    const root = tempRoot();
+    completed(root, 'development', 4000, 'dev-1');
+    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(4000);
+  });
+
+  it('AC-37: counts cumulative rows from one resumed agent once, at their max', () => {
+    const root = tempRoot();
+    completed(root, 'development', 4000, 'dev-1');
+    completed(root, 'development', 9000, 'dev-1');
+    completed(root, 'development', 12000, 'dev-1');
+    expect(summarizeStageIsolation(root, DIR)).toMatchObject({
+      stages: 1,
+      tokensNotRecarried: 12000,
+    });
+  });
+
+  it('AC-37: still sums rows from different agents', () => {
+    const root = tempRoot();
+    completed(root, 'planning', 3000, 'plan-1');
+    completed(root, 'development', 4000, 'dev-1');
+    completed(root, 'development', 9000, 'dev-1');
+    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(12000);
+  });
+
+  it('AC-37: counts each row with no agent id, never merging them into one bucket', () => {
+    const root = tempRoot();
+    completed(root, 'planning', 3000);
+    completed(root, 'specification', 5000);
+    completed(root, 'development', 7000, 'dev-1');
+    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(15000);
+  });
+
+  it('AC-38: gives a legacy bundle with no agent ids the same per-row sum as before', () => {
+    const root = tempRoot();
+    stageAgent(root, 'planning', 1500);
+    stageAgent(root, 'development', 2500);
+    stageAgent(root, 'development', 2500);
+    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(6500);
+  });
+});
+
 describe('a started stage-agent row (hud-live-run-truth)', () => {
   it('adds no isolated stage and no evidence while the agent is still running', () => {
     const root = tempRoot();

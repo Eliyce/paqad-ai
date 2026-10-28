@@ -69,6 +69,37 @@ the second.
 `plugins/discovery/skills`, and checks that nothing points at a root `bin/`. It runs as part of
 `scripts/validate-plugin.mjs` (`pnpm plugin:validate`), which runs in the static CI checks.
 
+## What the HUD mod touches
+
+The HUD mod (`runtime/claude-plugin/mod/`) writes every value the plugin directory checks at the
+call, so a static reader sees it:
+
+- It writes two files, `${root}/.paqad/session/hud/${safeSessionId(id)}.live` (the heartbeat) and
+  `.last-block.json` (the answered mark), with the folder and file type as fixed text. The root's
+  trailing separator is dropped once when the session binds, and a root of `/` stays `/`.
+  `heartbeatPath` and `lastBlockPath` in `model.ts` stay for the reads and the tests.
+- It starts one program, `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`,
+  only after a person picks Allow once. `paqad-cli.ts` keeps only the 15 s timeout and the result
+  type.
+- It plays the chime as `$.audio.play({ base64: chimeBase64(), mime: 'audio/wav' })` through one
+  `playChime`, so the clip is bytes and never a URL.
+- It registers `/paqad`, then `/paqad-hud`, as two literal calls, answers each with its own
+  literal `command.run` hook, and matches the task-list tool as `'mcp__ccd_turn__update_plan'`
+  (equal to `UPDATE_PLAN_TOOL`).
+
+`tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
+
+## Plugin options
+
+The manifest declares two `userConfig` options, `openai_api_key` and `cohere_api_key`, each a
+`string` with `sensitive: true` and `required: false`, built in `buildPluginManifest` only. Claude
+Code keeps them in the system credential store and passes them to hook processes as
+`CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY` and `CLAUDE_PLUGIN_OPTION_COHERE_API_KEY`. paqad takes the
+first non-empty value of the plugin option, the environment variable and the project file
+(`getProjectSecret` and `pluginOptionOrEnv` in `src/rag/secrets.ts`; for Cohere the last source is
+the reranking config's `api_key`), so an option left empty falls through. Commands Claude runs
+through Bash get no plugin options, which is why the environment and file sources stay.
+
 ## Publishing
 
 Release assembles the plugin and pushes it to `Eliyce/paqad-claude-plugin` with the

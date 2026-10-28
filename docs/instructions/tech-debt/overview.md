@@ -26,6 +26,9 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M61HS7NMY1VRWSS20DFGZ8P7](TD-01M61HS7NMY1VRWSS20DFGZ8P7.md) (follow-up, low): Correct the plugin-directory issue text that still says ^@ (FR-12)
+- [TD-01M61HS58RN3KXZJC8SCT3VETP](TD-01M61HS58RN3KXZJC8SCT3VETP.md) (follow-up, low): Write the SubagentStart/Stop-on-resume observation into the one-development-agent issue (FR-57)
+- [TD-01M61HS3CPS1RWVF61QYS7NSW9](TD-01M61HS3CPS1RWVF61QYS7NSW9.md) (follow-up, low): Regenerate .paqad/.config.example so it lists spec_grounding_budget_ms (FR-39)
 - [TD-01M6175EPP38AV2SDJ74TQXDQ6](TD-01M6175EPP38AV2SDJ74TQXDQ6.md) (bug, medium): A new change reuses a stale change key, so another session's old delivery rows make the stage order fail
 - [TD-01M616ZT0ARBYJ18X6Y4XXFY5X](TD-01M616ZT0ARBYJ18X6Y4XXFY5X.md) (bug, medium): Fix proof ignores a red run recorded after a green, and fix prove drops a cd in --command
 - [TD-01M615FW3JHA1R00HCN8ZX5KBM](TD-01M615FW3JHA1R00HCN8ZX5KBM.md) (gap, low): spec pipeline round does not surface the auto-applied module choice (FR-22 is prose-only)

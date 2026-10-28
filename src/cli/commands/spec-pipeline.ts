@@ -43,7 +43,11 @@ import {
 } from '@/spec-pipeline/experts/synthesis.js';
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
-import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
+import {
+  GROUNDING_FALLBACK_REASONS,
+  groundAreaAsync,
+  requestDigest,
+} from '@/spec-pipeline/grounding.js';
 import {
   CHIEF_ROLE,
   recordDoneRow,
@@ -117,6 +121,71 @@ function resolveDir(options: CommonOptions): ResolvedRun | null {
     return null;
   }
   return { dirName, store: { sessionId } };
+}
+
+function sameModules(left: readonly string[] | undefined, right: readonly string[]): boolean {
+  const a = [...(left ?? [])].sort();
+  const b = [...right].sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function cachedGrounding(
+  projectRoot: string,
+  dirName: string,
+  digest: string,
+  modules: readonly string[],
+): GroundingArtifact | null {
+  const cached = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
+  if (!cached || typeof cached !== 'object' || !Array.isArray(cached.references)) return null;
+  if (cached.request_digest !== digest || !sameModules(cached.modules, modules)) return null;
+  return cached;
+}
+
+function isReusable(cached: GroundingArtifact | null): boolean {
+  return (
+    cached !== null &&
+    (cached.mode === 'retrieval' ||
+      (cached.mode === 'lexical-fallback' && cached.fallback_retried === true))
+  );
+}
+
+async function groundRequest(
+  projectRoot: string,
+  dirName: string,
+  request: string,
+  modules: readonly string[],
+): Promise<{ grounding: GroundingArtifact; reused: boolean }> {
+  const digest = requestDigest(request);
+  const cached = cachedGrounding(projectRoot, dirName, digest, modules);
+  if (cached !== null && isReusable(cached)) return { grounding: cached, reused: true };
+  const fresh = await groundAreaAsync(projectRoot, {
+    ...(modules.length > 0 ? { modules: [...modules] } : {}),
+    query: request,
+    budgetMs: readPipelineConfig(projectRoot).grounding_budget_ms,
+  });
+  const retried = cached?.mode === 'lexical-fallback' && fresh.mode === 'lexical-fallback';
+  return {
+    grounding: {
+      ...fresh,
+      request_digest: digest,
+      modules: [...modules],
+      ...(retried ? { fallback_retried: true } : {}),
+    },
+    reused: false,
+  };
+}
+
+function exitIfRetrievalAbandoned(grounding: GroundingArtifact): void {
+  if (grounding.fallback_reason !== GROUNDING_FALLBACK_REASONS.budget) return;
+  process.stdout.write('', () => process.exit(Number(process.exitCode ?? 0)));
+}
+
+function groundingOutcome(grounding: GroundingArtifact, reused: boolean): Record<string, string> {
+  if (reused) return { grounding: 'reused' };
+  return {
+    grounding: grounding.mode ?? 'retrieval',
+    ...(grounding.fallback_reason ? { grounding_reason: grounding.fallback_reason } : {}),
+  };
 }
 
 function plainLanguageSources(projectRoot: string, dirName: string): PlainLanguageSources {
@@ -232,13 +301,20 @@ export function createSpecPipelineCommand(): Command {
               .filter((m) => m.length > 0)
           : undefined;
 
-        const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
-        writeStepArtifact(
+        const { grounding, reused } = await groundRequest(
           options.projectRoot,
           resolved.dirName,
-          'ground',
-          JSON.stringify(grounding, null, 2),
+          request,
+          modules ?? [],
         );
+        if (!reused) {
+          writeStepArtifact(
+            options.projectRoot,
+            resolved.dirName,
+            'ground',
+            JSON.stringify(grounding, null, 2),
+          );
+        }
         recordStep(options.projectRoot, resolved.dirName, 'ground', 'complete', resolved.store);
 
         writeRequest(options.projectRoot, resolved.dirName, request, resolved.store);
@@ -248,14 +324,17 @@ export function createSpecPipelineCommand(): Command {
         recordStep(options.projectRoot, resolved.dirName, 'label', 'complete', resolved.store);
 
         const config = readPipelineConfig(options.projectRoot);
+        if (reused) console.log('grounding reused');
         console.log(
           JSON.stringify({
             next_step: nextStep(options.projectRoot, resolved.dirName),
             label: label.label,
             sparse: grounding.sparse,
             experts: expertsActive(config) ? 'on' : 'off',
+            ...groundingOutcome(grounding, reused),
           }),
         );
+        exitIfRetrievalAbandoned(grounding);
       },
     );
 
@@ -302,7 +381,10 @@ export function createSpecPipelineCommand(): Command {
             .map((m) => m.trim())
             .filter((m) => m.length > 0)
         : undefined;
-      const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
+      const grounding = await groundAreaAsync(options.projectRoot, {
+        ...(modules ? { modules } : {}),
+        budgetMs: readPipelineConfig(options.projectRoot).grounding_budget_ms,
+      });
       writeStepArtifact(
         options.projectRoot,
         resolved.dirName,
@@ -317,8 +399,10 @@ export function createSpecPipelineCommand(): Command {
           terms: grounding.terms.length,
           sparse: grounding.sparse,
           path: grounding.path,
+          ...groundingOutcome(grounding, false),
         }),
       );
+      exitIfRetrievalAbandoned(grounding);
     });
 
   command

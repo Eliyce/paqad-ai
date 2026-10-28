@@ -12,6 +12,7 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readSessionControl, setLane } from '@/feature-evidence/session-control.js';
 import {
+  appendFeatureStageRow,
   closeActiveFeature,
   currentFeature,
   openFeatureChange,
@@ -22,6 +23,8 @@ import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writePendingLane } from '@/stage-evidence/pending-lane.js';
+import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { buildStageBrief } from '@/stage-isolation/stage-brief.js';
 
 describe('paqad-ai stage command', () => {
   let root: string;
@@ -138,6 +141,19 @@ describe('paqad-ai stage command', () => {
     expect(rows()).toHaveLength(0);
   });
 
+  it('stamps agent_id from SE_AGENT_ID on a stage_start, and none without it', async () => {
+    vi.stubEnv('SE_AGENT_ID', 'agent-p1');
+    await run('start', 'planning');
+    await run('end', 'planning');
+    vi.stubEnv('SE_AGENT_ID', '  ');
+    await run('start', 'specification');
+    vi.unstubAllEnvs();
+    const starts = rows().filter((r) => r.kind === 'stage_start');
+    expect(starts.find((r) => r.stage === 'planning')?.agent_id).toBe('agent-p1');
+    expect(starts.find((r) => r.stage === 'specification')).not.toHaveProperty('agent_id');
+    expect(rows().find((r) => r.kind === 'stage_end')).not.toHaveProperty('agent_id');
+  });
+
   it('rejects an unknown phase with exit code 1', async () => {
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((line: string) => {
@@ -145,7 +161,7 @@ describe('paqad-ai stage command', () => {
     });
     await run('begin', 'planning');
     expect(process.exitCode).toBe(1);
-    expect(errors.join('\n')).toContain("use 'start', 'end' or 'settings'");
+    expect(errors.join('\n')).toContain("use 'start', 'end', 'settings' or 'brief'");
   });
 
   it('a --title on start opens a fresh named feature', async () => {
@@ -301,6 +317,125 @@ describe('paqad-ai stage command', () => {
 
       await run('start', 'planning');
       expect(classifyCompletionEnforcement(root, SES).reason).toBe('edited-this-turn');
+    });
+  });
+
+  describe('stage brief', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    function openChange(): string {
+      return openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'Stage brief verb',
+        issue: '1',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ1',
+      });
+    }
+
+    function captureErrors(): string[] {
+      const errors: string[] = [];
+      vi.spyOn(console, 'error').mockImplementation((line: string) => {
+        errors.push(String(line));
+      });
+      return errors;
+    }
+
+    it.each(['specification', 'development'])(
+      'prints exactly buildStageBrief for %s, the active change and the open agent id',
+      async (stage) => {
+        vi.stubEnv('SE_AGENT_ID', undefined);
+        const dir = openChange();
+        appendFeatureStageRow(root, SES, dir, {
+          kind: STAGE_AGENT_KIND,
+          event_status: 'started',
+          stage: 'planning',
+          agent: 'paqad-planning',
+          agent_id: 'agent-plan-1',
+          tokens_used: 0,
+          tokens_not_recarried: 0,
+          estimate: true,
+        });
+        const printed = (await run('brief', stage)).join('\n');
+        expect(printed).toBe(
+          buildStageBrief(stage, root, SES, { agentId: 'agent-plan-1', resumed: true }),
+        );
+        expect(printed).toContain(
+          `SE_SESSION=${SES} SE_AGENT_ID=agent-plan-1 paqad-ai stage start ${stage}`,
+        );
+        expect(printed).toContain('resumed for the same feature-development change');
+        expect(printed).not.toContain('added this stage brief to your context when you started');
+        expect(process.exitCode).toBeUndefined();
+      },
+    );
+
+    it('takes an explicit --agent-id, then SE_AGENT_ID, over the open row', async () => {
+      const dir = openChange();
+      appendFeatureStageRow(root, SES, dir, {
+        kind: STAGE_AGENT_KIND,
+        event_status: 'started',
+        stage: 'development',
+        agent_id: 'agent-row',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      });
+      vi.stubEnv('SE_AGENT_ID', 'agent-env');
+      expect((await run('brief', 'development', '--agent-id', 'agent-flag')).join('\n')).toContain(
+        'SE_AGENT_ID=agent-flag paqad-ai',
+      );
+      vi.restoreAllMocks();
+      expect((await run('brief', 'development')).join('\n')).toContain(
+        'SE_AGENT_ID=agent-env paqad-ai',
+      );
+    });
+
+    it('prints no agent id when none is known or the open row has ended', async () => {
+      vi.stubEnv('SE_AGENT_ID', undefined);
+      const dir = openChange();
+      appendFeatureStageRow(root, SES, dir, {
+        kind: STAGE_AGENT_KIND,
+        event_status: 'started',
+        stage: 'planning',
+        agent_id: 'agent-done',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      });
+      appendFeatureStageRow(root, SES, dir, {
+        kind: STAGE_AGENT_KIND,
+        event_status: 'completed',
+        stage: 'planning',
+        agent_id: 'agent-done',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      });
+      const printed = (await run('brief', 'specification')).join('\n');
+      expect(printed).toBe(buildStageBrief('specification', root, SES, { resumed: true }));
+      expect(printed).not.toContain('SE_AGENT_ID');
+    });
+
+    it('exits non-zero with a plain message and no brief for an unknown or missing stage', async () => {
+      openChange();
+      const errors = captureErrors();
+      expect(await run('brief', 'bogus')).toEqual([]);
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('name the stage to brief');
+      expect(errors.join('\n')).toContain('"bogus"');
+      process.exitCode = undefined;
+      vi.restoreAllMocks();
+      captureErrors();
+      expect(await run('brief')).toEqual([]);
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('exits non-zero with a plain message and no brief when the session has no active change', async () => {
+      const errors = captureErrors();
+      expect(await run('brief', 'development')).toEqual([]);
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('no active change');
     });
   });
 

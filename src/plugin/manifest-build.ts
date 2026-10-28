@@ -42,6 +42,24 @@ export function buildPluginManifest(packageVersion: string): Record<string, unkn
     agents: pluginAgentPaths(),
     skills: './runtime/claude-plugin/skills',
     types: PLUGIN_MOD_TYPES,
+    userConfig: {
+      openai_api_key: {
+        type: 'string',
+        title: 'OpenAI API key',
+        description:
+          'Only needed if you set rag_embedding_provider=openai. Stored in your system credential store.',
+        sensitive: true,
+        required: false,
+      },
+      cohere_api_key: {
+        type: 'string',
+        title: 'Cohere API key',
+        description:
+          'Only needed if you turn on reranking with the cohere backend. Stored in your system credential store.',
+        sensitive: true,
+        required: false,
+      },
+    },
   };
 }
 

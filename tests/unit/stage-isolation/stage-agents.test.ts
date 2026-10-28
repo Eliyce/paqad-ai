@@ -7,6 +7,9 @@ import {
   agentNameForStage,
   AGENT_ENTRY_MARKER_FALLBACK,
   buildStageAgentBody,
+  DEVELOPMENT_RESUME_LINE,
+  SPEC_FOREGROUND_START_LINE,
+  STAGE_AGENT_HARD_RULES,
   STAGE_BRIEF_FALLBACK_LINE,
   WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
@@ -83,6 +86,38 @@ describe('stage-agent definitions', () => {
       const quick = def.ledgerStage === 'checks' || def.ledgerStage === 'documentation_sync';
       for (const host of ['claude-code', 'codex-cli']) {
         expect(buildStageAgentBody(def, host).includes(WORK_QUICKLY_LINE)).toBe(quick);
+      }
+    }
+  });
+
+  it('only the development body says it may be resumed with a follow-up task', () => {
+    expect(DEVELOPMENT_RESUME_LINE).toBe(
+      "You may be resumed with a follow-up task for the same change. Keep working from what you already know; don't re-read files you have read unless they changed.",
+    );
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host).includes(DEVELOPMENT_RESUME_LINE)).toBe(
+          def.ledgerStage === 'development',
+        );
+      }
+    }
+  });
+
+  it('says the orchestrator resumes a paused stage agent with the answer', () => {
+    const rules = STAGE_AGENT_HARD_RULES.join('\n');
+    expect(rules).toContain('orchestrator asks the human and then resumes you with the answer.');
+    expect(rules).not.toContain('re-dispatches you');
+  });
+
+  it('AC-45: only the specification body says to run spec pipeline start in the foreground', () => {
+    expect(SPEC_FOREGROUND_START_LINE).toBe(
+      'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.',
+    );
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host).includes(SPEC_FOREGROUND_START_LINE)).toBe(
+          def.ledgerStage === 'specification',
+        );
       }
     }
   });

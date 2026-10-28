@@ -163,7 +163,7 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
   '- **Never ask the human.** If you hit a decision pause, create the packet with',
   '  `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the',
-  '  orchestrator asks the human and re-dispatches you.',
+  '  orchestrator asks the human and then resumes you with the answer.',
   '- **Never write into a feature bundle directory by hand.** Only the stage verbs write there.',
   '- **Never skip a CLI verb** because "the orchestrator will do it" — it will not.',
   '- Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at',
@@ -212,6 +212,26 @@ const STAGE_BRIEF_SECTION: readonly string[] = [
 export const WORK_QUICKLY_LINE =
   "Work quickly: skip anything this stage doesn't need, and return as soon as the result is correct.";
 
+export const SPEC_FOREGROUND_START_LINE =
+  'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.';
+
+export const DEVELOPMENT_RESUME_LINE =
+  "You may be resumed with a follow-up task for the same change. Keep working from what you already know; don't re-read files you have read unless they changed.";
+
+const STAGE_NOTES: Readonly<Record<string, readonly string[]>> = {
+  specification: [SPEC_FOREGROUND_START_LINE],
+  development: [DEVELOPMENT_RESUME_LINE],
+};
+
+export function stageNoteLines(ledgerStage: string): string[] {
+  return [...(STAGE_NOTES[ledgerStage] ?? [])];
+}
+
+function stageNoteSection(ledgerStage: string): string[] {
+  const lines = stageNoteLines(ledgerStage);
+  return lines.length === 0 ? [] : [...lines, ''];
+}
+
 const QUICK_STAGES: ReadonlySet<string> = new Set(['checks', 'documentation_sync']);
 
 function workQuicklySection(ledgerStage: string): string[] {
@@ -232,6 +252,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     'so every row and artifact you write is recorded under the one change identity.',
     '',
     ...workQuicklySection(def.ledgerStage),
+    ...stageNoteSection(def.ledgerStage),
     '## Run your stage',
     '',
     `1. Read the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from`,

@@ -16,11 +16,14 @@ export type AdoptionMode = SpecPipelineAdoptionMode;
 
 export const DEFAULT_TOKEN_CEILING = 40000;
 
+export const DEFAULT_GROUNDING_BUDGET_MS = 15000;
+
 export interface PipelineConfig {
   enabled: boolean;
   clarification: GateMode;
   final_review: GateMode;
   token_ceiling: number;
+  grounding_budget_ms: number;
   experts_enabled: boolean;
   adoption: AdoptionMode;
   standing_experts: AgentRole[];
@@ -72,6 +75,13 @@ export function readPipelineConfig(
       env,
       'spec_pipeline_token_ceiling',
       DEFAULT_TOKEN_CEILING,
+      (n) => n > 0,
+    ),
+    grounding_budget_ms: resolveNumericConfig(
+      projectRoot,
+      env,
+      'spec_grounding_budget_ms',
+      DEFAULT_GROUNDING_BUDGET_MS,
       (n) => n > 0,
     ),
     experts_enabled: switches.experts_enabled,

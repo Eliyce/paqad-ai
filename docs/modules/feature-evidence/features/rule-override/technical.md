@@ -8,7 +8,9 @@
 - `src/rule-scripts/override.ts`: `applyRuleOverride`, the checks before an override is recorded.
 - `src/feature-evidence/rule-overrides.ts`: the `rule-overrides.jsonl` bundle file.
 - `src/cli/commands/rules.ts`: `paqad-ai rules override`.
-- `runtime/claude-plugin/mod/`: the HUD side; it calls the verb through its one `paqad-ai` helper.
+- `runtime/claude-plugin/mod/`: the HUD side; `recordOverride` in `register.tsx` runs the verb with the
+  literal argv `['paqad-ai', 'rules', 'override', ...args]`, each value its own item, never a shell
+  string.
 
 ## Data Model
 
@@ -72,6 +74,19 @@ a subagent. A subagent that never loaded the framework therefore gets a `sole: f
 no Allow once, even when the main session's sentinel exists. If that check throws, the stop is
 written `sole: false` and the gate's exit code and message stay the same. The CLI refuses a stop
 that is not `sole` as well.
+
+### What the hook answers
+
+The Edit, Write and NotebookEdit `tool.check` hook reads only `verdict.decision` and
+`verdict.rule` and never hands the verdict to another function, so the plugin directory can prove
+the answer stays with the person. A verdict that is not a deny, or a deny that carries a settings
+`rule`, comes back as the same object. Otherwise the hook calls `allowRuleStopOnce($, tool_use_id)`,
+which returns `null` on every failure (a question that rejects, a file read that fails, an override
+that exits non-zero, cannot start or times out after 15 seconds), and `null` keeps the original
+deny. Only after a recorded override does the hook answer the fixed
+`{ decision: 'ask', reason: 'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.' }`,
+so Claude Code's own permission step still decides. It never answers `allow`. A failed override
+shows a toast and writes its stderr to the HUD debug log.
 
 ### Known gap
 

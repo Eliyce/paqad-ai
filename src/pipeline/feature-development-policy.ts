@@ -148,7 +148,11 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         checks: null,
       },
       planning: {
-        read: ['docs/modules/**', 'docs/instructions/**'],
+        read: [
+          'docs/instructions/stack/**',
+          'docs/instructions/design-system/**',
+          'docs/instructions/workflows/**',
+        ],
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',
@@ -619,8 +623,9 @@ stages:
   planning:
     # Extra context to load before planning starts.
     read:
-      - docs/modules/**
-      - docs/instructions/**
+      - docs/instructions/stack/**
+      - docs/instructions/design-system/**
+      - docs/instructions/workflows/**
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.

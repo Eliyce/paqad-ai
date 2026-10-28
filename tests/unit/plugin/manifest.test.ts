@@ -97,12 +97,30 @@ describe('plugin manifest and marketplace', () => {
     expect(read('SECURITY.md')).toContain('security@eliyce.com');
   });
 
-  it('names the HUD mod contract and declares no userConfig, so install prints no warning', () => {
+  it('names the HUD mod contract', () => {
     const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as Record<string, unknown>;
     expect(manifest.types).toBe('./runtime/claude-plugin/mod/types/index.d.ts');
     expect(read(manifest.types as string)).toContain('interface PluginState');
-    expect(manifest).not.toHaveProperty('userConfig');
-    expect(buildPluginManifest('1.0.0')).not.toHaveProperty('userConfig');
+  });
+
+  it('declares the two optional API keys as sensitive plugin options', () => {
+    const userConfig = buildPluginManifest('1.0.0').userConfig as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(Object.keys(userConfig).sort()).toEqual(['cohere_api_key', 'openai_api_key']);
+    for (const option of Object.values(userConfig)) {
+      expect(option).toMatchObject({ type: 'string', sensitive: true, required: false });
+      expect(typeof option.title).toBe('string');
+      expect(typeof option.description).toBe('string');
+      expect(Object.keys(option).sort()).toEqual([
+        'description',
+        'required',
+        'sensitive',
+        'title',
+        'type',
+      ]);
+    }
   });
 
   it('ships the mod but not its tests in the npm package', () => {

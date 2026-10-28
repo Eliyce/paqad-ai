@@ -10,21 +10,17 @@ import {
 } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   PAQAD_CLI_TIMEOUT_MS,
-  paqadArgv,
-  type PaqadVerb,
+  overrideRecorded,
 } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 
 describe('the mod paqad-ai helper', () => {
-  it('builds the argv for an allowed verb and refuses any other', () => {
-    expect(paqadArgv('rules override', ['--rule', 'R; rm -rf /'])).toEqual([
-      'paqad-ai',
-      'rules',
-      'override',
-      '--rule',
-      'R; rm -rf /',
-    ]);
-    expect(paqadArgv('stage start' as PaqadVerb, [])).toBeNull();
-    expect(paqadArgv('x' as PaqadVerb, [])).toBeNull();
+  it('counts an override as recorded only when the CLI printed its success line', () => {
+    expect(overrideRecorded('**▸ paqad** · recorded a one-time override of RL-1 on a.ts')).toBe(
+      true,
+    );
+    expect(overrideRecorded('{"overridden":true,"rule":"RL-1"}')).toBe(true);
+    expect(overrideRecorded('')).toBe(false);
+    expect(overrideRecorded('{"overridden":false}')).toBe(false);
   });
 
   it('gives paqad-ai its own timeout', () => {

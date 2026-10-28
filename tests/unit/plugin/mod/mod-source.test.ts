@@ -81,16 +81,89 @@ describe('the HUD mod source', () => {
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
   });
 
-  it('runs processes only through the one paqad-ai helper, by argument vector', () => {
+  it('starts one program, paqad-ai rules override, with its argv written at the call', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(register.match(/\$\.process\./g)).toEqual(['$.process.']);
-    expect(register).toContain('const argv = paqadArgv(verb, args);');
-    expect(register).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');
+    expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
     expect(register).not.toMatch(/\$\.process\.spawn/);
-    expect(helper).toContain("export const PAQAD_BIN = 'paqad-ai';");
-    expect(helper).toContain("return [PAQAD_BIN, ...verb.split(' '), ...args];");
-    expect(helper).not.toMatch(/spawn|shell|exec/);
+    expect(helper).not.toMatch(/spawn|shell|exec|argv/);
+  });
+
+  it('the permission hook never hands its verdict on', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const startMarker = "on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
+    const start = register.indexOf(startMarker);
+    expect(start, 'the Edit, Write and NotebookEdit tool.check hook').toBeGreaterThan(-1);
+    const end = register.indexOf('.catch(', start);
+    expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
+    const hook = register.slice(start, end);
+    expect(hook).toContain('allowRuleStopOnce($, e.tool_use_id)');
+    expect(hook).not.toMatch(/\bverdict\s*[,)]/);
+    expect(hook).not.toContain('catch {');
+    expect(hook).not.toContain('let ');
+  });
+
+  it('every $.audio.play call writes its clip as an object literal with base64 and mime', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const calls = register.match(/\$\.audio\.play\(.*$/gm) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call).toMatch(/^\$\.audio\.play\(\{ base64: [^,]+, mime: 'audio\/wav' \}\)/);
+    }
+  });
+
+  it('AC-12: every $.fs.write path names .paqad/session/hud/ at the call', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const writes = [...register.matchAll(/\$\.fs\.write\(\s*([^,]+),/g)].map((m) => m[1]!);
+    expect(writes).toHaveLength(2);
+    for (const path of writes) {
+      expect(path).toMatch(
+        /^`\$\{[a-z.]+\}\/\.paqad\/session\/hud\/\$\{safeSessionId\([a-zA-Z.]+\)\}\.(live|last-block\.json)`$/,
+      );
+    }
+  });
+
+  it('command and tool matchers are literal', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    expect(register).not.toContain('{ command: name }');
+    expect(register).not.toContain('{ tool: UPDATE_PLAN_TOOL }');
+    expect(register).toContain("on('command.run', { command: 'paqad' }");
+    expect(register).toContain("on('command.run', { command: 'paqad-hud' }");
+    expect(register).toContain("on('tool.call', { tool: 'mcp__ccd_turn__update_plan' }");
+    expect(register).toContain("name: 'paqad',");
+    expect(register).toContain("name: 'paqad-hud',");
+  });
+
+  it('the README HUD section names every program, file, sound, variable and command the mod uses', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    const start = readme.indexOf('### What the HUD does (Claude Code)');
+    const end = readme.indexOf('\n### ', start + 1);
+    expect(start).toBeGreaterThan(-1);
+    const section = readme.slice(start, end);
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const used = sources
+      .filter((s) => !s.name.endsWith('.test.ts') && !s.name.startsWith('test/'))
+      .flatMap((s) =>
+        s.text
+          .split('\n')
+          .filter((line) =>
+            /process\.run|fs\.write|audio\.play|env\.get\(|command\.register/.test(line),
+          )
+          .map((line) => ({ name: s.name, line })),
+      );
+    expect(new Set(used.map((u) => u.name))).toEqual(new Set(['register.tsx']));
+    expect(section).toContain('one program, and only after you choose **Allow once, recorded**');
+    expect(section).toContain('`paqad-ai rules override --rule <id>');
+    for (const file of ['`<session>.live`', '`<session>.last-block.json`']) {
+      expect(section).toContain(file);
+    }
+    expect(section).toContain('The chime (off unless you set `hud_chime=true`)');
+    const vars = [...register.matchAll(/\$\.env\.get\('([A-Z_]+)'\)/g)].map((m) => m[1]!);
+    expect(vars.length).toBeGreaterThan(0);
+    for (const name of vars) expect(section).toContain(`\`${name}\``);
+    expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
+    expect(section).toContain('**Its permission hooks:** two hooks');
   });
 
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {

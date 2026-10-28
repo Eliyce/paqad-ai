@@ -1,4 +1,5 @@
 import { loadOptionalPackage } from '@/core/optional-package.js';
+import { pluginOptionOrEnv } from '@/rag/secrets.js';
 
 import type { Chunk } from './types.js';
 
@@ -153,7 +154,10 @@ export function createReranker(config?: RerankingConfig): Reranker {
     case 'local':
       return new LocalReranker(config.model);
     case 'cohere':
-      return new CohereReranker(config.model, config.api_key ?? '');
+      return new CohereReranker(
+        config.model,
+        pluginOptionOrEnv('COHERE_API_KEY') || config.api_key || '',
+      );
     default:
       return new PassthroughReranker();
   }

@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -11,6 +11,7 @@ import {
 import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { readStageAgentRows } from '@/stage-isolation/isolation-summary.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import {
   estimateTokens,
@@ -255,6 +256,85 @@ describe('recordStageAgentCompletion', () => {
         adapter: 'claude-code',
       }),
     ).not.toThrow();
+  });
+});
+
+describe('the stages a resumed agent ran', () => {
+  const PLANNER = { agent_id: 'agent_plan_1', agent_type: 'paqad-planning' };
+
+  function complete(root: string, payload: Record<string, unknown>) {
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload,
+      transcriptText: 'x',
+      adapter: 'claude-code',
+    });
+    return readStageAgentRows(root, currentDir.get(root)!).at(-1)!;
+  }
+
+  const currentDir = new Map<string, string>();
+
+  function opened(): string {
+    const root = tempRoot();
+    currentDir.set(root, activeFeature(root));
+    return root;
+  }
+
+  it('AC-35: lists planning and specification when the planning agent started specification by its id', () => {
+    const root = opened();
+    const dirName = currentDir.get(root)!;
+    for (const stage of ['planning', 'specification']) {
+      startStage(root, stage, {
+        sessionId: 'ses_orch',
+        dirName,
+        adapter: 'claude-code',
+        agentId: 'agent_plan_1',
+      });
+    }
+    const row = complete(root, PLANNER);
+    expect(row).toMatchObject({ stage: 'planning', stages: ['planning', 'specification'] });
+    expect(validateStageEvidenceRow(row)).toEqual([]);
+  });
+
+  it('AC-35: reads stage start markers from the agent transcript with the marker parse', () => {
+    const root = opened();
+    const transcript = join(root, 'agent.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: { role: 'assistant', content: 'paqad:stage planning start' },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'paqad:stage specification start' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { role: 'user', content: 'paqad:stage review start' },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+    const row = complete(root, { ...PLANNER, agent_transcript_path: transcript });
+    expect(row.stages).toEqual(['planning', 'specification']);
+  });
+
+  it('adds no stages list for an agent that ran only its own stage, or a start by another agent', () => {
+    const root = opened();
+    startStage(root, 'specification', {
+      sessionId: 'ses_orch',
+      dirName: currentDir.get(root)!,
+      adapter: 'claude-code',
+      agentId: 'agent_other',
+    });
+    const row = complete(root, { ...PLANNER, agent_transcript_path: join(root, 'missing.jsonl') });
+    expect(row.stage).toBe('planning');
+    expect(row).not.toHaveProperty('stages');
   });
 });
 

@@ -18,7 +18,7 @@ import {
   questionTexts,
 } from './ask-evidence';
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
-import { chimeClip } from './chime';
+import { chimeBase64 } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
 import { COMMAND_NAMES, refusalReason, setCommandName, takenLine } from './command-name';
 import {
@@ -34,7 +34,6 @@ import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
   ANSWER_TOAST,
-  UPDATE_PLAN_TOOL,
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
@@ -58,7 +57,6 @@ import {
   buildBandView,
   entrySentinelPath,
   freshRuleStop,
-  heartbeatPath,
   isLive,
   isRefreshTool,
   isStageAgent,
@@ -69,6 +67,7 @@ import {
   receiptPath,
   ruleStopQuestion,
   ruleTextQuestion,
+  safeSessionId,
   snapshotPath,
   type RuleStop,
 } from './model';
@@ -89,7 +88,7 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { PAQAD_CLI_TIMEOUT_MS, paqadArgv, type PaqadRunResult, type PaqadVerb } from './paqad-cli';
+import { PAQAD_CLI_TIMEOUT_MS, overrideRecorded, type PaqadRunResult } from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -124,19 +123,21 @@ import { FEATURE_ROUTE } from './status-entry';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
-type ToolCheckResult = Awaited<ReturnType<EngineInterface['tool']['check']>>;
-
-async function runPaqad(
+async function recordOverride(
   $: EngineInterface,
-  verb: PaqadVerb,
   args: readonly string[],
   cwd: string,
 ): Promise<PaqadRunResult> {
-  const argv = paqadArgv(verb, args);
-  if (!argv) return { ok: false, stdout: '', stderr: `paqad-ai ${verb} is not allowed here` };
   try {
-    const result = await $.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS });
-    return { ok: result.exitCode === 0, stdout: result.stdout, stderr: result.stderr };
+    const result = await $.process.run(['paqad-ai', 'rules', 'override', ...args], {
+      cwd,
+      timeoutMs: PAQAD_CLI_TIMEOUT_MS,
+    });
+    return {
+      ok: result.exitCode === 0 && overrideRecorded(result.stdout),
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
   } catch (error) {
     return {
       ok: false,
@@ -145,6 +146,8 @@ async function runPaqad(
     };
   }
 }
+
+const COMMAND_UNREADABLE = 'paqad could not read its record for this session. Try again.';
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
@@ -300,9 +303,13 @@ function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['
   try {
     $.ui.toast(verdictToast(verdict));
   } catch {}
+  playChime($);
+}
+
+function playChime($: EngineInterface): void {
   if (!chimeOn) return;
   try {
-    void $.audio.play(chimeClip()).catch(() => {});
+    void $.audio.play({ base64: chimeBase64(), mime: 'audio/wav' }).catch(() => {});
   } catch {}
 }
 
@@ -315,10 +322,7 @@ async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | nul
   try {
     $.ui.toast(bandHeadline(snapshot, buildBandView(snapshot, await read($, nowAtom))));
   } catch {}
-  if (!chimeOn) return;
-  try {
-    void $.audio.play(chimeClip()).catch(() => {});
-  } catch {}
+  playChime($);
 }
 
 async function beat($: EngineInterface): Promise<void> {
@@ -327,7 +331,7 @@ async function beat($: EngineInterface): Promise<void> {
   try {
     const now = await $.clock.now();
     await $.fs.write(
-      heartbeatPath(at.root, at.sessionId),
+      `${at.root}/.paqad/session/hud/${safeSessionId(at.sessionId)}.live`,
       `${JSON.stringify({ session_id: at.sessionId, written_at: new Date(now).toISOString() })}\n`,
     );
   } catch {}
@@ -519,62 +523,71 @@ async function hasPendingDecision($: EngineInterface, root: string): Promise<boo
   }
 }
 
+async function logOverrideFailure($: EngineInterface, stderr: string): Promise<void> {
+  try {
+    await $.ui.log(`paqad-ai rules override failed: ${stderr.trim() || 'no output'}`, {
+      to: 'debug',
+    });
+  } catch {}
+}
+
 async function markRuleStopAnswered(
   $: EngineInterface,
   root: string,
   sessionId: string,
 ): Promise<void> {
-  const path = lastBlockPath(root, sessionId);
-  const text = answeredRuleStopText(await readText($, path));
+  const text = answeredRuleStopText(await readText($, lastBlockPath(root, sessionId)));
   if (text === null) return;
   try {
-    await $.fs.write(path, text);
+    await $.fs.write(
+      `${root}/.paqad/session/hud/${safeSessionId(sessionId)}.last-block.json`,
+      text,
+    );
   } catch {}
 }
 
 async function allowRuleStopOnce(
   $: EngineInterface,
   toolUseId: string | undefined,
-  verdict: ToolCheckResult,
 ): Promise<RuleStop | null> {
-  const at = live;
-  if (!at) return null;
-  const stop = freshRuleStop(
-    await readText($, lastBlockPath(at.root, at.sessionId)),
-    at.sessionId,
-    toolUseId,
-  );
-  if (!stop || verdict.rule !== undefined) return null;
-  if (stop.managed) {
-    $.ui.toast(ORG_ENFORCED);
-    return null;
-  }
-  if (!stop.sole || (await hasPendingDecision($, at.root))) return null;
-  if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return null;
-  await moveLive($, questionShown);
-  let choice: string | null = null;
   try {
-    choice = await chooseRuleStop($, stop);
-  } finally {
+    const at = live;
+    if (!at) return null;
+    const stop = freshRuleStop(
+      await readText($, lastBlockPath(at.root, at.sessionId)),
+      at.sessionId,
+      toolUseId,
+    );
+    if (!stop) return null;
+    if (stop.managed) {
+      $.ui.toast(ORG_ENFORCED);
+      return null;
+    }
+    if (!stop.sole || (await hasPendingDecision($, at.root))) return null;
+    if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return null;
+    await moveLive($, questionShown);
+    let choice: string | null = null;
+    try {
+      choice = await chooseRuleStop($, stop);
+    } finally {
+      await moveLive($, questionClosed);
+      if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
+    }
+    if (choice !== RULE_STOP_ALLOW) return null;
+    await moveLive($, questionShown);
+    const reason = await askReason($);
     await moveLive($, questionClosed);
-    if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
-  }
-  if (choice !== RULE_STOP_ALLOW) return null;
-  await moveLive($, questionShown);
-  const reason = await askReason($);
-  await moveLive($, questionClosed);
-  const ran = await runPaqad(
-    $,
-    'rules override',
-    overrideArgs(stop, at.sessionId, at.root, reason),
-    at.root,
-  );
-  if (!ran.ok) {
-    $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+    const ran = await recordOverride($, overrideArgs(stop, at.sessionId, at.root, reason), at.root);
+    if (!ran.ok) {
+      $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+      await logOverrideFailure($, ran.stderr);
+      return null;
+    }
+    await refresh($);
+    return stop;
+  } catch {
     return null;
   }
-  await refresh($);
-  return stop;
 }
 
 type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
@@ -897,7 +910,7 @@ async function bind($: EngineInterface, root: string, chime: boolean): Promise<v
     } catch {}
     return;
   }
-  live = { root, sessionId };
+  live = { root: root.replace(/[\\/]+$/, '') || root, sessionId };
   try {
     const minimised = (await storeGet($, MINIMISED_KEY)) === true;
     const hidden = (await storeGet($, hiddenKey(root))) === true;
@@ -914,21 +927,29 @@ async function bind($: EngineInterface, root: string, chime: boolean): Promise<v
 
 async function registerCommand($: EngineInterface): Promise<void> {
   const refusals: string[] = [];
-  for (const name of COMMAND_NAMES) {
-    try {
-      await $.command.register({
-        name,
-        description: COMMAND_DESCRIPTION,
-        argumentHint: ARGUMENT_HINT,
-        immediate: true,
-      });
-      setCommandName(name);
-      break;
-    } catch (error) {
-      refusals.push(refusalReason(error));
-    }
+  try {
+    await $.command.register({
+      name: 'paqad',
+      description: COMMAND_DESCRIPTION,
+      argumentHint: ARGUMENT_HINT,
+      immediate: true,
+    });
+    setCommandName('paqad');
+    return;
+  } catch (error) {
+    refusals.push(refusalReason(error));
   }
-  if (refusals.length === 0) return;
+  try {
+    await $.command.register({
+      name: 'paqad-hud',
+      description: COMMAND_DESCRIPTION,
+      argumentHint: ARGUMENT_HINT,
+      immediate: true,
+    });
+    setCommandName('paqad-hud');
+  } catch (error) {
+    refusals.push(refusalReason(error));
+  }
   try {
     await $.ui.log(takenLine(refusals), { to: 'debug' });
   } catch {}
@@ -982,11 +1003,14 @@ export const register: Register = (on) => {
     return next(e);
   });
 
-  for (const name of COMMAND_NAMES) {
-    on('command.run', { command: name }, async ($, e) => answerCommand($, e.args)).catch(() => ({
-      text: 'paqad could not read its record for this session. Try again.',
-    }));
-  }
+  on('command.run', { command: 'paqad' }, async ($, e) => answerCommand($, e.args)).catch(() => ({
+    text: COMMAND_UNREADABLE,
+  }));
+  on('command.run', { command: 'paqad-hud' }, async ($, e) => answerCommand($, e.args)).catch(
+    () => ({
+      text: COMMAND_UNREADABLE,
+    }),
+  );
 
   on('prompt.submit', async ($, e, next) => {
     taskListRefused = false;
@@ -1002,7 +1026,7 @@ export const register: Register = (on) => {
     return result;
   }).catch(($, e, next) => next(e));
 
-  on('tool.call', { tool: UPDATE_PLAN_TOOL }, async ($, e, next) => {
+  on('tool.call', { tool: 'mcp__ccd_turn__update_plan' }, async ($, e, next) => {
     if (!live || taskListRefused) return next(e);
     const snapshot = await read($, snapshotAtom);
     if (snapshot?.route !== FEATURE_ROUTE) return next(e);
@@ -1043,17 +1067,13 @@ export const register: Register = (on) => {
 
   on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
     const verdict = await next(e);
-    if (verdict.decision !== 'deny') return verdict;
-    let allowed: RuleStop | null;
-    try {
-      allowed = await allowRuleStopOnce($, e.tool_use_id, verdict);
-    } catch {
-      return verdict;
-    }
-    if (!allowed) return verdict;
+    if (verdict.decision !== 'deny' || verdict.rule !== undefined) return verdict;
+    const allowed = await allowRuleStopOnce($, e.tool_use_id);
+    if (allowed === null) return verdict;
     return {
       decision: 'ask',
-      reason: `Allowed once by a person, recorded as an override of ${allowed.rule}. Approve to run it.`,
+      reason:
+        'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
     };
   }).catch(() => ({ decision: 'deny' }));
 

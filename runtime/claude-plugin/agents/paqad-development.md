@@ -23,6 +23,8 @@ The orchestrator passes you the change ref, the lane, the previous stage pillar 
 `SE_SESSION` — the orchestrator's session id. **Export `SE_SESSION` for every command you run**
 so every row and artifact you write is recorded under the one change identity.
 
+You may be resumed with a follow-up task for the same change. Keep working from what you already know; don't re-read files you have read unless they changed.
+
 ## Run your stage
 
 1. Read the `development` stage's `read:` list and `instructions` from
@@ -37,7 +39,7 @@ so every row and artifact you write is recorded under the one change identity.
 
 - **Never ask the human.** If you hit a decision pause, create the packet with
   `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the
-  orchestrator asks the human and re-dispatches you.
+  orchestrator asks the human and then resumes you with the answer.
 - **Never write into a feature bundle directory by hand.** Only the stage verbs write there.
 - **Never skip a CLI verb** because "the orchestrator will do it" — it will not.
 - Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at

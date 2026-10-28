@@ -393,7 +393,7 @@ describe('site-map extraction', () => {
   describe('parseArtisanScheduleList', () => {
     it('parses cron lines (stripping ANSI + dotted filler) and skips non-task lines', () => {
       const stdout = [
-        '[32m0 2 * * *[39m  php artisan backup:run ......... Next Due: 5 hours from now',
+        '\x1b[32m0 2 * * *\x1b[39m  php artisan backup:run ......... Next Due: 5 hours from now',
         '  @daily  php artisan report:send',
         'Scheduled tasks:',
         '* * * * * * php artisan pulse:check   Next Due: 1 second from now',

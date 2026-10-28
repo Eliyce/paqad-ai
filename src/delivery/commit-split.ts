@@ -53,6 +53,8 @@ function unknownSplit(reason: string): CommitSplit {
   return { state: 'unknown', reason, base_commit: null, own: null, inherited: null };
 }
 
+const FIELD_SEPARATOR = String.fromCharCode(0x1f);
+
 function isPullRequestRef(ref: string): boolean {
   return /^#\d+$/.test(ref.trim());
 }
@@ -63,11 +65,11 @@ function readBranchCommits(projectRoot: string, baseCommit: string): BranchCommi
     .split('\n')
     .filter(Boolean)
     .map((line) => {
-      const [sha, parents = '', ...subject] = line.split('\x1f');
+      const [sha, parents = '', ...subject] = line.split(FIELD_SEPARATOR);
       return {
         sha,
         parents: parents.split(' ').filter(Boolean).length,
-        tickets: detectTicketRefs(subject.join('\x1f'), 'generic').filter(
+        tickets: detectTicketRefs(subject.join(FIELD_SEPARATOR), 'generic').filter(
           (ref) => !isPullRequestRef(ref),
         ),
       };

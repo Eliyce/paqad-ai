@@ -370,6 +370,7 @@ Why each one works the way it does, for the parts the code does not say.
   when npm has the version and the plugin repo lacks its tag, commits nothing when the tree is
   unchanged, creates `main` on an empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing
   or the push fails.
+- **Submitting to Anthropic's plugin directory.** Always submit `Eliyce/paqad-claude-plugin` (branch `main`, plugin at the root), never this repo. This repo has a `.claude-plugin/plugin.json` at its root so the plugin can be built and tested from source, so the portal accepts it, but it then scans our `CLAUDE.md`, our workflows, the website and every source file, none of which ship. After each release that changes the HUD mod, the manifest or the README, press **Re-validate** in the portal before closing the issue.
 - **`release-sync.mjs`** is how the release decides what to ship, from npm and git only, never
   from changesets output. `state` writes `version`, `sha` (the oldest commit whose `package.json`
   carries that version) and `plugin_needed` to `GITHUB_OUTPUT`. It reads `package.json` and its history at `GITHUB_SHA` (else `HEAD`), because with changesets pending the changesets step leaves the checkout on its release branch with the next version already bumped; `state` waits up to 15 minutes for npm to list the new version, because npm takes 3 to 7 minutes after `changeset publish` reports success. It

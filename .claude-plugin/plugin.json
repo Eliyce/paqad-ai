@@ -36,5 +36,21 @@
     "./runtime/claude-plugin/agents/paqad-chief-architect.md"
   ],
   "skills": "./runtime/claude-plugin/skills",
-  "types": "./runtime/claude-plugin/mod/types/index.d.ts"
+  "types": "./runtime/claude-plugin/mod/types/index.d.ts",
+  "userConfig": {
+    "openai_api_key": {
+      "type": "string",
+      "title": "OpenAI API key",
+      "description": "Only needed if you set rag_embedding_provider=openai. Stored in your system credential store.",
+      "sensitive": true,
+      "required": false
+    },
+    "cohere_api_key": {
+      "type": "string",
+      "title": "Cohere API key",
+      "description": "Only needed if you turn on reranking with the cohere backend. Stored in your system credential store.",
+      "sensitive": true,
+      "required": false
+    }
+  }
 }

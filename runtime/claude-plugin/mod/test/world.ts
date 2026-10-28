@@ -28,6 +28,7 @@ export interface World {
   spoken: string[];
   verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string; rule?: string } | 'throw';
   during: Map<string, () => Promise<void>>;
+  unreadable: Set<string>;
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -40,7 +41,11 @@ export interface WorldOptions {
   band?: RenderElement;
   refuse?: Readonly<Record<string, string>>;
   sessionId?: string | null;
+  root?: string;
 }
+
+export const OVERRIDE_RECORDED =
+  '**▸ paqad** · recorded a one-time override of RL-13 on src/x.ts by a person. It shows on the receipt.\n{"overridden":true}\n';
 
 export const TAKEN = `"/paqad" refused: it is the plugin's /paqad-product-discovery:paqad`;
 
@@ -64,7 +69,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     asked: [],
     answers: [],
     runs: [],
-    run: { exitCode: 0, stdout: '', stderr: '' },
+    run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
     toasts: [],
     logs: [],
     writes: [],
@@ -72,6 +77,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     spoken: [],
     verdict: { decision: 'allow' },
     during: new Map(),
+    unreadable: new Set(),
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -82,7 +88,11 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     const text = world.files.get(relOf(e.path));
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text };
   });
-  on('fs.exists', ($, e) => ({ value: world.files.has(relOf(e.path)) || isDir(relOf(e.path)) }));
+  on('fs.exists', ($, e) =>
+    world.unreadable.has(relOf(e.path))
+      ? { deny: `EACCES: ${e.path}` }
+      : { value: world.files.has(relOf(e.path)) || isDir(relOf(e.path)) },
+  );
   on('fs.list', ($, e) => {
     const dir = relOf(e.path);
     if (!isDir(dir)) return { deny: `ENOENT: ${e.path}` };
@@ -103,7 +113,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     };
   });
   on('env.get', ($, e) => ({ value: options.env?.[e.name] }));
-  on('session.root', () => ({ value: ROOT }));
+  on('session.root', () => ({ value: options.root ?? ROOT }));
   on('session.id', () =>
     options.sessionId === null
       ? { deny: 'the session id is not available' }

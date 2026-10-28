@@ -2456,7 +2456,8 @@ describe('the rule stop answer on tool.check', () => {
   const DENY = { decision: 'deny' as const, reason: 'RL-13 blocked the edit' };
   const ASK = {
     decision: 'ask',
-    reason: 'Allowed once by a person, recorded as an override of RL-13. Approve to run it.',
+    reason:
+      'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
   };
   const OVERRIDE_ARGV = [
     'paqad-ai',
@@ -2594,12 +2595,22 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([]);
   });
 
-  test('a deny from a permissions rule in settings offers nothing', async ($, on) => {
+  test('a deny from a settings rule is passed on untouched and nothing is asked', async ($, on) => {
     const world = await stopped($, on);
-    const ruled = { ...DENY, rule: 'Edit(src/**)' };
+    const ruled = { decision: 'deny' as const, rule: 'Edit(src/**)' };
     world.verdict = ruled;
+    world.answers.push('Allow once, recorded', 'No reason');
     expect(await check($)).toEqual(ruled);
     expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+    expect(world.toasts).toEqual([]);
+  });
+
+  test('a failure inside the offer keeps the deny', async ($, on) => {
+    const world = await stopped($, on);
+    world.unreadable.add(ENTRY_SENTINEL);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
     expect(world.runs).toEqual([]);
   });
 
@@ -2645,6 +2656,34 @@ describe('the rule stop answer on tool.check', () => {
     expect(await check($)).toEqual(DENY);
     expect(world.runs).toHaveLength(2);
     expect(world.toasts).toHaveLength(2);
+    const failures = world.logs.filter((log) => log.text.startsWith('paqad-ai rules override'));
+    expect(failures).toHaveLength(2);
+    expect(failures.every((log) => log.to === 'debug')).toBe(true);
+    expect(failures[0]!.text).toContain('refused');
+  });
+
+  test('an override that exits 0 without its recorded line keeps the deny', async ($, on) => {
+    const world = await stopped($, on);
+    world.run = { exitCode: 0, stdout: '', stderr: '' };
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
+    expect(world.runs).toHaveLength(1);
+    expect(world.toasts).toEqual([
+      'paqad could not record the override, so the edit stays blocked.',
+    ]);
+    expect(
+      world.logs.some(
+        (log) => log.to === 'debug' && log.text.startsWith('paqad-ai rules override'),
+      ),
+    ).toBe(true);
+  });
+
+  test('Allow once still runs the same override argv', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(ASK);
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expect(world.runs[0]!.timeoutMs).toBe(15_000);
   });
 
   test('Allow once covers one call and the next identical call is denied again', async ($, on) => {
@@ -2704,12 +2743,19 @@ describe('the rule stop answer on tool.check', () => {
       ['Let Claude fix it'],
       ['Show the rule', 'Allow once, recorded', 'needed'],
       [null],
+      [],
     ]) {
       world.put(LAST_BLOCK, JSON.stringify(STOP));
       world.answers.push(...answers);
       verdicts.push(await check($));
     }
-    expect(verdicts.map((verdict) => verdict.decision)).toEqual(['ask', 'deny', 'ask', 'deny']);
+    expect(verdicts.map((verdict) => verdict.decision)).toEqual([
+      'ask',
+      'deny',
+      'ask',
+      'deny',
+      'deny',
+    ]);
     expect(verdicts.some((verdict) => verdict.decision === 'allow')).toBe(false);
   });
 });
@@ -3173,6 +3219,38 @@ describe('the heartbeat and the chime', () => {
     expect(new Set(world.writes.map((write) => write.path))).toEqual(new Set([HEARTBEAT]));
   });
 
+  test('AC-12: a root with a trailing separator writes under <root>/.paqad/session/hud/', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },
+      root: '/work/',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: '/work/' });
+    expect(world.writes.map((write) => write.path)).toEqual([HEARTBEAT]);
+  });
+
+  test('AC-12: a session id with path characters is made safe in the heartbeat file name', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, '.paqad/session/hud/s_1_x.json': fileText(FAST_ORD_490) },
+      sessionId: 's/1:x',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.writes.map((write) => write.path)).toEqual(['.paqad/session/hud/s_1_x.live']);
+  });
+
+  test('AC-12: a project root of / stays / and writes under /.paqad/session/hud/', async ($, on) => {
+    const world = worldOf(on, {
+      files: { '/.paqad/framework-path.txt': '~/.paqad-ai/current\n' },
+      root: '/',
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: '/' });
+    expect(world.writes.map((write) => write.path)).toEqual([
+      `/.paqad/session/hud/${SESSION_ID}.live`,
+    ]);
+  });
+
   test('a mod that stands down writes no heartbeat', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },
@@ -3221,7 +3299,12 @@ describe('the heartbeat and the chime', () => {
       await $.session.start(START);
       await landVerdictTwice($, world);
       expect(world.played).toHaveLength(1);
-      expect((world.played[0] as { mime: string }).mime).toBe('audio/wav');
+      const clip = world.played[0] as Record<string, unknown>;
+      expect(Object.keys(clip).sort()).toEqual(['base64', 'mime']);
+      expect(typeof clip.base64).toBe('string');
+      expect(clip.mime).toBe('audio/wav');
+      expect(clip).not.toHaveProperty('url');
+      expect(clip).not.toHaveProperty('asset');
       expect(world.spoken).toEqual([]);
     });
   }

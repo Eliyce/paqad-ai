@@ -173,7 +173,11 @@ any turn the session-ownership check skips (see below).
   from that subagent transcript (about 4 characters per token), and the row says
   `estimate: false`, so the receipt's `context:` line reads `(exact)`. With no agent
   transcript the row keeps the earlier estimate from the parent transcript and says
-  `estimate: true`.
+  `estimate: true`. A resumed agent writes one cumulative row per return, so
+  `summarizeStageIsolation` takes the largest `tokens_not_recarried` per `agent_id` before
+  summing (the same per-agent keying `src/cost/change-cost.ts` uses), and the figure does not
+  grow with each resume. A row with no or an empty `agent_id` is counted once on its own, so an
+  older bundle sums exactly as before.
 - **Rule-loading gate** (`rules-loaded-gate.ts`) — the completion-seam backstop
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically
@@ -603,8 +607,8 @@ network, and starts no process.
   default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env
   variable first, then `.paqad/.config`, then `.paqad/configs/.config.*` with the last file name
   winning. Off, the mod draws no band, reads nothing and registers no `/paqad` command. The
-  plugin declares no `userConfig`, because Claude Code lists every declared option with no saved
-  value as "not yet set" when the plugin is installed, even one with a default.
+  plugin's only `userConfig` options are the two optional API keys (the Claude plugin page has
+  them); `hud_view` stays a paqad config key.
 - **The `hud_chime` setting.** The config key `hud_chime` (env `PAQAD_HUD_CHIME`, off by default)
   makes the mod play one short chime when a verdict lands, once per verdict. It resolves like
   `hud_view`, lives in the team app config, and is a chime only: the mod never speaks.
@@ -841,8 +845,9 @@ obvious from its code, grouped by file.
   defers too. An empty or missing list never means no agent runs: the check also reads the
   change's ledger. The SubagentStart seed hook writes one `started` stage-agent row, and that row
   holds the judgement on every host until something releases it: the stage's `stage_end`, the
-  agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage, or a
-  `record-repair` row written at SessionStart (startup or resume) for agents of the same session
+  agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage that
+  carries no `agent_id` or a different one (`stage start` stamps `agent_id` from `SE_AGENT_ID`, so
+  an agent resumed for the next stage keeps its own hold), or a `record-repair` row written at SessionStart (startup or resume) for agents of the same session
   or of a host process that is gone. No clock releases a ledger hold. Holds seen only in
   `background_tasks` or a live checks marker keep the 30-minute ceiling. A turn end between
   stages (the last stage ended with its artifact, the next has not started) judges nothing and

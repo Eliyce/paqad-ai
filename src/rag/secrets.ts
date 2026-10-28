@@ -56,8 +56,12 @@ export function readProjectSecrets(projectRoot: string): Record<string, string> 
   }
 }
 
+export function pluginOptionOrEnv(key: string): string | undefined {
+  return process.env[`CLAUDE_PLUGIN_OPTION_${key}`] || process.env[key] || undefined;
+}
+
 export function getProjectSecret(projectRoot: string, key: string): string | undefined {
-  return process.env[key] ?? readProjectSecrets(projectRoot)[key];
+  return pluginOptionOrEnv(key) || readProjectSecrets(projectRoot)[key];
 }
 
 export function writeProjectSecret(projectRoot: string, key: string, value: string): string {
@@ -109,6 +113,9 @@ export function getSecretPermissionWarning(projectRoot: string): string | null {
 export function redactSecrets(input: string, projectRoot: string): string {
   const secrets = [
     process.env.OPENAI_API_KEY,
+    process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY,
+    process.env.CLAUDE_PLUGIN_OPTION_COHERE_API_KEY,
+    process.env.COHERE_API_KEY,
     ...Object.values(readProjectSecrets(projectRoot)),
   ].filter((value): value is string => Boolean(value));
   let result = input;

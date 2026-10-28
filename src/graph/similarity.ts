@@ -216,8 +216,10 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
+const PAIR_SEPARATOR = String.fromCharCode(0x01);
+
 function pairKeyOf(a: string, b: string): string {
-  return a < b ? `${a}${b}` : `${b}${a}`;
+  return a < b ? `${a}${PAIR_SEPARATOR}${b}` : `${b}${PAIR_SEPARATOR}${a}`;
 }
 
 function makeEdge(a: string, b: string, score: number): GraphEdge {

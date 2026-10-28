@@ -17,6 +17,7 @@ import {
   stripOf,
   tableStrip,
   taskListSentence,
+  UPDATE_PLAN_TOOL,
   WAITING_FOR_ANSWER,
   WAITING_FOR_PERMISSION,
   type DesktopBandInput,
@@ -681,5 +682,11 @@ describe('AC-18: the task list carries the stages of the lane', () => {
     expect(TASK_LIST_SENTENCES.fast).toBe(
       'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
     );
+  });
+});
+
+describe('the task list tool the HUD watches', () => {
+  it('is the literal the tool.call matcher names', () => {
+    expect(UPDATE_PLAN_TOOL).toBe('mcp__ccd_turn__update_plan');
   });
 });

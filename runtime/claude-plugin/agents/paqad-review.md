@@ -42,7 +42,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 - **Never ask the human.** If you hit a decision pause, create the packet with
   `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the
-  orchestrator asks the human and re-dispatches you.
+  orchestrator asks the human and then resumes you with the answer.
 - **Never write into a feature bundle directory by hand.** Only the stage verbs write there.
 - **Never skip a CLI verb** because "the orchestrator will do it" — it will not.
 - Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at

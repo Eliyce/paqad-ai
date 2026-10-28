@@ -115,7 +115,9 @@ function releasesStartedAgent(
     return agentId !== null && laterId !== null ? laterId === agentId : laterStage === stage;
   }
   if (later.kind === 'stage_end') return laterStage === stage;
-  if (later.kind === 'stage_start') return laterStage !== null && laterStage !== stage;
+  if (later.kind === 'stage_start') {
+    return laterStage !== null && laterStage !== stage && (laterId === null || laterId !== agentId);
+  }
   if (later.kind !== RECORD_REPAIR_KIND || later.reason !== STAGE_AGENT_SESSION_RELEASE) {
     return false;
   }

@@ -27,6 +27,7 @@ import {
 import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
+import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -1023,6 +1024,53 @@ describe('the isolation evidence stream', () => {
     });
 
     expect(gate!.status).toBe('pass');
+  });
+
+  it('AC-36: passes a change where one agent ran planning and specification', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const row = (fields: Record<string, unknown>) =>
+      JSON.stringify({
+        doc_type: 'paqad.stage-evidence',
+        session_id: 'ses_1',
+        recorded_at: '2026-09-01T00:00:00.000Z',
+        content_hash: 'h',
+        ...fields,
+      });
+    write(
+      root,
+      featureFilePath(DIR, 'stageEvidence'),
+      [
+        row({ kind: 'stage_start', stage: 'planning', agent_id: 'agent-p1' }),
+        row({ kind: 'stage_end', stage: 'planning' }),
+        row({ kind: 'stage_start', stage: 'specification', agent_id: 'agent-p1' }),
+        row({ kind: 'stage_end', stage: 'specification' }),
+        row({
+          kind: 'stage-agent',
+          stage: 'planning',
+          stages: ['planning', 'specification'],
+          agent: 'paqad-planning',
+          agent_id: 'agent-p1',
+          event_status: 'completed',
+          tokens_not_recarried: 900,
+        }),
+      ].join('\n') + '\n',
+    );
+    write(root, `${featureDir(DIR)}/high-table.jsonl`, '{"kind":"seated","role":"qa-engineer"}\n');
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: true },
+    });
+
+    expect(gate!.status).toBe('pass');
+    expect(summarizeStageIsolation(root, DIR)).toMatchObject({
+      stages: 2,
+      tokensNotRecarried: 900,
+    });
   });
 
   it('AC-42: a High Table seat row is not stage-agent evidence, so the change still fails by name', () => {

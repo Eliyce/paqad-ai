@@ -13,8 +13,13 @@ export interface StageIsolationSummary {
   estimate: boolean;
 }
 
+export function stagesOfRow(row: SessionLedgerRow): string[] {
+  const listed = Array.isArray(row.stages) ? row.stages.map(String) : [];
+  return [String(row.stage), ...listed].filter((stage) => STAGE_AGENT_STAGES.includes(stage));
+}
+
 function isIsolatedStageRow(row: SessionLedgerRow): boolean {
-  return STAGE_AGENT_STAGES.includes(String(row.stage));
+  return stagesOfRow(row).length > 0;
 }
 
 export function readStageAgentRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
@@ -35,6 +40,27 @@ function count(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
+function agentKey(row: SessionLedgerRow): string | null {
+  return typeof row.agent_id === 'string' && row.agent_id.trim() !== ''
+    ? row.agent_id.trim()
+    : null;
+}
+
+function tokensNotRecarried(rows: readonly SessionLedgerRow[]): number {
+  const latestByAgent = new Map<string, number>();
+  let unkeyed = 0;
+  for (const row of rows) {
+    const tokens = count(row.tokens_not_recarried);
+    const key = agentKey(row);
+    if (key === null) {
+      unkeyed += tokens;
+    } else {
+      latestByAgent.set(key, Math.max(latestByAgent.get(key) ?? 0, tokens));
+    }
+  }
+  return [...latestByAgent.values()].reduce((sum, tokens) => sum + tokens, unkeyed);
+}
+
 export function hasStageAgentEvidence(projectRoot: string, dirName: string): boolean {
   return (
     readStageAgentRows(projectRoot, dirName).length > 0 ||
@@ -52,9 +78,9 @@ export function summarizeStageIsolation(
     return null;
   }
   return {
-    stages: new Set([...rows, ...legacy].map((row) => String(row.stage))).size,
+    stages: new Set([...rows, ...legacy].flatMap(stagesOfRow)).size,
     tokensNotRecarried:
-      rows.reduce((sum, row) => sum + count(row.tokens_not_recarried), 0) +
+      tokensNotRecarried(rows) +
       legacy.reduce((sum, row) => sum + count(row.carried_history_avoided_estimate), 0),
     estimate: legacy.length > 0 || rows.some((row) => row.estimate !== false),
   };

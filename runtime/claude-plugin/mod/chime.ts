@@ -1,5 +1,3 @@
-export const CHIME_MIME = 'audio/wav';
-
 const RATE = 8000;
 const NOTES: ReadonlyArray<{ hz: number; seconds: number }> = [
   { hz: 880, seconds: 0.12 },
@@ -59,6 +57,6 @@ export function chimeWav(): Uint8Array {
   return bytes;
 }
 
-export function chimeClip(): { base64: string; mime: string } {
-  return { base64: toBase64(chimeWav()), mime: CHIME_MIME };
+export function chimeBase64(): string {
+  return toBase64(chimeWav());
 }

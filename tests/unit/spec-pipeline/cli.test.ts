@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,6 +24,7 @@ import {
   writeExpertRoster,
   writeStagedJson,
 } from '@/spec-pipeline/run-store.js';
+import { requestDigest } from '@/spec-pipeline/grounding.js';
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 function seedResolvedDecision(root: string): void {
@@ -506,6 +515,131 @@ describe('spec pipeline CLI — start', () => {
     const { err } = await run(root, ['start', '--ticket', 'PROJ-123']);
     expect(process.exitCode).toBe(1);
     expect(err.join('\n')).toMatch(/Atlassian MCP/);
+  });
+});
+
+describe('spec pipeline CLI — start reuses its grounding', () => {
+  const REQUEST = 'Let customers download their invoices as CSV.';
+
+  function writeReq(root: string, body = REQUEST): string {
+    const p = join(root, 'request.md');
+    writeFileSync(p, body, 'utf8');
+    return p;
+  }
+
+  function grounding(root: string, dir: string): Record<string, unknown> {
+    return JSON.parse(readFileSync(join(root, stagedFilePath(dir, 'grounding')), 'utf8'));
+  }
+
+  function lastJson(out: string[]): Record<string, unknown> {
+    return JSON.parse(out.at(-1)!);
+  }
+
+  it('AC-41: reuses a retrieval-mode grounding.json for the same request and prints grounding reused', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const seeded = {
+      references: [{ kind: 'doc', ref: 'docs/modules/export/business.md' }],
+      terms: ['Report export'],
+      sparse: false,
+      path: 'rag',
+      mode: 'retrieval',
+      request_digest: requestDigest(REQUEST),
+      modules: [],
+    };
+    writeStagedJson(root, dir, 'grounding', seeded);
+    const { out } = await run(root, ['start', '--request-file', writeReq(root)]);
+    expect(out[0]).toBe('grounding reused');
+    expect(lastJson(out).grounding).toBe('reused');
+    expect(grounding(root, dir)).toEqual(seeded);
+  });
+
+  it('AC-41: rebuilds for a different request or other modules, without the reused line', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeStagedJson(root, dir, 'grounding', {
+      references: [],
+      terms: [],
+      sparse: true,
+      path: 'rag',
+      mode: 'retrieval',
+      request_digest: requestDigest('another request'),
+      modules: [],
+    });
+    const { out } = await run(root, ['start', '--request-file', writeReq(root)]);
+    expect(out).not.toContain('grounding reused');
+    expect(grounding(root, dir).request_digest).toBe(requestDigest(REQUEST));
+    const again = await run(root, [
+      'start',
+      '--request-file',
+      writeReq(root),
+      '--modules',
+      'export',
+    ]);
+    expect(again.out).not.toContain('grounding reused');
+    expect(grounding(root, dir).modules).toEqual(['export']);
+  });
+
+  it('AC-41: rebuilds a grounding.json that is not valid JSON instead of failing', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    mkdirSync(join(root, stagedFilePath(dir, 'grounding'), '..'), { recursive: true });
+    writeFileSync(join(root, stagedFilePath(dir, 'grounding')), '{not json', 'utf8');
+    const { out } = await run(root, ['start', '--request-file', writeReq(root)]);
+    expect(process.exitCode).toBe(0);
+    expect(out).not.toContain('grounding reused');
+    expect(grounding(root, dir).request_digest).toBe(requestDigest(REQUEST));
+  });
+
+  it('AC-42: tries retrieval once more after a lexical fallback, then reuses the fallback', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const req = writeReq(root);
+    const first = await run(root, ['start', '--request-file', req]);
+    expect(lastJson(first.out)).toMatchObject({
+      grounding: 'lexical-fallback',
+      grounding_reason: 'rag-disabled',
+    });
+    expect(grounding(root, dir)).toMatchObject({ mode: 'lexical-fallback' });
+    expect(grounding(root, dir)).not.toHaveProperty('fallback_retried');
+    vi.restoreAllMocks();
+    const second = await run(root, ['start', '--request-file', req]);
+    expect(second.out).not.toContain('grounding reused');
+    expect(grounding(root, dir)).toMatchObject({ fallback_retried: true });
+    vi.restoreAllMocks();
+    const third = await run(root, ['start', '--request-file', req]);
+    expect(third.out[0]).toBe('grounding reused');
+  });
+
+  it('AC-24: writes no API key to stdout, stderr, grounding.json or the bundle', async () => {
+    const SECRET_OPENAI = 'sk-test-openai-value-0123456789';
+    const SECRET_COHERE = 'co-test-cohere-value-0123456789';
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY', SECRET_OPENAI);
+    vi.stubEnv('CLAUDE_PLUGIN_OPTION_COHERE_API_KEY', SECRET_COHERE);
+    try {
+      const root = tempRoot();
+      const dir = activeFeature(root);
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(
+        join(root, '.paqad', '.config'),
+        'rag_enabled=true\nrag_embedding_provider=openai\n',
+        'utf8',
+      );
+      const { out, err } = await run(root, ['start', '--request-file', writeReq(root)]);
+      const bundle = join(root, featureFilePath(dir, 'request'), '..');
+      const written = [
+        ...out,
+        ...err,
+        readFileSync(join(root, stagedFilePath(dir, 'grounding')), 'utf8'),
+        ...readdirSync(bundle, { recursive: true, withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => readFileSync(join(entry.parentPath, entry.name), 'utf8')),
+      ].join('\n');
+      expect(written).not.toContain(SECRET_OPENAI);
+      expect(written).not.toContain(SECRET_COHERE);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
