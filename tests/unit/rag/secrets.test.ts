@@ -2,6 +2,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { vi } from 'vitest';
+
 import {
   getProjectSecret,
   getSecretPermissionWarning,
@@ -23,6 +25,21 @@ describe('RAG secrets helpers', () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY;
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it.each([
+    'CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY',
+    'CLAUDE_PLUGIN_OPTION_COHERE_API_KEY',
+    'COHERE_API_KEY',
+  ])('redacts the %s value from any text', (name) => {
+    vi.stubEnv(name, 'key-value-for-redaction-0123');
+    try {
+      expect(redactSecrets('failed with key-value-for-redaction-0123 here', projectRoot)).toBe(
+        'failed with [REDACTED] here',
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('takes the plugin option first, then the environment, then .paqad/secrets.env', () => {

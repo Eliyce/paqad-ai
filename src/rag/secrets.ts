@@ -113,6 +113,9 @@ export function getSecretPermissionWarning(projectRoot: string): string | null {
 export function redactSecrets(input: string, projectRoot: string): string {
   const secrets = [
     process.env.OPENAI_API_KEY,
+    process.env.CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY,
+    process.env.CLAUDE_PLUGIN_OPTION_COHERE_API_KEY,
+    process.env.COHERE_API_KEY,
     ...Object.values(readProjectSecrets(projectRoot)),
   ].filter((value): value is string => Boolean(value));
   let result = input;
