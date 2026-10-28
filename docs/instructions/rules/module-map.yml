@@ -2309,6 +2309,10 @@ modules:
     sources:
       - .paqad/decisions
       - src/planning/decision-precedents.ts
+    features:
+      - slug: ask-owner-once
+        name: Ask the owner once per change (expert-conflict minting, change-scoped pause gate, batched question round)
+        sources: [src/spec-pipeline/experts/conflicts.ts, runtime/hooks/decision-pause-gate.mjs, src/onboarding/decision-pause-contract-writer.ts]
     evidence:
       symbols:
         - DEFAULT_PRECEDENT_LIMIT

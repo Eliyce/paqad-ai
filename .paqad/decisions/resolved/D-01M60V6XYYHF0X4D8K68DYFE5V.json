@@ -1,0 +1,54 @@
+{
+  "id": "D-01M60V6XYYHF0X4D8K68DYFE5V",
+  "category": "architecture-path",
+  "title": "Module attribution for #749 (ask the owner once per change)",
+  "context": "Planning attribution gate for #749. The extractor found no module named in the request; the inferencer is not confident (top score 0.06, cli-dashboard, which is wrong). The workflow in force (attribution_pending: stop, on_not_confident: ask) requires asking. The change touches existing files only: the expert merge/synthesis/conflict minting in src/spec-pipeline/experts, the decision-pause-gate hook, the Decision Pause Contract protocol text (src/onboarding/decision-pause-contract-writer.ts, runtime/AGENT-ROUTER.md), the module-attribution-inferencer floor and skill, and the planning escalation policy. Most of these paths are not listed under any module in module-map.yml today. The heart of the change is how decision packets are minted, batched and gated, which is the decision-pause-contract module. Picking it adds the gate hook and the expert-conflict minting file to that module's sources through src/module-decisions/apply.ts. No new module is needed, and no code moves.",
+  "options": [
+    {
+      "option_key": "extend-decision-pause-contract",
+      "label": "Extend the Decision Pause Contract module (decision-pause-contract) and add the gate hook and expert-conflict minting to its sources",
+      "one_line_preview": "Extend the Decision Pause Contract module (decision-pause-contract) and add the gate hook and expert-conflict minting to its sources",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-attribution",
+      "label": "Skip attribution: change no module map entries and plan against the files as they are",
+      "one_line_preview": "Skip attribution: change no module map entries and plan against the files as they are",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-feature-development-workflow",
+      "label": "Extend the feature-development-workflow module (planning escalation and spec question round)",
+      "one_line_preview": "Extend the feature-development-workflow module (planning escalation and spec question round)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "extend-decision-pause-contract",
+  "created_at": "2026-10-28T08:49:44.926Z",
+  "status": "resolved",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "extend-decision-pause-contract",
+  "rationale": "Owner chose: the change is about how decision packets are minted, batched and gated",
+  "resolved_at": "2026-10-28T09:03:55.404Z",
+  "decision_id": "D-01M60V6XYYHF0X4D8K68DYFE5V",
+  "fingerprint": "sha256:2de05301b939ac0e22560f0777ba769ba023b831e58eb7b8a4e9fcef0cac8787",
+  "question": "Module attribution for #749 (ask the owner once per change)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2027-01-26T08:49:44.926Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "extend-decision-pause-contract",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T09:03:55.404Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: the change is about how decision packets are minted, batched and gated"
+  }
+}
