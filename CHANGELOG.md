@@ -1,5 +1,15 @@
 # paqad-ai
 
+## 1.110.0
+
+### Minor Changes
+
+- 2f40538: After development, review and documentation sync now run at the same time, and checks runs once on the final tree. On Claude Code the orchestrator dispatches the two agents in one message; on Codex it spawns both and waits on both. A review fix goes through the one development agent after both have returned, documentation sync runs again only when the fix changes what the docs describe, and then checks runs. Hosts without parallel subagents and the fast lane keep review, then documentation sync, then checks. A stage agent's start no longer releases another stage agent's hold, so the turn end keeps waiting for review while documentation sync starts and finishes beside it. Review runs `paqad-ai review digest` again just before it records, so documentation sync's edits are included, and returns blocked when that run fails.
+
+### Patch Changes
+
+- 2f40538: Allow once now works on every Claude Code plan, including Team and Enterprise logins and machines with Claude Code managed settings. The HUD never changes a permission answer any more: after you pick **Allow once, recorded**, it records the override and runs the same edit again, and paqad's own gate asks Claude Code to show its permission dialog for that one edit. A deny from your settings rules, another tool's hook or a rule your organization enforces still blocks it. A second line in the change's evidence now says whether the allowed edit landed, was refused or stayed blocked (`paqad-ai rules override --outcome`). The plugin also no longer ships `dist/plugin/` or raw control bytes in its bundled files, which the plugin directory flagged.
+
 ## 1.109.0
 
 ### Minor Changes
