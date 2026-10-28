@@ -106,7 +106,7 @@ function escapeTreeControlBytes(out) {
     } catch (error) {
       const detail = error instanceof Error && 'stderr' in error ? String(error.stderr).trim() : '';
       throw new Error(
-        `${relative(out, path)} does not parse after its control bytes were escaped.${detail ? ` ${detail}` : ''}`,
+        `${relative(out, path).split(sep).join('/')} does not parse after its control bytes were escaped.${detail ? ` ${detail}` : ''}`,
         { cause: error },
       );
     }
