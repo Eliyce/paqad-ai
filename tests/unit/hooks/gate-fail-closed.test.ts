@@ -49,7 +49,7 @@ describe('edit gates fail closed on an unexpected throw', () => {
     mockResolverThrows();
     const { main } = await import('../../../runtime/hooks/agent-entry-gate.mjs');
     const cap = captureStderr();
-    const code = main('{}');
+    const code = await main('{}');
     cap.restore();
     expect(code).toBe(2);
     expect(cap.text()).toContain('agent-entry');
@@ -62,7 +62,7 @@ describe('edit gates fail closed on an unexpected throw', () => {
     mockResolverThrows();
     const { main } = await import('../../../runtime/hooks/decision-pause-gate.mjs');
     const cap = captureStderr();
-    const code = main('{}');
+    const code = await main('{}');
     cap.restore();
     expect(code).toBe(2);
     expect(cap.text()).toContain('decision-pause');

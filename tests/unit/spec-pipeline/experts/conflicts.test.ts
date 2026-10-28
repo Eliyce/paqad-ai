@@ -6,10 +6,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 
-import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
-import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
+import {
+  createPendingDecision,
+  readContractDecisions,
+  resolvePendingDecision,
+} from '@/decisions/authoring.js';
+import {
+  hasPendingExpertConflict,
+  mintExpertConflictDecisions,
+} from '@/spec-pipeline/experts/conflicts.js';
+import { assertCanRunStep, writeStepArtifact } from '@/spec-pipeline/orchestrator.js';
 import type { SynthesisConflict } from '@/spec-pipeline/experts/synthesis.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
+import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -169,5 +178,71 @@ describe('mintExpertConflictDecisions rulings and duplicates', () => {
     ]);
     expect(pick.minted).toHaveLength(1);
     expect(pendingFiles(root)).toHaveLength(1);
+  });
+});
+
+describe('the questions step waits only on its own change', () => {
+  const DIR_A = '512-change-a-01JABCDEFGHJKMNPQRSTVWXYZ0';
+  const DIR_B = '513-change-b-01JABCDEFGHJKMNPQRSTVWXYZ1';
+
+  function readyForQuestions(root: string): void {
+    pinSpecPipelineOff(root);
+    writeStepArtifact(
+      root,
+      DIR_A,
+      'ground',
+      JSON.stringify({ references: [], terms: ['export'], sparse: false, path: 'docs-fallback' }),
+    );
+    writeStepArtifact(
+      root,
+      DIR_A,
+      'label',
+      JSON.stringify({ label: 'clear', signals: [], question_budget: 0 }),
+    );
+  }
+
+  function conflictFor(root: string, change: string | null): void {
+    createPendingDecision(root, {
+      category: 'spec.expert_conflict',
+      title: 'Experts disagree on orders',
+      context: 'x',
+      options: [
+        { option_key: 'a', label: 'a' },
+        { option_key: 'b', label: 'b' },
+      ],
+      recommendation: null,
+      ...(change ? { change } : {}),
+    });
+  }
+
+  function gate(root: string) {
+    return assertCanRunStep(root, DIR_A, 'questions', {
+      hasPendingExpertConflict: hasPendingExpertConflict(root, DIR_A),
+    });
+  }
+
+  it('AC-15: a pending conflict for another change does not hold this change', () => {
+    const root = tempRoot();
+    readyForQuestions(root);
+    conflictFor(root, featureChangeKey(DIR_B));
+    expect(hasPendingExpertConflict(root, DIR_A)).toBe(false);
+    expect(gate(root).allowed).toBe(true);
+  });
+
+  it('AC-15: a pending conflict for this change is refused', () => {
+    const root = tempRoot();
+    readyForQuestions(root);
+    conflictFor(root, featureChangeKey(DIR_A));
+    const result = gate(root);
+    expect(result.allowed).toBe(false);
+    expect(result.message).toContain('an expert conflict is still pending');
+  });
+
+  it('AC-15 / INV-1: a pending conflict with no change is refused for every change', () => {
+    const root = tempRoot();
+    readyForQuestions(root);
+    conflictFor(root, null);
+    expect(gate(root).allowed).toBe(false);
+    expect(hasPendingExpertConflict(root, DIR_B)).toBe(true);
   });
 });

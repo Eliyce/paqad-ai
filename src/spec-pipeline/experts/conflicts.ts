@@ -48,6 +48,14 @@ function optionKeyFor(claim: string, used: Set<string>): string {
   return key;
 }
 
+export function hasPendingExpertConflict(projectRoot: string, dirName: string): boolean {
+  const change = featureChangeKey(dirName);
+  return readContractDecisions(projectRoot).some(({ packet, status }) => {
+    if (status !== 'pending' || packet.category !== CATEGORY) return false;
+    return !packet.change || packet.change === change;
+  });
+}
+
 export function mintExpertConflictDecisions(
   projectRoot: string,
   merged: MergedExpertNotes,

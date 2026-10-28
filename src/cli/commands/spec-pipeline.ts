@@ -9,7 +9,6 @@ import { GithubIssuesTicketProvider, type GhInvoke } from '@/providers/index.js'
 
 import { classifyRef } from './intake.js';
 
-import { readContractDecisions } from '@/decisions/authoring.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
@@ -19,7 +18,10 @@ import {
   renderExpertBrief,
   rosterEntryFor,
 } from '@/spec-pipeline/experts/brief.js';
-import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
+import {
+  hasPendingExpertConflict,
+  mintExpertConflictDecisions,
+} from '@/spec-pipeline/experts/conflicts.js';
 import {
   fixProofMethodLine,
   raiseFixProofMethodDecision,
@@ -141,12 +143,6 @@ function resolveProjectVoice(projectRoot: string, dirName: string): string {
 
 function reportedTokens(content: string): unknown {
   return (JSON.parse(content) as { tokens?: unknown }).tokens;
-}
-
-function hasPendingExpertConflict(projectRoot: string): boolean {
-  return readContractDecisions(projectRoot).some(
-    ({ packet, status }) => status === 'pending' && packet.category === 'spec.expert_conflict',
-  );
 }
 
 async function resolveRequestText(options: {
@@ -365,7 +361,8 @@ export function createSpecPipelineCommand(): Command {
       const pipelineStep = step as PipelineStep;
       const gate = assertCanRunStep(options.projectRoot, resolved.dirName, pipelineStep, {
         hasPendingExpertConflict:
-          pipelineStep === 'questions' && hasPendingExpertConflict(options.projectRoot),
+          pipelineStep === 'questions' &&
+          hasPendingExpertConflict(options.projectRoot, resolved.dirName),
       });
       if (!gate.allowed) {
         console.error(gate.message);

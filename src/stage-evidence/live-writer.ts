@@ -2,6 +2,8 @@ import { isAbsolute, relative } from 'pathe';
 
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+
+export { activeChangeKey } from '@/feature-evidence/stage-ledger.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 

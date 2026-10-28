@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readGitState } from '@/rag/git-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
@@ -183,6 +184,28 @@ export function currentFeature(
   now?: () => Date,
 ): string | null {
   return reconcileSessionControl(projectRoot, sessionId, now);
+}
+
+export interface ActiveChange {
+  dirName: string;
+  sessionId: string;
+  key: string;
+}
+
+export function resolveActiveChange(
+  projectRoot: string,
+  hint?: string | null,
+): ActiveChange | null {
+  const sessionId = resolveSessionId(
+    projectRoot,
+    hint ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+  );
+  const dirName = currentFeature(projectRoot, sessionId);
+  return dirName ? { dirName, sessionId, key: featureChangeKey(dirName) } : null;
+}
+
+export function activeChangeKey(projectRoot: string, hint?: string | null): string | null {
+  return resolveActiveChange(projectRoot, hint)?.key ?? null;
 }
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {
