@@ -2439,72 +2439,130 @@ describe('the task list carries the stages (AC-18)', () => {
   });
 });
 
-describe('the rule stop answer on tool.check', () => {
-  const STOP = {
-    rule: 'RL-13',
-    title: 'No comments in code',
-    file: 'src/x.ts',
-    tool_use_id: 'tu_1',
-    managed: false,
-    sole: true,
-    at: '2026-10-20T10:00:00.000Z',
-    diff: '+ // note',
-    token: 'tok',
-    used: false,
-    session: SESSION_ID,
+type TestEngine = Parameters<Parameters<typeof test>[1]>[0];
+type TestOn = Parameters<Parameters<typeof test>[1]>[1];
+
+interface PreToolUseGate {
+  seen: unknown[];
+  answers: Array<Record<string, unknown>>;
+  calls: number;
+}
+
+type PreToolUseHook = (
+  $: unknown,
+  e: { tool?: unknown; tool_use_id?: unknown },
+  next: (e: unknown) => unknown,
+) => unknown;
+
+const GATE_DENY = { deny: 'RL-13 blocked the edit' };
+const GATE_ASK = { ask: 'You allowed this edit once' };
+
+function preToolUse(
+  on: TestOn,
+  answers: ReadonlyArray<Record<string, unknown>> = [GATE_DENY, GATE_ASK],
+): PreToolUseGate {
+  const gate: PreToolUseGate = { seen: [], answers: [...answers], calls: 0 };
+  const hook: PreToolUseHook = ($, e, next) => {
+    if (e.tool === 'AskUserQuestion') return next(e);
+    gate.seen.push(e.tool_use_id);
+    gate.calls += 1;
+    return gate.answers[gate.calls - 1] ?? next(e);
   };
-  const DENY = { decision: 'deny' as const, reason: 'RL-13 blocked the edit' };
-  const ASK = {
-    decision: 'ask',
-    reason:
-      'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
-  };
-  const OVERRIDE_ARGV = [
-    'paqad-ai',
-    'rules',
-    'override',
-    '--rule',
-    'RL-13',
-    '--file',
-    'src/x.ts',
-    '--token',
-    'tok',
-    '--tool-use-id',
-    'tu_1',
-    '--session',
-    SESSION_ID,
-    '--project-root',
-    '/work',
-  ];
+  on('classic.PreToolUse' as never, hook as never);
+  return gate;
+}
 
-  async function stopped(
-    $: Parameters<Parameters<typeof test>[1]>[0],
-    on: Parameters<Parameters<typeof test>[1]>[1],
-    record: Record<string, unknown> = STOP,
-  ) {
-    const world = worldOf(on, {
-      files: {
-        ...ONBOARDED,
-        [SNAPSHOT]: fileText(FULL_ORD_501),
-        [LAST_BLOCK]: JSON.stringify(record),
-        [ENTRY_SENTINEL]: '{}',
-      },
-    });
-    world.verdict = DENY;
-    mock.clock(on, { now: NOW });
-    await $.session.start(START);
-    return world;
-  }
+const RULE_STOP = {
+  rule: 'RL-13',
+  title: 'No comments in code',
+  file: 'src/x.ts',
+  tool_use_id: 'tu_1',
+  managed: false,
+  sole: true,
+  at: '2026-10-20T10:00:00.000Z',
+  diff: '+ // note',
+  token: 'tok',
+  used: false,
+  session: SESSION_ID,
+};
 
-  const ENTRY_SENTINEL = `.paqad/.agent-entry-loaded.d/${SESSION_ID}`;
+const RULE_STOP_ENTRY = `.paqad/.agent-entry-loaded.d/${SESSION_ID}`;
 
-  const check = ($: Parameters<Parameters<typeof test>[1]>[0], toolUseId = 'tu_1', tool = 'Edit') =>
-    $.tool.check({ tool, input: { file_path: '/work/src/x.ts' }, tool_use_id: toolUseId });
+async function ruleStopped($: TestEngine, on: TestOn, record: Record<string, unknown> = RULE_STOP) {
+  const world = worldOf(on, {
+    files: {
+      ...ONBOARDED,
+      [SNAPSHOT]: fileText(FULL_ORD_501),
+      [LAST_BLOCK]: JSON.stringify(record),
+      [RULE_STOP_ENTRY]: '{}',
+    },
+  });
+  const gate = preToolUse(on);
+  mock.clock(on, { now: NOW });
+  await $.session.start(START);
+  return { world, gate };
+}
 
-  test("Allow once runs the one override verb with the token, then hands the call to Claude Code's permission step", async ($, on) => {
-    const world = await stopped($, on);
+function editCall(
+  $: TestEngine,
+  gate: PreToolUseGate,
+  toolUseId = 'tu_1',
+  tool = 'Edit',
+  extra: Record<string, unknown> = {},
+) {
+  gate.calls = 0;
+  return $.tool.call({
+    tool,
+    file_path: '/work/src/x.ts',
+    tool_use_id: toolUseId,
+    ...extra,
+  } as never);
+}
+
+function expectDenied(result: unknown): void {
+  expect(result).toMatchObject({ isError: true });
+  expect(String((result as { result?: unknown }).result)).toContain('RL-13 blocked the edit');
+}
+
+function expectLanded(result: unknown): void {
+  expect((result as { result?: unknown }).result).toBe('ok');
+  expect((result as { isError?: unknown }).isError).not.toBe(true);
+}
+
+const OVERRIDE_ARGV = [
+  'paqad-ai',
+  'rules',
+  'override',
+  '--rule',
+  'RL-13',
+  '--file',
+  'src/x.ts',
+  '--token',
+  'tok',
+  '--tool-use-id',
+  'tu_1',
+  '--session',
+  SESSION_ID,
+  '--project-root',
+  '/work',
+];
+
+describe('a retried edit reaches PreToolUse again', () => {
+  test('AC-1: Allow once runs the override and the same tool_use_id meets PreToolUse a second time', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(ASK);
+    const result = await editCall($, gate);
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
+    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expectLanded(result);
+  });
+});
+
+describe('the rule stop answer on a denied edit', () => {
+  test('AC-1: Allow once asks the rule stop question, runs the one override verb with the token and retries the call once', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectLanded(await editCall($, gate));
     expect(world.asked[0]!.options).toEqual([
       'Let Claude fix it',
       'Allow once, recorded',
@@ -2512,148 +2570,155 @@ describe('the rule stop answer on tool.check', () => {
     ]);
     expect(world.asked[0]!.question).toContain('RL-13 stopped this edit to src/x.ts');
     expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
   test('a typed reason is passed to the override as one argument', async ($, on) => {
-    const world = await stopped($, on);
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'needed for the hotfix');
-    expect(await check($)).toEqual(ASK);
+    expectLanded(await editCall($, gate));
     expect(world.runs[0]!.argv).toEqual([...OVERRIDE_ARGV, '--reason=needed for the hotfix']);
   });
 
-  test("a dismissed reason still records the override without one and hands the call to Claude Code's permission step", async ($, on) => {
-    const world = await stopped($, on);
+  test('a dismissed reason still records the override without one and retries the call', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded');
-    expect(await check($)).toEqual(ASK);
+    expectLanded(await editCall($, gate));
     expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
-  test('Let Claude fix it keeps the deny, runs nothing and marks the stop answered', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: Let Claude fix it keeps the deny, retries nothing and marks the stop answered', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Let Claude fix it');
-    expect(await check($)).toEqual(DENY);
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
+    expectDenied(await editCall($, gate));
     expect(world.asked).toHaveLength(1);
     expect(world.runs).toEqual([]);
-    expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...STOP, used: true });
+    expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...RULE_STOP, used: true });
     for (const surface of SURFACES) {
       expect(textOf(await $.ui.render(band(surface)))).not.toContain('Needs you');
     }
   });
 
   for (const answer of [null, undefined]) {
-    test(`a ${answer === null ? 'dismissed card' : 'missing answer'} keeps the deny and marks the stop answered`, async ($, on) => {
-      const world = await stopped($, on);
+    test(`AC-2: a ${answer === null ? 'dismissed card' : 'missing answer'} keeps the deny and marks the stop answered`, async ($, on) => {
+      const { world, gate } = await ruleStopped($, on);
       if (answer === null) world.answers.push(null);
-      expect(await check($)).toEqual(DENY);
+      expectDenied(await editCall($, gate));
+      expect(gate.seen).toEqual(['tu_1']);
       expect(world.runs).toEqual([]);
-      expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...STOP, used: true });
+      expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...RULE_STOP, used: true });
     });
   }
 
-  test('Show the rule asks again with the rule text', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: Show the rule asks again with the rule text', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Show the rule', 'Let Claude fix it');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
     expect(world.asked[1]!.question).toContain('No comments in code');
     expect(world.asked[1]!.options).toEqual(['Let Claude fix it', 'Allow once, recorded']);
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a managed stop offers nothing and names the organization', async ($, on) => {
-    const world = await stopped($, on, { ...STOP, managed: true });
-    expect(await check($)).toEqual(DENY);
+  test('AC-2: a managed stop offers nothing and names the organization', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on, { ...RULE_STOP, managed: true });
+    expectDenied(await editCall($, gate));
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
     expect(world.toasts).toEqual(["This rule is enforced by your organization's settings."]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a stop for an older tool call, a used token or another session asks nothing', async ($, on) => {
-    const world = await stopped($, on);
-    expect(await check($, 'tu_2')).toEqual(DENY);
-    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, used: true }));
-    expect(await check($)).toEqual(DENY);
-    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, session: 'other' }));
-    expect(await check($)).toEqual(DENY);
+  test('AC-2: a stop for an older tool call, a used token or another session asks nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    expectDenied(await editCall($, gate, 'tu_2'));
+    world.put(LAST_BLOCK, JSON.stringify({ ...RULE_STOP, used: true }));
+    expectDenied(await editCall($, gate));
+    world.put(LAST_BLOCK, JSON.stringify({ ...RULE_STOP, session: 'other' }));
+    expectDenied(await editCall($, gate));
     world.put(LAST_BLOCK, '{not json');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
     expect(world.asked).toEqual([]);
+    expect(gate.seen).toEqual(['tu_2', 'tu_1', 'tu_1', 'tu_1']);
   });
 
-  test('a stop where another paqad gate also blocked the call offers nothing', async ($, on) => {
-    const world = await stopped($, on, { ...STOP, sole: false });
-    expect(await check($)).toEqual(DENY);
+  test('AC-2: a stop where another paqad gate also blocked the call offers nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on, { ...RULE_STOP, sole: false });
+    expectDenied(await editCall($, gate));
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a pending decision packet keeps the deny and offers nothing', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: a pending decision packet keeps the deny and offers nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.put('.paqad/decisions/pending/D-01ABC.json', '{}');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a deny from a settings rule is passed on untouched and nothing is asked', async ($, on) => {
-    const world = await stopped($, on);
-    const ruled = { decision: 'deny' as const, rule: 'Edit(src/**)' };
-    world.verdict = ruled;
+  test('AC-3: a call that comes back without a deny is returned as it came and nothing is asked', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    gate.answers = [];
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(ruled);
+    expectLanded(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
     expect(world.toasts).toEqual([]);
   });
 
-  test('a failure inside the offer keeps the deny', async ($, on) => {
-    const world = await stopped($, on);
-    world.unreadable.add(ENTRY_SENTINEL);
+  test('AC-2: a failure inside the offer keeps the deny', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.unreadable.add(RULE_STOP_ENTRY);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a session that never loaded the framework is offered nothing', async ($, on) => {
-    const world = await stopped($, on);
-    world.remove(ENTRY_SENTINEL);
-    expect(await check($)).toEqual(DENY);
+  test('AC-2: a session that never loaded the framework is offered nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.remove(RULE_STOP_ENTRY);
+    expectDenied(await editCall($, gate));
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
-
-  const subagentCheck = ($: Parameters<Parameters<typeof test>[1]>[0]) =>
-    $.tool.check({
-      tool: 'Edit',
-      input: { file_path: '/work/src/x.ts' },
-      tool_use_id: 'tu_1',
-      agentId: 'agent-a1',
-    } as never);
 
   test('a subagent edit the gate marked sole, because that subagent loaded the framework, is offered Allow once', async ($, on) => {
-    const world = await stopped($, on);
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await subagentCheck($)).toEqual(ASK);
+    expectLanded(await editCall($, gate, 'tu_1', 'Edit', { agentId: 'agent-a1' }));
     expect(world.asked[0]!.options).toContain('Allow once, recorded');
     expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
-  test('a subagent edit the gate marked not sole, because its own entry marker is missing, keeps the deny and offers nothing', async ($, on) => {
-    const world = await stopped($, on, { ...STOP, sole: false });
-    expect(await subagentCheck($)).toEqual(DENY);
+  test('AC-2: a subagent edit the gate marked not sole, because its own entry marker is missing, keeps the deny and offers nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on, { ...RULE_STOP, sole: false });
+    expectDenied(await editCall($, gate, 'tu_1', 'Edit', { agentId: 'agent-a1' }));
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
-    expect(world.files.get(ENTRY_SENTINEL)).toBe('{}');
+    expect(world.files.get(RULE_STOP_ENTRY)).toBe('{}');
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a failed or unstartable override keeps the deny', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: a failed or unstartable override keeps the deny', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.run = { exitCode: 1, stdout: '', stderr: 'refused' };
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
     world.run = 'reject';
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
     expect(world.runs).toHaveLength(2);
     expect(world.toasts).toHaveLength(2);
     const failures = world.logs.filter((log) => log.text.startsWith('paqad-ai rules override'));
@@ -2662,11 +2727,12 @@ describe('the rule stop answer on tool.check', () => {
     expect(failures[0]!.text).toContain('refused');
   });
 
-  test('an override that exits 0 without its recorded line keeps the deny', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: an override that exits 0 without its recorded line keeps the deny', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.run = { exitCode: 0, stdout: '', stderr: '' };
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
     expect(world.runs).toHaveLength(1);
     expect(world.toasts).toEqual([
       'paqad could not record the override, so the edit stays blocked.',
@@ -2678,29 +2744,22 @@ describe('the rule stop answer on tool.check', () => {
     ).toBe(true);
   });
 
-  test('Allow once still runs the same override argv', async ($, on) => {
-    const world = await stopped($, on);
-    world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(ASK);
-    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
-    expect(world.runs[0]!.timeoutMs).toBe(15_000);
-  });
-
   test('Allow once covers one call and the next identical call is denied again', async ($, on) => {
-    const world = await stopped($, on);
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(ASK);
-    expect(await check($, 'tu_2')).toEqual(DENY);
+    expectLanded(await editCall($, gate));
+    expectDenied(await editCall($, gate, 'tu_2'));
     expect(world.runs).toHaveLength(1);
+    expect(gate.seen).toEqual(['tu_1', 'tu_1', 'tu_2']);
   });
 
   test('a second edit to the same file under the same rule asks again and records a second override', async ($, on) => {
-    const world = await stopped($, on);
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($)).toEqual(ASK);
-    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, tool_use_id: 'tu_2', token: 'tok2' }));
+    expectLanded(await editCall($, gate));
+    world.put(LAST_BLOCK, JSON.stringify({ ...RULE_STOP, tool_use_id: 'tu_2', token: 'tok2' }));
     world.answers.push('Allow once, recorded', 'No reason');
-    expect(await check($, 'tu_2')).toEqual(ASK);
+    expectLanded(await editCall($, gate, 'tu_2'));
     expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
       2,
     );
@@ -2710,34 +2769,70 @@ describe('the rule stop answer on tool.check', () => {
     ]);
   });
 
-  test('a question that throws keeps the deny and runs nothing', async ($, on) => {
-    const world = await stopped($, on);
+  test('AC-2: a question that throws keeps the deny and runs nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
     world.answers.push('throw');
-    expect(await check($)).toEqual(DENY);
+    expectDenied(await editCall($, gate));
     expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
   });
 
-  test('a failure beneath the guard keeps the edit denied', async ($, on) => {
-    const world = await stopped($, on);
-    world.verdict = 'throw';
-    expect((await check($)).decision).toBe('deny');
-    expect(world.runs).toEqual([]);
+  test('AC-5: a foreign PreToolUse deny on the retry keeps the edit denied, retried once and asked once', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    gate.answers = [GATE_DENY, { deny: 'RL-13 blocked the edit, and so did another hook' }];
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1', 'tu_1']);
+    expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
+      1,
+    );
   });
 
-  test('an allowed call and a tool outside the edit tools pass through untouched', async ($, on) => {
-    const world = await stopped($, on);
-    world.verdict = { decision: 'allow' };
-    expect(await check($)).toEqual({ decision: 'allow' });
-    world.verdict = DENY;
-    expect(await check($, 'tu_1', 'Read')).toEqual(DENY);
-    expect(await check($, 'tu_1', 'Bash')).toEqual(DENY);
+  test('an edit that fails as a tool with no paqad stop for its call is never retried', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on, { ...RULE_STOP, tool_use_id: 'tu_9' });
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(gate.seen).toEqual(['tu_1']);
+    expect(world.asked).toEqual([]);
+  });
+
+  test('a tool outside the edit tools passes through untouched', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate, 'tu_1', 'Bash'));
+    expect(gate.seen).toEqual(['tu_1']);
     expect(world.asked).toEqual([]);
     expect(world.runs).toEqual([]);
   });
 
-  test('the rule stop never answers allow, whatever the person picks', async ($, on) => {
-    const world = await stopped($, on);
-    const verdicts = [];
+  test('Write and NotebookEdit get the same answer as Edit', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    for (const tool of ['Write', 'NotebookEdit']) {
+      world.put(LAST_BLOCK, JSON.stringify(RULE_STOP));
+      world.answers.push('Allow once, recorded', 'No reason');
+      expectLanded(await editCall($, gate, 'tu_1', tool));
+    }
+    expect(gate.seen).toEqual(['tu_1', 'tu_1', 'tu_1', 'tu_1']);
+    expect(world.runs).toHaveLength(2);
+  });
+
+  test('AC-6: a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    gate.answers = [];
+    let ran = 0;
+    world.during.set('Edit', async () => {
+      ran += 1;
+      throw new Error('edit failed');
+    });
+    await editCall($, gate).catch(() => undefined);
+    expect(ran).toBe(1);
+    expect(world.asked).toEqual([]);
+  });
+
+  test('INV-1: the mod never turns a deny into an allow, whatever the person picks', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    gate.answers = [GATE_DENY, GATE_DENY];
+    const results = [];
     for (const answers of [
       ['Allow once, recorded', 'No reason'],
       ['Let Claude fix it'],
@@ -2745,18 +2840,32 @@ describe('the rule stop answer on tool.check', () => {
       [null],
       [],
     ]) {
-      world.put(LAST_BLOCK, JSON.stringify(STOP));
+      world.put(LAST_BLOCK, JSON.stringify(RULE_STOP));
       world.answers.push(...answers);
-      verdicts.push(await check($));
+      results.push(await editCall($, gate));
     }
-    expect(verdicts.map((verdict) => verdict.decision)).toEqual([
-      'ask',
-      'deny',
-      'ask',
-      'deny',
-      'deny',
-    ]);
-    expect(verdicts.some((verdict) => verdict.decision === 'allow')).toBe(false);
+    for (const result of results) expectDenied(result);
+  });
+});
+
+describe('the permission reader', () => {
+  test('AC-4: the mod hands every permission answer on exactly as it came', async ($, on) => {
+    const { world } = await ruleStopped($, on);
+    for (const verdict of [
+      { decision: 'allow' as const },
+      { decision: 'ask' as const, reason: 'check' },
+      { decision: 'deny' as const, reason: 'RL-13 blocked the edit' },
+      { decision: 'deny' as const, rule: 'Edit(src/**)' },
+    ]) {
+      world.verdict = verdict;
+      for (const tool of ['Edit', 'Write', 'NotebookEdit', 'Bash']) {
+        expect(
+          await $.tool.check({ tool, input: { file_path: '/work/src/x.ts' }, tool_use_id: 'tu_1' }),
+        ).toEqual(verdict);
+      }
+    }
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
   });
 });
 

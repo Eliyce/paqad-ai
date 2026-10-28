@@ -90,18 +90,39 @@ describe('the HUD mod source', () => {
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
   });
 
-  it('the permission hook never hands its verdict on', () => {
+  it('AC-4: no tool.check hook answers a permission check of its own', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
-    const startMarker = "on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
-    const start = register.indexOf(startMarker);
-    expect(start, 'the Edit, Write and NotebookEdit tool.check hook').toBeGreaterThan(-1);
+    expect(register).not.toMatch(/on\('tool\.check',\s*\{\s*tool:/);
+    const checks = [...register.matchAll(/on\('tool\.check',/g)];
+    expect(checks).toHaveLength(1);
+    const start = checks[0]!.index;
     const end = register.indexOf('.catch(', start);
     expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
     const hook = register.slice(start, end);
+    expect(hook).toContain('return verdict;');
+    expect(hook).not.toMatch(/decision:\s*['"]/);
+    expect(hook).not.toMatch(/return\s*\{/);
+    expect(register.slice(end, register.indexOf('\n', end))).toContain(
+      '.catch(($, e, next) => next(e));',
+    );
+  });
+
+  it('AC-2: the edit tools retry a denied call once, and only after allowRuleStopOnce returns a stop', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const startMarker = "on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }";
+    const start = register.indexOf(startMarker);
+    expect(start, 'the Edit, Write and NotebookEdit tool.call hook').toBeGreaterThan(-1);
+    expect(start, 'it sits after the unmatched tool.call hook').toBeGreaterThan(
+      register.indexOf("on('tool.call', async ($, e, next) => {"),
+    );
+    const end = register.indexOf('.catch(', start);
+    const hook = register.slice(start, end);
     expect(hook).toContain('allowRuleStopOnce($, e.tool_use_id)');
-    expect(hook).not.toMatch(/\bverdict\s*[,)]/);
-    expect(hook).not.toContain('catch {');
-    expect(hook).not.toContain('let ');
+    expect(hook.match(/next\(e\)/g)).toHaveLength(2);
+    expect(hook).not.toMatch(/\b(for|while)\s*\(/);
+    expect(register.slice(end, register.indexOf('\n', end))).toContain(
+      '.catch(($, e, next) => next(e));',
+    );
   });
 
   it('every $.audio.play call writes its clip as an object literal with base64 and mime', () => {

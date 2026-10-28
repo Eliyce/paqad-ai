@@ -183,6 +183,11 @@ export function freshRuleStop(
   };
 }
 
+export function isDenied(result: unknown): boolean {
+  const raw = rec(result);
+  return raw !== null && (raw.deny !== undefined || raw.isError === true);
+}
+
 export function ruleStopQuestion(stop: RuleStop): string {
   return `${stop.rule} stopped this edit to ${stop.file}. What should happen?`;
 }

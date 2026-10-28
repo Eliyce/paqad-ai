@@ -57,6 +57,7 @@ import {
   buildBandView,
   entrySentinelPath,
   freshRuleStop,
+  isDenied,
   isLive,
   isRefreshTool,
   isStageAgent,
@@ -1065,17 +1066,13 @@ export const register: Register = (on) => {
     }
   }).catch(($, e, next) => next(e));
 
-  on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
-    const verdict = await next(e);
-    if (verdict.decision !== 'deny' || verdict.rule !== undefined) return verdict;
+  on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
+    const result = await next(e);
+    if (!isDenied(result)) return result;
     const allowed = await allowRuleStopOnce($, e.tool_use_id);
-    if (allowed === null) return verdict;
-    return {
-      decision: 'ask',
-      reason:
-        'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.',
-    };
-  }).catch(() => ({ decision: 'deny' }));
+    if (allowed === null) return result;
+    return next(e);
+  }).catch(($, e, next) => next(e));
 
   on('turn.start', async ($, e, next) => {
     if (e.agentId) foregroundAgents.agentSeen(e.agentId);
