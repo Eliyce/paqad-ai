@@ -98,8 +98,12 @@ describe('stage-agent-start.mjs', () => {
     expect(Object.keys(output)).toEqual(['hookSpecificOutput']);
     expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     const brief: string = output.hookSpecificOutput.additionalContext;
-    expect(brief).toContain('SE_SESSION=ses_it paqad-ai stage start development');
-    expect(brief).toContain('SE_SESSION=ses_it paqad-ai stage end development --artifact');
+    expect(brief).toContain(
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage start development',
+    );
+    expect(brief).toContain(
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage end development --artifact',
+    );
     expect(markers(root)).toEqual(['agent_dev_1']);
     expect(hookLog(root)).toHaveLength(1);
     expect(hookLog(root)[0]).toContain('seeded agent=agent_dev_1 stage=development');
@@ -131,7 +135,9 @@ describe('stage-agent-start.mjs', () => {
 
     const start = await runHook(root, payload, { SE_SESSION: 'ses_env_other' });
     const brief: string = JSON.parse(start.stdout).hookSpecificOutput.additionalContext;
-    const session = brief.match(/SE_SESSION=(\S+) paqad-ai stage start/)?.[1];
+    const session = brief.match(
+      /SE_SESSION=(\S+) SE_AGENT_ID=agent_dev_1 paqad-ai stage start/,
+    )?.[1];
 
     await runHook(
       root,
@@ -183,6 +189,9 @@ describe('stage-agent-start.mjs', () => {
     const root = onboard(tempRoot());
     const result = await runHook(root, stagePayload({ agent_id: '../../escape' }));
     expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).not.toContain(
+      'SE_AGENT_ID',
+    );
     expect(markers(root)).toEqual(['______escape']);
     expect(existsSync(join(root, '.paqad', 'escape'))).toBe(false);
     expect(existsSync(join(root, 'escape'))).toBe(false);
