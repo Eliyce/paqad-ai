@@ -24,7 +24,7 @@ closed_reason: null
 
 runtime/claude-plugin/mod/register.tsx keeps a module-level `askedCalls` Set. The read-only `tool.check` hook adds every `tool_use_id` whose verdict is `ask` (every permission prompt in the session, for every tool), but entries are only removed by `retryAllowedOnce` for an allowed-once retry. In a long session the set grows by one short string per permission prompt and is never pruned.
 
-Found reviewing #765. Impact is small (bytes per prompt), but it is unbounded.
+Found while reviewing the Allow once change. Impact is small (bytes per prompt), but it is unbounded.
 
 ## Fix
 

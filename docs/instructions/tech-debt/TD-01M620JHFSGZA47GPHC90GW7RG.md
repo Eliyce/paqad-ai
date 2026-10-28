@@ -32,7 +32,7 @@ The `allowed_once` mark the gate reads (src/hud/last-block.ts `takeAllowedOnce`,
 
 The docs (rule-override/technical.md "Forged override rows") and TD-01M5CW8WGAFVSRZ3AHEKD9VMS8 describe only the verb path and say a forged row "cannot let an edit through". That holds for the verb, not for a direct write of the record.
 
-Found reviewing #765. Not a loosening of Claude Code's own answer: the worst case is paqad's own gate asking instead of denying.
+Found while reviewing the Allow once change. Not a loosening of Claude Code's own answer: the worst case is paqad's own gate asking instead of denying.
 
 ## Options
 
