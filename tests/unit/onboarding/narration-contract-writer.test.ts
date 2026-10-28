@@ -111,7 +111,7 @@ describe('narration-contract-writer', () => {
     expect(router).toContain('dispatch one `paqad-expert` subagent per seated role');
   });
 
-  it('resumes the planning agent as the specification stage on the full lane', () => {
+  it('AC-47: resumes the planning agent as the specification stage on the full lane', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(
       '**Planning and specification in one agent (full lane).** When `paqad-planning` returns `completed`, do not dispatch `paqad-specification`. Resume the same agent with: "Planning is done. Continue as the specification stage for the same change. Run `paqad-ai stage brief specification` and follow it." When it returns after `experts record`, dispatch the expert seats and the chief in parallel as below, then resume the same agent again with: "The High Table has ruled. Continue the specification stage from the questions step." Follow the resume protocol below; its fresh-dispatch exit applies here the same way.',
@@ -122,7 +122,7 @@ describe('narration-contract-writer', () => {
     expect(body).not.toContain('then dispatch the specification stage again');
   });
 
-  it('writes the resume protocol once, with one 150000-token threshold', () => {
+  it('AC-47: writes the resume protocol once, with one 150000-token threshold', () => {
     const body = buildNarrationContractBody();
     const protocol =
       "**The resume protocol.** On Claude Code resume a stage agent with `SendMessage` and its agent id; on Codex use `send_input`. A resumed agent keeps its whole conversation, so it does not re-read what it already read, and it gets no new stage brief: when it moves to another stage, the resume message tells it to run `paqad-ai stage brief <stage>`. Dispatch a fresh agent instead only when the host cannot resume, refuses the resume or reports the agent gone, or when that agent's latest completion row (its newest `stage-agent` row with `event_status: completed` for that `agent_id`, never a sum of its rows) shows `tokens_not_recarried` above 150000. A fresh dispatch hands over in its prompt the files changed so far, the decisions made and what is left. Hosts with no resume (Cursor, Gemini CLI, Copilot, Windsurf, Junie and the rest) keep the fresh-dispatch flow: every stage in a new agent, and a stage that paused dispatched again after `paqad-ai decision resolve`.";
@@ -134,7 +134,7 @@ describe('narration-contract-writer', () => {
     expect(router).toContain(protocol);
   });
 
-  it('runs development as one agent per change, resumed for each next task', () => {
+  it('AC-48: runs development as one agent per change, resumed for each next task', () => {
     const body = buildNarrationContractBody();
     const paragraph =
       '**One development agent per change.** Development runs as ONE `paqad-development` agent per change. Dispatch it once with the whole plan. For anything development does after that (the next plan step, a fix after a paused decision, review fixes, acceptance-criteria test mapping, a fix after red checks), resume that same agent, naming what to do next. Follow the resume protocol below; its fresh-dispatch exit applies here the same way.';
@@ -144,7 +144,7 @@ describe('narration-contract-writer', () => {
     expect(router).toContain(paragraph);
   });
 
-  it('resumes the paused agent after decision resolve, never re-dispatching the same stage', () => {
+  it('AC-50: resumes the paused agent after decision resolve, never re-dispatching the same stage', () => {
     const body = buildNarrationContractBody();
     const paused = body.split('\n').find((line) => line.startsWith('3. On `paused: D-<id>`'))!;
     expect(paused).toContain(
@@ -156,7 +156,7 @@ describe('narration-contract-writer', () => {
     expect(router).toContain(paused);
   });
 
-  it('never tells a host without resume to call SendMessage or send_input', () => {
+  it('AC-49: never tells a host without resume to call SendMessage or send_input', () => {
     const body = buildNarrationContractBody();
     const noResume = body.slice(body.indexOf('Hosts with no resume'));
     const sentence = noResume.slice(0, noResume.indexOf('\n'));

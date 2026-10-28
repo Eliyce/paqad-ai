@@ -535,7 +535,7 @@ describe('spec pipeline CLI — start reuses its grounding', () => {
     return JSON.parse(out.at(-1)!);
   }
 
-  it('reuses a retrieval-mode grounding.json for the same request and prints grounding reused', async () => {
+  it('AC-41: reuses a retrieval-mode grounding.json for the same request and prints grounding reused', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const seeded = {
@@ -554,7 +554,7 @@ describe('spec pipeline CLI — start reuses its grounding', () => {
     expect(grounding(root, dir)).toEqual(seeded);
   });
 
-  it('rebuilds for a different request or other modules, without the reused line', async () => {
+  it('AC-41: rebuilds for a different request or other modules, without the reused line', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     writeStagedJson(root, dir, 'grounding', {
@@ -580,7 +580,7 @@ describe('spec pipeline CLI — start reuses its grounding', () => {
     expect(grounding(root, dir).modules).toEqual(['export']);
   });
 
-  it('rebuilds a grounding.json that is not valid JSON instead of failing', async () => {
+  it('AC-41: rebuilds a grounding.json that is not valid JSON instead of failing', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     mkdirSync(join(root, stagedFilePath(dir, 'grounding'), '..'), { recursive: true });
@@ -591,7 +591,7 @@ describe('spec pipeline CLI — start reuses its grounding', () => {
     expect(grounding(root, dir).request_digest).toBe(requestDigest(REQUEST));
   });
 
-  it('tries retrieval once more after a lexical fallback, then reuses the fallback', async () => {
+  it('AC-42: tries retrieval once more after a lexical fallback, then reuses the fallback', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const req = writeReq(root);
@@ -611,7 +611,7 @@ describe('spec pipeline CLI — start reuses its grounding', () => {
     expect(third.out[0]).toBe('grounding reused');
   });
 
-  it('writes no API key to stdout, stderr, grounding.json or the bundle', async () => {
+  it('AC-24: writes no API key to stdout, stderr, grounding.json or the bundle', async () => {
     const SECRET_OPENAI = 'sk-test-openai-value-0123456789';
     const SECRET_COHERE = 'co-test-cohere-value-0123456789';
     vi.stubEnv('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY', SECRET_OPENAI);

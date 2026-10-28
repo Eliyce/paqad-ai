@@ -69,7 +69,7 @@ describe('spec pipeline start after the grounding budget runs out', () => {
     expect(exit).toHaveBeenCalledTimes(1);
   });
 
-  it('labels a long request in well under the five seconds the budget leaves', () => {
+  it('AC-44: labels a long request in well under the five seconds the budget leaves', () => {
     const request = 'Let customers download their invoices as CSV, filtered by month. '.repeat(400);
     const grounding: GroundingArtifact = {
       ...BUDGET_FALLBACK,

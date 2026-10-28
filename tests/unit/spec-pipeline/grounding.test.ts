@@ -327,7 +327,7 @@ describe('groundAreaAsync budget, mode and query', () => {
     };
   }
 
-  it('passes the request text as the retrieval query with skipSync on, and records retrieval mode', async () => {
+  it('AC-39: passes the request text as the retrieval query with skipSync on, and records retrieval mode', async () => {
     const { service, calls } = recordingRetrieval();
     const g = await groundAreaAsync(tempRoot(), {
       ragEnabled: true,
@@ -342,7 +342,7 @@ describe('groundAreaAsync budget, mode and query', () => {
     expect(g).not.toHaveProperty('fallback_reason');
   });
 
-  it('abandons a slow retrieval when the budget runs out and grounds on the docs', async () => {
+  it('AC-40: abandons a slow retrieval when the budget runs out and grounds on the docs', async () => {
     vi.useFakeTimers();
     const root = tempRoot();
     writeDoc(root, 'docs/modules/export/business.md', '## Clean export\n**hidden columns**\n');
@@ -370,7 +370,7 @@ describe('groundAreaAsync budget, mode and query', () => {
     expect(g.terms).toContain('Clean export');
   });
 
-  it('goes straight to the docs with its own reason when the project index is cold', async () => {
+  it('AC-40: goes straight to the docs with its own reason when the project index is cold', async () => {
     const root = tempRoot();
     writeDoc(root, 'docs/modules/export/business.md', '## Clean export\n**hidden columns**\n');
     const g = await groundAreaAsync(root, { ragEnabled: true, query: REQUEST, budgetMs: 15000 });
@@ -378,7 +378,7 @@ describe('groundAreaAsync budget, mode and query', () => {
     expect(g.fallback_reason).toBe(GROUNDING_FALLBACK_REASONS.coldIndex);
   });
 
-  it('records the missing-key reason for the openai provider with no key, without waiting', async () => {
+  it('AC-43: records the missing-key reason for the openai provider with no key, without waiting', async () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     vi.stubEnv('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY', '');
     const root = tempRoot();

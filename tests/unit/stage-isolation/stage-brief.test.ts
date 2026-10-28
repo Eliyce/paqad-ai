@@ -301,7 +301,7 @@ describe('buildStageBrief', () => {
     });
   });
 
-  it('tells the specification stage to run spec pipeline start in the foreground', () => {
+  it('AC-45: tells the specification stage to run spec pipeline start in the foreground', () => {
     const root = withRepoPolicy(tempRoot());
     activeChange(root);
     const line =

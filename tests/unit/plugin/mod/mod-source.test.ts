@@ -113,7 +113,7 @@ describe('the HUD mod source', () => {
     }
   });
 
-  it('every $.fs.write path names .paqad/session/hud/ at the call', () => {
+  it('AC-12: every $.fs.write path names .paqad/session/hud/ at the call', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const writes = [...register.matchAll(/\$\.fs\.write\(\s*([^,]+),/g)].map((m) => m[1]!);
     expect(writes).toHaveLength(2);

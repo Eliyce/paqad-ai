@@ -122,13 +122,13 @@ describe('tokens not re-carried, once per agent', () => {
     );
   }
 
-  it('counts one row unchanged', () => {
+  it('AC-37: counts one row unchanged', () => {
     const root = tempRoot();
     completed(root, 'development', 4000, 'dev-1');
     expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(4000);
   });
 
-  it('counts cumulative rows from one resumed agent once, at their max', () => {
+  it('AC-37: counts cumulative rows from one resumed agent once, at their max', () => {
     const root = tempRoot();
     completed(root, 'development', 4000, 'dev-1');
     completed(root, 'development', 9000, 'dev-1');
@@ -139,7 +139,7 @@ describe('tokens not re-carried, once per agent', () => {
     });
   });
 
-  it('still sums rows from different agents', () => {
+  it('AC-37: still sums rows from different agents', () => {
     const root = tempRoot();
     completed(root, 'planning', 3000, 'plan-1');
     completed(root, 'development', 4000, 'dev-1');
@@ -147,7 +147,7 @@ describe('tokens not re-carried, once per agent', () => {
     expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(12000);
   });
 
-  it('counts each row with no agent id, never merging them into one bucket', () => {
+  it('AC-37: counts each row with no agent id, never merging them into one bucket', () => {
     const root = tempRoot();
     completed(root, 'planning', 3000);
     completed(root, 'specification', 5000);
@@ -155,7 +155,7 @@ describe('tokens not re-carried, once per agent', () => {
     expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(15000);
   });
 
-  it('gives a legacy bundle with no agent ids the same per-row sum as before', () => {
+  it('AC-38: gives a legacy bundle with no agent ids the same per-row sum as before', () => {
     const root = tempRoot();
     stageAgent(root, 'planning', 1500);
     stageAgent(root, 'development', 2500);

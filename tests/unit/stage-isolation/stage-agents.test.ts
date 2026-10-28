@@ -109,7 +109,7 @@ describe('stage-agent definitions', () => {
     expect(rules).not.toContain('re-dispatches you');
   });
 
-  it('only the specification body says to run spec pipeline start in the foreground', () => {
+  it('AC-45: only the specification body says to run spec pipeline start in the foreground', () => {
     expect(SPEC_FOREGROUND_START_LINE).toBe(
       'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.',
     );

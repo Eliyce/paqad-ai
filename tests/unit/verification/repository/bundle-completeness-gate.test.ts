@@ -1026,7 +1026,7 @@ describe('the isolation evidence stream', () => {
     expect(gate!.status).toBe('pass');
   });
 
-  it('passes a change where one agent ran planning and specification', () => {
+  it('AC-36: passes a change where one agent ran planning and specification', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     const row = (fields: Record<string, unknown>) =>

@@ -3219,7 +3219,7 @@ describe('the heartbeat and the chime', () => {
     expect(new Set(world.writes.map((write) => write.path))).toEqual(new Set([HEARTBEAT]));
   });
 
-  test('a root with a trailing separator writes under <root>/.paqad/session/hud/', async ($, on) => {
+  test('AC-12: a root with a trailing separator writes under <root>/.paqad/session/hud/', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },
       root: '/work/',
@@ -3229,7 +3229,7 @@ describe('the heartbeat and the chime', () => {
     expect(world.writes.map((write) => write.path)).toEqual([HEARTBEAT]);
   });
 
-  test('a session id with path characters is made safe in the heartbeat file name', async ($, on) => {
+  test('AC-12: a session id with path characters is made safe in the heartbeat file name', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, '.paqad/session/hud/s_1_x.json': fileText(FAST_ORD_490) },
       sessionId: 's/1:x',
@@ -3239,7 +3239,7 @@ describe('the heartbeat and the chime', () => {
     expect(world.writes.map((write) => write.path)).toEqual(['.paqad/session/hud/s_1_x.live']);
   });
 
-  test('a project root of / stays / and writes under /.paqad/session/hud/', async ($, on) => {
+  test('AC-12: a project root of / stays / and writes under /.paqad/session/hud/', async ($, on) => {
     const world = worldOf(on, {
       files: { '/.paqad/framework-path.txt': '~/.paqad-ai/current\n' },
       root: '/',

@@ -280,7 +280,7 @@ describe('the stages a resumed agent ran', () => {
     return root;
   }
 
-  it('lists planning and specification when the planning agent started specification by its id', () => {
+  it('AC-35: lists planning and specification when the planning agent started specification by its id', () => {
     const root = opened();
     const dirName = currentDir.get(root)!;
     for (const stage of ['planning', 'specification']) {
@@ -296,7 +296,7 @@ describe('the stages a resumed agent ran', () => {
     expect(validateStageEvidenceRow(row)).toEqual([]);
   });
 
-  it('reads stage start markers from the agent transcript with the marker parse', () => {
+  it('AC-35: reads stage start markers from the agent transcript with the marker parse', () => {
     const root = opened();
     const transcript = join(root, 'agent.jsonl');
     writeFileSync(
