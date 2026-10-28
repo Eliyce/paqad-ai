@@ -26,8 +26,8 @@ token is stored in plain text in `.paqad/session/hud/<session>.last-block.json`
 (src/hud/last-block.ts:79-99). The agent can read that file through its shell and run the verb
 itself, which writes a rule-overrides.jsonl row and a receipt line claiming a person allowed
 the edit. The forged row does not change any hook decision (no gate reads rule-overrides.jsonl,
-and only the mod's tool.check turns a deny into an allow), so this is an evidence-attribution
-gap, not a gate bypass.
+and the gate honours the `allowed_once` mark the verb also writes only on a retry of the same
+tool call, which only the HUD makes), so this is an evidence-attribution gap, not a gate bypass.
 
 There is no secret the mod can hold that the agent, running with the same user's rights,
 cannot also read. Options: record the row as `by: "hud-card"` with the attestation stated

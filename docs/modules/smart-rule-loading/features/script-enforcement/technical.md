@@ -311,7 +311,10 @@ The reasons below are not obvious from the code in `src/kernel/`.
   install on either dimension wins and is the only verdict that refuses, because an old install
   cannot be trusted to read a newer schema; the silent update heals the install and the next run is
   current.
-- **`gate.ts`.** Any blocking outcome blocks the host (exit 2): stderr carries the blocking findings,
+- **`gate.ts`.** Any blocking outcome blocks the host (exit 2), with one exception: on the
+  pre-mutation seam, a call the person allowed once in the HUD gets `{ block: false, ask }` instead
+  (see [rule-override technical](../../../feature-evidence/features/rule-override/technical.md)),
+  which `capability-gate.mjs` writes as a PreToolUse `ask` on the Claude Code route only. Otherwise stderr carries the blocking findings,
   stdout the advisory ones when nothing blocks. A thrown infra error propagates so the hook
   soft-fails to exit 0, which reads as "could not run", never a false all-clear. The first frontend
   edit visual-evidence reminder is model-facing context only, so any failure on its path degrades

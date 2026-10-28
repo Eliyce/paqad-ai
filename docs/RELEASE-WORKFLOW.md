@@ -365,7 +365,12 @@ Why each one works the way it does, for the parts the code does not say.
   `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX`, because Anthropic's plugin directory
   stops validation on any file over 5 MiB (the source maps are the only files that big) and
   blocks those junk names. Neither the npm package nor the plugin tree ships source maps:
-  `tsup.config.ts` builds none, and the assembler still filters `*.map` as a guard. It wipes everything in the
+  `tsup.config.ts` builds none, and the assembler still filters `*.map` as a guard. It also leaves out
+  `dist/plugin/` (only `scripts/build-plugin-manifest.mjs` imports it, at build time, so the npm
+  package keeps it), and it rewrites every raw control byte (0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F) in
+  an assembled `.js` file as `\xNN` text, because esbuild writes the bundled yaml lexer's
+  `"\x02"`, `"\x18"` and `"\x1f"` as literal bytes and the directory flags them. Each rewritten file
+  must pass `node --check` or assembly fails; a file with no such byte is copied byte for byte. It wipes everything in the
   target except `.git`, which is why the marketplace file is written there and not kept here. The job runs only
   when npm has the version and the plugin repo lacks its tag, commits nothing when the tree is
   unchanged, creates `main` on an empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing

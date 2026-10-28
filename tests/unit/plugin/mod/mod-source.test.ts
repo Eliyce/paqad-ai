@@ -184,7 +184,19 @@ describe('the HUD mod source', () => {
     expect(vars.length).toBeGreaterThan(0);
     for (const name of vars) expect(section).toContain(`\`${name}\``);
     expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
-    expect(section).toContain('**Its permission hooks:** two hooks');
+    expect(section).toContain('--outcome landed');
+  });
+
+  it('AC-18: the README names the hooks on your edits word for word, and the old permission hooks bullet is gone', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    expect(readme).toContain(
+      [
+        '- **Its hooks on your edits:**',
+        "  - When one of paqad's rules stops an Edit, Write or NotebookEdit, the HUD asks you what should happen. If you allow it once, paqad records the override and runs the same edit again. paqad's own gate then asks Claude Code to show you its permission dialog for that one edit, and you approve it there. The HUD never approves an edit and never changes a permission answer. A deny from your settings rules, from another tool's hook or from a stop your organization enforces still blocks the edit. If anything fails, the edit stays blocked.",
+        "  - One hook reads Claude Code's permission answer for every tool call, so the band can say when a call is waiting for you. It passes the answer on unchanged.",
+      ].join('\n'),
+    );
+    expect(readme).not.toContain('**Its permission hooks:**');
   });
 
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {

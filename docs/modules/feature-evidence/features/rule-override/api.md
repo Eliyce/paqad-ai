@@ -27,9 +27,31 @@ was for a different rule or file", "the last rule stop was for a different
 tool call", "the override token is missing, wrong or already used" and "no active change to
 record the override in".
 
+## `paqad-ai rules override --outcome`
+
+```text
+paqad-ai rules override --outcome <landed|refused|still-blocked> --rule <id> --file <path>
+                        --tool-use-id <id> [--project-root <path>] [--session <id>]
+```
+
+The HUD runs this after it retried an allowed-once edit. `--token` is not needed. On success it
+prints "recorded that the allowed-once edit of <file> landed" (or "was refused", or "stayed
+blocked") and `{"outcome_recorded":true, ...row, "bundle": <dir>}`, exit 0.
+
+On refusal it prints `outcome not recorded: <reason>.` on stderr, writes nothing and exits 1. The
+reasons are: "no session id, so there is no override to follow", "<value> is not landed, refused
+or still-blocked", "an outcome needs the tool call it follows", "<file> is outside this
+project", "no active change to record the outcome in" and "no override for this tool call is
+waiting for its outcome" (no override row for that tool call, rule and file, or an outcome row
+for that tool call already).
+
 ## Library surface
 
-- `applyRuleOverride(request): RuleOverrideOutcome` and
-  `managedSettingsEnforcePaqad(paths)` in `src/rule-scripts/override.ts`.
-- `writeRuleStopRecord`, `readRuleStopRecord`, `markRuleStopTokenUsed` in `src/hud/last-block.ts`.
-- `appendRuleOverride`, `readRuleOverrides` in `src/feature-evidence/rule-overrides.ts`.
+- `applyRuleOverride(request): RuleOverrideOutcome`, `recordEditOutcome(request):
+  EditOutcomeResult` and `managedSettingsEnforcePaqad(paths)` in `src/rule-scripts/override.ts`.
+- `writeRuleStopRecord`, `readRuleStopRecord`, `markRuleStopAllowedOnce`, `takeAllowedOnce` in
+  `src/hud/last-block.ts`.
+- `appendRuleOverride`, `readRuleOverrides`, `appendRuleOverrideOutcome`,
+  `overrideAwaitsOutcome` in `src/feature-evidence/rule-overrides.ts`.
+- `ALLOW_ONCE_REASON` and `CapabilityGateResult.ask` in `src/kernel/gate.ts`.
+- `preToolUseAsk(result, seam, adapter)` in `runtime/hooks/capability-gate.mjs`.
