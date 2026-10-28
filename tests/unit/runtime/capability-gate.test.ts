@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -129,3 +129,61 @@ describe.skipIf(!hasDist)(
     });
   },
 );
+
+describe('runtime/hooks/capability-gate.mjs — the allowed-once ask', () => {
+  const REASON =
+    'You allowed this edit once in the paqad HUD, and paqad recorded the override. Approve to run it.';
+
+  it('AC-11: writes one PreToolUse ask line with the reason on the Claude Code route', async () => {
+    const { preToolUseAsk } = await import('../../../runtime/hooks/capability-gate.mjs');
+    const line = preToolUseAsk(
+      { block: false, ask: REASON, context: '' },
+      'pre-mutation',
+      undefined,
+    );
+    expect(line.endsWith('\n')).toBe(true);
+    expect(line.trim().split('\n')).toHaveLength(1);
+    expect(JSON.parse(line)).toEqual({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'ask',
+        permissionDecisionReason: REASON,
+      },
+    });
+  });
+
+  it('AC-11: carries the additional context when the gate has some', async () => {
+    const { preToolUseAsk } = await import('../../../runtime/hooks/capability-gate.mjs');
+    const line = preToolUseAsk(
+      { block: false, ask: REASON, context: 'screenshots due' },
+      'pre-mutation',
+      undefined,
+    );
+    expect(JSON.parse(line).hookSpecificOutput).toMatchObject({
+      permissionDecision: 'ask',
+      additionalContext: 'screenshots due',
+    });
+  });
+
+  it('AC-11, INV-9: answers nothing on another seam, another adapter or a result with no ask, so the hook keeps exit 2', async () => {
+    const { preToolUseAsk } = await import('../../../runtime/hooks/capability-gate.mjs');
+    expect(preToolUseAsk({ ask: REASON }, 'completion', undefined)).toBeNull();
+    expect(preToolUseAsk({ ask: REASON }, 'pre-mutation', 'codex-cli')).toBeNull();
+    expect(preToolUseAsk({ ask: '' }, 'pre-mutation', undefined)).toBeNull();
+    expect(preToolUseAsk({ block: false }, 'pre-mutation', undefined)).toBeNull();
+    expect(preToolUseAsk(undefined, 'pre-mutation', undefined)).toBeNull();
+  });
+
+  it('AC-11: the hook writes the ask only on that route and falls back to exit 2 otherwise', () => {
+    const source = readFileSync(HOOK, 'utf8');
+    const start = source.indexOf('    if (result.ask) {');
+    expect(start).toBeGreaterThan(source.indexOf('    if (result.block) {'));
+    const branch = source.slice(start, source.indexOf('\n    }\n', start));
+    expect(branch).toContain('const answer = preToolUseAsk(result, seam, ADAPTER);');
+    expect(branch).toContain('if (answer === null) {');
+    expect(branch.indexOf('return 2;')).toBeLessThan(
+      branch.indexOf('process.stdout.write(answer)'),
+    );
+    expect(branch).toContain('process.stdout.write(answer);\n      return 0;');
+  });
+});
