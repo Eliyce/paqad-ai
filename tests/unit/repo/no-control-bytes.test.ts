@@ -67,6 +67,21 @@ describe('no raw control bytes in tracked text files', () => {
     expect(findings(files, (file) => readFileSync(join(REPO, file)))).toEqual([]);
   });
 
+  it('writes no control-character escape the bundler would print back as a raw byte', () => {
+    const escape = /\\(?:x(?:0[1-8bcef]|1[0-9a-f]|7f)|u00(?:0[1-8bcef]|1[0-9a-f]|7f))/i;
+    const shipped = trackedFiles().filter(
+      (file) => /^(src|runtime)\//.test(file) && /\.(ts|tsx|mjs|js)$/.test(file),
+    );
+    const hits = shipped.flatMap((file) =>
+      readFileSync(join(REPO, file), 'utf8')
+        .split('\n')
+        .map((line, index) => ({ line, at: `${file}:${index + 1}` }))
+        .filter(({ line }) => escape.test(line) && !line.includes('String.raw`'))
+        .map(({ at }) => at),
+    );
+    expect(hits).toEqual([]);
+  });
+
   it('keeps a rule id minted from a fixed input unchanged by the escaped separator', () => {
     const source = 'docs/instructions/rules/security.md';
     const text = 'Never log secrets.';

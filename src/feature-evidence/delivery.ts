@@ -388,6 +388,8 @@ function git(projectRoot: string, args: string[]): string | undefined {
   }
 }
 
+const FIELD_SEPARATOR = String.fromCharCode(0x1f);
+
 export function commitsSinceBase(
   projectRoot: string,
   baseRef: string | undefined,
@@ -400,8 +402,8 @@ export function commitsSinceBase(
     .split('\n')
     .filter(Boolean)
     .map((line) => {
-      const [sha, ...rest] = line.split('\x1f');
-      return { sha, subject: rest.join('\x1f') };
+      const [sha, ...rest] = line.split(FIELD_SEPARATOR);
+      return { sha, subject: rest.join(FIELD_SEPARATOR) };
     });
 }
 

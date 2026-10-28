@@ -147,6 +147,8 @@ type EvidenceScan = {
   fileContents: Map<string, string>;
 };
 
+const FILE_SEPARATOR = String.fromCharCode(0x01);
+
 async function computeTestFilesHash(
   projectRoot: string,
   globs: string[],
@@ -159,7 +161,7 @@ async function computeTestFilesHash(
   }
 
   const contents = await Promise.all(sortedFiles.map((f) => readFile(f, 'utf8')));
-  const hashInput = sortedFiles.map((f, i) => `${f}\x00${contents[i]!}`).join('\x01');
+  const hashInput = sortedFiles.map((f, i) => `${f}\x00${contents[i]!}`).join(FILE_SEPARATOR);
   return { sortedFiles, testFilesHash: sha256Hex(hashInput) };
 }
 
