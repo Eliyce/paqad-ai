@@ -45,10 +45,10 @@ async function loadDistResolver() {
 
 async function activeChangeFor(projectRoot, payload, loadResolver) {
   try {
-    const { activeChangeKey } = await loadResolver();
-    if (typeof activeChangeKey !== 'function') return UNRESOLVED;
+    const { peekActiveChangeKey } = await loadResolver();
+    if (typeof peekActiveChangeKey !== 'function') return UNRESOLVED;
     const hint = typeof payload?.session_id === 'string' ? payload.session_id : null;
-    const key = activeChangeKey(projectRoot, hint);
+    const key = peekActiveChangeKey(projectRoot, hint);
     return typeof key === 'string' && key !== '' ? key : UNRESOLVED;
   } catch {
     return UNRESOLVED;

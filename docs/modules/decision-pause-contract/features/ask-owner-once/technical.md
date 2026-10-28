@@ -19,9 +19,10 @@ the change a packet names.
 - `src/spec-pipeline/experts/conflicts.ts`: `mintExpertConflictDecisions` mints packets for pick
   rulings only, and `hasPendingExpertConflict` gates the questions step per change.
 - `runtime/hooks/decision-pause-gate.mjs`: the per-change edit gate.
-- `src/feature-evidence/stage-ledger.ts`: `resolveActiveChange` and `activeChangeKey`, the one
-  resolver for "which change is this session on", re-exported from
-  `src/stage-evidence/live-writer.ts` so the hook can load it from `dist`.
+- `src/feature-evidence/stage-ledger.ts`: `resolveActiveChange` and `activeChangeKey`, the
+  resolver the decision command uses, and `peekActiveChangeKey`, its read-only form for the gate.
+  The gate's form is re-exported from `src/stage-evidence/live-writer.ts` so the hook can load
+  it from `dist`.
 - `src/spec-pipeline/round.ts`: `buildQuestionRound` and the `paqad-ai spec pipeline round` verb.
 - `src/onboarding/decision-pause-contract-writer.ts`: the contract text, regenerated into
   `runtime/AGENT-ROUTER.md`.
@@ -62,7 +63,9 @@ minted twice.
 The edit gate reads every pending `D-*.json`. It blocks an edit when a packet has no `change`
 (legacy, blocks everything), when the packet cannot be read, or when the packet's `change`
 equals the active change of the session making the edit (the payload `session_id`, then
-`SE_SESSION`, then `CLAUDE_SESSION_ID`). If the active change cannot be resolved, or the `dist`
+`SE_SESSION`, then `CLAUDE_SESSION_ID`). The gate only reads that session's control file: it
+never adopts an in-flight change for a session that has none and never writes anything, so an
+unknown or missing session reads as unresolved. If the active change cannot be resolved, or the `dist`
 resolver fails to load, every pending packet blocks. Only a positively different change lets an
 edit through. The questions step follows the same rule: `hasPendingExpertConflict` counts only
 `spec.expert_conflict` packets for this change or with no change.

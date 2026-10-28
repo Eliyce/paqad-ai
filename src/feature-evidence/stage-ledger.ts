@@ -17,7 +17,12 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
-import { adoptableInFlightOnBranch, isBundleClosed, reconcileSessionControl } from './adoption.js';
+import {
+  adoptableInFlightOnBranch,
+  isBundleClosed,
+  isBundleMaterialized,
+  reconcileSessionControl,
+} from './adoption.js';
 import { seedFeatureDelivery } from './delivery.js';
 import { listFeatureDirs } from './enumerate.js';
 import {
@@ -206,6 +211,15 @@ export function resolveActiveChange(
 
 export function activeChangeKey(projectRoot: string, hint?: string | null): string | null {
   return resolveActiveChange(projectRoot, hint)?.key ?? null;
+}
+
+export function peekActiveChangeKey(projectRoot: string, hint?: string | null): string | null {
+  const sessionId = (hint ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? '').trim();
+  if (sessionId === '') return null;
+  const active = readSessionControl(projectRoot, sessionId).active;
+  if (active === null || !isBundleMaterialized(projectRoot, active)) return null;
+  if (isBundleClosed(projectRoot, active)) return null;
+  return featureChangeKey(active);
 }
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {

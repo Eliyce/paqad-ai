@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { featureChangeKey, featureSessionControlPath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 import { evaluateDecisionPauseGate } from '../../../runtime/hooks/decision-pause-gate.mjs';
@@ -99,6 +99,19 @@ describe('the decision-pause gate holds only the change a packet belongs to', ()
     const dirB = openChange(SES_B, '01JABCDEFGHJKMNPQRSTVWXYZ2');
     packet('spec.expert_conflict', featureChangeKey(dirB));
     expect(await edit('ses_nobody_knows')).toBe(2);
+  });
+
+  it('AC-14 / INV-2: an unknown session never adopts the one in-flight change, writes nothing, and blocks', async () => {
+    openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');
+    packet('spec.expert_conflict', 'another-change-key');
+    expect(await edit('ses_nobody_knows')).toBe(2);
+    expect(existsSync(join(root, featureSessionControlPath('ses_nobody_knows')))).toBe(false);
+  });
+
+  it('AC-14 / INV-2: an edit with no session at all blocks on another change packet', async () => {
+    openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');
+    packet('spec.expert_conflict', 'another-change-key');
+    expect(await edit(null)).toBe(2);
   });
 
   it('AC-14 / INV-2: a project with no stage ledger blocks on any change packet', async () => {
