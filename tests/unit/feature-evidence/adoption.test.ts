@@ -776,3 +776,73 @@ describe('a change another session is running', () => {
     expect(adoptableInFlightOnBranch(root, 'ses_other', at(5))).toEqual([BUNDLE_A]);
   });
 });
+
+describe('an active change on another branch', () => {
+  function git(root: string, ...args: string[]): void {
+    execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+  }
+
+  function onFeatA(): string {
+    const root = tempRepo();
+    checkoutBranch(root, 'feat/a');
+    materialize(root, BUNDLE_A, 'ses_a', 'feat/a');
+    setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
+    return root;
+  }
+
+  it('AC-8: clears the pointer when the checked-out branch differs, without pausing it', () => {
+    const root = onFeatA();
+    checkoutBranch(root, 'fix/b');
+
+    expect(reconcileSessionControl(root, 'ses_a', clock)).toBeNull();
+    const control = readSessionControl(root, 'ses_a');
+    expect(control.active).toBeNull();
+    expect(control.written_by).toBe('reconcile');
+    expect(control.paused).not.toContain(BUNDLE_A);
+  });
+
+  it('AC-8: a bare stage start opens a new change on the new branch and writes nothing to the old one', () => {
+    const root = onFeatA();
+    const before = readFeatureStageUnit(root, BUNDLE_A).length;
+    checkoutBranch(root, 'fix/b');
+
+    const fresh = resolveActiveFeature(root, 'ses_a', {
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ7',
+      now: clock,
+    });
+    expect(fresh).not.toBe(BUNDLE_A);
+    expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(before);
+    expect(readSessionControl(root, 'ses_a').paused).not.toContain(BUNDLE_A);
+  });
+
+  it('AC-9: picks the change up again when its branch is checked out again', () => {
+    const root = onFeatA();
+    checkoutBranch(root, 'fix/b');
+    const fresh = openFeatureChange(root, 'ses_a', {
+      adapter: 'claude-code',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ8',
+      now: clock,
+    });
+    expect(fresh).not.toBe(BUNDLE_A);
+
+    git(root, 'checkout', '-q', 'feat/a');
+    expect(reconcileSessionControl(root, 'ses_a', clock)).toBe(BUNDLE_A);
+    expect(readSessionControl(root, 'ses_a').active).toBe(BUNDLE_A);
+  });
+
+  it('AC-8: keeps the pointer on a detached HEAD', () => {
+    const root = onFeatA();
+    git(root, 'checkout', '-q', '--detach');
+
+    expect(reconcileSessionControl(root, 'ses_a', clock)).toBe(BUNDLE_A);
+  });
+
+  it('AC-8: keeps the pointer for a change with no recorded branch', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_a', null);
+    setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
+    checkoutBranch(root, 'fix/b');
+
+    expect(reconcileSessionControl(root, 'ses_a', clock)).toBe(BUNDLE_A);
+  });
+});

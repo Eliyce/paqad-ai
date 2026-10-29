@@ -89,14 +89,14 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
   });
 
-  it('reads other-branch for a change recorded on another branch', () => {
+  it('draws no change once the active change on another branch is set aside', () => {
     const root = repoRoot();
     checkout(root, 'feat/a', true);
     openChangeHere(root, S);
     runStage(root, S, 'planning');
     checkout(root, 'feat/b', true);
     const snapshot = buildHudSnapshot(root, S);
-    expect(snapshot.scope).toEqual({ qualified: false, reason: 'other-branch' });
+    expect(snapshot.scope).toEqual({ qualified: false, reason: 'no-active-change' });
     expect(snapshot.change).toBeNull();
   });
 

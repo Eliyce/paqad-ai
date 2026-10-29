@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readGitState } from '@/rag/git-state.js';
+import { readGitState, readHeadRef } from '@/rag/git-state.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 import { runningStageOfOtherSession } from '@/stage-evidence/stage-agent-holds.js';
 import { RECORD_REPAIR_KIND } from '@/stage-evidence/types.js';
@@ -118,6 +118,13 @@ export function anotherSessionRunningStage(
   return runningStageOfOtherSession(rows, sessionId, now().getTime());
 }
 
+function onAnotherBranch(projectRoot: string, dirName: string): boolean {
+  const head = readHeadRef(projectRoot);
+  if (head.branch === null) return false;
+  const recorded = featureBranch(projectRoot, dirName);
+  return recorded !== null && recorded !== head.branch;
+}
+
 export function reconcileSessionControl(
   projectRoot: string,
   sessionId: string,
@@ -133,9 +140,10 @@ export function reconcileSessionControl(
     isBundleMaterialized(projectRoot, control.active) &&
     !activeClosed
   ) {
-    if (anotherSessionRunningStage(projectRoot, sessionId, control.active, now) === null) {
-      return control.active;
-    }
+    const keep =
+      !onAnotherBranch(projectRoot, control.active) &&
+      anotherSessionRunningStage(projectRoot, sessionId, control.active, now) === null;
+    if (keep) return control.active;
     control = writeSessionControl(projectRoot, { ...control, active: null }, now, 'reconcile');
   }
 
