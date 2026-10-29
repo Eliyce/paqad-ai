@@ -458,8 +458,9 @@ empty, never guessed. The headline and the flags are decided in one place
 **Done means the paqad work is done.** `computeHudHeadline` reads row 16 `Done` once `workIsDone`
 holds: no stage runs, every mandatory stage is complete or redone, checks are green, a verdict is
 on record and no judged required gate of the work fails. It does not wait for a commit, a push, a
-pull request or CI; those live in the delivery rail. Row 14 (Watching CI) and the merge rows 7 and
-8 are gone, and the Committed and PR open words fold into `Done`. The reasons of gates that were
+pull request or CI; those live in the delivery rail. While the open PR's CI is pending it reads
+row 14 `Coding Done: Watching CI`. The merge rows are gone, and the Committed and PR open words
+fold into `Done`. Any pending decision of the change reads row 6 `Waiting for your answer`. The reasons of gates that were
 never judged (the fast lane's implementation review) and paqad's record gaps go to the gap line as
 `paqad could not prove ...`. Rows 9 (PR closed), 10 (CI failed on the open PR's current head) and
 11 (push failed) still lead over Done. A verdict with every stage ended but one unproven reads row

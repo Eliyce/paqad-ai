@@ -239,14 +239,15 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 1   | paqad is on but the session id could not be read, or the snapshot does not parse | attention       | no   | `paqad cannot read this session's record`                                                                 |
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
-| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your permission`                                                                             |
-| 5   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
-| 6   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
+| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your answer`                                                                                 |
+| 6   | a decision packet of this change is pending                                      | attention       | no   | `Waiting for your answer`                                                                                 |
+| 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`                                          |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed on the open PR's current head                                          | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
 | 12  | the verdict is fail and a judged required gate of the work failed                | fail            | no   | the failure phrase of the first failing required gate, plus ` and N more`                                 |
 | 13  | the work is not done and the verdict is inconclusive, or fail with no failing gate the Ledger can name, or a stage ended unproven | caution | no | `Inconclusive: <first reason>` |
+| 14  | the paqad work is done and the open PR's CI is pending                           | pass            | no   | `Coding Done: Watching CI`                                                                                |
 | 15  | a stage is running                                                               | accent          | yes  | the stage's running words (`Planning the change`, `N of M plan steps built`, `Reviewing the change`, ...) |
 | 16  | the paqad work is done (see below)                                               | pass            | no   | `Done` (with a dim `not committed` when the edit is not committed)                                        |
 | 18  | a stage is done and one is not yet                                               | idle            | no   | `<last done stage> done. Next: <next mandatory stage>`                                                    |
@@ -267,8 +268,8 @@ decision of this change or a question on screen); a permission prompt pauses no 
 Row 16 `Done` holds once the paqad work is done: no stage is running, every mandatory stage is
 complete or redone, the checks are green, a verdict is on record and no judged required gate of
 the work fails. Done comes before any commit or push and does not wait for CI: whether the work is
-committed, pushed, has an open PR or has CI pending, the headline stays `Done`, and push, PR and
-CI live only in the delivery rail. The reasons of gates that were never judged (the fast lane's
+committed, pushed or has an open PR, the headline stays `Done`, and push, PR and CI live in the
+delivery rail. While the open PR's CI is pending it reads `Coding Done: Watching CI`. The reasons of gates that were never judged (the fast lane's
 implementation review, where no review stage runs) and paqad's own record gaps go to the neutral
 gap line as `paqad could not prove ...` or `paqad could not record ...`; they never turn the
 headline amber or red. Real failures still win: CI failing on the current head of the open PR
@@ -276,15 +277,27 @@ turns the headline red (`CI failed on PR #N`), and a pushed fix whose CI is pend
 brings `Done` back. A CI result read for an older head is not current and never raises row 10.
 
 The done ladder keeps its rung for the receipt (`done`, `committed`, `pr-open`), but every rung
-reads `Done` on the band. There is no merge rung: a merged PR shows only as the quiet rail note
-`PR #N merged`.
+reads `Done` on the band, or `Coding Done: Watching CI` (row 14) while the open PR's CI is
+pending. There is no merge rung and no merged note: after a merge the rail just names the PR.
 
 The delivery rail follows push and CI by itself. The Stop-time reader marks Push when the branch
 upstream or the PR head is HEAD. While an open PR's CI is pending the mod runs
-`paqad-ai delivery-link refresh` in the background (30 s, doubling to 5 min, at most 60 min, one at
-a time). When that watch stops without an answer, the gap line adds `CI updates paused: <reason>`
-(`checked for 60 minutes`, or the gh failure such as `gh is signed out`); a `git push` from this
-session or a newer PR head starts it again.
+`paqad-ai delivery-link refresh` in the background every 30 s with no back-off, for at most 60 min,
+one at a time. When that watch stops without an answer, the gap line adds
+`CI updates paused: <reason>`, where the reason is one fixed phrase: `time limit` (60 min ran out),
+`signed out` or `offline` (two failed gh reads in a row); a `git push` from this session or a newer
+PR head starts it again.
+
+The headline is one line on both surfaces. When it would wrap it is cut to the band width with a
+trailing `…`; on Desktop the strip `alt` keeps the whole sentence.
+
+Rows 3, 4 and 6 all read `Waiting for your answer` and win over the subagent title, Done and CI.
+Row 7 leads while any subagent or background task from `$.agent.list()` is working: the light
+breathes calmly (the live light, no blinking), and up to two dim lines under the headline say what
+the subagents are doing, newest on top, one line per `session.append` row or `tool.call` that
+carries an `agentId`. `N finished` counts the agents the HUD saw leave the list while this change
+was current, kept per change by the mod because the engine gives no start time and drops finished
+agents. With nothing running the normal headline and its rows come back.
 
 With paqad off nothing is drawn. The terminal keeps its own headline, except that its idle header
 says `Getting ready`.
@@ -335,7 +348,7 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 - The band's `bodyColumns` runs from 57 to 93 on Desktop; the strip's markup width is
   `round(bodyColumns × 8.5)` with a minimum of 480, and the image scales down to fit the slot.
 - Row cost: identity 1, message 1, gap line 1, strip 3, so 6 rows, plus 1 while the close menu is
-  open. The gap line is counted in every state. Below
+  open, plus 1 for each subagent line (at most 2) while a subagent runs. The gap line is counted in every state. Below
   that `maxRows` the minimised row is drawn instead; with the menu open and no room, the minimised
   row is drawn with the menu row under it.
 - The docked Ledger is about 48 columns wide. Tabs keep their full labels in whole-number widths.

@@ -266,8 +266,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **CI passed.** When the saved CI reading is a pass on the pull request's current head and the
   pull request is open, the rail reads `CI · <n> of <n> green`, the headline stays `Done` and one
   toast naming it fires per change and head commit (kept in `$.state`), with the opt-in chime.
-  The HUD never offers a merge: merging is the owner's, and a merged pull request is only the rail
-  note `PR <n> merged`. While the pull request's CI is pending the mod keeps the rail current with
+  The HUD never offers a merge and never notes one: merging is the owner's. While the pull
+  request's CI is pending the headline reads `Coding Done: Watching CI` and the mod keeps the rail
+  current with
   `paqad-ai delivery-link refresh` (see [hud.md](../../../../instructions/design-system/hud.md)).
 - **Done and finished stages.** `Done` shows once the paqad work is done, before any push. Finished
   stages draw green with a check, and the strip glows once for about 2 s when the last stage ends

@@ -204,7 +204,7 @@ describe('the HUD mod source', () => {
       '`paqad-ai delivery-link refresh --session <id> --project-root <path> --min-age-seconds <n>`',
     );
     expect(section).toContain("only while an open pull request's CI is pending");
-    expect(section).toContain('30 seconds, doubling to 5 minutes, for at most 60 minutes');
+    expect(section).toContain('every 30 seconds, for at most 60 minutes');
     expect(section).toContain('your own `gh` login, which contacts GitHub');
     expect(section).toContain('always on, with no setting');
     expect(section).not.toContain('Sends:** nothing, and it contacts no host');

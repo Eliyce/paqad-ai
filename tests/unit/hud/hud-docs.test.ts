@@ -29,7 +29,9 @@ describe('HUD and verification docs describe the truthful verdict', () => {
     expect(flat).toContain('CI failing on the current head of the open PR turns the headline red');
     expect(flat).toContain('There is no merge rung');
     expect(flat).not.toContain('Safe to merge');
-    expect(flat).not.toContain('Watching CI');
+    expect(flat).toContain('`Coding Done: Watching CI`');
+    expect(flat).toContain('`time limit`');
+    expect(flat).not.toContain('PR #N merged');
   });
 
   it('AC-19: the Motion section names the one-time done glow as its single exception', () => {
