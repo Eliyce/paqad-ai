@@ -193,7 +193,7 @@ describe('computeHudHeadline', () => {
     expect(merged.text).not.toMatch(/merge/i);
   });
 
-  it('row 14 is gone: CI pending on the open PR never replaces Done', () => {
+  it('row 14: once the work is done, CI pending on the open PR reads Coding Done: Watching CI', () => {
     expect(
       headline({
         verdict: verdict('pass'),
@@ -201,7 +201,10 @@ describe('computeHudHeadline', () => {
         ship: pr({ ci: { state: 'pending' } }),
         ladder: ladder({ rung: 'pr-open', ci: 'pending' }),
       }),
-    ).toMatchObject({ row: 16, text: 'Done', tone: 'good' });
+    ).toMatchObject({ row: 14, text: 'Coding Done: Watching CI', tone: 'good', rung: 'pr-open' });
+    expect(
+      headline({ verdict: verdict('pass'), ship: pr({ ci: { state: 'pending' } }) }).text,
+    ).not.toBe('Coding Done: Watching CI');
   });
 
   it('AC-15 row 10: CI turning red reports the failure, never Safe to merge', () => {
@@ -391,10 +394,6 @@ describe('computeHudHeadline', () => {
           ladder: ladder({ rung: 'committed' }),
           ship: pr({ pr: null, pr_state: null, push: { state: 'pushed' } }),
         },
-        {
-          ladder: ladder({ rung: 'pr-open', ci: 'pending' }),
-          ship: pr({ ci: { state: 'pending' } }),
-        },
         { ladder: ladder({ rung: 'pr-open', ci: 'pass' }), ship: pr({ ci: { state: 'pass' } }) },
       ];
       for (const over of cases) {
@@ -459,11 +458,12 @@ describe('computeHudHeadline', () => {
         ship: pr({ ci: { state: 'fail' } }),
       });
       expect(failed).toMatchObject({ row: 10, tone: 'bad', text: `CI failed on ${PR}` });
-      for (const state of ['pending', 'pass']) {
-        expect(
-          done({ ladder: ladder({ rung: 'pr-open' }), ship: pr({ ci: { state } }) }),
-        ).toMatchObject({ row: 16, text: 'Done' });
-      }
+      expect(
+        done({ ladder: ladder({ rung: 'pr-open' }), ship: pr({ ci: { state: 'pending' } }) }),
+      ).toMatchObject({ row: 14, text: 'Coding Done: Watching CI' });
+      expect(
+        done({ ladder: ladder({ rung: 'pr-open' }), ship: pr({ ci: { state: 'pass' } }) }),
+      ).toMatchObject({ row: 16, text: 'Done' });
     });
 
     it('a stage that ended unproven withholds Done and reads Inconclusive, not waiting', () => {

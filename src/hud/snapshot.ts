@@ -1456,6 +1456,8 @@ function notProvenLines(verdict: HudVerdictRecord): string[] {
   );
 }
 
+export const WATCHING_CI = 'Coding Done: Watching CI';
+
 function doneHeadline(
   input: HudHeadlineInput,
   ladder: DoneLadder | null,
@@ -1521,7 +1523,14 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
     return headlineRow(12, 'bad', failurePhrase('code-tests-lint'), 'Needs your attention', gap);
   }
   if (verdict && workIsDone({ ...input, verdict })) {
-    return doneHeadline(input, ladder, [...gaps, ...notProvenLines(verdict)]);
+    const done = doneHeadline(input, ladder, [...gaps, ...notProvenLines(verdict)]);
+    if (ship?.pr_state === 'open' && ship.ci?.state === 'pending') {
+      return headlineRow(14, 'good', WATCHING_CI, RUNG_WORDS.done, {
+        ...(done.rung ? { rung: done.rung } : {}),
+        ...(done.gap ? { gap: done.gap } : {}),
+      });
+    }
+    return done;
   }
   if (verdict && (work === 'inconclusive' || work === 'fail')) {
     return inconclusiveHeadline(verdict, gap);
