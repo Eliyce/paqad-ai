@@ -249,10 +249,11 @@ function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): strin
     if (kept !== null) answerUses(hook.body);
 
     const checkAnswer = (answer: ts.Expression) => {
-      const bare = withoutWrappers(answer);
-      const keptAnswer = kept !== null && ts.isIdentifier(bare) && bare.text === kept;
-      if (!keptAnswer && !isPassOn(answer, event, next) && !isFixedAnswer(answer)) {
-        report(answer, 'answer that is not next(e), its one const or a fixed deny or ask');
+      if (!isPassOn(answer, event, next) && !isFixedAnswer(answer)) {
+        report(
+          answer,
+          'answer not written in the return itself, as next(e) or a fixed deny or ask',
+        );
       }
     };
     const returns = (node: ts.Node): void => {
@@ -295,7 +296,7 @@ function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): strin
 }
 
 describe('register.tsx permission hook', () => {
-  it('reads its event plainly and calls next(e) only in a return or the one const it returns', () => {
+  it('reads its event plainly and calls next(e) only in a return or one const, and returns next(e) itself', () => {
     expect(permissionHookFindings(readFileSync(REGISTER, 'utf8'))).toEqual([]);
   });
 
@@ -316,6 +317,10 @@ describe('register.tsx permission hook', () => {
     [
       'loosening return',
       "on('tool.check', async ($, e, next) => {\n  return { decision: (await next(e)).decision };\n});",
+    ],
+    [
+      'returned kept answer',
+      "on('tool.check', async ($, e, next) => {\n  const r = await next(e); return r;\n});",
     ],
     ['next(e) as a statement', hookWith('next(e);')],
     ['next(e) as an argument', hookWith('await note($, e, await next(e));')],
@@ -365,7 +370,7 @@ describe('register.tsx permission hook', () => {
     ).toEqual([`line 2: event \`e\` used by itself in a AsExpression; ${REJECTED}`]);
   });
 
-  it('allows member reads, the event handed to a helper, one kept answer and a fixed deny or ask', () => {
+  it('allows member reads, the event handed to a helper, one kept answer read for the band and next(e) or a fixed deny or ask returned', () => {
     const source = [
       "on('tool.check', async ($, e, next) => {",
       '  const verdict = await next(e);',
@@ -375,7 +380,7 @@ describe('register.tsx permission hook', () => {
       '  await notePermission($, e, decision);',
       "  if (event.tool === 'Bash') return { decision: 'ask', reason: 'why' };",
       "  if (agent === null || verdict.decision === 'deny') return { decision: 'deny', reason: 'why' };",
-      '  return verdict;',
+      '  return next(e);',
       '}).catch(($, e, next) => next(e));',
       "on('tool.check', { tool: 'Read' }, async ($, e, next) => next(e));",
       "on('tool.check', { tool: 'Bash' }, async ($, e, next) => {",
