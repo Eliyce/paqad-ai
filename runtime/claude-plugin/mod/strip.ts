@@ -26,6 +26,7 @@ export interface StripInput {
   ci: number | null;
   deliveryValue: string;
   clockMs?: number;
+  settledAtMs?: number | null;
 }
 
 export const STRIP_HEIGHT = 52;
@@ -33,6 +34,7 @@ export const STRIP_HEIGHT = 52;
 const PULSE_MS = 1600;
 const SPIN_MS = 4000;
 const SHEEN_MS = 2200;
+const SETTLE_MS = 2000;
 
 function phase(clockMs: number | undefined, periodMs: number): string | null {
   if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
@@ -98,6 +100,7 @@ function css(clockMs?: number): string {
     `.att{fill:${SIGNAL.attention}}.atts{stroke:${SIGNAL.attention}}`,
     `.cau{fill:${SIGNAL.caution}}.caus{stroke:${SIGNAL.caution}}`,
     `.pass{fill:${STATUS_B.done}}.passs{stroke:${STATUS_B.done}}`,
+    `.passt{fill:${SIGNAL.passText}}`,
     `.fail{fill:${STATUS_B.failed}}.fails{stroke:${STATUS_B.failed}}`,
     '.cap{font-size:8.5px;font-weight:600;letter-spacing:1.1px}',
     '.val{font-size:10.5px;font-weight:500}',
@@ -105,6 +108,7 @@ function css(clockMs?: number): string {
     '@media (prefers-color-scheme: dark){',
     `.ink{fill:${INK.inkDark}}.inks{stroke:${INK.inkDark}}.mut{fill:${INK.mutedDark}}`,
     `.pass{fill:${STATUS_B.doneDark}}.passs{stroke:${STATUS_B.doneDark}}`,
+    `.passt{fill:${SIGNAL.passDark}}`,
     `.fail{fill:${STATUS_B.failedDark}}.fails{stroke:${STATUS_B.failedDark}}`,
     `.cau{fill:${SIGNAL.cautionDark}}.caus{stroke:${SIGNAL.cautionDark}}`,
     '}',
@@ -179,7 +183,7 @@ function section({ x0, x1, inner, last }: Section, cap: string, value: string): 
 }
 
 const STAGE_BAR: Readonly<Record<StageState, string>> = {
-  done: 'ink',
+  done: 'pass',
   run: 'acc pulse',
   paused: 'att',
   marked: 'cau',
@@ -189,7 +193,7 @@ const STAGE_BAR: Readonly<Record<StageState, string>> = {
 };
 
 const STAGE_LABEL: Readonly<Record<StageState, string>> = {
-  done: 'ink',
+  done: 'passt',
   run: 'acc cur',
   paused: 'att cur',
   marked: 'ink',
@@ -220,28 +224,61 @@ function liveBar(
   ].join('');
 }
 
+export function settlePhase(
+  clockMs: number | undefined,
+  settledAtMs: number | null | undefined,
+): string | null {
+  if (clockMs === undefined || settledAtMs === null || settledAtMs === undefined) return null;
+  const into = clockMs - settledAtMs;
+  if (!Number.isFinite(into) || into < 0 || into >= SETTLE_MS) return null;
+  return `-${(into / 1000).toFixed(3)}s`;
+}
+
+function stageLabel(label: string, state: StageState): string {
+  const text = escapeXml(label);
+  return state === 'done' ? `<tspan class="pass">✓</tspan> ${text}` : text;
+}
+
+function settleGlow(bars: ReadonlyArray<{ x: number; w: number }>, y: number, at: string): string {
+  const rects = bars
+    .map(
+      ({ x, w }) =>
+        `<rect class="pass" x="${fixed(x)}" y="${y - 1}" width="${fixed(w)}" height="5" rx="2.5" filter="url(#glow)" opacity="0"><animate attributeName="opacity" values=".5;0" dur="2s" repeatCount="1" fill="freeze" begin="${at}"/></rect>`,
+    )
+    .join('');
+  return `<g class="motion settle">${rects}</g>`;
+}
+
 function stageMarks(
   x0: number,
   x1: number,
   stages: ReadonlyArray<Mark<StageState>>,
   clockMs?: number,
+  settle: string | null = null,
 ): string {
   const gap = 4;
   const n = Math.max(1, stages.length);
   const w = (x1 - x0 - gap * (n - 1)) / n;
   const y = Y_MARK - 1.5;
-  return stages
-    .map(({ label, state }, i) => {
-      const x = x0 + i * (w + gap);
-      const bar =
-        state === 'skip'
-          ? `<line class="faints" x1="${fixed(x + 1)}" y1="${Y_MARK}" x2="${fixed(x + w - 1)}" y2="${Y_MARK}" stroke-width="1" stroke-dasharray="2 3"/>`
-          : LIVE_BAR_STATES.has(state)
-            ? liveBar(x, w, y, i, state, clockMs)
-            : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
-      return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
-    })
-    .join('');
+  const done = stages.flatMap(({ state }, i) =>
+    state === 'done' ? [{ x: x0 + i * (w + gap), w }] : [],
+  );
+  const glow = settle === null || done.length === 0 ? '' : settleGlow(done, y, settle);
+  return (
+    glow +
+    stages
+      .map(({ label, state }, i) => {
+        const x = x0 + i * (w + gap);
+        const bar =
+          state === 'skip'
+            ? `<line class="faints" x1="${fixed(x + 1)}" y1="${Y_MARK}" x2="${fixed(x + w - 1)}" y2="${Y_MARK}" stroke-width="1" stroke-dasharray="2 3"/>`
+            : LIVE_BAR_STATES.has(state)
+              ? liveBar(x, w, y, i, state, clockMs)
+              : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
+        return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${stageLabel(label, state)}</text>`;
+      })
+      .join('')
+  );
 }
 
 function seatMark(state: SeatState, cx: string): string {
@@ -391,7 +428,8 @@ export function strip(input: StripInput): { source: string; width: number; heigh
   const stage = sections[0]!;
   const delivery = sections.at(-1)!;
   let body = section(stage, 'STAGE', input.stageValue);
-  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs);
+  const settle = settlePhase(input.clockMs, input.settledAtMs);
+  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs, settle);
   if (input.seats) {
     const table = sections[1]!;
     body += section(table, 'HIGH TABLE', input.tableValue);
@@ -406,7 +444,11 @@ export function strip(input: StripInput): { source: string; width: number; heigh
   );
   const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
   return {
-    source: svg(width, STRIP_HEIGHT, css(input.clockMs) + defs(live, live) + body),
+    source: svg(
+      width,
+      STRIP_HEIGHT,
+      css(input.clockMs) + defs(live || settle !== null, live) + body,
+    ),
     width,
     height: STRIP_HEIGHT,
   };

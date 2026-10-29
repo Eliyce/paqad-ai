@@ -36,6 +36,8 @@ import {
   ANSWER_TOAST,
   bandIsLive,
   buildDesktopBand,
+  settleStart,
+  settledChange,
   buildDesktopLedger,
   ledgerAutoTab,
   ledgerIsLive,
@@ -167,6 +169,7 @@ const COMMAND_UNREADABLE = 'paqad could not read its record for this session. Tr
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
+const SETTLE_GLOW_MS = 2000;
 const HEARTBEAT_MS = 60_000;
 
 const statusAtom = atom({ plugin: 'paqad', key: 'status' } as const, null as PaqadStatus | null);
@@ -192,6 +195,10 @@ const tableSittingAtom = atom(
   null as TableSitting | null,
 );
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
+const settleSeenAtom = atom(
+  { plugin: 'paqad', key: 'settleSeen' } as const,
+  {} as Record<string, number | null>,
+);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
   {} as Record<string, string>,
@@ -316,6 +323,7 @@ async function refresh($: EngineInterface): Promise<void> {
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
+      if (changed) await noteSettled($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
       if (changed) await bringTableForward($, snapshot);
       if (changed || isLive(snapshot) || (await liveState($)).turnStartedAt !== null) {
@@ -460,6 +468,26 @@ async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | nul
     $.ui.toast(bandHeadline(snapshot, buildBandView(snapshot, await read($, nowAtom))));
   } catch {}
   playChime($);
+}
+
+async function noteSettled($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  const settled = settledChange(snapshot);
+  if (!settled) return;
+  const seen = (await read($, settleSeenAtom)) ?? {};
+  if (settled.key in seen) return;
+  const start = settleStart(settled.endedAt, await $.clock.now());
+  await update($, settleSeenAtom, (keys) => ({ ...(keys ?? {}), [settled.key]: start }));
+}
+
+async function settledAt(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<number | null> {
+  const settled = settledChange(snapshot);
+  if (!settled) return null;
+  const start = (await read($, settleSeenAtom))?.[settled.key] ?? null;
+  if (start === null) return null;
+  return (await $.clock.now()) - start < SETTLE_GLOW_MS ? start : null;
 }
 
 async function beat($: EngineInterface): Promise<void> {
@@ -818,8 +846,10 @@ async function desktopBandOf(
   $: EngineInterface,
   size: { columns: number; maxRows: number },
 ): Promise<DesktopBand> {
+  const snapshot = await read($, snapshotAtom);
   return buildDesktopBand({
-    snapshot: await read($, snapshotAtom),
+    snapshot,
+    settledAtMs: await settledAt($, snapshot),
     unbound: (await read($, unboundAtom)) === true,
     unavailable: (await read($, unavailableAtom)) === true,
     now: (await read($, nowAtom)) ?? 0,

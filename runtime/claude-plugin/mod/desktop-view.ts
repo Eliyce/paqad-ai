@@ -333,11 +333,37 @@ export function deliveryStrip(
   };
 }
 
+export const SETTLE_WINDOW_MS = 10_000;
+
+export function settledChange(
+  snapshot: PaqadHudSnapshot | null,
+): { key: string; endedAt: number | null } | null {
+  if (!snapshot?.active) return null;
+  const required = snapshot.stages.filter((stage) => stage.mandatory);
+  const ended = (state: string) => state === 'complete' || state === 'redone';
+  if (required.length === 0 || !required.every((stage) => ended(stage.state))) return null;
+  if (snapshot.stages.some((stage) => stage.state === 'running')) return null;
+  const ends = snapshot.stages
+    .map((stage) => Date.parse(stage.ended_at ?? ''))
+    .filter((at) => Number.isFinite(at));
+  return {
+    key: snapshot.change?.dir ?? snapshot.change?.id ?? 'change',
+    endedAt: ends.length > 0 ? Math.max(...ends) : null,
+  };
+}
+
+export function settleStart(endedAt: number | null, firstSeenAt: number): number | null {
+  if (endedAt === null) return null;
+  const after = firstSeenAt - endedAt;
+  return after >= 0 && after <= SETTLE_WINDOW_MS ? firstSeenAt : null;
+}
+
 export function stripOf(
   snapshot: PaqadHudSnapshot,
   columns: number,
   live: LiveState = IDLE_LIVE,
   clockMs?: number,
+  settledAtMs: number | null = null,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
@@ -353,11 +379,14 @@ export function stripOf(
     ci: delivery.ci,
     deliveryValue: delivery.value,
     ...(clockMs === undefined ? {} : { clockMs }),
+    ...(settledAtMs === null ? {} : { settledAtMs }),
   };
 }
 
 export function stripAltText(text: string, strip: StripInput): string {
   const parts = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
+  const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
+  if (done.length > 0) parts.push(`${done.join(', ')} done.`);
   if (strip.seats && strip.tableValue) parts.push(`High Table ${strip.tableValue}.`);
   if (strip.deliveryValue) parts.push(`Delivery ${strip.deliveryValue}.`);
   return parts.join(' ');
@@ -431,6 +460,7 @@ export interface DesktopBandInput {
   menuOpen: boolean;
   columns: number;
   maxRows: number;
+  settledAtMs?: number | null;
 }
 
 export function unreadableReason(input: {
@@ -481,7 +511,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
   const head = desktopHeadline(snapshot, input.now, live);
-  const strip = stripOf(snapshot, input.columns, live, input.now);
+  const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
   const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',

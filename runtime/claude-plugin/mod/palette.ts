@@ -15,6 +15,7 @@ export const SIGNAL = {
   cautionDark: '#E3B04B',
   pass: '#2F8F6B',
   passDark: '#5FC29C',
+  passText: '#26775A',
   fail: '#D23B3B',
   failDark: '#F08080',
   onSignal: '#FFFFFF',

@@ -3715,3 +3715,75 @@ describe('the HUD follows CI while an open PR is pending', () => {
     expect(refreshRuns(world)).toEqual([]);
   });
 });
+
+function justFinished(endedAt: string) {
+  return snapshot({
+    ...FULL_ORD_501,
+    headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+    stages: (FULL_ORD_501.stages as Array<Record<string, unknown>>).map((entry) =>
+      entry.state === 'complete' ? { ...entry, ended_at: endedAt } : entry,
+    ),
+  });
+}
+
+const stripSource = (node: RenderNode) =>
+  elementsOf(node, 'Svg')
+    .map((element) => (element as { props: { source?: string } }).props.source ?? '')
+    .join('');
+
+describe('finished stages glow once on Desktop', () => {
+  test('AC-12: the last stage ending while the HUD watches draws one glow, and a redraw keeps its phase', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:58.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    const first = stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })));
+    expect(first.match(/class="motion settle"/g)).toHaveLength(1);
+    expect(first).toContain('repeatCount="1"');
+    expect(first).toContain('begin="-0.000s"');
+    await clock.advance(1_000);
+    world.put(
+      SNAPSHOT,
+      fileText({
+        ...justFinished('2026-10-18T08:59:58.000Z'),
+        generated_at: '2026-10-18T09:00:01Z',
+      }),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    const again = stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })));
+    expect(again).toContain('begin="-1.000s"');
+    await clock.advance(5_000);
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+
+  test('AC-12: an already finished change, or a first sighting long after the end, never glows', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+    world.put(SNAPSHOT, fileText(FAST_ORD_490));
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:58.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+
+  test('AC-12: a first sighting more than 10 s after the last stage ended never glows', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:40.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+});

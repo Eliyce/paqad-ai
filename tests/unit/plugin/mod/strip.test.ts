@@ -175,10 +175,10 @@ describe('the strip geometry', () => {
       delivery: marks(['Edit'], ['run'] as ShipState[]),
     });
     for (const label of ['Plan', 'Build', 'Checks', 'Edit']) {
-      expect(fast).toContain(`>${label}</text>`);
+      expect(fast).toMatch(new RegExp(`[> ]${label}</text>`));
     }
     for (const label of ['Intake', 'Spec', 'Review', 'Docs', 'Commit', 'CI']) {
-      expect(fast).not.toContain(`>${label}</text>`);
+      expect(fast).not.toMatch(new RegExp(`[> ]${label}</text>`));
     }
   });
 });
@@ -451,6 +451,7 @@ describe('the palette', () => {
       accent: '#F90093',
       attention: '#F37748',
       pass: '#2F8F6B',
+      passText: '#26775A',
       fail: '#D23B3B',
     });
     expect(BREATH).toEqual(['FF', 'CC', '8C', '66', '8C', 'CC']);
@@ -466,5 +467,64 @@ describe('the palette', () => {
       ['FF', 'CC', '8C', '66', '8C', 'CC', 'FF'].map((alpha) => `${SIGNAL.accent}${alpha}`),
     );
     expect(lightColor('pass', false, 3)).toBe(SIGNAL.pass);
+  });
+});
+
+describe('finished stages turn green, and the strip glows once', () => {
+  const allDone = stages('skip', 'done', 'done', 'done', 'done', 'done', 'done', 'done');
+  const settledAt = 1_000_000;
+
+  it('AC-13: a done bar uses the pass class and its label passText, with a check in the same run', () => {
+    const source = draw({ stages: allDone });
+    expect(source).toMatch(/<rect class="pass" [^>]*height="3" rx="1.5"\/>/);
+    expect(source).not.toMatch(/<rect class="ink" [^>]*height="3"/);
+    expect(source).toMatch(
+      /<text class="lbl passt" [^>]*text-anchor="middle"><tspan class="pass">✓<\/tspan> Plan<\/text>/,
+    );
+    expect(source).toContain(`.passt{fill:${SIGNAL.passText}}`);
+    expect(source).toContain(`.passt{fill:${SIGNAL.passDark}}`);
+    expect(miniStages(['done', 'todo'])).toMatch(/<rect class="pass" /);
+  });
+
+  it('AC-23: the done label text and the bars meet the contrast rules in both themes', () => {
+    const channel = (hex: string, at: number) => {
+      const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (hex: string) =>
+      0.2126 * channel(hex, 1) + 0.7152 * channel(hex, 3) + 0.0722 * channel(hex, 5);
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi! + 0.05) / (lo! + 0.05);
+    };
+    expect(SIGNAL.passText).toBe('#26775A');
+    expect(ratio(SIGNAL.passText, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(SIGNAL.pass, '#FFFFFF')).toBeGreaterThanOrEqual(3);
+    expect(ratio(SIGNAL.passDark, '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('AC-12: glows once for about 2 s when the last stage has just finished', () => {
+    const source = draw({ stages: allDone, settledAtMs: settledAt, clockMs: settledAt + 500 });
+    const glows = source.match(/<g class="motion settle">.*?<\/g>/g) ?? [];
+    expect(glows).toHaveLength(1);
+    expect(glows[0]).toContain('filter="url(#glow)"');
+    expect(glows[0]).toContain(
+      'values=".5;0" dur="2s" repeatCount="1" fill="freeze" begin="-0.500s"',
+    );
+    expect(source).toContain('<filter id="glow"');
+    expect(source).toContain('.motion{display:none}');
+  });
+
+  it('AC-12: a redraw keeps the phase, and nothing glows outside the window', () => {
+    const later = draw({ stages: allDone, settledAtMs: settledAt, clockMs: settledAt + 1500 });
+    expect(later).toContain('begin="-1.500s"');
+    expect(
+      draw({ stages: allDone, settledAtMs: settledAt, clockMs: settledAt + 2000 }),
+    ).not.toContain('settle');
+    expect(draw({ stages: allDone, settledAtMs: settledAt, clockMs: settledAt - 1 })).not.toContain(
+      'settle',
+    );
+    expect(draw({ stages: allDone, clockMs: settledAt })).not.toContain('settle');
+    expect(draw({ stages: allDone })).not.toContain('<animate');
   });
 });

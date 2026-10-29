@@ -1,0 +1,54 @@
+{
+  "id": "D-01M63KWDVQ0R76XKVC64JZ6XSM",
+  "category": "spec.contradiction",
+  "title": "Green stage labels are too faint to read on a light background",
+  "context": "You asked for finished stages to have green bars and green labels in the pass colour (#2F8F6B light, #5FC29C dark). The design expert's must-have rule (accessibility: small text needs at least 4.5:1 contrast) is not met by that green on a light background: #2F8F6B on white is 3.99:1, and on a light grey #F5F5F5 it is 3.66:1. Dark mode is fine (#5FC29C on dark is about 7:1), and the green bars and check mark pass the 3:1 rule for graphics. The labels are 9 px text. Today's grey labels are 4.25:1, also a little under. The two requests cannot both hold with this green.",
+  "options": [
+    {
+      "option_key": "darker-label-green",
+      "label": "Green bars and check in #2F8F6B; on a light background the label text uses a slightly darker green #26775A (5.43:1 on white). This adds one colour to the palette; dark mode is unchanged",
+      "one_line_preview": "Green bars and check in #2F8F6B; on a light background the label text uses a slightly darker green #26775A (5.43:1 on white). This adds one colour to the palette; dark mode is unchanged",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ink-label",
+      "label": "Green bars and check mark; the label stays in today's grey text colour, the same way the Trust tab already shows a green check beside a grey Done. No new colour",
+      "one_line_preview": "Green bars and check mark; the label stays in today's grey text colour, the same way the Trust tab already shows a green check beside a grey Done. No new colour",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "green-as-asked",
+      "label": "Labels in #2F8F6B exactly as asked, accepting 3.99:1 on white (below the accessibility rule for small text)",
+      "one_line_preview": "Labels in #2F8F6B exactly as asked, accepting 3.99:1 on white (below the accessibility rule for small text)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "darker-label-green",
+  "created_at": "2026-10-29T10:39:24.024Z",
+  "status": "resolved",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "darker-label-green",
+  "rationale": "Owner: bars and check #2F8F6B, label text #26775A on light (5.43:1), dark unchanged.",
+  "resolved_at": "2026-10-29T10:50:25.397Z",
+  "decision_id": "D-01M63KWDVQ0R76XKVC64JZ6XSM",
+  "fingerprint": "sha256:5ccb66d982bba8e65d4f789045efc8682c976870582de16345310453823bd906",
+  "question": "Green stage labels are too faint to read on a light background",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-05T10:39:24.024Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "darker-label-green",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T10:50:25.397Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: bars and check #2F8F6B, label text #26775A on light (5.43:1), dark unchanged."
+  }
+}

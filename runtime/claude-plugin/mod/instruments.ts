@@ -30,7 +30,7 @@ export const STAGE_CELL_NAMES: Readonly<Record<string, string>> = {
 };
 
 export const STAGE_MARK: Record<SegmentState, { mark: string; tone?: PaqadTone; dim?: boolean }> = {
-  done: { mark: '●', tone: 'good' },
+  done: { mark: '✓', tone: 'good' },
   running: { mark: '▸', tone: 'working' },
   'not yet': { mark: '○', dim: true },
   'not required': { mark: '–', dim: true },

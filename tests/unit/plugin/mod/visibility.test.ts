@@ -85,19 +85,19 @@ describe('the visibility state', () => {
 describe('the minimised line', () => {
   it('carries the stage bar, the clock, the table, the ship step, flags and tokens', () => {
     expect(lineAt(FAST_ORD_490, 120)).toBe(
-      'paqad ORD-490 Working ○●–▸–○–○ Build · 2:00 editing + Restore × Close',
+      'paqad ORD-490 Working ○✓–▸–○–○ Build · 2:00 editing + Restore × Close',
     );
     expect(lineAt(FULL_ORD_501_COST, 200)).toBe(
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag 1.3M tokens + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 3 of your commits 1 flag 1.3M tokens + Restore × Close',
     );
   });
 
   it('drops tokens, then the ship step, then the High Table count, then the stage bar, and never wraps', () => {
     const widths = [120, 100, 79, 60];
     expect(widths.map((columns) => lineAt(FULL_ORD_501_COST, columns))).toEqual([
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 1 flag + Restore × Close',
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done 1 flag + Restore × Close',
       'paqad ORD-501 Safe to merge 1 flag + Restore × Close',
     ]);
   });

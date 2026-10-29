@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SETTLE_WINDOW_MS,
+  settleStart,
+  settledChange,
+  stripAltText,
   CARD_ROWS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
@@ -550,7 +554,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const feature = band({ snapshot: parse(FAST_ORD_490) });
     expect(feature).toMatchObject({
       kind: 'feature',
-      alt: 'Building. Stage Build. Delivery Editing.',
+      alt: 'Building. Stage Build. Plan done. Delivery Editing.',
     });
   });
 });
@@ -689,5 +693,58 @@ describe('AC-18: the task list carries the stages of the lane', () => {
 describe('the task list tool the HUD watches', () => {
   it('is the literal the tool.call matcher names', () => {
     expect(UPDATE_PLAN_TOOL).toBe('mcp__ccd_turn__update_plan');
+  });
+});
+
+describe('FR-36: the strip alt names the finished stages in words', () => {
+  it('lists every done stage after the stage value', () => {
+    const input = {
+      columns: 93,
+      stages: [
+        { label: 'Plan', state: 'done' as const },
+        { label: 'Build', state: 'done' as const },
+        { label: 'Checks', state: 'run' as const },
+      ],
+      stageValue: 'Checks',
+      seats: null,
+      chief: 'waiting' as const,
+      tableValue: '',
+      delivery: [],
+      ci: null,
+      deliveryValue: '2 commits of yours',
+    };
+    expect(stripAltText('Running the checks', input)).toBe(
+      'Running the checks. Stage Checks. Plan, Build done. Delivery 2 commits of yours.',
+    );
+    expect(stripAltText('Next: Plan', { ...input, stages: [] })).not.toContain(' done.');
+  });
+});
+
+describe('AC-12: the glow fires only when the last stage just ended', () => {
+  const ended = (at: string) =>
+    parse({
+      ...FULL_ORD_501,
+      stages: (FULL_ORD_501.stages as Raw[]).map((entry) =>
+        entry.state === 'complete' ? { ...entry, ended_at: at } : entry,
+      ),
+    });
+
+  it('names the change and the last end once every drawn stage is done', () => {
+    const settled = settledChange(ended('2026-10-18T08:59:57.000Z'));
+    expect(settled).toEqual({
+      key: (FULL_ORD_501.change as Raw).dir,
+      endedAt: Date.parse('2026-10-18T08:59:57.000Z'),
+    });
+    expect(settledChange(parse(FAST_ORD_490))).toBeNull();
+    expect(settledChange(parse({ ...FULL_ORD_501, active: false }))).toBeNull();
+  });
+
+  it('starts the glow at the first sighting only within 10 s of the end', () => {
+    const end = Date.parse('2026-10-18T08:59:57.000Z');
+    expect(SETTLE_WINDOW_MS).toBe(10_000);
+    expect(settleStart(end, end + 3_000)).toBe(end + 3_000);
+    expect(settleStart(end, end + 10_001)).toBeNull();
+    expect(settleStart(end, end - 60_000)).toBeNull();
+    expect(settleStart(null, end)).toBeNull();
   });
 });
