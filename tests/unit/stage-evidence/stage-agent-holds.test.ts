@@ -61,6 +61,24 @@ describe('runningStageOfOtherSession', () => {
     expect(runningStageOfOtherSession(rows, 'ses_a', minutes(600))).toBeNull();
   });
 
+  it('ignores a row whose time cannot be read when it ages a session', () => {
+    const unreadable = {
+      ...start('ses_a', 0, 'development'),
+      recorded_at: 'not a time',
+      ts: 'not a time',
+    };
+    expect(runningStageOfOtherSession([unreadable], 'ses_b', minutes(1))).toBeNull();
+    const rows = [unreadable, row('ses_a', 0, { kind: 'open' })];
+    expect(runningStageOfOtherSession(rows, 'ses_b', minutes(1))).toBe('development');
+  });
+
+  it('ignores a stage row that names no stage', () => {
+    const nameless = row('ses_a', 0, { kind: 'stage_start', event_status: 'started' });
+    expect(runningStageOfOtherSession([nameless], 'ses_b', minutes(1))).toBeNull();
+    const rows = [nameless, start('ses_a', 0, 'checks')];
+    expect(runningStageOfOtherSession(rows, 'ses_b', minutes(1))).toBe('checks');
+  });
+
   it('is null for a quiet bundle', () => {
     const rows = [start('ses_a', 0, 'planning'), end('ses_a', 1, 'planning')];
     expect(runningStageOfOtherSession(rows, 'ses_b', minutes(2))).toBeNull();
