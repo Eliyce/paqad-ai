@@ -3581,15 +3581,15 @@ describe('the HUD follows CI while an open PR is pending', () => {
     expect(runs[0]!.timeoutMs).toBe(15_000);
   });
 
-  test('AC-5: the checks back off 30 s, 60 s, 120 s while CI stays pending', async ($, on) => {
+  test('AC-5: the checks run every 30 s with no back-off while CI stays pending', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(START);
-    for (const step of [30_000, 60_000, 120_000]) {
-      await clock.advance(step);
+    for (let step = 0; step < 3; step += 1) {
+      await clock.advance(30_000);
       await clock.settle();
     }
-    expect(refreshRuns(world).map((run) => run.argv.at(-1))).toEqual(['30', '60', '120']);
+    expect(refreshRuns(world).map((run) => run.argv.at(-1))).toEqual(['30', '30', '30']);
   });
 
   test('AC-5: the watch never starts without an open PR whose CI is pending', async ($, on) => {
@@ -3640,7 +3640,7 @@ describe('the HUD follows CI while an open PR is pending', () => {
     world.runGate = null;
     release();
     await clock.settle();
-    await clock.advance(59_999);
+    await clock.advance(29_999);
     await clock.settle();
     expect(refreshRuns(world)).toHaveLength(1);
     await clock.advance(1);
@@ -3657,10 +3657,10 @@ describe('the HUD follows CI while an open PR is pending', () => {
       await clock.settle();
     }
     const polls = refreshRuns(world).length;
-    expect(polls).toBeGreaterThan(10);
-    expect(polls).toBeLessThanOrEqual(16);
+    expect(polls).toBeGreaterThanOrEqual(119);
+    expect(polls).toBeLessThanOrEqual(120);
     expect((await $.command.run(command('status'))).text).toContain(
-      'CI updates paused: checked for 60 minutes',
+      'CI updates paused: time limit',
     );
     await $.tool.call({ tool: 'Bash', command: 'git push origin HEAD' } as never);
     await clock.advance(30_000);
@@ -3694,13 +3694,13 @@ describe('the HUD follows CI while an open PR is pending', () => {
     await $.session.start(START);
     await clock.advance(30_000);
     await clock.settle();
-    await clock.advance(60_000);
+    await clock.advance(30_000);
     await clock.settle();
     await clock.advance(600_000);
     await clock.settle();
     expect(refreshRuns(world)).toHaveLength(2);
     const text = (await $.command.run(command('status'))).text;
-    expect(text).toContain('CI updates paused: gh is signed out');
+    expect(text).toContain('CI updates paused: signed out');
     expect(world.asked).toEqual([]);
   });
 
@@ -3785,5 +3785,24 @@ describe('finished stages glow once on Desktop', () => {
     expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
       'settle',
     );
+  });
+});
+
+describe('the CI watch names why it stopped in a fixed phrase', () => {
+  test('two offline reads in a row pause the watch as offline', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = {
+      exitCode: 0,
+      stdout: '{"refreshed":false,"reason":"gh timed out after 10 s"}\n',
+      stderr: '',
+    };
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let step = 0; step < 4; step += 1) {
+      await clock.advance(30_000);
+      await clock.settle();
+    }
+    expect(refreshRuns(world)).toHaveLength(2);
+    expect((await $.command.run(command('status'))).text).toContain('CI updates paused: offline');
   });
 });

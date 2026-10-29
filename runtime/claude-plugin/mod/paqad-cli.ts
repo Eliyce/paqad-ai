@@ -12,22 +12,15 @@ export interface PaqadRunResult {
   stderr: string;
 }
 
-export const CI_POLL_FIRST_MS = 30_000;
-export const CI_POLL_MAX_MS = 300_000;
+export const CI_POLL_MS = 30_000;
 export const CI_WATCH_LIMIT_MS = 3_600_000;
-export const CI_WATCH_TIMED_OUT = 'checked for 60 minutes';
+export const CI_WATCH_TIMED_OUT = 'time limit';
 export const CI_PAUSED_PREFIX = 'CI updates paused: ';
 
-const WATCH_ENDING_REASONS: readonly string[] = ['gh is signed out', 'gh is not installed'];
+const NOT_A_GH_FAILURE: readonly string[] = ['fresh', 'no pull request for this branch'];
 
-export function nextCiPoll(
-  startedAtMs: number,
-  lastDelayMs: number | null,
-  nowMs: number,
-): number | null {
-  if (nowMs - startedAtMs >= CI_WATCH_LIMIT_MS) return null;
-  if (lastDelayMs === null) return CI_POLL_FIRST_MS;
-  return Math.min(lastDelayMs * 2, CI_POLL_MAX_MS);
+export function nextCiPoll(startedAtMs: number, nowMs: number): number | null {
+  return nowMs - startedAtMs >= CI_WATCH_LIMIT_MS ? null : CI_POLL_MS;
 }
 
 export function refreshReason(stdout: string): string | null {
@@ -40,8 +33,10 @@ export function refreshReason(stdout: string): string | null {
   }
 }
 
-export function stopsCiWatch(reason: string | null): boolean {
-  return reason !== null && WATCH_ENDING_REASONS.includes(reason);
+export function pauseReason(reason: string | null): 'signed out' | 'offline' | null {
+  if (reason === null || NOT_A_GH_FAILURE.includes(reason)) return null;
+  if (reason === 'gh is signed out') return 'signed out';
+  return reason.startsWith('gh ') ? 'offline' : null;
 }
 
 export function ciWatchHead(snapshot: PaqadHudSnapshot | null): string | null {

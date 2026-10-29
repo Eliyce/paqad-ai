@@ -20,7 +20,8 @@ import {
   nextCiPoll,
   overrideRecorded,
   refreshReason,
-  stopsCiWatch,
+  CI_WATCH_TIMED_OUT,
+  pauseReason,
   withCiPause,
 } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/types';
@@ -41,24 +42,20 @@ describe('the mod paqad-ai helper', () => {
 });
 
 describe('the CI watch schedule', () => {
-  it('AC-5: backs off 30 s, doubling to 5 min, and stops at 60 min', () => {
+  it('AC-5: checks every 30 s with no back-off, and stops at 60 min', () => {
     const start = 1_000_000;
     let now = start;
-    let last: number | null = null;
     const delays: number[] = [];
     for (;;) {
-      const next = nextCiPoll(start, last, now);
+      const next = nextCiPoll(start, now);
       if (next === null) break;
       delays.push(next);
-      last = next;
       now += next;
     }
-    expect(delays.slice(0, 7)).toEqual([
-      30_000, 60_000, 120_000, 240_000, 300_000, 300_000, 300_000,
-    ]);
-    expect(delays.length).toBeLessThanOrEqual(16);
-    expect(nextCiPoll(start, 300_000, start + CI_WATCH_LIMIT_MS)).toBeNull();
-    expect(nextCiPoll(start, null, start + CI_WATCH_LIMIT_MS - 1)).toBe(30_000);
+    expect(new Set(delays)).toEqual(new Set([30_000]));
+    expect(delays).toHaveLength(120);
+    expect(nextCiPoll(start, start + CI_WATCH_LIMIT_MS)).toBeNull();
+    expect(nextCiPoll(start, start + CI_WATCH_LIMIT_MS - 1)).toBe(30_000);
   });
 
   it('reads the reason the refresh printed, and which reasons end the watch early', () => {
@@ -68,10 +65,15 @@ describe('the CI watch schedule', () => {
     expect(refreshReason('noise\n{"refreshed":true,"reason":null}')).toBeNull();
     expect(refreshReason('')).toBeNull();
     expect(refreshReason('{not json')).toBeNull();
-    expect(stopsCiWatch('gh is signed out')).toBe(true);
-    expect(stopsCiWatch('gh is not installed')).toBe(true);
-    expect(stopsCiWatch('gh is rate-limited')).toBe(false);
-    expect(stopsCiWatch(null)).toBe(false);
+    expect(pauseReason('gh is signed out')).toBe('signed out');
+    expect(pauseReason('gh is not installed')).toBe('offline');
+    expect(pauseReason('gh timed out after 10 s')).toBe('offline');
+    expect(pauseReason('gh could not read the pull request')).toBe('offline');
+    expect(pauseReason('gh is rate-limited')).toBe('offline');
+    expect(pauseReason('no pull request for this branch')).toBeNull();
+    expect(pauseReason('fresh')).toBeNull();
+    expect(pauseReason(null)).toBeNull();
+    expect(CI_WATCH_TIMED_OUT).toBe('time limit');
   });
 
   const pending = (over: Record<string, unknown> = {}) =>
@@ -102,12 +104,10 @@ describe('the CI watch schedule', () => {
   it('adds the paused note to the gap line, beside any gap already there', () => {
     const snap = pending();
     expect(withCiPause(snap, null)).toBe(snap);
-    expect(withCiPause(snap, 'checked for 60 minutes')!.headline.gap).toBe(
-      `${CI_PAUSED_PREFIX}checked for 60 minutes`,
-    );
+    expect(withCiPause(snap, 'time limit')!.headline.gap).toBe(`${CI_PAUSED_PREFIX}time limit`);
     const gapped = { ...snap, headline: { ...snap.headline, gap: 'paqad could not record x' } };
-    expect(withCiPause(gapped, 'gh is signed out')!.headline.gap).toBe(
-      'paqad could not record x · CI updates paused: gh is signed out',
+    expect(withCiPause(gapped, 'signed out')!.headline.gap).toBe(
+      'paqad could not record x · CI updates paused: signed out',
     );
     expect(withCiPause(null, 'x')).toBeNull();
   });

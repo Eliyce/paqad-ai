@@ -103,7 +103,7 @@ import {
   nextCiPoll,
   overrideRecorded,
   refreshReason,
-  stopsCiWatch,
+  pauseReason,
   withCiPause,
   type PaqadRunResult,
 } from './paqad-cli';
@@ -393,7 +393,7 @@ async function pauseCiWatch($: EngineInterface, reason: string): Promise<void> {
 async function scheduleCiPoll($: EngineInterface): Promise<void> {
   const watch = ciWatch;
   if (!watch || watch.timer || watch.inFlight) return;
-  const delay = nextCiPoll(watch.startedAt, watch.delay, await $.clock.now());
+  const delay = nextCiPoll(watch.startedAt, await $.clock.now());
   if (delay === null) return pauseCiWatch($, CI_WATCH_TIMED_OUT);
   watch.delay = delay;
   watch.timer = $.clock.after(delay, () => void pollCi($, watch));
@@ -432,8 +432,9 @@ async function pollCi($: EngineInterface, watch: CiWatch): Promise<void> {
   watch.inFlight = false;
   watch.forced = false;
   if (ciWatch !== watch) return;
-  watch.endings = stopsCiWatch(reason) ? watch.endings + 1 : 0;
-  if (reason !== null && watch.endings >= 2) return pauseCiWatch($, reason);
+  const paused = pauseReason(reason);
+  watch.endings = paused === null ? 0 : watch.endings + 1;
+  if (paused !== null && watch.endings >= 2) return pauseCiWatch($, paused);
   await refresh($);
   await scheduleCiPoll($);
 }
