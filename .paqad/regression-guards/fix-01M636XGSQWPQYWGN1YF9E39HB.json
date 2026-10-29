@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M636XGSQWPQYWGN1YF9E39HB",
+  "created_at": "2026-10-29T08:29:06.591Z",
+  "proof": {
+    "test_id": "keeps the owner on its change when delivery cuts a new branch",
+    "test_file": "tests/unit/cli/delivery.test.ts",
+    "command": "pnpm vitest run tests/unit/cli/delivery.test.ts -t 'keeps the owner on its change when delivery cuts a new branch'"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/cli/delivery.test.ts",
+    "line": null,
+    "test_id": "keeps the owner on its change when delivery cuts a new branch",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"keeps the owner on its change when delivery cuts a new branch\" fails before the fix.",
+    "stderr_excerpt": "    209|     expect(featureBranch(root, dir)).toBe(delivered);\n       |                                      ^\n    210|     expect(currentFeature(root, 'ses-owner')).toBe(dir);\n    211|     expect(resolveActiveFeature(root, 'ses-owner')).toBe(dir);\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯"
+  },
+  "linked_ac_id": null
+}

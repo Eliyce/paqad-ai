@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { logHookFailure } from './hook-log.mjs';
@@ -31,12 +31,34 @@ export function heartbeatIsFresh(projectRoot, sessionId, now = Date.now()) {
   return age >= 0 && age <= HEARTBEAT_WINDOW_MS;
 }
 
+function hudSnapshotPath(projectRoot, sessionId) {
+  return join(projectRoot, HUD_DIR, `${safeSessionId(sessionId)}.json`);
+}
+
+export function snapshotQualified(projectRoot, sessionId) {
+  let raw;
+  try {
+    raw = readFileSync(hudSnapshotPath(projectRoot, sessionId), 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT' && error?.code !== 'ENOTDIR') throw error;
+    return false;
+  }
+  return JSON.parse(raw)?.scope?.qualified === true;
+}
+
 export function quietNarration(projectRoot, sessionId, adapter, now = Date.now()) {
   if (adapter !== undefined && adapter !== 'claude-code') return '';
   try {
-    return heartbeatIsFresh(projectRoot, sessionId, now) ? `${QUIET_NARRATION_LINE}\n` : '';
+    const shown =
+      heartbeatIsFresh(projectRoot, sessionId, now) && snapshotQualified(projectRoot, sessionId);
+    return shown ? `${QUIET_NARRATION_LINE}\n` : '';
   } catch (error) {
-    logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'reading the HUD heartbeat');
+    logHookFailure(
+      projectRoot,
+      'agent-entry-prompt-gate',
+      error,
+      'reading the HUD heartbeat and snapshot',
+    );
     return '';
   }
 }

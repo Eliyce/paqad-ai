@@ -4,11 +4,11 @@ import process from 'node:process';
 
 import {
   appendHooksLog,
-  hookStandsDown,
   isPaqadDisabled,
   isProjectOnboarded,
   parseHookPayload,
   resolveProjectRoot,
+  standDownReason,
 } from './lib/paqad-disabled.mjs';
 import { stampAgentEntryMarker } from './lib/agent-entry-sentinel.mjs';
 
@@ -67,11 +67,15 @@ async function main(input) {
   const hookPayload = parseHookPayload(input);
   const projectRoot = resolveProjectRoot(process.env, hookPayload);
   try {
-    if (
-      isPaqadDisabled(projectRoot) ||
-      !isProjectOnboarded(projectRoot) ||
-      hookStandsDown(hookPayload)
-    ) {
+    if (isPaqadDisabled(projectRoot) || !isProjectOnboarded(projectRoot)) {
+      return;
+    }
+    const reason = standDownReason(hookPayload);
+    if (reason !== null) {
+      appendHooksLog(
+        projectRoot,
+        `${LOG_PREFIX}: stood-down agent=${logKey(hookPayload?.agent_id)} reason=${reason}`,
+      );
       return;
     }
     let payload;

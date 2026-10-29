@@ -1,0 +1,55 @@
+{
+  "id": "D-01M637YB0JH3P8NECZHDZPCNHF",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new tests/unit/plugin/mod/register-directory-shape.test.ts",
+  "context": "Chief architect: All three claims can hold together and the build should do all three: parse with the TypeScript compiler API already in devDependencies, keep the e/next allowance narrow, and run the scan against planted fixture source as well as the real file so each rejected shape is proven to fail with its line and the plugin directory message. It is a pick only because the narrow allowance is a must-level security finding, so the owner confirms it; the recommendation is the security boundary, and the other two claims stay as how it is built and proven.\n\nTarget: new tests/unit/plugin/mod/register-directory-shape.test.ts\n- solution-architect: the AST scan parses register.tsx with the TypeScript compiler API already in devDependencies rather than regex, so renames and new helpers are judged by binding kind, not spelling in strings or comments\n- security-auditor: the allowance for an e or next parameter covers only a function passed directly as an argument to on(...) or .catch(...); a function nested inside that function, or one passed through a variable, is still flagged\n- qa-engineer: the scan must be a function run against planted fixture source as well as the real register.tsx, so each rejected shape (const next, let e, catch (e), next = x, { a: next }, [...e], a non-plain hook parameter, arguments) is proven to fail with its line number and the plugin directory message; a scan of the clean file alone proves nothing\n\n[expert-conflict-fork:8278df147a73202d]",
+  "options": [
+    {
+      "option_key": "the-ast-scan-parses-register-tsx-with-th",
+      "label": "the AST scan parses register.tsx with the TypeScript compiler API already in devDependencies rather than regex, so renames and new helpers are judged by binding kind, not spelling in strings or comments — solution-architect",
+      "one_line_preview": "the AST scan parses register.tsx with the TypeScript compiler API already in devDependencies rather than regex, so renames and new helpers are judged by binding kind, not spelling in strings or comments — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-allowance-for-an-e-or-next-parameter",
+      "label": "the allowance for an e or next parameter covers only a function passed directly as an argument to on(...) or .catch(...); a function nested inside that function, or one passed through a variable, is still flagged — security-auditor",
+      "one_line_preview": "the allowance for an e or next parameter covers only a function passed directly as an argument to on(...) or .catch(...); a function nested inside that function, or one passed through a variable, is still flagged — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-scan-must-be-a-function-run-against-",
+      "label": "the scan must be a function run against planted fixture source as well as the real register.tsx, so each rejected shape (const next, let e, catch (e), next = x, { a: next }, [...e], a non-plain hook parameter, arguments) is proven to fail with its line number and the plugin directory message; a scan of the clean file alone proves nothing — qa-engineer",
+      "one_line_preview": "the scan must be a function run against planted fixture source as well as the real register.tsx, so each rejected shape (const next, let e, catch (e), next = x, { a: next }, [...e], a non-plain hook parameter, arguments) is proven to fail with its line number and the plugin directory message; a scan of the clean file alone proves nothing — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-allowance-for-an-e-or-next-parameter",
+  "created_at": "2026-10-29T07:10:43.730Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M636XGSQWPQYWGN1YF9E39HB",
+  "chosen": "the-allowance-for-an-e-or-next-parameter",
+  "rationale": "Owner: direct hooks only; built with the TypeScript compiler API and proven on planted bad source too.",
+  "resolved_at": "2026-10-29T07:49:17.831Z",
+  "decision_id": "D-01M637YB0JH3P8NECZHDZPCNHF",
+  "fingerprint": "sha256:9374d21df2e0899b964182cf0b6d663f22cc0586074a1f20aec2f1cf2a32c668",
+  "question": "Experts disagree on new tests/unit/plugin/mod/register-directory-shape.test.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M636XGSQWPQYWGN1YF9E39HB",
+  "ttl_until": "2026-11-28T07:10:43.730Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-allowance-for-an-e-or-next-parameter",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T07:49:17.831Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: direct hooks only; built with the TypeScript compiler API and proven on planted bad source too."
+  }
+}

@@ -18,6 +18,7 @@ import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { isPluginInstalled } from '@/health/plugin-install.js';
+import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
@@ -82,13 +83,14 @@ export class FrameworkUpdater {
     const newScripts: string[] = [];
 
     const pluginInstalled = isPluginInstalled();
+    const pluginOwnsClaudeHooks = pluginInstalled && !projectWiresLiveNpmHooks(projectRoot);
 
     for (const candidate of candidates) {
-      if (pluginInstalled && CLAUDE_HOOK_ARTIFACTS.has(toPosixPath(candidate.path))) {
-        continue;
-      }
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
+      if (pluginOwnsClaudeHooks && CLAUDE_HOOK_ARTIFACTS.has(reportedPath)) {
+        continue;
+      }
       const existing = readExistingText(target);
       const existed = existing !== null;
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;

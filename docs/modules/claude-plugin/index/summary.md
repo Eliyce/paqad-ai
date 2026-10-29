@@ -93,6 +93,10 @@ call, so a static reader sees it:
 - It registers `/paqad`, then `/paqad-hud`, as two literal calls, answers each with its own
   literal `command.run` hook, and matches the task-list tool as `'mcp__ccd_turn__update_plan'`
   (equal to `UPDATE_PLAN_TOOL`).
+- It never declares a name spelled like a hook parameter (`$`, `e` or `next`) anywhere else in
+  the mod file, and a function takes `e` or `next` only when it is passed straight to `on(...)`
+  or `.catch(...)`. The directory reads those names as hook parameters wherever they appear.
+  `register.tsx` uses other names, and a scan of the parsed source test guards the rule.
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
 

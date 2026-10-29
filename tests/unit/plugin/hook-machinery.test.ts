@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +72,27 @@ describe('buildPluginHookChain', () => {
     const pluginEvents = new Set(chain.map((h) => h.nativeEvent));
     const onboardEvents = new Set(buildHostHookChain('claude-code').map((h) => h.nativeEvent));
     expect([...pluginEvents].sort()).toEqual([...onboardEvents].sort());
+  });
+
+  it('wires every shipped plugin hook file under the same event in the onboard-time chain', () => {
+    const hookFile = (command: string) => /hooks\/([\w-]+\.mjs)/.exec(command)?.[1] ?? command;
+    const pairs = (hooks: { nativeEvent: string; command: string }[]) =>
+      hooks.map((h) => `${h.nativeEvent} ${hookFile(h.command)}`);
+    const onboard = new Set(pairs(buildHostHookChain('claude-code')));
+    const shipped = pairs(
+      Object.entries(
+        (
+          JSON.parse(readFileSync(join(PLUGIN_DIR, 'hooks.json'), 'utf8')) as {
+            hooks: Record<string, { hooks: { command: string }[] }[]>;
+          }
+        ).hooks,
+      ).flatMap(([nativeEvent, groups]) =>
+        groups.flatMap((group) => group.hooks.map((h) => ({ nativeEvent, command: h.command }))),
+      ),
+    ).filter((pair) => !pair.endsWith(PLUGIN_SESSION_START_HOOK));
+
+    expect(shipped).toContain('SubagentStart stage-agent-start.mjs');
+    expect(shipped.filter((pair) => !onboard.has(pair))).toEqual([]);
   });
 });
 

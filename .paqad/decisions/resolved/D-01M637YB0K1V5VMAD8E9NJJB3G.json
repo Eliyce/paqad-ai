@@ -1,0 +1,55 @@
+{
+  "id": "D-01M637YB0K1V5VMAD8E9NJJB3G",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on closeAbandonedBundles",
+  "context": "Chief architect: The three claims agree: a confirmed squash merge closes as done at once, anything without merge evidence keeps the 24h quiet wait, and the exact-match negatives ((#7660), #766 without parens, null pr.number) stay open. It is a pick only because the strict-match rule is a must-level security finding. The recommendation is the strict rule; the product-owner and qa claims are its outcome and its tests. Whether a confirmed merge may close a change that still has a stage running is a separate gap question below, so it is asked once there.\n\nTarget: closeAbandonedBundles\n- security-auditor: a commit subject is text anyone with push rights can write, so the (#<pr.number>) match must read only the base branch, require a pr.number from the bundle's delivery record, and match the number exactly (so #76 never matches #766) before closing without the 24h quiet wait\n- product-owner: a change whose PR is confirmed squash-merged on the base branch closes as done right away; changes with no merge evidence keep today's 24h quiet wait, so an unmerged change is never closed early\n- qa-engineer: given delivery.json pr.number 766 and a base branch commit subject ending (#766), the bundle closes at once with status done; negatives that must stay open: (#7660), #766 without parens, pr.number null, and no matching commit within 24h quiet\n\n[expert-conflict-fork:1491a5aca6c29f18]",
+  "options": [
+    {
+      "option_key": "a-commit-subject-is-text-anyone-with-pus",
+      "label": "a commit subject is text anyone with push rights can write, so the (#<pr.number>) match must read only the base branch, require a pr.number from the bundle's delivery record, and match the number exactly (so #76 never matches #766) before closing without the 24h quiet wait — security-auditor",
+      "one_line_preview": "a commit subject is text anyone with push rights can write, so the (#<pr.number>) match must read only the base branch, require a pr.number from the bundle's delivery record, and match the number exactly (so #76 never matches #766) before closing without the 24h quiet wait — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "a-change-whose-pr-is-confirmed-squash-me",
+      "label": "a change whose PR is confirmed squash-merged on the base branch closes as done right away; changes with no merge evidence keep today's 24h quiet wait, so an unmerged change is never closed early — product-owner",
+      "one_line_preview": "a change whose PR is confirmed squash-merged on the base branch closes as done right away; changes with no merge evidence keep today's 24h quiet wait, so an unmerged change is never closed early — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-delivery-json-pr-number-766-and-a-",
+      "label": "given delivery.json pr.number 766 and a base branch commit subject ending (#766), the bundle closes at once with status done; negatives that must stay open: (#7660), #766 without parens, pr.number null, and no matching commit within 24h quiet — qa-engineer",
+      "one_line_preview": "given delivery.json pr.number 766 and a base branch commit subject ending (#766), the bundle closes at once with status done; negatives that must stay open: (#7660), #766 without parens, pr.number null, and no matching commit within 24h quiet — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-commit-subject-is-text-anyone-with-pus",
+  "created_at": "2026-10-29T07:10:43.731Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M636XGSQWPQYWGN1YF9E39HB",
+  "chosen": "a-commit-subject-is-text-anyone-with-pus",
+  "rationale": "Owner: strict exact match on base branch with pr.number from delivery; the 766/7660 cases are the tests.",
+  "resolved_at": "2026-10-29T07:49:18.469Z",
+  "decision_id": "D-01M637YB0K1V5VMAD8E9NJJB3G",
+  "fingerprint": "sha256:6b87d58341633175cdc68db4b1d279838f68b7cf7cf5aac3e27f33fca2540f25",
+  "question": "Experts disagree on closeAbandonedBundles",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M636XGSQWPQYWGN1YF9E39HB",
+  "ttl_until": "2026-11-28T07:10:43.731Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-commit-subject-is-text-anyone-with-pus",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T07:49:18.469Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: strict exact match on base branch with pr.number from delivery; the 766/7660 cases are the tests."
+  }
+}

@@ -248,7 +248,10 @@ state on its own.
   down when paqad is off, the repo was never onboarded, or the other install route owns the
   session. It refuses a session id outside `^[A-Za-z0-9._-]{1,128}$`. Every outcome adds one line
   to `.paqad/logs/hooks.log` (seeded, skipped or failed, with the agent id and stage, never the
-  brief or the payload). On any error it prints nothing, writes no marker and exits 0, so the
+  brief or the payload). Standing down for the other install route adds a `stood-down` line with
+  the reason from `standDownReason`: `npm` (the plugin claimed the session), `passive` (live npm
+  hook lines own the hooks), `unonboarded` or `root` (another plugin copy claimed it). On any
+  error it prints nothing, writes no marker and exits 0, so the
   helper falls back to loading the framework itself. It writes no stage-evidence row.
 - **`stage-agent-completion.mjs` (SubagentStop).** Wired only for paqad's own `^paqad-` agents.
   Blocking a SubagentStop is undocumented on Claude, so it always exits 0. High Table seats are not
@@ -319,6 +322,12 @@ state on its own.
   the two decisions cannot drift. With no evidence the other copy owns the session, a hook stays
   active. The hook-path parser is mirrored for the doctor by `projectWiresLiveNpmHooks` in
   `src/install/plugin-migration.ts`.
+- While the project's Claude settings wire a live npm hook, those npm lines own the hooks, so
+  `paqad-ai update` keeps refreshing `.claude/settings.json` and `settings.hooks.json` even with
+  the plugin installed. The merge only adds the hooks a newer version introduced, such as
+  `SubagentStart`, and keeps every other entry. With no live npm hook lines the plugin owns the
+  hooks and update leaves those files alone. `tests/unit/plugin/hook-machinery.test.ts` checks
+  that every hook file the plugin ships is wired under the same event in the npm chain.
 
 ### Session start, plugin and update hooks
 

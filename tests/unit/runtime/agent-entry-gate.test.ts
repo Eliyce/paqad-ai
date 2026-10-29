@@ -18,6 +18,7 @@ import {
   openFeatureChange,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 
 import { TASK_LIST_SENTENCES } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
@@ -684,6 +685,69 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
         const rows = readFeatureStageUnit(projectRoot, dirName);
         expect(rows.filter((row) => row.kind === 'record-repair')).toHaveLength(expected);
         expect(liveStageAgents(rows)).toHaveLength(1 - expected);
+      } finally {
+        removeTempProject(projectRoot);
+      }
+    },
+  );
+
+  it.each([
+    ['Claude Code', 'claude-code'],
+    ['Codex', 'codex-cli'],
+  ])(
+    'AC-13: a %s SessionStart does not adopt a change another session is running',
+    (_host, adapter) => {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-running-hook-'));
+      try {
+        const git = (...args: string[]) =>
+          execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+        git('init', '--quiet', '-b', 'main');
+        git('config', 'user.email', 'r@example.test');
+        git('config', 'user.name', 'Running');
+        writeFileSync(join(projectRoot, '.gitignore'), '.paqad/\n');
+        git('add', '.');
+        git('commit', '--quiet', '-m', 'init');
+        mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+        writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+        const dirName = openFeatureChange(projectRoot, 'ses_running', {
+          adapter,
+          title: 'running change',
+          issue: null,
+          lane: 'full',
+        });
+        for (const stage of ['development', 'checks', 'documentation_sync']) {
+          appendFeatureStageRow(projectRoot, 'ses_running', dirName, {
+            kind: 'stage_start',
+            stage,
+            event_status: 'started',
+          });
+        }
+        const payload =
+          adapter === 'codex-cli'
+            ? {
+                session_id: 'ses_new',
+                hook_event_name: 'SessionStart',
+                source: 'startup',
+                cwd: projectRoot,
+                model: 'gpt-5-codex',
+                transcript_path: null,
+              }
+            : { session_id: 'ses_new', hook_event_name: 'SessionStart', source: 'startup' };
+        execFileSync('node', [RESET_SCRIPT], {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            ...NO_CONTEXT_REFRESH_ENV,
+            CLAUDE_PROJECT_DIR: adapter === 'codex-cli' ? '' : projectRoot,
+            PAQAD_PROJECT_ROOT: '',
+          },
+          input: JSON.stringify(payload),
+        });
+        expect(readSessionControl(projectRoot, 'ses_new').active).toBeNull();
+        expect(readSessionControl(projectRoot, 'ses_running').active).toBe(dirName);
+        expect(
+          readFeatureStageUnit(projectRoot, dirName).some((row) => row.session_id === 'ses_new'),
+        ).toBe(false);
       } finally {
         removeTempProject(projectRoot);
       }

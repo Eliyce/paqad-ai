@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readGitState } from '@/rag/git-state.js';
+import { readGitState, readHeadRef } from '@/rag/git-state.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
+import { runningStageOfOtherSession } from '@/stage-evidence/stage-agent-holds.js';
+import { RECORD_REPAIR_KIND } from '@/stage-evidence/types.js';
 
 import { rowRecordedAt } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
@@ -102,12 +104,33 @@ export function sessionReattachableFeature(
   return picked;
 }
 
+export function anotherSessionRunningStage(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+  now: () => Date = () => new Date(),
+): string | null {
+  const rows = stageRows(projectRoot, dirName);
+  const wroteWork = rows.some(
+    (row) => row.session_id === sessionId && row.kind !== RECORD_REPAIR_KIND,
+  );
+  if (wroteWork) return null;
+  return runningStageOfOtherSession(rows, sessionId, now().getTime());
+}
+
+function onAnotherBranch(projectRoot: string, dirName: string): boolean {
+  const head = readHeadRef(projectRoot);
+  if (head.branch === null) return false;
+  const recorded = featureBranch(projectRoot, dirName);
+  return recorded !== null && recorded !== head.branch;
+}
+
 export function reconcileSessionControl(
   projectRoot: string,
   sessionId: string,
   now?: () => Date,
 ): string | null {
-  const control = readSessionControl(projectRoot, sessionId, now);
+  let control = readSessionControl(projectRoot, sessionId, now);
   const activeClosed =
     control.active !== null &&
     isBundleMaterialized(projectRoot, control.active) &&
@@ -117,13 +140,14 @@ export function reconcileSessionControl(
     isBundleMaterialized(projectRoot, control.active) &&
     !activeClosed
   ) {
-    return control.active;
+    const keep =
+      !onAnotherBranch(projectRoot, control.active) &&
+      anotherSessionRunningStage(projectRoot, sessionId, control.active, now) === null;
+    if (keep) return control.active;
+    control = writeSessionControl(projectRoot, { ...control, active: null }, now, 'reconcile');
   }
 
-  const branch = readGitState(projectRoot).branch ?? null;
-  const candidates = listAdoptableFeatures(projectRoot, branch).filter(
-    (name) => !control.paused.includes(name),
-  );
+  const candidates = adoptableInFlightOnBranch(projectRoot, sessionId, now);
   const fallback = activeClosed ? null : control.active;
   if (candidates.length !== 1) {
     if (activeClosed) {
@@ -142,6 +166,23 @@ export function adoptableInFlightOnBranch(
   sessionId: string,
   now?: () => Date,
 ): string[] {
+  return inFlightOnBranch(projectRoot, sessionId, now).filter(
+    (name) => anotherSessionRunningStage(projectRoot, sessionId, name, now) === null,
+  );
+}
+
+export function heldInFlightOnBranch(
+  projectRoot: string,
+  sessionId: string,
+  now?: () => Date,
+): Array<{ dirName: string; stage: string }> {
+  return inFlightOnBranch(projectRoot, sessionId, now).flatMap((dirName) => {
+    const stage = anotherSessionRunningStage(projectRoot, sessionId, dirName, now);
+    return stage === null ? [] : [{ dirName, stage }];
+  });
+}
+
+function inFlightOnBranch(projectRoot: string, sessionId: string, now?: () => Date): string[] {
   const control = readSessionControl(projectRoot, sessionId, now);
   const branch = readGitState(projectRoot).branch ?? null;
   return listAdoptableFeatures(projectRoot, branch).filter(

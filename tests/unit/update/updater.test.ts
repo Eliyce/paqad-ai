@@ -474,5 +474,82 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
       expect(existsSync(join(userHome, '.codex/agents'))).toBe(false);
     });
+
+    describe('project Claude settings when the plugin is installed', () => {
+      const settingsPath = () => join(projectRoot, '.claude/settings.json');
+      const completionScript = () =>
+        join(userHome, '.paqad-ai/current/hooks/stage-agent-completion.mjs');
+      const startCommand = 'node "~/.paqad-ai/current/hooks/stage-agent-start.mjs"';
+      const regenerated = {
+        hooks: {
+          SubagentStop: [
+            { matcher: '^(paqad:)?paqad-', hooks: [{ type: 'command', command: '' }] },
+          ],
+          SubagentStart: [{ hooks: [{ type: 'command', command: startCommand }] }],
+        },
+      };
+
+      function installPlugin(): void {
+        const pluginsDir = join(userHome, '.claude/plugins');
+        mkdirSync(pluginsDir, { recursive: true });
+        writeFileSync(
+          join(pluginsDir, 'installed_plugins.json'),
+          JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+        );
+      }
+
+      function candidate() {
+        return {
+          path: '.claude/settings.json',
+          content: `${JSON.stringify(regenerated, null, 2)}\n`,
+          autoUpdate: true,
+        };
+      }
+
+      it('refreshes the settings while they still hold live npm hook lines', async () => {
+        installPlugin();
+        mkdirSync(join(userHome, '.paqad-ai/current/hooks'), { recursive: true });
+        writeFileSync(completionScript(), '');
+        mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+        writeFileSync(
+          settingsPath(),
+          JSON.stringify({
+            hooks: {
+              SubagentStop: [
+                { hooks: [{ type: 'command', command: `node "${completionScript()}"` }] },
+              ],
+            },
+          }),
+        );
+
+        const report = await new FrameworkUpdater({
+          generateCandidates: async () => [candidate()],
+        }).run(projectRoot);
+
+        expect(report.regenerated).toContain('.claude/settings.json');
+        const written = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+        expect(written.hooks.SubagentStart[0].hooks[0].command).toBe(startCommand);
+      });
+
+      it('leaves the settings to the plugin when they hold no live npm hook lines', async () => {
+        installPlugin();
+        mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+        const before = JSON.stringify({
+          hooks: {
+            SubagentStop: [
+              { hooks: [{ type: 'command', command: `node "${completionScript()}"` }] },
+            ],
+          },
+        });
+        writeFileSync(settingsPath(), before);
+
+        const report = await new FrameworkUpdater({
+          generateCandidates: async () => [candidate()],
+        }).run(projectRoot);
+
+        expect(report.regenerated).not.toContain('.claude/settings.json');
+        expect(readFileSync(settingsPath(), 'utf8')).toBe(before);
+      });
+    });
   });
 });

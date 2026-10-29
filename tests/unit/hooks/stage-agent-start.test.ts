@@ -279,10 +279,37 @@ describe('stage-agent-start.mjs', () => {
     const npm = await runHook(root, stagePayload());
     expect(npm.stdout).toBe('');
     expect(markers(root)).toEqual([]);
+    expect(hookLog(root)).toEqual([
+      expect.stringContaining('stage-agent-start: stood-down agent=agent_dev_1 reason=npm'),
+    ]);
 
     const plugin = await runHook(root, stagePayload(), { CLAUDE_PLUGIN_ROOT: pluginRoot });
     expect(JSON.parse(plugin.stdout).hookSpecificOutput.hookEventName).toBe('SubagentStart');
     expect(markers(root)).toEqual(['agent_dev_1']);
+  });
+
+  it('logs a passive stand-down when live npm hook lines own the hooks', async () => {
+    const root = onboard(tempRoot());
+    const pluginRoot = tempRoot();
+    const npmHook = join(root, '.paqad-ai', 'current', 'hooks', 'stage-agent-completion.mjs');
+    mkdirSync(join(npmHook, '..'), { recursive: true });
+    writeFileSync(npmHook, '', 'utf8');
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(
+      join(root, '.claude', 'settings.json'),
+      JSON.stringify({
+        hooks: { SubagentStop: [{ hooks: [{ type: 'command', command: `node "${npmHook}"` }] }] },
+      }),
+      'utf8',
+    );
+
+    const plugin = await runHook(root, stagePayload(), { CLAUDE_PLUGIN_ROOT: pluginRoot });
+
+    expect(plugin.stdout).toBe('');
+    expect(markers(root)).toEqual([]);
+    expect(hookLog(root)).toEqual([
+      expect.stringContaining('stage-agent-start: stood-down agent=agent_dev_1 reason=passive'),
+    ]);
   });
 
   it('is executable and shipped as a tsup-built entry', () => {

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M637BA8YCVW5HGEA6TNYSYT4",
+  "category": "architecture-path",
+  "title": "B1: when may a session adopt a change another session wrote?",
+  "context": "Path found: on 2026-10-28T17:21:40Z the SessionStart hook runtime/hooks/agent-entry-session-start.mjs called reconcileSessionControl for the new session 5067f880. The checkout was on feat/parallel-review-docs-753, the 753 bundle was the only in-flight bundle on that branch, and session c08524c9 had development, checks and documentation_sync started and not ended in it. The FR-3 rule (adopt the single in-flight bundle on the branch for a session that never saw it) adopted it. The Stop-hook readers (marker-parse, hook-cost, completion-deferred, narration, receipt-file) call the same reconcile on every turn. Conflict: the suggested simple rule (never adopt a bundle with rows only from other sessions) breaks contracted tests FR-3, FR-6, AC-1 and AC-4 in tests/unit/feature-evidence/adoption.test.ts, which keep one change when the session id rotates (the CLI without SE_SESSION reads the shared ledger-session cache, which another session can overwrite) or after /clear. With the simple rule, resolveActiveFeature would mint a second bundle on the same branch and split the change. No reliable per-session liveness signal exists (HUD heartbeat is Claude Code only and stays fresh 120 s after /clear; host_pid is only on stage-agent rows).",
+  "options": [
+    {
+      "option_key": "running",
+      "label": "Refuse adoption only while another session runs a stage there: a session with no row in the bundle does not adopt it while a stage_start from another session has no stage_end or a stage agent from another session is live (reuse hasOpenUnendedStage and liveStageAgents). Passive readers return null; a bare stage start on that branch stops with a message naming the running change and pointing at --title instead of minting a second bundle. Quiet bundles are still adopted (FR-3, FR-6 and /clear between stages keep working); the AC-1 and AC-4 fixtures change to rotate after the stage ends.",
+      "one_line_preview": "Refuse adoption only while another session runs a stage there: a session with no row in the bundle does not adopt it while a stage_start from another session has no stage_end or a stage agent from another session is live (reuse hasOpenUnendedStage and liveStageAgents). Passive readers return null; a bare stage start on that branch stops with a message naming the running change and pointing at --title instead of minting a second bundle. Quiet bundles are still adopted (FR-3, FR-6 and /clear between stages keep working); the AC-1 and AC-4 fixtures change to rotate after the stage ends.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "strict",
+      "label": "Never adopt a bundle that has rows only from other sessions (the simple rule). Retire FR-3, FR-6, AC-1 and AC-4 adoption; a rotated or cleared session continues a change only with stage start --title of a new change, so one change can split into two bundles.",
+      "one_line_preview": "Never adopt a bundle that has rows only from other sessions (the simple rule). Retire FR-3, FR-6, AC-1 and AC-4 adoption; a rotated or cleared session continues a change only with stage start --title of a new change, so one change can split into two bundles.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "route",
+      "label": "Adopt only from the stage verbs (resolveActiveFeature); every passive reader (SessionStart, Stop hooks, HUD, cost) reads the pointer without adopting or writing it. Keeps FR-3 and AC-1 for stage verbs, but two feature sessions on the same branch in one checkout can still share a change.",
+      "one_line_preview": "Adopt only from the stage verbs (resolveActiveFeature); every passive reader (SessionStart, Stop hooks, HUD, cost) reads the pointer without adopting or writing it. Keeps FR-3 and AC-1 for stage verbs, but two feature sessions on the same branch in one checkout can still share a change.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "running",
+  "created_at": "2026-10-29T07:00:20.383Z",
+  "status": "resolved",
+  "change": "01M636XGSQWPQYWGN1YF9E39HB",
+  "chosen": "running",
+  "rationale": "Owner picked: refuse adoption only while another session runs a stage there; quiet changes are still adopted so /clear and id rotation keep one change.",
+  "resolved_at": "2026-10-29T07:01:57.936Z",
+  "decision_id": "D-01M637BA8YCVW5HGEA6TNYSYT4",
+  "fingerprint": "sha256:f837d81b6e9082168472a68b09a2ed1e9f7be588d7f32109b7d7a1eaaa657282",
+  "question": "B1: when may a session adopt a change another session wrote?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M636XGSQWPQYWGN1YF9E39HB",
+  "ttl_until": "2027-01-27T07:00:20.383Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "running",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T07:01:57.936Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked: refuse adoption only while another session runs a stage there; quiet changes are still adopted so /clear and id rotation keep one change."
+  }
+}

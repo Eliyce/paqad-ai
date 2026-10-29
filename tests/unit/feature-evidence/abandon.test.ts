@@ -23,7 +23,11 @@ import {
 } from '@/feature-evidence/feature-record.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import { validateFeatureRecord } from '@/feature-evidence/schema.js';
-import { readFeatureStageUnit, resumeFeatureByRef } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  readFeatureStageUnit,
+  resumeFeatureByRef,
+} from '@/feature-evidence/stage-ledger.js';
 import { buildTimeline } from '@/hud/snapshot.js';
 
 import {
@@ -36,6 +40,7 @@ import {
   plainRoot,
   repoRoot,
 } from '../hud/scope-fixtures.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 afterEach(cleanupScopeFixtures);
 
@@ -131,23 +136,6 @@ describe('closeAbandonedBundles', () => {
     expect(closeAbandonedBundles(root, { now: after(48 * HOUR) })).toEqual([]);
   });
 
-  it('closes a change whose own pull request was merged', () => {
-    const root = repoRoot();
-    const dir = oldChangeOn(root, 'feat/merged');
-    recordShip(
-      root,
-      dir,
-      { pr: { number: 2, url: null, draft: false, state: 'merged' } },
-      OPENED.toISOString(),
-    );
-    expect(closeAbandonedBundles(root, { now: after(48 * HOUR) })).toEqual([
-      { dir, branch: 'feat/merged', reason: 'branch merged' },
-    ]);
-    expect(readFeatureStageUnit(root, dir).at(-1)?.note).toBe(
-      'abandoned: branch merged, no row for 24h',
-    );
-  });
-
   it('closes a branch merged into main that carries its own commits', () => {
     const root = repoRoot();
     const dir = oldChangeOn(root, 'feat/ancestor');
@@ -226,6 +214,124 @@ describe('closeAbandonedBundles', () => {
     const record = JSON.parse(readFileSync(featurePath, 'utf8')) as Record<string, unknown>;
     writeFileSync(featurePath, JSON.stringify({ ...record, status: 'done' }));
     expect(closeAbandonedBundles(root, { now: after(48 * HOUR) })).toEqual([]);
+  });
+});
+
+describe('a change whose pull request merged', () => {
+  function shippedOn(root: string, branch: string, number: number | null): string {
+    const dir = oldChangeOn(root, branch);
+    git(root, 'update-ref', `refs/remotes/origin/${branch}`, branch);
+    recordShip(
+      root,
+      dir,
+      { pr: { number, url: null, draft: false, state: 'open' } },
+      OPENED.toISOString(),
+    );
+    return dir;
+  }
+
+  it('AC-10: closes as done at once when main carries the squash commit for its number', () => {
+    const root = repoRoot();
+    const dir = shippedOn(root, 'feat/squashed', 766);
+    commit(root, 'squash.txt', `feat: parallel review and docs (${ticketRef(766)})`);
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR) })).toEqual([
+      { dir, branch: 'feat/squashed', reason: 'pull request merged' },
+    ]);
+    const closes = readFeatureStageUnit(root, dir).filter((row) => row.kind === 'close');
+    expect(closes).toHaveLength(1);
+    expect(closes[0]).toMatchObject({
+      session_id: ABANDON_SESSION_ID,
+      note: `closed: pull request ${ticketRef(766)} merged`,
+    });
+    expect(readFeatureRecord(root, dir)?.status).toBe('done');
+    expect(closeAbandonedBundles(root, { now: after(2 * HOUR) })).toEqual([]);
+  });
+
+  it.each([
+    ['a longer number', `feat: other (${ticketRef(7660)})`],
+    ['a bare number', `feat: mentions ${ticketRef(766)}`],
+    ['a shorter number', `feat: other (${ticketRef(76)})`],
+    ['the number before more text', `fix: something (${ticketRef(766)}) followup`],
+  ])('AC-10: stays open when main only has %s', (_label, subject) => {
+    const root = repoRoot();
+    const dir = shippedOn(root, 'feat/open', 766);
+    commit(root, 'other.txt', subject);
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR) })).toEqual([]);
+    expect(isBundleClosed(root, dir)).toBe(false);
+  });
+
+  it('AC-10: stays open with no pull request number or no matching commit', () => {
+    const root = repoRoot();
+    const unnumbered = shippedOn(root, 'feat/unnumbered', null);
+    const unmatched = shippedOn(root, 'feat/unmatched', 812);
+    commit(root, 'squash.txt', `feat: something (${ticketRef(766)})`);
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR) })).toEqual([]);
+    expect(isBundleClosed(root, unnumbered)).toBe(false);
+    expect(isBundleClosed(root, unmatched)).toBe(false);
+  });
+
+  it('closes as done at once when the delivery record says merged', () => {
+    const root = repoRoot();
+    const dir = oldChangeOn(root, 'feat/merged-now');
+    recordShip(
+      root,
+      dir,
+      { pr: { number: 3, url: null, draft: false, state: 'merged' } },
+      OPENED.toISOString(),
+    );
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR) })).toEqual([
+      { dir, branch: 'feat/merged-now', reason: 'pull request merged' },
+    ]);
+    expect(readFeatureStageUnit(root, dir).at(-1)?.note).toBe(
+      `closed: pull request ${ticketRef(3)} merged`,
+    );
+  });
+
+  it('AC-11: stays open while a stage is running in it, and closes once the session is quiet', () => {
+    const root = repoRoot();
+    const dir = shippedOn(root, 'feat/busy', 766);
+    commit(root, 'squash.txt', `feat: busy (${ticketRef(766)})`);
+    appendFeatureStageRow(
+      root,
+      'ses-busy',
+      dir,
+      { kind: 'stage_start', stage: 'development', event_status: 'started' },
+      after(HOUR - 5 * 60_000),
+    );
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR) })).toEqual([]);
+    expect(isBundleClosed(root, dir)).toBe(false);
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR + 26 * 60_000) })).toHaveLength(1);
+    expect(readFeatureRecord(root, dir)?.status).toBe('done');
+  });
+
+  it('AC-14: finds the merge on origin/main as already fetched, with no fetch', () => {
+    const root = repoRoot();
+    const dir = shippedOn(root, 'feat/remote-merge', 766);
+    checkout(root, 'tmp-remote', true);
+    commit(root, 'squash.txt', `feat: remote only (${ticketRef(766)})`);
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'tmp-remote');
+    checkout(root, 'main');
+    git(root, 'branch', '-D', 'tmp-remote');
+    const { git: counting, calls } = countingGit();
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR), git: counting })).toHaveLength(1);
+    expect(readFeatureRecord(root, dir)?.status).toBe('done');
+    expect(calls.some((args) => args.includes('fetch'))).toBe(false);
+  });
+
+  it('AC-14: keeps the 24 hour rule when git fails', () => {
+    const root = repoRoot();
+    const dir = shippedOn(root, 'feat/no-git', 766);
+    commit(root, 'squash.txt', `feat: no git (${ticketRef(766)})`);
+
+    expect(closeAbandonedBundles(root, { now: after(HOUR), git: () => undefined })).toEqual([]);
+    expect(isBundleClosed(root, dir)).toBe(false);
   });
 });
 
