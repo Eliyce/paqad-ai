@@ -91,6 +91,11 @@ describe('computeDoneLadder', () => {
     });
   });
 
+  it('reads the rung once the caller has found the work done, whatever the verdict word', () => {
+    expect(rung({ workKind: 'inconclusive', workDone: true }).rung).toBe('done');
+    expect(rung({ workKind: 'fail', workDone: true, checks: 'red' }).rung).toBeNull();
+  });
+
   it('reads no rung without a passing work verdict or without green checks', () => {
     expect(rung({ workKind: 'fail' }).rung).toBeNull();
     expect(rung({ workKind: 'inconclusive' }).rung).toBeNull();

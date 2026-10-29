@@ -981,9 +981,9 @@ export const SCENE_FIXTURES = {
   'Shipping with CI live': snapshot({
     ...FULL_ORD_501,
     headline: {
-      text: `Watching CI on PR ${'#'}12`,
+      text: 'Delivering',
       tone: 'working',
-      row: 14,
+      row: 15,
       word: 'Working',
       clock_from: '2026-10-18T08:57:00.000Z',
     },

@@ -1500,7 +1500,7 @@ const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   'High Table writing': 'The High Table is writing its notes',
   Building: 'Building',
   'Needs you': 'The chief architect has 1 question for you',
-  'Shipping with CI live': `Watching CI on PR ${'#'}12`,
+  'Shipping with CI live': 'Delivering',
   Failed: 'Tests, types or lint failed',
   'CI passed': 'Done',
   'Fast lane': 'Building',
