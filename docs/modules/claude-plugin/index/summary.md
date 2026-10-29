@@ -128,12 +128,13 @@ call, so a static reader sees it:
 - It never declares a name spelled like a hook parameter (`$`, `e` or `next`) anywhere else in
   the mod file, and a function takes `e` or `next` only when it is passed straight to `on(...)`
   or `.catch(...)`. The directory reads those names as hook parameters wherever they appear.
-- Its `tool.check` hook is two lines: `await notePermission($, e, await next(e))`, then
-  `return next(e)`. The event is only read as a member (`e.agentId`, never a cast or `e?.`) or
-  handed whole to a call, and the answer is always a literal `next(e)`: the directory reads no
-  other form, including a returned `const` holding `next(e)`'s result, and blocks the plugin. At
-  `tool.check`, `next(e)` only reads the verdict and runs nothing, so reading it twice is safe.
-  `register-directory-shape.test.ts` checks both this and the names rule above.
+- Its `tool.check` hook keeps Claude Code's answer in one `const verdict = await next(e)`, reads
+  `verdict.decision` once into a plain local for `notePermission` (the band and the Allow-once
+  bookkeeping), and ends with `return verdict`. The directory reads `next(e)` only in a return or
+  in that one `const`, the `const` only in its return or a plain member read (never in a closure,
+  an object or handed whole to a call), and the event only as a member (`e.agentId`, never a cast
+  or `e?.`) or handed whole to a call. Any other form blocks the plugin.
+  `register-directory-shape.test.ts` checks all of this and the names rule above.
   `register.tsx` uses other names, and a scan of the parsed source test guards the rule.
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
