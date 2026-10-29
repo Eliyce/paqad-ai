@@ -37,6 +37,13 @@ that became applicable after the load (a new file in play) is still a turn-end m
 completion gate, not a pre-edit block. A record written before the field existed has no
 hashes and is checked for existence only.
 
+**Both sides measure the same change.** `rules load` and the `rules-loaded` gate pass the
+change folder to `resolveRuleApplicabilityForChange`, which reads the files changed since that
+change's own start point (`readChangeStartPoint`). Without it, a verdict written after the
+change closed, or by a process with no session in its environment, fell back to the whole branch
+diff, so earlier work on the branch triggered rules the change never touched and the load read
+as stale ("paqad could not record that the rules were loaded").
+
 ## Source Footprint
 
 - `src/context/rule-manifest.ts`

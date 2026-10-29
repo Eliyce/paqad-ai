@@ -25,13 +25,9 @@ import type {
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
-import {
-  WAITING_FOR_ANSWER,
-  WAITING_FOR_PERMISSION,
-  snapshotHeadline,
-  type DesktopHeadline,
-} from './headline';
+import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
+import { fitLine } from './shell';
 import {
   NOTHING_TO_PROVE,
   OLD_RECORD_NOTE,
@@ -66,7 +62,7 @@ export const GETTING_READY = IDLE_WORDS;
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
-export const NEEDS_YOU_WORDS = 'Needs you';
+export const NEEDS_YOU_WORDS = WAITING_FOR_ANSWER;
 export const CLOSE_MENU_QUESTION = 'Close the paqad band?';
 
 export const CARD_ROWS = { identity: 1, message: 1, gap: 1, strip: 3, menu: 1 } as const;
@@ -126,7 +122,7 @@ function prName(snapshot: PaqadHudSnapshot): string {
   return number === null ? 'The PR' : `PR #${number}`;
 }
 
-export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
+export { WAITING_FOR_ANSWER, type DesktopHeadline };
 
 export const desktopHeadline = snapshotHeadline;
 
@@ -218,7 +214,7 @@ export function stageStrip(snapshot: PaqadHudSnapshot, live: LiveState = IDLE_LI
   else if (failed) value = `${failed.label} failed`;
   else if (marked) value = markedValue(snapshot, marked.stage);
   else if (snapshot.active && drawn.length > 0 && drawn.every((entry) => entry.state === 'done')) {
-    value = snapshot.ship?.merged ? 'Delivered' : 'All stages done';
+    value = 'All stages done';
   }
   return {
     stages: stages.map(({ label, state }) => ({ label, state })),
@@ -265,7 +261,7 @@ export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
   };
 }
 
-export type DeliveryLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
+export type DeliveryLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI';
 
 const SHIP_STATE: Readonly<Record<ShipStepState, ShipState>> = {
   done: 'done',
@@ -273,19 +269,17 @@ const SHIP_STATE: Readonly<Record<ShipStepState, ShipState>> = {
   todo: 'todo',
   failed: 'fail',
   closed: 'fail',
-  ready: 'ready',
   unknown: 'todo',
 };
 
 export function deliverySteps(snapshot: PaqadHudSnapshot): DeliveryLabel[] {
   const plan = snapshot.delivery_plan;
-  if (!plan) return ['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge'];
+  if (!plan) return ['Edit', 'Commit', 'Push', 'PR', 'CI'];
   const steps: DeliveryLabel[] = ['Edit'];
   if (plan.commit) steps.push('Commit');
   if (plan.push) steps.push('Push');
   if (plan.pr) steps.push('PR');
   if (plan.ci) steps.push('CI');
-  if (plan.merge) steps.push('Merge');
   return steps;
 }
 
@@ -302,14 +296,11 @@ function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
   const prOpen = ship?.pr_state === 'open';
-  if (rail.merged) return `${prName(snapshot)} merged`;
-  if (rail.allGreen) return 'Merge is yours';
   if (state('PR') === 'closed') return 'PR closed';
-  if (state('Merge') === 'unknown') return 'PR state unknown';
+  if (state('PR') === 'unknown') return 'PR state unknown';
   if (state('CI') === 'failed') return 'CI failed';
   if (rail.ci && plan?.ci !== false) return `${rail.ci.done} of ${rail.ci.total} checks green`;
-  if (prOpen && plan && !plan.ci) return 'No CI · merge is yours';
-  if (prOpen) return prName(snapshot);
+  if (prOpen || rail.merged) return prName(snapshot);
   if (state('Push') === 'failed') return 'Push failed';
   if (state('Push') === 'done') return 'Pushed';
   if (plan && !plan.commit) return 'Edit only · no commit';
@@ -337,11 +328,37 @@ export function deliveryStrip(
   };
 }
 
+export const SETTLE_WINDOW_MS = 10_000;
+
+export function settledChange(
+  snapshot: PaqadHudSnapshot | null,
+): { key: string; endedAt: number | null } | null {
+  if (!snapshot?.active) return null;
+  const required = snapshot.stages.filter((stage) => stage.mandatory);
+  const ended = (state: string) => state === 'complete' || state === 'redone';
+  if (required.length === 0 || !required.every((stage) => ended(stage.state))) return null;
+  if (snapshot.stages.some((stage) => stage.state === 'running')) return null;
+  const ends = snapshot.stages
+    .map((stage) => Date.parse(stage.ended_at ?? ''))
+    .filter((at) => Number.isFinite(at));
+  return {
+    key: snapshot.change?.dir ?? snapshot.change?.id ?? 'change',
+    endedAt: ends.length > 0 ? Math.max(...ends) : null,
+  };
+}
+
+export function settleStart(endedAt: number | null, firstSeenAt: number): number | null {
+  if (endedAt === null) return null;
+  const after = firstSeenAt - endedAt;
+  return after >= 0 && after <= SETTLE_WINDOW_MS ? firstSeenAt : null;
+}
+
 export function stripOf(
   snapshot: PaqadHudSnapshot,
   columns: number,
   live: LiveState = IDLE_LIVE,
   clockMs?: number,
+  settledAtMs: number | null = null,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
@@ -357,11 +374,14 @@ export function stripOf(
     ci: delivery.ci,
     deliveryValue: delivery.value,
     ...(clockMs === undefined ? {} : { clockMs }),
+    ...(settledAtMs === null ? {} : { settledAtMs }),
   };
 }
 
 export function stripAltText(text: string, strip: StripInput): string {
   const parts = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
+  const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
+  if (done.length > 0) parts.push(`${done.join(', ')} done.`);
   if (strip.seats && strip.tableValue) parts.push(`High Table ${strip.tableValue}.`);
   if (strip.deliveryValue) parts.push(`Delivery ${strip.deliveryValue}.`);
   return parts.join(' ');
@@ -422,6 +442,7 @@ export type DesktopBand =
       strip: StripInput;
       alt: string;
       minimised: MinimisedView;
+      activity: string[];
     };
 
 export interface DesktopBandInput {
@@ -435,6 +456,7 @@ export interface DesktopBandInput {
   menuOpen: boolean;
   columns: number;
   maxRows: number;
+  settledAtMs?: number | null;
 }
 
 export function unreadableReason(input: {
@@ -468,6 +490,8 @@ function routeFromEarlierTurn(snapshot: PaqadHudSnapshot, turnStartedAt: number 
   return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
 }
 
+const HEADLINE_INSET_COLUMNS = 2;
+
 export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
@@ -484,9 +508,10 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
-  const head = desktopHeadline(snapshot, input.now, live);
-  const strip = stripOf(snapshot, input.columns, live, input.now);
-  const fits = input.maxRows >= cardRows(input.menuOpen);
+  const full = desktopHeadline(snapshot, input.now, live);
+  const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
+  const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
+  const fits = input.maxRows >= cardRows(input.menuOpen) + full.activity.length;
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -494,8 +519,9 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     identity: identityView(snapshot),
     headline: head,
     strip,
-    alt: stripAltText(head.text, strip),
+    alt: stripAltText(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
+    activity: full.activity,
   };
 }
 
@@ -791,7 +817,7 @@ function chiefLight(table: PaqadHighTable, state: ChiefState): LightView {
   if (state === 'needs') {
     return {
       signal: 'attention',
-      title: 'Needs your answers',
+      title: WAITING_FOR_ANSWER,
       why: join(ruledIn ? `Ruled in ${ruledIn}` : null, tokens),
     };
   }
@@ -949,7 +975,6 @@ function blockText(
   right: string | null;
 } {
   const ship = snapshot.ship;
-  const pr = prName(snapshot);
   switch (label) {
     case 'Edit': {
       const files = ship?.files_changed ?? null;
@@ -999,16 +1024,6 @@ function blockText(
     }
     case 'CI':
       return { title: 'CI', sub: ship ? ciSub(ship) : 'Runs on the pull request', right: null };
-    case 'Merge':
-      return {
-        title: 'Merge',
-        sub: ship?.merged
-          ? `${pr} is merged.`
-          : state === 'ready'
-            ? 'Everything is green. The merge is yours.'
-            : 'The merge is always yours. paqad never merges.',
-        right: null,
-      };
   }
 }
 
@@ -1076,7 +1091,7 @@ export function deliveryView(
         jobs:
           label === 'CI' && reached && ship?.ci_detail ? ship.ci_detail.jobs.map(deliveryJob) : [],
         link:
-          label === 'Merge' && state === 'ready' && ship?.pr_url
+          label === 'PR' && ship?.pr_state === 'open' && ship.pr_url
             ? { href: ship.pr_url, text: `Open ${prName(snapshot)}` }
             : null,
         ci: label === 'CI' ? strip.ci : null,

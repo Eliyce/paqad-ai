@@ -87,7 +87,7 @@ const BORDER: Record<string, string | null | undefined> = {
   Ready: null,
   Working: 'suggestion',
   'Branch warning': 'warning',
-  'Needs you': 'permission',
+  'Waiting for your answer': 'permission',
   Inconclusive: 'warning',
   'Safe to merge': 'success',
   'Needs your attention': 'error',
@@ -164,12 +164,12 @@ describe('the band on each fixture change', () => {
       expect(text).not.toContain('HIGH TABLE');
     });
 
-    test(`graduated lane: Needs you for the waiting decision, and the HIGH TABLE done on ${surface}`, async ($, on) => {
+    test(`graduated lane: Waiting for your answer for the waiting decision, and the HIGH TABLE done on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
-      expect(text).toContain('1 decision is waiting for you');
+      expect(text).toContain('Waiting for your answer');
       expect(text).toContain('HIGH TABLE');
       expect(text).toContain('spec approved');
     });
@@ -242,18 +242,12 @@ describe('the band on each fixture change', () => {
   }
 });
 
-const SAFE_WORDS = `Safe to merge: PR ${'#'}12 is ready for your merge`;
+const DONE_WORDS = 'Done';
 
 const ALL_GREEN = {
   ...FULL_ORD_501,
-  headline: {
-    text: SAFE_WORDS,
-    tone: 'good',
-    row: 8,
-    word: 'Safe to merge',
-    rung: 'safe-to-merge',
-  },
-  rung: 'safe-to-merge',
+  headline: { text: DONE_WORDS, tone: 'good', row: 16, word: 'Done', rung: 'done' },
+  rung: 'done',
   flags: [],
   ship: {
     commits: 2,
@@ -286,12 +280,13 @@ describe('the ship rail on each surface', () => {
     await $.session.start(START);
     const terminal = await $.ui.render(band('terminal', { bodyColumns: 120 }));
     expect(elementsOf(terminal, 'Svg')).toEqual([]);
-    expect(textOf(terminal)).toContain('All green · merge is yours');
+    expect(textOf(terminal)).toContain('CI · 6 of 6 green');
+    expect(textOf(terminal)).not.toContain('Merge');
     const desktop = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const svgs = elementsOf(desktop, 'Svg');
     expect(svgs).toHaveLength(1);
     const props = (svgs[0] as { props: { alt?: string; width?: unknown; height?: unknown } }).props;
-    expect(props.alt).toMatch(/ is ready for your merge\. Stage .*Delivery Merge is yours\.$/);
+    expect(props.alt).toMatch(/^Done\. Stage .*Delivery 6 of 6 checks green\.$/);
     expect(props.width).toBeUndefined();
     expect(props.height).toBeUndefined();
   });
@@ -308,9 +303,8 @@ describe('the ship rail on each surface', () => {
       await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
       await $.ui.render(band('terminal'));
     }
-    const green = world.toasts.filter((text) => text.startsWith('Safe to merge'));
+    const green = world.toasts.filter((text) => text === DONE_WORDS);
     expect(green).toHaveLength(1);
-    expect(green[0]).toBe(SAFE_WORDS);
     const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
   });
@@ -467,8 +461,8 @@ describe('minimise, close and hide', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(band(surface));
-      expect(textOf(drawn)).toBe('paqad · Needs you ▸');
-      expect(colorOf(textElement(drawn, 'paqad · Needs you ▸'))).toBe('permission');
+      expect(textOf(drawn)).toBe('paqad · Waiting for your answer ▸');
+      expect(colorOf(textElement(drawn, 'paqad · Waiting for your answer ▸'))).toBe('permission');
       const mounted = await mountBand($, surface);
       await mounted.press({ key: 'paqad-needs-you' });
       await mounted.unmount();
@@ -760,10 +754,10 @@ describe('the Desktop band', () => {
       approver: 'person',
     } as never);
     const waiting = await $.ui.render(band('desktop'));
-    expect(textOf(waiting)).toContain('Waiting for your permission');
+    expect(textOf(waiting)).toContain('Waiting for your answer');
     expect(lightOf(waiting)).toBe('#F37748');
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('an ask the host answers, or an allow, never waits for you', async ($, on) => {
@@ -802,7 +796,7 @@ describe('the Desktop band', () => {
       approver: 'person',
       agentId: 'agent-a1',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('a background agent ask clears when that agent starts a tool or its turn completes', async ($, on) => {
@@ -826,16 +820,16 @@ describe('the Desktop band', () => {
       tool_use_id: 'tu_a1',
       agentId: 'agent-a1',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
     await askFrom('agent-b2', 'tu_b1');
     await $.turn.complete({ text: '', agentId: 'agent-b2' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
     await askFrom('agent-c3', 'tu_c1');
     await $.turn.start({ text: 'next', turnId: 'turn-9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
-  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your permission', async ($, on) => {
+  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your answer', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -847,7 +841,7 @@ describe('the Desktop band', () => {
       approver: 'person',
       agentId: 'agent-plan',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('FR-18 / AC-14: a foreground stage agent ask waits until that agent moves on', async ($, on) => {
@@ -869,8 +863,8 @@ describe('the Desktop band', () => {
       seen.push(textOf(await $.ui.render(band('desktop'))));
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).toContain('Waiting for your permission');
-    expect(seen[1]).not.toContain('Waiting for your permission');
+    expect(seen[0]).toContain('Waiting for your answer');
+    expect(seen[1]).not.toContain('Waiting for your answer');
   });
 
   test('FR-18: a foreground stage agent ask clears when the Agent call ends', async ($, on) => {
@@ -888,7 +882,7 @@ describe('the Desktop band', () => {
       } as never);
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('AC-13: a background agent ask during a foreground Agent call does not wait', async ($, on) => {
@@ -919,8 +913,8 @@ describe('the Desktop band', () => {
       seen.push(textOf(await $.ui.render(band('desktop'))));
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).not.toContain('Waiting for your permission');
-    expect(seen[1]).toContain('Waiting for your permission');
+    expect(seen[0]).not.toContain('Waiting for your answer');
+    expect(seen[1]).toContain('Waiting for your answer');
   });
 
   test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
@@ -944,7 +938,7 @@ describe('the Desktop band', () => {
       subagent_type: 'paqad:paqad-planning',
       run_in_background: true,
     } as never);
-    expect(seen[0]).not.toContain('Waiting for your permission');
+    expect(seen[0]).not.toContain('Waiting for your answer');
   });
 
   test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
@@ -958,10 +952,10 @@ describe('the Desktop band', () => {
       tool_use_id: 'tu_m',
       approver: 'person',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     world.verdict = { decision: 'allow' };
     await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'tu_r', approver: 'host' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('a main-thread ask still waits while a background agent works on', async ($, on) => {
@@ -985,9 +979,9 @@ describe('the Desktop band', () => {
     } as never);
     await $.tool.call({ tool: 'Read', tool_use_id: 'tu_a1', agentId: 'agent-a1' } as never);
     await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_m1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
@@ -1002,9 +996,9 @@ describe('the Desktop band', () => {
       approver: 'person',
     } as never);
     await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     await $.turn.complete({ text: '' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {
@@ -1146,14 +1140,14 @@ describe('the Desktop band', () => {
     expect(world.store.has('band.minimised')).toBe(false);
   });
 
-  test('AC-14: a closed band with a decision waiting reads Needs you in coral', async ($, on) => {
+  test('AC-14: a closed band with a decision waiting reads Waiting for your answer in coral', async ($, on) => {
     const store = new Map<string, unknown>([['band.hidden:/work', true]]);
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) }, store });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const drawn = await $.ui.render(band('desktop'));
-    expect(textOf(drawn)).toBe('paqad   ● Needs youShow');
-    expect(colorOf(textElement(drawn, '   ● Needs you'))).toBe('#F37748');
+    expect(textOf(drawn)).toBe('paqad   ● Waiting for your answerShow');
+    expect(colorOf(textElement(drawn, '   ● Waiting for your answer'))).toBe('#F37748');
   });
 
   test('AC-16: the card needs 6 rows, 7 with the menu, and falls back to the minimised row', async ($, on) => {
@@ -1368,7 +1362,7 @@ describe('the Desktop Ledger', () => {
     expectDesktopSafe(table);
     const lines = drawnLines(table);
     expect(lines).toContain('CHIEF ARCHITECT');
-    expect(lines).toContain('● Needs your answers');
+    expect(lines).toContain('● Waiting for your answer');
     expect(lines).toContain('1.  Customer email in the export');
     expect(lines).toContain('Answer in chat');
     expect(lines).toContain('See each side');
@@ -1422,7 +1416,7 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('● Approved');
   });
 
-  test('AC-22: Delivery draws one block per step with its node, and the Open PR link when the merge is ready', async ($, on) => {
+  test('AC-22: Delivery draws one block per step with its node, and the Open PR link on the open PR', async ($, on) => {
     worldOf(on, {
       files: {
         ...ONBOARDED,
@@ -1435,7 +1429,7 @@ describe('the Desktop Ledger', () => {
     const tree = await desktopPane($, ['paqad-tab-ships']);
     expectDesktopSafe(tree);
     const lines = drawnLines(tree);
-    expect(lines).toContain('Everything is green. The merge is yours.');
+    expect(lines).not.toContain('Merge');
     expect(lines).toContain('feat/x on origin');
     const nodes = everyElement(tree).filter(
       (element) => element.type === 'Svg' && propsOf(element).width === 24,
@@ -1505,10 +1499,10 @@ const WORKFLOW_SCENES: ReadonlySet<string> = new Set(['Question', 'Health check'
 const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   'High Table writing': 'The High Table is writing its notes',
   Building: 'Building',
-  'Needs you': 'The chief architect has 1 question for you',
-  'Shipping with CI live': `Watching CI on PR ${'#'}12`,
+  'Waiting for your answer': 'Waiting for your answer',
+  'Shipping with CI live': 'Delivering',
   Failed: 'Tests, types or lint failed',
-  'All green': `PR ${'#'}12 is ready for your merge`,
+  'CI passed': 'Done',
   'Fast lane': 'Building',
   'Edit only': 'Done    left uncommitted, as you asked',
   'No CI': 'Delivering',
@@ -2628,7 +2622,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(world.runs).toEqual([]);
     expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...RULE_STOP, used: true });
     for (const surface of SURFACES) {
-      expect(textOf(await $.ui.render(band(surface)))).not.toContain('Needs you');
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('Waiting for your answer');
     }
   });
 
@@ -3051,7 +3045,7 @@ describe('the Trust, Ships and Record tabs', () => {
       const lines = drawnLines(await paneOn($, surface, 'ships'));
       expect(lines).toContain('Ships (shown)');
       expect(lines.some((line) => line.startsWith('CI           running, 3 of 7 done'))).toBe(true);
-      expect(lines).toContain('Merge        The merge is always yours. paqad never merges.');
+      expect(lines.some((line) => line.startsWith('Merge'))).toBe(false);
     });
 
     test(`a picked Record tab holds when the verdict lands and a delivery starts on ${surface}`, async ($, on) => {
@@ -3520,4 +3514,394 @@ describe('the heartbeat and the chime', () => {
       expect(world.spoken).toEqual([]);
     });
   }
+});
+
+const CI_WATCHED = SCENE_FIXTURES['Shipping with CI live'];
+const shipOf = (fixture: Record<string, unknown>) => fixture.ship as Record<string, unknown>;
+const ciOf = (fixture: Record<string, unknown>) => shipOf(fixture).ci as Record<string, unknown>;
+
+function ciFixture(state: string, over: Record<string, unknown> = {}) {
+  return snapshot({
+    ...CI_WATCHED,
+    ship: { ...shipOf(CI_WATCHED), ci: { ...ciOf(CI_WATCHED), state }, ...over },
+  });
+}
+
+function prFixture(prState: string) {
+  return snapshot({ ...CI_WATCHED, ship: { ...shipOf(CI_WATCHED), pr_state: prState } });
+}
+
+function newHeadFixture(head: string) {
+  const ship = shipOf(CI_WATCHED);
+  return snapshot({
+    ...CI_WATCHED,
+    ship: {
+      ...ship,
+      pr: { ...(ship.pr as Record<string, unknown>), head_sha: head },
+      ci: { ...ciOf(CI_WATCHED), sha: head },
+    },
+  });
+}
+
+const refreshRuns = (world: World) =>
+  world.runs.filter((run) => run.argv.includes('delivery-link'));
+
+const REFRESH_TAIL = (seconds: string) => [
+  'delivery-link',
+  'refresh',
+  '--session',
+  SESSION_ID,
+  '--project-root',
+  '/work',
+  '--min-age-seconds',
+  seconds,
+];
+
+const signedOut = {
+  exitCode: 0,
+  stdout: '{"refreshed":false,"reason":"gh is signed out"}\n',
+  stderr: '',
+};
+
+describe('the HUD follows CI while an open PR is pending', () => {
+  test('AC-16: the first check runs the fixed refresh 30 s in, through the shipped paqad-ai', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(29_999);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+    await clock.advance(1);
+    await clock.settle();
+    const runs = refreshRuns(world);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.argv[0]).toMatch(/\/runtime\/claude-plugin\/bin\/paqad-ai$/);
+    expect(runs[0]!.argv.slice(1)).toEqual(REFRESH_TAIL('30'));
+    expect(runs[0]!.cwd).toBe('/work');
+    expect(runs[0]!.timeoutMs).toBe(15_000);
+  });
+
+  test('AC-5: the checks run every 30 s with no back-off while CI stays pending', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let step = 0; step < 3; step += 1) {
+      await clock.advance(30_000);
+      await clock.settle();
+    }
+    expect(refreshRuns(world).map((run) => run.argv.at(-1))).toEqual(['30', '30', '30']);
+  });
+
+  test('AC-5: the watch never starts without an open PR whose CI is pending', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+  });
+
+  for (const [name, next] of [
+    ['pass', ciFixture('pass')],
+    ['fail', ciFixture('fail')],
+    ['closed', prFixture('closed')],
+    ['merged', prFixture('merged')],
+  ] as const) {
+    test(`AC-5: the watch stops once the refresh reads ${name}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+      world.onRun = () => world.put(SNAPSHOT, fileText(next));
+      const clock = mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      await clock.advance(30_000);
+      await clock.settle();
+      await clock.advance(3_600_000);
+      await clock.settle();
+      expect(refreshRuns(world)).toHaveLength(1);
+    });
+  }
+
+  test('AC-6: one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    let release: () => void = () => {};
+    world.runGate = new Promise<void>((done) => {
+      release = done;
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    world.put(
+      SNAPSHOT,
+      fileText(snapshot({ ...CI_WATCHED, generated_at: '2026-10-18T09:00:01.000Z' })),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    await clock.advance(120_000);
+    expect(refreshRuns(world)).toHaveLength(1);
+    world.runGate = null;
+    release();
+    await clock.settle();
+    await clock.advance(29_999);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(1);
+    await clock.advance(1);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+  });
+
+  test('AC-17: after 60 minutes the watch pauses with a note, and a git push starts it again', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let minute = 0; minute < 70; minute += 1) {
+      await clock.advance(60_000);
+      await clock.settle();
+    }
+    const polls = refreshRuns(world).length;
+    expect(polls).toBeGreaterThanOrEqual(119);
+    expect(polls).toBeLessThanOrEqual(120);
+    expect((await $.command.run(command('status'))).text).toContain(
+      'CI updates paused: time limit',
+    );
+    await $.tool.call({ tool: 'Bash', command: 'git push origin HEAD' } as never);
+    await clock.advance(30_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(polls + 1);
+    expect((await $.command.run(command('status'))).text).not.toContain('CI updates paused');
+  });
+
+  test('AC-17: a pending CI on a newer PR head restarts the watch by itself', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = signedOut;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await clock.settle();
+    await clock.advance(60_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+    world.run = { exitCode: 0, stdout: '{"refreshed":true,"reason":null}\n', stderr: '' };
+    world.put(SNAPSHOT, fileText(newHeadFixture('bbb2222')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    await clock.advance(30_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(3);
+  });
+
+  test('AC-24: two signed-out reads in a row stop the watch, and Done stays', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = signedOut;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await clock.settle();
+    await clock.advance(30_000);
+    await clock.settle();
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+    const text = (await $.command.run(command('status'))).text;
+    expect(text).toContain('CI updates paused: signed out');
+    expect(world.asked).toEqual([]);
+  });
+
+  test('AC-26: once the HUD unbinds, a scheduled check never runs', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    world.remove('.paqad/framework-path.txt');
+    await $.session.start(START);
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+  });
+});
+
+function justFinished(endedAt: string) {
+  return snapshot({
+    ...FULL_ORD_501,
+    headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+    stages: (FULL_ORD_501.stages as Array<Record<string, unknown>>).map((entry) =>
+      entry.state === 'complete' ? { ...entry, ended_at: endedAt } : entry,
+    ),
+  });
+}
+
+const stripSource = (node: RenderNode) =>
+  elementsOf(node, 'Svg')
+    .map((element) => (element as { props: { source?: string } }).props.source ?? '')
+    .join('');
+
+describe('finished stages glow once on Desktop', () => {
+  test('AC-12: the last stage ending while the HUD watches draws one glow, and a redraw keeps its phase', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:58.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    const first = stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })));
+    expect(first.match(/class="motion settle"/g)).toHaveLength(1);
+    expect(first).toContain('repeatCount="1"');
+    expect(first).toContain('begin="-0.000s"');
+    await clock.advance(1_000);
+    world.put(
+      SNAPSHOT,
+      fileText({
+        ...justFinished('2026-10-18T08:59:58.000Z'),
+        generated_at: '2026-10-18T09:00:01Z',
+      }),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    const again = stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })));
+    expect(again).toContain('begin="-1.000s"');
+    await clock.advance(5_000);
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+
+  test('AC-12: an already finished change, or a first sighting long after the end, never glows', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+    world.put(SNAPSHOT, fileText(FAST_ORD_490));
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:58.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+
+  test('AC-12: a first sighting more than 10 s after the last stage ended never glows', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, fileText(justFinished('2026-10-18T08:59:40.000Z')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(stripSource(await $.ui.render(band('desktop', { bodyColumns: 93 })))).not.toContain(
+      'settle',
+    );
+  });
+});
+
+describe('the CI watch names why it stopped in a fixed phrase', () => {
+  test('two offline reads in a row pause the watch as offline', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = {
+      exitCode: 0,
+      stdout: '{"refreshed":false,"reason":"gh timed out after 10 s"}\n',
+      stderr: '',
+    };
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let step = 0; step < 4; step += 1) {
+      await clock.advance(30_000);
+      await clock.settle();
+    }
+    expect(refreshRuns(world)).toHaveLength(2);
+    expect((await $.command.run(command('status'))).text).toContain('CI updates paused: offline');
+  });
+});
+
+const DONE_SNAPSHOT = snapshot({
+  ...FULL_ORD_501,
+  headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+});
+
+describe('live subagents in the band', () => {
+  test('titles the running subagent, shows its two newest lines and comes back to Done when it ends', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    for (const command of ['pnpm lint', 'pnpm test']) {
+      await $.tool.call({ tool: 'Bash', command, agentId: 'ag-1' } as never);
+    }
+    await $.session.append({
+      message: {
+        type: 'assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Reading the strip.' }],
+      },
+      door: 'response',
+      origin: { kind: 'model' },
+      uuid: 'u1',
+      agentId: 'ag-1',
+    } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const drawn = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
+    expect(drawn.join('\n')).toContain('Subagent: Review the change');
+    expect(drawn.join('\n')).toContain('Reading the strip.');
+    expect(drawn.join('\n')).toContain('Bash: pnpm test');
+    expect(drawn.join('\n')).not.toContain('Bash: pnpm lint');
+    world.agents.length = 0;
+    await clock.advance(1_500);
+    await clock.settle();
+    const after = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
+    expect(after).not.toContain('Subagent:');
+    expect(after).toContain('Done');
+  });
+
+  test('counts the agents it saw finish on this change only', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const start = (id: string) =>
+      world.agents.push({
+        id,
+        description: `task ${id}`,
+        type: 'general-purpose',
+        status: 'running',
+      } as never);
+    start('a');
+    start('b');
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    world.agents.splice(0, 1);
+    await clock.advance(1_500);
+    await clock.settle();
+    expect(linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n')).toContain(
+      'Subagent: task b  1 finished',
+    );
+    world.put(
+      SNAPSHOT,
+      fileText({
+        ...DONE_SNAPSHOT,
+        change: { ...(DONE_SNAPSHOT.change as object), dir: 'other-dir' },
+      }),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    start('c');
+    await clock.advance(1_500);
+    await clock.settle();
+    const other = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
+    expect(other).toContain('Subagent: task c');
+    expect(other).not.toContain('finished');
+  });
+});
+
+describe("the CI watch runs only the plugin's own binary", () => {
+  test('with no paqad-ai under the plugin root, the watch never runs a program', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.pluginBinary = false;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let step = 0; step < 4; step += 1) {
+      await clock.advance(30_000);
+      await clock.settle();
+    }
+    expect(refreshRuns(world)).toEqual([]);
+  });
 });

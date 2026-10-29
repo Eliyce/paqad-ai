@@ -3,7 +3,7 @@ import { INK, PX_PER_COLUMN, SIGNAL, STATUS_B, SVG_FONT } from './palette';
 export type StageState = 'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' | 'todo';
 export type SeatState = 'done' | 'writing' | 'seated' | 'late';
 export type ChiefState = 'waiting' | 'ruling' | 'needs' | 'done';
-export type ShipState = 'done' | 'run' | 'todo' | 'ready' | 'fail';
+export type ShipState = 'done' | 'run' | 'todo' | 'fail';
 export type MeterTone = 'ink' | 'acc' | 'pass';
 
 export interface Mark<S> {
@@ -26,6 +26,7 @@ export interface StripInput {
   ci: number | null;
   deliveryValue: string;
   clockMs?: number;
+  settledAtMs?: number | null;
 }
 
 export const STRIP_HEIGHT = 52;
@@ -33,7 +34,7 @@ export const STRIP_HEIGHT = 52;
 const PULSE_MS = 1600;
 const SPIN_MS = 4000;
 const SHEEN_MS = 2200;
-const READY_MS = 2400;
+const SETTLE_MS = 2000;
 
 function phase(clockMs: number | undefined, periodMs: number): string | null {
   if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
@@ -99,6 +100,7 @@ function css(clockMs?: number): string {
     `.att{fill:${SIGNAL.attention}}.atts{stroke:${SIGNAL.attention}}`,
     `.cau{fill:${SIGNAL.caution}}.caus{stroke:${SIGNAL.caution}}`,
     `.pass{fill:${STATUS_B.done}}.passs{stroke:${STATUS_B.done}}`,
+    `.passt{fill:${SIGNAL.passText}}`,
     `.fail{fill:${STATUS_B.failed}}.fails{stroke:${STATUS_B.failed}}`,
     '.cap{font-size:8.5px;font-weight:600;letter-spacing:1.1px}',
     '.val{font-size:10.5px;font-weight:500}',
@@ -106,6 +108,7 @@ function css(clockMs?: number): string {
     '@media (prefers-color-scheme: dark){',
     `.ink{fill:${INK.inkDark}}.inks{stroke:${INK.inkDark}}.mut{fill:${INK.mutedDark}}`,
     `.pass{fill:${STATUS_B.doneDark}}.passs{stroke:${STATUS_B.doneDark}}`,
+    `.passt{fill:${SIGNAL.passDark}}`,
     `.fail{fill:${STATUS_B.failedDark}}.fails{stroke:${STATUS_B.failedDark}}`,
     `.cau{fill:${SIGNAL.cautionDark}}.caus{stroke:${SIGNAL.cautionDark}}`,
     '}',
@@ -157,8 +160,6 @@ const GIT: Readonly<Record<string, string>> = {
   Push: '<path d="M8 12.5V3.5M4.5 7 8 3.5 11.5 7"/>',
   PR: '<circle cx="4.5" cy="3.5" r="1.7"/><circle cx="4.5" cy="12.5" r="1.7"/><circle cx="11.5" cy="12.5" r="1.7"/><path d="M4.5 5.2v5.6M11.5 10.8V7.2a3 3 0 0 0-3-3H7"/>',
   CI: '<path d="m4.5 8.3 2.3 2.3 4.7-4.9"/>',
-  Merge:
-    '<circle cx="4.5" cy="3.5" r="1.7"/><circle cx="4.5" cy="12.5" r="1.7"/><circle cx="11.5" cy="8" r="1.7"/><path d="M4.5 5.2v5.6M4.5 5.2c0 2.3 2.5 2.8 5.3 2.8"/>',
 };
 
 const DOT_ICON = '<circle cx="8" cy="8" r="2.4"/>';
@@ -182,7 +183,7 @@ function section({ x0, x1, inner, last }: Section, cap: string, value: string): 
 }
 
 const STAGE_BAR: Readonly<Record<StageState, string>> = {
-  done: 'ink',
+  done: 'pass',
   run: 'acc pulse',
   paused: 'att',
   marked: 'cau',
@@ -192,7 +193,7 @@ const STAGE_BAR: Readonly<Record<StageState, string>> = {
 };
 
 const STAGE_LABEL: Readonly<Record<StageState, string>> = {
-  done: 'ink',
+  done: 'passt',
   run: 'acc cur',
   paused: 'att cur',
   marked: 'ink',
@@ -223,28 +224,61 @@ function liveBar(
   ].join('');
 }
 
+export function settlePhase(
+  clockMs: number | undefined,
+  settledAtMs: number | null | undefined,
+): string | null {
+  if (clockMs === undefined || settledAtMs === null || settledAtMs === undefined) return null;
+  const into = clockMs - settledAtMs;
+  if (!Number.isFinite(into) || into < 0 || into >= SETTLE_MS) return null;
+  return `-${(into / 1000).toFixed(3)}s`;
+}
+
+function stageLabel(label: string, state: StageState): string {
+  const text = escapeXml(label);
+  return state === 'done' ? `<tspan class="pass">✓</tspan> ${text}` : text;
+}
+
+function settleGlow(bars: ReadonlyArray<{ x: number; w: number }>, y: number, at: string): string {
+  const rects = bars
+    .map(
+      ({ x, w }) =>
+        `<rect class="pass" x="${fixed(x)}" y="${y - 1}" width="${fixed(w)}" height="5" rx="2.5" filter="url(#glow)" opacity="0"><animate attributeName="opacity" values=".5;0" dur="2s" repeatCount="1" fill="freeze" begin="${at}"/></rect>`,
+    )
+    .join('');
+  return `<g class="motion settle">${rects}</g>`;
+}
+
 function stageMarks(
   x0: number,
   x1: number,
   stages: ReadonlyArray<Mark<StageState>>,
   clockMs?: number,
+  settle: string | null = null,
 ): string {
   const gap = 4;
   const n = Math.max(1, stages.length);
   const w = (x1 - x0 - gap * (n - 1)) / n;
   const y = Y_MARK - 1.5;
-  return stages
-    .map(({ label, state }, i) => {
-      const x = x0 + i * (w + gap);
-      const bar =
-        state === 'skip'
-          ? `<line class="faints" x1="${fixed(x + 1)}" y1="${Y_MARK}" x2="${fixed(x + w - 1)}" y2="${Y_MARK}" stroke-width="1" stroke-dasharray="2 3"/>`
-          : LIVE_BAR_STATES.has(state)
-            ? liveBar(x, w, y, i, state, clockMs)
-            : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
-      return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
-    })
-    .join('');
+  const done = stages.flatMap(({ state }, i) =>
+    state === 'done' ? [{ x: x0 + i * (w + gap), w }] : [],
+  );
+  const glow = settle === null || done.length === 0 ? '' : settleGlow(done, y, settle);
+  return (
+    glow +
+    stages
+      .map(({ label, state }, i) => {
+        const x = x0 + i * (w + gap);
+        const bar =
+          state === 'skip'
+            ? `<line class="faints" x1="${fixed(x + 1)}" y1="${Y_MARK}" x2="${fixed(x + w - 1)}" y2="${Y_MARK}" stroke-width="1" stroke-dasharray="2 3"/>`
+            : LIVE_BAR_STATES.has(state)
+              ? liveBar(x, w, y, i, state, clockMs)
+              : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
+        return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${stageLabel(label, state)}</text>`;
+      })
+      .join('')
+  );
 }
 
 function seatMark(state: SeatState, cx: string): string {
@@ -290,8 +324,11 @@ function tableMarks(
   return out;
 }
 
+const STILL_SHARE = 0.3;
+
 function shareOf(label: string, ci: number | null): number | null {
-  return label === 'CI' && ci !== null ? Math.max(0.05, Math.min(1, ci)) : null;
+  if (label !== 'CI') return null;
+  return ci === null ? STILL_SHARE : Math.max(0.05, Math.min(1, ci));
 }
 
 function nodeArt(
@@ -311,7 +348,7 @@ function nodeArt(
   if (state === 'run') {
     const rr = r + outer;
     const len = 2 * Math.PI * rr;
-    const arcLength = len * (share ?? 0.3);
+    const arcLength = len * (share ?? STILL_SHARE);
     return {
       ring: [
         `<circle class="faints" cx="${x}" cy="${y}" r="${r}" fill="none" stroke-width="1.2"/>`,
@@ -327,12 +364,6 @@ function nodeArt(
       stroke: 'class="fails"',
     };
   }
-  if (state === 'ready') {
-    return {
-      ring: `<circle class="pass" cx="${x}" cy="${y}" r="${r}"/>`,
-      stroke: `stroke="${SIGNAL.onSignal}"`,
-    };
-  }
   return {
     ring: `<circle class="faints" cx="${x}" cy="${y}" r="${r}" fill="none" stroke-width="1.2"/>`,
     stroke: 'class="faints"',
@@ -346,7 +377,6 @@ function icon(label: string, x: number, y: number, stroke: string): string {
 const NODE_LABEL: Readonly<Record<ShipState, string>> = {
   done: 'ink',
   run: 'acc cur',
-  ready: 'pass cur',
   fail: 'fail cur',
   todo: 'mut',
 };
@@ -356,7 +386,6 @@ function deliveryMarks(
   x1: number,
   steps: ReadonlyArray<Mark<ShipState>>,
   ci: number | null,
-  clockMs?: number,
 ): string {
   const r = NODE_RADIUS;
   const n = steps.length;
@@ -365,14 +394,11 @@ function deliveryMarks(
   let out = '';
   for (let i = 0; i < n - 1; i += 1) {
     const next = steps[i + 1]!.state;
-    const reached = next === 'done' || next === 'run' || next === 'ready';
+    const reached = next === 'done' || next === 'run';
     out += `<line class="${reached ? 'inks' : 'faints'}" x1="${fixed(cx(i) + r + CONNECTOR_GAP)}" y1="${Y_MARK}" x2="${fixed(cx(i + 1) - r - CONNECTOR_GAP)}" y2="${Y_MARK}" stroke-width="1.2" stroke-linecap="round"/>`;
   }
   steps.forEach(({ label, state }, i) => {
     const x = fixed(cx(i));
-    if (state === 'ready') {
-      out += `<circle class="pass motion" cx="${x}" cy="${Y_MARK}" r="${r + 4}" filter="url(#glow)" opacity=".5"><animate attributeName="opacity" values=".5;.15;.5" dur="2.4s" repeatCount="indefinite"${begin(clockMs, READY_MS)}/></circle>`;
-    }
     const art = nodeArt(state, x, String(Y_MARK), r, shareOf(label, ci), 3);
     out += art.ring + icon(label, cx(i), Y_MARK, art.stroke);
     out += `<text class="lbl ${NODE_LABEL[state]}" x="${x}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
@@ -402,7 +428,8 @@ export function strip(input: StripInput): { source: string; width: number; heigh
   const stage = sections[0]!;
   const delivery = sections.at(-1)!;
   let body = section(stage, 'STAGE', input.stageValue);
-  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs);
+  const settle = settlePhase(input.clockMs, input.settledAtMs);
+  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs, settle);
   if (input.seats) {
     const table = sections[1]!;
     body += section(table, 'HIGH TABLE', input.tableValue);
@@ -414,12 +441,14 @@ export function strip(input: StripInput): { source: string; width: number; heigh
     delivery.inner - DELIVERY_INSET,
     input.delivery,
     input.ci,
-    input.clockMs,
   );
   const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
-  const ready = input.delivery.some((mark) => mark.state === 'ready');
   return {
-    source: svg(width, STRIP_HEIGHT, css(input.clockMs) + defs(live || ready, live) + body),
+    source: svg(
+      width,
+      STRIP_HEIGHT,
+      css(input.clockMs) + defs(live || settle !== null, live) + body,
+    ),
     width,
     height: STRIP_HEIGHT,
   };
@@ -527,13 +556,7 @@ export function tableRing(seats: readonly TableSeat[], chief: ChiefState): strin
 export function nodeIcon(label: string, state: ShipState, ci: number | null = null): string {
   const size = 24;
   const x = size / 2;
-  const art =
-    state === 'ready'
-      ? {
-          ring: `<circle class="pass" cx="${x}" cy="${x}" r="${NODE_RADIUS + 2}"/>`,
-          stroke: `stroke="${SIGNAL.onSignal}"`,
-        }
-      : nodeArt(state, String(x), String(x), NODE_RADIUS, shareOf(label, ci), 2.6);
+  const art = nodeArt(state, String(x), String(x), NODE_RADIUS, shareOf(label, ci), 2.6);
   return svg(size, size, css() + art.ring + icon(label, x, x, art.stroke));
 }
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SETTLE_WINDOW_MS,
+  settleStart,
+  settledChange,
+  stripAltText,
   CARD_ROWS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
@@ -8,6 +12,7 @@ import {
   buildDesktopBand,
   cardRows,
   costWords,
+  deliverySteps,
   deliveryStrip,
   desktopHeadline,
   identityText,
@@ -19,7 +24,6 @@ import {
   taskListSentence,
   UPDATE_PLAN_TOOL,
   WAITING_FOR_ANSWER,
-  WAITING_FOR_PERMISSION,
   type DesktopBandInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
@@ -174,12 +178,17 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       tone: 'needs-you',
       live: false,
       text: WAITING_FOR_ANSWER,
-      word: 'Needs you',
+      word: 'Waiting for your answer',
       note: null,
       gap: null,
       clock: null,
+      activity: [],
     });
-    expect(waiting('permission')).toMatchObject({ row: 4, text: WAITING_FOR_PERMISSION });
+    expect(waiting('permission')).toMatchObject({
+      row: 4,
+      text: 'Waiting for your answer',
+      word: 'Waiting for your answer',
+    });
   });
 
   it('AC-32: draws the row, words and tone the snapshot decided, computing none of its own', () => {
@@ -202,6 +211,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       note: null,
       gap: null,
       clock: null,
+      activity: [],
     });
     const tones: Array<[string, string]> = [
       ['needs-you', 'attention'],
@@ -342,13 +352,14 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const steps = (plan: Raw) =>
       deliveryStrip(open({ delivery_plan: plan })).steps.map((step) => step.label);
     const all = { commit: true, push: true, pr: true, ci: true, merge: true, reason: null };
-    expect(steps(all)).toEqual(['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge']);
-    expect(steps({ ...all, ci: false, reason: 'No CI' })).toEqual([
+    expect(steps(all)).toEqual(['Edit', 'Commit', 'Push', 'PR', 'CI']);
+    expect(steps({ ...all, ci: false, reason: 'No CI' })).toEqual(['Edit', 'Commit', 'Push', 'PR']);
+    expect(deliverySteps(parse(snapshot({ delivery_plan: null })))).toEqual([
       'Edit',
       'Commit',
       'Push',
       'PR',
-      'Merge',
+      'CI',
     ]);
     const editOnly = {
       commit: false,
@@ -365,8 +376,8 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(
       deliveryStrip(open({ delivery_plan: noPush, ship: { ...SHIP0, commits: 2 } })).value,
     ).toBe('No push for this change');
-    expect(steps({ delivery_plan: null } as Raw)).toHaveLength(6);
-    expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(6);
+    expect(steps({ delivery_plan: null } as Raw)).toHaveLength(5);
+    expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(5);
   });
 
   it('AC-6: before a change opens the stages and delivery are faint, with no table and no values', () => {
@@ -441,17 +452,17 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     ];
     expect(value({ stages: stages(done), gates })).toBe('All stages done');
     expect(value({ stages: stages(done), gates, ship: { ...SHIP0, merged: true } })).toBe(
-      'Delivered',
+      'All stages done',
     );
     expect(value({ stages: stages({ planning: 'complete' }) })).toBe('');
   });
 
   it('R-4: says the delivery value, first match wins', () => {
     const value = (over: Raw) => deliveryStrip(open(over)).value;
-    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(`${PR} merged`);
+    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(PR);
     expect(
       value({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
-    ).toBe('Merge is yours');
+    ).toBe('6 of 6 checks green');
     expect(value({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toBe('PR closed');
     expect(value({ ship: { ...PR_OPEN, pr_state: null } })).toBe('PR state unknown');
     expect(value({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toBe(
@@ -461,7 +472,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       '3 of 6 checks green',
     );
     const noCi = { commit: true, push: true, pr: true, ci: false, merge: true, reason: 'No CI' };
-    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe('No CI · merge is yours');
+    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe(PR);
     expect(value({ ship: PR_OPEN })).toBe(PR);
     expect(value({ ship: { ...SHIP0, push: { state: 'failed' } } })).toBe('Push failed');
     expect(value({ ship: { ...SHIP0, push: { state: 'pushed' } } })).toBe('Pushed');
@@ -484,17 +495,16 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       { label: 'Push', state: 'done' },
       { label: 'PR', state: 'done' },
       { label: 'CI', state: 'run' },
-      { label: 'Merge', state: 'todo' },
     ]);
     expect(strip.ci).toBe(0.5);
     const ready = deliveryStrip(
       open({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
     );
-    expect(ready.steps.at(-1)).toEqual({ label: 'Merge', state: 'ready' });
+    expect(ready.steps.at(-1)).toEqual({ label: 'CI', state: 'done' });
     expect(ready.ci).toBeNull();
     const closed = deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: 'closed' } }));
     expect(closed.steps[3]).toEqual({ label: 'PR', state: 'fail' });
-    expect(deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: null } })).steps.at(-1)?.state).toBe(
+    expect(deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: null } })).steps[3]?.state).toBe(
       'todo',
     );
   });
@@ -549,7 +559,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const feature = band({ snapshot: parse(FAST_ORD_490) });
     expect(feature).toMatchObject({
       kind: 'feature',
-      alt: 'Building. Stage Build. Delivery Editing.',
+      alt: 'Building. Stage Build. Plan done. Delivery Editing.',
     });
   });
 });
@@ -619,7 +629,7 @@ describe('AC-14: minimised, closed and hidden', () => {
     expect(priced).toMatchObject({ minimised: { cost: '1.3M tokens · ~$4.60' } });
   });
 
-  it('closes for the session or hides, and says Needs you when something waits', () => {
+  it('closes for the session or hides, and says Waiting for your answer when something waits', () => {
     expect(band({ visibility: { ...SHOWN, closed: true } })).toEqual({
       kind: 'closed',
       needsYou: false,
@@ -688,5 +698,142 @@ describe('AC-18: the task list carries the stages of the lane', () => {
 describe('the task list tool the HUD watches', () => {
   it('is the literal the tool.call matcher names', () => {
     expect(UPDATE_PLAN_TOOL).toBe('mcp__ccd_turn__update_plan');
+  });
+});
+
+describe('FR-36: the strip alt names the finished stages in words', () => {
+  it('lists every done stage after the stage value', () => {
+    const input = {
+      columns: 93,
+      stages: [
+        { label: 'Plan', state: 'done' as const },
+        { label: 'Build', state: 'done' as const },
+        { label: 'Checks', state: 'run' as const },
+      ],
+      stageValue: 'Checks',
+      seats: null,
+      chief: 'waiting' as const,
+      tableValue: '',
+      delivery: [],
+      ci: null,
+      deliveryValue: '2 commits of yours',
+    };
+    expect(stripAltText('Running the checks', input)).toBe(
+      'Running the checks. Stage Checks. Plan, Build done. Delivery 2 commits of yours.',
+    );
+    expect(stripAltText('Next: Plan', { ...input, stages: [] })).not.toContain(' done.');
+  });
+});
+
+describe('AC-12: the glow fires only when the last stage just ended', () => {
+  const ended = (at: string) =>
+    parse({
+      ...FULL_ORD_501,
+      stages: (FULL_ORD_501.stages as Raw[]).map((entry) =>
+        entry.state === 'complete' ? { ...entry, ended_at: at } : entry,
+      ),
+    });
+
+  it('names the change and the last end once every drawn stage is done', () => {
+    const settled = settledChange(ended('2026-10-18T08:59:57.000Z'));
+    expect(settled).toEqual({
+      key: (FULL_ORD_501.change as Raw).dir,
+      endedAt: Date.parse('2026-10-18T08:59:57.000Z'),
+    });
+    expect(settledChange(parse(FAST_ORD_490))).toBeNull();
+    expect(settledChange(parse({ ...FULL_ORD_501, active: false }))).toBeNull();
+  });
+
+  it('starts the glow at the first sighting only within 10 s of the end', () => {
+    const end = Date.parse('2026-10-18T08:59:57.000Z');
+    expect(SETTLE_WINDOW_MS).toBe(10_000);
+    expect(settleStart(end, end + 3_000)).toBe(end + 3_000);
+    expect(settleStart(end, end + 10_001)).toBeNull();
+    expect(settleStart(end, end - 60_000)).toBeNull();
+    expect(settleStart(null, end)).toBeNull();
+  });
+});
+
+describe('the headline stays on one line', () => {
+  const LONG =
+    'The chief architect is ruling on every disagreement the High Table raised about this change';
+
+  it('cuts a long Desktop headline to the band width with an ellipsis and keeps it whole in the alt', () => {
+    const drawn = band({
+      columns: 57,
+      snapshot: parse({ ...FULL_ORD_501, headline: { text: LONG, tone: 'working', row: 15 } }),
+    });
+    expect(drawn.kind).toBe('feature');
+    if (drawn.kind !== 'feature') return;
+    expect(drawn.headline.text.endsWith('…')).toBe(true);
+    expect([...drawn.headline.text].length).toBeLessThanOrEqual(55);
+    expect(drawn.alt.startsWith(`${LONG}.`)).toBe(true);
+    const short = band({ columns: 57 });
+    expect(short.kind === 'feature' && short.headline.text.endsWith('…')).toBe(false);
+  });
+});
+
+describe('live subagents lead the band while they run', () => {
+  const agents = {
+    running: [
+      { id: 'a1', description: 'Plan the change', status: 'running' },
+      { id: 'a2', description: 'Review the change', status: 'running' },
+    ],
+    lines: ['Bash: pnpm test', 'Read: src/a.ts'],
+    finished: 3,
+  };
+
+  it('titles the newest subagent, breathes the light and draws two lines, newest on top', () => {
+    const drawn = band({ live: { ...IDLE_LIVE, agents } });
+    expect(drawn.kind).toBe('feature');
+    if (drawn.kind !== 'feature') return;
+    expect(drawn.headline).toMatchObject({
+      text: 'Subagent: Review the change',
+      live: true,
+      signal: 'accent',
+      note: '3 finished',
+    });
+    expect(drawn.activity).toEqual(['Bash: pnpm test', 'Read: src/a.ts']);
+    expect(bandIsLive(drawn)).toBe(true);
+  });
+
+  it('Waiting for your answer wins over the subagent title', () => {
+    const drawn = band({ live: { ...IDLE_LIVE, agents, waitingOn: 'question' } });
+    expect(drawn.kind === 'feature' && drawn.headline.text).toBe('Waiting for your answer');
+    expect(drawn.kind === 'feature' && drawn.activity).toEqual([]);
+  });
+
+  it('a pending decision of this change wins over the subagent title too', () => {
+    const drawn = band({
+      live: { ...IDLE_LIVE, agents },
+      snapshot: parse({
+        ...FULL_ORD_501,
+        headline: {
+          text: 'Waiting for your answer',
+          tone: 'needs-you',
+          row: 6,
+          word: 'Waiting for your answer',
+        },
+      }),
+    });
+    expect(drawn.kind === 'feature' && drawn.headline.text).toBe('Waiting for your answer');
+    expect(drawn.kind === 'feature' && drawn.activity).toEqual([]);
+  });
+
+  it('falls back to the normal headline with nothing running', () => {
+    const idle = band({ live: { ...IDLE_LIVE, agents: { ...agents, running: [] } } });
+    const plain = band();
+    expect(idle.kind === 'feature' && idle.headline.text).toBe(
+      plain.kind === 'feature' && plain.headline.text,
+    );
+    expect(idle.kind === 'feature' && idle.activity).toEqual([]);
+  });
+
+  it('counts the two body lines in the card rows', () => {
+    expect(band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 }).kind === 'feature').toBe(true);
+    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 7 });
+    expect(tight.kind === 'feature' && tight.mode).toBe('minimised');
+    const roomy = band({ live: { ...IDLE_LIVE, agents }, maxRows: 8 });
+    expect(roomy.kind === 'feature' && roomy.mode).toBe('card');
   });
 });

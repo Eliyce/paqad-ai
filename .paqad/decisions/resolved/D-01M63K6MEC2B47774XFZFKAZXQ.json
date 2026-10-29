@@ -1,0 +1,48 @@
+{
+  "id": "D-01M63K6MEC2B47774XFZFKAZXQ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on HUD mod refresh timer",
+  "context": "Chief architect: Both claims can hold at once and the build should honour both; it is ruled a pick only because a must-level security-auditor finding is part of it, so the owner confirms. Recommend the bounded schedule with one refresh in flight; skipping gh when delivery.json was read within the current back-off step is how several open HUDs avoid multiplying calls.\n\nTarget: HUD mod refresh timer\n- security-auditor: polling GitHub is bounded: it runs only while the snapshot shows an open PR with CI pending, backs off 30 s doubling to 5 min, stops after 60 min or on pass, fail, closed or merged, and never runs two refreshes at once, so a stuck CI cannot exhaust the user's GitHub rate limit\n- integration-architect: back-off 30 s doubling to 5 min within 60 min is about 15 gh calls per watch; several open HUDs (Desktop plus terminal, more sessions on one branch) must not multiply that, so refresh skips gh when delivery.json was read within the current back-off step\n\n[expert-conflict-fork:2983b8cae98d8d73]",
+  "options": [
+    {
+      "option_key": "polling-github-is-bounded-it-runs-only-w",
+      "label": "polling GitHub is bounded: it runs only while the snapshot shows an open PR with CI pending, backs off 30 s doubling to 5 min, stops after 60 min or on pass, fail, closed or merged, and never runs two refreshes at once, so a stuck CI cannot exhaust the user's GitHub rate limit — security-auditor",
+      "one_line_preview": "polling GitHub is bounded: it runs only while the snapshot shows an open PR with CI pending, backs off 30 s doubling to 5 min, stops after 60 min or on pass, fail, closed or merged, and never runs two refreshes at once, so a stuck CI cannot exhaust the user's GitHub rate limit — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "back-off-30-s-doubling-to-5-min-within-6",
+      "label": "back-off 30 s doubling to 5 min within 60 min is about 15 gh calls per watch; several open HUDs (Desktop plus terminal, more sessions on one branch) must not multiply that, so refresh skips gh when delivery.json was read within the current back-off step — integration-architect",
+      "one_line_preview": "back-off 30 s doubling to 5 min within 60 min is about 15 gh calls per watch; several open HUDs (Desktop plus terminal, more sessions on one branch) must not multiply that, so refresh skips gh when delivery.json was read within the current back-off step — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "polling-github-is-bounded-it-runs-only-w",
+  "created_at": "2026-10-29T10:27:29.868Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "polling-github-is-bounded-it-runs-only-w",
+  "rationale": "Owner accepted all four security recommendations in one confirmation.",
+  "resolved_at": "2026-10-29T10:35:16.183Z",
+  "decision_id": "D-01M63K6MEC2B47774XFZFKAZXQ",
+  "fingerprint": "sha256:fd48eb1476e945e8cf1a3eb258ee609c50cb2b7211c17d886d5551e84f913cf3",
+  "question": "Experts disagree on HUD mod refresh timer",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T10:27:29.868Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "polling-github-is-bounded-it-runs-only-w",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T10:35:16.183Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted all four security recommendations in one confirmation."
+  }
+}

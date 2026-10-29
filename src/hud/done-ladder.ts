@@ -1,4 +1,4 @@
-export const DONE_RUNGS = ['done', 'committed', 'pr-open', 'safe-to-merge', 'merged'] as const;
+export const DONE_RUNGS = ['done', 'committed', 'pr-open'] as const;
 
 export type HudRung = (typeof DONE_RUNGS)[number];
 
@@ -13,6 +13,7 @@ export interface DoneLadderInput {
   commits: number;
   prState: 'open' | 'merged' | 'closed' | null;
   ci: string | null;
+  workDone?: boolean;
 }
 
 export interface DoneLadder {
@@ -31,11 +32,10 @@ function readCi(ci: string | null): LadderCi {
 export function computeDoneLadder(input: DoneLadderInput): DoneLadder {
   const uncommitted = input.uncommitted === true;
   const none: DoneLadder = { rung: null, ci: null, ci_failed: false, uncommitted };
-  if (input.prState === 'merged') return { ...none, rung: 'merged' };
-  if (input.workKind !== 'pass' || input.checks !== 'green') return none;
+  const earned = input.workKind === 'pass' || input.workDone === true;
+  if (!earned || input.checks !== 'green') return none;
   if (input.prState === 'open') {
     const ci = readCi(input.ci);
-    if (ci === 'pass') return { ...none, rung: 'safe-to-merge', ci };
     if (ci === 'fail') return { ...none, rung: 'committed', ci, ci_failed: true };
     return { ...none, rung: 'pr-open', ci };
   }

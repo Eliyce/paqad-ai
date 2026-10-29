@@ -15,7 +15,7 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 
 | Token           | Light                              | Dark (`prefers-color-scheme`) | Use                                                                                             |
 | --------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| `ink`           | `#6E7D86`                          | `#C2CBD0`                     | done marks, Svg values                                                                          |
+| `ink`           | `#6E7D86`                          | `#C2CBD0`                     | done delivery nodes and seats, Svg values                                                       |
 | `muted`         | `#8E979D`                          | `#97A1A7`                     | Svg caps and labels                                                                             |
 | `faint`         | `muted` at 30% (fill)              | same                          | not yet                                                                                         |
 | `faintStroke`   | `muted` at 45% (stroke)            | same                          | not-yet rings, dashed not-required lines                                                        |
@@ -23,9 +23,10 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 | `accent`        | `#F90093` (paqad vivid pink)       | same                          | running, the shown tab                                                                          |
 | `attention`     | `#F37748` (paqad coral)            | same                          | waiting on you only: a question, a permission, a pending decision, and the stage paused for it |
 | `caution`       | `#C98A1B`                          | `#E3B04B`                     | needs a look: flags, marked stages, a late seat, inconclusive or skipped gates, PR closed      |
-| `pass`          | `#2F8F6B`                          | `#5FC29C`                     | pass, all green, ready to merge                                                                 |
+| `pass`          | `#2F8F6B`                          | `#5FC29C`                     | pass, done stage bars and their check, the one-time done glow                                   |
+| `passText`      | `#26775A`                          | `#5FC29C`                     | done stage label text only (5.43:1 on white; `pass` is 3.99:1, too faint for 9 px text)        |
 | `fail`          | `#D23B3B`                          | `#F08080`                     | fail                                                                                            |
-| `onSignal`      | `#FFFFFF`                          | same                          | only on a solid signal: the ready node's icon, the High Table badge numbers, the running sheen |
+| `onSignal`      | `#FFFFFF`                          | same                          | only on a solid signal: the High Table badge numbers, the running sheen                         |
 | `PX_PER_COLUMN` | `8.5`                              |                               | strip width = `bodyColumns × 8.5`                                                               |
 | `BREATH`        | alpha suffixes `FF CC 8C 66 8C CC` |                               | the live light, one step per 400 ms tick                                                        |
 
@@ -99,7 +100,8 @@ Four rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
     (`SA IA DO PO AA UF QA`, or the first letters of other roles), a 12 px hairline, then the chief
     r 5 labelled `CA`.
   - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
-    delivery plan (Edit, Commit, Push, PR, CI, Merge as they apply), spacing capped at 96 px, inset
+    delivery plan (Edit, Commit, Push, PR, CI as they apply; merging is the owner's, so there is
+    no Merge node), spacing capped at 96 px, inset
     12 px from both section edges. Edit is current while a file is being edited or any edit stage
     (Build, Checks, Docs) runs, or while a file is really being edited once Build has been
     reached (a review fix or a docs edit), and done once one of them has finished. An Edit or
@@ -121,7 +123,7 @@ mini stage Svg of the lane's stages; `Box flexGrow`; dim footnote cost; `Ledger`
 
 One small row: footnote `Text` of `paqad` (semibold) + dim `   Closed for this session` or
 `   Hidden`; `Box flexGrow`; plain dim `Show`. When something waits on the person (a question, a
-permission or a pending decision) the words become coral `● Needs you`. `Show` reopens and
+permission or a pending decision) the words become coral `● Waiting for your answer`. `Show` reopens and
 un-minimises. Hide always stays until the person presses Show or runs `/paqad show`.
 
 ### Workflow band
@@ -155,7 +157,8 @@ on Trust; the brand text and the strip image are not pressable.
 - **Delivery tab**: commits already on the branch when the change opened are earlier work. They
   get one quiet dim line (or, with none, where the files are measured from), never a flag, never
   amber, and never count as this change's commits. A pull request number (a `#` and digits, in
-  brackets or not) names a pull request, not a ticket.
+  brackets or not) names a pull request, not a ticket. The `Open PR #N` link sits on the PR row
+  while the PR is open; there is no Merge row.
 - **Cost tab**: one token figure per High Table seat, the same one the seat drill-down shows: the
   exact run Claude Code reported for the seat, else the figure read from its transcript, else the
   note's own estimate. Each line says whether it is exact. A seat whose host figure differs drops
@@ -187,14 +190,23 @@ nothing settled moves.
 | Live clock                                     | re-rendered each tick, in whole seconds                                                              |
 | Running stage                                  | opacity pulse 1.6 s, a 5 px glow from .55 to .15, a sheen sweep 2.2 s on `cubic-bezier(.4,0,.2,1)` |
 | Writing seat, chief needing answers            | opacity pulse 1.6 s                                                                                  |
-| Chief ruling, delivery running without a count | rotation 4 s linear (`transform-box: fill-box`)                                                      |
+| Chief ruling, a running delivery step          | rotation 4 s linear (`transform-box: fill-box`); CI pending with no count is a still 30% arc instead |
 | CI arc                                         | its length is the share of jobs done, updated on refresh                                             |
 | CI job running                                 | an indeterminate pink sheen sweeping a 30% segment, 2.2 s                                            |
-| Ready to merge                                 | green glow opacity .5 to .15, 2.4 s                                                                  |
+| The last stage finishing (the one exception)   | a blurred green copy of the done bars, opacity .5 to 0 over 2 s, played once                         |
 
 One `tick` state atom is advanced every 400 ms by a `$.clock.every` timer that also sets the `now`
 atom from `$.clock.now()`. It runs only while a live state is drawn and stops when none is. The
 1.5 s snapshot ticker is separate and unchanged.
+
+The done glow is the single named exception to "nothing settled moves". It plays when the last
+mandatory stage turns done while this HUD is watching: the mod notes the first time it draws every
+stage done for a change, and the glow plays only if that is within 10 s of the last stage's
+`ended_at`. It runs about 2 s (SMIL, `repeatCount` 1, `fill` freeze), then nothing moves. It
+plays at most once per change in a HUD's life, so reopening a finished change or reloading the HUD
+never replays it. It carries the `motion` class, so `prefers-reduced-motion` hides it. It is a
+light effect only: no size change, border, tint fill or layout shift. The terminal draws no
+animation for it.
 
 Strip motion keeps its place. Every animation reads one shared clock, and a redraw starts it at
 its current phase (a negative delay), so a refresh continues the motion instead of restarting it.
@@ -209,7 +221,7 @@ The band resolves its state from the snapshot and the mod's live session state i
 first match wins. `signal` picks the light's colour; live states breathe and show the clock. State 1
 still draws the identity row with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can
 give the reason. A feature route with no change open draws nothing. While a newer turn runs, a
-verdict written before that turn started is skipped (rows 12, 13, 16 and 17), so the running stage
+verdict written before that turn started is skipped (rows 12, 13 and 16), so the running stage
 leads. The same holds while a stage runs in a live stage agent of the change: nothing is asked of
 the person, so a verdict written meanwhile never leads over the running stage. A stage left running
 with no live agent still shows its verdict. The verdict words stay as they are in the receipt and
@@ -227,20 +239,17 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 1   | paqad is on but the session id could not be read, or the snapshot does not parse | attention       | no   | `paqad cannot read this session's record`                                                                 |
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
-| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your permission`                                                                             |
-| 5   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
-| 6   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
-| 7   | the PR is merged                                                                 | pass            | no   | `PR #N is merged`                                                                                         |
-| 8   | everything is green, CI included                                                 | pass            | no   | `Safe to merge: PR #N is ready for your merge`                                                            |
+| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your answer`                                                                                 |
+| 6   | a decision packet of this change is pending                                      | attention       | no   | `Waiting for your answer`                                                                                 |
+| 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`                                          |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
-| 10  | CI failed                                                                        | fail            | no   | `CI failed on PR #N`                                                                                      |
+| 10  | CI failed on the open PR's current head                                          | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
 | 12  | the verdict is fail and a judged required gate of the work failed                | fail            | no   | the failure phrase of the first failing required gate, plus ` and N more`                                 |
-| 13  | the verdict is inconclusive, or fail with no failing gate the Ledger can name    | caution         | no   | `Inconclusive: <first reason>`                                                                            |
-| 14  | CI is running on the change's PR                                                 | accent          | yes  | `Watching CI on PR #N`                                                                                    |
+| 13  | the work is not done and the verdict is inconclusive, or fail with no failing gate the Ledger can name, or a stage ended unproven | caution | no | `Inconclusive: <first reason>` |
+| 14  | the paqad work is done and the open PR's CI is pending                           | pass            | no   | `Coding Done: Watching CI`                                                                                |
 | 15  | a stage is running                                                               | accent          | yes  | the stage's running words (`Planning the change`, `N of M plan steps built`, `Reviewing the change`, ...) |
-| 16  | the verdict is pass and no PR is open                                            | pass            | no   | `Done` (with a dim `not committed`) or `Committed`                                                        |
-| 17  | the verdict is pass and a PR is open                                             | pass            | no   | `PR open`                                                                                                 |
+| 16  | the paqad work is done (see below)                                               | pass            | no   | `Done` (with a dim `not committed` when the edit is not committed)                                        |
 | 18  | a stage is done and one is not yet                                               | idle            | no   | `<last done stage> done. Next: <next mandatory stage>`                                                    |
 | 19  | nothing is done                                                                  | idle            | no   | `Next: Plan`                                                                                              |
 | 20  | every stage is recorded                                                          | idle            | no   | `Every stage is recorded. Waiting for the verdict.`                                                       |
@@ -256,9 +265,39 @@ or end, or a turn event. No clock decides, so a real prompt the person has not s
 by a timer. A running stage reads paused only while the person owes it an answer (a pending
 decision of this change or a question on screen); a permission prompt pauses no stage.
 
-The done ladder climbs one step at a time: `Done` (dim `not committed`), `Committed`, `PR open`,
-`Safe to merge` only on real CI green, then `Merged`. When CI is unknown the ladder stops at
-`PR open`; a red CI steps back down.
+Row 16 `Done` holds once the paqad work is done: no stage is running, every mandatory stage is
+complete or redone, the checks are green, a verdict is on record and no judged required gate of
+the work fails. Done comes before any commit or push and does not wait for CI: whether the work is
+committed, pushed or has an open PR, the headline stays `Done`, and push, PR and CI live in the
+delivery rail. While the open PR's CI is pending it reads `Coding Done: Watching CI`. The reasons of gates that were never judged (the fast lane's
+implementation review, where no review stage runs) and paqad's own record gaps go to the neutral
+gap line as `paqad could not prove ...` or `paqad could not record ...`; they never turn the
+headline amber or red. Real failures still win: CI failing on the current head of the open PR
+turns the headline red (`CI failed on PR #N`), and a pushed fix whose CI is pending or passes
+brings `Done` back. A CI result read for an older head is not current and never raises row 10.
+
+The done ladder keeps its rung for the receipt (`done`, `committed`, `pr-open`), but every rung
+reads `Done` on the band, or `Coding Done: Watching CI` (row 14) while the open PR's CI is
+pending. There is no merge rung and no merged note: after a merge the rail just names the PR.
+
+The delivery rail follows push and CI by itself. The Stop-time reader marks Push when the branch
+upstream or the PR head is HEAD. While an open PR's CI is pending the mod runs
+`paqad-ai delivery-link refresh` in the background every 30 s with no back-off, for at most 60 min,
+one at a time. When that watch stops without an answer, the gap line adds
+`CI updates paused: <reason>`, where the reason is one fixed phrase: `time limit` (60 min ran out),
+`signed out` or `offline` (two failed gh reads in a row); a `git push` from this session or a newer
+PR head starts it again.
+
+The headline is one line on both surfaces. When it would wrap it is cut to the band width with a
+trailing `…`; on Desktop the strip `alt` keeps the whole sentence.
+
+Rows 3, 4 and 6 all read `Waiting for your answer` and win over the subagent title, Done and CI.
+Row 7 leads while any subagent or background task from `$.agent.list()` is working: the light
+breathes calmly (the live light, no blinking), and up to two dim lines under the headline say what
+the subagents are doing, newest on top, one line per `session.append` row or `tool.call` that
+carries an `agentId`. `N finished` counts the agents the HUD saw leave the list while this change
+was current, kept per change by the mod because the engine gives no start time and drops finished
+agents. With nothing running the normal headline and its rows come back.
 
 With paqad off nothing is drawn. The terminal keeps its own headline, except that its idle header
 says `Getting ready`.
@@ -283,7 +322,7 @@ The Trust tab shows the proof of the work, stage by stage.
 
 | Stage state                                 | Bar                      | Label     | STAGE value        |
 | ------------------------------------------- | ------------------------ | --------- | ------------------ |
-| done                                        | ink                      | ink       |                    |
+| done                                        | green (`pass`)           | green (`passText`) with a `✓` in the same centred run |  |
 | running                                     | pink, glow, pulse, sheen | pink 650  | the stage word     |
 | running while something waits on you        | coral, no motion         | coral 650 | `<Stage> · paused` |
 | marked                                      | amber                    | ink       | why it is marked   |
@@ -291,15 +330,14 @@ The Trust tab shows the proof of the work, stage by stage.
 | not required                                | dashed faint line        | muted     |                    |
 | not yet                                     | faint                    | muted     |                    |
 
-When every drawn stage is done the value is `Delivered` once merged, else `All stages done`.
+When every drawn stage is done the value is `All stages done`.
 
 | Delivery step state | Node                                                                                                            |
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |
 | done                | ink ring on a 10% ink disc                                                                                      |
-| current             | faint ring, a faint outer ring at r + 3 and a pink arc on it: the CI share when counted, else a spinning 30% arc |
+| current             | faint ring, a faint outer ring at r + 3 and a pink arc on it: the CI share when counted, a still 30% arc for CI with no count, else a spinning 30% arc |
 | todo, unknown       | faint ring and icon                                                                                             |
 | failed, closed      | red ring and icon                                                                                               |
-| ready               | solid green disc, `onSignal` icon, a soft green glow                                                            |
 
 High Table seats: done ink disc; writing pink 22% disc with a 1.4 px pink ring, pulsing; seated a
 faint 1.2 px ring; late an amber ring. Chief: waiting a dashed faint ring; ruling a pink dashed ring
@@ -310,7 +348,7 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 - The band's `bodyColumns` runs from 57 to 93 on Desktop; the strip's markup width is
   `round(bodyColumns × 8.5)` with a minimum of 480, and the image scales down to fit the slot.
 - Row cost: identity 1, message 1, gap line 1, strip 3, so 6 rows, plus 1 while the close menu is
-  open. The gap line is counted in every state. Below
+  open, plus 1 for each subagent line (at most 2) while a subagent runs. The gap line is counted in every state. Below
   that `maxRows` the minimised row is drawn instead; with the menu open and no room, the minimised
   row is drawn with the menu row under it.
 - The docked Ledger is about 48 columns wide. Tabs keep their full labels in whole-number widths.
@@ -319,7 +357,9 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 ## Accessibility
 
 - Every Svg carries an `alt` that states its facts in words: the strip says the headline, the stage
-  value and each section's value.
+  value, the finished stages (`Plan, Build, Checks done`) and each section's value.
+- Done never relies on colour alone: the word `Done` and the check mark carry it. `passText` is
+  at least 4.5:1 for the 9 px labels and `pass` at least 3:1 for bars and the check glyph.
 - Every state is said in words as well as by colour (WCAG 2.1 SC 1.4.1).
 - Motion is slow breathing, pulsing, sweeping or spinning at 1.6 s or slower; nothing flashes
   (SC 2.3.1).

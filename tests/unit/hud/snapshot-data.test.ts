@@ -255,6 +255,54 @@ describe('AC-27: the pull request title and size', () => {
     expect(buildShip(delivery(null))).toMatchObject({ pr_title: null, pr_files: null });
   });
 
+  it('AC-14: a CI result on an older head is not current, so it never reads failed', () => {
+    const ci = (sha: string, state: 'pass' | 'fail') => ({
+      ...delivery({ state: 'open', head_sha: 'a1c9e2f000' }),
+      ci: { sha, state, done: 2, total: 2, reason: null, source: 'stop-check' as const, at: 'T' },
+    });
+    expect(buildShip(ci('0ld0000000', 'fail')).ci?.state).toBe('pending');
+    expect(buildShip(ci('0ld0000000', 'pass')).ci?.state).toBe('pending');
+    expect(buildShip(ci('a1c9e2f000', 'fail')).ci?.state).toBe('fail');
+  });
+
+  it('a local commit not pushed yet never hides red CI on the PR head', () => {
+    const record: DeliveryRecord = {
+      ...delivery({ state: 'open', head_sha: 'a1c9e2f000' }),
+      commits: [
+        { sha: 'a1c9e2f000', subject: 'Seed stage helpers' },
+        { sha: 'b2b2b2b000', subject: 'Local only' },
+      ],
+      head_sha: 'b2b2b2b000',
+      commit_split: {
+        own: { count: 2, tickets: [] },
+        inherited: null,
+        own_shas: ['a1c9e2f000', 'b2b2b2b000'],
+        inherited_shas: [],
+      } as unknown as DeliveryRecord['commit_split'],
+      ci: {
+        sha: 'a1c9e2f000',
+        state: 'fail',
+        done: 2,
+        total: 2,
+        reason: null,
+        source: 'stop-check',
+        at: 'T',
+      },
+    };
+    expect(buildShip(record).ci?.state).toBe('fail');
+    expect(buildShip({ ...record, pr: null }).ci?.state).toBe('pending');
+  });
+
+  it('AC-3: marks a push current only while it names the change head', () => {
+    const pushed = (sha: string): DeliveryRecord => ({
+      ...delivery(null),
+      push: { state: 'pushed', branch: 'feat/x', sha, at: '2026-10-18T08:00Z' },
+    });
+    expect(buildShip(pushed('a1c9e2f000')).push_current).toBe(true);
+    expect(buildShip(pushed('0ld0000000')).push_current).toBe(false);
+    expect(buildShip(delivery(null)).push_current).toBe(false);
+  });
+
   it('reaches the snapshot from delivery.json', () => {
     const root = onboardedRoot();
     const S = 'ses-pr-size';

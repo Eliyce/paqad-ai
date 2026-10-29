@@ -98,6 +98,7 @@ export function shellHeader(snapshot: PaqadHudSnapshot | null, view: BandView): 
     headline: snapshot && active ? view.headline : IDLE_HEADLINE,
     note: active ? view.note : null,
     gap: active ? view.gap : null,
+    activity: active ? view.activity : [],
     verdict: verdict ? { word: verdict.word, tone: VERDICT_TONE[verdict.kind] } : null,
     flags: active ? view.flags : 0,
     lane: active ? (snapshot?.lane ?? null) : null,

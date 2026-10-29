@@ -5,6 +5,13 @@ export type LiveState = {
   waitingOn: 'question' | 'permission' | null;
   waitingToolUseId: string | null;
   waitingAgent: string | null;
+  agents?: PaqadAgentsLive;
+};
+
+export type PaqadAgentsLive = {
+  running: Array<{ id: string; description: string; status: string }>;
+  lines: string[];
+  finished: number;
 };
 
 export type PaqadTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
@@ -173,7 +180,7 @@ export type PaqadStageProof = {
   gates: PaqadProofGate[];
 };
 
-export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
+export type PaqadRung = 'done' | 'committed' | 'pr-open';
 
 export type PaqadHeadline = {
   text: string;
@@ -348,6 +355,8 @@ declare module 'claude-code' {
       now: number;
       paneTab: PaqadPaneTab | null;
       greenSeen: string[];
+      settleSeen: Record<string, number | null>;
+      agentsFinished: Record<string, string[]>;
       paneOpen: boolean;
       unavailable: boolean;
       unbound: boolean;

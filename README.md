@@ -133,10 +133,12 @@ The dashboard and graph views run on `127.0.0.1` only.
 
 The HUD is a Claude Code mod that ships inside the plugin. It only draws and asks; paqad's hooks do the enforcing, and they keep working when the HUD is off.
 
-- **Reads:** this project's `.paqad/` files (the session status, the evidence snapshot, pending decisions and the last rule stop), the environment variables `PAQAD_DISABLED`, `PAQAD_ENABLE`, `PAQAD_HUD_VIEW`, `PAQAD_HUD_CHIME` and `CLAUDE_CODE_REMOTE`, and the session's tool calls, so it can show which stage is running.
+- **Reads:** this project's `.paqad/` files (the session status, the evidence snapshot, pending decisions and the last rule stop), the environment variables `PAQAD_DISABLED`, `PAQAD_ENABLE`, `PAQAD_HUD_VIEW`, `PAQAD_HUD_CHIME` and `CLAUDE_CODE_REMOTE`, the session's tool calls, so it can show which stage is running, and the session's agent list (`$.agent.list()`) with the rows and tool calls of its subagents, so it can show which subagent runs, a one-line summary of what it is doing and how many finished. None of that is stored or sent anywhere.
 - **Writes:** two files in `.paqad/session/hud/`: `<session>.live`, a heartbeat (written when you send a prompt and once a minute) that tells paqad the HUD is open, and a mark in `<session>.last-block.json` when you answer a rule stop. No other files, nothing outside `.paqad/`, and never a build, settings, start-up or instructions file. In Claude Code's own mod store it keeps three view preferences: whether the band is minimised, whether you hid it for a project, and which changes already opened the ledger pane.
-- **Runs:** one program, and only after you choose **Allow once, recorded** on a rule stop: `paqad-ai rules override --rule <id> --file <path> --token <one-time token> --tool-use-id <id> --session <id> --project-root <path>`, plus `--reason=<your words>` if you typed a reason. It is paqad's own command from this plugin. It adds one line to the change's `rule-overrides.jsonl` evidence file and contacts no network host. After the edit runs again, it runs the same command once more with `--outcome landed`, `--outcome refused` or `--outcome still-blocked` and the same rule, file, tool call, session and project, which adds a second line saying whether the edit went through. Each run times out after 15 seconds.
-- **Sends:** nothing, and it contacts no host. The chime (off unless you set `hud_chime=true`) is a short sound built into the plugin as bytes, not fetched from anywhere.
+- **Runs:** two programs, both paqad's own command from this plugin, and each run times out after 15 seconds.
+  - When a rule stops an edit, only after you choose **Allow once, recorded**: `paqad-ai rules override --rule <id> --file <path> --token <one-time token> --tool-use-id <id> --session <id> --project-root <path>`, plus `--reason=<your words>` if you typed a reason. It adds one line to the change's `rule-overrides.jsonl` evidence file and contacts no network host. After the edit runs again, it runs the same command once more with `--outcome landed`, `--outcome refused` or `--outcome still-blocked` and the same rule, file, tool call, session and project, which adds a second line saying whether the edit went through.
+  - `paqad-ai delivery-link refresh --session <id> --project-root <path> --min-age-seconds <n>`, only while an open pull request's CI is pending, so the delivery rail can mark Push and CI after the turn ends. It checks every 30 seconds, for at most 60 minutes, one run at a time, and again after a `git push` from this session or when the pull request gets a newer head. It stops when CI passes or fails, the pull request is closed or merged, `gh` fails twice in a row (signed out or offline), the HUD closes, or paqad is off. It runs `git` and your own `gh` login, which contacts GitHub to read the pull request and its checks; it never pushes, comments or re-runs CI, and writes only the push, pull request and CI reading in the change's `delivery.json`. It is always on, with no setting.
+- **Sends:** nothing of its own. The only network contact is the `gh` read above, made by your `gh` with your login. The chime (off unless you set `hud_chime=true`) is a short sound built into the plugin as bytes, not fetched from anywhere.
 - **Commands:** `/paqad`, or `/paqad-hud` when another plugin already owns `/paqad`. It answers from this session's record (`/paqad help` lists the subcommands) and only changes the HUD's own view: `show` and `hide` bring the band back or hide it. It edits nothing in your project.
 - **Its hooks on your edits:**
   - When one of paqad's rules stops an Edit, Write or NotebookEdit, the HUD asks you what should happen. If you allow it once, paqad records the override and runs the same edit again. paqad's own gate then asks Claude Code to show you its permission dialog for that one edit, and you approve it there. The HUD never approves an edit and never changes a permission answer. A deny from your settings rules, from another tool's hook or from a stop your organization enforces still blocks the edit. If anything fails, the edit stays blocked.
@@ -511,26 +513,27 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 
 `onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-| Command                                  | What it does                                                                                   |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `paqad-ai onboard`                       | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP               |
-| `paqad-ai doctor`                        | Check that everything paqad-ai manages is present and valid                                    |
-| `paqad-ai compliance`                    | Pull obligations from a spec and check which ones the tests actually prove                     |
-| `paqad-ai refresh`                       | Re-detect the stack and regenerate the derived docs                                            |
-| `paqad-ai update`                        | Regenerate framework-managed files after a version change                                      |
-| `paqad-ai capabilities`                  | Turn `content`, `coding`, and `security` on or off                                             |
-| `paqad-ai packs`                         | List, install, validate, and scaffold stack packs                                              |
-| `paqad-ai rag`                           | Build, inspect, clear, and benchmark the optional search index                                 |
-| `paqad-ai dashboard`                     | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors      |
-| `paqad-ai status`                        | Print the same health report for an agent to read                                              |
-| `paqad-ai patterns`                      | Query, prune, and export the reusable pattern library                                          |
-| `paqad-ai debt`                          | Record a problem the change will not fix as a tracked item, then list, promote, or close it    |
-| `paqad-ai fix prove`                     | Record that a fix's test fails before the fix (`red`) and passes after it (`green`)            |
-| `paqad-ai report speed`                  | Show where each change's time went: busy time, waiting for you, and the edit gate              |
-| `paqad-ai rules override`                | Record a person allowing one edit past a rule stop, once, with the reason                      |
-| `paqad-ai delivery-link commit-decision` | Record how the "commit this change?" question was answered                                     |
-| `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization |
-| `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                              |
+| Command                                  | What it does                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `paqad-ai onboard`                       | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP                  |
+| `paqad-ai doctor`                        | Check that everything paqad-ai manages is present and valid                                       |
+| `paqad-ai compliance`                    | Pull obligations from a spec and check which ones the tests actually prove                        |
+| `paqad-ai refresh`                       | Re-detect the stack and regenerate the derived docs                                               |
+| `paqad-ai update`                        | Regenerate framework-managed files after a version change                                         |
+| `paqad-ai capabilities`                  | Turn `content`, `coding`, and `security` on or off                                                |
+| `paqad-ai packs`                         | List, install, validate, and scaffold stack packs                                                 |
+| `paqad-ai rag`                           | Build, inspect, clear, and benchmark the optional search index                                    |
+| `paqad-ai dashboard`                     | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors         |
+| `paqad-ai status`                        | Print the same health report for an agent to read                                                 |
+| `paqad-ai patterns`                      | Query, prune, and export the reusable pattern library                                             |
+| `paqad-ai debt`                          | Record a problem the change will not fix as a tracked item, then list, promote, or close it       |
+| `paqad-ai fix prove`                     | Record that a fix's test fails before the fix (`red`) and passes after it (`green`)               |
+| `paqad-ai report speed`                  | Show where each change's time went: busy time, waiting for you, and the edit gate                 |
+| `paqad-ai rules override`                | Record a person allowing one edit past a rule stop, once, with the reason                         |
+| `paqad-ai delivery-link commit-decision` | Record how the "commit this change?" question was answered                                        |
+| `paqad-ai delivery-link refresh`         | Read the push, pull request and CI of the branch change from git and gh (read-only toward GitHub) |
+| `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization    |
+| `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                                 |
 
 ```bash
 # a few common runs

@@ -1,6 +1,12 @@
 import { execFileSync } from 'node:child_process';
 
-import { Command } from 'commander';
+import { Command, InvalidArgumentError } from 'commander';
+
+import {
+  execaCommandRunner,
+  refreshDelivery,
+  type CommandRunner,
+} from '@/delivery/delivery-check.js';
 
 import {
   reconcileDeliveryFromGit,
@@ -66,7 +72,20 @@ function regenerateReportSafe(projectRoot: string, dirName: string | null): void
   } catch {}
 }
 
-export function createDeliveryLinkCommand(): Command {
+export interface DeliveryLinkDeps {
+  run?: CommandRunner;
+  now?: () => Date;
+}
+
+function secondsOption(value: string): number {
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 0) {
+    throw new InvalidArgumentError('expected a whole number of seconds');
+  }
+  return seconds;
+}
+
+export function createDeliveryLinkCommand(deps: DeliveryLinkDeps = {}): Command {
   const command = new Command('delivery-link').description(
     'Link git commits/merges to the active feature bundle (post-commit / post-merge hooks)',
   );
@@ -156,6 +175,27 @@ export function createDeliveryLinkCommand(): Command {
     console.log(
       JSON.stringify({ recorded: true, feature: dir, commit_decision: record.commit_decision }),
     );
+  });
+
+  withCommon(
+    command
+      .command('refresh')
+      .description(
+        'Read the push, PR and CI of the branch change from git and gh (read-only toward the repo)',
+      )
+      .option(
+        '--min-age-seconds <n>',
+        'Skip gh when the stored reading is younger than this',
+        secondsOption,
+      ),
+  ).action(async (options: LinkOptions & { minAgeSeconds?: number }) => {
+    const outcome = await refreshDelivery({
+      projectRoot: options.projectRoot,
+      run: deps.run ?? execaCommandRunner,
+      now: deps.now,
+      minAgeSeconds: options.minAgeSeconds ?? null,
+    });
+    console.log(JSON.stringify(outcome));
   });
 
   command

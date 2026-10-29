@@ -1,0 +1,47 @@
+{
+  "id": "D-01M63QHBSXKWERD55CHNFM4JVB",
+  "category": "workflow-or-tool",
+  "title": "HUD Done and delivery rail change is parked by the owner",
+  "context": "The owner parked this change on 2026-10-29 and locked its decisions (memory project_hud_done_rail_locked). The partial commits on fix/directory-blocker-next-binding are to be disregarded; the work restarts as a fresh change from main. Review is not started on purpose.",
+  "options": [
+    {
+      "option_key": "resume-fresh",
+      "label": "Restart later as a new change from main with the locked decisions",
+      "one_line_preview": "Restart later as a new change from main with the locked decisions",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "continue-here",
+      "label": "Continue this change: run review, docs and checks on the existing commits",
+      "one_line_preview": "Continue this change: run review, docs and checks on the existing commits",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "resume-fresh",
+  "created_at": "2026-10-29T11:43:15.773Z",
+  "status": "resolved",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "continue-here",
+  "rationale": "Owner: continue the existing change, add the re-confirmed decisions (2026-10-29 one-by-one review).",
+  "resolved_at": "2026-10-29T11:56:46.834Z",
+  "decision_id": "D-01M63QHBSXKWERD55CHNFM4JVB",
+  "fingerprint": "sha256:6cacfad409c5e0cdc9bf738d89cd6d94ee6f616a25ed57355feddf76887e0642",
+  "question": "HUD Done and delivery rail change is parked by the owner",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-05T11:43:15.773Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "continue-here",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T11:56:46.834Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: continue the existing change, add the re-confirmed decisions (2026-10-29 one-by-one review)."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "D-01M63K6MEDAYPB56MKYKNVWX0J",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on delivery.json",
+  "context": "Chief architect: Both claims can hold at once and the build should honour both; it is ruled a pick only because a must-level security-auditor finding is part of it, so the owner confirms. Recommend limiting writes to state words, PR number, sha and CI verdict; atomic temp-file-plus-rename writes that never let an older reading win, and the Merge removal (a HUD-only claim that merely shares the target name), both still apply.\n\nTarget: delivery.json\n- security-auditor: what the refresh writes is limited to state words, PR number, sha and CI verdict; no gh token, auth output, stderr text or PR body lands in delivery.json, the HUD snapshot or the HUD log\n- integration-architect: the HUD timer refresh and the Stop-time saveDeliveryReading can write at the same moment, so every write is atomic (temp file plus rename) and a reading older than the stored one never overwrites it\n- product-owner: the HUD stops promising a merge: no Merge node, no ready-to-merge words or glow; a merged PR shows only as a quiet rail note PR #N merged\n\n[expert-conflict-fork:d993aae7c5c9668e]",
+  "options": [
+    {
+      "option_key": "what-the-refresh-writes-is-limited-to-st",
+      "label": "what the refresh writes is limited to state words, PR number, sha and CI verdict; no gh token, auth output, stderr text or PR body lands in delivery.json, the HUD snapshot or the HUD log — security-auditor",
+      "one_line_preview": "what the refresh writes is limited to state words, PR number, sha and CI verdict; no gh token, auth output, stderr text or PR body lands in delivery.json, the HUD snapshot or the HUD log — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-hud-timer-refresh-and-the-stop-time-",
+      "label": "the HUD timer refresh and the Stop-time saveDeliveryReading can write at the same moment, so every write is atomic (temp file plus rename) and a reading older than the stored one never overwrites it — integration-architect",
+      "one_line_preview": "the HUD timer refresh and the Stop-time saveDeliveryReading can write at the same moment, so every write is atomic (temp file plus rename) and a reading older than the stored one never overwrites it — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-hud-stops-promising-a-merge-no-merge",
+      "label": "the HUD stops promising a merge: no Merge node, no ready-to-merge words or glow; a merged PR shows only as a quiet rail note PR #N merged — product-owner",
+      "one_line_preview": "the HUD stops promising a merge: no Merge node, no ready-to-merge words or glow; a merged PR shows only as a quiet rail note PR #N merged — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "what-the-refresh-writes-is-limited-to-st",
+  "created_at": "2026-10-29T10:27:29.869Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "what-the-refresh-writes-is-limited-to-st",
+  "rationale": "Owner accepted all four security recommendations in one confirmation.",
+  "resolved_at": "2026-10-29T10:35:16.923Z",
+  "decision_id": "D-01M63K6MEDAYPB56MKYKNVWX0J",
+  "fingerprint": "sha256:a71a8ada3cf9f8d0d570986f87a3388bb5bba8f137017311a2dc0357058fba4a",
+  "question": "Experts disagree on delivery.json",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T10:27:29.869Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "what-the-refresh-writes-is-limited-to-st",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T10:35:16.923Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted all four security recommendations in one confirmation."
+  }
+}

@@ -65,15 +65,17 @@ describe('computeDoneLadder', () => {
     });
   });
 
-  it('reads Safe to merge only with a green CI result on an open PR', () => {
-    expect(rung({ prState: 'open', ci: 'pass' }).rung).toBe('safe-to-merge');
+  it("holds at PR open on a green CI result, because merging is the owner's", () => {
+    expect(rung({ prState: 'open', ci: 'pass' })).toMatchObject({ rung: 'pr-open', ci: 'pass' });
   });
 
-  it('reads Merged once the PR is merged', () => {
-    expect(rung({ prState: 'merged', ci: 'pass' }).rung).toBe('merged');
+  it('keeps the rung the work earned once the PR is merged, with no merge rung', () => {
+    expect(rung({ prState: 'merged', ci: 'pass' }).rung).toBe('done');
+    expect(rung({ prState: 'merged', commits: 2, uncommitted: false }).rung).toBe('committed');
+    expect(rung({ prState: 'merged', workKind: 'fail' }).rung).toBeNull();
   });
 
-  it('steps back from PR open when CI turns red, and never reads Safe to merge', () => {
+  it('steps back from PR open when CI turns red', () => {
     expect(rung({ prState: 'open', ci: 'fail' })).toMatchObject({
       rung: 'committed',
       ci: 'fail',
@@ -87,6 +89,11 @@ describe('computeDoneLadder', () => {
       rung: 'pr-open',
       ci: 'unknown',
     });
+  });
+
+  it('reads the rung once the caller has found the work done, whatever the verdict word', () => {
+    expect(rung({ workKind: 'inconclusive', workDone: true }).rung).toBe('done');
+    expect(rung({ workKind: 'fail', workDone: true, checks: 'red' }).rung).toBeNull();
   });
 
   it('reads no rung without a passing work verdict or without green checks', () => {
@@ -206,7 +213,7 @@ describe('the done ladder on the snapshot', () => {
     expect(buildHudSnapshot(root, S).rung).toBe('committed');
   });
 
-  it('AC-12, AC-13, AC-14: PR open, then Safe to merge on green CI, then Merged', () => {
+  it('AC-12, AC-13, AC-14: PR open, still PR open on green CI, then the merged PR keeps Committed', () => {
     const root = repoRoot();
     const dir = finishGreen(root);
     const sha = commit(root, 'feature.ts', 'feat: ladder');
@@ -214,10 +221,11 @@ describe('the done ladder on the snapshot', () => {
     prOn(root, dir, sha, 'pending');
     expect(buildHudSnapshot(root, S).rung).toBe('pr-open');
     prOn(root, dir, sha, 'pass');
-    expect(buildHudSnapshot(root, S).rung).toBe('safe-to-merge');
+    expect(buildHudSnapshot(root, S).rung).toBe('pr-open');
     recordShip(root, dir, { pr: { state: 'merged' } } as never, later(3_000).toISOString());
     const merged = buildHudSnapshot(root, S);
-    expect(merged.rung).toBe('merged');
+    expect(merged.rung).toBe('committed');
+    expect(merged.headline.text).not.toMatch(/merge/i);
     expect(merged.change?.dir).toBe(dir);
   });
 

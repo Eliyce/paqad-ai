@@ -425,6 +425,7 @@ export interface HudShip {
   commit_decision: string | null;
   merge_commit: string | null;
   push: DeliveryPush | null;
+  push_current: boolean;
   pr: DeliveryPr | null;
   pr_state: DeliveryPrState | null;
   pr_title: string | null;
@@ -857,10 +858,19 @@ function readingIsCurrent(
   ci: DeliveryCi,
   pr: DeliveryPr | null,
   push: DeliveryPush | null,
+  head: string | null,
 ): boolean {
   if (pr?.head_sha && ci.sha !== pr.head_sha) return false;
+  if (!pr?.head_sha && head && ci.sha && ci.sha !== head) return false;
   if (push?.sha && ci.sha !== push.sha && Date.parse(ci.at) < Date.parse(push.at)) return false;
   return true;
+}
+
+function pushIsCurrent(delivery: DeliveryRecord): boolean {
+  const push = delivery.push ?? null;
+  if (push === null) return false;
+  if (push.sha === null || delivery.head_sha === null) return true;
+  return push.sha === delivery.head_sha;
 }
 
 export function buildShip(delivery: DeliveryRecord, filesChanged: number | null = null): HudShip {
@@ -875,8 +885,9 @@ export function buildShip(delivery: DeliveryRecord, filesChanged: number | null 
   const pr = ownPr(delivery, ownShas, inheritedShas);
   const prState = pr?.state ?? null;
   const rawCi = delivery.ci ?? null;
+  const settled = rawCi?.state === 'pass' || rawCi?.state === 'fail';
   const ci =
-    rawCi && rawCi.state === 'pass' && !readingIsCurrent(rawCi, pr, delivery.push ?? null)
+    rawCi && settled && !readingIsCurrent(rawCi, pr, delivery.push ?? null, delivery.head_sha)
       ? { ...rawCi, state: 'pending' as const }
       : rawCi;
   return {
@@ -888,6 +899,7 @@ export function buildShip(delivery: DeliveryRecord, filesChanged: number | null 
     commit_decision: delivery.commit_decision?.answer ?? null,
     merge_commit: delivery.merge_commit,
     push: delivery.push ?? null,
+    push_current: pushIsCurrent(delivery),
     pr,
     pr_state: prState,
     pr_title: pr?.title ?? null,
@@ -1221,8 +1233,6 @@ export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
   done: 'Done',
   committed: 'Committed',
   'pr-open': 'PR open',
-  'safe-to-merge': 'Safe to merge',
-  merged: 'Merged',
 };
 
 const BUILD_ENDED_STATES: ReadonlySet<string> = new Set(['complete', 'redone']);
@@ -1306,19 +1316,11 @@ export function computeHudFlags(input: {
   return flags;
 }
 
-const CONFLICT_CATEGORY = 'spec.expert_conflict';
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
+export const WAITING_FOR_ANSWER = 'Waiting for your answer';
 
 function prName(ship: HudShip | null): string {
   const number = ship?.pr?.number;
   return typeof number === 'number' ? `PR #${number}` : 'The PR';
-}
-
-function tableRuled(table: HudHighTable | null | undefined): boolean {
-  return table?.chief?.state === 'done' && table.chief.verdict !== null;
 }
 
 function runningWords(input: HudHeadlineInput, stage: string): string {
@@ -1350,7 +1352,7 @@ function runningWords(input: HudHeadlineInput, stage: string): string {
   }
 }
 
-function workFailure(input: HudHeadlineInput): string | null {
+function workFailure(input: Pick<HudHeadlineInput, 'gates' | 'gatesExpected'>): string | null {
   const expected = input.gatesExpected ?? [];
   const rank = (name: string) => {
     const index = expected.indexOf(name);
@@ -1423,67 +1425,61 @@ function idleHeadline(input: HudHeadlineInput): HudHeadline {
   return { text: 'Ready. No change in progress.', tone: 'neutral' };
 }
 
-function rungHeadline(
+export interface WorkDoneInput {
+  stages: readonly HudStage[];
+  checks?: LadderChecks;
+  verdict: HudVerdictRecord | null;
+  gates?: readonly HudGate[];
+}
+
+export function workIsDone(input: WorkDoneInput): boolean {
+  if (!input.verdict || input.checks !== 'green') return false;
+  if (input.stages.some((stage) => stage.state === 'running')) return false;
+  const ended = input.stages
+    .filter((stage) => stage.mandatory)
+    .every((stage) => BUILD_ENDED_STATES.has(stage.state));
+  return ended && workFailure({ gates: input.gates }) === null;
+}
+
+function notProvenLines(verdict: HudVerdictRecord): string[] {
+  if (workKindOf(verdict) === 'pass') return [];
+  return (verdict.work_reasons ?? verdict.reasons ?? []).map((reason) =>
+    reason.startsWith('paqad ') ? reason : `paqad could not prove ${reason}`,
+  );
+}
+
+export const WATCHING_CI = 'Coding Done: Watching CI';
+
+function doneHeadline(
   input: HudHeadlineInput,
-  ladder: DoneLadder,
-  gap: Pick<HudHeadline, 'gap'>,
-): HudHeadline | null {
-  const pr = prName(input.ship ?? null);
-  const rung = ladder.rung;
-  if (rung === 'pr-open') {
-    const text = ladder.ci === 'unknown' ? `${pr} is open. CI result unknown` : `${pr} is open`;
-    return headlineRow(17, 'good', text, RUNG_WORDS[rung], { rung, ...gap });
-  }
-  if (rung !== 'done' && rung !== 'committed') return null;
+  ladder: DoneLadder | null,
+  gaps: readonly string[],
+): HudHeadline {
+  const rung = ladder?.rung ?? 'done';
   const declined = input.ship?.commit_decision === 'decline';
   const note =
-    rung === 'done' && ladder.uncommitted
+    rung === 'done' && ladder?.uncommitted
       ? declined
         ? 'left uncommitted, as you asked'
         : 'not committed'
       : null;
-  return headlineRow(16, 'good', RUNG_WORDS[rung], RUNG_WORDS[rung], {
+  return headlineRow(16, 'good', RUNG_WORDS.done, RUNG_WORDS.done, {
     rung,
     ...(note ? { note } : {}),
-    ...gap,
+    ...gapLine(gaps),
   });
 }
 
 export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   if (input.pendingDecisions > 0) {
-    const conflicts = (input.decisions ?? []).filter(
-      (decision) => decision.category === CONFLICT_CATEGORY,
-    ).length;
-    if (conflicts > 0 && tableRuled(input.table)) {
-      return headlineRow(
-        5,
-        'needs-you',
-        `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
-        'Needs you',
-      );
-    }
-    const n = input.pendingDecisions;
-    return headlineRow(
-      6,
-      'needs-you',
-      n === 1 ? '1 decision is waiting for you' : `${n} decisions are waiting for you`,
-      'Needs you',
-    );
+    return headlineRow(6, 'needs-you', WAITING_FOR_ANSWER, WAITING_FOR_ANSWER);
   }
   if (!input.active) return idleHeadline(input);
   const ship = input.ship ?? null;
   const ladder = input.ladder ?? null;
   const pr = prName(ship);
-  const gap = gapLine([...(input.recordGaps ?? []), ...(input.unproven ?? [])]);
-  if (ladder?.rung === 'merged') {
-    return headlineRow(7, 'good', `${pr} is merged`, 'Merged', { rung: 'merged', ...gap });
-  }
-  if (ladder?.rung === 'safe-to-merge') {
-    return headlineRow(8, 'good', `Safe to merge: ${pr} is ready for your merge`, 'Safe to merge', {
-      rung: 'safe-to-merge',
-      ...gap,
-    });
-  }
+  const gaps = [...(input.recordGaps ?? []), ...(input.unproven ?? [])];
+  const gap = gapLine(gaps);
   if (ship?.pr_state === 'closed') return headlineRow(9, 'warn', `${pr} was closed`, 'PR closed');
   if (ship?.pr_state === 'open' && ship.ci?.state === 'fail') {
     return headlineRow(10, 'bad', `CI failed on ${pr}`, 'CI failed', {
@@ -1496,29 +1492,30 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   const held = running && (input.verdictEarlier || input.stageAgentLive);
   const verdict = held ? null : input.verdict;
   const work = workKindOf(verdict);
-  if (verdict && work === 'fail') {
-    const failure = workFailure(input);
-    if (!failure) return inconclusiveHeadline(verdict, gap);
-    return headlineRow(12, 'bad', failure, 'Needs your attention', gap);
-  }
+  const failure = verdict && work === 'fail' ? workFailure(input) : null;
+  if (failure) return headlineRow(12, 'bad', failure, 'Needs your attention', gap);
   if (work === 'pass' && input.checks === 'red') {
     return headlineRow(12, 'bad', failurePhrase('code-tests-lint'), 'Needs your attention', gap);
   }
-  if (verdict && work === 'inconclusive') return inconclusiveHeadline(verdict, gap);
-  if (ship?.pr_state === 'open' && ship.ci?.state === 'pending') {
-    const delivery = input.stages.find((stage) => stage.stage === 'delivery');
-    return headlineRow(14, 'working', `Watching CI on ${pr}`, 'Working', {
-      ...(delivery?.started_at ? { clock_from: delivery.started_at } : {}),
-    });
+  if (verdict && workIsDone({ ...input, verdict })) {
+    const done = doneHeadline(input, ladder, [...gaps, ...notProvenLines(verdict)]);
+    if (ship?.pr_state === 'open' && ship.ci?.state === 'pending') {
+      return headlineRow(14, 'good', WATCHING_CI, RUNG_WORDS.done, {
+        ...(done.rung ? { rung: done.rung } : {}),
+        ...(done.gap ? { gap: done.gap } : {}),
+      });
+    }
+    return done;
+  }
+  if (verdict && (work === 'inconclusive' || work === 'fail')) {
+    return inconclusiveHeadline(verdict, gap);
   }
   if (running) {
     return headlineRow(15, 'working', runningWords(input, running.stage), 'Working', {
       ...(running.started_at ? { clock_from: running.started_at } : {}),
     });
   }
-  const rung = verdict && ladder ? rungHeadline(input, ladder, gap) : null;
-  if (rung) return rung;
-  if (work === 'pass') {
+  if (work === 'pass' && input.checks !== 'green') {
     return headlineRow(
       13,
       'warn',
@@ -1527,6 +1524,8 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
       gap,
     );
   }
+  const missing = input.stages.some((stage) => stage.mandatory && stage.state === 'missing');
+  if (verdict && !missing) return inconclusiveHeadline(verdict, gap);
   return settledHeadline(input.stages);
 }
 
@@ -1646,6 +1645,7 @@ export function buildHudSnapshot(
     commits: Math.max(ship.commits, changeGit?.commitTimes.size ?? 0),
     prState: ship.pr_state,
     ci: ship.ci?.state ?? null,
+    workDone: workIsDone({ stages, checks, verdict, gates }),
   });
   const buildStage = stages.find((entry) => entry.stage === 'development');
   const plan = buildPlanProgress(

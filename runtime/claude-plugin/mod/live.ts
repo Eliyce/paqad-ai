@@ -96,8 +96,8 @@ export function turnStarted(state: LiveState, turnId: string, now: number): Live
   };
 }
 
-export function turnEnded(): LiveState {
-  return IDLE_LIVE;
+export function turnEnded(state?: LiveState): LiveState {
+  return state?.agents ? { ...IDLE_LIVE, agents: state.agents } : IDLE_LIVE;
 }
 
 export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {

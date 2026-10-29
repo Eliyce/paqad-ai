@@ -262,7 +262,7 @@ describe('buildHudSnapshot', () => {
     ]);
     expect(snapshot.headline).toMatchObject({
       row: 6,
-      text: '1 decision is waiting for you',
+      text: 'Waiting for your answer',
       tone: 'needs-you',
     });
     expect(snapshot.isolation?.status).toBe('expected');
@@ -294,8 +294,16 @@ describe('buildHudSnapshot', () => {
     const root = onboardedRoot();
     const S = 'ses-501';
     const dir = openChange(root, S, 'full', 'ORD-501 csv export');
-    for (const stage of ['planning', 'specification', 'development', 'review', 'checks']) {
-      completeStage(root, S, stage);
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      const proves = ['planning', 'specification', 'review'].includes(stage);
+      completeStage(root, S, stage, proves ? `${stage}.json` : undefined);
     }
     writeBundleJson(
       root,
@@ -1096,6 +1104,7 @@ describe('computeHudHeadline', () => {
         ...base,
         stages,
         verdict: verdict('pass', 'Safe to merge'),
+        checks: 'green',
         ladder: { rung: 'done', ci: null, ci_failed: false, uncommitted: false },
       }),
     ).toMatchObject({ text: 'Done', tone: 'good' });

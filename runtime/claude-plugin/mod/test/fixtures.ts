@@ -596,7 +596,12 @@ export const GRADUATED_ORD_482 = snapshot({
   lane: 'graduated',
   lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a bug fix that touches contact matching',
-  headline: { text: '1 decision is waiting for you', tone: 'needs-you', row: 6, word: 'Needs you' },
+  headline: {
+    text: 'Waiting for your answer',
+    tone: 'needs-you',
+    row: 6,
+    word: 'Waiting for your answer',
+  },
   change: change(
     'ORD-482',
     'Keep the copied phone after a re-sync',
@@ -694,7 +699,7 @@ export const STATE_FIXTURES = {
   Ready: snapshot(),
   Working: FAST_ORD_490,
   'Branch warning': BRANCH_WARNING,
-  'Needs you': GRADUATED_ORD_482,
+  'Waiting for your answer': GRADUATED_ORD_482,
   Inconclusive: INCONCLUSIVE,
   'Safe to merge': SAFE_CLEAN,
   'Needs your attention': NEEDS_ATTENTION,
@@ -806,10 +811,10 @@ export function ord501At(phase: Ord501Phase): Raw {
     ...FULL_ORD_501,
     headline: ruled
       ? {
-          text: 'The chief architect has 1 question for you',
+          text: 'Waiting for your answer',
           tone: 'needs-you',
-          row: 5,
-          word: 'Needs you',
+          row: 6,
+          word: 'Waiting for your answer',
         }
       : {
           text: 'The High Table is writing its notes',
@@ -977,13 +982,13 @@ export const SCENE_FIXTURES = {
       commit_list: COMMITS.slice(0, 1),
     }),
   }),
-  'Needs you': ord501At('ruled'),
+  'Waiting for your answer': ord501At('ruled'),
   'Shipping with CI live': snapshot({
     ...FULL_ORD_501,
     headline: {
-      text: `Watching CI on PR ${'#'}12`,
+      text: 'Delivering',
       tone: 'working',
-      row: 14,
+      row: 15,
       word: 'Working',
       clock_from: '2026-10-18T08:57:00.000Z',
     },
@@ -1025,16 +1030,10 @@ export const SCENE_FIXTURES = {
     flags: [],
     verdict: verdict('fail', 'Needs your attention', ['code-tests-lint: 3 tests failed']),
   }),
-  'All green': snapshot({
+  'CI passed': snapshot({
     ...FULL_ORD_501,
-    headline: {
-      text: `Safe to merge: PR ${'#'}12 is ready for your merge`,
-      tone: 'good',
-      row: 8,
-      word: 'Safe to merge',
-      rung: 'safe-to-merge',
-    },
-    rung: 'safe-to-merge',
+    headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+    rung: 'done',
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: FULL_DELIVERY,

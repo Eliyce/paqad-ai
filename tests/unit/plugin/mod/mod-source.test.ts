@@ -26,6 +26,7 @@ describe('the HUD mod source', () => {
   it('has the files the design names', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(
       [
+        'agents.ts',
         'ask-evidence.ts',
         'attention.ts',
         'band.ts',
@@ -76,18 +77,50 @@ describe('the HUD mod source', () => {
     },
   );
 
+  it('declares every state atom register.tsx uses in the PluginState contract', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const contract = sources.find((s) => s.name === 'types/index.d.ts')!.text;
+    const used = [...register.matchAll(/atom\(\s*\{ plugin: 'paqad', key: '([A-Za-z]+)' \}/g)].map(
+      (match) => match[1]!,
+    );
+    expect(used.length).toBeGreaterThan(10);
+    const start = contract.indexOf('interface PluginState');
+    expect(start).toBeGreaterThan(-1);
+    const block = contract.slice(start, contract.indexOf('\n  }\n', start));
+    const declared = [...block.matchAll(/^\s{6}([A-Za-z]+):/gm)].map((match) => match[1]!);
+    expect(used.filter((key) => !declared.includes(key))).toEqual([]);
+  });
+
   it('the band shell imports no body code', () => {
     const shell = sources.find((s) => s.name === 'shell.ts')!.text;
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
   });
 
-  it('starts one program, paqad-ai rules override, with its argv written at the call', () => {
+  it('AC-16: starts two programs, rules override and the delivery refresh, each argv written at the call', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
-    expect(register.match(/\$\.process\./g)).toEqual(['$.process.']);
+    expect(register.match(/\$\.process\./g)).toEqual(['$.process.', '$.process.']);
     expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
+    const start = register.indexOf('$.process.run(\n      [\n        program,');
+    expect(start, 'the delivery refresh call').toBeGreaterThan(-1);
+    const call = register.slice(start, register.indexOf(');', start));
+    expect(call.replace(/\s+/g, ' ')).toContain(
+      "[ program, 'delivery-link', 'refresh', '--session', at.sessionId, '--project-root', at.root, '--min-age-seconds', String(Math.round((watch.delay ?? 0) / 1000)), ], { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS }",
+    );
+    expect(call).not.toMatch(/snapshot|branch|title|ship/);
     expect(register).not.toMatch(/\$\.process\.spawn/);
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
+  });
+
+  it('the watch started after a git push can never fail or re-run the push', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const start = register.indexOf('async function watchAfterPush(');
+    expect(start, 'watchAfterPush').toBeGreaterThan(-1);
+    const body = register.slice(start, register.indexOf('\n}\n', start));
+    expect(body).toMatch(/^\s+try \{$/m);
+    expect(body).toMatch(/\} catch \{\}/);
+    const hook = register.indexOf('if (isGitPush(tool, input.command))');
+    expect(register.slice(hook, register.indexOf('\n', hook))).toContain('await watchAfterPush($)');
   });
 
   it('AC-4: no tool.check hook answers a permission check of its own', () => {
@@ -174,7 +207,8 @@ describe('the HUD mod source', () => {
           .map((line) => ({ name: s.name, line })),
       );
     expect(new Set(used.map((u) => u.name))).toEqual(new Set(['register.tsx']));
-    expect(section).toContain('one program, and only after you choose **Allow once, recorded**');
+    expect(section).toContain('two programs, both paqad');
+    expect(section).toContain('only after you choose **Allow once, recorded**');
     expect(section).toContain('`paqad-ai rules override --rule <id>');
     for (const file of ['`<session>.live`', '`<session>.last-block.json`']) {
       expect(section).toContain(file);
@@ -185,6 +219,20 @@ describe('the HUD mod source', () => {
     for (const name of vars) expect(section).toContain(`\`${name}\``);
     expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
     expect(section).toContain('--outcome landed');
+  });
+
+  it('AC-18: the README names the background delivery refresh, when it runs, and that gh contacts GitHub', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    const start = readme.indexOf('### What the HUD does (Claude Code)');
+    const section = readme.slice(start, readme.indexOf('\n### ', start + 1)).replace(/\s+/g, ' ');
+    expect(section).toContain(
+      '`paqad-ai delivery-link refresh --session <id> --project-root <path> --min-age-seconds <n>`',
+    );
+    expect(section).toContain("only while an open pull request's CI is pending");
+    expect(section).toContain('every 30 seconds, for at most 60 minutes');
+    expect(section).toContain('your own `gh` login, which contacts GitHub');
+    expect(section).toContain('always on, with no setting');
+    expect(section).not.toContain('Sends:** nothing, and it contacts no host');
   });
 
   it('AC-18: the README names the hooks on your edits word for word, and the old permission hooks bullet is gone', () => {

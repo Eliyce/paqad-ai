@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,6 +22,7 @@ import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
 import { readFeatureDelivery, recordShip } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 import { ticketRef } from '../../shared/ticket-ref.js';
 
@@ -51,9 +52,13 @@ function policy(
 function runner(handlers: {
   branch?: CommandRun;
   commit?: CommandRun;
+  upstream?: CommandRun;
   gh?: CommandRun;
 }): CommandRunner {
   return async (command, args) => {
+    if (command === 'git' && args.includes('@{upstream}')) {
+      return handlers.upstream ?? { stdout: '', exitCode: 128 };
+    }
     if (command === 'git' && args.includes('--abbrev-ref')) {
       return handlers.branch ?? { stdout: '', exitCode: 1 };
     }
@@ -65,6 +70,8 @@ function runner(handlers: {
 }
 
 const ok = (stdout: string): CommandRun => ({ stdout, exitCode: 0 });
+const SHA1 = '1'.repeat(40);
+const HEAD9 = '9'.repeat(40);
 const fail: CommandRun = { stdout: '', exitCode: 1 };
 
 describe('evaluateDelivery — convention findings', () => {
@@ -320,7 +327,7 @@ describe('the Stop delivery check saves what ships', () => {
     const result = await evaluateDelivery({
       projectRoot: root,
       policy: policy(),
-      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      run: runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     });
     expect(result.pr).toEqual({
       number: 7,
@@ -328,7 +335,6 @@ describe('the Stop delivery check saves what ships', () => {
       draft: true,
       state: null,
       head_sha: null,
-      title: null,
       changed_files: null,
       additions: null,
       deletions: null,
@@ -336,7 +342,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(result.ci).toMatchObject({ state: 'pending', done: 1, total: 3, reason: null });
   });
 
-  it('AC-27: reads the PR title and size in the same bounded gh call and saves them', async () => {
+  it('AC-27: reads the PR size in the same bounded gh call and saves it, never the title', async () => {
     const dir = branchChange();
     const calls: string[][] = [];
     const gh = ok(
@@ -352,16 +358,17 @@ describe('the Stop delivery check saves what ships', () => {
         statusCheckRollup: [],
       }),
     );
-    const base = runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh });
+    const base = runner({ branch: ok('feat/x'), commit: ok(SHA1), gh });
     await runDeliveryCapability(root, 'completion', async (command, args) => {
       if (command === 'gh') calls.push(args);
       return base(command, args);
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.at(-1)).toContain('title,changedFiles,additions,deletions');
+    expect(calls[0]!.at(-1)).toContain('changedFiles,additions,deletions');
+    expect(calls[0]!.at(-1)).not.toContain('title');
+    expect(readFeatureDelivery(root, dir).pr).not.toHaveProperty('title');
     expect(readFeatureDelivery(root, dir).pr).toMatchObject({
       number: 12,
-      title: 'Seed stage helpers',
       changed_files: 14,
       additions: 412,
       deletions: 87,
@@ -374,8 +381,8 @@ describe('the Stop delivery check saves what ships', () => {
         gh: ok(JSON.stringify({ number: 3, title: '', changedFiles: -1, additions: 1.5 })),
       }),
     });
+    expect(odd.pr).not.toHaveProperty('title');
     expect(odd.pr).toMatchObject({
-      title: null,
       changed_files: null,
       additions: null,
       deletions: null,
@@ -389,19 +396,19 @@ describe('the Stop delivery check saves what ships', () => {
         number: 9,
         url: 'https://example.test/pull/9',
         state: 'MERGED',
-        headRefOid: 'head-9',
+        headRefOid: HEAD9,
         statusCheckRollup: [],
       }),
     );
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     );
     expect(readFeatureDelivery(root, dir).pr).toMatchObject({
       number: 9,
       state: 'merged',
-      head_sha: 'head-9',
+      head_sha: HEAD9,
     });
     expect(readPrState('OPEN')).toBe('open');
     expect(readPrState('closed')).toBe('closed');
@@ -443,30 +450,27 @@ describe('the Stop delivery check saves what ships', () => {
     expect(reading).toMatchObject({ state: 'pending', done: 2, total: 7 });
     expect(reading.jobs).toEqual([
       {
-        name: 'build',
         status: 'COMPLETED',
         conclusion: 'SUCCESS',
         started_at: '2026-10-20T10:00:00Z',
         completed_at: '2026-10-20T10:03:00Z',
       },
-      { name: 'test', status: 'QUEUED', conclusion: null, started_at: null, completed_at: null },
+      { status: 'QUEUED', conclusion: null, started_at: null, completed_at: null },
       {
-        name: 'lint',
         status: 'IN_PROGRESS',
         conclusion: null,
         started_at: null,
         completed_at: null,
       },
-      { name: 'deploy', status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
+      { status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
       {
-        name: 'license',
         status: 'EXPECTED',
         conclusion: null,
         started_at: null,
         completed_at: null,
       },
-      { name: 'cla', status: 'SUCCESS', conclusion: null, started_at: null, completed_at: null },
-      { name: 'check', status: null, conclusion: null, started_at: null, completed_at: null },
+      { status: 'SUCCESS', conclusion: null, started_at: null, completed_at: null },
+      { status: null, conclusion: null, started_at: null, completed_at: null },
     ]);
   });
 
@@ -476,11 +480,11 @@ describe('the Stop delivery check saves what ships', () => {
     const outcome = await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: missing }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: missing }),
     );
     expect(outcome.blocking).toBe(false);
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({
-      sha: 'sha-1',
+      sha: SHA1,
       state: 'unknown',
       reason: 'gh is not installed',
       source: 'stop-check',
@@ -495,7 +499,7 @@ describe('the Stop delivery check saves what ships', () => {
       dir,
       {
         ci: {
-          sha: 'sha-1',
+          sha: SHA1,
           state: 'pass',
           done: 3,
           total: 3,
@@ -513,7 +517,7 @@ describe('the Stop delivery check saves what ships', () => {
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: signedOut }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: signedOut }),
     );
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'pass', done: 3 });
   });
@@ -533,18 +537,18 @@ describe('the Stop delivery check saves what ships', () => {
       const baseline = await runDeliveryCapability(
         root,
         'completion',
-        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: fail }),
+        runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: fail }),
       );
       const outcome = await runDeliveryCapability(
         root,
         'completion',
-        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: { ...gh } }),
+        runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: { ...gh } }),
       );
       expect(outcome.blocking).toBe(false);
       expect(outcome.blocking).toBe(baseline.blocking);
       expect(outcome.ran).toBe(baseline.ran);
       expect(readFeatureDelivery(root, dir).ci).toMatchObject({
-        sha: 'sha-1',
+        sha: SHA1,
         state: 'unknown',
         reason,
       });
@@ -564,11 +568,11 @@ describe('the Stop delivery check saves what ships', () => {
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     );
     const record = readFeatureDelivery(root, dir);
     expect(record.pr).toMatchObject({ number: 7, draft: false });
-    expect(record.ci).toMatchObject({ sha: 'sha-1', state: 'pass', done: 2, total: 2 });
+    expect(record.ci).toMatchObject({ sha: SHA1, state: 'pass', done: 2, total: 2 });
   });
 
   it('saves nothing when no change owns the branch or the check did not run', () => {
@@ -602,7 +606,7 @@ describe('the Stop delivery check saves what ships', () => {
     const result = await evaluateDelivery({
       projectRoot: root,
       policy: policy(),
-      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: ok('not json') }),
+      run: runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: ok('not json') }),
     });
     expect(result.ghAvailable).toBe(false);
     expect(result.ci).toMatchObject({ state: 'unknown', reason: 'gh returned unreadable output' });
@@ -640,5 +644,237 @@ describe('the Stop delivery check saves what ships', () => {
       ghFailureReason({ stdout: '', exitCode: 1, stderr: 'no pull requests found for branch' }),
     ).toBe('no pull request for this branch');
     expect(ghFailureReason({ stdout: '', exitCode: 1 })).toBe('gh could not read the pull request');
+  });
+});
+
+describe('the Stop delivery reader records the push it can see', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-push-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  const HEAD = 'a'.repeat(40);
+  const OLDER = 'b'.repeat(40);
+
+  function branchChange(): string {
+    const dir = openFeatureChange(root, 'ses_push', { adapter: 'claude-code', ulidSeed: 11 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    return dir;
+  }
+
+  function prJson(headRefOid: string): CommandRun {
+    return ok(
+      JSON.stringify({
+        number: 5,
+        url: 'https://example.test/pull/5',
+        state: 'OPEN',
+        headRefOid,
+        statusCheckRollup: [{ state: 'PENDING' }],
+      }),
+    );
+  }
+
+  it('AC-1: records the push when the branch upstream is HEAD', async () => {
+    const dir = branchChange();
+    const calls: string[][] = [];
+    const base = runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream: ok(HEAD), gh: fail });
+    await runDeliveryCapability(root, 'completion', async (command, args) => {
+      calls.push([command, ...args]);
+      return base(command, args);
+    });
+    expect(calls).toContainEqual(['git', '-C', root, 'rev-parse', '@{upstream}']);
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({
+      state: 'pushed',
+      branch: 'feat/x',
+      sha: HEAD,
+    });
+  });
+
+  it('AC-2: records the push when there is no upstream but the PR head is HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), gh: prJson(HEAD) }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: HEAD });
+  });
+
+  it.each([
+    ['the upstream read fails', fail, prJson(OLDER)],
+    ['the upstream is behind HEAD', ok(OLDER), prJson(OLDER)],
+    ['the upstream is ahead of HEAD', ok('c'.repeat(40)), fail],
+    ['rev-parse prints non-hex text', ok('not-a-sha'), fail],
+  ] as const)('AC-2: writes no push and throws nothing when %s', async (_name, upstream, gh) => {
+    const dir = branchChange();
+    await expect(
+      runDeliveryCapability(
+        root,
+        'completion',
+        runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream, gh }),
+      ),
+    ).resolves.toMatchObject({ blocking: false });
+    expect(readFeatureDelivery(root, dir).push ?? null).toBeNull();
+  });
+
+  it('AC-2: a HEAD that is not a 40-hex sha is never written as a push', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('HEAD-ish'), upstream: ok('HEAD-ish'), gh: fail }),
+    );
+    expect(readFeatureDelivery(root, dir).push ?? null).toBeNull();
+  });
+
+  it('AC-3: keeps an earlier push when a later reading cannot read the upstream', async () => {
+    const dir = branchChange();
+    recordShip(
+      root,
+      dir,
+      { push: { state: 'pushed', branch: 'feat/x', sha: OLDER } },
+      '2026-10-20T00:00:00.000Z',
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream: fail, gh: fail }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: OLDER });
+  });
+
+  it('records the push when gh is missing but the upstream is HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({
+        branch: ok('feat/x'),
+        commit: ok(HEAD),
+        upstream: ok(HEAD),
+        gh: { stdout: '', exitCode: 1, missing: true },
+      }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: HEAD });
+  });
+
+  it('stores the CI reading against the PR head, not the local HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), gh: prJson(OLDER) }),
+    );
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({ sha: OLDER, state: 'pending' });
+  });
+});
+
+describe('a delivery reading never overwrites a newer one', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-order-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-15: a reading that started before the stored one leaves pr and ci unchanged', () => {
+    const dir = openFeatureChange(root, 'ses_order', { adapter: 'claude-code', ulidSeed: 12 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    recordShip(
+      root,
+      dir,
+      {
+        pr: { number: 4, state: 'open' },
+        ci: { sha: 'h', state: 'fail', done: 2, total: 2, reason: null, source: 'stop-check' },
+      },
+      '2026-10-29T10:00:02.000Z',
+    );
+    saveDeliveryReading(
+      root,
+      {
+        ran: true,
+        branch: 'feat/x',
+        commit: 'h',
+        ghAvailable: true,
+        findings: [],
+        pr: { number: 4, url: null, draft: null, state: 'closed', head_sha: 'h' },
+        ci: { state: 'pending', done: 0, total: 2, reason: null },
+      },
+      () => new Date('2026-10-29T10:00:03.000Z'),
+      { startedAt: '2026-10-29T10:00:01.000Z' },
+    );
+    const record = readFeatureDelivery(root, dir);
+    expect(record.pr).toMatchObject({ state: 'open', at: '2026-10-29T10:00:02.000Z' });
+    expect(record.ci).toMatchObject({ state: 'fail', at: '2026-10-29T10:00:02.000Z' });
+  });
+});
+
+describe('a sha that is not 40 hex characters is no reading', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-sha-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('drops a PR head and a local HEAD that are not full shas', async () => {
+    const dir = openFeatureChange(root, 'ses_sha', { adapter: 'claude-code', ulidSeed: 13 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    const gh = ok(
+      JSON.stringify({ number: 4, state: 'OPEN', headRefOid: 'not-a-sha', statusCheckRollup: [] }),
+    );
+    const result = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({ branch: ok('feat/x'), commit: ok('HEAD-ish'), gh }),
+    });
+    expect(result.pr?.head_sha).toBeNull();
+    saveDeliveryReading(root, result);
+    expect(readFeatureDelivery(root, dir).ci?.sha).toBeNull();
+    expect(readFeatureDelivery(root, dir).pr?.head_sha ?? null).toBeNull();
+  });
+});
+
+describe('delivery.json holds only states, numbers and ids', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-free-text-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('writes no PR title and no CI job name, and keeps the counts and states', async () => {
+    const dir = openFeatureChange(root, 'ses_free', { adapter: 'claude-code', ulidSeed: 14 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    const gh = ok(
+      JSON.stringify({
+        number: 6,
+        state: 'OPEN',
+        headRefOid: HEAD9,
+        title: 'FREE-TEXT-TITLE',
+        statusCheckRollup: [
+          { name: 'FREE-TEXT-JOB', status: 'COMPLETED', conclusion: 'SUCCESS' },
+          { context: 'FREE-TEXT-CONTEXT', state: 'PENDING' },
+        ],
+      }),
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD9), gh }),
+    );
+    const text = readFileSync(join(root, featureFilePath(dir, 'delivery')), 'utf8');
+    expect(text).not.toContain('FREE-TEXT');
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({
+      state: 'pending',
+      done: 1,
+      total: 2,
+    });
+    expect(readFeatureDelivery(root, dir).ci?.jobs).toEqual([
+      { status: 'COMPLETED', conclusion: 'SUCCESS', started_at: null, completed_at: null },
+      { status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
+    ]);
   });
 });

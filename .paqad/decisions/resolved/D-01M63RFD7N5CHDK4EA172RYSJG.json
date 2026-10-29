@@ -1,0 +1,47 @@
+{
+  "id": "D-01M63RFD7N5CHDK4EA172RYSJG",
+  "category": "spec.change",
+  "title": "Start building issue 771 now?",
+  "context": "All 21 HUD decisions are written up in issue 771. The change waits on the owner's go-ahead before the spec changes are raised and development resumes.",
+  "options": [
+    {
+      "option_key": "build-now",
+      "label": "Build it now on a new PR from main",
+      "one_line_preview": "Build it now on a new PR from main",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "park",
+      "label": "Keep it parked",
+      "one_line_preview": "Keep it parked",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "build-now",
+  "created_at": "2026-10-29T11:59:40.277Z",
+  "status": "resolved",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "build-now",
+  "rationale": "Owner: Yes, build it (2026-10-29).",
+  "resolved_at": "2026-10-29T12:00:15.090Z",
+  "decision_id": "D-01M63RFD7N5CHDK4EA172RYSJG",
+  "fingerprint": "sha256:299f67841a6babc451bca3bcae92cb16fd723740a837b64cad26060151fb8479",
+  "question": "Start building issue 771 now?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T11:59:40.277Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "build-now",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T12:00:15.090Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: Yes, build it (2026-10-29)."
+  }
+}

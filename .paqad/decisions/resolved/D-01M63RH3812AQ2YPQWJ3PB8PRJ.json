@@ -1,0 +1,47 @@
+{
+  "id": "D-01M63RH3812AQ2YPQWJ3PB8PRJ",
+  "category": "spec.change",
+  "title": "Issue 771 changes to the frozen HUD spec",
+  "context": "Owner confirmed 21 decisions one by one (issue 771). Changes vs the frozen spec: headline 'Coding Done: Watching CI' while CI runs; fix record gaps first (false rules-loaded gap) inside this change; 'Waiting for your answer' (pending packet, AskUserQuestion, permission) beats subagent title, Done and CI; live subagent title 'Subagent: <task>' with calm animation, body max two lines newest on top from session.append/tool.call rows with agentId, finished count for this change only, fallback to normal when idle; CI watch every 30 s no back-off, stop at 60 min, paused reason fixed word time limit/offline/signed out; Merge removed completely, no merged note.",
+  "options": [
+    {
+      "option_key": "apply-771",
+      "label": "Apply all issue 771 changes",
+      "one_line_preview": "Apply all issue 771 changes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-frozen",
+      "label": "Keep the frozen spec",
+      "one_line_preview": "Keep the frozen spec",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "apply-771",
+  "created_at": "2026-10-29T12:00:35.585Z",
+  "status": "resolved",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "apply-771",
+  "rationale": "Owner confirmed each point one by one on 2026-10-29 and said 'Yes, build it'. Source: issue 771.",
+  "resolved_at": "2026-10-29T12:00:35.851Z",
+  "decision_id": "D-01M63RH3812AQ2YPQWJ3PB8PRJ",
+  "fingerprint": "sha256:2256c95fa18744fbad688912feec2b965d97a0483fe301b7b706f893ce745ed7",
+  "question": "Issue 771 changes to the frozen HUD spec",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T12:00:35.585Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "apply-771",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T12:00:35.851Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner confirmed each point one by one on 2026-10-29 and said 'Yes, build it'. Source: issue 771."
+  }
+}

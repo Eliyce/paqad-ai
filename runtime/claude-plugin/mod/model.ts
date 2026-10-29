@@ -1,6 +1,6 @@
 import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
 import { costPill, formatClock } from './cost';
-import { NO_RECORD, judgedHeadline, snapshotHeadline } from './headline';
+import { NO_RECORD, SUBAGENT_ROW, judgedHeadline, snapshotHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
@@ -512,7 +512,7 @@ function readGate(value: unknown): PaqadGate | null {
 
 const VERDICT_KINDS = ['pass', 'fail', 'inconclusive'] as const;
 
-const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open', 'safe-to-merge', 'merged'];
+const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open'];
 
 function readRung(value: unknown): { rung?: PaqadRung } {
   const rung = RUNGS.find((known) => known === value);
@@ -800,7 +800,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           commits: num(ship.commits) ?? 0,
           commit_decision: str(ship.commit_decision),
           merge_commit: str(ship.merge_commit),
-          push: readStep(ship.push),
+          push: ship.push_current === false ? null : readStep(ship.push),
           pr: readPr(ship.pr),
           ci: readCi(ship.ci),
           push_branch: str(rec(ship.push)?.branch),
@@ -883,7 +883,7 @@ export const BAND_STATES = [
   'Ready',
   'Working',
   'Branch warning',
-  'Needs you',
+  'Waiting for your answer',
   'Inconclusive',
   'Safe to merge',
   'Needs your attention',
@@ -896,7 +896,7 @@ const STATE_TONE: Record<(typeof BAND_STATES)[number], PaqadTone> = {
   Ready: 'neutral',
   Working: 'working',
   'Branch warning': 'warn',
-  'Needs you': 'needs-you',
+  'Waiting for your answer': 'needs-you',
   Inconclusive: 'warn',
   'Safe to merge': 'good',
   'Needs your attention': 'bad',
@@ -912,7 +912,7 @@ export function bandState(
   live: LiveState = IDLE_LIVE,
 ): BandState {
   if (!snapshot) return 'Ready';
-  if (waitingOnHuman(snapshot, live)) return 'Needs you';
+  if (waitingOnHuman(snapshot, live)) return 'Waiting for your answer';
   if (!snapshot.active) {
     if (snapshot.paused.length > 0) return 'Paused';
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';
@@ -1026,6 +1026,7 @@ export interface BandView {
   headline: string;
   note: string | null;
   gap: string | null;
+  activity: string[];
   flags: number;
   stages: StageSegment[];
   clock: string | null;
@@ -1054,13 +1055,14 @@ export function buildBandView(
   const flags = snapshot?.flags.length ?? 0;
   const stages = stageSegments(snapshot);
   const head = snapshot ? snapshotHeadline(snapshot, now, live) : null;
-  const judged = judgedHeadline(snapshot) || live.waitingOn !== null;
+  const judged = judgedHeadline(snapshot) || live.waitingOn !== null || head?.row === SUBAGENT_ROW;
   return {
     state,
     tone: judged && head ? head.tone : bandTone(state, flags),
     headline: head ? head.text : NO_RECORD,
     note: head?.note ?? null,
     gap: head?.gap ?? null,
+    activity: head?.activity ?? [],
     flags,
     stages,
     clock: liveClock(stages, now),

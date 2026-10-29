@@ -3,6 +3,7 @@ import type { VerificationGate, VerificationOrigin } from '@/core/types/verifica
 import {
   resolveRuleApplicabilityForChange,
   type ChangeRuleApplicability,
+  type ChangeScopeOptions,
 } from '@/context/rule-context.js';
 import {
   coverageGaps,
@@ -24,6 +25,7 @@ export interface RulesLoadedGateDeps {
   resolveApplicability?: (
     projectRoot: string,
     sessionId: string | null,
+    scope: ChangeScopeOptions,
   ) => Promise<ChangeRuleApplicability>;
   readRecord?: (projectRoot: string, dirName: string) => RulesLoadedRecord | null;
 }
@@ -37,7 +39,9 @@ export async function rulesLoadedGate(
   if (!input.isFeatureDev || !input.dirName) {
     return null;
   }
-  const applicability = await resolveApplicability(input.projectRoot, input.sessionId ?? null);
+  const applicability = await resolveApplicability(input.projectRoot, input.sessionId ?? null, {
+    dirName: input.dirName,
+  });
   if (!applicability.hasStore || applicability.applicable.length === 0) {
     return {
       name: GATE_NAME,

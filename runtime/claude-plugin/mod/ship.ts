@@ -1,9 +1,9 @@
 import { IDLE_LIVE, type LiveState } from './live';
 import type { PaqadHudSnapshot } from './types';
 
-export type ShipLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
+export type ShipLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI';
 
-export type ShipStepState = 'done' | 'current' | 'todo' | 'failed' | 'closed' | 'ready' | 'unknown';
+export type ShipStepState = 'done' | 'current' | 'todo' | 'failed' | 'closed' | 'unknown';
 
 export interface ShipRailStep {
   label: ShipLabel;
@@ -30,6 +30,12 @@ function editState(snapshot: PaqadHudSnapshot | null, live: LiveState): ShipStep
     return 'done';
   }
   return 'todo';
+}
+
+function prStep(hasPr: boolean, prState: string | null): ShipStepState {
+  if (!hasPr) return 'todo';
+  if (prState === 'closed') return 'closed';
+  return prState === null ? 'unknown' : 'done';
 }
 
 function prLabel(number: number | null): string {
@@ -61,17 +67,13 @@ export function shipRail(snapshot: PaqadHudSnapshot | null, live: LiveState = ID
       label: 'Push',
       state: ship?.push === 'pushed' ? 'done' : ship?.push === 'failed' ? 'failed' : 'todo',
     },
-    { label: 'PR', state: !hasPr ? 'todo' : prState === 'closed' ? 'closed' : 'done' },
+    { label: 'PR', state: prStep(hasPr, prState) },
     { label: 'CI', state: ciState(hasPr, prState === 'closed', ci?.state ?? null) },
-    {
-      label: 'Merge',
-      state: merged ? 'done' : allGreen ? 'ready' : hasPr && prState === null ? 'unknown' : 'todo',
-    },
   ];
   const number = ship?.pr_number ?? null;
   return {
     steps,
-    status: railStatus(steps, commits, number, ciCount, allGreen, merged),
+    status: railStatus(steps, commits, number, ciCount),
     inherited: ship ? Math.max(ship.inherited_count, 0) : 0,
     ci: ciCount,
     allGreen,
@@ -85,13 +87,10 @@ function railStatus(
   commits: number,
   number: number | null,
   ci: { done: number; total: number } | null,
-  allGreen: boolean,
-  merged: boolean,
 ): string | null {
   const state = (label: ShipLabel) => steps.find((step) => step.label === label)!.state;
-  if (merged) return `${prLabel(number)} merged`;
-  if (allGreen) return 'All green · merge is yours';
   if (state('PR') === 'closed') return 'PR closed';
+  if (state('PR') === 'unknown') return 'PR state unknown';
   if (state('CI') === 'failed') return 'CI failed';
   if (state('CI') === 'current' || state('CI') === 'done') {
     return ci ? `CI · ${ci.done} of ${ci.total} green` : 'CI running';
@@ -111,7 +110,6 @@ export const STEP_WORDS: Record<ShipStepState, string> = {
   todo: 'not yet',
   failed: 'failed',
   closed: 'closed',
-  ready: 'ready, yours to merge',
   unknown: 'unknown',
 };
 
@@ -130,7 +128,6 @@ const COLOR = {
   current: '#3b7dd8',
   todo: '#9a9a9a',
   bad: '#d0573f',
-  ready: '#7cc79a',
   face: 'white',
   label: 'gray',
 } as const;
@@ -139,7 +136,6 @@ function stepColor(state: ShipStepState): string {
   if (state === 'done') return COLOR.done;
   if (state === 'current') return COLOR.current;
   if (state === 'failed' || state === 'closed') return COLOR.bad;
-  if (state === 'ready') return COLOR.ready;
   return COLOR.todo;
 }
 
@@ -149,7 +145,6 @@ const ICONS: Record<ShipLabel, string> = {
   Push: 'M0 8 V-7 M-5 -2 L0 -7 L5 -2',
   PR: 'M-5 -7 V7 M5 -3 V7 M5 -3 C5 -8 0 -8 -2 -8 M-4 -10 L-2 -8 L-4 -6',
   CI: 'M-6 0 L-2 5 L7 -6',
-  Merge: 'M-5 -8 V8 M-5 -2 C-5 4 5 2 5 8',
 };
 
 const escapeXml = (text: string): string =>

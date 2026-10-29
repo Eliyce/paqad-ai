@@ -158,6 +158,20 @@ describe('parseSnapshot', () => {
     expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
   });
 
+  it('AC-3: reads a push that is not on the change head as not pushed', () => {
+    const read = (pushCurrent: unknown) =>
+      parseSnapshot(
+        JSON.stringify({
+          schema: 'paqad.hud/3',
+          scope: { qualified: true },
+          ship: { commits: 2, push: { state: 'pushed' }, push_current: pushCurrent },
+        }),
+      )!.ship!.push;
+    expect(read(false)).toBeNull();
+    expect(read(true)).toBe('pushed');
+    expect(read(undefined)).toBe('pushed');
+  });
+
   it('tolerates odd fields without guessing', () => {
     const odd = parseSnapshot(
       JSON.stringify({
@@ -475,8 +489,8 @@ describe('the eight band states', () => {
   it('needs you while a question or a permission waits, whatever the snapshot says', () => {
     const question = { ...IDLE_LIVE, turnId: 't', waitingOn: 'question' as const };
     const permission = { ...IDLE_LIVE, turnId: 't', waitingOn: 'permission' as const };
-    expect(bandState(parse(FULL_ORD_501), question)).toBe('Needs you');
-    expect(bandState(parse(FAST_ORD_490), permission)).toBe('Needs you');
+    expect(bandState(parse(FULL_ORD_501), question)).toBe('Waiting for your answer');
+    expect(bandState(parse(FAST_ORD_490), permission)).toBe('Waiting for your answer');
   });
 
   it('a verdict written before the current turn started does not lead', () => {
@@ -505,7 +519,7 @@ describe('the eight band states', () => {
       decisions: { pending: [{ id: 'D-1', category: 'c', question: 'q' }], resolved: 0 },
       last_block: { text: 'stopped' },
     });
-    expect(bandState(both)).toBe('Needs you');
+    expect(bandState(both)).toBe('Waiting for your answer');
   });
 
   it('turns amber whenever a flag is open, even at Safe to merge (decision 17)', () => {
@@ -514,7 +528,7 @@ describe('the eight band states', () => {
     expect(bandTone('Ready', 1)).toBe('warn');
     expect(bandTone('Safe to merge', 0)).toBe('good');
     expect(bandTone('Needs your attention', 1)).toBe('bad');
-    expect(bandTone('Needs you', 1)).toBe('needs-you');
+    expect(bandTone('Waiting for your answer', 1)).toBe('needs-you');
     expect(buildBandView(parse(FULL_ORD_501), NOW)).toMatchObject({
       state: 'Safe to merge',
       tone: 'warn',

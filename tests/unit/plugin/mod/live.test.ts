@@ -37,6 +37,12 @@ describe('live session state', () => {
     const running = turnStarted(prompted, 'turn-1', 150);
     expect(turnStarted(running, 'turn-2', 200).turnStartedAt).toBe(200);
     expect(turnEnded()).toEqual(IDLE_LIVE);
+    const agents = {
+      running: [{ id: 'a', description: 'd', status: 'running' }],
+      lines: ['x'],
+      finished: 1,
+    };
+    expect(turnEnded({ ...IDLE_LIVE, turnId: 't', agents })).toEqual({ ...IDLE_LIVE, agents });
   });
 
   it('an edit is current from its start until its own call ends', () => {

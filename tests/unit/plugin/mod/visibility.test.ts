@@ -85,19 +85,19 @@ describe('the visibility state', () => {
 describe('the minimised line', () => {
   it('carries the stage bar, the clock, the table, the ship step, flags and tokens', () => {
     expect(lineAt(FAST_ORD_490, 120)).toBe(
-      'paqad ORD-490 Working ○●–▸–○–○ Build · 2:00 editing + Restore × Close',
+      'paqad ORD-490 Working ○✓–▸–○–○ Build · 2:00 editing + Restore × Close',
     );
     expect(lineAt(FULL_ORD_501_COST, 200)).toBe(
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag 1.3M tokens + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 3 of your commits 1 flag 1.3M tokens + Restore × Close',
     );
   });
 
   it('drops tokens, then the ship step, then the High Table count, then the stage bar, and never wraps', () => {
     const widths = [120, 100, 79, 60];
     expect(widths.map((columns) => lineAt(FULL_ORD_501_COST, columns))).toEqual([
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 1 flag + Restore × Close',
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done 1 flag + Restore × Close',
       'paqad ORD-501 Safe to merge 1 flag + Restore × Close',
     ]);
   });
@@ -121,18 +121,18 @@ describe('closed, hidden and needs you', () => {
     expect(closedLine('closed', view)[0]).toMatchObject({ action: 'reopen', hotkey: 'o' });
   });
 
-  it('turns amber and reads Needs you while minimised, closed or hidden and paqad needs you', () => {
+  it('turns amber and reads Waiting for your answer while minimised, closed or hidden and paqad needs you', () => {
     for (const visibility of [
       { minimised: true, closed: false, hidden: false },
       { minimised: false, closed: true, hidden: false },
       { minimised: false, closed: false, hidden: true },
     ]) {
-      expect(layout(GRADUATED_ORD_482, visibility)).toEqual(['paqad · Needs you ▸']);
+      expect(layout(GRADUATED_ORD_482, visibility)).toEqual(['paqad · Waiting for your answer ▸']);
     }
     expect(needsYouLine()[0]).toMatchObject({ tone: 'needs-you', action: 'show' });
     expect(
       layout(GRADUATED_ORD_482, { minimised: false, closed: false, hidden: false })[0],
-    ).toContain('1 decision is waiting for you');
+    ).toContain('Waiting for your answer');
   });
 
   it('answers /paqad show', () => {

@@ -21,6 +21,8 @@ import { captureSessionDirtyBaseline } from '@/pipeline/dirty-baseline.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
+import { seedFeatureDelivery } from '@/feature-evidence/delivery.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 function rule(partial: Partial<CompiledRule> & { rule_id: string }): CompiledRule {
   return {
@@ -522,5 +524,58 @@ describe('resolveRuleApplicabilityForChange matches only the change own files', 
     writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 3;\n');
     const edited = await resolveRuleApplicabilityForChange(projectRoot, 'ses-p2');
     expect(edited.applicable.map((r) => r.rule_id).sort()).toEqual(['LEGACY', 'SRC']);
+  });
+});
+
+describe('the rules a change needs come from its own start, not the whole branch', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-appl-start-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+    git('init', '-q', '-b', 'main');
+    git('config', 'user.email', 't@t.dev');
+    git('config', 'user.name', 'T');
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.COMPILED_RULES),
+      JSON.stringify(
+        store([
+          rule({ rule_id: 'SRC', trigger_patterns: ['src/'] }),
+          rule({ rule_id: 'DOCS', trigger_patterns: ['docs/'] }),
+        ]),
+      ),
+    );
+    writeFileSync(join(root, '.gitignore'), '.paqad/\n');
+    writeFileSync(join(root, 'a.txt'), 'a');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'base');
+    git('checkout', '-q', '-b', 'feat/x');
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'docs', 'old.md'), 'earlier work');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'earlier work on the branch');
+    const start = git('rev-parse', 'HEAD');
+    const dir = openFeatureChange(root, 'ses_appl', { adapter: 'claude-code', ulidSeed: 4 });
+    seedFeatureDelivery(root, dir, {
+      sessionId: 'ses_appl',
+      recordedAt: new Date().toISOString(),
+      startCommit: start,
+    });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'a.ts'), 'export const a = 1;\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'the change');
+    dirName = dir;
+  });
+  let dirName = '';
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('counts only the files the named change touched since it started', async () => {
+    const result = await resolveRuleApplicabilityForChange(root, null, { dirName });
+    expect(result.changedPaths).toEqual(['src/a.ts']);
+    expect(result.applicable.map((entry) => entry.rule_id)).toEqual(['SRC']);
   });
 });

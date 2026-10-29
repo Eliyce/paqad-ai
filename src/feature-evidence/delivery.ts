@@ -68,7 +68,6 @@ export interface DeliveryPr {
 }
 
 export interface DeliveryCiJob {
-  name: string;
   status: string | null;
   conclusion: string | null;
   started_at: string | null;
@@ -86,10 +85,18 @@ export interface DeliveryCi {
   at: string;
 }
 
+export interface DeliveryCiRead {
+  ok: boolean;
+  reason: string | null;
+  at: string;
+}
+
 export interface ShipPatch {
   push?: Omit<DeliveryPush, 'at'>;
   pr?: Partial<Omit<DeliveryPr, 'at'>>;
   ci?: Omit<DeliveryCi, 'at'>;
+  ci_read?: Omit<DeliveryCiRead, 'at'>;
+  read_at?: string;
 }
 
 export interface DeliveryRecord extends Partial<
@@ -112,6 +119,7 @@ export interface DeliveryRecord extends Partial<
   push?: DeliveryPush | null;
   pr?: DeliveryPr | null;
   ci?: DeliveryCi | null;
+  ci_read?: DeliveryCiRead | null;
 }
 
 export function emptyCommitDecision(): CommitDecision {
@@ -189,6 +197,7 @@ export function writeFeatureDelivery(
       push: record.push ?? null,
       pr: record.pr ?? null,
       ci: record.ci ?? null,
+      ...(record.ci_read ? { ci_read: record.ci_read } : {}),
     },
   }) as DeliveryRecord;
   atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'delivery')), stamped);
@@ -494,6 +503,14 @@ export function mergeCi(previous: DeliveryCi | null | undefined, next: DeliveryC
   return { ...previous, ...definedFields(next) };
 }
 
+function readingIsOlder(record: DeliveryRecord, readAt: string | undefined): boolean {
+  if (readAt === undefined) return false;
+  const started = Date.parse(readAt);
+  return [record.pr?.at, record.ci?.at].some(
+    (stored) => stored !== undefined && Date.parse(stored) > started,
+  );
+}
+
 export function recordShip(
   projectRoot: string,
   dirName: string,
@@ -501,9 +518,11 @@ export function recordShip(
   at: string,
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
+  const stale = readingIsOlder(record, patch.read_at);
   if (patch.push)
     record.push = { ...record.push, ...definedFields(patch.push), at } as DeliveryPush;
-  if (patch.pr) {
+  if (patch.ci_read) record.ci_read = { ...patch.ci_read, at };
+  if (patch.pr && !stale) {
     record.pr = {
       number: null,
       url: null,
@@ -514,6 +533,6 @@ export function recordShip(
       at,
     };
   }
-  if (patch.ci) record.ci = mergeCi(record.ci, { ...patch.ci, at });
+  if (patch.ci && !stale) record.ci = mergeCi(record.ci, { ...patch.ci, at });
   return writeFeatureDelivery(projectRoot, dirName, record, at);
 }

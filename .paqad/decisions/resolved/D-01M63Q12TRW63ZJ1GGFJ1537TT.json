@@ -1,0 +1,67 @@
+{
+  "id": "D-01M63Q12TRW63ZJ1GGFJ1537TT",
+  "category": "spec.change",
+  "title": "Add three HUD items: one-line headline, running background tasks under the title, and a finished count",
+  "context": "The owner asked for three more HUD additions to this change (the seven planned steps are already built and committed). 1) Headline on one line: on Desktop and terminal the band headline (for example 'Build done. Next: Review') never wraps; when it would, it is cut to the band's bodyColumns with a trailing ellipsis, and the full text stays in the strip Svg alt (Desktop) and the /paqad status text. 2) Background tasks under the title: a text line under the band title naming each running background task (one line, shortened) with its elapsed time; Desktop adds a breathing dot using the existing BREATH alphas on the 400 ms tick (motion only while live, per hud.md); the terminal draws text and a static mark. 3) Finished count: how many background tasks finished in this session, for example '29 finished'. What the engine gives (verified in the claude-code types, AgentInfo returned by $.agent.list()): id, description (the Agent call's few-word task description), type (subagent type), status ('pending' | 'running' | 'waiting' | 'idle' | 'completed' | 'failed' | 'killed'), and optional name, parentId, spawnedBy, teammateId. It carries NO start time, and the engine keeps an entry only 'until the engine drops its task' (a subagent some time after it ends), so finished agents are not a reliable session count. Proposal: the mod records each agent's first-seen time itself (from the Agent tool.call it already watches, else the first $.agent.list() sighting) and computes elapsed from that; and it counts agents it saw reach completed, failed or killed (or whose turn.complete it saw) in this session, keyed by id so none counts twice. The count therefore covers only agents this HUD saw end while it was open, and the HUD would word it as 'N finished' for this session. Elapsed time for an agent already running when the HUD opened starts at the first sighting. These change the band layout (one more row on Desktop and terminal when a task runs, so the row budget in hud.md Responsive grows by 1 while live), hud.md (headline rules, the tasks row, a new live motion), and README 'What the HUD does' (it now reads the session's agent list for this line).",
+  "options": [
+    {
+      "option_key": "build-as-proposed",
+      "label": "Build all three as proposed: one-line headline with ellipsis; running tasks line with elapsed from the mod's own first sighting and a breathing dot on Desktop; finished count of tasks the HUD saw end this session",
+      "one_line_preview": "Build all three as proposed: one-line headline with ellipsis; running tasks line with elapsed from the mod's own first sighting and a breathing dot on Desktop; finished count of tasks the HUD saw end this session",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "build-without-count",
+      "label": "Build the one-line headline and the running tasks line, and leave out the finished count because the engine does not report finished agents for the whole session",
+      "one_line_preview": "Build the one-line headline and the running tasks line, and leave out the finished count because the engine does not report finished agents for the whole session",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "headline-only",
+      "label": "Build only the one-line headline in this change, and take the background tasks line and count as a separate change",
+      "one_line_preview": "Build only the one-line headline in this change, and take the background tasks line and count as a separate change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "defer-all",
+      "label": "Ship this change as it is and take all three as a separate change",
+      "one_line_preview": "Ship this change as it is and take all three as a separate change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Parked by the owner: the whole HUD change is set aside and the decisions are locked for a fresh change from main later.",
+      "one_line_preview": "Parked by the owner: the whole HUD change is set aside and the decisions are locked for a fresh change from main later.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "build-as-proposed",
+  "created_at": "2026-10-29T11:34:22.296Z",
+  "status": "resolved",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-10-29T11:42:41.810Z",
+  "decision_id": "D-01M63Q12TRW63ZJ1GGFJ1537TT",
+  "fingerprint": "sha256:373b9df421908f1b04b28ca80e4ec7d65e36b976d8b58b0531776ec8a433c2d6",
+  "question": "Add three HUD items: one-line headline, running background tasks under the title, and a finished count",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T11:34:22.296Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T11:42:41.810Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

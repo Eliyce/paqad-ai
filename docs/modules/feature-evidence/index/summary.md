@@ -453,7 +453,20 @@ reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
 exist yet (claims, the last rule stop, push/PR/CI, a cost no hook has written) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
-(`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+(`computeHudHeadline`, `computeHudFlags`).
+
+**Done means the paqad work is done.** `computeHudHeadline` reads row 16 `Done` once `workIsDone`
+holds: no stage runs, every mandatory stage is complete or redone, checks are green, a verdict is
+on record and no judged required gate of the work fails. It does not wait for a commit, a push, a
+pull request or CI; those live in the delivery rail. While the open PR's CI is pending it reads
+row 14 `Coding Done: Watching CI`. The merge rows are gone, and the Committed and PR open words
+fold into `Done`. Any pending decision of the change reads row 6 `Waiting for your answer`. The reasons of gates that were
+never judged (the fast lane's implementation review) and paqad's record gaps go to the gap line as
+`paqad could not prove ...`. Rows 9 (PR closed), 10 (CI failed on the open PR's current head) and
+11 (push failed) still lead over Done. A verdict with every stage ended but one unproven reads row
+13. `computeDoneLadder` keeps the rung (`done`, `committed`, `pr-open`) for the receipt and earns
+it from a pass verdict or from the caller's `workDone`; there is no safe-to-merge or merged rung.
+The snapshot still writes `delivery_plan.merge` so an older mod can parse the plan.
 
 **Which change it shows** (`src/hud/change-scope.ts`). The snapshot shows a change only when
 `qualifyHudChange` says so, and every reader of the snapshot gets the same answer. A change
@@ -484,10 +497,13 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
   only when its head commit is one of its own commits. A merged pull request whose head is a
   commit this change recorded stays its pull request after a merge-commit merge, when the base
   branch holds the tip and the split finds no branch commits. A pull request saved before the state
-  and head were kept reads with no state, so Merge reads unknown. `ship.pr_state`, `ship.merged` and
-  `ship.all_green` come from the saved gh state: Merge is merged only when the pull request is,
-  and all green needs a passing CI reading on the pull request's current head while it is open; a
-  pass read against an older head reads pending. `ship.ci_read_at` is when CI was last read.
+  and head were kept reads with no state, so the PR step reads unknown. `ship.pr_state`,
+  `ship.merged` and `ship.all_green` come from the saved gh state: merged only when the pull request
+  is, and all green needs a passing CI reading on the pull request's current head while it is open.
+  A pass or fail read against an older head reads pending, so it never raises CI failed. The pull
+  request's head decides; the change's `head_sha` counts only when no pull request head is known,
+  so a local commit not pushed yet never hides red CI on the pull request's current head. `ship.push_current` is true only while
+  the recorded push names the change head, so a new local commit shows Push as not yet. `ship.ci_read_at` is when CI was last read.
 - **Cost and workflow.** `cost.scope` says `change` or `whole-session`. On another workflow the
   `workflow` field carries its name, when it started in this session (the route-turn log) and its
   tokens and money since then, from the session cost cache.
@@ -500,8 +516,9 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
   can show every gate before Checks. `delivery_plan` says which of commit, push, pull request, CI
   and merge this change's policy takes, and `plan` counts the plan steps and the steps built.
   `ship.files_changed` counts the files the change touched (one bounded git read), and
-  `ship.pr_title`, `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same
-  gh call that reads the pull request. Once the spec is frozen, `claims` adds one acceptance claim
+  `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same gh call that
+  reads the pull request. `ship.pr_title` is filled only from an older `delivery.json`: the
+  pull request title is free text from GitHub, so it is no longer read or written. Once the spec is frozen, `claims` adds one acceptance claim
   per automated criterion: its id, its then text and the test that proves it, from the change
   traceability map. `cost.live` is true while the turn is still being counted. Each field is `null`
   or empty when its source is missing, and a failed read leaves it out and never stops the write.
@@ -552,7 +569,7 @@ network, and starts no process.
   change opens. Any other workflow gets one status line with its own tokens instead of a band, and
   no workflow gets nothing. The band can be minimised, closed for the session or hidden in this
   project, and comes back with `/paqad show`; while it is out of the way and something waits on
-  you, its line turns amber and reads Needs you.
+  you, its line turns amber and reads Waiting for your answer.
 - **Live session state** (`runtime/claude-plugin/mod/live.ts`). The snapshot is an audit trail
   written at a few hook moments, so the mod keeps what is happening right now in a `live` atom
   fed by first-party events: `turn.start` and `turn.complete` on the main loop (a subagent turn
@@ -560,7 +577,7 @@ network, and starts no process.
   `AskUserQuestion` call or the mod's own rule-stop question while it is open, and a
   `tool.check` that asks with `approver: 'person'`. The next tool start clears a permission wait,
   so an auto-mode answer cannot leave it standing, and the end of the main turn clears all of it.
-- **Needs you** (`waitingOnHuman` in `runtime/claude-plugin/mod/attention.ts`) is the one
+- **Waiting for your answer** (`waitingOnHuman` in `runtime/claude-plugin/mod/attention.ts`) is the one
   definition every surface uses: a question on screen, a permission a person must answer, or a
   pending decision packet. A rule stop, a flag, a failed verdict, an inconclusive verdict or a
   paused change never means it. A rule-stop question that ends without Allow once writes the stop
@@ -585,8 +602,8 @@ network, and starts no process.
   once per change. Trust shows the verdict or Not judged yet, the gate ring, every gate in words
   (`pass`, `fail`, `not judged yet`, `did not run`, `not required`), the claims with the tests
   that prove them and the flags. Ships shows Edit, own commits and inherited ones marked "on the
-  branch already", Push, the pull request with its state, CI per job with the read time, and
-  Merge, which stays yours. Record shows the plan, decisions, rules, receipt and the change's
+  branch already", Push, the pull request with its state and an `Open PR #N` link while it is open,
+  and CI per job with the read time. There is no Merge row: merging is the owner's. Record shows the plan, decisions, rules, receipt and the change's
   timeline. Cost shows the change cost and says whether it is this change only or the whole
   session. An empty tab names its state: "No gates judged yet.", "Nothing pushed yet.", "No plan
   recorded yet.". Below 80 columns the tab labels shorten.
@@ -605,9 +622,9 @@ network, and starts no process.
   longer list shows as many rows as fit and a last "+N more" row. A missing or unreadable
   packet, or one with no evidence, draws nothing and the question is answered as usual. paqad's
   own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
-- **The eight states** (`BAND_STATES`, first match wins): Needs you (`waitingOnHuman`),
+- **The eight states** (`BAND_STATES`, first match wins): Waiting for your answer (`waitingOnHuman`),
   Paused, Ready or Working when no change is in progress, Branch warning, Working (a stage runs),
-  then the verdict: Safe to merge, Needs your attention or Inconclusive. A verdict written before
+  then the headline engine's row (Done, Needs your attention or Inconclusive). A verdict written before
   the current turn started does not lead while that turn runs, and no verdict leads while a stage
   runs in a live stage agent. Needs your attention always names the failing gate; a fail verdict
   with no failing gate the Ledger can name reads Inconclusive. Any open flag turns a good or neutral state amber, and all green turns the band
@@ -761,8 +778,9 @@ change when no bundle matched, which is how a release commit made on main was on
 change's merge; off a feature branch it now stamps nothing and prints `linked: false`. The
 post-merge git hook still ends in `|| true`, so a pull is never disturbed. The pull request that
 `gh pr view` finds by branch name is saved with its `state` (`open`, `merged` or `closed`) and
-its `head_sha`, and the CI reading keeps one entry per job (name, status, conclusion, start and
-end) from both the CheckRun and the StatusContext shapes; queued, in-progress, pending and
+its `head_sha` (stored only when it is a full 40-hex sha), and the CI reading keeps one entry per
+job (status, conclusion, start and end, never the job's free-text name) from both the CheckRun and
+the StatusContext shapes; queued, in-progress, pending and
 expected jobs count in the total but not as done. `paqad-ai deliver` reads the checks once a
 minute on the real clock while its gate waits, saves each reading with its read time, and stops
 once the checks are done or the delivery policy's `timeout_minutes` has passed; the HUD only ever

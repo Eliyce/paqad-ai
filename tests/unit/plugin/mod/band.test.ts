@@ -12,7 +12,9 @@ import {
   type BandRow,
 } from '../../../../runtime/claude-plugin/mod/band.ts';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
+import { STAGE_MARK } from '../../../../runtime/claude-plugin/mod/instruments.ts';
 import { buildDesktopBand } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   BAND_BODIES,
@@ -129,7 +131,7 @@ describe('the instruments lay out by width', () => {
     const line = bandOf(FULL_ORD_501, 120, 5);
     expect(line.kind).toBe('line');
     expect(layoutLines(line)).toEqual([
-      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
+      'paqad ORD-501 Safe to merge ○✓✓✓✓✓✓○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
     ]);
     expect(layoutLines(bandOf(null, 120, 2))).toEqual(['paqad · Getting ready + Restore × Close']);
     expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe(
@@ -217,9 +219,16 @@ describe('the STAGE instrument', () => {
     const lines = bandLines(FAST_ORD_490);
     expect(lines.slice(1, 4)).toEqual([
       'STAGE  Build · 2:00',
-      '○ ● – ▸ – ○ – ○',
+      '○ ✓ – ▸ – ○ – ○',
       'Intake Plan Spec Build Review Checks Docs Deliver',
     ]);
+  });
+
+  it('AC-13, AC-22: a done stage is a green check one column wide, with no animation', () => {
+    expect(STAGE_MARK.done).toEqual({ mark: '✓', tone: 'good' });
+    expect([...STAGE_MARK.done.mark]).toHaveLength(1);
+    const lines = bandLines(FAST_ORD_490);
+    expect(lines[2]!.split(' ').map((mark) => mark.length)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
   });
 
   it('says done, failed, marked and paused for you in words beside the marks', () => {
@@ -358,5 +367,49 @@ describe('AC-19, AC-32: one headline on every surface', () => {
   it('a finished change keeps its band and says Done instead of the idle view', () => {
     expect(bandLines(finished)[0]).toContain('Done');
     expect(bandLines(finished)[0]).not.toContain(IDLE_HEADLINE);
+  });
+});
+
+describe('the terminal headline stays on one line', () => {
+  it('cuts a long headline with an ellipsis so the header fits the band width', () => {
+    const LONG =
+      'The chief architect is ruling on every disagreement the High Table raised about this change';
+    const raw = { ...FULL_ORD_501, headline: { text: LONG, tone: 'working', row: 15 } };
+    for (const columns of [80, 120]) {
+      const layout = bandOf(raw, columns);
+      expect(layout.kind).toBe('card');
+      if (layout.kind !== 'card') continue;
+      const headline = layout.header.left.find((segment) => segment.text.includes('The chief'))!;
+      expect(headline.text.endsWith('…')).toBe(true);
+      const width = (segments: typeof layout.header.left) =>
+        segments.reduce((sum, segment) => sum + [...segment.text].length, 0);
+      const noteless = layout.header.left.filter((segment) => !segment.dim || segment === headline);
+      expect(width(noteless) + width(layout.header.right)).toBeLessThanOrEqual(columns - 4);
+    }
+  });
+});
+
+describe('live subagents on the terminal', () => {
+  it('titles the newest subagent and draws its two lines under the header', () => {
+    const layout = layoutBand(
+      parseSnapshot(fileText(FULL_ORD_501)),
+      { columns: 120, maxRows: 12 },
+      {
+        now: NOW,
+        surface: 'terminal',
+        live: {
+          ...IDLE_LIVE,
+          agents: {
+            running: [{ id: 'a', description: 'Run the checks', status: 'running' }],
+            lines: ['Bash: pnpm test', 'Grep: ciWatch'],
+            finished: 2,
+          },
+        },
+      },
+    );
+    expect(layout.kind).toBe('card');
+    if (layout.kind !== 'card') return;
+    expect(rowText(layout.header.left)).toContain('Subagent: Run the checks  2 finished');
+    expect(layout.activity.map(rowText)).toEqual(['  Bash: pnpm test', '  Grep: ciWatch']);
   });
 });

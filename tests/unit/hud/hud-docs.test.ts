@@ -23,12 +23,26 @@ describe('HUD and verification docs describe the truthful verdict', () => {
   const trust = between(hud, '### Trust tab', '### Strip states');
   const gates = between(summary, '## Gate states and record ownership', '## Why the code works');
 
-  it('AC-41: the HUD doc describes the done ladder step by step', () => {
-    for (const step of ['`Done`', '`Committed`', '`PR open`', '`Safe to merge`', '`Merged`']) {
-      expect(ladder).toContain(step);
-    }
-    expect(ladder).toContain('only on real CI green');
-    expect(ladder).toContain('When CI is unknown the ladder stops at\n`PR open`');
+  it('AC-19: the HUD doc says Done comes before any push and CI failing turns it red', () => {
+    const flat = ladder.replace(/\s+/g, ' ');
+    expect(flat).toContain('Done comes before any commit or push and does not wait for CI');
+    expect(flat).toContain('CI failing on the current head of the open PR turns the headline red');
+    expect(flat).toContain('There is no merge rung');
+    expect(flat).not.toContain('Safe to merge');
+    expect(flat).toContain('`Coding Done: Watching CI`');
+    expect(flat).toContain('`time limit`');
+    expect(flat).not.toContain('PR #N merged');
+  });
+
+  it('AC-19: the Motion section names the one-time done glow as its single exception', () => {
+    const motion = between(hud, '## Motion', '## Patterns').replace(/\s+/g, ' ');
+    expect(motion).toContain('single named exception to "nothing settled moves"');
+    expect(motion).toContain('within 10 s of the last stage');
+    expect(motion).toContain('It runs about 2 s');
+    expect(motion).toContain('`prefers-reduced-motion` hides it');
+    expect(motion).toContain('The terminal draws no animation for it');
+    expect(motion).not.toContain('Ready to merge');
+    expect(motion).not.toContain(EM_DASH);
   });
 
   it('AC-41: the verification doc names the gate states', () => {

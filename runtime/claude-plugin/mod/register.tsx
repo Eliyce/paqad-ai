@@ -1,5 +1,6 @@
 import { atom, read, update } from 'claude-code';
 import type {
+  AgentInfo,
   Elements,
   EngineInterface,
   Register,
@@ -17,6 +18,14 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
+import {
+  activityLine,
+  finishedSince,
+  pushActivity,
+  runningAgents,
+  toolLine,
+  type ListedAgent,
+} from './agents';
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeBase64 } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
@@ -36,6 +45,8 @@ import {
   ANSWER_TOAST,
   bandIsLive,
   buildDesktopBand,
+  settleStart,
+  settledChange,
   buildDesktopLedger,
   ledgerAutoTab,
   ledgerIsLive,
@@ -93,7 +104,19 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { PAQAD_CLI_TIMEOUT_MS, overrideRecorded, type PaqadRunResult } from './paqad-cli';
+import {
+  CI_WATCH_TIMED_OUT,
+  PAQAD_CLI_TIMEOUT_MS,
+  ciWatchHead,
+  isGitPush,
+  nextCiPoll,
+  overrideRecorded,
+  refreshReason,
+  pauseReason,
+  pluginProgramPath,
+  withCiPause,
+  type PaqadRunResult,
+} from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -156,6 +179,7 @@ const COMMAND_UNREADABLE = 'paqad could not read its record for this session. Tr
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
+const SETTLE_GLOW_MS = 2000;
 const HEARTBEAT_MS = 60_000;
 
 const statusAtom = atom({ plugin: 'paqad', key: 'status' } as const, null as PaqadStatus | null);
@@ -181,6 +205,14 @@ const tableSittingAtom = atom(
   null as TableSitting | null,
 );
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
+const agentsFinishedAtom = atom(
+  { plugin: 'paqad', key: 'agentsFinished' } as const,
+  {} as Record<string, string[]>,
+);
+const settleSeenAtom = atom(
+  { plugin: 'paqad', key: 'settleSeen' } as const,
+  {} as Record<string, number | null>,
+);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
   {} as Record<string, string>,
@@ -233,6 +265,20 @@ let desktopSession = false;
 let taskListRefused = false;
 const rawCalls = new Set<string>();
 
+interface CiWatch {
+  startedAt: number;
+  delay: number | null;
+  timer: Timer | null;
+  inFlight: boolean;
+  head: string;
+  forced: boolean;
+  endings: number;
+}
+
+let agentsWorking: string[] = [];
+let ciWatch: CiWatch | null = null;
+let ciPause: { reason: string; head: string } | null = null;
+
 const TICK_MS = 400;
 const FEATURE_EVIDENCE_DIR = '.paqad/ledger/feature-evidence';
 
@@ -280,7 +326,9 @@ async function refresh($: EngineInterface): Promise<void> {
       const text = await readText($, path);
       const changed = text !== lastText;
       lastText = text;
-      const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
+      const snapshot = changed
+        ? withCiPause(parseSnapshot(text), ciPause?.reason ?? null)
+        : await read($, snapshotAtom);
       if (changed) {
         await update($, snapshotAtom, () => snapshot);
         const broken = snapshot === null && (text !== null || (await existsSafe($, path)));
@@ -290,6 +338,7 @@ async function refresh($: EngineInterface): Promise<void> {
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
+      if (changed) await noteSettled($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
       if (changed) await bringTableForward($, snapshot);
       if (changed || isLive(snapshot) || (await liveState($)).turnStartedAt !== null) {
@@ -297,12 +346,128 @@ async function refresh($: EngineInterface): Promise<void> {
         await update($, nowAtom, () => at);
       }
       if (isLive(snapshot)) startTicker($);
+      await followCi($, snapshot);
     } while (readAgain);
   } catch {
   } finally {
     reading = false;
   }
   await syncTick($);
+}
+
+function stopCiWatch(): void {
+  ciWatch?.timer?.cancel();
+  ciWatch = null;
+}
+
+async function redrawCiNote($: EngineInterface): Promise<void> {
+  lastText = undefined;
+  await refresh($);
+}
+
+async function followCi($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  if (!live) return;
+  const head = ciWatchHead(snapshot);
+  if (head === null) {
+    if (ciWatch?.forced || ciWatch?.inFlight) return;
+    stopCiWatch();
+    if (ciPause) {
+      ciPause = null;
+      await redrawCiNote($);
+    }
+    return;
+  }
+  if (ciWatch || ciPause?.head === head) return;
+  await startCiWatch($, head, false);
+}
+
+async function startCiWatch($: EngineInterface, head: string, forced: boolean): Promise<void> {
+  stopCiWatch();
+  ciWatch = {
+    startedAt: await $.clock.now(),
+    delay: null,
+    timer: null,
+    inFlight: false,
+    head,
+    forced,
+    endings: 0,
+  };
+  if (ciPause) {
+    ciPause = null;
+    await redrawCiNote($);
+  }
+  await scheduleCiPoll($);
+}
+
+async function pauseCiWatch($: EngineInterface, reason: string): Promise<void> {
+  ciPause = { reason, head: ciWatch?.head ?? '' };
+  stopCiWatch();
+  await redrawCiNote($);
+}
+
+async function scheduleCiPoll($: EngineInterface): Promise<void> {
+  const watch = ciWatch;
+  if (!watch || watch.timer || watch.inFlight) return;
+  const delay = nextCiPoll(watch.startedAt, await $.clock.now());
+  if (delay === null) return pauseCiWatch($, CI_WATCH_TIMED_OUT);
+  watch.delay = delay;
+  watch.timer = $.clock.after(delay, () => void pollCi($, watch));
+}
+
+async function paqadProgram($: EngineInterface): Promise<string | null> {
+  const program = pluginProgramPath($.plugin.root);
+  if (program === null) return null;
+  try {
+    return (await $.fs.exists(program)) ? program : null;
+  } catch {
+    return null;
+  }
+}
+
+async function pollCi($: EngineInterface, watch: CiWatch): Promise<void> {
+  const at = live;
+  if (ciWatch !== watch || !at || watch.inFlight) return;
+  watch.timer = null;
+  const program = await paqadProgram($);
+  if (program === null) {
+    stopCiWatch();
+    return;
+  }
+  watch.inFlight = true;
+  let reason: string | null = null;
+  try {
+    const result = await $.process.run(
+      [
+        program,
+        'delivery-link',
+        'refresh',
+        '--session',
+        at.sessionId,
+        '--project-root',
+        at.root,
+        '--min-age-seconds',
+        String(Math.round((watch.delay ?? 0) / 1000)),
+      ],
+      { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS },
+    );
+    reason = refreshReason(result.stdout);
+  } catch {}
+  watch.inFlight = false;
+  watch.forced = false;
+  if (ciWatch !== watch) return;
+  const paused = pauseReason(reason);
+  watch.endings = paused === null ? 0 : watch.endings + 1;
+  if (paused !== null && watch.endings >= 2) return pauseCiWatch($, paused);
+  await refresh($);
+  await scheduleCiPoll($);
+}
+
+async function watchAfterPush($: EngineInterface): Promise<void> {
+  try {
+    const ship = (await read($, snapshotAtom))?.ship ?? null;
+    if (ship?.pr_state !== 'open') return;
+    await startCiWatch($, ship.pr_head ?? '', true);
+  } catch {}
 }
 
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
@@ -331,6 +496,26 @@ async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | nul
   playChime($);
 }
 
+async function noteSettled($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  const settled = settledChange(snapshot);
+  if (!settled) return;
+  const seen = (await read($, settleSeenAtom)) ?? {};
+  if (settled.key in seen) return;
+  const start = settleStart(settled.endedAt, await $.clock.now());
+  await update($, settleSeenAtom, (keys) => ({ ...(keys ?? {}), [settled.key]: start }));
+}
+
+async function settledAt(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<number | null> {
+  const settled = settledChange(snapshot);
+  if (!settled) return null;
+  const start = (await read($, settleSeenAtom))?.[settled.key] ?? null;
+  if (start === null) return null;
+  return (await $.clock.now()) - start < SETTLE_GLOW_MS ? start : null;
+}
+
 async function beat($: EngineInterface): Promise<void> {
   const at = live;
   if (!at) return;
@@ -343,13 +528,57 @@ async function beat($: EngineInterface): Promise<void> {
   } catch {}
 }
 
+function listedAgents(list: readonly AgentInfo[]): ListedAgent[] {
+  return list.map((agent) => ({
+    id: agent.id,
+    description: agent.description,
+    status: agent.status,
+  }));
+}
+
+async function syncAgents($: EngineInterface, list: readonly AgentInfo[]): Promise<boolean> {
+  const listed = listedAgents(list);
+  const working = runningAgents(listed);
+  const left = finishedSince(agentsWorking, listed);
+  agentsWorking = working.map((agent) => agent.id);
+  const change = (await read($, snapshotAtom))?.change?.dir ?? null;
+  const store = (await read($, agentsFinishedAtom)) ?? {};
+  const finished = change ? [...new Set([...(store[change] ?? []), ...left])] : [];
+  if (change && left.length > 0) {
+    await update($, agentsFinishedAtom, (keys) => ({ ...(keys ?? {}), [change]: finished }));
+  }
+  await moveLive($, (state) => ({
+    ...state,
+    agents: {
+      running: working,
+      lines: working.length > 0 ? (state.agents?.lines ?? []) : [],
+      finished: finished.length,
+    },
+  }));
+  return working.length > 0;
+}
+
+async function noteActivity($: EngineInterface, line: string | null): Promise<void> {
+  if (line === null) return;
+  await moveLive($, (state) => ({
+    ...state,
+    agents: {
+      running: state.agents?.running ?? [],
+      finished: state.agents?.finished ?? 0,
+      lines: pushActivity(state.agents?.lines ?? [], line),
+    },
+  }));
+}
+
 function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
     void (async () => {
       let running = agentCalls > 0 || (await liveState($)).turnStartedAt !== null;
       try {
-        running ||= (await $.agent.list()).some(isStageAgent);
+        const list = await $.agent.list();
+        running ||= list.some(isStageAgent);
+        running = (await syncAgents($, list)) || running;
       } catch {}
       if (!running) {
         ticker?.cancel();
@@ -687,8 +916,10 @@ async function desktopBandOf(
   $: EngineInterface,
   size: { columns: number; maxRows: number },
 ): Promise<DesktopBand> {
+  const snapshot = await read($, snapshotAtom);
   return buildDesktopBand({
-    snapshot: await read($, snapshotAtom),
+    snapshot,
+    settledAtMs: await settledAt($, snapshot),
     unbound: (await read($, unboundAtom)) === true,
     unavailable: (await read($, unavailableAtom)) === true,
     now: (await read($, nowAtom)) ?? 0,
@@ -927,6 +1158,7 @@ function drawBand($: EngineInterface, event: { surface: string }, layout: BandLa
       paddingX={1}
     >
       {drawSplit($, ui, layout.header)}
+      {layout.activity.map((row) => drawRow($, ui, row))}
       {layout.blocks.length > 0 ? (
         <Box flexDirection={layout.direction}>
           {layout.blocks.map((block) => drawBlock($, ui, block, desktop))}
@@ -1024,6 +1256,9 @@ export const register: Register = (on) => {
     foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
+    agentsWorking = [];
+    stopCiWatch();
+    ciPause = null;
     heartbeat?.cancel();
     heartbeat = null;
     stopTick();
@@ -1090,12 +1325,17 @@ export const register: Register = (on) => {
       agentCalls += 1;
       startTicker($);
     }
+    if (typeof agentId === 'string' && agentId !== '') {
+      await noteActivity($, toolLine(tool, e));
+      startTicker($);
+    }
     const foregroundCall = foregroundAgent ? foregroundAgents.callStarted() : null;
     const call = liveToolCall(e as never);
     await moveLive($, (state) => toolStarted(state, call));
     try {
       const result = await next(e);
       if (isRefreshTool(tool, input)) await refresh($);
+      if (isGitPush(tool, input.command)) await watchAfterPush($);
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
@@ -1141,6 +1381,15 @@ export const register: Register = (on) => {
       );
     }
     return verdict;
+  }).catch(($, e, next) => next(e));
+
+  on('session.append', async ($, e, next) => {
+    const result = await next(e);
+    if (live && typeof e.agentId === 'string' && e.agentId !== '') {
+      await noteActivity($, activityLine(e.message));
+      startTicker($);
+    }
+    return result;
   }).catch(($, e, next) => next(e));
 
   on('turn.complete', async ($, e, next) => {

@@ -53,7 +53,7 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
   development route, on that change's branch, and this session has worked on it since the route
   started. Until then it draws nothing. An old change on another branch, or a question you asked,
   never fills the band with someone else's story.
-- **Needs you means you.** The band asks for you only while a question is on screen, a permission
+- **Waiting for your answer means you.** The band asks for you only while a question is on screen, a permission
   prompt waits for you, or a decision is pending. A rule that stopped an edit is Claude's to fix,
   so it never asks for you; it stays in the Ledger's Trust tab as history. Coral means waiting on
   you; amber marks something that needs a look, such as a flag or a marked stage.
@@ -61,8 +61,8 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
   command is `/paqad-hud`, and every hint names the command that works. If paqad cannot read this
   session's record, the band says so in coral instead of looking idle.
 - **Three instruments.** STAGE shows where the change is, HIGH TABLE shows the experts while they
-  write and rule, and SHIP shows Edit, Commit, Push, PR, CI and Merge. Merge lights only when your
-  own pull request is merged; paqad never merges. Commits already on the branch before the change
+  write and rule, and SHIP shows Edit, Commit, Push, PR and CI. There is no Merge step:
+  merging is yours, and paqad never merges. Commits already on the branch before the change
   started are shown as not yours.
 - **Honest numbers.** A verdict shows only when it was written for this change after its latest
   edit. Gates read not judged yet until the stage that judges them has ended. Cost counts only the
@@ -71,7 +71,7 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
   prompt with its own tokens and cost, and a running clock while it works.
 - **Out of the way when you want.** Minimise the band to one line, close it for this session or
   hide it in this project. `/paqad hide` hides it from the prompt, and `/paqad show` brings it
-  back. If something waits on you while it is out of the way, the line reads Needs you; the
+  back. If something waits on you while it is out of the way, the line reads Waiting for your answer; the
   question is still asked in chat.
 - **The paqad Ledger.** It opens beside the chat on Trust, with Trust, High Table, Delivery,
   Record and Cost. On the terminal, pressing paqad, Proof or any instrument opens it. On Desktop,

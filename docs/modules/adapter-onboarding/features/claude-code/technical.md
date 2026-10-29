@@ -211,11 +211,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   runs, and once more after a turn ends for what the Stop hooks write.
 - **Honest stages.** A stage reads done only when the receipt would print done; a `checks` stage
   with no passing tests-and-lint gate reads "tests not verified". Spec reads "not required" on the
-  fast lane, which needs no frozen spec. Merge lights only when this change's own pull request is
-  merged (`ship.merged`); a merge commit on main, a release commit or a pull request of another
-  change never lights it. A merged pull request whose head is a commit this change recorded stays
-  its own after a merge-commit merge, and Merge reads unknown when the pull request state could not
-  be read, as for one saved before its state was kept.
+  fast lane, which needs no frozen spec. The delivery rail has no Merge step: merging is the owner's and
   paqad never merges.
 - **State and colour.** The state is the first match of: waiting on you (`waitingOnHuman`: a
   question on screen, a permission a person must answer, or a pending decision), no change in
@@ -240,7 +236,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   chief `CA` after a separator, with `●` note landed, `◉` writing, `○` seated, chief `◆` ruled or `◇`
   waiting (amber when it needs answers), and a status of `n standing`, `x of y notes`, `chief is
   ruling`, `needs answers` or `spec approved`; it is not drawn on the fast lane. SHIP shows Edit
-  Commit Push PR CI Merge: on the terminal as marks on a `─` track, on Desktop as one SVG of git
+  Commit Push PR CI (no Merge step): on the terminal as marks on a `─` track, on Desktop as one SVG of git
   icons with a CI ring filled done over total and an `alt` text that says the same in words. Its
   note says when CI was last read and `+n already on the branch, not yours` for inherited commits.
   The three sit in one row from 110 columns and stack below; a footer (row layout only) holds the
@@ -263,10 +259,16 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **Motion on Desktop.** A live light breathes and a live clock ticks on one 400 ms tick that sets
   the clock from `$.clock.now()`; the tick runs only while the band or the Ledger draws something
   live and stops otherwise. Every other motion lives in the Svg's own CSS and SMIL animations.
-- **All green.** When the saved CI reading is a pass on the pull request's current head and the
-  pull request is open, the headline reads `All green: PR <n> is ready for your merge`, the band
-  turns success and one toast fires per change and head commit (kept in `$.state`), with the
-  opt-in chime. It stays all green across sessions until the pull request is merged.
+- **CI passed.** When the saved CI reading is a pass on the pull request's current head and the
+  pull request is open, the rail reads `CI · <n> of <n> green`, the headline stays `Done` and one
+  toast naming it fires per change and head commit (kept in `$.state`), with the opt-in chime.
+  The HUD never offers a merge and never notes one: merging is the owner's. While the pull
+  request's CI is pending the headline reads `Coding Done: Watching CI` and the mod keeps the rail
+  current with
+  `paqad-ai delivery-link refresh` (see [hud.md](../../../../instructions/design-system/hud.md)).
+- **Done and finished stages.** `Done` shows once the paqad work is done, before any push. Finished
+  stages draw green with a check, and the strip glows once for about 2 s when the last stage ends
+  while the HUD is watching.
 - **Other workflows.** On any other route there is no band, only one `AbovePrompt` row: a plain
   Button reading `paqad · question · 84K tokens · ~$0.05` (the workflow in words, its tokens and
   cost since that workflow started in this session), with `running m:ss` while a main-agent turn is
@@ -282,7 +284,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `band.hidden:<project root>`, so it applies to this project only). Closed or hidden, the band is
   one line `paqad · <state> ▸` with a dim `Closed for this session · /paqad show` or `Hidden always ·
   /paqad show`; pressing it brings the band back. While the band is out of the way and something
-  waits on you (`waitingOnHuman`), the line turns amber and reads `paqad · Needs you ▸`;
+  waits on you (`waitingOnHuman`), the line turns amber and reads `paqad · Waiting for your answer ▸`;
   the band never reopens by itself and the question is still asked in chat. `/paqad show` clears
   all three and answers `The paqad band is back.` `/paqad hide` sets `band.hidden:<project root>`
   and answers `The paqad band is hidden. Run /paqad show to bring it back.` Each control has a hotkey and names its action in
@@ -295,9 +297,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   not run` or `not required`, then `Claims and the tests that prove them` and `Flags`. High Table
   shows the ring, the seats and `Who shaped the spec` (or `Shown when the spec is frozen: each spec
   line with the experts who shaped it.`). Ships lists Edit, own commits by sha and message with
-  inherited ones marked `on the branch already`, Push, the pull request with its state, CI with one
-  line per job and the read time, and Merge (`Everything is green` with an `Open PR` link, else
-  `The merge is always yours. paqad never merges.`). Record lists the plan, decisions, rules,
+  inherited ones marked `on the branch already`, Push, the pull request with its state and an `Open PR` link
+  while it is open, and CI with one line per job and the read time. There is no Merge row. Record lists the plan, decisions, rules,
   receipt and the change's timeline, an abandoned close and its note among them. Cost says whether
   it counts this change only or the whole session. The brand, Proof, each instrument title, the
   flag chip, the tokens chip and both footer lines open their tab, and pressing the target of the

@@ -50,7 +50,13 @@ export function createRulesCommand(): Command {
         options.projectRoot,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
-      const applicability = await resolveRuleApplicabilityForChange(options.projectRoot, sessionId);
+      const applicability = await resolveRuleApplicabilityForChange(
+        options.projectRoot,
+        sessionId,
+        {
+          dirName: currentFeature(options.projectRoot, sessionId),
+        },
+      );
 
       if (!applicability.hasStore) {
         console.log(
