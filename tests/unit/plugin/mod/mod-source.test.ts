@@ -87,11 +87,11 @@ describe('the HUD mod source', () => {
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(register.match(/\$\.process\./g)).toEqual(['$.process.', '$.process.']);
     expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
-    const start = register.indexOf('$.process.run(\n      [\n        paqadProgram($),');
+    const start = register.indexOf('$.process.run(\n      [\n        program,');
     expect(start, 'the delivery refresh call').toBeGreaterThan(-1);
     const call = register.slice(start, register.indexOf(');', start));
     expect(call.replace(/\s+/g, ' ')).toContain(
-      "[ paqadProgram($), 'delivery-link', 'refresh', '--session', at.sessionId, '--project-root', at.root, '--min-age-seconds', String(Math.round((watch.delay ?? 0) / 1000)), ], { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS }",
+      "[ program, 'delivery-link', 'refresh', '--session', at.sessionId, '--project-root', at.root, '--min-age-seconds', String(Math.round((watch.delay ?? 0) / 1000)), ], { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS }",
     );
     expect(call).not.toMatch(/snapshot|branch|title|ship/);
     expect(register).not.toMatch(/\$\.process\.spawn/);

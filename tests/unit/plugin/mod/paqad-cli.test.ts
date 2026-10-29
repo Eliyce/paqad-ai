@@ -22,6 +22,7 @@ import {
   refreshReason,
   CI_WATCH_TIMED_OUT,
   pauseReason,
+  pluginProgramPath,
   withCiPause,
 } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/types';
@@ -110,6 +111,19 @@ describe('the CI watch schedule', () => {
       'paqad could not record x · CI updates paused: signed out',
     );
     expect(withCiPause(null, 'x')).toBeNull();
+  });
+});
+
+describe('the program the CI watch runs', () => {
+  it("is only the plugin's own paqad-ai, in its Windows .cmd form on a Windows root", () => {
+    expect(pluginProgramPath('/plugins/paqad/')).toBe(
+      '/plugins/paqad/runtime/claude-plugin/bin/paqad-ai',
+    );
+    expect(pluginProgramPath('C:\\plugins\\paqad')).toBe(
+      'C:\\plugins\\paqad\\runtime\\claude-plugin\\bin\\paqad-ai.cmd',
+    );
+    expect(pluginProgramPath('')).toBeNull();
+    expect(pluginProgramPath(undefined)).toBeNull();
   });
 });
 

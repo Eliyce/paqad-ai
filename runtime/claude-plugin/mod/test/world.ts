@@ -23,6 +23,7 @@ export interface World {
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
   onRun: ((argv: readonly string[]) => void) | null;
   runGate: Promise<void> | null;
+  pluginBinary: boolean;
   marksAllowedOnce: boolean;
   toasts: string[];
   logs: Array<{ text: string; to: string | undefined }>;
@@ -84,6 +85,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
     onRun: null,
     runGate: null,
+    pluginBinary: true,
     marksAllowedOnce: true,
     toasts: [],
     logs: [],
@@ -106,7 +108,12 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('fs.exists', ($, e) =>
     world.unreadable.has(relOf(e.path))
       ? { deny: `EACCES: ${e.path}` }
-      : { value: world.files.has(relOf(e.path)) || isDir(relOf(e.path)) },
+      : {
+          value:
+            world.files.has(relOf(e.path)) ||
+            isDir(relOf(e.path)) ||
+            (world.pluginBinary && /runtime\/claude-plugin\/bin\/paqad-ai$/.test(e.path)),
+        },
   );
   on('fs.list', ($, e) => {
     const dir = relOf(e.path);

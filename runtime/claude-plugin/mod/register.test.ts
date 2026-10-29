@@ -3575,7 +3575,7 @@ describe('the HUD follows CI while an open PR is pending', () => {
     await clock.settle();
     const runs = refreshRuns(world);
     expect(runs).toHaveLength(1);
-    expect(runs[0]!.argv[0]).toMatch(/(^|\/)runtime\/claude-plugin\/bin\/paqad-ai$|^paqad-ai$/);
+    expect(runs[0]!.argv[0]).toMatch(/\/runtime\/claude-plugin\/bin\/paqad-ai$/);
     expect(runs[0]!.argv.slice(1)).toEqual(REFRESH_TAIL('30'));
     expect(runs[0]!.cwd).toBe('/work');
     expect(runs[0]!.timeoutMs).toBe(15_000);
@@ -3889,5 +3889,19 @@ describe('live subagents in the band', () => {
     const other = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
     expect(other).toContain('Subagent: task c');
     expect(other).not.toContain('finished');
+  });
+});
+
+describe("the CI watch runs only the plugin's own binary", () => {
+  test('with no paqad-ai under the plugin root, the watch never runs a program', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.pluginBinary = false;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let step = 0; step < 4; step += 1) {
+      await clock.advance(30_000);
+      await clock.settle();
+    }
+    expect(refreshRuns(world)).toEqual([]);
   });
 });

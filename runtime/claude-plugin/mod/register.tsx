@@ -113,6 +113,7 @@ import {
   overrideRecorded,
   refreshReason,
   pauseReason,
+  pluginProgramPath,
   withCiPause,
   type PaqadRunResult,
 } from './paqad-cli';
@@ -413,23 +414,31 @@ async function scheduleCiPoll($: EngineInterface): Promise<void> {
   watch.timer = $.clock.after(delay, () => void pollCi($, watch));
 }
 
-function paqadProgram($: EngineInterface): string {
-  const root = $.plugin.root;
-  return typeof root === 'string' && root !== ''
-    ? `${root.replace(/[\\/]+$/, '')}/runtime/claude-plugin/bin/paqad-ai`
-    : 'paqad-ai';
+async function paqadProgram($: EngineInterface): Promise<string | null> {
+  const program = pluginProgramPath($.plugin.root);
+  if (program === null) return null;
+  try {
+    return (await $.fs.exists(program)) ? program : null;
+  } catch {
+    return null;
+  }
 }
 
 async function pollCi($: EngineInterface, watch: CiWatch): Promise<void> {
   const at = live;
   if (ciWatch !== watch || !at || watch.inFlight) return;
   watch.timer = null;
+  const program = await paqadProgram($);
+  if (program === null) {
+    stopCiWatch();
+    return;
+  }
   watch.inFlight = true;
   let reason: string | null = null;
   try {
     const result = await $.process.run(
       [
-        paqadProgram($),
+        program,
         'delivery-link',
         'refresh',
         '--session',

@@ -59,3 +59,13 @@ export function withCiPause(
 export function isGitPush(tool: string, command: unknown): boolean {
   return tool === 'Bash' && typeof command === 'string' && /\bgit\s+push\b/.test(command);
 }
+
+const WINDOWS_ROOT = /^[A-Za-z]:[\\/]|\\/;
+
+export function pluginProgramPath(root: unknown): string | null {
+  if (typeof root !== 'string' || root === '') return null;
+  if (WINDOWS_ROOT.test(root)) {
+    return `${root.replace(/[\\/]+$/, '')}\\runtime\\claude-plugin\\bin\\paqad-ai.cmd`;
+  }
+  return `${root.replace(/\/+$/, '')}/runtime/claude-plugin/bin/paqad-ai`;
+}
