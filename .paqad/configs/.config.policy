@@ -113,3 +113,7 @@ spec_pipeline_token_ceiling=60000
 # ── Added in a newer paqad version ────────────────────────────
 # Milliseconds `spec pipeline start` gives retrieval to ground the request. Past it, or with an empty index or no embedding key, start grounds on the docs alone and records grounding.mode=lexical-fallback with the reason. (env: PAQAD_SPEC_GROUNDING_BUDGET_MS)
 # spec_grounding_budget_ms=15000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Comma-separated lanes (fast, graduated, full) on which each feature-development stage runs in its own stage helper on a host that can dispatch subagents (Claude Code, Codex). On other lanes the main agent runs every stage itself, with the same stages, artifacts and gates. Default: full. Set graduated,full to restore the old behaviour. full is always included; an empty or unreadable value gives the default. (env: PAQAD_STAGE_ISOLATION_LANES)
+# stage_isolation_lanes=full

@@ -76,6 +76,15 @@ describe('narration-contract-writer', () => {
     });
   });
 
+  it('isolates stages only on the lanes in stage_isolation_lanes', () => {
+    const body = buildNarrationContractBody();
+    expect(body).toContain(
+      'Stage isolation applies on the lanes in `stage_isolation_lanes` (default: full) on a subagent-capable host. On other lanes, run every stage yourself in one context and mark each with `paqad-ai stage start/end`, exactly as on the fast lane.',
+    );
+    expect(body).not.toContain('no config knob');
+    expect(body).toContain('**When the lane is unresolved.**');
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);

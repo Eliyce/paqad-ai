@@ -28,7 +28,9 @@ import {
   removeConfigValue,
   resolveFrameworkConfig,
   resolveFrameworkConfigFromMap,
+  resolveLaneList,
   resolveRuleGateConfig,
+  resolveStageIsolationLanes,
   resolveStageAgentSettings,
   autoRuleGateConcurrency,
   setConfigValue,
@@ -1253,5 +1255,50 @@ describe('rule gate settings', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('lane lists', () => {
+  it('declares stage_isolation_lanes as a policy knob defaulting to full', () => {
+    const spec = FRAMEWORK_CONFIG_SPECS.find((entry) => entry.key === 'stage_isolation_lanes');
+    expect(spec).toMatchObject({
+      env: 'PAQAD_STAGE_ISOLATION_LANES',
+      type: 'string',
+      default: 'full',
+      group: 'policy',
+    });
+    expect(spec?.comment).toContain('graduated,full');
+  });
+
+  it('parses a list, always keeping full', () => {
+    expect(resolveLaneList(undefined, ['full'])).toEqual(['full']);
+    expect(resolveLaneList('', ['full'])).toEqual(['full']);
+    expect(resolveLaneList('bogus', ['full'])).toEqual(['full']);
+    expect(resolveLaneList(' , ,', ['full'])).toEqual(['full']);
+    expect(resolveLaneList(' Graduated , FULL ', ['full'])).toEqual(['graduated', 'full']);
+    expect(resolveLaneList('graduated', ['full'])).toEqual(['graduated', 'full']);
+    expect(resolveLaneList('fast,bogus,fast', ['full'])).toEqual(['fast', 'full']);
+    expect(resolveLaneList('nope', ['graduated'])).toEqual(['graduated', 'full']);
+  });
+
+  it('resolves stage_isolation_lanes through the layered config, env over the team file', () => {
+    const root = tmpRoot();
+    try {
+      expect(resolveStageIsolationLanes(layeredConfigMap(root, {}))).toEqual(['full']);
+      writeConfigsFile(root, '.config.policy', 'stage_isolation_lanes=graduated\n');
+      expect(resolveStageIsolationLanes(layeredConfigMap(root, {}))).toEqual(['graduated', 'full']);
+      expect(
+        resolveStageIsolationLanes(
+          layeredConfigMap(root, { PAQAD_STAGE_ISOLATION_LANES: 'fast' } as NodeJS.ProcessEnv),
+        ),
+      ).toEqual(['fast', 'full']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('writes the knob, commented, into the policy file and the example', () => {
+    expect(generateConfigExample()).toContain('PAQAD_STAGE_ISOLATION_LANES');
+    expect(generateGroupConfig('policy')).toMatch(/^# stage_isolation_lanes=full$/m);
   });
 });

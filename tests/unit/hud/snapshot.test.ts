@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
@@ -68,6 +68,7 @@ import {
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -201,7 +202,7 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.evidence_expected.find((e) => e.file === 'feature.json')?.present).toBe(true);
   });
 
-  it('ORD-482 graduated lane: four seats, a waiting decision, isolation expected', () => {
+  it('ORD-482 graduated lane: four seats, a waiting decision, stages run inline', () => {
     const root = onboardedRoot();
     const S = 'ses-482';
     const dir = openChange(root, S, 'graduated', 'ORD-482 keep copied phone');
@@ -265,13 +266,26 @@ describe('buildHudSnapshot', () => {
       text: 'Waiting for your answer',
       tone: 'needs-you',
     });
-    expect(snapshot.isolation?.status).toBe('expected');
-    expect(snapshot.flags.map((flag) => flag.id)).toContain('isolation-missing');
+    expect(snapshot.isolation?.status).toBe('not-applicable');
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('isolation-missing');
     const expected = Object.fromEntries(
       snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
     );
     expect(expected['request.md']).toBe('on here');
     expect(expected['experts.json']).toBe('on here');
+  });
+
+  it('flags missing isolation on graduated when stage_isolation_lanes names it', () => {
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
+    const root = onboardedRoot();
+    const S = 'ses-482b';
+    openChange(root, S, 'graduated', 'ORD-482 keep copied phone');
+    completeStage(root, S, 'planning', 'plan-482.json');
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.isolation?.status).toBe('expected');
+    expect(snapshot.flags.map((flag) => flag.id)).toContain('isolation-missing');
   });
 
   it('reads the pipeline files as off for a spec frozen before the pipeline was on', () => {

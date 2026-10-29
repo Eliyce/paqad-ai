@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   bundleCompletenessGate,
@@ -36,6 +36,7 @@ function tempRoot(): string {
   return r;
 }
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -988,6 +989,38 @@ describe('spec pipeline strict adoption gate', () => {
 });
 
 describe('the isolation evidence stream', () => {
+  function graduatedInlineGate(root: string) {
+    writeAlwaysFiles(root, DIR);
+    recordChangeConstants(root, DIR, { adapter: 'claude-code', lane: 'graduated' });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', DIR);
+    return bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: {
+        ...ONLY_ALWAYS,
+        lane: built.lane,
+        stageIsolationExpected: built.stageIsolationExpected,
+        stageIsolationUnresolved: built.stageIsolationUnresolved,
+      },
+    });
+  }
+
+  it('passes a graduated change run inline under the default stage_isolation_lanes', () => {
+    const gate = graduatedInlineGate(tempRoot());
+
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('fails the same graduated change when stage_isolation_lanes names graduated', () => {
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
+    const gate = graduatedInlineGate(tempRoot());
+
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+  });
+
   it('fails a graduated/full change on a subagent-capable host with no isolation evidence', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);

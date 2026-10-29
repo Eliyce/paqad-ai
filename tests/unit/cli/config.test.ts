@@ -81,6 +81,7 @@ describe('paqad-ai config effective', () => {
     expect(knob('spec_pipeline_experts_enabled')?.consumed_by).toContain('expert roster');
     expect(knob('spec_pipeline_adoption')?.consumed_by).toContain('spec freeze');
     expect(knob('spec_pipeline_standing_experts')?.consumed_by).toContain('standing experts');
+    expect(knob('stage_isolation_lanes')?.consumed_by).toContain('stage isolation');
     expect(knob('model_default')?.consumed_by).toContain('model');
   });
 

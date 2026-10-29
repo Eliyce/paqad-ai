@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
 import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
@@ -31,6 +31,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -95,8 +96,15 @@ describe('stageIsolationExpected', () => {
     expect(stageIsolationExpected(root, SESSION, bundle('full-claude'))).toBe(true);
   });
 
-  it('is true on a graduated lane too', () => {
+  it('is false on a graduated lane under the default stage_isolation_lanes', () => {
     bundleWith('grad-codex', 'graduated', 'codex-cli');
+
+    expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(false);
+  });
+
+  it('is true on a graduated lane once stage_isolation_lanes names it', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
 
     expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(true);
   });
@@ -167,11 +175,47 @@ describe('stageIsolationExpected', () => {
 });
 
 describe('stageIsolationStatus', () => {
-  it('is "expected" on a graduated/full lane on a subagent-capable host', () => {
+  it('is "expected" on a full lane and "not-applicable" on graduated by default', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     bundleWith('grad-codex', 'graduated', 'codex-cli');
     expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
+    expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('not-applicable');
+  });
+
+  it('follows stage_isolation_lanes from the policy config file', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'stage_isolation_lanes=graduated\n');
     expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('expected');
+  });
+
+  it('keeps full isolated whatever stage_isolation_lanes says', () => {
+    bundleWith('full-claude', 'full', 'claude-code');
+    bundleWith('fast-claude', 'fast', 'claude-code');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast');
+    expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
+    expect(stageIsolationStatus(root, SESSION, bundle('fast-claude'))).toBe('expected');
+  });
+
+  it('keeps an unresolved lane unresolved and an incapable host not-applicable under any list', () => {
+    bundleWith('null-lane', null, 'claude-code');
+    bundleWith('grad-gemini', 'graduated', 'gemini-cli');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast,graduated,full');
+    expect(stageIsolationStatus(root, SESSION, bundle('null-lane'))).toBe('unresolved');
+    expect(stageIsolationStatus(root, SESSION, bundle('grad-gemini'))).toBe('not-applicable');
+  });
+
+  it('gives the builder the same answer as the status', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    expect(buildBundleCompletenessConfig(root, SESSION, bundle('grad-codex'))).toMatchObject({
+      lane: 'graduated',
+      stageIsolationExpected: false,
+      stageIsolationUnresolved: false,
+    });
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
+    expect(
+      buildBundleCompletenessConfig(root, SESSION, bundle('grad-codex')).stageIsolationExpected,
+    ).toBe(true);
   });
 
   it('is "unresolved" when the lane never resolved on a subagent-capable host (FR-4)', () => {

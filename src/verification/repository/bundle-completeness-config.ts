@@ -7,7 +7,9 @@ import {
   layeredConfigMap,
   resolveFrameworkConfig,
   resolveSpecPipelineSwitches,
+  resolveStageIsolationLanes,
 } from '@/core/framework-config.js';
+import type { Lane } from '@/core/types/routing.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { readChangeConstants, type ChangeConstants } from '@/feature-evidence/feature-record.js';
 import {
@@ -27,7 +29,10 @@ export function stageIsolationStatus(
   dirName: string | null,
 ): StageIsolationStatus {
   if (!sessionId || !dirName) return 'not-applicable';
-  return isolationStatusFrom(readChangeConstantsSafe(projectRoot, dirName));
+  return isolationStatusFrom(
+    readChangeConstantsSafe(projectRoot, dirName),
+    resolveIsolationLanes(projectRoot),
+  );
 }
 
 function readChangeConstantsSafe(
@@ -42,12 +47,19 @@ function readChangeConstantsSafe(
   }
 }
 
-function isolationStatusFrom(constants: ChangeConstants | null): StageIsolationStatus {
+function resolveIsolationLanes(projectRoot: string): readonly Lane[] {
+  return resolveStageIsolationLanes(layeredConfigMap(projectRoot, process.env));
+}
+
+function isolationStatusFrom(
+  constants: ChangeConstants | null,
+  lanes: readonly Lane[],
+): StageIsolationStatus {
   if (!constants) return 'not-applicable';
   const { lane, adapter } = constants;
   if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
-  if (lane === 'graduated' || lane === 'full') return 'expected';
-  return lane === null ? 'unresolved' : 'not-applicable';
+  if (lane === null) return 'unresolved';
+  return (lanes as readonly string[]).includes(lane) ? 'expected' : 'not-applicable';
 }
 
 function isolationFlags(status: StageIsolationStatus): {
@@ -99,7 +111,11 @@ export function buildBundleCompletenessConfig(
     specPipelineEnabled: pipelineFlags.enabled,
     expertsEnabled: pipelineFlags.experts,
     specFrozenBeforePipeline: specFrozenBeforePipeline(projectRoot, dirName),
-    ...isolationFlags(sessionId ? isolationStatusFrom(constants) : 'not-applicable'),
+    ...isolationFlags(
+      sessionId
+        ? isolationStatusFrom(constants, resolveIsolationLanes(projectRoot))
+        : 'not-applicable',
+    ),
   };
 }
 

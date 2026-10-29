@@ -416,7 +416,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     const isolationNote = state.isolationUnverified
       ? ' Not classified — isolation not verified: this change never resolved a lane, so paqad ' +
         'could not confirm its stages ran isolated. Set the real lane with `paqad-ai lane set ' +
-        '<lane>` (isolation is checked on the graduated/full lane).'
+        '<lane>` (isolation is checked on the lanes in stage_isolation_lanes).'
       : '';
     return {
       name: GATE_NAME,

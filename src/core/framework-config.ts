@@ -7,6 +7,7 @@ import YAML from 'yaml';
 import { PATHS } from './constants/paths.js';
 import { versionAtLeast } from './version-compare.js';
 import { normalizeIntelligenceConfig } from './project-intelligence.js';
+import { LANES, type Lane } from './types/routing.js';
 import type {
   DecisionProfileConfig,
   EfficiencyConfig,
@@ -834,6 +835,20 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       "only). paqad's own delivery footer is never touched by this knob.",
   },
   {
+    key: 'stage_isolation_lanes',
+    env: 'PAQAD_STAGE_ISOLATION_LANES',
+    type: 'string',
+    default: 'full',
+    group: 'policy',
+    section: 'Stage isolation',
+    comment:
+      'Comma-separated lanes (fast, graduated, full) on which each feature-development stage runs ' +
+      'in its own stage helper on a host that can dispatch subagents (Claude Code, Codex). On ' +
+      'other lanes the main agent runs every stage itself, with the same stages, artifacts and ' +
+      'gates. Default: full. Set graduated,full to restore the old behaviour. full is always ' +
+      'included; an empty or unreadable value gives the default.',
+  },
+  {
     key: 'spec_pipeline_enabled',
     env: 'PAQAD_SPEC_PIPELINE_ENABLED',
     type: 'boolean',
@@ -1333,6 +1348,19 @@ export function resolveSpecPipelineSwitches(
       SPEC_PIPELINE_DEFAULTS.spec_pipeline_adoption,
     ),
   };
+}
+
+export function resolveLaneList(raw: string | undefined, fallback: readonly Lane[]): Lane[] {
+  const known = (raw ?? '')
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part): part is Lane => (LANES as readonly string[]).includes(part));
+  const lanes = [...new Set(known.length > 0 ? known : fallback)];
+  return lanes.includes('full') ? lanes : [...lanes, 'full'];
+}
+
+export function resolveStageIsolationLanes(map: ReadonlyMap<string, string>): Lane[] {
+  return resolveLaneList(map.get('stage_isolation_lanes'), ['full']);
 }
 
 function asOptEnum<T extends string>(
@@ -2056,6 +2084,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',
       'ai_attribution',
+      'stage_isolation_lanes',
       'spec_pipeline_enabled',
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',
