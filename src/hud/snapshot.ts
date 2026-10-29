@@ -1230,8 +1230,6 @@ export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
   done: 'Done',
   committed: 'Committed',
   'pr-open': 'PR open',
-  'safe-to-merge': 'Safe to merge',
-  merged: 'Merged',
 };
 
 const BUILD_ENDED_STATES: ReadonlySet<string> = new Set(['complete', 'redone']);
@@ -1484,15 +1482,6 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   const ladder = input.ladder ?? null;
   const pr = prName(ship);
   const gap = gapLine([...(input.recordGaps ?? []), ...(input.unproven ?? [])]);
-  if (ladder?.rung === 'merged') {
-    return headlineRow(7, 'good', `${pr} is merged`, 'Merged', { rung: 'merged', ...gap });
-  }
-  if (ladder?.rung === 'safe-to-merge') {
-    return headlineRow(8, 'good', `Safe to merge: ${pr} is ready for your merge`, 'Safe to merge', {
-      rung: 'safe-to-merge',
-      ...gap,
-    });
-  }
   if (ship?.pr_state === 'closed') return headlineRow(9, 'warn', `${pr} was closed`, 'PR closed');
   if (ship?.pr_state === 'open' && ship.ci?.state === 'fail') {
     return headlineRow(10, 'bad', `CI failed on ${pr}`, 'CI failed', {

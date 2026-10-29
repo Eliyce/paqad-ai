@@ -164,24 +164,25 @@ describe('computeHudHeadline', () => {
     );
   });
 
-  it('row 8: Safe to merge only on a green CI result', () => {
-    expect(
-      headline({
-        verdict: verdict('pass'),
-        ship: pr({ ci: { state: 'pass' } }),
-        ladder: ladder({ rung: 'safe-to-merge', ci: 'pass' }),
-      }),
-    ).toMatchObject({
-      row: 8,
-      text: `Safe to merge: ${PR} is ready for your merge`,
-      tone: 'good',
+  it('row 8 is gone: a green CI on the open PR never says Safe to merge', () => {
+    const green = headline({
+      verdict: verdict('pass'),
+      ship: pr({ ci: { state: 'pass' } }),
+      ladder: ladder({ rung: 'pr-open', ci: 'pass' }),
     });
+    expect(green.row).not.toBe(8);
+    expect(green.tone).toBe('good');
+    expect(green.text).not.toMatch(/merge/i);
   });
 
-  it('row 7: Merged, even with no fresh verdict', () => {
-    expect(
-      headline({ ship: pr({ pr_state: 'merged' }), ladder: ladder({ rung: 'merged' }) }),
-    ).toMatchObject({ row: 7, text: `${PR} is merged`, tone: 'good', rung: 'merged' });
+  it('row 7 is gone: a merged PR keeps the rung the work earned', () => {
+    const merged = headline({
+      verdict: verdict('pass'),
+      ship: pr({ pr_state: 'merged' }),
+      ladder: ladder({ rung: 'committed' }),
+    });
+    expect(merged).toMatchObject({ row: 16, tone: 'good' });
+    expect(merged.text).not.toMatch(/merge/i);
   });
 
   it('row 14: watches CI while it runs on the open PR', () => {

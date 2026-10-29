@@ -173,7 +173,7 @@ export type PaqadStageProof = {
   gates: PaqadProofGate[];
 };
 
-export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
+export type PaqadRung = 'done' | 'committed' | 'pr-open';
 
 export type PaqadHeadline = {
   text: string;

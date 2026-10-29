@@ -123,8 +123,6 @@ function row(label: string, value: string, tone?: PaqadTone, dim = false): Table
 }
 
 export const ON_THE_BRANCH = 'on the branch already';
-export const MERGE_IS_YOURS = 'The merge is always yours. paqad never merges.';
-export const EVERYTHING_GREEN = 'Everything is green';
 
 const JOB_DONE = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
 const JOB_FAILED = new Set(['FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED']);
@@ -214,22 +212,9 @@ function ciRows(ship: NonNullable<PaqadHudSnapshot['ship']>, now: number): Table
   ];
 }
 
-function mergeRows(snapshot: PaqadHudSnapshot): TableLine[] {
-  const rail = shipRail(snapshot);
-  const ship = snapshot.ship!;
-  if (rail.merged) return [row('Merge', 'merged by you', 'good')];
-  if (rail.allGreen) {
-    return [
-      row('Merge', EVERYTHING_GREEN, 'good'),
-      [
-        {
-          text: `  Open PR #${rail.prNumber ?? ''}`.trimEnd(),
-          ...(ship.pr_url ? { href: ship.pr_url } : {}),
-        },
-      ],
-    ];
-  }
-  return [row('Merge', MERGE_IS_YOURS, undefined, true)];
+function openPrRows(ship: NonNullable<PaqadHudSnapshot['ship']>): TableLine[] {
+  if (ship.pr_state !== 'open' || ship.pr_number === null || !ship.pr_url) return [];
+  return [[{ text: `  Open PR #${ship.pr_number}`, href: ship.pr_url }]];
 }
 
 export function shipsLines(snapshot: PaqadHudSnapshot | null, now = 0): TableLine[] {
@@ -239,7 +224,7 @@ export function shipsLines(snapshot: PaqadHudSnapshot | null, now = 0): TableLin
   if (ship.push === null) lines.push(row('Push', 'not yet', undefined, true));
   else if (ship.push === 'failed') lines.push(row('Push', 'failed', 'bad'));
   else lines.push(row('Push', `${ship.push}${ship.push_branch ? ` to ${ship.push_branch}` : ''}`));
-  lines.push(prRow(ship), ...ciRows(ship, now), ...mergeRows(snapshot));
+  lines.push(prRow(ship), ...openPrRows(ship), ...ciRows(ship, now));
   return lines;
 }
 

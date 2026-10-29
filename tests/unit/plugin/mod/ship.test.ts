@@ -5,8 +5,6 @@ import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { railAlt, shipRail, shipRailSvg } from '../../../../runtime/claude-plugin/mod/ship.ts';
 import {
-  EVERYTHING_GREEN,
-  MERGE_IS_YOURS,
   NOTHING_PUSHED,
   ON_THE_BRANCH,
   linesText,
@@ -25,7 +23,10 @@ import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/typ
 
 import { ticketRef } from '../../../shared/ticket-ref.js';
 
-import { bandOf, blockLines, blockOf } from './band-text.ts';
+import { deliveryView, stripOf } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { strip } from '../../../../runtime/claude-plugin/mod/strip.ts';
+
+import { bandOf, blockLines, blockOf, layoutLines } from './band-text.ts';
 
 type Raw = Record<string, unknown>;
 const parse = (raw: Raw): PaqadHudSnapshot => parseSnapshot(fileText(raw))!;
@@ -132,44 +133,43 @@ describe('the ship rail (FR-15, FR-35)', () => {
       'Push done',
       'PR done',
       'CI current',
-      'Merge todo',
     ]);
   });
 
-  it('AC-6: a merge commit never lights Merge, only a merged PR does', () => {
+  it('AC-6: a merge commit never reads merged, a merged PR is only a quiet rail note', () => {
     expect(shipRail(parse(shipping({ merge_commit: 'release' }))).merged).toBe(false);
     const merged = shipRail(parse(shipping({ merged: true, pr_state: 'merged' })));
-    expect(merged.steps.at(-1)!.state).toBe('done');
+    expect(merged.steps.at(-1)!.label).toBe('CI');
     expect(merged.status).toBe(`PR ${ticketRef(12)} merged`);
   });
 
-  it('AC-7: Merge reads unknown when the PR state could not be read', () => {
-    expect(states(shipping({ pr_state: null })).at(-1)).toBe('Merge unknown');
+  it('AC-7: the PR step reads unknown when the PR state could not be read', () => {
+    expect(states(shipping({ pr_state: null })).at(3)).toBe('PR unknown');
+    expect(shipRail(parse(shipping({ pr_state: null }))).status).toBe('PR state unknown');
   });
 
   it('AC-11: shows no PR when the snapshot has none of this change', () => {
     const rail = shipRail(parse(shipping({ pr: null, pr_state: null, ci: ci('pass', 6, 6) })));
-    expect(rail.steps.slice(3).map((s) => s.state)).toEqual(['todo', 'todo', 'todo']);
+    expect(rail.steps.slice(3).map((s) => s.state)).toEqual(['todo', 'todo']);
   });
 
-  it('AC-12: a PR closed without merging stops the rail and keeps Merge dark', () => {
+  it('AC-12: a PR closed without merging stops the rail', () => {
     const rail = shipRail(parse(shipping({ pr_state: 'closed', ci: ci('pass', 6, 6) })));
     expect(rail.status).toBe('PR closed');
-    expect(rail.steps.slice(3).map((s) => s.state)).toEqual(['closed', 'todo', 'todo']);
+    expect(rail.steps.slice(3).map((s) => s.state)).toEqual(['closed', 'todo']);
   });
 
-  it('AC-45: all green says so in words, stays all green until merged, and keys the toast by head', () => {
-    const safe = `Safe to merge: PR ${ticketRef(12)} is ready for your merge`;
+  it('AC-45: a green CI reads as its count, never as a merge, and keys the toast by head', () => {
     const raw = {
       ...shipping({ ci: ci('pass', 6, 6), all_green: true }),
-      headline: { text: safe, tone: 'good', row: 8, word: 'Safe to merge', rung: 'safe-to-merge' },
+      headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
     };
     const snap = parse(raw);
     const rail = shipRail(snap);
     expect(rail.allGreen).toBe(true);
-    expect(rail.status).toBe('All green · merge is yours');
-    expect(rail.steps.at(-1)!.state).toBe('ready');
-    expect(bandHeadline(snap, buildBandView(snap, NOW))).toBe(safe);
+    expect(rail.status).toBe('CI · 6 of 6 green');
+    expect(rail.steps.at(-1)).toEqual({ label: 'CI', state: 'done' });
+    expect(bandHeadline(snap, buildBandView(snap, NOW))).toBe('Done');
     expect(allGreenKey(snap)).toMatch(/:aaa$/);
     const band = bandOf(raw);
     expect(band.kind === 'card' && band.tone).toBe('good');
@@ -181,19 +181,17 @@ describe('the ship rail (FR-15, FR-35)', () => {
     expect(allGreenKey(asking)).toBeNull();
     const noNumber = parse({
       ...shipping({ ci: ci('pass', 6, 6), all_green: true, pr: { ...OWN_PR, number: null } }),
-      headline: { text: 'Safe to merge: The PR is ready for your merge', tone: 'good', row: 8 },
+      headline: { text: 'Done', tone: 'good', row: 16 },
     });
-    expect(bandHeadline(noNumber, buildBandView(noNumber, NOW))).toBe(
-      'Safe to merge: The PR is ready for your merge',
-    );
+    expect(bandHeadline(noNumber, buildBandView(noNumber, NOW))).toBe('Done');
   });
 
   it('draws the terminal rail with marks, a track and an inherited note', () => {
     const block = blockOf(bandOf(shipping({ ci: ci('pending', 4, 6) })), 'paqad-instrument-ship')!;
     expect(blockLines(block)).toEqual([
       'SHIP  CI · 4 of 6 green',
-      '● ─ ● ─ ● ─ ● ─ ▸ ─ ○',
-      'Edit   Commit   Push   PR   CI   Merge (yours)',
+      '● ─ ● ─ ● ─ ● ─ ▸',
+      'Edit   Commit   Push   PR   CI',
       'CI read 1:00 ago · +1 already on the branch, not yours',
     ]);
     expect(block.svg).toBeNull();
@@ -204,12 +202,12 @@ describe('the ship rail (FR-15, FR-35)', () => {
     const raw = shipping({ ci: ci('pending', 4, 6) });
     const desktop = blockOf(bandOf(raw, 120, 12, 'desktop'), 'paqad-instrument-ship')!;
     expect(desktop.svg?.alt).toBe(
-      'Ship: Edit done, Commit done, Push done, PR done, CI 4 of 6 green, Merge not yet.',
+      'Ship: Edit done, Commit done, Push done, PR done, CI 4 of 6 green.',
     );
     expect(desktop.svg?.source).toContain('<svg');
     expect(desktop.svg?.source).toContain('stroke-dasharray');
     expect(railAlt(shipRail(null))).toBe(
-      'Ship: Edit not yet, Commit not yet, Push not yet, PR not yet, CI not yet, Merge not yet.',
+      'Ship: Edit not yet, Commit not yet, Push not yet, PR not yet, CI not yet.',
     );
     const terminal = bandOf(raw, 120, 12, 'terminal');
     expect(terminal.kind === 'card' && terminal.blocks.every((block) => block.svg === null)).toBe(
@@ -234,7 +232,8 @@ describe('the Ships tab (FR-55)', () => {
       'Push         pushed to feat/x',
     ]);
     expect(lines).toContain(`Pull request ${ticketRef(12)} open https://example.test/pull/12`);
-    expect(lines).toContain(`Merge        ${MERGE_IS_YOURS}`);
+    expect(lines).toContain(`  Open PR ${ticketRef(12)}`);
+    expect(lines.some((line) => line.startsWith('Merge'))).toBe(false);
   });
 
   it('shows each CI job with progress and time, and the read time', () => {
@@ -272,16 +271,17 @@ describe('the Ships tab (FR-55)', () => {
     expect(at({ ci: { state: 'pending' }, ci_read_at: null })).toContain('CI           running');
   });
 
-  it('opens the PR when everything is green, and says merged once you merge', () => {
+  it('links the open PR under its row, and says merged on the PR row once you merge', () => {
     const green = shipsLines(parse(shipping({ ci: ci('pass', 3, 3), all_green: true })), now);
-    expect(linesText(green)).toContain(`Merge        ${EVERYTHING_GREEN}`);
-    expect(green.at(-1)).toEqual([
+    const prAt = green.findIndex((entry) => linesText([entry]).startsWith('Pull request'));
+    expect(green[prAt + 1]).toEqual([
       { text: `  Open PR ${ticketRef(12)}`, href: 'https://example.test/pull/12' },
     ]);
     const merged = linesText(
       shipsLines(parse(shipping({ merged: true, pr_state: 'merged' })), now),
     );
-    expect(merged).toContain('Merge        merged by you');
+    expect(merged).not.toContain('Merge');
+    expect(merged).not.toContain('Open PR');
     expect(merged).toContain(`Pull request ${ticketRef(12)} merged`);
   });
 
@@ -302,5 +302,76 @@ describe('the Ships tab (FR-55)', () => {
     expect(failed).toContain('Push         failed');
     const unstated = linesText(shipsLines(parse(shipping({ pr_state: null }))));
     expect(unstated).toContain(`Pull request ${ticketRef(12)} state unknown`);
+  });
+});
+
+describe("AC-10: merging is the owner's, so no surface draws a Merge step", () => {
+  const DONE = { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' };
+  const fixtures: Array<[string, Raw]> = [
+    ['no PR', shipping({ pr: null, pr_state: null })],
+    ['an open PR with CI pending', shipping({ ci: ci('pending', 2, 6) })],
+    ['CI passed', shipping({ ci: ci('pass', 6, 6), all_green: true })],
+    ['a merged PR', shipping({ ci: ci('pass', 6, 6), merged: true, pr_state: 'merged' })],
+  ];
+  const FORBIDDEN = [
+    /Merge/,
+    /All green/,
+    /merge is yours/i,
+    /Delivered/,
+    /Safe to merge/,
+    /is merged/,
+    /Watching CI/,
+    /\bready\b/,
+  ];
+
+  for (const [name, raw] of fixtures) {
+    it(`draws no Merge with ${name}, on either surface and in either Ledger`, () => {
+      const done = parse({ ...raw, headline: DONE });
+      const texts: string[] = [];
+      for (const surface of ['terminal', 'desktop'] as const) {
+        const band = bandOf({ ...raw, headline: DONE }, 120, 12, surface);
+        texts.push(...layoutLines(band));
+        if (band.kind === 'card') {
+          for (const block of band.blocks) if (block.svg) texts.push(block.svg.alt);
+        }
+      }
+      texts.push(linesText(shipsLines(done, NOW)));
+      const view = deliveryView(done);
+      texts.push(...view.blocks.flatMap((block) => [block.title, block.sub ?? '', block.label]));
+      const input = stripOf(done, 93);
+      texts.push(...input.delivery.map((mark) => `${mark.label} ${mark.state}`));
+      texts.push(input.deliveryValue, input.stageValue);
+      texts.push(strip(input).source.replace(/<style>.*<\/style>/, ''));
+      for (const text of texts) {
+        for (const pattern of FORBIDDEN) expect(text).not.toMatch(pattern);
+      }
+      expect(shipRail(done).steps.map((step) => step.label)).toEqual([
+        'Edit',
+        'Commit',
+        'Push',
+        'PR',
+        'CI',
+      ]);
+    });
+  }
+
+  it('a merged PR reads only the quiet rail note', () => {
+    const merged = parse({ ...fixtures[3]![1], headline: DONE });
+    expect(shipRail(merged).status).toBe(`PR ${ticketRef(12)} merged`);
+    expect(stripOf(merged, 93).deliveryValue).toBe(`PR ${ticketRef(12)} merged`);
+    expect(stripOf(merged, 93).stageValue).not.toBe('Delivered');
+  });
+
+  it('FR-28: CI pending with no count draws a still 30% arc, not a spinner', () => {
+    const input = stripOf(
+      parse({
+        ...shipping({ ci: { ...ci('pending', 0, 0), done: null, total: null } }),
+        headline: DONE,
+      }),
+      93,
+    );
+    const source = strip(input).source.replace(/<style>.*<\/style>/, '');
+    expect(source).not.toMatch(/class="spin"/);
+    expect(source).toMatch(/stroke-dasharray="[0-9.]+ [0-9.]+"/);
   });
 });

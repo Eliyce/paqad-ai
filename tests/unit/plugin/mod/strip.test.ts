@@ -37,7 +37,7 @@ const STRIP_SOURCE = readFileSync(
 );
 
 const FULL = ['Intake', 'Plan', 'Spec', 'Build', 'Review', 'Checks', 'Docs', 'Deliver'];
-const STEPS = ['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge'];
+const STEPS = ['Edit', 'Commit', 'Push', 'PR', 'CI'];
 const INITIALS = ['SA', 'IA', 'DO', 'PO', 'AA', 'UF', 'QA'];
 
 function marks<S>(labels: readonly string[], states: readonly S[]): Array<Mark<S>> {
@@ -55,7 +55,7 @@ const SETTLED: StripInput = {
   seats: seats('done', 'done', 'done', 'done', 'done', 'done', 'done'),
   chief: 'done',
   tableValue: 'Spec approved',
-  delivery: steps('done', 'done', 'done', 'done', 'done', 'done'),
+  delivery: steps('done', 'done', 'done', 'done', 'done'),
   ci: null,
   deliveryValue: 'PR #N merged',
 };
@@ -129,9 +129,9 @@ describe('the strip geometry', () => {
   it('AC-11: stops every connector 4 px short of the nodes it joins', () => {
     const source = draw({ seats: null });
     const centres = nodeCentres(source);
-    expect(centres).toHaveLength(6);
+    expect(centres).toHaveLength(5);
     const lines = connectors(source);
-    expect(lines).toHaveLength(5);
+    expect(lines).toHaveLength(4);
     lines.forEach(([from, to], i) => {
       expect(from).toBeCloseTo(centres[i]! + 8.5 + 4, 1);
       expect(to).toBeCloseTo(centres[i + 1]! - 8.5 - 4, 1);
@@ -150,7 +150,7 @@ describe('the strip geometry', () => {
 
   it('AC-11: keeps the nodes round and the CI arc clear of its label', () => {
     const source = draw({
-      delivery: steps('done', 'done', 'done', 'done', 'run', 'todo'),
+      delivery: steps('done', 'done', 'done', 'done', 'run'),
       ci: 0.5,
     });
     expect(source).toMatch(/viewBox="0 0 791 52" width="791" height="52"/);
@@ -269,17 +269,16 @@ describe('the strip marks', () => {
     expect(draw({ chief: 'done' })).toMatch(/<circle class="ink" cx="[\d.]+" cy="25" r="5"\/>/);
   });
 
-  it('draws delivery nodes done, running, ready, failed and not yet', () => {
+  it('draws delivery nodes done, running, failed and not yet, and no Merge node', () => {
     const source = draw({
-      delivery: steps('done', 'run', 'fail', 'todo', 'todo', 'ready'),
+      delivery: steps('done', 'run', 'fail', 'todo', 'todo'),
       ci: null,
     });
     expect(source).toMatch(/<circle class="ink" [^>]*r="8.5" fill-opacity=".1"/);
     expect(source).toMatch(/<g class="spin"><circle class="accs"/);
     expect(source).toMatch(/<circle class="fails" [^>]*r="8.5"/);
-    expect(source).toMatch(/<circle class="pass motion" [^>]*r="12.5" filter="url\(#glow\)"/);
-    expect(source).toContain('values=".5;.15;.5" dur="2.4s"');
-    expect(source).toMatch(/<text class="lbl pass cur"[^>]*>Merge<\/text>/);
+    expect(source).not.toMatch(/class="pass motion"/);
+    expect(source).not.toContain('>Merge</text>');
     expect(source).toMatch(/<text class="lbl mut"[^>]*>PR<\/text>/);
   });
 
@@ -358,7 +357,7 @@ describe('the Ledger drawings', () => {
     expect(running).toContain('viewBox="0 0 24 24" width="24" height="24"');
     expect(running).not.toContain('class="spin"');
     expect(nodeIcon('Push', 'run')).toContain('<g class="spin">');
-    expect(nodeIcon('Merge', 'ready')).toMatch(/<circle class="pass" cx="12" cy="12" r="10.5"/);
+    expect(nodeIcon('CI', 'run')).not.toContain('class="spin"');
     expect(nodeIcon('Odd', 'todo')).toContain('<circle cx="8" cy="8" r="2.4"/>');
   });
 
@@ -403,12 +402,12 @@ describe('AC-26: every colour comes from the palette', () => {
       draw({
         stages: stages('skip', 'done', 'run', 'paused', 'fail', 'todo', 'todo', 'todo'),
         seats: seats('done', 'writing', 'late', 'seated', 'done', 'done', 'done'),
-        delivery: steps('done', 'run', 'fail', 'todo', 'run', 'ready'),
+        delivery: steps('done', 'run', 'fail', 'todo', 'run'),
         ci: 0.3,
       }),
       miniStages(['done', 'run', 'fail']),
       tableRing([{ label: 'SA', state: 'done', findings: 3 }], 'done'),
-      nodeIcon('Merge', 'ready'),
+      nodeIcon('CI', 'done'),
       meter(null),
       tabRule(5, 0),
       hairline(),
@@ -418,14 +417,12 @@ describe('AC-26: every colour comes from the palette', () => {
     }
   });
 
-  it('uses white only as onSignal: the ready icon, the badge numbers and the running sheen', () => {
+  it('uses white only as onSignal: the badge numbers and the running sheen', () => {
     expect(SIGNAL.onSignal).toBe('#FFFFFF');
     const white = (source: string) =>
       [...source.matchAll(/([\w-]+)="#FFFFFF"/g)].map((match) => match[1]);
     expect(white(draw())).toEqual([]);
-    expect(
-      white(draw({ delivery: steps('done', 'done', 'done', 'done', 'done', 'ready') })),
-    ).toEqual(['stroke']);
+    expect(white(draw({ delivery: steps('done', 'done', 'done', 'done', 'done') }))).toEqual([]);
     expect(
       white(
         draw({ stages: stages('skip', 'done', 'run', 'todo', 'todo', 'todo', 'todo', 'todo') }),
@@ -434,7 +431,7 @@ describe('AC-26: every colour comes from the palette', () => {
     expect(white(tableRing([{ label: 'SA', state: 'done', findings: 3 }], 'done'))).toEqual([
       'fill',
     ]);
-    expect(white(nodeIcon('Merge', 'ready'))).toEqual(['stroke']);
+    expect(white(nodeIcon('CI', 'done'))).toEqual([]);
     for (const source of [meter(null), meter(1)]) {
       expect(white(source)).toEqual([]);
     }

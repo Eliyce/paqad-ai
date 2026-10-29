@@ -8,6 +8,7 @@ import {
   buildDesktopBand,
   cardRows,
   costWords,
+  deliverySteps,
   deliveryStrip,
   desktopHeadline,
   identityText,
@@ -342,13 +343,14 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const steps = (plan: Raw) =>
       deliveryStrip(open({ delivery_plan: plan })).steps.map((step) => step.label);
     const all = { commit: true, push: true, pr: true, ci: true, merge: true, reason: null };
-    expect(steps(all)).toEqual(['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge']);
-    expect(steps({ ...all, ci: false, reason: 'No CI' })).toEqual([
+    expect(steps(all)).toEqual(['Edit', 'Commit', 'Push', 'PR', 'CI']);
+    expect(steps({ ...all, ci: false, reason: 'No CI' })).toEqual(['Edit', 'Commit', 'Push', 'PR']);
+    expect(deliverySteps(parse(snapshot({ delivery_plan: null })))).toEqual([
       'Edit',
       'Commit',
       'Push',
       'PR',
-      'Merge',
+      'CI',
     ]);
     const editOnly = {
       commit: false,
@@ -365,8 +367,8 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(
       deliveryStrip(open({ delivery_plan: noPush, ship: { ...SHIP0, commits: 2 } })).value,
     ).toBe('No push for this change');
-    expect(steps({ delivery_plan: null } as Raw)).toHaveLength(6);
-    expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(6);
+    expect(steps({ delivery_plan: null } as Raw)).toHaveLength(5);
+    expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(5);
   });
 
   it('AC-6: before a change opens the stages and delivery are faint, with no table and no values', () => {
@@ -441,7 +443,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     ];
     expect(value({ stages: stages(done), gates })).toBe('All stages done');
     expect(value({ stages: stages(done), gates, ship: { ...SHIP0, merged: true } })).toBe(
-      'Delivered',
+      'All stages done',
     );
     expect(value({ stages: stages({ planning: 'complete' }) })).toBe('');
   });
@@ -451,7 +453,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(`${PR} merged`);
     expect(
       value({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
-    ).toBe('Merge is yours');
+    ).toBe('6 of 6 checks green');
     expect(value({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toBe('PR closed');
     expect(value({ ship: { ...PR_OPEN, pr_state: null } })).toBe('PR state unknown');
     expect(value({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toBe(
@@ -461,7 +463,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       '3 of 6 checks green',
     );
     const noCi = { commit: true, push: true, pr: true, ci: false, merge: true, reason: 'No CI' };
-    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe('No CI · merge is yours');
+    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe(PR);
     expect(value({ ship: PR_OPEN })).toBe(PR);
     expect(value({ ship: { ...SHIP0, push: { state: 'failed' } } })).toBe('Push failed');
     expect(value({ ship: { ...SHIP0, push: { state: 'pushed' } } })).toBe('Pushed');
@@ -484,17 +486,16 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       { label: 'Push', state: 'done' },
       { label: 'PR', state: 'done' },
       { label: 'CI', state: 'run' },
-      { label: 'Merge', state: 'todo' },
     ]);
     expect(strip.ci).toBe(0.5);
     const ready = deliveryStrip(
       open({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
     );
-    expect(ready.steps.at(-1)).toEqual({ label: 'Merge', state: 'ready' });
+    expect(ready.steps.at(-1)).toEqual({ label: 'CI', state: 'done' });
     expect(ready.ci).toBeNull();
     const closed = deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: 'closed' } }));
     expect(closed.steps[3]).toEqual({ label: 'PR', state: 'fail' });
-    expect(deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: null } })).steps.at(-1)?.state).toBe(
+    expect(deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: null } })).steps[3]?.state).toBe(
       'todo',
     );
   });

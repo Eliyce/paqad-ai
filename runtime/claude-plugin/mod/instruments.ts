@@ -195,7 +195,6 @@ const RAIL_LOOK: Record<ShipStepState, { mark: string; tone?: PaqadTone; dim?: b
   todo: { mark: '○', dim: true },
   failed: { mark: '✗', tone: 'bad' },
   closed: { mark: '✗', tone: 'warn' },
-  ready: { mark: '◆', tone: 'good' },
   unknown: { mark: '?', tone: 'warn' },
 };
 
@@ -219,10 +218,7 @@ export function shipInstrumentBlock(snapshot: PaqadHudSnapshot, context: BodyCon
       );
     }
     const look = RAIL_LOOK[step.state];
-    const word =
-      step.label === 'Merge' && (step.state === 'ready' || step.state === 'todo')
-        ? 'Merge (yours)'
-        : step.label;
+    const word = step.label;
     cells.push(
       cellOf(
         `paqad-ship-${step.label}`,

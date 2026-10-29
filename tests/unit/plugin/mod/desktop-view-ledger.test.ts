@@ -513,7 +513,6 @@ describe('AC-22: the Delivery tab', () => {
       ['Push', 'Push', 'feat/seed on origin', null],
       ['PR', 'Pull request', `#${NUMBER} Seed stage helpers`, '+412 −87'],
       ['CI', 'CI', 'All 2 checks passed in 1m 52s', null],
-      ['Merge', 'Merge', 'Everything is green. The merge is yours.', null],
     ]);
     expect(view.blocks[1]!.commits).toEqual([
       { sha: 'a1c9e2f', subject: 'Seed stage helpers', own: true },
@@ -522,7 +521,8 @@ describe('AC-22: the Delivery tab', () => {
       { name: 'lint', time: '38s', tone: 'dim', share: 1 },
       { name: 'unit', time: '1m 52s', tone: 'dim', share: 1 },
     ]);
-    expect(view.blocks[5]!.link).toEqual({
+    expect(view.blocks.filter((block) => block.link !== null)).toHaveLength(1);
+    expect(view.blocks[3]!.link).toEqual({
       href: 'https://example.test/pull/seven',
       text: `Open ${PR}`,
     });
@@ -536,7 +536,6 @@ describe('AC-22: the Delivery tab', () => {
       'After Checks and Docs',
       'Opened after the push',
       'Runs on the pull request',
-      'The merge is always yours. paqad never merges.',
     ]);
     expect(early.blocks.every((block) => !block.reached)).toBe(true);
     const running = deliveryView(
@@ -580,7 +579,8 @@ describe('AC-22: the Delivery tab', () => {
         },
       }),
     );
-    expect(merged.blocks.at(-1)!.sub).toBe(`${PR} is merged.`);
+    expect(merged.blocks.map((block) => block.label)).not.toContain('Merge');
+    expect(merged.blocks[3]!.link).toBeNull();
     expect(merged.blocks[4]!.sub).toBe('All 1 checks passed');
     expect(deliveryView(parse(snapshot({ route: 'feature-development' })))).toEqual({
       blocks: [],

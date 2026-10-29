@@ -153,7 +153,7 @@ describe('/paqad answers', () => {
       [
         'Safe to merge (1 flag). 1 flag open.',
         'Stage: Intake not yet, Planning done, Spec done, Build done, Review done, Checks done, Docs done, Deliver not yet.',
-        'Ship: Edit done, Commit done, Push not yet, PR not yet, CI not yet, Merge not yet.',
+        'Ship: Edit done, Commit done, Push not yet, PR not yet, CI not yet.',
         'cost: not yet',
         'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record, /paqad show or /paqad hide.',
       ].join('\n'),

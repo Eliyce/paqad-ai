@@ -1025,16 +1025,10 @@ export const SCENE_FIXTURES = {
     flags: [],
     verdict: verdict('fail', 'Needs your attention', ['code-tests-lint: 3 tests failed']),
   }),
-  'All green': snapshot({
+  'CI passed': snapshot({
     ...FULL_ORD_501,
-    headline: {
-      text: `Safe to merge: PR ${'#'}12 is ready for your merge`,
-      tone: 'good',
-      row: 8,
-      word: 'Safe to merge',
-      rung: 'safe-to-merge',
-    },
-    rung: 'safe-to-merge',
+    headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+    rung: 'done',
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: FULL_DELIVERY,

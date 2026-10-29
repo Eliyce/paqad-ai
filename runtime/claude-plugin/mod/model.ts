@@ -512,7 +512,7 @@ function readGate(value: unknown): PaqadGate | null {
 
 const VERDICT_KINDS = ['pass', 'fail', 'inconclusive'] as const;
 
-const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open', 'safe-to-merge', 'merged'];
+const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open'];
 
 function readRung(value: unknown): { rung?: PaqadRung } {
   const rung = RUNGS.find((known) => known === value);

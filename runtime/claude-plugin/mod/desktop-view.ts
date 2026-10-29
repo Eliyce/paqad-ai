@@ -218,7 +218,7 @@ export function stageStrip(snapshot: PaqadHudSnapshot, live: LiveState = IDLE_LI
   else if (failed) value = `${failed.label} failed`;
   else if (marked) value = markedValue(snapshot, marked.stage);
   else if (snapshot.active && drawn.length > 0 && drawn.every((entry) => entry.state === 'done')) {
-    value = snapshot.ship?.merged ? 'Delivered' : 'All stages done';
+    value = 'All stages done';
   }
   return {
     stages: stages.map(({ label, state }) => ({ label, state })),
@@ -265,7 +265,7 @@ export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
   };
 }
 
-export type DeliveryLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
+export type DeliveryLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI';
 
 const SHIP_STATE: Readonly<Record<ShipStepState, ShipState>> = {
   done: 'done',
@@ -273,19 +273,17 @@ const SHIP_STATE: Readonly<Record<ShipStepState, ShipState>> = {
   todo: 'todo',
   failed: 'fail',
   closed: 'fail',
-  ready: 'ready',
   unknown: 'todo',
 };
 
 export function deliverySteps(snapshot: PaqadHudSnapshot): DeliveryLabel[] {
   const plan = snapshot.delivery_plan;
-  if (!plan) return ['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge'];
+  if (!plan) return ['Edit', 'Commit', 'Push', 'PR', 'CI'];
   const steps: DeliveryLabel[] = ['Edit'];
   if (plan.commit) steps.push('Commit');
   if (plan.push) steps.push('Push');
   if (plan.pr) steps.push('PR');
   if (plan.ci) steps.push('CI');
-  if (plan.merge) steps.push('Merge');
   return steps;
 }
 
@@ -303,12 +301,10 @@ function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
   const prOpen = ship?.pr_state === 'open';
   if (rail.merged) return `${prName(snapshot)} merged`;
-  if (rail.allGreen) return 'Merge is yours';
   if (state('PR') === 'closed') return 'PR closed';
-  if (state('Merge') === 'unknown') return 'PR state unknown';
+  if (state('PR') === 'unknown') return 'PR state unknown';
   if (state('CI') === 'failed') return 'CI failed';
   if (rail.ci && plan?.ci !== false) return `${rail.ci.done} of ${rail.ci.total} checks green`;
-  if (prOpen && plan && !plan.ci) return 'No CI · merge is yours';
   if (prOpen) return prName(snapshot);
   if (state('Push') === 'failed') return 'Push failed';
   if (state('Push') === 'done') return 'Pushed';
@@ -949,7 +945,6 @@ function blockText(
   right: string | null;
 } {
   const ship = snapshot.ship;
-  const pr = prName(snapshot);
   switch (label) {
     case 'Edit': {
       const files = ship?.files_changed ?? null;
@@ -999,16 +994,6 @@ function blockText(
     }
     case 'CI':
       return { title: 'CI', sub: ship ? ciSub(ship) : 'Runs on the pull request', right: null };
-    case 'Merge':
-      return {
-        title: 'Merge',
-        sub: ship?.merged
-          ? `${pr} is merged.`
-          : state === 'ready'
-            ? 'Everything is green. The merge is yours.'
-            : 'The merge is always yours. paqad never merges.',
-        right: null,
-      };
   }
 }
 
@@ -1076,7 +1061,7 @@ export function deliveryView(
         jobs:
           label === 'CI' && reached && ship?.ci_detail ? ship.ci_detail.jobs.map(deliveryJob) : [],
         link:
-          label === 'Merge' && state === 'ready' && ship?.pr_url
+          label === 'PR' && ship?.pr_state === 'open' && ship.pr_url
             ? { href: ship.pr_url, text: `Open ${prName(snapshot)}` }
             : null,
         ci: label === 'CI' ? strip.ci : null,

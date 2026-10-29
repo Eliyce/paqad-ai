@@ -242,18 +242,12 @@ describe('the band on each fixture change', () => {
   }
 });
 
-const SAFE_WORDS = `Safe to merge: PR ${'#'}12 is ready for your merge`;
+const DONE_WORDS = 'Done';
 
 const ALL_GREEN = {
   ...FULL_ORD_501,
-  headline: {
-    text: SAFE_WORDS,
-    tone: 'good',
-    row: 8,
-    word: 'Safe to merge',
-    rung: 'safe-to-merge',
-  },
-  rung: 'safe-to-merge',
+  headline: { text: DONE_WORDS, tone: 'good', row: 16, word: 'Done', rung: 'done' },
+  rung: 'done',
   flags: [],
   ship: {
     commits: 2,
@@ -286,12 +280,13 @@ describe('the ship rail on each surface', () => {
     await $.session.start(START);
     const terminal = await $.ui.render(band('terminal', { bodyColumns: 120 }));
     expect(elementsOf(terminal, 'Svg')).toEqual([]);
-    expect(textOf(terminal)).toContain('All green · merge is yours');
+    expect(textOf(terminal)).toContain('CI · 6 of 6 green');
+    expect(textOf(terminal)).not.toContain('Merge');
     const desktop = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const svgs = elementsOf(desktop, 'Svg');
     expect(svgs).toHaveLength(1);
     const props = (svgs[0] as { props: { alt?: string; width?: unknown; height?: unknown } }).props;
-    expect(props.alt).toMatch(/ is ready for your merge\. Stage .*Delivery Merge is yours\.$/);
+    expect(props.alt).toMatch(/^Done\. Stage .*Delivery 6 of 6 checks green\.$/);
     expect(props.width).toBeUndefined();
     expect(props.height).toBeUndefined();
   });
@@ -308,9 +303,8 @@ describe('the ship rail on each surface', () => {
       await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
       await $.ui.render(band('terminal'));
     }
-    const green = world.toasts.filter((text) => text.startsWith('Safe to merge'));
+    const green = world.toasts.filter((text) => text === DONE_WORDS);
     expect(green).toHaveLength(1);
-    expect(green[0]).toBe(SAFE_WORDS);
     const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
   });
@@ -1422,7 +1416,7 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('● Approved');
   });
 
-  test('AC-22: Delivery draws one block per step with its node, and the Open PR link when the merge is ready', async ($, on) => {
+  test('AC-22: Delivery draws one block per step with its node, and the Open PR link on the open PR', async ($, on) => {
     worldOf(on, {
       files: {
         ...ONBOARDED,
@@ -1435,7 +1429,7 @@ describe('the Desktop Ledger', () => {
     const tree = await desktopPane($, ['paqad-tab-ships']);
     expectDesktopSafe(tree);
     const lines = drawnLines(tree);
-    expect(lines).toContain('Everything is green. The merge is yours.');
+    expect(lines).not.toContain('Merge');
     expect(lines).toContain('feat/x on origin');
     const nodes = everyElement(tree).filter(
       (element) => element.type === 'Svg' && propsOf(element).width === 24,
@@ -1508,7 +1502,7 @@ const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   'Needs you': 'The chief architect has 1 question for you',
   'Shipping with CI live': `Watching CI on PR ${'#'}12`,
   Failed: 'Tests, types or lint failed',
-  'All green': `PR ${'#'}12 is ready for your merge`,
+  'CI passed': 'Done',
   'Fast lane': 'Building',
   'Edit only': 'Done    left uncommitted, as you asked',
   'No CI': 'Delivering',
@@ -3051,7 +3045,7 @@ describe('the Trust, Ships and Record tabs', () => {
       const lines = drawnLines(await paneOn($, surface, 'ships'));
       expect(lines).toContain('Ships (shown)');
       expect(lines.some((line) => line.startsWith('CI           running, 3 of 7 done'))).toBe(true);
-      expect(lines).toContain('Merge        The merge is always yours. paqad never merges.');
+      expect(lines.some((line) => line.startsWith('Merge'))).toBe(false);
     });
 
     test(`a picked Record tab holds when the verdict lands and a delivery starts on ${surface}`, async ($, on) => {
