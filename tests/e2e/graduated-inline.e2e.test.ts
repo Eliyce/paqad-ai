@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -40,6 +41,14 @@ function fixtureProject(): string {
   roots.push(root);
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(join(root, PATHS.FRAMEWORK_PATH), '~/.paqad-ai/current\n');
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+  git('init', '-q', '-b', 'feat/small');
+  git('config', 'user.email', 't@t.dev');
+  git('config', 'user.name', 'Test');
+  writeFileSync(join(root, '.gitignore'), '.paqad/\nplan-input.json\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'chore: base');
   return root;
 }
 

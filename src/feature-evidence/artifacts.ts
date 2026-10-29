@@ -101,6 +101,7 @@ export interface CompiledArtifact<T> {
 
 export interface WriteFeaturePlanOptions {
   changedFiles?: readonly string[];
+  gitReadable?: boolean;
 }
 
 function activeFeatureParts(projectRoot: string, sessionId: string) {
@@ -173,6 +174,7 @@ export function writeFeaturePlan(
     dirName,
     steps: input.steps,
     changedFiles: options.changedFiles ?? [],
+    changesKnown: options.changedFiles !== undefined && options.gitReadable !== false,
     now: input.now,
   });
   const laneRaised = laneResized

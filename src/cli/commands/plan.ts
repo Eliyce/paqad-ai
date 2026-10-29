@@ -18,6 +18,7 @@ import {
   type RaiseFixProofMethodResult,
 } from '@/fix-protocol/fix-proof-method-decision.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { readGitState } from '@/rag/git-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { questionRoundAhead } from '@/spec-pipeline/round.js';
 
@@ -96,7 +97,10 @@ export function createPlanCommand(): Command {
       ).files;
       let result;
       try {
-        result = writeFeaturePlan(root, sessionId, template, { changedFiles });
+        result = writeFeaturePlan(root, sessionId, template, {
+          changedFiles,
+          gitReadable: readGitState(root).head_commit !== undefined,
+        });
       } catch (error) {
         if (error instanceof ReuseDeclarationError) {
           for (const line of error.errors) {

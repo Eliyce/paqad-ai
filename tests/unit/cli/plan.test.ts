@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -110,7 +111,19 @@ describe('paqad-ai plan compile', () => {
   });
 
   describe('plan-time lane resize', () => {
+    function gitRepo(): void {
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+      git('init', '-q', '-b', 'feat/small');
+      git('config', 'user.email', 't@t.dev');
+      git('config', 'user.name', 'Test');
+      writeFileSync(join(root, '.gitignore'), '.paqad/\nplan-input.json\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'chore: base');
+    }
+
     function smallFullChange(): string {
+      gitRepo();
       const dir = openFeatureChange(root, SES, {
         adapter: 'claude-code',
         title: 'Small change',
@@ -166,6 +179,25 @@ describe('paqad-ai plan compile', () => {
       expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
       expect(JSON.parse(lines.at(-1)!).lane_raised).toMatchObject({ to: 'full' });
       expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'plan' });
+    });
+
+    it('AC-7: keeps full when git cannot be read, and still compiles', async () => {
+      const dir = openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'Small change',
+        issue: '902',
+        lane: 'full',
+      });
+      writePendingImpact(root, SES, { database_impact: 'none', api_impact: 'none' });
+      const lines = await run(
+        writeTemplate({
+          summary: 'small',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts'] }],
+        }),
+      );
+      expect(process.exitCode).toBeUndefined();
+      expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
+      expect(readFeatureRecord(root, dir)?.lane).toBe('full');
     });
 
     it('prints nothing extra and still compiles when the plan is too big to lower', async () => {

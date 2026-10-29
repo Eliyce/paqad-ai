@@ -39,10 +39,12 @@ export interface PlanLaneResizeInput {
   dirName: string;
   steps: readonly PlanStep[] | undefined;
   changedFiles: readonly string[];
+  changesKnown: boolean;
   now?: () => Date;
 }
 
 export function planLaneResize(input: PlanLaneResizeInput): FeatureLaneMove | null {
+  if (!input.changesKnown) return null;
   const record = readFeatureRecord(input.projectRoot, input.dirName);
   if (record?.lane !== 'full' || record.lane_source !== 'classifier' || record.lane_resized) {
     return null;

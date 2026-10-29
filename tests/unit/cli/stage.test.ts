@@ -555,6 +555,7 @@ describe('paqad-ai stage command', () => {
         dirName: dir,
         steps: [{ id: 'S1', description: 'edit', files: ['src/a.ts'] }],
         changedFiles: [],
+        changesKnown: true,
       });
       expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
       return dir;

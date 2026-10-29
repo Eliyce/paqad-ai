@@ -274,6 +274,7 @@ describe('isolation after a forward-only raise', () => {
       dirName: dir,
       steps: [{ id: 'S1', description: 'edit', files: ['src/a.ts'] }],
       changedFiles: [],
+      changesKnown: true,
       now: at(0),
     });
     for (const [minute, stage] of [

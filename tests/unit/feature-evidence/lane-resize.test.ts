@@ -66,7 +66,7 @@ function steps(count: number): PlanStep[] {
 function resize(
   root: string,
   dir: string,
-  overrides: Partial<{ files: number; changed: string[] }> = {},
+  overrides: Partial<{ files: number; changed: string[]; changesKnown: boolean }> = {},
 ) {
   return planLaneResize({
     projectRoot: root,
@@ -74,6 +74,7 @@ function resize(
     dirName: dir,
     steps: steps(overrides.files ?? 8),
     changedFiles: overrides.changed ?? [],
+    changesKnown: overrides.changesKnown ?? true,
     now,
   });
 }
@@ -138,6 +139,7 @@ describe('planLaneResize', () => {
       dirName: dir,
       steps: [{ id: 'S1', description: 'one', files: ['src/one.ts'] }],
       changedFiles: ['.paqad/ledger/x.json'],
+      changesKnown: true,
     });
     expect(moved?.reason).toBe(
       'the plan touches 1 file, none sensitive, no schema or breaking API change',
@@ -161,6 +163,7 @@ describe('planLaneResize', () => {
       dirName: dir,
       steps: [{ id: 'S1', description: 'keys', files: ['src/secure/keys.ts'] }],
       changedFiles: [],
+      changesKnown: true,
       now,
     });
     expect(moved).toBeNull();
@@ -187,6 +190,13 @@ describe('planLaneResize', () => {
       lane: 'full',
     });
     expect(resize(root, dir)).toBeNull();
+  });
+
+  it('AC-7: keeps full when the working tree cannot be read', () => {
+    const root = project();
+    const dir = fullChange(root);
+    expect(resize(root, dir, { changesKnown: false })).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('full');
   });
 
   it('keeps full once a source file changed in the working tree', () => {
