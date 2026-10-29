@@ -68,6 +68,15 @@ function textElement(node: RenderNode, text: string): RenderElement | undefined 
   return undefined;
 }
 
+function headlineSvg(node: RenderNode): RenderElement | undefined {
+  return everyElement(node).find(
+    (element) => element.type === 'Svg' && String(propsOf(element).source).includes('title-sheen'),
+  );
+}
+
+const wordsOf = (node: RenderElement): string =>
+  [textOf(node), String(propsOf(headlineSvg(node) ?? node).alt ?? '')].join(' ');
+
 const colorOf = (node: RenderElement | undefined): unknown =>
   (node as { props?: { color?: unknown } } | undefined)?.props?.color;
 
@@ -768,7 +777,7 @@ describe('the Desktop band', () => {
     await $.turn.start({ text: 'go on', turnId: 'turn-2' } as never);
     world.put(SNAPSHOT, fileText(FAST_ORD_490));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
-    const drawn = textOf(await $.ui.render(band('desktop')));
+    const drawn = wordsOf(await $.ui.render(band('desktop')));
     expect(drawn).toContain('Building');
     expect(drawn).not.toContain('Tests, types or lint failed');
   });
@@ -969,20 +978,27 @@ describe('the Desktop band', () => {
     expect(world.opened.at(-1)).toBe('paqad');
   });
 
-  test('AC-25: the live light breathes on the 400 ms tick and the clock follows it; a settled light stays still', async ($, on) => {
+  test('AC-25: the live light breathes from the shared clock and the clock follows it; a settled light stays still', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
-    const first = lightOf(await $.ui.render(band('desktop')));
+    const headline = async () =>
+      String(propsOf(headlineSvg(await $.ui.render(band('desktop')))!).source);
+    const breathAt = (source: string) =>
+      /values="1;0\.8;0\.55;0\.4;0\.55;0\.8" dur="2\.4s"[^>]*begin="(-[\d.]+s)"/.exec(source)?.[1];
+    const first = await headline();
+    expect(first).toContain('fill="#F90093"');
     await clock.advance(400);
     await clock.settle();
-    const second = lightOf(await $.ui.render(band('desktop')));
-    expect(first).toMatch(/^#F90093[0-9A-F]{2}$/);
-    expect(second).toMatch(/^#F90093[0-9A-F]{2}$/);
-    expect(second).not.toBe(first);
+    const second = await headline();
+    expect(breathAt(first)).toBeDefined();
+    expect(breathAt(second)).toBeDefined();
+    expect(breathAt(second)).not.toBe(breathAt(first));
     await clock.advance(1_000);
     await clock.settle();
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building    2:01');
+    const later = await headline();
+    expect(later).toContain('>Building</tspan>');
+    expect(later).toContain('>2:01</tspan>');
     world.put(SNAPSHOT, fileText(SAFE_CLEAN));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
     const settled = lightOf(await $.ui.render(band('desktop')));
@@ -990,6 +1006,31 @@ describe('the Desktop band', () => {
     await clock.advance(800);
     await clock.settle();
     expect(lightOf(await $.ui.render(band('desktop')))).toBe(settled);
+  });
+
+  test('AC-9: a running stage draws its message row as one headline Svg; a static headline stays Text', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const running = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const message = cardRowsOf(running)[1]!;
+    expect(message.type).toBe('Svg');
+    const props = propsOf(message);
+    expect(String(props.source)).toContain('title-sheen');
+    expect(String(props.source)).toContain('>Building</tspan>');
+    expect(String(props.source)).toContain('>2:00</tspan>');
+    expect(String(props.source)).toContain('viewBox="0 0 791 24"');
+    expect(props.alt).toBe('Building. Running for 2 min 0 s.');
+    expect(props.width).toBeUndefined();
+    expect(props.height).toBeUndefined();
+    expect(props.isInteractive).toBeUndefined();
+    expectDesktopSafe(running);
+    world.put(SNAPSHOT, fileText(SAFE_CLEAN));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const settled = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(cardRowsOf(settled)[1]!.type).toBe('Text');
+    expect(headlineSvg(settled)).toBeUndefined();
+    expect(textOf(cardRowsOf(settled)[1]!)).toContain('Safe to merge');
   });
 });
 
@@ -1288,7 +1329,7 @@ describe('every scene on Desktop', () => {
       await $.session.start(DESKTOP_START);
       const drawn = await $.ui.render(band('desktop'));
       expect(textOf(drawn)).toStartWith('paqad');
-      expect(textOf(drawn)).toContain(SCENE_WORDS[scene]);
+      expect(wordsOf(drawn)).toContain(SCENE_WORDS[scene]);
       expectDesktopSafe(drawn);
       const mounted = await mountDesktop($);
       if (WORKFLOW_SCENES.has(scene)) {
@@ -3604,9 +3645,10 @@ describe('live subagents in the band', () => {
     });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
-    const rows = (drawn: RenderNode) => cardRowsOf(drawn).map((row) => row.type);
+    const rows = (drawn: RenderNode) =>
+      cardRowsOf(drawn).map((row, index) => (index === 1 ? 'message' : row.type));
     const body = (drawn: RenderNode) => [textOf(cardRowsOf(drawn)[2]!)];
-    const CARD = ['Box', 'Text', 'Text', 'Box'];
+    const CARD = ['Box', 'message', 'Text', 'Box'];
     const before = await $.ui.render(band('desktop'));
     expect(rows(before)).toEqual(CARD);
     expect(body(before)).toEqual([gap]);
@@ -3669,7 +3711,8 @@ describe('live subagents in the band', () => {
     await clock.advance(1_500);
     await clock.settle();
     const drawn = await $.ui.render(band('desktop'));
-    expect(textOf(drawn)).toContain('Subagent: Review the change');
+    expect(wordsOf(drawn)).toContain('Subagent: Review the change');
+    expect(String(propsOf(headlineSvg(drawn)!).source)).not.toContain('system-reminder');
     expect(textOf(drawn)).not.toContain('system-reminder');
     expect(textOf(drawn)).not.toContain('Keep going.');
   });

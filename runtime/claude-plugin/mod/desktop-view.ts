@@ -388,6 +388,19 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
+function clockWords(clock: string): string {
+  const [seconds = 0, minutes = 0, hours = 0] = clock.split(':').map(Number).reverse();
+  const words = [`${minutes} min`, `${seconds} s`];
+  return `Running for ${hours > 0 ? `${hours} h ` : ''}${words.join(' ')}.`;
+}
+
+export function headlineAlt(head: Pick<DesktopHeadline, 'text' | 'note' | 'clock'>): string {
+  const parts = [`${head.text.replace(/\.$/, '')}.`];
+  if (head.note) parts.push(`${head.note.replace(/\.$/, '')}.`);
+  if (head.clock) parts.push(clockWords(head.clock));
+  return parts.join(' ');
+}
+
 export function cardRows(menuOpen: boolean): number {
   return (
     CARD_ROWS.identity +
@@ -440,6 +453,7 @@ export type DesktopBand =
       menu: boolean;
       identity: IdentityView;
       headline: DesktopHeadline;
+      headlineAlt: string;
       strip: StripInput;
       alt: string;
       minimised: MinimisedView;
@@ -519,6 +533,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     menu: input.menuOpen,
     identity: identityView(snapshot),
     headline: head,
+    headlineAlt: headlineAlt(full),
     strip,
     alt: stripAltText(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),

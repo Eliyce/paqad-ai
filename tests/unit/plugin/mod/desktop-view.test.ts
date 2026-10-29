@@ -15,6 +15,7 @@ import {
   deliverySteps,
   deliveryStrip,
   desktopHeadline,
+  headlineAlt,
   identityText,
   identityView,
   refusesTaskList,
@@ -765,6 +766,30 @@ describe('the headline stays on one line', () => {
     expect(drawn.alt.startsWith(`${LONG}.`)).toBe(true);
     const short = band({ columns: 57 });
     expect(short.kind === 'feature' && short.headline.text.endsWith('…')).toBe(false);
+  });
+});
+
+describe('the live headline says itself in words', () => {
+  it('names the sentence, the note and the clock', () => {
+    expect(headlineAlt({ text: 'Building', note: null, clock: '2:01' })).toBe(
+      'Building. Running for 2 min 1 s.',
+    );
+    expect(
+      headlineAlt({ text: 'Subagent: Review the change', note: '3 finished', clock: null }),
+    ).toBe('Subagent: Review the change. 3 finished.');
+    expect(headlineAlt({ text: 'Delivering.', note: null, clock: '1:02:03' })).toBe(
+      'Delivering. Running for 1 h 2 min 3 s.',
+    );
+  });
+
+  it('keeps the whole sentence in the alt when the title is cut to the band', () => {
+    const long = 'Building the change with a headline far too long for the narrow band';
+    const drawn = band({
+      columns: 30,
+      snapshot: open({ headline: { text: long, tone: 'working', row: 9, word: 'Working' } }),
+    });
+    expect(drawn.kind === 'feature' && drawn.headline.text.endsWith('…')).toBe(true);
+    expect(drawn.kind === 'feature' && drawn.headlineAlt).toBe(`${long}.`);
   });
 });
 

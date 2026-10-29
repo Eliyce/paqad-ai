@@ -1,4 +1,13 @@
-import { INK, PX_PER_COLUMN, SIGNAL, STATUS_B, SVG_FONT } from './palette';
+import {
+  BREATH,
+  INK,
+  PX_PER_COLUMN,
+  SIGNAL,
+  STATUS_B,
+  SVG_FONT,
+  signalColor,
+  type Signal,
+} from './palette';
 
 export type StageState = 'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' | 'todo';
 export type SeatState = 'done' | 'writing' | 'seated' | 'late';
@@ -35,6 +44,8 @@ const PULSE_MS = 1600;
 const SPIN_MS = 4000;
 const SHEEN_MS = 2200;
 const SETTLE_MS = 2000;
+const TITLE_SHEEN_MS = 3600;
+const BREATH_MS = 2400;
 
 function phase(clockMs: number | undefined, periodMs: number): string | null {
   if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
@@ -451,6 +462,72 @@ export function strip(input: StripInput): { source: string; width: number; heigh
     ),
     width,
     height: STRIP_HEIGHT,
+  };
+}
+
+export interface LiveHeadlineInput {
+  columns: number;
+  signal: Signal;
+  text: string;
+  note: string | null;
+  clock: string | null;
+  clockMs?: number;
+}
+
+export const HEADLINE_HEIGHT = 24;
+
+function headlineCss(): string {
+  const title = INK.headline;
+  const titleDark = INK.headlineDark;
+  return [
+    '<style>',
+    `text{font-family:${SVG_FONT};font-variant-numeric:tabular-nums}`,
+    '.ttl{fill:url(#title-sheen);font-size:17px;font-weight:600}',
+    '.aside{font-size:12px;font-weight:400}',
+    `.hs{stop-color:${title}}.mut{fill:${INK.muted}}`,
+    '.still{display:none}',
+    '@media (prefers-color-scheme: dark){',
+    `.hs{stop-color:${titleDark}}.mut{fill:${INK.mutedDark}}`,
+    '}',
+    `@media (prefers-reduced-motion: reduce){.ttl{fill:${title}}.motion{display:none}.still{display:inline}}`,
+    `@media (prefers-color-scheme: dark) and (prefers-reduced-motion: reduce){.ttl{fill:${titleDark}}}`,
+    '</style>',
+  ].join('');
+}
+
+function breathValues(): string {
+  return BREATH.map((alpha) => String(Math.round((parseInt(alpha, 16) / 255) * 100) / 100)).join(
+    ';',
+  );
+}
+
+export function liveHeadline(input: LiveHeadlineInput): {
+  source: string;
+  width: number;
+  height: number;
+} {
+  const width = stripWidth(input.columns);
+  const colour = signalColor(input.signal);
+  const sheen = [
+    '<defs><linearGradient id="title-sheen" gradientUnits="objectBoundingBox" x1="0" x2=".18">',
+    '<stop class="hs" offset="0"/>',
+    `<stop offset=".5" stop-color="${SIGNAL.accent}" stop-opacity=".9"/>`,
+    '<stop class="hs" offset="1"/>',
+    `<animateTransform attributeName="gradientTransform" type="translate" values="-.3 0;1.3 0;1.3 0" keyTimes="0;.61;1" calcMode="spline" keySplines=".4 0 .2 1;0 0 1 1" dur="3.6s" repeatCount="indefinite"${begin(input.clockMs, TITLE_SHEEN_MS)}/>`,
+    '</linearGradient></defs>',
+  ].join('');
+  const dot = `cx="6" cy="12" r="5.5" fill="${colour}"`;
+  const dots = [
+    `<circle class="motion" ${dot}><animate attributeName="opacity" values="${breathValues()}" dur="2.4s" calcMode="discrete" repeatCount="indefinite"${begin(input.clockMs, BREATH_MS)}/></circle>`,
+    `<circle class="still" ${dot}/>`,
+  ].join('');
+  const aside = (words: string | null) =>
+    words ? `<tspan class="aside mut" dx="16">${escapeXml(words)}</tspan>` : '';
+  const line = `<text x="20" y="17"><tspan class="ttl">${escapeXml(input.text)}</tspan>${aside(input.note)}${aside(input.clock)}</text>`;
+  return {
+    source: svg(width, HEADLINE_HEIGHT, headlineCss() + sheen + dots + line),
+    width,
+    height: HEADLINE_HEIGHT,
   };
 }
 

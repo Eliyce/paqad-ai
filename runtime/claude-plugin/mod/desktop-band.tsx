@@ -10,11 +10,10 @@ import {
   flagWords,
   identityText,
   type DesktopBand,
-  type DesktopHeadline,
   type IdentityView,
 } from './desktop-view';
 import { SIGNAL, lightColor } from './palette';
-import { miniStages, strip } from './strip';
+import { liveHeadline, miniStages, strip } from './strip';
 
 type D = Elements['desktop'];
 
@@ -104,8 +103,20 @@ function closeMenu(ui: D, actions: BandActions) {
   );
 }
 
-function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
-  const { Text } = ui;
+function messageRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick: number) {
+  const { Text, Svg } = ui;
+  const headline = band.headline;
+  if (headline.live) {
+    const drawn = liveHeadline({
+      columns: band.strip.columns,
+      signal: headline.signal,
+      text: headline.text,
+      note: headline.note,
+      clock: headline.clock,
+      ...(band.strip.clockMs === undefined ? {} : { clockMs: band.strip.clockMs }),
+    });
+    return <Svg key="paqad-message" source={drawn.source} alt={band.headlineAlt} />;
+  }
   return (
     <Text key="paqad-message" wrap="truncate-end">
       <Text size="heading" color={lightColor(headline.signal, headline.live, tick)}>
@@ -178,7 +189,7 @@ function featureBand(
     <Box key="paqad-band" flexDirection="column" rowGap="xs">
       {identityRow(ui, band.identity, actions)}
       {band.menu ? closeMenu(ui, actions) : null}
-      {messageRow(ui, band.headline, tick)}
+      {messageRow(ui, band, tick)}
       {bodyRow(ui, band)}
       <Box key="paqad-strip">
         <Svg source={strip(band.strip).source} alt={band.alt} />
