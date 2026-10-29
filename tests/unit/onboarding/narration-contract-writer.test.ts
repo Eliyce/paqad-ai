@@ -94,6 +94,9 @@ describe('narration-contract-writer', () => {
   it('tells the agent to dispatch the remaining stages once the lane is raised back to full', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain('raises it back to full once and prints one line');
+    expect(body).toContain(
+      'starting with the stage whose `stage start` printed that line, dispatch each stage to its own stage helper',
+    );
     expect(body).toContain('Stages that ran inline before the raise stay accepted.');
   });
 

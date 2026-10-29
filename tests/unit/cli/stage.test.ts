@@ -26,6 +26,10 @@ import { planLaneResize } from '@/feature-evidence/lane-resize.js';
 import { writePendingImpact, writePendingLane } from '@/stage-evidence/pending-lane.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 import { buildStageBrief } from '@/stage-isolation/stage-brief.js';
+import {
+  buildBundleCompletenessConfig,
+  stageIsolationStatus,
+} from '@/verification/repository/bundle-completeness-config.js';
 
 describe('paqad-ai stage command', () => {
   let root: string;
@@ -578,6 +582,9 @@ describe('paqad-ai stage command', () => {
       const review = readFeatureStageUnit(root, dir).at(-1)!;
       expect(review).toMatchObject({ kind: 'stage_start', stage: 'review' });
       expect(Date.parse(String(review.recorded_at))).toBeGreaterThanOrEqual(Date.parse(raisedAt));
+      const sid = resolveSessionId(root, SES);
+      expect(stageIsolationStatus(root, sid, dir)).toBe('expected');
+      expect(buildBundleCompletenessConfig(root, sid, dir).stageIsolationSince).toBe(raisedAt);
 
       const again = await run('start', 'checks');
       expect(again.some((line) => line.includes('lane raised'))).toBe(false);
