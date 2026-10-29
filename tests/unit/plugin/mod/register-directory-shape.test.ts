@@ -114,6 +114,214 @@ function directoryShapeFindings(source: string): string[] {
   return findings;
 }
 
+function withoutWrappers(node: ts.Expression): ts.Expression {
+  if (ts.isParenthesizedExpression(node)) return withoutWrappers(node.expression);
+  if (ts.isAwaitExpression(node)) return withoutWrappers(node.expression);
+  return node;
+}
+
+function isPassOn(node: ts.Expression, event: string, next: string): boolean {
+  const call = withoutWrappers(node);
+  return (
+    ts.isCallExpression(call) &&
+    ts.isIdentifier(call.expression) &&
+    call.expression.text === next &&
+    call.arguments.length === 1 &&
+    ts.isIdentifier(call.arguments[0]) &&
+    call.arguments[0].text === event
+  );
+}
+
+function isFixedAnswer(node: ts.Expression): boolean {
+  const answer = withoutWrappers(node);
+  return (
+    ts.isObjectLiteralExpression(answer) &&
+    answer.properties.some(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        property.name.getText() === 'decision' &&
+        ts.isStringLiteral(property.initializer) &&
+        (property.initializer.text === 'deny' || property.initializer.text === 'ask'),
+    )
+  );
+}
+
+function isReadableEventUse(use: ts.Identifier): boolean {
+  const parent = use.parent;
+  if (ts.isPropertyAccessExpression(parent)) {
+    return parent.expression === use && parent.questionDotToken === undefined;
+  }
+  if (ts.isCallExpression(parent)) return parent.arguments.some((argument) => argument === use);
+  return (
+    ts.isVariableDeclaration(parent) &&
+    parent.initializer === use &&
+    ts.isIdentifier(parent.name) &&
+    (parent.parent.flags & ts.NodeFlags.Const) !== 0
+  );
+}
+
+function isReference(use: ts.Identifier): boolean {
+  const parent = use.parent;
+  if (ts.isParameter(parent) && parent.name === use) return false;
+  if (ts.isPropertyAccessExpression(parent) && parent.name === use) return false;
+  if (ts.isPropertyAssignment(parent) && parent.name === use) return false;
+  return true;
+}
+
+function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): string[] {
+  const file = ts.createSourceFile('register.tsx', source, ts.ScriptTarget.Latest, true, kind);
+  const findings: string[] = [];
+  const report = (node: ts.Node, what: string) => {
+    const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
+    findings.push(`line ${line}: ${what}; ${REJECTED}`);
+  };
+
+  const checkHook = (hook: ts.ArrowFunction | ts.FunctionExpression) => {
+    const [, eventParameter, nextParameter] = hook.parameters;
+    if (!eventParameter || !ts.isIdentifier(eventParameter.name)) return;
+    const event = eventParameter.name.text;
+    const next =
+      nextParameter && ts.isIdentifier(nextParameter.name) ? nextParameter.name.text : '';
+    const passedOn = new Set<string>();
+
+    const uses = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && node.text === event && isReference(node)) {
+        if (!isReadableEventUse(node)) {
+          report(node, `event \`${event}\` used by itself in a ${ts.SyntaxKind[node.parent.kind]}`);
+        }
+      }
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer &&
+        (node.parent.flags & ts.NodeFlags.Const) !== 0 &&
+        isPassOn(node.initializer, event, next)
+      ) {
+        passedOn.add(node.name.text);
+      }
+      ts.forEachChild(node, uses);
+    };
+    uses(hook.body);
+
+    const checkAnswer = (answer: ts.Expression) => {
+      const bare = withoutWrappers(answer);
+      const bound = ts.isIdentifier(bare) && passedOn.has(bare.text);
+      if (!bound && !isPassOn(answer, event, next) && !isFixedAnswer(answer)) {
+        report(answer, 'answer that is not next(e), its const result or a fixed deny or ask');
+      }
+    };
+    const returns = (node: ts.Node): void => {
+      if (ts.isFunctionLike(node)) return;
+      if (ts.isReturnStatement(node) && node.expression) checkAnswer(node.expression);
+      ts.forEachChild(node, returns);
+    };
+    if (ts.isBlock(hook.body)) ts.forEachChild(hook.body, returns);
+    else checkAnswer(hook.body);
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'on' &&
+      node.arguments[0] !== undefined &&
+      ts.isStringLiteral(node.arguments[0]) &&
+      node.arguments[0].text === 'tool.check'
+    ) {
+      const hook = node.arguments[node.arguments.length - 1];
+      if (ts.isArrowFunction(hook) || ts.isFunctionExpression(hook)) checkHook(hook);
+      else report(hook, 'tool.check hook not written in the call');
+      const handled = node.parent;
+      if (
+        ts.isPropertyAccessExpression(handled) &&
+        handled.name.text === 'catch' &&
+        ts.isCallExpression(handled.parent)
+      ) {
+        const handler = handled.parent.arguments[0];
+        if (handler && (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))) {
+          checkHook(handler);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return findings;
+}
+
+describe('register.tsx permission hook', () => {
+  it('reads its event only as a member, a call argument or a const binding, and passes the answer on', () => {
+    expect(permissionHookFindings(readFileSync(REGISTER, 'utf8'))).toEqual([]);
+  });
+
+  const hookWith = (line: string) =>
+    `on('tool.check', async ($, e, next) => {\n  ${line}\n  return next(e);\n});`;
+
+  const rejected: Array<[string, string]> = [
+    ['cast', hookWith('const a = (e as { agentId?: string }).agentId;')],
+    ['optional chain', hookWith('const a = e?.agentId;')],
+    ['destructuring', hookWith('const { agentId } = e;')],
+    ['loop head', hookWith('for (const k in e) log(k);')],
+    ['test', hookWith("if (e) log('x');")],
+    ['template', hookWith('log(`${e}`);')],
+    ['list', hookWith('log([e]);')],
+    ['object', hookWith('log({ e });')],
+    ['spread', hookWith('log({ ...e });')],
+    ['let binding', hookWith('let x = e;')],
+    [
+      'loosening return',
+      "on('tool.check', async ($, e, next) => {\n  return { decision: (await next(e)).decision };\n});",
+    ],
+    [
+      'allow literal',
+      "on('tool.check', async ($, e, next) => {\n  return { decision: 'allow' };\n});",
+    ],
+    [
+      'hook passed through a variable',
+      "const hook = async ($, e, next) => next(e);\non('tool.check', hook);",
+    ],
+  ];
+
+  it.each(rejected)('rejects a %s with its line', (_label, source) => {
+    const findings = permissionHookFindings(source);
+    expect(findings.length).toBeGreaterThan(0);
+    for (const finding of findings) {
+      expect(finding).toMatch(/^line 2: /);
+      expect(finding).toContain(REJECTED);
+    }
+  });
+
+  it('rejects an angle-bracket cast with its line', () => {
+    const source = hookWith('const a = (<{ agentId?: string }>e).agentId;');
+    expect(permissionHookFindings(source, ts.ScriptKind.TS)).toEqual([
+      `line 2: event \`e\` used by itself in a TypeAssertionExpression; ${REJECTED}`,
+    ]);
+  });
+
+  it('names what it rejects', () => {
+    expect(
+      permissionHookFindings(hookWith('const a = (e as { agentId?: string }).agentId;')),
+    ).toEqual([`line 2: event \`e\` used by itself in a AsExpression; ${REJECTED}`]);
+  });
+
+  it('allows member reads, next(e), its const result and a fixed deny or ask', () => {
+    const source = [
+      "on('tool.check', async ($, e, next) => {",
+      '  const verdict = await next(e);',
+      "  const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;",
+      "  const agent = typeof e.agentId === 'string' && e.agentId !== '' ? e.agentId : null;",
+      '  const event = e;',
+      '  await moveLive($, (state) => noted(state, { decision: verdict.decision, approver: e.approver, toolUseId, agent }));',
+      "  if (event.tool === 'Bash') return { decision: 'ask', reason: 'why' };",
+      "  if (agent === null) return { decision: 'deny', reason: 'why' };",
+      '  return verdict;',
+      '}).catch(($, e, next) => next(e));',
+      "on('tool.check', { tool: 'Read' }, async ($, e, next) => next(e));",
+    ].join('\n');
+    expect(permissionHookFindings(source)).toEqual([]);
+  });
+});
+
 describe('register.tsx plugin directory shape', () => {
   it('declares, assigns and binds no hook parameter name outside the hooks', () => {
     expect(directoryShapeFindings(readFileSync(REGISTER, 'utf8'))).toEqual([]);
