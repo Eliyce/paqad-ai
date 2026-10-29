@@ -48,8 +48,11 @@
 - After the context block, on Claude Code only, the gate adds one static line asking the
   agent to skip the per-stage `▸ paqad` lines when the HUD mod's heartbeat for this
   session (`.paqad/session/hud/<session>.live`) was modified in the last 120 seconds
-  (`runtime/hooks/lib/hud-heartbeat.mjs`). With no fresh heartbeat the output is
-  unchanged byte for byte, and a failed read is logged and adds nothing.
+  (`runtime/hooks/lib/hud-heartbeat.mjs`) and the session's HUD snapshot
+  (`.paqad/session/hud/<session>.json`) has a qualified change, so the HUD really draws the
+  stages. With no fresh heartbeat, or a snapshot that is missing, unreadable or has no
+  qualified change, the output is unchanged byte for byte and the agent keeps its own stage
+  lines. A failed read is logged and adds nothing.
 - Route first, then inject. The gate routes the prompt before it emits
   the block. The artifact is shared by every session in the checkout, so for a
   prompt routed to anything but feature-development it calls

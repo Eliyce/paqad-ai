@@ -333,6 +333,18 @@ any turn the session-ownership check skips (see below).
   bundle opened before the stamp existed, and a bundle with no knowable branch is never
   adopted while on one. Off a branch entirely (detached HEAD, non-git project) the scope
   cannot apply and the unscoped in-flight set stands.
+
+  **A session does not take over a change another session is running.** A change is left out
+  of adoption when another session wrote a row in it in the last 30 minutes, or a stage agent
+  of another session is still live in it. A bare `paqad-ai stage start` that finds no change of
+  its own then refuses and asks for `--title` to open a new one, instead of writing into the
+  other session's change.
+
+  **An active change on another branch is set aside.** When the session's `active` change was
+  recorded on a branch that is not the one checked out now, the pointer is cleared. The change
+  is not paused or closed; it just stops being this session's active change. A detached HEAD,
+  or a change with no recorded branch, is never set aside. Switching back to the change's
+  branch picks it up again when it is the only change in flight there.
 - **Abandoned close** (`abandon.ts`): `closeAbandonedBundles` closes changes left behind, so the
   in-flight set stops growing. The SessionStart hook calls it before `reconcileSessionControl`,
   in its own try/catch, with no stdout and no change to its exit code; a fault is logged to
@@ -347,6 +359,12 @@ any turn the session-ownership check skips (see below).
   `paqad-housekeeping`) through `appendFeatureStageRow` and sets `feature.json` status
   `abandoned` through `updateFeatureRecord`, the same writers `closeActiveFeature` uses. It is
   silent: the close row is the record, and resuming the change by name reopens it.
+
+  **A merged pull request closes the change at once.** When the change's pull request number
+  appears as an exact `(#N)` in a commit subject on the local base branch (or on
+  `origin/<base>` as last fetched; nothing is fetched), the change closes as `done` straight
+  away, with no 24 hour wait. If a stage ran in it in the last 30 minutes, the 24 hour rule
+  above applies instead.
   `abandoned` counts as finished everywhere `done` does (`isFeatureFinished` in
   `feature-record.ts`): adoption and `listInFlightFeatures` skip it, the delivery bundle pick
   and the decisions index treat it as finished, and the bundle schema accepts it.
@@ -614,8 +632,9 @@ network, and starts no process.
   `hud_view`, lives in the team app config, and is a chime only: the mod never speaks.
 - **Chips, spinner, lane and heartbeat.** paqad's own `paqad-ai` Bash rows read as chips with
   their state in words, the spinner names the running stage, the footer names the lane, and a
-  fresh `.paqad/session/hud/<session>.live` heartbeat lets the prompt gate ask the agent to skip
-  the per-stage narration lines the HUD already shows (the Claude Code technical page has the
+  fresh `.paqad/session/hud/<session>.live` heartbeat, with a HUD snapshot that has a qualified
+  change, lets the prompt gate ask the agent to skip the per-stage narration lines the HUD
+  already shows (the Claude Code technical page has the
   detail).
 - **Stand-downs.** The mod also stands down when the project was never onboarded, when the
   session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
