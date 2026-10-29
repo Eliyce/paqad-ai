@@ -36,7 +36,7 @@ paqad-ai's primary surface is a CLI. The only UI surface is the embedded `graph-
   alone. The terminal keeps these marks, its controls and their one-letter hotkeys.
 - On Desktop, the band's strip and the Ledger's rings, nodes, meters and rules are plain-image
   `Svg` art drawn in the HUD palette (`runtime/claude-plugin/mod/palette.ts`), and the Desktop
-  drawing rules R1 to R15 apply. Tokens, components, patterns and the rules are in
+  drawing rules R1 to R16 apply. Tokens, components, patterns and the rules are in
   [hud.md](hud.md).
 - Every Desktop `Svg` carries an `alt` text that states the same fact in words.
 - Each Button names its action in words. Desktop has no hotkeys.
