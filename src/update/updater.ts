@@ -2,11 +2,9 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
@@ -20,6 +18,7 @@ import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { isPluginInstalled } from '@/health/plugin-install.js';
+import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
@@ -55,16 +54,6 @@ export interface FrameworkUpdaterOptions {
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
 }
 
-interface NpmHookLib {
-  hasLiveNpmHookLines: (settingsPath: string) => boolean;
-}
-
-async function holdsLiveNpmHooks(settingsPath: string): Promise<boolean> {
-  const libPath = join(getRuntimeRoot(), 'hooks', 'lib', 'paqad-disabled.mjs');
-  const lib = (await import(pathToFileURL(libPath).href)) as NpmHookLib;
-  return lib.hasLiveNpmHookLines(settingsPath);
-}
-
 function readExistingText(path: string): string | null {
   try {
     return readFileSync(path, 'utf8');
@@ -94,15 +83,12 @@ export class FrameworkUpdater {
     const newScripts: string[] = [];
 
     const pluginInstalled = isPluginInstalled();
+    const pluginOwnsClaudeHooks = pluginInstalled && !projectWiresLiveNpmHooks(projectRoot);
 
     for (const candidate of candidates) {
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
-      if (
-        pluginInstalled &&
-        CLAUDE_HOOK_ARTIFACTS.has(reportedPath) &&
-        !(await holdsLiveNpmHooks(target))
-      ) {
+      if (pluginOwnsClaudeHooks && CLAUDE_HOOK_ARTIFACTS.has(reportedPath)) {
         continue;
       }
       const existing = readExistingText(target);
