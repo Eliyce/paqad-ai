@@ -170,6 +170,12 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+const FULL_SHA = /^[0-9a-f]{40}$/;
+
+function shaOrNull(value: unknown): string | null {
+  return typeof value === 'string' && FULL_SHA.test(value) ? value : null;
+}
+
 function countOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
 }
@@ -295,7 +301,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         url: typeof pr.url === 'string' ? pr.url : null,
         draft: typeof pr.isDraft === 'boolean' ? pr.isDraft : null,
         state: readPrState(pr.state),
-        head_sha: textOrNull(pr.headRefOid),
+        head_sha: shaOrNull(pr.headRefOid),
         title: textOrNull(pr.title),
         changed_files: countOrNull(pr.changedFiles),
         additions: countOrNull(pr.additions),
@@ -340,11 +346,9 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
   };
 }
 
-const FULL_SHA = /^[0-9a-f]{40}$/;
-
 function pushedHead(result: DeliveryCheckResult): string | null {
-  const head = result.commit;
-  if (!head || !FULL_SHA.test(head)) return null;
+  const head = shaOrNull(result.commit);
+  if (!head) return null;
   return result.upstream === head || result.pr?.head_sha === head ? head : null;
 }
 
@@ -375,7 +379,7 @@ export function saveDeliveryReading(
     const keep = options.keepOnGhFailure === true && !result.ghAvailable;
     if (result.pr && !keep) patch.pr = result.pr;
     if (result.ci && !keep) {
-      const sha = result.pr?.head_sha ?? result.commit;
+      const sha = shaOrNull(result.pr?.head_sha) ?? shaOrNull(result.commit);
       patch.ci = { sha, ...result.ci, source: 'stop-check' };
     }
     recordShip(projectRoot, dirName, patch, now().toISOString());

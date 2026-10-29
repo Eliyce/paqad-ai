@@ -69,6 +69,8 @@ function runner(handlers: {
 }
 
 const ok = (stdout: string): CommandRun => ({ stdout, exitCode: 0 });
+const SHA1 = '1'.repeat(40);
+const HEAD9 = '9'.repeat(40);
 const fail: CommandRun = { stdout: '', exitCode: 1 };
 
 describe('evaluateDelivery — convention findings', () => {
@@ -324,7 +326,7 @@ describe('the Stop delivery check saves what ships', () => {
     const result = await evaluateDelivery({
       projectRoot: root,
       policy: policy(),
-      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      run: runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     });
     expect(result.pr).toEqual({
       number: 7,
@@ -356,7 +358,7 @@ describe('the Stop delivery check saves what ships', () => {
         statusCheckRollup: [],
       }),
     );
-    const base = runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh });
+    const base = runner({ branch: ok('feat/x'), commit: ok(SHA1), gh });
     await runDeliveryCapability(root, 'completion', async (command, args) => {
       if (command === 'gh') calls.push(args);
       return base(command, args);
@@ -393,19 +395,19 @@ describe('the Stop delivery check saves what ships', () => {
         number: 9,
         url: 'https://example.test/pull/9',
         state: 'MERGED',
-        headRefOid: 'head-9',
+        headRefOid: HEAD9,
         statusCheckRollup: [],
       }),
     );
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     );
     expect(readFeatureDelivery(root, dir).pr).toMatchObject({
       number: 9,
       state: 'merged',
-      head_sha: 'head-9',
+      head_sha: HEAD9,
     });
     expect(readPrState('OPEN')).toBe('open');
     expect(readPrState('closed')).toBe('closed');
@@ -480,11 +482,11 @@ describe('the Stop delivery check saves what ships', () => {
     const outcome = await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: missing }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: missing }),
     );
     expect(outcome.blocking).toBe(false);
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({
-      sha: 'sha-1',
+      sha: SHA1,
       state: 'unknown',
       reason: 'gh is not installed',
       source: 'stop-check',
@@ -499,7 +501,7 @@ describe('the Stop delivery check saves what ships', () => {
       dir,
       {
         ci: {
-          sha: 'sha-1',
+          sha: SHA1,
           state: 'pass',
           done: 3,
           total: 3,
@@ -517,7 +519,7 @@ describe('the Stop delivery check saves what ships', () => {
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: signedOut }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: signedOut }),
     );
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'pass', done: 3 });
   });
@@ -537,18 +539,18 @@ describe('the Stop delivery check saves what ships', () => {
       const baseline = await runDeliveryCapability(
         root,
         'completion',
-        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: fail }),
+        runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: fail }),
       );
       const outcome = await runDeliveryCapability(
         root,
         'completion',
-        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: { ...gh } }),
+        runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: { ...gh } }),
       );
       expect(outcome.blocking).toBe(false);
       expect(outcome.blocking).toBe(baseline.blocking);
       expect(outcome.ran).toBe(baseline.ran);
       expect(readFeatureDelivery(root, dir).ci).toMatchObject({
-        sha: 'sha-1',
+        sha: SHA1,
         state: 'unknown',
         reason,
       });
@@ -568,11 +570,11 @@ describe('the Stop delivery check saves what ships', () => {
     await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+      runner({ branch: ok('feat/x'), commit: ok(SHA1), gh }),
     );
     const record = readFeatureDelivery(root, dir);
     expect(record.pr).toMatchObject({ number: 7, draft: false });
-    expect(record.ci).toMatchObject({ sha: 'sha-1', state: 'pass', done: 2, total: 2 });
+    expect(record.ci).toMatchObject({ sha: SHA1, state: 'pass', done: 2, total: 2 });
   });
 
   it('saves nothing when no change owns the branch or the check did not run', () => {
@@ -606,7 +608,7 @@ describe('the Stop delivery check saves what ships', () => {
     const result = await evaluateDelivery({
       projectRoot: root,
       policy: policy(),
-      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: ok('not json') }),
+      run: runner({ branch: ok('feat/x'), commit: ok(SHA1), gh: ok('not json') }),
     });
     expect(result.ghAvailable).toBe(false);
     expect(result.ci).toMatchObject({ state: 'unknown', reason: 'gh returned unreadable output' });
@@ -808,5 +810,31 @@ describe('a delivery reading never overwrites a newer one', () => {
     const record = readFeatureDelivery(root, dir);
     expect(record.pr).toMatchObject({ state: 'open', at: '2026-10-29T10:00:02.000Z' });
     expect(record.ci).toMatchObject({ state: 'fail', at: '2026-10-29T10:00:02.000Z' });
+  });
+});
+
+describe('a sha that is not 40 hex characters is no reading', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-sha-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('drops a PR head and a local HEAD that are not full shas', async () => {
+    const dir = openFeatureChange(root, 'ses_sha', { adapter: 'claude-code', ulidSeed: 13 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    const gh = ok(
+      JSON.stringify({ number: 4, state: 'OPEN', headRefOid: 'not-a-sha', statusCheckRollup: [] }),
+    );
+    const result = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({ branch: ok('feat/x'), commit: ok('HEAD-ish'), gh }),
+    });
+    expect(result.pr?.head_sha).toBeNull();
+    saveDeliveryReading(root, result);
+    expect(readFeatureDelivery(root, dir).ci?.sha).toBeNull();
+    expect(readFeatureDelivery(root, dir).pr?.head_sha ?? null).toBeNull();
   });
 });
