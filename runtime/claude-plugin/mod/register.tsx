@@ -1366,8 +1366,7 @@ export const register: Register = (on) => {
     const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
     if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
     if (live) {
-      const agentId = (e as { agentId?: unknown }).agentId;
-      const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
+      const agent = typeof e.agentId === 'string' && e.agentId !== '' ? e.agentId : null;
       if (agent !== null) foregroundAgents.agentSeen(agent);
       const foreground = agent !== null && foregroundAgents.isForeground(agent);
       await moveLive($, (state) =>
