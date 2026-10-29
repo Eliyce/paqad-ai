@@ -16,7 +16,13 @@ import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureBranch } from '@/feature-evidence/adoption.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
+import {
+  currentFeature,
+  openFeatureChange,
+  resolveActiveFeature,
+} from '@/feature-evidence/stage-ledger.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
@@ -168,6 +174,55 @@ describe('paqad-ai deliver', () => {
     expect(result.output).toContain('no PR requested');
     expect(calls.some((c) => c.includes('push'))).toBe(false);
     expect(calls.some((c) => c[0] === 'gh')).toBe(false);
+  });
+
+  it('keeps the owner on its change when delivery cuts a new branch', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    writeFileSync(join(root, 'a.txt'), 'a');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'base');
+    g('checkout', '-q', '-b', 'feat/work');
+    const dir = openFeatureChange(root, 'ses-owner', { adapter: 'claude-code', title: 'T' });
+    const calls: string[][] = [];
+    const shell: DeliveryShell = {
+      async run(command, args) {
+        calls.push([command, ...args]);
+        if (command === 'git' && args[0] === 'checkout') g(...args);
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+
+    const result = await runDeliver(
+      baseDeps(root, {
+        dirName: dir,
+        shell,
+        resolveOpenPr: () => ({ status: 'resolved', choice: 'no' }),
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    const delivered = calls.find((call) => call[1] === 'checkout')!.at(-1)!;
+    expect(featureBranch(root, dir)).toBe(delivered);
+    expect(currentFeature(root, 'ses-owner')).toBe(dir);
+    expect(resolveActiveFeature(root, 'ses-owner')).toBe(dir);
+    expect(listFeatureDirs(root)).toEqual([dir]);
+  });
+
+  it('leaves the recorded branch alone when the branch step fails', async () => {
+    const dir = openFeatureChange(root, 'ses-owner', { adapter: 'claude-code', title: 'T' });
+    const before = featureBranch(root, dir);
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: 'exists', exitCode: 1 };
+      },
+    };
+    const result = await runDeliver(baseDeps(root, { dirName: dir, shell }));
+    expect(result.exitCode).toBe(1);
+    expect(featureBranch(root, dir)).toBe(before);
   });
 
   it('saves push, PR and CI on the change after a delivery', async () => {

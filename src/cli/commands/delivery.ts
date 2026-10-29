@@ -25,7 +25,7 @@ import {
 } from '@/feature-evidence/delivery.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { readGitState } from '@/rag/git-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -102,6 +102,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     },
     (input) => deps.host.openPR(input),
   );
+  followDeliveredBranch(deps, run, rendered.branch);
   saveShip(deps, shipFromRun(run, rendered.branch, decision.choice === 'draft', headSha(deps)));
 
   const stepLines = run.steps.map(
@@ -149,6 +150,12 @@ const CI_STATE: Record<CiGateResult['state'], CiState> = {
   pending: 'pending',
   unknown: 'unknown',
 };
+
+function followDeliveredBranch(deps: DeliverDeps, run: DeliveryRunResult, branch: string): void {
+  if (!deps.dirName) return;
+  if (!run.steps.some((step) => step.step === 'branch' && step.ok)) return;
+  recordChangeConstants(deps.projectRoot, deps.dirName, { branch }, deps.now);
+}
 
 function headSha(deps: DeliverDeps): string | null {
   return deps.dirName ? (readGitState(deps.projectRoot).head_commit ?? null) : null;
