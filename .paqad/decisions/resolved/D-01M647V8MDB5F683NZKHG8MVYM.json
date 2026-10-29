@@ -1,0 +1,54 @@
+{
+  "id": "D-01M647V8MDB5F683NZKHG8MVYM",
+  "category": "spec.contradiction",
+  "title": "The High Table section cannot be a Button: Desktop refuses an Svg inside a Button",
+  "context": "FR-14 puts the High Table Svg inside a plain Button keyed paqad-table, and the FR-18 fallback wraps the whole strip image in that Button. The Claude Code engine refuses both: the band render hook is skipped with 'JSX element <Button key=\"paqad-table\"> holds strings and Text, not <Svg>' (ButtonProps: children of strings and Text only, any other element is refused; Svg presses go on an enclosing element, and only Button takes onPress). So neither the primary path nor the named fallback can ship. Everything else in S4 works (3 seats live-first, +N, section Svgs at 40/26/34 or 56/44, alts, the table action wired to openPane($, 'table')). S1-S3 are committed. Pick how the press reaches the Ledger on High Table.",
+  "options": [
+    {
+      "option_key": "identity-button",
+      "label": "While a table sat, a plain dim text Button 'High Table' keyed paqad-table sits in the identity row before Ledger, calls openPane($, 'table') (toggle, switch tab), accessible label 'High Table, 11 seats, 3 shown. Opens the Ledger on High Table'. Strip stays images, card stays 6 rows, nothing on the strip is pressable; R16 records that a Button cannot hold an Svg.",
+      "one_line_preview": "While a table sat, a plain dim text Button 'High Table' keyed paqad-table sits in the identity row before Ledger, calls openPane($, 'table') (toggle, switch tab), accessible label 'High Table, 11 seats, 3 shown. Opens the Ledger on High Table'. Strip stays images, card stays 6 rows, nothing on the strip is pressable; R16 records that a Button cannot hold an Svg.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-press",
+      "label": "Ship the strip changes with no paqad-table press at all; the Ledger Button stays the way in. FR-14..FR-18 and AC-16, AC-17, AC-19, AC-22, AC-24 are dropped and recorded as debt; R16 records the engine limit.",
+      "one_line_preview": "Ship the strip changes with no paqad-table press at all; the Ledger Button stays the way in. FR-14..FR-18 and AC-16, AC-17, AC-19, AC-22, AC-24 are dropped and recorded as debt; R16 records the engine limit.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "text-section",
+      "label": "While a table sat, the High Table section is a plain dim Button whose children are Text (cap, value and seat initials as text, e.g. 'HIGH TABLE  SA IA DO +8 · CA') instead of the Svg image; the stage and delivery sections stay Svg. Loses the seat marks drawing in that section.",
+      "one_line_preview": "While a table sat, the High Table section is a plain dim Button whose children are Text (cap, value and seat initials as text, e.g. 'HIGH TABLE  SA IA DO +8 · CA') instead of the Svg image; the stage and delivery sections stay Svg. Loses the seat marks drawing in that section.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "identity-button",
+  "created_at": "2026-10-29T16:28:17.421Z",
+  "status": "resolved",
+  "change": "01M645V4RH7QQ7DZ5EK9AD0SKJ",
+  "chosen": "no-press",
+  "rationale": "Owner picked no press: ship 3 seats and +N, Ledger button stays the way in; the press is tech debt and R16 records that a Button cannot hold an Svg.",
+  "resolved_at": "2026-10-29T16:44:01.714Z",
+  "decision_id": "D-01M647V8MDB5F683NZKHG8MVYM",
+  "fingerprint": "sha256:0f55e20b25eeda2d8755dc99a59a9d47b47c01492eeda6d8410402b6a6d6faaf",
+  "question": "The High Table section cannot be a Button: Desktop refuses an Svg inside a Button",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M645V4RH7QQ7DZ5EK9AD0SKJ",
+  "ttl_until": "2026-11-05T16:28:17.421Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "no-press",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T16:44:01.714Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked no press: ship 3 seats and +N, Ledger button stays the way in; the press is tech debt and R16 records that a Button cannot hold an Svg."
+  }
+}
