@@ -3544,7 +3544,7 @@ const DONE_SNAPSHOT = snapshot({
 });
 
 describe('live subagents in the band', () => {
-  test('titles the running subagent, shows its two newest lines and comes back to Done when it ends', async ($, on) => {
+  test('titles the running subagent, shows its one newest line and comes back to Done when it ends', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -3574,7 +3574,7 @@ describe('live subagents in the band', () => {
     const drawn = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect(drawn.join('\n')).toContain('Subagent: Review the change');
     expect(drawn.join('\n')).toContain('Reading the strip.');
-    expect(drawn.join('\n')).toContain('Bash: pnpm test');
+    expect(drawn.join('\n')).not.toContain('Bash: pnpm test');
     expect(drawn.join('\n')).not.toContain('Bash: pnpm lint');
     world.agents.length = 0;
     await clock.advance(1_500);

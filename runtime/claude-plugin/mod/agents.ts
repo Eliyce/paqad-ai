@@ -1,4 +1,4 @@
-export const ACTIVITY_LINES = 2;
+export const ACTIVITY_LINES = 1;
 export const SUBAGENT_PREFIX = 'Subagent: ';
 
 const WORKING_STATUSES: ReadonlySet<string> = new Set(['pending', 'running', 'waiting']);
@@ -12,6 +12,7 @@ const INPUT_FIELDS = [
   'url',
 ];
 const UNNAMED_TASK = 'background task';
+const SYSTEM_REMINDER = '<system-reminder>';
 
 export interface ListedAgent {
   id: string;
@@ -52,8 +53,9 @@ export function toolLine(tool: string, input: unknown): string {
 export function activityLine(message: { content?: unknown }): string | null {
   if (!Array.isArray(message.content)) return null;
   for (const block of message.content as Array<Record<string, unknown>>) {
-    if (block.type === 'text' && typeof block.text === 'string' && firstLine(block.text) !== '') {
-      return firstLine(block.text);
+    if (block.type === 'text' && typeof block.text === 'string') {
+      const line = firstLine(block.text);
+      if (line !== '' && !line.startsWith(SYSTEM_REMINDER)) return line;
     }
     if (block.type === 'tool_use' && typeof block.name === 'string') {
       return toolLine(block.name, block.input);

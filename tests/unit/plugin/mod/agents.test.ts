@@ -53,10 +53,31 @@ describe('the subagents the HUD shows', () => {
     expect(activityLine({ content: 'nope' })).toBeNull();
   });
 
-  it('keeps at most two lines, newest on top, and never repeats the top line', () => {
-    expect(ACTIVITY_LINES).toBe(2);
+  it('skips a system reminder and takes the next block that has a line', () => {
+    const reminder = {
+      type: 'text',
+      text: '<system-reminder>\nThe date is today.\n</system-reminder>',
+    };
+    expect(activityLine({ content: [reminder, { type: 'text', text: 'Reading the plan' }] })).toBe(
+      'Reading the plan',
+    );
+    expect(
+      activityLine({
+        content: [
+          { type: 'text', text: '\n   <system-reminder>Be brief.</system-reminder>' },
+          { type: 'tool_use', name: 'Read', input: { file_path: '/repo/plan.json' } },
+        ],
+      }),
+    ).toBe('Read: /repo/plan.json');
+    expect(activityLine({ content: [reminder] })).toBeNull();
+    expect(activityLine({ content: [reminder, { ...reminder }] })).toBeNull();
+  });
+
+  it('keeps one line, the newest, and never repeats it', () => {
+    expect(ACTIVITY_LINES).toBe(1);
     let lines: string[] = [];
     for (const line of ['one', 'two', 'two', null, 'three']) lines = pushActivity(lines, line);
-    expect(lines).toEqual(['three', 'two']);
+    expect(lines).toEqual(['three']);
+    expect(pushActivity(['one'], 'two')).toEqual(['two']);
   });
 });
