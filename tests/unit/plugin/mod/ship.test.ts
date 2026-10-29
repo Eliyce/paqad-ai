@@ -136,11 +136,11 @@ describe('the ship rail (FR-15, FR-35)', () => {
     ]);
   });
 
-  it('AC-6: a merge commit never reads merged, a merged PR is only a quiet rail note', () => {
+  it('AC-6: a merge commit never reads merged, and a merged PR leaves no merged note', () => {
     expect(shipRail(parse(shipping({ merge_commit: 'release' }))).merged).toBe(false);
     const merged = shipRail(parse(shipping({ merged: true, pr_state: 'merged' })));
     expect(merged.steps.at(-1)!.label).toBe('CI');
-    expect(merged.status).toBe(`PR ${ticketRef(12)} merged`);
+    expect(merged.status).toBe(`PR ${ticketRef(12)}`);
   });
 
   it('AC-7: the PR step reads unknown when the PR state could not be read', () => {
@@ -271,7 +271,7 @@ describe('the Ships tab (FR-55)', () => {
     expect(at({ ci: { state: 'pending' }, ci_read_at: null })).toContain('CI           running');
   });
 
-  it('links the open PR under its row, and says merged on the PR row once you merge', () => {
+  it('links the open PR under its row, and drops the link and any merged word once merged', () => {
     const green = shipsLines(parse(shipping({ ci: ci('pass', 3, 3), all_green: true })), now);
     const prAt = green.findIndex((entry) => linesText([entry]).startsWith('Pull request'));
     expect(green[prAt + 1]).toEqual([
@@ -282,7 +282,8 @@ describe('the Ships tab (FR-55)', () => {
     );
     expect(merged).not.toContain('Merge');
     expect(merged).not.toContain('Open PR');
-    expect(merged).toContain(`Pull request ${ticketRef(12)} merged`);
+    expect(merged).toContain(`Pull request ${ticketRef(12)} https://example.test/pull/12`);
+    expect(merged).not.toMatch(/merged/i);
   });
 
   it('names its empty states', () => {
@@ -355,11 +356,16 @@ describe("AC-10: merging is the owner's, so no surface draws a Merge step", () =
     });
   }
 
-  it('a merged PR reads only the quiet rail note', () => {
+  it('a merged PR leaves no merged note anywhere', () => {
     const merged = parse({ ...fixtures[3]![1], headline: DONE });
-    expect(shipRail(merged).status).toBe(`PR ${ticketRef(12)} merged`);
-    expect(stripOf(merged, 93).deliveryValue).toBe(`PR ${ticketRef(12)} merged`);
-    expect(stripOf(merged, 93).stageValue).not.toBe('Delivered');
+    const texts = [
+      shipRail(merged).status ?? '',
+      stripOf(merged, 93).deliveryValue,
+      stripOf(merged, 93).stageValue,
+      linesText(shipsLines(merged, NOW)),
+      ...layoutLines(bandOf({ ...fixtures[3]![1], headline: DONE })),
+    ];
+    for (const text of texts) expect(text).not.toMatch(/merged/i);
   });
 
   it('FR-28: CI pending with no count draws a still 30% arc, not a spinner', () => {

@@ -179,10 +179,11 @@ function prRow(ship: NonNullable<PaqadHudSnapshot['ship']>): TableLine {
   if (ship.pr === null || ship.pr_number === null) {
     return row('Pull request', 'not yet', undefined, true);
   }
-  const state = ship.pr_state ?? 'state unknown';
-  const tone: PaqadTone | undefined =
-    ship.pr_state === 'merged' ? 'good' : ship.pr_state === 'closed' ? 'warn' : undefined;
-  return row('Pull request', `${ship.pr} ${state}${ship.pr_url ? ` ${ship.pr_url}` : ''}`, tone);
+  const state =
+    ship.pr_state === 'merged' ? null : ship.pr_state === null ? 'state unknown' : ship.pr_state;
+  const tone: PaqadTone | undefined = ship.pr_state === 'closed' ? 'warn' : undefined;
+  const words = [ship.pr, state, ship.pr_url].filter((part): part is string => Boolean(part));
+  return row('Pull request', words.join(' '), tone);
 }
 
 function ciRows(ship: NonNullable<PaqadHudSnapshot['ship']>, now: number): TableLine[] {

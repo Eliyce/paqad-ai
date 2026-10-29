@@ -295,12 +295,11 @@ function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
   const prOpen = ship?.pr_state === 'open';
-  if (rail.merged) return `${prName(snapshot)} merged`;
   if (state('PR') === 'closed') return 'PR closed';
   if (state('PR') === 'unknown') return 'PR state unknown';
   if (state('CI') === 'failed') return 'CI failed';
   if (rail.ci && plan?.ci !== false) return `${rail.ci.done} of ${rail.ci.total} checks green`;
-  if (prOpen) return prName(snapshot);
+  if (prOpen || rail.merged) return prName(snapshot);
   if (state('Push') === 'failed') return 'Push failed';
   if (state('Push') === 'done') return 'Pushed';
   if (plan && !plan.commit) return 'Edit only · no commit';

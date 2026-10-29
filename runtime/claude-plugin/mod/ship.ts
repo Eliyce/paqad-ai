@@ -73,7 +73,7 @@ export function shipRail(snapshot: PaqadHudSnapshot | null, live: LiveState = ID
   const number = ship?.pr_number ?? null;
   return {
     steps,
-    status: railStatus(steps, commits, number, ciCount, merged),
+    status: railStatus(steps, commits, number, ciCount),
     inherited: ship ? Math.max(ship.inherited_count, 0) : 0,
     ci: ciCount,
     allGreen,
@@ -87,10 +87,8 @@ function railStatus(
   commits: number,
   number: number | null,
   ci: { done: number; total: number } | null,
-  merged: boolean,
 ): string | null {
   const state = (label: ShipLabel) => steps.find((step) => step.label === label)!.state;
-  if (merged) return `${prLabel(number)} merged`;
   if (state('PR') === 'closed') return 'PR closed';
   if (state('PR') === 'unknown') return 'PR state unknown';
   if (state('CI') === 'failed') return 'CI failed';

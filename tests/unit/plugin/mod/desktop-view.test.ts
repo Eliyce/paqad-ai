@@ -457,7 +457,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
 
   it('R-4: says the delivery value, first match wins', () => {
     const value = (over: Raw) => deliveryStrip(open(over)).value;
-    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(`${PR} merged`);
+    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(PR);
     expect(
       value({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
     ).toBe('6 of 6 checks green');
