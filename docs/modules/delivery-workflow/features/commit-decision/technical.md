@@ -9,7 +9,10 @@
 - `src/feature-evidence/delivery.ts`: the `delivery.json` record (`start_commit`,
   `commit_split`, `commit_decision`, `push`, `pr`, `ci`), `seedFeatureDelivery`,
   `refreshCommitSplit`, `setCommitDecision`.
-- `src/cli/commands/delivery-link.ts`: `paqad-ai delivery-link commit-decision`.
+- `src/cli/commands/delivery-link.ts`: `paqad-ai delivery-link commit-decision` and
+  `paqad-ai delivery-link refresh`.
+- `src/delivery/delivery-check.ts`: `saveDeliveryReading` (the one writer of `push`, `pr`, `ci`
+  and `ci_read` outside `paqad-ai deliver`) and `refreshDelivery`.
 
 ## Data Model
 
@@ -23,6 +26,8 @@ commit_split: {
   inherited: { count, tickets[], merges, untagged } | null
 }
 commit_decision: { asked: boolean, answer: "commit" | "decline" | "ignored" | "user-requested" | null, recorded_at: string | null }
+push:    { state: "pushed" | "failed", branch, sha, at } | null
+ci_read: { ok: boolean, reason: string | null, at } | absent
 ```
 
 ## Behaviour
@@ -60,6 +65,11 @@ commit_decision: { asked: boolean, answer: "commit" | "decline" | "ignored" | "u
   untagged ones separately ("3 commits from 2 other tickets and 1 untagged made before this
   change started"). `sharedBranchLine` renders the one warning line used at intake, on the HUD and on the open-PR
   question.
+- **Push.** `push` is written by `paqad-ai deliver`, and now also at Stop and by
+  `paqad-ai delivery-link refresh`: `saveDeliveryReading` records `pushed` with HEAD when the
+  branch upstream (`git rev-parse @{upstream}`) or the PR head equals a 40-hex HEAD. A reading that
+  cannot read the upstream never clears a stored push. The HUD shows Push done only while the push
+  names the change's `head_sha`.
 - **Commit decision.** `setCommitDecision` writes `{ asked: answer !== "user-requested", answer,
   recorded_at }`. The target change is the session's active change, else the change matched by the
   current branch.

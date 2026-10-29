@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M63PD28RRW7GX7HXEYW3F4E1](TD-01M63PD28RRW7GX7HXEYW3F4E1.md) (follow-up, medium): Fast-lane implementation-review asks for a review stage that never runs, and keeps stale machine findings
 - [TD-01M63C618EQBXCTPSNZZZ2FKFX](TD-01M63C618EQBXCTPSNZZZ2FKFX.md) (debt, low): Temp-root test helper copied across test files
 - [TD-01M63C60MC2KST27AD2DFR1YCD](TD-01M63C60MC2KST27AD2DFR1YCD.md) (gap, low): A live stage agent of another session holds a change with no age bound
 - [TD-01M620JJV8ZAXHJ5XVSRNXWZT3](TD-01M620JJV8ZAXHJ5XVSRNXWZT3.md) (debt, low): The HUD's askedCalls set grows by every permission prompt and is never pruned

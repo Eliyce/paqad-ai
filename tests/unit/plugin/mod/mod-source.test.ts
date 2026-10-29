@@ -181,7 +181,8 @@ describe('the HUD mod source', () => {
           .map((line) => ({ name: s.name, line })),
       );
     expect(new Set(used.map((u) => u.name))).toEqual(new Set(['register.tsx']));
-    expect(section).toContain('one program, and only after you choose **Allow once, recorded**');
+    expect(section).toContain('two programs, both paqad');
+    expect(section).toContain('only after you choose **Allow once, recorded**');
     expect(section).toContain('`paqad-ai rules override --rule <id>');
     for (const file of ['`<session>.live`', '`<session>.last-block.json`']) {
       expect(section).toContain(file);
@@ -192,6 +193,20 @@ describe('the HUD mod source', () => {
     for (const name of vars) expect(section).toContain(`\`${name}\``);
     expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
     expect(section).toContain('--outcome landed');
+  });
+
+  it('AC-18: the README names the background delivery refresh, when it runs, and that gh contacts GitHub', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    const start = readme.indexOf('### What the HUD does (Claude Code)');
+    const section = readme.slice(start, readme.indexOf('\n### ', start + 1)).replace(/\s+/g, ' ');
+    expect(section).toContain(
+      '`paqad-ai delivery-link refresh --session <id> --project-root <path> --min-age-seconds <n>`',
+    );
+    expect(section).toContain("only while an open pull request's CI is pending");
+    expect(section).toContain('30 seconds, doubling to 5 minutes, for at most 60 minutes');
+    expect(section).toContain('your own `gh` login, which contacts GitHub');
+    expect(section).toContain('always on, with no setting');
+    expect(section).not.toContain('Sends:** nothing, and it contacts no host');
   });
 
   it('AC-18: the README names the hooks on your edits word for word, and the old permission hooks bullet is gone', () => {

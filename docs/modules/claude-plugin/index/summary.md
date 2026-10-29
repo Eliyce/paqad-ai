@@ -78,9 +78,27 @@ call, so a static reader sees it:
   `.last-block.json` (the answered mark), with the folder and file type as fixed text. The root's
   trailing separator is dropped once when the session binds, and a root of `/` stays `/`.
   `heartbeatPath` and `lastBlockPath` in `model.ts` stay for the reads and the tests.
-- It starts one program, `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`,
-  only after a person picks Allow once: once for the override and once more with `--outcome`
-  after the retried edit returns. `paqad-cli.ts` keeps only the 15 s timeout and the result type.
+- It starts two programs, each with its argv written at the call and the 15 s timeout:
+  - `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`, only after a person
+    picks Allow once: once for the override and once more with `--outcome` after the retried edit
+    returns.
+  - `pollCi`'s `[paqadProgram($), 'delivery-link', 'refresh', '--session', <id>,
+    '--project-root', <root>, '--min-age-seconds', <delay>]`. `paqadProgram` is the plugin's own
+    `runtime/claude-plugin/bin/paqad-ai` under `$.plugin.root`, so a repository cannot shadow it
+    on PATH; no value comes from the snapshot, branch name or PR title. It runs only while the
+    snapshot shows an open PR whose CI is pending (`ciWatchHead`). `nextCiPoll` in
+    `paqad-cli.ts` sets the schedule: 30 s, doubling to 5 min, and none after 60 min; one timer
+    and one run at a time. The watch stops on pass, fail, closed or merged, after two
+    `gh is signed out` or `gh is not installed` reads, or when the session restarts unbound. A
+    watch that stops without an answer adds `CI updates paused: <reason>` to the gap line, and a
+    Bash `git push` in this session or a pending CI on a newer PR head starts it again. It is
+    always on, with no setting.
+- It draws finished stages green: bars in `pass`, labels in `passText` with a check, and a
+  green `✓` on the terminal. When the last mandatory stage ends while the HUD watches
+  (`settledChange`, first seen within `SETTLE_WINDOW_MS` of its end, kept per change in the
+  `settleSeen` atom), the strip glows once for 2 s, the one Motion exception in
+  [hud.md](../../../instructions/design-system/hud.md). The rail ends at CI: merging is the
+  owner's, so there is no Merge node.
 - It never answers a permission check of its own. Allow once lives in a `tool.call` hook on Edit,
   Write and NotebookEdit, registered after the unmatched `tool.call` hook: when the call comes back
   denied (`deny` or `isError`) and a fresh paqad stop names this `tool_use_id`, it asks the rule

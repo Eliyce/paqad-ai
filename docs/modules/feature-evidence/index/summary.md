@@ -453,7 +453,19 @@ reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
 exist yet (claims, the last rule stop, push/PR/CI, a cost no hook has written) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
-(`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+(`computeHudHeadline`, `computeHudFlags`).
+
+**Done means the paqad work is done.** `computeHudHeadline` reads row 16 `Done` once `workIsDone`
+holds: no stage runs, every mandatory stage is complete or redone, checks are green, a verdict is
+on record and no judged required gate of the work fails. It does not wait for a commit, a push, a
+pull request or CI; those live in the delivery rail. Row 14 (Watching CI) and the merge rows 7 and
+8 are gone, and the Committed and PR open words fold into `Done`. The reasons of gates that were
+never judged (the fast lane's implementation review) and paqad's record gaps go to the gap line as
+`paqad could not prove ...`. Rows 9 (PR closed), 10 (CI failed on the open PR's current head) and
+11 (push failed) still lead over Done. A verdict with every stage ended but one unproven reads row
+13. `computeDoneLadder` keeps the rung (`done`, `committed`, `pr-open`) for the receipt and earns
+it from a pass verdict or from the caller's `workDone`; there is no safe-to-merge or merged rung.
+The snapshot still writes `delivery_plan.merge` so an older mod can parse the plan.
 
 **Which change it shows** (`src/hud/change-scope.ts`). The snapshot shows a change only when
 `qualifyHudChange` says so, and every reader of the snapshot gets the same answer. A change
@@ -484,10 +496,12 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
   only when its head commit is one of its own commits. A merged pull request whose head is a
   commit this change recorded stays its pull request after a merge-commit merge, when the base
   branch holds the tip and the split finds no branch commits. A pull request saved before the state
-  and head were kept reads with no state, so Merge reads unknown. `ship.pr_state`, `ship.merged` and
-  `ship.all_green` come from the saved gh state: Merge is merged only when the pull request is,
-  and all green needs a passing CI reading on the pull request's current head while it is open; a
-  pass read against an older head reads pending. `ship.ci_read_at` is when CI was last read.
+  and head were kept reads with no state, so the PR step reads unknown. `ship.pr_state`,
+  `ship.merged` and `ship.all_green` come from the saved gh state: merged only when the pull request
+  is, and all green needs a passing CI reading on the pull request's current head while it is open.
+  A pass or fail read against an older head (not the pull request's head or the change's
+  `head_sha`) reads pending, so it never raises CI failed. `ship.push_current` is true only while
+  the recorded push names the change head, so a new local commit shows Push as not yet. `ship.ci_read_at` is when CI was last read.
 - **Cost and workflow.** `cost.scope` says `change` or `whole-session`. On another workflow the
   `workflow` field carries its name, when it started in this session (the route-turn log) and its
   tokens and money since then, from the session cost cache.
@@ -585,8 +599,8 @@ network, and starts no process.
   once per change. Trust shows the verdict or Not judged yet, the gate ring, every gate in words
   (`pass`, `fail`, `not judged yet`, `did not run`, `not required`), the claims with the tests
   that prove them and the flags. Ships shows Edit, own commits and inherited ones marked "on the
-  branch already", Push, the pull request with its state, CI per job with the read time, and
-  Merge, which stays yours. Record shows the plan, decisions, rules, receipt and the change's
+  branch already", Push, the pull request with its state and an `Open PR #N` link while it is open,
+  and CI per job with the read time. There is no Merge row: merging is the owner's. Record shows the plan, decisions, rules, receipt and the change's
   timeline. Cost shows the change cost and says whether it is this change only or the whole
   session. An empty tab names its state: "No gates judged yet.", "Nothing pushed yet.", "No plan
   recorded yet.". Below 80 columns the tab labels shorten.
@@ -607,7 +621,7 @@ network, and starts no process.
   own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
 - **The eight states** (`BAND_STATES`, first match wins): Needs you (`waitingOnHuman`),
   Paused, Ready or Working when no change is in progress, Branch warning, Working (a stage runs),
-  then the verdict: Safe to merge, Needs your attention or Inconclusive. A verdict written before
+  then the headline engine's row (Done, Needs your attention or Inconclusive). A verdict written before
   the current turn started does not lead while that turn runs, and no verdict leads while a stage
   runs in a live stage agent. Needs your attention always names the failing gate; a fail verdict
   with no failing gate the Ledger can name reads Inconclusive. Any open flag turns a good or neutral state amber, and all green turns the band

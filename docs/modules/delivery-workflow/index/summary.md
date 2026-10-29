@@ -150,6 +150,24 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
   returns unexpected JSON just skips the PR and CI checks, never a warning about `gh`. A spawn
   failure leaves no exit code, which is read as 1 ("could not answer"). The attribution scan runs
   only under `strip`.
+- **Push and CI after the turn (`delivery-check.ts`).** Only `paqad-ai deliver` used to write
+  `push`, so the HUD never marked a push made by hand. `saveDeliveryReading` is now the one writer
+  of `push` for the Stop check and the refresh verb: it reads `git rev-parse @{upstream}` through
+  the same args-only runner and records `{state: "pushed", branch, sha: HEAD}` when the upstream or
+  the PR head equals a 40-hex HEAD. Anything else (no upstream, detached HEAD, non-hex output)
+  writes no push and keeps any push already stored. The CI reading is stored against the PR head,
+  so it counts as current only when that head is HEAD. Every reading carries the time it started
+  (`read_at`), and `recordShip` drops a `pr` or `ci` patch that started before the stored one,
+  so the HUD's refresh and the Stop check cannot overwrite a newer reading. `ci_read` records
+  whether the last gh read worked and, if not, its fixed reason.
+- **`refreshDelivery` and `paqad-ai delivery-link refresh`.** CI on the rail froze once the
+  turn ended. The verb loads the delivery policy, finds the change by branch and runs the same
+  evaluate-and-save as the Stop check. It never seeds, commits, merges or reconciles. A gh failure
+  (timed out, rate-limited, signed out, missing, unreadable, no PR) keeps the stored `pr` and `ci`
+  untouched and writes only `ci_read`, so a known pass, fail or pending is never downgraded.
+  `--min-age-seconds` skips gh while the stored `ci_read` is younger, so several HUDs watching one
+  PR share one read. Only state words, numbers, shas, job states and the fixed failure phrases are
+  written; no token, stderr text or PR body.
 - **`ai-attribution.ts`.** A co-author trailer naming a real colleague must survive, so only known
   vendor markers are matched, each with that vendor's own fix. The patterns are case-insensitive
   (vendors mix `Co-Authored-By` and `Co-authored-by`) and not global, and at most one finding is

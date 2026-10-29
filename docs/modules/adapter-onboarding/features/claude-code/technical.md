@@ -263,10 +263,15 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **Motion on Desktop.** A live light breathes and a live clock ticks on one 400 ms tick that sets
   the clock from `$.clock.now()`; the tick runs only while the band or the Ledger draws something
   live and stops otherwise. Every other motion lives in the Svg's own CSS and SMIL animations.
-- **All green.** When the saved CI reading is a pass on the pull request's current head and the
-  pull request is open, the headline reads `All green: PR <n> is ready for your merge`, the band
-  turns success and one toast fires per change and head commit (kept in `$.state`), with the
-  opt-in chime. It stays all green across sessions until the pull request is merged.
+- **CI passed.** When the saved CI reading is a pass on the pull request's current head and the
+  pull request is open, the rail reads `CI · <n> of <n> green`, the headline stays `Done` and one
+  toast naming it fires per change and head commit (kept in `$.state`), with the opt-in chime.
+  The HUD never offers a merge: merging is the owner's, and a merged pull request is only the rail
+  note `PR <n> merged`. While the pull request's CI is pending the mod keeps the rail current with
+  `paqad-ai delivery-link refresh` (see [hud.md](../../../../instructions/design-system/hud.md)).
+- **Done and finished stages.** `Done` shows once the paqad work is done, before any push. Finished
+  stages draw green with a check, and the strip glows once for about 2 s when the last stage ends
+  while the HUD is watching.
 - **Other workflows.** On any other route there is no band, only one `AbovePrompt` row: a plain
   Button reading `paqad · question · 84K tokens · ~$0.05` (the workflow in words, its tokens and
   cost since that workflow started in this session), with `running m:ss` while a main-agent turn is
