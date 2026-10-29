@@ -27,6 +27,14 @@ function beat(sessionId: string, at: number): void {
   utimesSync(path, new Date(at), new Date(at));
 }
 
+function hudSnapshot(sessionId: string, body: unknown): void {
+  const path = join(root, '.paqad/session/hud', `${sessionId}.json`);
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+const QUALIFIED = { active: true, scope: { qualified: true, reason: 'qualified' } };
+
 function gate(sessionId = SESSION, adapter?: string): string {
   const args = adapter ? [PROMPT_GATE, adapter] : [PROMPT_GATE];
   return execFileSync('node', args, {
@@ -74,11 +82,46 @@ describe('heartbeat freshness', () => {
 
   it('adds the line only on Claude Code, and never throws', () => {
     beat(SESSION, NOW);
+    hudSnapshot(SESSION, QUALIFIED);
     expect(quietNarration(root, SESSION, undefined, NOW)).toBe(`${QUIET_NARRATION_LINE}\n`);
     expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe(`${QUIET_NARRATION_LINE}\n`);
     expect(quietNarration(root, SESSION, 'codex-cli', NOW)).toBe('');
     expect(quietNarration(root, SESSION, 'gemini-cli', NOW)).toBe('');
     expect(quietNarration(`${root}\0bad`, SESSION, undefined, NOW)).toBe('');
+  });
+});
+
+describe('the quiet line needs a HUD that draws a change', () => {
+  const NOW = Date.parse('2026-10-18T09:00:00.000Z');
+
+  it('AC-12: gives no line when the snapshot has no qualified change', () => {
+    beat(SESSION, NOW);
+    hudSnapshot(SESSION, { active: false, scope: { qualified: false, reason: 'other-branch' } });
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
+  });
+
+  it('AC-12: gives the line when the snapshot has a qualified change', () => {
+    beat(SESSION, NOW);
+    hudSnapshot(SESSION, QUALIFIED);
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe(`${QUIET_NARRATION_LINE}\n`);
+  });
+
+  it('AC-12: gives no line with no snapshot, an unreadable one, or another session qualified', () => {
+    beat(SESSION, NOW);
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
+    hudSnapshot(SESSION, '{not json');
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
+    hudSnapshot(SESSION, { active: true });
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
+    hudSnapshot(SESSION, { scope: { qualified: false } });
+    hudSnapshot('ses-other', QUALIFIED);
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
+  });
+
+  it('gives no line for a qualified snapshot when the heartbeat is stale', () => {
+    beat(SESSION, NOW - HEARTBEAT_WINDOW_MS - 1_000);
+    hudSnapshot(SESSION, QUALIFIED);
+    expect(quietNarration(root, SESSION, 'claude-code', NOW)).toBe('');
   });
 });
 
@@ -93,6 +136,7 @@ describe('the prompt gate and the heartbeat', () => {
 
   it('AC-43: adds exactly one quiet line for a fresh heartbeat of this session', () => {
     const before = gate();
+    hudSnapshot(SESSION, QUALIFIED);
     beat(SESSION, Date.now());
     const after = gate();
     expect(after.split(QUIET_NARRATION_LINE)).toHaveLength(2);
@@ -100,6 +144,7 @@ describe('the prompt gate and the heartbeat', () => {
   });
 
   it('AC-43: is byte-identical with another session heartbeat, a stale one or none', () => {
+    hudSnapshot(SESSION, QUALIFIED);
     const none = gate();
     beat('ses-other', Date.now());
     expect(gate()).toBe(none);
@@ -108,6 +153,7 @@ describe('the prompt gate and the heartbeat', () => {
   });
 
   it('AC-42: drops the line once the heartbeat goes stale mid-session', () => {
+    hudSnapshot(SESSION, QUALIFIED);
     beat(SESSION, Date.now());
     expect(gate()).toContain(QUIET_NARRATION_LINE);
     beat(SESSION, Date.now() - 10 * 60_000);
@@ -115,6 +161,7 @@ describe('the prompt gate and the heartbeat', () => {
   });
 
   it('leaves other hosts unchanged', () => {
+    hudSnapshot(SESSION, QUALIFIED);
     const none = gate(SESSION, 'codex-cli');
     beat(SESSION, Date.now());
     expect(gate(SESSION, 'codex-cli')).toBe(none);
