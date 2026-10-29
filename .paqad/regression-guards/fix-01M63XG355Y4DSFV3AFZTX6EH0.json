@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M63XG355Y4DSFV3AFZTX6EH0",
+  "created_at": "2026-10-29T15:08:12.314Z",
+  "proof": {
+    "test_id": "AC-4: registers no tool.check hook, so it never reads or answers a permission check",
+    "test_file": "tests/unit/plugin/mod/mod-source.test.ts",
+    "command": "npx vitest run tests/unit/plugin/mod/mod-source.test.ts -t 'registers no tool.check hook'"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/plugin/mod/register-directory-shape.test.ts",
+    "line": null,
+    "test_id": "reads its event only as a member, a call argument or a const binding, and returns next(e)",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"reads its event only as a member, a call argument or a const binding, and returns next(e)\" fails before the fix.",
+    "stderr_excerpt": "    242|     expect(permissionHookFindings(readFileSync(REGISTER, 'utf8'))).toE…\n       |                                                                    ^\n    243|   });\n    244|\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯"
+  },
+  "linked_ac_id": null
+}

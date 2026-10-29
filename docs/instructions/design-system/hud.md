@@ -122,8 +122,8 @@ mini stage Svg of the lane's stages; `Box flexGrow`; dim footnote cost; `Ledger`
 ### Closed and hidden rows
 
 One small row: footnote `Text` of `paqad` (semibold) + dim `   Closed for this session` or
-`   Hidden`; `Box flexGrow`; plain dim `Show`. When something waits on the person (a question, a
-permission or a pending decision) the words become coral `● Waiting for your answer`. `Show` reopens and
+`   Hidden`; `Box flexGrow`; plain dim `Show`. When something waits on the person (a question or a
+pending decision) the words become coral `● Waiting for your answer`. `Show` reopens and
 un-minimises. Hide always stays until the person presses Show or runs `/paqad show`.
 
 ### Workflow band
@@ -239,7 +239,6 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 1   | paqad is on but the session id could not be read, or the snapshot does not parse | attention       | no   | `paqad cannot read this session's record`                                                                 |
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
-| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your answer`                                                                                 |
 | 6   | a decision packet of this change is pending                                      | attention       | no   | `Waiting for your answer`                                                                                 |
 | 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`                                          |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
@@ -257,13 +256,10 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 
 One headline engine, `computeHudHeadline`, picks the row; the mod only renders it.
 
-Row 4 is set only by a prompt in the main session, or by a foreground stage agent's prompt that
-really blocks the turn. A background agent's ask is shown and settled by Claude Code itself and the
-mod never sees its answer, so it never sets the wait. A main wait is kept per request and clears on
-the next event of the main session: a later check (the deny, or auto mode's decision), a tool start
-or end, or a turn event. No clock decides, so a real prompt the person has not seen is never hidden
-by a timer. A running stage reads paused only while the person owes it an answer (a pending
-decision of this change or a question on screen); a permission prompt pauses no stage.
+There is no row for Claude Code's own permission dialog: the plugin directory accepts no mod hook
+that reads Claude Code's permission answer, so the HUD cannot see that dialog. A running stage reads
+paused only while the person owes it an answer (a pending decision of this change or a question on
+screen).
 
 Row 16 `Done` holds once the paqad work is done: no stage is running, every mandatory stage is
 complete or redone, the checks are green, a verdict is on record and no judged required gate of

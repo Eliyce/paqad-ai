@@ -89,12 +89,9 @@ import {
 } from './model';
 import {
   AGENT_TOOLS,
-  ForegroundAgents,
   IDLE_LIVE,
   answeredRuleStopText,
   liveToolCall,
-  permissionAsked,
-  agentTurnEnded,
   promptSubmitted,
   questionClosed,
   questionShown,
@@ -252,8 +249,6 @@ interface Live {
 let live: Live | null = null;
 let ticker: Timer | null = null;
 let agentCalls = 0;
-const foregroundAgents = new ForegroundAgents();
-const askedCalls = new Set<string>();
 let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
@@ -843,14 +838,12 @@ async function retryAllowedOnce(
   stop: RuleStop,
   retry: () => Promise<unknown>,
 ): Promise<unknown> {
-  askedCalls.delete(stop.toolUseId);
   const result = await retry();
-  const askSeen = askedCalls.delete(stop.toolUseId);
   const at = live;
   if (at) {
     const ran = await recordOverride(
       $,
-      outcomeArgs(stop, at.sessionId, at.root, editOutcome(result, askSeen)),
+      outcomeArgs(stop, at.sessionId, at.root, editOutcome(result)),
       at.root,
     );
     if (ran.stderr.trim() !== '') await logOverrideFailure($, ran.stderr);
@@ -1253,7 +1246,6 @@ export const register: Register = (on) => {
     verdictSeen = undefined;
     chimeOn = false;
     rawCalls.clear();
-    foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
     agentsWorking = [];
@@ -1312,12 +1304,9 @@ export const register: Register = (on) => {
   on('tool.call', async ($, e, next) => {
     if (!live) return next(e);
     const tool = String(e.tool);
-    const input = e as unknown as { command?: unknown; run_in_background?: unknown };
+    const input = e as unknown as { command?: unknown };
     const isAgent = AGENT_TOOLS.has(tool);
     const agentId = (e as { agentId?: unknown }).agentId;
-    const onMainThread = !agentId;
-    if (typeof agentId === 'string' && agentId !== '') foregroundAgents.agentSeen(agentId);
-    const foregroundAgent = isAgent && onMainThread && input.run_in_background !== true;
     if (isExpertsCall(tool, input)) {
       await claimCard($, (e as { tool_use_id?: string }).tool_use_id);
     }
@@ -1329,7 +1318,6 @@ export const register: Register = (on) => {
       await noteActivity($, toolLine(tool, e));
       startTicker($);
     }
-    const foregroundCall = foregroundAgent ? foregroundAgents.callStarted() : null;
     const call = liveToolCall(e as never);
     await moveLive($, (state) => toolStarted(state, call));
     try {
@@ -1339,7 +1327,6 @@ export const register: Register = (on) => {
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
-      if (foregroundCall) foregroundAgents.callEnded(foregroundCall);
       await moveLive($, (state) => toolEnded(state, call));
     }
   }).catch(($, e, next) => next(e));
@@ -1353,34 +1340,11 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('turn.start', async ($, e, next) => {
-    if (e.agentId) foregroundAgents.agentSeen(e.agentId);
     if (live && !e.agentId) {
       const now = await $.clock.now();
       await moveLive($, (state) => turnStarted(state, e.turnId, now));
     }
     return next(e);
-  }).catch(($, e, next) => next(e));
-
-  on('tool.check', async ($, e, next) => {
-    const verdict = await next(e);
-    const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
-    if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
-    if (live) {
-      const agentId = (e as { agentId?: unknown }).agentId;
-      const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
-      if (agent !== null) foregroundAgents.agentSeen(agent);
-      const foreground = agent !== null && foregroundAgents.isForeground(agent);
-      await moveLive($, (state) =>
-        permissionAsked(state, {
-          decision: verdict.decision,
-          approver: e.approver,
-          toolUseId,
-          agent,
-          foreground,
-        }),
-      );
-    }
-    return verdict;
   }).catch(($, e, next) => next(e));
 
   on('session.append', async ($, e, next) => {
@@ -1394,10 +1358,6 @@ export const register: Register = (on) => {
 
   on('turn.complete', async ($, e, next) => {
     if (!e.agentId) await moveLive($, turnEnded);
-    else if (live) {
-      const agent = e.agentId;
-      await moveLive($, (state) => agentTurnEnded(state, agent));
-    }
     const result = await next(e);
     if (live) {
       await refresh($);

@@ -190,11 +190,10 @@ export function isDenied(result: unknown): boolean {
   return raw !== null && (raw.deny !== undefined || raw.isError === true);
 }
 
-export type EditOutcome = 'landed' | 'refused' | 'still-blocked';
+export type EditOutcome = 'landed' | 'still-blocked';
 
-export function editOutcome(result: unknown, askSeen: boolean): EditOutcome {
-  if (!isDenied(result)) return 'landed';
-  return askSeen ? 'refused' : 'still-blocked';
+export function editOutcome(result: unknown): EditOutcome {
+  return isDenied(result) ? 'still-blocked' : 'landed';
 }
 
 export function isAllowedOnce(text: string | null, stop: RuleStop): boolean {

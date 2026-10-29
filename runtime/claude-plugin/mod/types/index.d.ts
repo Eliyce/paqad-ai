@@ -2,9 +2,8 @@ export type LiveState = {
   turnId: string | null;
   turnStartedAt: number | null;
   editing: { toolUseId: string | null; file: string | null } | null;
-  waitingOn: 'question' | 'permission' | null;
+  waitingOn: 'question' | null;
   waitingToolUseId: string | null;
-  waitingAgent: string | null;
   agents?: PaqadAgentsLive;
 };
 

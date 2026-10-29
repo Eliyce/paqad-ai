@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "figma": {
+      "command": "",
+      "args": []
+    },
+    "vite-inspector": {
+      "command": "",
+      "args": []
+    },
+    "react-router-mcp": {
+      "command": "",
+      "args": []
+    },
+    "tailwind-mcp": {
+      "command": "",
+      "args": []
+    }
+  }
+}

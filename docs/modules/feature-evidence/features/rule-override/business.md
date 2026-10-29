@@ -47,8 +47,8 @@ The technical contract lives at [`technical.md`](./technical.md) and the command
 4. On that retry paqad's gate answers `ask` once for that exact call, and Claude Code shows its
    own permission dialog. The person approves or refuses there. The next identical call is
    stopped again.
-5. The HUD records the outcome: landed, refused (Claude Code asked and the edit did not go
-   through) or still blocked (something else, such as another tool's hook, kept it denied).
+5. The HUD records the outcome: landed, or still blocked (the edit did not go through, whether the
+   person refused the dialog or something else kept it denied).
 6. The receipt lists every override of the change.
 
 ## Business Rules

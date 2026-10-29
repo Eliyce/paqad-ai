@@ -96,8 +96,8 @@ that is not `sole` as well.
 
 ### Record, then retry
 
-The mod never answers a permission check. Its one `tool.check` hook reads Claude Code's answer
-for the band and returns it unchanged. Allow once lives in a `tool.call` hook on Edit, Write and
+The mod registers no `tool.check` hook, so it never reads or answers a permission check. Allow
+once lives in a `tool.call` hook on Edit, Write and
 NotebookEdit, registered after the unmatched `tool.call` hook so that one stays outermost:
 
 1. It awaits the call. A result that is not denied comes back as it came.
@@ -111,11 +111,12 @@ NotebookEdit, registered after the unmatched `tool.call` hook so that one stays 
    `paqad-ai` should be updated, and returns the deny with no retry.
 4. It runs the same call once more (a second `next(e)`, never a third). The engine raises
    PreToolUse again with the same `tool_use_id`, and paqad's gate answers `ask` (below).
-5. It runs `paqad-ai rules override --outcome <landed|refused|still-blocked>` and returns the
-   retry's result unchanged: `landed` when the retry is not denied, `refused` when the
-   `tool.check` hook saw Claude Code answer `ask` for that `tool_use_id` during the retry and the
-   result is still denied, and `still-blocked` otherwise. A failed outcome run is logged and
-   never changes the result.
+5. It runs `paqad-ai rules override --outcome <landed|still-blocked>` and returns the retry's
+   result unchanged: `landed` when the retry is not denied, `still-blocked` when it is. The mod
+   cannot tell a person refusing the dialog from another rule denying the retry, because the
+   plugin directory accepts no hook that reads Claude Code's permission answer. The CLI still
+   accepts `refused` for other callers. A failed outcome run is logged and never changes the
+   result.
 
 The hook's `.catch` is `($, e, next) => next(e)`, so a failure after the first call replays that
 settled result, and a failure before it runs the call once, as without the mod.
@@ -164,7 +165,7 @@ permission-modes and hooks docs:
 - **Manual (`default`):** the dialog appears.
 - **`auto`:** the `ask` forces the dialog. The classifier can deny the call but cannot approve it
   silently.
-- **`dontAsk`:** the call is denied, so the edit stays blocked (`refused`).
+- **`dontAsk`:** the call is denied, so the edit stays blocked (`still-blocked`).
 - **`-p` and Agent SDK runs:** the call is denied unless a permission-prompt tool or
   `canUseTool` callback decides.
 - **`plan`:** the edit is blocked.
@@ -175,8 +176,7 @@ permission-modes and hooks docs:
   records whether the dialog appears.
 
 An edit approved in the dialog that then fails as a tool, for example because `old_string` was
-not found, comes back as an error after an `ask` and is recorded as `refused`, because it did
-not land.
+not found, comes back as an error and is recorded as `still-blocked`, because it did not land.
 
 ### Forged override rows
 

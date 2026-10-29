@@ -123,21 +123,9 @@ describe('the HUD mod source', () => {
     expect(register.slice(hook, register.indexOf('\n', hook))).toContain('await watchAfterPush($)');
   });
 
-  it('AC-4: no tool.check hook answers a permission check of its own', () => {
+  it('AC-4: registers no tool.check hook, so it never reads or answers a permission check', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
-    expect(register).not.toMatch(/on\('tool\.check',\s*\{\s*tool:/);
-    const checks = [...register.matchAll(/on\('tool\.check',/g)];
-    expect(checks).toHaveLength(1);
-    const start = checks[0]!.index;
-    const end = register.indexOf('.catch(', start);
-    expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
-    const hook = register.slice(start, end);
-    expect(hook).toContain('return verdict;');
-    expect(hook).not.toMatch(/decision:\s*['"]/);
-    expect(hook).not.toMatch(/return\s*\{/);
-    expect(register.slice(end, register.indexOf('\n', end))).toContain(
-      '.catch(($, e, next) => next(e));',
-    );
+    expect(register).not.toMatch(/\bon\(\s*['"]tool\.check['"]/);
   });
 
   it('AC-2: the edit tools retry a denied call once, and only after allowRuleStopOnce returns a stop', () => {
@@ -235,16 +223,16 @@ describe('the HUD mod source', () => {
     expect(section).not.toContain('Sends:** nothing, and it contacts no host');
   });
 
-  it('AC-18: the README names the hooks on your edits word for word, and the old permission hooks bullet is gone', () => {
+  it('AC-18: the README names the hooks on your edits word for word, and and no bullet says it reads the permission answer', () => {
     const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
     expect(readme).toContain(
       [
         '- **Its hooks on your edits:**',
         "  - When one of paqad's rules stops an Edit, Write or NotebookEdit, the HUD asks you what should happen. If you allow it once, paqad records the override and runs the same edit again. paqad's own gate then asks Claude Code to show you its permission dialog for that one edit, and you approve it there. The HUD never approves an edit and never changes a permission answer. A deny from your settings rules, from another tool's hook or from a stop your organization enforces still blocks the edit. If anything fails, the edit stays blocked.",
-        "  - One hook reads Claude Code's permission answer for every tool call, so the band can say when a call is waiting for you. It passes the answer on unchanged.",
       ].join('\n'),
     );
     expect(readme).not.toContain('**Its permission hooks:**');
+    expect(readme).not.toContain("reads Claude Code's permission answer");
   });
 
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {

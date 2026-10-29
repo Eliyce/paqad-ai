@@ -101,3 +101,15 @@ spec_pipeline_token_ceiling=60000
 # ── Added in a newer paqad version ────────────────────────────
 # off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its own CI or pre-push hook, never at the end of an agent turn, and the project supplies the mutation tool for its stack. The project test command runs first; a red suite reads did not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check. (env: PAQAD_MUTATION_MODE)
 # mutation_mode=off
+
+# ── Added in a newer paqad version ────────────────────────────
+# blocking-only | all — rule scripts run before an edit. blocking-only runs only the deterministic changed-files scripts and the rest at turn end; all runs every script. (env: PAQAD_RULE_GATE_PRE_EDIT)
+# rule_gate_pre_edit=blocking-only
+# auto | 1-8 — rule scripts run at once. auto = CPU cores minus one, at most 8; 1 runs them one after another. (env: PAQAD_RULE_GATE_CONCURRENCY)
+# rule_gate_concurrency=auto
+# Time in ms (500-9000) the pre-edit rule check may take from the hook start, under both rule_gate_pre_edit values. Past it the edit goes ahead and the checks block at turn end. (env: PAQAD_RULE_GATE_BUDGET_MS)
+# rule_gate_budget_ms=6000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Milliseconds `spec pipeline start` gives retrieval to ground the request. Past it, or with an empty index or no embedding key, start grounds on the docs alone and records grounding.mode=lexical-fallback with the reason. (env: PAQAD_SPEC_GROUNDING_BUDGET_MS)
+# spec_grounding_budget_ms=15000

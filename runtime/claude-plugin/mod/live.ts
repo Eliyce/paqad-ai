@@ -8,7 +8,6 @@ export const IDLE_LIVE: LiveState = {
   editing: null,
   waitingOn: null,
   waitingToolUseId: null,
-  waitingAgent: null,
 };
 
 export const QUESTION_TOOL = 'AskUserQuestion';
@@ -16,42 +15,6 @@ export const QUESTION_TOOL = 'AskUserQuestion';
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
 
 export const AGENT_TOOLS: ReadonlySet<string> = new Set(['Agent', 'Task']);
-
-export interface ForegroundCall {
-  agent: string | null;
-}
-
-export class ForegroundAgents {
-  private readonly calls: ForegroundCall[] = [];
-  private readonly seen = new Set<string>();
-
-  callStarted(): ForegroundCall {
-    const call: ForegroundCall = { agent: null };
-    this.calls.push(call);
-    return call;
-  }
-
-  callEnded(call: ForegroundCall): void {
-    const index = this.calls.indexOf(call);
-    if (index >= 0) this.calls.splice(index, 1);
-  }
-
-  agentSeen(agent: string): void {
-    if (this.seen.has(agent)) return;
-    this.seen.add(agent);
-    const unbound = this.calls.filter((call) => call.agent === null);
-    if (unbound.length === 1) unbound[0]!.agent = agent;
-  }
-
-  isForeground(agent: string): boolean {
-    return this.calls.some((call) => call.agent === agent);
-  }
-
-  clear(): void {
-    this.calls.length = 0;
-    this.seen.clear();
-  }
-}
 
 export interface LiveToolCall {
   tool: string;
@@ -77,12 +40,6 @@ export function liveToolCall(event: {
   };
 }
 
-const NOT_WAITING = { waitingOn: null, waitingToolUseId: null, waitingAgent: null } as const;
-
-function waitsOnPermissionFrom(state: LiveState, agent: string | null): boolean {
-  return state.waitingOn === 'permission' && state.waitingAgent === agent;
-}
-
 export function promptSubmitted(state: LiveState, now: number): LiveState {
   return { ...state, turnStartedAt: now };
 }
@@ -101,32 +58,18 @@ export function turnEnded(state?: LiveState): LiveState {
 }
 
 export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {
-  let next: LiveState = waitsOnPermissionFrom(state, call.agent ?? null)
-    ? { ...state, ...NOT_WAITING }
-    : state;
+  let next: LiveState = state;
   if (EDIT_TOOLS.has(call.tool)) {
     next = { ...next, editing: { toolUseId: call.toolUseId, file: call.file } };
   }
   if (call.tool === QUESTION_TOOL) {
-    next = { ...next, waitingOn: 'question', waitingToolUseId: call.toolUseId, waitingAgent: null };
+    next = { ...next, waitingOn: 'question', waitingToolUseId: call.toolUseId };
   }
   return next;
 }
 
-function endsSubagentWait(state: LiveState, call: LiveToolCall): boolean {
-  return (
-    (call.agent ?? null) === null &&
-    AGENT_TOOLS.has(call.tool) &&
-    state.waitingOn === 'permission' &&
-    state.waitingAgent !== null
-  );
-}
-
 export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
-  let next: LiveState =
-    waitsOnPermissionFrom(state, call.agent ?? null) || endsSubagentWait(state, call)
-      ? { ...state, ...NOT_WAITING }
-      : state;
+  let next: LiveState = state;
   if (EDIT_TOOLS.has(call.tool) && state.editing?.toolUseId === call.toolUseId) {
     next = { ...next, editing: null };
   }
@@ -138,34 +81,8 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
   return next;
 }
 
-export function permissionAsked(
-  state: LiveState,
-  check: {
-    decision: string;
-    approver?: unknown;
-    toolUseId: string | null;
-    agent?: string | null;
-    foreground?: boolean;
-  },
-): LiveState {
-  const agent = check.agent ?? null;
-  if (agent !== null && check.foreground !== true) return state;
-  const settled = waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
-  if (check.decision !== 'ask' || check.approver !== 'person') return settled;
-  return {
-    ...settled,
-    waitingOn: 'permission',
-    waitingToolUseId: check.toolUseId,
-    waitingAgent: agent,
-  };
-}
-
-export function agentTurnEnded(state: LiveState, agent: string): LiveState {
-  return waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
-}
-
 export function questionShown(state: LiveState): LiveState {
-  return { ...state, waitingOn: 'question', waitingToolUseId: null, waitingAgent: null };
+  return { ...state, waitingOn: 'question', waitingToolUseId: null };
 }
 
 export function questionClosed(state: LiveState): LiveState {
