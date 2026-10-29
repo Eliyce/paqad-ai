@@ -182,7 +182,6 @@ function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): strin
     const event = eventParameter.name.text;
     const next =
       nextParameter && ts.isIdentifier(nextParameter.name) ? nextParameter.name.text : '';
-    const passedOn = new Set<string>();
 
     const uses = (node: ts.Node): void => {
       if (ts.isIdentifier(node) && node.text === event && isReference(node)) {
@@ -190,24 +189,13 @@ function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): strin
           report(node, `event \`${event}\` used by itself in a ${ts.SyntaxKind[node.parent.kind]}`);
         }
       }
-      if (
-        ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
-        node.initializer &&
-        (node.parent.flags & ts.NodeFlags.Const) !== 0 &&
-        isPassOn(node.initializer, event, next)
-      ) {
-        passedOn.add(node.name.text);
-      }
       ts.forEachChild(node, uses);
     };
     uses(hook.body);
 
     const checkAnswer = (answer: ts.Expression) => {
-      const bare = withoutWrappers(answer);
-      const bound = ts.isIdentifier(bare) && passedOn.has(bare.text);
-      if (!bound && !isPassOn(answer, event, next) && !isFixedAnswer(answer)) {
-        report(answer, 'answer that is not next(e), its const result or a fixed deny or ask');
+      if (!isPassOn(answer, event, next) && !isFixedAnswer(answer)) {
+        report(answer, 'answer that is not next(e) or a fixed deny or ask');
       }
     };
     const returns = (node: ts.Node): void => {
@@ -250,7 +238,7 @@ function permissionHookFindings(source: string, kind = ts.ScriptKind.TSX): strin
 }
 
 describe('register.tsx permission hook', () => {
-  it('reads its event only as a member, a call argument or a const binding, and passes the answer on', () => {
+  it('reads its event only as a member, a call argument or a const binding, and returns next(e)', () => {
     expect(permissionHookFindings(readFileSync(REGISTER, 'utf8'))).toEqual([]);
   });
 
@@ -271,6 +259,10 @@ describe('register.tsx permission hook', () => {
     [
       'loosening return',
       "on('tool.check', async ($, e, next) => {\n  return { decision: (await next(e)).decision };\n});",
+    ],
+    [
+      'returned const result of next(e)',
+      "on('tool.check', async ($, e, next) => {\n  const verdict = await next(e); return verdict;\n});",
     ],
     [
       'allow literal',
@@ -304,7 +296,7 @@ describe('register.tsx permission hook', () => {
     ).toEqual([`line 2: event \`e\` used by itself in a AsExpression; ${REJECTED}`]);
   });
 
-  it('allows member reads, next(e), its const result and a fixed deny or ask', () => {
+  it('allows member reads, the event handed to a helper, next(e) and a fixed deny or ask', () => {
     const source = [
       "on('tool.check', async ($, e, next) => {",
       '  const verdict = await next(e);',
@@ -314,7 +306,8 @@ describe('register.tsx permission hook', () => {
       '  await moveLive($, (state) => noted(state, { decision: verdict.decision, approver: e.approver, toolUseId, agent }));',
       "  if (event.tool === 'Bash') return { decision: 'ask', reason: 'why' };",
       "  if (agent === null) return { decision: 'deny', reason: 'why' };",
-      '  return verdict;',
+      '  await notePermission($, e, await next(e));',
+      '  return next(e);',
       '}).catch(($, e, next) => next(e));',
       "on('tool.check', { tool: 'Read' }, async ($, e, next) => next(e));",
     ].join('\n');
