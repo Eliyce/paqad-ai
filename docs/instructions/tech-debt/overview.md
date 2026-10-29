@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M64HFVJJ6QS6BV45JCFAY4Z9](TD-01M64HFVJJ6QS6BV45JCFAY4Z9.md) (bug, medium): ac-test-mapping counts stale AC ids from older specs in any changed test file as proof
+- [TD-01M64HFSW101H0E24VD68X4PZA](TD-01M64HFSW101H0E24VD68X4PZA.md) (bug, medium): HUD isolation-missing flag counts pre-raise stage-agent rows; the gate counts only rows after lane_raised.at
 - [TD-01M649AY7KFQF4MNTX77JX4B8W](TD-01M649AY7KFQF4MNTX77JX4B8W.md) (follow-up, low): Live headline Svg can clip a long title and its clock with no ellipsis at narrow Desktop widths
 - [TD-01M648Z6SK96WQDAS4Q40KFVF2](TD-01M648Z6SK96WQDAS4Q40KFVF2.md) (follow-up, low): High Table strip section cannot open the Ledger: Desktop refuses an Svg inside a Button
 - [TD-01M63TFESG8CJ1E6NGQV6BAMS5](TD-01M63TFESG8CJ1E6NGQV6BAMS5.md) (gap, low): HUD rules-override call runs paqad-ai from PATH, not the plugin's own bin
