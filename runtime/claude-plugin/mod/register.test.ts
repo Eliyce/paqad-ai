@@ -3543,6 +3543,13 @@ const DONE_SNAPSHOT = snapshot({
   headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
 });
 
+function cardRowsOf(drawn: RenderNode): RenderElement[] {
+  const card = everyElement(drawn).find((element) => keyOf(element) === 'paqad-band');
+  return ((card as { children?: readonly RenderNode[] } | undefined)?.children ?? []).filter(
+    (child): child is RenderElement => typeof child !== 'string',
+  );
+}
+
 describe('live subagents in the band', () => {
   test('titles the running subagent, shows its one newest line and comes back to Done when it ends', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
@@ -3582,6 +3589,89 @@ describe('live subagents in the band', () => {
     const after = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
     expect(after).not.toContain('Subagent:');
     expect(after).toContain('Done');
+  });
+
+  test('AC-1, AC-2, AC-3: on Desktop the newest line sits in the gap slot with no indent, and the card stays 6 rows', async ($, on) => {
+    const gap = 'paqad could not record every stage of this change';
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText({
+          ...DONE_SNAPSHOT,
+          headline: { ...(DONE_SNAPSHOT.headline as object), gap },
+        }),
+      },
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const rows = (drawn: RenderNode) => cardRowsOf(drawn).map((row) => row.type);
+    const body = (drawn: RenderNode) => [textOf(cardRowsOf(drawn)[2]!)];
+    const CARD = ['Box', 'Text', 'Text', 'Box'];
+    const before = await $.ui.render(band('desktop'));
+    expect(rows(before)).toEqual(CARD);
+    expect(body(before)).toEqual([gap]);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await $.tool.call({ tool: 'Bash', command: 'pnpm lint', agentId: 'ag-1' } as never);
+    await $.tool.call({ tool: 'Bash', command: 'pnpm test', agentId: 'ag-1' } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const during = await $.ui.render(band('desktop'));
+    expect(rows(during)).toEqual(CARD);
+    expect(body(during)).toEqual(['Bash: pnpm test']);
+    expect(textOf(during)).not.toContain('Bash: pnpm lint');
+    world.agents.length = 0;
+    await clock.advance(1_500);
+    await clock.settle();
+    const after = await $.ui.render(band('desktop'));
+    expect(rows(after)).toEqual(CARD);
+    expect(body(after)).toEqual([gap]);
+  });
+
+  test('AC-2: with a stage running and no subagent the Desktop body line is one blank space', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const rows = cardRowsOf(await $.ui.render(band('desktop')));
+    expect(rows).toHaveLength(4);
+    expect(textOf(rows[2]!)).toBe(' ');
+    expect(propsOf(rows[2]!).dimColor).toBe(true);
+    expect(propsOf(rows[2]!).size).toBe('footnote');
+  });
+
+  test('AC-6: a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await $.session.append({
+      message: {
+        type: 'assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: '<system-reminder>\nKeep going.\n</system-reminder>' }],
+      },
+      door: 'response',
+      origin: { kind: 'model' },
+      uuid: 'u1',
+      agentId: 'ag-1',
+    } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toContain('Subagent: Review the change');
+    expect(textOf(drawn)).not.toContain('system-reminder');
+    expect(textOf(drawn)).not.toContain('Keep going.');
   });
 
   test('counts the agents it saw finish on this change only', async ($, on) => {

@@ -122,20 +122,11 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
   );
 }
 
-function activityRow(ui: D, line: string, index: number) {
-  const { Text } = ui;
-  return (
-    <Text key={`paqad-activity-${index}`} size="footnote" dimColor wrap="truncate-end">
-      {`    ${line}`}
-    </Text>
-  );
-}
-
-function gapRow(ui: D, headline: DesktopHeadline) {
+function bodyRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
   const { Text } = ui;
   return (
     <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
-      {headline.gap ?? ' '}
+      {band.activity[0] ?? band.headline.gap ?? ' '}
     </Text>
   );
 }
@@ -188,8 +179,7 @@ function featureBand(
       {identityRow(ui, band.identity, actions)}
       {band.menu ? closeMenu(ui, actions) : null}
       {messageRow(ui, band.headline, tick)}
-      {band.activity.map((line, index) => activityRow(ui, line, index))}
-      {gapRow(ui, band.headline)}
+      {bodyRow(ui, band)}
       <Box key="paqad-strip">
         <Svg source={strip(band.strip).source} alt={band.alt} />
       </Box>

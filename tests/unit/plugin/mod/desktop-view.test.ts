@@ -778,7 +778,7 @@ describe('live subagents lead the band while they run', () => {
     finished: 3,
   };
 
-  it('titles the newest subagent, breathes the light and draws two lines, newest on top', () => {
+  it('titles the newest subagent, breathes the light and draws only the newest line', () => {
     const drawn = band({ live: { ...IDLE_LIVE, agents } });
     expect(drawn.kind).toBe('feature');
     if (drawn.kind !== 'feature') return;
@@ -788,7 +788,7 @@ describe('live subagents lead the band while they run', () => {
       signal: 'accent',
       note: '3 finished',
     });
-    expect(drawn.activity).toEqual(['Bash: pnpm test', 'Read: src/a.ts']);
+    expect(drawn.activity).toEqual(['Bash: pnpm test']);
     expect(bandIsLive(drawn)).toBe(true);
   });
 
@@ -824,11 +824,14 @@ describe('live subagents lead the band while they run', () => {
     expect(idle.kind === 'feature' && idle.activity).toEqual([]);
   });
 
-  it('counts the two body lines in the card rows', () => {
-    expect(band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 }).kind === 'feature').toBe(true);
-    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 7 });
+  it('keeps the card at 6 rows: the body line takes the gap slot, not a row of its own', () => {
+    expect(cardRows(false)).toBe(6);
+    const fit = band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 });
+    expect(fit.kind === 'feature' && fit.mode).toBe('card');
+    expect(fit.kind === 'feature' && fit.activity).toEqual(['Bash: pnpm test']);
+    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 5 });
     expect(tight.kind === 'feature' && tight.mode).toBe('minimised');
-    const roomy = band({ live: { ...IDLE_LIVE, agents }, maxRows: 8 });
-    expect(roomy.kind === 'feature' && roomy.mode).toBe('card');
+    const quiet = band({ maxRows: 6 });
+    expect(quiet.kind === 'feature' && quiet.mode).toBe('card');
   });
 });

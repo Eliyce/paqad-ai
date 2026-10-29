@@ -1,3 +1,4 @@
+import { ACTIVITY_LINES } from './agents';
 import { changeChip } from './band';
 import {
   CHANGE_SCOPE_SENTENCE,
@@ -511,7 +512,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const full = desktopHeadline(snapshot, input.now, live);
   const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
   const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
-  const fits = input.maxRows >= cardRows(input.menuOpen) + full.activity.length;
+  const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -521,7 +522,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     strip,
     alt: stripAltText(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
-    activity: full.activity,
+    activity: full.activity.slice(0, ACTIVITY_LINES),
   };
 }
 
