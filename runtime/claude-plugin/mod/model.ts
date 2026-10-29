@@ -800,7 +800,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           commits: num(ship.commits) ?? 0,
           commit_decision: str(ship.commit_decision),
           merge_commit: str(ship.merge_commit),
-          push: readStep(ship.push),
+          push: ship.push_current === false ? null : readStep(ship.push),
           pr: readPr(ship.pr),
           ci: readCi(ship.ci),
           push_branch: str(rec(ship.push)?.branch),

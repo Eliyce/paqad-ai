@@ -64,6 +64,7 @@ export interface DeliveryCheckResult {
   findings: DeliveryFinding[];
   pr?: DeliveryPrReading | null;
   ci?: DeliveryCiReading | null;
+  upstream?: string | null;
 }
 
 interface DeliveryOutcome {
@@ -236,6 +237,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     return NO_CHECK;
   }
   const commit = await readLine(run, 'git', ['-C', projectRoot, 'rev-parse', 'HEAD']);
+  const upstream = await readLine(run, 'git', ['-C', projectRoot, 'rev-parse', '@{upstream}']);
 
   const findings: DeliveryFinding[] = [];
   const base = policy.process.branch.base;
@@ -324,7 +326,24 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     findings.push(...attributionFindings(commitMessages, prBody));
   }
 
-  return { ran: true, branch, commit, ghAvailable, findings, pr: prReading, ci: ciReading };
+  return {
+    ran: true,
+    branch,
+    commit,
+    ghAvailable,
+    findings,
+    pr: prReading,
+    ci: ciReading,
+    upstream,
+  };
+}
+
+const FULL_SHA = /^[0-9a-f]{40}$/;
+
+function pushedHead(result: DeliveryCheckResult): string | null {
+  const head = result.commit;
+  if (!head || !FULL_SHA.test(head)) return null;
+  return result.upstream === head || result.pr?.head_sha === head ? head : null;
 }
 
 export function saveDeliveryReading(
@@ -337,8 +356,13 @@ export function saveDeliveryReading(
     const dirName = resolveDeliveryFeatureByBranch(projectRoot, result.branch);
     if (!dirName) return;
     const patch: ShipPatch = {};
+    const pushed = pushedHead(result);
+    if (pushed) patch.push = { state: 'pushed', branch: result.branch, sha: pushed };
     if (result.pr) patch.pr = result.pr;
-    if (result.ci) patch.ci = { sha: result.commit, ...result.ci, source: 'stop-check' };
+    if (result.ci) {
+      const sha = result.pr?.head_sha ?? result.commit;
+      patch.ci = { sha, ...result.ci, source: 'stop-check' };
+    }
     if (Object.keys(patch).length > 0) recordShip(projectRoot, dirName, patch, now().toISOString());
   } catch (error) {
     appendHooksLog(

@@ -51,9 +51,13 @@ function policy(
 function runner(handlers: {
   branch?: CommandRun;
   commit?: CommandRun;
+  upstream?: CommandRun;
   gh?: CommandRun;
 }): CommandRunner {
   return async (command, args) => {
+    if (command === 'git' && args.includes('@{upstream}')) {
+      return handlers.upstream ?? { stdout: '', exitCode: 128 };
+    }
     if (command === 'git' && args.includes('--abbrev-ref')) {
       return handlers.branch ?? { stdout: '', exitCode: 1 };
     }
@@ -640,5 +644,129 @@ describe('the Stop delivery check saves what ships', () => {
       ghFailureReason({ stdout: '', exitCode: 1, stderr: 'no pull requests found for branch' }),
     ).toBe('no pull request for this branch');
     expect(ghFailureReason({ stdout: '', exitCode: 1 })).toBe('gh could not read the pull request');
+  });
+});
+
+describe('the Stop delivery reader records the push it can see', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-push-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  const HEAD = 'a'.repeat(40);
+  const OLDER = 'b'.repeat(40);
+
+  function branchChange(): string {
+    const dir = openFeatureChange(root, 'ses_push', { adapter: 'claude-code', ulidSeed: 11 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    return dir;
+  }
+
+  function prJson(headRefOid: string): CommandRun {
+    return ok(
+      JSON.stringify({
+        number: 5,
+        url: 'https://example.test/pull/5',
+        state: 'OPEN',
+        headRefOid,
+        statusCheckRollup: [{ state: 'PENDING' }],
+      }),
+    );
+  }
+
+  it('AC-1: records the push when the branch upstream is HEAD', async () => {
+    const dir = branchChange();
+    const calls: string[][] = [];
+    const base = runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream: ok(HEAD), gh: fail });
+    await runDeliveryCapability(root, 'completion', async (command, args) => {
+      calls.push([command, ...args]);
+      return base(command, args);
+    });
+    expect(calls).toContainEqual(['git', '-C', root, 'rev-parse', '@{upstream}']);
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({
+      state: 'pushed',
+      branch: 'feat/x',
+      sha: HEAD,
+    });
+  });
+
+  it('AC-2: records the push when there is no upstream but the PR head is HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), gh: prJson(HEAD) }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: HEAD });
+  });
+
+  it.each([
+    ['the upstream read fails', fail, prJson(OLDER)],
+    ['the upstream is behind HEAD', ok(OLDER), prJson(OLDER)],
+    ['the upstream is ahead of HEAD', ok('c'.repeat(40)), fail],
+    ['rev-parse prints non-hex text', ok('not-a-sha'), fail],
+  ] as const)('AC-2: writes no push and throws nothing when %s', async (_name, upstream, gh) => {
+    const dir = branchChange();
+    await expect(
+      runDeliveryCapability(
+        root,
+        'completion',
+        runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream, gh }),
+      ),
+    ).resolves.toMatchObject({ blocking: false });
+    expect(readFeatureDelivery(root, dir).push ?? null).toBeNull();
+  });
+
+  it('AC-2: a HEAD that is not a 40-hex sha is never written as a push', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('HEAD-ish'), upstream: ok('HEAD-ish'), gh: fail }),
+    );
+    expect(readFeatureDelivery(root, dir).push ?? null).toBeNull();
+  });
+
+  it('AC-3: keeps an earlier push when a later reading cannot read the upstream', async () => {
+    const dir = branchChange();
+    recordShip(
+      root,
+      dir,
+      { push: { state: 'pushed', branch: 'feat/x', sha: OLDER } },
+      '2026-10-20T00:00:00.000Z',
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), upstream: fail, gh: fail }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: OLDER });
+  });
+
+  it('records the push when gh is missing but the upstream is HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({
+        branch: ok('feat/x'),
+        commit: ok(HEAD),
+        upstream: ok(HEAD),
+        gh: { stdout: '', exitCode: 1, missing: true },
+      }),
+    );
+    expect(readFeatureDelivery(root, dir).push).toMatchObject({ state: 'pushed', sha: HEAD });
+  });
+
+  it('stores the CI reading against the PR head, not the local HEAD', async () => {
+    const dir = branchChange();
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD), gh: prJson(OLDER) }),
+    );
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({ sha: OLDER, state: 'pending' });
   });
 });

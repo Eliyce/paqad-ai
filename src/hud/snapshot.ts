@@ -425,6 +425,7 @@ export interface HudShip {
   commit_decision: string | null;
   merge_commit: string | null;
   push: DeliveryPush | null;
+  push_current: boolean;
   pr: DeliveryPr | null;
   pr_state: DeliveryPrState | null;
   pr_title: string | null;
@@ -863,6 +864,13 @@ function readingIsCurrent(
   return true;
 }
 
+function pushIsCurrent(delivery: DeliveryRecord): boolean {
+  const push = delivery.push ?? null;
+  if (push === null) return false;
+  if (push.sha === null || delivery.head_sha === null) return true;
+  return push.sha === delivery.head_sha;
+}
+
 export function buildShip(delivery: DeliveryRecord, filesChanged: number | null = null): HudShip {
   const split = delivery.commit_split ?? null;
   const ownShas = split?.own_shas ? new Set(split.own_shas) : null;
@@ -888,6 +896,7 @@ export function buildShip(delivery: DeliveryRecord, filesChanged: number | null 
     commit_decision: delivery.commit_decision?.answer ?? null,
     merge_commit: delivery.merge_commit,
     push: delivery.push ?? null,
+    push_current: pushIsCurrent(delivery),
     pr,
     pr_state: prState,
     pr_title: pr?.title ?? null,

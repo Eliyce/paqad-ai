@@ -1,0 +1,48 @@
+{
+  "id": "D-01M63K6MEC2B47774XFZFKAZXP",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/delivery/delivery-check.ts saveDeliveryReading",
+  "context": "Chief architect: Both claims can hold at once and the build should honour both; it is ruled a pick only because a must-level security-auditor finding is part of it, so the owner confirms. Recommend the execFile args-array and 40-hex check; it lives inside saveDeliveryReading as the single writer of push for Stop and refresh, as the architect asked.\n\nTarget: src/delivery/delivery-check.ts saveDeliveryReading\n- security-auditor: the push check runs git rev-parse @{upstream} and HEAD through execFile with an args array; a branch name or upstream ref is never passed into a shell, and a non-40-hex output is treated as no reading rather than written to delivery.json\n- application-architect: the push reading (state pushed, sha) belongs in saveDeliveryReading beside pr and ci, computed from git rev-parse via execFile args, so Stop and the new refresh verb share one writer of delivery.json push\n\n[expert-conflict-fork:86fc3d17bfd7d8c9]",
+  "options": [
+    {
+      "option_key": "the-push-check-runs-git-rev-parse-upstre",
+      "label": "the push check runs git rev-parse @{upstream} and HEAD through execFile with an args array; a branch name or upstream ref is never passed into a shell, and a non-40-hex output is treated as no reading rather than written to delivery.json — security-auditor",
+      "one_line_preview": "the push check runs git rev-parse @{upstream} and HEAD through execFile with an args array; a branch name or upstream ref is never passed into a shell, and a non-40-hex output is treated as no reading rather than written to delivery.json — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-push-reading-state-pushed-sha-belong",
+      "label": "the push reading (state pushed, sha) belongs in saveDeliveryReading beside pr and ci, computed from git rev-parse via execFile args, so Stop and the new refresh verb share one writer of delivery.json push — application-architect",
+      "one_line_preview": "the push reading (state pushed, sha) belongs in saveDeliveryReading beside pr and ci, computed from git rev-parse via execFile args, so Stop and the new refresh verb share one writer of delivery.json push — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-push-check-runs-git-rev-parse-upstre",
+  "created_at": "2026-10-29T10:27:29.868Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "the-push-check-runs-git-rev-parse-upstre",
+  "rationale": "Owner accepted all four security recommendations in one confirmation.",
+  "resolved_at": "2026-10-29T10:35:15.453Z",
+  "decision_id": "D-01M63K6MEC2B47774XFZFKAZXP",
+  "fingerprint": "sha256:11b8ef908a428fe04f2a844d45f9b77663b2b8e73567407084283e11fff92302",
+  "question": "Experts disagree on src/delivery/delivery-check.ts saveDeliveryReading",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T10:27:29.868Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-push-check-runs-git-rev-parse-upstre",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T10:35:15.453Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted all four security recommendations in one confirmation."
+  }
+}

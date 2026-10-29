@@ -158,6 +158,20 @@ describe('parseSnapshot', () => {
     expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
   });
 
+  it('AC-3: reads a push that is not on the change head as not pushed', () => {
+    const read = (pushCurrent: unknown) =>
+      parseSnapshot(
+        JSON.stringify({
+          schema: 'paqad.hud/3',
+          scope: { qualified: true },
+          ship: { commits: 2, push: { state: 'pushed' }, push_current: pushCurrent },
+        }),
+      )!.ship!.push;
+    expect(read(false)).toBeNull();
+    expect(read(true)).toBe('pushed');
+    expect(read(undefined)).toBe('pushed');
+  });
+
   it('tolerates odd fields without guessing', () => {
     const odd = parseSnapshot(
       JSON.stringify({

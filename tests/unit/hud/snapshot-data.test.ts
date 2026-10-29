@@ -255,6 +255,16 @@ describe('AC-27: the pull request title and size', () => {
     expect(buildShip(delivery(null))).toMatchObject({ pr_title: null, pr_files: null });
   });
 
+  it('AC-3: marks a push current only while it names the change head', () => {
+    const pushed = (sha: string): DeliveryRecord => ({
+      ...delivery(null),
+      push: { state: 'pushed', branch: 'feat/x', sha, at: '2026-10-18T08:00Z' },
+    });
+    expect(buildShip(pushed('a1c9e2f000')).push_current).toBe(true);
+    expect(buildShip(pushed('0ld0000000')).push_current).toBe(false);
+    expect(buildShip(delivery(null)).push_current).toBe(false);
+  });
+
   it('reaches the snapshot from delivery.json', () => {
     const root = onboardedRoot();
     const S = 'ses-pr-size';
