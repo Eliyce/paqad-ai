@@ -61,8 +61,9 @@ The reasons below are not obvious from the code in `src/adapters/`.
 - **Fail closed on Claude.** The three pre-mutation edit gates carry `onFailure: "block"` and a 10
   second timeout, so a gate that cannot start, times out, exits oddly or prints invalid output blocks
   the edit. This is rendered for Claude Code only (2.1.295 and later); Codex output is unchanged.
-- **SubagentStop.** It always renders because stage isolation has no knob, and it costs nothing
-  unless a `paqad-<stage>` agent runs. The matcher accepts `paqad-<stage>` (npm) and
+- **SubagentStop.** It always renders, whatever `stage_isolation_lanes` says, because the full
+  lane always isolates and the knob can change while a change is open. It costs nothing unless a
+  `paqad-<stage>` agent runs. The matcher accepts `paqad-<stage>` (npm) and
   `paqad:paqad-<stage>` (plugin) and never a user's own or built-in subagents. It never blocks,
   since blocking on SubagentStop is undocumented.
 - **SubagentStart (Claude Code only).** Codex has no such event, so a host with no native name for

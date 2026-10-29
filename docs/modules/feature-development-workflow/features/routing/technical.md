@@ -60,7 +60,22 @@ Each marker must open its own line. A human prompt that quotes one of them inlin
 
 ## Lanes
 
-`paqad-ai lane set <fast|graduated|full>` writes the lane on the active change's `feature.json` through the monotonic ratchet: it can raise the lane, and a downgrade is refused and reported. The end-of-change checks read that recorded lane.
+`paqad-ai lane set <fast|graduated|full>` writes the lane on the active change's `feature.json` through the monotonic ratchet: it can raise the lane, and a downgrade is refused and reported. A request at or above the current lane records `lane_source: manual`. The end-of-change checks read that recorded lane.
+
+`updateFeatureRecord` is the only lane writer. Every ordinary lane patch goes through `higherLane`. The lane source is recorded on `feature.json` as `lane_source`: `classifier` for the routing guess, `manual` for `lane set`, `plan` after a plan-time resize. A record with no `lane_source` counts as manual.
+
+- **The one lowering.** `writeFeaturePlan` calls `planLaneResize` (`src/feature-evidence/lane-resize.ts`), which passes the `resizeLaneFromPlan` patch. That branch lowers `full` to `graduated` only when `lane_source` is `classifier`, no `lane_resized` exists, and the change ledger has no `stage_start` for specification, development, checks or documentation_sync. The caller adds the plan facts: the distinct `steps[].files` number 8 or fewer, none is high-sensitivity under `resolveEffectiveLane`, the routing impact saved as `.pending-impact` is present and is not a schema change, data migration or breaking API change, and git shows no changed file outside `.paqad/` since the change's start point. It writes `lane: graduated`, `lane_source: plan` and a once-only `lane_resized { from, to, reason, files, at }`, and `plan compile` prints `**▸ paqad** · lane set to graduated from full: <reason>`. A refused resize never blocks the compile.
+- **A classifier patch does not undo it.** A lane with `lane_source: plan` ignores classifier-sourced patches, such as the pending lane `stage start` re-reads. A manual `lane set full` still raises it and pins `manual`.
+- **The forward-only raise.** On every `stage start` (before its row is written) and every later `plan compile`, `raiseLaneIfGrown` raises a plan-lowered lane back to `full` once when the change edits more than 8 files outside `.paqad/`, or an edited or planned path is high-sensitivity. It records `lane_raised`, keeps `lane_source: plan`, and prints `**▸ paqad** · lane raised to full from graduated: <reason>`. Stage isolation then applies only to stages that start at or after `lane_raised.at`.
+
+## Configuration
+
+| Key | Env | Default | Effect |
+| --- | --- | --- | --- |
+| `stage_isolation_lanes` | `PAQAD_STAGE_ISOLATION_LANES` | `full` | Lanes on which each stage runs in its own stage helper on a subagent-capable host. Other lanes run every stage inline. |
+| `spec_pipeline_experts_lanes` | `PAQAD_SPEC_PIPELINE_EXPERTS_LANES` | `full` | Lanes on which the standing experts sit at every spec. Other lanes seat only the detector's picks, plus security-auditor for a sensitive planned path. |
+
+Both are comma lists parsed by `resolveLaneList`: unknown names are dropped, an empty or unreadable value gives the default, and `full` is always included. The value in force when a check runs applies. Set both to `graduated,full` to restore the old behaviour.
 
 ## Why the `src/pipeline/` code works the way it does
 
