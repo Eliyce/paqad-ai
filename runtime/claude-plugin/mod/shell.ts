@@ -70,6 +70,7 @@ export interface ShellHeader {
   headline: string;
   note?: string | null;
   gap?: string | null;
+  activity?: readonly string[];
   verdict: { word: string; tone: PaqadTone } | null;
   flags: number;
   lane: string | null;
@@ -86,6 +87,7 @@ export type BandLayout =
       direction: 'row' | 'column';
       blocks: BandBlock[];
       footer: BandSplitRow | null;
+      activity: BandRow[];
     };
 
 export const ROW_LAYOUT_COLUMNS = 110;
@@ -206,7 +208,10 @@ export function layoutShell(
   size: ShellSize,
   minimisedLine: BandRow,
 ): BandLayout {
-  const maxRows = Math.max(1, Math.floor(size.maxRows));
+  const activity: BandRow[] = (header.activity ?? []).map((line) => [
+    { text: `  ${line}`, dim: true },
+  ]);
+  const maxRows = Math.max(1, Math.floor(size.maxRows)) - activity.length;
   if (body === null) {
     if (maxRows < CARD_BORDER_ROWS + 1) return { kind: 'line', row: minimisedLine };
     return {
@@ -216,6 +221,7 @@ export function layoutShell(
       direction: 'column',
       blocks: [],
       footer: null,
+      activity,
     };
   }
   const direction = size.columns >= ROW_LAYOUT_COLUMNS ? 'row' : 'column';
@@ -231,5 +237,6 @@ export function layoutShell(
     direction,
     blocks: body.blocks,
     footer,
+    activity,
   };
 }

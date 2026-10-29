@@ -442,6 +442,7 @@ export type DesktopBand =
       strip: StripInput;
       alt: string;
       minimised: MinimisedView;
+      activity: string[];
     };
 
 export interface DesktopBandInput {
@@ -510,7 +511,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const full = desktopHeadline(snapshot, input.now, live);
   const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
   const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
-  const fits = input.maxRows >= cardRows(input.menuOpen);
+  const fits = input.maxRows >= cardRows(input.menuOpen) + full.activity.length;
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -520,6 +521,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     strip,
     alt: stripAltText(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
+    activity: full.activity,
   };
 }
 

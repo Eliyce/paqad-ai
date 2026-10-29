@@ -182,6 +182,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       note: null,
       gap: null,
       clock: null,
+      activity: [],
     });
     expect(waiting('permission')).toMatchObject({
       row: 4,
@@ -210,6 +211,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       note: null,
       gap: null,
       clock: null,
+      activity: [],
     });
     const tones: Array<[string, string]> = [
       ['needs-you', 'attention'],
@@ -768,5 +770,53 @@ describe('the headline stays on one line', () => {
     expect(drawn.alt.startsWith(`${LONG}.`)).toBe(true);
     const short = band({ columns: 57 });
     expect(short.kind === 'feature' && short.headline.text.endsWith('…')).toBe(false);
+  });
+});
+
+describe('live subagents lead the band while they run', () => {
+  const agents = {
+    running: [
+      { id: 'a1', description: 'Plan the change', status: 'running' },
+      { id: 'a2', description: 'Review the change', status: 'running' },
+    ],
+    lines: ['Bash: pnpm test', 'Read: src/a.ts'],
+    finished: 3,
+  };
+
+  it('titles the newest subagent, breathes the light and draws two lines, newest on top', () => {
+    const drawn = band({ live: { ...IDLE_LIVE, agents } });
+    expect(drawn.kind).toBe('feature');
+    if (drawn.kind !== 'feature') return;
+    expect(drawn.headline).toMatchObject({
+      text: 'Subagent: Review the change',
+      live: true,
+      signal: 'accent',
+      note: '3 finished',
+    });
+    expect(drawn.activity).toEqual(['Bash: pnpm test', 'Read: src/a.ts']);
+    expect(bandIsLive(drawn)).toBe(true);
+  });
+
+  it('Waiting for your answer wins over the subagent title', () => {
+    const drawn = band({ live: { ...IDLE_LIVE, agents, waitingOn: 'question' } });
+    expect(drawn.kind === 'feature' && drawn.headline.text).toBe('Waiting for your answer');
+    expect(drawn.kind === 'feature' && drawn.activity).toEqual([]);
+  });
+
+  it('falls back to the normal headline with nothing running', () => {
+    const idle = band({ live: { ...IDLE_LIVE, agents: { ...agents, running: [] } } });
+    const plain = band();
+    expect(idle.kind === 'feature' && idle.headline.text).toBe(
+      plain.kind === 'feature' && plain.headline.text,
+    );
+    expect(idle.kind === 'feature' && idle.activity).toEqual([]);
+  });
+
+  it('counts the two body lines in the card rows', () => {
+    expect(band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 }).kind === 'feature').toBe(true);
+    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 7 });
+    expect(tight.kind === 'feature' && tight.mode).toBe('minimised');
+    const roomy = band({ live: { ...IDLE_LIVE, agents }, maxRows: 8 });
+    expect(roomy.kind === 'feature' && roomy.mode).toBe('card');
   });
 });

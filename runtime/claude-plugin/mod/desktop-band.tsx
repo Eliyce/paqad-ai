@@ -122,6 +122,15 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
   );
 }
 
+function activityRow(ui: D, line: string, index: number) {
+  const { Text } = ui;
+  return (
+    <Text key={`paqad-activity-${index}`} size="footnote" dimColor wrap="truncate-end">
+      {`    ${line}`}
+    </Text>
+  );
+}
+
 function gapRow(ui: D, headline: DesktopHeadline) {
   const { Text } = ui;
   return (
@@ -179,6 +188,7 @@ function featureBand(
       {identityRow(ui, band.identity, actions)}
       {band.menu ? closeMenu(ui, actions) : null}
       {messageRow(ui, band.headline, tick)}
+      {band.activity.map((line, index) => activityRow(ui, line, index))}
       {gapRow(ui, band.headline)}
       <Box key="paqad-strip">
         <Svg source={strip(band.strip).source} alt={band.alt} />

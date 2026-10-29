@@ -3806,3 +3806,88 @@ describe('the CI watch names why it stopped in a fixed phrase', () => {
     expect((await $.command.run(command('status'))).text).toContain('CI updates paused: offline');
   });
 });
+
+const DONE_SNAPSHOT = snapshot({
+  ...FULL_ORD_501,
+  headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
+});
+
+describe('live subagents in the band', () => {
+  test('titles the running subagent, shows its two newest lines and comes back to Done when it ends', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    for (const command of ['pnpm lint', 'pnpm test']) {
+      await $.tool.call({ tool: 'Bash', command, agentId: 'ag-1' } as never);
+    }
+    await $.session.append({
+      message: {
+        type: 'assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Reading the strip.' }],
+      },
+      door: 'response',
+      origin: { kind: 'model' },
+      uuid: 'u1',
+      agentId: 'ag-1',
+    } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const drawn = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
+    expect(drawn.join('\n')).toContain('Subagent: Review the change');
+    expect(drawn.join('\n')).toContain('Reading the strip.');
+    expect(drawn.join('\n')).toContain('Bash: pnpm test');
+    expect(drawn.join('\n')).not.toContain('Bash: pnpm lint');
+    world.agents.length = 0;
+    await clock.advance(1_500);
+    await clock.settle();
+    const after = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
+    expect(after).not.toContain('Subagent:');
+    expect(after).toContain('Done');
+  });
+
+  test('counts the agents it saw finish on this change only', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const start = (id: string) =>
+      world.agents.push({
+        id,
+        description: `task ${id}`,
+        type: 'general-purpose',
+        status: 'running',
+      } as never);
+    start('a');
+    start('b');
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    world.agents.splice(0, 1);
+    await clock.advance(1_500);
+    await clock.settle();
+    expect(linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n')).toContain(
+      'Subagent: task b  1 finished',
+    );
+    world.put(
+      SNAPSHOT,
+      fileText({
+        ...DONE_SNAPSHOT,
+        change: { ...(DONE_SNAPSHOT.change as object), dir: 'other-dir' },
+      }),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    start('c');
+    await clock.advance(1_500);
+    await clock.settle();
+    const other = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
+    expect(other).toContain('Subagent: task c');
+    expect(other).not.toContain('finished');
+  });
+});

@@ -1,5 +1,6 @@
 import { atom, read, update } from 'claude-code';
 import type {
+  AgentInfo,
   Elements,
   EngineInterface,
   Register,
@@ -17,6 +18,14 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
+import {
+  activityLine,
+  finishedSince,
+  pushActivity,
+  runningAgents,
+  toolLine,
+  type ListedAgent,
+} from './agents';
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeBase64 } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
@@ -195,6 +204,10 @@ const tableSittingAtom = atom(
   null as TableSitting | null,
 );
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
+const agentsFinishedAtom = atom(
+  { plugin: 'paqad', key: 'agentsFinished' } as const,
+  {} as Record<string, string[]>,
+);
 const settleSeenAtom = atom(
   { plugin: 'paqad', key: 'settleSeen' } as const,
   {} as Record<string, number | null>,
@@ -261,6 +274,7 @@ interface CiWatch {
   endings: number;
 }
 
+let agentsWorking: string[] = [];
 let ciWatch: CiWatch | null = null;
 let ciPause: { reason: string; head: string } | null = null;
 
@@ -503,13 +517,57 @@ async function beat($: EngineInterface): Promise<void> {
   } catch {}
 }
 
+function listedAgents(list: readonly AgentInfo[]): ListedAgent[] {
+  return list.map((agent) => ({
+    id: agent.id,
+    description: agent.description,
+    status: agent.status,
+  }));
+}
+
+async function syncAgents($: EngineInterface, list: readonly AgentInfo[]): Promise<boolean> {
+  const listed = listedAgents(list);
+  const working = runningAgents(listed);
+  const left = finishedSince(agentsWorking, listed);
+  agentsWorking = working.map((agent) => agent.id);
+  const change = (await read($, snapshotAtom))?.change?.dir ?? null;
+  const store = (await read($, agentsFinishedAtom)) ?? {};
+  const finished = change ? [...new Set([...(store[change] ?? []), ...left])] : [];
+  if (change && left.length > 0) {
+    await update($, agentsFinishedAtom, (keys) => ({ ...(keys ?? {}), [change]: finished }));
+  }
+  await moveLive($, (state) => ({
+    ...state,
+    agents: {
+      running: working,
+      lines: working.length > 0 ? (state.agents?.lines ?? []) : [],
+      finished: finished.length,
+    },
+  }));
+  return working.length > 0;
+}
+
+async function noteActivity($: EngineInterface, line: string | null): Promise<void> {
+  if (line === null) return;
+  await moveLive($, (state) => ({
+    ...state,
+    agents: {
+      running: state.agents?.running ?? [],
+      finished: state.agents?.finished ?? 0,
+      lines: pushActivity(state.agents?.lines ?? [], line),
+    },
+  }));
+}
+
 function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
     void (async () => {
       let running = agentCalls > 0 || (await liveState($)).turnStartedAt !== null;
       try {
-        running ||= (await $.agent.list()).some(isStageAgent);
+        const list = await $.agent.list();
+        running ||= list.some(isStageAgent);
+        running = (await syncAgents($, list)) || running;
       } catch {}
       if (!running) {
         ticker?.cancel();
@@ -1089,6 +1147,7 @@ function drawBand($: EngineInterface, event: { surface: string }, layout: BandLa
       paddingX={1}
     >
       {drawSplit($, ui, layout.header)}
+      {layout.activity.map((row) => drawRow($, ui, row))}
       {layout.blocks.length > 0 ? (
         <Box flexDirection={layout.direction}>
           {layout.blocks.map((block) => drawBlock($, ui, block, desktop))}
@@ -1186,6 +1245,7 @@ export const register: Register = (on) => {
     foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
+    agentsWorking = [];
     stopCiWatch();
     ciPause = null;
     heartbeat?.cancel();
@@ -1254,6 +1314,10 @@ export const register: Register = (on) => {
       agentCalls += 1;
       startTicker($);
     }
+    if (typeof agentId === 'string' && agentId !== '') {
+      await noteActivity($, toolLine(tool, e));
+      startTicker($);
+    }
     const foregroundCall = foregroundAgent ? foregroundAgents.callStarted() : null;
     const call = liveToolCall(e as never);
     await moveLive($, (state) => toolStarted(state, call));
@@ -1306,6 +1370,15 @@ export const register: Register = (on) => {
       );
     }
     return verdict;
+  }).catch(($, e, next) => next(e));
+
+  on('session.append', async ($, e, next) => {
+    const result = await next(e);
+    if (live && typeof e.agentId === 'string' && e.agentId !== '') {
+      await noteActivity($, activityLine(e.message));
+      startTicker($);
+    }
+    return result;
   }).catch(($, e, next) => next(e));
 
   on('turn.complete', async ($, e, next) => {

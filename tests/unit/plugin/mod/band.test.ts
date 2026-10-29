@@ -14,6 +14,7 @@ import {
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import { STAGE_MARK } from '../../../../runtime/claude-plugin/mod/instruments.ts';
 import { buildDesktopBand } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   BAND_BODIES,
@@ -385,5 +386,30 @@ describe('the terminal headline stays on one line', () => {
       const noteless = layout.header.left.filter((segment) => !segment.dim || segment === headline);
       expect(width(noteless) + width(layout.header.right)).toBeLessThanOrEqual(columns - 4);
     }
+  });
+});
+
+describe('live subagents on the terminal', () => {
+  it('titles the newest subagent and draws its two lines under the header', () => {
+    const layout = layoutBand(
+      parseSnapshot(fileText(FULL_ORD_501)),
+      { columns: 120, maxRows: 12 },
+      {
+        now: NOW,
+        surface: 'terminal',
+        live: {
+          ...IDLE_LIVE,
+          agents: {
+            running: [{ id: 'a', description: 'Run the checks', status: 'running' }],
+            lines: ['Bash: pnpm test', 'Grep: ciWatch'],
+            finished: 2,
+          },
+        },
+      },
+    );
+    expect(layout.kind).toBe('card');
+    if (layout.kind !== 'card') return;
+    expect(rowText(layout.header.left)).toContain('Subagent: Run the checks  2 finished');
+    expect(layout.activity.map(rowText)).toEqual(['  Bash: pnpm test', '  Grep: ciWatch']);
   });
 });

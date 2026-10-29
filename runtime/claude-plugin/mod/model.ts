@@ -1,6 +1,6 @@
 import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
 import { costPill, formatClock } from './cost';
-import { NO_RECORD, judgedHeadline, snapshotHeadline } from './headline';
+import { NO_RECORD, SUBAGENT_ROW, judgedHeadline, snapshotHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
@@ -1026,6 +1026,7 @@ export interface BandView {
   headline: string;
   note: string | null;
   gap: string | null;
+  activity: string[];
   flags: number;
   stages: StageSegment[];
   clock: string | null;
@@ -1054,13 +1055,14 @@ export function buildBandView(
   const flags = snapshot?.flags.length ?? 0;
   const stages = stageSegments(snapshot);
   const head = snapshot ? snapshotHeadline(snapshot, now, live) : null;
-  const judged = judgedHeadline(snapshot) || live.waitingOn !== null;
+  const judged = judgedHeadline(snapshot) || live.waitingOn !== null || head?.row === SUBAGENT_ROW;
   return {
     state,
     tone: judged && head ? head.tone : bandTone(state, flags),
     headline: head ? head.text : NO_RECORD,
     note: head?.note ?? null,
     gap: head?.gap ?? null,
+    activity: head?.activity ?? [],
     flags,
     stages,
     clock: liveClock(stages, now),

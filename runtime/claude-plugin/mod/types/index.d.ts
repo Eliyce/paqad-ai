@@ -5,6 +5,13 @@ export type LiveState = {
   waitingOn: 'question' | 'permission' | null;
   waitingToolUseId: string | null;
   waitingAgent: string | null;
+  agents?: PaqadAgentsLive;
+};
+
+export type PaqadAgentsLive = {
+  running: Array<{ id: string; description: string; status: string }>;
+  lines: string[];
+  finished: number;
 };
 
 export type PaqadTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';

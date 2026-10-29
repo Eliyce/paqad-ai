@@ -1,9 +1,11 @@
+import { subagentTitle } from './agents';
 import { formatStopwatch } from './cost';
 import { IDLE_LIVE, type LiveState } from './live';
 import type { Signal } from './palette';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export const WAITING_FOR_ANSWER = 'Waiting for your answer';
+export const SUBAGENT_ROW = 7;
 export const NO_RECORD = 'Not yet. paqad has no record for this session.';
 
 export interface DesktopHeadline {
@@ -16,6 +18,7 @@ export interface DesktopHeadline {
   note: string | null;
   gap: string | null;
   clock: string | null;
+  activity: string[];
 }
 
 const TONE_SIGNAL: Readonly<Record<PaqadTone, Signal>> = {
@@ -38,6 +41,7 @@ function waitingRow(row: number, text: string): DesktopHeadline {
     note: null,
     gap: null,
     clock: null,
+    activity: [],
   };
 }
 
@@ -49,6 +53,22 @@ export function snapshotHeadline(
   if (live.waitingOn === 'question') return waitingRow(3, WAITING_FOR_ANSWER);
   if (live.waitingOn === 'permission') return waitingRow(4, WAITING_FOR_ANSWER);
   const head = snapshot.headline;
+  const title = subagentTitle(live.agents?.running ?? []);
+  if (title !== null && live.agents) {
+    const finished = live.agents.finished;
+    return {
+      row: SUBAGENT_ROW,
+      signal: 'accent',
+      tone: 'working',
+      live: true,
+      text: title,
+      word: 'Working',
+      note: finished > 0 ? `${finished} finished` : null,
+      gap: head.gap ?? null,
+      clock: null,
+      activity: [...live.agents.lines],
+    };
+  }
   const running = head.tone === 'working';
   const from = head.clock_from ? Date.parse(head.clock_from) : Number.NaN;
   return {
@@ -61,6 +81,7 @@ export function snapshotHeadline(
     note: head.note ?? null,
     gap: head.gap ?? null,
     clock: running && Number.isFinite(from) ? formatStopwatch(now - from) : null,
+    activity: [],
   };
 }
 
