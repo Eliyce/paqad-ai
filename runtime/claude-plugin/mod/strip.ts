@@ -456,7 +456,13 @@ function stripBody(
   if (input.seats) {
     const table = sections[1]!;
     body.table = section(table, 'HIGH TABLE', input.tableValue, cut);
-    body.table += tableMarks(table.x0, table.x1, input.seats, input.chief, input.hiddenSeats ?? 0);
+    body.table += tableMarks(
+      table.x0,
+      table.inner,
+      input.seats,
+      input.chief,
+      input.hiddenSeats ?? 0,
+    );
   }
   body.delivery = section(delivery, 'DELIVERY', input.deliveryValue, cut);
   body.delivery += deliveryMarks(
@@ -472,17 +478,11 @@ function trim(n: number): number {
   return Number(n.toFixed(2));
 }
 
-export function strip(input: StripInput): {
-  source: string;
-  width: number;
-  height: number;
-  sections: StripSection[];
-} {
-  const width = stripWidth(input.columns);
-  const ids: StripSectionId[] = input.seats
-    ? ['stage', 'table', 'delivery']
-    : ['stage', 'delivery'];
-  const percents = input.seats ? [40, 26, 34] : [56, 44];
+function layout(
+  width: number,
+  table: boolean,
+): { percents: number[]; edges: number[]; sections: Section[] } {
+  const percents = table ? [40, 26, 34] : [56, 44];
   const edges = [0];
   percents.forEach((percent, i) => edges.push(edges[i]! + (percent / 100) * width));
   const sections: Section[] = percents.map((_, i) => {
@@ -495,6 +495,30 @@ export function strip(input: StripInput): {
       last,
     };
   });
+  return { percents, edges, sections };
+}
+
+export function seatsThatFit(columns: number, seats: number, cap: number): number {
+  const table = layout(stripWidth(columns), true).sections[1]!;
+  const room = table.inner - table.x0 - CHIEF_REACH;
+  for (let shown = Math.min(cap, seats); shown > 1; shown -= 1) {
+    const slots = shown + (seats > shown ? 1 : 0);
+    if ((slots - 0.5) * SEAT_SPACING <= room) return shown;
+  }
+  return Math.min(1, seats);
+}
+
+export function strip(input: StripInput): {
+  source: string;
+  width: number;
+  height: number;
+  sections: StripSection[];
+} {
+  const width = stripWidth(input.columns);
+  const ids: StripSectionId[] = input.seats
+    ? ['stage', 'table', 'delivery']
+    : ['stage', 'delivery'];
+  const { percents, edges, sections } = layout(width, input.seats !== null);
   const settle = settlePhase(input.clockMs, input.settledAtMs);
   const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
   const style = css(input.clockMs);

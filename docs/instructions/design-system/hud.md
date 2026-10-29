@@ -109,11 +109,14 @@ Four rows in `Box flexDirection="column" rowGap="xs"`, 6 rows high in every stat
     Deliver; fast: Plan, Build, Checks). An older engine with no `lane_stages` gets the same lists
     from the lane. Bars are 3 px tall, `rx 1.5`, 4 px
     gaps, a 9 px label under each.
-  - HIGH TABLE (only when the table sat): at most 3 seats, ordered writing, late, newest done,
-    seated (ties keep roster order), r 4, spaced at most 22 px (22 px at 57 columns), initials
-    under each (`SA IA DO PO AA UF QA`, or the first letters of other roles), then a quiet `+N`
-    (9 px, weight 500, `muted`) one step on for the seats left out, a 12 px hairline, then the
-    chief r 5 labelled `CA`. The Ledger's High Table tab lists every seat.
+  - HIGH TABLE (only when the table sat): at most 3 seats, fewer when they do not fit, ordered
+    writing, late, newest done, seated (ties keep roster order), r 4, 22 px apart, initials under
+    each (`SA IA DO PO AA UF QA`, or the first letters of other roles), then a quiet `+N` (9 px,
+    weight 500, `muted`) one step on for every seat not shown, a 12 px hairline, then the chief
+    r 5 labelled `CA`, which ends inside the section, 18 px clear of the divider. Three seats with
+    `+N` fit from 66 columns; below that the band shows two seats and `+N`. Three or fewer seats
+    that all fit draw no `+N`. The alt says how many are shown, and the Ledger's High Table tab
+    lists every seat.
   - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
     delivery plan (Edit, Commit, Push, PR, CI as they apply; merging is the owner's, so there is
     no Merge node), spacing capped at 96 px, inset

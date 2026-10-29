@@ -20,6 +20,7 @@ import {
   meter,
   miniStages,
   nodeIcon,
+  seatsThatFit,
   strip,
   stripAlt,
   stripWidth,
@@ -200,38 +201,70 @@ describe('the High Table shows three seats and the chief', () => {
   const hairAt = (source: string) =>
     numbers(source, /<line class="hair" x1="([\d.]+)" y1="19"/g)[0]!;
 
-  it('AC-12: draws +N after the third seat, then the hairline and CA; three seats draw no +N', () => {
-    const source = draw({ columns: 57, seats: three, hiddenSeats: 8, chief: 'ruling' });
+  const two = three.slice(0, 2);
+  const inner = (columns: number) => {
+    const width = stripWidth(columns);
+    return width * 0.66 - 18;
+  };
+
+  it('AC-12: draws +N after the last shown seat, then the hairline and CA; seats that all fit draw no +N', () => {
+    const source = draw({ columns: 93, seats: three, hiddenSeats: 8, chief: 'ruling' });
     expect(source).toMatch(
       /<text class="lbl mut" x="[\d.]+" y="28" text-anchor="middle" style="font-weight:500">\+8<\/text>/,
     );
     expect(source).toContain('>CA</text>');
     expect(source.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(3);
+    const narrow = draw({ columns: 57, seats: two, hiddenSeats: 9, chief: 'ruling' });
+    expect(narrow).toContain('>+9</text>');
+    expect(narrow.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(2);
     expect(draw({ columns: 57, seats: three, hiddenSeats: 0 })).not.toMatch(/>\+\d+<\/text>/);
     expect(draw({ columns: 57, seats: three })).not.toMatch(/>\+\d+<\/text>/);
     expect(draw({ seats: three, hiddenSeats: 1 })).toContain('>+1</text>');
   });
 
-  it('AC-14: at 57 columns no two marks sit closer than 22 px, and +N sits one step on, before the hairline', () => {
-    const source = draw({ columns: 57, seats: three, hiddenSeats: 8, chief: 'ruling' });
-    const centres = marksOf(source);
-    expect(centres).toHaveLength(4);
-    const plus = textX(source, '\\+8')!;
-    const all = [...centres.slice(0, 3), plus, centres[3]!];
-    for (let i = 1; i < all.length; i += 1) {
-      expect(all[i]! - all[i - 1]!).toBeGreaterThanOrEqual(22);
-    }
-    expect(plus - centres[2]!).toBeCloseTo(centres[1]! - centres[0]!, 1);
-    const hair = hairAt(source);
-    expect(hair).toBeGreaterThan(plus + 6);
-    expect(centres[3]! - 5).toBeGreaterThan(hair);
-    const edge = 485 * 0.4 + 485 * 0.26;
-    expect(textX(source, 'CA')! + 6).toBeLessThanOrEqual(edge);
+  it('shows three seats when the run fits the section, else two, switching at 66 columns', () => {
+    expect(seatsThatFit(57, 11, 3)).toBe(2);
+    expect(seatsThatFit(65, 11, 3)).toBe(2);
+    expect(seatsThatFit(66, 11, 3)).toBe(3);
+    expect(seatsThatFit(93, 11, 3)).toBe(3);
+    expect(seatsThatFit(57, 4, 3)).toBe(2);
+    expect(seatsThatFit(57, 3, 3)).toBe(3);
+    expect(seatsThatFit(57, 2, 3)).toBe(2);
+    expect(seatsThatFit(57, 1, 3)).toBe(1);
+    expect(seatsThatFit(57, 0, 3)).toBe(0);
   });
+
+  for (const [columns, shown, hidden] of [
+    [57, two, 9],
+    [65, two, 9],
+    [66, three, 8],
+    [93, three, 8],
+    [57, three, 0],
+  ] as Array<[number, typeof three, number]>) {
+    it(`AC-14: at ${columns} columns with ${shown.length} seats, marks sit 22 px apart, +N one step on, and the chief 18 px clear of the divider`, () => {
+      const source = draw({ columns, seats: shown, hiddenSeats: hidden, chief: 'ruling' });
+      const centres = marksOf(source);
+      expect(centres).toHaveLength(shown.length + 1);
+      const seatsAt = centres.slice(0, shown.length);
+      const chief = centres.at(-1)!;
+      const plus = hidden > 0 ? textX(source, `\\+${hidden}`) : null;
+      const all = [...seatsAt, ...(plus === null ? [] : [plus]), chief];
+      for (let i = 1; i < all.length; i += 1) {
+        expect(all[i]! - all[i - 1]!).toBeGreaterThanOrEqual(22 - 0.05);
+      }
+      if (plus !== null) expect(plus - seatsAt.at(-1)!).toBeCloseTo(22, 1);
+      const hair = hairAt(source);
+      expect(hair).toBeGreaterThan((plus ?? seatsAt.at(-1)!) + 6);
+      expect(chief - 5).toBeGreaterThan(hair);
+      const divider = stripWidth(columns) * 0.66;
+      expect(chief + 6).toBeLessThanOrEqual(inner(columns) + 0.05);
+      expect(divider - (chief + 6)).toBeGreaterThanOrEqual(18 - 0.05);
+    });
+  }
 
   it('AC-15: cuts the strip into whole-percent sections that tile the width and keep every x', () => {
     for (const over of [
-      { columns: 57, seats: three, hiddenSeats: 8 },
+      { columns: 57, seats: three.slice(0, 2), hiddenSeats: 9 },
       { columns: 93 },
       { columns: 93, seats: null },
     ] as Array<Partial<StripInput>>) {

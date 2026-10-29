@@ -591,6 +591,26 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const eleven = Array.from({ length: 11 }, (_, i) => seat(`role-${i}`, 'done', i));
     expect(table(eleven)).toMatchObject({ hidden: 8 });
     expect(table(eleven).seats).toHaveLength(3);
+    const narrow = tableStrip(open({ table: { ...ord501Table('ruled'), seats: eleven } }), 57);
+    expect(narrow.seats?.map((mark) => mark.label)).toEqual(
+      table(eleven)
+        .seats?.slice(0, 2)
+        .map((mark) => mark.label),
+    );
+    expect(narrow.hidden).toBe(9);
+    expect(
+      tableStrip(open({ table: { ...ord501Table('ruled'), seats: doneOnly.slice(0, 3) } }), 57)
+        .hidden,
+    ).toBe(0);
+    const strip57 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 57);
+    expect(strip57.seats).toHaveLength(2);
+    expect(stripAlts('Building', strip57).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 2 shown.',
+    );
+    const strip93 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 93);
+    expect(stripAlts('Building', strip93).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 3 shown.',
+    );
   });
 
   it('AC-23: names the shown count in the High Table alt, and each section says its own words', () => {

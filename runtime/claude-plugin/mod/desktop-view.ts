@@ -14,14 +14,15 @@ import { stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
 import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
-import type {
-  ChiefState,
-  Mark,
-  SeatState,
-  ShipState,
-  StageState,
-  StripInput,
-  TableSeat,
+import {
+  seatsThatFit,
+  type ChiefState,
+  type Mark,
+  type SeatState,
+  type ShipState,
+  type StageState,
+  type StripInput,
+  type TableSeat,
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
@@ -272,7 +273,7 @@ function liveFirst(seats: readonly PaqadSeat[]): Array<Mark<SeatState>> {
     .map(({ seat, state }) => ({ label: roleInitials(seat.role), state }));
 }
 
-export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
+export function tableStrip(snapshot: PaqadHudSnapshot, columns = 93): TableStrip {
   if (!showsTable(snapshot) || snapshot.table.skipped) {
     return { seats: null, chief: 'waiting', value: '', hidden: 0 };
   }
@@ -280,11 +281,12 @@ export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
   const status = tableStatus(snapshot, table);
   const value = / standing$/.test(status) ? 'Seated' : (TABLE_VALUES[status] ?? status);
   const seats = liveFirst(table.seats);
+  const shown = seatsThatFit(columns, seats.length, TABLE_SEATS_SHOWN);
   return {
-    seats: seats.slice(0, TABLE_SEATS_SHOWN),
+    seats: seats.slice(0, shown),
     chief: chiefState(snapshot),
     value,
-    hidden: Math.max(0, seats.length - TABLE_SEATS_SHOWN),
+    hidden: seats.length - shown,
   };
 }
 
@@ -388,7 +390,7 @@ export function stripOf(
   settledAtMs: number | null = null,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
-  const table = tableStrip(snapshot);
+  const table = tableStrip(snapshot, columns);
   const delivery = deliveryStrip(snapshot, live);
   return {
     columns,
