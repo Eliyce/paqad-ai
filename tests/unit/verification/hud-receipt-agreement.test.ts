@@ -282,7 +282,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     expect(expectHeadlineAgreement('Inconclusive')).toBe(PAQAD_VERDICT.fail);
   });
 
-  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipts and Done on the HUD headline', async () => {
+  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipts, and the HUD withholds Done until every stage is recorded', async () => {
     relaxStageAndBundleGates(context.project_root);
     context.structured_test_results = [PASSING_CHECKS];
     context.code_tests_lint_passed = true;
@@ -291,7 +291,12 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
 
     await stop();
 
-    expect(expectHeadlineAgreement('Done')).toBe(PAQAD_VERDICT.inconclusive);
+    expect(expectAgreement()).toBe(PAQAD_VERDICT.inconclusive);
+    const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
+    expect(snapshot.headline.word).toBe('Working');
+    expect(snapshot.headline.text).not.toBe('Done');
+    expect(snapshot.headline.text).toMatch(/^(Next: |.+ done\. Next: )/);
+    expect(snapshot.headline.tone).toBe('neutral');
   });
 
   it('AC-15: a change whose ratchet did not run still reads one word everywhere, never a new pass', async () => {
