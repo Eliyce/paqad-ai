@@ -275,13 +275,16 @@ export function pluginStandsDownPassive(payload = undefined, env = process.env) 
   return anyLiveNpmHookLines([claudeSettingsPath(env), ...projectClaudeSettingsPaths(projectRoot)]);
 }
 
+export function standDownReason(payload = undefined, env = process.env) {
+  if (npmHookStepsAside(payload, env)) return 'npm';
+  if (pluginStandsDownPassive(payload, env)) return 'passive';
+  if (pluginStandsDownUnonboarded(payload, env)) return 'unonboarded';
+  if (pluginRootStandsDown(payload, env)) return 'root';
+  return null;
+}
+
 export function hookStandsDown(payload = undefined, env = process.env) {
-  return (
-    npmHookStepsAside(payload, env) ||
-    pluginStandsDownPassive(payload, env) ||
-    pluginStandsDownUnonboarded(payload, env) ||
-    pluginRootStandsDown(payload, env)
-  );
+  return standDownReason(payload, env) !== null;
 }
 
 function resolvePaqadEnable(projectRoot, env) {
