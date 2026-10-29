@@ -1,0 +1,48 @@
+{
+  "id": "D-01M64DT7T2BVEXSTZPCYV27N3B",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new spec_pipeline_experts_lanes config key",
+  "context": "Chief architect: the two claims do not actually pull against each other: the issue already says graduated seats only the on-call experts the need detector names (security, db and so on), and the architect's placement (read through resolveSpecPipelineSwitches beside spec_pipeline_experts_enabled, one resolved switch for roster.ts) can be built alongside it. The pick is forced only because the security claim is must level; recommend the security claim and build the architect's placement too.\n\nTarget: new spec_pipeline_experts_lanes config key\n- security-auditor: on graduated the security-auditor seat must still be called whenever the need detector flags auth, permissions, secrets or other sensitive paths; dropping the standing panel must not drop on-call security\n- application-architect: sits beside spec_pipeline_experts_enabled in the same spec pipeline switch group and is read through resolveSpecPipelineSwitches, so the standing versus on-call seating in src/spec-pipeline/experts/roster.ts gets the lane rule from one resolved switch, not a second config read\n\n[expert-conflict-fork:d9c11f19fa19acca]",
+  "options": [
+    {
+      "option_key": "on-graduated-the-security-auditor-seat-m",
+      "label": "on graduated the security-auditor seat must still be called whenever the need detector flags auth, permissions, secrets or other sensitive paths; dropping the standing panel must not drop on-call security — security-auditor",
+      "one_line_preview": "on graduated the security-auditor seat must still be called whenever the need detector flags auth, permissions, secrets or other sensitive paths; dropping the standing panel must not drop on-call security — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "sits-beside-spec-pipeline-experts-enable",
+      "label": "sits beside spec_pipeline_experts_enabled in the same spec pipeline switch group and is read through resolveSpecPipelineSwitches, so the standing versus on-call seating in src/spec-pipeline/experts/roster.ts gets the lane rule from one resolved switch, not a second config read — application-architect",
+      "one_line_preview": "sits beside spec_pipeline_experts_enabled in the same spec pipeline switch group and is read through resolveSpecPipelineSwitches, so the standing versus on-call seating in src/spec-pipeline/experts/roster.ts gets the lane rule from one resolved switch, not a second config read — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "on-graduated-the-security-auditor-seat-m",
+  "created_at": "2026-10-29T18:12:35.266Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M64CVW05BZRGV1SHXT8WN7J7",
+  "chosen": "on-graduated-the-security-auditor-seat-m",
+  "rationale": "Owner chose both: security seat always called on sensitive paths on graduated, and the lane rule is read through resolveSpecPipelineSwitches.",
+  "resolved_at": "2026-10-29T18:30:29.076Z",
+  "decision_id": "D-01M64DT7T2BVEXSTZPCYV27N3B",
+  "fingerprint": "sha256:b709ac0a925370762cd7cd5ac19983ea9102175c881239593e6f4a061193abbe",
+  "question": "Experts disagree on new spec_pipeline_experts_lanes config key",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M64CVW05BZRGV1SHXT8WN7J7",
+  "ttl_until": "2026-11-28T18:12:35.266Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "on-graduated-the-security-auditor-seat-m",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T18:30:29.076Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose both: security seat always called on sensitive paths on graduated, and the lane rule is read through resolveSpecPipelineSwitches."
+  }
+}
