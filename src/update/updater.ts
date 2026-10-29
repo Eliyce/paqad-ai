@@ -2,9 +2,11 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
@@ -53,6 +55,16 @@ export interface FrameworkUpdaterOptions {
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
 }
 
+interface NpmHookLib {
+  hasLiveNpmHookLines: (settingsPath: string) => boolean;
+}
+
+async function holdsLiveNpmHooks(settingsPath: string): Promise<boolean> {
+  const libPath = join(getRuntimeRoot(), 'hooks', 'lib', 'paqad-disabled.mjs');
+  const lib = (await import(pathToFileURL(libPath).href)) as NpmHookLib;
+  return lib.hasLiveNpmHookLines(settingsPath);
+}
+
 function readExistingText(path: string): string | null {
   try {
     return readFileSync(path, 'utf8');
@@ -84,11 +96,15 @@ export class FrameworkUpdater {
     const pluginInstalled = isPluginInstalled();
 
     for (const candidate of candidates) {
-      if (pluginInstalled && CLAUDE_HOOK_ARTIFACTS.has(toPosixPath(candidate.path))) {
-        continue;
-      }
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
+      if (
+        pluginInstalled &&
+        CLAUDE_HOOK_ARTIFACTS.has(reportedPath) &&
+        !(await holdsLiveNpmHooks(target))
+      ) {
+        continue;
+      }
       const existing = readExistingText(target);
       const existed = existing !== null;
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;
