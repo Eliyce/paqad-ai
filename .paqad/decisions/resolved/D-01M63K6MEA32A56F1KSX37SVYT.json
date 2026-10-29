@@ -1,0 +1,48 @@
+{
+  "id": "D-01M63K6MEA32A56F1KSX37SVYT",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai delivery-link refresh verb",
+  "context": "Chief architect: Both claims can hold at once and the build should honour both; it is ruled a pick only because a must-level security-auditor finding is part of it, so the owner confirms. Recommend the fixed-argv, shipped-binary launch; the quiet exit and per-error-path integration tests from the QA claim stay as acceptance tests for the same verb.\n\nTarget: new paqad-ai delivery-link refresh verb\n- security-auditor: the HUD mod starts it with a fixed argv array (no shell, no string interpolation, no value taken from the snapshot, branch name or PR title), resolved to the paqad-ai binary paqad already ships rather than a PATH lookup a repo could shadow\n- qa-engineer: The verb is read-only toward the repo and exits zero with no write to delivery.json fields other than pr, ci and push when gh is missing, not logged in, offline, or the branch has no PR; each error path has its own integration test\n\n[expert-conflict-fork:a2a55b7d649f0efd]",
+  "options": [
+    {
+      "option_key": "the-hud-mod-starts-it-with-a-fixed-argv-",
+      "label": "the HUD mod starts it with a fixed argv array (no shell, no string interpolation, no value taken from the snapshot, branch name or PR title), resolved to the paqad-ai binary paqad already ships rather than a PATH lookup a repo could shadow — security-auditor",
+      "one_line_preview": "the HUD mod starts it with a fixed argv array (no shell, no string interpolation, no value taken from the snapshot, branch name or PR title), resolved to the paqad-ai binary paqad already ships rather than a PATH lookup a repo could shadow — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-verb-is-read-only-toward-the-repo-an",
+      "label": "The verb is read-only toward the repo and exits zero with no write to delivery.json fields other than pr, ci and push when gh is missing, not logged in, offline, or the branch has no PR; each error path has its own integration test — qa-engineer",
+      "one_line_preview": "The verb is read-only toward the repo and exits zero with no write to delivery.json fields other than pr, ci and push when gh is missing, not logged in, offline, or the branch has no PR; each error path has its own integration test — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-hud-mod-starts-it-with-a-fixed-argv-",
+  "created_at": "2026-10-29T10:27:29.867Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "chosen": "the-hud-mod-starts-it-with-a-fixed-argv-",
+  "rationale": "Owner accepted all four security recommendations in one confirmation.",
+  "resolved_at": "2026-10-29T10:35:14.716Z",
+  "decision_id": "D-01M63K6MEA32A56F1KSX37SVYT",
+  "fingerprint": "sha256:9236dd35b418c124ecea15ddb1f70dded5aef68c1d6641c411b4c88d33afd4c7",
+  "question": "Experts disagree on new paqad-ai delivery-link refresh verb",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M63JEPQH7KX2RP6R0JTN5Y14",
+  "ttl_until": "2026-11-28T10:27:29.867Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-hud-mod-starts-it-with-a-fixed-argv-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T10:35:14.716Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted all four security recommendations in one confirmation."
+  }
+}

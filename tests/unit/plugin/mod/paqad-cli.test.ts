@@ -13,9 +13,17 @@ import {
   ruleTextQuestion,
 } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
+  CI_PAUSED_PREFIX,
+  CI_WATCH_LIMIT_MS,
   PAQAD_CLI_TIMEOUT_MS,
+  ciWatchHead,
+  nextCiPoll,
   overrideRecorded,
+  refreshReason,
+  stopsCiWatch,
+  withCiPause,
 } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
+import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/types';
 
 describe('the mod paqad-ai helper', () => {
   it('counts an override as recorded only when the CLI printed its success line', () => {
@@ -29,6 +37,79 @@ describe('the mod paqad-ai helper', () => {
 
   it('gives paqad-ai its own timeout', () => {
     expect(PAQAD_CLI_TIMEOUT_MS).toBe(15_000);
+  });
+});
+
+describe('the CI watch schedule', () => {
+  it('AC-5: backs off 30 s, doubling to 5 min, and stops at 60 min', () => {
+    const start = 1_000_000;
+    let now = start;
+    let last: number | null = null;
+    const delays: number[] = [];
+    for (;;) {
+      const next = nextCiPoll(start, last, now);
+      if (next === null) break;
+      delays.push(next);
+      last = next;
+      now += next;
+    }
+    expect(delays.slice(0, 7)).toEqual([
+      30_000, 60_000, 120_000, 240_000, 300_000, 300_000, 300_000,
+    ]);
+    expect(delays.length).toBeLessThanOrEqual(16);
+    expect(nextCiPoll(start, 300_000, start + CI_WATCH_LIMIT_MS)).toBeNull();
+    expect(nextCiPoll(start, null, start + CI_WATCH_LIMIT_MS - 1)).toBe(30_000);
+  });
+
+  it('reads the reason the refresh printed, and which reasons end the watch early', () => {
+    expect(refreshReason('{"refreshed":false,"reason":"gh is signed out"}\n')).toBe(
+      'gh is signed out',
+    );
+    expect(refreshReason('noise\n{"refreshed":true,"reason":null}')).toBeNull();
+    expect(refreshReason('')).toBeNull();
+    expect(refreshReason('{not json')).toBeNull();
+    expect(stopsCiWatch('gh is signed out')).toBe(true);
+    expect(stopsCiWatch('gh is not installed')).toBe(true);
+    expect(stopsCiWatch('gh is rate-limited')).toBe(false);
+    expect(stopsCiWatch(null)).toBe(false);
+  });
+
+  const pending = (over: Record<string, unknown> = {}) =>
+    ({
+      active: true,
+      headline: { text: 'Done', tone: 'good', gap: null },
+      ship: {
+        pr: 'open',
+        pr_number: 12,
+        pr_state: 'open',
+        pr_head: 'aaa1111',
+        ci_detail: { state: 'pending', done: 1, total: 3 },
+        ...over,
+      },
+    }) as unknown as PaqadHudSnapshot;
+
+  it('watches only an open PR whose CI is pending', () => {
+    expect(ciWatchHead(pending())).toBe('aaa1111');
+    expect(ciWatchHead(pending({ pr_head: null }))).toBe('');
+    expect(ciWatchHead(pending({ ci_detail: { state: 'pass', done: 3, total: 3 } }))).toBeNull();
+    expect(ciWatchHead(pending({ ci_detail: { state: 'fail', done: 3, total: 3 } }))).toBeNull();
+    expect(ciWatchHead(pending({ pr_state: 'closed' }))).toBeNull();
+    expect(ciWatchHead(pending({ pr_state: 'merged' }))).toBeNull();
+    expect(ciWatchHead({ ...pending(), active: false } as PaqadHudSnapshot)).toBeNull();
+    expect(ciWatchHead(null)).toBeNull();
+  });
+
+  it('adds the paused note to the gap line, beside any gap already there', () => {
+    const snap = pending();
+    expect(withCiPause(snap, null)).toBe(snap);
+    expect(withCiPause(snap, 'checked for 60 minutes')!.headline.gap).toBe(
+      `${CI_PAUSED_PREFIX}checked for 60 minutes`,
+    );
+    const gapped = { ...snap, headline: { ...snap.headline, gap: 'paqad could not record x' } };
+    expect(withCiPause(gapped, 'gh is signed out')!.headline.gap).toBe(
+      'paqad could not record x · CI updates paused: gh is signed out',
+    );
+    expect(withCiPause(null, 'x')).toBeNull();
   });
 });
 

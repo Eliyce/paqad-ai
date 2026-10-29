@@ -21,6 +21,8 @@ export interface World {
   answers: Array<string | null>;
   runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
+  onRun: ((argv: readonly string[]) => void) | null;
+  runGate: Promise<void> | null;
   marksAllowedOnce: boolean;
   toasts: string[];
   logs: Array<{ text: string; to: string | undefined }>;
@@ -80,6 +82,8 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     answers: [],
     runs: [],
     run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
+    onRun: null,
+    runGate: null,
     marksAllowedOnce: true,
     toasts: [],
     logs: [],
@@ -183,8 +187,10 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     if (world.verdict === 'throw') throw new Error('engine check failed');
     return world.verdict;
   });
-  on('process.run', ($, e) => {
+  on('process.run', async ($, e) => {
     world.runs.push({ argv: e.argv, cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs });
+    if (world.runGate) await world.runGate;
+    world.onRun?.(e.argv);
     const marks = world.marksAllowedOnce && e.argv.includes('--token');
     if (marks && world.run !== 'reject' && world.run.exitCode === 0) markAllowedOnce(world);
     return world.run === 'reject'

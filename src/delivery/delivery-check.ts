@@ -3,8 +3,10 @@ import { execa } from 'execa';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
 import {
+  readFeatureDelivery,
   recordShip,
   resolveDeliveryFeatureByBranch,
+  type DeliveryCiRead,
   type CiState,
   type DeliveryCiJob,
   type DeliveryPrState,
@@ -346,30 +348,121 @@ function pushedHead(result: DeliveryCheckResult): string | null {
   return result.upstream === head || result.pr?.head_sha === head ? head : null;
 }
 
+export interface SaveReadingOptions {
+  startedAt?: string;
+  keepOnGhFailure?: boolean;
+}
+
+function ciReadOf(result: DeliveryCheckResult): Omit<DeliveryCiRead, 'at'> {
+  if (result.ghAvailable) return { ok: true, reason: null };
+  return { ok: false, reason: result.ci?.reason ?? 'gh could not read the pull request' };
+}
+
 export function saveDeliveryReading(
   projectRoot: string,
   result: DeliveryCheckResult,
   now: () => Date = () => new Date(),
+  options: SaveReadingOptions = {},
 ): void {
   if (!result.ran || !result.branch) return;
   try {
     const dirName = resolveDeliveryFeatureByBranch(projectRoot, result.branch);
     if (!dirName) return;
-    const patch: ShipPatch = {};
+    const patch: ShipPatch = { ci_read: ciReadOf(result) };
+    if (options.startedAt) patch.read_at = options.startedAt;
     const pushed = pushedHead(result);
     if (pushed) patch.push = { state: 'pushed', branch: result.branch, sha: pushed };
-    if (result.pr) patch.pr = result.pr;
-    if (result.ci) {
+    const keep = options.keepOnGhFailure === true && !result.ghAvailable;
+    if (result.pr && !keep) patch.pr = result.pr;
+    if (result.ci && !keep) {
       const sha = result.pr?.head_sha ?? result.commit;
       patch.ci = { sha, ...result.ci, source: 'stop-check' };
     }
-    if (Object.keys(patch).length > 0) recordShip(projectRoot, dirName, patch, now().toISOString());
+    recordShip(projectRoot, dirName, patch, now().toISOString());
   } catch (error) {
     appendHooksLog(
       projectRoot,
       `delivery-check: delivery.json not updated: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+export interface DeliveryRefreshOutcome {
+  refreshed: boolean;
+  feature: string | null;
+  reason: string | null;
+  push: string | null;
+  ci: { state: CiState; done: number | null; total: number | null } | null;
+}
+
+export interface RefreshDeliveryInput {
+  projectRoot: string;
+  run: CommandRunner;
+  now?: () => Date;
+  minAgeSeconds?: number | null;
+}
+
+function storedOutcome(
+  projectRoot: string,
+  feature: string,
+  refreshed: boolean,
+  reason: string | null,
+): DeliveryRefreshOutcome {
+  const record = readFeatureDelivery(projectRoot, feature);
+  const ci = record.ci ?? null;
+  return {
+    refreshed,
+    feature,
+    reason,
+    push: record.push?.state ?? null,
+    ci: ci ? { state: ci.state, done: ci.done, total: ci.total } : null,
+  };
+}
+
+function readIsFresh(
+  read: DeliveryCiRead | null | undefined,
+  minAgeSeconds: number | null | undefined,
+  now: Date,
+): boolean {
+  if (!read || !minAgeSeconds || minAgeSeconds <= 0) return false;
+  const age = now.getTime() - Date.parse(read.at);
+  return Number.isFinite(age) && age >= 0 && age < minAgeSeconds * 1000;
+}
+
+export async function refreshDelivery(
+  input: RefreshDeliveryInput,
+): Promise<DeliveryRefreshOutcome> {
+  const { projectRoot, run } = input;
+  const now = input.now ?? (() => new Date());
+  const skip = (reason: string): DeliveryRefreshOutcome => ({
+    refreshed: false,
+    feature: null,
+    reason,
+    push: null,
+    ci: null,
+  });
+  const { policy } = loadDeliveryPolicy(projectRoot);
+  if (!policy.enabled) return skip('delivery policy is off');
+  const branch = await readLine(run, 'git', [
+    '-C',
+    projectRoot,
+    'rev-parse',
+    '--abbrev-ref',
+    'HEAD',
+  ]);
+  if (!branch || branch === 'HEAD') return skip('no branch');
+  const feature = resolveDeliveryFeatureByBranch(projectRoot, branch);
+  if (!feature) return skip('no change on this branch');
+  const stored = readFeatureDelivery(projectRoot, feature).ci_read;
+  if (readIsFresh(stored, input.minAgeSeconds, now())) {
+    return storedOutcome(projectRoot, feature, false, 'fresh');
+  }
+  const startedAt = now().toISOString();
+  const result = await evaluateDelivery({ projectRoot, policy, run });
+  if (!result.ran) return skip('no branch');
+  saveDeliveryReading(projectRoot, result, now, { startedAt, keepOnGhFailure: true });
+  const reason = ciReadOf(result).reason;
+  return storedOutcome(projectRoot, feature, result.ghAvailable, reason);
 }
 
 export function formatDeliverySummary(result: DeliveryCheckResult): string {
@@ -393,11 +486,12 @@ export async function runDeliveryCapability(
     return NO_OP;
   }
   const { policy } = loadDeliveryPolicy(projectRoot);
+  const startedAt = new Date().toISOString();
   const result = await evaluateDelivery({ projectRoot, policy, run });
   if (!result.ran) {
     return NO_OP;
   }
-  saveDeliveryReading(projectRoot, result);
+  saveDeliveryReading(projectRoot, result, undefined, { startedAt });
   recordProjectEvent(
     projectRoot,
     DELIVERY_EVIDENCE_DOC_TYPE,

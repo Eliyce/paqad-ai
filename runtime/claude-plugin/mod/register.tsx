@@ -93,7 +93,18 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { PAQAD_CLI_TIMEOUT_MS, overrideRecorded, type PaqadRunResult } from './paqad-cli';
+import {
+  CI_WATCH_TIMED_OUT,
+  PAQAD_CLI_TIMEOUT_MS,
+  ciWatchHead,
+  isGitPush,
+  nextCiPoll,
+  overrideRecorded,
+  refreshReason,
+  stopsCiWatch,
+  withCiPause,
+  type PaqadRunResult,
+} from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -233,6 +244,19 @@ let desktopSession = false;
 let taskListRefused = false;
 const rawCalls = new Set<string>();
 
+interface CiWatch {
+  startedAt: number;
+  delay: number | null;
+  timer: Timer | null;
+  inFlight: boolean;
+  head: string;
+  forced: boolean;
+  endings: number;
+}
+
+let ciWatch: CiWatch | null = null;
+let ciPause: { reason: string; head: string } | null = null;
+
 const TICK_MS = 400;
 const FEATURE_EVIDENCE_DIR = '.paqad/ledger/feature-evidence';
 
@@ -280,7 +304,9 @@ async function refresh($: EngineInterface): Promise<void> {
       const text = await readText($, path);
       const changed = text !== lastText;
       lastText = text;
-      const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
+      const snapshot = changed
+        ? withCiPause(parseSnapshot(text), ciPause?.reason ?? null)
+        : await read($, snapshotAtom);
       if (changed) {
         await update($, snapshotAtom, () => snapshot);
         const broken = snapshot === null && (text !== null || (await existsSafe($, path)));
@@ -297,12 +323,117 @@ async function refresh($: EngineInterface): Promise<void> {
         await update($, nowAtom, () => at);
       }
       if (isLive(snapshot)) startTicker($);
+      await followCi($, snapshot);
     } while (readAgain);
   } catch {
   } finally {
     reading = false;
   }
   await syncTick($);
+}
+
+function stopCiWatch(): void {
+  ciWatch?.timer?.cancel();
+  ciWatch = null;
+}
+
+async function redrawCiNote($: EngineInterface): Promise<void> {
+  lastText = undefined;
+  await refresh($);
+}
+
+async function followCi($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  if (!live) return;
+  const head = ciWatchHead(snapshot);
+  if (head === null) {
+    if (ciWatch?.forced || ciWatch?.inFlight) return;
+    stopCiWatch();
+    if (ciPause) {
+      ciPause = null;
+      await redrawCiNote($);
+    }
+    return;
+  }
+  if (ciWatch || ciPause?.head === head) return;
+  await startCiWatch($, head, false);
+}
+
+async function startCiWatch($: EngineInterface, head: string, forced: boolean): Promise<void> {
+  stopCiWatch();
+  ciWatch = {
+    startedAt: await $.clock.now(),
+    delay: null,
+    timer: null,
+    inFlight: false,
+    head,
+    forced,
+    endings: 0,
+  };
+  if (ciPause) {
+    ciPause = null;
+    await redrawCiNote($);
+  }
+  await scheduleCiPoll($);
+}
+
+async function pauseCiWatch($: EngineInterface, reason: string): Promise<void> {
+  ciPause = { reason, head: ciWatch?.head ?? '' };
+  stopCiWatch();
+  await redrawCiNote($);
+}
+
+async function scheduleCiPoll($: EngineInterface): Promise<void> {
+  const watch = ciWatch;
+  if (!watch || watch.timer || watch.inFlight) return;
+  const delay = nextCiPoll(watch.startedAt, watch.delay, await $.clock.now());
+  if (delay === null) return pauseCiWatch($, CI_WATCH_TIMED_OUT);
+  watch.delay = delay;
+  watch.timer = $.clock.after(delay, () => void pollCi($, watch));
+}
+
+function paqadProgram($: EngineInterface): string {
+  const root = $.plugin.root;
+  return typeof root === 'string' && root !== ''
+    ? `${root.replace(/[\\/]+$/, '')}/runtime/claude-plugin/bin/paqad-ai`
+    : 'paqad-ai';
+}
+
+async function pollCi($: EngineInterface, watch: CiWatch): Promise<void> {
+  const at = live;
+  if (ciWatch !== watch || !at || watch.inFlight) return;
+  watch.timer = null;
+  watch.inFlight = true;
+  let reason: string | null = null;
+  try {
+    const result = await $.process.run(
+      [
+        paqadProgram($),
+        'delivery-link',
+        'refresh',
+        '--session',
+        at.sessionId,
+        '--project-root',
+        at.root,
+        '--min-age-seconds',
+        String(Math.round((watch.delay ?? 0) / 1000)),
+      ],
+      { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS },
+    );
+    reason = refreshReason(result.stdout);
+  } catch {}
+  watch.inFlight = false;
+  watch.forced = false;
+  if (ciWatch !== watch) return;
+  watch.endings = stopsCiWatch(reason) ? watch.endings + 1 : 0;
+  if (reason !== null && watch.endings >= 2) return pauseCiWatch($, reason);
+  await refresh($);
+  await scheduleCiPoll($);
+}
+
+async function watchAfterPush($: EngineInterface): Promise<void> {
+  const ship = (await read($, snapshotAtom))?.ship ?? null;
+  if (ship?.pr_state !== 'open') return;
+  await startCiWatch($, ship.pr_head ?? '', true);
 }
 
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
@@ -1024,6 +1155,8 @@ export const register: Register = (on) => {
     foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
+    stopCiWatch();
+    ciPause = null;
     heartbeat?.cancel();
     heartbeat = null;
     stopTick();
@@ -1096,6 +1229,7 @@ export const register: Register = (on) => {
     try {
       const result = await next(e);
       if (isRefreshTool(tool, input)) await refresh($);
+      if (isGitPush(tool, input.command)) await watchAfterPush($);
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);

@@ -3521,3 +3521,203 @@ describe('the heartbeat and the chime', () => {
     });
   }
 });
+
+const CI_WATCHED = SCENE_FIXTURES['Shipping with CI live'];
+const shipOf = (fixture: Record<string, unknown>) => fixture.ship as Record<string, unknown>;
+const ciOf = (fixture: Record<string, unknown>) => shipOf(fixture).ci as Record<string, unknown>;
+
+function ciFixture(state: string, over: Record<string, unknown> = {}) {
+  return snapshot({
+    ...CI_WATCHED,
+    ship: { ...shipOf(CI_WATCHED), ci: { ...ciOf(CI_WATCHED), state }, ...over },
+  });
+}
+
+function prFixture(prState: string) {
+  return snapshot({ ...CI_WATCHED, ship: { ...shipOf(CI_WATCHED), pr_state: prState } });
+}
+
+function newHeadFixture(head: string) {
+  const ship = shipOf(CI_WATCHED);
+  return snapshot({
+    ...CI_WATCHED,
+    ship: {
+      ...ship,
+      pr: { ...(ship.pr as Record<string, unknown>), head_sha: head },
+      ci: { ...ciOf(CI_WATCHED), sha: head },
+    },
+  });
+}
+
+const refreshRuns = (world: World) =>
+  world.runs.filter((run) => run.argv.includes('delivery-link'));
+
+const REFRESH_TAIL = (seconds: string) => [
+  'delivery-link',
+  'refresh',
+  '--session',
+  SESSION_ID,
+  '--project-root',
+  '/work',
+  '--min-age-seconds',
+  seconds,
+];
+
+const signedOut = {
+  exitCode: 0,
+  stdout: '{"refreshed":false,"reason":"gh is signed out"}\n',
+  stderr: '',
+};
+
+describe('the HUD follows CI while an open PR is pending', () => {
+  test('AC-16: the first check runs the fixed refresh 30 s in, through the shipped paqad-ai', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(29_999);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+    await clock.advance(1);
+    await clock.settle();
+    const runs = refreshRuns(world);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.argv[0]).toMatch(/(^|\/)runtime\/claude-plugin\/bin\/paqad-ai$|^paqad-ai$/);
+    expect(runs[0]!.argv.slice(1)).toEqual(REFRESH_TAIL('30'));
+    expect(runs[0]!.cwd).toBe('/work');
+    expect(runs[0]!.timeoutMs).toBe(15_000);
+  });
+
+  test('AC-5: the checks back off 30 s, 60 s, 120 s while CI stays pending', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (const step of [30_000, 60_000, 120_000]) {
+      await clock.advance(step);
+      await clock.settle();
+    }
+    expect(refreshRuns(world).map((run) => run.argv.at(-1))).toEqual(['30', '60', '120']);
+  });
+
+  test('AC-5: the watch never starts without an open PR whose CI is pending', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+  });
+
+  for (const [name, next] of [
+    ['pass', ciFixture('pass')],
+    ['fail', ciFixture('fail')],
+    ['closed', prFixture('closed')],
+    ['merged', prFixture('merged')],
+  ] as const) {
+    test(`AC-5: the watch stops once the refresh reads ${name}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+      world.onRun = () => world.put(SNAPSHOT, fileText(next));
+      const clock = mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      await clock.advance(30_000);
+      await clock.settle();
+      await clock.advance(3_600_000);
+      await clock.settle();
+      expect(refreshRuns(world)).toHaveLength(1);
+    });
+  }
+
+  test('AC-6: one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    let release: () => void = () => {};
+    world.runGate = new Promise<void>((done) => {
+      release = done;
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    world.put(
+      SNAPSHOT,
+      fileText(snapshot({ ...CI_WATCHED, generated_at: '2026-10-18T09:00:01.000Z' })),
+    );
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    await clock.advance(120_000);
+    expect(refreshRuns(world)).toHaveLength(1);
+    world.runGate = null;
+    release();
+    await clock.settle();
+    await clock.advance(59_999);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(1);
+    await clock.advance(1);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+  });
+
+  test('AC-17: after 60 minutes the watch pauses with a note, and a git push starts it again', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let minute = 0; minute < 70; minute += 1) {
+      await clock.advance(60_000);
+      await clock.settle();
+    }
+    const polls = refreshRuns(world).length;
+    expect(polls).toBeGreaterThan(10);
+    expect(polls).toBeLessThanOrEqual(16);
+    expect((await $.command.run(command('status'))).text).toContain(
+      'CI updates paused: checked for 60 minutes',
+    );
+    await $.tool.call({ tool: 'Bash', command: 'git push origin HEAD' } as never);
+    await clock.advance(30_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(polls + 1);
+    expect((await $.command.run(command('status'))).text).not.toContain('CI updates paused');
+  });
+
+  test('AC-17: a pending CI on a newer PR head restarts the watch by itself', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = signedOut;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await clock.settle();
+    await clock.advance(60_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+    world.run = { exitCode: 0, stdout: '{"refreshed":true,"reason":null}\n', stderr: '' };
+    world.put(SNAPSHOT, fileText(newHeadFixture('bbb2222')));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    await clock.advance(30_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(3);
+  });
+
+  test('AC-24: two signed-out reads in a row stop the watch, and Done stays', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    world.run = signedOut;
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await clock.advance(30_000);
+    await clock.settle();
+    await clock.advance(60_000);
+    await clock.settle();
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toHaveLength(2);
+    const text = (await $.command.run(command('status'))).text;
+    expect(text).toContain('CI updates paused: gh is signed out');
+    expect(world.asked).toEqual([]);
+  });
+
+  test('AC-26: once the HUD unbinds, a scheduled check never runs', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    world.remove('.paqad/framework-path.txt');
+    await $.session.start(START);
+    await clock.advance(600_000);
+    await clock.settle();
+    expect(refreshRuns(world)).toEqual([]);
+  });
+});

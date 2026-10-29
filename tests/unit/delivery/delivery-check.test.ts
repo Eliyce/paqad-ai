@@ -770,3 +770,43 @@ describe('the Stop delivery reader records the push it can see', () => {
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({ sha: OLDER, state: 'pending' });
   });
 });
+
+describe('a delivery reading never overwrites a newer one', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-order-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-15: a reading that started before the stored one leaves pr and ci unchanged', () => {
+    const dir = openFeatureChange(root, 'ses_order', { adapter: 'claude-code', ulidSeed: 12 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    recordShip(
+      root,
+      dir,
+      {
+        pr: { number: 4, state: 'open' },
+        ci: { sha: 'h', state: 'fail', done: 2, total: 2, reason: null, source: 'stop-check' },
+      },
+      '2026-10-29T10:00:02.000Z',
+    );
+    saveDeliveryReading(
+      root,
+      {
+        ran: true,
+        branch: 'feat/x',
+        commit: 'h',
+        ghAvailable: true,
+        findings: [],
+        pr: { number: 4, url: null, draft: null, state: 'closed', head_sha: 'h' },
+        ci: { state: 'pending', done: 0, total: 2, reason: null },
+      },
+      () => new Date('2026-10-29T10:00:03.000Z'),
+      { startedAt: '2026-10-29T10:00:01.000Z' },
+    );
+    const record = readFeatureDelivery(root, dir);
+    expect(record.pr).toMatchObject({ state: 'open', at: '2026-10-29T10:00:02.000Z' });
+    expect(record.ci).toMatchObject({ state: 'fail', at: '2026-10-29T10:00:02.000Z' });
+  });
+});

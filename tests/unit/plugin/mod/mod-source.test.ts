@@ -81,11 +81,18 @@ describe('the HUD mod source', () => {
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
   });
 
-  it('starts one program, paqad-ai rules override, with its argv written at the call', () => {
+  it('AC-16: starts two programs, rules override and the delivery refresh, each argv written at the call', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
-    expect(register.match(/\$\.process\./g)).toEqual(['$.process.']);
+    expect(register.match(/\$\.process\./g)).toEqual(['$.process.', '$.process.']);
     expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
+    const start = register.indexOf('$.process.run(\n      [\n        paqadProgram($),');
+    expect(start, 'the delivery refresh call').toBeGreaterThan(-1);
+    const call = register.slice(start, register.indexOf(');', start));
+    expect(call.replace(/\s+/g, ' ')).toContain(
+      "[ paqadProgram($), 'delivery-link', 'refresh', '--session', at.sessionId, '--project-root', at.root, '--min-age-seconds', String(Math.round((watch.delay ?? 0) / 1000)), ], { cwd: at.root, timeoutMs: PAQAD_CLI_TIMEOUT_MS }",
+    );
+    expect(call).not.toMatch(/snapshot|branch|title|ship/);
     expect(register).not.toMatch(/\$\.process\.spawn/);
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
   });
