@@ -5,6 +5,7 @@ import {
   settleStart,
   settledChange,
   stripAltText,
+  stripAlts,
   CARD_ROWS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
@@ -15,6 +16,7 @@ import {
   deliverySteps,
   deliveryStrip,
   desktopHeadline,
+  headlineAlt,
   identityText,
   identityView,
   refusesTaskList,
@@ -511,17 +513,12 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     });
     const writing = tableStrip(open({ table: ord501Table('landing') }));
     expect(writing.value).toBe('3 of 7 notes');
-    expect(writing.seats?.map((seat) => seat.label)).toEqual([
-      'PO',
-      'AA',
-      'UF',
-      'QA',
-      'SA',
-      'DE',
-      'PA',
+    expect(writing.seats).toEqual([
+      { label: 'AA', state: 'writing' },
+      { label: 'SA', state: 'writing' },
+      { label: 'DE', state: 'writing' },
     ]);
-    expect(writing.seats?.[0]).toEqual({ label: 'PO', state: 'done' });
-    expect(writing.seats?.[1]).toEqual({ label: 'AA', state: 'writing' });
+    expect(writing.hidden).toBe(4);
     expect(tableStrip(open({ table: ord501Table('chief') }))).toMatchObject({
       chief: 'ruling',
       value: 'Chief is ruling',
@@ -547,7 +544,88 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       tableStrip(open({ table: { ...ord482Table('ruled'), skipped: true } })).seats,
     ).toBeNull();
     expect(tableStrip(open({ lane: 'fast', table: ord501Table('ruled') })).seats).toBeNull();
-    expect(tableStrip(open())).toEqual({ seats: null, chief: 'waiting', value: '' });
+    expect(tableStrip(open())).toEqual({ seats: null, chief: 'waiting', value: '', hidden: 0 });
+  });
+
+  it('AC-12, AC-13: keeps three seats, writing then late then newest done then seated, and counts the rest', () => {
+    const at = (minute: number | null) =>
+      minute === null ? null : `2026-10-18T08:${String(minute).padStart(2, '0')}:00.000Z`;
+    const seat = (role: string, state: string, done: number | null = null, late = false) => ({
+      ...(ord501Table('ruled') as { seats: Raw[] }).seats[0],
+      role,
+      state,
+      done_at: at(done),
+      late,
+    });
+    const table = (seats: Raw[]) => tableStrip(open({ table: { ...ord501Table('ruled'), seats } }));
+    const labels = (seats: Raw[]) => table(seats).seats?.map((mark) => mark.label);
+    const doneOnly = [
+      seat('product-owner', 'done', 10),
+      seat('application-architect', 'done', 30),
+      seat('user-flow-writer', 'done', null),
+      seat('qa-engineer', 'done', 20),
+    ];
+    expect(labels(doneOnly)).toEqual(['AA', 'QA', 'PO']);
+    expect(table(doneOnly).hidden).toBe(1);
+    const mixed = [
+      seat('product-owner', 'seated'),
+      seat('application-architect', 'done', 40),
+      seat('user-flow-writer', 'writing', null, true),
+      seat('qa-engineer', 'writing'),
+    ];
+    expect(table(mixed).seats).toEqual([
+      { label: 'QA', state: 'writing' },
+      { label: 'UF', state: 'late' },
+      { label: 'AA', state: 'done' },
+    ]);
+    const ties = [
+      seat('product-owner', 'done', 10),
+      seat('application-architect', 'done', null),
+      seat('user-flow-writer', 'done', 10),
+      seat('qa-engineer', 'done', null),
+    ];
+    expect(labels(ties)).toEqual(['PO', 'UF', 'AA']);
+    const three = table(doneOnly.slice(0, 3));
+    expect(three.seats).toHaveLength(3);
+    expect(three.hidden).toBe(0);
+    const eleven = Array.from({ length: 11 }, (_, i) => seat(`role-${i}`, 'done', i));
+    expect(table(eleven)).toMatchObject({ hidden: 8 });
+    expect(table(eleven).seats).toHaveLength(3);
+    const narrow = tableStrip(open({ table: { ...ord501Table('ruled'), seats: eleven } }), 57);
+    expect(narrow.seats?.map((mark) => mark.label)).toEqual(
+      table(eleven)
+        .seats?.slice(0, 2)
+        .map((mark) => mark.label),
+    );
+    expect(narrow.hidden).toBe(9);
+    expect(
+      tableStrip(open({ table: { ...ord501Table('ruled'), seats: doneOnly.slice(0, 3) } }), 57)
+        .hidden,
+    ).toBe(0);
+    const strip57 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 57);
+    expect(strip57.seats).toHaveLength(2);
+    expect(stripAlts('Building', strip57).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 2 shown.',
+    );
+    const strip93 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 93);
+    expect(stripAlts('Building', strip93).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 3 shown.',
+    );
+  });
+
+  it('AC-23: names the shown count in the High Table alt, and each section says its own words', () => {
+    const strip = stripOf(open({ table: ord501Table('chief') }), 93);
+    expect(stripAlts('Building', { ...strip, hiddenSeats: 8 }).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 3 shown.',
+    );
+    expect(stripAlts('Building', { ...strip, hiddenSeats: 0 }).table).toBe(
+      'High Table: Chief is ruling, 3 seats.',
+    );
+    const fast = band({ snapshot: parse(FAST_ORD_490) });
+    expect(fast.kind === 'feature' && fast.stripAlts).toMatchObject({
+      stage: 'Building. Stage Build. Plan done.',
+      delivery: 'Delivery Editing.',
+    });
   });
 
   it('says the headline, the stage value and each section value in the strip alt', () => {
@@ -768,6 +846,30 @@ describe('the headline stays on one line', () => {
   });
 });
 
+describe('the live headline says itself in words', () => {
+  it('names the sentence, the note and the clock', () => {
+    expect(headlineAlt({ text: 'Building', note: null, clock: '2:01' })).toBe(
+      'Building. Running for 2 min 1 s.',
+    );
+    expect(
+      headlineAlt({ text: 'Subagent: Review the change', note: '3 finished', clock: null }),
+    ).toBe('Subagent: Review the change. 3 finished.');
+    expect(headlineAlt({ text: 'Delivering.', note: null, clock: '1:02:03' })).toBe(
+      'Delivering. Running for 1 h 2 min 3 s.',
+    );
+  });
+
+  it('keeps the whole sentence in the alt when the title is cut to the band', () => {
+    const long = 'Building the change with a headline far too long for the narrow band';
+    const drawn = band({
+      columns: 30,
+      snapshot: open({ headline: { text: long, tone: 'working', row: 9, word: 'Working' } }),
+    });
+    expect(drawn.kind === 'feature' && drawn.headline.text.endsWith('…')).toBe(true);
+    expect(drawn.kind === 'feature' && drawn.headlineAlt).toBe(`${long}.`);
+  });
+});
+
 describe('live subagents lead the band while they run', () => {
   const agents = {
     running: [
@@ -778,7 +880,7 @@ describe('live subagents lead the band while they run', () => {
     finished: 3,
   };
 
-  it('titles the newest subagent, breathes the light and draws two lines, newest on top', () => {
+  it('titles the newest subagent, breathes the light and draws only the newest line', () => {
     const drawn = band({ live: { ...IDLE_LIVE, agents } });
     expect(drawn.kind).toBe('feature');
     if (drawn.kind !== 'feature') return;
@@ -788,7 +890,7 @@ describe('live subagents lead the band while they run', () => {
       signal: 'accent',
       note: '3 finished',
     });
-    expect(drawn.activity).toEqual(['Bash: pnpm test', 'Read: src/a.ts']);
+    expect(drawn.activity).toEqual(['Bash: pnpm test']);
     expect(bandIsLive(drawn)).toBe(true);
   });
 
@@ -824,11 +926,14 @@ describe('live subagents lead the band while they run', () => {
     expect(idle.kind === 'feature' && idle.activity).toEqual([]);
   });
 
-  it('counts the two body lines in the card rows', () => {
-    expect(band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 }).kind === 'feature').toBe(true);
-    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 7 });
+  it('keeps the card at 6 rows: the body line takes the gap slot, not a row of its own', () => {
+    expect(cardRows(false)).toBe(6);
+    const fit = band({ live: { ...IDLE_LIVE, agents }, maxRows: 6 });
+    expect(fit.kind === 'feature' && fit.mode).toBe('card');
+    expect(fit.kind === 'feature' && fit.activity).toEqual(['Bash: pnpm test']);
+    const tight = band({ live: { ...IDLE_LIVE, agents }, maxRows: 5 });
     expect(tight.kind === 'feature' && tight.mode).toBe('minimised');
-    const roomy = band({ live: { ...IDLE_LIVE, agents }, maxRows: 8 });
-    expect(roomy.kind === 'feature' && roomy.mode).toBe('card');
+    const quiet = band({ maxRows: 6 });
+    expect(quiet.kind === 'feature' && quiet.mode).toBe('card');
   });
 });

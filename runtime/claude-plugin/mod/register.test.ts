@@ -68,6 +68,15 @@ function textElement(node: RenderNode, text: string): RenderElement | undefined 
   return undefined;
 }
 
+function headlineSvg(node: RenderNode): RenderElement | undefined {
+  return everyElement(node).find(
+    (element) => element.type === 'Svg' && String(propsOf(element).source).includes('title-sheen'),
+  );
+}
+
+const wordsOf = (node: RenderElement): string =>
+  [textOf(node), String(propsOf(headlineSvg(node) ?? node).alt ?? '')].join(' ');
+
 const colorOf = (node: RenderElement | undefined): unknown =>
   (node as { props?: { color?: unknown } } | undefined)?.props?.color;
 
@@ -284,11 +293,16 @@ describe('the ship rail on each surface', () => {
     expect(textOf(terminal)).not.toContain('Merge');
     const desktop = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const svgs = elementsOf(desktop, 'Svg');
-    expect(svgs).toHaveLength(1);
-    const props = (svgs[0] as { props: { alt?: string; width?: unknown; height?: unknown } }).props;
-    expect(props.alt).toMatch(/^Done\. Stage .*Delivery 6 of 6 checks green\.$/);
-    expect(props.width).toBeUndefined();
-    expect(props.height).toBeUndefined();
+    expect(svgs).toHaveLength(3);
+    const alts = svgs.map((svg) => (svg as { props: { alt?: string } }).props.alt);
+    expect(alts[0]).toMatch(/^Done\. Stage /);
+    expect(alts.at(-1)).toBe('Delivery 6 of 6 checks green.');
+    for (const svg of svgs) {
+      const props = (svg as { props: { width?: unknown; height?: unknown } }).props;
+      expect(props.width).toBeUndefined();
+      expect(props.height).toBeUndefined();
+    }
+    expectDesktopSafe(desktop);
   });
 
   test('the all-green toast fires once per change and head across rebuilds and re-renders', async ($, on) => {
@@ -674,10 +688,20 @@ describe('the Desktop band', () => {
     expect(text).toContain('Safe to merge');
     const elements = everyElement(drawn);
     const svgs = elements.filter((element) => element.type === 'Svg');
-    expect(svgs).toHaveLength(1);
+    expect(svgs).toHaveLength(3);
     expect(String(propsOf(svgs[0]!).alt)).toStartWith('Safe to merge');
-    expect(propsOf(svgs[0]!).width).toBeUndefined();
-    expect(propsOf(svgs[0]!).isInteractive).toBeUndefined();
+    expect(String(propsOf(svgs[1]!).alt)).toStartWith('High Table: ');
+    for (const svg of svgs) {
+      expect(propsOf(svg).width).toBeUndefined();
+      expect(propsOf(svg).height).toBeUndefined();
+      expect(propsOf(svg).isInteractive).toBeUndefined();
+    }
+    expect(
+      elements
+        .filter((element) => element.type === 'Box' && typeof propsOf(element).width === 'string')
+        .map((element) => propsOf(element).width),
+    ).toEqual(['40%', '26%', '34%']);
+    expectDesktopSafe(drawn);
     expect(buttonKeys(drawn)).toEqual([
       'paqad-flags',
       'paqad-ledger',
@@ -768,7 +792,7 @@ describe('the Desktop band', () => {
     await $.turn.start({ text: 'go on', turnId: 'turn-2' } as never);
     world.put(SNAPSHOT, fileText(FAST_ORD_490));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
-    const drawn = textOf(await $.ui.render(band('desktop')));
+    const drawn = wordsOf(await $.ui.render(band('desktop')));
     expect(drawn).toContain('Building');
     expect(drawn).not.toContain('Tests, types or lint failed');
   });
@@ -969,20 +993,27 @@ describe('the Desktop band', () => {
     expect(world.opened.at(-1)).toBe('paqad');
   });
 
-  test('AC-25: the live light breathes on the 400 ms tick and the clock follows it; a settled light stays still', async ($, on) => {
+  test('AC-25: the live light breathes from the shared clock and the clock follows it; a settled light stays still', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
-    const first = lightOf(await $.ui.render(band('desktop')));
+    const headline = async () =>
+      String(propsOf(headlineSvg(await $.ui.render(band('desktop')))!).source);
+    const breathAt = (source: string) =>
+      /values="1;0\.8;0\.55;0\.4;0\.55;0\.8" dur="2\.4s"[^>]*begin="(-[\d.]+s)"/.exec(source)?.[1];
+    const first = await headline();
+    expect(first).toContain('fill="#F90093"');
     await clock.advance(400);
     await clock.settle();
-    const second = lightOf(await $.ui.render(band('desktop')));
-    expect(first).toMatch(/^#F90093[0-9A-F]{2}$/);
-    expect(second).toMatch(/^#F90093[0-9A-F]{2}$/);
-    expect(second).not.toBe(first);
+    const second = await headline();
+    expect(breathAt(first)).toBeDefined();
+    expect(breathAt(second)).toBeDefined();
+    expect(breathAt(second)).not.toBe(breathAt(first));
     await clock.advance(1_000);
     await clock.settle();
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building    2:01');
+    const later = await headline();
+    expect(later).toContain('>Building</tspan>');
+    expect(later).toContain('>2:01</tspan>');
     world.put(SNAPSHOT, fileText(SAFE_CLEAN));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
     const settled = lightOf(await $.ui.render(band('desktop')));
@@ -990,6 +1021,31 @@ describe('the Desktop band', () => {
     await clock.advance(800);
     await clock.settle();
     expect(lightOf(await $.ui.render(band('desktop')))).toBe(settled);
+  });
+
+  test('AC-9: a running stage draws its message row as one headline Svg; a static headline stays Text', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const running = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const message = cardRowsOf(running)[1]!;
+    expect(message.type).toBe('Svg');
+    const props = propsOf(message);
+    expect(String(props.source)).toContain('title-sheen');
+    expect(String(props.source)).toContain('>Building</tspan>');
+    expect(String(props.source)).toContain('>2:00</tspan>');
+    expect(String(props.source)).toContain('viewBox="0 0 791 24"');
+    expect(props.alt).toBe('Building. Running for 2 min 0 s.');
+    expect(props.width).toBeUndefined();
+    expect(props.height).toBeUndefined();
+    expect(props.isInteractive).toBeUndefined();
+    expectDesktopSafe(running);
+    world.put(SNAPSHOT, fileText(SAFE_CLEAN));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const settled = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(cardRowsOf(settled)[1]!.type).toBe('Text');
+    expect(headlineSvg(settled)).toBeUndefined();
+    expect(textOf(cardRowsOf(settled)[1]!)).toContain('Safe to merge');
   });
 });
 
@@ -1288,7 +1344,7 @@ describe('every scene on Desktop', () => {
       await $.session.start(DESKTOP_START);
       const drawn = await $.ui.render(band('desktop'));
       expect(textOf(drawn)).toStartWith('paqad');
-      expect(textOf(drawn)).toContain(SCENE_WORDS[scene]);
+      expect(wordsOf(drawn)).toContain(SCENE_WORDS[scene]);
       expectDesktopSafe(drawn);
       const mounted = await mountDesktop($);
       if (WORKFLOW_SCENES.has(scene)) {
@@ -3543,8 +3599,15 @@ const DONE_SNAPSHOT = snapshot({
   headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done' },
 });
 
+function cardRowsOf(drawn: RenderNode): RenderElement[] {
+  const card = everyElement(drawn).find((element) => keyOf(element) === 'paqad-band');
+  return ((card as { children?: readonly RenderNode[] } | undefined)?.children ?? []).filter(
+    (child): child is RenderElement => typeof child !== 'string',
+  );
+}
+
 describe('live subagents in the band', () => {
-  test('titles the running subagent, shows its two newest lines and comes back to Done when it ends', async ($, on) => {
+  test('AC-7, AC-8: titles the running subagent, shows exactly one line, the newest, and comes back to Done when it ends', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -3574,7 +3637,8 @@ describe('live subagents in the band', () => {
     const drawn = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect(drawn.join('\n')).toContain('Subagent: Review the change');
     expect(drawn.join('\n')).toContain('Reading the strip.');
-    expect(drawn.join('\n')).toContain('Bash: pnpm test');
+    expect(drawn.filter((line) => /Reading the strip\.|Bash: pnpm/.test(line))).toHaveLength(1);
+    expect(drawn.join('\n')).not.toContain('Bash: pnpm test');
     expect(drawn.join('\n')).not.toContain('Bash: pnpm lint');
     world.agents.length = 0;
     await clock.advance(1_500);
@@ -3582,6 +3646,91 @@ describe('live subagents in the band', () => {
     const after = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 }))).join('\n');
     expect(after).not.toContain('Subagent:');
     expect(after).toContain('Done');
+  });
+
+  test('AC-1, AC-2, AC-3: on Desktop the newest line sits in the gap slot with no indent, and the card stays 6 rows', async ($, on) => {
+    const gap = 'paqad could not record every stage of this change';
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText({
+          ...DONE_SNAPSHOT,
+          headline: { ...(DONE_SNAPSHOT.headline as object), gap },
+        }),
+      },
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const rows = (drawn: RenderNode) =>
+      cardRowsOf(drawn).map((row, index) => (index === 1 ? 'message' : row.type));
+    const body = (drawn: RenderNode) => [textOf(cardRowsOf(drawn)[2]!)];
+    const CARD = ['Box', 'message', 'Text', 'Box'];
+    const before = await $.ui.render(band('desktop'));
+    expect(rows(before)).toEqual(CARD);
+    expect(body(before)).toEqual([gap]);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await $.tool.call({ tool: 'Bash', command: 'pnpm lint', agentId: 'ag-1' } as never);
+    await $.tool.call({ tool: 'Bash', command: 'pnpm test', agentId: 'ag-1' } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const during = await $.ui.render(band('desktop'));
+    expect(rows(during)).toEqual(CARD);
+    expect(body(during)).toEqual(['Bash: pnpm test']);
+    expect(textOf(during)).not.toContain('Bash: pnpm lint');
+    world.agents.length = 0;
+    await clock.advance(1_500);
+    await clock.settle();
+    const after = await $.ui.render(band('desktop'));
+    expect(rows(after)).toEqual(CARD);
+    expect(body(after)).toEqual([gap]);
+  });
+
+  test('AC-2: with a stage running and no subagent the Desktop body line is one blank space', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const rows = cardRowsOf(await $.ui.render(band('desktop')));
+    expect(rows).toHaveLength(4);
+    expect(textOf(rows[2]!)).toBe(' ');
+    expect(propsOf(rows[2]!).dimColor).toBe(true);
+    expect(propsOf(rows[2]!).size).toBe('footnote');
+  });
+
+  test('AC-6: a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.agents.push({
+      id: 'ag-1',
+      description: 'Review the change',
+      type: 'general-purpose',
+      status: 'running',
+    } as never);
+    await $.tool.call({ tool: 'Agent', run_in_background: true } as never);
+    await $.session.append({
+      message: {
+        type: 'assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: '<system-reminder>\nKeep going.\n</system-reminder>' }],
+      },
+      door: 'response',
+      origin: { kind: 'model' },
+      uuid: 'u1',
+      agentId: 'ag-1',
+    } as never);
+    await clock.advance(1_500);
+    await clock.settle();
+    const drawn = await $.ui.render(band('desktop'));
+    expect(wordsOf(drawn)).toContain('Subagent: Review the change');
+    expect(String(propsOf(headlineSvg(drawn)!).source)).not.toContain('system-reminder');
+    expect(textOf(drawn)).not.toContain('system-reminder');
+    expect(textOf(drawn)).not.toContain('Keep going.');
   });
 
   test('counts the agents it saw finish on this change only', async ($, on) => {

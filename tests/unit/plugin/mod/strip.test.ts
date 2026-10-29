@@ -16,9 +16,11 @@ import {
   STRIP_HEIGHT,
   escapeXml,
   hairline,
+  liveHeadline,
   meter,
   miniStages,
   nodeIcon,
+  seatsThatFit,
   strip,
   stripAlt,
   stripWidth,
@@ -84,9 +86,15 @@ function connectors(source: string): Array<[number, number]> {
 }
 
 const PALETTE = new Set(
-  [INK.ink, INK.inkDark, INK.muted, INK.mutedDark, ...Object.values(SIGNAL)].map((colour) =>
-    colour.toUpperCase(),
-  ),
+  [
+    INK.ink,
+    INK.inkDark,
+    INK.muted,
+    INK.mutedDark,
+    INK.headline,
+    INK.headlineDark,
+    ...Object.values(SIGNAL),
+  ].map((colour) => colour.toUpperCase()),
 );
 const colours = (source: string) => source.match(/#[0-9A-Fa-f]{6}\b/g) ?? [];
 
@@ -180,6 +188,136 @@ describe('the strip geometry', () => {
     for (const label of ['Intake', 'Spec', 'Review', 'Docs', 'Commit', 'CI']) {
       expect(fast).not.toMatch(new RegExp(`[> ]${label}</text>`));
     }
+  });
+});
+
+describe('the High Table shows three seats and the chief', () => {
+  const three = marks(INITIALS.slice(0, 3), ['writing', 'late', 'done'] as SeatState[]);
+  const marksOf = (source: string) =>
+    numbers(
+      source,
+      /<text class="lbl mut" x="([\d.]+)" y="47" text-anchor="middle">(?:SA|IA|DO|CA)</g,
+    );
+  const hairAt = (source: string) =>
+    numbers(source, /<line class="hair" x1="([\d.]+)" y1="19"/g)[0]!;
+
+  const two = three.slice(0, 2);
+  const inner = (columns: number) => {
+    const width = stripWidth(columns);
+    return width * 0.66 - 18;
+  };
+
+  it('AC-12: draws +N after the last shown seat, then the hairline and CA; seats that all fit draw no +N', () => {
+    const source = draw({ columns: 93, seats: three, hiddenSeats: 8, chief: 'ruling' });
+    expect(source).toMatch(
+      /<text class="lbl mut" x="[\d.]+" y="28" text-anchor="middle" style="font-weight:500">\+8<\/text>/,
+    );
+    expect(source).toContain('>CA</text>');
+    expect(source.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(3);
+    const narrow = draw({ columns: 57, seats: two, hiddenSeats: 9, chief: 'ruling' });
+    expect(narrow).toContain('>+9</text>');
+    expect(narrow.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(2);
+    expect(draw({ columns: 57, seats: three, hiddenSeats: 0 })).not.toMatch(/>\+\d+<\/text>/);
+    expect(draw({ columns: 57, seats: three })).not.toMatch(/>\+\d+<\/text>/);
+    expect(draw({ seats: three, hiddenSeats: 1 })).toContain('>+1</text>');
+  });
+
+  it('shows three seats when the run fits the section, else two, switching at 66 columns', () => {
+    expect(seatsThatFit(57, 11, 3)).toBe(2);
+    expect(seatsThatFit(65, 11, 3)).toBe(2);
+    expect(seatsThatFit(66, 11, 3)).toBe(3);
+    expect(seatsThatFit(93, 11, 3)).toBe(3);
+    expect(seatsThatFit(57, 4, 3)).toBe(2);
+    expect(seatsThatFit(57, 3, 3)).toBe(3);
+    expect(seatsThatFit(57, 2, 3)).toBe(2);
+    expect(seatsThatFit(57, 1, 3)).toBe(1);
+    expect(seatsThatFit(57, 0, 3)).toBe(0);
+  });
+
+  for (const [columns, shown, hidden] of [
+    [57, two, 9],
+    [65, two, 9],
+    [66, three, 8],
+    [93, three, 8],
+    [57, three, 0],
+  ] as Array<[number, typeof three, number]>) {
+    it(`AC-14: at ${columns} columns with ${shown.length} seats, marks sit 22 px apart, +N one step on, and the chief 18 px clear of the divider`, () => {
+      const source = draw({ columns, seats: shown, hiddenSeats: hidden, chief: 'ruling' });
+      const centres = marksOf(source);
+      expect(centres).toHaveLength(shown.length + 1);
+      const seatsAt = centres.slice(0, shown.length);
+      const chief = centres.at(-1)!;
+      const plus = hidden > 0 ? textX(source, `\\+${hidden}`) : null;
+      const all = [...seatsAt, ...(plus === null ? [] : [plus]), chief];
+      for (let i = 1; i < all.length; i += 1) {
+        expect(all[i]! - all[i - 1]!).toBeGreaterThanOrEqual(22 - 0.05);
+      }
+      if (plus !== null) expect(plus - seatsAt.at(-1)!).toBeCloseTo(22, 1);
+      const hair = hairAt(source);
+      expect(hair).toBeGreaterThan((plus ?? seatsAt.at(-1)!) + 6);
+      expect(chief - 5).toBeGreaterThan(hair);
+      const divider = stripWidth(columns) * 0.66;
+      expect(chief + 6).toBeLessThanOrEqual(inner(columns) + 0.05);
+      expect(divider - (chief + 6)).toBeGreaterThanOrEqual(18 - 0.05);
+    });
+  }
+
+  it('AC-15: cuts the strip into whole-percent sections that tile the width and keep every x', () => {
+    for (const over of [
+      { columns: 57, seats: three.slice(0, 2), hiddenSeats: 9 },
+      { columns: 93 },
+      { columns: 93, seats: null },
+    ] as Array<Partial<StripInput>>) {
+      const drawn = strip({ ...SETTLED, ...over });
+      expect(drawn.sections.map((cut) => cut.percent)).toEqual(
+        over.seats === null ? [56, 44] : [40, 26, 34],
+      );
+      expect(drawn.sections.map((cut) => cut.id)).toEqual(
+        over.seats === null ? ['stage', 'delivery'] : ['stage', 'table', 'delivery'],
+      );
+      let from = 0;
+      for (const cut of drawn.sections) {
+        expect(Number.isInteger(cut.percent)).toBe(true);
+        const box = /viewBox="([\d.]+) 0 ([\d.]+) 52" width="([\d.]+)" height="52"/.exec(
+          cut.source,
+        )!;
+        expect(Number(box[1])).toBeCloseTo(from, 1);
+        expect(Number(box[3])).toBe(Number(box[2]));
+        expect(Number(box[2])).toBeCloseTo((cut.percent / 100) * drawn.width, 1);
+        from += Number(box[2]);
+        const texts = [...cut.source.matchAll(/<text [^>]*x="([\d.]+)"[^>]*>([^<]+)</g)];
+        expect(texts.length).toBeGreaterThan(0);
+        for (const [, x, words] of texts) {
+          expect(drawn.source).toContain(`x="${x}"`);
+          expect(drawn.source).toContain(`>${words}<`);
+        }
+      }
+      expect(from).toBeCloseTo(drawn.width, 1);
+    }
+  });
+
+  it('draws each divider half a pixel inside its left section in the cuts, so the cut keeps it whole', () => {
+    const drawn = strip(SETTLED);
+    expect(numbers(drawn.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([
+      316.4, 522.1,
+    ]);
+    const [stage, table, delivery] = drawn.sections;
+    expect(numbers(stage!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([315.9]);
+    expect(numbers(table!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([521.6]);
+    expect(delivery!.source).not.toMatch(/<line class="hair" x1="[\d.]+" y1="1"/);
+  });
+
+  it('carries the motion defs on the stage section only, and the shared style on each', () => {
+    const drawn = strip({
+      ...SETTLED,
+      stages: stages('skip', 'done', 'run', 'todo', 'todo', 'todo', 'todo', 'todo'),
+      clockMs: 0,
+    });
+    const [stage, table, delivery] = drawn.sections;
+    expect(stage!.source).toContain('<linearGradient id="sheen"');
+    expect(table!.source).not.toContain('<defs>');
+    expect(delivery!.source).not.toContain('<defs>');
+    for (const cut of drawn.sections) expect(cut.source).toContain('<style>');
   });
 });
 
@@ -315,6 +453,88 @@ describe('the strip marks', () => {
   });
 });
 
+describe('the live headline image', () => {
+  const HEAD = {
+    columns: 93,
+    signal: 'accent' as const,
+    text: 'Building',
+    note: '3 finished',
+    clock: '2:01',
+  };
+  const headline = (over: Partial<Parameters<typeof liveHeadline>[0]> = {}) =>
+    liveHeadline({ ...HEAD, clockMs: 0, ...over }).source;
+  const beginOf = (source: string, dur: string) =>
+    new RegExp(`dur="${dur}"[^>]*begin="(-[\\d.]+)s"`).exec(source)?.[1];
+
+  it('is as wide as the strip and 24 high, with the title, the note and the clock', () => {
+    const drawn = liveHeadline({ ...HEAD, clockMs: 0 });
+    expect(drawn).toMatchObject({ width: stripWidth(93), height: 24 });
+    expect(drawn.source).toContain('viewBox="0 0 791 24" width="791" height="24"');
+    expect(liveHeadline({ ...HEAD, columns: 57 }).source).toContain('viewBox="0 0 485 24"');
+    expect(drawn.source).toContain('<text x="20" y="17"><tspan class="ttl">Building</tspan>');
+    expect(drawn.source).toContain('<tspan class="aside mut" dx="16">3 finished</tspan>');
+    expect(drawn.source).toContain('<tspan class="aside mut" dx="16">2:01</tspan>');
+    expect(drawn.source).toContain('.ttl{fill:url(#title-sheen);font-size:17px;font-weight:600}');
+    expect(drawn.source).toContain('.aside{font-size:12px;font-weight:400}');
+    expect(drawn.source).toContain('font-variant-numeric:tabular-nums');
+    expect(headline({ note: null, clock: null })).not.toContain('class="aside');
+  });
+
+  it('sweeps an accent sheen across the title every 3.6 s: 2.2 s of sweep, then a rest', () => {
+    const source = headline();
+    expect(source).toContain(
+      '<linearGradient id="title-sheen" gradientUnits="objectBoundingBox" x1="0" x2=".18">',
+    );
+    expect(source).toContain(`<stop offset=".5" stop-color="${SIGNAL.accent}" stop-opacity=".9"/>`);
+    expect(source.match(/<stop class="hs" offset="[01]"\/>/g)).toHaveLength(2);
+    expect(source).toContain(
+      'attributeName="gradientTransform" type="translate" values="-.3 0;1.3 0;1.3 0" keyTimes="0;.61;1" calcMode="spline" keySplines=".4 0 .2 1;0 0 1 1" dur="3.6s" repeatCount="indefinite"',
+    );
+  });
+
+  it('AC-10: takes its phase from the shared clock, so a redraw never restarts the light', () => {
+    expect(headline({ clockMs: 5_000 })).toBe(headline({ clockMs: 5_000 }));
+    expect(beginOf(headline({ clockMs: 5_000 }), '3.6s')).toBe('-1.400');
+    expect(beginOf(headline({ clockMs: 5_400 }), '3.6s')).toBe('-1.800');
+    expect(beginOf(headline({ clockMs: 5_000 }), '2.4s')).toBe('-0.200');
+    expect(beginOf(headline({ clockMs: 5_400 }), '2.4s')).toBe('-0.600');
+    expect(liveHeadline(HEAD).source).not.toContain('begin=');
+  });
+
+  it('steps the dot through the breath values over 2.4 s in the signal colour', () => {
+    const source = headline({ signal: 'accent' });
+    expect(source).toContain(
+      `<circle class="motion" cx="6" cy="12" r="5.5" fill="${SIGNAL.accent}"><animate attributeName="opacity" values="1;0.8;0.55;0.4;0.55;0.8" dur="2.4s" calcMode="discrete" repeatCount="indefinite"`,
+    );
+    expect(source).toContain(
+      `<circle class="still" cx="6" cy="12" r="5.5" fill="${SIGNAL.accent}"/>`,
+    );
+    expect(headline({ signal: 'pass' })).toContain(`fill="${SIGNAL.pass}"`);
+  });
+
+  it('AC-11: under reduced motion the title is solid headline and the dot solid at full opacity', () => {
+    const source = headline();
+    expect(source).toContain('.still{display:none}');
+    expect(source).toContain(
+      `@media (prefers-reduced-motion: reduce){.ttl{fill:${INK.headline}}.motion{display:none}.still{display:inline}}`,
+    );
+    expect(source).toContain(
+      `@media (prefers-color-scheme: dark) and (prefers-reduced-motion: reduce){.ttl{fill:${INK.headlineDark}}}`,
+    );
+    expect(source).toContain(
+      `@media (prefers-color-scheme: dark){.hs{stop-color:${INK.headlineDark}}.mut{fill:${INK.mutedDark}}}`,
+    );
+    expect(source).toContain(`.hs{stop-color:${INK.headline}}.mut{fill:${INK.muted}}`);
+  });
+
+  it('escapes the words it writes', () => {
+    const source = headline({ text: 'Tom & <Jerry>', note: '"a"', clock: null });
+    expect(source).toContain('>Tom &amp; &lt;Jerry&gt;</tspan>');
+    expect(source).toContain('>&quot;a&quot;</tspan>');
+    expect(source).not.toContain('<Jerry>');
+  });
+});
+
 describe('the Ledger drawings', () => {
   it('draws the mini stages 64 × 4, one mark per stage', () => {
     const source = miniStages(['done', 'run', 'paused', 'skip']);
@@ -411,6 +631,14 @@ describe('AC-26: every colour comes from the palette', () => {
       meter(null),
       tabRule(5, 0),
       hairline(),
+      liveHeadline({
+        columns: 57,
+        signal: 'accent',
+        text: 'Building',
+        note: '3 finished',
+        clock: '2:01',
+        clockMs: 0,
+      }).source,
     ];
     for (const source of drawn) {
       for (const colour of colours(source)) expect(PALETTE.has(colour.toUpperCase())).toBe(true);
@@ -447,6 +675,7 @@ describe('the palette', () => {
       hairOpacity: 0.28,
     });
     expect(INK.faintStrokeOpacity).toBe(0.45);
+    expect(INK).toMatchObject({ headline: '#1F2428', headlineDark: '#E8ECEE' });
     expect(SIGNAL).toMatchObject({
       accent: '#F90093',
       attention: '#F37748',

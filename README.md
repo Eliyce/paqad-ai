@@ -22,6 +22,8 @@
 
 Works with Claude Code, Cursor, GitHub Copilot, Gemini, Codex, Windsurf, Junie, Continue, Antigravity, Aider, and JetBrains AI Assistant.
 
+Built by [Eliyce](https://eliyce.com)
+
 </div>
 
 ---

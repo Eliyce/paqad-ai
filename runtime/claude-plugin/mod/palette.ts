@@ -3,6 +3,8 @@ export const INK = {
   inkDark: '#C2CBD0',
   muted: '#8E979D',
   mutedDark: '#97A1A7',
+  headline: '#1F2428',
+  headlineDark: '#E8ECEE',
   hairOpacity: 0.28,
   faintOpacity: 0.3,
   faintStrokeOpacity: 0.45,

@@ -10,11 +10,10 @@ import {
   flagWords,
   identityText,
   type DesktopBand,
-  type DesktopHeadline,
   type IdentityView,
 } from './desktop-view';
 import { SIGNAL, lightColor } from './palette';
-import { miniStages, strip } from './strip';
+import { liveHeadline, miniStages, strip } from './strip';
 
 type D = Elements['desktop'];
 
@@ -104,8 +103,20 @@ function closeMenu(ui: D, actions: BandActions) {
   );
 }
 
-function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
-  const { Text } = ui;
+function messageRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick: number) {
+  const { Text, Svg } = ui;
+  const headline = band.headline;
+  if (headline.live) {
+    const drawn = liveHeadline({
+      columns: band.strip.columns,
+      signal: headline.signal,
+      text: headline.text,
+      note: headline.note,
+      clock: headline.clock,
+      ...(band.strip.clockMs === undefined ? {} : { clockMs: band.strip.clockMs }),
+    });
+    return <Svg key="paqad-message" source={drawn.source} alt={band.headlineAlt} />;
+  }
   return (
     <Text key="paqad-message" wrap="truncate-end">
       <Text size="heading" color={lightColor(headline.signal, headline.live, tick)}>
@@ -122,21 +133,25 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
   );
 }
 
-function activityRow(ui: D, line: string, index: number) {
+function bodyRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
   const { Text } = ui;
   return (
-    <Text key={`paqad-activity-${index}`} size="footnote" dimColor wrap="truncate-end">
-      {`    ${line}`}
+    <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
+      {band.activity[0] ?? band.headline.gap ?? ' '}
     </Text>
   );
 }
 
-function gapRow(ui: D, headline: DesktopHeadline) {
-  const { Text } = ui;
+function stripRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
+  const { Box, Svg } = ui;
   return (
-    <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
-      {headline.gap ?? ' '}
-    </Text>
+    <Box key="paqad-strip" flexDirection="row">
+      {strip(band.strip).sections.map((cut) => (
+        <Box key={`paqad-strip-${cut.id}`} width={`${cut.percent}%`}>
+          <Svg source={cut.source} alt={band.stripAlts[cut.id]} />
+        </Box>
+      ))}
+    </Box>
   );
 }
 
@@ -174,7 +189,7 @@ function featureBand(
   tick: number,
   actions: BandActions,
 ) {
-  const { Box, Svg } = ui;
+  const { Box } = ui;
   if (band.mode === 'minimised') {
     return (
       <Box key="paqad-band" flexDirection="column" rowGap="xs">
@@ -187,12 +202,9 @@ function featureBand(
     <Box key="paqad-band" flexDirection="column" rowGap="xs">
       {identityRow(ui, band.identity, actions)}
       {band.menu ? closeMenu(ui, actions) : null}
-      {messageRow(ui, band.headline, tick)}
-      {band.activity.map((line, index) => activityRow(ui, line, index))}
-      {gapRow(ui, band.headline)}
-      <Box key="paqad-strip">
-        <Svg source={strip(band.strip).source} alt={band.alt} />
-      </Box>
+      {messageRow(ui, band, tick)}
+      {bodyRow(ui, band)}
+      {stripRow(ui, band)}
     </Box>
   );
 }

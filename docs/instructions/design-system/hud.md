@@ -17,6 +17,7 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 | --------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
 | `ink`           | `#6E7D86`                          | `#C2CBD0`                     | done delivery nodes and seats, Svg values                                                       |
 | `muted`         | `#8E979D`                          | `#97A1A7`                     | Svg caps and labels                                                                             |
+| `headline`      | `#1F2428`                          | `#E8ECEE`                     | the live headline in the band Svg                                                               |
 | `faint`         | `muted` at 30% (fill)              | same                          | not yet                                                                                         |
 | `faintStroke`   | `muted` at 45% (stroke)            | same                          | not-yet rings, dashed not-required lines                                                        |
 | `hair`          | `muted` at 28%                     | same                          | dividers, rules, hairlines                                                                      |
@@ -28,7 +29,7 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 | `fail`          | `#D23B3B`                          | `#F08080`                     | fail                                                                                            |
 | `onSignal`      | `#FFFFFF`                          | same                          | only on a solid signal: the High Table badge numbers, the running sheen                         |
 | `PX_PER_COLUMN` | `8.5`                              |                               | strip width = `bodyColumns × 8.5`                                                               |
-| `BREATH`        | alpha suffixes `FF CC 8C 66 8C CC` |                               | the live light, one step per 400 ms tick                                                        |
+| `BREATH`        | alpha suffixes `FF CC 8C 66 8C CC` |                               | the live light, one step per 400 ms tick; the band headline dot steps through the same values  |
 
 The status set is "B": the paqad brand palette plus one functional green and one red. Nothing uses
 `gray` or `white` by name.
@@ -59,12 +60,13 @@ Each rule was a visible bug on Desktop before it became a rule.
 | R13 | In the prompt footer, a `SessionMode` hook can draw its own tree; `$.ui.status` prints the plugin's name first; `PromptHint` is not drawn on Desktop.                                                                        |
 | R14 | Desktop reports band `bodyColumns` 57 to 93 and `maxRows` 12, and a docked pane `bodyColumns` 48, about 8.5 px per column. The terminal's 110-column row or column switch is never used on Desktop.                         |
 | R15 | The `theme` row of `$.config.list()` is the terminal theme, not the Desktop appearance. Svg colours are mid tones that read on light and dark, with a `prefers-color-scheme: dark` block as a bonus.                      |
+| R16 | A `Button` holds strings and `Text` only, never an `Svg`: the engine refuses the element and skips the whole draw. No image in the band is pressable; controls are text Buttons.                                         |
 
 ## Components
 
 ### Band card
 
-Four rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
+Four rows in `Box flexDirection="column" rowGap="xs"`, 6 rows high in every state, nothing around them.
 
 - **Identity row** (`Box` row, `alignItems="center"`, `columnGap="sm"`): one `Text` with `paqad`
   (semibold) and a dim footnote run of the parts that apply, joined by `  ·  `: the workflow, the
@@ -74,17 +76,28 @@ Four rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
   figure is known an open window reads `counting`, never a final 0. Then `Box flexGrow`,
   then, only with open flags, an amber `⚑` `Text` and a plain dim `N flag(s)` Button, then the
   bordered dim `Ledger` Button and the plain dim `−` and `×` Buttons.
-- **Message row**: one `Text wrap="truncate-end"`: `●` (heading size, the signal colour) + the
-  headline (heading, semibold) + on live states a dim footnote clock `m:ss`.
-- **Gap line**: one dim footnote `Text` under the headline, always drawn. It is blank when there is
+- **Message row**: on static states (Done, Waiting for your answer, Inconclusive, Next) one
+  `Text wrap="truncate-end"`: `●` (heading size, the signal colour) + the headline (heading,
+  semibold) + a dim footnote note. On live states (a stage running, a subagent) one plain-image
+  `Svg` with no width or height props, markup as wide as the strip and 24 high: the dot (r 5.5 at
+  6, 12, the signal colour), the title at x 20, baseline 17, 17 px, weight 600, in `headline`
+  with the title sheen, then the note and the clock `m:ss` as 12 px `muted` runs 16 px apart.
+  Its `alt` says the whole sentence, the note and the clock in words
+  (`Building. Running for 2 min 1 s.`).
+- **Body line**: the gap line's slot, one dim footnote `Text wrap="truncate-end"` with no indent,
+  on the shared left edge. While a subagent runs it carries the newest subagent line; otherwise
+  it carries the gap text. It is always drawn. It is blank when there is
   nothing to say, so the card keeps one height in every state and never gains or loses a row as
   the headline moves between running, waiting and the verdict. It blames nobody: a stage with no
   record yet reads `No record yet for: Spec, Build`, and nothing shows here while a stage runs,
   because nothing has truly gone unrecorded yet. `paqad could not record ...` is kept for real
   record faults.
-- **Strip**: one plain-image `Svg`, no width or height props, markup width
-  `round(bodyColumns × 8.5)` with a minimum of 480, height 52. Caps baseline 9, marks centre 25,
-  labels baseline 47.
+- **Strip**: a `Box flexDirection="row"` of one plain-image `Svg` per section, each in a `Box`
+  at its whole-number width, no width or height props on the Svgs. Each section is a `viewBox` cut
+  of one layout whose markup width is `round(bodyColumns × 8.5)` with a minimum of 480, height
+  52, so every x is the same as in one image; a divider is drawn half a pixel inside its left
+  section so the cut keeps it whole. Caps baseline 9, marks centre 25, labels baseline 47. Each
+  section has its own `alt`.
   - Sections STAGE 40% · HIGH TABLE 26% · DELIVERY 34%; without a High Table STAGE 56% ·
     DELIVERY 44%. A 1 px hairline divides them with 18 px on each side. The last section's right
     edge is inset 7 px.
@@ -96,9 +109,14 @@ Four rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
     Deliver; fast: Plan, Build, Checks). An older engine with no `lane_stages` gets the same lists
     from the lane. Bars are 3 px tall, `rx 1.5`, 4 px
     gaps, a 9 px label under each.
-  - HIGH TABLE (only when the table sat): seats r 4, spaced at most 22 px, initials under each
-    (`SA IA DO PO AA UF QA`, or the first letters of other roles), a 12 px hairline, then the chief
-    r 5 labelled `CA`.
+  - HIGH TABLE (only when the table sat): at most 3 seats, fewer when they do not fit, ordered
+    writing, late, newest done, seated (ties keep roster order), r 4, 22 px apart, initials under
+    each (`SA IA DO PO AA UF QA`, or the first letters of other roles), then a quiet `+N` (9 px,
+    weight 500, `muted`) one step on for every seat not shown, a 12 px hairline, then the chief
+    r 5 labelled `CA`, which ends inside the section, 18 px clear of the divider. Three seats with
+    `+N` fit from 66 columns; below that the band shows two seats and `+N`. Three or fewer seats
+    that all fit draw no `+N`. The alt says how many are shown, and the Ledger's High Table tab
+    lists every seat.
   - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
     delivery plan (Edit, Commit, Push, PR, CI as they apply; merging is the owner's, so there is
     no Merge node), spacing capped at 96 px, inset
@@ -142,7 +160,7 @@ Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`,
 ### Ledger
 
 Opened with the title `paqad Ledger`, on Trust. The `Ledger` Button toggles it and the flags open it
-on Trust; the brand text and the strip image are not pressable.
+on Trust; the brand text and the strip image are not pressable (R16).
 
 - **Subtitle**: dim footnote `What happened, with proof  ·  <change chip>`.
 - **Tabs**: a row of equal Boxes, each `${Math.floor(100 / n)}%` wide, holding a plain Button with
@@ -186,7 +204,8 @@ nothing settled moves.
 
 | What                                           | How                                                                                                  |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Live light (band, minimised, workflow band)    | the `●` colour cycles the `BREATH` alpha suffixes, one step per tick (2.4 s cycle)                   |
+| Live light (band, minimised, workflow band)    | the `●` colour cycles the `BREATH` alpha suffixes, one step per tick (2.4 s cycle); in the band headline Svg the dot steps its opacity through the same values over 2.4 s, from the shared clock |
+| Live headline title                            | an accent sheen sweeps the title every 3.6 s: 2.2 s on `cubic-bezier(.4,0,.2,1)`, then a 1.4 s rest; phase from the shared clock; off under reduced motion, which leaves the title solid `headline` and the dot at full opacity |
 | Live clock                                     | re-rendered each tick, in whole seconds                                                              |
 | Running stage                                  | opacity pulse 1.6 s, a 5 px glow from .55 to .15, a sheen sweep 2.2 s on `cubic-bezier(.4,0,.2,1)` |
 | Writing seat, chief needing answers            | opacity pulse 1.6 s                                                                                  |
@@ -240,7 +259,7 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
 | 6   | a decision packet of this change is pending                                      | attention       | no   | `Waiting for your answer`                                                                                 |
-| 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`                                          |
+| 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`; one dim line in the gap line's slot      |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed on the open PR's current head                                          | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
@@ -289,9 +308,10 @@ trailing `…`; on Desktop the strip `alt` keeps the whole sentence.
 
 Rows 3, 4 and 6 all read `Waiting for your answer` and win over the subagent title, Done and CI.
 Row 7 leads while any subagent or background task from `$.agent.list()` is working: the light
-breathes calmly (the live light, no blinking), and up to two dim lines under the headline say what
-the subagents are doing, newest on top, one line per `session.append` row or `tool.call` that
-carries an `agentId`. `N finished` counts the agents the HUD saw leave the list while this change
+breathes calmly (the live light, no blinking), and one dim line in the gap line's slot says what
+the subagents are doing, the newest `session.append` row or `tool.call` that carries an
+`agentId`. A text block that starts with `<system-reminder>` is skipped, so a reminder never
+shows. `N finished` counts the agents the HUD saw leave the list while this change
 was current, kept per change by the mod because the engine gives no start time and drops finished
 agents. With nothing running the normal headline and its rows come back.
 
@@ -343,8 +363,8 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 
 - The band's `bodyColumns` runs from 57 to 93 on Desktop; the strip's markup width is
   `round(bodyColumns × 8.5)` with a minimum of 480, and the image scales down to fit the slot.
-- Row cost: identity 1, message 1, gap line 1, strip 3, so 6 rows, plus 1 while the close menu is
-  open, plus 1 for each subagent line (at most 2) while a subagent runs. The gap line is counted in every state. Below
+- Row cost: identity 1, message 1, body line 1, strip 3, so 6 rows in every state, plus 1 while
+  the close menu is open. The subagent line takes the body line's slot and adds no row. Below
   that `maxRows` the minimised row is drawn instead; with the menu open and no room, the minimised
   row is drawn with the menu row under it.
 - The docked Ledger is about 48 columns wide. Tabs keep their full labels in whole-number widths.
@@ -352,8 +372,10 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 
 ## Accessibility
 
-- Every Svg carries an `alt` that states its facts in words: the strip says the headline, the stage
-  value, the finished stages (`Plan, Build, Checks done`) and each section's value.
+- Every Svg carries an `alt` that states its facts in words: the live headline says the sentence,
+  the note and the clock; the stage section says the headline, the stage value and the finished
+  stages (`Plan, Build, Checks done`); the High Table section says its value and seats
+  (`High Table: Chief is ruling, 11 seats, 3 shown.`); the delivery section says its value.
 - Done never relies on colour alone: the word `Done` and the check mark carry it. `passText` is
   at least 4.5:1 for the 9 px labels and `pass` at least 3:1 for bars and the check glyph.
 - Every state is said in words as well as by colour (WCAG 2.1 SC 1.4.1).

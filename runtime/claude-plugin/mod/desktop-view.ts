@@ -1,3 +1,4 @@
+import { ACTIVITY_LINES } from './agents';
 import { changeChip } from './band';
 import {
   CHANGE_SCOPE_SENTENCE,
@@ -13,14 +14,15 @@ import { stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
 import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
-import type {
-  ChiefState,
-  Mark,
-  SeatState,
-  ShipState,
-  StageState,
-  StripInput,
-  TableSeat,
+import {
+  seatsThatFit,
+  type ChiefState,
+  type Mark,
+  type SeatState,
+  type ShipState,
+  type StageState,
+  type StripInput,
+  type TableSeat,
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
@@ -227,7 +229,17 @@ export interface TableStrip {
   seats: Array<Mark<SeatState>> | null;
   chief: ChiefState;
   value: string;
+  hidden: number;
 }
+
+export const TABLE_SEATS_SHOWN = 3;
+
+const SEAT_ORDER: Readonly<Record<SeatState, number>> = {
+  writing: 0,
+  late: 1,
+  done: 2,
+  seated: 3,
+};
 
 const TABLE_VALUES: Readonly<Record<string, string>> = {
   'chief is ruling': 'Chief is ruling',
@@ -244,20 +256,37 @@ export function chiefState(snapshot: PaqadHudSnapshot): ChiefState {
   return 'waiting';
 }
 
-export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
+function doneAt(seat: PaqadSeat): number {
+  const at = Date.parse(seat.done_at ?? '');
+  return Number.isFinite(at) ? at : Number.NEGATIVE_INFINITY;
+}
+
+function liveFirst(seats: readonly PaqadSeat[]): Array<Mark<SeatState>> {
+  return seats
+    .map((seat) => ({ seat, state: (seat.late ? 'late' : seat.state) as SeatState }))
+    .sort((a, b) => {
+      const order = SEAT_ORDER[a.state] - SEAT_ORDER[b.state];
+      if (order !== 0 || a.state !== 'done') return order;
+      const newer = doneAt(b.seat) - doneAt(a.seat);
+      return Number.isNaN(newer) ? 0 : newer;
+    })
+    .map(({ seat, state }) => ({ label: roleInitials(seat.role), state }));
+}
+
+export function tableStrip(snapshot: PaqadHudSnapshot, columns = 93): TableStrip {
   if (!showsTable(snapshot) || snapshot.table.skipped) {
-    return { seats: null, chief: 'waiting', value: '' };
+    return { seats: null, chief: 'waiting', value: '', hidden: 0 };
   }
   const table = snapshot.table;
   const status = tableStatus(snapshot, table);
   const value = / standing$/.test(status) ? 'Seated' : (TABLE_VALUES[status] ?? status);
+  const seats = liveFirst(table.seats);
+  const shown = seatsThatFit(columns, seats.length, TABLE_SEATS_SHOWN);
   return {
-    seats: table.seats.map((seat) => ({
-      label: roleInitials(seat.role),
-      state: seat.late ? 'late' : seat.state,
-    })),
+    seats: seats.slice(0, shown),
     chief: chiefState(snapshot),
     value,
+    hidden: seats.length - shown,
   };
 }
 
@@ -361,13 +390,14 @@ export function stripOf(
   settledAtMs: number | null = null,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
-  const table = tableStrip(snapshot);
+  const table = tableStrip(snapshot, columns);
   const delivery = deliveryStrip(snapshot, live);
   return {
     columns,
     stages: stage.stages,
     stageValue: stage.value,
     seats: table.seats,
+    hiddenSeats: table.hidden,
     chief: table.chief,
     tableValue: table.value,
     delivery: delivery.steps,
@@ -384,6 +414,39 @@ export function stripAltText(text: string, strip: StripInput): string {
   if (done.length > 0) parts.push(`${done.join(', ')} done.`);
   if (strip.seats && strip.tableValue) parts.push(`High Table ${strip.tableValue}.`);
   if (strip.deliveryValue) parts.push(`Delivery ${strip.deliveryValue}.`);
+  return parts.join(' ');
+}
+
+function clockWords(clock: string): string {
+  const [seconds = 0, minutes = 0, hours = 0] = clock.split(':').map(Number).reverse();
+  const words = [`${minutes} min`, `${seconds} s`];
+  return `Running for ${hours > 0 ? `${hours} h ` : ''}${words.join(' ')}.`;
+}
+
+export interface StripAlts {
+  stage: string;
+  table: string;
+  delivery: string;
+}
+
+export function stripAlts(text: string, strip: StripInput): StripAlts {
+  const stage = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
+  const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
+  if (done.length > 0) stage.push(`${done.join(', ')} done.`);
+  const shown = strip.seats?.length ?? 0;
+  const hidden = strip.hiddenSeats ?? 0;
+  const seats = `${plural(shown + hidden, 'seat', 'seats')}${hidden > 0 ? `, ${shown} shown` : ''}`;
+  return {
+    stage: stage.join(' '),
+    table: `High Table: ${strip.tableValue ? `${strip.tableValue}, ` : ''}${seats}.`,
+    delivery: `Delivery ${strip.deliveryValue || 'not started'}.`,
+  };
+}
+
+export function headlineAlt(head: Pick<DesktopHeadline, 'text' | 'note' | 'clock'>): string {
+  const parts = [`${head.text.replace(/\.$/, '')}.`];
+  if (head.note) parts.push(`${head.note.replace(/\.$/, '')}.`);
+  if (head.clock) parts.push(clockWords(head.clock));
   return parts.join(' ');
 }
 
@@ -439,8 +502,10 @@ export type DesktopBand =
       menu: boolean;
       identity: IdentityView;
       headline: DesktopHeadline;
+      headlineAlt: string;
       strip: StripInput;
       alt: string;
+      stripAlts: StripAlts;
       minimised: MinimisedView;
       activity: string[];
     };
@@ -511,17 +576,19 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const full = desktopHeadline(snapshot, input.now, live);
   const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
   const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
-  const fits = input.maxRows >= cardRows(input.menuOpen) + full.activity.length;
+  const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
     menu: input.menuOpen,
     identity: identityView(snapshot),
     headline: head,
+    headlineAlt: headlineAlt(full),
     strip,
     alt: stripAltText(full.text, strip),
+    stripAlts: stripAlts(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
-    activity: full.activity,
+    activity: full.activity.slice(0, ACTIVITY_LINES),
   };
 }
 
