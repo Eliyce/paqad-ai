@@ -1,0 +1,53 @@
+{
+  "id": "D-01M642J7ZKEW38M3A33ZAEBWDD",
+  "category": "architecture-path",
+  "title": "The directory accepts no tool.check hook that reads the verdict: what should the HUD do?",
+  "context": "Portal rounds 2 to 5 (#772): a tool.check hook may only return next(e), or keep it in one const returned with nothing reading it. Any read of the verdict is rejected. The HUD's only tool.check hook reads it for the band's 'Waiting for your answer' during Claude Code's permission dialog and for Allow-once outcome evidence (refused vs still-blocked).",
+  "options": [
+    {
+      "option_key": "drop",
+      "label": "Drop the hook",
+      "one_line_preview": "Drop the hook",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "query",
+      "label": "Predict with a query",
+      "one_line_preview": "Predict with a query",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep it, no listing",
+      "one_line_preview": "Keep it, no listing",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "drop",
+  "created_at": "2026-10-29T14:55:58.963Z",
+  "status": "resolved",
+  "chosen": "drop",
+  "rationale": "Owner: fine with B as long as only Claude Code's permission dialog loses the Waiting state; paqad decision pauses and chat questions keep it (they come from the snapshot and the question tool, not this hook).",
+  "resolved_at": "2026-10-29T15:03:30.663Z",
+  "decision_id": "D-01M642J7ZKEW38M3A33ZAEBWDD",
+  "fingerprint": "sha256:a49e17473148929ef358ab01a878b34a825e8a0ec85cb861109ed31577f5aa86",
+  "question": "The directory accepts no tool.check hook that reads the verdict: what should the HUD do?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2027-01-27T14:55:58.963Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "drop",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T15:03:30.663Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: fine with B as long as only Claude Code's permission dialog loses the Waiting state; paqad decision pauses and chat questions keep it (they come from the snapshot and the question tool, not this hook)."
+  }
+}
