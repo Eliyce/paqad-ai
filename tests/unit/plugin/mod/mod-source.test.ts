@@ -132,7 +132,7 @@ describe('the HUD mod source', () => {
     const end = register.indexOf('.catch(', start);
     expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
     const hook = register.slice(start, end);
-    expect(hook).toContain('return verdict;');
+    expect(hook).toContain('return next(e);');
     expect(hook).not.toMatch(/decision:\s*['"]/);
     expect(hook).not.toMatch(/return\s*\{/);
     expect(register.slice(end, register.indexOf('\n', end))).toContain(

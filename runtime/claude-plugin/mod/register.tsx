@@ -7,6 +7,8 @@ import type {
   RenderElement,
   RenderNode,
   Timer,
+  ToolCheckInput,
+  ToolCheckResult,
 } from 'claude-code';
 
 import {
@@ -290,6 +292,28 @@ async function moveLive($: EngineInterface, step: (state: LiveState) => LiveStat
   try {
     await update($, liveAtom, (state) => step(state ?? IDLE_LIVE));
   } catch {}
+}
+
+async function notePermission(
+  $: EngineInterface,
+  check: ToolCheckInput,
+  verdict: ToolCheckResult,
+): Promise<void> {
+  const toolUseId = typeof check.tool_use_id === 'string' ? check.tool_use_id : null;
+  if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
+  if (!live) return;
+  const agent = typeof check.agentId === 'string' && check.agentId !== '' ? check.agentId : null;
+  if (agent !== null) foregroundAgents.agentSeen(agent);
+  const foreground = agent !== null && foregroundAgents.isForeground(agent);
+  await moveLive($, (state) =>
+    permissionAsked(state, {
+      decision: verdict.decision,
+      approver: check.approver,
+      toolUseId,
+      agent,
+      foreground,
+    }),
+  );
 }
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
@@ -1362,24 +1386,8 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('tool.check', async ($, e, next) => {
-    const verdict = await next(e);
-    const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
-    if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
-    if (live) {
-      const agent = typeof e.agentId === 'string' && e.agentId !== '' ? e.agentId : null;
-      if (agent !== null) foregroundAgents.agentSeen(agent);
-      const foreground = agent !== null && foregroundAgents.isForeground(agent);
-      await moveLive($, (state) =>
-        permissionAsked(state, {
-          decision: verdict.decision,
-          approver: e.approver,
-          toolUseId,
-          agent,
-          foreground,
-        }),
-      );
-    }
-    return verdict;
+    await notePermission($, e, await next(e));
+    return next(e);
   }).catch(($, e, next) => next(e));
 
   on('session.append', async ($, e, next) => {
