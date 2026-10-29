@@ -252,6 +252,7 @@ describe('a change whose pull request merged', () => {
     ['a longer number', `feat: other (${ticketRef(7660)})`],
     ['a bare number', `feat: mentions ${ticketRef(766)}`],
     ['a shorter number', `feat: other (${ticketRef(76)})`],
+    ['the number before more text', `fix: something (${ticketRef(766)}) followup`],
   ])('AC-10: stays open when main only has %s', (_label, subject) => {
     const root = repoRoot();
     const dir = shippedOn(root, 'feat/open', 766);

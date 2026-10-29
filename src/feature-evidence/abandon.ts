@@ -104,7 +104,9 @@ function squashSubjectOnBase(
       `--max-count=${MERGE_SUBJECT_MAX_COUNT}`,
       '--format=%s',
     ]);
-    return out !== undefined && out.split('\n').some((subject) => subject.includes(needle));
+    return (
+      out !== undefined && out.split('\n').some((subject) => subject.trimEnd().endsWith(needle))
+    );
   });
 }
 
