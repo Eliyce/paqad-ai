@@ -1,0 +1,54 @@
+{
+  "id": "D-01M649E5K8YB66AM66BT7WJFQE",
+  "category": "spec.contradiction",
+  "title": "At 57 columns the High Table cannot keep 22 px spacing, +N one step on, and 18 px divider clearance",
+  "context": "At bodyColumns 57 the High Table section runs x 194 to 320.1; its content box is x0 212 to inner 302.1 (18 px clear of the divider), 90.1 px. AC-14 and FR-11 ask for seats 22 px apart and +N centred one full step (22 px) after the third seat, then the hairline and CA as today; NFR-3 and hud.md ask for 18 px either side of the divider. The tightest packing needs about 92 px: first seat ring from x0+1, three seats and +N over 66 px, then +N half-width 5, a 3 px gap, the hairline, 3 px, the chief ring r 5 and the CA label half-width 6. That is more than 90.1, so the three cannot all hold. Today's commit 6c242ecd keeps 22 px and +N one step on by running the chief to the section edge: the ring ends at 319.8 and CA at about 320, against the divider at 319.6. At 93 columns everything fits with room to spare.",
+  "options": [
+    {
+      "option_key": "narrow-plus",
+      "label": "Keep seats 22 px apart and the 18 px clearance; at narrow widths +N sits a half step (about 14 px) after the third seat instead of a full step, and the hairline and chief pack tight after it (hairline 4 px after +N, chief 10 px after the hairline). AC-14 is read as seat-to-seat 22 px and every gap at least 12 px; FR-11 'one mark step' becomes 'right after the last seat'.",
+      "one_line_preview": "Keep seats 22 px apart and the 18 px clearance; at narrow widths +N sits a half step (about 14 px) after the third seat instead of a full step, and the hairline and chief pack tight after it (hairline 4 px after +N, chief 10 px after the hairline). AC-14 is read as seat-to-seat 22 px and every gap at least 12 px; FR-11 'one mark step' becomes 'right after the last seat'.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "shrink-step",
+      "label": "Keep +N one step on and the 18 px clearance; the seat step shrinks below 22 px at narrow widths (about 17 px at 57 columns, 22 px at 93). AC-14's 22 px holds from about 66 columns up; at 57 columns the floor is 16 px, still with no overlap.",
+      "one_line_preview": "Keep +N one step on and the 18 px clearance; the seat step shrinks below 22 px at narrow widths (about 17 px at 57 columns, 22 px at 93). AC-14's 22 px holds from about 66 columns up; at 57 columns the floor is 16 px, still with no overlap.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "two-seats-narrow",
+      "label": "Keep 22 px, +N one step on and the 18 px clearance by showing 2 seats instead of 3 when the section is narrower than the 3-seat run needs (57 columns), with +N counting the rest; 3 seats from about 60 columns up. FR-10's cap of 3 becomes 'at most 3, fewer when it does not fit'.",
+      "one_line_preview": "Keep 22 px, +N one step on and the 18 px clearance by showing 2 seats instead of 3 when the section is narrower than the 3-seat run needs (57 columns), with +N counting the rest; 3 seats from about 60 columns up. FR-10's cap of 3 becomes 'at most 3, fewer when it does not fit'.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "narrow-plus",
+  "created_at": "2026-10-29T16:56:05.480Z",
+  "status": "resolved",
+  "change": "01M645V4RH7QQ7DZ5EK9AD0SKJ",
+  "chosen": "two-seats-narrow",
+  "rationale": "Owner picked two seats when the section is too narrow for three, keeping 22 px seats, a full +N step and 18 px clearance.",
+  "resolved_at": "2026-10-29T17:00:30.009Z",
+  "decision_id": "D-01M649E5K8YB66AM66BT7WJFQE",
+  "fingerprint": "sha256:52926b5103083c1552d35c6bbc99dec9e780efa4f16f4b017525d00c7a4c4012",
+  "question": "At 57 columns the High Table cannot keep 22 px spacing, +N one step on, and 18 px divider clearance",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M645V4RH7QQ7DZ5EK9AD0SKJ",
+  "ttl_until": "2026-11-05T16:56:05.480Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "two-seats-narrow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T17:00:30.009Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked two seats when the section is too narrow for three, keeping 22 px seats, a full +N step and 18 px clearance."
+  }
+}
