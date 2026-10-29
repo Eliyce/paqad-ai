@@ -97,6 +97,12 @@ describe('narration-contract-writer', () => {
     expect(body).toContain('Stages that ran inline before the raise stay accepted.');
   });
 
+  it('seats the standing experts only on the lanes in spec_pipeline_experts_lanes', () => {
+    expect(buildNarrationContractBody()).toContain(
+      'The standing experts sit only on the lanes in `spec_pipeline_experts_lanes` (default: full).',
+    );
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);

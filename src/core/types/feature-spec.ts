@@ -57,7 +57,7 @@ export interface SpecPipelineSection {
   outcome?: FinishOutcome;
   reason?: string;
   a5_live?: boolean;
-  enforcement?: Omit<PipelineConfig, 'enabled' | 'grounding_budget_ms'>;
+  enforcement?: Omit<PipelineConfig, 'enabled' | 'grounding_budget_ms' | 'experts_lanes'>;
   manual_reason?: string;
   skipped?: 'fast-lane';
   experts?: {

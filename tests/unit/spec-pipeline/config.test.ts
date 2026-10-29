@@ -39,6 +39,7 @@ describe('readPipelineConfig', () => {
         'qa-engineer',
       ],
       standing_experts_dropped: [],
+      experts_lanes: ['full'],
     });
   });
 
@@ -67,6 +68,7 @@ describe('readPipelineConfig', () => {
       adoption: 'strict',
       standing_experts: ['qa-engineer', 'product-owner'],
       standing_experts_dropped: [],
+      experts_lanes: ['full'],
     });
   });
 
@@ -172,6 +174,18 @@ describe('readPipelineConfig', () => {
   });
 });
 
+describe('experts_lanes', () => {
+  it('defaults to full, reads the file and the env, and always keeps full', () => {
+    expect(readPipelineConfig(tempRoot(), {}).experts_lanes).toEqual(['full']);
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_pipeline_experts_lanes=graduated');
+    expect(readPipelineConfig(root, {}).experts_lanes).toEqual(['graduated', 'full']);
+    expect(
+      readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_EXPERTS_LANES: 'bogus' }).experts_lanes,
+    ).toEqual(['full']);
+  });
+});
+
 describe('expertsActive', () => {
   const base: Omit<PipelineConfig, 'enabled' | 'experts_enabled'> = {
     clarification: 'warn',
@@ -180,6 +194,7 @@ describe('expertsActive', () => {
     adoption: 'warn',
     standing_experts: [],
     standing_experts_dropped: [],
+    experts_lanes: ['full'],
   };
 
   it('is true only when the pipeline AND the experts flag are both on (P2-INV-1)', () => {

@@ -70,6 +70,7 @@ const KNOB_CONSUMERS: Record<string, string> = {
   spec_pipeline_experts_enabled: 'spec pipeline (expert roster, the High Table)',
   spec_pipeline_adoption: 'spec freeze (strict adoption) + bundle-completeness gate',
   spec_pipeline_standing_experts: 'spec pipeline (standing experts at every spec)',
+  spec_pipeline_experts_lanes: 'spec pipeline (lanes where the standing experts sit)',
   stage_isolation_lanes: 'stage isolation (bundle-completeness gate + HUD isolation flag)',
   checks_parallel: 'checks stage (scheduler + parallel test plan)',
   checks_max_processes: 'checks stage (parallel process cap)',

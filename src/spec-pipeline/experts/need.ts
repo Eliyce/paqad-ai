@@ -17,6 +17,31 @@ export function seatStandingExperts(
   return seated;
 }
 
+export const SENSITIVE_PATH_EXPERT: AgentRole = 'security-auditor';
+
+export interface LaneSeatingInput {
+  detectorNeeds: readonly ExpertNeed[];
+  standing: readonly AgentRole[];
+  standingSits: boolean;
+  sensitivePath: string | null;
+}
+
+export function seatExpertsForLane(input: LaneSeatingInput): ExpertNeed[] {
+  if (input.standingSits) return seatStandingExperts(input.detectorNeeds, input.standing);
+  const seated = seatStandingExperts(input.detectorNeeds, []);
+  if (input.sensitivePath === null || seated.some((need) => need.role === SENSITIVE_PATH_EXPERT)) {
+    return seated;
+  }
+  return [
+    ...seated,
+    {
+      role: SENSITIVE_PATH_EXPERT,
+      reason: `a planned path is sensitive: ${input.sensitivePath}`,
+      origin: 'detector',
+    },
+  ];
+}
+
 export interface ExpertNeedValidation {
   ok: boolean;
   error?: string;

@@ -8,7 +8,7 @@ import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
 import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { sha256Hex } from '@/compliance/markdown.js';
-import { featureDir } from '@/feature-evidence/paths.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   readExpertNeed,
   readExpertNotes,
@@ -181,6 +181,101 @@ describe('spec pipeline experts CLI', () => {
     expect(roster[0]!.origin).toBe('detector');
     expect(roster[1]!.origin).toBe('standing');
     expect(roster[1]!.reason).toBe('standing expert (always at the table)');
+  });
+
+  describe('seating by lane', () => {
+    async function recordOn(
+      lane: 'graduated' | 'full' | null,
+      experts: { role: string; reason: string }[],
+      setup: (root: string, dir: string) => void = () => {},
+    ) {
+      const root = tempRoot();
+      const dir = activeFeature(root);
+      if (lane) recordChangeConstants(root, dir, { lane });
+      enableExpertsWithStanding(root);
+      setup(root, dir);
+      await groundAndLabel(root);
+      const { out } = await run(root, [
+        'experts',
+        'record',
+        writeArtifact(root, 'need.json', { experts }),
+      ]);
+      return { root, dir, out, roster: readExperts(root, dir)!.roster };
+    }
+
+    function planWith(files: string[]) {
+      return (root: string, dir: string) => {
+        mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+        writeFileSync(
+          join(root, 'docs/instructions/rules/module-map.yml'),
+          'version: 2\nmodules:\n  - slug: auth\n    name: Auth\n    sensitivity: high\n    sources:\n      - src/auth\n',
+        );
+        writeFileSync(
+          join(root, featureFilePath(dir, 'plan')),
+          JSON.stringify({ summary: 'p', steps: [{ id: 'S1', description: 'd', files }] }),
+        );
+      };
+    }
+
+    it('seats only the detector pick on graduated', async () => {
+      const { roster } = await recordOn('graduated', [
+        { role: 'security-auditor', reason: 'touches tokens' },
+      ]);
+      expect(roster.map((entry) => entry.role)).toEqual(['security-auditor']);
+    });
+
+    it('skips the High Table on graduated when nobody is named and no planned path is sensitive', async () => {
+      const { root, dir, out, roster } = await recordOn('graduated', [], planWith(['src/a.ts']));
+      expect(roster).toEqual([]);
+      expect(out).toContain(
+        '**▸ paqad** · skipped the High Table: no on-call expert is needed on the graduated lane',
+      );
+      expect(readSpecStepRows(root, dir).at(-1)).toMatchObject({
+        step: 'experts',
+        outcome: 'skipped',
+      });
+    });
+
+    it('seats security-auditor on graduated for a sensitive planned path, naming it', async () => {
+      const { roster } = await recordOn('graduated', [], planWith(['src/auth/token.ts']));
+      expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+        ['security-auditor', 'a planned path is sensitive: src/auth/token.ts'],
+      ]);
+    });
+
+    it('does not seat security-auditor twice when the detector already named it', async () => {
+      const { roster } = await recordOn(
+        'graduated',
+        [{ role: 'security-auditor', reason: 'touches tokens' }],
+        planWith(['src/auth/token.ts']),
+      );
+      expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+        ['security-auditor', 'touches tokens'],
+      ]);
+    });
+
+    it.each(['full', null] as const)(
+      'seats the standing four plus the picks on %s',
+      async (lane) => {
+        const { out, roster } = await recordOn(lane, [{ role: 'db-expert', reason: 'migration' }]);
+        expect(roster).toHaveLength(5);
+        expect(out.some((line) => line.includes('skipped the High Table'))).toBe(false);
+      },
+    );
+
+    it('seats the standing four on graduated when spec_pipeline_experts_lanes names it', async () => {
+      const { roster } = await recordOn('graduated', [], (root) => {
+        writeFileSync(
+          join(root, '.paqad', '.config'),
+          [
+            'spec_pipeline_enabled=true',
+            'spec_pipeline_experts_enabled=true',
+            'spec_pipeline_experts_lanes=graduated,full',
+          ].join('\n'),
+        );
+      });
+      expect(roster).toHaveLength(4);
+    });
   });
 
   it('de-duplicates a detector-named standing role to one detector entry', async () => {

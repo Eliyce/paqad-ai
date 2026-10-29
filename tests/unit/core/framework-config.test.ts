@@ -1301,4 +1301,20 @@ describe('lane lists', () => {
     expect(generateConfigExample()).toContain('PAQAD_STAGE_ISOLATION_LANES');
     expect(generateGroupConfig('policy')).toMatch(/^# stage_isolation_lanes=full$/m);
   });
+
+  it('declares spec_pipeline_experts_lanes in the spec pipeline section and writes it commented', () => {
+    const spec = FRAMEWORK_CONFIG_SPECS.find(
+      (entry) => entry.key === 'spec_pipeline_experts_lanes',
+    );
+    expect(spec).toMatchObject({
+      env: 'PAQAD_SPEC_PIPELINE_EXPERTS_LANES',
+      type: 'string',
+      default: 'full',
+      group: 'policy',
+      section: 'Spec pipeline',
+    });
+    expect(spec?.comment).toContain('graduated,full');
+    expect(generateConfigExample()).toContain('PAQAD_SPEC_PIPELINE_EXPERTS_LANES');
+    expect(generateGroupConfig('policy')).toMatch(/^# spec_pipeline_experts_lanes=full$/m);
+  });
 });
