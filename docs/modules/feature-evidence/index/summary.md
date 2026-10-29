@@ -83,7 +83,7 @@ change, so the live feature-development stage spine is untouched:
 | `spec.md` | always | `paqad-ai spec freeze` (the signed source, header in front matter) |
 | `request.md` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline start` |
 | `clarification.json` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline` (label + questions) |
-| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane | `paqad-ai spec pipeline experts` |
+| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane; the standing experts are seated only on the lanes in `spec_pipeline_experts_lanes` (default `full`), so a graduated roster may be empty | `paqad-ai spec pipeline experts` |
 | `high-table.jsonl` | checked-when-present | `paqad-ai spec pipeline experts` (record, brief, context, notes, synthesis) + SubagentStop hook |
 | `cost.json` | checked-when-present | Stop and SubagentStop hooks (record-only) |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
@@ -794,8 +794,20 @@ no value can close the tag early.
 **`export.ts`.** Retention orders bundles by ULID and never removes a change that is active or
 paused in any session; such a change also does not use up the keep count.
 
-**`feature-record.ts`.** The lane only ever rises, and `updateFeatureRecord` is the one write path
-for it, so no caller can relabel a large build as fast. When the seed was missed, a minimal record
+**`feature-record.ts`.** `updateFeatureRecord` is the one write path for the lane, and every
+ordinary lane patch only raises it, so no caller can relabel a large build as fast. The one
+lowering is the `resizeLaneFromPlan` patch, which only `writeFeaturePlan` passes (through
+`planLaneResize` in `lane-resize.ts`). It lowers `full` to `graduated` at most once, only when
+`lane_source` is `classifier`, no `lane_resized` exists and the change ledger has no
+`stage_start` for specification, development, checks or documentation_sync; the plan-fact checks
+(8 files or fewer, none sensitive, a saved routing impact with no schema or breaking API change, no
+changed file outside `.paqad/`) sit in `planLaneResize`. Missing or unknown facts never permit a
+lowering. `feature.json` records `lane_source` (`classifier`, `manual` or `plan`) and the
+once-only `lane_resized` and `lane_raised` moves `{ from, to, reason, files, at }`; a record without
+them keeps its content hash. A lane with `lane_source: plan` ignores classifier patches, so a
+re-read of the session's pending lane cannot undo the resize; a manual `lane set` still raises it.
+The `raiseLaneFromChange` patch raises a plan-lowered lane back to `full` once, and the report shows
+both moves in its Plan panel. When the seed was missed, a minimal record
 is rebuilt with a placeholder adapter rather than inventing the session that opened it.
 `updated_at` moves only when the identity changed, so a per-stage patch never churns the file.
 

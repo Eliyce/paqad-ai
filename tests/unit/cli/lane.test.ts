@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLaneCommand } from '@/cli/commands/lane.js';
 import { createProgram } from '@/cli/program.js';
-import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('paqad-ai lane command', () => {
@@ -55,6 +55,16 @@ describe('paqad-ai lane command', () => {
     expect(lines.join('\n')).toContain('lane raised to full');
     const json = JSON.parse(lines.at(-1)!);
     expect(json).toMatchObject({ set: true, lane: 'full', requested: 'full', changed: true });
+  });
+
+  it('AC-9, AC-10: records a lane set by hand as manual, and still refuses to lower it', async () => {
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', lane: 'full' });
+    expect(readFeatureRecord(root, dir)?.lane_source).toBe('classifier');
+    const { lines } = await run('set', 'graduated');
+    expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'classifier' });
+    expect(lines.join('\n')).toContain("won't be downgraded");
+    await run('set', 'full');
+    expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'manual' });
   });
 
   it('refuses a downgrade and keeps the higher lane (FR-3, AC-3)', async () => {

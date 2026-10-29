@@ -24,9 +24,17 @@ The hook's label is a quick guess. When the agent disagrees, it runs `paqad-ai r
 - **No session id, no block.** If paqad cannot tell which session is asking, it allows the correction and writes why in the route override log, so the skip is on the record.
 - **Going back resumes.** If you set the route back to a workflow that was paused, paqad picks that paused change up again, with its plan, spec and lane, and leaves no stray paused copy behind.
 
-## Lanes only go up
+## Lanes only go up, with one exception
 
 `paqad-ai lane set <lane>` records the real lane on the change once the ticket has been read. It can only raise the lane. A request to lower it is refused and reported, so a large change can never be relabelled as a small one.
+
+The one exception is the plan. The routing guess often puts a small change on the full lane. When `paqad-ai plan compile` sees that the plan touches 8 files or fewer, none of them sensitive, and the guess saw no schema or breaking API change, it lowers that guessed `full` lane to `graduated` once, before any spec or code exists, and says so in one line. A lane you set yourself is never lowered. If the change then grows past 8 files or touches a sensitive path, the next stage start raises it back to `full`, also once.
+
+## Graduated runs in one agent
+
+On the graduated lane the main agent runs every stage itself: the same six stages, the same artifacts and the same gates, without a separate helper per stage. On the full lane each stage still runs in its own helper and the full expert panel still sits. On graduated the High Table seats only the experts the detector names, plus security for a sensitive planned path, and is skipped when nobody is named. Review runs in full on every lane.
+
+To restore the old behaviour, set both `stage_isolation_lanes` and `spec_pipeline_experts_lanes` to `graduated,full`.
 
 ## Glossary
 

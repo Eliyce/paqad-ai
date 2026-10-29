@@ -15,6 +15,8 @@ import {
   REVIEW_DOC_TYPE,
   type FeatureChangeKind,
   type FeatureLane,
+  type FeatureLaneMove,
+  type FeatureLaneSource,
   type FeatureRecord,
   type FeatureStatus,
   type PlanRecord,
@@ -112,6 +114,9 @@ export interface BuildFeatureRecordInput extends DocumentIdentityInput {
   branch?: string | null;
   base_branch?: string | null;
   kind?: FeatureChangeKind;
+  lane_source?: FeatureLaneSource;
+  lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
   recorded_at?: string;
 }
 
@@ -137,6 +142,9 @@ export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecor
       base_branch: input.base_branch ?? null,
       updated_at: updatedAt,
       ...(input.kind !== undefined ? { kind: input.kind } : {}),
+      ...(input.lane_source !== undefined ? { lane_source: input.lane_source } : {}),
+      ...(input.lane_resized !== undefined ? { lane_resized: input.lane_resized } : {}),
+      ...(input.lane_raised !== undefined ? { lane_raised: input.lane_raised } : {}),
     },
   }) as FeatureRecord;
 }

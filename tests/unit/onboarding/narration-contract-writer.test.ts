@@ -76,6 +76,36 @@ describe('narration-contract-writer', () => {
     });
   });
 
+  it('AC-5: isolates stages only on the lanes in stage_isolation_lanes', () => {
+    const body = buildNarrationContractBody();
+    expect(body).toContain(
+      'Stage isolation applies on the lanes in `stage_isolation_lanes` (default: full) on a subagent-capable host. On other lanes, run every stage yourself in one context and mark each with `paqad-ai stage start/end`, exactly as on the fast lane.',
+    );
+    expect(body).not.toContain('no config knob');
+    expect(body).toContain('**When the lane is unresolved.**');
+  });
+
+  it('names plan compile as the one place a lane is lowered', () => {
+    expect(buildNarrationContractBody()).toContain(
+      'The one exception is `plan compile`: when the classifier guessed full and the plan is small and safe',
+    );
+  });
+
+  it('tells the agent to dispatch the remaining stages once the lane is raised back to full', () => {
+    const body = buildNarrationContractBody();
+    expect(body).toContain('raises it back to full once and prints one line');
+    expect(body).toContain(
+      'starting with the stage whose `stage start` printed that line, dispatch each stage to its own stage helper',
+    );
+    expect(body).toContain('Stages that ran inline before the raise stay accepted.');
+  });
+
+  it('seats the standing experts only on the lanes in spec_pipeline_experts_lanes', () => {
+    expect(buildNarrationContractBody()).toContain(
+      'The standing experts sit only on the lanes in `spec_pipeline_experts_lanes` (default: full).',
+    );
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);

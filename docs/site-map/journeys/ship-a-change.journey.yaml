@@ -12,7 +12,7 @@ derivation: agent
 steps:
   - surface: node-cli-plan
     action: Run `paqad-ai plan compile` to record the plan (with its reuse section).
-    expect: A plan.json artifact minted into the feature bundle. Planning does not stop to ask the owner; questions it raises wait for the spec question round.
+    expect: A plan.json artifact minted into the feature bundle. Planning does not stop to ask the owner; questions it raises wait for the spec question round. When the routing guess was full and the plan touches 8 files or fewer, none sensitive, with no schema or breaking API change, it prints "lane set to graduated from full" and the change continues on the graduated lane. On graduated the main agent runs each stage itself with `paqad-ai stage start/end`; on full each stage runs in its own stage helper. Setting `stage_isolation_lanes` and `spec_pipeline_experts_lanes` to `graduated,full` restores the old behaviour.
   - surface: node-cli-spec
     action: At the spec questions step, run `paqad-ai spec pipeline round` and ask the owner every pending question for the change in one round.
     expect: The owner answers once per change, up to 4 questions at a time; each answer is resolved with `paqad-ai decision resolve` before development starts.

@@ -1,6 +1,11 @@
 import { Command } from 'commander';
 
+import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
+import { laneMayRise, planFiles, raiseLaneIfGrown } from '@/feature-evidence/lane-resize.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import type { FeatureLaneMove } from '@/feature-evidence/types.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -11,6 +16,8 @@ import { markerNarrationLine } from '@/stage-evidence/narration.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
+
+import { laneRaisedLine } from './plan.js';
 
 function collectArtifact(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -38,6 +45,21 @@ function runStageSettings(options: StageOptions): void {
     console.error(`could not write the stage settings: ${(error as Error).message}`);
     process.exitCode = 1;
   }
+}
+
+async function raiseLaneOnStageStart(
+  root: string,
+  sessionId: string,
+): Promise<FeatureLaneMove | null> {
+  const dirName = currentFeature(root, sessionId);
+  if (dirName === null || !laneMayRise(root, dirName)) return null;
+  const { files } = await loadChangeEvidence(root, { since: readChangeStartPoint(root, dirName) });
+  return raiseLaneIfGrown({
+    projectRoot: root,
+    dirName,
+    plannedFiles: planFiles(readFeaturePlan(root, dirName)?.steps),
+    changedFiles: files,
+  });
 }
 
 function openStageAgentId(root: string, sessionId: string, dirName: string): string | null {
@@ -116,7 +138,7 @@ export function createStageCommand(): Command {
       'On a `brief`, the host agent id to print on the command lines (defaults to SE_AGENT_ID, ' +
         "then the session's open stage-agent row)",
     )
-    .action((phase: string, stage: string | undefined, options: StageOptions) => {
+    .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
       if (phase === 'settings') {
         runStageSettings(options);
         return;
@@ -167,6 +189,10 @@ export function createStageCommand(): Command {
         }
         artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
       }
+      const raised =
+        phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
+          ? await raiseLaneOnStageStart(root, sessionId)
+          : null;
       const recorded = recordMarkedStage(root, {
         sessionId,
         sessionSource,
@@ -186,8 +212,16 @@ export function createStageCommand(): Command {
         process.exitCode = 1;
         return;
       }
+      if (raised) console.log(laneRaisedLine(raised));
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
-      console.log(JSON.stringify({ recorded: true, stage, phase }));
+      console.log(
+        JSON.stringify({
+          recorded: true,
+          stage,
+          phase,
+          ...(raised ? { lane_raised: raised } : {}),
+        }),
+      );
     });
 }

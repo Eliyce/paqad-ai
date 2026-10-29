@@ -72,6 +72,18 @@ function versionedSchema(id: string, legacy: object, current: object) {
 }
 
 const lane = { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] } as const;
+const laneMove = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['from', 'to', 'reason', 'files', 'at'],
+  properties: {
+    from: { enum: ['fast', 'graduated', 'full'] },
+    to: { enum: ['fast', 'graduated', 'full'] },
+    reason: { type: 'string', minLength: 1 },
+    files: { type: 'integer', minimum: 0 },
+    at: { type: 'string', minLength: 1 },
+  },
+} as const;
 
 const FEATURE_SCHEMA_V1 = {
   type: 'object',
@@ -143,6 +155,9 @@ export const FEATURE_SCHEMA = versionedSchema(
       base_branch: nullableString,
       updated_at: { type: 'string', minLength: 1 },
       kind: { enum: ['fix', 'other'] },
+      lane_source: { enum: ['classifier', 'manual', 'plan'] },
+      lane_resized: laneMove,
+      lane_raised: laneMove,
     },
   ),
 );

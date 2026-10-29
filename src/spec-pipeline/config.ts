@@ -1,5 +1,6 @@
 import { ROLE_TOKEN_BUDGETS } from '@/core/constants/budgets.js';
 import type { AgentRole } from '@/core/types/agent.js';
+import type { Lane } from '@/core/types/routing.js';
 import {
   layeredConfigMap,
   resolveNumericConfig,
@@ -28,6 +29,7 @@ export interface PipelineConfig {
   adoption: AdoptionMode;
   standing_experts: AgentRole[];
   standing_experts_dropped: string[];
+  experts_lanes: Lane[];
 }
 
 function asGateMode(raw: string | undefined, fallback: GateMode): GateMode {
@@ -88,6 +90,7 @@ export function readPipelineConfig(
     adoption: switches.adoption,
     standing_experts: standing.standing_experts,
     standing_experts_dropped: standing.standing_experts_dropped,
+    experts_lanes: switches.experts_lanes,
   };
 }
 

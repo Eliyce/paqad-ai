@@ -7,6 +7,7 @@ import YAML from 'yaml';
 import { PATHS } from './constants/paths.js';
 import { versionAtLeast } from './version-compare.js';
 import { normalizeIntelligenceConfig } from './project-intelligence.js';
+import { LANES, type Lane } from './types/routing.js';
 import type {
   DecisionProfileConfig,
   EfficiencyConfig,
@@ -834,6 +835,20 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       "only). paqad's own delivery footer is never touched by this knob.",
   },
   {
+    key: 'stage_isolation_lanes',
+    env: 'PAQAD_STAGE_ISOLATION_LANES',
+    type: 'string',
+    default: 'full',
+    group: 'policy',
+    section: 'Stage isolation',
+    comment:
+      'Comma-separated lanes (fast, graduated, full) on which each feature-development stage runs ' +
+      'in its own stage helper on a host that can dispatch subagents (Claude Code, Codex). On ' +
+      'other lanes the main agent runs every stage itself, with the same stages, artifacts and ' +
+      'gates. Default: full. Set graduated,full to restore the old behaviour. full is always ' +
+      'included; an empty or unreadable value gives the default.',
+  },
+  {
     key: 'spec_pipeline_enabled',
     env: 'PAQAD_SPEC_PIPELINE_ENABLED',
     type: 'boolean',
@@ -926,6 +941,20 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'agent to produce the spec through `paqad-ai spec pipeline`, but a hand-written spec ' +
       'freezes, recorded as pipeline.produced=false and shown in the receipt. No effect while ' +
       'spec_pipeline_enabled is off.',
+  },
+  {
+    key: 'spec_pipeline_experts_lanes',
+    env: 'PAQAD_SPEC_PIPELINE_EXPERTS_LANES',
+    type: 'string',
+    default: 'full',
+    group: 'policy',
+    section: 'Spec pipeline',
+    comment:
+      'Comma-separated lanes (graduated, full) on which the standing experts sit at every spec. ' +
+      'On other pipeline lanes only the on-call experts the detector names are seated, plus ' +
+      'security-auditor when a planned path is sensitive, and the High Table is skipped when ' +
+      'nobody is named. Default: full. Set graduated,full to restore the old behaviour. full is ' +
+      'always included. Review is unaffected.',
   },
   {
     key: 'spec_pipeline_standing_experts',
@@ -1316,6 +1345,7 @@ export interface SpecPipelineSwitches {
   enabled: boolean;
   experts_enabled: boolean;
   adoption: SpecPipelineAdoptionMode;
+  experts_lanes: Lane[];
 }
 
 export function resolveSpecPipelineSwitches(
@@ -1332,7 +1362,21 @@ export function resolveSpecPipelineSwitches(
       SPEC_PIPELINE_ADOPTION_MODES,
       SPEC_PIPELINE_DEFAULTS.spec_pipeline_adoption,
     ),
+    experts_lanes: resolveLaneList(map.get('spec_pipeline_experts_lanes'), ['full']),
   };
+}
+
+export function resolveLaneList(raw: string | undefined, fallback: readonly Lane[]): Lane[] {
+  const known = (raw ?? '')
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part): part is Lane => (LANES as readonly string[]).includes(part));
+  const lanes = [...new Set(known.length > 0 ? known : fallback)];
+  return lanes.includes('full') ? lanes : [...lanes, 'full'];
+}
+
+export function resolveStageIsolationLanes(map: ReadonlyMap<string, string>): Lane[] {
+  return resolveLaneList(map.get('stage_isolation_lanes'), ['full']);
 }
 
 function asOptEnum<T extends string>(
@@ -2056,6 +2100,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',
       'ai_attribution',
+      'stage_isolation_lanes',
       'spec_pipeline_enabled',
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',
@@ -2063,6 +2108,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_grounding_budget_ms',
       'spec_pipeline_experts_enabled',
       'spec_pipeline_adoption',
+      'spec_pipeline_experts_lanes',
       'spec_pipeline_standing_experts',
       'visual_evidence_mode',
       'checks_flaky_under_parallel',

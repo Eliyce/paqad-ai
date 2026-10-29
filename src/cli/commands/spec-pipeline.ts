@@ -27,7 +27,10 @@ import {
   raiseFixProofMethodDecision,
 } from '@/fix-protocol/fix-proof-method-decision.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
-import { seatStandingExperts, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import { seatExpertsForLane, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { planFiles, sensitivePaths } from '@/feature-evidence/lane-resize.js';
 import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
@@ -796,7 +799,19 @@ function createExpertsCommand(): Command {
         return;
       }
       const config = readPipelineConfig(options.projectRoot);
-      const needs = seatStandingExperts(check.artifact.experts, config.standing_experts);
+      const lane = readChangeConstants(options.projectRoot, resolved.dirName).lane ?? 'full';
+      const standingSits = config.experts_lanes.includes(lane);
+      const needs = seatExpertsForLane({
+        detectorNeeds: check.artifact.experts,
+        standing: config.standing_experts,
+        standingSits,
+        sensitivePath: standingSits
+          ? null
+          : (sensitivePaths(
+              options.projectRoot,
+              planFiles(readFeaturePlan(options.projectRoot, resolved.dirName)?.steps),
+            )[0] ?? null),
+      });
       const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
       const { briefs } = buildExpertBriefs({
         needs,
@@ -824,6 +839,11 @@ function createExpertsCommand(): Command {
       );
       if (roster.length === 0) {
         recordStep(options.projectRoot, resolved.dirName, 'experts', 'skipped', resolved.store);
+        if (!standingSits) {
+          console.log(
+            `**▸ paqad** · skipped the High Table: no on-call expert is needed on the ${lane} lane`,
+          );
+        }
       }
       const standingCount = needs.filter((need) => need.origin === 'standing').length;
       console.log(

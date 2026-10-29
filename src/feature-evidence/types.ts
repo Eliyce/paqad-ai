@@ -34,6 +34,16 @@ export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only' | 'abando
 
 export type FeatureChangeKind = 'fix' | 'other';
 
+export type FeatureLaneSource = 'classifier' | 'manual' | 'plan';
+
+export interface FeatureLaneMove {
+  from: Exclude<FeatureLane, null>;
+  to: Exclude<FeatureLane, null>;
+  reason: string;
+  files: number;
+  at: string;
+}
+
 export interface FeatureRecord extends EnvelopeHeader {
   doc_type: typeof FEATURE_DOC_TYPE;
   issue: string | null;
@@ -47,6 +57,9 @@ export interface FeatureRecord extends EnvelopeHeader {
   branch?: string | null;
   base_branch?: string | null;
   kind?: FeatureChangeKind;
+  lane_source?: FeatureLaneSource;
+  lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
 }
 
 export interface LegacyFeatureRecord {

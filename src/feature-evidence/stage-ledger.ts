@@ -130,6 +130,7 @@ export function appendFeatureStageRow(
 export interface ChangeConstantsInput {
   adapter?: string;
   lane?: FeatureLane;
+  laneSource?: FeatureRecordPatch['laneSource'];
   branch?: string | null;
   baseBranch?: string | null;
   kind?: FeatureChangeKind;
@@ -144,6 +145,7 @@ export function recordChangeConstants(
   const patch: FeatureRecordPatch = {};
   if (input.adapter && input.adapter !== BACKSTOP_WRITER) patch.adapter = input.adapter;
   if (input.lane) patch.lane = input.lane;
+  if (input.lane && input.laneSource) patch.laneSource = input.laneSource;
   if (input.branch) patch.branch = input.branch;
   if (input.baseBranch) patch.base_branch = input.baseBranch;
   if (input.kind) patch.kind = input.kind;

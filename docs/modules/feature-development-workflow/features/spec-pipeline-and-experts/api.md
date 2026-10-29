@@ -64,6 +64,7 @@ Each key can be set in the usual layers. The first one found wins: the `PAQAD_*`
 | `spec_pipeline_token_ceiling` | `PAQAD_SPEC_PIPELINE_TOKEN_CEILING` | `40000` | Per-run token budget. Going over is a recorded warning, never a block. |
 | `spec_grounding_budget_ms` | `PAQAD_SPEC_GROUNDING_BUDGET_MS` | `15000` | Milliseconds `start` and `ground` give retrieval. Past it, grounding uses the docs alone and records `grounding.mode=lexical-fallback` with reason `budget-exceeded`. |
 | `spec_pipeline_standing_experts` | | the four standing roles | Comma-separated role ids. Empty means none. |
+| `spec_pipeline_experts_lanes` | `PAQAD_SPEC_PIPELINE_EXPERTS_LANES` | `full` | Comma-separated lanes on which the standing experts sit. Other lanes seat only the detector's picks, plus `security-auditor` for a sensitive planned path, and skip the High Table when nobody is named. `full` is always included; `graduated,full` restores the old behaviour. |
 
 The first three defaults were turned on later: the pipeline, the experts and strict adoption are now on. They apply on the graduated and full lanes only. The fast lane never runs the pipeline, whatever these keys say.
 

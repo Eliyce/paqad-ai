@@ -1,16 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { planLaneResize, raiseLaneIfGrown } from '@/feature-evidence/lane-resize.js';
 import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
 import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   featureStagePath,
+  openFeatureChange,
   recordChangeConstants,
 } from '@/feature-evidence/stage-ledger.js';
+import { writePendingImpact } from '@/stage-evidence/pending-lane.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import {
@@ -31,6 +35,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -95,8 +100,15 @@ describe('stageIsolationExpected', () => {
     expect(stageIsolationExpected(root, SESSION, bundle('full-claude'))).toBe(true);
   });
 
-  it('is true on a graduated lane too', () => {
+  it('is false on a graduated lane under the default stage_isolation_lanes', () => {
     bundleWith('grad-codex', 'graduated', 'codex-cli');
+
+    expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(false);
+  });
+
+  it('AC-3: is true on a graduated lane once stage_isolation_lanes names it', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
 
     expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(true);
   });
@@ -167,11 +179,47 @@ describe('stageIsolationExpected', () => {
 });
 
 describe('stageIsolationStatus', () => {
-  it('is "expected" on a graduated/full lane on a subagent-capable host', () => {
+  it('AC-2: is "expected" on a full lane and "not-applicable" on graduated by default', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     bundleWith('grad-codex', 'graduated', 'codex-cli');
     expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
+    expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('not-applicable');
+  });
+
+  it('follows stage_isolation_lanes from the policy config file', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'stage_isolation_lanes=graduated\n');
     expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('expected');
+  });
+
+  it('AC-2: keeps full isolated whatever stage_isolation_lanes says', () => {
+    bundleWith('full-claude', 'full', 'claude-code');
+    bundleWith('fast-claude', 'fast', 'claude-code');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast');
+    expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
+    expect(stageIsolationStatus(root, SESSION, bundle('fast-claude'))).toBe('expected');
+  });
+
+  it('AC-3: keeps an unresolved lane unresolved and an incapable host not-applicable under any list', () => {
+    bundleWith('null-lane', null, 'claude-code');
+    bundleWith('grad-gemini', 'graduated', 'gemini-cli');
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast,graduated,full');
+    expect(stageIsolationStatus(root, SESSION, bundle('null-lane'))).toBe('unresolved');
+    expect(stageIsolationStatus(root, SESSION, bundle('grad-gemini'))).toBe('not-applicable');
+  });
+
+  it('gives the builder the same answer as the status', () => {
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    expect(buildBundleCompletenessConfig(root, SESSION, bundle('grad-codex'))).toMatchObject({
+      lane: 'graduated',
+      stageIsolationExpected: false,
+      stageIsolationUnresolved: false,
+    });
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
+    expect(
+      buildBundleCompletenessConfig(root, SESSION, bundle('grad-codex')).stageIsolationExpected,
+    ).toBe(true);
   });
 
   it('is "unresolved" when the lane never resolved on a subagent-capable host (FR-4)', () => {
@@ -205,6 +253,75 @@ describe('stageIsolationStatus', () => {
     expect(isolationConfig(root, SESSION, bundle('fast-claude'))).toEqual({
       stageIsolationExpected: false,
       stageIsolationUnresolved: false,
+    });
+  });
+});
+
+describe('isolation after a forward-only raise', () => {
+  const at = (minute: number) => () =>
+    new Date(`2026-10-29T12:${String(minute).padStart(2, '0')}:00.000Z`);
+
+  function raisedChange(): string {
+    const dir = openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'grew past the plan',
+      lane: 'full',
+    });
+    writePendingImpact(root, SESSION, { database_impact: 'none', api_impact: 'none' });
+    planLaneResize({
+      projectRoot: root,
+      sessionId: SESSION,
+      dirName: dir,
+      steps: [{ id: 'S1', description: 'edit', files: ['src/a.ts'] }],
+      changedFiles: [],
+      changesKnown: true,
+      now: at(0),
+    });
+    for (const [minute, stage] of [
+      [1, 'planning'],
+      [2, 'specification'],
+      [3, 'development'],
+    ] as const) {
+      appendFeatureStageRow(
+        root,
+        SESSION,
+        dir,
+        { kind: 'stage_start', stage, event_status: 'started' },
+        at(minute),
+      );
+    }
+    raiseLaneIfGrown({
+      projectRoot: root,
+      dirName: dir,
+      plannedFiles: [],
+      changedFiles: Array.from({ length: 11 }, (_, i) => `src/f${i}.ts`),
+      now: at(10),
+    });
+    expect(readFeatureRecord(root, dir)?.lane).toBe('full');
+    return dir;
+  }
+
+  it('AC-14: is not-applicable until a stage starts after the raise, so inline stages are accepted', () => {
+    const dir = raisedChange();
+    expect(stageIsolationStatus(root, SESSION, dir)).toBe('not-applicable');
+    const config = buildBundleCompletenessConfig(root, SESSION, dir);
+    expect(config.stageIsolationExpected).toBe(false);
+    expect(config.stageIsolationSince).toBeUndefined();
+  });
+
+  it('AC-13, AC-14: is expected from the raise on once a stage starts after it', () => {
+    const dir = raisedChange();
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dir,
+      { kind: 'stage_start', stage: 'review', event_status: 'started' },
+      at(11),
+    );
+    expect(stageIsolationStatus(root, SESSION, dir)).toBe('expected');
+    expect(buildBundleCompletenessConfig(root, SESSION, dir)).toMatchObject({
+      stageIsolationExpected: true,
+      stageIsolationSince: '2026-10-29T12:10:00.000Z',
     });
   });
 });

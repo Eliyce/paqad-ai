@@ -34,7 +34,10 @@ import {
 } from '@/feature-evidence/paths.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
-import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
+import {
+  hasStageAgentEvidence,
+  hasStageAgentEvidenceSince,
+} from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
 import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
 
@@ -215,7 +218,14 @@ function assertStageAgentRows(
   dirName: string,
   state: GateState,
 ): void {
-  if (hasStageAgentEvidence(input.projectRoot, dirName)) return;
+  const since = input.config.stageIsolationSince;
+  if (
+    since === undefined
+      ? hasStageAgentEvidence(input.projectRoot, dirName)
+      : hasStageAgentEvidenceSince(input.projectRoot, dirName, since)
+  ) {
+    return;
+  }
   if (input.config.stageIsolationExpected) {
     state.missing.push({
       file: 'stage-agent rows in stage-evidence.jsonl',
@@ -416,7 +426,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     const isolationNote = state.isolationUnverified
       ? ' Not classified — isolation not verified: this change never resolved a lane, so paqad ' +
         'could not confirm its stages ran isolated. Set the real lane with `paqad-ai lane set ' +
-        '<lane>` (isolation is checked on the graduated/full lane).'
+        '<lane>` (isolation is checked on the lanes in stage_isolation_lanes).'
       : '';
     return {
       name: GATE_NAME,

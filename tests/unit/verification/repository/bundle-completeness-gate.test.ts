@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   bundleCompletenessGate,
@@ -36,6 +36,7 @@ function tempRoot(): string {
   return r;
 }
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -988,6 +989,38 @@ describe('spec pipeline strict adoption gate', () => {
 });
 
 describe('the isolation evidence stream', () => {
+  function graduatedInlineGate(root: string) {
+    writeAlwaysFiles(root, DIR);
+    recordChangeConstants(root, DIR, { adapter: 'claude-code', lane: 'graduated' });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', DIR);
+    return bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: {
+        ...ONLY_ALWAYS,
+        lane: built.lane,
+        stageIsolationExpected: built.stageIsolationExpected,
+        stageIsolationUnresolved: built.stageIsolationUnresolved,
+      },
+    });
+  }
+
+  it('AC-1: passes a graduated change run inline under the default stage_isolation_lanes', () => {
+    const gate = graduatedInlineGate(tempRoot());
+
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('AC-3: fails the same graduated change when stage_isolation_lanes names graduated', () => {
+    vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
+    const gate = graduatedInlineGate(tempRoot());
+
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+  });
+
   it('fails a graduated/full change on a subagent-capable host with no isolation evidence', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
@@ -1004,6 +1037,38 @@ describe('the isolation evidence stream', () => {
     expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
     expect(gate!.remediation).toContain('stage-agent rows in stage-evidence.jsonl');
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
+  });
+
+  describe('after a forward-only raise', () => {
+    const RAISED_AT = '2026-10-29T12:10:00.000Z';
+    function agentRow(at: string): string {
+      return `{"kind":"stage-agent","stage":"review","doc_type":"paqad.stage-evidence","session_id":"ses_1","recorded_at":"${at}","content_hash":"h"}\n`;
+    }
+    function gateWith(rows: string) {
+      const root = tempRoot();
+      writeAlwaysFiles(root, DIR);
+      write(root, featureFilePath(DIR, 'stageEvidence'), `{"kind":"open"}\n${rows}`);
+      return bundleCompletenessGate({
+        ...base,
+        projectRoot: root,
+        dirName: DIR,
+        mode: 'strict',
+        config: { ...ONLY_ALWAYS, stageIsolationExpected: true, stageIsolationSince: RAISED_AT },
+      });
+    }
+
+    it('AC-13: reads complete with a stage helper row after the raise', () => {
+      expect(
+        gateWith(agentRow('2026-10-29T12:00:00.000Z') + agentRow('2026-10-29T12:12:00.000Z'))!
+          .status,
+      ).toBe('pass');
+    });
+
+    it('AC-13: fails when the only stage helper rows came before the raise', () => {
+      const gate = gateWith(agentRow('2026-10-29T12:00:00.000Z'));
+      expect(gate!.status).toBe('fail');
+      expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+    });
   });
 
   it('passes that same change once the stage-agent rows are there', () => {

@@ -4,13 +4,15 @@ import { dirname, join } from 'node:path';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-import { higherLane } from './lane-rank.js';
+import { higherLane, laneRank } from './lane-rank.js';
 import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
 import type {
   FeatureChangeKind,
   FeatureLane,
+  FeatureLaneMove,
+  FeatureLaneSource,
   FeatureRecord,
   FeatureStatus,
   LegacyFeatureRecord,
@@ -113,6 +115,7 @@ export function seedFeatureRecord(
     branch: input.branch ?? null,
     base_branch: input.baseBranch ?? null,
     kind: input.kind,
+    lane_source: input.lane ? 'classifier' : undefined,
     now: input.now,
   });
   try {
@@ -134,6 +137,15 @@ export interface FeatureRecordPatch {
   branch?: string | null;
   base_branch?: string | null;
   kind?: FeatureChangeKind;
+  laneSource?: Exclude<FeatureLaneSource, 'plan'>;
+  resizeLaneFromPlan?: LaneMoveFacts;
+  raiseLaneFromChange?: LaneMoveFacts;
+}
+
+export interface LaneMoveFacts {
+  reason: string;
+  files: number;
+  at: string;
 }
 
 export function higherKind(
@@ -166,7 +178,7 @@ export function updateFeatureRecord(
       now,
     });
 
-  const nextLane = patch.lane !== undefined ? higherLane(current.lane, patch.lane) : current.lane;
+  const laneState = nextLaneState(projectRoot, dirName, current, patch);
 
   const next = buildFeatureRecord({
     change: current.change,
@@ -175,7 +187,7 @@ export function updateFeatureRecord(
     issue: patch.issue !== undefined ? patch.issue : current.issue,
     title: patch.title ?? current.title,
     slug: patch.slug ?? current.slug,
-    lane: nextLane,
+    lane: laneState.lane,
     status: patch.status ?? current.status,
     spec_id: patch.spec_id !== undefined ? patch.spec_id : current.spec_id,
     adapter: patch.adapter ?? current.adapter,
@@ -183,6 +195,9 @@ export function updateFeatureRecord(
     base_branch:
       patch.base_branch !== undefined ? patch.base_branch : (current.base_branch ?? null),
     kind: patch.kind !== undefined ? higherKind(current.kind, patch.kind) : current.kind,
+    lane_source: laneState.lane_source,
+    lane_resized: laneState.lane_resized,
+    lane_raised: laneState.lane_raised,
     now: () => new Date(current.updated_at),
   });
   if (next.content_hash === current.content_hash) {
@@ -195,6 +210,80 @@ export function updateFeatureRecord(
   } catch {
     return null;
   }
+}
+
+interface LaneState {
+  lane: FeatureLane;
+  lane_source?: FeatureLaneSource;
+  lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
+}
+
+const PRE_SPEC_ONLY_STAGES: ReadonlySet<string> = new Set([
+  'specification',
+  'development',
+  'checks',
+  'documentation_sync',
+]);
+
+function hasStartedPastPlanning(projectRoot: string, dirName: string): boolean {
+  return readUnitFile(projectRoot, featureFilePath(dirName, 'stageEvidence')).some(
+    (row) => row.kind === 'stage_start' && PRE_SPEC_ONLY_STAGES.has(String(row.stage)),
+  );
+}
+
+function canLowerFromPlan(projectRoot: string, dirName: string, current: FeatureRecord): boolean {
+  return (
+    current.lane === 'full' &&
+    current.lane_source === 'classifier' &&
+    current.lane_resized === undefined &&
+    !hasStartedPastPlanning(projectRoot, dirName)
+  );
+}
+
+function canRaiseAfterResize(current: FeatureRecord): boolean {
+  return (
+    current.lane === 'graduated' &&
+    current.lane_source === 'plan' &&
+    current.lane_resized !== undefined &&
+    current.lane_raised === undefined
+  );
+}
+
+function nextLaneState(
+  projectRoot: string,
+  dirName: string,
+  current: FeatureRecord,
+  patch: FeatureRecordPatch,
+): LaneState {
+  const kept: LaneState = {
+    lane: current.lane,
+    lane_source: current.lane_source,
+    lane_resized: current.lane_resized,
+    lane_raised: current.lane_raised,
+  };
+  const raise = patch.raiseLaneFromChange;
+  if (raise !== undefined) {
+    if (!canRaiseAfterResize(current)) return kept;
+    return { ...kept, lane: 'full', lane_raised: { from: 'graduated', to: 'full', ...raise } };
+  }
+  const resize = patch.resizeLaneFromPlan;
+  if (resize !== undefined) {
+    if (!canLowerFromPlan(projectRoot, dirName, current)) return kept;
+    return {
+      lane: 'graduated',
+      lane_source: 'plan',
+      lane_resized: { from: 'full', to: 'graduated', ...resize },
+    };
+  }
+  if (patch.lane === undefined) return kept;
+  const source = patch.laneSource ?? 'classifier';
+  if (current.lane_source === 'plan' && source !== 'manual') return kept;
+  const lane = higherLane(current.lane, patch.lane);
+  if (source === 'manual' && laneRank(patch.lane) >= laneRank(current.lane)) {
+    return { ...kept, lane, lane_source: 'manual' };
+  }
+  return lane === current.lane ? kept : { ...kept, lane, lane_source: source };
 }
 
 export function featureRecordIsUntitled(record: FeatureRecord): boolean {

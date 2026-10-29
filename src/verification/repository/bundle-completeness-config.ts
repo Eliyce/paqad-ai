@@ -7,17 +7,25 @@ import {
   layeredConfigMap,
   resolveFrameworkConfig,
   resolveSpecPipelineSwitches,
+  resolveStageIsolationLanes,
 } from '@/core/framework-config.js';
+import type { Lane } from '@/core/types/routing.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
-import { readChangeConstants, type ChangeConstants } from '@/feature-evidence/feature-record.js';
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import {
+  readChangeConstants,
+  readFeatureRecord,
+  type ChangeConstants,
+} from '@/feature-evidence/feature-record.js';
 import {
   isSpecFrozenBeforePipeline,
   type BundleCompletenessConfig,
 } from '@/feature-evidence/manifest.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
-import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
+import { isSubagentCapableAdapter, STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 
 export type StageIsolationStatus = 'expected' | 'unresolved' | 'not-applicable';
 
@@ -27,7 +35,38 @@ export function stageIsolationStatus(
   dirName: string | null,
 ): StageIsolationStatus {
   if (!sessionId || !dirName) return 'not-applicable';
-  return isolationStatusFrom(readChangeConstantsSafe(projectRoot, dirName));
+  return isolationRead(projectRoot, dirName, readChangeConstantsSafe(projectRoot, dirName)).status;
+}
+
+interface IsolationRead {
+  status: StageIsolationStatus;
+  since: string | null;
+}
+
+function isolationRead(
+  projectRoot: string,
+  dirName: string,
+  constants: ChangeConstants | null,
+): IsolationRead {
+  const status = isolationStatusFrom(constants, resolveIsolationLanes(projectRoot));
+  const since =
+    status === 'expected'
+      ? (readFeatureRecord(projectRoot, dirName)?.lane_raised?.at ?? null)
+      : null;
+  if (since === null) return { status, since: null };
+  return stageStartedSince(projectRoot, dirName, since)
+    ? { status, since }
+    : { status: 'not-applicable', since: null };
+}
+
+function stageStartedSince(projectRoot: string, dirName: string, since: string): boolean {
+  const from = Date.parse(since);
+  return readFeatureStageUnit(projectRoot, dirName).some(
+    (row) =>
+      row.kind === 'stage_start' &&
+      STAGE_AGENT_STAGES.includes(String(row.stage)) &&
+      Date.parse(rowRecordedAt(row) ?? '') >= from,
+  );
 }
 
 function readChangeConstantsSafe(
@@ -42,12 +81,19 @@ function readChangeConstantsSafe(
   }
 }
 
-function isolationStatusFrom(constants: ChangeConstants | null): StageIsolationStatus {
+function resolveIsolationLanes(projectRoot: string): readonly Lane[] {
+  return resolveStageIsolationLanes(layeredConfigMap(projectRoot, process.env));
+}
+
+function isolationStatusFrom(
+  constants: ChangeConstants | null,
+  lanes: readonly Lane[],
+): StageIsolationStatus {
   if (!constants) return 'not-applicable';
   const { lane, adapter } = constants;
   if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
-  if (lane === 'graduated' || lane === 'full') return 'expected';
-  return lane === null ? 'unresolved' : 'not-applicable';
+  if (lane === null) return 'unresolved';
+  return (lanes as readonly string[]).includes(lane) ? 'expected' : 'not-applicable';
 }
 
 function isolationFlags(status: StageIsolationStatus): {
@@ -57,6 +103,18 @@ function isolationFlags(status: StageIsolationStatus): {
   return {
     stageIsolationExpected: status === 'expected',
     stageIsolationUnresolved: status === 'unresolved',
+  };
+}
+
+function isolationConfigFrom(
+  read: IsolationRead,
+): Pick<
+  BundleCompletenessConfig,
+  'stageIsolationExpected' | 'stageIsolationUnresolved' | 'stageIsolationSince'
+> {
+  return {
+    ...isolationFlags(read.status),
+    ...(read.since === null ? {} : { stageIsolationSince: read.since }),
   };
 }
 
@@ -99,7 +157,11 @@ export function buildBundleCompletenessConfig(
     specPipelineEnabled: pipelineFlags.enabled,
     expertsEnabled: pipelineFlags.experts,
     specFrozenBeforePipeline: specFrozenBeforePipeline(projectRoot, dirName),
-    ...isolationFlags(sessionId ? isolationStatusFrom(constants) : 'not-applicable'),
+    ...isolationConfigFrom(
+      sessionId && dirName
+        ? isolationRead(projectRoot, dirName, constants)
+        : { status: 'not-applicable', since: null },
+    ),
   };
 }
 

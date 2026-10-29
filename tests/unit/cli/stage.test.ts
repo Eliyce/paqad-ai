@@ -22,9 +22,14 @@ import {
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { writePendingLane } from '@/stage-evidence/pending-lane.js';
+import { planLaneResize } from '@/feature-evidence/lane-resize.js';
+import { writePendingImpact, writePendingLane } from '@/stage-evidence/pending-lane.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 import { buildStageBrief } from '@/stage-isolation/stage-brief.js';
+import {
+  buildBundleCompletenessConfig,
+  stageIsolationStatus,
+} from '@/verification/repository/bundle-completeness-config.js';
 
 describe('paqad-ai stage command', () => {
   let root: string;
@@ -528,6 +533,72 @@ describe('paqad-ai stage command', () => {
       expect(errors.join('\n')).toContain('name the stage to start');
     });
   });
+  describe('the forward-only raise after a plan resize', () => {
+    function git(...args: string[]): void {
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    }
+
+    function resizedChange(): string {
+      git('init', '-q', '-b', 'feat/small');
+      git('config', 'user.email', 't@t.dev');
+      git('config', 'user.name', 'Test');
+      writeFileSync(join(root, '.gitignore'), '.paqad/\n');
+      writeFileSync(join(root, 'a.txt'), 'a');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'chore: base');
+      const sid = resolveSessionId(root, SES);
+      const dir = openFeatureChange(root, sid, {
+        adapter: 'claude-code',
+        title: 'small change',
+        lane: 'full',
+      });
+      writePendingImpact(root, sid, { database_impact: 'none', api_impact: 'none' });
+      planLaneResize({
+        projectRoot: root,
+        sessionId: sid,
+        dirName: dir,
+        steps: [{ id: 'S1', description: 'edit', files: ['src/a.ts'] }],
+        changedFiles: [],
+        changesKnown: true,
+      });
+      expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
+      return dir;
+    }
+
+    it('AC-13: raises the lane to full once when the change grows past 8 files', async () => {
+      const dir = resizedChange();
+      mkdirSync(join(root, 'src'), { recursive: true });
+      for (let i = 0; i < 11; i += 1) writeFileSync(join(root, `src/f${i}.ts`), 'x');
+
+      const lines = await run('start', 'review');
+
+      expect(lines).toContain(
+        '**▸ paqad** · lane raised to full from graduated: the change now touches 11 files',
+      );
+      expect(JSON.parse(lines.at(-1)!).lane_raised).toMatchObject({ from: 'graduated', files: 11 });
+      const record = readFeatureRecord(root, dir)!;
+      expect(record).toMatchObject({ lane: 'full', lane_source: 'plan' });
+      const raisedAt = record.lane_raised!.at;
+      const review = readFeatureStageUnit(root, dir).at(-1)!;
+      expect(review).toMatchObject({ kind: 'stage_start', stage: 'review' });
+      expect(Date.parse(String(review.recorded_at))).toBeGreaterThanOrEqual(Date.parse(raisedAt));
+      const sid = resolveSessionId(root, SES);
+      expect(stageIsolationStatus(root, sid, dir)).toBe('expected');
+      expect(buildBundleCompletenessConfig(root, sid, dir).stageIsolationSince).toBe(raisedAt);
+
+      const again = await run('start', 'checks');
+      expect(again.some((line) => line.includes('lane raised'))).toBe(false);
+      expect(readFeatureRecord(root, dir)?.lane_raised?.at).toBe(raisedAt);
+    });
+
+    it('keeps graduated while the change stays small', async () => {
+      const dir = resizedChange();
+      const lines = await run('start', 'specification');
+      expect(lines.some((line) => line.includes('lane raised'))).toBe(false);
+      expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
+    });
+  });
+
   describe('a stage mark with no open change', () => {
     function git(...args: string[]): void {
       execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });

@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   clearPendingLane,
+  readPendingImpact,
   readPendingKind,
   readPendingLane,
+  writePendingImpact,
   writePendingKind,
   writePendingLane,
 } from '@/stage-evidence/pending-lane.js';
@@ -69,6 +71,49 @@ describe('pending-lane stash', () => {
     const dir = join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, SESSION));
     mkdirSync(join(dir, '.pending-lane'), { recursive: true });
     expect(() => clearPendingLane(root, SESSION)).not.toThrow();
+  });
+});
+
+describe('pending-impact stash', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-pending-impact-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('round-trips the database and API impact beside the pending lane', () => {
+    writePendingImpact(root, SESSION, { database_impact: 'none', api_impact: 'additive-endpoint' });
+    expect(readPendingImpact(root, SESSION)).toEqual({
+      database_impact: 'none',
+      api_impact: 'additive-endpoint',
+    });
+  });
+
+  it('reads null when nothing was saved, or a value is unknown or unreadable', () => {
+    expect(readPendingImpact(root, SESSION)).toBeNull();
+    const dir = join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, SESSION));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, '.pending-impact'), '{"database_impact":"none"}', 'utf8');
+    expect(readPendingImpact(root, SESSION)).toBeNull();
+    writeFileSync(
+      join(dir, '.pending-impact'),
+      '{"database_impact":"wild","api_impact":"none"}',
+      'utf8',
+    );
+    expect(readPendingImpact(root, SESSION)).toBeNull();
+    writeFileSync(join(dir, '.pending-impact'), 'not json', 'utf8');
+    expect(readPendingImpact(root, SESSION)).toBeNull();
+  });
+
+  it('is cleared with the pending lane', () => {
+    writePendingLane(root, SESSION, 'full');
+    writePendingImpact(root, SESSION, { database_impact: 'none', api_impact: 'none' });
+    clearPendingLane(root, SESSION);
+    expect(readPendingImpact(root, SESSION)).toBeNull();
   });
 });
 

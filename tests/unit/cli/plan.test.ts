@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +15,8 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { writePendingImpact } from '@/stage-evidence/pending-lane.js';
 
 import { fixtureProfile } from '../adapters/shared.fixture.js';
 
@@ -105,6 +108,109 @@ describe('paqad-ai plan compile', () => {
   it('compiles with no fix.proof_method when no change is active for the lane check', async () => {
     const lines = await run(writeTemplate({ summary: 'nothing open' }));
     expect(lines.some((l) => l.includes('fix_proof_method'))).toBe(false);
+  });
+
+  describe('plan-time lane resize', () => {
+    function gitRepo(): void {
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+      git('init', '-q', '-b', 'feat/small');
+      git('config', 'user.email', 't@t.dev');
+      git('config', 'user.name', 'Test');
+      writeFileSync(join(root, '.gitignore'), '.paqad/\nplan-input.json\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'chore: base');
+    }
+
+    function smallFullChange(): string {
+      gitRepo();
+      const dir = openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'Small change',
+        issue: '901',
+        lane: 'full',
+      });
+      writePendingImpact(root, SES, { database_impact: 'none', api_impact: 'none' });
+      return dir;
+    }
+
+    it('AC-6: prints one line and adds lane_resized to the JSON when the plan lowers the lane', async () => {
+      const dir = smallFullChange();
+      const lines = await run(
+        writeTemplate({
+          summary: 'small',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts', 'src/b.ts'] }],
+        }),
+      );
+      const resizeLines = lines.filter((line) => line.includes('lane set to'));
+      expect(resizeLines).toEqual([
+        '**▸ paqad** · lane set to graduated from full: the plan touches 2 files, none sensitive, no schema or breaking API change',
+      ]);
+      expect(JSON.parse(lines.at(-1)!).lane_resized).toMatchObject({
+        from: 'full',
+        to: 'graduated',
+        files: 2,
+      });
+      expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
+    });
+
+    it('raises the lane back to full when a revised plan names a sensitive path', async () => {
+      const dir = smallFullChange();
+      await run(
+        writeTemplate({
+          summary: 'small',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts'] }],
+        }),
+      );
+      mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+      writeFileSync(
+        join(root, 'docs/instructions/rules/module-map.yml'),
+        'version: 2\nmodules:\n  - slug: secure\n    name: Secure\n    sensitivity: high\n    sources:\n      - src/secure\n',
+      );
+      const lines = await run(
+        writeTemplate({
+          summary: 'revised',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts', 'src/secure/k.ts'] }],
+        }),
+      );
+      expect(lines).toContain(
+        '**▸ paqad** · lane raised to full from graduated: the change touches a sensitive path: src/secure/k.ts',
+      );
+      expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
+      expect(JSON.parse(lines.at(-1)!).lane_raised).toMatchObject({ to: 'full' });
+      expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'plan' });
+    });
+
+    it('AC-7: keeps full when git cannot be read, and still compiles', async () => {
+      const dir = openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'Small change',
+        issue: '902',
+        lane: 'full',
+      });
+      writePendingImpact(root, SES, { database_impact: 'none', api_impact: 'none' });
+      const lines = await run(
+        writeTemplate({
+          summary: 'small',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts'] }],
+        }),
+      );
+      expect(process.exitCode).toBeUndefined();
+      expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
+      expect(readFeatureRecord(root, dir)?.lane).toBe('full');
+    });
+
+    it('AC-6: prints nothing extra and still compiles when the plan is too big to lower', async () => {
+      const dir = smallFullChange();
+      const files = Array.from({ length: 9 }, (_, i) => `src/f${i}.ts`);
+      const lines = await run(
+        writeTemplate({ summary: 'big', steps: [{ id: 's1', description: 'edit', files }] }),
+      );
+      expect(process.exitCode).toBeUndefined();
+      expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
+      expect(JSON.parse(lines.at(-1)!).lane_resized).toBeUndefined();
+      expect(readFeatureRecord(root, dir)?.lane).toBe('full');
+    });
   });
 
   it('keeps the input with --keep-input', async () => {

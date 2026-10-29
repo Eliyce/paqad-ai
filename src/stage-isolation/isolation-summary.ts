@@ -1,3 +1,4 @@
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
@@ -65,6 +66,17 @@ export function hasStageAgentEvidence(projectRoot: string, dirName: string): boo
   return (
     readStageAgentRows(projectRoot, dirName).length > 0 ||
     legacyRows(projectRoot, dirName).length > 0
+  );
+}
+
+export function hasStageAgentEvidenceSince(
+  projectRoot: string,
+  dirName: string,
+  since: string,
+): boolean {
+  const from = Date.parse(since);
+  return readStageAgentRows(projectRoot, dirName).some(
+    (row) => Date.parse(rowRecordedAt(row) ?? '') >= from,
   );
 }
 

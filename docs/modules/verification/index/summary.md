@@ -307,9 +307,19 @@ a fallback only.
 
 **`repository/bundle-completeness-config.ts`.** This builder lives in its own file so the
 completeness gate and the HUD snapshot share it without loading the whole verification run.
-Stage isolation is a property of the change (its recorded lane and host adapter), never a config
-setting. A host that cannot dispatch subagents is never asked for isolation; a null lane is
-`unresolved`, which surfaces as Inconclusive and never as a block. The spec-pipeline flags are
+Stage isolation is a property of the change (its recorded lane and host adapter) and of the
+`stage_isolation_lanes` list (default `full`, `full` always included), resolved once per check
+through `layeredConfigMap`. `isolationStatusFrom` takes that list from its caller: a lane in it is
+`expected`, any other lane is `not-applicable`, so a graduated change runs inline by default
+(`graduated,full` restores the old behaviour). A host that cannot dispatch subagents is never asked
+for isolation; a null lane is `unresolved`, which surfaces as Inconclusive and never as a block.
+After a forward-only raise (`lane_raised` on `feature.json`) the status stays `not-applicable`
+until a stage starts at or after `lane_raised.at`; from then on it is `expected` and the builder
+passes `stageIsolationSince`, so the gate asks only for `stage-agent` rows recorded after the
+raise and never fails earlier inline stages. The HUD reads the same `stageIsolationStatus`. After a raise its
+`isolation-missing` flag still counts `stage-agent` rows from before the raise, while the gate counts
+only those after it, so the HUD can show no flag while the gate fails (tracked as tech debt
+TD-01M64HFSW101H0E24VD68X4PZA). The spec-pipeline flags are
 read through `layeredConfigMap`, not `src/spec-pipeline`, because `src/verification` must not
 import the pipeline; unset flags take the pipeline's own defaults through the same resolver. A
 change whose spec was frozen before the pipeline default turned on is not asked for pipeline files.

@@ -333,6 +333,46 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     expect(html).toContain('feat/x');
   });
 
+  it('shows no lane line for a change whose lane never moved', () => {
+    expect(html).not.toContain('class="lane-moves"');
+  });
+
+  it('AC-16: shows a plan-time resize with its reason', () => {
+    const bundle = fullBundle();
+    bundle.files.feature = {
+      lane: 'graduated',
+      lane_resized: {
+        from: 'full',
+        to: 'graduated',
+        reason: 'the plan touches 3 files, none sensitive, no schema or breaking API change',
+        files: 3,
+        at: AT,
+      },
+    };
+    const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html2).toContain(
+      'Lowered from full to graduated at plan compile: the plan touches 3 files, none sensitive, no schema or breaking API change',
+    );
+  });
+
+  it('AC-16: shows a forward-only raise after the resize', () => {
+    const bundle = fullBundle();
+    const move = { files: 11, at: AT };
+    bundle.files.feature = {
+      lane: 'full',
+      lane_resized: { ...move, from: 'full', to: 'graduated', reason: 'small' },
+      lane_raised: {
+        ...move,
+        from: 'graduated',
+        to: 'full',
+        reason: 'the change now touches 11 files',
+      },
+    };
+    const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html2).toContain('Lowered from full to graduated at plan compile: small');
+    expect(html2).toContain('Raised from graduated to full: the change now touches 11 files');
+  });
+
   it('renders the recorded review structurally, escaping every field', () => {
     const bundle = fullBundle();
     bundle.files.review = {
