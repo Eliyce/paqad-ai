@@ -82,10 +82,13 @@ call, so a static reader sees it:
   - `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`, only after a person
     picks Allow once: once for the override and once more with `--outcome` after the retried edit
     returns.
-  - `pollCi`'s `[paqadProgram($), 'delivery-link', 'refresh', '--session', <id>,
-    '--project-root', <root>, '--min-age-seconds', <delay>]`. `paqadProgram` is the plugin's own
-    `runtime/claude-plugin/bin/paqad-ai` under `$.plugin.root`, so a repository cannot shadow it
-    on PATH; no value comes from the snapshot, branch name or PR title. It runs only while the
+  - `pollCi`'s `[program, 'delivery-link', 'refresh', '--session', <id>,
+    '--project-root', <root>, '--min-age-seconds', <delay>]`. `program` is only the plugin's own
+    `runtime/claude-plugin/bin/paqad-ai` under `$.plugin.root` (`pluginProgramPath`; the
+    `paqad-ai.cmd` form on a Windows root), so a repository cannot shadow it on PATH. When that file
+    does not exist the watch stops and runs nothing. No value comes from the snapshot, branch name
+    or PR title. A failure in `watchAfterPush` is caught inside it, so it never fails or re-runs
+    the push. It runs only while the
     snapshot shows an open PR whose CI is pending (`ciWatchHead`). `nextCiPoll` in
     `paqad-cli.ts` sets the schedule: every 30 s with no back-off, and none after 60 min; one
     timer and one run at a time. The watch stops on pass, fail, closed or merged, after two gh

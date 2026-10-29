@@ -166,8 +166,8 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
   (timed out, rate-limited, signed out, missing, unreadable, no PR) keeps the stored `pr` and `ci`
   untouched and writes only `ci_read`, so a known pass, fail or pending is never downgraded.
   `--min-age-seconds` skips gh while the stored `ci_read` is younger, so several HUDs watching one
-  PR share one read. Only state words, numbers, shas, job states and the fixed failure phrases are
-  written; no token, stderr text or PR body.
+  PR share one read. Only state words, numbers, 40-hex shas, job states and the fixed failure
+  phrases are written; no token, stderr text, PR body, PR title or CI job name.
 - **`ai-attribution.ts`.** A co-author trailer naming a real colleague must survive, so only known
   vendor markers are matched, each with that vendor's own fix. The patterns are case-insensitive
   (vendors mix `Co-Authored-By` and `Co-authored-by`) and not global, and at most one finding is

@@ -500,8 +500,9 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
   and head were kept reads with no state, so the PR step reads unknown. `ship.pr_state`,
   `ship.merged` and `ship.all_green` come from the saved gh state: merged only when the pull request
   is, and all green needs a passing CI reading on the pull request's current head while it is open.
-  A pass or fail read against an older head (not the pull request's head or the change's
-  `head_sha`) reads pending, so it never raises CI failed. `ship.push_current` is true only while
+  A pass or fail read against an older head reads pending, so it never raises CI failed. The pull
+  request's head decides; the change's `head_sha` counts only when no pull request head is known,
+  so a local commit not pushed yet never hides red CI on the pull request's current head. `ship.push_current` is true only while
   the recorded push names the change head, so a new local commit shows Push as not yet. `ship.ci_read_at` is when CI was last read.
 - **Cost and workflow.** `cost.scope` says `change` or `whole-session`. On another workflow the
   `workflow` field carries its name, when it started in this session (the route-turn log) and its
@@ -515,8 +516,9 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
   can show every gate before Checks. `delivery_plan` says which of commit, push, pull request, CI
   and merge this change's policy takes, and `plan` counts the plan steps and the steps built.
   `ship.files_changed` counts the files the change touched (one bounded git read), and
-  `ship.pr_title`, `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same
-  gh call that reads the pull request. Once the spec is frozen, `claims` adds one acceptance claim
+  `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same gh call that
+  reads the pull request. `ship.pr_title` is filled only from an older `delivery.json`: the
+  pull request title is free text from GitHub, so it is no longer read or written. Once the spec is frozen, `claims` adds one acceptance claim
   per automated criterion: its id, its then text and the test that proves it, from the change
   traceability map. `cost.live` is true while the turn is still being counted. Each field is `null`
   or empty when its source is missing, and a failed read leaves it out and never stops the write.
@@ -776,8 +778,9 @@ change when no bundle matched, which is how a release commit made on main was on
 change's merge; off a feature branch it now stamps nothing and prints `linked: false`. The
 post-merge git hook still ends in `|| true`, so a pull is never disturbed. The pull request that
 `gh pr view` finds by branch name is saved with its `state` (`open`, `merged` or `closed`) and
-its `head_sha`, and the CI reading keeps one entry per job (name, status, conclusion, start and
-end) from both the CheckRun and the StatusContext shapes; queued, in-progress, pending and
+its `head_sha` (stored only when it is a full 40-hex sha), and the CI reading keeps one entry per
+job (status, conclusion, start and end, never the job's free-text name) from both the CheckRun and
+the StatusContext shapes; queued, in-progress, pending and
 expected jobs count in the total but not as done. `paqad-ai deliver` reads the checks once a
 minute on the real clock while its gate waits, saves each reading with its read time, and stops
 once the checks are done or the delivery policy's `timeout_minutes` has passed; the HUD only ever
