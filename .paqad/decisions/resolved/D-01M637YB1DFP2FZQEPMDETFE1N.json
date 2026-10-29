@@ -1,0 +1,78 @@
+{
+  "id": "D-01M637YB1DFP2FZQEPMDETFE1N",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {
+        "findings": [
+          "EX-qa-engineer-1: the scan must be a function run against planted fixture source as well as the real register.tsx, so each rejected shape (const next, let e, catch (e), next = x, { a: next }, [...e], a non-plain hook parameter, arguments) is proven to fail with its line number and the plugin directory message; a scan of the clean file alone proves nothing",
+          "EX-qa-engineer-2: negative cases that must pass: e or next as a parameter of a function passed directly to on(...) or .catch(...), $ as a helper parameter, and arguments only as a property name or inside a string or comment; the scan matches identifiers, not text",
+          "EX-qa-engineer-3: the renames to autoTab and event are proven by the existing register tests plus typecheck (unit); the directory acceptance itself is a manual check against the observer tool.check result",
+          "EX-qa-engineer-4: given session A has a stage_start with no stage_end in a bundle and session B has written no row there, when B starts, then B's session control is unchanged; and given A has written stage_end, when B starts, then B adopts the bundle (integration, fixture bundles)",
+          "EX-qa-engineer-5: boundary cases each need a test: a live stage agent with no open stage_start blocks adoption; a session that already wrote a row in the bundle still adopts it; a passive reader sees no change at all",
+          "EX-qa-engineer-6: error path: on a branch whose change is running in another session, the command stops with a non-zero exit, writes no row in that bundle, and the message names the running change and points at --title",
+          "EX-qa-engineer-7: moving the rotation to after stage_end must keep a case for /clear between stages still adopting the quiet bundle, so the fixtures are not weakened to pass",
+          "EX-qa-engineer-8: a crashed session leaves a stage_start with no stage_end forever, which would block adoption of that bundle for every later session; the spec needs a stated end to that wait and a test for it",
+          "EX-qa-engineer-9: given the active change records branch X and Y is checked out, when a bare stage start runs, then the pointer is cleared, the X bundle status is not paused, and a new change opens on Y; boundary cases: detached HEAD and an older bundle with no recorded branch",
+          "EX-qa-engineer-10: given delivery.json pr.number 766 and a base branch commit subject ending (#766), the bundle closes at once with status done; negatives that must stay open: (#7660), #766 without parens, pr.number null, and no matching commit within 24h quiet",
+          "EX-qa-engineer-11: the 24h quiet wait and git history are flaky-prone: tests inject the clock and build a temp git repo per test with its own cleanup (the known macOS temp-dir race applies)",
+          "EX-qa-engineer-12: given the session's HUD snapshot has no qualified change (scope other-branch or none), the line is absent and the agent's stage lines remain; given a qualified change, the line is present (unit)",
+          "EX-qa-engineer-13: the same adoption and branch tests run through the Codex hook entry as well as the Claude one, to prove the fix lives in core"
+        ]
+      }
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-29T07:10:43.757Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M636XGSQWPQYWGN1YF9E39HB",
+  "chosen": "failing-test",
+  "rationale": "Owner: a failing test reproducing each failure first.",
+  "resolved_at": "2026-10-29T07:49:19.064Z",
+  "decision_id": "D-01M637YB1DFP2FZQEPMDETFE1N",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M636XGSQWPQYWGN1YF9E39HB",
+  "ttl_until": "2026-11-28T07:10:43.757Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "failing-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T07:49:19.064Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: a failing test reproducing each failure first."
+  }
+}

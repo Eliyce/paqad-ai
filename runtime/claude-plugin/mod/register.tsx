@@ -433,9 +433,9 @@ async function bringTableForward(
 ): Promise<void> {
   try {
     const shown = shownTab(await read($, paneTabAtom));
-    const next = ledgerAutoTab(snapshot, shown, await read($, tableSittingAtom));
-    await update($, tableSittingAtom, () => next.sitting);
-    const tab = next.tab;
+    const autoTab = ledgerAutoTab(snapshot, shown, await read($, tableSittingAtom));
+    await update($, tableSittingAtom, () => autoTab.sitting);
+    const tab = autoTab.tab;
     if (tab) await update($, paneTabAtom, () => tab);
   } catch {}
 }
@@ -913,12 +913,12 @@ function drawBlock($: EngineInterface, ui: UiElements, block: BandBlock, desktop
   );
 }
 
-function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout) {
-  const ui = $.ui.resolve(e as never) as UiElements;
+function drawBand($: EngineInterface, event: { surface: string }, layout: BandLayout) {
+  const ui = $.ui.resolve(event as never) as UiElements;
   const { Box } = ui;
   if (layout.kind === 'none') return null;
   if (layout.kind === 'line') return drawRow($, ui, layout.row);
-  const desktop = e.surface === 'desktop';
+  const desktop = event.surface === 'desktop';
   return (
     <Box
       flexDirection="column"
