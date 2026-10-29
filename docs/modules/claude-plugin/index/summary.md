@@ -117,8 +117,7 @@ call, so a static reader sees it:
   Write and NotebookEdit, registered after the unmatched `tool.call` hook: when the call comes back
   denied (`deny` or `isError`) and a fresh paqad stop names this `tool_use_id`, it asks the rule
   stop question and, after a recorded override, runs the same call once more so paqad's gate can
-  answer `ask` for it. Its one `tool.check` hook only reads the answer for the band and returns it
-  unchanged. The flow is in
+  answer `ask` for it. It registers no `tool.check` hook. The flow is in
   [rule-override technical](../../feature-evidence/features/rule-override/technical.md).
 - It plays the chime as `$.audio.play({ base64: chimeBase64(), mime: 'audio/wav' })` through one
   `playChime`, so the clip is bytes and never a URL.
@@ -128,15 +127,13 @@ call, so a static reader sees it:
 - It never declares a name spelled like a hook parameter (`$`, `e` or `next`) anywhere else in
   the mod file, and a function takes `e` or `next` only when it is passed straight to `on(...)`
   or `.catch(...)`. The directory reads those names as hook parameters wherever they appear.
-- Its `tool.check` hook reads Claude Code's answer into one `const verdict = await next(e)`,
-  reads `verdict.decision` once into a plain local for `notePermission` (the band and the
-  Allow-once bookkeeping), and ends with `return next(e)`. The directory reads `next(e)` only in a
-  return or in that one `const`, the `const` only through a plain member read (never in a closure,
-  an object, a call or a return: it could be changed before it is returned), the answer only when
-  it is written in the return itself, and the event only as a member (`e.agentId`, never a cast or
-  `e?.`) or handed whole to a call. Any other form blocks the plugin. At `tool.check`, `next(e)`
-  only reads the verdict and runs nothing, so reading it twice is safe.
-  `register-directory-shape.test.ts` checks all of this and the names rule above.
+- It registers no `tool.check` hook. The plugin directory accepts a `tool.check` hook only when it
+  passes Claude Code's answer on without reading it, so the HUD does not show `Waiting for your
+  answer` for Claude Code's own permission dialog, and Allow once records `still-blocked` for any
+  denied retry. `register-directory-shape.test.ts` still checks any future `tool.check` hook
+  against the directory's rules (the event only read as a member or handed whole to a call, `next(e)`
+  only in a return or one `const`, and the answer written in the return itself), and the names rule
+  above.
   `register.tsx` uses other names, and a scan of the parsed source test guards the rule.
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
