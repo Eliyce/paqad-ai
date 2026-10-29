@@ -7,6 +7,7 @@ import { releaseLock, tryAcquireLock } from '@/background/single-flight-lock.js'
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 import { generateRuleManifest, scriptedSourcePaths } from '@/context/rule-manifest.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { isPaqadArtifactPath, loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
 import { isAlwaysLoadRule, ruleTriggersMatch } from '@/pipeline/rule-trigger-matcher.js';
@@ -114,19 +115,28 @@ export function computeRuleApplicability(
   };
 }
 
-async function changeOwnPaths(projectRoot: string, sessionId: string | null): Promise<string[]> {
-  const files = (await loadChangeEvidence(projectRoot)).files.filter(
-    (filePath) => !isPaqadArtifactPath(filePath),
-  );
+export interface ChangeScopeOptions {
+  dirName?: string | null;
+}
+
+async function changeOwnPaths(
+  projectRoot: string,
+  sessionId: string | null,
+  scope: ChangeScopeOptions,
+): Promise<string[]> {
+  const since = scope.dirName ? readChangeStartPoint(projectRoot, scope.dirName) : undefined;
+  const evidence = await loadChangeEvidence(projectRoot, since ? { since } : {});
+  const files = evidence.files.filter((filePath) => !isPaqadArtifactPath(filePath));
   return sessionId === null ? files : subtractUnchangedBaselineFiles(projectRoot, sessionId, files);
 }
 
 export async function resolveRuleApplicabilityForChange(
   projectRoot: string,
   sessionId: string | null = null,
+  scope: ChangeScopeOptions = {},
 ): Promise<ChangeRuleApplicability> {
   const store = await readCompiledRules(projectRoot);
-  const changedPaths = await changeOwnPaths(projectRoot, sessionId);
+  const changedPaths = await changeOwnPaths(projectRoot, sessionId, scope);
   const rules = store?.rules ?? [];
   if (rules.length === 0) {
     return {
