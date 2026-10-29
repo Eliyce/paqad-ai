@@ -418,7 +418,7 @@ describe('AC-21: the High Table tab', () => {
     expect(needs.chief).toBe('needs');
     expect(needs.chiefView.light).toEqual({
       signal: 'attention',
-      title: 'Needs your answers',
+      title: 'Waiting for your answer',
       why: 'Ruled in 2m 00s · 28.5K tokens',
     });
     expect(needs.chiefView.conflicts[0]?.target).toBe('Customer email in the export');

@@ -82,23 +82,32 @@ describe('computeHudHeadline', () => {
     owner,
   });
 
-  it('row 6: counts several waiting decisions in the plural', () => {
-    expect(headline({ pendingDecisions: 2 })).toMatchObject({
+  it('row 6: any pending decision of this change reads Waiting for your answer', () => {
+    const waiting = {
       row: 6,
-      text: '2 decisions are waiting for you',
+      text: 'Waiting for your answer',
+      word: 'Waiting for your answer',
       tone: 'needs-you',
-    });
-    expect(headline({ pendingDecisions: 1 }).text).toBe('1 decision is waiting for you');
-  });
-
-  it('row 5: names the chief architect once the table has ruled with open conflicts', () => {
+    };
+    expect(headline({ pendingDecisions: 2 })).toMatchObject(waiting);
+    expect(headline({ pendingDecisions: 1 })).toMatchObject(waiting);
     expect(
       headline({
         pendingDecisions: 2,
         decisions: [{ category: 'spec.expert_conflict' }, { category: 'spec.expert_conflict' }],
         table: { chief: { state: 'done', verdict: 'needs answers' }, seats: [] } as never,
       }),
-    ).toMatchObject({ row: 5, text: 'The chief architect has 2 questions for you' });
+    ).toMatchObject(waiting);
+    expect(
+      headline({
+        pendingDecisions: 1,
+        stages: [stage('development', 'complete')],
+        verdict: verdict('pass'),
+        checks: 'green',
+        ship: pr({ ci: { state: 'pending' } }),
+      }),
+    ).toMatchObject(waiting);
+    expect(JSON.stringify(headline({ pendingDecisions: 1 }))).not.toMatch(/Needs you/);
   });
 
   it('row 15: names a running stage with its clock start, and an unknown one as written', () => {

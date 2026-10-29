@@ -15,7 +15,7 @@ export const CLOSE_HEADER = 'Close band?';
 export const CLOSE_FOR_NOW = 'Close for now';
 export const CLOSE_FOR_NOW_MEANS = 'Comes back in your next session';
 export const HIDE_ALWAYS = 'Hide always';
-export const NEEDS_YOU = 'Needs you';
+export const NEEDS_YOU = 'Waiting for your answer';
 export const SHOWN_AGAIN = 'The paqad band is back.';
 
 export function hideAlwaysMeans(surface: 'terminal' | 'desktop' = 'terminal'): string {

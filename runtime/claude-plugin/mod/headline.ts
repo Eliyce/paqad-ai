@@ -4,7 +4,6 @@ import type { Signal } from './palette';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export const WAITING_FOR_ANSWER = 'Waiting for your answer';
-export const WAITING_FOR_PERMISSION = 'Waiting for your permission';
 export const NO_RECORD = 'Not yet. paqad has no record for this session.';
 
 export interface DesktopHeadline {
@@ -35,7 +34,7 @@ function waitingRow(row: number, text: string): DesktopHeadline {
     tone: 'needs-you',
     live: false,
     text,
-    word: 'Needs you',
+    word: WAITING_FOR_ANSWER,
     note: null,
     gap: null,
     clock: null,
@@ -48,7 +47,7 @@ export function snapshotHeadline(
   live: LiveState = IDLE_LIVE,
 ): DesktopHeadline {
   if (live.waitingOn === 'question') return waitingRow(3, WAITING_FOR_ANSWER);
-  if (live.waitingOn === 'permission') return waitingRow(4, WAITING_FOR_PERMISSION);
+  if (live.waitingOn === 'permission') return waitingRow(4, WAITING_FOR_ANSWER);
   const head = snapshot.headline;
   const running = head.tone === 'working';
   const from = head.clock_from ? Date.parse(head.clock_from) : Number.NaN;

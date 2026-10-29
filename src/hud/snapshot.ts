@@ -1316,19 +1316,11 @@ export function computeHudFlags(input: {
   return flags;
 }
 
-const CONFLICT_CATEGORY = 'spec.expert_conflict';
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
+export const WAITING_FOR_ANSWER = 'Waiting for your answer';
 
 function prName(ship: HudShip | null): string {
   const number = ship?.pr?.number;
   return typeof number === 'number' ? `PR #${number}` : 'The PR';
-}
-
-function tableRuled(table: HudHighTable | null | undefined): boolean {
-  return table?.chief?.state === 'done' && table.chief.verdict !== null;
 }
 
 function runningWords(input: HudHeadlineInput, stage: string): string {
@@ -1480,24 +1472,7 @@ function doneHeadline(
 
 export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   if (input.pendingDecisions > 0) {
-    const conflicts = (input.decisions ?? []).filter(
-      (decision) => decision.category === CONFLICT_CATEGORY,
-    ).length;
-    if (conflicts > 0 && tableRuled(input.table)) {
-      return headlineRow(
-        5,
-        'needs-you',
-        `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
-        'Needs you',
-      );
-    }
-    const n = input.pendingDecisions;
-    return headlineRow(
-      6,
-      'needs-you',
-      n === 1 ? '1 decision is waiting for you' : `${n} decisions are waiting for you`,
-      'Needs you',
-    );
+    return headlineRow(6, 'needs-you', WAITING_FOR_ANSWER, WAITING_FOR_ANSWER);
   }
   if (!input.active) return idleHeadline(input);
   const ship = input.ship ?? null;

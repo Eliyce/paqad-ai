@@ -596,7 +596,12 @@ export const GRADUATED_ORD_482 = snapshot({
   lane: 'graduated',
   lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a bug fix that touches contact matching',
-  headline: { text: '1 decision is waiting for you', tone: 'needs-you', row: 6, word: 'Needs you' },
+  headline: {
+    text: 'Waiting for your answer',
+    tone: 'needs-you',
+    row: 6,
+    word: 'Waiting for your answer',
+  },
   change: change(
     'ORD-482',
     'Keep the copied phone after a re-sync',
@@ -694,7 +699,7 @@ export const STATE_FIXTURES = {
   Ready: snapshot(),
   Working: FAST_ORD_490,
   'Branch warning': BRANCH_WARNING,
-  'Needs you': GRADUATED_ORD_482,
+  'Waiting for your answer': GRADUATED_ORD_482,
   Inconclusive: INCONCLUSIVE,
   'Safe to merge': SAFE_CLEAN,
   'Needs your attention': NEEDS_ATTENTION,
@@ -806,10 +811,10 @@ export function ord501At(phase: Ord501Phase): Raw {
     ...FULL_ORD_501,
     headline: ruled
       ? {
-          text: 'The chief architect has 1 question for you',
+          text: 'Waiting for your answer',
           tone: 'needs-you',
-          row: 5,
-          word: 'Needs you',
+          row: 6,
+          word: 'Waiting for your answer',
         }
       : {
           text: 'The High Table is writing its notes',
@@ -977,7 +982,7 @@ export const SCENE_FIXTURES = {
       commit_list: COMMITS.slice(0, 1),
     }),
   }),
-  'Needs you': ord501At('ruled'),
+  'Waiting for your answer': ord501At('ruled'),
   'Shipping with CI live': snapshot({
     ...FULL_ORD_501,
     headline: {

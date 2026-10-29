@@ -25,12 +25,7 @@ import type {
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
-import {
-  WAITING_FOR_ANSWER,
-  WAITING_FOR_PERMISSION,
-  snapshotHeadline,
-  type DesktopHeadline,
-} from './headline';
+import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
 import {
   NOTHING_TO_PROVE,
@@ -66,7 +61,7 @@ export const GETTING_READY = IDLE_WORDS;
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
-export const NEEDS_YOU_WORDS = 'Needs you';
+export const NEEDS_YOU_WORDS = WAITING_FOR_ANSWER;
 export const CLOSE_MENU_QUESTION = 'Close the paqad band?';
 
 export const CARD_ROWS = { identity: 1, message: 1, gap: 1, strip: 3, menu: 1 } as const;
@@ -126,7 +121,7 @@ function prName(snapshot: PaqadHudSnapshot): string {
   return number === null ? 'The PR' : `PR #${number}`;
 }
 
-export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
+export { WAITING_FOR_ANSWER, type DesktopHeadline };
 
 export const desktopHeadline = snapshotHeadline;
 
@@ -817,7 +812,7 @@ function chiefLight(table: PaqadHighTable, state: ChiefState): LightView {
   if (state === 'needs') {
     return {
       signal: 'attention',
-      title: 'Needs your answers',
+      title: WAITING_FOR_ANSWER,
       why: join(ruledIn ? `Ruled in ${ruledIn}` : null, tokens),
     };
   }

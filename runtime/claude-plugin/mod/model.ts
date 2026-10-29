@@ -883,7 +883,7 @@ export const BAND_STATES = [
   'Ready',
   'Working',
   'Branch warning',
-  'Needs you',
+  'Waiting for your answer',
   'Inconclusive',
   'Safe to merge',
   'Needs your attention',
@@ -896,7 +896,7 @@ const STATE_TONE: Record<(typeof BAND_STATES)[number], PaqadTone> = {
   Ready: 'neutral',
   Working: 'working',
   'Branch warning': 'warn',
-  'Needs you': 'needs-you',
+  'Waiting for your answer': 'needs-you',
   Inconclusive: 'warn',
   'Safe to merge': 'good',
   'Needs your attention': 'bad',
@@ -912,7 +912,7 @@ export function bandState(
   live: LiveState = IDLE_LIVE,
 ): BandState {
   if (!snapshot) return 'Ready';
-  if (waitingOnHuman(snapshot, live)) return 'Needs you';
+  if (waitingOnHuman(snapshot, live)) return 'Waiting for your answer';
   if (!snapshot.active) {
     if (snapshot.paused.length > 0) return 'Paused';
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';

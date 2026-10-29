@@ -24,7 +24,6 @@ import {
   taskListSentence,
   UPDATE_PLAN_TOOL,
   WAITING_FOR_ANSWER,
-  WAITING_FOR_PERMISSION,
   type DesktopBandInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
@@ -179,12 +178,16 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       tone: 'needs-you',
       live: false,
       text: WAITING_FOR_ANSWER,
-      word: 'Needs you',
+      word: 'Waiting for your answer',
       note: null,
       gap: null,
       clock: null,
     });
-    expect(waiting('permission')).toMatchObject({ row: 4, text: WAITING_FOR_PERMISSION });
+    expect(waiting('permission')).toMatchObject({
+      row: 4,
+      text: 'Waiting for your answer',
+      word: 'Waiting for your answer',
+    });
   });
 
   it('AC-32: draws the row, words and tone the snapshot decided, computing none of its own', () => {
@@ -624,7 +627,7 @@ describe('AC-14: minimised, closed and hidden', () => {
     expect(priced).toMatchObject({ minimised: { cost: '1.3M tokens · ~$4.60' } });
   });
 
-  it('closes for the session or hides, and says Needs you when something waits', () => {
+  it('closes for the session or hides, and says Waiting for your answer when something waits', () => {
     expect(band({ visibility: { ...SHOWN, closed: true } })).toEqual({
       kind: 'closed',
       needsYou: false,

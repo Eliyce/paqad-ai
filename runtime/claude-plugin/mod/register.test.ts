@@ -87,7 +87,7 @@ const BORDER: Record<string, string | null | undefined> = {
   Ready: null,
   Working: 'suggestion',
   'Branch warning': 'warning',
-  'Needs you': 'permission',
+  'Waiting for your answer': 'permission',
   Inconclusive: 'warning',
   'Safe to merge': 'success',
   'Needs your attention': 'error',
@@ -164,12 +164,12 @@ describe('the band on each fixture change', () => {
       expect(text).not.toContain('HIGH TABLE');
     });
 
-    test(`graduated lane: Needs you for the waiting decision, and the HIGH TABLE done on ${surface}`, async ($, on) => {
+    test(`graduated lane: Waiting for your answer for the waiting decision, and the HIGH TABLE done on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
-      expect(text).toContain('1 decision is waiting for you');
+      expect(text).toContain('Waiting for your answer');
       expect(text).toContain('HIGH TABLE');
       expect(text).toContain('spec approved');
     });
@@ -461,8 +461,8 @@ describe('minimise, close and hide', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(band(surface));
-      expect(textOf(drawn)).toBe('paqad · Needs you ▸');
-      expect(colorOf(textElement(drawn, 'paqad · Needs you ▸'))).toBe('permission');
+      expect(textOf(drawn)).toBe('paqad · Waiting for your answer ▸');
+      expect(colorOf(textElement(drawn, 'paqad · Waiting for your answer ▸'))).toBe('permission');
       const mounted = await mountBand($, surface);
       await mounted.press({ key: 'paqad-needs-you' });
       await mounted.unmount();
@@ -754,10 +754,10 @@ describe('the Desktop band', () => {
       approver: 'person',
     } as never);
     const waiting = await $.ui.render(band('desktop'));
-    expect(textOf(waiting)).toContain('Waiting for your permission');
+    expect(textOf(waiting)).toContain('Waiting for your answer');
     expect(lightOf(waiting)).toBe('#F37748');
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('an ask the host answers, or an allow, never waits for you', async ($, on) => {
@@ -796,7 +796,7 @@ describe('the Desktop band', () => {
       approver: 'person',
       agentId: 'agent-a1',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('a background agent ask clears when that agent starts a tool or its turn completes', async ($, on) => {
@@ -820,16 +820,16 @@ describe('the Desktop band', () => {
       tool_use_id: 'tu_a1',
       agentId: 'agent-a1',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
     await askFrom('agent-b2', 'tu_b1');
     await $.turn.complete({ text: '', agentId: 'agent-b2' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
     await askFrom('agent-c3', 'tu_c1');
     await $.turn.start({ text: 'next', turnId: 'turn-9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
-  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your permission', async ($, on) => {
+  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your answer', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -841,7 +841,7 @@ describe('the Desktop band', () => {
       approver: 'person',
       agentId: 'agent-plan',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('FR-18 / AC-14: a foreground stage agent ask waits until that agent moves on', async ($, on) => {
@@ -863,8 +863,8 @@ describe('the Desktop band', () => {
       seen.push(textOf(await $.ui.render(band('desktop'))));
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).toContain('Waiting for your permission');
-    expect(seen[1]).not.toContain('Waiting for your permission');
+    expect(seen[0]).toContain('Waiting for your answer');
+    expect(seen[1]).not.toContain('Waiting for your answer');
   });
 
   test('FR-18: a foreground stage agent ask clears when the Agent call ends', async ($, on) => {
@@ -882,7 +882,7 @@ describe('the Desktop band', () => {
       } as never);
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('AC-13: a background agent ask during a foreground Agent call does not wait', async ($, on) => {
@@ -913,8 +913,8 @@ describe('the Desktop band', () => {
       seen.push(textOf(await $.ui.render(band('desktop'))));
     });
     await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).not.toContain('Waiting for your permission');
-    expect(seen[1]).toContain('Waiting for your permission');
+    expect(seen[0]).not.toContain('Waiting for your answer');
+    expect(seen[1]).toContain('Waiting for your answer');
   });
 
   test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
@@ -938,7 +938,7 @@ describe('the Desktop band', () => {
       subagent_type: 'paqad:paqad-planning',
       run_in_background: true,
     } as never);
-    expect(seen[0]).not.toContain('Waiting for your permission');
+    expect(seen[0]).not.toContain('Waiting for your answer');
   });
 
   test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
@@ -952,10 +952,10 @@ describe('the Desktop band', () => {
       tool_use_id: 'tu_m',
       approver: 'person',
     } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     world.verdict = { decision: 'allow' };
     await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'tu_r', approver: 'host' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('a main-thread ask still waits while a background agent works on', async ($, on) => {
@@ -979,9 +979,9 @@ describe('the Desktop band', () => {
     } as never);
     await $.tool.call({ tool: 'Read', tool_use_id: 'tu_a1', agentId: 'agent-a1' } as never);
     await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_m1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
@@ -996,9 +996,9 @@ describe('the Desktop band', () => {
       approver: 'person',
     } as never);
     await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
     await $.turn.complete({ text: '' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
   });
 
   test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {
@@ -1140,14 +1140,14 @@ describe('the Desktop band', () => {
     expect(world.store.has('band.minimised')).toBe(false);
   });
 
-  test('AC-14: a closed band with a decision waiting reads Needs you in coral', async ($, on) => {
+  test('AC-14: a closed band with a decision waiting reads Waiting for your answer in coral', async ($, on) => {
     const store = new Map<string, unknown>([['band.hidden:/work', true]]);
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) }, store });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const drawn = await $.ui.render(band('desktop'));
-    expect(textOf(drawn)).toBe('paqad   ● Needs youShow');
-    expect(colorOf(textElement(drawn, '   ● Needs you'))).toBe('#F37748');
+    expect(textOf(drawn)).toBe('paqad   ● Waiting for your answerShow');
+    expect(colorOf(textElement(drawn, '   ● Waiting for your answer'))).toBe('#F37748');
   });
 
   test('AC-16: the card needs 6 rows, 7 with the menu, and falls back to the minimised row', async ($, on) => {
@@ -1362,7 +1362,7 @@ describe('the Desktop Ledger', () => {
     expectDesktopSafe(table);
     const lines = drawnLines(table);
     expect(lines).toContain('CHIEF ARCHITECT');
-    expect(lines).toContain('● Needs your answers');
+    expect(lines).toContain('● Waiting for your answer');
     expect(lines).toContain('1.  Customer email in the export');
     expect(lines).toContain('Answer in chat');
     expect(lines).toContain('See each side');
@@ -1499,7 +1499,7 @@ const WORKFLOW_SCENES: ReadonlySet<string> = new Set(['Question', 'Health check'
 const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   'High Table writing': 'The High Table is writing its notes',
   Building: 'Building',
-  'Needs you': 'The chief architect has 1 question for you',
+  'Waiting for your answer': 'Waiting for your answer',
   'Shipping with CI live': 'Delivering',
   Failed: 'Tests, types or lint failed',
   'CI passed': 'Done',
@@ -2622,7 +2622,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(world.runs).toEqual([]);
     expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...RULE_STOP, used: true });
     for (const surface of SURFACES) {
-      expect(textOf(await $.ui.render(band(surface)))).not.toContain('Needs you');
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('Waiting for your answer');
     }
   });
 

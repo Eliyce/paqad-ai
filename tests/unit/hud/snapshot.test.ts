@@ -262,7 +262,7 @@ describe('buildHudSnapshot', () => {
     ]);
     expect(snapshot.headline).toMatchObject({
       row: 6,
-      text: '1 decision is waiting for you',
+      text: 'Waiting for your answer',
       tone: 'needs-you',
     });
     expect(snapshot.isolation?.status).toBe('expected');

@@ -121,18 +121,18 @@ describe('closed, hidden and needs you', () => {
     expect(closedLine('closed', view)[0]).toMatchObject({ action: 'reopen', hotkey: 'o' });
   });
 
-  it('turns amber and reads Needs you while minimised, closed or hidden and paqad needs you', () => {
+  it('turns amber and reads Waiting for your answer while minimised, closed or hidden and paqad needs you', () => {
     for (const visibility of [
       { minimised: true, closed: false, hidden: false },
       { minimised: false, closed: true, hidden: false },
       { minimised: false, closed: false, hidden: true },
     ]) {
-      expect(layout(GRADUATED_ORD_482, visibility)).toEqual(['paqad · Needs you ▸']);
+      expect(layout(GRADUATED_ORD_482, visibility)).toEqual(['paqad · Waiting for your answer ▸']);
     }
     expect(needsYouLine()[0]).toMatchObject({ tone: 'needs-you', action: 'show' });
     expect(
       layout(GRADUATED_ORD_482, { minimised: false, closed: false, hidden: false })[0],
-    ).toContain('1 decision is waiting for you');
+    ).toContain('Waiting for your answer');
   });
 
   it('answers /paqad show', () => {
