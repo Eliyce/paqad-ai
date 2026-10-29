@@ -803,6 +803,23 @@ describe('live subagents lead the band while they run', () => {
     expect(drawn.kind === 'feature' && drawn.activity).toEqual([]);
   });
 
+  it('a pending decision of this change wins over the subagent title too', () => {
+    const drawn = band({
+      live: { ...IDLE_LIVE, agents },
+      snapshot: parse({
+        ...FULL_ORD_501,
+        headline: {
+          text: 'Waiting for your answer',
+          tone: 'needs-you',
+          row: 6,
+          word: 'Waiting for your answer',
+        },
+      }),
+    });
+    expect(drawn.kind === 'feature' && drawn.headline.text).toBe('Waiting for your answer');
+    expect(drawn.kind === 'feature' && drawn.activity).toEqual([]);
+  });
+
   it('falls back to the normal headline with nothing running', () => {
     const idle = band({ live: { ...IDLE_LIVE, agents: { ...agents, running: [] } } });
     const plain = band();

@@ -54,7 +54,7 @@ export function snapshotHeadline(
   if (live.waitingOn === 'permission') return waitingRow(4, WAITING_FOR_ANSWER);
   const head = snapshot.headline;
   const title = subagentTitle(live.agents?.running ?? []);
-  if (title !== null && live.agents) {
+  if (title !== null && live.agents && head.tone !== 'needs-you') {
     const finished = live.agents.finished;
     return {
       row: SUBAGENT_ROW,
