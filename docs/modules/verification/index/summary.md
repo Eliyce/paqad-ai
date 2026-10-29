@@ -316,8 +316,10 @@ for isolation; a null lane is `unresolved`, which surfaces as Inconclusive and n
 After a forward-only raise (`lane_raised` on `feature.json`) the status stays `not-applicable`
 until a stage starts at or after `lane_raised.at`; from then on it is `expected` and the builder
 passes `stageIsolationSince`, so the gate asks only for `stage-agent` rows recorded after the
-raise and never fails earlier inline stages. The HUD reads the same `stageIsolationStatus`, so the
-`isolation-missing` flag and the gate always agree. The spec-pipeline flags are
+raise and never fails earlier inline stages. The HUD reads the same `stageIsolationStatus`. After a raise its
+`isolation-missing` flag still counts `stage-agent` rows from before the raise, while the gate counts
+only those after it, so the HUD can show no flag while the gate fails (tracked as tech debt
+TD-01M64HFSW101H0E24VD68X4PZA). The spec-pipeline flags are
 read through `layeredConfigMap`, not `src/spec-pipeline`, because `src/verification` must not
 import the pipeline; unset flags take the pipeline's own defaults through the same resolver. A
 change whose spec was frozen before the pipeline default turned on is not asked for pipeline files.
