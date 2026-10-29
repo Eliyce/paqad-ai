@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M63DHBEDX0M1PZ0EBDJCN1XK",
+  "created_at": "2026-10-29T08:54:40.792Z",
+  "proof": {
+    "test_id": "refreshes the settings while they still hold live npm hook lines",
+    "test_file": "tests/unit/update/updater.test.ts",
+    "command": "pnpm exec vitest run tests/unit/update/updater.test.ts -t \"refreshes the settings while they still hold live npm hook lines\""
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/update/updater.test.ts",
+    "line": null,
+    "test_id": "refreshes the settings while they still hold live npm hook lines",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"refreshes the settings while they still hold live npm hook lines\" fails before the fix.",
+    "stderr_excerpt": "    529|         expect(report.regenerated).toContain('.claude/settings.json');\n       |                                    ^\n    530|         const written = JSON.parse(readFileSync(settingsPath(), 'utf8'…\n    531|         expect(written.hooks.SubagentStart[0].hooks[0].command).toBe(s…\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯"
+  },
+  "linked_ac_id": null
+}
