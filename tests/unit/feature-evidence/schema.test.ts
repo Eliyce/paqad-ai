@@ -63,7 +63,12 @@ describe('feature lane source and resize', () => {
 
   it('accepts a lane source and a complete resize record', () => {
     expect(
-      validateFeatureRecord({ ...feature(), lane_source: 'plan', lane_resized: move }),
+      validateFeatureRecord({
+        ...feature(),
+        lane_source: 'plan',
+        lane_resized: move,
+        lane_raised: { ...move, from: 'graduated', to: 'full' },
+      }),
     ).toEqual([]);
   });
 

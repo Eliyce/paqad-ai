@@ -138,7 +138,14 @@ export interface FeatureRecordPatch {
   base_branch?: string | null;
   kind?: FeatureChangeKind;
   laneSource?: Exclude<FeatureLaneSource, 'plan'>;
-  resizeLaneFromPlan?: { reason: string; files: number; at: string };
+  resizeLaneFromPlan?: LaneMoveFacts;
+  raiseLaneFromChange?: LaneMoveFacts;
+}
+
+export interface LaneMoveFacts {
+  reason: string;
+  files: number;
+  at: string;
 }
 
 export function higherKind(
@@ -190,6 +197,7 @@ export function updateFeatureRecord(
     kind: patch.kind !== undefined ? higherKind(current.kind, patch.kind) : current.kind,
     lane_source: laneState.lane_source,
     lane_resized: laneState.lane_resized,
+    lane_raised: laneState.lane_raised,
     now: () => new Date(current.updated_at),
   });
   if (next.content_hash === current.content_hash) {
@@ -208,6 +216,7 @@ interface LaneState {
   lane: FeatureLane;
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
 }
 
 const PRE_SPEC_ONLY_STAGES: ReadonlySet<string> = new Set([
@@ -232,6 +241,15 @@ function canLowerFromPlan(projectRoot: string, dirName: string, current: Feature
   );
 }
 
+function canRaiseAfterResize(current: FeatureRecord): boolean {
+  return (
+    current.lane === 'graduated' &&
+    current.lane_source === 'plan' &&
+    current.lane_resized !== undefined &&
+    current.lane_raised === undefined
+  );
+}
+
 function nextLaneState(
   projectRoot: string,
   dirName: string,
@@ -242,7 +260,13 @@ function nextLaneState(
     lane: current.lane,
     lane_source: current.lane_source,
     lane_resized: current.lane_resized,
+    lane_raised: current.lane_raised,
   };
+  const raise = patch.raiseLaneFromChange;
+  if (raise !== undefined) {
+    if (!canRaiseAfterResize(current)) return kept;
+    return { ...kept, lane: 'full', lane_raised: { from: 'graduated', to: 'full', ...raise } };
+  }
   const resize = patch.resizeLaneFromPlan;
   if (resize !== undefined) {
     if (!canLowerFromPlan(projectRoot, dirName, current)) return kept;

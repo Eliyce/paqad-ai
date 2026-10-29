@@ -141,6 +141,33 @@ describe('paqad-ai plan compile', () => {
       expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
     });
 
+    it('raises the lane back to full when a revised plan names a sensitive path', async () => {
+      const dir = smallFullChange();
+      await run(
+        writeTemplate({
+          summary: 'small',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts'] }],
+        }),
+      );
+      mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+      writeFileSync(
+        join(root, 'docs/instructions/rules/module-map.yml'),
+        'version: 2\nmodules:\n  - slug: secure\n    name: Secure\n    sensitivity: high\n    sources:\n      - src/secure\n',
+      );
+      const lines = await run(
+        writeTemplate({
+          summary: 'revised',
+          steps: [{ id: 's1', description: 'edit', files: ['src/a.ts', 'src/secure/k.ts'] }],
+        }),
+      );
+      expect(lines).toContain(
+        '**▸ paqad** · lane raised to full from graduated: the change touches a sensitive path: src/secure/k.ts',
+      );
+      expect(lines.some((line) => line.includes('lane set to'))).toBe(false);
+      expect(JSON.parse(lines.at(-1)!).lane_raised).toMatchObject({ to: 'full' });
+      expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'plan' });
+    });
+
     it('prints nothing extra and still compiles when the plan is too big to lower', async () => {
       const dir = smallFullChange();
       const files = Array.from({ length: 9 }, (_, i) => `src/f${i}.ts`);

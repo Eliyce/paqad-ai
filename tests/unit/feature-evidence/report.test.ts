@@ -355,6 +355,24 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     );
   });
 
+  it('shows a forward-only raise after the resize', () => {
+    const bundle = fullBundle();
+    const move = { files: 11, at: AT };
+    bundle.files.feature = {
+      lane: 'full',
+      lane_resized: { ...move, from: 'full', to: 'graduated', reason: 'small' },
+      lane_raised: {
+        ...move,
+        from: 'graduated',
+        to: 'full',
+        reason: 'the change now touches 11 files',
+      },
+    };
+    const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html2).toContain('Lowered from full to graduated at plan compile: small');
+    expect(html2).toContain('Raised from graduated to full: the change now touches 11 files');
+  });
+
   it('renders the recorded review structurally, escaping every field', () => {
     const bundle = fullBundle();
     bundle.files.review = {

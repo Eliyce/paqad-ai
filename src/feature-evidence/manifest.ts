@@ -19,6 +19,7 @@ export interface BundleCompletenessConfig {
   specFrozenBeforePipeline: boolean;
   stageIsolationExpected: boolean;
   stageIsolationUnresolved: boolean;
+  stageIsolationSince?: string;
 }
 
 export type BundleFileValidator = 'json' | 'jsonl>=1' | 'nonempty';

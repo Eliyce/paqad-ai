@@ -1039,6 +1039,38 @@ describe('the isolation evidence stream', () => {
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
   });
 
+  describe('after a forward-only raise', () => {
+    const RAISED_AT = '2026-10-29T12:10:00.000Z';
+    function agentRow(at: string): string {
+      return `{"kind":"stage-agent","stage":"review","doc_type":"paqad.stage-evidence","session_id":"ses_1","recorded_at":"${at}","content_hash":"h"}\n`;
+    }
+    function gateWith(rows: string) {
+      const root = tempRoot();
+      writeAlwaysFiles(root, DIR);
+      write(root, featureFilePath(DIR, 'stageEvidence'), `{"kind":"open"}\n${rows}`);
+      return bundleCompletenessGate({
+        ...base,
+        projectRoot: root,
+        dirName: DIR,
+        mode: 'strict',
+        config: { ...ONLY_ALWAYS, stageIsolationExpected: true, stageIsolationSince: RAISED_AT },
+      });
+    }
+
+    it('reads complete with a stage helper row after the raise', () => {
+      expect(
+        gateWith(agentRow('2026-10-29T12:00:00.000Z') + agentRow('2026-10-29T12:12:00.000Z'))!
+          .status,
+      ).toBe('pass');
+    });
+
+    it('fails when the only stage helper rows came before the raise', () => {
+      const gate = gateWith(agentRow('2026-10-29T12:00:00.000Z'));
+      expect(gate!.status).toBe('fail');
+      expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+    });
+  });
+
   it('passes that same change once the stage-agent rows are there', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);

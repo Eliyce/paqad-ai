@@ -73,3 +73,43 @@ export function planLaneResize(input: PlanLaneResizeInput): FeatureLaneMove | nu
     ? written.lane_resized
     : null;
 }
+
+export interface LaneRaiseInput {
+  projectRoot: string;
+  dirName: string;
+  plannedFiles: readonly string[];
+  changedFiles: readonly string[];
+  now?: () => Date;
+}
+
+function raiseFacts(input: LaneRaiseInput): { reason: string; files: number } | null {
+  const edited = editedFiles(input.changedFiles);
+  if (edited.length > SMALL_CHANGE_MAX_FILES) {
+    return { reason: `the change now touches ${fileCount(edited.length)}`, files: edited.length };
+  }
+  const sensitive = sensitivePaths(input.projectRoot, [
+    ...new Set([...edited, ...input.plannedFiles]),
+  ]);
+  return sensitive.length > 0
+    ? { reason: `the change touches a sensitive path: ${sensitive[0]}`, files: edited.length }
+    : null;
+}
+
+export function laneMayRise(projectRoot: string, dirName: string): boolean {
+  const record = readFeatureRecord(projectRoot, dirName);
+  return record?.lane_source === 'plan' && record.lane === 'graduated' && !record.lane_raised;
+}
+
+export function raiseLaneIfGrown(input: LaneRaiseInput): FeatureLaneMove | null {
+  if (!laneMayRise(input.projectRoot, input.dirName)) return null;
+  const facts = raiseFacts(input);
+  if (facts === null) return null;
+  const at = (input.now ?? (() => new Date()))().toISOString();
+  const written = updateFeatureRecord(
+    input.projectRoot,
+    input.dirName,
+    { raiseLaneFromChange: { ...facts, at } },
+    input.now,
+  );
+  return written?.lane_raised?.at === at ? written.lane_raised : null;
+}

@@ -116,6 +116,7 @@ export interface BuildFeatureRecordInput extends DocumentIdentityInput {
   kind?: FeatureChangeKind;
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
   recorded_at?: string;
 }
 
@@ -143,6 +144,7 @@ export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecor
       ...(input.kind !== undefined ? { kind: input.kind } : {}),
       ...(input.lane_source !== undefined ? { lane_source: input.lane_source } : {}),
       ...(input.lane_resized !== undefined ? { lane_resized: input.lane_resized } : {}),
+      ...(input.lane_raised !== undefined ? { lane_raised: input.lane_raised } : {}),
     },
   }) as FeatureRecord;
 }

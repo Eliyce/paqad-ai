@@ -15,7 +15,9 @@ import {
   editedFiles,
   isRiskyImpact,
   planFiles,
+  laneMayRise,
   planLaneResize,
+  raiseLaneIfGrown,
 } from '@/feature-evidence/lane-resize.js';
 import {
   appendFeatureStageRow,
@@ -309,5 +311,86 @@ describe('updateFeatureRecord lane rules', () => {
     updateFeatureRecord(root, dir, { resizeLaneFromPlan: { reason: 'r', files: 1, at: AT } });
     expect(readFeatureRecord(root, dir)?.lane_resized).toBeUndefined();
     expect(readFeatureRecord(root, dir)?.lane).toBe('full');
+  });
+});
+
+describe('raiseLaneIfGrown', () => {
+  const LATER = '2026-10-29T13:00:00.000Z';
+  const later = () => new Date(LATER);
+
+  function resized(): { root: string; dir: string } {
+    const root = project();
+    const dir = fullChange(root);
+    resize(root, dir);
+    return { root, dir };
+  }
+
+  function grow(root: string, dir: string, changedFiles: string[], plannedFiles: string[] = []) {
+    return raiseLaneIfGrown({
+      projectRoot: root,
+      dirName: dir,
+      plannedFiles,
+      changedFiles,
+      now: later,
+    });
+  }
+
+  const eleven = Array.from({ length: 11 }, (_, i) => `src/f${i}.ts`);
+
+  it('raises a plan-lowered lane to full once the change touches more than 8 files', () => {
+    const { root, dir } = resized();
+    const moved = grow(root, dir, [...eleven, '.paqad/x.json']);
+    expect(moved).toEqual({
+      from: 'graduated',
+      to: 'full',
+      reason: 'the change now touches 11 files',
+      files: 11,
+      at: LATER,
+    });
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      lane: 'full',
+      lane_source: 'plan',
+      lane_raised: moved,
+    });
+    expect(laneMayRise(root, dir)).toBe(false);
+  });
+
+  it('raises at most once and the plan never lowers it again', () => {
+    const { root, dir } = resized();
+    const first = grow(root, dir, eleven);
+    expect(grow(root, dir, [...eleven, 'src/more.ts'])).toBeNull();
+    expect(resize(root, dir, { files: 1 })).toBeNull();
+    expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_raised: first });
+  });
+
+  it('raises for an edited or a planned high-sensitivity path, naming it', () => {
+    const edited = resized();
+    writeSensitiveModuleMap(edited.root);
+    expect(grow(edited.root, edited.dir, ['src/secure/keys.ts'])?.reason).toBe(
+      'the change touches a sensitive path: src/secure/keys.ts',
+    );
+
+    const planned = resized();
+    writeSensitiveModuleMap(planned.root);
+    expect(grow(planned.root, planned.dir, ['src/a.ts'], ['src/secure/vault.ts'])).toMatchObject({
+      reason: 'the change touches a sensitive path: src/secure/vault.ts',
+      files: 1,
+    });
+  });
+
+  it('keeps graduated while the change stays small and safe', () => {
+    const { root, dir } = resized();
+    expect(grow(root, dir, ['src/a.ts', 'src/b.ts'])).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
+  });
+
+  it('leaves a lane the plan never lowered alone', () => {
+    const root = project();
+    const dir = fullChange(root, 'graduated');
+    expect(laneMayRise(root, dir)).toBe(false);
+    expect(grow(root, dir, eleven)).toBeNull();
+    updateFeatureRecord(root, dir, { raiseLaneFromChange: { reason: 'r', files: 11, at: LATER } });
+    expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'graduated' });
+    expect(readFeatureRecord(root, dir)?.lane_raised).toBeUndefined();
   });
 });

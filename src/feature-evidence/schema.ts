@@ -157,6 +157,7 @@ export const FEATURE_SCHEMA = versionedSchema(
       kind: { enum: ['fix', 'other'] },
       lane_source: { enum: ['classifier', 'manual', 'plan'] },
       lane_resized: laneMove,
+      lane_raised: laneMove,
     },
   ),
 );

@@ -59,6 +59,7 @@ export interface FeatureRecord extends EnvelopeHeader {
   kind?: FeatureChangeKind;
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
+  lane_raised?: FeatureLaneMove;
 }
 
 export interface LegacyFeatureRecord {

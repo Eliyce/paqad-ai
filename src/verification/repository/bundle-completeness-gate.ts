@@ -34,7 +34,10 @@ import {
 } from '@/feature-evidence/paths.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
-import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
+import {
+  hasStageAgentEvidence,
+  hasStageAgentEvidenceSince,
+} from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
 import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
 
@@ -215,7 +218,14 @@ function assertStageAgentRows(
   dirName: string,
   state: GateState,
 ): void {
-  if (hasStageAgentEvidence(input.projectRoot, dirName)) return;
+  const since = input.config.stageIsolationSince;
+  if (
+    since === undefined
+      ? hasStageAgentEvidence(input.projectRoot, dirName)
+      : hasStageAgentEvidenceSince(input.projectRoot, dirName, since)
+  ) {
+    return;
+  }
   if (input.config.stageIsolationExpected) {
     state.missing.push({
       file: 'stage-agent rows in stage-evidence.jsonl',

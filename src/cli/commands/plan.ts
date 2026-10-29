@@ -50,6 +50,10 @@ export function laneResizedLine(move: FeatureLaneMove): string {
   return `**▸ paqad** · lane set to ${move.to} from ${move.from}: ${move.reason}`;
 }
 
+export function laneRaisedLine(move: FeatureLaneMove): string {
+  return `**▸ paqad** · lane raised to ${move.to} from ${move.from}: ${move.reason}`;
+}
+
 export function createPlanCommand(): Command {
   const command = new Command('plan').description(
     'Work with the per-feature plan (compile the plan.json from a template)',
@@ -134,6 +138,9 @@ export function createPlanCommand(): Command {
       if (result.laneResized) {
         console.log(laneResizedLine(result.laneResized));
       }
+      if (result.laneRaised) {
+        console.log(laneRaisedLine(result.laneRaised));
+      }
       console.log(`**▸ paqad** · compiled ${result.path}`);
       console.log(
         JSON.stringify({
@@ -143,6 +150,7 @@ export function createPlanCommand(): Command {
           ...(result.readinessDecision ? { readiness_decision: result.readinessDecision } : {}),
           ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
           ...(result.laneResized ? { lane_resized: result.laneResized } : {}),
+          ...(result.laneRaised ? { lane_raised: result.laneRaised } : {}),
         }),
       );
     });

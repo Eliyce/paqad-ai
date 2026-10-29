@@ -312,11 +312,16 @@ function glyphWordless(word: string): string {
 }
 
 function renderLaneMoves(bundle: FeatureBundleExport): string {
-  const feature = bundle.files.feature as { lane_resized?: FeatureLaneMove } | undefined;
-  const resized = feature?.lane_resized;
-  if (!resized) return '';
-  const item = `<li>Lowered from ${escapeHtml(resized.from)} to ${escapeHtml(resized.to)} at plan compile: ${escapeHtml(resized.reason)}</li>`;
-  return `<h3>Lane</h3><ul class="lane-moves">${item}</ul>`;
+  const feature = bundle.files.feature as
+    { lane_resized?: FeatureLaneMove; lane_raised?: FeatureLaneMove } | undefined;
+  const items = [
+    feature?.lane_resized &&
+      `Lowered from ${escapeHtml(feature.lane_resized.from)} to ${escapeHtml(feature.lane_resized.to)} at plan compile: ${escapeHtml(feature.lane_resized.reason)}`,
+    feature?.lane_raised &&
+      `Raised from ${escapeHtml(feature.lane_raised.from)} to ${escapeHtml(feature.lane_raised.to)}: ${escapeHtml(feature.lane_raised.reason)}`,
+  ].filter((item): item is string => typeof item === 'string');
+  if (items.length === 0) return '';
+  return `<h3>Lane</h3><ul class="lane-moves">${items.map((item) => `<li>${item}</li>`).join('')}</ul>`;
 }
 
 function renderPlan(bundle: FeatureBundleExport): string {

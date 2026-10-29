@@ -4,13 +4,17 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { planLaneResize, raiseLaneIfGrown } from '@/feature-evidence/lane-resize.js';
 import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
 import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   featureStagePath,
+  openFeatureChange,
   recordChangeConstants,
 } from '@/feature-evidence/stage-ledger.js';
+import { writePendingImpact } from '@/stage-evidence/pending-lane.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import {
@@ -249,6 +253,74 @@ describe('stageIsolationStatus', () => {
     expect(isolationConfig(root, SESSION, bundle('fast-claude'))).toEqual({
       stageIsolationExpected: false,
       stageIsolationUnresolved: false,
+    });
+  });
+});
+
+describe('isolation after a forward-only raise', () => {
+  const at = (minute: number) => () =>
+    new Date(`2026-10-29T12:${String(minute).padStart(2, '0')}:00.000Z`);
+
+  function raisedChange(): string {
+    const dir = openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'grew past the plan',
+      lane: 'full',
+    });
+    writePendingImpact(root, SESSION, { database_impact: 'none', api_impact: 'none' });
+    planLaneResize({
+      projectRoot: root,
+      sessionId: SESSION,
+      dirName: dir,
+      steps: [{ id: 'S1', description: 'edit', files: ['src/a.ts'] }],
+      changedFiles: [],
+      now: at(0),
+    });
+    for (const [minute, stage] of [
+      [1, 'planning'],
+      [2, 'specification'],
+      [3, 'development'],
+    ] as const) {
+      appendFeatureStageRow(
+        root,
+        SESSION,
+        dir,
+        { kind: 'stage_start', stage, event_status: 'started' },
+        at(minute),
+      );
+    }
+    raiseLaneIfGrown({
+      projectRoot: root,
+      dirName: dir,
+      plannedFiles: [],
+      changedFiles: Array.from({ length: 11 }, (_, i) => `src/f${i}.ts`),
+      now: at(10),
+    });
+    expect(readFeatureRecord(root, dir)?.lane).toBe('full');
+    return dir;
+  }
+
+  it('is not-applicable until a stage starts after the raise, so inline stages are accepted', () => {
+    const dir = raisedChange();
+    expect(stageIsolationStatus(root, SESSION, dir)).toBe('not-applicable');
+    const config = buildBundleCompletenessConfig(root, SESSION, dir);
+    expect(config.stageIsolationExpected).toBe(false);
+    expect(config.stageIsolationSince).toBeUndefined();
+  });
+
+  it('is expected from the raise on once a stage starts after it', () => {
+    const dir = raisedChange();
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dir,
+      { kind: 'stage_start', stage: 'review', event_status: 'started' },
+      at(11),
+    );
+    expect(stageIsolationStatus(root, SESSION, dir)).toBe('expected');
+    expect(buildBundleCompletenessConfig(root, SESSION, dir)).toMatchObject({
+      stageIsolationExpected: true,
+      stageIsolationSince: '2026-10-29T12:10:00.000Z',
     });
   });
 });
