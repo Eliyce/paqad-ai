@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.111.0
+
+### Minor Changes
+
+- 2a7b1a8: Small changes cost less paqad time. The graduated lane now runs every stage in one agent, with the same six stages, artifacts and gates, and only the full lane uses a separate helper per stage. The new `stage_isolation_lanes` setting picks which lanes do (default `full`, and full is always included). At `plan compile`, a full lane the classifier guessed can drop to graduated once, before the spec starts, when the plan touches 8 files or fewer, none sensitive, with no schema or breaking API change. One line says why, and the change report shows it. If the change later grows past 8 files or touches a sensitive path, the lane goes back to full for the stages still to run. A lane set with `paqad-ai lane set` is never lowered. On graduated, the expert panel seats only the on-call experts the change needs, and always the security expert when a sensitive path is planned; `spec_pipeline_experts_lanes` (default `full`) controls this. To keep the old behaviour, set both to `graduated,full`.
+
 ## 1.110.4
 
 ### Patch Changes
