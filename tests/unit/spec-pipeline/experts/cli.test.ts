@@ -17,6 +17,7 @@ import {
   stagingDir,
   writeRequest,
 } from '@/spec-pipeline/run-store.js';
+import { stepComplete } from '@/spec-pipeline/orchestrator.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
 const roots: string[] = [];
@@ -217,14 +218,14 @@ describe('spec pipeline experts CLI', () => {
       };
     }
 
-    it('seats only the detector pick on graduated', async () => {
+    it('AC-18: seats only the detector pick on graduated', async () => {
       const { roster } = await recordOn('graduated', [
         { role: 'security-auditor', reason: 'touches tokens' },
       ]);
       expect(roster.map((entry) => entry.role)).toEqual(['security-auditor']);
     });
 
-    it('skips the High Table on graduated when nobody is named and no planned path is sensitive', async () => {
+    it('AC-17: skips the High Table on graduated when nobody is named and no planned path is sensitive', async () => {
       const { root, dir, out, roster } = await recordOn('graduated', [], planWith(['src/a.ts']));
       expect(roster).toEqual([]);
       expect(out).toContain(
@@ -234,9 +235,10 @@ describe('spec pipeline experts CLI', () => {
         step: 'experts',
         outcome: 'skipped',
       });
+      expect(stepComplete(root, dir, 'experts')).toBe(true);
     });
 
-    it('seats security-auditor on graduated for a sensitive planned path, naming it', async () => {
+    it('AC-18: seats security-auditor on graduated for a sensitive planned path, naming it', async () => {
       const { roster } = await recordOn('graduated', [], planWith(['src/auth/token.ts']));
       expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
         ['security-auditor', 'a planned path is sensitive: src/auth/token.ts'],
@@ -255,7 +257,7 @@ describe('spec pipeline experts CLI', () => {
     });
 
     it.each(['full', null] as const)(
-      'seats the standing four plus the picks on %s',
+      'AC-19: seats the standing four plus the picks on %s',
       async (lane) => {
         const { out, roster } = await recordOn(lane, [{ role: 'db-expert', reason: 'migration' }]);
         expect(roster).toHaveLength(5);
@@ -263,7 +265,7 @@ describe('spec pipeline experts CLI', () => {
       },
     );
 
-    it('seats the standing four on graduated when spec_pipeline_experts_lanes names it', async () => {
+    it('AC-19: seats the standing four on graduated when spec_pipeline_experts_lanes names it', async () => {
       const { roster } = await recordOn('graduated', [], (root) => {
         writeFileSync(
           join(root, '.paqad', '.config'),

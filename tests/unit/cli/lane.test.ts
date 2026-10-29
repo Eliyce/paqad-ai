@@ -57,7 +57,7 @@ describe('paqad-ai lane command', () => {
     expect(json).toMatchObject({ set: true, lane: 'full', requested: 'full', changed: true });
   });
 
-  it('records a lane set by hand as manual, and still refuses to lower it', async () => {
+  it('AC-9, AC-10: records a lane set by hand as manual, and still refuses to lower it', async () => {
     const dir = openFeatureChange(root, SES, { adapter: 'claude-code', lane: 'full' });
     expect(readFeatureRecord(root, dir)?.lane_source).toBe('classifier');
     const { lines } = await run('set', 'graduated');

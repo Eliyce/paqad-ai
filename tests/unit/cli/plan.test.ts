@@ -134,7 +134,7 @@ describe('paqad-ai plan compile', () => {
       return dir;
     }
 
-    it('prints one line and adds lane_resized to the JSON when the plan lowers the lane', async () => {
+    it('AC-6: prints one line and adds lane_resized to the JSON when the plan lowers the lane', async () => {
       const dir = smallFullChange();
       const lines = await run(
         writeTemplate({
@@ -200,7 +200,7 @@ describe('paqad-ai plan compile', () => {
       expect(readFeatureRecord(root, dir)?.lane).toBe('full');
     });
 
-    it('prints nothing extra and still compiles when the plan is too big to lower', async () => {
+    it('AC-6: prints nothing extra and still compiles when the plan is too big to lower', async () => {
       const dir = smallFullChange();
       const files = Array.from({ length: 9 }, (_, i) => `src/f${i}.ts`);
       const lines = await run(

@@ -1270,7 +1270,7 @@ describe('lane lists', () => {
     expect(spec?.comment).toContain('graduated,full');
   });
 
-  it('parses a list, always keeping full', () => {
+  it('AC-4: parses a list, always keeping full', () => {
     expect(resolveLaneList(undefined, ['full'])).toEqual(['full']);
     expect(resolveLaneList('', ['full'])).toEqual(['full']);
     expect(resolveLaneList('bogus', ['full'])).toEqual(['full']);
@@ -1281,7 +1281,7 @@ describe('lane lists', () => {
     expect(resolveLaneList('nope', ['graduated'])).toEqual(['graduated', 'full']);
   });
 
-  it('resolves stage_isolation_lanes through the layered config, env over the team file', () => {
+  it('AC-4: resolves stage_isolation_lanes through the layered config, env over the team file', () => {
     const root = tmpRoot();
     try {
       expect(resolveStageIsolationLanes(layeredConfigMap(root, {}))).toEqual(['full']);
@@ -1297,12 +1297,12 @@ describe('lane lists', () => {
     }
   });
 
-  it('writes the knob, commented, into the policy file and the example', () => {
+  it('AC-22: writes the knob, commented, into the policy file and the example', () => {
     expect(generateConfigExample()).toContain('PAQAD_STAGE_ISOLATION_LANES');
     expect(generateGroupConfig('policy')).toMatch(/^# stage_isolation_lanes=full$/m);
   });
 
-  it('declares spec_pipeline_experts_lanes in the spec pipeline section and writes it commented', () => {
+  it('AC-22: declares spec_pipeline_experts_lanes in the spec pipeline section and writes it commented', () => {
     const spec = FRAMEWORK_CONFIG_SPECS.find(
       (entry) => entry.key === 'spec_pipeline_experts_lanes',
     );

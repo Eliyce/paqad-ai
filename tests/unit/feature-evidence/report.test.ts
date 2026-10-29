@@ -337,7 +337,7 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     expect(html).not.toContain('class="lane-moves"');
   });
 
-  it('shows a plan-time resize with its reason', () => {
+  it('AC-16: shows a plan-time resize with its reason', () => {
     const bundle = fullBundle();
     bundle.files.feature = {
       lane: 'graduated',
@@ -355,7 +355,7 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     );
   });
 
-  it('shows a forward-only raise after the resize', () => {
+  it('AC-16: shows a forward-only raise after the resize', () => {
     const bundle = fullBundle();
     const move = { files: 11, at: AT };
     bundle.files.feature = {

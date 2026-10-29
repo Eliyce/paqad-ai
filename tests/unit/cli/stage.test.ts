@@ -565,7 +565,7 @@ describe('paqad-ai stage command', () => {
       return dir;
     }
 
-    it('raises the lane to full once when the change grows past 8 files', async () => {
+    it('AC-13: raises the lane to full once when the change grows past 8 files', async () => {
       const dir = resizedChange();
       mkdirSync(join(root, 'src'), { recursive: true });
       for (let i = 0; i < 11; i += 1) writeFileSync(join(root, `src/f${i}.ts`), 'x');

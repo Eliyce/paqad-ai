@@ -111,7 +111,7 @@ describe('the plan facts', () => {
 });
 
 describe('planLaneResize', () => {
-  it('lowers a classifier-set full lane to graduated for a small, safe plan', () => {
+  it('AC-6, AC-12: lowers a classifier-set full lane to graduated for a small, safe plan', () => {
     const root = project();
     const dir = fullChange(root);
     expect(readFeatureRecord(root, dir)?.lane_source).toBe('classifier');
@@ -146,14 +146,14 @@ describe('planLaneResize', () => {
     );
   });
 
-  it('keeps full for 9 files', () => {
+  it('AC-6: keeps full for 9 files', () => {
     const root = project();
     const dir = fullChange(root);
     expect(resize(root, dir, { files: 9 })).toBeNull();
     expect(readFeatureRecord(root, dir)?.lane).toBe('full');
   });
 
-  it('keeps full for a planned high-sensitivity path', () => {
+  it('AC-7: keeps full for a planned high-sensitivity path', () => {
     const root = project();
     writeSensitiveModuleMap(root);
     const dir = fullChange(root);
@@ -174,14 +174,14 @@ describe('planLaneResize', () => {
     [{ database_impact: 'schema-change', api_impact: 'none' }],
     [{ database_impact: 'data-migration', api_impact: 'none' }],
     [{ database_impact: 'none', api_impact: 'breaking-change' }],
-  ] as const)('keeps full for a risky impact %j', (impact) => {
+  ] as const)('AC-7: keeps full for a risky impact %j', (impact) => {
     const root = project();
     const dir = fullChange(root);
     writePendingImpact(root, S, impact);
     expect(resize(root, dir)).toBeNull();
   });
 
-  it('keeps full with no saved impact', () => {
+  it('AC-7: keeps full with no saved impact', () => {
     const root = project();
     const dir = openFeatureChange(root, S, {
       adapter: 'claude-code',
@@ -199,14 +199,14 @@ describe('planLaneResize', () => {
     expect(readFeatureRecord(root, dir)?.lane).toBe('full');
   });
 
-  it('keeps full once a source file changed in the working tree', () => {
+  it('AC-7: keeps full once a source file changed in the working tree', () => {
     const root = project();
     const dir = fullChange(root);
     expect(resize(root, dir, { changed: ['src/app.ts'] })).toBeNull();
   });
 
   it.each(['specification', 'development', 'checks', 'documentation_sync'])(
-    'keeps full once %s has started',
+    'AC-7: keeps full once %s has started',
     (stage) => {
       const root = project();
       const dir = fullChange(root);
@@ -216,7 +216,7 @@ describe('planLaneResize', () => {
     },
   );
 
-  it('keeps full when the lane was set by hand, never recorded a source, or is not full', () => {
+  it('AC-7: keeps full when the lane was set by hand, never recorded a source, or is not full', () => {
     const manual = project();
     const manualDir = fullChange(manual, 'graduated');
     recordChangeConstants(manual, manualDir, { lane: 'full', laneSource: 'manual' });
@@ -236,7 +236,7 @@ describe('planLaneResize', () => {
     expect(resize(unresolved, fullChange(unresolved, null))).toBeNull();
   });
 
-  it('lowers at most once: a second compile with a revised plan changes nothing', () => {
+  it('AC-8: lowers at most once, a second compile with a revised plan changes nothing', () => {
     const root = project();
     const dir = fullChange(root);
     const first = resize(root, dir);
@@ -260,14 +260,14 @@ describe('the lane after a plan resize', () => {
     expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'graduated', lane_source: 'plan' });
   });
 
-  it('stays graduated when a stage start re-reads a pending classifier lane of full', () => {
+  it('AC-11: stays graduated when a stage start re-reads a pending classifier lane of full', () => {
     const { root, dir } = resized();
     writePendingLane(root, S, 'full');
     openStageEvidence(root, { sessionId: S, adapter: 'claude-code' });
     expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
   });
 
-  it('rises to full on a manual lane set, and the plan never lowers it again', () => {
+  it('AC-10: rises to full on a manual lane set, and the plan never lowers it again', () => {
     const { root, dir } = resized();
     recordChangeConstants(root, dir, { lane: 'full', laneSource: 'manual' });
     expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'manual' });
@@ -277,7 +277,7 @@ describe('the lane after a plan resize', () => {
 });
 
 describe('updateFeatureRecord lane rules', () => {
-  it('never lowers a lane through an ordinary patch', () => {
+  it('AC-9: never lowers a lane through an ordinary patch', () => {
     const root = project();
     const dir = fullChange(root);
     updateFeatureRecord(root, dir, { lane: 'fast' });
@@ -303,7 +303,7 @@ describe('updateFeatureRecord lane rules', () => {
     expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_source: 'manual' });
   });
 
-  it('keeps the source on a manual request below the current lane', () => {
+  it('AC-9: keeps the source on a manual request below the current lane', () => {
     const root = project();
     const dir = fullChange(root);
     recordChangeConstants(root, dir, { lane: 'graduated', laneSource: 'manual' });
@@ -347,7 +347,7 @@ describe('raiseLaneIfGrown', () => {
 
   const eleven = Array.from({ length: 11 }, (_, i) => `src/f${i}.ts`);
 
-  it('raises a plan-lowered lane to full once the change touches more than 8 files', () => {
+  it('AC-13: raises a plan-lowered lane to full once the change touches more than 8 files', () => {
     const { root, dir } = resized();
     const moved = grow(root, dir, [...eleven, '.paqad/x.json']);
     expect(moved).toEqual({
@@ -373,7 +373,7 @@ describe('raiseLaneIfGrown', () => {
     expect(readFeatureRecord(root, dir)).toMatchObject({ lane: 'full', lane_raised: first });
   });
 
-  it('raises for an edited or a planned high-sensitivity path, naming it', () => {
+  it('AC-15: raises for an edited or a planned high-sensitivity path, naming it', () => {
     const edited = resized();
     writeSensitiveModuleMap(edited.root);
     expect(grow(edited.root, edited.dir, ['src/secure/keys.ts'])?.reason).toBe(

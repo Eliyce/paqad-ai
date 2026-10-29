@@ -106,7 +106,7 @@ describe('stageIsolationExpected', () => {
     expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(false);
   });
 
-  it('is true on a graduated lane once stage_isolation_lanes names it', () => {
+  it('AC-3: is true on a graduated lane once stage_isolation_lanes names it', () => {
     bundleWith('grad-codex', 'graduated', 'codex-cli');
     vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
 
@@ -179,7 +179,7 @@ describe('stageIsolationExpected', () => {
 });
 
 describe('stageIsolationStatus', () => {
-  it('is "expected" on a full lane and "not-applicable" on graduated by default', () => {
+  it('AC-2: is "expected" on a full lane and "not-applicable" on graduated by default', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     bundleWith('grad-codex', 'graduated', 'codex-cli');
     expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
@@ -193,7 +193,7 @@ describe('stageIsolationStatus', () => {
     expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('expected');
   });
 
-  it('keeps full isolated whatever stage_isolation_lanes says', () => {
+  it('AC-2: keeps full isolated whatever stage_isolation_lanes says', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     bundleWith('fast-claude', 'fast', 'claude-code');
     vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast');
@@ -201,7 +201,7 @@ describe('stageIsolationStatus', () => {
     expect(stageIsolationStatus(root, SESSION, bundle('fast-claude'))).toBe('expected');
   });
 
-  it('keeps an unresolved lane unresolved and an incapable host not-applicable under any list', () => {
+  it('AC-3: keeps an unresolved lane unresolved and an incapable host not-applicable under any list', () => {
     bundleWith('null-lane', null, 'claude-code');
     bundleWith('grad-gemini', 'graduated', 'gemini-cli');
     vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'fast,graduated,full');
@@ -301,7 +301,7 @@ describe('isolation after a forward-only raise', () => {
     return dir;
   }
 
-  it('is not-applicable until a stage starts after the raise, so inline stages are accepted', () => {
+  it('AC-14: is not-applicable until a stage starts after the raise, so inline stages are accepted', () => {
     const dir = raisedChange();
     expect(stageIsolationStatus(root, SESSION, dir)).toBe('not-applicable');
     const config = buildBundleCompletenessConfig(root, SESSION, dir);
@@ -309,7 +309,7 @@ describe('isolation after a forward-only raise', () => {
     expect(config.stageIsolationSince).toBeUndefined();
   });
 
-  it('is expected from the raise on once a stage starts after it', () => {
+  it('AC-13, AC-14: is expected from the raise on once a stage starts after it', () => {
     const dir = raisedChange();
     appendFeatureStageRow(
       root,

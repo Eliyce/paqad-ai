@@ -1007,13 +1007,13 @@ describe('the isolation evidence stream', () => {
     });
   }
 
-  it('passes a graduated change run inline under the default stage_isolation_lanes', () => {
+  it('AC-1: passes a graduated change run inline under the default stage_isolation_lanes', () => {
     const gate = graduatedInlineGate(tempRoot());
 
     expect(gate!.status).toBe('pass');
   });
 
-  it('fails the same graduated change when stage_isolation_lanes names graduated', () => {
+  it('AC-3: fails the same graduated change when stage_isolation_lanes names graduated', () => {
     vi.stubEnv('PAQAD_STAGE_ISOLATION_LANES', 'graduated,full');
     const gate = graduatedInlineGate(tempRoot());
 
@@ -1057,14 +1057,14 @@ describe('the isolation evidence stream', () => {
       });
     }
 
-    it('reads complete with a stage helper row after the raise', () => {
+    it('AC-13: reads complete with a stage helper row after the raise', () => {
       expect(
         gateWith(agentRow('2026-10-29T12:00:00.000Z') + agentRow('2026-10-29T12:12:00.000Z'))!
           .status,
       ).toBe('pass');
     });
 
-    it('fails when the only stage helper rows came before the raise', () => {
+    it('AC-13: fails when the only stage helper rows came before the raise', () => {
       const gate = gateWith(agentRow('2026-10-29T12:00:00.000Z'));
       expect(gate!.status).toBe('fail');
       expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');

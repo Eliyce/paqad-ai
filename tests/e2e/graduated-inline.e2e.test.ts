@@ -160,7 +160,7 @@ async function runInlineChange(root: string): Promise<string> {
 }
 
 describe('a small graduated change run inline end to end', () => {
-  it('ends with a complete bundle, every stage recorded, and no stage helper rows', async () => {
+  it('AC-1, AC-20: ends with a complete bundle, every stage recorded, and no stage helper rows', async () => {
     const root = fixtureProject();
     const dir = await runInlineChange(root);
 
@@ -202,7 +202,7 @@ describe('a small graduated change run inline end to end', () => {
     expect(snapshot.flags.map((flag) => flag.id)).not.toContain('isolation-missing');
   });
 
-  it('picks up again in a new session with no stage helpers expected', async () => {
+  it('AC-21: picks up again in a new session with no stage helpers expected', async () => {
     const root = fixtureProject();
     const dir = await runInlineChange(root);
 
