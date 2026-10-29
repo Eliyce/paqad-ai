@@ -162,8 +162,8 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ snapshot: { ...open(), active: false } })).toEqual({ kind: 'none' });
   });
 
-  it('rows 3 and 4: a question or a permission waiting for you leads the snapshot row', () => {
-    const waiting = (waitingOn: 'question' | 'permission') =>
+  it('row 3: a question waiting for you leads the snapshot row', () => {
+    const waiting = (waitingOn: 'question') =>
       desktopHeadline(
         open({
           decisions: { pending: [other], resolved: 0 },
@@ -183,11 +183,6 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       gap: null,
       clock: null,
       activity: [],
-    });
-    expect(waiting('permission')).toMatchObject({
-      row: 4,
-      text: 'Waiting for your answer',
-      word: 'Waiting for your answer',
     });
   });
 

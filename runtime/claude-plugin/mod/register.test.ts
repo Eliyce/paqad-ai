@@ -742,265 +742,6 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('paqad');
   });
 
-  test('a permission a person must answer leads the band until the next tool starts', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: { command: 'rm -rf build' },
-      tool_use_id: 'tu_9',
-      approver: 'person',
-    } as never);
-    const waiting = await $.ui.render(band('desktop'));
-    expect(textOf(waiting)).toContain('Waiting for your answer');
-    expect(lightOf(waiting)).toBe('#F37748');
-    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('an ask the host answers, or an allow, never waits for you', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'tu_1', approver: 'host' } as never);
-    world.verdict = { decision: 'allow' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_2',
-      approver: 'person',
-    } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your');
-  });
-
-  test("a background agent ask clears at that agent's next check, and never holds the band", async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_a1',
-      approver: 'person',
-      agentId: 'agent-a1',
-    } as never);
-    world.verdict = { decision: 'allow' };
-    await $.tool.check({
-      tool: 'Read',
-      input: {},
-      tool_use_id: 'tu_a2',
-      approver: 'person',
-      agentId: 'agent-a1',
-    } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('a background agent ask clears when that agent starts a tool or its turn completes', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    const askFrom = async (agentId: string, id: string) => {
-      world.verdict = { decision: 'ask' };
-      await $.tool.check({
-        tool: 'Bash',
-        input: {},
-        tool_use_id: id,
-        approver: 'person',
-        agentId,
-      } as never);
-    };
-    await askFrom('agent-a1', 'tu_a1');
-    await $.tool.call({
-      tool: 'Bash',
-      command: 'ls',
-      tool_use_id: 'tu_a1',
-      agentId: 'agent-a1',
-    } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-    await askFrom('agent-b2', 'tu_b1');
-    await $.turn.complete({ text: '', agentId: 'agent-b2' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-    await askFrom('agent-c3', 'tu_c1');
-    await $.turn.start({ text: 'next', turnId: 'turn-9' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your answer', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_bg',
-      approver: 'person',
-      agentId: 'agent-plan',
-    } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('FR-18 / AC-14: a foreground stage agent ask waits until that agent moves on', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    const seen: string[] = [];
-    world.during.set('Agent', async () => {
-      world.verdict = { decision: 'ask' };
-      await $.tool.check({
-        tool: 'Bash',
-        input: {},
-        tool_use_id: 'tu_dev',
-        approver: 'person',
-        agentId: 'agent-dev',
-      } as never);
-      seen.push(textOf(await $.ui.render(band('desktop'))));
-      await $.tool.call({ tool: 'Bash', tool_use_id: 'tu_dev', agentId: 'agent-dev' } as never);
-      seen.push(textOf(await $.ui.render(band('desktop'))));
-    });
-    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).toContain('Waiting for your answer');
-    expect(seen[1]).not.toContain('Waiting for your answer');
-  });
-
-  test('FR-18: a foreground stage agent ask clears when the Agent call ends', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.during.set('Agent', async () => {
-      world.verdict = { decision: 'ask' };
-      await $.tool.check({
-        tool: 'Bash',
-        input: {},
-        tool_use_id: 'tu_dev',
-        approver: 'person',
-        agentId: 'agent-dev',
-      } as never);
-    });
-    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('AC-13: a background agent ask during a foreground Agent call does not wait', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    await $.tool.call({
-      tool: 'Agent',
-      subagent_type: 'paqad:paqad-planning',
-      run_in_background: true,
-    } as never);
-    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_bg0', agentId: 'agent-bg' } as never);
-    const ask = (agentId: string, id: string) =>
-      $.tool.check({
-        tool: 'Bash',
-        input: {},
-        tool_use_id: id,
-        approver: 'person',
-        agentId,
-      } as never);
-    const seen: string[] = [];
-    world.during.set('Agent', async () => {
-      await $.tool.call({ tool: 'Read', tool_use_id: 'tu_dev0', agentId: 'agent-dev' } as never);
-      world.verdict = { decision: 'ask' };
-      await ask('agent-bg', 'tu_bg1');
-      seen.push(textOf(await $.ui.render(band('desktop'))));
-      await ask('agent-dev', 'tu_dev1');
-      seen.push(textOf(await $.ui.render(band('desktop'))));
-    });
-    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
-    expect(seen[0]).not.toContain('Waiting for your answer');
-    expect(seen[1]).toContain('Waiting for your answer');
-  });
-
-  test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    const seen: string[] = [];
-    world.during.set('Agent', async () => {
-      world.verdict = { decision: 'ask' };
-      await $.tool.check({
-        tool: 'Bash',
-        input: {},
-        tool_use_id: 'tu_bg',
-        approver: 'person',
-        agentId: 'agent-bg',
-      } as never);
-      seen.push(textOf(await $.ui.render(band('desktop'))));
-    });
-    await $.tool.call({
-      tool: 'Agent',
-      subagent_type: 'paqad:paqad-planning',
-      run_in_background: true,
-    } as never);
-    expect(seen[0]).not.toContain('Waiting for your answer');
-  });
-
-  test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_m',
-      approver: 'person',
-    } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
-    world.verdict = { decision: 'allow' };
-    await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'tu_r', approver: 'host' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('a main-thread ask still waits while a background agent works on', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_m1',
-      approver: 'person',
-    } as never);
-    world.verdict = { decision: 'allow' };
-    await $.tool.check({
-      tool: 'Read',
-      input: {},
-      tool_use_id: 'tu_a1',
-      approver: 'person',
-      agentId: 'agent-a1',
-    } as never);
-    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_a1', agentId: 'agent-a1' } as never);
-    await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
-    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_m1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
-  test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
-    mock.clock(on, { now: NOW });
-    await $.session.start(DESKTOP_START);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({
-      tool: 'Bash',
-      input: {},
-      tool_use_id: 'tu_1',
-      approver: 'person',
-    } as never);
-    await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your answer');
-    await $.turn.complete({ text: '' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your answer');
-  });
-
   test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {
     const failed = {
       ...FAST_ORD_490,
@@ -2882,7 +2623,7 @@ describe('the outcome line after an allowed-once retry', () => {
     expect(world.runs[1]!.timeoutMs).toBe(15_000);
   });
 
-  test('AC-14: a retry Claude Code asked about and then denied records refused', async ($, on) => {
+  test('AC-14: a retry denied after Claude Code asked records still-blocked, since the mod no longer reads who denied it', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     gate.answers = [
       GATE_DENY,
@@ -2892,16 +2633,6 @@ describe('the outcome line after an allowed-once retry', () => {
         return { deny: 'RL-13 blocked the edit: the person said no' };
       },
     ];
-    world.answers.push('Allow once, recorded', 'No reason');
-    expectDenied(await editCall($, gate));
-    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('refused'));
-  });
-
-  test('AC-14: an ask seen before the retry does not count, so a deny with no ask records still-blocked', async ($, on) => {
-    const { world, gate } = await ruleStopped($, on);
-    world.verdict = { decision: 'ask' };
-    await $.tool.check({ tool: 'Edit', input: {}, tool_use_id: 'tu_1' });
-    gate.answers = [GATE_DENY, GATE_DENY];
     world.answers.push('Allow once, recorded', 'No reason');
     expectDenied(await editCall($, gate));
     expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('still-blocked'));
@@ -2945,8 +2676,8 @@ describe('the outcome line after an allowed-once retry', () => {
   });
 });
 
-describe('the permission reader', () => {
-  test('AC-4: the mod hands every permission answer on exactly as it came', async ($, on) => {
+describe('the permission check', () => {
+  test('AC-4: every permission answer reaches the session exactly as Claude Code gave it', async ($, on) => {
     const { world } = await ruleStopped($, on);
     for (const verdict of [
       { decision: 'allow' as const },

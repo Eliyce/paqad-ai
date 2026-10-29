@@ -223,11 +223,10 @@ describe('what the mod does after Allow once', () => {
     expect(isDenied('text')).toBe(false);
   });
 
-  it('AC-14: names the outcome from the retry result and whether Claude Code asked', () => {
-    expect(editOutcome({ result: 'ok' }, false)).toBe('landed');
-    expect(editOutcome({ result: 'ok' }, true)).toBe('landed');
-    expect(editOutcome({ isError: true }, true)).toBe('refused');
-    expect(editOutcome({ deny: 'no' }, false)).toBe('still-blocked');
+  it('AC-14: names the outcome from the retry result alone', () => {
+    expect(editOutcome({ result: 'ok' })).toBe('landed');
+    expect(editOutcome({ isError: true })).toBe('still-blocked');
+    expect(editOutcome({ deny: 'no' })).toBe('still-blocked');
   });
 
   it('AC-15: trusts the override only when the record carries allowed_once for this call', () => {

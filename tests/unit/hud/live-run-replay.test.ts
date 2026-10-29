@@ -21,11 +21,7 @@ import {
 } from '@/stage-isolation/subagent-completion.js';
 
 import { desktopHeadline, stageStrip } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
-import {
-  IDLE_LIVE,
-  permissionAsked,
-  type LiveState,
-} from '../../../runtime/claude-plugin/mod/live.ts';
+import { IDLE_LIVE, type LiveState } from '../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../runtime/claude-plugin/mod/model.ts';
 
 import { cleanupScopeFixtures, openChangeHere, repoRoot } from './scope-fixtures.js';
@@ -95,7 +91,7 @@ describe('AC-7 / NFR-4: the scrubbed replay of a healthy full-lane run', () => {
     mkdirSync(join(root, 'transcripts'), { recursive: true });
     writeFileSync(transcript, '');
     let spent = 0;
-    let live: LiveState = IDLE_LIVE;
+    const live: LiveState = IDLE_LIVE;
     const tokensSeen: number[] = [];
 
     const checkHud = (seconds: number): HudSnapshot => {
@@ -146,14 +142,6 @@ describe('AC-7 / NFR-4: the scrubbed replay of a healthy full-lane run', () => {
           floor: changeCostWindow(root, dir, now)!.from,
         });
         writeChangeCost(root, dir, computeChangeCost(root, dir, { now })!);
-      }
-      if (step.event === 'permission_ask') {
-        live = permissionAsked(live, {
-          decision: 'ask',
-          approver: 'person',
-          toolUseId: step.tool_use_id ?? null,
-          agent: step.agent_id ?? null,
-        });
       }
       if (step.event === 'turn_end') {
         const deferral = deferCompletionForBackgroundStage({

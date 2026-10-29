@@ -123,22 +123,9 @@ describe('the HUD mod source', () => {
     expect(register.slice(hook, register.indexOf('\n', hook))).toContain('await watchAfterPush($)');
   });
 
-  it('AC-4: no tool.check hook answers a permission check of its own', () => {
+  it('AC-4: registers no tool.check hook, so it never reads or answers a permission check', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
-    expect(register).not.toMatch(/on\('tool\.check',\s*\{\s*tool:/);
-    const checks = [...register.matchAll(/on\('tool\.check',/g)];
-    expect(checks).toHaveLength(1);
-    const start = checks[0]!.index;
-    const end = register.indexOf('.catch(', start);
-    expect(end, 'the .catch( that closes the hook').toBeGreaterThan(start);
-    const hook = register.slice(start, end);
-    expect(hook).toContain('const verdict = await next(e);');
-    expect(hook).toContain('return next(e);');
-    expect(hook).not.toMatch(/decision:\s*['"]/);
-    expect(hook).not.toMatch(/return\s*\{/);
-    expect(register.slice(end, register.indexOf('\n', end))).toContain(
-      '.catch(($, e, next) => next(e));',
-    );
+    expect(register).not.toMatch(/\bon\(\s*['"]tool\.check['"]/);
   });
 
   it('AC-2: the edit tools retry a denied call once, and only after allowRuleStopOnce returns a stop', () => {
