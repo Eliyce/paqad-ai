@@ -77,6 +77,20 @@ describe('the HUD mod source', () => {
     },
   );
 
+  it('declares every state atom register.tsx uses in the PluginState contract', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const contract = sources.find((s) => s.name === 'types/index.d.ts')!.text;
+    const used = [...register.matchAll(/atom\(\s*\{ plugin: 'paqad', key: '([A-Za-z]+)' \}/g)].map(
+      (match) => match[1]!,
+    );
+    expect(used.length).toBeGreaterThan(10);
+    const start = contract.indexOf('interface PluginState');
+    expect(start).toBeGreaterThan(-1);
+    const block = contract.slice(start, contract.indexOf('\n  }\n', start));
+    const declared = [...block.matchAll(/^\s{6}([A-Za-z]+):/gm)].map((match) => match[1]!);
+    expect(used.filter((key) => !declared.includes(key))).toEqual([]);
+  });
+
   it('the band shell imports no body code', () => {
     const shell = sources.find((s) => s.name === 'shell.ts')!.text;
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);

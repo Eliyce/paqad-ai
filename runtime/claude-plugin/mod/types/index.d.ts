@@ -355,6 +355,8 @@ declare module 'claude-code' {
       now: number;
       paneTab: PaqadPaneTab | null;
       greenSeen: string[];
+      settleSeen: Record<string, number | null>;
+      agentsFinished: Record<string, string[]>;
       paneOpen: boolean;
       unavailable: boolean;
       unbound: boolean;
