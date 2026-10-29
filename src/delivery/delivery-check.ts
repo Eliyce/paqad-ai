@@ -45,7 +45,6 @@ export interface DeliveryPrReading {
   draft: boolean | null;
   state?: DeliveryPrState | null;
   head_sha?: string | null;
-  title?: string | null;
   changed_files?: number | null;
   additions?: number | null;
   deletions?: number | null;
@@ -183,7 +182,6 @@ function countOrNull(value: unknown): number | null {
 export function rollupJobs(rollup: unknown): DeliveryCiJob[] {
   const entries = Array.isArray(rollup) ? (rollup as Array<Record<string, unknown>>) : [];
   return entries.map((entry) => ({
-    name: textOrNull(entry.name) ?? textOrNull(entry.context) ?? 'check',
     status: textOrNull(entry.status) ?? textOrNull(entry.state),
     conclusion: textOrNull(entry.conclusion),
     started_at: textOrNull(entry.startedAt),
@@ -277,7 +275,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     'view',
     branch,
     '--json',
-    'number,url,state,headRefOid,statusCheckRollup,body,isDraft,title,changedFiles,additions,deletions',
+    'number,url,state,headRefOid,statusCheckRollup,body,isDraft,changedFiles,additions,deletions',
   ]);
   if (prView.exitCode === 0) {
     ghAvailable = true;
@@ -290,7 +288,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         isDraft?: unknown;
         statusCheckRollup?: unknown;
         body?: unknown;
-        title?: unknown;
         changedFiles?: unknown;
         additions?: unknown;
         deletions?: unknown;
@@ -302,7 +299,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         draft: typeof pr.isDraft === 'boolean' ? pr.isDraft : null,
         state: readPrState(pr.state),
         head_sha: shaOrNull(pr.headRefOid),
-        title: textOrNull(pr.title),
         changed_files: countOrNull(pr.changedFiles),
         additions: countOrNull(pr.additions),
         deletions: countOrNull(pr.deletions),

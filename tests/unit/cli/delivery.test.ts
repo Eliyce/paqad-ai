@@ -289,14 +289,12 @@ describe('paqad-ai deliver', () => {
     expect(seen[0]).toMatchObject({ state: 'pending', done: 1, total: 2 });
     expect(seen[0]!.jobs).toEqual([
       {
-        name: 'build',
         status: 'COMPLETED',
         conclusion: 'SUCCESS',
         started_at: null,
         completed_at: null,
       },
       {
-        name: 'test',
         status: 'IN_PROGRESS',
         conclusion: null,
         started_at: null,
@@ -306,7 +304,12 @@ describe('paqad-ai deliver', () => {
     const record = readFeatureDelivery(root, dir);
     expect(record.pr).toMatchObject({ number: 12, state: 'open' });
     expect(record.ci).toMatchObject({ state: 'fail', done: 2, total: 2 });
-    expect(record.ci!.jobs![1]).toMatchObject({ name: 'test', conclusion: 'FAILURE' });
+    expect(record.ci!.jobs![1]).toEqual({
+      status: 'COMPLETED',
+      conclusion: 'FAILURE',
+      started_at: null,
+      completed_at: null,
+    });
   });
 
   it('writes every CI read with its read time while it waits a minute between reads', async () => {

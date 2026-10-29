@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,6 +22,7 @@ import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
 import { readFeatureDelivery, recordShip } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 import { ticketRef } from '../../shared/ticket-ref.js';
 
@@ -334,7 +335,6 @@ describe('the Stop delivery check saves what ships', () => {
       draft: true,
       state: null,
       head_sha: null,
-      title: null,
       changed_files: null,
       additions: null,
       deletions: null,
@@ -342,7 +342,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(result.ci).toMatchObject({ state: 'pending', done: 1, total: 3, reason: null });
   });
 
-  it('AC-27: reads the PR title and size in the same bounded gh call and saves them', async () => {
+  it('AC-27: reads the PR size in the same bounded gh call and saves it, never the title', async () => {
     const dir = branchChange();
     const calls: string[][] = [];
     const gh = ok(
@@ -364,10 +364,11 @@ describe('the Stop delivery check saves what ships', () => {
       return base(command, args);
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.at(-1)).toContain('title,changedFiles,additions,deletions');
+    expect(calls[0]!.at(-1)).toContain('changedFiles,additions,deletions');
+    expect(calls[0]!.at(-1)).not.toContain('title');
+    expect(readFeatureDelivery(root, dir).pr).not.toHaveProperty('title');
     expect(readFeatureDelivery(root, dir).pr).toMatchObject({
       number: 12,
-      title: 'Seed stage helpers',
       changed_files: 14,
       additions: 412,
       deletions: 87,
@@ -380,8 +381,8 @@ describe('the Stop delivery check saves what ships', () => {
         gh: ok(JSON.stringify({ number: 3, title: '', changedFiles: -1, additions: 1.5 })),
       }),
     });
+    expect(odd.pr).not.toHaveProperty('title');
     expect(odd.pr).toMatchObject({
-      title: null,
       changed_files: null,
       additions: null,
       deletions: null,
@@ -449,30 +450,27 @@ describe('the Stop delivery check saves what ships', () => {
     expect(reading).toMatchObject({ state: 'pending', done: 2, total: 7 });
     expect(reading.jobs).toEqual([
       {
-        name: 'build',
         status: 'COMPLETED',
         conclusion: 'SUCCESS',
         started_at: '2026-10-20T10:00:00Z',
         completed_at: '2026-10-20T10:03:00Z',
       },
-      { name: 'test', status: 'QUEUED', conclusion: null, started_at: null, completed_at: null },
+      { status: 'QUEUED', conclusion: null, started_at: null, completed_at: null },
       {
-        name: 'lint',
         status: 'IN_PROGRESS',
         conclusion: null,
         started_at: null,
         completed_at: null,
       },
-      { name: 'deploy', status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
+      { status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
       {
-        name: 'license',
         status: 'EXPECTED',
         conclusion: null,
         started_at: null,
         completed_at: null,
       },
-      { name: 'cla', status: 'SUCCESS', conclusion: null, started_at: null, completed_at: null },
-      { name: 'check', status: null, conclusion: null, started_at: null, completed_at: null },
+      { status: 'SUCCESS', conclusion: null, started_at: null, completed_at: null },
+      { status: null, conclusion: null, started_at: null, completed_at: null },
     ]);
   });
 
@@ -836,5 +834,47 @@ describe('a sha that is not 40 hex characters is no reading', () => {
     saveDeliveryReading(root, result);
     expect(readFeatureDelivery(root, dir).ci?.sha).toBeNull();
     expect(readFeatureDelivery(root, dir).pr?.head_sha ?? null).toBeNull();
+  });
+});
+
+describe('delivery.json holds only states, numbers and ids', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-free-text-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('writes no PR title and no CI job name, and keeps the counts and states', async () => {
+    const dir = openFeatureChange(root, 'ses_free', { adapter: 'claude-code', ulidSeed: 14 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    const gh = ok(
+      JSON.stringify({
+        number: 6,
+        state: 'OPEN',
+        headRefOid: HEAD9,
+        title: 'FREE-TEXT-TITLE',
+        statusCheckRollup: [
+          { name: 'FREE-TEXT-JOB', status: 'COMPLETED', conclusion: 'SUCCESS' },
+          { context: 'FREE-TEXT-CONTEXT', state: 'PENDING' },
+        ],
+      }),
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok(HEAD9), gh }),
+    );
+    const text = readFileSync(join(root, featureFilePath(dir, 'delivery')), 'utf8');
+    expect(text).not.toContain('FREE-TEXT');
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({
+      state: 'pending',
+      done: 1,
+      total: 2,
+    });
+    expect(readFeatureDelivery(root, dir).ci?.jobs).toEqual([
+      { status: 'COMPLETED', conclusion: 'SUCCESS', started_at: null, completed_at: null },
+      { status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
+    ]);
   });
 });

@@ -68,7 +68,6 @@ export interface DeliveryPr {
 }
 
 export interface DeliveryCiJob {
-  name: string;
   status: string | null;
   conclusion: string | null;
   started_at: string | null;

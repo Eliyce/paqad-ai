@@ -186,7 +186,6 @@ function shipFromStatus(status: ChecksStatus, sha: string | null): ShipPatch {
       reason: null,
       source: 'ci-gate',
       jobs: status.checks.map((check) => ({
-        name: check.name,
         status: check.state === 'green' || check.state === 'red' ? 'COMPLETED' : 'IN_PROGRESS',
         conclusion: check.state === 'green' ? 'SUCCESS' : check.state === 'red' ? 'FAILURE' : null,
         started_at: null,
