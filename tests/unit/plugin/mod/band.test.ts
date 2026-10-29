@@ -368,3 +368,22 @@ describe('AC-19, AC-32: one headline on every surface', () => {
     expect(bandLines(finished)[0]).not.toContain(IDLE_HEADLINE);
   });
 });
+
+describe('the terminal headline stays on one line', () => {
+  it('cuts a long headline with an ellipsis so the header fits the band width', () => {
+    const LONG =
+      'The chief architect is ruling on every disagreement the High Table raised about this change';
+    const raw = { ...FULL_ORD_501, headline: { text: LONG, tone: 'working', row: 15 } };
+    for (const columns of [80, 120]) {
+      const layout = bandOf(raw, columns);
+      expect(layout.kind).toBe('card');
+      if (layout.kind !== 'card') continue;
+      const headline = layout.header.left.find((segment) => segment.text.includes('The chief'))!;
+      expect(headline.text.endsWith('…')).toBe(true);
+      const width = (segments: typeof layout.header.left) =>
+        segments.reduce((sum, segment) => sum + [...segment.text].length, 0);
+      const noteless = layout.header.left.filter((segment) => !segment.dim || segment === headline);
+      expect(width(noteless) + width(layout.header.right)).toBeLessThanOrEqual(columns - 4);
+    }
+  });
+});

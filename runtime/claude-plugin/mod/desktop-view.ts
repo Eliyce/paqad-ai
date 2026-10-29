@@ -27,6 +27,7 @@ import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
 import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
+import { fitLine } from './shell';
 import {
   NOTHING_TO_PROVE,
   OLD_RECORD_NOTE,
@@ -488,6 +489,8 @@ function routeFromEarlierTurn(snapshot: PaqadHudSnapshot, turnStartedAt: number 
   return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
 }
 
+const HEADLINE_INSET_COLUMNS = 2;
+
 export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
@@ -504,7 +507,8 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
-  const head = desktopHeadline(snapshot, input.now, live);
+  const full = desktopHeadline(snapshot, input.now, live);
+  const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
   const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
   const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
@@ -514,7 +518,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     identity: identityView(snapshot),
     headline: head,
     strip,
-    alt: stripAltText(head.text, strip),
+    alt: stripAltText(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
   };
 }

@@ -125,7 +125,26 @@ export function flagChip(flags: number): BandSegment | null {
   };
 }
 
-export function headerRow(header: ShellHeader, idle: boolean): BandSplitRow {
+export const ELLIPSIS = '…';
+
+export function fitLine(text: string, max: number): string {
+  const chars = [...text];
+  const room = Math.max(1, Math.floor(max));
+  if (chars.length <= room) return text;
+  return `${chars
+    .slice(0, room - 1)
+    .join('')
+    .trimEnd()}${ELLIPSIS}`;
+}
+
+const CARD_INSET_COLUMNS = 4;
+const MIN_HEADLINE_COLUMNS = 12;
+
+function rowWidth(row: BandRow): number {
+  return row.reduce((sum, segment) => sum + [...segment.text].length, 0);
+}
+
+export function headerRow(header: ShellHeader, idle: boolean, columns?: number): BandSplitRow {
   const left: BandRow = [brandSegment(header.tone)];
   if (header.chip) left.push({ text: ` ${header.chip}`, dim: true });
   left.push({ text: `  ${header.headline}`, tone: header.tone });
@@ -144,6 +163,15 @@ export function headerRow(header: ShellHeader, idle: boolean): BandSplitRow {
     right.push({ text: PROOF, opens: 'trust', key: 'paqad-proof' }, gap());
   }
   right.push(controlSegment('minimise'), gap(), controlSegment('close'));
+  if (columns !== undefined) {
+    const lead = rowWidth(left.slice(0, header.chip ? 2 : 1)) + 2;
+    const room = Math.max(
+      MIN_HEADLINE_COLUMNS,
+      columns - CARD_INSET_COLUMNS - rowWidth(right) - lead,
+    );
+    const at = header.chip ? 2 : 1;
+    left[at] = { ...left[at]!, text: `  ${fitLine(header.headline, room)}` };
+  }
   return { left, right };
 }
 
@@ -184,7 +212,7 @@ export function layoutShell(
     return {
       kind: 'card',
       tone: header.tone,
-      header: headerRow(header, true),
+      header: headerRow(header, true, size.columns),
       direction: 'column',
       blocks: [],
       footer: null,
@@ -199,7 +227,7 @@ export function layoutShell(
   return {
     kind: 'card',
     tone: header.tone,
-    header: headerRow(header, false),
+    header: headerRow(header, false, size.columns),
     direction,
     blocks: body.blocks,
     footer,

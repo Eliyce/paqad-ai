@@ -751,3 +751,22 @@ describe('AC-12: the glow fires only when the last stage just ended', () => {
     expect(settleStart(null, end)).toBeNull();
   });
 });
+
+describe('the headline stays on one line', () => {
+  const LONG =
+    'The chief architect is ruling on every disagreement the High Table raised about this change';
+
+  it('cuts a long Desktop headline to the band width with an ellipsis and keeps it whole in the alt', () => {
+    const drawn = band({
+      columns: 57,
+      snapshot: parse({ ...FULL_ORD_501, headline: { text: LONG, tone: 'working', row: 15 } }),
+    });
+    expect(drawn.kind).toBe('feature');
+    if (drawn.kind !== 'feature') return;
+    expect(drawn.headline.text.endsWith('…')).toBe(true);
+    expect([...drawn.headline.text].length).toBeLessThanOrEqual(55);
+    expect(drawn.alt.startsWith(`${LONG}.`)).toBe(true);
+    const short = band({ columns: 57 });
+    expect(short.kind === 'feature' && short.headline.text.endsWith('…')).toBe(false);
+  });
+});
