@@ -265,6 +265,34 @@ describe('AC-27: the pull request title and size', () => {
     expect(buildShip(ci('a1c9e2f000', 'fail')).ci?.state).toBe('fail');
   });
 
+  it('a local commit not pushed yet never hides red CI on the PR head', () => {
+    const record: DeliveryRecord = {
+      ...delivery({ state: 'open', head_sha: 'a1c9e2f000' }),
+      commits: [
+        { sha: 'a1c9e2f000', subject: 'Seed stage helpers' },
+        { sha: 'b2b2b2b000', subject: 'Local only' },
+      ],
+      head_sha: 'b2b2b2b000',
+      commit_split: {
+        own: { count: 2, tickets: [] },
+        inherited: null,
+        own_shas: ['a1c9e2f000', 'b2b2b2b000'],
+        inherited_shas: [],
+      } as unknown as DeliveryRecord['commit_split'],
+      ci: {
+        sha: 'a1c9e2f000',
+        state: 'fail',
+        done: 2,
+        total: 2,
+        reason: null,
+        source: 'stop-check',
+        at: 'T',
+      },
+    };
+    expect(buildShip(record).ci?.state).toBe('fail');
+    expect(buildShip({ ...record, pr: null }).ci?.state).toBe('pending');
+  });
+
   it('AC-3: marks a push current only while it names the change head', () => {
     const pushed = (sha: string): DeliveryRecord => ({
       ...delivery(null),

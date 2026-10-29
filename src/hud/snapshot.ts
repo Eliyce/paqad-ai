@@ -861,7 +861,7 @@ function readingIsCurrent(
   head: string | null,
 ): boolean {
   if (pr?.head_sha && ci.sha !== pr.head_sha) return false;
-  if (head && ci.sha && ci.sha !== head) return false;
+  if (!pr?.head_sha && head && ci.sha && ci.sha !== head) return false;
   if (push?.sha && ci.sha !== push.sha && Date.parse(ci.at) < Date.parse(push.at)) return false;
   return true;
 }
