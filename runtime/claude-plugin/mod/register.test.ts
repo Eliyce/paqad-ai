@@ -293,11 +293,16 @@ describe('the ship rail on each surface', () => {
     expect(textOf(terminal)).not.toContain('Merge');
     const desktop = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const svgs = elementsOf(desktop, 'Svg');
-    expect(svgs).toHaveLength(1);
-    const props = (svgs[0] as { props: { alt?: string; width?: unknown; height?: unknown } }).props;
-    expect(props.alt).toMatch(/^Done\. Stage .*Delivery 6 of 6 checks green\.$/);
-    expect(props.width).toBeUndefined();
-    expect(props.height).toBeUndefined();
+    expect(svgs).toHaveLength(3);
+    const alts = svgs.map((svg) => (svg as { props: { alt?: string } }).props.alt);
+    expect(alts[0]).toMatch(/^Done\. Stage /);
+    expect(alts.at(-1)).toBe('Delivery 6 of 6 checks green.');
+    for (const svg of svgs) {
+      const props = (svg as { props: { width?: unknown; height?: unknown } }).props;
+      expect(props.width).toBeUndefined();
+      expect(props.height).toBeUndefined();
+    }
+    expectDesktopSafe(desktop);
   });
 
   test('the all-green toast fires once per change and head across rebuilds and re-renders', async ($, on) => {
@@ -683,10 +688,20 @@ describe('the Desktop band', () => {
     expect(text).toContain('Safe to merge');
     const elements = everyElement(drawn);
     const svgs = elements.filter((element) => element.type === 'Svg');
-    expect(svgs).toHaveLength(1);
+    expect(svgs).toHaveLength(3);
     expect(String(propsOf(svgs[0]!).alt)).toStartWith('Safe to merge');
-    expect(propsOf(svgs[0]!).width).toBeUndefined();
-    expect(propsOf(svgs[0]!).isInteractive).toBeUndefined();
+    expect(String(propsOf(svgs[1]!).alt)).toStartWith('High Table: ');
+    for (const svg of svgs) {
+      expect(propsOf(svg).width).toBeUndefined();
+      expect(propsOf(svg).height).toBeUndefined();
+      expect(propsOf(svg).isInteractive).toBeUndefined();
+    }
+    expect(
+      elements
+        .filter((element) => element.type === 'Box' && typeof propsOf(element).width === 'string')
+        .map((element) => propsOf(element).width),
+    ).toEqual(['40%', '26%', '34%']);
+    expectDesktopSafe(drawn);
     expect(buttonKeys(drawn)).toEqual([
       'paqad-flags',
       'paqad-ledger',
@@ -3592,7 +3607,7 @@ function cardRowsOf(drawn: RenderNode): RenderElement[] {
 }
 
 describe('live subagents in the band', () => {
-  test('titles the running subagent, shows its one newest line and comes back to Done when it ends', async ($, on) => {
+  test('AC-7, AC-8: titles the running subagent, shows exactly one line, the newest, and comes back to Done when it ends', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -3622,6 +3637,7 @@ describe('live subagents in the band', () => {
     const drawn = linesOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect(drawn.join('\n')).toContain('Subagent: Review the change');
     expect(drawn.join('\n')).toContain('Reading the strip.');
+    expect(drawn.filter((line) => /Reading the strip\.|Bash: pnpm/.test(line))).toHaveLength(1);
     expect(drawn.join('\n')).not.toContain('Bash: pnpm test');
     expect(drawn.join('\n')).not.toContain('Bash: pnpm lint');
     world.agents.length = 0;

@@ -190,6 +190,104 @@ describe('the strip geometry', () => {
   });
 });
 
+describe('the High Table shows three seats and the chief', () => {
+  const three = marks(INITIALS.slice(0, 3), ['writing', 'late', 'done'] as SeatState[]);
+  const marksOf = (source: string) =>
+    numbers(
+      source,
+      /<text class="lbl mut" x="([\d.]+)" y="47" text-anchor="middle">(?:SA|IA|DO|CA)</g,
+    );
+  const hairAt = (source: string) =>
+    numbers(source, /<line class="hair" x1="([\d.]+)" y1="19"/g)[0]!;
+
+  it('AC-12: draws +N after the third seat, then the hairline and CA; three seats draw no +N', () => {
+    const source = draw({ columns: 57, seats: three, hiddenSeats: 8, chief: 'ruling' });
+    expect(source).toMatch(
+      /<text class="lbl mut" x="[\d.]+" y="28" text-anchor="middle" style="font-weight:500">\+8<\/text>/,
+    );
+    expect(source).toContain('>CA</text>');
+    expect(source.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(3);
+    expect(draw({ columns: 57, seats: three, hiddenSeats: 0 })).not.toMatch(/>\+\d+<\/text>/);
+    expect(draw({ columns: 57, seats: three })).not.toMatch(/>\+\d+<\/text>/);
+    expect(draw({ seats: three, hiddenSeats: 1 })).toContain('>+1</text>');
+  });
+
+  it('AC-14: at 57 columns no two marks sit closer than 22 px, and +N sits one step on, before the hairline', () => {
+    const source = draw({ columns: 57, seats: three, hiddenSeats: 8, chief: 'ruling' });
+    const centres = marksOf(source);
+    expect(centres).toHaveLength(4);
+    const plus = textX(source, '\\+8')!;
+    const all = [...centres.slice(0, 3), plus, centres[3]!];
+    for (let i = 1; i < all.length; i += 1) {
+      expect(all[i]! - all[i - 1]!).toBeGreaterThanOrEqual(22);
+    }
+    expect(plus - centres[2]!).toBeCloseTo(centres[1]! - centres[0]!, 1);
+    const hair = hairAt(source);
+    expect(hair).toBeGreaterThan(plus + 6);
+    expect(centres[3]! - 5).toBeGreaterThan(hair);
+    const edge = 485 * 0.4 + 485 * 0.26;
+    expect(textX(source, 'CA')! + 6).toBeLessThanOrEqual(edge);
+  });
+
+  it('AC-15: cuts the strip into whole-percent sections that tile the width and keep every x', () => {
+    for (const over of [
+      { columns: 57, seats: three, hiddenSeats: 8 },
+      { columns: 93 },
+      { columns: 93, seats: null },
+    ] as Array<Partial<StripInput>>) {
+      const drawn = strip({ ...SETTLED, ...over });
+      expect(drawn.sections.map((cut) => cut.percent)).toEqual(
+        over.seats === null ? [56, 44] : [40, 26, 34],
+      );
+      expect(drawn.sections.map((cut) => cut.id)).toEqual(
+        over.seats === null ? ['stage', 'delivery'] : ['stage', 'table', 'delivery'],
+      );
+      let from = 0;
+      for (const cut of drawn.sections) {
+        expect(Number.isInteger(cut.percent)).toBe(true);
+        const box = /viewBox="([\d.]+) 0 ([\d.]+) 52" width="([\d.]+)" height="52"/.exec(
+          cut.source,
+        )!;
+        expect(Number(box[1])).toBeCloseTo(from, 1);
+        expect(Number(box[3])).toBe(Number(box[2]));
+        expect(Number(box[2])).toBeCloseTo((cut.percent / 100) * drawn.width, 1);
+        from += Number(box[2]);
+        const texts = [...cut.source.matchAll(/<text [^>]*x="([\d.]+)"[^>]*>([^<]+)</g)];
+        expect(texts.length).toBeGreaterThan(0);
+        for (const [, x, words] of texts) {
+          expect(drawn.source).toContain(`x="${x}"`);
+          expect(drawn.source).toContain(`>${words}<`);
+        }
+      }
+      expect(from).toBeCloseTo(drawn.width, 1);
+    }
+  });
+
+  it('draws each divider half a pixel inside its left section in the cuts, so the cut keeps it whole', () => {
+    const drawn = strip(SETTLED);
+    expect(numbers(drawn.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([
+      316.4, 522.1,
+    ]);
+    const [stage, table, delivery] = drawn.sections;
+    expect(numbers(stage!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([315.9]);
+    expect(numbers(table!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([521.6]);
+    expect(delivery!.source).not.toMatch(/<line class="hair" x1="[\d.]+" y1="1"/);
+  });
+
+  it('carries the motion defs on the stage section only, and the shared style on each', () => {
+    const drawn = strip({
+      ...SETTLED,
+      stages: stages('skip', 'done', 'run', 'todo', 'todo', 'todo', 'todo', 'todo'),
+      clockMs: 0,
+    });
+    const [stage, table, delivery] = drawn.sections;
+    expect(stage!.source).toContain('<linearGradient id="sheen"');
+    expect(table!.source).not.toContain('<defs>');
+    expect(delivery!.source).not.toContain('<defs>');
+    for (const cut of drawn.sections) expect(cut.source).toContain('<style>');
+  });
+});
+
 describe('AC-18 / AC-19: strip motion keeps its place across re-renders', () => {
   const withStage = (state: StageState, clockMs?: number) =>
     draw({

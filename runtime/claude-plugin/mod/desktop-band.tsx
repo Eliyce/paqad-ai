@@ -142,6 +142,19 @@ function bodyRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
   );
 }
 
+function stripRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
+  const { Box, Svg } = ui;
+  return (
+    <Box key="paqad-strip" flexDirection="row">
+      {strip(band.strip).sections.map((cut) => (
+        <Box key={`paqad-strip-${cut.id}`} width={`${cut.percent}%`}>
+          <Svg source={cut.source} alt={band.stripAlts[cut.id]} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 function minimisedRow(
   ui: D,
   band: Extract<DesktopBand, { kind: 'feature' }>,
@@ -176,7 +189,7 @@ function featureBand(
   tick: number,
   actions: BandActions,
 ) {
-  const { Box, Svg } = ui;
+  const { Box } = ui;
   if (band.mode === 'minimised') {
     return (
       <Box key="paqad-band" flexDirection="column" rowGap="xs">
@@ -191,9 +204,7 @@ function featureBand(
       {band.menu ? closeMenu(ui, actions) : null}
       {messageRow(ui, band, tick)}
       {bodyRow(ui, band)}
-      <Box key="paqad-strip">
-        <Svg source={strip(band.strip).source} alt={band.alt} />
-      </Box>
+      {stripRow(ui, band)}
     </Box>
   );
 }

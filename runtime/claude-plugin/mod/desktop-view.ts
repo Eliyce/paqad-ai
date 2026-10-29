@@ -228,7 +228,17 @@ export interface TableStrip {
   seats: Array<Mark<SeatState>> | null;
   chief: ChiefState;
   value: string;
+  hidden: number;
 }
+
+export const TABLE_SEATS_SHOWN = 3;
+
+const SEAT_ORDER: Readonly<Record<SeatState, number>> = {
+  writing: 0,
+  late: 1,
+  done: 2,
+  seated: 3,
+};
 
 const TABLE_VALUES: Readonly<Record<string, string>> = {
   'chief is ruling': 'Chief is ruling',
@@ -245,20 +255,36 @@ export function chiefState(snapshot: PaqadHudSnapshot): ChiefState {
   return 'waiting';
 }
 
+function doneAt(seat: PaqadSeat): number {
+  const at = Date.parse(seat.done_at ?? '');
+  return Number.isFinite(at) ? at : Number.NEGATIVE_INFINITY;
+}
+
+function liveFirst(seats: readonly PaqadSeat[]): Array<Mark<SeatState>> {
+  return seats
+    .map((seat) => ({ seat, state: (seat.late ? 'late' : seat.state) as SeatState }))
+    .sort((a, b) => {
+      const order = SEAT_ORDER[a.state] - SEAT_ORDER[b.state];
+      if (order !== 0 || a.state !== 'done') return order;
+      const newer = doneAt(b.seat) - doneAt(a.seat);
+      return Number.isNaN(newer) ? 0 : newer;
+    })
+    .map(({ seat, state }) => ({ label: roleInitials(seat.role), state }));
+}
+
 export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
   if (!showsTable(snapshot) || snapshot.table.skipped) {
-    return { seats: null, chief: 'waiting', value: '' };
+    return { seats: null, chief: 'waiting', value: '', hidden: 0 };
   }
   const table = snapshot.table;
   const status = tableStatus(snapshot, table);
   const value = / standing$/.test(status) ? 'Seated' : (TABLE_VALUES[status] ?? status);
+  const seats = liveFirst(table.seats);
   return {
-    seats: table.seats.map((seat) => ({
-      label: roleInitials(seat.role),
-      state: seat.late ? 'late' : seat.state,
-    })),
+    seats: seats.slice(0, TABLE_SEATS_SHOWN),
     chief: chiefState(snapshot),
     value,
+    hidden: Math.max(0, seats.length - TABLE_SEATS_SHOWN),
   };
 }
 
@@ -369,6 +395,7 @@ export function stripOf(
     stages: stage.stages,
     stageValue: stage.value,
     seats: table.seats,
+    hiddenSeats: table.hidden,
     chief: table.chief,
     tableValue: table.value,
     delivery: delivery.steps,
@@ -392,6 +419,26 @@ function clockWords(clock: string): string {
   const [seconds = 0, minutes = 0, hours = 0] = clock.split(':').map(Number).reverse();
   const words = [`${minutes} min`, `${seconds} s`];
   return `Running for ${hours > 0 ? `${hours} h ` : ''}${words.join(' ')}.`;
+}
+
+export interface StripAlts {
+  stage: string;
+  table: string;
+  delivery: string;
+}
+
+export function stripAlts(text: string, strip: StripInput): StripAlts {
+  const stage = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
+  const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
+  if (done.length > 0) stage.push(`${done.join(', ')} done.`);
+  const shown = strip.seats?.length ?? 0;
+  const hidden = strip.hiddenSeats ?? 0;
+  const seats = `${plural(shown + hidden, 'seat', 'seats')}${hidden > 0 ? `, ${shown} shown` : ''}`;
+  return {
+    stage: stage.join(' '),
+    table: `High Table: ${strip.tableValue ? `${strip.tableValue}, ` : ''}${seats}.`,
+    delivery: `Delivery ${strip.deliveryValue || 'not started'}.`,
+  };
 }
 
 export function headlineAlt(head: Pick<DesktopHeadline, 'text' | 'note' | 'clock'>): string {
@@ -456,6 +503,7 @@ export type DesktopBand =
       headlineAlt: string;
       strip: StripInput;
       alt: string;
+      stripAlts: StripAlts;
       minimised: MinimisedView;
       activity: string[];
     };
@@ -536,6 +584,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     headlineAlt: headlineAlt(full),
     strip,
     alt: stripAltText(full.text, strip),
+    stripAlts: stripAlts(full.text, strip),
     minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
     activity: full.activity.slice(0, ACTIVITY_LINES),
   };

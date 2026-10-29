@@ -5,6 +5,7 @@ import {
   settleStart,
   settledChange,
   stripAltText,
+  stripAlts,
   CARD_ROWS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
@@ -512,17 +513,12 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     });
     const writing = tableStrip(open({ table: ord501Table('landing') }));
     expect(writing.value).toBe('3 of 7 notes');
-    expect(writing.seats?.map((seat) => seat.label)).toEqual([
-      'PO',
-      'AA',
-      'UF',
-      'QA',
-      'SA',
-      'DE',
-      'PA',
+    expect(writing.seats).toEqual([
+      { label: 'AA', state: 'writing' },
+      { label: 'SA', state: 'writing' },
+      { label: 'DE', state: 'writing' },
     ]);
-    expect(writing.seats?.[0]).toEqual({ label: 'PO', state: 'done' });
-    expect(writing.seats?.[1]).toEqual({ label: 'AA', state: 'writing' });
+    expect(writing.hidden).toBe(4);
     expect(tableStrip(open({ table: ord501Table('chief') }))).toMatchObject({
       chief: 'ruling',
       value: 'Chief is ruling',
@@ -548,7 +544,68 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       tableStrip(open({ table: { ...ord482Table('ruled'), skipped: true } })).seats,
     ).toBeNull();
     expect(tableStrip(open({ lane: 'fast', table: ord501Table('ruled') })).seats).toBeNull();
-    expect(tableStrip(open())).toEqual({ seats: null, chief: 'waiting', value: '' });
+    expect(tableStrip(open())).toEqual({ seats: null, chief: 'waiting', value: '', hidden: 0 });
+  });
+
+  it('AC-12, AC-13: keeps three seats, writing then late then newest done then seated, and counts the rest', () => {
+    const at = (minute: number | null) =>
+      minute === null ? null : `2026-10-18T08:${String(minute).padStart(2, '0')}:00.000Z`;
+    const seat = (role: string, state: string, done: number | null = null, late = false) => ({
+      ...(ord501Table('ruled') as { seats: Raw[] }).seats[0],
+      role,
+      state,
+      done_at: at(done),
+      late,
+    });
+    const table = (seats: Raw[]) => tableStrip(open({ table: { ...ord501Table('ruled'), seats } }));
+    const labels = (seats: Raw[]) => table(seats).seats?.map((mark) => mark.label);
+    const doneOnly = [
+      seat('product-owner', 'done', 10),
+      seat('application-architect', 'done', 30),
+      seat('user-flow-writer', 'done', null),
+      seat('qa-engineer', 'done', 20),
+    ];
+    expect(labels(doneOnly)).toEqual(['AA', 'QA', 'PO']);
+    expect(table(doneOnly).hidden).toBe(1);
+    const mixed = [
+      seat('product-owner', 'seated'),
+      seat('application-architect', 'done', 40),
+      seat('user-flow-writer', 'writing', null, true),
+      seat('qa-engineer', 'writing'),
+    ];
+    expect(table(mixed).seats).toEqual([
+      { label: 'QA', state: 'writing' },
+      { label: 'UF', state: 'late' },
+      { label: 'AA', state: 'done' },
+    ]);
+    const ties = [
+      seat('product-owner', 'done', 10),
+      seat('application-architect', 'done', null),
+      seat('user-flow-writer', 'done', 10),
+      seat('qa-engineer', 'done', null),
+    ];
+    expect(labels(ties)).toEqual(['PO', 'UF', 'AA']);
+    const three = table(doneOnly.slice(0, 3));
+    expect(three.seats).toHaveLength(3);
+    expect(three.hidden).toBe(0);
+    const eleven = Array.from({ length: 11 }, (_, i) => seat(`role-${i}`, 'done', i));
+    expect(table(eleven)).toMatchObject({ hidden: 8 });
+    expect(table(eleven).seats).toHaveLength(3);
+  });
+
+  it('AC-23: names the shown count in the High Table alt, and each section says its own words', () => {
+    const strip = stripOf(open({ table: ord501Table('chief') }), 93);
+    expect(stripAlts('Building', { ...strip, hiddenSeats: 8 }).table).toBe(
+      'High Table: Chief is ruling, 11 seats, 3 shown.',
+    );
+    expect(stripAlts('Building', { ...strip, hiddenSeats: 0 }).table).toBe(
+      'High Table: Chief is ruling, 3 seats.',
+    );
+    const fast = band({ snapshot: parse(FAST_ORD_490) });
+    expect(fast.kind === 'feature' && fast.stripAlts).toMatchObject({
+      stage: 'Building. Stage Build. Plan done.',
+      delivery: 'Delivery Editing.',
+    });
   });
 
   it('says the headline, the stage value and each section value in the strip alt', () => {

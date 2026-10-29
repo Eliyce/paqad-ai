@@ -29,6 +29,7 @@ export interface StripInput {
   stages: ReadonlyArray<Mark<StageState>>;
   stageValue: string;
   seats: ReadonlyArray<Mark<SeatState>> | null;
+  hiddenSeats?: number;
   chief: ChiefState;
   tableValue: string;
   delivery: ReadonlyArray<Mark<ShipState>>;
@@ -67,6 +68,7 @@ const NODE_RADIUS = 8.5;
 const NODE_SPACING = 96;
 const CONNECTOR_GAP = 4;
 const SEAT_SPACING = 22;
+const CHIEF_REACH = 31;
 const Y_CAP = 9;
 const Y_MARK = 25;
 const Y_LBL = 47;
@@ -87,8 +89,8 @@ function fixed(n: number): string {
   return n.toFixed(1);
 }
 
-function svg(width: number, height: number, body: string, extra = ''): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"${extra}>${body}</svg>`;
+function svg(width: number, height: number, body: string, extra = '', x = 0): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} 0 ${width} ${height}" width="${width}" height="${height}"${extra}>${body}</svg>`;
 }
 
 function phaseRules(clockMs: number | undefined): string {
@@ -182,13 +184,19 @@ interface Section {
   last: boolean;
 }
 
-function section({ x0, x1, inner, last }: Section, cap: string, value: string): string {
+function section(
+  { x0, x1, inner, last }: Section,
+  cap: string,
+  value: string,
+  cut = false,
+): string {
   let out = `<text class="cap mut" x="${fixed(x0)}" y="${Y_CAP}">${cap}</text>`;
   if (value && inner - x0 > VALUE_MIN_WIDTH) {
     out += `<text class="val ink" x="${fixed(inner)}" y="${Y_CAP}" text-anchor="end">${escapeXml(value)}</text>`;
   }
   if (!last) {
-    out += `<line class="hair" x1="${fixed(x1)}" y1="1" x2="${fixed(x1)}" y2="${STRIP_HEIGHT - 2}" stroke-width="1"/>`;
+    const at = fixed(cut ? x1 - 0.5 : x1);
+    out += `<line class="hair" x1="${at}" y1="1" x2="${at}" y2="${STRIP_HEIGHT - 2}" stroke-width="1"/>`;
   }
   return out;
 }
@@ -319,15 +327,20 @@ function tableMarks(
   x1: number,
   seats: ReadonlyArray<Mark<SeatState>>,
   chief: ChiefState,
+  hidden: number,
 ): string {
-  const step = Math.min(SEAT_SPACING, (x1 - x0 - 34) / Math.max(1, seats.length));
+  const slots = seats.length + (hidden > 0 ? 1 : 0);
+  const step = Math.min(SEAT_SPACING, (x1 - x0 - CHIEF_REACH) / (Math.max(1, slots) - 0.5));
   let out = '';
   seats.forEach(({ label, state }, i) => {
     const cx = fixed(x0 + 5 + i * step);
     out += seatMark(state, cx);
     out += `<text class="lbl mut" x="${cx}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
   });
-  const sx = x0 + 5 + seats.length * step - step / 2 + 6;
+  if (hidden > 0) {
+    out += `<text class="lbl mut" x="${fixed(x0 + 5 + seats.length * step)}" y="${Y_MARK + 3}" text-anchor="middle" style="font-weight:500">+${hidden}</text>`;
+  }
+  const sx = x0 + 5 + slots * step - step / 2 + 6;
   out += `<line class="hair" x1="${fixed(sx)}" y1="${Y_MARK - 6}" x2="${fixed(sx)}" y2="${Y_MARK + 6}" stroke-width="1"/>`;
   const ccx = fixed(sx + 14);
   out += chiefMark(chief, ccx);
@@ -421,13 +434,59 @@ export function stripWidth(columns: number): number {
   return Math.max(STRIP_MIN_WIDTH, Math.round(columns * PX_PER_COLUMN));
 }
 
-export function strip(input: StripInput): { source: string; width: number; height: number } {
+export type StripSectionId = 'stage' | 'table' | 'delivery';
+
+export interface StripSection {
+  id: StripSectionId;
+  percent: number;
+  source: string;
+}
+
+function stripBody(
+  input: StripInput,
+  sections: readonly Section[],
+  cut: boolean,
+): Record<StripSectionId, string> {
+  const stage = sections[0]!;
+  const delivery = sections.at(-1)!;
+  const settle = settlePhase(input.clockMs, input.settledAtMs);
+  const body = { stage: '', table: '', delivery: '' };
+  body.stage = section(stage, 'STAGE', input.stageValue, cut);
+  body.stage += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs, settle);
+  if (input.seats) {
+    const table = sections[1]!;
+    body.table = section(table, 'HIGH TABLE', input.tableValue, cut);
+    body.table += tableMarks(table.x0, table.x1, input.seats, input.chief, input.hiddenSeats ?? 0);
+  }
+  body.delivery = section(delivery, 'DELIVERY', input.deliveryValue, cut);
+  body.delivery += deliveryMarks(
+    delivery.x0 + DELIVERY_INSET,
+    delivery.inner - DELIVERY_INSET,
+    input.delivery,
+    input.ci,
+  );
+  return body;
+}
+
+function trim(n: number): number {
+  return Number(n.toFixed(2));
+}
+
+export function strip(input: StripInput): {
+  source: string;
+  width: number;
+  height: number;
+  sections: StripSection[];
+} {
   const width = stripWidth(input.columns);
-  const parts = input.seats ? [0.4, 0.26, 0.34] : [0.56, 0.44];
+  const ids: StripSectionId[] = input.seats
+    ? ['stage', 'table', 'delivery']
+    : ['stage', 'delivery'];
+  const percents = input.seats ? [40, 26, 34] : [56, 44];
   const edges = [0];
-  parts.forEach((part, i) => edges.push(edges[i]! + part * width));
-  const sections: Section[] = parts.map((_, i) => {
-    const last = i === parts.length - 1;
+  percents.forEach((percent, i) => edges.push(edges[i]! + (percent / 100) * width));
+  const sections: Section[] = percents.map((_, i) => {
+    const last = i === percents.length - 1;
     const x1 = edges[i + 1]!;
     return {
       x0: edges[i]! + (i === 0 ? 0 : SECTION_PAD),
@@ -436,32 +495,27 @@ export function strip(input: StripInput): { source: string; width: number; heigh
       last,
     };
   });
-  const stage = sections[0]!;
-  const delivery = sections.at(-1)!;
-  let body = section(stage, 'STAGE', input.stageValue);
   const settle = settlePhase(input.clockMs, input.settledAtMs);
-  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs, settle);
-  if (input.seats) {
-    const table = sections[1]!;
-    body += section(table, 'HIGH TABLE', input.tableValue);
-    body += tableMarks(table.x0, table.inner, input.seats, input.chief);
-  }
-  body += section(delivery, 'DELIVERY', input.deliveryValue);
-  body += deliveryMarks(
-    delivery.x0 + DELIVERY_INSET,
-    delivery.inner - DELIVERY_INSET,
-    input.delivery,
-    input.ci,
-  );
   const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
+  const style = css(input.clockMs);
+  const art = defs(live || settle !== null, live);
+  const whole = stripBody(input, sections, false);
+  const cuts = stripBody(input, sections, true);
   return {
-    source: svg(
-      width,
-      STRIP_HEIGHT,
-      css(input.clockMs) + defs(live || settle !== null, live) + body,
-    ),
+    source: svg(width, STRIP_HEIGHT, style + art + whole.stage + whole.table + whole.delivery),
     width,
     height: STRIP_HEIGHT,
+    sections: ids.map((id, i) => ({
+      id,
+      percent: percents[i]!,
+      source: svg(
+        trim(edges[i + 1]! - edges[i]!),
+        STRIP_HEIGHT,
+        style + (id === 'stage' ? art : '') + cuts[id],
+        '',
+        trim(edges[i]!),
+      ),
+    })),
   };
 }
 
