@@ -463,9 +463,11 @@ async function pollCi($: EngineInterface, watch: CiWatch): Promise<void> {
 }
 
 async function watchAfterPush($: EngineInterface): Promise<void> {
-  const ship = (await read($, snapshotAtom))?.ship ?? null;
-  if (ship?.pr_state !== 'open') return;
-  await startCiWatch($, ship.pr_head ?? '', true);
+  try {
+    const ship = (await read($, snapshotAtom))?.ship ?? null;
+    if (ship?.pr_state !== 'open') return;
+    await startCiWatch($, ship.pr_head ?? '', true);
+  } catch {}
 }
 
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {

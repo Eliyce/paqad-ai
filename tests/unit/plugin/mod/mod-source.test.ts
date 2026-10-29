@@ -98,6 +98,17 @@ describe('the HUD mod source', () => {
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
   });
 
+  it('the watch started after a git push can never fail or re-run the push', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const start = register.indexOf('async function watchAfterPush(');
+    expect(start, 'watchAfterPush').toBeGreaterThan(-1);
+    const body = register.slice(start, register.indexOf('\n}\n', start));
+    expect(body).toMatch(/^\s+try \{$/m);
+    expect(body).toMatch(/\} catch \{\}/);
+    const hook = register.indexOf('if (isGitPush(tool, input.command))');
+    expect(register.slice(hook, register.indexOf('\n', hook))).toContain('await watchAfterPush($)');
+  });
+
   it('AC-4: no tool.check hook answers a permission check of its own', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     expect(register).not.toMatch(/on\('tool\.check',\s*\{\s*tool:/);
