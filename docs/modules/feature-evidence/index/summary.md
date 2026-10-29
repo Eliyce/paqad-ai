@@ -344,7 +344,9 @@ any turn the session-ownership check skips (see below).
   recorded on a branch that is not the one checked out now, the pointer is cleared. The change
   is not paused or closed; it just stops being this session's active change. A detached HEAD,
   or a change with no recorded branch, is never set aside. Switching back to the change's
-  branch picks it up again when it is the only change in flight there.
+  branch picks it up again when it is the only change in flight there. `paqad-ai deliver`
+  records the new branch on the change once its branch step succeeds, so the change is never
+  set aside on the branch delivery cuts. If the branch step fails, the old branch stays.
 - **Abandoned close** (`abandon.ts`): `closeAbandonedBundles` closes changes left behind, so the
   in-flight set stops growing. The SessionStart hook calls it before `reconcileSessionControl`,
   in its own try/catch, with no stdout and no change to its exit code; a fault is logged to
@@ -361,7 +363,8 @@ any turn the session-ownership check skips (see below).
   silent: the close row is the record, and resuming the change by name reopens it.
 
   **A merged pull request closes the change at once.** When the change's pull request number
-  appears as an exact `(#N)` in a commit subject on the local base branch (or on
+  appears as an exact `(#N)` at the end of a commit subject (trailing spaces ignored) on the
+  local base branch (or on
   `origin/<base>` as last fetched; nothing is fetched), the change closes as `done` straight
   away, with no 24 hour wait. If a stage ran in it in the last 30 minutes, the 24 hour rule
   above applies instead.
