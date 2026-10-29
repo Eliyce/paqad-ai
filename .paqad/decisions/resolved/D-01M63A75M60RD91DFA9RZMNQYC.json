@@ -1,0 +1,54 @@
+{
+  "id": "D-01M63A75M60RD91DFA9RZMNQYC",
+  "category": "spec.contradiction",
+  "title": "B1: a live stage agent is the only liveness signal, but this repo never records one",
+  "context": "The owner answered that another session may take over a change as soon as no stage agent is alive for it, so an open stage with no live stage agent does not block. liveStageAgents only sees stage-agent rows with event_status started, which the SubagentStart hook (stage-agent-start.mjs, recordStageAgentStart) should write. In this repo no bundle has a single started stage-agent row (0 across all bundles) and hooks.log has no stage-agent-start line at all. The 753 bundle at 2026-10-28T17:21:40Z had development, checks and documentation_sync open from session c08524c9 but no live stage agent. Under the answer as given, B1 would not have blocked the observed takeover and in practice blocks nothing here; B2 (branch check) and B3 (merged close) still fix today's stray row and close 753.",
+  "options": [
+    {
+      "option_key": "recent",
+      "label": "Treat an open stage from another session as live while a stage agent is live OR that session wrote a row in the bundle within the last 30 minutes. A crashed session stops blocking 30 minutes after its last row. Reproduces and blocks the observed 753 case.",
+      "one_line_preview": "Treat an open stage from another session as live while a stage agent is live OR that session wrote a row in the bundle within the last 30 minutes. A crashed session stops blocking 30 minutes after its last row. Reproduces and blocks the observed 753 case.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "record-starts",
+      "label": "Keep the answer literally (only a live stage agent blocks) and add a step to find and fix why stage agent starts record no started row, so liveness evidence exists. Scope grows by an unknown amount and Codex parity must be checked.",
+      "one_line_preview": "Keep the answer literally (only a live stage agent blocks) and add a step to find and fix why stage agent starts record no started row, so liveness evidence exists. Scope grows by an unknown amount and Codex parity must be checked.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "as-answered",
+      "label": "Keep the answer literally and accept that B1 is a forward guard that blocks nothing until started rows are recorded; the observed failure is covered by B2 and B3 only, and the B1 repro test uses a planted started stage-agent row.",
+      "one_line_preview": "Keep the answer literally and accept that B1 is a forward guard that blocks nothing until started rows are recorded; the observed failure is covered by B2 and B3 only, and the B1 repro test uses a planted started stage-agent row.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "recent",
+  "created_at": "2026-10-29T07:50:30.278Z",
+  "status": "resolved",
+  "change": "01M636XGSQWPQYWGN1YF9E39HB",
+  "chosen": "recent",
+  "rationale": "Owner: an open stage from another session blocks takeover while that session wrote a row in the last 30 minutes.",
+  "resolved_at": "2026-10-29T07:55:13.073Z",
+  "decision_id": "D-01M63A75M60RD91DFA9RZMNQYC",
+  "fingerprint": "sha256:3d5f1ef50f77f7542000bf90d305041765f8c2708982ed45f7c314dd547c6ef8",
+  "question": "B1: a live stage agent is the only liveness signal, but this repo never records one",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M636XGSQWPQYWGN1YF9E39HB",
+  "ttl_until": "2026-11-05T07:50:30.278Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "recent",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-29T07:55:13.073Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: an open stage from another session blocks takeover while that session wrote a row in the last 30 minutes."
+  }
+}

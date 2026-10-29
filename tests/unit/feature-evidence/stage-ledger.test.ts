@@ -21,7 +21,11 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
-import { markDone, readSessionControl } from '@/feature-evidence/session-control.js';
+import {
+  markDone,
+  readSessionControl,
+  setActiveFeature,
+} from '@/feature-evidence/session-control.js';
 
 import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
@@ -366,5 +370,66 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
     expect(target).toBe(a);
     expect(listFeatureDirs(root)).toEqual([a]);
     expect(readFeatureStageUnit(root, a).some((row) => row.stage === 'planning')).toBe(true);
+  });
+});
+
+describe('resolveActiveFeature while another session runs the only change', () => {
+  const RUNNING = '412-running-change-01JABCDEFGHJKMNPQRSTVWXYZ5';
+  const T0 = Date.parse('2026-07-10T00:00:00.000Z');
+  const at = (minutes: number) => () => new Date(T0 + minutes * 60_000);
+
+  function runningFixture(): string {
+    const root = tempRoot();
+    recordChangeConstants(root, RUNNING, { adapter: 'claude-code', branch: null }, at(0));
+    appendFeatureStageRow(root, 'ses_a', RUNNING, { kind: 'open' }, at(0));
+    for (const stage of ['development', 'checks', 'documentation_sync']) {
+      appendFeatureStageRow(
+        root,
+        'ses_a',
+        RUNNING,
+        { kind: 'stage_start', stage, event_status: 'started' },
+        at(0),
+      );
+    }
+    setActiveFeature(root, 'ses_a', RUNNING, { now: at(0) });
+    return root;
+  }
+
+  it('AC-7: a bare start stops, naming the change, the stage and --title, and writes nothing', () => {
+    const root = runningFixture();
+    const before = readFeatureStageUnit(root, RUNNING).length;
+    const controlA = readSessionControl(root, 'ses_a');
+
+    expect(() => resolveActiveFeature(root, 'ses_b', { now: at(5) })).toThrow(
+      new RegExp(`${RUNNING}.*documentation_sync.*--title`, 's'),
+    );
+    expect(readFeatureStageUnit(root, RUNNING)).toHaveLength(before);
+    expect(listFeatureDirs(root)).toEqual([RUNNING]);
+    expect(readSessionControl(root, 'ses_a')).toEqual(controlA);
+    expect(readSessionControl(root, 'ses_b').active).toBeNull();
+  });
+
+  it('AC-7: --title opens this session its own change, and the next bare start resumes it', () => {
+    const root = runningFixture();
+    const own = resolveActiveFeature(root, 'ses_b', {
+      title: 'My own change',
+      issue: null,
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ6',
+      now: at(5),
+    });
+    expect(own).not.toBe(RUNNING);
+
+    expect(resolveActiveFeature(root, 'ses_b', { now: at(6) })).toBe(own);
+    appendFeatureStageRow(
+      root,
+      'ses_b',
+      own,
+      { kind: 'stage_start', stage: 'planning', event_status: 'started' },
+      at(6),
+    );
+    expect(resolveActiveFeature(root, 'ses_b', { now: at(7) })).toBe(own);
+    expect(readFeatureStageUnit(root, RUNNING).some((row) => row.session_id === 'ses_b')).toBe(
+      false,
+    );
   });
 });

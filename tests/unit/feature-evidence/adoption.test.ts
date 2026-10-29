@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  adoptableInFlightOnBranch,
+  anotherSessionRunningStage,
   featureBranch,
   isBundleClosed,
   isBundleMaterialized,
@@ -32,6 +34,8 @@ import {
   recordChangeConstants,
   resolveActiveFeature,
 } from '@/feature-evidence/stage-ledger.js';
+
+import { STAGE_AGENT_SESSION_RELEASE } from '@/stage-evidence/stage-agent-holds.js';
 
 import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
@@ -288,6 +292,13 @@ describe('session-id rotation mid-change', () => {
       'ses_before',
       first,
       { kind: 'stage_start', stage: 'planning', event_status: 'started' },
+      clock,
+    );
+    appendFeatureStageRow(
+      root,
+      'ses_before',
+      first,
+      { kind: 'stage_end', stage: 'planning', event_status: 'completed' },
       clock,
     );
 
@@ -610,5 +621,158 @@ describe('reconcileSessionControl — a closed change is never served as active'
     writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
     reconcileSessionControl(root, 'ses_a', clock);
     expect(readSessionControl(root, 'ses_a').written_by).toBe('reconcile');
+  });
+});
+
+describe('a change another session is running', () => {
+  const T0 = Date.parse('2026-07-19T00:00:00.000Z');
+  const at = (minutes: number) => () => new Date(T0 + minutes * 60_000);
+
+  function startStages(root: string, dirName: string, sessionId: string, stages: string[]): void {
+    for (const stage of stages) {
+      appendFeatureStageRow(
+        root,
+        sessionId,
+        dirName,
+        { kind: 'stage_start', stage, event_status: 'started' },
+        at(0),
+      );
+    }
+  }
+
+  function endStages(root: string, dirName: string, sessionId: string, stages: string[]): void {
+    for (const stage of stages) {
+      appendFeatureStageRow(
+        root,
+        sessionId,
+        dirName,
+        { kind: 'stage_end', stage, event_status: 'completed' },
+        at(5),
+      );
+    }
+  }
+
+  const RUNNING = ['development', 'checks', 'documentation_sync'];
+
+  it('AC-4: is not adopted while the other session runs a stage, and is once the stages end', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', RUNNING);
+    setActiveFeature(root, 'ses_other', BUNDLE_A, { now: at(0) });
+    const otherControl = readSessionControl(root, 'ses_other');
+
+    expect(anotherSessionRunningStage(root, 'ses_new', BUNDLE_A, at(5))).toBe('documentation_sync');
+    expect(reconcileSessionControl(root, 'ses_new', at(5))).toBeNull();
+    expect(readSessionControl(root, 'ses_new').active).toBeNull();
+    expect(readSessionControl(root, 'ses_new').written_by).toBeUndefined();
+    expect(readSessionControl(root, 'ses_other')).toEqual(otherControl);
+
+    endStages(root, BUNDLE_A, 'ses_other', RUNNING);
+    expect(anotherSessionRunningStage(root, 'ses_new', BUNDLE_A, at(6))).toBeNull();
+    expect(reconcileSessionControl(root, 'ses_new', at(6))).toBe(BUNDLE_A);
+  });
+
+  it('AC-5: counts a dead session as quiet once its newest row is 30 minutes old', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+
+    expect(reconcileSessionControl(root, 'ses_new', at(29))).toBeNull();
+    expect(reconcileSessionControl(root, 'ses_new', at(31))).toBe(BUNDLE_A);
+  });
+
+  it('is held by a live stage agent of another session, however old its rows', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    appendFeatureStageRow(
+      root,
+      'ses_other',
+      BUNDLE_A,
+      {
+        kind: 'stage-agent',
+        event_status: 'started',
+        stage: 'review',
+        agent: 'paqad-review',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      at(0),
+    );
+
+    expect(anotherSessionRunningStage(root, 'ses_new', BUNDLE_A, at(240))).toBe('review');
+    expect(reconcileSessionControl(root, 'ses_new', at(240))).toBeNull();
+  });
+
+  it('treats a stage ended by another writer as ended', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+    endStages(root, BUNDLE_A, 'paqad-backstop', ['development']);
+
+    expect(reconcileSessionControl(root, 'ses_new', at(6))).toBe(BUNDLE_A);
+  });
+
+  it('releases an earlier adopted pointer to null without pausing it', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+    setActiveFeature(root, 'ses_new', BUNDLE_A, { now: at(0) });
+
+    expect(reconcileSessionControl(root, 'ses_new', at(5))).toBeNull();
+    const control = readSessionControl(root, 'ses_new');
+    expect(control.active).toBeNull();
+    expect(control.paused).toEqual([]);
+    expect(control.written_by).toBe('reconcile');
+  });
+
+  it('keeps the change for a session that wrote a row in it', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+    appendFeatureStageRow(
+      root,
+      'ses_mine',
+      BUNDLE_A,
+      { kind: 'stage_start', stage: 'review', event_status: 'started' },
+      at(1),
+    );
+
+    expect(anotherSessionRunningStage(root, 'ses_mine', BUNDLE_A, at(5))).toBeNull();
+    expect(reconcileSessionControl(root, 'ses_mine', at(5))).toBe(BUNDLE_A);
+  });
+
+  it('still adopts a quiet bundle after a /clear between stages', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_before');
+    startStages(root, BUNDLE_A, 'ses_before', ['planning']);
+    endStages(root, BUNDLE_A, 'ses_before', ['planning']);
+
+    expect(resolveActiveFeature(root, 'ses_after_clear', { now: at(6) })).toBe(BUNDLE_A);
+    expect(listFeatureDirs(root)).toEqual([BUNDLE_A]);
+  });
+
+  it('does not count a stage agent release row as this session working in the change', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+    appendFeatureStageRow(
+      root,
+      'ses_new',
+      BUNDLE_A,
+      { kind: 'record-repair', reason: STAGE_AGENT_SESSION_RELEASE, releases: [] },
+      at(1),
+    );
+
+    expect(reconcileSessionControl(root, 'ses_new', at(5))).toBeNull();
+  });
+
+  it('leaves the running bundle out of the adoptable set on the branch', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A, 'ses_other');
+    startStages(root, BUNDLE_A, 'ses_other', ['development']);
+
+    expect(adoptableInFlightOnBranch(root, 'ses_new', at(5))).toEqual([]);
+    expect(adoptableInFlightOnBranch(root, 'ses_other', at(5))).toEqual([BUNDLE_A]);
   });
 });

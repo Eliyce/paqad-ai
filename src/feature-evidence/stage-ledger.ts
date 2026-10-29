@@ -19,6 +19,7 @@ import {
 
 import {
   adoptableInFlightOnBranch,
+  heldInFlightOnBranch,
   isBundleClosed,
   isBundleMaterialized,
   reconcileSessionControl,
@@ -71,6 +72,17 @@ export function resolveActiveFeature(
         `a third. Close or finish the extra bundle(s), or pass an explicit change (stage ` +
         `start --title …), before continuing.`,
     );
+  }
+  if (inFlight.length === 0) {
+    const held = heldInFlightOnBranch(projectRoot, sessionId, input.now);
+    if (held.length > 0) {
+      const running = held.map((h) => `${h.dirName} (stage ${h.stage})`).join(', ');
+      throw new Error(
+        `another session is running a stage in the change on this branch: ${running}. ` +
+          `paqad will not take that change over or write into it. Pass --title "<what you ` +
+          `are building>" to stage start to open this session's own change.`,
+      );
+    }
   }
   return mintAndActivate(projectRoot, sessionId, UNTITLED_FEATURE_TITLE, input);
 }

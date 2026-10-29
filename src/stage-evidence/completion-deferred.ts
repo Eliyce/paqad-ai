@@ -5,7 +5,7 @@ import {
 } from '@/checks/running-marker.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
-import { isBundleClosed } from '@/feature-evidence/adoption.js';
+import { heldInFlightOnBranch, isBundleClosed } from '@/feature-evidence/adoption.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
@@ -106,22 +106,30 @@ export function releaseStageAgentsAtSessionStart(
   isAlive: (pid: number) => boolean = hostProcessAlive,
 ): boolean {
   if (typeof source !== 'string' || !NEW_HOST_SESSION_SOURCES.has(source)) return false;
-  const dirName = currentFeature(projectRoot, sessionId);
-  if (dirName === null) return false;
-  const releases = liveStageAgents(readFeatureStageUnit(projectRoot, dirName))
-    .filter(
-      (agent) => agent.sessionId === sessionId || agent.hostPid === null || !isAlive(agent.hostPid),
-    )
-    .map((agent) => agent.rowHash);
-  if (releases.length === 0) return false;
-  appendFeatureStageRow(
-    projectRoot,
-    sessionId,
-    dirName,
-    { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE, releases },
-    now,
-  );
-  return true;
+  const current = currentFeature(projectRoot, sessionId, now);
+  const dirNames =
+    current !== null
+      ? [current]
+      : heldInFlightOnBranch(projectRoot, sessionId, now).map((held) => held.dirName);
+  let released = false;
+  for (const dirName of dirNames) {
+    const releases = liveStageAgents(readFeatureStageUnit(projectRoot, dirName))
+      .filter(
+        (agent) =>
+          agent.sessionId === sessionId || agent.hostPid === null || !isAlive(agent.hostPid),
+      )
+      .map((agent) => agent.rowHash);
+    if (releases.length === 0) continue;
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      dirName,
+      { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE, releases },
+      now,
+    );
+    released = true;
+  }
+  return released;
 }
 
 export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean {
