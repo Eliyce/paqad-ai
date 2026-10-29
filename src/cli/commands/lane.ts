@@ -46,7 +46,7 @@ export function createLaneCommand(): Command {
       }
 
       const before = readChangeConstants(root, dirName).lane;
-      recordChangeConstants(root, dirName, { lane: requested });
+      recordChangeConstants(root, dirName, { lane: requested, laneSource: 'manual' });
       const after = readChangeConstants(root, dirName).lane;
 
       const changed = after !== before;

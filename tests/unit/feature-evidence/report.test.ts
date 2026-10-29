@@ -333,6 +333,28 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     expect(html).toContain('feat/x');
   });
 
+  it('shows no lane line for a change whose lane never moved', () => {
+    expect(html).not.toContain('class="lane-moves"');
+  });
+
+  it('shows a plan-time resize with its reason', () => {
+    const bundle = fullBundle();
+    bundle.files.feature = {
+      lane: 'graduated',
+      lane_resized: {
+        from: 'full',
+        to: 'graduated',
+        reason: 'the plan touches 3 files, none sensitive, no schema or breaking API change',
+        files: 3,
+        at: AT,
+      },
+    };
+    const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html2).toContain(
+      'Lowered from full to graduated at plan compile: the plan touches 3 files, none sensitive, no schema or breaking API change',
+    );
+  });
+
   it('renders the recorded review structurally, escaping every field', () => {
     const bundle = fullBundle();
     bundle.files.review = {

@@ -11,6 +11,7 @@ import {
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import type { FeatureLaneMove } from '@/feature-evidence/types.js';
 import {
   fixProofMethodLine,
   raiseFixProofMethodDecision,
@@ -43,6 +44,10 @@ export function readinessLine(id: string, deferred: boolean): string {
     `**▸ paqad** · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
     `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`
   );
+}
+
+export function laneResizedLine(move: FeatureLaneMove): string {
+  return `**▸ paqad** · lane set to ${move.to} from ${move.from}: ${move.reason}`;
 }
 
 export function createPlanCommand(): Command {
@@ -126,6 +131,9 @@ export function createPlanCommand(): Command {
           rmSync(inputFile, { force: true });
         } catch {}
       }
+      if (result.laneResized) {
+        console.log(laneResizedLine(result.laneResized));
+      }
       console.log(`**▸ paqad** · compiled ${result.path}`);
       console.log(
         JSON.stringify({
@@ -134,6 +142,7 @@ export function createPlanCommand(): Command {
           ...(result.armedDecisions?.length ? { armed_decisions: result.armedDecisions } : {}),
           ...(result.readinessDecision ? { readiness_decision: result.readinessDecision } : {}),
           ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
+          ...(result.laneResized ? { lane_resized: result.laneResized } : {}),
         }),
       );
     });

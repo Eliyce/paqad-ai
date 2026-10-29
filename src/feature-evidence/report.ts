@@ -27,6 +27,7 @@ import type { AgentRole } from '@/core/types/agent.js';
 import { roleInPlainWords } from './contribution-table.js';
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
+import type { FeatureLaneMove } from './types.js';
 import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
 import { splitReceiptEvidenceRows } from './receipt.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
@@ -310,6 +311,14 @@ function glyphWordless(word: string): string {
   return `<span class="word">${escapeHtml(word)}</span>`;
 }
 
+function renderLaneMoves(bundle: FeatureBundleExport): string {
+  const feature = bundle.files.feature as { lane_resized?: FeatureLaneMove } | undefined;
+  const resized = feature?.lane_resized;
+  if (!resized) return '';
+  const item = `<li>Lowered from ${escapeHtml(resized.from)} to ${escapeHtml(resized.to)} at plan compile: ${escapeHtml(resized.reason)}</li>`;
+  return `<h3>Lane</h3><ul class="lane-moves">${item}</ul>`;
+}
+
 function renderPlan(bundle: FeatureBundleExport): string {
   const plan = bundle.files.plan as
     | {
@@ -342,6 +351,7 @@ function renderPlan(bundle: FeatureBundleExport): string {
   }
   const parts: string[] = [];
   if (plan.summary) parts.push(`<p>${escapeHtml(plan.summary)}</p>`);
+  parts.push(renderLaneMoves(bundle));
   const steps = plan.steps ?? [];
   if (steps.length > 0) {
     const items = steps

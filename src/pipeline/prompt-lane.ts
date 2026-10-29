@@ -10,7 +10,12 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import type { FeatureChangeKind } from '@/feature-evidence/types.js';
-import { writePendingKind, writePendingLane } from '@/stage-evidence/pending-lane.js';
+import {
+  writePendingImpact,
+  writePendingKind,
+  writePendingLane,
+  type PendingImpact,
+} from '@/stage-evidence/pending-lane.js';
 
 import { RequestClassifier } from './classifier.js';
 import { STAGE_ORDER } from './feature-development-policy.js';
@@ -231,6 +236,7 @@ export interface PromptRouteResult {
   lane: Lane | null;
   reason: string;
   kind?: FeatureChangeKind;
+  impact?: PendingImpact;
 }
 
 export async function resolvePromptRoute(
@@ -263,6 +269,10 @@ export async function resolvePromptRoute(
     routed,
     kind,
     lane,
+    impact: {
+      database_impact: classification.database_impact,
+      api_impact: classification.api_impact,
+    },
     reason: lane === null ? ROUTE_REASON['feature-development'] : LANE_REASON[lane],
   };
 }
@@ -360,6 +370,7 @@ export async function runPromptRouteSeam(
   let lane: Lane | null;
   let reason: string;
   let kind: FeatureChangeKind | undefined;
+  let impact: PendingImpact | undefined;
   if (slashName !== null) {
     const slashRoute = SLASH_COMMAND_ROUTES[slashName];
     if (slashRoute === undefined) {
@@ -375,7 +386,7 @@ export async function runPromptRouteSeam(
     lane = null;
     reason = ROUTE_REASON[slashRoute];
   } else {
-    ({ routed, lane, reason, kind } = await resolvePromptRoute(
+    ({ routed, lane, reason, kind, impact } = await resolvePromptRoute(
       input.projectRoot,
       input.request,
       deps,
@@ -431,6 +442,7 @@ export async function runPromptRouteSeam(
 
   if (isFeatureDevelopmentRoute(routed) && lane !== null && recordedLane === null) {
     writePendingLane(input.projectRoot, sessionId, lane);
+    if (impact !== undefined) writePendingImpact(input.projectRoot, sessionId, impact);
   }
   if (isFeatureDevelopmentRoute(routed) && kind !== undefined) {
     writePendingKind(input.projectRoot, sessionId, kind);

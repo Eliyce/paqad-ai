@@ -17,7 +17,11 @@ import {
 import { readSessionControl, writeSessionControl } from '@/feature-evidence/session-control.js';
 import { closeActiveFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { readSessionRoute } from '@/pipeline/session-route.js';
-import { readPendingKind, readPendingLane } from '@/stage-evidence/pending-lane.js';
+import {
+  readPendingImpact,
+  readPendingKind,
+  readPendingLane,
+} from '@/stage-evidence/pending-lane.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
@@ -176,6 +180,41 @@ describe('runPromptRouteSeam', () => {
     const sessionId = resolveSessionId(root, SESSION);
     expect(readPendingLane(root, sessionId)).toBe('full');
     expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
+  });
+
+  it('saves the classifier impact beside the pending lane for a feature change', async () => {
+    await runPromptRouteSeam(
+      { projectRoot: root, request: 'add a column', sessionId: SESSION, adapter: ADAPTER },
+      {
+        classify: async () =>
+          ({
+            workflow: 'feature-development',
+            database_impact: 'schema-change',
+            api_impact: 'none',
+          }) as ClassificationResult,
+        route: () => ({ lane: 'full' }),
+      },
+    );
+    expect(readPendingImpact(root, resolveSessionId(root, SESSION))).toEqual({
+      database_impact: 'schema-change',
+      api_impact: 'none',
+    });
+  });
+
+  it('saves no impact when no lane was guessed', async () => {
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'https://github.com/Eliyce/paqad-ai/issues/602',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      {
+        classify: async () => classificationWith('feature-development'),
+        route: () => ({ lane: 'full' }),
+      },
+    );
+    expect(readPendingImpact(root, resolveSessionId(root, SESSION))).toBeNull();
   });
 
   it('carries a bug-fix classification onto the change opened next as kind fix', async () => {

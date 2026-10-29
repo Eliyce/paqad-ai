@@ -85,6 +85,12 @@ describe('narration-contract-writer', () => {
     expect(body).toContain('**When the lane is unresolved.**');
   });
 
+  it('names plan compile as the one place a lane is lowered', () => {
+    expect(buildNarrationContractBody()).toContain(
+      'The one exception is `plan compile`: when the classifier guessed full and the plan is small and safe',
+    );
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);

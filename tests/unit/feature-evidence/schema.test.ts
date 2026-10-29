@@ -52,6 +52,31 @@ describe('validateFeatureRecord', () => {
   });
 });
 
+describe('feature lane source and resize', () => {
+  const move = {
+    from: 'full',
+    to: 'graduated',
+    reason: 'the plan touches 2 files',
+    files: 2,
+    at: '2026-10-29T00:00:00.000Z',
+  };
+
+  it('accepts a lane source and a complete resize record', () => {
+    expect(
+      validateFeatureRecord({ ...feature(), lane_source: 'plan', lane_resized: move }),
+    ).toEqual([]);
+  });
+
+  it('rejects an unknown lane source and a resize missing a field', () => {
+    expect(validateFeatureRecord({ ...feature(), lane_source: 'guess' }).length).toBeGreaterThan(0);
+    const partial: Partial<typeof move> = { ...move };
+    delete partial.reason;
+    expect(validateFeatureRecord({ ...feature(), lane_resized: partial }).length).toBeGreaterThan(
+      0,
+    );
+  });
+});
+
 describe('validatePlanRecord', () => {
   it('accepts a built record', () => {
     expect(validatePlanRecord(plan())).toEqual([]);
