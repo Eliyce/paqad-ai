@@ -567,7 +567,7 @@ network, and starts no process.
   change opens. Any other workflow gets one status line with its own tokens instead of a band, and
   no workflow gets nothing. The band can be minimised, closed for the session or hidden in this
   project, and comes back with `/paqad show`; while it is out of the way and something waits on
-  you, its line turns amber and reads Needs you.
+  you, its line turns amber and reads Waiting for your answer.
 - **Live session state** (`runtime/claude-plugin/mod/live.ts`). The snapshot is an audit trail
   written at a few hook moments, so the mod keeps what is happening right now in a `live` atom
   fed by first-party events: `turn.start` and `turn.complete` on the main loop (a subagent turn
@@ -575,7 +575,7 @@ network, and starts no process.
   `AskUserQuestion` call or the mod's own rule-stop question while it is open, and a
   `tool.check` that asks with `approver: 'person'`. The next tool start clears a permission wait,
   so an auto-mode answer cannot leave it standing, and the end of the main turn clears all of it.
-- **Needs you** (`waitingOnHuman` in `runtime/claude-plugin/mod/attention.ts`) is the one
+- **Waiting for your answer** (`waitingOnHuman` in `runtime/claude-plugin/mod/attention.ts`) is the one
   definition every surface uses: a question on screen, a permission a person must answer, or a
   pending decision packet. A rule stop, a flag, a failed verdict, an inconclusive verdict or a
   paused change never means it. A rule-stop question that ends without Allow once writes the stop
@@ -620,7 +620,7 @@ network, and starts no process.
   longer list shows as many rows as fit and a last "+N more" row. A missing or unreadable
   packet, or one with no evidence, draws nothing and the question is answered as usual. paqad's
   own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
-- **The eight states** (`BAND_STATES`, first match wins): Needs you (`waitingOnHuman`),
+- **The eight states** (`BAND_STATES`, first match wins): Waiting for your answer (`waitingOnHuman`),
   Paused, Ready or Working when no change is in progress, Branch warning, Working (a stage runs),
   then the headline engine's row (Done, Needs your attention or Inconclusive). A verdict written before
   the current turn started does not lead while that turn runs, and no verdict leads while a stage

@@ -123,7 +123,7 @@ mini stage Svg of the lane's stages; `Box flexGrow`; dim footnote cost; `Ledger`
 
 One small row: footnote `Text` of `paqad` (semibold) + dim `   Closed for this session` or
 `   Hidden`; `Box flexGrow`; plain dim `Show`. When something waits on the person (a question, a
-permission or a pending decision) the words become coral `● Needs you`. `Show` reopens and
+permission or a pending decision) the words become coral `● Waiting for your answer`. `Show` reopens and
 un-minimises. Hide always stays until the person presses Show or runs `/paqad show`.
 
 ### Workflow band
