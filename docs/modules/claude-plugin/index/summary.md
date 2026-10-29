@@ -128,6 +128,10 @@ call, so a static reader sees it:
 - It never declares a name spelled like a hook parameter (`$`, `e` or `next`) anywhere else in
   the mod file, and a function takes `e` or `next` only when it is passed straight to `on(...)`
   or `.catch(...)`. The directory reads those names as hook parameters wherever they appear.
+- Its `tool.check` hook reads the event only as a member (`e.agentId`, never a cast or `e?.`),
+  hands it whole to `next`, and returns the `const` result of `await next(e)`. The directory
+  cannot read an event used any other way and blocks the plugin. `register-directory-shape.test.ts`
+  checks both this and the names rule above.
   `register.tsx` uses other names, and a scan of the parsed source test guards the rule.
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
