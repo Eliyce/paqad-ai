@@ -1389,7 +1389,7 @@ export const register: Register = (on) => {
     const verdict = await next(e);
     const decision = verdict.decision;
     await notePermission($, e, decision);
-    return verdict;
+    return next(e);
   }).catch(($, e, next) => next(e));
 
   on('session.append', async ($, e, next) => {
