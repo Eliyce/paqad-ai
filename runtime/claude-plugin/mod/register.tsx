@@ -7,8 +7,8 @@ import type {
   RenderElement,
   RenderNode,
   Timer,
+  ToolCheckDecision,
   ToolCheckInput,
-  ToolCheckResult,
 } from 'claude-code';
 
 import {
@@ -297,17 +297,17 @@ async function moveLive($: EngineInterface, step: (state: LiveState) => LiveStat
 async function notePermission(
   $: EngineInterface,
   check: ToolCheckInput,
-  verdict: ToolCheckResult,
+  decision: ToolCheckDecision,
 ): Promise<void> {
   const toolUseId = typeof check.tool_use_id === 'string' ? check.tool_use_id : null;
-  if (toolUseId !== null && verdict.decision === 'ask') askedCalls.add(toolUseId);
+  if (toolUseId !== null && decision === 'ask') askedCalls.add(toolUseId);
   if (!live) return;
   const agent = typeof check.agentId === 'string' && check.agentId !== '' ? check.agentId : null;
   if (agent !== null) foregroundAgents.agentSeen(agent);
   const foreground = agent !== null && foregroundAgents.isForeground(agent);
   await moveLive($, (state) =>
     permissionAsked(state, {
-      decision: verdict.decision,
+      decision,
       approver: check.approver,
       toolUseId,
       agent,
@@ -1386,8 +1386,10 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('tool.check', async ($, e, next) => {
-    await notePermission($, e, await next(e));
-    return next(e);
+    const verdict = await next(e);
+    const decision = verdict.decision;
+    await notePermission($, e, decision);
+    return verdict;
   }).catch(($, e, next) => next(e));
 
   on('session.append', async ($, e, next) => {
