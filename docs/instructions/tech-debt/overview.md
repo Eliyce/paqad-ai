@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M648Z6SK96WQDAS4Q40KFVF2](TD-01M648Z6SK96WQDAS4Q40KFVF2.md) (follow-up, low): High Table strip section cannot open the Ledger: Desktop refuses an Svg inside a Button
 - [TD-01M63TFESG8CJ1E6NGQV6BAMS5](TD-01M63TFESG8CJ1E6NGQV6BAMS5.md) (gap, low): HUD rules-override call runs paqad-ai from PATH, not the plugin's own bin
 - [TD-01M63PD28RRW7GX7HXEYW3F4E1](TD-01M63PD28RRW7GX7HXEYW3F4E1.md) (follow-up, medium): Fast-lane implementation-review asks for a review stage that never runs, and keeps stale machine findings
 - [TD-01M63C618EQBXCTPSNZZZ2FKFX](TD-01M63C618EQBXCTPSNZZZ2FKFX.md) (debt, low): Temp-root test helper copied across test files
