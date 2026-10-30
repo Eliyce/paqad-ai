@@ -70,7 +70,10 @@ One pass per transcript file, in file order, on each `user` and `assistant` reco
   `lint, type, format, build`, `git`, `waiting and polling` (`sleep`, `until`, `while`), else
   `read, search, other`. Thinking is `model thinking`.
 - Test runs: `paqad-ai checks run`, `pnpm ci`, `pnpm test:coverage`, and a test command naming no
-  `tests/` path, `.test.` file, directory or `-t` are whole-suite; the rest are targeted.
+  `tests/` path, `.test.` file, directory or `-t` are whole-suite; the rest are targeted. A
+  `paqad-ai checks run` whose tool result contains `reused green test run from` reused a green
+  run instead of running the suite, and counts as `reused`, apart from whole-suite and targeted
+  runs, so a reused run never hides or replaces a real whole-suite one.
 
 ## Aggregation
 
@@ -94,7 +97,8 @@ One pass per transcript file, in file order, on each `user` and `assistant` reco
 
 The JSON (`schema: paqad.speed-report/1`) holds `changes` (each with `change`, `title`, `lane`,
 `status` `measured` or `no transcript`, and for measured changes the window, `size`, the `*_ms`
-spans, `owner_wait` by category, `edit_gate`, `test_runs`, `categories` and `bad_lines`),
+spans, `owner_wait` by category, `edit_gate`, `test_runs` (`whole_suite`, `targeted`, `reused`),
+`categories` and `bad_lines`),
 `totals` per lane and `top_categories`. Every value is a number, a category name, a change id, a
 lane, a change title or a status word. Times are milliseconds.
 

@@ -44,6 +44,18 @@ looping inside them).
   (failing gate / AC), the last evidence, rounds used, and the one or two things
   a human must decide (open decision #4).
 
+## Running the checks again in a round
+
+Each round's "run checks" is `paqad-ai checks run`. Format and lint always run. Build and
+test are skipped only when nothing changed since a green run: the newest real run of that exact
+command passed on exactly the same files, with the same lockfile, the same Node version and the
+same build output. After a failed round and a fix, the recheck always runs for real, because the
+newest run of the command is the failed one. A report written for other files does not count:
+the completion gate reads it as Inconclusive and asks for `paqad-ai checks run` again. Agents
+run full suites through `paqad-ai checks run` (not the project's own test command) so a green
+run is recorded and the next identical round can reuse it, and run only the tests for the files
+they changed in between. Details: [check-runner](../verification/check-runner.md).
+
 ## Lane behaviour
 
 This *is* the lane behaviour: `fast` gets few rounds and the lightest loop;
