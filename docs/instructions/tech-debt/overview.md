@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M66PP4B448XAX7T93CP7KCD5](TD-01M66PP4B448XAX7T93CP7KCD5.md) (gap, low): Version-only PR skip never runs tests that read CHANGELOG.md, .changeset or the package version
 - [TD-01M66075TDSGVAN8817DTHCV2K](TD-01M66075TDSGVAN8817DTHCV2K.md) (gap, low): Completion gate tree identity 10 s limit can block large repos with a permanent unconfirmed verdict
 - [TD-01M6607570YQYTDDTS5HRVJCNE](TD-01M6607570YQYTDDTS5HRVJCNE.md) (gap, low): Changed-files format argv can exceed the cmd.exe line limit on Windows
 - [TD-01M66074KHFYCP02V7AAA6FGZX](TD-01M66074KHFYCP02V7AAA6FGZX.md) (gap, medium): Green-run reuse key ignores git-ignored inputs, non-node runtime versions, env and git-normalised content
