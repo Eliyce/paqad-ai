@@ -21,6 +21,8 @@ import {
   type SkillPackLoadFailedEvent,
 } from '@/skills/audit-events.js';
 import { SchemaValidator } from '@/validators/validator.js';
+import { tokenizeCommand } from '@/checks/command-chain.js';
+import { FILES_TOKEN } from '@/checks/constants.js';
 
 const KNOWN_PENTEST_CHECKS = new Set([
   'dependency-advisory-triage',
@@ -162,6 +164,7 @@ export class StackPackLoader {
       issues.push(...validateArchetypePack(manifest));
       issues.push(...validateTestRunners(manifest));
       issues.push(...validateBuildOutputs(manifest));
+      issues.push(...validateFormatChanged(manifest));
     }
 
     const validation: PackValidationResult = {
@@ -277,6 +280,30 @@ function validateArchetypePack(manifest: StackPackManifest): PackValidationIssue
     });
   }
 
+  return issues;
+}
+
+function validateFormatChanged(manifest: StackPackManifest): PackValidationIssue[] {
+  const issues: PackValidationIssue[] = [];
+  const seen = new Set<string>();
+  for (const entry of manifest.format_changed ?? []) {
+    if (seen.has(entry.default_command)) {
+      issues.push({
+        level: 'error',
+        path: '/format_changed',
+        message: `Duplicate format_changed default_command "${entry.default_command}"`,
+      });
+    }
+    seen.add(entry.default_command);
+    const placeholders = tokenizeCommand(entry.command).filter((token) => token === FILES_TOKEN);
+    if (placeholders.length !== 1 || entry.command.split(FILES_TOKEN).length !== 2) {
+      issues.push({
+        level: 'error',
+        path: '/format_changed',
+        message: `format_changed command "${entry.command}" must contain ${FILES_TOKEN} exactly once, as its own argument`,
+      });
+    }
+  }
   return issues;
 }
 

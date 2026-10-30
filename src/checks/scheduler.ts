@@ -1,4 +1,6 @@
 import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
+import type { CommandStep } from '@/checks/command-chain.js';
+import { FILES_TOKEN } from '@/checks/constants.js';
 import { runPool } from '@/core/run-pool.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
@@ -8,6 +10,7 @@ export interface ScheduledCommand {
   logical_command: string | null;
   command: string;
   stage: CommandStage;
+  files?: readonly string[];
 }
 
 export interface ScheduledCommandResult {
@@ -71,7 +74,8 @@ export async function runStages(
         invalid: `Unsupported shell syntax in mapped command: ${parsed.invalidToken}`,
       });
     }
-    const result = await runCommandChain(shell, parsed.steps, opts.cwd);
+    const steps = cmd.files ? withFiles(parsed.steps, cmd.files) : parsed.steps;
+    const result = await runCommandChain(shell, steps, opts.cwd);
     return finish({ exit_code: result.exitCode, stdout: result.stdout, stderr: result.stderr });
   };
 
@@ -92,4 +96,11 @@ export async function runStages(
   );
   for (const cmd of stage3) results.push(await runOne(cmd));
   return results;
+}
+
+function withFiles(steps: readonly CommandStep[], files: readonly string[]): CommandStep[] {
+  return steps.map((step) => ({
+    bin: step.bin,
+    args: step.args.flatMap((arg) => (arg === FILES_TOKEN ? [...files] : [arg])),
+  }));
 }

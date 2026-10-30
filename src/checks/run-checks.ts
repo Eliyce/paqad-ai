@@ -59,6 +59,7 @@ import {
 import type { ReusedCommand, RunHistoryRow } from '@/checks/run-history.js';
 import { computeBuildOutputFingerprint, resolveBuildOutputs } from '@/checks/build-output.js';
 import { ulid } from '@/core/ids/ulid.js';
+import { resolveFormatCommand } from '@/checks/format-changed.js';
 
 export interface ChecksRunResult {
   ran: boolean;
@@ -151,7 +152,19 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   let hasTest = false;
   for (const resolved of resolvedCommands) {
     if (resolved.command.trim().length === 0) continue;
-    if (resolved.logical_command === 'format' || resolved.logical_command === 'lint') {
+    if (resolved.logical_command === 'format' && profile?.stack_profile) {
+      const format = await resolveFormatCommand({
+        projectRoot,
+        frameworks: profile.stack_profile.frameworks,
+        formatCommand: resolved.command,
+      });
+      scheduled.push({
+        logical_command: 'format',
+        command: format.command,
+        stage: 1,
+        ...(format.files ? { files: format.files } : {}),
+      });
+    } else if (resolved.logical_command === 'format' || resolved.logical_command === 'lint') {
       scheduled.push({
         logical_command: resolved.logical_command,
         command: resolved.command,

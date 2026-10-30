@@ -242,6 +242,57 @@ describe('StackPackLoader', () => {
     },
   );
 
+  it('loads a valid format_changed and the shipped packs declare the pnpm and npm entries', () => {
+    const pack = new StackPackLoader().validatePack(
+      writeCheckPack('good-format', [
+        'format_changed:',
+        '  - default_command: pnpm format',
+        '    script: prettier --write .',
+        '    command: pnpm exec prettier --write --ignore-unknown {files}',
+      ]),
+    );
+    expect(pack.validation.valid).toBe(true);
+    for (const name of ['react', 'node-service']) {
+      const shipped = new StackPackLoader().validatePack(
+        join(getRuntimeRoot(), 'capabilities', 'coding', 'stacks', name),
+        'built-in',
+      );
+      expect(shipped.validation.valid).toBe(true);
+      expect(shipped.manifest.format_changed?.map((entry) => entry.default_command)).toEqual([
+        'pnpm format',
+        'npm run format',
+      ]);
+    }
+  });
+
+  it.each([
+    ['no {files} token', ['pnpm exec prettier --write .'], 'exactly once'],
+    ['two {files} tokens', ['pnpm exec prettier {files} {files}'], 'exactly once'],
+    ['a {files} inside another argument', ['pnpm exec prettier --x={files}'], 'exactly once'],
+    [
+      'a duplicate default_command',
+      ['pnpm exec prettier {files}', 'pnpm exec biome {files}'],
+      'Duplicate',
+    ],
+  ])('rejects format_changed with %s', (_, commands, message) => {
+    const pack = new StackPackLoader().validatePack(
+      writeCheckPack('bad-format', [
+        'format_changed:',
+        ...commands.flatMap((command) => [
+          '  - default_command: pnpm format',
+          '    script: prettier --write .',
+          `    command: ${command}`,
+        ]),
+      ]),
+    );
+    expect(pack.validation.valid).toBe(false);
+    expect(
+      pack.validation.issues.some(
+        (issue) => issue.path === '/format_changed' && issue.message.includes(message),
+      ),
+    ).toBe(true);
+  });
+
   it('fails when a file-based test runner omits its output path pattern', () => {
     const packRoot = join(projectRoot, '.paqad', 'packs', 'bad-runner');
     mkdirSync(join(packRoot, 'rules'), { recursive: true });

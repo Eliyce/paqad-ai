@@ -132,6 +132,13 @@ test_runners:
       mode: native
 build_outputs:
   - dist
+format_changed:
+  - default_command: pnpm format
+    script: prettier --write .
+    command: pnpm exec prettier --write --ignore-unknown {files}
+  - default_command: npm run format
+    script: prettier --write .
+    command: npx --no-install prettier --write --ignore-unknown {files}
 docs:
   conventions_template: rules/conventions.md
 module_health:
