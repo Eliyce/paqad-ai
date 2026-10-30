@@ -6,6 +6,8 @@ import fg from 'fast-glob';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReportForFeature } from '@/checks/report-target.js';
+import type { ChecksReport } from '@/checks/report-store.js';
+import { computeTreeIdentity } from '@/checks/tree-identity.js';
 import type { Lane } from '@/core/types/routing.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
@@ -29,7 +31,11 @@ import {
   loadChangeEvidence,
 } from '@/pipeline/change-evidence.js';
 import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
-import type { VerificationContext, VerificationOrigin } from '@/core/types/verification.js';
+import type {
+  ChecksReportStaleness,
+  VerificationContext,
+  VerificationOrigin,
+} from '@/core/types/verification.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 
@@ -76,6 +82,7 @@ export async function buildRepositoryVerificationContext(
   const checksReport = readChecksReportForFeature(projectRoot, dirName);
   const structuredTestResults =
     checksReport && checksReport.results.length > 0 ? checksReport.results : undefined;
+  const checksReportStale = checksReportStaleness(projectRoot, checksReport);
 
   const diskMap = await readTraceabilityMapSafely(projectRoot);
   const changeMap = await buildAndWriteChangeTraceabilityMap(
@@ -149,6 +156,7 @@ export async function buildRepositoryVerificationContext(
     documentation_files_changed: changedFiles.some((filePath) => isDocumentationFile(filePath)),
     stale_doc_targets: staleDocTargets,
     structured_test_results: structuredTestResults,
+    ...(checksReportStale ? { checks_report_stale: checksReportStale } : {}),
     ac_test_mapping_passed: acMapping.passed,
     ac_test_mapping_detail: acMapping.detail,
     ac_test_mapping_outcome: acMapping.outcome,
@@ -174,6 +182,20 @@ export async function buildRepositoryVerificationContext(
   };
 
   return { context, escalations };
+}
+
+export const CHECKS_FRESHNESS_TIMEOUT_MS = 10_000;
+
+export function checksReportStaleness(
+  projectRoot: string,
+  report: ChecksReport | null,
+  timeoutMs: number = CHECKS_FRESHNESS_TIMEOUT_MS,
+): ChecksReportStaleness | undefined {
+  const recorded = report?.tree?.digest;
+  if (typeof recorded !== 'string') return undefined;
+  const current = computeTreeIdentity(projectRoot, { timeoutMs });
+  if (!current) return 'unconfirmed';
+  return current.digest === recorded ? undefined : 'different-files';
 }
 
 const UNCHECKED_DOCUMENTATION_INPUTS: readonly string[] = [

@@ -8,6 +8,7 @@ import {
 } from '@/core/enterprise-policy.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type {
+  ChecksReportStaleness,
   VerificationContext,
   VerificationGate,
   VerificationOrigin,
@@ -287,7 +288,9 @@ export async function runRepositoryVerification(
     }
   }
 
-  const checksGate = checksEvidenceGate(context.structured_test_results);
+  const checksGate = checksEvidenceGate(context.structured_test_results, {
+    stale: context.checks_report_stale,
+  });
   if (checksGate) {
     const existingIndex = evidence.gates.findIndex((gate) => gate.name === 'code-tests-lint');
     if (existingIndex >= 0) {
@@ -326,7 +329,9 @@ export async function runRepositoryVerification(
     );
   }
   const checksVerified =
-    (context.structured_test_results?.length ?? 0) > 0 && context.code_tests_lint_passed;
+    (context.structured_test_results?.length ?? 0) > 0 &&
+    context.code_tests_lint_passed &&
+    !context.checks_report_stale;
 
   let changeMetrics: ChangeMetrics | null = null;
   if (isFeatureDev && resolveFrameworkConfig(context.project_root).features.metrics_enabled) {
@@ -833,13 +838,29 @@ export function stageEvidenceGate(
   };
 }
 
+export const STALE_CHECKS_DETAIL: Record<ChecksReportStaleness, string> = {
+  'different-files':
+    'Checks ran on different files than the ones in this change now. Run paqad-ai checks run again.',
+  unconfirmed: 'Checks could not confirm which files they ran on. Run paqad-ai checks run again.',
+};
+
 export function checksEvidenceGate(
   results: StructuredTestResult[] | undefined,
+  options: { stale?: ChecksReportStaleness } = {},
 ): VerificationEvidenceGate | null {
   if (!results || results.length === 0) {
     return null;
   }
   const name = 'code-tests-lint' as VerificationGate;
+  if (options.stale) {
+    return {
+      name,
+      status: 'inconclusive',
+      detail: STALE_CHECKS_DETAIL[options.stale],
+      remediation: 'Run `paqad-ai checks run` on the current files.',
+      failures: [],
+    };
+  }
   const failing = results.find((result) => result.summary.failed > 0 || result.summary.errored > 0);
   if (failing) {
     return {
