@@ -423,7 +423,8 @@ Why each one works the way it does, for the parts the code does not say.
   local tag changesets made does not matter for pushing, and creates the missing GitHub Releases, oldest
   first. `check` fails when the plugin lags npm `latest`. A failure to reach npm or a git remote
   fails the step rather than reading as "not published" or "tag missing". Tests in
-  `tests/unit/ci/release-sync.test.ts` run it against local bare remotes with fake `npm` and `gh`.
+  `tests/unit/ci/release-sync.*.test.ts` (one file per command, sharing
+  `release-sync-harness.ts`) run it against local bare remotes with fake `npm` and `gh`.
   The full command list is `state`, `tags`, `check`, `ci-green`, `prepublish` and `scope`;
   `ci-green` and `prepublish` are described under Release above, and `scope` under CI.
 - **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
