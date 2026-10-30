@@ -48,6 +48,7 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
     testing_recorded: false,
     tree: null,
     tree_unavailable_reason: null,
+    tree_after_run: null,
     run_id: 'RUN',
     lockfile_hash: null,
     node_version: 'v22.0.0',

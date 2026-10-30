@@ -116,8 +116,10 @@ install a package.
 10. **One report (Part E).** `checks.json` is `schema_version: 3`, **additive** — `passed`, `ran`,
    `results[]` keep their meaning, so every v1 and v2 reader keeps working (INV-6). Fields: `mode`,
    `commands[]`, `isolation_reruns`, `flaky_under_parallel`, `meaningful_green`, `critical_path`,
-   and since schema 3 the optional `tree` (the identity before the lookup on a reused run, after the
-   run on a real one), `tree_unavailable_reason` (why there is no `tree`), `run_id`,
+   and since schema 3 the optional `tree` (the identity taken after the format stage and before
+   any other command ran, on a reused run and on a real one alike), `tree_unavailable_reason` (why
+   there is no `tree`), `tree_after_run` (`moved` when the identity taken again after a real run
+   differs from `tree`, `unconfirmed` when it could not be taken), `run_id`,
    `lockfile_hash` and `node_version`; each command may carry `outcome: "reused"`, `reused_from`,
    `tree_digest` and `build_output_fingerprint`. Every reader of a command `outcome` compares it to
    `"inconclusive"` explicitly, so a reused command never reads as inconclusive. The feature report
@@ -152,7 +154,10 @@ limit, same helper and exclusions). On a different tree `code-tests-lint` reads 
 `Checks ran on different files than the ones in this change now. Run paqad-ai checks run again.`;
 when the current tree cannot be computed or the limit runs out it reads Inconclusive with
 `Checks could not confirm which files they ran on. Run paqad-ai checks run again.`. Either way the
-checks do not count as verified for the stage receipt. A report without a tree (schema 2, or
+checks do not count as verified for the stage receipt. A report whose `tree_after_run` is `moved`
+reads as ran on different files and one whose `tree_after_run` is `unconfirmed` as unconfirmed,
+whatever the current tree is: the files changed while the commands ran, so no single tree was
+tested. A report without a tree (schema 2, or
 written where no identity was possible) keeps today's verdict.
 
 When no command is mapped, or `checks run` was not run, there is no report:

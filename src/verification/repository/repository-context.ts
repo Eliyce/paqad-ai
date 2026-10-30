@@ -193,6 +193,8 @@ export function checksReportStaleness(
 ): ChecksReportStaleness | undefined {
   const recorded = report?.tree?.digest;
   if (typeof recorded !== 'string') return undefined;
+  if (report?.tree_after_run === 'moved') return 'different-files';
+  if (report?.tree_after_run === 'unconfirmed') return 'unconfirmed';
   const current = computeTreeIdentity(projectRoot, { timeoutMs });
   if (!current) return 'unconfirmed';
   return current.digest === recorded ? undefined : 'different-files';

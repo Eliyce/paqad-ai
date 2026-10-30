@@ -259,6 +259,12 @@ describe('checks report freshness against the current tree', () => {
     };
     expect(checksReportStaleness(root, report)).toBeUndefined();
     expect(checksReportStaleness(root, report, 0)).toBe('unconfirmed');
+    expect(checksReportStaleness(root, { ...report, tree_after_run: 'moved' })).toBe(
+      'different-files',
+    );
+    expect(checksReportStaleness(root, { ...report, tree_after_run: 'unconfirmed' })).toBe(
+      'unconfirmed',
+    );
     rmSync(join(root, '.git'), { recursive: true, force: true });
     expect(checksReportStaleness(root, report)).toBe('unconfirmed');
     expect(checksReportStaleness(root, null)).toBeUndefined();

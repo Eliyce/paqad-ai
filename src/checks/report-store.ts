@@ -17,6 +17,8 @@ export const CHECKS_DOC_TYPE = 'paqad.checks';
 
 const REPORT_HEADER_KEYS: ReadonlySet<string> = new Set([...ENVELOPE_HEADER_KEYS, 'generated_at']);
 
+export type ChecksTreeAfterRun = 'moved' | 'unconfirmed';
+
 export interface ChecksReportMode {
   parallel_commands: boolean;
   test_mode: 'native' | 'parallel' | 'sequential';
@@ -85,6 +87,7 @@ export interface ChecksReport extends Partial<Omit<EnvelopeHeader, 'schema_versi
   critical_path?: ChecksReportCriticalPath;
   tree?: TreeIdentity;
   tree_unavailable_reason?: string;
+  tree_after_run?: ChecksTreeAfterRun;
   run_id?: string;
   lockfile_hash?: string | null;
   node_version?: string;

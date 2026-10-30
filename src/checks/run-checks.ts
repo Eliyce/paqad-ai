@@ -43,6 +43,7 @@ import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
 import type {
   ChecksReport,
   ChecksReportCommand,
+  ChecksTreeAfterRun,
   ChecksReportCriticalPath,
   ChecksReportFlaky,
   ChecksReportIsolation,
@@ -81,6 +82,7 @@ export interface ChecksRunResult {
   testing_recorded: boolean;
   tree: TreeIdentity | null;
   tree_unavailable_reason: string | null;
+  tree_after_run: ChecksTreeAfterRun | null;
   run_id: string;
   lockfile_hash: string | null;
   node_version: string;
@@ -339,12 +341,12 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     { logical_command: null, duration_ms: 0 },
   );
 
-  let tree = before.identity;
-  let treeUnavailableReason = before.reason;
+  const tree = before.identity;
+  let treeAfterRun: ChecksTreeAfterRun | null = null;
   if (!reusedRuns && before.identity && rest.length > 0) {
     const after = identityOf(projectRoot);
-    tree = after.identity;
-    treeUnavailableReason = after.reason;
+    if (!after.identity) treeAfterRun = 'unconfirmed';
+    else if (after.identity.digest !== before.identity.digest) treeAfterRun = 'moved';
     const beforeDigest = before.identity.digest;
     const fingerprint = computeBuildOutputFingerprint(projectRoot, buildOutputs);
     for (const command of reportCommands) {
@@ -391,7 +393,8 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
       commands: reportCommands,
       meaningful_green: meaningfulGreen,
       run_id: runId,
-      tree: tree ?? before.identity,
+      tree: before.identity,
+      ...(treeAfterRun ? { tree_after_run: treeAfterRun } : {}),
       lockfile_hash: lockHash,
       node_version: nodeVersion,
       test_result: testResult,
@@ -422,7 +425,8 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     test_result: testResult,
     testing_recorded: testingRecorded,
     tree,
-    tree_unavailable_reason: tree ? null : treeUnavailableReason,
+    tree_unavailable_reason: tree ? null : before.reason,
+    tree_after_run: treeAfterRun,
     run_id: runId,
     lockfile_hash: lockHash,
     node_version: nodeVersion,
@@ -447,6 +451,7 @@ export function buildChecksReport(result: ChecksRunResult, generatedAt: string):
     ...(result.tree_unavailable_reason
       ? { tree_unavailable_reason: result.tree_unavailable_reason }
       : {}),
+    ...(result.tree_after_run ? { tree_after_run: result.tree_after_run } : {}),
     run_id: result.run_id,
     lockfile_hash: result.lockfile_hash,
     node_version: result.node_version,
@@ -795,6 +800,7 @@ function emptyResult(
     testing_recorded: testingRecorded,
     tree: null,
     tree_unavailable_reason: 'no checks command is mapped',
+    tree_after_run: null,
     run_id: runId,
     lockfile_hash: lockHash,
     node_version: nodeVersion,

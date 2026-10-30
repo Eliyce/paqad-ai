@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runChecks } from '@/checks/run-checks.js';
+import { buildChecksReport, runChecks } from '@/checks/run-checks.js';
 import type { RunChecksOptions } from '@/checks/run-checks.js';
 import { readRunHistory, runHistoryPath } from '@/checks/run-history.js';
 import { computeTreeIdentityResult } from '@/checks/tree-identity.js';
@@ -218,7 +218,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('marks a run whose tree moved while it ran as not reusable and reports the tree after the run', async () => {
+  it('marks a run whose tree moved while it ran as not reusable and reports the tree from before the run', async () => {
     const root = project();
     const before = await run(
       root,
@@ -226,12 +226,14 @@ describe('runChecks reuse of a green run on the same tree', () => {
     );
     expect(readRunHistory(root).every((row) => row.reusable === false)).toBe(true);
     const rowDigest = readRunHistory(root)[0]?.tree_digest;
-    expect(before.tree?.digest).not.toBe(rowDigest);
+    expect(before.tree?.digest).toBe(rowDigest);
+    expect(before.tree_after_run).toBe('moved');
+    expect(buildChecksReport(before, '2026-10-30T00:00:00.000Z').tree_after_run).toBe('moved');
     expect(before.commands.find((c) => c.logical_command === 'build')?.tree_digest).toBe(rowDigest);
     await expectReal(root);
   });
 
-  it('reports no tree and records nothing reusable when the identity fails after the run', async () => {
+  it('keeps the pre-run tree, flags it unconfirmed and records nothing reusable when the identity fails after the run', async () => {
     const root = project();
     let calls = 0;
     const result = await run(root, fakeShell(root), {
@@ -240,8 +242,9 @@ describe('runChecks reuse of a green run on the same tree', () => {
           ? computeTreeIdentityResult(projectRoot)
           : { identity: null, reason: 'git is not installed' },
     });
-    expect(result.tree).toBeNull();
-    expect(result.tree_unavailable_reason).toBe('git is not installed');
+    expect(result.tree?.digest).toMatch(/^[0-9a-f]+$/);
+    expect(result.tree_after_run).toBe('unconfirmed');
+    expect(result.tree_unavailable_reason).toBeNull();
     expect(readRunHistory(root).length).toBe(2);
     expect(readRunHistory(root).every((row) => !row.reusable)).toBe(true);
     await expectReal(root);
