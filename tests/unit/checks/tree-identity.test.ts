@@ -134,18 +134,21 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentity(root)!.digest).toBe(unstaged);
   });
 
-  it('AC-11: returns null when git write-tree fails, without touching the real index or leaving temp files', () => {
-    const root = repo();
-    const fake = fakeGit('if [ "$1" = "write-tree" ]; then echo "boom" >&2; exit 1; fi');
-    const indexPath = join(root, '.git/index');
-    const bytes = readFileSync(indexPath);
-    const temp = makeRoot();
-    const result = computeTreeIdentityResult(root, { gitBinary: fake, tempRoot: temp });
-    expect(result.identity).toBeNull();
-    expect(result.reason).toContain('git write-tree failed: boom');
-    expect(readFileSync(indexPath).equals(bytes)).toBe(true);
-    expect(readdirSync(temp)).toEqual([]);
-  });
+  it.skipIf(process.platform === 'win32')(
+    'AC-11: returns null when git write-tree fails, without touching the real index or leaving temp files',
+    () => {
+      const root = repo();
+      const fake = fakeGit('if [ "$1" = "write-tree" ]; then echo "boom" >&2; exit 1; fi');
+      const indexPath = join(root, '.git/index');
+      const bytes = readFileSync(indexPath);
+      const temp = makeRoot();
+      const result = computeTreeIdentityResult(root, { gitBinary: fake, tempRoot: temp });
+      expect(result.identity).toBeNull();
+      expect(result.reason).toContain('git write-tree failed: boom');
+      expect(readFileSync(indexPath).equals(bytes)).toBe(true);
+      expect(readdirSync(temp)).toEqual([]);
+    },
+  );
 
   it('AC-11: works inside a linked git worktree', () => {
     const root = repo();
@@ -190,20 +193,26 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentityResult(root, { nowMs: scripted([0, 0, 1e9]) })).toEqual(expected);
   });
 
-  it('returns null when a git step is killed at the time limit', () => {
-    const root = repo();
-    const fake = fakeGit('if [ "$1" = "add" ]; then exec sleep 5; fi');
-    expect(computeTreeIdentityResult(root, { gitBinary: fake, timeoutMs: 1_000 })).toEqual({
-      identity: null,
-      reason: 'the tree identity ran past its time limit',
-    });
-  });
+  it.skipIf(process.platform === 'win32')(
+    'returns null when a git step is killed at the time limit',
+    () => {
+      const root = repo();
+      const fake = fakeGit('if [ "$1" = "add" ]; then exec sleep 5; fi');
+      expect(computeTreeIdentityResult(root, { gitBinary: fake, timeoutMs: 1_000 })).toEqual({
+        identity: null,
+        reason: 'the tree identity ran past its time limit',
+      });
+    },
+  );
 
-  it('names the failing git step even when git prints nothing', () => {
-    const root = repo();
-    const fake = fakeGit('if [ "$1" = "add" ]; then exit 1; fi');
-    expect(computeTreeIdentityResult(root, { gitBinary: fake }).reason).toBe('git add failed');
-  });
+  it.skipIf(process.platform === 'win32')(
+    'names the failing git step even when git prints nothing',
+    () => {
+      const root = repo();
+      const fake = fakeGit('if [ "$1" = "add" ]; then exit 1; fi');
+      expect(computeTreeIdentityResult(root, { gitBinary: fake }).reason).toBe('git add failed');
+    },
+  );
 
   it.each([
     ['assume-unchanged', ['update-index', '--assume-unchanged', 'src/a.ts']],
