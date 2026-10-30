@@ -90,6 +90,11 @@ export const REVIEW_DIGEST_REFRESH_INSTRUCTION =
   'documentation sync while you worked are included. If that digest run fails, do not record ' +
   'the review; return blocked with the digest error.';
 
+export const FULL_SUITE_INSTRUCTION =
+  'For a full-suite run, use `paqad-ai checks run`, not the project\'s full test command, so ' +
+  'the green result is recorded and reused. For the inner loop, run only the tests for the ' +
+  'files you changed (for vitest: `vitest related <files>` or the file paths).';
+
 export const OUT_OF_SCOPE_FINDINGS_INSTRUCTION =
   'Out-of-scope findings: when you find a real problem the change will not fix (a bug next ' +
   'to the change, a shortcut you had to take, a limit you chose to keep), record it with ' +
@@ -203,6 +208,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Implement only the requested feature behavior and avoid unrelated refactors.',
+          FULL_SUITE_INSTRUCTION,
         ],
         required_inputs: ['approved spec', 'implementation sequence'],
         strictness: {
@@ -674,6 +680,7 @@ stages:
   development:
     instructions:
       - Implement only the requested feature behavior and avoid unrelated refactors.
+      - "${FULL_SUITE_INSTRUCTION}"
     required_inputs:
       - approved spec
       - implementation sequence

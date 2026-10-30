@@ -9,6 +9,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { FEATURE_DEVELOPMENT_ESCALATION_ACTIONS } from '@/core/types/feature-development-policy.js';
 import {
   defaultFeatureDevelopmentPolicy,
+  FULL_SUITE_INSTRUCTION,
   loadFeatureDevelopmentPolicy,
   OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
   renderDefaultFeatureDevelopmentPolicyYaml,
@@ -26,6 +27,23 @@ describe('feature development policy', () => {
 
     expect(result.policy).toEqual(defaultFeatureDevelopmentPolicy());
     expect(result.warnings).toEqual([]);
+  });
+
+  it('tells development to run the full suite through paqad-ai checks run in the default policy, its YAML and the workflow file', () => {
+    expect(FULL_SUITE_INSTRUCTION).toBe(
+      "For a full-suite run, use `paqad-ai checks run`, not the project's full test command, so the green result is recorded and reused. For the inner loop, run only the tests for the files you changed (for vitest: `vitest related <files>` or the file paths).",
+    );
+    expect(defaultFeatureDevelopmentPolicy().stages.development.instructions).toContain(
+      FULL_SUITE_INSTRUCTION,
+    );
+    const rendered = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
+      stages: { development: { instructions: string[] } };
+    };
+    expect(rendered.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
+    const workflow = YAML.parse(
+      readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
+    ) as { stages: { development: { instructions: string[] } } };
+    expect(workflow.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
   });
 
   it('defines ticket_intake as the first stage and delivery as the last stage', () => {
