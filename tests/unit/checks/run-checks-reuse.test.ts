@@ -250,6 +250,117 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
+  function laravelProject(): string {
+    const root = makeRoot();
+    initGitRepo(root, {
+      '.gitignore':
+        '.paqad/checks/\n.paqad/test-results/\n.paqad/project-profile.yaml\n.paqad/audit.log\n.paqad/flaky-tests/\n',
+      'composer.lock': JSON.stringify({ 'packages-dev': [{ name: 'brianium/paratest' }] }),
+      'tests/OkTest.php': '<?php\n',
+      '.paqad/project-profile.yaml':
+        [
+          'commands:',
+          '  test: mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/pest.xml',
+          '  test_single: php artisan test --filter="<pattern>" --log-junit .paqad/test-results/pest.xml',
+          '  test_parallel: mkdir -p .paqad/test-results && php artisan test --parallel --processes=<processes> --log-junit .paqad/test-results/pest.xml',
+          'stack_profile:',
+          '  frameworks: [laravel]',
+          '  traits: [pest]',
+          '  languages: []',
+          '  runtimes: []',
+          'testing:',
+          '  runner_id: pest',
+          '  parallel: available',
+          '  detected_by: script',
+          '  recorded_at: 2026-09-11T00:00:00.000Z',
+        ].join('\n') + '\n',
+    });
+    commitAll(root);
+    return root;
+  }
+
+  const PASSING_JUNIT = Array.from(
+    { length: 3 },
+    (_, i) => `<testcase name="ok ${i}" classname="C" file="tests/OkTest.php" line="1"/>`,
+  ).join('');
+
+  function junit(cases: string): string {
+    return `<?xml version="1.0"?><testsuites><testsuite name="F">${cases}</testsuite></testsuites>`;
+  }
+
+  function phpShell(
+    root: string,
+    respond: (args: string[]) => { xml: string | null; exit: number },
+  ) {
+    const calls: string[] = [];
+    const shell: FakeShell = {
+      calls,
+      async run(bin, args) {
+        calls.push([bin, ...args].join(' '));
+        if (bin !== 'php') return { stdout: '', stderr: '', exitCode: 0 };
+        const { xml, exit } = respond(args);
+        const outPath = args[args.indexOf('--log-junit') + 1]!;
+        if (xml) writeRepoFile(root, outPath, xml);
+        return { stdout: '', stderr: exit === 0 ? '' : 'boom', exitCode: exit };
+      },
+    };
+    return shell;
+  }
+
+  it('AC-5: never reuses a run that fell back from a failed parallel harness', async () => {
+    const root = laravelProject();
+    const first = await run(
+      root,
+      phpShell(root, (args) =>
+        args.includes('--parallel')
+          ? { xml: null, exit: 1 }
+          : { xml: junit(PASSING_JUNIT), exit: 0 },
+      ),
+      { osFacts: { availableParallelism: 12, totalmem: 64 * GiB } },
+    );
+    expect(first.passed).toBe(true);
+    expect(first.mode.fallback_reason).toMatch(/^harness-failure:/);
+    expect(first.tree_after_run).toBeNull();
+    const row = readRunHistory(root).find((entry) => entry.logical_command === 'test');
+    expect(row).toMatchObject({ passed: true, reusable: false });
+    const again = phpShell(root, () => ({ xml: junit(PASSING_JUNIT), exit: 0 }));
+    expect(
+      (await run(root, again, { osFacts: { availableParallelism: 12, totalmem: 64 * GiB } }))
+        .reused,
+    ).toBe(0);
+    expect(again.calls.some((call) => call.startsWith('php artisan test'))).toBe(true);
+  });
+
+  it('AC-5: never reuses a run whose failure passed when re-run alone (flaky, recovered)', async () => {
+    const root = laravelProject();
+    const flaky = '<testcase name="flaky one" classname="C" file="tests/FlakyTest.php" line="7">';
+    const padding = Array.from(
+      { length: 30 },
+      (_, i) => `<testcase name="ok ${i}" classname="C" file="tests/OkTest.php" line="1"/>`,
+    ).join('');
+    const shell = phpShell(root, (args) =>
+      args.includes('--filter=flaky one')
+        ? { xml: junit(`${flaky}</testcase>`), exit: 0 }
+        : { xml: junit(`${flaky}<failure>crowd</failure></testcase>${padding}`), exit: 1 },
+    );
+    const first = await run(root, shell, {
+      osFacts: { availableParallelism: 12, totalmem: 64 * GiB },
+      flakyMode: 'warn',
+    });
+    expect(first.passed).toBe(true);
+    expect(first.recovered).toBe(1);
+    expect(first.tree_after_run).toBeNull();
+    const row = readRunHistory(root).find((entry) => entry.logical_command === 'test');
+    expect(row).toMatchObject({ passed: true, reusable: false });
+    const again = phpShell(root, () => ({ xml: junit(PASSING_JUNIT), exit: 0 }));
+    const second = await run(root, again, {
+      osFacts: { availableParallelism: 12, totalmem: 64 * GiB },
+      flakyMode: 'warn',
+    });
+    expect(second.reused).toBe(0);
+    expect(again.calls.some((call) => call.startsWith('php artisan test'))).toBe(true);
+  });
+
   it('runs for real on a different Node version, command string or lockfile hash', async () => {
     const root = project();
     await seedGreen(root);

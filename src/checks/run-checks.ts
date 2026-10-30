@@ -370,8 +370,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
           candidate.command === command.command &&
           candidate.logical_command === command.logical_command,
       )!;
-      const commandPassed =
-        command.logical_command === 'test' ? ran.passed && blocking === 0 : ran.passed;
+      const commandPassed = command.logical_command === 'test' ? blocking === 0 : ran.passed;
       return {
         run_id: runId,
         logical_command: command.logical_command,
