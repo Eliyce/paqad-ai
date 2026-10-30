@@ -1,0 +1,54 @@
+{
+  "id": "D-01M66H8RNV5YC62CBCJXXRDBFS",
+  "category": "intake.requirement",
+  "title": "Does a check that passed only on a re-run count as proof of a green tree?",
+  "context": "The publish check (ci-green) and the CI skip both read the required checks on the PR head. If a shard failed and passed when re-run, GitHub reports the newest result as success. The experts' rules only count the newest result; the issue does not say.",
+  "options": [
+    {
+      "option_key": "newest",
+      "label": "The newest passing run counts, and the earlier failure is written into the release log (recommended)",
+      "one_line_preview": "The newest passing run counts, and the earlier failure is written into the release log (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "newest-silent",
+      "label": "The newest passing run counts, with nothing logged",
+      "one_line_preview": "The newest passing run counts, with nothing logged",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "any-failure",
+      "label": "Any failed attempt on that commit blocks the release and the skip",
+      "one_line_preview": "Any failed attempt on that commit blocks the release and the skip",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "newest",
+  "created_at": "2026-10-30T13:51:25.883Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "newest",
+  "rationale": "Owner picked newest passing counts, earlier failure logged",
+  "resolved_at": "2026-10-30T13:55:57.577Z",
+  "decision_id": "D-01M66H8RNV5YC62CBCJXXRDBFS",
+  "fingerprint": "sha256:e7c66a1b27b1b312c09be86a7ee14197d5b4e8bf8f0b771a760cb5d1ea06ff7e",
+  "question": "Does a check that passed only on a re-run count as proof of a green tree?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-13T13:51:25.883Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "newest",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:57.577Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked newest passing counts, earlier failure logged"
+  }
+}

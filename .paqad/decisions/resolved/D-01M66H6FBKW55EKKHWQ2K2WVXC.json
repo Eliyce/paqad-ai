@@ -1,0 +1,48 @@
+{
+  "id": "D-01M66H6FBKW55EKKHWQ2K2WVXC",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new scope job in .github/workflows/ci.yml",
+  "context": "Chief architect: the two claims agree (narrow read permissions on the job only, never workflow-wide); this is a pick only because a must-level security finding cannot be merged by the chair. The security claim is recommended because it also carries the pull_request trigger rule and the fail-to-full-matrix rule on a lookup error; the architect's job-level placement still applies through EX-devops-engineer-3\n\nTarget: new scope job in .github/workflows/ci.yml\n- security-auditor: the scope job runs under the existing permissions: contents: read plus only checks: read and pull-requests: read, keeps the pull_request trigger (never pull_request_target), and on any API error or rate limit it outputs release_only=false so the full matrix runs\n- application-architect: the workflow permissions today are contents: read only; the scope job and the release ci-green step need pull-requests: read and checks: read (or statuses: read) on the job, not widened workflow-wide\n\n[expert-conflict-fork:839e30521f81bcea]",
+  "options": [
+    {
+      "option_key": "the-scope-job-runs-under-the-existing-pe",
+      "label": "the scope job runs under the existing permissions: contents: read plus only checks: read and pull-requests: read, keeps the pull_request trigger (never pull_request_target), and on any API error or rate limit it outputs release_only=false so the full matrix runs — security-auditor",
+      "one_line_preview": "the scope job runs under the existing permissions: contents: read plus only checks: read and pull-requests: read, keeps the pull_request trigger (never pull_request_target), and on any API error or rate limit it outputs release_only=false so the full matrix runs — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-workflow-permissions-today-are-conte",
+      "label": "the workflow permissions today are contents: read only; the scope job and the release ci-green step need pull-requests: read and checks: read (or statuses: read) on the job, not widened workflow-wide — application-architect",
+      "one_line_preview": "the workflow permissions today are contents: read only; the scope job and the release ci-green step need pull-requests: read and checks: read (or statuses: read) on the job, not widened workflow-wide — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-scope-job-runs-under-the-existing-pe",
+  "created_at": "2026-10-30T13:50:10.804Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "the-scope-job-runs-under-the-existing-pe",
+  "rationale": "Owner picked read + safe trigger",
+  "resolved_at": "2026-10-30T13:55:54.297Z",
+  "decision_id": "D-01M66H6FBKW55EKKHWQ2K2WVXC",
+  "fingerprint": "sha256:4f3ff612d20630f38e3832f6dab851b6ef4dd900bf5cdbcb89c1b58cd6ed1335",
+  "question": "Experts disagree on new scope job in .github/workflows/ci.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-29T13:50:10.804Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-scope-job-runs-under-the-existing-pe",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:54.297Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked read + safe trigger"
+  }
+}

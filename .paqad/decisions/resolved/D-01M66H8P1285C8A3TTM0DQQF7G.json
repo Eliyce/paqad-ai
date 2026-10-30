@@ -1,0 +1,47 @@
+{
+  "id": "D-01M66H8P1285C8A3TTM0DQQF7G",
+  "category": "spec.change",
+  "title": "Files still over 30 s on macOS after the orchestrator split",
+  "context": "Done-when says no test file over 30 s on macOS. In a full run on this machine (the measure we would use), these files are still over 30 s after Part A: matrix.g1-g5 (32-40 s), bundle-file-set.integration (37 s), kernel/rule-gate-budget (33 s), checks/run-checks-reuse (32 s), e2e/stop-deferral-security (32 s). Part A as written only splits orchestrator.test.ts.",
+  "options": [
+    {
+      "option_key": "followup",
+      "label": "Split only orchestrator.test.ts now; open a follow-up issue under #758 for the rest (recommended)",
+      "one_line_preview": "Split only orchestrator.test.ts now; open a follow-up issue under #758 for the rest (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "widen",
+      "label": "Split all of them in this PR in the same pattern",
+      "one_line_preview": "Split all of them in this PR in the same pattern",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "followup",
+  "created_at": "2026-10-30T13:51:23.171Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "followup",
+  "rationale": "Owner picked a follow-up issue under #758",
+  "resolved_at": "2026-10-30T13:55:56.306Z",
+  "decision_id": "D-01M66H8P1285C8A3TTM0DQQF7G",
+  "fingerprint": "sha256:cc54b758b2e47ee79decb7356bf6a01e9244b58fda13774719d82f267c5c35a3",
+  "question": "Files still over 30 s on macOS after the orchestrator split",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-29T13:51:23.171Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "followup",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:56.306Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked a follow-up issue under #758"
+  }
+}

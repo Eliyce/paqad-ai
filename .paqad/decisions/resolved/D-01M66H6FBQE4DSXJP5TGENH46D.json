@@ -1,0 +1,48 @@
+{
+  "id": "D-01M66H6FBQE4DSXJP5TGENH46D",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on gate job in .github/workflows/ci.yml",
+  "context": "Chief architect: the two claims agree that a skipped matrix is allowed only when it chains back to a real full test run on an identical tree; this is a pick only because a must-level security finding cannot be merged by the chair. The security claim is recommended because it adds the negative tests (base not green, tree mismatch); the architect's gate rule is already carried by EX-devops-engineer-2, EX-devops-engineer-6 and EX-user-flow-writer-6\n\nTarget: gate job in .github/workflows/ci.yml\n- security-auditor: a gate that went green because the matrix was skipped (D3, D4) is a derived green; it is only sound because each skip re-proves an earlier green tree, so a test must show a base that is not green, or a tree mismatch, never yields a skipped matrix\n- application-architect: gate reports success with test and merge skipped only when scope proved an identical green tree (D4) or a version-only diff on a green base (D3); since ci-green trusts the gate names, every skip path must chain back to a real full test run, never to another skip without a tree match\n\n[expert-conflict-fork:e4328d81fe196207]",
+  "options": [
+    {
+      "option_key": "a-gate-that-went-green-because-the-matri",
+      "label": "a gate that went green because the matrix was skipped (D3, D4) is a derived green; it is only sound because each skip re-proves an earlier green tree, so a test must show a base that is not green, or a tree mismatch, never yields a skipped matrix — security-auditor",
+      "one_line_preview": "a gate that went green because the matrix was skipped (D3, D4) is a derived green; it is only sound because each skip re-proves an earlier green tree, so a test must show a base that is not green, or a tree mismatch, never yields a skipped matrix — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "gate-reports-success-with-test-and-merge",
+      "label": "gate reports success with test and merge skipped only when scope proved an identical green tree (D4) or a version-only diff on a green base (D3); since ci-green trusts the gate names, every skip path must chain back to a real full test run, never to another skip without a tree match — application-architect",
+      "one_line_preview": "gate reports success with test and merge skipped only when scope proved an identical green tree (D4) or a version-only diff on a green base (D3); since ci-green trusts the gate names, every skip path must chain back to a real full test run, never to another skip without a tree match — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-gate-that-went-green-because-the-matri",
+  "created_at": "2026-10-30T13:50:10.807Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "a-gate-that-went-green-because-the-matri",
+  "rationale": "Owner picked derived green with negative tests",
+  "resolved_at": "2026-10-30T13:55:54.965Z",
+  "decision_id": "D-01M66H6FBQE4DSXJP5TGENH46D",
+  "fingerprint": "sha256:f7a45b0e0a997474a09096b997e6ada414874b6b58fbe49dcc6facffc11d0b67",
+  "question": "Experts disagree on gate job in .github/workflows/ci.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-29T13:50:10.807Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-gate-that-went-green-because-the-matri",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:54.965Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked derived green with negative tests"
+  }
+}

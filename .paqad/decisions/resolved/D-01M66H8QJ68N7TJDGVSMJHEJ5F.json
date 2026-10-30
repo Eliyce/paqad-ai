@@ -1,0 +1,47 @@
+{
+  "id": "D-01M66H8QJ68N7TJDGVSMJHEJ5F",
+  "category": "workflow-or-tool",
+  "title": "Three small calls, accepted together",
+  "context": "(a) A patch changeset for this tooling change, following #714 and #728, so a release happens and the new release timeline can be measured. (b) Shard timings for darwin come from this PR's macOS CI shards, not the local run, because the sequencer only balances CI shards. (c) The CI scope job's output is named skip_matrix (with skip_reason) instead of release_only, because it covers both the version PR and the main push.",
+  "options": [
+    {
+      "option_key": "accept",
+      "label": "Accept all three (recommended)",
+      "one_line_preview": "Accept all three (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "adjust",
+      "label": "Change one or more (say which)",
+      "one_line_preview": "Change one or more (say which)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "accept",
+  "created_at": "2026-10-30T13:51:24.744Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "accept",
+  "rationale": "Owner accepted all three",
+  "resolved_at": "2026-10-30T13:55:56.943Z",
+  "decision_id": "D-01M66H8QJ68N7TJDGVSMJHEJ5F",
+  "fingerprint": "sha256:bd388b95b0861178b031e9cb5f3dc0bb0982439c80f9e387baf890bf55311bc7",
+  "question": "Three small calls, accepted together",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-06T13:51:24.744Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "accept",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:56.943Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted all three"
+  }
+}
