@@ -54,11 +54,6 @@ jobs:
       - name: Upgrade npm (Trusted Publishing needs npm >= 11.5.1)
         run: npm install -g "npm@>=11.5.1 <12"
 
-      - name: Build
-        run: pnpm run build
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
       - name: Prove CI is green on this tree
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,6 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Read what npm and the plugin repo have
         id: published

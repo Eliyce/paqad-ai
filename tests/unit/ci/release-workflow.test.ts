@@ -163,6 +163,19 @@ describe('the release workflow publishes the plugin', () => {
     });
   });
 
+  it('AC-17: builds once, inside pnpm run release, and the plugin job keeps its own build', () => {
+    expect(release.steps.map((step) => step.name)).not.toContain('Build');
+    expect(release.steps.map((step) => step.run ?? '').join('\n')).not.toContain('pnpm run build');
+    const changesets = release.steps.find((step) => step.id === 'changesets')!;
+    expect(changesets.with?.publish).toBe('pnpm run release');
+    expect(changesets.env?.NODE_OPTIONS).toBe('--max-old-space-size=4096');
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts.release).toBe('pnpm run build && changeset publish');
+    expect(publish.steps.find((step) => step.name === 'Build')?.run).toBe('pnpm run build');
+  });
+
   it('builds the plugin from the released commit', () => {
     const checkout = publish.steps.find((step) => step.uses?.startsWith('actions/checkout'));
     expect(checkout?.with).toEqual({ ref: '${{ needs.release.outputs.sha }}' });
