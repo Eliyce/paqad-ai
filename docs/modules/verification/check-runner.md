@@ -84,7 +84,8 @@ install a package.
    a passed real outcome and, for test, a structured result with counts. A build also needs the
    pack's `build_outputs` folders (react and node-service declare `dist`): every folder must exist
    and the fingerprint of their files (sorted relative path, size and mtime, hashed) must equal the
-   one recorded after the real green build. If any wanted command fails this, every non-stage-1
+   one recorded on the green build command when its real run ended (after every command of that
+   run, test included, had finished). If any wanted command fails this, every non-stage-1
    command runs for real: a report never mixes reused and real ones. A reused command is reported
    with `passed: true`, `exit_code: 0`, `duration_ms: 0`, `outcome: "reused"`, `reused_from` (the
    real run's start time) and `tree_digest`; a reused test carries the original structured result
@@ -190,9 +191,10 @@ The reasons below are not obvious from the code in `src/checks/` and are not sta
   to no steps and is skipped. The first non-zero exit stops the chain and becomes its exit code.
 - **`build-output.ts`.** The tree identity leaves out git-ignored files, and `dist` is one, while
   tests in a project like this one spawn the built CLI. Reusing a build is only safe when its output
-  is still the output the green build left, so the fingerprint reads the files' size and mtime
-  (not their content, which would cost as much as hashing the build) right after the real run and
-  again before a reuse. A pack that names no build output, or a missing folder, makes build and
+  is still the output the green run left, so the fingerprint reads the files' size and mtime
+  (not their content, which would cost as much as hashing the build) when the real run ends, after
+  every command of it finished, and again before a reuse. Taking it at the end rather than right
+  after build means a test that rewrites the build output is fingerprinted as it left the folder. A pack that names no build output, or a missing folder, makes build and
   test run for real.
 - **`constants.ts`.** The plan resolver, scheduler, re-run verdict and report share one set of
   numbers, because a second copy would silently move the quality bar.

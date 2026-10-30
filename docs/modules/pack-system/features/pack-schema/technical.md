@@ -20,7 +20,7 @@ Source directories owned by this feature:
   unknown top-level key is an error), then by the checks in `src/packs/loader.ts`. The manifest
   type is `StackPackManifest` in `src/core/types/pack.ts`.
 - `build_outputs` (optional, list of strings): the project-relative folders the pack's build
-  writes. `paqad-ai checks run` fingerprints their files after a green build and reuses a build
+  writes. `paqad-ai checks run` fingerprints their files when a real run with a green build ends and reuses a build
   only while the fingerprint matches (see [`check-runner`](../../../verification/check-runner.md)).
   The loader reports an error for an absolute path, a drive-letter path or a path with a `..`
   segment. The react and node-service packs declare `dist`.
