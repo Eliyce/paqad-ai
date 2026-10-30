@@ -255,6 +255,10 @@
         "git_window_days": { "type": "integer", "minimum": 1, "maximum": 365 }
       }
     },
+    "build_outputs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "visual_evidence": {
       "type": "object",
       "additionalProperties": false,

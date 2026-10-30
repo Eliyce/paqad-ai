@@ -161,6 +161,7 @@ export class StackPackLoader {
       issues.push(...validatePentestChecks(manifest));
       issues.push(...validateArchetypePack(manifest));
       issues.push(...validateTestRunners(manifest));
+      issues.push(...validateBuildOutputs(manifest));
     }
 
     const validation: PackValidationResult = {
@@ -277,6 +278,21 @@ function validateArchetypePack(manifest: StackPackManifest): PackValidationIssue
   }
 
   return issues;
+}
+
+function validateBuildOutputs(manifest: StackPackManifest): PackValidationIssue[] {
+  return (manifest.build_outputs ?? [])
+    .filter((folder) => !isProjectRelativePath(folder))
+    .map((folder) => ({
+      level: 'error' as const,
+      path: '/build_outputs',
+      message: `Build output "${folder}" must be a project-relative folder without ".."`,
+    }));
+}
+
+function isProjectRelativePath(folder: string): boolean {
+  const normalized = folder.replace(/\\/g, '/');
+  return !/^([A-Za-z]:|\/)/.test(normalized) && !normalized.split('/').includes('..');
 }
 
 function validateTestRunners(manifest: StackPackManifest): PackValidationIssue[] {

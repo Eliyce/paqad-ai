@@ -148,6 +148,7 @@ export interface StackPackManifest {
     frameworks?: StackPackTestingFramework[];
   };
   test_runners?: StackPackTestRunner[];
+  build_outputs?: string[];
   docs?: StackPackDocsManifest;
   rag?: StackPackRagManifest;
   module_health?: StackPackModuleHealthManifest;

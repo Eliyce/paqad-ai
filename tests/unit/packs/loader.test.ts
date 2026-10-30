@@ -191,6 +191,57 @@ describe('StackPackLoader', () => {
     }
   });
 
+  function writeCheckPack(name: string, extra: string[]): string {
+    const packRoot = join(projectRoot, '.paqad', 'packs', name);
+    mkdirSync(join(packRoot, 'rules'), { recursive: true });
+    writeFileSync(join(packRoot, 'rules', 'conventions.md'), '# conventions\n');
+    writeFileSync(
+      join(packRoot, 'pack.yaml'),
+      [
+        `name: ${name}`,
+        'display_name: Check Pack',
+        'ecosystem: node',
+        'version: 1.0.0',
+        'description: Check fields',
+        'maintainer: test',
+        'detection:',
+        '  manifests:',
+        '    - file: package.json',
+        `      packages: [${name}]`,
+        ...extra,
+        'docs:',
+        '  conventions_template: rules/conventions.md',
+      ].join('\n'),
+    );
+    return packRoot;
+  }
+
+  it('loads valid build_outputs and the shipped react and node-service packs declare dist', () => {
+    const pack = new StackPackLoader().validatePack(
+      writeCheckPack('good-outputs', ['build_outputs:', '  - dist', '  - packages/web/build']),
+    );
+    expect(pack.validation.valid).toBe(true);
+    expect(pack.manifest.build_outputs).toEqual(['dist', 'packages/web/build']);
+    for (const name of ['react', 'node-service']) {
+      const shipped = new StackPackLoader().validatePack(
+        join(getRuntimeRoot(), 'capabilities', 'coding', 'stacks', name),
+        'built-in',
+      );
+      expect(shipped.manifest.build_outputs).toEqual(['dist']);
+    }
+  });
+
+  it.each(['/abs/dist', 'C:\\dist', '../dist', 'out/../../dist', 'out\\..\\x'])(
+    'rejects the build output %s',
+    (folder) => {
+      const pack = new StackPackLoader().validatePack(
+        writeCheckPack('bad-outputs', ['build_outputs:', `  - '${folder}'`]),
+      );
+      expect(pack.validation.valid).toBe(false);
+      expect(pack.validation.issues.some((issue) => issue.path === '/build_outputs')).toBe(true);
+    },
+  );
+
   it('fails when a file-based test runner omits its output path pattern', () => {
     const packRoot = join(projectRoot, '.paqad', 'packs', 'bad-runner');
     mkdirSync(join(packRoot, 'rules'), { recursive: true });

@@ -130,6 +130,8 @@ test_runners:
     single_test_selector: file
     parallel:
       mode: native
+build_outputs:
+  - dist
 docs:
   conventions_template: rules/conventions.md
 module_health:

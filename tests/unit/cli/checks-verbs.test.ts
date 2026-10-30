@@ -46,6 +46,12 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
     test_total: 8998,
     parallel_failures: 0,
     testing_recorded: false,
+    tree: null,
+    tree_unavailable_reason: null,
+    run_id: 'RUN',
+    lockfile_hash: null,
+    node_version: 'v22.0.0',
+    reused: 0,
     test_result: {
       schema_version: '1.0.0',
       summary: {
@@ -106,6 +112,56 @@ describe('renderReceipt', () => {
     expect(renderReceipt(withFlaky, 'fail').join('\n')).toContain(
       'checks_flaky_under_parallel=fail',
     );
+  });
+
+  it('prints one reused line per reused command, with the test count only when it is readable', () => {
+    const reusedFrom = '2026-01-01T09:05:00.000Z';
+    const at = new Date(reusedFrom);
+    const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+    const reused = {
+      exit_code: 0,
+      passed: true,
+      started_at: '',
+      ended_at: '',
+      duration_ms: 0,
+      outcome: 'reused' as const,
+      reused_from: reusedFrom,
+      tree_digest: 'a'.repeat(40),
+    };
+    const result = baseResult({
+      duration_ms: 13000,
+      commands: [
+        { ...reused, logical_command: 'build', command: 'pnpm build', stage: 2 },
+        { ...reused, logical_command: 'test', command: 'pnpm test', stage: 3 },
+        { ...reused, logical_command: null, command: 'make it', stage: 2, reused_from: 'nope' },
+      ],
+    });
+    const lines = renderReceipt(result, 'warn');
+    expect(lines[0]).toContain('checks green');
+    expect(lines).toContain(
+      `> - 🟢 reused green build run from ${hhmm} (same files, same command)`,
+    );
+    expect(lines).toContain(
+      `> - 🟢 reused green test run from ${hhmm} (same files, same command): 8998 tests`,
+    );
+    expect(lines).toContain(
+      '> - 🟢 reused green make it run from earlier (same files, same command)',
+    );
+
+    const plain = renderReceipt(
+      baseResult({
+        commands: [{ ...reused, logical_command: 'test', command: 'pnpm test', stage: 3 }],
+        test_result: {
+          ...baseResult({}).test_result!,
+          parse_metadata: {
+            ...baseResult({}).test_result!.parse_metadata,
+            parse_strategy: 'plain-text-fallback',
+          },
+        },
+      }),
+      'warn',
+    );
+    expect(plain).toContain(`> - 🟢 reused green test run from ${hhmm} (same files, same command)`);
   });
 
   it('a passing run with no countable tests says count unavailable, never 0 tests', () => {

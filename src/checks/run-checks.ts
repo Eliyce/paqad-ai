@@ -39,13 +39,26 @@ import {
 } from '@/core/types/test-output.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
+import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
 import type {
+  ChecksReport,
   ChecksReportCommand,
   ChecksReportCriticalPath,
   ChecksReportFlaky,
   ChecksReportIsolation,
   ChecksReportMode,
 } from '@/checks/report-store.js';
+import { computeTreeIdentityResult } from '@/checks/tree-identity.js';
+import type { TreeIdentity, TreeIdentityResult } from '@/checks/tree-identity.js';
+import {
+  appendRunHistory,
+  findReusableRuns,
+  readRunHistory,
+  writeRunSnapshot,
+} from '@/checks/run-history.js';
+import type { ReusedCommand, RunHistoryRow } from '@/checks/run-history.js';
+import { computeBuildOutputFingerprint, resolveBuildOutputs } from '@/checks/build-output.js';
+import { ulid } from '@/core/ids/ulid.js';
 
 export interface ChecksRunResult {
   ran: boolean;
@@ -65,6 +78,12 @@ export interface ChecksRunResult {
   parallel_failures: number;
   test_result: StructuredTestResult | null;
   testing_recorded: boolean;
+  tree: TreeIdentity | null;
+  tree_unavailable_reason: string | null;
+  run_id: string;
+  lockfile_hash: string | null;
+  node_version: string;
+  reused: number;
 }
 
 export interface RunChecksOptions {
@@ -77,6 +96,9 @@ export interface RunChecksOptions {
   checksParallel?: boolean;
   checksMaxProcesses?: number;
   flakyMode?: ChecksFlakyMode;
+  reuse?: boolean;
+  treeIdentity?: (projectRoot: string) => TreeIdentityResult;
+  nodeVersion?: string;
 }
 
 const EMPTY_ISOLATION: ChecksReportIsolation = {
@@ -147,17 +169,49 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     }
   }
 
-  if (scheduled.length === 0) return emptyResult(warnings, checksParallel, testingRecorded);
+  const runId = ulid();
+  const nodeVersion = options.nodeVersion ?? process.version;
+  const frameworks = profile?.stack_profile?.frameworks ?? null;
+  const lockHash = frameworks
+    ? (lockfileHash(projectRoot, resolvePackageEcosystem(frameworks, projectRoot)) ?? null)
+    : null;
+  const identityOf = options.treeIdentity ?? ((root: string) => computeTreeIdentityResult(root));
 
-  if (runner) deleteRunnerOutput(projectRoot, runner);
+  if (scheduled.length === 0) {
+    return emptyResult(warnings, checksParallel, testingRecorded, runId, lockHash, nodeVersion);
+  }
 
-  const runResults = await runStages(scheduled, shell, {
+  const stageOptions = {
     cwd: projectRoot,
     parallel: checksParallel,
     availableParallelism: osFacts.availableParallelism,
     nowMs,
     nowIso,
-  });
+  };
+  const stage1Results = await runStages(
+    scheduled.filter((command) => command.stage === 1),
+    shell,
+    stageOptions,
+  );
+  const rest = scheduled.filter((command) => command.stage !== 1);
+  const before = identityOf(projectRoot);
+  const buildOutputs = frameworks ? resolveBuildOutputs(projectRoot, frameworks) : null;
+  const reusedRuns =
+    options.reuse !== false && before.identity && rest.length > 0
+      ? findReusableRuns(projectRoot, readRunHistory(projectRoot), rest, {
+          tree_digest: before.identity.digest,
+          lockfile_hash: lockHash,
+          node_version: nodeVersion,
+          build_output_fingerprint: rest.some((command) => command.logical_command === 'build')
+            ? computeBuildOutputFingerprint(projectRoot, buildOutputs)
+            : null,
+        })
+      : null;
+
+  if (runner && !reusedRuns) deleteRunnerOutput(projectRoot, runner);
+  const runResults = reusedRuns
+    ? stage1Results
+    : [...stage1Results, ...(await runStages(rest, shell, stageOptions))];
 
   const reportCommands: ChecksReportCommand[] = [];
   const results: StructuredTestResult[] = [];
@@ -233,12 +287,26 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     results.push(parsed);
   }
 
-  if (testRun !== null && unreadable(testRun, testResult!)) {
+  const inconclusive = testRun !== null && unreadable(testRun, testResult!);
+  if (inconclusive) {
     markInconclusive(reportCommands);
     meaningfulGreen = false;
   }
 
-  const nonTestPassed = runResults
+  if (reusedRuns) {
+    const at = nowIso();
+    for (const reused of reusedRuns) {
+      reportCommands.push(toReusedCommand(reused, before.identity!.digest, at));
+      if (reused.test_result) {
+        testResult = rescope(reused.test_result, changedFiles);
+        results.push(testResult);
+      } else {
+        results.push(exitCodeResult(toReusedRun(reused, at), changedFiles, at));
+      }
+    }
+  }
+
+  const nonTestPassed = reportCommands
     .filter((r) => r.logical_command !== 'test')
     .every((r) => r.passed);
   const blocking = testResult ? testResult.summary.failed + testResult.summary.errored : 0;
@@ -257,6 +325,65 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         : max,
     { logical_command: null, duration_ms: 0 },
   );
+
+  let tree = before.identity;
+  let treeUnavailableReason = before.reason;
+  if (!reusedRuns && before.identity && rest.length > 0) {
+    const after = identityOf(projectRoot);
+    tree = after.identity;
+    treeUnavailableReason = after.reason;
+    const beforeDigest = before.identity.digest;
+    const fingerprint = computeBuildOutputFingerprint(projectRoot, buildOutputs);
+    for (const command of reportCommands) {
+      if (command.stage === 1) continue;
+      command.tree_digest = beforeDigest;
+      if (command.logical_command === 'build' && command.passed && fingerprint) {
+        command.build_output_fingerprint = fingerprint;
+      }
+    }
+    const testReusable =
+      fallbackReason === null &&
+      !isolation.performed &&
+      recovered === 0 &&
+      !inconclusive &&
+      meaningfulGreen;
+    const rows = rest.map((command) => {
+      const ran = reportCommands.find(
+        (candidate) =>
+          candidate.stage !== 1 &&
+          candidate.command === command.command &&
+          candidate.logical_command === command.logical_command,
+      )!;
+      const commandPassed =
+        command.logical_command === 'test' ? ran.passed && blocking === 0 : ran.passed;
+      return {
+        run_id: runId,
+        logical_command: command.logical_command,
+        command: command.command,
+        tree_digest: beforeDigest,
+        ran_at: ran.started_at,
+        passed: commandPassed,
+        reusable:
+          commandPassed &&
+          after.identity?.digest === beforeDigest &&
+          (command.logical_command !== 'test' || testReusable),
+      };
+    });
+    recordRun(projectRoot, warnings, rows, {
+      schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+      generated_at: nowIso(),
+      passed,
+      ran: true,
+      results,
+      commands: reportCommands,
+      meaningful_green: meaningfulGreen,
+      run_id: runId,
+      tree: tree ?? before.identity,
+      lockfile_hash: lockHash,
+      node_version: nodeVersion,
+      test_result: testResult,
+    });
+  }
 
   return {
     ran: true,
@@ -281,6 +408,96 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     parallel_failures: parallelFailures,
     test_result: testResult,
     testing_recorded: testingRecorded,
+    tree,
+    tree_unavailable_reason: tree ? null : treeUnavailableReason,
+    run_id: runId,
+    lockfile_hash: lockHash,
+    node_version: nodeVersion,
+    reused: reusedRuns?.length ?? 0,
+  };
+}
+
+export function buildChecksReport(result: ChecksRunResult, generatedAt: string): ChecksReport {
+  return {
+    schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+    generated_at: generatedAt,
+    passed: result.passed,
+    ran: result.ran,
+    results: result.results,
+    mode: result.mode,
+    commands: result.commands,
+    isolation_reruns: result.isolation_reruns,
+    flaky_under_parallel: result.flaky_under_parallel,
+    meaningful_green: result.meaningful_green,
+    critical_path: result.critical_path,
+    ...(result.tree ? { tree: result.tree } : {}),
+    ...(result.tree_unavailable_reason
+      ? { tree_unavailable_reason: result.tree_unavailable_reason }
+      : {}),
+    run_id: result.run_id,
+    lockfile_hash: result.lockfile_hash,
+    node_version: result.node_version,
+  };
+}
+
+function recordRun(
+  projectRoot: string,
+  warnings: string[],
+  rows: Omit<RunHistoryRow, 'report_path' | 'report_sha256'>[],
+  snapshot: Parameters<typeof writeRunSnapshot>[1],
+): void {
+  try {
+    const written = writeRunSnapshot(projectRoot, snapshot);
+    appendRunHistory(
+      projectRoot,
+      rows.map((row) => ({ ...row, ...written })),
+    );
+  } catch (error) {
+    warnings.push(
+      `could not record this checks run for reuse (${(error as Error).message}); the next run will run every command for real`,
+    );
+  }
+}
+
+function toReusedCommand(
+  reused: ReusedCommand,
+  treeDigest: string,
+  at: string,
+): ChecksReportCommand {
+  return {
+    logical_command: reused.command.logical_command,
+    command: reused.command.command,
+    exit_code: 0,
+    passed: true,
+    stage: reused.command.stage,
+    started_at: at,
+    ended_at: at,
+    duration_ms: 0,
+    outcome: 'reused',
+    reused_from: reused.row.ran_at,
+    tree_digest: treeDigest,
+  };
+}
+
+function toReusedRun(reused: ReusedCommand, at: string): ScheduledCommandResult {
+  return {
+    logical_command: reused.command.logical_command,
+    command: reused.command.command,
+    stage: reused.command.stage,
+    exit_code: 0,
+    passed: true,
+    started_at: at,
+    ended_at: at,
+    duration_ms: 0,
+    stdout: '',
+    stderr: '',
+  };
+}
+
+function rescope(result: StructuredTestResult, changedFiles: string[]): StructuredTestResult {
+  return {
+    ...result,
+    evidence_scope: changedFiles.length > 0 ? { related_paths: changedFiles } : {},
   };
 }
 
@@ -536,6 +753,9 @@ function emptyResult(
   warnings: string[],
   checksParallel: boolean,
   testingRecorded: boolean,
+  runId: string,
+  lockHash: string | null,
+  nodeVersion: string,
 ): ChecksRunResult {
   return {
     ran: false,
@@ -560,6 +780,12 @@ function emptyResult(
     parallel_failures: 0,
     test_result: null,
     testing_recorded: testingRecorded,
+    tree: null,
+    tree_unavailable_reason: 'no checks command is mapped',
+    run_id: runId,
+    lockfile_hash: lockHash,
+    node_version: nodeVersion,
+    reused: 0,
   };
 }
 
