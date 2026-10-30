@@ -33,6 +33,7 @@ import { changedLoadedRuleSources, readRulesLoaded } from '@/feature-evidence/ru
 import { readCompiledRules } from '@/planning/rule-compiler.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
@@ -374,34 +375,61 @@ function formatBundleWriteSummary(relPath: string, writer: string | null): strin
   );
 }
 
-function firstBundleTarget(
+function normalizedPayloadTargets(
   payload: { targetPath?: string; targetPaths?: string[] } | undefined,
   projectRoot: string,
-): { rel: string; filename: string } | null {
+): string[] {
   const targets =
     payload?.targetPaths && payload.targetPaths.length > 0
       ? payload.targetPaths
       : payload?.targetPath
         ? [payload.targetPath]
         : [];
+  const rels: string[] = [];
   for (const target of targets) {
-    let rel: string;
     try {
-      rel = normalizeArtifactPath(projectRoot, target);
+      rels.push(normalizeArtifactPath(projectRoot, target));
     } catch {
       continue;
     }
+  }
+  return rels;
+}
+
+function firstBundleTarget(targets: string[]): { rel: string; filename: string } | null {
+  for (const rel of targets) {
     const classified = classifyBundlePath(rel);
     if (classified) return { rel, filename: classified.filename };
   }
   return null;
 }
 
+function firstChecksRecordTarget(targets: string[]): string | null {
+  return (
+    targets.find((rel) => rel === PATHS.CHECKS_DIR || rel.startsWith(`${PATHS.CHECKS_DIR}/`)) ??
+    null
+  );
+}
+
+function formatChecksRecordWriteSummary(relPath: string): string {
+  return (
+    `**▸ paqad** · checks records are written by paqad, not by hand\n` +
+    `> 🔴 Needs your attention — \`${relPath}\` is part of the checks record (the run history, ` +
+    `the run snapshots and the last report). Only \`paqad-ai checks run\` writes it, so a green ` +
+    `result there can be trusted. Run \`paqad-ai checks run\` instead.`
+  );
+}
+
 const stagesCapability: Capability = {
   id: 'stages',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
-    const bundleTarget = firstBundleTarget(payload, projectRoot);
+    const targets = normalizedPayloadTargets(payload, projectRoot);
+    const checksTarget = firstChecksRecordTarget(targets);
+    if (checksTarget) {
+      return { ran: true, blocking: true, summary: formatChecksRecordWriteSummary(checksTarget) };
+    }
+    const bundleTarget = firstBundleTarget(targets);
     if (bundleTarget) {
       return {
         ran: true,
