@@ -115,7 +115,7 @@ describe('renderReceipt', () => {
     );
   });
 
-  it('prints one reused line per reused command, with the test count only when it is readable', () => {
+  it('AC-1: prints one reused line per reused command, with the test count only when it is readable', () => {
     const reusedFrom = '2026-01-01T09:05:00.000Z';
     const at = new Date(reusedFrom);
     const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;

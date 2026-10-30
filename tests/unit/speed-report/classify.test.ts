@@ -119,7 +119,7 @@ describe('speed report classification', () => {
     expect(commandWords('a ""')).toEqual(['a', '']);
   });
 
-  it('spots the reused test line in a checks run result', () => {
+  it('AC-18: spots the reused test line in a checks run result', () => {
     expect(
       reusedTestRun('> - 🟢 reused green test run from 10:05 (same files, same command): 3 tests'),
     ).toBe(true);

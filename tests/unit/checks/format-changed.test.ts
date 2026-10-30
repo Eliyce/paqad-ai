@@ -45,7 +45,7 @@ describe('changed-files format', () => {
     return resolveFormatCommand({ projectRoot: root, frameworks, formatCommand });
   }
 
-  it('formats only the changed, existing, non-ignored files with ./ prefixes as separate arguments', async () => {
+  it('AC-14: formats only the changed, existing, non-ignored files with ./ prefixes as separate arguments', async () => {
     const root = project();
     edit(root);
     writeRepoFile(
@@ -122,7 +122,7 @@ describe('changed-files format', () => {
     ['the script body differs', 'pnpm format', 'prettier --write src', ['react']],
     ['the script is another formatter', 'pnpm format', 'biome format --write .', ['react']],
     ['the pack declares no changed-files formatter', 'pnpm format', 'prettier --write .', ['vue']],
-  ])('runs the full format command when %s', async (_, command, script, frameworks) => {
+  ])('AC-14: runs the full format command when %s', async (_, command, script, frameworks) => {
     const root = project(script);
     edit(root);
     const resolved = await resolve(root, command, frameworks);
@@ -135,7 +135,7 @@ describe('changed-files format', () => {
     expect((await resolve(root)).scope).toBe('full');
   });
 
-  it('runs the full format command when nothing changed', async () => {
+  it('AC-14: runs the full format command when nothing changed', async () => {
     const root = project();
     expect(await resolve(root)).toMatchObject({
       scope: 'full',
@@ -143,7 +143,7 @@ describe('changed-files format', () => {
     });
   });
 
-  it('runs the full format command when git cannot list the files', async () => {
+  it('AC-14: runs the full format command when git cannot list the files', async () => {
     const root = makeRoot();
     writeFileSync(
       join(root, 'package.json'),
@@ -155,7 +155,7 @@ describe('changed-files format', () => {
     });
   });
 
-  it(`runs the full format command above ${FORMAT_CHANGED_MAX_FILES} files`, async () => {
+  it(`AC-14: runs the full format command above ${FORMAT_CHANGED_MAX_FILES} files`, async () => {
     const root = project();
     mkdirSync(join(root, 'many'));
     for (let index = 0; index < FORMAT_CHANGED_MAX_FILES; index += 1) {
@@ -170,7 +170,7 @@ describe('changed-files format', () => {
     expect((await resolve(root)).files).toHaveLength(FORMAT_CHANGED_MAX_FILES);
   });
 
-  it('drops symlinks that leave the root and keeps ones that stay inside', () => {
+  it('AC-14: drops symlinks that leave the root and keeps ones that stay inside', () => {
     const root = project();
     const outside = join(makeRoot(), 'secret.ts');
     writeFileSync(outside, 'x\n');

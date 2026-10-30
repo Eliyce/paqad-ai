@@ -56,7 +56,7 @@ describe('computeTreeIdentity', () => {
     expect(first?.computed_at).toBe('2026-10-30T00:00:00.000Z');
   });
 
-  it('changes when a tracked file changes, an untracked file is added or a tracked file is deleted', () => {
+  it('AC-2: changes when a tracked file changes, an untracked file is added or a tracked file is deleted', () => {
     const root = repo();
     const base = computeTreeIdentity(root)!.digest;
     writeRepoFile(root, 'src/a.ts', 'export const a = 2;\n');
@@ -71,7 +71,7 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentity(root)!.digest).not.toBe(base);
   });
 
-  it('ignores git-ignored files and the four paqad record folders', () => {
+  it('AC-3: ignores git-ignored files and the four paqad record folders', () => {
     const root = repo();
     const base = computeTreeIdentity(root)!.digest;
     writeRepoFile(root, 'ignored/out.txt', 'x\n');
@@ -80,7 +80,7 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentity(root)!.digest).toBe(base);
   });
 
-  it('keeps the rest of .paqad and look-alike folder names in the identity', () => {
+  it('AC-3: keeps the rest of .paqad and look-alike folder names in the identity', () => {
     const root = repo();
     const base = computeTreeIdentity(root)!.digest;
     writeRepoFile(root, '.paqad/scripts/run.sh', 'echo changed\n');
@@ -94,7 +94,7 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentity(root)!.digest).not.toBe(before);
   });
 
-  it('never writes the real index and leaves no temp folder behind', () => {
+  it('AC-11: never writes the real index and leaves no temp folder behind', () => {
     const root = repo();
     writeRepoFile(root, 'src/a.ts', 'export const a = 3;\n');
     writeRepoFile(root, 'src/untracked.ts', 'u\n');
@@ -134,7 +134,7 @@ describe('computeTreeIdentity', () => {
     expect(computeTreeIdentity(root)!.digest).toBe(unstaged);
   });
 
-  it('returns null when git write-tree fails, without touching the real index or leaving temp files', () => {
+  it('AC-11: returns null when git write-tree fails, without touching the real index or leaving temp files', () => {
     const root = repo();
     const fake = fakeGit('if [ "$1" = "write-tree" ]; then echo "boom" >&2; exit 1; fi');
     const indexPath = join(root, '.git/index');
@@ -147,7 +147,7 @@ describe('computeTreeIdentity', () => {
     expect(readdirSync(temp)).toEqual([]);
   });
 
-  it('works inside a linked git worktree', () => {
+  it('AC-11: works inside a linked git worktree', () => {
     const root = repo();
     const worktree = join(makeRoot(), 'wt');
     git(root, ['worktree', 'add', '-q', worktree]);
@@ -165,7 +165,7 @@ describe('computeTreeIdentity', () => {
     expect(identity?.head_commit).toBeNull();
   });
 
-  it('returns null for a repo with no commits, a non-git folder and a missing git binary', () => {
+  it('AC-11: returns null for a repo with no commits, a non-git folder and a missing git binary', () => {
     const empty = makeRoot();
     initGitRepo(empty, { 'a.txt': 'a\n' });
     expect(computeTreeIdentityResult(empty)).toEqual({

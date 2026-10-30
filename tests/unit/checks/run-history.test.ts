@@ -154,14 +154,14 @@ describe('run history', () => {
     expect(lookup(root, [])).toBeNull();
   });
 
-  it('runs for real when the newest row for the command failed, even with an older green row', () => {
+  it('AC-4: runs for real when the newest row for the command failed, even with an older green row', () => {
     const root = makeRoot();
     record(root, 'RUN1');
     record(root, 'RUN2', {}, { passed: false, reusable: false }, [TEST]);
     expect(lookup(root)).toBeNull();
   });
 
-  it('runs for real when the newest row is on another tree while an older row matches', () => {
+  it('AC-4: runs for real when the newest row is on another tree while an older row matches', () => {
     const root = makeRoot();
     record(root, 'RUN1');
     record(root, 'RUN2', {}, { tree_digest: 'b'.repeat(40) }, [TEST]);
@@ -174,7 +174,7 @@ describe('run history', () => {
     expect(lookup(root)).toBeNull();
   });
 
-  it('keys on the exact command string, the lockfile hash and the Node version', () => {
+  it('AC-6: keys on the exact command string, the lockfile hash and the Node version', () => {
     const root = makeRoot();
     record(root, 'RUN1');
     expect(lookup(root, [BUILD, { logical_command: 'test', command: 'pnpm test:coverage' }])).toBe(
@@ -186,14 +186,14 @@ describe('run history', () => {
     expect(lookup(root, undefined, { ...KEY, tree_digest: 'c'.repeat(40) })).toBeNull();
   });
 
-  it('a null lockfile hash matches only a null lockfile hash', () => {
+  it('AC-6: a null lockfile hash matches only a null lockfile hash', () => {
     const root = makeRoot();
     record(root, 'RUN1', { lockfile_hash: null });
     expect(lookup(root, undefined, { ...KEY, lockfile_hash: null })).not.toBeNull();
     expect(lookup(root)).toBeNull();
   });
 
-  it('is all or nothing: a reusable build with a non-reusable test reuses neither', () => {
+  it('AC-7: is all or nothing: a reusable build with a non-reusable test reuses neither', () => {
     const root = makeRoot();
     record(root, 'RUN1', {}, {}, [BUILD]);
     record(root, 'RUN2', {}, { reusable: false }, [TEST]);
@@ -201,7 +201,7 @@ describe('run history', () => {
     expect(lookup(root)).toBeNull();
   });
 
-  it('a build needs the same build output fingerprint now', () => {
+  it('AC-8: a build needs the same build output fingerprint now', () => {
     const root = makeRoot();
     record(root, 'RUN1');
     expect(lookup(root, undefined, { ...KEY, build_output_fingerprint: null })).toBeNull();
@@ -212,14 +212,14 @@ describe('run history', () => {
   });
 
   describe('trusts a row only when its snapshot agrees', () => {
-    it('runs for real when the snapshot is missing', () => {
+    it('AC-9: runs for real when the snapshot is missing', () => {
       const root = makeRoot();
       record(root, 'RUN1');
       rmSync(join(root, runSnapshotRelativePath('RUN1')));
       expect(lookup(root)).toBeNull();
     });
 
-    it('runs for real when the snapshot was edited (hash mismatch) or does not parse', () => {
+    it('AC-9: runs for real when the snapshot was edited (hash mismatch) or does not parse', () => {
       const root = makeRoot();
       const [row] = record(root, 'RUN1');
       const path = join(root, row!.report_path);
@@ -279,7 +279,7 @@ describe('run history', () => {
         },
       ],
     ] as [string, Partial<RunSnapshot>][])(
-      'runs for real when the snapshot shows %s',
+      'AC-9: runs for real when the snapshot shows %s',
       (_, snap) => {
         const root = makeRoot();
         record(root, 'RUN1', snap);
@@ -288,7 +288,7 @@ describe('run history', () => {
     );
   });
 
-  it('skips empty, truncated and corrupt lines without crashing', () => {
+  it('AC-9: skips empty, truncated and corrupt lines without crashing', () => {
     const root = makeRoot();
     const [build, test] = record(root, 'RUN1');
     writeFileSync(
@@ -308,7 +308,7 @@ describe('run history', () => {
     expect(lookup(root)).not.toBeNull();
   });
 
-  it('keeps the newest rows up to the cap and deletes snapshots no row references', () => {
+  it('AC-9: keeps the newest rows up to the cap and deletes snapshots no row references', () => {
     const root = makeRoot();
     const first = record(root, 'RUN0', {}, {}, [TEST]);
     for (let index = 1; index < RUN_HISTORY_CAP; index += 1) {
@@ -325,7 +325,7 @@ describe('run history', () => {
     expect(existsSync(join(root, rows[0]!.report_path))).toBe(true);
   });
 
-  it('keeps a trimmed run snapshot while another of its rows is still kept', () => {
+  it('AC-9: keeps a trimmed run snapshot while another of its rows is still kept', () => {
     const root = makeRoot();
     record(root, 'RUN0');
     for (let index = 1; index < RUN_HISTORY_CAP - 1; index += 1) {

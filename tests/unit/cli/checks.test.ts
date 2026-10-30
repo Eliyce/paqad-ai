@@ -147,7 +147,7 @@ describe('paqad-ai checks command', () => {
     expect(errors).not.toContain(note);
   });
 
-  it('writes a schema 3 report with the tree, reuses a green build on the same files, and --no-reuse runs it again', async () => {
+  it('AC-10: writes a schema 3 report with the tree, reuses a green build on the same files, and --no-reuse runs it again', async () => {
     writeFileSync(
       join(root, '.paqad/project-profile.yaml'),
       [

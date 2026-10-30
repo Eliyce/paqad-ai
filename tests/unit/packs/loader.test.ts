@@ -216,7 +216,7 @@ describe('StackPackLoader', () => {
     return packRoot;
   }
 
-  it('loads valid build_outputs and the shipped react and node-service packs declare dist', () => {
+  it('AC-15: loads valid build_outputs and the shipped react and node-service packs declare dist', () => {
     const pack = new StackPackLoader().validatePack(
       writeCheckPack('good-outputs', ['build_outputs:', '  - dist', '  - packages/web/build']),
     );
@@ -232,7 +232,7 @@ describe('StackPackLoader', () => {
   });
 
   it.each(['/abs/dist', 'C:\\dist', '../dist', 'out/../../dist', 'out\\..\\x'])(
-    'rejects the build output %s',
+    'AC-15: rejects the build output %s',
     (folder) => {
       const pack = new StackPackLoader().validatePack(
         writeCheckPack('bad-outputs', ['build_outputs:', `  - '${folder}'`]),
@@ -242,7 +242,7 @@ describe('StackPackLoader', () => {
     },
   );
 
-  it('loads a valid format_changed and the shipped packs declare the pnpm and npm entries', () => {
+  it('AC-15: loads a valid format_changed and the shipped packs declare the pnpm and npm entries', () => {
     const pack = new StackPackLoader().validatePack(
       writeCheckPack('good-format', [
         'format_changed:',
@@ -274,7 +274,7 @@ describe('StackPackLoader', () => {
       ['pnpm exec prettier {files}', 'pnpm exec biome {files}'],
       'Duplicate',
     ],
-  ])('rejects format_changed with %s', (_, commands, message) => {
+  ])('AC-15: rejects format_changed with %s', (_, commands, message) => {
     const pack = new StackPackLoader().validatePack(
       writeCheckPack('bad-format', [
         'format_changed:',

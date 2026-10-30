@@ -137,7 +137,7 @@ describe('runStages (AC-5)', () => {
 });
 
 describe('runStages file list substitution', () => {
-  it('replaces the {files} argument with one argv element per file, never re-parsed', async () => {
+  it('AC-14: replaces the {files} argument with one argv element per file, never re-parsed', async () => {
     const calls: { bin: string; args: string[] }[] = [];
     const shell: DeliveryShell = {
       async run(bin, args) {

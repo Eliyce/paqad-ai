@@ -215,20 +215,27 @@ describe('stages capability — block-forward at pre-mutation', () => {
     '.paqad/checks/run-history.jsonl',
     '.paqad/checks/runs/01M65SFN9BMVXRVPPYN44SJEVQ.json',
     '.paqad/checks/last-run.json',
-  ])('refuses a hand edit of the checks record %s, even with every stage recorded', async (rel) => {
-    record(['planning', 'specification']);
-    policy('stages_mode=off\n');
-    for (const payload of [
-      { targetPath: join(root, rel) },
-      { targetPaths: [join(root, 'docs/x.md'), join(root, rel)] },
-    ]) {
-      const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', payload });
-      expect(result.block).toBe(true);
-      expect(result.summary).toContain('checks records are written by paqad, not by hand');
-      expect(result.summary).toContain(`\`${rel}\``);
-      expect(result.summary).toContain('Only `paqad-ai checks run` writes it');
-    }
-  });
+  ])(
+    'AC-17: refuses a hand edit of the checks record %s, even with every stage recorded',
+    async (rel) => {
+      record(['planning', 'specification']);
+      policy('stages_mode=off\n');
+      for (const payload of [
+        { targetPath: join(root, rel) },
+        { targetPaths: [join(root, 'docs/x.md'), join(root, rel)] },
+      ]) {
+        const result = await runCapabilityGate({
+          projectRoot: root,
+          seam: 'pre-mutation',
+          payload,
+        });
+        expect(result.block).toBe(true);
+        expect(result.summary).toContain('checks records are written by paqad, not by hand');
+        expect(result.summary).toContain(`\`${rel}\``);
+        expect(result.summary).toContain('Only `paqad-ai checks run` writes it');
+      }
+    },
+  );
 
   it('does not treat a look-alike folder as the checks record', async () => {
     policy('stages_mode=off\n');

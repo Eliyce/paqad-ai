@@ -80,7 +80,7 @@ describe('checksEvidenceGate', () => {
     expect(gate?.detail).toContain('test');
   });
 
-  it('reads Inconclusive for a green or red report that ran on different files', () => {
+  it('AC-12: reads Inconclusive for a green or red report that ran on different files', () => {
     for (const failed of [0, 1]) {
       expect(
         checksEvidenceGate([structuredResult('test', failed)], { stale: 'different-files' }),
@@ -95,7 +95,7 @@ describe('checksEvidenceGate', () => {
     }
   });
 
-  it('reads Inconclusive when the files a report ran on cannot be confirmed', () => {
+  it('AC-12: reads Inconclusive when the files a report ran on cannot be confirmed', () => {
     const gate = checksEvidenceGate([structuredResult('test', 0)], { stale: 'unconfirmed' });
     expect(gate?.status).toBe('inconclusive');
     expect(gate?.detail).toBe(
@@ -178,7 +178,7 @@ describe('runRepositoryVerification does not count stale checks as verified', ()
     return verdict.receipt ?? '';
   }
 
-  it('marks the checks stage as not verified when the report is stale', async () => {
+  it('AC-12: marks the checks stage as not verified when the report is stale', async () => {
     expect(await receiptFor('different-files')).toContain('tests not verified');
     expect(await receiptFor(undefined)).not.toContain('tests not verified');
   });
@@ -212,7 +212,7 @@ describe('checks report freshness against the current tree', () => {
     ).context;
   }
 
-  it('is fresh on the same tree, stale after an edit, and fresh again after a decision packet is written', async () => {
+  it('AC-13: is fresh on the same tree, stale after an edit, and fresh again after a decision packet is written', async () => {
     const root = repo();
     writeReport(root, computeTreeIdentity(root)!);
     expect((await contextOf(root)).checks_report_stale).toBeUndefined();
@@ -234,7 +234,7 @@ describe('checks report freshness against the current tree', () => {
     expect(gate?.status).toBe('inconclusive');
   });
 
-  it("keeps today's verdict for a report without a tree or a schema 2 report", async () => {
+  it("AC-13: keeps today's verdict for a report without a tree or a schema 2 report", async () => {
     const root = repo();
     writeReport(root, undefined);
     expect((await contextOf(root)).checks_report_stale).toBeUndefined();
@@ -248,7 +248,7 @@ describe('checks report freshness against the current tree', () => {
     expect((await contextOf(root)).checks_report_stale).toBeUndefined();
   });
 
-  it('is unconfirmed when the current tree cannot be computed or runs past the limit', () => {
+  it('AC-12: is unconfirmed when the current tree cannot be computed or runs past the limit', () => {
     const root = repo();
     const report = {
       schema_version: CHECKS_REPORT_SCHEMA_VERSION,

@@ -150,7 +150,7 @@ describe('checks report v1/v2 compatibility', () => {
     expect(gate?.status).toBe('fail');
   });
 
-  it('reads a schema 3 report with a tree and a reused command through every reader', () => {
+  it('AC-16: reads a schema 3 report with a tree and a reused command through every reader', () => {
     writeGlobal(V3_REUSED);
     const read = readChecksReportForFeature(root, null);
     expect(read?.tree?.digest).toBe('a'.repeat(40));

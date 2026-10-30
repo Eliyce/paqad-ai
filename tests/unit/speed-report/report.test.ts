@@ -122,7 +122,7 @@ describe('speed report aggregation', () => {
     expect(row.owner_wait['answering questions']).toBe(60_000);
   });
 
-  it('counts a checks run that reused the green test run apart from real whole-suite and targeted runs', async () => {
+  it('AC-18: counts a checks run that reused the green test run apart from real whole-suite and targeted runs', async () => {
     const p = project();
     writeTranscript(
       p,

@@ -128,7 +128,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(ranFor(shell, 'pnpm test')).toBe(false);
   }
 
-  it('reuses build and test on an unchanged tree, still runs format, and prints one reused line each', async () => {
+  it('AC-1: reuses build and test on an unchanged tree, still runs format, and prints one reused line each', async () => {
     const root = project();
     const first = await run(root, fakeShell(root), { changedFiles: ['src/app.ts'] });
     const firstTest = first.commands.find((command) => command.logical_command === 'test')!;
@@ -164,7 +164,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(lines.some((line) => line.includes('format passed'))).toBe(true);
   });
 
-  it('runs for real after a tracked edit, a new untracked file or a deleted tracked file', async () => {
+  it('AC-2: runs for real after a tracked edit, a new untracked file or a deleted tracked file', async () => {
     const root = project();
     await seedGreen(root);
     writeRepoFile(root, 'src/app.ts', 'export const app = 2;\n');
@@ -176,7 +176,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('reuses when only ignored files or paqad record folders changed, not when .paqad/scripts changed', async () => {
+  it('AC-3: reuses when only ignored files or paqad record folders changed, not when .paqad/scripts changed', async () => {
     const root = project();
     await seedGreen(root);
     writeRepoFile(root, 'ignored/x.txt', 'x\n');
@@ -191,7 +191,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('runs for real when the newest run of a command failed, even with an older green run', async () => {
+  it('AC-4: runs for real when the newest run of a command failed, even with an older green run', async () => {
     const root = project();
     await seedGreen(root);
     const red = await run(root, fakeShell(root, { test: TAP_RED, testExit: 1 }), { reuse: false });
@@ -199,7 +199,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('runs for real when the newest run of a command is on another tree', async () => {
+  it('AC-4: runs for real when the newest run of a command is on another tree', async () => {
     const root = project();
     await seedGreen(root);
     writeRepoFile(root, 'src/app.ts', 'export const app = 2;\n');
@@ -208,7 +208,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('records an inconclusive test run as not reusable', async () => {
+  it('AC-5: records an inconclusive test run as not reusable', async () => {
     const root = project();
     const result = await run(root, fakeShell(root, { test: 'TAP version 13\n1..0\n' }));
     expect(result.commands.find((c) => c.logical_command === 'test')?.outcome).toBe('inconclusive');
@@ -218,7 +218,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('marks a run whose tree moved while it ran as not reusable and reports the tree from before the run', async () => {
+  it('AC-5: marks a run whose tree moved while it ran as not reusable and reports the tree from before the run', async () => {
     const root = project();
     const before = await run(
       root,
@@ -361,7 +361,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(again.calls.some((call) => call.startsWith('php artisan test'))).toBe(true);
   });
 
-  it('runs for real on a different Node version, command string or lockfile hash', async () => {
+  it('AC-6: runs for real on a different Node version, command string or lockfile hash', async () => {
     const root = project();
     await seedGreen(root);
     const node = fakeShell(root);
@@ -377,7 +377,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('never shares a row between pnpm test and pnpm test:coverage', async () => {
+  it('AC-6: never shares a row between pnpm test and pnpm test:coverage', async () => {
     const root = project();
     await seedGreen(root);
     writeRepoFile(
@@ -392,7 +392,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(shell.calls).toContain('pnpm test:coverage -- --reporter=tap');
   });
 
-  it('runs build and test for real when build would be reusable but test would not', async () => {
+  it('AC-7: runs build and test for real when build would be reusable but test would not', async () => {
     const root = project();
     await run(root, fakeShell(root, { test: 'TAP version 13\n1..0\n' }));
     const shell = fakeShell(root);
@@ -402,7 +402,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(ranFor(shell, 'pnpm build')).toBe(true);
   });
 
-  it('runs build and test for real when the build output changed or is missing', async () => {
+  it('AC-8: runs build and test for real when the build output changed or is missing', async () => {
     const root = project();
     await seedGreen(root);
     writeRepoFile(root, 'dist/index.js', 'built differently\n');
@@ -418,7 +418,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect((await run(root, fakeShell(root, { build: () => undefined }))).reused).toBe(0);
   });
 
-  it('runs build for real when the pack declares no build output, but a test-only project reuses', async () => {
+  it('AC-8: runs build for real when the pack declares no build output, but a test-only project reuses', async () => {
     const withBuild = project(COMMANDS, 'vue');
     await seedGreen(withBuild);
     await expectReal(withBuild);
@@ -431,7 +431,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(shell.calls).toEqual([]);
   });
 
-  it('runs for real when the snapshot behind the history row is gone', async () => {
+  it('AC-9: runs for real when the snapshot behind the history row is gone', async () => {
     const root = project();
     await seedGreen(root);
     const [row] = readRunHistory(root);
@@ -439,7 +439,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReal(root);
   });
 
-  it('--no-reuse runs everything for real and still records rows a later run reuses', async () => {
+  it('AC-10: --no-reuse runs everything for real and still records rows a later run reuses', async () => {
     const root = project();
     await seedGreen(root);
     const rowsBefore = readRunHistory(root).length;
@@ -451,7 +451,7 @@ describe('runChecks reuse of a green run on the same tree', () => {
     await expectReused(root);
   });
 
-  it('runs every command for real outside git and says why there is no tree', async () => {
+  it('AC-11: runs every command for real outside git and says why there is no tree', async () => {
     const root = makeRoot();
     writeRepoFile(root, '.paqad/project-profile.yaml', profile(COMMANDS));
     for (let index = 0; index < 2; index += 1) {

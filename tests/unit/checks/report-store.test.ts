@@ -40,7 +40,7 @@ describe('checks report store', () => {
     expect(read?.ran).toBe(true);
   });
 
-  it('is schema 3 and round-trips the tree, run identity and reused command fields', () => {
+  it('AC-16: is schema 3 and round-trips the tree, run identity and reused command fields', () => {
     const tree = {
       digest: 'd'.repeat(40),
       head_commit: null,

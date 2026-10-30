@@ -18,7 +18,7 @@ describe('build output fingerprint', () => {
     expect(resolveBuildOutputs(root, ['vue'])).toBeNull();
   });
 
-  it('is stable for the same files and changes with size, mtime or a new nested file', () => {
+  it('AC-8: is stable for the same files and changes with size, mtime or a new nested file', () => {
     const root = makeRoot();
     writeRepoFile(root, 'dist/index.js', 'a\n');
     writeRepoFile(root, 'dist/chunks/x.js', 'x\n');
@@ -36,7 +36,7 @@ describe('build output fingerprint', () => {
     expect(computeBuildOutputFingerprint(root, ['dist'])).not.toBe(touched);
   });
 
-  it('has no fingerprint without declared folders, or when a folder is missing or a file', () => {
+  it('AC-8: has no fingerprint without declared folders, or when a folder is missing or a file', () => {
     const root = makeRoot();
     writeRepoFile(root, 'dist/index.js', 'a\n');
     writeRepoFile(root, 'out', 'not a folder\n');
