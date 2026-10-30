@@ -31,6 +31,7 @@ function tempDir(prefix: string): string {
 
 const FAKE_NPM = `#!/usr/bin/env node
 const args = process.argv.slice(2);
+if (process.env.FAKE_NPM_ARGS) require('node:fs').appendFileSync(process.env.FAKE_NPM_ARGS, args.join(' ') + '\\n');
 if (process.env.FAKE_NPM_FAIL) { console.error('npm error code ECONNRESET'); process.exit(1); }
 const versions = (process.env.FAKE_NPM_VERSIONS || '').split(',').filter(Boolean);
 const spec = args[1] || '';
@@ -298,6 +299,69 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     });
   });
 
+  it('AC-16: reports the version published with no npm call when the release tag is on the release commit', () => {
+    const f = fixture(['1.0.0']);
+    git(f.repo, ['tag', 'v1.0.0']);
+    const calls = join(f.repo, '..', 'npm-calls');
+
+    const result = run(f, 'state', {
+      FAKE_NPM_CALLS: calls,
+      FAKE_NPM_ARGS: join(f.repo, '..', 'npm-args'),
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('Release tag v1.0.0 is on the release commit, so npm has it.');
+    expect(result.outputs.plugin_needed).toBe('true');
+    expect(existsSync(calls)).toBe(false);
+    expect(existsSync(join(f.repo, '..', 'npm-args'))).toBe(false);
+  });
+
+  it('does not trust a release tag on another commit', () => {
+    const f = fixture(['1.0.0', '1.1.0']);
+    git(f.repo, ['tag', 'v1.1.0', f.commits['1.0.0']!]);
+
+    const result = run(f, 'state', { FAKE_NPM_VERSIONS: '1.0.0' });
+
+    expect(result.status).toBe(0);
+    expect(result.outputs.plugin_needed).toBe('false');
+    expect(result.stdout).toContain('not on npm');
+  });
+
+  it('AC-15: polls npm with --prefer-online on every call when there is no release tag', () => {
+    const f = fixture(['1.0.0']);
+    const args = join(f.repo, '..', 'npm-args');
+
+    const result = run(f, 'state', {
+      FAKE_NPM_VERSIONS: '1.0.0',
+      FAKE_NPM_CALLS: join(f.repo, '..', 'npm-calls'),
+      FAKE_NPM_LISTED_AFTER: '2',
+      FAKE_NPM_ARGS: args,
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.plugin_needed).toBe('true');
+    const lines = readFileSync(args, 'utf8').trim().split('\n');
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line).toBe('view paqad-ai@1.0.0 version --prefer-online');
+  });
+
+  it('passes --prefer-online to the versions and latest lookups too', () => {
+    const f = fixture(['1.0.0']);
+    const args = join(f.repo, '..', 'npm-args');
+    git(f.repo, ['push', '--quiet', 'origin', `${f.commits['1.0.0']}:refs/tags/v1.0.0`]);
+    writeFileSync(f.releases, JSON.stringify([{ tag: 'v1.0.0' }]));
+    tagPlugin(f, '1.0.0');
+
+    run(f, 'tags', { FAKE_NPM_VERSIONS: '1.0.0', FAKE_NPM_ARGS: args });
+    run(f, 'check', { FAKE_NPM_LATEST: '1.0.0', FAKE_NPM_ARGS: args });
+
+    expect(readFileSync(args, 'utf8').trim().split('\n')).toEqual([
+      'view paqad-ai@1.0.0 version --prefer-online',
+      'view paqad-ai versions --json --prefer-online',
+      'view paqad-ai dist-tags.latest --prefer-online',
+    ]);
+  });
+
   it('fails instead of guessing when npm cannot be reached', () => {
     const f = fixture(['1.0.0']);
 
@@ -352,14 +416,42 @@ describe.skipIf(process.platform === 'win32')('release-sync tags', () => {
   });
 
   it('skips a version npm does not have', () => {
-    const f = fixture(['1.0.0', '1.1.0']);
-    git(f.repo, ['push', '--quiet', 'origin', `${f.commits['1.0.0']}:refs/tags/v1.0.0`]);
-    writeFileSync(f.releases, JSON.stringify([{ tag: 'v1.0.0' }]));
+    const f = fixture(['0.9.0', '1.0.0', '1.1.0']);
+    git(f.repo, ['push', '--quiet', 'origin', `${f.commits['0.9.0']}:refs/tags/v0.9.0`]);
+    writeFileSync(f.releases, JSON.stringify([{ tag: 'v0.9.0' }]));
 
-    const result = run(f, 'tags', { FAKE_NPM_VERSIONS: '1.0.0' });
+    const result = run(f, 'tags', { FAKE_NPM_VERSIONS: '0.9.0,1.1.0' });
 
-    expect(result.status).toBe(0);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(git(f.origin, ['tag', '--list'])).toBe('v0.9.0\nv1.1.0');
+  });
+
+  it('waits for npm to list the current version, then tags it', () => {
+    const f = fixture(['1.0.0']);
+    const calls = join(f.repo, '..', 'npm-calls');
+
+    const result = run(f, 'tags', {
+      FAKE_NPM_VERSIONS: '1.0.0',
+      FAKE_NPM_CALLS: calls,
+      FAKE_NPM_LISTED_AFTER: '3',
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(readFileSync(calls, 'utf8')).toBe('4');
+    expect(result.stdout).toContain('npm lists paqad-ai@1.0.0 after ');
     expect(git(f.origin, ['tag', '--list'])).toBe('v1.0.0');
+  });
+
+  it('fails red and tags nothing when npm never lists the current version', () => {
+    const f = fixture(['1.0.0']);
+
+    const result = run(f, 'tags', { RELEASE_SYNC_NPM_ATTEMPTS: '3' });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(
+      '::error::npm does not list paqad-ai@1.0.0, so its tag and GitHub Release wait for the next run.',
+    );
+    expect(git(f.origin, ['tag', '--list'])).toBe('');
   });
 });
 

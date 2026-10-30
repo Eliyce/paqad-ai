@@ -80,18 +80,20 @@ export function remoteHasTag(remote, tag) {
 }
 
 export function npmHasVersion(version) {
-  const result = exec('npm', ['view', `${PACKAGE_NAME}@${version}`, 'version']);
+  const result = exec('npm', ['view', `${PACKAGE_NAME}@${version}`, 'version', '--prefer-online']);
   if (result.status === 0) return result.stdout.split('\n').includes(version);
   if (/E404/.test(result.stderr)) return false;
   throw new Error(`npm view ${PACKAGE_NAME}@${version} failed: ${result.stderr}`);
 }
 
 export function npmVersions() {
-  return new Set(JSON.parse(mustExec('npm', ['view', PACKAGE_NAME, 'versions', '--json'])));
+  return new Set(
+    JSON.parse(mustExec('npm', ['view', PACKAGE_NAME, 'versions', '--json', '--prefer-online'])),
+  );
 }
 
 export function npmLatest() {
-  const latest = mustExec('npm', ['view', PACKAGE_NAME, 'dist-tags.latest']);
+  const latest = mustExec('npm', ['view', PACKAGE_NAME, 'dist-tags.latest', '--prefer-online']);
   if (!RELEASE_VERSION.test(latest))
     throw new Error(`npm returned no latest version for ${PACKAGE_NAME}`);
   return latest;
@@ -283,10 +285,7 @@ export function npmAttempts(value) {
   return Number.isInteger(attempts) && attempts > 0 ? attempts : 90;
 }
 
-export function releaseState({ waitSeconds = 10, attempts = 90 } = {}) {
-  const version = packageVersion();
-  const sha = versionCommits().get(version);
-  if (!sha) throw new Error(`No commit in history sets package.json to ${version}`);
+export function waitForNpm(version, { waitSeconds = 10, attempts = 90 } = {}) {
   let published = npmHasVersion(version);
   if (!published && attempts > 1) {
     const spec = `${PACKAGE_NAME}@${version}`;
@@ -304,6 +303,27 @@ export function releaseState({ waitSeconds = 10, attempts = 90 } = {}) {
         : `npm still does not list ${spec} after ${minutes} min.`,
     );
   }
+  return published;
+}
+
+export function hasReleaseTag(version, commits) {
+  const tagged = exec('git', [
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `refs/tags/v${version}^{commit}`,
+  ]);
+  return tagged.status === 0 && commits.includes(tagged.stdout);
+}
+
+export function releaseState(poll = {}) {
+  const version = packageVersion();
+  const sha = versionCommits().get(version);
+  if (!sha) throw new Error(`No commit in history sets package.json to ${version}`);
+  const ref = mustExec('git', ['rev-parse', `${releaseRef()}^{commit}`]);
+  const tagged = hasReleaseTag(version, [ref, sha]);
+  if (tagged) console.log(`Release tag v${version} is on the release commit, so npm has it.`);
+  const published = tagged || waitForNpm(version, poll);
   const pluginTagged = remoteHasTag(PLUGIN_REMOTE, `v${version}`);
   return { version, sha, published, pluginTagged, pluginNeeded: published && !pluginTagged };
 }
@@ -368,12 +388,16 @@ function isDirectRun() {
   );
 }
 
+function npmPoll() {
+  return {
+    waitSeconds: Number(process.env.RELEASE_SYNC_NPM_WAIT_SECONDS ?? 10),
+    attempts: npmAttempts(process.env.RELEASE_SYNC_NPM_ATTEMPTS),
+  };
+}
+
 function main(command) {
   if (command === 'state') {
-    const state = releaseState({
-      waitSeconds: Number(process.env.RELEASE_SYNC_NPM_WAIT_SECONDS ?? 10),
-      attempts: npmAttempts(process.env.RELEASE_SYNC_NPM_ATTEMPTS),
-    });
+    const state = releaseState(npmPoll());
     console.log(
       `${PACKAGE_NAME}@${state.version} (release commit ${state.sha}): ` +
         `${state.published ? 'on npm' : 'not on npm'}, ` +
@@ -385,6 +409,13 @@ function main(command) {
   if (command === 'ci-green') return ciGreen();
   if (command === 'prepublish') return prepublish();
   if (command === 'tags') {
+    const version = packageVersion();
+    if (!waitForNpm(version, npmPoll())) {
+      console.log(
+        `::error::npm does not list ${PACKAGE_NAME}@${version}, so its tag and GitHub Release wait for the next run.`,
+      );
+      return 1;
+    }
     const actions = syncTags();
     console.log(
       actions.length > 0

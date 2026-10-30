@@ -135,10 +135,28 @@ describe('the release workflow publishes the plugin', () => {
     expect(pkg.scripts.prepublishOnly).toBe('node scripts/release-sync.mjs prepublish');
   });
 
-  it('tags and releases every published version after the changesets step', () => {
-    const tags = release.steps.at(-1)!;
+  it('AC-17: tags and releases every published version in its own job, so the plugin push never waits for npm', () => {
+    const tagsJob = workflow.jobs.tags!;
+    expect(tagsJob.needs).toBe('release');
+    expect(tagsJob.if).toBeUndefined();
+    expect(tagsJob.permissions).toEqual({ contents: 'read' });
+    const tags = tagsJob.steps.at(-1)!;
     expect(tags.run).toBe('node scripts/release-sync.mjs tags');
     expect(tags.env).toEqual({ GH_TOKEN: '${{ secrets.GH_RELEASE_TOKEN }}' });
+    expect(tagsJob.steps[0]!.with).toEqual({
+      'fetch-depth': 0,
+      token: '${{ secrets.GH_RELEASE_TOKEN }}',
+    });
+    expect(tagsJob.steps.find((step) => step.uses?.startsWith('actions/setup-node'))?.with).toEqual(
+      {
+        'node-version': 22,
+      },
+    );
+    expect(release.steps.map((step) => step.run ?? '')).not.toContain(
+      'node scripts/release-sync.mjs tags',
+    );
+    expect(release.steps.at(-1)!.id).toBe('published');
+    expect(publish.needs).toBe('release');
     expect(release.steps[0]!.with).toEqual({
       'fetch-depth': 0,
       token: '${{ secrets.GH_RELEASE_TOKEN }}',
@@ -153,7 +171,7 @@ describe('the release workflow publishes the plugin', () => {
   });
 
   it('fails red, never skips, when the plugin is behind npm', () => {
-    expect(inSync.needs).toEqual(['release', 'publish-plugin']);
+    expect(inSync.needs).toEqual(['release', 'publish-plugin', 'tags']);
     expect(inSync.if).toBe("always() && needs.release.result == 'success'");
     expect(inSync.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs check');
     const daily = parse(readFileSync('.github/workflows/plugin-sync-check.yml', 'utf8')) as {
