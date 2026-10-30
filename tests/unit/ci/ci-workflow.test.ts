@@ -1,9 +1,11 @@
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { parse } from 'yaml';
 
 type Step = {
   name?: string;
+  id?: string;
   uses?: string;
   run?: string;
   if?: string;
@@ -13,6 +15,8 @@ type Step = {
 };
 type Job = {
   name: string;
+  permissions?: Record<string, string>;
+  outputs?: Record<string, string>;
   'runs-on': string;
   needs?: string | string[];
   defaults?: { run?: { 'working-directory'?: string } };
@@ -56,14 +60,43 @@ describe('.github/workflows/ci.yml', () => {
     expect(workflow.env.NODE_OPTIONS).toBe('--max-old-space-size=4096');
   });
 
-  it('AC-19: defines exactly the static, test, merge, discovery-plugin and gate jobs', () => {
+  it('AC-19: defines exactly the scope, static, test, merge, discovery-plugin and gate jobs', () => {
     expect(Object.keys(jobs).sort()).toEqual([
       'discovery-plugin',
       'gate',
       'merge',
+      'scope',
       'static',
       'test',
     ]);
+  });
+
+  describe('scope', () => {
+    const job = jobs.scope;
+
+    it('AC-17: runs first with job-level read-only access and no install', () => {
+      expect(Object.keys(jobs)[0]).toBe('scope');
+      expect(job.permissions).toEqual({
+        contents: 'read',
+        checks: 'read',
+        'pull-requests': 'read',
+        actions: 'read',
+      });
+      expect(job.needs).toBeUndefined();
+      expect(job.steps[0]?.with).toEqual({ 'fetch-depth': 0 });
+      expect(runs(job)).not.toMatch(/pnpm install|npm (ci|install)|corepack/);
+      expect(readFileSync('.github/workflows/ci.yml', 'utf8')).not.toContain('pull_request_target');
+    });
+
+    it('outputs skip_matrix and skip_reason from the scope command', () => {
+      const step = job.steps.find((each) => each.id === 'scope')!;
+      expect(step.run).toBe('node scripts/release-sync.mjs scope');
+      expect(step.env).toEqual({ GH_TOKEN: '${{ github.token }}' });
+      expect(job.outputs).toEqual({
+        skip_matrix: '${{ steps.scope.outputs.skip_matrix }}',
+        skip_reason: '${{ steps.scope.outputs.skip_reason }}',
+      });
+    });
   });
 
   describe('static', () => {
@@ -130,6 +163,11 @@ describe('.github/workflows/ci.yml', () => {
       }
     });
 
+    it('runs unless scope says the matrix may be skipped', () => {
+      expect(job.needs).toBe('scope');
+      expect(job.if).toBe("needs.scope.outputs.skip_matrix != 'true'");
+    });
+
     it('never reuses a required check name for a shard', () => {
       expect(REQUIRED_CHECKS).not.toContain(job.name);
       expect(job.name).toContain('Shard ${{ matrix.shard }}/${{ matrix.total }}');
@@ -180,8 +218,8 @@ describe('.github/workflows/ci.yml', () => {
     const legs = job.strategy!.matrix.include;
 
     it('merges each OS on that same OS, after the shards, even when one failed', () => {
-      expect(job.needs).toBe('test');
-      expect(job.if).toBe('${{ !cancelled() }}');
+      expect(job.needs).toEqual(['scope', 'test']);
+      expect(job.if).toBe("${{ !cancelled() && needs.scope.outputs.skip_matrix != 'true' }}");
       expect(job['runs-on']).toBe('${{ matrix.os }}');
       expect(job.strategy!['fail-fast']).toBe(false);
       expect(legs.map((leg) => `Node ${leg.node} / ${leg.os}`).sort()).toEqual(
@@ -295,15 +333,59 @@ describe('.github/workflows/ci.yml', () => {
       expect(names.sort()).toEqual([...REQUIRED_CHECKS].sort());
     });
 
-    it('AC-19: always runs, needs static, test, merge and discovery-plugin, and fails unless all succeeded', () => {
+    it('AC-19: always runs, needs scope, static, test, merge and discovery-plugin', () => {
       expect(job.if).toBe('always()');
-      expect(job.needs).toEqual(['static', 'test', 'merge', 'discovery-plugin']);
+      expect(job.needs).toEqual(['scope', 'static', 'test', 'merge', 'discovery-plugin']);
       expect(job['runs-on']).toBe('ubuntu-latest');
-      const step = job.steps[0];
-      expect(step.env?.NEEDS).toBe('${{ toJSON(needs) }}');
-      expect(step.run).toContain(`jq -e 'all(.[]; .result == "success")'`);
+      expect(job.steps[0].env?.NEEDS).toBe('${{ toJSON(needs) }}');
       expect(job.steps.every((s) => s.uses === undefined)).toBe(true);
     });
+
+    const hasJq = spawnSync('jq', ['--version']).status === 0;
+    const gateResult = (needs: Record<string, unknown>) =>
+      spawnSync('bash', ['-c', job.steps[0].run!], {
+        env: { PATH: process.env.PATH, NEEDS: JSON.stringify(needs) },
+        encoding: 'utf8',
+      });
+    const needsWith = (skip: string | undefined, results: Record<string, string>) => {
+      const all: Record<string, unknown> = {};
+      for (const name of ['scope', 'static', 'test', 'merge', 'discovery-plugin']) {
+        all[name] = { result: results[name] ?? 'success', outputs: {} };
+      }
+      if (skip !== undefined) {
+        all.scope = { ...(all.scope as object), outputs: { skip_matrix: skip, skip_reason: 'r' } };
+      }
+      return all;
+    };
+
+    it.skipIf(!hasJq)('passes when everything succeeded', () => {
+      expect(gateResult(needsWith('false', {})).status).toBe(0);
+    });
+
+    it.skipIf(!hasJq)('AC-14: passes with test and merge skipped only when scope said skip', () => {
+      const skipped = { test: 'skipped', merge: 'skipped' };
+      expect(gateResult(needsWith('true', skipped)).status).toBe(0);
+      expect(gateResult(needsWith('false', skipped)).status).not.toBe(0);
+      expect(gateResult(needsWith(undefined, skipped)).status).not.toBe(0);
+      expect(gateResult(needsWith('false', { merge: 'skipped' })).status).not.toBe(0);
+    });
+
+    it.skipIf(!hasJq)(
+      'AC-14: fails when scope failed, or a job other than test and merge was skipped',
+      () => {
+        expect(gateResult(needsWith(undefined, { scope: 'failure' })).status).not.toBe(0);
+        expect(
+          gateResult(needsWith('true', { scope: 'failure', test: 'skipped', merge: 'skipped' }))
+            .status,
+        ).not.toBe(0);
+        expect(gateResult(needsWith('true', { static: 'skipped' })).status).not.toBe(0);
+        expect(gateResult(needsWith('true', { 'discovery-plugin': 'skipped' })).status).not.toBe(0);
+        expect(
+          gateResult(needsWith('true', { test: 'failure', merge: 'skipped' })).status,
+        ).not.toBe(0);
+        expect(gateResult(needsWith('true', { test: 'cancelled' })).status).not.toBe(0);
+      },
+    );
   });
 });
 

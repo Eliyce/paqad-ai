@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 export const PACKAGE_NAME = 'paqad-ai';
 export const PLUGIN_REMOTE = 'https://github.com/Eliyce/paqad-claude-plugin.git';
@@ -251,6 +252,98 @@ export function ciGreen() {
   return 0;
 }
 
+const CHANGESET_FILE = /^\.changeset\/(?!README\.md$)[^/]+\.md$/;
+const REGULAR_FILE = '100644';
+
+function versionlessPackage(ref) {
+  const { version, ...rest } = JSON.parse(mustExec('git', ['show', `${ref}:package.json`]));
+  return { version, rest };
+}
+
+export function versionOnlyDiff(base, head) {
+  const lines = mustExec('git', ['diff', '--raw', '--no-renames', '--no-abbrev', base, head])
+    .split('\n')
+    .filter(Boolean);
+  let bumped = false;
+  for (const line of lines) {
+    const [meta, path] = line.split('\t');
+    const [oldMode, newMode, , , status] = meta.slice(1).split(' ');
+    if (path === 'package.json' || path === 'CHANGELOG.md') {
+      if (status !== 'M' || oldMode !== REGULAR_FILE || newMode !== REGULAR_FILE) {
+        return { ok: false, reason: `${path} is ${status} with mode ${oldMode} -> ${newMode}` };
+      }
+      if (path === 'package.json') bumped = true;
+    } else if (!(status === 'D' && CHANGESET_FILE.test(path))) {
+      return { ok: false, reason: `${path} (${status}) is not a version-only change` };
+    }
+  }
+  if (!bumped) return { ok: false, reason: 'package.json is unchanged' };
+  const before = versionlessPackage(base);
+  const after = versionlessPackage(head);
+  if (!isDeepStrictEqual(before.rest, after.rest)) {
+    return { ok: false, reason: 'package.json changes more than its version' };
+  }
+  if (typeof after.version !== 'string' || !RELEASE_VERSION.test(after.version)) {
+    return { ok: false, reason: `the new version ${String(after.version)} is not a plain semver` };
+  }
+  return { ok: true, reason: `only the version changed, ${before.version} -> ${after.version}` };
+}
+
+function proofDecision(rule, ref) {
+  const proof = greenTreeProof(ref);
+  printProof(proof);
+  return proof.ok
+    ? { skip: true, rule, reason: `${rule}: ${ref} is the tree of a green pull request head` }
+    : { skip: false, rule, reason: `${rule}: ${proof.reason}` };
+}
+
+export function scopeDecision(env = process.env) {
+  const event = env.GITHUB_EVENT_NAME;
+  if (event === 'push') return proofDecision('main push', objectId(env.GITHUB_SHA, 'GITHUB_SHA'));
+  if (event !== 'pull_request') {
+    return { skip: false, rule: 'event', reason: `event ${String(event)} runs the full matrix` };
+  }
+  const payload = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')).pull_request;
+  const base = objectId(payload?.base?.sha, 'pull request base');
+  const head = objectId(payload?.head?.sha, 'pull request head');
+  const mergeBase = mustExec('git', ['merge-base', base, head]);
+  if (mergeBase !== base) {
+    return {
+      skip: false,
+      rule: 'version pull request',
+      reason: `version pull request: the branch does not contain the base ${base}`,
+    };
+  }
+  const diff = versionOnlyDiff(base, head);
+  console.log(`Diff from ${base} to ${head}: ${diff.reason}.`);
+  if (!diff.ok)
+    return {
+      skip: false,
+      rule: 'version pull request',
+      reason: `version pull request: ${diff.reason}`,
+    };
+  return proofDecision('version pull request', base);
+}
+
+export function scope() {
+  let decision;
+  try {
+    decision = scopeDecision();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`::notice::The full test matrix runs because the scope lookup failed: ${message}`);
+    decision = { skip: false, rule: 'lookup', reason: `lookup failed: ${message}` };
+  }
+  console.log(
+    `${decision.skip ? 'Skipping' : 'Running'} the test matrix (rule: ${decision.rule}): ${decision.reason}.`,
+  );
+  writeOutputs({
+    skip_matrix: decision.skip,
+    skip_reason: decision.reason.replace(/[\r\n]+/g, ' '),
+  });
+  return 0;
+}
+
 export function prepublishDecision(env = process.env) {
   if (env.GITHUB_ACTIONS !== 'true')
     return { skip: false, reason: 'not running in GitHub Actions' };
@@ -407,6 +500,7 @@ function main(command) {
     return 0;
   }
   if (command === 'ci-green') return ciGreen();
+  if (command === 'scope') return scope();
   if (command === 'prepublish') return prepublish();
   if (command === 'tags') {
     const version = packageVersion();
@@ -437,7 +531,9 @@ function main(command) {
     console.log(`The plugin is at ${lag.newest}, matching npm latest ${lag.latest}.`);
     return 0;
   }
-  console.error('Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish>');
+  console.error(
+    'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish|scope>',
+  );
   return 1;
 }
 

@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -503,8 +503,12 @@ interface ApiOptions {
 function proveFixture(options: ApiOptions = {}) {
   const f = fixture(['1.0.0', '1.1.0']);
   const merge = f.commits['1.1.0']!;
-  const base = f.commits['1.0.0']!;
-  const tree = git(f.repo, ['rev-parse', 'HEAD^{tree}']);
+  return { f, merge, ...writeProofApi(f, merge, options) };
+}
+
+function writeProofApi(f: Fixture, merge: string, options: ApiOptions) {
+  const base = git(f.repo, ['rev-parse', `${merge}^`]);
+  const tree = git(f.repo, ['rev-parse', `${merge}^{tree}`]);
   const api: Record<string, unknown> = {
     [`${REPO}/commits/${merge}/pulls?per_page=100`]: [
       options.pulls ?? [
@@ -540,7 +544,7 @@ function proveFixture(options: ApiOptions = {}) {
   };
   if (options.fail) api[options.fail] = { fail: 'HTTP 403: rate limit exceeded' };
   writeFileSync(join(f.repo, '..', 'gh-api.json'), JSON.stringify(api));
-  return { f, tree, merge };
+  return { tree };
 }
 
 describe.skipIf(process.platform === 'win32')('release-sync ci-green', () => {
@@ -755,6 +759,240 @@ describe.skipIf(process.platform === 'win32')('release-sync prepublish', () => {
   });
 });
 
+function writeFiles(repo: string, files: Record<string, string | null>): void {
+  for (const [rel, text] of Object.entries(files)) {
+    if (text === null) rmSync(join(repo, rel), { force: true });
+    else {
+      mkdirSync(dirname(join(repo, rel)), { recursive: true });
+      writeFileSync(join(repo, rel), text);
+    }
+  }
+}
+
+function packageJson(version: string, extra: Record<string, unknown> = {}): string {
+  return `${JSON.stringify({ name: 'paqad-ai', version, description: '', ...extra }, null, 2)}\n`;
+}
+
+function scopeFixture(options: ApiOptions = {}) {
+  const f = fixture(['0.9.0', '1.0.0']);
+  writeFiles(f.repo, {
+    '.changeset/brave-cat.md': "---\n'paqad-ai': patch\n---\n\nFaster.\n",
+    '.changeset/config.json': '{}\n',
+    '.changeset/README.md': '# Changesets\n',
+    'pnpm-lock.yaml': 'lockfileVersion: 9\n',
+  });
+  git(f.repo, ['add', '-A']);
+  git(f.repo, ['commit', '--quiet', '-m', 'feat: a change with a changeset']);
+  const base = git(f.repo, ['rev-parse', 'HEAD']);
+  const { tree } = writeProofApi(f, base, options);
+  git(f.repo, ['checkout', '--quiet', '-b', 'changeset-release/main']);
+  return { f, base, tree };
+}
+
+function versionPr(
+  f: Fixture,
+  base: string,
+  edit: (repo: string) => void = (repo) =>
+    writeFiles(repo, {
+      'package.json': packageJson('1.1.0'),
+      'CHANGELOG.md': '# paqad-ai\n\n## 1.1.0\n\n- Faster.\n',
+      '.changeset/brave-cat.md': null,
+    }),
+  env: Record<string, string> = {},
+) {
+  edit(f.repo);
+  git(f.repo, ['add', '-A']);
+  git(f.repo, ['commit', '--quiet', '--allow-empty', '-m', 'chore(release): version packages']);
+  const head = git(f.repo, ['rev-parse', 'HEAD']);
+  const eventPath = join(f.repo, '..', 'event.json');
+  writeFileSync(
+    eventPath,
+    JSON.stringify({ pull_request: { base: { sha: base }, head: { sha: head } } }),
+  );
+  return run(f, 'scope', {
+    GITHUB_EVENT_NAME: 'pull_request',
+    GITHUB_EVENT_PATH: eventPath,
+    ...env,
+  });
+}
+
+describe.skipIf(process.platform === 'win32')('release-sync scope', () => {
+  it('AC-13: skips the matrix for a version-only pull request on a proven green base', () => {
+    const { f, base, tree } = scopeFixture();
+
+    const result = versionPr(f, base);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.skip_matrix).toBe('true');
+    expect(result.outputs.skip_reason).toContain('version pull request');
+    expect(result.stdout).toContain('only the version changed, 1.0.0 -> 1.1.0');
+    expect(result.stdout).toContain(
+      `Pull request 7 (https://pr/7), head ${PR_HEAD}, tree ${tree}.`,
+    );
+    for (const name of REQUIRED) expect(result.stdout).toContain(`${name}: success`);
+    expect(result.stdout).toContain('Skipping the test matrix (rule: version pull request)');
+  });
+
+  it.each([
+    [
+      'an added changeset',
+      (repo: string) =>
+        writeFiles(repo, { 'package.json': packageJson('1.1.0'), '.changeset/new-dog.md': 'x\n' }),
+      '.changeset/new-dog.md (A)',
+    ],
+    [
+      'a modified changeset',
+      (repo: string) =>
+        writeFiles(repo, {
+          'package.json': packageJson('1.1.0'),
+          '.changeset/brave-cat.md': 'x\n',
+        }),
+      '.changeset/brave-cat.md (M)',
+    ],
+    [
+      'a deleted .changeset/config.json',
+      (repo: string) =>
+        writeFiles(repo, { 'package.json': packageJson('1.1.0'), '.changeset/config.json': null }),
+      '.changeset/config.json (D)',
+    ],
+    [
+      'a deleted .changeset/README.md',
+      (repo: string) =>
+        writeFiles(repo, { 'package.json': packageJson('1.1.0'), '.changeset/README.md': null }),
+      '.changeset/README.md (D)',
+    ],
+    [
+      'a renamed file',
+      (repo: string) => {
+        writeFiles(repo, { 'package.json': packageJson('1.1.0') });
+        git(repo, ['mv', '.changeset/brave-cat.md', '.changeset/brave-dog.md']);
+      },
+      '.changeset/brave-dog.md (A)',
+    ],
+    [
+      'a mode change',
+      (repo: string) => {
+        writeFiles(repo, { 'package.json': packageJson('1.1.0') });
+        chmodSync(join(repo, 'package.json'), 0o755);
+      },
+      'package.json is M with mode 100644 -> 100755',
+    ],
+    [
+      'a pnpm-lock.yaml change',
+      (repo: string) =>
+        writeFiles(repo, {
+          'package.json': packageJson('1.1.0'),
+          'pnpm-lock.yaml': 'lockfileVersion: 10\n',
+        }),
+      'pnpm-lock.yaml (M)',
+    ],
+    [
+      'a second package.json change',
+      (repo: string) =>
+        writeFiles(repo, { 'package.json': packageJson('1.1.0', { private: true }) }),
+      'package.json changes more than its version',
+    ],
+    [
+      'a version that is not a plain semver',
+      (repo: string) => writeFiles(repo, { 'package.json': packageJson('1.1.0-beta.1') }),
+      'the new version 1.1.0-beta.1 is not a plain semver',
+    ],
+    [
+      'no version bump',
+      (repo: string) => writeFiles(repo, { 'CHANGELOG.md': 'x\n' }),
+      'package.json is unchanged',
+    ],
+  ])('AC-12: runs the matrix for %s', (_case, edit, reason) => {
+    const { f, base } = scopeFixture();
+
+    const result = versionPr(f, base, edit);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.outputs.skip_reason).toContain(reason);
+  });
+
+  it.each([
+    ['is not green', { checkPages: [greenRuns().slice(1)] }, 'is missing'],
+    ['does not match its pull request head', { headTree: 'd'.repeat(40) }, 'tree mismatch'],
+    ['was pushed without a pull request', { pulls: [] }, 'no merged pull request'],
+  ])('AC-13: runs the matrix when the base %s', (_case, options, reason) => {
+    const { f, base } = scopeFixture(options);
+
+    const result = versionPr(f, base);
+
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.outputs.skip_reason).toContain(reason);
+  });
+
+  it('runs the matrix when the branch does not contain the base', () => {
+    const { f, base } = scopeFixture();
+    git(f.repo, ['reset', '--quiet', '--hard', `${base}^`]);
+
+    const result = versionPr(f, base);
+
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.outputs.skip_reason).toContain(`the branch does not contain the base ${base}`);
+  });
+
+  it('runs the matrix, never skips, when the lookup fails', () => {
+    const { f, base } = scopeFixture({
+      fail: `${REPO}/commits/${PR_HEAD}/check-runs?filter=all&per_page=100`,
+    });
+
+    const result = versionPr(f, base);
+
+    expect(result.status).toBe(0);
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.stdout).toContain(
+      '::notice::The full test matrix runs because the scope lookup failed:',
+    );
+    expect(result.outputs.skip_reason).toContain('lookup failed');
+  });
+
+  it('skips the matrix on a push to main whose tree is a green pull request head', () => {
+    const { f, merge } = proveFixture();
+
+    const result = run(f, 'scope', { GITHUB_EVENT_NAME: 'push', GITHUB_SHA: merge });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.skip_matrix).toBe('true');
+    expect(result.outputs.skip_reason).toContain('main push');
+  });
+
+  it.each([
+    ['no pull request', { pulls: [] }, 'no merged pull request'],
+    ['a tree mismatch', { headTree: 'd'.repeat(40) }, 'tree mismatch'],
+    [
+      'a red check',
+      {
+        checkPages: [
+          [checkRun(1, REQUIRED[0]!, { conclusion: 'failure' }), ...greenRuns().slice(1)],
+        ],
+      },
+      'is failure',
+    ],
+  ])('runs the matrix on a push to main with %s', (_case, options, reason) => {
+    const { f, merge } = proveFixture(options);
+
+    const result = run(f, 'scope', { GITHUB_EVENT_NAME: 'push', GITHUB_SHA: merge });
+
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.outputs.skip_reason).toContain(reason);
+  });
+
+  it('runs the matrix for any other event', () => {
+    const { f } = proveFixture();
+
+    const result = run(f, 'scope', { GITHUB_EVENT_NAME: 'workflow_dispatch' });
+
+    expect(result.outputs).toEqual({
+      skip_matrix: 'false',
+      skip_reason: 'event workflow_dispatch runs the full matrix',
+    });
+  });
+});
+
 describe.skipIf(process.platform === 'win32')('release-sync check', () => {
   it('AC-5: fails red when npm latest is ahead of the newest plugin tag', () => {
     const f = fixture(['1.0.0']);
@@ -786,7 +1024,7 @@ describe.skipIf(process.platform === 'win32')('release-sync check', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish>',
+      'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish|scope>',
     );
   });
 });
