@@ -9,14 +9,22 @@ import {
   budgetWarnings,
   escapeAnnotation,
   summariseShard,
+  timingCoverage,
+  timingCoverageError,
+  timingCoverageSummary,
 } from './lib/shard-budget.mjs';
 
 function parseArgs(argv) {
-  const args = { dir: '.vitest-durations', os: process.platform, root: process.cwd() };
+  const args = {
+    dir: '.vitest-durations',
+    os: process.platform,
+    platform: process.platform,
+    root: process.cwd(),
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const value = argv[i + 1];
-    if ((arg === '--dir' || arg === '--os' || arg === '--root') && value !== undefined) {
+    if (['--dir', '--os', '--platform', '--root'].includes(arg) && value !== undefined) {
       args[arg.slice(2)] = value;
       i++;
     } else {
@@ -50,4 +58,19 @@ for (const name of names) {
 for (const line of [...budgetSummary(shards, args.os), ...budgetWarnings(shards, args.os)]) {
   process.stdout.write(`${line}\n`);
 }
-process.exit(0);
+if (shards.length === 0) process.exit(0);
+let timings = {};
+try {
+  timings = JSON.parse(
+    readFileSync(join(resolve(args.root), 'tests', 'shard-timings.json'), 'utf8'),
+  );
+} catch (error) {
+  process.stdout.write(
+    `Could not read tests/shard-timings.json, so no file has a timing: ${error.message}\n`,
+  );
+}
+const coverage = timingCoverage(shards, timings, args.platform);
+process.stdout.write(`${timingCoverageSummary(coverage, args.os)}\n`);
+const error = timingCoverageError(coverage, args.os);
+if (error) process.stdout.write(`${error}\n`);
+process.exit(error ? 1 : 0);

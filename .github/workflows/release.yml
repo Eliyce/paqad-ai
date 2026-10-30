@@ -18,6 +18,12 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: github.repository_owner == 'Eliyce'
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      checks: read
+      actions: read
     outputs:
       published: ${{ steps.published.outputs.plugin_needed }}
       version: ${{ steps.published.outputs.version }}
@@ -27,8 +33,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # The tag step pushes tags on older commits whose workflow files differ from main.
-          # GitHub only allows that with a token that has the Workflows permission.
           token: ${{ secrets.GH_RELEASE_TOKEN }}
 
       - name: Enable Corepack
@@ -50,10 +54,10 @@ jobs:
       - name: Upgrade npm (Trusted Publishing needs npm >= 11.5.1)
         run: npm install -g "npm@>=11.5.1 <12"
 
-      - name: Build
-        run: pnpm run build
+      - name: Prove CI is green on this tree
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-sync.mjs ci-green
 
       - name: Create release PR or publish to npm
         id: changesets
@@ -66,10 +70,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Read what npm and the plugin repo have
         id: published
         run: node scripts/release-sync.mjs state
+
+  tags:
+    name: Tags and GitHub Releases
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_RELEASE_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - name: Tag and create the GitHub Release for every published version
         env:
@@ -162,7 +185,7 @@ jobs:
 
   plugin-in-sync:
     name: Plugin matches npm
-    needs: [release, publish-plugin]
+    needs: [release, publish-plugin, tags]
     if: always() && needs.release.result == 'success'
     runs-on: ubuntu-latest
     permissions:

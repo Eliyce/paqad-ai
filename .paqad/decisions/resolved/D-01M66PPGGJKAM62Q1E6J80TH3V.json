@@ -1,0 +1,54 @@
+{
+  "id": "D-01M66PPGGJKAM62Q1E6J80TH3V",
+  "category": "spec.contradiction",
+  "title": "AC-4 as a permanent suite test breaks every PR that adds, renames or deletes a test file",
+  "context": "Review of the held-back Part B. tests/unit/scripts/shard-timings.test.ts (new describe 'tests/shard-timings.json', it.each darwin/linux/win32) asserts on every run that each tests/**/*.test.ts file has a timing in every OS block of tests/shard-timings.json and that no block lists a deleted file. It runs in pnpm run ci and in the linux and macOS CI shards. After this PR refreshes the timings it passes once, but from then on any PR that adds a new test file, renames one or deletes one goes red locally and on CI until tests/shard-timings.json is refreshed for all three platforms, and the linux and win32 numbers can only come from that PR's own CI artifacts, so every such PR needs two CI rounds (or hand-written fake numbers). Nearly every feature PR in this repo adds a test file. This contradicts FR-4, which deliberately tolerates up to 5% untimed files per platform so new files do not need a refresh, and the docs (refresh only when a budget warning fires). AC-4's wording ('given the regenerated timings ... every test file has a timing') describes the state right after the refresh, not a permanent gate. Changing the test changes how the frozen AC-4 is proven, so it needs your call.",
+  "options": [
+    {
+      "option_key": "tolerance",
+      "label": "Keep a permanent AC-4 suite test but apply the FR-4 rule: fail only when more than 5% of a platform's test files lack a timing; stale entries for deleted files are allowed and dropped on the next refresh. The 0-missing state right after the refresh is proven by this PR's CI check-shard-budget output (N of N timed per OS) recorded on #757",
+      "one_line_preview": "Keep a permanent AC-4 suite test but apply the FR-4 rule: fail only when more than 5% of a platform's test files lack a timing; stale entries for deleted files are allowed and dropped on the next refresh. The 0-missing state right after the refresh is proven by this PR's CI check-shard-budget output (N of N timed per OS) recorded on #757",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-shot",
+      "label": "Remove the permanent AC-4 suite test; prove AC-4 once with this PR's refreshed file and the check-shard-budget output on its CI run, recorded on #757; FR-4's 5% check in the merge job stays the ongoing guard",
+      "one_line_preview": "Remove the permanent AC-4 suite test; prove AC-4 once with this PR's refreshed file and the check-shard-budget output on its CI run, recorded on #757; FR-4's 5% check in the merge job stays the ongoing guard",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-strict",
+      "label": "Keep the strict permanent test as written: every PR that adds, renames or deletes a test file must refresh tests/shard-timings.json for darwin, linux and win32 from its own CI artifacts before it can go green",
+      "one_line_preview": "Keep the strict permanent test as written: every PR that adds, renames or deletes a test file must refresh tests/shard-timings.json for darwin, linux and win32 from its own CI artifacts before it can go green",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "tolerance",
+  "created_at": "2026-10-30T15:26:19.154Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "tolerance",
+  "rationale": "Owner picked the 5% tolerance; also apply the four minor review fixes",
+  "resolved_at": "2026-10-30T15:46:30.757Z",
+  "decision_id": "D-01M66PPGGJKAM62Q1E6J80TH3V",
+  "fingerprint": "sha256:3fe945ea964dd7cb5b3aceb1e7495c3ba0637c9c5b53f7af3155a53827ca350f",
+  "question": "AC-4 as a permanent suite test breaks every PR that adds, renames or deletes a test file",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-06T15:26:19.154Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "tolerance",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T15:46:30.757Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the 5% tolerance; also apply the four minor review fixes"
+  }
+}

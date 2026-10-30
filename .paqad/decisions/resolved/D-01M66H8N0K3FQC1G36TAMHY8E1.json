@@ -1,0 +1,47 @@
+{
+  "id": "D-01M66H8N0K3FQC1G36TAMHY8E1",
+  "category": "spec.contradiction",
+  "title": "How does the release know npm has the new version, so the plugin need not wait?",
+  "context": "The issue (D2) says to read the changesets action's 'published' output. The repo already decided in #708 not to read changesets output (test AC-6 in release-workflow.test.ts, docs/RELEASE-WORKFLOW.md), because with changesets CLI v3 that output stays false; the v1.112.0 log shows the new format. Recommended: treat the v<version> git tag that 'changeset publish' creates in this run as the proof, keep AC-6, and keep the npm check (now --prefer-online) as the fallback.",
+  "options": [
+    {
+      "option_key": "tag",
+      "label": "Use the release tag changeset publish creates; keep AC-6 (recommended)",
+      "one_line_preview": "Use the release tag changeset publish creates; keep AC-6 (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "literal",
+      "label": "Follow the issue literally: read steps.changesets.outputs.published and drop AC-6",
+      "one_line_preview": "Follow the issue literally: read steps.changesets.outputs.published and drop AC-6",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "tag",
+  "created_at": "2026-10-30T13:51:22.131Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "tag",
+  "rationale": "Owner picked the release tag; keep AC-6",
+  "resolved_at": "2026-10-30T13:55:55.634Z",
+  "decision_id": "D-01M66H8N0K3FQC1G36TAMHY8E1",
+  "fingerprint": "sha256:5348fb3024095191856af3fa10630190933930bbca6310a8f4569cffc051287d",
+  "question": "How does the release know npm has the new version, so the plugin need not wait?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-06T13:51:22.131Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "tag",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T13:55:55.634Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the release tag; keep AC-6"
+  }
+}

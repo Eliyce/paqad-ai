@@ -22,6 +22,8 @@ env:
 
 # The test run is split into shards so the slowest OS finishes inside 7 minutes (issue #654):
 #
+#   scope   decides whether test and merge may be skipped: only for a version-only pull request
+#           on a proven green base, or a main push whose tree is a green pull request head
 #   static  typecheck, lint, format, graph-ui tests, build and plugin checks, once on ubuntu
 #   test    each OS runs its share of the vitest files (tests/shared/duration-sequencer.ts
 #           balances them by tests/shard-timings.json) and uploads a blob report
@@ -30,10 +32,39 @@ env:
 #           tests and checks on Python 3.9, every host build, and a check that the skills
 #           committed under runtime/claude-plugin/skills match a fresh build
 #   gate    one job per required check, under the exact names branch protection expects,
-#           red unless static, every test shard, every merge and discovery-plugin succeeded
+#           red unless scope, static, every test shard, every merge and discovery-plugin succeeded;
+#           test and merge may be skipped only when scope said so
 #
 # Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
 jobs:
+  scope:
+    name: Scope
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+      actions: read
+    outputs:
+      skip_matrix: ${{ steps.scope.outputs.skip_matrix }}
+      skip_reason: ${{ steps.scope.outputs.skip_reason }}
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Decide whether the test matrix must run
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-sync.mjs scope
+
   static:
     name: Static checks
     runs-on: ubuntu-latest
@@ -91,6 +122,8 @@ jobs:
 
   test:
     name: Shard ${{ matrix.shard }}/${{ matrix.total }}, Node ${{ matrix.node }} / ${{ matrix.os }}
+    needs: scope
+    if: needs.scope.outputs.skip_matrix != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -164,10 +197,10 @@ jobs:
 
   merge:
     name: Merge, Node ${{ matrix.node }} / ${{ matrix.os }}
-    needs: test
+    needs: [scope, test]
     # Runs even when a shard failed, so the merged report lists every failure in one place.
     # The gate still goes red: it needs every shard to have succeeded.
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.skip_matrix != 'true' }}
     # Coverage thresholds match paths relative to the project root, and blob paths are not
     # remapped, so each OS merges its own blobs on that same OS.
     runs-on: ${{ matrix.os }}
@@ -308,7 +341,7 @@ jobs:
   gate:
     # These four names are the required status checks in branch protection. Keep them exact.
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
-    needs: [static, test, merge, discovery-plugin]
+    needs: [scope, static, test, merge, discovery-plugin]
     # Always runs: a job skipped because a dependency failed would count as passing, so the
     # gate runs anyway and fails unless every job it needs succeeded. GitHub reports a matrix
     # job's result as one value for all its legs, so a failing shard on any OS turns all four
@@ -324,9 +357,10 @@ jobs:
           - { os: macos-latest, node: 22 }
           - { os: windows-latest, node: 22 }
     steps:
-      - name: Require static checks, every test shard, every merge and the discovery plugin to pass
+      - name: Require scope, static checks, every test shard, every merge and the discovery plugin to pass
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+          echo "$NEEDS" | jq -r '"skip_matrix: \(.scope.outputs.skip_matrix // "none") (\(.scope.outputs.skip_reason // "no reason"))"'
+          echo "$NEEDS" | jq -e '(.scope.outputs.skip_matrix == "true") as $skip | all(to_entries[]; .value.result == "success" or ($skip and (.key == "test" or .key == "merge") and .value.result == "skipped"))' > /dev/null

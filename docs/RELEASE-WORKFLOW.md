@@ -202,25 +202,45 @@ CI splits the test run so no OS has to run the whole suite in one job. Four kind
   to vitest's own split. Stale timings only make the shards less even; no test is skipped or
   run twice. Each shard sets `PAQAD_TEST_SHARD=1`, which turns the coverage floors off for
   that shard only.
-- **Merge** runs once per OS, on that same OS. It checks every shard sent a report, merges
+- **Merge** runs once per OS, on that same OS, but only when `scope` succeeded, the test
+  matrix was not skipped, and the run was not cancelled. It checks every shard sent a report, merges
   them, and enforces the coverage floors on the whole result. It then runs
   `scripts/check-shard-budget.mjs`.
 - **Discovery plugin** runs once on ubuntu. See below.
 - **Gate** jobs carry the four required check names (`Node 22 / ubuntu-latest` and so on).
   Each is red unless static, every shard, every merge and the discovery plugin job succeeded, so a failing shard on any
-  OS turns all four gates red. Look for the red `Shard i/n` job to find the failure.
+  OS turns all four gates red. Look for the red `Shard i/n` job to find the failure. A gate
+  also accepts skipped test and merge jobs, but only when the `scope` job succeeded and said
+  `skip_matrix` is true.
+- **Scope** decides whether the test matrix can be skipped, and writes `skip_matrix` and
+  `skip_reason`. It skips test and merge in two cases only:
+  - a version-only PR: the diff touches only the `version` field of `package.json`,
+    `CHANGELOG.md`, and deleted `.changeset/*.md` files (not `README.md`), the branch contains
+    the base, and that base is already proven green. Scope takes the base from the first
+    parent of the merge commit CI checks out (`GITHUB_SHA^1`) and ignores the base sha in the
+    PR event. If that merge commit's second parent is not the PR head, it runs the full matrix;
+  - a push to `main` whose tree matches a PR head that was already green.
+
+  Any error, or any doubt, runs the full matrix. The job reads contents, checks, pull requests
+  and actions. Static and discovery plugin always run.
 
 Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
 
 **Budget warnings.** `check-shard-budget.mjs` prints a GitHub warning when an OS's slowest
-shard runs over 270 s or a single test file over 90 s. It never fails the build. When it
-fires:
+shard runs over 270 s or a single test file over 90 s. Those warnings never fail the build.
+CI passes no flag, so the script checks the runner's own OS. It does fail when more than 5%
+of that OS's test files have no timing in `tests/shard-timings.json`, because then the split is mostly guesswork.
+When a warning fires:
 
 1. Download that OS's `blob-…` artifacts from the CI run and find the
    `.vitest-durations/durations-*.json` files.
-2. Run
-   `node scripts/update-shard-timings.mjs --platform <win32|linux|darwin> --report <file> [--report <file> ...]`.
-   Only that OS's block of `tests/shard-timings.json` changes. You can also make one report
+2. Run it once per OS, with one `--report` for each shard file of that OS:
+   `node scripts/update-shard-timings.mjs --platform <darwin|linux|win32> --report <shard 1 file> --report <shard 2 file> ...`.
+   Use the files as downloaded. Paths inside them such as `/home/runner/work/...` or
+   `D:/a/...` are matched to this repo by the first `tests/` folder that exists here, so
+   `--report-root <dir>` is optional. Entries it cannot place in the repo are skipped and
+   counted in the output. The script rewrites that OS's block of `tests/shard-timings.json`
+   and drops entries for deleted test files from every block. You can also make one report
    locally with `pnpm vitest run --reporter=json --outputFile=<file>` and leave out
    `--platform` to use your own OS.
 3. Commit `tests/shard-timings.json`. CI never commits it for you.
@@ -228,7 +248,8 @@ fires:
 If refreshing is not enough, add one shard for that OS in `.github/workflows/ci.yml` (in both
 the `test` matrix and the `merge` job's `total`). A single file over budget needs splitting,
 the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.test.ts` to
-`matrix.g5.test.ts`.
+`matrix.g5.test.ts`, and the onboarding orchestrator into `orchestrator.g1.test.ts` to
+`orchestrator.g4.test.ts`.
 
 ### Discovery plugin job
 
@@ -254,33 +275,52 @@ in [the claude-plugin module doc](modules/claude-plugin/index/summary.md).
 - Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 - Triggers: `push` to `main`, manual `workflow_dispatch`
 - Token: GitHub PAT stored as `GH_RELEASE_TOKEN` repo secret (so the bot's
-  release PR can trigger CI; the default `GITHUB_TOKEN` cannot). The checkout and the tag step
-  use it too, because tagging an older version whose workflow files differ from `main` needs
-  the Workflows permission, which the default token can never have. As a fine-grained token on
-  `Eliyce/paqad-ai` it needs Contents, Pull requests and Workflows set to Read and write.
+  release PR can trigger CI; the default `GITHUB_TOKEN` cannot). As a fine-grained token on
+  `Eliyce/paqad-ai` it needs Contents, Pull requests and Workflows set to Read and write. The
+  `tags` job uses it for the reason given there.
 - npm auth: **Trusted Publishing (OIDC)** — configured at
   <https://www.npmjs.com/package/paqad-ai/access>. No `NPM_TOKEN` secret.
 - Provenance: enabled (`NPM_CONFIG_PROVENANCE=true`); requires
   `id-token: write` permission (set in the workflow).
 - npm CLI: pinned to `>=11.5.1 <12`. Trusted Publishing needs 11.5.1 or newer, and npm 12
   changed the `npm pack --json` output the publish-time end-to-end test reads.
-- Build heap: `NODE_OPTIONS=--max-old-space-size=4096`, the same as CI, so the type-declaration
-  build never runs out of memory.
+- CI green check: right before the changesets step, `node scripts/release-sync.mjs ci-green`
+  proves the tree on `main` already passed CI, so the release does not run the suite again. It
+  finds the merged PR for the commit, checks that its head tree matches and that the head
+  contains the base, and reads the GitHub Actions check runs whose check suite belongs to a
+  `ci.yml` workflow run. For each check it takes the newest completed attempt; an earlier failed
+  attempt is written to the log. It refuses on any doubt: a lookup error, a check that is not
+  finished or not green, no PR or several PRs, or a tree mismatch. On success it writes the
+  tree hash (bare hex) to `PAQAD_RELEASE_VERIFIED_TREE` in `GITHUB_ENV`.
+- `prepublishOnly` is `node scripts/release-sync.mjs prepublish`. It skips the suite only inside
+  GitHub Actions on the verified tree. Anywhere else, a laptop for example, it runs
+  `pnpm run ci` exactly as before. The real control on who can publish is still npm trusted
+  publishing, which only accepts `release.yml`.
+- No separate build step: `pnpm run release` builds. The build heap,
+  `NODE_OPTIONS=--max-old-space-size=4096` (the same as CI), sits on the changesets step so the
+  type-declaration build never runs out of memory.
 - What was published is read from facts, never from the changesets console output (changesets
   CLI v3 stopped printing the `New tag:` lines the action looked for, so its `published` output
-  stayed `false`). After the changesets step, `node scripts/release-sync.mjs state` reads the
-  version in `package.json`, finds its release commit, asks npm whether that version exists and
-  asks `Eliyce/paqad-claude-plugin` whether tag `v<version>` exists. The job outputs `published`
-  (true only when npm has the version and the plugin tag is missing), `version` and `sha`.
-- Tags and GitHub Releases: `node scripts/release-sync.mjs tags` pushes `v<version>` on the
-  release commit and creates the GitHub Release (notes from that version's `CHANGELOG.md`
-  section) for every published version from the newest existing tag onwards that lacks one.
-  Only the current version is marked latest. Its first run backfilled every version since 1.78.0.
+  stayed `false`, and it is still never read). After the changesets step,
+  `node scripts/release-sync.mjs state` reads the version in `package.json`, finds its release
+  commit and asks `Eliyce/paqad-claude-plugin` whether tag `v<version>` exists. The local
+  `v<version>` tag that `changeset publish` creates counts as proof the version was just
+  published. Without it (a `workflow_dispatch` recovery run, for example) `state` falls back to
+  polling npm. Every `npm view` uses `--prefer-online`. The job outputs `published` (true only
+  when the version is published and the plugin tag is missing), `version` and `sha`.
+- Tags and GitHub Releases: a separate `tags` job (needs `release`) waits for npm to list the
+  version and fails if it never appears. Then `node scripts/release-sync.mjs tags` pushes
+  `v<version>` on the release commit and creates the GitHub Release (notes from that version's
+  `CHANGELOG.md` section) for every published version from the newest existing tag onwards that
+  lacks one. Only the current version is marked latest. Its first run backfilled every version
+  since 1.78.0. This job pushes with `GH_RELEASE_TOKEN`, because tagging an older version whose
+  workflow files differ from `main` needs the Workflows permission, which the default token can
+  never have.
 - Plugin: `publish-plugin` checks out the release commit, fails if its `package.json` version is
   not the published one, builds, and pushes the plugin with `PAQAD_PLUGIN_PUSH_TOKEN`. Because the
   gate reads facts, any later run on `main`, including a manual `workflow_dispatch`, ships a
   plugin that is behind npm.
-- Plugin lag: the `plugin-in-sync` job runs after every release, and
+- Plugin lag: the `plugin-in-sync` job runs after `release`, `publish-plugin` and `tags`, and
   [`.github/workflows/plugin-sync-check.yml`](../.github/workflows/plugin-sync-check.yml) runs
   daily at 06:00 UTC. Both run `node scripts/release-sync.mjs check`, which fails red when npm
   `latest` is newer than the newest `v*` tag in the plugin repo.
@@ -380,10 +420,13 @@ Why each one works the way it does, for the parts the code does not say.
   from changesets output. `state` writes `version`, `sha` (the oldest commit whose `package.json`
   carries that version) and `plugin_needed` to `GITHUB_OUTPUT`. It reads `package.json` and its history at `GITHUB_SHA` (else `HEAD`), because with changesets pending the changesets step leaves the checkout on its release branch with the next version already bumped; `state` waits up to 15 minutes for npm to list the new version, because npm takes 3 to 7 minutes after `changeset publish` reports success. It
   returns as soon as npm lists it, and logs one line when it starts waiting and one when the wait ends. `tags` pushes missing `v<version>` tags by commit, so a
-  local tag changesets made does not matter, and creates the missing GitHub Releases, oldest
+  local tag changesets made does not matter for pushing, and creates the missing GitHub Releases, oldest
   first. `check` fails when the plugin lags npm `latest`. A failure to reach npm or a git remote
   fails the step rather than reading as "not published" or "tag missing". Tests in
-  `tests/unit/ci/release-sync.test.ts` run it against local bare remotes with fake `npm` and `gh`.
+  `tests/unit/ci/release-sync.*.test.ts` (one file per command, sharing
+  `release-sync-harness.ts`) run it against local bare remotes with fake `npm` and `gh`.
+  The full command list is `state`, `tags`, `check`, `ci-green`, `prepublish` and `scope`;
+  `ci-green` and `prepublish` are described under Release above, and `scope` under CI.
 - **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
   verification gate, so a local run and verification agree. Drift is checked per barrel, because
   per-symbol drift means nothing for `export *` barrels. A symbol used only inside its own
@@ -416,7 +459,7 @@ Why each one works the way it does, for the parts the code does not say.
 | Release workflow runs but no release PR opens | No pending changesets | Expected when no `.changeset/*.md` files exist |
 | Release PR (`chore(release): version packages`) opens but has **no CI checks** | The default `GITHUB_TOKEN` was used instead of `GH_RELEASE_TOKEN` | Confirm `GH_RELEASE_TOKEN` secret exists and `release.yml` references it as `GITHUB_TOKEN` for the changesets step |
 | Release PR CI fails on `expected '1.0.X' to be '1.0.Y'` | The build-time `__PKG_VERSION__` injection is broken or missing | Confirm `tsup.config.ts` and `vitest.config.ts` both `define: { __PKG_VERSION__: JSON.stringify(pkg.version) }`. `src/index.ts` reads only this constant — there should be no hardcoded version string anywhere |
-| Tag step fails: `refusing to allow a GitHub App to create or update workflow ... without workflows permission` | The tag was pushed with the default `GITHUB_TOKEN`, or `GH_RELEASE_TOKEN` lacks the Workflows permission | Confirm the checkout `token:` and the tag step's `GH_TOKEN` both use `GH_RELEASE_TOKEN`, and that the token has Workflows: Read and write |
+| Tag step fails: `refusing to allow a GitHub App to create or update workflow ... without workflows permission` | The tag was pushed with the default `GITHUB_TOKEN`, or `GH_RELEASE_TOKEN` lacks the Workflows permission | Confirm the `tags` job's checkout `token:` and its `GH_TOKEN` both use `GH_RELEASE_TOKEN`, and that the token has Workflows: Read and write |
 | Provenance error in workflow log | Missing `id-token: write` permission | Confirm the `permissions` block in `release.yml` includes `id-token: write` |
 | Need to undo a published version (≤ 72 h) | npm policy allows brief unpublish | `npm unpublish paqad-ai@x.y.z --force` then ship a higher version |
 | Need to undo a published version (> 72 h) | Cannot unpublish | `npm deprecate paqad-ai@x.y.z "Use x.y.z+1 instead — this version has <bug>"` then ship a fix |
