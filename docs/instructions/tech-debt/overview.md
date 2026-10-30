@@ -26,6 +26,13 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M66075TDSGVAN8817DTHCV2K](TD-01M66075TDSGVAN8817DTHCV2K.md) (gap, low): Completion gate tree identity 10 s limit can block large repos with a permanent unconfirmed verdict
+- [TD-01M6607570YQYTDDTS5HRVJCNE](TD-01M6607570YQYTDDTS5HRVJCNE.md) (gap, low): Changed-files format argv can exceed the cmd.exe line limit on Windows
+- [TD-01M66074KHFYCP02V7AAA6FGZX](TD-01M66074KHFYCP02V7AAA6FGZX.md) (gap, medium): Green-run reuse key ignores git-ignored inputs, non-node runtime versions, env and git-normalised content
+- [TD-01M6607402K2CM9P7JVSSJWSSY](TD-01M6607402K2CM9P7JVSSJWSSY.md) (bug, medium): End-of-turn completion check judges the change while expert and chief seats still run; the running-agent hold covers only stage agents
+- [TD-01M66073CWDQYAKH1READM94G5](TD-01M66073CWDQYAKH1READM94G5.md) (debt, low): Duplicated setup between spec-pipeline config test and feature-evidence receipt test
+- [TD-01M66072SG9ZZSBVEVYR0SVSD7](TD-01M66072SG9ZZSBVEVYR0SVSD7.md) (debt, low): Duplicated block between adapter-onboarding and agent-runtime module summaries
+- [TD-01M6607221Y277RP7E7F4P9MWX](TD-01M6607221Y277RP7E7F4P9MWX.md) (debt, low): Issue numbers in two tech-debt items trip RL-132e
 - [TD-01M64HFVJJ6QS6BV45JCFAY4Z9](TD-01M64HFVJJ6QS6BV45JCFAY4Z9.md) (bug, medium): ac-test-mapping counts stale AC ids from older specs in any changed test file as proof
 - [TD-01M64HFSW101H0E24VD68X4PZA](TD-01M64HFSW101H0E24VD68X4PZA.md) (bug, medium): HUD isolation-missing flag counts pre-raise stage-agent rows; the gate counts only rows after lane_raised.at
 - [TD-01M649AY7KFQF4MNTX77JX4B8W](TD-01M649AY7KFQF4MNTX77JX4B8W.md) (follow-up, low): Live headline Svg can clip a long title and its clock with no ellipsis at narrow Desktop widths

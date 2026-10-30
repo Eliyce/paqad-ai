@@ -1,0 +1,69 @@
+{
+  "id": "D-01M65TPXW2SVWEJPCVTWEWJXQ4",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on .paqad/checks/run-history.jsonl",
+  "context": "Chief architect: This is a pick only because a must-level security finding is in it; the other four claims do not contradict it and are adopted alongside: last 50 rows, lookup on the latest row per command string; the file stays git-ignored and under .paqad/checks, which the tree identity excludes through one shared constant used by both checks run and the gate; the 51st row trims to the last 50; an empty, missing, truncated or partly corrupt line is skipped and leads to a real run, never a crash or a false reuse. How the runner trusts only its own rows: each row written by a real run carries the run id, the path of the report that same run wrote, and a content hash of that report. Reuse requires that report to still exist, parse, hash to the recorded value, and carry the same tree digest, command string, lockfile hash, Node version, a passed outcome and the test counts that the reused result copies. A row with no matching report is no reuse. Honest limit: everything this check reads sits on the same machine and is writable by the agent, and there is no secret the agent cannot read, so this stops a careless or one-line hand-written row and makes a fake a deliberate act of forging two matching files; it is not a cryptographic guarantee. The hard backstop is unchanged: CI starts from a fresh checkout with no history, so every CI run is real (EX-devops-engineer-3), and the owner is asked separately whether paqad should also refuse direct edits to these records.\n\nTarget: .paqad/checks/run-history.jsonl\n- performance-analyst: the history is capped at 50 rows and the reuse lookup reads only the most recent row per command string, so the lookup stays constant time and the file never grows without bound\n- devops-engineer: the file stays git-ignored and inside an excluded folder so writing a history row never changes the tree digest it records\n- solution-architect: The run history sits under .paqad/checks, which .paqad/.gitignore already ignores and which the tree identity excludes, so writing it never changes the tree it describes; this exclusion list must be one shared constant, not repeated in the gate.\n- security-auditor: the run history is a local, git-ignored file the coding agent can write; a hand-written green row would let checks run skip the real test run, so reuse must only trust rows the checks runner itself wrote (for example rows that point at a report whose recorded tree, command and counts match) and malformed or unmatched rows count as no reuse\n- qa-engineer: Boundary and error cases: the 51st row trims to the last 50; an empty, missing, truncated or partly corrupt line is skipped and leads to a real run, never a crash or a false reuse.\n\n[expert-conflict-fork:a749366217215a5a]",
+  "options": [
+    {
+      "option_key": "the-history-is-capped-at-50-rows-and-the",
+      "label": "the history is capped at 50 rows and the reuse lookup reads only the most recent row per command string, so the lookup stays constant time and the file never grows without bound — performance-analyst",
+      "one_line_preview": "the history is capped at 50 rows and the reuse lookup reads only the most recent row per command string, so the lookup stays constant time and the file never grows without bound — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-file-stays-git-ignored-and-inside-an",
+      "label": "the file stays git-ignored and inside an excluded folder so writing a history row never changes the tree digest it records — devops-engineer",
+      "one_line_preview": "the file stays git-ignored and inside an excluded folder so writing a history row never changes the tree digest it records — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-run-history-sits-under-paqad-checks-",
+      "label": "The run history sits under .paqad/checks, which .paqad/.gitignore already ignores and which the tree identity excludes, so writing it never changes the tree it describes; this exclusion list must be one shared constant, not repeated in the gate. — solution-architect",
+      "one_line_preview": "The run history sits under .paqad/checks, which .paqad/.gitignore already ignores and which the tree identity excludes, so writing it never changes the tree it describes; this exclusion list must be one shared constant, not repeated in the gate. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-run-history-is-a-local-git-ignored-f",
+      "label": "the run history is a local, git-ignored file the coding agent can write; a hand-written green row would let checks run skip the real test run, so reuse must only trust rows the checks runner itself wrote (for example rows that point at a report whose recorded tree, command and counts match) and malformed or unmatched rows count as no reuse — security-auditor",
+      "one_line_preview": "the run history is a local, git-ignored file the coding agent can write; a hand-written green row would let checks run skip the real test run, so reuse must only trust rows the checks runner itself wrote (for example rows that point at a report whose recorded tree, command and counts match) and malformed or unmatched rows count as no reuse — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "boundary-and-error-cases-the-51st-row-tr",
+      "label": "Boundary and error cases: the 51st row trims to the last 50; an empty, missing, truncated or partly corrupt line is skipped and leads to a real run, never a crash or a false reuse. — qa-engineer",
+      "one_line_preview": "Boundary and error cases: the 51st row trims to the last 50; an empty, missing, truncated or partly corrupt line is skipped and leads to a real run, never a crash or a false reuse. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-run-history-is-a-local-git-ignored-f",
+  "created_at": "2026-10-30T07:17:12.707Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "chosen": "the-run-history-is-a-local-git-ignored-f",
+  "rationale": "Owner: trust only rows the checks runner wrote (report path + hash cross-check); the other four claims adopted alongside",
+  "resolved_at": "2026-10-30T07:41:01.442Z",
+  "decision_id": "D-01M65TPXW2SVWEJPCVTWEWJXQ4",
+  "fingerprint": "sha256:95cc4e95035de750f0e2dfd4fc27deca3f8889f7cfed5a94def68f520bd74012",
+  "question": "Experts disagree on .paqad/checks/run-history.jsonl",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "ttl_until": "2026-11-29T07:17:12.707Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-run-history-is-a-local-git-ignored-f",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T07:41:01.442Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: trust only rows the checks runner wrote (report path + hash cross-check); the other four claims adopted alongside"
+  }
+}

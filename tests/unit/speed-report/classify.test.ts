@@ -20,6 +20,7 @@ import {
   ownerGapCategory,
   refusalLabel,
   roleForAgentType,
+  reusedTestRun,
   roleRank,
   stripCommandPrefixes,
   testRunKind,
@@ -116,6 +117,16 @@ describe('speed report classification', () => {
     ]);
     expect(commandWords('git log | head')).toEqual(['git', 'log']);
     expect(commandWords('a ""')).toEqual(['a', '']);
+  });
+
+  it('AC-18: spots the reused test line in a checks run result', () => {
+    expect(
+      reusedTestRun('> - 🟢 reused green test run from 10:05 (same files, same command): 3 tests'),
+    ).toBe(true);
+    expect(
+      reusedTestRun('> - 🟢 reused green build run from 10:05 (same files, same command)'),
+    ).toBe(false);
+    expect(reusedTestRun('> - 🟢 test passed: 3 tests')).toBe(false);
   });
 
   it('AC-8: counts whole-suite and targeted test runs', () => {

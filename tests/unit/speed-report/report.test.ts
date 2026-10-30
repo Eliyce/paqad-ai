@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import { createReportCommand } from '@/cli/commands/report.js';
 
 import { CATEGORY } from '@/speed-report/classify.js';
 import {
@@ -111,13 +113,49 @@ describe('speed report aggregation', () => {
           [CATEGORY.blockedOther]: 0,
         },
       },
-      test_runs: { whole_suite: 1, targeted: 1 },
+      test_runs: { whole_suite: 1, targeted: 1, reused: 0 },
     });
     expect(row.development_ms + row.ceremony_ms + row.orchestrator_ms + row.other_agents_ms).toBe(
       row.busy_ms,
     );
     expect(row.categories[CATEGORY.tests]).toBe(65_000);
     expect(row.owner_wait['answering questions']).toBe(60_000);
+  });
+
+  it('AC-18: counts a checks run that reused the green test run apart from real whole-suite and targeted runs', async () => {
+    const p = project();
+    writeTranscript(
+      p,
+      SESSION,
+      [
+        human(500, 'brief'),
+        assistant(510, [{ id: 'c1', name: 'Bash', input: { command: 'paqad-ai checks run' } }]),
+        result(
+          520,
+          'c1',
+          '**▸ paqad** · checks green (2 s)\n> - 🟢 reused green test run from 10:05 (same files, same command): 12 tests',
+        ),
+        assistant(530, [{ id: 'c2', name: 'Bash', input: { command: 'paqad-ai checks run' } }]),
+        result(540, 'c2', '> - 🟢 reused green build run from 10:05 (same files, same command)'),
+      ],
+      { id: 'chk1', agentType: 'paqad-checks' },
+    );
+    const row = measured(p);
+    expect(row.test_runs).toEqual({ whole_suite: 2, targeted: 1, reused: 1 });
+    const out: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line?: unknown) => out.push(String(line)));
+    await createReportCommand().parseAsync(
+      ['speed', '--json', '--project-root', p.projectRoot, '--transcripts-root', p.transcriptsRoot],
+      { from: 'user' },
+    );
+    vi.restoreAllMocks();
+    const json = JSON.parse(out.join('\n')) as { changes: Array<{ test_runs: unknown }> };
+    expect(json.changes[0]?.test_runs).toEqual({ whole_suite: 2, targeted: 1, reused: 1 });
+    expect(
+      renderSpeedReport(
+        buildSpeedReport({ projectRoot: p.projectRoot, transcriptsRoot: p.transcriptsRoot }),
+      ),
+    ).toMatch(/ 2\/1\/1\n/);
   });
 
   it('AC-7: gives each ten-second bucket to the first active agent in the fixed order', () => {
@@ -210,7 +248,8 @@ describe('speed report aggregation', () => {
     expect(text).toContain('Totals (full): 1 change(s)');
     expect(text).toContain('Totals (graduated): 1 change(s)');
     expect(text).toContain('Edit gate (full): median 7.5s, p90 10s, 1 refused on timeout');
-    expect(text).toContain('Test runs (full): 1 whole-suite, 1 targeted');
+    expect(text).toContain('Test runs (full): 1 whole-suite, 1 targeted, 0 reused');
+    expect(text).toContain('tests w/t/r');
     expect(text).toContain('Top busy categories: ');
   });
 

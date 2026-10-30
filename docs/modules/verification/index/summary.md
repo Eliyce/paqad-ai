@@ -127,7 +127,7 @@ and documentation:
 | `ac-test-mapping` | Every automated acceptance criterion in the frozen spec is named by a test changed on the branch, read from the change map (see [`traceability-engine`](../../traceability-engine/index/summary.md)). |
 | `behavioral-correctness` | The change does what the spec says. |
 | `change-completeness` | The change is whole — no half-applied edits. |
-| `code-tests-lint` | Tests, types, and lint pass. |
+| `code-tests-lint` | Tests, types, and lint pass. Read from the `paqad-ai checks run` report; a report that names a tree different from the current one (or one the gate cannot confirm in 10 s) reads Inconclusive and does not count as verified checks, while a report without a tree keeps its verdict (see [`check-runner`](../check-runner.md)). |
 | `mutation-testing` | Tests would actually catch a behaviour-changing mistake. Opt-in through `mutation_mode` (default off) and measured only on the `ci-backstop` / `git-backstop` origins a project wires itself; otherwise not required. |
 | `quality-ratchet` | No quality measure regresses (see [`quality-ratchet`](../../quality-ratchet/index/summary.md)). |
 | `requirement-completeness` | Requirements are fully addressed. |
@@ -460,7 +460,9 @@ recall because the gate can block:
   test-trust signal so a green run means green.
 - [Deterministic Check Runner](../check-runner.md) — run the mapped
   format/test/build commands and feed real structured results to `code-tests-lint`,
-  so the completion verdict proves the checks ran instead of assuming they did.
+  so the completion verdict proves the checks ran instead of assuming they did. A green
+  build and test run is reused on an identical tree, and a report for different files
+  reads Inconclusive.
 - [Review Evidence Digest](../review-digest.md) — hand the review stage the facts
   paqad already computed, and make an unaddressed deterministic finding a review
   failure rather than a silent omission.

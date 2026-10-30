@@ -252,6 +252,8 @@ export function isBackstopVerificationOrigin(
   );
 }
 
+export type ChecksReportStaleness = 'different-files' | 'unconfirmed';
+
 export interface VerificationContext {
   project_root: string;
   verification_origin?: VerificationOrigin;
@@ -281,6 +283,7 @@ export interface VerificationContext {
   behavioral_correctness_passed?: boolean;
   database_quality_passed?: boolean;
   structured_test_results?: StructuredTestResult[];
+  checks_report_stale?: ChecksReportStaleness;
   mutation_result?: MutationResult;
   mutation_note?: string;
   mutation_strict?: boolean;

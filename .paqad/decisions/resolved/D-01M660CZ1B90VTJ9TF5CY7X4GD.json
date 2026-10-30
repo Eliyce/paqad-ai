@@ -1,0 +1,47 @@
+{
+  "id": "D-01M660CZ1B90VTJ9TF5CY7X4GD",
+  "category": "spec.change",
+  "title": "Which tree a real checks run's report records",
+  "context": "Review found that a real run records the tree as it was AFTER the run, so files edited while checks ran pass the completion gate untested. FR-10 says the report records the tree after the run.",
+  "options": [
+    {
+      "option_key": "pre-run",
+      "label": "Record the tree from before the commands ran; if the files changed during the run the gate reads Inconclusive and the run is not reusable",
+      "one_line_preview": "Record the tree from before the commands ran; if the files changed during the run the gate reads Inconclusive and the run is not reusable",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep FR-10 as written (tree after the run)",
+      "one_line_preview": "Keep FR-10 as written (tree after the run)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pre-run",
+  "created_at": "2026-10-30T08:56:37.676Z",
+  "status": "resolved",
+  "change": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "chosen": "pre-run",
+  "rationale": "Owner: record the pre-run tree; a tree that moved during the run reads Inconclusive and is never reused",
+  "resolved_at": "2026-10-30T09:36:58.288Z",
+  "decision_id": "D-01M660CZ1B90VTJ9TF5CY7X4GD",
+  "fingerprint": "sha256:ec71c5cc89452f2a233958e54dcaf5adf84ad8eb122a485d5a1298fe22a17a26",
+  "question": "Which tree a real checks run's report records",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "ttl_until": "2026-11-29T08:56:37.676Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pre-run",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T09:36:58.288Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: record the pre-run tree; a tree that moved during the run reads Inconclusive and is never reused"
+  }
+}

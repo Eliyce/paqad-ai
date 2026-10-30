@@ -64,7 +64,7 @@ export interface MeasuredChange {
   owner_wait_ms: number;
   owner_wait: Record<OwnerCategory, number>;
   edit_gate: EditGateStats;
-  test_runs: { whole_suite: number; targeted: number };
+  test_runs: { whole_suite: number; targeted: number; reused: number };
   categories: Record<string, number>;
   bad_lines: number;
 }
@@ -88,7 +88,7 @@ export interface LaneTotals {
   other_agents_ms: number;
   owner_wait_ms: number;
   edit_gate: EditGateStats;
-  test_runs: { whole_suite: number; targeted: number };
+  test_runs: { whole_suite: number; targeted: number; reused: number };
 }
 
 export interface SpeedReport {
@@ -231,7 +231,7 @@ function measureChange(
   };
   const files = new Set<string>();
   const samples: ChangeSamples = { latencies: [], refusals: [] };
-  const testRuns = { whole_suite: 0, targeted: 0 };
+  const testRuns = { whole_suite: 0, targeted: 0, reused: 0 };
   let lines = 0;
   let badLines = 0;
   for (const timeline of timelines) {
@@ -264,6 +264,7 @@ function measureChange(
     for (const run of timeline.testRuns) {
       if (!inWindow(run.at, window)) continue;
       if (run.kind === 'whole-suite') testRuns.whole_suite += 1;
+      else if (run.kind === 'reused') testRuns.reused += 1;
       else testRuns.targeted += 1;
     }
   }
@@ -337,6 +338,7 @@ function laneTotals(lane: string, measurements: readonly Measurement[]): LaneTot
     test_runs: {
       whole_suite: sum((row) => row.test_runs.whole_suite),
       targeted: sum((row) => row.test_runs.targeted),
+      reused: sum((row) => row.test_runs.reused),
     },
   };
 }
@@ -424,7 +426,7 @@ const COLUMNS: ReadonlyArray<[string, number]> = [
   ['owner-wait', 11],
   ['edit p50/p90', 14],
   ['refused t/e/o', 14],
-  ['tests w/t', 9],
+  ['tests w/t/r', 11],
 ];
 
 function tableLine(cells: readonly string[]): string {
@@ -451,7 +453,7 @@ function rowLine(row: SpeedReportRow): string {
     formatSpan(row.owner_wait_ms),
     `${formatSpan(row.edit_gate.median_ms)}/${formatSpan(row.edit_gate.p90_ms)}`,
     refusedCell(row.edit_gate.refused),
-    `${row.test_runs.whole_suite}/${row.test_runs.targeted}`,
+    `${row.test_runs.whole_suite}/${row.test_runs.targeted}/${row.test_runs.reused}`,
   ]);
 }
 
@@ -473,7 +475,7 @@ function totalsLines(totals: LaneTotals): string[] {
       `${refused[CATEGORY.blockedEntry]} refused by the entry gate, ` +
       `${refused[CATEGORY.blockedOther]} refused by another gate`,
     `Test runs (${totals.lane}): ${totals.test_runs.whole_suite} whole-suite, ` +
-      `${totals.test_runs.targeted} targeted`,
+      `${totals.test_runs.targeted} targeted, ${totals.test_runs.reused} reused`,
   ];
 }
 

@@ -91,6 +91,37 @@ const V2_RED = {
   critical_path: { logical_command: 'test', duration_ms: 100 },
 };
 
+const V3_REUSED = {
+  schema_version: 3,
+  generated_at: '2026-01-02T00:00:00.000Z',
+  passed: true,
+  ran: true,
+  results: [testResult(0)],
+  tree: {
+    digest: 'a'.repeat(40),
+    head_commit: 'b'.repeat(40),
+    computed_at: '2026-01-02T00:00:00.000Z',
+  },
+  run_id: '01M65SFN9BMVXRVPPYN44SJEVQ',
+  lockfile_hash: 'c'.repeat(64),
+  node_version: 'v22.0.0',
+  commands: [
+    {
+      logical_command: 'test',
+      command: 'pnpm test',
+      exit_code: 0,
+      passed: true,
+      stage: 3,
+      started_at: '',
+      ended_at: '',
+      duration_ms: 0,
+      outcome: 'reused',
+      reused_from: '2026-01-01T00:00:00.000Z',
+      tree_digest: 'a'.repeat(40),
+    },
+  ],
+};
+
 describe('checks report v1/v2 compatibility', () => {
   let root: string;
   beforeEach(() => {
@@ -117,6 +148,18 @@ describe('checks report v1/v2 compatibility', () => {
     const gate = checksEvidenceGate(V2_RED.results as StructuredTestResult[]);
     expect(gate?.name).toBe('code-tests-lint');
     expect(gate?.status).toBe('fail');
+  });
+
+  it('AC-16: reads a schema 3 report with a tree and a reused command through every reader', () => {
+    writeGlobal(V3_REUSED);
+    const read = readChecksReportForFeature(root, null);
+    expect(read?.tree?.digest).toBe('a'.repeat(40));
+    expect(read?.commands?.[0]?.outcome).toBe('reused');
+    expect(checksEvidenceGate(read!.results)?.status).toBe('pass');
+    const findings = collectMachineFindings(root).filter((f) => f.source === 'checks');
+    expect(findings).toEqual([
+      expect.objectContaining({ severity: 'info', message: 'vitest: 5 passing of 5' }),
+    ]);
   });
 
   it('the review digest reads a v2 report from the global path', () => {

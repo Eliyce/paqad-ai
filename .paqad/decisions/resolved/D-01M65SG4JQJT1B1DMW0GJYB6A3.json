@@ -1,0 +1,47 @@
+{
+  "id": "D-01M65SG4JQJT1B1DMW0GJYB6A3",
+  "category": "architecture-path",
+  "title": "When a green checks run may be reused",
+  "context": "Reusing a green run must never lower the quality bar of an onboarded project. Files on disk that tests read (dist/, coverage) must match the tree.",
+  "options": [
+    {
+      "option_key": "strict",
+      "label": "Strict: reuse only when the latest real run of that command was green on the identical tree, command, lockfile and Node version; build and test reuse together or both run",
+      "one_line_preview": "Strict: reuse only when the latest real run of that command was green on the identical tree, command, lockfile and Node version; build and test reuse together or both run",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "loose",
+      "label": "Loose: any green row of the last 50 matching tree, command and lockfile",
+      "one_line_preview": "Loose: any green row of the last 50 matching tree, command and lockfile",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "strict",
+  "created_at": "2026-10-30T06:56:01.623Z",
+  "status": "resolved",
+  "change": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "chosen": "strict",
+  "rationale": "Owner chose strict: the quality bar of an onboarded project must not drop",
+  "resolved_at": "2026-10-30T06:56:02.195Z",
+  "decision_id": "D-01M65SG4JQJT1B1DMW0GJYB6A3",
+  "fingerprint": "sha256:4330ba8c32ecf128f3e3b8f1af69560a21a57d75e48ce20c79fbed476c11619c",
+  "question": "When a green checks run may be reused",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "ttl_until": "2027-01-28T06:56:01.623Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "strict",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T06:56:02.195Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose strict: the quality bar of an onboarded project must not drop"
+  }
+}

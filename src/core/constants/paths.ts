@@ -55,6 +55,8 @@ export const PATHS = {
   PLANNING_MANIFESTS_DIR: '.paqad/planning/manifests',
   CHECKS_DIR: '.paqad/checks',
   CHECKS_REPORT: '.paqad/checks/last-run.json',
+  CHECKS_RUN_HISTORY: '.paqad/checks/run-history.jsonl',
+  CHECKS_RUNS_DIR: '.paqad/checks/runs',
   REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
   FLAKY_TESTS_DIR: '.paqad/flaky-tests',
   FLAKY_REGISTRY: '.paqad/flaky-tests/registry.json',

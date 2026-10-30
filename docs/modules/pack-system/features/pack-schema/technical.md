@@ -16,9 +16,23 @@ Source directories owned by this feature:
 
 ## Data Model / Schema
 
-- Tables, JSON schemas, or YAML schemas owned by this feature.
-- For `framework-internals` modules, this usually means the file shape under `.paqad/` or
-  the validated input/output contract.
+- `pack.yaml` is validated against `src/validators/schemas/stack-pack.schema.json` (closed: an
+  unknown top-level key is an error), then by the checks in `src/packs/loader.ts`. The manifest
+  type is `StackPackManifest` in `src/core/types/pack.ts`.
+- `build_outputs` (optional, list of strings): the project-relative folders the pack's build
+  writes. `paqad-ai checks run` fingerprints their files when a real run with a green build ends and reuses a build
+  only while the fingerprint matches (see [`check-runner`](../../../verification/check-runner.md)).
+  The loader reports an error for an absolute path, a drive-letter path or a path with a `..`
+  segment. The react and node-service packs declare `dist`.
+- `format_changed` (optional, list of `{ default_command, script, command }`, all three non-empty
+  strings, no other keys): a formatter that can run on the changed files only. `checks run` uses
+  `command` instead of the profile's format command only when that command equals
+  `default_command` exactly and `package.json` `scripts.format` equals `script` exactly. The
+  loader reports an error when `command` does not hold `{files}` exactly once as its own argument,
+  and when two entries share a `default_command`. The react and node-service packs declare
+  `pnpm format` → `pnpm exec prettier --write --ignore-unknown {files}` and `npm run format` →
+  `npx --no-install prettier --write --ignore-unknown {files}`, both for the script
+  `prettier --write .`.
 
 ## API / Interface Contract
 

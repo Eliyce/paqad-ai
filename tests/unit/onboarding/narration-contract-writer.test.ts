@@ -106,6 +106,15 @@ describe('narration-contract-writer', () => {
     );
   });
 
+  it('AC-19: tells the orchestrator not to repeat the full test command on a green tree, and keeps the CI command', () => {
+    const sentence =
+      "After the checks stage is green, do not run the project's full test command again on the same files; `paqad-ai checks run` reuses the green run.";
+    expect(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH).toContain(sentence);
+    expect(buildNarrationContractBody()).toContain(sentence);
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).toContain(sentence);
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);

@@ -100,6 +100,15 @@ test_runners:
     single_test_selector: file
     parallel:
       mode: native
+build_outputs:
+  - dist
+format_changed:
+  - default_command: pnpm format
+    script: prettier --write .
+    command: pnpm exec prettier --write --ignore-unknown {files}
+  - default_command: npm run format
+    script: prettier --write .
+    command: npx --no-install prettier --write --ignore-unknown {files}
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md

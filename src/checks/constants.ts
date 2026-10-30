@@ -20,3 +20,5 @@ export const RERUN_MAX_FAILURES = 10;
 export const RERUN_MAX_FAILURE_RATIO = 0.05;
 
 export const OUTPUT_TAIL_LINES = 100;
+
+export const FILES_TOKEN = '{files}';

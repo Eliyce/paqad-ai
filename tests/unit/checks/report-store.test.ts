@@ -40,6 +40,53 @@ describe('checks report store', () => {
     expect(read?.ran).toBe(true);
   });
 
+  it('AC-16: is schema 3 and round-trips the tree, run identity and reused command fields', () => {
+    const tree = {
+      digest: 'd'.repeat(40),
+      head_commit: null,
+      computed_at: '2026-01-01T00:00:00.000Z',
+    };
+    const command = {
+      logical_command: 'build',
+      command: 'pnpm build',
+      exit_code: 0,
+      passed: true,
+      stage: 2 as const,
+      started_at: '2026-01-01T00:00:00.000Z',
+      ended_at: '2026-01-01T00:00:00.000Z',
+      duration_ms: 0,
+      outcome: 'reused' as const,
+      reused_from: '2025-12-31T23:00:00.000Z',
+      tree_digest: tree.digest,
+      build_output_fingerprint: 'f'.repeat(64),
+    };
+    const report = {
+      schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+      generated_at: '2026-01-01T00:00:00.000Z',
+      passed: true,
+      ran: true,
+      results: [],
+      commands: [command],
+      tree,
+      run_id: 'RUN',
+      lockfile_hash: null,
+      node_version: 'v22.1.0',
+    };
+    expect(CHECKS_REPORT_SCHEMA_VERSION).toBe(3);
+    writeChecksReport(root, report);
+    const read = readChecksReport(root);
+    expect(read?.tree).toEqual(tree);
+    expect(read?.commands?.[0]).toEqual(command);
+    expect(read?.lockfile_hash).toBeNull();
+    expect(read?.node_version).toBe('v22.1.0');
+    const dirName = '528-x-01M1SSERFEHGNJZ35W8BF9J8SZ';
+    writeFeatureChecks(root, dirName, { ...report, tree_unavailable_reason: undefined });
+    const bundled = readFeatureChecks(root, dirName);
+    expect(bundled?.tree).toEqual(tree);
+    expect(bundled?.commands?.[0]?.reused_from).toBe('2025-12-31T23:00:00.000Z');
+    expect(bundled?.run_id).toBe('RUN');
+  });
+
   it('returns null when no report exists', () => {
     expect(readChecksReport(root)).toBeNull();
   });

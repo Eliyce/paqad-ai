@@ -3,18 +3,21 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
+import type { TreeIdentity } from '@/checks/tree-identity.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
 import { ENVELOPE_HEADER_KEYS, type EnvelopeHeader } from '@/feature-evidence/envelope.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 
-export const CHECKS_REPORT_SCHEMA_VERSION = 2;
+export const CHECKS_REPORT_SCHEMA_VERSION = 3;
 
 export const CHECKS_BUNDLE_SCHEMA_VERSION = 3;
 
 export const CHECKS_DOC_TYPE = 'paqad.checks';
 
 const REPORT_HEADER_KEYS: ReadonlySet<string> = new Set([...ENVELOPE_HEADER_KEYS, 'generated_at']);
+
+export type ChecksTreeAfterRun = 'moved' | 'unconfirmed';
 
 export interface ChecksReportMode {
   parallel_commands: boolean;
@@ -33,7 +36,10 @@ export interface ChecksReportCommand {
   ended_at: string;
   duration_ms: number;
   output_tail?: string[];
-  outcome?: 'inconclusive';
+  outcome?: 'inconclusive' | 'reused';
+  reused_from?: string;
+  tree_digest?: string;
+  build_output_fingerprint?: string;
 }
 
 export interface ChecksReportIsolationEntry {
@@ -79,6 +85,12 @@ export interface ChecksReport extends Partial<Omit<EnvelopeHeader, 'schema_versi
   flaky_under_parallel?: ChecksReportFlaky[];
   meaningful_green?: boolean;
   critical_path?: ChecksReportCriticalPath;
+  tree?: TreeIdentity;
+  tree_unavailable_reason?: string;
+  tree_after_run?: ChecksTreeAfterRun;
+  run_id?: string;
+  lockfile_hash?: string | null;
+  node_version?: string;
 }
 
 export function checksReportPath(projectRoot: string): string {

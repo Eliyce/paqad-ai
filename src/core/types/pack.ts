@@ -121,6 +121,12 @@ export interface StackPackModuleHealthManifest {
   git_window_days?: number;
 }
 
+export interface StackPackFormatChanged {
+  default_command: string;
+  script: string;
+  command: string;
+}
+
 export interface StackPackManifest {
   name: string;
   display_name: string;
@@ -148,6 +154,8 @@ export interface StackPackManifest {
     frameworks?: StackPackTestingFramework[];
   };
   test_runners?: StackPackTestRunner[];
+  build_outputs?: string[];
+  format_changed?: StackPackFormatChanged[];
   docs?: StackPackDocsManifest;
   rag?: StackPackRagManifest;
   module_health?: StackPackModuleHealthManifest;

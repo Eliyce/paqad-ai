@@ -36,11 +36,14 @@ describe('paqad-ai checks command', () => {
     writeFileSync(join(root, '.paqad/project-profile.yaml'), lines.join('\n'));
   }
 
-  async function run(): Promise<string[]> {
+  async function run(extra: string[] = []): Promise<string[]> {
+    vi.restoreAllMocks();
     const out: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((line: string) => out.push(String(line)));
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    await createChecksCommand().parseAsync(['run', '--project-root', root], { from: 'user' });
+    await createChecksCommand().parseAsync(['run', '--project-root', root, ...extra], {
+      from: 'user',
+    });
     return out;
   }
 
@@ -142,6 +145,42 @@ describe('paqad-ai checks command', () => {
     errors.length = 0;
     await createChecksCommand().parseAsync(['run', '--project-root', root], { from: 'user' });
     expect(errors).not.toContain(note);
+  });
+
+  it('AC-10: writes a schema 3 report with the tree, reuses a green build on the same files, and --no-reuse runs it again', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  build: node -e process.exitCode=0',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    mkdirSync(join(root, 'dist'), { recursive: true });
+    writeFileSync(join(root, 'dist/index.js'), 'built\n');
+
+    const first = await run();
+    expect(first.join('\n')).toContain('build passed');
+    const report = readChecksReport(root);
+    expect(report?.schema_version).toBe(3);
+    expect(report?.tree?.digest).toMatch(/^[0-9a-f]{40,64}$/);
+    expect(report?.node_version).toBe(process.version);
+    expect(report?.commands?.[0]?.tree_digest).toBe(report?.tree?.digest);
+
+    const second = await run();
+    expect(second.join('\n')).toMatch(
+      /> - 🟢 reused green build run from \d\d:\d\d \(same files, same command\)$/m,
+    );
+    expect(readChecksReport(root)?.commands?.[0]?.outcome).toBe('reused');
+    expect(second.at(-1)).toContain('"reused":1');
+
+    const forced = await run(['--no-reuse']);
+    expect(forced.join('\n')).toContain('build passed');
+    expect(readChecksReport(root)?.commands?.[0]?.outcome).toBeUndefined();
   });
 
   it('reports Inconclusive and does not block when no command is mapped', async () => {

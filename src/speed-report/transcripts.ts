@@ -28,6 +28,7 @@ import {
   ownerGapCategory,
   refusalLabel,
   roleForAgentType,
+  reusedTestRun,
   testRunKind,
   toolCategory,
   type AgentRole,
@@ -219,6 +220,7 @@ interface PendingTool {
   category: BusyCategory;
   sizedPath: string | null;
   lines: number;
+  testRun?: TestRun;
 }
 
 interface ContentBlock {
@@ -298,9 +300,14 @@ class TimelineBuilder {
       if (block.type !== 'tool_use' || typeof block.id !== 'string') continue;
       if (typeof block.name !== 'string') continue;
       const input = asRecord(block.input) ?? {};
-      this.pending.set(block.id, pendingTool(at, block.name, input));
+      const tool = pendingTool(at, block.name, input);
       const kind = block.name === 'Bash' ? bashTestRun(input) : null;
-      if (kind !== null) this.timeline.testRuns.push({ at, kind });
+      if (kind !== null) {
+        const run: TestRun = { at, kind };
+        this.timeline.testRuns.push(run);
+        if (tool.category === CATEGORY.checksRun) tool.testRun = run;
+      }
+      this.pending.set(block.id, tool);
     }
   }
 
@@ -324,6 +331,7 @@ class TimelineBuilder {
     const tool = this.pending.get(block.tool_use_id);
     if (!tool) return;
     this.pending.delete(block.tool_use_id);
+    if (tool.testRun && reusedTestRun(textOf(block.content))) tool.testRun.kind = 'reused';
     if (tool.name === AGENT_TOOL || at < tool.start) return;
     if (tool.name === ASK_USER_TOOL) {
       this.timeline.owner.push({ start: tool.start, end: at, category: OWNER_CATEGORY.answering });

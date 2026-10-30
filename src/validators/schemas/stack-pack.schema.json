@@ -255,6 +255,23 @@
         "git_window_days": { "type": "integer", "minimum": 1, "maximum": 365 }
       }
     },
+    "format_changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["default_command", "script", "command"],
+        "properties": {
+          "default_command": { "type": "string", "minLength": 1 },
+          "script": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "build_outputs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "visual_evidence": {
       "type": "object",
       "additionalProperties": false,

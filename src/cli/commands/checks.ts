@@ -4,9 +4,9 @@ import { availableParallelism, totalmem } from 'node:os';
 import { Command } from 'commander';
 
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
-import { runChecks } from '@/checks/run-checks.js';
+import { buildChecksReport, runChecks } from '@/checks/run-checks.js';
 import type { ChecksRunResult } from '@/checks/run-checks.js';
-import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
+import type { ChecksReportCommand } from '@/checks/report-store.js';
 import {
   activeFeatureDirOrNull,
   checksSessionId,
@@ -45,7 +45,11 @@ export function createChecksCommand(): Command {
     .description('Run the mapped checks, persist the structured report, and block on failure')
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--silent', 'Suppress the machine-readable summary line', false)
-    .action(async (options: { projectRoot: string; silent: boolean }) => {
+    .option(
+      '--no-reuse',
+      'Run every command for real even when a green run on the same files exists',
+    )
+    .action(async (options: { projectRoot: string; silent: boolean; reuse: boolean }) => {
       const sessionId = checksSessionId(options.projectRoot);
       const startedOn = activeFeatureDirOrNull(options.projectRoot);
       try {
@@ -186,27 +190,23 @@ export function createChecksCommand(): Command {
 }
 
 async function runAndRecordChecks(
-  options: { projectRoot: string; silent: boolean },
+  options: { projectRoot: string; silent: boolean; reuse: boolean },
   sessionId: string,
   startedOn: string | null,
 ): Promise<void> {
   const changedFiles = (await loadChangeEvidence(options.projectRoot)).files;
-  const result = await runChecks({ projectRoot: options.projectRoot, changedFiles });
+  const result = await runChecks({
+    projectRoot: options.projectRoot,
+    changedFiles,
+    reuse: options.reuse,
+  });
 
   const dirName = sessionChecksTarget(options.projectRoot, sessionId, startedOn);
-  writeChecksReportForFeature(options.projectRoot, dirName, {
-    schema_version: CHECKS_REPORT_SCHEMA_VERSION,
-    generated_at: new Date().toISOString(),
-    passed: result.passed,
-    ran: result.ran,
-    results: result.results,
-    mode: result.mode,
-    commands: result.commands,
-    isolation_reruns: result.isolation_reruns,
-    flaky_under_parallel: result.flaky_under_parallel,
-    meaningful_green: result.meaningful_green,
-    critical_path: result.critical_path,
-  });
+  writeChecksReportForFeature(
+    options.projectRoot,
+    dirName,
+    buildChecksReport(result, new Date().toISOString()),
+  );
 
   await buildAndWriteChangeTraceabilityMap(
     {
@@ -242,6 +242,7 @@ async function runAndRecordChecks(
         test_mode: result.mode.test_mode,
         processes: result.mode.processes,
         recovered: result.recovered,
+        reused: result.reused,
         duration_ms: result.duration_ms,
       }),
     );
@@ -283,6 +284,10 @@ export function renderReceipt(
   lines.push(header);
 
   for (const command of result.commands) {
+    if (command.outcome === 'reused') {
+      lines.push(reusedLine(command, result));
+      continue;
+    }
     if (command.logical_command === 'test') {
       lines.push(...renderTestLines(result, command.duration_ms));
       continue;
@@ -314,6 +319,23 @@ export function renderReceipt(
     `> - Critical path: ${result.critical_path.logical_command ?? '—'} (${fmtSecs(result.critical_path.duration_ms)} of ${fmtSecs(result.duration_ms)} total work)`,
   );
   return lines;
+}
+
+function reusedLine(command: ChecksReportCommand, result: ChecksRunResult): string {
+  const name = commandName(command.logical_command, command.command);
+  const count =
+    command.logical_command === 'test' &&
+    result.test_total > 0 &&
+    result.test_result?.parse_metadata.parse_strategy !== 'plain-text-fallback'
+      ? `: ${result.test_total} tests`
+      : '';
+  return `> - 🟢 reused green ${name} run from ${localClock(command.reused_from)} (same files, same command)${count}`;
+}
+
+function localClock(iso: string | undefined): string {
+  const at = new Date(iso ?? '');
+  if (Number.isNaN(at.getTime())) return 'earlier';
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 }
 
 function renderTestLines(result: ChecksRunResult, durationMs: number): string[] {

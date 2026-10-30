@@ -135,3 +135,35 @@ describe('runStages (AC-5)', () => {
     expect(results[0]!.duration_ms).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('runStages file list substitution', () => {
+  it('AC-14: replaces the {files} argument with one argv element per file, never re-parsed', async () => {
+    const calls: { bin: string; args: string[] }[] = [];
+    const shell: DeliveryShell = {
+      async run(bin, args) {
+        calls.push({ bin, args });
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const files = ['./-x.ts', './a b.ts', './c;rm -rf.ts'];
+    const [result] = await runStages(
+      [
+        {
+          logical_command: 'format',
+          command: 'pnpm exec prettier --write --ignore-unknown {files}',
+          stage: 1,
+          files,
+        },
+      ],
+      shell,
+      { cwd: '/tmp', parallel: false, availableParallelism: 1 },
+    );
+    expect(result?.passed).toBe(true);
+    expect(calls).toEqual([
+      {
+        bin: 'pnpm',
+        args: ['exec', 'prettier', '--write', '--ignore-unknown', ...files],
+      },
+    ]);
+  });
+});

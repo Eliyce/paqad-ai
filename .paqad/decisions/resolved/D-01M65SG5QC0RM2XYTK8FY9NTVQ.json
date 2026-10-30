@@ -1,0 +1,47 @@
+{
+  "id": "D-01M65SG5QC0RM2XYTK8FY9NTVQ",
+  "category": "architecture-path",
+  "title": "Format only changed files",
+  "context": "pnpm format rewrites the whole tree on every checks run (about 19 s).",
+  "options": [
+    {
+      "option_key": "guarded",
+      "label": "Changed files only when the project's format command is exactly the pack default and the list comes from git (tracked changes plus untracked); otherwise the full command",
+      "one_line_preview": "Changed files only when the project's format command is exactly the pack default and the list comes from git (tracked changes plus untracked); otherwise the full command",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "full",
+      "label": "Keep the full format; drop Part D",
+      "one_line_preview": "Keep the full format; drop Part D",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "guarded",
+  "created_at": "2026-10-30T06:56:02.797Z",
+  "status": "resolved",
+  "change": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "chosen": "guarded",
+  "rationale": "Owner chose the guarded changed-files format",
+  "resolved_at": "2026-10-30T06:56:03.395Z",
+  "decision_id": "D-01M65SG5QC0RM2XYTK8FY9NTVQ",
+  "fingerprint": "sha256:bd111e1757bb4ad7bc41c2df0220a1eeaca9f3deb1174de0e8449649904a22f8",
+  "question": "Format only changed files",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M65SFN9BMVXRVPPYN44SJEVQ",
+  "ttl_until": "2027-01-28T06:56:02.797Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "guarded",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T06:56:03.395Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the guarded changed-files format"
+  }
+}
