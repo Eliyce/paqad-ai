@@ -202,7 +202,8 @@ CI splits the test run so no OS has to run the whole suite in one job. Four kind
   to vitest's own split. Stale timings only make the shards less even; no test is skipped or
   run twice. Each shard sets `PAQAD_TEST_SHARD=1`, which turns the coverage floors off for
   that shard only.
-- **Merge** runs once per OS, on that same OS. It checks every shard sent a report, merges
+- **Merge** runs once per OS, on that same OS, but only when `scope` succeeded, the test
+  matrix was not skipped, and the run was not cancelled. It checks every shard sent a report, merges
   them, and enforces the coverage floors on the whole result. It then runs
   `scripts/check-shard-budget.mjs`.
 - **Discovery plugin** runs once on ubuntu. See below.
@@ -215,7 +216,9 @@ CI splits the test run so no OS has to run the whole suite in one job. Four kind
   `skip_reason`. It skips test and merge in two cases only:
   - a version-only PR: the diff touches only the `version` field of `package.json`,
     `CHANGELOG.md`, and deleted `.changeset/*.md` files (not `README.md`), the branch contains
-    `base.sha`, and that base is already proven green;
+    the base, and that base is already proven green. Scope takes the base from the first
+    parent of the merge commit CI checks out (`GITHUB_SHA^1`) and ignores the base sha in the
+    PR event. If that merge commit's second parent is not the PR head, it runs the full matrix;
   - a push to `main` whose tree matches a PR head that was already green.
 
   Any error, or any doubt, runs the full matrix. The job reads contents, checks, pull requests
@@ -225,16 +228,19 @@ Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
 
 **Budget warnings.** `check-shard-budget.mjs` prints a GitHub warning when an OS's slowest
 shard runs over 270 s or a single test file over 90 s. Those warnings never fail the build.
-CI passes `--platform`, and the script does fail when more than 5% of that OS's test files
-have no timing in `tests/shard-timings.json`, because then the split is mostly guesswork.
+CI passes no flag, so the script checks the runner's own OS. It does fail when more than 5%
+of that OS's test files have no timing in `tests/shard-timings.json`, because then the split is mostly guesswork.
 When a warning fires:
 
 1. Download that OS's `blob-…` artifacts from the CI run and find the
    `.vitest-durations/durations-*.json` files.
-2. Run
-   `node scripts/update-shard-timings.mjs --platform <win32|linux|darwin> --report <file> [--report <file> ...]`.
-   Only that OS's block of `tests/shard-timings.json` changes, and entries for test files
-   that no longer exist are dropped. You can also make one report
+2. Run it once per OS, with one `--report` for each shard file of that OS:
+   `node scripts/update-shard-timings.mjs --platform <darwin|linux|win32> --report <shard 1 file> --report <shard 2 file> ...`.
+   Use the files as downloaded. Paths inside them such as `/home/runner/work/...` or
+   `D:/a/...` are matched to this repo by the first `tests/` folder that exists here, so
+   `--report-root <dir>` is optional. Entries it cannot place in the repo are skipped and
+   counted in the output. The script rewrites that OS's block of `tests/shard-timings.json`
+   and drops entries for deleted test files from every block. You can also make one report
    locally with `pnpm vitest run --reporter=json --outputFile=<file>` and leave out
    `--platform` to use your own OS.
 3. Commit `tests/shard-timings.json`. CI never commits it for you.
