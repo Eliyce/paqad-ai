@@ -1,0 +1,47 @@
+{
+  "id": "D-01M66JBKSXD6TKPM3240QBM041",
+  "category": "spec.contradiction",
+  "title": "FR-9 'check run of the CI workflow' cannot be proven with the FR-18 permissions",
+  "context": "FR-9 requires each of the 4 required checks to be a check run of the CI workflow (ci.yml) from the GitHub Actions app. FR-18 fixes the scope job permissions to contents/checks/pull-requests read (release.yml gains checks: read). The GitHub check-run and check-suite objects carry the app slug (github-actions) and the job name, but not the workflow; the only way to map a check run to its workflow file is its details_url run id looked up through GET /repos/{o}/{r}/actions/runs (or GraphQL workflowRun), which needs actions: read. With actions: none that call returns 403, so ci-green would always refuse and scope would always run the full matrix. Today only ci.yml defines jobs named 'Node <n> / <os>' (codeql, plugin-eval, plugin-sync-check, release do not). Step 1 (orchestrator split) is committed as db5086e8; D1 onward waits on this.",
+  "options": [
+    {
+      "option_key": "add-actions-read",
+      "label": "Add actions: read next to checks: read on the scope job and on release.yml, and prove the workflow by matching each check run's run id to the ci.yml workflow runs for that head (spec permission list grows by one read scope)",
+      "one_line_preview": "Add actions: read next to checks: read on the scope job and on release.yml, and prove the workflow by matching each check run's run id to the ci.yml workflow runs for that head (spec permission list grows by one read scope)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "app-and-name-only",
+      "label": "Keep FR-18 permissions exactly; accept a check run as the CI check when its app is github-actions and its name is one of the 4 gate names, plus a ci-workflow test that no other workflow defines a job with those names (FR-9 wording relaxed)",
+      "one_line_preview": "Keep FR-18 permissions exactly; accept a check run as the CI check when its app is github-actions and its name is one of the 4 gate names, plus a ci-workflow test that no other workflow defines a job with those names (FR-9 wording relaxed)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "add-actions-read",
+  "created_at": "2026-10-30T14:10:27.773Z",
+  "status": "resolved",
+  "change": "01M66GC8XZANSCVFJ9K074G5MF",
+  "chosen": "add-actions-read",
+  "rationale": "Owner picked actions: read to match checks to ci.yml runs",
+  "resolved_at": "2026-10-30T14:57:26.731Z",
+  "decision_id": "D-01M66JBKSXD6TKPM3240QBM041",
+  "fingerprint": "sha256:b6b5eea578653691261e054d77587b09d27b7d20a106512bdc19eacc9410b152",
+  "question": "FR-9 'check run of the CI workflow' cannot be proven with the FR-18 permissions",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M66GC8XZANSCVFJ9K074G5MF",
+  "ttl_until": "2026-11-06T14:10:27.773Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-actions-read",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-30T14:57:26.731Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked actions: read to match checks to ci.yml runs"
+  }
+}

@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 
@@ -50,6 +58,22 @@ process.exit(1);
 const FAKE_GH = `#!/usr/bin/env node
 const fs = require('node:fs');
 const args = process.argv.slice(2);
+if (args[0] === 'api') {
+  const path = args[args.indexOf('--paginate') + 1];
+  const jq = args[args.indexOf('--jq') + 1];
+  const api = JSON.parse(fs.readFileSync(process.env.FAKE_GH_API, 'utf8'));
+  const pages = api[path];
+  if (!pages || pages.fail) {
+    console.error(pages ? pages.fail : 'HTTP 404: Not Found (' + path + ')');
+    process.exit(1);
+  }
+  for (const page of pages) {
+    process.stdout.write(
+      require('node:child_process').execFileSync('jq', ['-r', jq], { input: JSON.stringify(page) }),
+    );
+  }
+  process.exit(0);
+}
 const file = process.env.FAKE_GH_RELEASES;
 const releases = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : [];
 if (args[0] === 'release' && args[1] === 'list') {
@@ -66,6 +90,11 @@ if (args[0] === 'release' && args[1] === 'list') {
 } else {
   process.exit(1);
 }
+`;
+
+const FAKE_PNPM = `#!/usr/bin/env node
+require('node:fs').appendFileSync(process.env.FAKE_PNPM_LOG, process.argv.slice(2).join(' ') + '\\n');
+process.exit(Number(process.env.FAKE_PNPM_EXIT || 0));
 `;
 
 interface Fixture {
@@ -133,6 +162,7 @@ function fixture(versions: string[]): Fixture {
   for (const [name, body] of [
     ['npm', FAKE_NPM],
     ['gh', FAKE_GH],
+    ['pnpm', FAKE_PNPM],
   ] as const) {
     writeFileSync(join(bin, name), body);
     chmodSync(join(bin, name), 0o755);
@@ -144,16 +174,21 @@ function tagPlugin(f: Fixture, version: string): void {
   git(f.repo, ['push', '--quiet', f.plugin, `HEAD:refs/tags/v${version}`]);
 }
 
-function run(f: Fixture, command: string, env: Record<string, string> = {}) {
+function run(f: Fixture, command: string, env: Record<string, string> = {}, cwd = f.repo) {
   const outputFile = join(f.repo, '..', 'github-output');
+  const envFile = join(f.repo, '..', 'github-env');
   writeFileSync(outputFile, '');
+  writeFileSync(envFile, '');
   const result = spawnSync('node', [SCRIPT, command], {
-    cwd: f.repo,
+    cwd,
     encoding: 'utf8',
     env: {
       ...gitEnv(),
       PATH: `${f.bin}${delimiter}${process.env.PATH}`,
       GITHUB_OUTPUT: outputFile,
+      GITHUB_ENV: envFile,
+      FAKE_GH_API: join(f.repo, '..', 'gh-api.json'),
+      FAKE_PNPM_LOG: join(f.repo, '..', 'pnpm-calls'),
       RELEASE_SYNC_NPM_WAIT_SECONDS: '0',
       RELEASE_SYNC_NPM_ATTEMPTS: '12',
       FAKE_GH_RELEASES: f.releases,
@@ -169,7 +204,7 @@ function run(f: Fixture, command: string, env: Record<string, string> = {}) {
       .filter(Boolean)
       .map((line) => line.split('=') as [string, string]),
   );
-  return { ...result, outputs };
+  return { ...result, outputs, githubEnv: readFileSync(envFile, 'utf8') };
 }
 
 describe.skipIf(process.platform === 'win32')('release-sync state', () => {
@@ -328,6 +363,306 @@ describe.skipIf(process.platform === 'win32')('release-sync tags', () => {
   });
 });
 
+const REPO = 'repos/Eliyce/paqad-ai';
+const PR_HEAD = 'a'.repeat(40);
+const CI_SUITE = 11;
+const REQUIRED = [
+  'Node 22 / ubuntu-latest',
+  'Node 24 / ubuntu-latest',
+  'Node 22 / macos-latest',
+  'Node 22 / windows-latest',
+];
+
+interface CheckRun {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+  app: { slug: string };
+  check_suite: { id: number };
+}
+
+function checkRun(id: number, name: string, overrides: Partial<CheckRun> = {}): CheckRun {
+  return {
+    id,
+    name,
+    status: 'completed',
+    conclusion: 'success',
+    html_url: `https://github.com/Eliyce/paqad-ai/runs/${id}`,
+    app: { slug: 'github-actions' },
+    check_suite: { id: CI_SUITE },
+    ...overrides,
+  };
+}
+
+function greenRuns(): CheckRun[] {
+  return REQUIRED.map((name, index) => checkRun(100 + index, name));
+}
+
+interface ApiOptions {
+  pulls?: unknown[];
+  headTree?: string;
+  behindBy?: number;
+  checkPages?: CheckRun[][];
+  fail?: string;
+}
+
+function proveFixture(options: ApiOptions = {}) {
+  const f = fixture(['1.0.0', '1.1.0']);
+  const merge = f.commits['1.1.0']!;
+  const base = f.commits['1.0.0']!;
+  const tree = git(f.repo, ['rev-parse', 'HEAD^{tree}']);
+  const api: Record<string, unknown> = {
+    [`${REPO}/commits/${merge}/pulls?per_page=100`]: [
+      options.pulls ?? [
+        {
+          number: 6,
+          html_url: 'https://pr/6',
+          merged_at: null,
+          merge_commit_sha: merge,
+          head: { sha: 'b'.repeat(40) },
+        },
+        {
+          number: 7,
+          html_url: 'https://pr/7',
+          merged_at: '2026-10-30T00:00:00Z',
+          merge_commit_sha: merge,
+          head: { sha: PR_HEAD },
+        },
+      ],
+    ],
+    [`${REPO}/git/commits/${PR_HEAD}`]: [{ tree: { sha: options.headTree ?? tree } }],
+    [`${REPO}/compare/${base}...${PR_HEAD}`]: [{ behind_by: options.behindBy ?? 0 }],
+    [`${REPO}/actions/runs?head_sha=${PR_HEAD}&per_page=100`]: [
+      {
+        workflow_runs: [
+          { path: '.github/workflows/ci.yml', check_suite_id: CI_SUITE },
+          { path: '.github/workflows/codeql.yml', check_suite_id: 12 },
+        ],
+      },
+    ],
+    [`${REPO}/commits/${PR_HEAD}/check-runs?filter=all&per_page=100`]: (
+      options.checkPages ?? [greenRuns()]
+    ).map((runs) => ({ check_runs: runs })),
+  };
+  if (options.fail) api[options.fail] = { fail: 'HTTP 403: rate limit exceeded' };
+  writeFileSync(join(f.repo, '..', 'gh-api.json'), JSON.stringify(api));
+  return { f, tree, merge };
+}
+
+describe.skipIf(process.platform === 'win32')('release-sync ci-green', () => {
+  it('AC-10: writes only the verified tree when all 4 checks are green on a head with the same tree', () => {
+    const { f, tree } = proveFixture();
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.githubEnv).toBe(`PAQAD_RELEASE_VERIFIED_TREE=${tree}\n`);
+    expect(result.stdout).toContain(
+      `Pull request 7 (https://pr/7), head ${PR_HEAD}, tree ${tree}.`,
+    );
+    for (const [index, name] of REQUIRED.entries()) {
+      expect(result.stdout).toContain(
+        `${name}: success https://github.com/Eliyce/paqad-ai/runs/${100 + index}`,
+      );
+    }
+  });
+
+  it('judges the newest attempt per name across every result page and logs earlier failures', () => {
+    const [first, ...rest] = greenRuns();
+    const failedEarlier = checkRun(50, first!.name, { conclusion: 'failure' });
+    const { f } = proveFixture({ checkPages: [[failedEarlier, ...rest], [first!]] });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      `earlier attempt of ${first!.name} was failure: https://github.com/Eliyce/paqad-ai/runs/50`,
+    );
+  });
+
+  it.each([
+    ['failure', { conclusion: 'failure' }],
+    ['neutral', { conclusion: 'neutral' }],
+    ['skipped', { conclusion: 'skipped' }],
+    ['cancelled', { conclusion: 'cancelled' }],
+    ['in_progress', { status: 'in_progress', conclusion: null }],
+  ] as const)('AC-9 AC-21: refuses when the newest attempt is %s', (result, overrides) => {
+    const runs = greenRuns();
+    const older = { ...runs[2]!, id: 10 };
+    runs[2] = checkRun(200, runs[2]!.name, overrides);
+    const { f } = proveFixture({ checkPages: [[older, ...runs]] });
+
+    const outcome = run(f, 'ci-green');
+
+    expect(outcome.status).toBe(1);
+    expect(outcome.stdout).toContain(`::error::Nothing is published: CI is not proven green on `);
+    expect(outcome.stdout).toContain(`required check "${REQUIRED[2]}" is ${result} on ${PR_HEAD}`);
+    expect(outcome.githubEnv).toBe('');
+  });
+
+  it.each([
+    ['is missing', (runs: CheckRun[]) => runs.slice(1)],
+    [
+      'comes from another workflow',
+      (runs: CheckRun[]) => [
+        checkRun(100, REQUIRED[0]!, { check_suite: { id: 12 } }),
+        ...runs.slice(1),
+      ],
+    ],
+    [
+      'comes from another app',
+      (runs: CheckRun[]) => [
+        checkRun(100, REQUIRED[0]!, { app: { slug: 'some-app' } }),
+        ...runs.slice(1),
+      ],
+    ],
+  ])('AC-9: refuses when a required check %s', (_case, edit) => {
+    const { f } = proveFixture({ checkPages: [edit(greenRuns())] });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`required check "${REQUIRED[0]}" is missing`);
+    expect(result.githubEnv).toBe('');
+  });
+
+  it('refuses when no merged pull request has the commit as its merge commit', () => {
+    const { f, merge } = proveFixture({
+      pulls: [
+        {
+          number: 8,
+          html_url: 'https://pr/8',
+          merged_at: '2026-10-30T00:00:00Z',
+          merge_commit_sha: 'c'.repeat(40),
+          head: { sha: PR_HEAD },
+        },
+      ],
+    });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`no merged pull request has ${merge} as its merge commit`);
+    expect(result.githubEnv).toBe('');
+  });
+
+  it('refuses on a tree mismatch', () => {
+    const { f } = proveFixture({ headTree: 'd'.repeat(40) });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(
+      `tree mismatch: pull request 7 head ${PR_HEAD} has tree ${'d'.repeat(40)}`,
+    );
+    expect(result.githubEnv).toBe('');
+  });
+
+  it('AC-18: refuses when the pull request head does not contain the base it merged into', () => {
+    const { f } = proveFixture({ behindBy: 2 });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`pull request 7 head ${PR_HEAD} does not contain the base`);
+    expect(result.githubEnv).toBe('');
+  });
+
+  it('refuses at once, publishing nothing, when the lookup fails', () => {
+    const { f } = proveFixture({
+      fail: `${REPO}/commits/${PR_HEAD}/check-runs?filter=all&per_page=100`,
+    });
+
+    const result = run(f, 'ci-green');
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(
+      '::error::Nothing is published: the CI lookup for HEAD failed:',
+    );
+    expect(result.stdout).toContain('rate limit exceeded');
+    expect(result.githubEnv).toBe('');
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('release-sync prepublish', () => {
+  function pnpmCalls(f: Fixture): string {
+    const log = join(f.repo, '..', 'pnpm-calls');
+    return existsSync(log) ? readFileSync(log, 'utf8') : '';
+  }
+
+  it('AC-11: skips the suite only for the verified tree inside Actions', () => {
+    const f = fixture(['1.0.0']);
+    const tree = git(f.repo, ['rev-parse', 'HEAD^{tree}']);
+
+    const result = run(f, 'prepublish', {
+      GITHUB_ACTIONS: 'true',
+      PAQAD_RELEASE_VERIFIED_TREE: tree,
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      `Not running pnpm run ci again: HEAD tree ${tree} is the tree CI proved green.`,
+    );
+    expect(pnpmCalls(f)).toBe('');
+  });
+
+  it.each([
+    ['the verified tree is empty', { GITHUB_ACTIONS: 'true', PAQAD_RELEASE_VERIFIED_TREE: '' }],
+    [
+      'the verified tree differs',
+      { GITHUB_ACTIONS: 'true', PAQAD_RELEASE_VERIFIED_TREE: 'e'.repeat(40) },
+    ],
+    [
+      'the verified tree is not an object id',
+      { GITHUB_ACTIONS: 'true', PAQAD_RELEASE_VERIFIED_TREE: 'HEAD' },
+    ],
+  ])('AC-11: runs pnpm run ci when %s', (_case, env) => {
+    const f = fixture(['1.0.0']);
+
+    const result = run(f, 'prepublish', env);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Running pnpm run ci before publishing:');
+    expect(pnpmCalls(f)).toBe('run ci\n');
+  });
+
+  it('AC-11: runs pnpm run ci outside Actions even on the verified tree', () => {
+    const f = fixture(['1.0.0']);
+    const tree = git(f.repo, ['rev-parse', 'HEAD^{tree}']);
+
+    const result = run(f, 'prepublish', { PAQAD_RELEASE_VERIFIED_TREE: tree });
+
+    expect(result.stdout).toContain('not running in GitHub Actions');
+    expect(pnpmCalls(f)).toBe('run ci\n');
+  });
+
+  it('AC-11: runs pnpm run ci when git rev-parse fails', () => {
+    const f = fixture(['1.0.0']);
+    const tree = git(f.repo, ['rev-parse', 'HEAD^{tree}']);
+
+    const result = run(
+      f,
+      'prepublish',
+      { GITHUB_ACTIONS: 'true', PAQAD_RELEASE_VERIFIED_TREE: tree },
+      tempDir('paqad-not-a-repo-'),
+    );
+
+    expect(result.stdout).toContain('git rev-parse HEAD^{tree} failed');
+    expect(pnpmCalls(f)).toBe('run ci\n');
+  });
+
+  it('AC-11: returns the exit code of pnpm run ci', () => {
+    const f = fixture(['1.0.0']);
+
+    const result = run(f, 'prepublish', { FAKE_PNPM_EXIT: '3' });
+
+    expect(result.status).toBe(3);
+    expect(pnpmCalls(f)).toBe('run ci\n');
+  });
+});
+
 describe.skipIf(process.platform === 'win32')('release-sync check', () => {
   it('AC-5: fails red when npm latest is ahead of the newest plugin tag', () => {
     const f = fixture(['1.0.0']);
@@ -358,6 +693,8 @@ describe.skipIf(process.platform === 'win32')('release-sync check', () => {
     const result = run(f, 'publish');
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Usage: node scripts/release-sync.mjs <state|tags|check>');
+    expect(result.stderr).toContain(
+      'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish>',
+    );
   });
 });

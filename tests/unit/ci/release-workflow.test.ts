@@ -113,6 +113,28 @@ describe('the release workflow publishes the plugin', () => {
     expect(publish.permissions).toEqual({ contents: 'read' });
   });
 
+  it('AC-17: proves CI is green on this tree right before the changesets step, with read-only check access', () => {
+    const ids = release.steps.map((step) => step.id ?? step.name);
+    const proof = release.steps[ids.indexOf('changesets') - 1]!;
+    expect(proof.name).toBe('Prove CI is green on this tree');
+    expect(proof.run).toBe('node scripts/release-sync.mjs ci-green');
+    expect(proof.env).toEqual({ GH_TOKEN: '${{ github.token }}' });
+    expect(release.permissions).toEqual({
+      contents: 'write',
+      'pull-requests': 'write',
+      'id-token': 'write',
+      checks: 'read',
+      actions: 'read',
+    });
+  });
+
+  it('AC-17: runs the prepublish check instead of the whole suite when npm publishes', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts.prepublishOnly).toBe('node scripts/release-sync.mjs prepublish');
+  });
+
   it('tags and releases every published version after the changesets step', () => {
     const tags = release.steps.at(-1)!;
     expect(tags.run).toBe('node scripts/release-sync.mjs tags');

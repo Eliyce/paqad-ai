@@ -116,6 +116,168 @@ function writeOutputs(outputs) {
   for (const line of lines) console.log(line);
 }
 
+export const REQUIRED_CHECKS = [
+  'Node 22 / ubuntu-latest',
+  'Node 24 / ubuntu-latest',
+  'Node 22 / macos-latest',
+  'Node 22 / windows-latest',
+];
+
+const CI_WORKFLOW = '.github/workflows/ci.yml';
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
+function repository() {
+  return process.env.GITHUB_REPOSITORY || 'Eliyce/paqad-ai';
+}
+
+function ghPages(path, jq) {
+  return mustExec('gh', ['api', '--paginate', path, '--jq', `${jq} | @json`])
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function objectId(value, what) {
+  if (typeof value !== 'string' || !OBJECT_ID.test(value)) {
+    throw new Error(`${what} is not a git object id: ${String(value)}`);
+  }
+  return value;
+}
+
+function judgeCheck(name, runs) {
+  const attempts = runs.filter((run) => run.name === name).sort((a, b) => b.id - a.id);
+  const earlierFailures = attempts
+    .slice(1)
+    .filter((run) => run.status === 'completed' && run.conclusion !== 'success');
+  const newest = attempts[0];
+  if (!newest) return { name, ok: false, result: 'missing', url: null, earlierFailures };
+  const result = newest.status === 'completed' ? newest.conclusion : newest.status;
+  return { name, ok: result === 'success', result, url: newest.html_url, earlierFailures };
+}
+
+export function greenTreeProof(ref) {
+  const repo = repository();
+  const commit = objectId(mustExec('git', ['rev-parse', `${ref}^{commit}`]), `${ref}`);
+  const tree = objectId(mustExec('git', ['rev-parse', `${commit}^{tree}`]), `tree of ${commit}`);
+  const proof = { ok: false, commit, tree, pr: null, head: null, checks: [], reason: '' };
+  const fail = (reason) => ({ ...proof, reason });
+  const base = exec('git', ['rev-parse', '--verify', '--quiet', `${commit}^1`]);
+  if (base.status !== 0) return fail(`${commit} has no parent, so no pull request merged it`);
+  const pulls = ghPages(
+    `repos/${repo}/commits/${commit}/pulls?per_page=100`,
+    `map(select(.merged_at != null and .merge_commit_sha == "${commit}") | {number, url: .html_url, head: .head.sha})`,
+  ).flat();
+  if (pulls.length !== 1) {
+    return fail(
+      pulls.length === 0
+        ? `no merged pull request has ${commit} as its merge commit`
+        : `${pulls.length} merged pull requests have ${commit} as their merge commit`,
+    );
+  }
+  proof.pr = pulls[0];
+  proof.head = objectId(proof.pr.head, `head of pull request ${proof.pr.number}`);
+  const head = proof.head;
+  const headTree = ghPages(`repos/${repo}/git/commits/${head}`, '.tree.sha')[0];
+  if (headTree !== tree) {
+    return fail(
+      `tree mismatch: pull request ${proof.pr.number} head ${head} has tree ${headTree}, ${commit} has tree ${tree}`,
+    );
+  }
+  const behind = ghPages(`repos/${repo}/compare/${base.stdout}...${head}`, '.behind_by')[0];
+  if (behind !== 0) {
+    return fail(
+      `pull request ${proof.pr.number} head ${head} does not contain the base ${base.stdout} it merged into`,
+    );
+  }
+  const suites = new Set(
+    ghPages(
+      `repos/${repo}/actions/runs?head_sha=${head}&per_page=100`,
+      `.workflow_runs | map(select(.path == "${CI_WORKFLOW}") | .check_suite_id)`,
+    ).flat(),
+  );
+  const runs = ghPages(
+    `repos/${repo}/commits/${head}/check-runs?filter=all&per_page=100`,
+    '.check_runs | map({id, name, status, conclusion, html_url, app: .app.slug, suite: .check_suite.id})',
+  )
+    .flat()
+    .filter((run) => run.app === 'github-actions' && suites.has(run.suite));
+  proof.checks = REQUIRED_CHECKS.map((name) => judgeCheck(name, runs));
+  const red = proof.checks.find((check) => !check.ok);
+  if (red) return fail(`required check "${red.name}" is ${red.result} on ${head}`);
+  return { ...proof, ok: true };
+}
+
+function printProof(proof) {
+  if (proof.pr) {
+    console.log(
+      `Pull request ${proof.pr.number} (${proof.pr.url}), head ${proof.head}, tree ${proof.tree}.`,
+    );
+  }
+  for (const check of proof.checks) {
+    console.log(`  ${check.name}: ${check.result}${check.url ? ` ${check.url}` : ''}`);
+    for (const earlier of check.earlierFailures) {
+      console.log(
+        `  earlier attempt of ${check.name} was ${earlier.conclusion}: ${earlier.html_url}`,
+      );
+    }
+  }
+}
+
+export function ciGreen() {
+  const ref = releaseRef();
+  let proof;
+  try {
+    proof = greenTreeProof(ref);
+  } catch (error) {
+    console.log(
+      `::error::Nothing is published: the CI lookup for ${ref} failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return 1;
+  }
+  printProof(proof);
+  if (!proof.ok) {
+    console.log(
+      `::error::Nothing is published: CI is not proven green on ${proof.commit}: ${proof.reason}. ` +
+        'Re-run the Release workflow once the required checks are green.',
+    );
+    return 1;
+  }
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(process.env.GITHUB_ENV, `PAQAD_RELEASE_VERIFIED_TREE=${proof.tree}\n`);
+  }
+  console.log(`CI is green on tree ${proof.tree}; publishing may skip the repeat suite run.`);
+  return 0;
+}
+
+export function prepublishDecision(env = process.env) {
+  if (env.GITHUB_ACTIONS !== 'true')
+    return { skip: false, reason: 'not running in GitHub Actions' };
+  const verified = env.PAQAD_RELEASE_VERIFIED_TREE ?? '';
+  if (!OBJECT_ID.test(verified)) {
+    return { skip: false, reason: 'no verified green tree in PAQAD_RELEASE_VERIFIED_TREE' };
+  }
+  const head = exec('git', ['rev-parse', 'HEAD^{tree}']);
+  if (head.status !== 0) {
+    return { skip: false, reason: `git rev-parse HEAD^{tree} failed: ${head.stderr}` };
+  }
+  if (head.stdout !== verified) {
+    return { skip: false, reason: `HEAD tree ${head.stdout} is not the verified tree ${verified}` };
+  }
+  return { skip: true, reason: `HEAD tree ${verified} is the tree CI proved green` };
+}
+
+export function prepublish() {
+  const decision = prepublishDecision();
+  if (decision.skip) {
+    console.log(`Not running pnpm run ci again: ${decision.reason}.`);
+    return 0;
+  }
+  console.log(`Running pnpm run ci before publishing: ${decision.reason}.`);
+  const result = spawnSync('pnpm', ['run', 'ci'], { stdio: 'inherit' });
+  if (result.error) throw result.error;
+  return result.status ?? 1;
+}
+
 export function npmAttempts(value) {
   const attempts = Number(value);
   return Number.isInteger(attempts) && attempts > 0 ? attempts : 90;
@@ -220,6 +382,8 @@ function main(command) {
     writeOutputs({ version: state.version, sha: state.sha, plugin_needed: state.pluginNeeded });
     return 0;
   }
+  if (command === 'ci-green') return ciGreen();
+  if (command === 'prepublish') return prepublish();
   if (command === 'tags') {
     const actions = syncTags();
     console.log(
@@ -242,7 +406,7 @@ function main(command) {
     console.log(`The plugin is at ${lag.newest}, matching npm latest ${lag.latest}.`);
     return 0;
   }
-  console.error('Usage: node scripts/release-sync.mjs <state|tags|check>');
+  console.error('Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish>');
   return 1;
 }
 

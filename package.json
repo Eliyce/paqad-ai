@@ -113,7 +113,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm run build && changeset publish",
-    "prepublishOnly": "pnpm run ci"
+    "prepublishOnly": "node scripts/release-sync.mjs prepublish"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
