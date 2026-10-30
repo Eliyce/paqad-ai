@@ -159,6 +159,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         projectRoot,
         frameworks: profile.stack_profile.frameworks,
         formatCommand: resolved.command,
+        changedFiles,
       });
       scheduled.push({
         logical_command: 'format',

@@ -18,6 +18,7 @@ export interface ResolveFormatCommandInput {
   projectRoot: string;
   frameworks: string[];
   formatCommand: string;
+  changedFiles?: readonly string[];
 }
 
 export async function resolveFormatCommand(
@@ -57,7 +58,11 @@ export async function resolveFormatCommand(
   ]);
   if (tracked === null || untracked === null) return full('git could not list the changed files');
 
-  const files = filterFormattableFiles(input.projectRoot, [...tracked, ...untracked]);
+  const files = filterFormattableFiles(input.projectRoot, [
+    ...tracked,
+    ...untracked,
+    ...(input.changedFiles ?? []),
+  ]);
   if (files.length === 0) return full('no changed files to format');
   if (files.length > FORMAT_CHANGED_MAX_FILES) {
     return full(`more than ${FORMAT_CHANGED_MAX_FILES} changed files`);

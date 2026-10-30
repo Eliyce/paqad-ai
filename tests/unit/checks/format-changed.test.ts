@@ -70,6 +70,7 @@ describe('changed-files format', () => {
     };
     const result = await runChecks({
       projectRoot: root,
+      changedFiles: ['src/same.ts'],
       shell,
       osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
       now: () => '2026-10-30T00:00:00.000Z',
@@ -87,10 +88,25 @@ describe('changed-files format', () => {
           './a b.ts',
           './src/mod.ts',
           './src/new.ts',
+          './src/same.ts',
         ],
       },
     ]);
     expect(result.commands[0]?.command).toBe(PNPM_CHANGED);
+  });
+
+  it('AC-14: also formats files already committed on the branch, through the same guards', async () => {
+    const root = project();
+    writeRepoFile(root, 'src/mod.ts', 'export const a = 5;\n');
+    commitAll(root, 'branch work');
+    expect(await resolve(root)).toMatchObject({ scope: 'full', files: null });
+    const resolved = await resolveFormatCommand({
+      projectRoot: root,
+      frameworks: ['react'],
+      formatCommand: 'pnpm format',
+      changedFiles: ['src/mod.ts', '../escape.ts', 'src/never-existed.ts', '/etc/passwd'],
+    });
+    expect(resolved).toMatchObject({ scope: 'changed', files: ['./src/mod.ts'] });
   });
 
   it('uses the npm entry for npm run format', async () => {

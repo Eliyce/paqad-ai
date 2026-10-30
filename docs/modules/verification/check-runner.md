@@ -54,7 +54,9 @@ install a package.
    swaps the entry's command in for the format command only when the resolved profile command
    equals `default_command` exactly, `package.json` `scripts.format` equals `script` exactly,
    git lists the files (`diff --name-only --relative -z HEAD` plus
-   `ls-files --others --exclude-standard -z`), and 1 to 200 files remain. A path is kept only
+   `ls-files --others --exclude-standard -z`), and 1 to 200 files remain. The list also takes in
+   the change's own changed files (the same list the report's evidence scope uses), so files
+   already committed on the branch are formatted too. A path is kept only
    when it stays inside the root (no absolute path, no `..`), exists now as a regular file, and is
    not a symlink that resolves outside the root; deleted and ignored files drop out. Each kept
    path gets a `./` prefix, so a name starting with a dash is never read as an option, and the
