@@ -1,4 +1,12 @@
-import { chmodSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
+import {
+  chmodSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  utimesSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -100,6 +108,21 @@ describe('computeTreeIdentity', () => {
     expect(git(root, ['diff', '--cached', '--name-only'])).toBe(staged);
     expect(readdirSync(temp)).toEqual([]);
     expect(process.env.GIT_INDEX_FILE).toBeUndefined();
+  });
+
+  it('sees a same-size edit that the index stat cache would call clean', () => {
+    const root = repo();
+    git(root, ['config', 'core.trustctime', 'false']);
+    git(root, ['config', 'core.checkStat', 'minimal']);
+    const file = join(root, 'src/a.ts');
+    const past = new Date('2020-01-01T00:00:00.000Z');
+    utimesSync(file, past, past);
+    git(root, ['add', '-A']);
+    const base = computeTreeIdentity(root)!.digest;
+    writeRepoFile(root, 'src/a.ts', 'export const a = 9;\n');
+    utimesSync(file, past, past);
+    utimesSync(join(root, '.git/index'), past, past);
+    expect(computeTreeIdentity(root)!.digest).not.toBe(base);
   });
 
   it('does not depend on what is staged', () => {

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, rmSync, statSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -60,6 +60,7 @@ export function computeTreeIdentityResult(
     workDir = mkdtempSync(join(options.tempRoot ?? tmpdir(), 'paqad-tree-'));
     const tempIndex = join(workDir, 'index');
     copyFileSync(realIndex, tempIndex);
+    keepIndexTimestamp(realIndex, tempIndex);
     const env = { ...process.env, GIT_INDEX_FILE: tempIndex };
     git(['add', '-A'], env);
     git(
@@ -73,6 +74,11 @@ export function computeTreeIdentityResult(
   } finally {
     if (workDir) rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+function keepIndexTimestamp(realIndex: string, tempIndex: string): void {
+  const stamp = (Math.floor(statSync(realIndex).mtimeMs) - 1) / 1000;
+  utimesSync(tempIndex, stamp, stamp);
 }
 
 function resolveHead(git: (args: string[]) => string): string | null {
