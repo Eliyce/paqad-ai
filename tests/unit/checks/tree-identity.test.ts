@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -202,6 +203,39 @@ describe('computeTreeIdentity', () => {
     const root = repo();
     const fake = fakeGit('if [ "$1" = "add" ]; then exit 1; fi');
     expect(computeTreeIdentityResult(root, { gitBinary: fake }).reason).toBe('git add failed');
+  });
+
+  it.each([
+    ['assume-unchanged', ['update-index', '--assume-unchanged', 'src/a.ts']],
+    ['skip-worktree', ['update-index', '--skip-worktree', 'src/a.ts']],
+  ])(
+    'AC-11: returns null when a tracked file is marked %s, since its edits are hidden',
+    (_, args) => {
+      const root = repo();
+      git(root, args);
+      writeRepoFile(root, 'src/a.ts', 'export const a = 7;\n');
+      expect(computeTreeIdentityResult(root)).toEqual({
+        identity: null,
+        reason: 'src/a.ts is marked assume-unchanged or skip-worktree, so its edits cannot be seen',
+      });
+    },
+  );
+
+  it('AC-11: returns null with a nested repository, committed as a submodule or not yet added', () => {
+    const root = repo();
+    const nested = join(root, 'vendor/lib');
+    mkdirSync(nested, { recursive: true });
+    initGitRepo(nested, { 'x.ts': 'x\n' });
+    commitAll(nested);
+    const expected = {
+      identity: null,
+      reason: 'vendor/lib is a submodule or nested repository, so edits inside it cannot be seen',
+    };
+    expect(computeTreeIdentityResult(root)).toEqual(expected);
+    git(root, ['add', 'vendor/lib']);
+    git(root, ['commit', '-q', '-m', 'gitlink']);
+    writeRepoFile(nested, 'x.ts', 'changed\n');
+    expect(computeTreeIdentityResult(root)).toEqual(expected);
   });
 
   it('returns null when the index file is missing', () => {

@@ -14,6 +14,8 @@ export const TREE_IDENTITY_EXCLUDED_DIRS: readonly string[] = [
 
 export const TREE_IDENTITY_TIMEOUT_MS = 60_000;
 
+const GITLINK_MODE = '160000';
+
 export interface TreeIdentity {
   digest: string;
   head_commit: string | null;
@@ -67,6 +69,8 @@ export function computeTreeIdentityResult(
       ['rm', '-r', '--cached', '--ignore-unmatch', '--quiet', '--', ...TREE_IDENTITY_EXCLUDED_DIRS],
       env,
     );
+    const hidden = hiddenEditEntry(git(['ls-files', '-s', '-v', '-z'], env));
+    if (hidden) return { identity: null, reason: hidden };
     const digest = git(['write-tree'], env).trim();
     return { identity: { digest, head_commit: head, computed_at: now() }, reason: null };
   } catch (error) {
@@ -74,6 +78,21 @@ export function computeTreeIdentityResult(
   } finally {
     if (workDir) rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+function hiddenEditEntry(listing: string): string | null {
+  for (const entry of listing.split('\0')) {
+    const match = /^(\S) (\d+) \S+ \d+\t(.+)$/s.exec(entry);
+    if (!match) continue;
+    const [, tag, mode, path] = match as unknown as [string, string, string, string];
+    if (mode === GITLINK_MODE) {
+      return `${path} is a submodule or nested repository, so edits inside it cannot be seen`;
+    }
+    if (tag === 'S' || tag !== tag.toUpperCase()) {
+      return `${path} is marked assume-unchanged or skip-worktree, so its edits cannot be seen`;
+    }
+  }
+  return null;
 }
 
 function keepIndexTimestamp(realIndex: string, tempIndex: string): void {

@@ -69,7 +69,10 @@ install a package.
    gate share). The rest of `.paqad` is in the identity, because tests read files such as
    `.paqad/scripts`. It returns `{ digest, head_commit, computed_at }`, or null outside git, in a
    repository with no commits, without a git binary, or past its time limit (60 s for
-   `checks run`). `head_commit` is null on an unborn branch of a repository that has commits.
+   `checks run`). It is also null when the index holds an entry whose edits git cannot see: a
+   submodule or nested repository (a gitlink names only the nested repository's commit, not its
+   uncommitted edits), or a file marked `assume-unchanged` or `skip-worktree`. The reason names
+   the path. `head_commit` is null on an unborn branch of a repository that has commits.
 6. **Reuse a green run on an identical tree.** For every non-stage-1 command (build, test and any
    other), `checks run` looks at the newest row in the run history for that exact command string
    (for test, the resolved test command with any parallel flags), whatever its tree or outcome.
