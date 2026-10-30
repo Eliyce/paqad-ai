@@ -55,7 +55,9 @@ export type OwnerCategory = (typeof OWNER_CATEGORY)[keyof typeof OWNER_CATEGORY]
 
 export type UserRecordKind = 'tool-result' | 'injected' | 'human';
 
-export type TestRunKind = 'whole-suite' | 'targeted';
+export type TestRunKind = 'whole-suite' | 'targeted' | 'reused';
+
+export const REUSED_TEST_LINE = 'reused green test run from';
 
 export const AGENT_ORDER = [
   'development',
@@ -307,6 +309,10 @@ function namesTarget(arg: string): boolean {
   if (arg === '-t' || arg.startsWith('-t=') || arg.startsWith('--testNamePattern')) return true;
   if (arg.startsWith('-')) return false;
   return arg.includes('tests/') || arg.includes('.test.') || arg.includes('/');
+}
+
+export function reusedTestRun(resultText: string): boolean {
+  return resultText.includes(REUSED_TEST_LINE);
 }
 
 export function testRunKind(command: string): TestRunKind | null {
