@@ -804,17 +804,23 @@ function versionPr(
   git(f.repo, ['add', '-A']);
   git(f.repo, ['commit', '--quiet', '--allow-empty', '-m', 'chore(release): version packages']);
   const head = git(f.repo, ['rev-parse', 'HEAD']);
+  git(f.repo, ['checkout', '--quiet', '--detach', base]);
+  git(f.repo, ['merge', '--quiet', '--no-ff', '--no-edit', head]);
+  const merge = git(f.repo, ['rev-parse', 'HEAD']);
   const eventPath = join(f.repo, '..', 'event.json');
   writeFileSync(
     eventPath,
-    JSON.stringify({ pull_request: { base: { sha: base }, head: { sha: head } } }),
+    JSON.stringify({ pull_request: { base: { sha: STALE_BASE }, head: { sha: head } } }),
   );
   return run(f, 'scope', {
     GITHUB_EVENT_NAME: 'pull_request',
     GITHUB_EVENT_PATH: eventPath,
+    GITHUB_SHA: merge,
     ...env,
   });
 }
+
+const STALE_BASE = 'f'.repeat(40);
 
 describe.skipIf(process.platform === 'win32')('release-sync scope', () => {
   it('AC-13: skips the matrix for a version-only pull request on a proven green base', () => {
@@ -923,6 +929,39 @@ describe.skipIf(process.platform === 'win32')('release-sync scope', () => {
 
     expect(result.outputs.skip_matrix).toBe('false');
     expect(result.outputs.skip_reason).toContain(reason);
+  });
+
+  it.each(['src/cli/index.ts', 'docs/site-map/journeys/release.md'])(
+    'AC-23: runs the matrix when a version pull request also changes %s',
+    (path) => {
+      const { f, base } = scopeFixture();
+
+      const result = versionPr(f, base, (repo) =>
+        writeFiles(repo, { 'package.json': packageJson('1.1.0'), [path]: 'x\n' }),
+      );
+
+      expect(result.outputs.skip_matrix).toBe('false');
+      expect(result.outputs.skip_reason).toContain(`${path} (A) is not a version-only change`);
+    },
+  );
+
+  it('decides from the merge ref, ignoring the base sha in the event payload', () => {
+    const { f, base } = scopeFixture();
+
+    const result = versionPr(f, base);
+
+    expect(result.outputs.skip_matrix).toBe('true');
+    expect(result.stdout).toContain(`Diff from ${base} to `);
+    expect(result.stdout).not.toContain(STALE_BASE);
+  });
+
+  it('runs the matrix when the merge ref does not merge the pull request head', () => {
+    const { f, base } = scopeFixture();
+
+    const result = versionPr(f, base, undefined, { GITHUB_SHA: base });
+
+    expect(result.outputs.skip_matrix).toBe('false');
+    expect(result.outputs.skip_reason).toContain(`the merge ref ${base} does not merge the head`);
   });
 
   it('runs the matrix when the branch does not contain the base', () => {

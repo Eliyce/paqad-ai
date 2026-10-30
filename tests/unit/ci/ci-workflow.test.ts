@@ -219,7 +219,9 @@ describe('.github/workflows/ci.yml', () => {
 
     it('merges each OS on that same OS, after the shards, even when one failed', () => {
       expect(job.needs).toEqual(['scope', 'test']);
-      expect(job.if).toBe("${{ !cancelled() && needs.scope.outputs.skip_matrix != 'true' }}");
+      expect(job.if).toBe(
+        "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.skip_matrix != 'true' }}",
+      );
       expect(job['runs-on']).toBe('${{ matrix.os }}');
       expect(job.strategy!['fail-fast']).toBe(false);
       expect(legs.map((leg) => `Node ${leg.node} / ${leg.os}`).sort()).toEqual(
@@ -341,7 +343,9 @@ describe('.github/workflows/ci.yml', () => {
       expect(job.steps.every((s) => s.uses === undefined)).toBe(true);
     });
 
-    const hasJq = spawnSync('jq', ['--version']).status === 0;
+    it('AC-14: has jq, so the gate expression is really evaluated here', () => {
+      expect(spawnSync('jq', ['--version']).status, 'jq must be on PATH to test the gate').toBe(0);
+    });
     const gateResult = (needs: Record<string, unknown>) =>
       spawnSync('bash', ['-c', job.steps[0].run!], {
         env: { PATH: process.env.PATH, NEEDS: JSON.stringify(needs) },
@@ -358,11 +362,11 @@ describe('.github/workflows/ci.yml', () => {
       return all;
     };
 
-    it.skipIf(!hasJq)('passes when everything succeeded', () => {
+    it('AC-14: passes when everything succeeded', () => {
       expect(gateResult(needsWith('false', {})).status).toBe(0);
     });
 
-    it.skipIf(!hasJq)('AC-14: passes with test and merge skipped only when scope said skip', () => {
+    it('AC-14: passes with test and merge skipped only when scope said skip', () => {
       const skipped = { test: 'skipped', merge: 'skipped' };
       expect(gateResult(needsWith('true', skipped)).status).toBe(0);
       expect(gateResult(needsWith('false', skipped)).status).not.toBe(0);
@@ -370,22 +374,19 @@ describe('.github/workflows/ci.yml', () => {
       expect(gateResult(needsWith('false', { merge: 'skipped' })).status).not.toBe(0);
     });
 
-    it.skipIf(!hasJq)(
-      'AC-14: fails when scope failed, or a job other than test and merge was skipped',
-      () => {
-        expect(gateResult(needsWith(undefined, { scope: 'failure' })).status).not.toBe(0);
-        expect(
-          gateResult(needsWith('true', { scope: 'failure', test: 'skipped', merge: 'skipped' }))
-            .status,
-        ).not.toBe(0);
-        expect(gateResult(needsWith('true', { static: 'skipped' })).status).not.toBe(0);
-        expect(gateResult(needsWith('true', { 'discovery-plugin': 'skipped' })).status).not.toBe(0);
-        expect(
-          gateResult(needsWith('true', { test: 'failure', merge: 'skipped' })).status,
-        ).not.toBe(0);
-        expect(gateResult(needsWith('true', { test: 'cancelled' })).status).not.toBe(0);
-      },
-    );
+    it('AC-14: fails when scope failed, or a job other than test and merge was skipped', () => {
+      expect(gateResult(needsWith(undefined, { scope: 'failure' })).status).not.toBe(0);
+      expect(
+        gateResult(needsWith('true', { scope: 'failure', test: 'skipped', merge: 'skipped' }))
+          .status,
+      ).not.toBe(0);
+      expect(gateResult(needsWith('true', { static: 'skipped' })).status).not.toBe(0);
+      expect(gateResult(needsWith('true', { 'discovery-plugin': 'skipped' })).status).not.toBe(0);
+      expect(gateResult(needsWith('true', { test: 'failure', merge: 'skipped' })).status).not.toBe(
+        0,
+      );
+      expect(gateResult(needsWith('true', { test: 'cancelled' })).status).not.toBe(0);
+    });
   });
 });
 

@@ -304,8 +304,17 @@ export function scopeDecision(env = process.env) {
     return { skip: false, rule: 'event', reason: `event ${String(event)} runs the full matrix` };
   }
   const payload = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')).pull_request;
-  const base = objectId(payload?.base?.sha, 'pull request base');
   const head = objectId(payload?.head?.sha, 'pull request head');
+  const merge = objectId(env.GITHUB_SHA, 'GITHUB_SHA');
+  const base = mustExec('git', ['rev-parse', `${merge}^1`]);
+  const merged = exec('git', ['rev-parse', '--verify', '--quiet', `${merge}^2`]);
+  if (merged.status !== 0 || merged.stdout !== head) {
+    return {
+      skip: false,
+      rule: 'version pull request',
+      reason: `version pull request: the merge ref ${merge} does not merge the head ${head}`,
+    };
+  }
   const mergeBase = mustExec('git', ['merge-base', base, head]);
   if (mergeBase !== base) {
     return {

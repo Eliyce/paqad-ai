@@ -200,7 +200,7 @@ jobs:
     needs: [scope, test]
     # Runs even when a shard failed, so the merged report lists every failure in one place.
     # The gate still goes red: it needs every shard to have succeeded.
-    if: ${{ !cancelled() && needs.scope.outputs.skip_matrix != 'true' }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.skip_matrix != 'true' }}
     # Coverage thresholds match paths relative to the project root, and blob paths are not
     # remapped, so each OS merges its own blobs on that same OS.
     runs-on: ${{ matrix.os }}
