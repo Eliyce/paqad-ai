@@ -6,6 +6,11 @@ const SHARD_FIX =
 const FILE_FIX =
   'Split it into smaller test files (like tests/unit/onboarding/matrix.g1.test.ts to matrix.g5.test.ts): a single file this slow sets a floor no shard count can get under. Then refresh tests/shard-timings.json with scripts/update-shard-timings.mjs.';
 
+export const MISSING_TIMINGS_MAX_PERCENT = 5;
+
+const TIMINGS_FIX =
+  "Refresh this OS block with node scripts/update-shard-timings.mjs --platform <os> --report <file> for each durations-*.json in this run's blob-<os>-node<n>-* artifacts, then commit tests/shard-timings.json.";
+
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -66,6 +71,29 @@ export function budgetWarnings(shards, os, budgets = {}) {
     );
   }
   return warnings;
+}
+
+export function timingCoverage(shards, timings, platform) {
+  const block = isPlainObject(timings) && isPlainObject(timings[platform]) ? timings[platform] : {};
+  const files = [
+    ...new Set(shards.flatMap((shard) => shard.files.map((file) => file.path))),
+  ].sort();
+  const missing = files.filter((path) => !Object.hasOwn(block, path));
+  return { platform, total: files.length, missing };
+}
+
+export function timingCoverageError(coverage, os, maxPercent = MISSING_TIMINGS_MAX_PERCENT) {
+  const { platform, total, missing } = coverage;
+  if (total === 0 || missing.length * 100 <= total * maxPercent) return null;
+  const shown = missing.slice(0, 10).join(', ');
+  const more = missing.length > 10 ? ` and ${missing.length - 10} more` : '';
+  return `::error title=Shard timings missing::${escapeAnnotation(
+    `${missing.length} of ${total} test files in the ${os} shard reports have no ${platform} timing in tests/shard-timings.json, over the ${maxPercent} percent limit: ${shown}${more}. ${TIMINGS_FIX}`,
+  )}`;
+}
+
+export function timingCoverageSummary(coverage, os) {
+  return `Timings on ${os}: ${coverage.total - coverage.missing.length} of ${coverage.total} test files have a ${coverage.platform} timing.`;
 }
 
 export function budgetSummary(shards, os) {

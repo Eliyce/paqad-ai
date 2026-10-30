@@ -7,6 +7,13 @@ import { DurationSequencer } from './tests/shared/duration-sequencer';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
+export const WIN32_TEST_EXCLUDES = [
+  'tests/unit/skills/**',
+  'tests/unit/scripts/**',
+  'tests/unit/evals/fixture.test.ts',
+  'tests/unit/hooks/silent-update.test.ts',
+];
+
 export default defineConfig({
   define: {
     __PKG_VERSION__: JSON.stringify(pkg.version),
@@ -21,14 +28,7 @@ export default defineConfig({
     hookTimeout: process.platform === 'win32' ? 60_000 : 30_000,
     exclude:
       process.platform === 'win32'
-        ? [
-            '**/node_modules/**',
-            '**/dist/**',
-            'tests/unit/skills/**',
-            'tests/unit/scripts/**',
-            'tests/unit/evals/fixture.test.ts',
-            'tests/unit/hooks/silent-update.test.ts',
-          ]
+        ? ['**/node_modules/**', '**/dist/**', ...WIN32_TEST_EXCLUDES]
         : ['**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
