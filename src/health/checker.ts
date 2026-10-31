@@ -30,6 +30,7 @@ import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { expertsActive, readPipelineConfig, standingBudgetSum } from '@/spec-pipeline/config.js';
 import { resolveEffectiveConfig } from '@/cli/commands/config.js';
+import { authoringConfigProblems } from '@/authoring/config.js';
 import { EXPERT_ROLES } from '@/spec-pipeline/experts/roster.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { checkSpecShape, PARITY_CORPUS } from '@/spec-pipeline/parser-parity.js';
@@ -102,6 +103,7 @@ export class HealthChecker {
       this.checkSpecPipelineSettings(projectRoot),
       ...this.checkExpertRoster(projectRoot),
       ...this.checkVisualEvidence(projectRoot),
+      ...this.checkAuthoringConfig(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
@@ -1097,6 +1099,21 @@ export class HealthChecker {
       results.push(pass(name, 'Visual evidence is on and every prerequisite is in place.'));
     }
     return results;
+  }
+
+  private checkAuthoringConfig(projectRoot: string): HealthCheckResult[] {
+    const name = 'Skill authoring settings are in range';
+    const problems = authoringConfigProblems(projectRoot);
+    if (problems.length === 0) {
+      return [pass(name, 'Every skill authoring setting is in its allowed range.')];
+    }
+    return problems.map((problem) =>
+      warn(
+        name,
+        `${problem.key}=${problem.value} is out of range (allowed: ${problem.allowed}); paqad uses the default instead`,
+        `Set ${problem.key} to ${problem.allowed}, or remove it to use the default.`,
+      ),
+    );
   }
 
   private checkExpertRoster(projectRoot: string): HealthCheckResult[] {

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M697D4RAJVXV7XGVABJS2YAH",
+  "category": "intake.requirement",
+  "title": "When a new skill's files contain something that looks like a password or access key, may anyone approve adding the skill anyway?",
+  "context": "The issue allows overrides for gates in general but never says whether the secret check (SK-011) can be one of them. This decides whether the secret check can ever be skipped with a written reason, or always stops the skill until the value is removed.",
+  "options": [
+    {
+      "option_key": "never",
+      "label": "Never: the skill is stopped until the value is removed",
+      "one_line_preview": "Never: the skill is stopped until the value is removed",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "owner-with-reason",
+      "label": "Yes, but only the project owner, with a written reason",
+      "one_line_preview": "Yes, but only the project owner, with a written reason",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "never",
+  "created_at": "2026-10-31T14:56:46.858Z",
+  "status": "resolved",
+  "change": "01M6968HSVNBV1X20K3ANPE472",
+  "chosen": "never",
+  "rationale": "Owner (Haider) picked the recommended option in the spec question round",
+  "resolved_at": "2026-10-31T14:59:32.190Z",
+  "decision_id": "D-01M697D4RAJVXV7XGVABJS2YAH",
+  "fingerprint": "sha256:4142e55bab65e17a5050800b45d1cb2bb34ceeca1a367e9b087a5141bdcbccbe",
+  "question": "When a new skill's files contain something that looks like a password or access key, may anyone approve adding the skill anyway?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6968HSVNBV1X20K3ANPE472",
+  "ttl_until": "2026-11-14T14:56:46.858Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "never",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T14:59:32.190Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) picked the recommended option in the spec question round"
+  }
+}

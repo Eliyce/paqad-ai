@@ -1588,6 +1588,23 @@ modules:
         - writeSkillIndex
         - writeSkillIndexFromArtifacts
 
+  - slug: authoring
+    name: Skill and Agent Authoring
+    layer: framework-internals
+    confidence: medium
+    summary: |
+      Gates new and edited skills (and, later, agents) before they are
+      added: skill paths and the authoring lane raise, the deterministic
+      skill lint and never-write list, overlap and catalog budget, script
+      and reference contract checks, eval adapters and aggregation,
+      portable packaging, evidence, activations, drift and the catalog
+      report. src/skills discovers and loads skills; src/authoring gates
+      new and edited ones.
+    sources:
+      - src/authoring
+      - runtime/base/authoring
+      - runtime/base/skills/skill-orchestrator
+
   - slug: agent-runtime
     name: Built-in Agent Roles
     layer: framework-internals

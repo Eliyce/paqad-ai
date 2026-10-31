@@ -1318,3 +1318,53 @@ describe('lane lists', () => {
     expect(generateGroupConfig('policy')).toMatch(/^# spec_pipeline_experts_lanes=full$/m);
   });
 });
+
+describe('skill and agent authoring keys', () => {
+  const AUTHORING_DEFAULTS: Record<string, boolean | number | string> = {
+    skill_orchestrator_enabled: true,
+    authoring_trigger_threshold: 0.9,
+    authoring_trigger_min_runs: 2,
+    skill_eval_min_gain_points: 10,
+    skill_eval_max_token_multiple: 2,
+    authoring_runs_per_arm: 3,
+    authoring_max_iterations: 3,
+    authoring_fact_max_age_days: 60,
+    authoring_collision_jaccard: 0.4,
+    authoring_description_budget_chars: 8000,
+    skill_body_max_tokens: 5000,
+    authoring_tool_result_max_tokens: 10000,
+    authoring_cache_hit_min: 0.7,
+    authoring_regression_tolerance: 0.2,
+    authoring_dark_window_days: 30,
+    authoring_batch_mode: 'auto',
+    authoring_run_max_cost_usd: 5,
+    authoring_otel_endpoint: '',
+  };
+
+  it('declares the 18 keys in the policy group with the issue defaults', () => {
+    const specs = FRAMEWORK_CONFIG_SPECS.filter(
+      (spec) => spec.section === 'Skill and agent authoring',
+    );
+    expect(Object.fromEntries(specs.map((spec) => [spec.key, spec.default]))).toEqual(
+      AUTHORING_DEFAULTS,
+    );
+    for (const spec of specs) {
+      expect(spec.group).toBe('policy');
+      expect(spec.env).toBe(`PAQAD_${spec.key.toUpperCase()}`);
+      expect(spec.comment).not.toContain('—');
+    }
+    expect(specs.find((spec) => spec.key === 'authoring_batch_mode')?.enumValues).toEqual([
+      'auto',
+      'off',
+    ]);
+  });
+
+  it('lists every key in the generated example and the committed one', () => {
+    const example = generateConfigExample();
+    const committed = readFileSync(join(process.cwd(), '.paqad', '.config.example'), 'utf8');
+    for (const [key, value] of Object.entries(AUTHORING_DEFAULTS)) {
+      expect(example).toContain(`# ${key}=${String(value)}\n`);
+      expect(committed).toContain(`# ${key}=${String(value)}\n`);
+    }
+  });
+});

@@ -55,6 +55,9 @@ const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
 const PLUGIN_MIGRATION_MODES = ['on', 'off'] as const;
 const CLAUDE_INSTALL_MODES = ['auto', 'plugin', 'settings'] as const;
+export const AUTHORING_BATCH_MODES = ['auto', 'off'] as const;
+export type AuthoringBatchMode = (typeof AUTHORING_BATCH_MODES)[number];
+export const AUTHORING_SECTION = 'Skill and agent authoring';
 export const STAGE_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'inherit'] as const;
 export type StageEffort = (typeof STAGE_EFFORT_LEVELS)[number];
 export const STAGE_MODELS = ['inherit', 'haiku', 'sonnet', 'opus'] as const;
@@ -970,6 +973,184 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'on call and are picked per request. Empty means no standing experts (the detector alone ' +
       'decides, as before). A role outside the expert roster is ignored with a doctor warning. ' +
       'No effect while the pipeline or the experts are off.',
+  },
+  {
+    key: 'skill_orchestrator_enabled',
+    env: 'PAQAD_SKILL_ORCHESTRATOR_ENABLED',
+    type: 'boolean',
+    default: true,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Turn the Skill Orchestrator on or off. Off means no High Table seat on skill paths, no skill pipeline, no lane raise for skills and no skill completion check, so a skill edit is judged as before.',
+  },
+  {
+    key: 'authoring_trigger_threshold',
+    env: 'PAQAD_AUTHORING_TRIGGER_THRESHOLD',
+    type: 'number',
+    default: 0.9,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment: 'S6 trigger test: the validation pass rate a skill description needs, from 0 to 1.',
+  },
+  {
+    key: 'authoring_trigger_min_runs',
+    env: 'PAQAD_AUTHORING_TRIGGER_MIN_RUNS',
+    type: 'number',
+    default: 2,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S6 trigger test: how many of the 3 runs of each query must fire the skill. A positive whole number.',
+  },
+  {
+    key: 'skill_eval_min_gain_points',
+    env: 'PAQAD_SKILL_EVAL_MIN_GAIN_POINTS',
+    type: 'number',
+    default: 10,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 evals: the pass-rate gain over the no-skill baseline a skill needs, in percentage points. A positive whole number.',
+  },
+  {
+    key: 'skill_eval_max_token_multiple',
+    env: 'PAQAD_SKILL_EVAL_MAX_TOKEN_MULTIPLE',
+    type: 'number',
+    default: 2,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 evals: the most median tokens a skill run may use, as a multiple of the baseline. 1 or more.',
+  },
+  {
+    key: 'authoring_runs_per_arm',
+    env: 'PAQAD_AUTHORING_RUNS_PER_ARM',
+    type: 'number',
+    default: 3,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 evals: runs per arm (with and without the skill) for each case. A positive whole number.',
+  },
+  {
+    key: 'authoring_max_iterations',
+    env: 'PAQAD_AUTHORING_MAX_ITERATIONS',
+    type: 'number',
+    default: 3,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment: 'S5 evals: the most revision rounds before the loop stops. A positive whole number.',
+  },
+  {
+    key: 'authoring_fact_max_age_days',
+    env: 'PAQAD_AUTHORING_FACT_MAX_AGE_DAYS',
+    type: 'number',
+    default: 60,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Days an externally verified fact in sources.md stays fresh. Older facts block release until rechecked. A positive whole number.',
+  },
+  {
+    key: 'authoring_collision_jaccard',
+    env: 'PAQAD_AUTHORING_COLLISION_JACCARD',
+    type: 'number',
+    default: 0.4,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Overlap check: the word-set similarity (Jaccard, 0 to 1) at which a new skill collides with an installed one.',
+  },
+  {
+    key: 'authoring_description_budget_chars',
+    env: 'PAQAD_AUTHORING_DESCRIPTION_BUDGET_CHARS',
+    type: 'number',
+    default: 8000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Overlap check: the total characters of every installed skill description before a release warns that some may be dropped. A positive whole number.',
+  },
+  {
+    key: 'skill_body_max_tokens',
+    env: 'PAQAD_SKILL_BODY_MAX_TOKENS',
+    type: 'number',
+    default: 5000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment: 'Lint (SK-008): the most tokens a SKILL.md body may hold. A positive whole number.',
+  },
+  {
+    key: 'authoring_tool_result_max_tokens',
+    env: 'PAQAD_AUTHORING_TOOL_RESULT_MAX_TOKENS',
+    type: 'number',
+    default: 10000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 analyst: a tool result above this many tokens is flagged as oversize. A positive whole number.',
+  },
+  {
+    key: 'authoring_cache_hit_min',
+    env: 'PAQAD_AUTHORING_CACHE_HIT_MIN',
+    type: 'number',
+    default: 0.7,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 analyst: the steady-state cache-hit share (0 to 1) below which a run is recorded as a performance defect.',
+  },
+  {
+    key: 'authoring_regression_tolerance',
+    env: 'PAQAD_AUTHORING_REGRESSION_TOLERANCE',
+    type: 'number',
+    default: 0.2,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S8: how far (0 to 1) a re-eval of a skill in use may fall below its recorded result before it fails.',
+  },
+  {
+    key: 'authoring_dark_window_days',
+    env: 'PAQAD_AUTHORING_DARK_WINDOW_DAYS',
+    type: 'number',
+    default: 30,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S8 catalog: days without a firing before a skill is reported as dark. A positive whole number.',
+  },
+  {
+    key: 'authoring_batch_mode',
+    env: 'PAQAD_AUTHORING_BATCH_MODE',
+    type: 'enum',
+    enumValues: AUTHORING_BATCH_MODES,
+    default: 'auto',
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'auto | off. auto lets S6 send its trigger queries as one batch when the host offers it; off always runs them one by one.',
+  },
+  {
+    key: 'authoring_run_max_cost_usd',
+    env: 'PAQAD_AUTHORING_RUN_MAX_COST_USD',
+    type: 'number',
+    default: 5,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Spend cap in US dollars for one eval or trigger sweep, passed as --max-cost-usd. A capped run counts as a failure and is recorded as partial. Above 0.',
+  },
+  {
+    key: 'authoring_otel_endpoint',
+    env: 'PAQAD_AUTHORING_OTEL_ENDPOINT',
+    type: 'string',
+    default: '',
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Empty reads usage numbers from the host only. An http(s) URL also reads them from that OpenTelemetry endpoint. paqad never sends transcripts to it.',
   },
 ] as const;
 
@@ -2121,6 +2302,12 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   {
     present: () => false,
     keys: ['hud_view', 'hud_chime'],
+  },
+  {
+    present: () => false,
+    keys: FRAMEWORK_CONFIG_SPECS.filter((spec) => spec.section === AUTHORING_SECTION).map(
+      (spec) => spec.key,
+    ),
   },
   {
     present: () => false,

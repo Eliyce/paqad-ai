@@ -1,0 +1,54 @@
+{
+  "id": "D-01M697D43ZJ1EF713PXX839BVD",
+  "category": "intake.requirement",
+  "title": "When a change removes a skill entirely, should the end-of-change check ask for anything?",
+  "context": "The end-of-change check only names added or edited skills, so a removal is unseen today. A removal adds no unchecked instructions, but it can take away something other people relied on; this decides whether removals pass quietly or leave a short record.",
+  "options": [
+    {
+      "option_key": "no-check",
+      "label": "No check: removing a skill is fine as is",
+      "one_line_preview": "No check: removing a skill is fine as is",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "retirement-reason",
+      "label": "Ask for a one-line reason and record it as a retirement",
+      "one_line_preview": "Ask for a one-line reason and record it as a retirement",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold",
+      "label": "Hold the change for your attention until you confirm the removal",
+      "one_line_preview": "Hold the change for your attention until you confirm the removal",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-check",
+  "created_at": "2026-10-31T14:56:46.208Z",
+  "status": "resolved",
+  "change": "01M6968HSVNBV1X20K3ANPE472",
+  "chosen": "no-check",
+  "rationale": "Owner (Haider) picked the recommended option in the spec question round",
+  "resolved_at": "2026-10-31T14:59:31.541Z",
+  "decision_id": "D-01M697D43ZJ1EF713PXX839BVD",
+  "fingerprint": "sha256:19ec0541866d48fe09d385666e5355385542b87e70c25ec70f2a7a1461b99ee3",
+  "question": "When a change removes a skill entirely, should the end-of-change check ask for anything?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6968HSVNBV1X20K3ANPE472",
+  "ttl_until": "2026-11-14T14:56:46.208Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "no-check",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T14:59:31.541Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) picked the recommended option in the spec question round"
+  }
+}
