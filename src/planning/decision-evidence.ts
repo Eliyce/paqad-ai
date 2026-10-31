@@ -145,6 +145,12 @@ export function defaultSimilarityFor(
     case 'analytics.no_provider_flag':
     case 'analytics.architecture_conflict':
     case 'analytics.new_event':
+    case 'authoring.overlap':
+    case 'authoring.risky_script':
+    case 'authoring.intake_gap':
+    case 'authoring.improvement':
+    case 'authoring.retirement':
+    case 'authoring.override':
       return 0.5;
   }
 }

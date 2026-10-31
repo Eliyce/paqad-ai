@@ -302,6 +302,12 @@ Before implementing any choice that falls into one of the categories below, writ
 - `analytics.no_provider_flag`
 - `analytics.architecture_conflict`
 - `analytics.new_event`
+- `authoring.overlap`
+- `authoring.risky_script`
+- `authoring.intake_gap`
+- `authoring.improvement`
+- `authoring.retirement`
+- `authoring.override`
 
 ## Evidence-armed pauses
 

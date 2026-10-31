@@ -26,6 +26,12 @@ export const DECISION_CATEGORIES = [
   'analytics.no_provider_flag',
   'analytics.architecture_conflict',
   'analytics.new_event',
+  'authoring.overlap',
+  'authoring.risky_script',
+  'authoring.intake_gap',
+  'authoring.improvement',
+  'authoring.retirement',
+  'authoring.override',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -141,6 +147,12 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'analytics.no_provider_flag': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'analytics.architecture_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
   'analytics.new_event': { create_new: true, reversibility: 'hard', ttl_days: 14 },
+  'authoring.overlap': { create_new: true, reversibility: 'moderate', ttl_days: 30 },
+  'authoring.risky_script': { create_new: false, reversibility: 'hard', ttl_days: 30 },
+  'authoring.intake_gap': { create_new: false, reversibility: 'easy', ttl_days: 30 },
+  'authoring.improvement': { create_new: false, reversibility: 'easy', ttl_days: 60 },
+  'authoring.retirement': { create_new: false, reversibility: 'moderate', ttl_days: 60 },
+  'authoring.override': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {
