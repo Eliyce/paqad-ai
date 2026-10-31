@@ -3,7 +3,7 @@
 The detector may name **only** roster roles. They are the expert subset of the framework's
 canonical `AGENT_ROLES` (`src/core/types/agent.ts`); the roster itself is derived in
 `src/spec-pipeline/experts/roster.ts`, and each role's token budget comes from
-`src/core/constants/budgets.ts`. Do not invent a role outside these lists — the guard rejects it.
+`src/core/constants/budgets.ts`. Do not invent a role outside these lists: the guard rejects it.
 
 ## Standing experts (the script seats them)
 
@@ -37,8 +37,8 @@ script seats them for you. You may name a standing expert; it is harmless and re
 ## How to decide
 
 - Decide from the **request and the S0 grounding slice**, not the whole repo.
-- Select an expert because the work plainly sits in its domain — judge need, not self-doubt.
+- Select an expert because the work plainly sits in its domain: judge need, not self-doubt.
 - Selecting nothing from the on-call list is the common, correct outcome. The standing experts are
   already seated, so an empty on-call list costs nothing downstream.
 - More than one on-call expert can fire; if the request genuinely touches the database, auth, and
-  the UI, name all three. There is no cap — the discipline is the trigger, not an arbitrary ceiling.
+  the UI, name all three. There is no cap: the discipline is the trigger, not an arbitrary ceiling.
