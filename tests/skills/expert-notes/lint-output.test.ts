@@ -9,7 +9,6 @@ import { runScript } from '../../unit/skills/_helpers/run-script.js';
 const SKILL = process.env.PAQAD_SKILL_UNDER_TEST ?? 'runtime/base/skills/expert-notes';
 const SCRIPT = join(SKILL, 'scripts', 'lint-output.sh');
 const OUTPUT_LIMIT_BYTES = 40_000;
-// A canary standing in for a secret: the script must never echo a claim value back.
 const CANARY = 'canary-value-from-a-claim-7f3a';
 
 function note(role: string, findings: number): object {

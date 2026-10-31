@@ -93,6 +93,15 @@ keys that file has (JSON and YAML; other formats need `human-verified: <date>`),
 `verified:` or `human-verified:` date. Framework console commands are not checked yet
 (TD-01M69AJBSK7DRB2XJ3YW0XDBVA).
 
+The test command is narrowed to the skill's own test folder when the runner takes a path
+(Vitest, Jest, pytest, PHPUnit, Pest, artisan test, Mocha, directly or through the package test
+script; npm gets its `--` separator), so S4 runs the skill's tests and not the whole suite. Any
+other runner keeps the full command. The command that ran is recorded in `script-tests.json`.
+
+A draft handed to `skill draft` from a paqad runtime skill folder, or an improve-mode runtime
+source, is linted with the paqad runtime loader fields (`model_tier`, `triggers` and the rest) and
+released back into that folder.
+
 ## Evals and trigger tests (S5, S6)
 
 `eval plan` picks the adapter: `claude-plugin-eval` on Claude Code at or above the floor in
@@ -102,11 +111,14 @@ model tier (`model_fast`, `model_reasoning`) with `--max-cost-usd` from
 `authoring_run_max_cost_usd`, the run count and the worst-case spend. `eval record` validates the
 results, marks an interrupted iteration partial and never aggregates it, aggregates the rest
 (`aggregate.ts`, a port of skill-creator's `aggregate_benchmark.py`), writes `analyst.md`, and
-records tokens as not measured where the host reports none. The revision loop stops on
+records tokens as not measured where the host reports none. A `claude plugin eval --json` result
+(schemaVersion 1) lists each case as `arms.with[]` and `arms.without[]`; a run scores the graders
+that count towards the score (scored, not with-only), and a run that errored passes none. The revision loop stops on
 `--feedback-empty`, after two iterations with no improvement, or at `authoring_max_iterations`,
 through the build-check-fix loop breaker. `trigger plan` splits the queries 60/40 with seed 42;
 `trigger record` scores every iteration, discards descriptions over 1024 characters, keeps the
-best validation score, rechecks overlap and writes the chosen description into the draft.
+best validation score, rechecks overlap and writes the chosen description into the draft, where
+the old one stood, leaving the file untouched when it is unchanged.
 
 ## Release and the completion check
 

@@ -84,11 +84,6 @@ function currentDescription(lines: readonly string[], close: number): unknown {
   }
 }
 
-/**
- * Writes the description into the frontmatter where it already stands (after name when it is
- * missing), and leaves the text untouched when the description is unchanged, so the published
- * SKILL.md differs from the draft only by the description itself.
- */
 export function withDescription(skillText: string, description: string): string {
   const lines = skillText.split('\n');
   if (lines[0] !== '---') return skillText;

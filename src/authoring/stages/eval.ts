@@ -261,11 +261,6 @@ function numberField(value: unknown): value is number {
 
 type PluginArm = 'with' | 'without';
 
-/**
- * claude plugin eval --json (schemaVersion 1, Claude Code 2.1.302) reports each case as
- * arms.with[] and arms.without[], one entry per run with its graders. A run scores the graders
- * that count towards the score (scored, not with-only); a run that errored passes none.
- */
 function pluginArmRuns(
   where: string,
   arms: Record<string, unknown>,

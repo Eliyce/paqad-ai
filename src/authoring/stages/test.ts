@@ -166,10 +166,6 @@ function packageTestScript(projectRoot: string): string {
   }
 }
 
-/**
- * The project test command narrowed to the skill's own test folder, so S4 runs the skill's
- * tests and not the whole suite. A runner that cannot take a path keeps the full command.
- */
 export function skillTestCommand(projectRoot: string, command: string, testDir: string): string {
   const manager = PACKAGE_TEST.exec(command)?.[1];
   const runner = manager === undefined ? command : packageTestScript(projectRoot);
