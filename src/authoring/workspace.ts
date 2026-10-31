@@ -258,10 +258,8 @@ export interface StageState {
   decision: string | null;
 }
 
-function skippedInImprove(workspace: SkillWorkspace, stage: StageDefinition): boolean {
-  if (readMode(workspace).entry !== 'improve') return false;
-  if (stage.id === 'S0') return true;
-  return stage.id === 'S1' && workspace.exists('intake.yaml');
+function skipsJustify(workspace: SkillWorkspace, stage: StageDefinition): boolean {
+  return stage.id === 'S0' && readMode(workspace).entry === 'improve';
 }
 
 export function stageState(workspace: SkillWorkspace, stage: StageDefinition): StageState {
@@ -286,7 +284,7 @@ export function stageState(workspace: SkillWorkspace, stage: StageDefinition): S
       decision: override.decision,
     };
   }
-  if (stage.id === 'S0' && skippedInImprove(workspace, stage)) {
+  if (skipsJustify(workspace, stage)) {
     return {
       stage,
       state: 'skipped',
@@ -297,9 +295,6 @@ export function stageState(workspace: SkillWorkspace, stage: StageDefinition): S
   }
   const meta = readGateMeta(workspace.read(stage.artifact), artifactKind(stage.artifact));
   if (meta === null) {
-    if (skippedInImprove(workspace, stage)) {
-      return { stage, state: 'skipped', artifact, detail: 'improve mode', decision: null };
-    }
     return { stage, state: 'not-run', artifact, detail: null, decision: null };
   }
   const detail = typeof meta.reason === 'string' ? meta.reason : null;
