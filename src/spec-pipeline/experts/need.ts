@@ -31,6 +31,7 @@ export function pathTriggeredSeats(input: {
   standingSits: boolean;
   sensitivePath: string | null;
   skillPath: string | null;
+  skillPathEdited?: boolean;
 }): PathTriggeredSeat[] {
   return [
     {
@@ -41,7 +42,7 @@ export function pathTriggeredSeats(input: {
     {
       role: SKILL_PATH_EXPERT,
       path: input.skillPath,
-      reason: `a planned file is a skill: ${input.skillPath}`,
+      reason: `${input.skillPathEdited ? 'an edited' : 'a planned'} file is a skill: ${input.skillPath}`,
     },
   ];
 }

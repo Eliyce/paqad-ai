@@ -36,7 +36,9 @@ import { skillOrchestratorEnabled } from '@/authoring/config.js';
 import { findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
-import { planFiles, sensitivePaths } from '@/feature-evidence/lane-resize.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
+import { editedFiles, planFiles, sensitivePaths } from '@/feature-evidence/lane-resize.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
@@ -280,13 +282,20 @@ const sessionOpt = [
   'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)',
 ] as const;
 
-function firstPlannedSkillPath(
+async function firstSkillPath(
   projectRoot: string,
+  dirName: string,
   plannedFiles: readonly string[],
-): string | null {
-  if (!skillOrchestratorEnabled(projectRoot)) return null;
+): Promise<{ path: string | null; edited: boolean }> {
+  if (!skillOrchestratorEnabled(projectRoot)) return { path: null, edited: false };
   const context = readSkillPathContext(projectRoot);
-  return findSkillPaths(plannedFiles, context.adapters, context)[0] ?? null;
+  const planned = findSkillPaths(plannedFiles, context.adapters, context)[0];
+  if (planned !== undefined) return { path: planned, edited: false };
+  const { files } = await loadChangeEvidence(projectRoot, {
+    since: readChangeStartPoint(projectRoot, dirName),
+  });
+  const edited = findSkillPaths(editedFiles(files), context.adapters, context)[0];
+  return { path: edited ?? null, edited: edited !== undefined };
 }
 
 export function createSpecPipelineCommand(): Command {
@@ -801,7 +810,7 @@ function createExpertsCommand(): Command {
     .argument('<file>', 'Path to the need artifact the expert-need-detector produced')
     .option(...projectRootOpt)
     .option(...sessionOpt)
-    .action((file: string, options: CommonOptions) => {
+    .action(async (file: string, options: CommonOptions) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
       if (gateExperts(options, resolved.dirName)) return;
@@ -817,6 +826,7 @@ function createExpertsCommand(): Command {
       const lane = readChangeConstants(options.projectRoot, resolved.dirName).lane ?? 'full';
       const standingSits = config.experts_lanes.includes(lane);
       const plannedFiles = planFiles(readFeaturePlan(options.projectRoot, resolved.dirName)?.steps);
+      const skill = await firstSkillPath(options.projectRoot, resolved.dirName, plannedFiles);
       const needs = seatExpertsForLane({
         detectorNeeds: check.artifact.experts,
         standing: config.standing_experts,
@@ -826,7 +836,8 @@ function createExpertsCommand(): Command {
           sensitivePath: standingSits
             ? null
             : (sensitivePaths(options.projectRoot, plannedFiles)[0] ?? null),
-          skillPath: firstPlannedSkillPath(options.projectRoot, plannedFiles),
+          skillPath: skill.path,
+          skillPathEdited: skill.edited,
         }),
       });
       const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);

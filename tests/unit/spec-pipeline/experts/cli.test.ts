@@ -20,6 +20,18 @@ import {
 import { stepComplete } from '@/spec-pipeline/orchestrator.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
+const changed = vi.hoisted(() => ({ files: [] as string[] }));
+vi.mock('@/pipeline/change-evidence.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/pipeline/change-evidence.js')>();
+  return {
+    ...actual,
+    loadChangeEvidence: async (...args: Parameters<typeof actual.loadChangeEvidence>) =>
+      changed.files.length > 0
+        ? { files: changed.files, source: 'git' as const }
+        : actual.loadChangeEvidence(...args),
+  };
+});
+
 const roots: string[] = [];
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-experts-cli-'));
@@ -264,6 +276,18 @@ describe('spec pipeline experts CLI', () => {
         ['skill-orchestrator', `a planned file is a skill: ${SKILL}`],
       ]);
       expect(out.some((line) => line.includes('skipped the High Table'))).toBe(false);
+    });
+
+    it('AC-45: seats skill-orchestrator for a skill path in the edited files when no planned file is one', async () => {
+      changed.files = ['src/a.ts', SKILL, '.paqad/tmp/x.json'];
+      try {
+        const { roster } = await recordOn('graduated', [], planWith(['src/a.ts']));
+        expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+          ['skill-orchestrator', `an edited file is a skill: ${SKILL}`],
+        ]);
+      } finally {
+        changed.files = [];
+      }
     });
 
     it('AC-31: seats skill-orchestrator beside the standing four on full', async () => {

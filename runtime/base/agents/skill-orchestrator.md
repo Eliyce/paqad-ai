@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Decide, at spec time, whether a requested skill should exist and what it must be grounded in, so the development stage can prove it through the skill pipeline (`paqad-ai skill justify` to `paqad-ai skill release`) before it is added. It sits at the High Table whenever a planned file is a skill path, on every lane that runs the High Table, and is otherwise on call for the detector. It is not a standing expert.
+Decide, at spec time, whether a requested skill should exist and what it must be grounded in, so the development stage can prove it through the skill pipeline (`paqad-ai skill justify` to `paqad-ai skill release`) before it is added. It sits at the High Table whenever a planned or already edited file is a skill path, on every lane that runs the High Table, and is otherwise on call for the detector. It is not a standing expert.
 
 ## Model
 

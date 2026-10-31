@@ -37,6 +37,21 @@ describe('path-triggered seats', () => {
     ]);
   });
 
+  it('names an edited skill path as edited', () => {
+    expect(
+      pathTriggeredSeats({
+        standingSits: true,
+        sensitivePath: null,
+        skillPath: SKILL,
+        skillPathEdited: true,
+      })[1],
+    ).toEqual({
+      role: 'skill-orchestrator',
+      path: SKILL,
+      reason: `an edited file is a skill: ${SKILL}`,
+    });
+  });
+
   it('AC-31: seats skill-orchestrator on every lane, even when the standing experts sit', () => {
     for (const standingSits of [true, false]) {
       const seated = seatExpertsForLane({
