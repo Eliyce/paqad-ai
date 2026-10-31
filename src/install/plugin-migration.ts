@@ -406,7 +406,7 @@ function appendMigrationLog(home: string, message: string): void {
 
 /* v8 ignore start -- the real `claude --version` probe + detached install are exercised through the
    injected seams; the process-spawning defaults are covered by manual sign-off, not unit tests. */
-function defaultClaudeVersion(): string | null {
+export function defaultClaudeVersion(): string | null {
   try {
     const out = execFileSync('claude', ['--version'], {
       encoding: 'utf8',

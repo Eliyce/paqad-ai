@@ -53,3 +53,10 @@ export function allowedSkillFields(claudeCode: boolean): ReadonlySet<string> {
       : OPEN_SPEC_SKILL_FIELDS,
   );
 }
+
+export const CLAUDE_PLUGIN_EVAL_SUPPORT = {
+  checked: '2026-10-31',
+  source: 'https://code.claude.com/docs/en/plugin-evals',
+  minimum_version: '2.1.269',
+  flags_checked_against: '2.1.302',
+} as const;

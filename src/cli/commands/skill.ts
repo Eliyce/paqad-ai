@@ -21,6 +21,8 @@ import { stageExitCode, type StageResult } from '@/authoring/stages/result.js';
 import { runEvidence } from '@/authoring/stages/sources.js';
 import { skillStatus } from '@/authoring/stages/status.js';
 import { runSkillTest } from '@/authoring/stages/test.js';
+import { runEvalPlan, runEvalRecord } from '@/authoring/stages/eval.js';
+import { runTriggerPlan, runTriggerRecord } from '@/authoring/stages/trigger.js';
 import { AuthoringRefusal, SkillWorkspace } from '@/authoring/workspace.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
@@ -288,6 +290,57 @@ function addPipelineVerbs(command: Command): void {
   );
 }
 
+function addEvalVerbs(command: Command): void {
+  const evalCommand = command.command('eval').description('S5: plan and record the skill evals');
+  withCommon(
+    evalCommand
+      .command('plan')
+      .description('Write the next iteration and print the exact run commands; never calls a model')
+      .argument('<name>', 'The skill name'),
+  ).action((name: string, options: VerbOptions) =>
+    runVerb(name, options, (workspace, projectRoot) =>
+      runEvalPlan(workspace, { change: changeKey(projectRoot, options.session) }),
+    ),
+  );
+  withCommon(
+    evalCommand
+      .command('record')
+      .description(
+        'Validate the runs of the latest iteration, aggregate them and judge the S5 gate',
+      )
+      .argument('<name>', 'The skill name')
+      .option('--feedback-empty', 'The reviewer had no feedback, so the loop stops'),
+  ).action((name: string, options: VerbOptions & { feedbackEmpty?: boolean }) =>
+    runVerb(name, options, (workspace) =>
+      runEvalRecord(workspace, { feedbackEmpty: options.feedbackEmpty === true }),
+    ),
+  );
+
+  const trigger = command.command('trigger').description('S6: plan and record the trigger test');
+  withCommon(
+    trigger
+      .command('plan')
+      .description('Split the trigger queries 60/40 with seed 42 into trigger-eval.json')
+      .argument('<name>', 'The skill name')
+      .argument('<queries-file>', 'JSON array of {query, should_trigger}'),
+  ).action((name: string, file: string, options: VerbOptions) =>
+    runVerb(name, options, (workspace) =>
+      runTriggerPlan(workspace, readInput(file, 'the queries file')),
+    ),
+  );
+  withCommon(
+    trigger
+      .command('record')
+      .description('Score every description iteration and keep the best validation score')
+      .argument('<name>', 'The skill name')
+      .argument('<results-file>', 'The trigger sweep results'),
+  ).action((name: string, file: string, options: VerbOptions) =>
+    runVerb(name, options, (workspace) =>
+      runTriggerRecord(workspace, readInput(file, 'the results file')),
+    ),
+  );
+}
+
 export function createSkillCommand(): Command {
   const command = new Command('skill').description(
     'Prove a new or edited skill through its gated pipeline before it is added',
@@ -307,6 +360,7 @@ export function createSkillCommand(): Command {
     });
 
   addPipelineVerbs(command);
+  addEvalVerbs(command);
 
   return command;
 }

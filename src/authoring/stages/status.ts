@@ -6,6 +6,7 @@ import {
   type SkillWorkspace,
   type StageState,
 } from '../workspace.js';
+import { latestIteration, PARTIAL_FILE } from './eval.js';
 import { installedSkillFolder, isRegisteredSkill } from './improve.js';
 
 export interface SkillStatus {
@@ -63,6 +64,13 @@ export function skillStatus(workspace: SkillWorkspace): SkillStatus {
       `${state.stage.id} ${state.stage.name}: ${stateWords(workspace, state)} (${state.artifact})`,
     );
   }
+  const iteration = latestIteration(workspace);
+  const partial = iteration !== null && workspace.exists(`iteration-${iteration}/${PARTIAL_FILE}`);
+  if (partial) {
+    lines.push(
+      `Iteration ${iteration} is partial: some runs are missing, so it was not aggregated (${workspace.relPath(`iteration-${iteration}/${PARTIAL_FILE}`)}).`,
+    );
+  }
   const stopped = stages.find((state) => state.state === 'stopped');
   let next: string | null = null;
   if (stopped) {
@@ -76,7 +84,9 @@ export function skillStatus(workspace: SkillWorkspace): SkillStatus {
       next =
         first.stage.id === 'S0' && entry === 'improve'
           ? `paqad-ai skill improve ${workspace.name}`
-          : first.stage.command(workspace.name);
+          : first.stage.id === 'S5' && partial
+            ? `paqad-ai skill eval record ${workspace.name}`
+            : first.stage.command(workspace.name);
       lines.push(`Next: ${first.stage.id} ${first.stage.name}, run ${next}.`);
     } else {
       lines.push('Every stage has passed.');

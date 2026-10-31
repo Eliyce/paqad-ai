@@ -43,3 +43,39 @@ export function hashFolder(root: string, include?: (rel: string) => boolean): st
 export function hashText(text: string | Buffer): string {
   return `sha256:${createHash('sha256').update(text).digest('hex')}`;
 }
+
+export function withoutDescription(skillText: string): string {
+  const lines = skillText.split(/\r?\n/);
+  if (lines[0] !== '---') return skillText;
+  const close = lines.indexOf('---', 1);
+  if (close === -1) return skillText;
+  const kept: string[] = [];
+  let skipping = false;
+  for (const line of lines.slice(1, close)) {
+    if (/^description\s*:/u.test(line)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping && /^\s/u.test(line)) continue;
+    skipping = false;
+    kept.push(line);
+  }
+  return ['---', ...kept, ...lines.slice(close)].join('\n');
+}
+
+export function hashFolderWithoutDescription(root: string): string {
+  return hashFiles(
+    listFolderFiles(root).map((file) =>
+      file.rel === 'SKILL.md'
+        ? { rel: file.rel, bytes: Buffer.from(withoutDescription(file.bytes.toString('utf8'))) }
+        : file,
+    ),
+  );
+}
+
+export function withDescription(skillText: string, description: string): string {
+  const stripped = withoutDescription(skillText);
+  const lines = stripped.split('\n');
+  if (lines[0] !== '---') return skillText;
+  return ['---', `description: ${JSON.stringify(description)}`, ...lines.slice(1)].join('\n');
+}

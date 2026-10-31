@@ -71,3 +71,33 @@ export function option(
 ): ContractDecisionOption {
   return { option_key: key, label, one_line_preview: preview, trade_off: tradeOff };
 }
+
+export const OVERRIDE_ADD_UNVERIFIED = 'add-unverified';
+export const OVERRIDE_DO_NOT_ADD = 'do-not-add';
+
+export function raiseOverrideDecision(
+  projectRoot: string,
+  input: { skill: string; gate: string; why: string; change?: string | null },
+): string {
+  return raiseAuthoringDecision(projectRoot, {
+    category: 'authoring.override',
+    title: `The skill ${input.skill} cannot run its ${input.gate} check. Add it unverified, kept in this project?`,
+    context: input.why,
+    options: [
+      option(
+        OVERRIDE_ADD_UNVERIFIED,
+        'Add it unverified, kept in this project',
+        `If you pick this, ${input.skill} is added with the label unverified and cannot leave this project.`,
+        `You give up: proof that ${input.skill} helps.`,
+      ),
+      option(
+        OVERRIDE_DO_NOT_ADD,
+        'Do not add it',
+        `If you pick this, ${input.skill} is not added.`,
+        'You give up: the skill.',
+      ),
+    ],
+    recommendation: OVERRIDE_DO_NOT_ADD,
+    change: input.change,
+  });
+}
