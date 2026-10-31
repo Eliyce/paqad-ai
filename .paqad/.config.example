@@ -14,6 +14,10 @@
 # Turn paqad off entirely (vanilla mode). Absent/true = on. (env: PAQAD_ENABLE)
 # paqad_enable=true
 
+# ── Team and cloud setup ────────────────────────────────────
+# Let teammates and Claude Code cloud sessions set paqad up from this repo on their own. false = onboarding writes no team setup and the launcher does nothing. (env: PAQAD_TEAM_BOOTSTRAP_ENABLED)
+# team_bootstrap_enabled=true
+
 # ── Version & updates ───────────────────────────────────────
 # Pull newer framework versions in the background on session start. (env: PAQAD_AUTO_UPDATE)
 # auto_update=true
