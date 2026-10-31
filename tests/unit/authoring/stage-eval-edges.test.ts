@@ -272,6 +272,21 @@ describe('S5 record on subagent dispatch', () => {
   });
 });
 
+describe('S5 revision loop', () => {
+  it('stops at the iteration cap and records the defect line', async () => {
+    host('codex-cli');
+    const workspace = atS5();
+    runEvalPlan(workspace);
+    for (const run of planned(workspace, 1)) writeRun(workspace, run, false);
+    expect((await runEvalRecord(workspace)).ok).toBe(false);
+    runEvalPlan(workspace);
+    for (const run of planned(workspace, 2)) writeRun(workspace, run, false);
+    const second = await runEvalRecord(workspace, { feedbackEmpty: true });
+    expect(second.ok).toBe(false);
+    expect(second.lines.join('\n')).toContain("I couldn't get the skill");
+  });
+});
+
 describe('S6 trigger edges', () => {
   function atS6(): SkillWorkspace {
     host('codex-cli');

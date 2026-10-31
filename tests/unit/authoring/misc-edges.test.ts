@@ -272,3 +272,45 @@ describe('draft and improve refusals', () => {
     expect(skillStatus(new SkillWorkspace(root, 'other-skill')).entry).toBe('improve');
   });
 });
+
+describe('reference blocks and commands', () => {
+  function refs(body: string, projectFiles: Record<string, string> = {}) {
+    write('rs/SKILL.md', '---\nname: rs\n---\n');
+    write('rs/references/guide.md', `verified: 2026-10-31\n\n${body}`);
+    for (const [rel, text] of Object.entries(projectFiles)) write(rel, text);
+    return checkSkillReferences({ skillFolder: join(root, 'rs'), projectRoot: root });
+  }
+
+  it('runs runnable blocks with the default runner, passing and failing', () => {
+    const findings = refs(
+      '```bash runnable\nexit 0\n```\n\n```node runnable\nprocess.exit(4)\n```\n\n```runnable\nexit 0\n```\n',
+    );
+    expect(findings.map((finding) => finding.message)).toEqual(['The runnable block exits 4.']);
+  });
+
+  it('checks just targets, folder paths and an unparseable example target', () => {
+    const findings = refs(
+      '`just deploy` `just build` `docs/` `missing-dir/`\n\n```json validates=config/app.json\n{"a": 1}\n```\n\n```json validates=config/notes.txt\n{}\n```\n',
+      { justfile: 'build:\n\techo ok\n', 'docs/readme.md': 'x', 'config/app.json': '{not json' },
+    );
+    const messages = findings.map((finding) => finding.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('"just deploy" names a just target'),
+        'The path missing-dir/ does not exist. Fix it or mark it external.',
+        'config/app.json could not be parsed as JSON.',
+        expect.stringContaining("can't be validated automatically"),
+      ]),
+    );
+    expect(findings.map((finding) => finding.line)).toEqual(
+      [...findings.map((finding) => finding.line)].sort((a, b) => a - b),
+    );
+  });
+
+  it('checks composer run-script names', () => {
+    const findings = refs('`composer run-script lint`\n', {
+      'composer.json': JSON.stringify({ scripts: { test: 'phpunit' } }),
+    });
+    expect(findings[0]!.message).toContain('"composer run-script lint" names a script');
+  });
+});
