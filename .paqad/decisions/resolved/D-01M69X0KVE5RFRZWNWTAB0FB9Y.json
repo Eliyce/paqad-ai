@@ -1,0 +1,47 @@
+{
+  "id": "D-01M69X0KVE5RFRZWNWTAB0FB9Y",
+  "category": "spec.change",
+  "title": "Count a reopened change as owned, not as in flight",
+  "context": "The frozen spec (FR-1, AC-2) said a closed-then-reopened bundle is listed as in flight again. The in-flight list deliberately excludes any ever-closed bundle so no other session adopts it (earlier closed-bundle fix, INV-2). The build instead makes the session whose active pointer names the reopened bundle own it, which meets AC-1 and the Stop re-judgment without touching adoption.",
+  "options": [
+    {
+      "option_key": "narrow",
+      "label": "Keep the narrow fix: only the reopening session owns it (recommended)",
+      "one_line_preview": "Keep the narrow fix: only the reopening session owns it (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "broad",
+      "label": "Widen the in-flight list so any session can adopt a reopened change",
+      "one_line_preview": "Widen the in-flight list so any session can adopt a reopened change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "narrow",
+  "created_at": "2026-10-31T21:14:25.006Z",
+  "status": "resolved",
+  "change": "01M69WNJB6G9W8BFNT4DWK2WGK",
+  "chosen": "narrow",
+  "rationale": "Owner chose the narrow fix: only the reopening session owns the reopened change; the ever-closed in-flight filter stays.",
+  "resolved_at": "2026-10-31T21:15:10.579Z",
+  "decision_id": "D-01M69X0KVE5RFRZWNWTAB0FB9Y",
+  "fingerprint": "sha256:7f5429e2cadc8f1e717365cf8e7de00d5650e0e7f3d9c56b978eb771cf46d809",
+  "question": "Count a reopened change as owned, not as in flight",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M69WNJB6G9W8BFNT4DWK2WGK",
+  "ttl_until": "2026-11-30T21:14:25.006Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "narrow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T21:15:10.579Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the narrow fix: only the reopening session owns the reopened change; the ever-closed in-flight filter stays."
+  }
+}
