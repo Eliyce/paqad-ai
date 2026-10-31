@@ -457,6 +457,7 @@ export async function runRepositoryVerification(
       changeMetrics,
       evidenceRowsPending: lateGateRowTarget !== null,
       receiptPending,
+      changedFiles: context.changed_files,
     };
     completenessGate = bundleCompletenessGate(completenessInput);
     if (completenessGate) {

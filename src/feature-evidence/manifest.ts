@@ -59,6 +59,23 @@ export function specPipelineStrictApplies(config: BundleCompletenessConfig): boo
   );
 }
 
+export interface DynamicBundleFile {
+  pattern: RegExp;
+  writer: string;
+}
+
+export const DYNAMIC_BUNDLE_FILES: readonly DynamicBundleFile[] = [
+  { pattern: /^skill-[a-z0-9-]+\.json$/, writer: 'paqad-ai skill release' },
+];
+
+export function bundleWriterFor(filename: string): string | null {
+  return (
+    BUNDLE_MANIFEST.find((entry) => entry.file === filename)?.writer ??
+    DYNAMIC_BUNDLE_FILES.find((entry) => entry.pattern.test(filename))?.writer ??
+    null
+  );
+}
+
 export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
   {
     key: 'feature',

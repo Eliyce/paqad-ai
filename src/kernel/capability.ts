@@ -26,7 +26,7 @@ import {
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
-import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
+import { bundleWriterFor } from '@/feature-evidence/manifest.js';
 import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { changedLoadedRuleSources, readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
@@ -360,7 +360,7 @@ function bundleFileWriter(filename: string): string | null {
   if (filename === SCREENSHOTS_DIR || filename.startsWith(`${SCREENSHOTS_DIR}/`)) {
     return 'paqad-ai visual-evidence run (or visual-evidence attach)';
   }
-  return BUNDLE_MANIFEST.find((entry) => entry.file === filename)?.writer ?? null;
+  return bundleWriterFor(filename);
 }
 
 function formatBundleWriteSummary(relPath: string, writer: string | null): string {

@@ -33,6 +33,8 @@ import {
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
 import { sha256Hex } from '@/compliance/markdown.js';
+import { skillCompletionFindings } from '@/authoring/completion.js';
+import { SKILL_RECORD_WRITER, skillRecordFilename } from '@/feature-evidence/artifacts.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
   hasStageAgentEvidence,
@@ -71,6 +73,7 @@ export interface BundleCompletenessGateInput {
   changeMetrics: ChangeMetrics | null;
   evidenceRowsPending?: boolean;
   receiptPending?: boolean;
+  changedFiles?: readonly string[];
 }
 
 function readBundleFile(
@@ -136,6 +139,7 @@ interface GateState {
   laneSkipped: string[];
   preSwitchSkipped: string[];
   isolationUnverified: boolean;
+  skillLines: string[];
 }
 
 export function bundleCompletenessGate(
@@ -165,6 +169,7 @@ export function bundleCompletenessGate(
     laneSkipped: [],
     preSwitchSkipped: [],
     isolationUnverified: false,
+    skillLines: [],
   };
 
   try {
@@ -194,6 +199,7 @@ export function bundleCompletenessGate(
       assertRequired(entry, input, dirName, sessionId, state);
     }
     assertStageAgentRows(input, dirName, state);
+    assertSkillRecords(input, dirName, state);
     /* v8 ignore start -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {}
@@ -211,6 +217,22 @@ export function recheckAfterReceiptSeal(
     return gate;
   }
   return bundleCompletenessGate({ ...input, receiptPending: false });
+}
+
+function assertSkillRecords(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (!input.changedFiles || input.changedFiles.length === 0) return;
+  for (const finding of skillCompletionFindings({
+    projectRoot: input.projectRoot,
+    dirName,
+    changedFiles: input.changedFiles,
+  })) {
+    state.missing.push({ file: skillRecordFilename(finding.skill), writer: SKILL_RECORD_WRITER });
+    state.skillLines.push(finding.line);
+  }
 }
 
 function assertStageAgentRows(
@@ -411,7 +433,8 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
 
   if (state.missing.length > 0) {
     const named = state.missing.map((m) => `${m.file} (run: ${m.writer})`).join('; ');
-    const detail = `The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
+    const skillNote = state.skillLines.length > 0 ? `${state.skillLines.join(' ')} ` : '';
+    const detail = `${skillNote}The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
     const remediation = `Produce the missing bundle file(s): ${named}.`;
     if (mode === 'strict') {
       return { name: GATE_NAME, status: 'fail', detail, remediation, failures: [] };

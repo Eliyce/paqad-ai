@@ -64,13 +64,22 @@ function matchRoot(segments: readonly string[], root: readonly string[]): boolea
   return root.every((part, index) => part === '*' || part === segments[index]);
 }
 
-function nameFromSegments(segments: readonly string[], roots: readonly string[][]): string | null {
+function folderFromSegments(
+  segments: readonly string[],
+  roots: readonly string[][],
+): { name: string; folder: string } | null {
   for (const root of roots) {
     if (!matchRoot(segments, root)) continue;
     const rest = segments.slice(root.length);
-    if (rest.length >= 2 && rest[0] !== '') return rest[0]!;
+    if (rest.length >= 2 && rest[0] !== '') {
+      return { name: rest[0]!, folder: segments.slice(0, root.length + 1).join('/') };
+    }
   }
   return null;
+}
+
+function nameFromSegments(segments: readonly string[], roots: readonly string[][]): string | null {
+  return folderFromSegments(segments, roots)?.name ?? null;
 }
 
 function splitRoots(adapters: readonly AdapterType[], options: SkillPathOptions): string[][] {
@@ -83,6 +92,14 @@ export function skillNameOf(
   options: SkillPathOptions = {},
 ): string | null {
   return nameFromSegments(normalize(path).split('/'), splitRoots(adapters, options));
+}
+
+export function skillFolderOf(
+  path: string,
+  adapters: readonly AdapterType[],
+  options: SkillPathOptions = {},
+): { name: string; folder: string } | null {
+  return folderFromSegments(normalize(path).split('/'), splitRoots(adapters, options));
 }
 
 export function isSkillPath(
