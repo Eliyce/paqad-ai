@@ -61,7 +61,7 @@ function runHook(
     input:
       typeof payload === 'string' ? payload : JSON.stringify({ cwd: root, ...(payload as object) }),
     encoding: 'utf8',
-    env: { PATH: process.env.PATH, HOME: root },
+    env: { PATH: process.env.PATH, HOME: root, USERPROFILE: root },
   });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }

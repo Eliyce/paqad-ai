@@ -22,6 +22,7 @@ beforeEach(() => {
   mkdirSync(join(root, '.paqad'), { recursive: true });
   mkdirSync(join(root, 'home'));
   vi.stubEnv('HOME', join(root, 'home'));
+  vi.stubEnv('USERPROFILE', join(root, 'home'));
   writeFileSync(
     join(root, '.paqad/onboarding-manifest.json'),
     JSON.stringify({ adapter: 'claude-code' }),

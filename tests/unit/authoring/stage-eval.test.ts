@@ -18,6 +18,7 @@ beforeEach(() => {
   mkdirSync(join(root, '.paqad'), { recursive: true });
   mkdirSync(join(root, 'home'));
   vi.stubEnv('HOME', join(root, 'home'));
+  vi.stubEnv('USERPROFILE', join(root, 'home'));
   vi.stubEnv('PAQAD_SKILL_ORCHESTRATOR_ENABLED', undefined);
   writeFileSync(
     join(root, '.paqad/.config'),

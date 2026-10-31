@@ -60,6 +60,7 @@ beforeEach(() => {
   vi.stubEnv('PAQAD_SKILL_ORCHESTRATOR_ENABLED', undefined);
   mkdirSync(join(root, 'home'), { recursive: true });
   vi.stubEnv('HOME', join(root, 'home'));
+  vi.stubEnv('USERPROFILE', join(root, 'home'));
 });
 
 afterEach(() => {
@@ -343,6 +344,7 @@ describe('S2 evidence', () => {
     await throughIntake();
     const home = mkdtempSync(join(tmpdir(), 'paqad-skill-home-'));
     vi.stubEnv('HOME', home);
+    vi.stubEnv('USERPROFILE', home);
     mkdirSync(join(home, `.claude/skills/${NAME}`), { recursive: true });
     writeFileSync(
       join(home, `.claude/skills/${NAME}/SKILL.md`),

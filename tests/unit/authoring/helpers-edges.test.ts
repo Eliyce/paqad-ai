@@ -30,6 +30,7 @@ beforeEach(() => {
   mkdirSync(join(root, '.paqad'), { recursive: true });
   mkdirSync(join(root, 'home'));
   vi.stubEnv('HOME', join(root, 'home'));
+  vi.stubEnv('USERPROFILE', join(root, 'home'));
 });
 
 afterEach(() => {
