@@ -1,0 +1,11 @@
+paqad-ai
+Copyright Eliyce
+
+This product includes work adapted from the skill-creator skill in
+https://github.com/anthropics/skills, copyright Anthropic, licensed under the Apache License,
+Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0):
+
+- src/authoring/eval/aggregate.ts, a TypeScript port of scripts/aggregate_benchmark.py
+- src/authoring/package/quick-validate.ts, a TypeScript port of scripts/quick_validate.py
+- runtime/base/skills/skill-orchestrator/references/agents/grader.md, comparator.md and
+  analyzer.md, adapted from the grader, comparator and analyzer agent briefs

@@ -1,5 +1,7 @@
 # Database expert lens
 
+verified: 2026-10-31
+
 Fires when the request touches: migrations, schema, indexes, query shape, bulk reads or writes, retention.
 
 ## What you look for

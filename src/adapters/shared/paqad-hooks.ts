@@ -7,7 +7,8 @@ export type PaqadHookEvent =
   | 'pre-tool-mutation'
   | 'completion'
   | 'subagent-start'
-  | 'subagent-completion';
+  | 'subagent-completion'
+  | 'post-tool-read';
 
 export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'pre-tool-mutation',
@@ -16,6 +17,7 @@ export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'completion',
   'subagent-start',
   'subagent-completion',
+  'post-tool-read',
 ];
 
 export interface PaqadLiveHookSpec {
@@ -44,6 +46,8 @@ export const PAQAD_STAGE_AGENT_MATCHER = '^(paqad:)?paqad-';
 export const PAQAD_STAGE_HELPER_MATCHER =
   '^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$';
 
+export const PAQAD_SKILL_READ_MATCHER = 'Skill|Read';
+
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
 export interface HostHookEventMap {
@@ -51,6 +55,7 @@ export interface HostHookEventMap {
   mutatingMatcher: string;
   subagentMatcher: string;
   subagentStartMatcher?: string;
+  postReadMatcher?: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -62,10 +67,12 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       completion: 'Stop',
       'subagent-start': 'SubagentStart',
       'subagent-completion': 'SubagentStop',
+      'post-tool-read': 'PostToolUse',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
     subagentStartMatcher: PAQAD_STAGE_HELPER_MATCHER,
+    postReadMatcher: PAQAD_SKILL_READ_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -211,6 +218,13 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     hostArgv: true,
     description: 'Record a stage agent’s stage-agent row on SubagentStop.',
   },
+  {
+    id: 'skill-activation',
+    event: 'post-tool-read',
+    hookFile: 'skill-activation.mjs',
+    description:
+      'Log a skill firing (the Skill tool, or a Read of a SKILL.md) to the activation ledger.',
+  },
 ];
 
 export interface RenderedHook {
@@ -276,6 +290,9 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
   }
   if (event === 'subagent-start') {
     return host.subagentStartMatcher;
+  }
+  if (event === 'post-tool-read') {
+    return host.postReadMatcher;
   }
   return undefined;
 }

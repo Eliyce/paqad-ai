@@ -1,10 +1,17 @@
 import { Command } from 'commander';
 
+import { skillOrchestratorEnabled } from '@/authoring/config.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
-import { laneMayRise, planFiles, raiseLaneIfGrown } from '@/feature-evidence/lane-resize.js';
+import {
+  laneMayRise,
+  planFiles,
+  raiseLaneForAuthoring,
+  raiseLaneIfGrown,
+} from '@/feature-evidence/lane-resize.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
-import type { FeatureLaneMove } from '@/feature-evidence/types.js';
+import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evidence/types.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
@@ -47,19 +54,36 @@ function runStageSettings(options: StageOptions): void {
   }
 }
 
-async function raiseLaneOnStageStart(
-  root: string,
-  sessionId: string,
-): Promise<FeatureLaneMove | null> {
+interface StageStartRaises {
+  authoring: FeatureAuthoringLaneRaise | null;
+  grown: FeatureLaneMove | null;
+}
+
+const NO_RAISES: StageStartRaises = { authoring: null, grown: null };
+
+function authoringRaiseMayApply(root: string, dirName: string): boolean {
+  const record = readFeatureRecord(root, dirName);
+  return (
+    record?.lane === 'fast' &&
+    record.lane_raised_for_authoring === undefined &&
+    skillOrchestratorEnabled(root)
+  );
+}
+
+async function raiseLaneOnStageStart(root: string, sessionId: string): Promise<StageStartRaises> {
   const dirName = currentFeature(root, sessionId);
-  if (dirName === null || !laneMayRise(root, dirName)) return null;
+  if (dirName === null) return NO_RAISES;
+  if (!authoringRaiseMayApply(root, dirName) && !laneMayRise(root, dirName)) return NO_RAISES;
   const { files } = await loadChangeEvidence(root, { since: readChangeStartPoint(root, dirName) });
-  return raiseLaneIfGrown({
+  const input = {
     projectRoot: root,
     dirName,
     plannedFiles: planFiles(readFeaturePlan(root, dirName)?.steps),
     changedFiles: files,
-  });
+  };
+  const authoring = raiseLaneForAuthoring(input);
+  const grown = laneMayRise(root, dirName) ? raiseLaneIfGrown(input) : null;
+  return { authoring, grown };
 }
 
 function openStageAgentId(root: string, sessionId: string, dirName: string): string | null {
@@ -192,7 +216,7 @@ export function createStageCommand(): Command {
       const raised =
         phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
           ? await raiseLaneOnStageStart(root, sessionId)
-          : null;
+          : NO_RAISES;
       const recorded = recordMarkedStage(root, {
         sessionId,
         sessionSource,
@@ -212,7 +236,8 @@ export function createStageCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      if (raised) console.log(laneRaisedLine(raised));
+      if (raised.authoring) console.log(laneRaisedLine(raised.authoring));
+      if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
       console.log(
@@ -220,7 +245,8 @@ export function createStageCommand(): Command {
           recorded: true,
           stage,
           phase,
-          ...(raised ? { lane_raised: raised } : {}),
+          ...(raised.authoring ? { lane_raised_for_authoring: raised.authoring } : {}),
+          ...(raised.grown ? { lane_raised: raised.grown } : {}),
         }),
       );
     });

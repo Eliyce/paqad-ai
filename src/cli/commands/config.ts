@@ -75,6 +75,25 @@ const KNOB_CONSUMERS: Record<string, string> = {
   checks_parallel: 'checks stage (scheduler + parallel test plan)',
   checks_max_processes: 'checks stage (parallel process cap)',
   checks_flaky_under_parallel: 'checks isolated-re-run verdict (pass-alone policy)',
+  skill_orchestrator_enabled:
+    'skill orchestrator (High Table seat, lane raise, skill pipeline, completion check)',
+  authoring_trigger_threshold: 'skill pipeline S6 trigger gate (validation pass rate)',
+  authoring_trigger_min_runs: 'skill pipeline S6 trigger gate (fires per query)',
+  skill_eval_min_gain_points: 'skill pipeline S5 eval gate (gain over baseline)',
+  skill_eval_max_token_multiple: 'skill pipeline S5 eval gate (token budget)',
+  authoring_runs_per_arm: 'skill pipeline S5 eval plan (runs per arm)',
+  authoring_max_iterations: 'skill pipeline S5 revision loop (iteration cap)',
+  authoring_fact_max_age_days: 'skill drift + skill release (fact freshness)',
+  authoring_collision_jaccard: 'skill overlap check (collision threshold)',
+  authoring_description_budget_chars: 'skill overlap check (catalog description budget)',
+  skill_body_max_tokens: 'skill lint SK-008 (body token limit)',
+  authoring_tool_result_max_tokens: 'skill pipeline S5 analyst (oversize tool results)',
+  authoring_cache_hit_min: 'skill pipeline S5 analyst (cache-hit defect)',
+  authoring_regression_tolerance: 'skill pipeline S5 improve-mode gate + S8 regression gate',
+  authoring_dark_window_days: 'skill catalog (dark skills) + activation log bound',
+  authoring_batch_mode: 'skill pipeline S6 trigger plan (batch sweep)',
+  authoring_run_max_cost_usd: 'skill pipeline S5/S6 plans (--max-cost-usd spend cap)',
+  authoring_otel_endpoint: 'skill pipeline usage reader (OpenTelemetry source)',
 };
 
 interface EffectiveKnob {

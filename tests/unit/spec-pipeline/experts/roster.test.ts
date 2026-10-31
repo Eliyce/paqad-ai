@@ -70,10 +70,10 @@ describe('standing tier', () => {
     }
   });
 
-  it('product-owner and application-architect are pickable experts (FR-1.2), thirteen in all', () => {
+  it('product-owner and application-architect are pickable experts (FR-1.2), fourteen in all with skill-orchestrator', () => {
     expect(isExpertRole('product-owner')).toBe(true);
     expect(isExpertRole('application-architect')).toBe(true);
-    expect(EXPERT_ROLES).toHaveLength(13);
+    expect(EXPERT_ROLES).toHaveLength(14);
   });
 
   it('expertTier reads a role against the run standing list', () => {

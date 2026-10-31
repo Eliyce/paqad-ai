@@ -1,0 +1,54 @@
+import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+const skillDir =
+  process.env.PAQAD_SKILL_UNDER_TEST ?? resolve(import.meta.dirname, '../../../.claude/skills/processing-invoices');
+const { extract, HELP } = (await import(
+  pathToFileURL(join(skillDir, 'scripts/extract.ts')).href
+)) as {
+  extract: (argv: string[]) => { code: number; stdout: string; stderr: string };
+  HELP: string;
+};
+
+function invoice(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'invoice-'));
+  const path = join(dir, 'invoice.json');
+  writeFileSync(path, JSON.stringify({ supplier: 'Acme', total: 120 }));
+  return path;
+}
+
+describe('extract', () => {
+  it('extract help', () => {
+    expect(extract(['--help'])).toEqual({ code: 0, stdout: HELP, stderr: '' });
+  });
+  it('extract invalid input', () => {
+    expect(extract([]).stderr).toContain('expected --input');
+  });
+  it('extract fixture output', () => {
+    expect(JSON.parse(extract(['--input', invoice()]).stdout)).toEqual({
+      account: 'payables',
+      supplier: 'Acme',
+      amount: 120,
+    });
+  });
+  it('extract idempotency', () => {
+    const path = invoice();
+    expect(extract(['--input', path])).toEqual(extract(['--input', path]));
+  });
+  it('extract dry run', () => {
+    const path = invoice();
+    const dir = join(path, '..');
+    extract(['--input', path, '--dry-run']);
+    expect(readdirSync(dir)).toEqual(['invoice.json']);
+  });
+  it('extract output size', () => {
+    expect(extract(['--input', invoice()]).stdout.length).toBeLessThan(1000);
+  });
+  it('extract secrets', () => {
+    expect(extract(['--input', invoice()]).stdout).not.toMatch(/AKIA|Bearer /);
+  });
+});

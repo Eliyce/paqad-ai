@@ -60,15 +60,27 @@ describe('.github/workflows/ci.yml', () => {
     expect(workflow.env.NODE_OPTIONS).toBe('--max-old-space-size=4096');
   });
 
-  it('AC-19: defines exactly the scope, static, test, merge, discovery-plugin and gate jobs', () => {
+  it('AC-19: defines exactly the scope, static, test, merge, discovery-plugin, skill-e2e-laravel and gate jobs', () => {
     expect(Object.keys(jobs).sort()).toEqual([
       'discovery-plugin',
       'gate',
       'merge',
       'scope',
+      'skill-e2e-laravel',
       'static',
       'test',
     ]);
+  });
+
+  it('FR-62: runs the Laravel skill e2e in one ubuntu job with a pinned PHP and Composer', () => {
+    const job = jobs['skill-e2e-laravel'];
+    expect(job['runs-on']).toBe('ubuntu-latest');
+    const setup = job.steps.find((step) => step.uses === 'shivammathur/setup-php@v2');
+    expect(setup?.with).toMatchObject({ 'php-version': '8.3', tools: 'composer:v2' });
+    expect(job.steps.some((step) => step.run?.includes('composer install'))).toBe(true);
+    expect(job.steps.at(-1)?.run).toBe(
+      'pnpm exec vitest run tests/e2e/skill-orchestrator.e2e.test.ts',
+    );
   });
 
   describe('scope', () => {
@@ -335,9 +347,16 @@ describe('.github/workflows/ci.yml', () => {
       expect(names.sort()).toEqual([...REQUIRED_CHECKS].sort());
     });
 
-    it('AC-19: always runs, needs scope, static, test, merge and discovery-plugin', () => {
+    it('AC-19: always runs, needs scope, static, test, merge, discovery-plugin and skill-e2e-laravel', () => {
       expect(job.if).toBe('always()');
-      expect(job.needs).toEqual(['scope', 'static', 'test', 'merge', 'discovery-plugin']);
+      expect(job.needs).toEqual([
+        'scope',
+        'static',
+        'test',
+        'merge',
+        'discovery-plugin',
+        'skill-e2e-laravel',
+      ]);
       expect(job['runs-on']).toBe('ubuntu-latest');
       expect(job.steps[0].env?.NEEDS).toBe('${{ toJSON(needs) }}');
       expect(job.steps.every((s) => s.uses === undefined)).toBe(true);

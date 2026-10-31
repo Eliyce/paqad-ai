@@ -1,8 +1,7 @@
-import { createHash } from 'node:crypto';
-
 import type { OsvVulnerabilityRecord } from '@/pentest/osv.js';
 
 import type { DuplicationCluster, SecretMatch, StaleDocCandidate } from './detectors.js';
+import { redactedFingerprint, SECRET_PATTERNS } from './secret-patterns.js';
 
 function safeParse<T>(raw: string): T | null {
   try {
@@ -110,16 +109,6 @@ export function parseJscpdJson(raw: string): DuplicationCluster[] {
     .filter((cluster) => cluster.blocks.length > 0);
 }
 
-const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp }> = [
-  { rule: 'private-key', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
-  { rule: 'aws-access-key', pattern: /\bAKIA[0-9A-Z]{16}\b/ },
-  {
-    rule: 'generic-api-key',
-    pattern: /(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][A-Za-z0-9/+_-]{16,}['"]/i,
-  },
-  { rule: 'bearer-token', pattern: /\bBearer\s+[A-Za-z0-9._-]{20,}\b/ },
-];
-
 export function builtinSecretScan(files: Array<{ path: string; content: string }>): SecretMatch[] {
   const matches: SecretMatch[] = [];
   for (const file of files) {
@@ -140,10 +129,6 @@ export function builtinSecretScan(files: Array<{ path: string; content: string }
     }
   }
   return matches;
-}
-
-function redactedFingerprint(value: string): string {
-  return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
 export interface DocTimestampInput {

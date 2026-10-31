@@ -21,6 +21,7 @@ export const AGENT_ROLES = [
   'user-flow-writer',
   'chief-architect',
   'application-architect',
+  'skill-orchestrator',
 ] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 

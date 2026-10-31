@@ -59,7 +59,9 @@ graph-ui/  →  separate Vite + React 19 SPA, consumes graph data exported by th
    ratchet, and the read-only SIEM exporter. The evidence ledger is an **opt-in enterprise
    capability, off by default**: with the `enterprise` knobs unset (their default is off in
    `src/core/framework-config.ts`, overridable via `.paqad/.config`), a verification run writes no
-   `.paqad/ledger/` files and resolves no compliance citations (the token-spending path).
+   evidence-ledger files and resolves no compliance citations (the token-spending path). Only the
+   evidence ledger and compliance citations are enterprise-gated: operational ledgers such as
+   `.paqad/ledger/authoring/activations.jsonl` and `defects.jsonl` are always written locally.
    `src/core/enterprise-policy.ts` is the single resolver — and the seam a future license/token check
    slots behind.
 10. **Delivery** (`src/delivery`, `src/providers`) — Provider-agnostic delivery automation behind the

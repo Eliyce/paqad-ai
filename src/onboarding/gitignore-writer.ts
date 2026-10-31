@@ -53,7 +53,8 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'module-map/drift.json',
   'module-map/events.jsonl',
   'schema-migrations.jsonl',
-  'skills/',
+  '# .paqad/skills/ only: .paqad/authoring/skills/ holds tracked skill evidence',
+  '/skills/',
   'delivery-detection.json',
   'checks/',
   '# compliance ledger (share via dashboard/SIEM, not git)',
@@ -72,7 +73,9 @@ const DEPRECATED_ARTIFACTS = [
 ];
 
 function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENTRIES): string[] {
-  return entries.filter((entry) => !entry.startsWith('#')).map((entry) => `.paqad/${entry}`);
+  return entries
+    .filter((entry) => !entry.startsWith('#'))
+    .map((entry) => `.paqad/${entry.replace(/^\//u, '')}`);
 }
 
 function managedGitignoreEntries(projectRoot: string): string[] {

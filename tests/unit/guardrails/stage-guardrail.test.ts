@@ -41,6 +41,10 @@ const PLUGIN_HOOKS = 'runtime/claude-plugin/hooks.json';
 const GOLDEN = 'tests/unit/adapters/__snapshots__/native-hook-config.golden.test.ts.snap';
 const SEED_EVENT = 'SubagentStart';
 const SEED_BLOCK = /^ {4}"SubagentStart": \[\n[\s\S]*?^ {4}\],\n/m;
+const ACTIVATION_EVENT = 'PostToolUse';
+const ACTIVATION_MATCHER = 'Skill|Read';
+const ACTIVATION_HOOK = 'skill-activation.mjs';
+const ACTIVATION_BLOCK = /,\n {4}"PostToolUse": \[\n(?: {6}.*\n)+? {4}\]/;
 
 type HookGroups = Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
 
@@ -50,7 +54,27 @@ interface PluginHooksFile {
 }
 
 function withoutSeedHook(hooks: HookGroups): HookGroups {
-  return Object.fromEntries(Object.entries(hooks).filter(([event]) => event !== SEED_EVENT));
+  return Object.fromEntries(
+    Object.entries(hooks).filter(([event]) => event !== SEED_EVENT && event !== ACTIVATION_EVENT),
+  );
+}
+
+function expectOnlyTheActivationEntry(hooks: HookGroups): void {
+  expect(Object.keys(hooks).at(-1)).toBe(ACTIVATION_EVENT);
+  expect(
+    (hooks[ACTIVATION_EVENT] ?? []).map((group) => ({
+      matcher: group.matcher,
+      hooks: group.hooks.map((entry) => hookOf(entry.command)),
+    })),
+  ).toEqual([{ matcher: ACTIVATION_MATCHER, hooks: [ACTIVATION_HOOK] }]);
+}
+
+function isActivationLine(line: RenderedHook): boolean {
+  return (
+    line.nativeEvent === ACTIVATION_EVENT &&
+    line.matcher === ACTIVATION_MATCHER &&
+    hookOf(line.command) === ACTIVATION_HOOK
+  );
 }
 
 interface PinnedRenderings {
@@ -68,7 +92,7 @@ const PINNED = JSON.parse(
 ) as PinnedRenderings;
 
 function notSeed(line: RenderedHook): boolean {
-  return line.nativeEvent !== SEED_EVENT;
+  return line.nativeEvent !== SEED_EVENT && !isActivationLine(line);
 }
 
 function seedLine(hooksDir: string): RenderedHook {
@@ -160,7 +184,7 @@ describe('the stage enforcement guardrails', () => {
     expect(printedCode(working(CONTRACT))).toEqual(printedCode(atBase(CONTRACT)));
   });
 
-  it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook', (ctx) => {
+  it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook and the appended skill activation entry', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     const base = JSON.parse(atBase(PLUGIN_HOOKS)) as PluginHooksFile;
     const work = JSON.parse(working(PLUGIN_HOOKS)) as PluginHooksFile;
@@ -174,8 +198,17 @@ describe('the stage enforcement guardrails', () => {
     expect(flatten({ [SEED_EVENT]: workHooks[SEED_EVENT] ?? [] })).toEqual([
       { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
     ]);
-    expect(Object.keys(workHooks).at(-1)).toBe('SubagentStop');
-    expect(working(GOLDEN).replace(SEED_BLOCK, '')).toBe(atBase(GOLDEN).replace(SEED_BLOCK, ''));
+    expectOnlyTheActivationEntry(workHooks);
+    expect(
+      Object.keys(workHooks)
+        .filter((event) => event !== ACTIVATION_EVENT)
+        .at(-1),
+    ).toBe('SubagentStop');
+    const golden = working(GOLDEN);
+    expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
+    expect(golden.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '')).toBe(
+      atBase(GOLDEN).replace(SEED_BLOCK, ''),
+    );
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),
     ).toEqual(['agent-entry-gate.mjs', 'decision-pause-gate.mjs', 'capability-gate.mjs']);
@@ -188,6 +221,7 @@ describe('the stage enforcement guardrails', () => {
     expect(flatten(withoutSeedHook(built.hooks))).toEqual(baseLines);
 
     const host = buildHostHookChain('claude-code')
+      .filter((line) => !isActivationLine(line))
       .map((line) => ({
         event: line.nativeEvent,
         matcher: line.matcher ?? '',
@@ -204,19 +238,22 @@ describe('the stage enforcement guardrails', () => {
     );
   });
 
-  it('AC-67: every host and plugin hook rendering matches the main branch capture apart from the Claude Code seed block', async () => {
+  it('AC-67: every host and plugin hook rendering matches the main branch capture apart from the Claude Code seed block and the skill activation entry', async () => {
     const env = { PAQAD_FRAMEWORK_HOME: PINNED.frameworkHome };
     expect(buildHostHookChain('codex-cli', env)).toEqual(PINNED.chains['codex-cli']);
     expect(buildHostHookChain('claude-code', env).filter(notSeed)).toEqual(
       PINNED.chains['claude-code'],
     );
     expect(buildPluginHookChain(env).filter(notSeed)).toEqual(PINNED.plugin);
-    expect(buildHostHookChain('claude-code', env).filter((line) => !notSeed(line))).toEqual([
-      seedLine(`${PINNED.frameworkHome}/hooks`),
-    ]);
-    expect(buildPluginHookChain(env).filter((line) => !notSeed(line))).toEqual([
+    expect(
+      buildHostHookChain('claude-code', env).filter((line) => line.nativeEvent === SEED_EVENT),
+    ).toEqual([seedLine(`${PINNED.frameworkHome}/hooks`)]);
+    expect(buildPluginHookChain(env).filter((line) => line.nativeEvent === SEED_EVENT)).toEqual([
       seedLine(`${PLUGIN_RUNTIME_ROOT}/hooks`),
     ]);
+    expect(buildHostHookChain('claude-code', env).filter(isActivationLine)).toHaveLength(1);
+    expect(buildPluginHookChain(env).filter(isActivationLine)).toHaveLength(1);
+    expect(buildHostHookChain('codex-cli', env).filter(isActivationLine)).toEqual([]);
 
     const rendered = await renderHookFiles();
     expect(Object.keys(rendered).sort()).toEqual(Object.keys(PINNED.files).sort());
@@ -234,6 +271,7 @@ describe('the stage enforcement guardrails', () => {
         expect(flatten({ [SEED_EVENT]: parsed.hooks[SEED_EVENT]! })).toEqual([
           { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
         ]);
+        expectOnlyTheActivationEntry(parsed.hooks);
         parsed.hooks = withoutSeedHook(parsed.hooks);
         expect(`${JSON.stringify(parsed, null, 2)}\n`).toBe(content);
       }

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M69KJ77857JK6711KW9Z4CKV",
+  "category": "spec.change",
+  "title": "Improve-mode S5 gate: no regression instead of +10 points",
+  "context": "expert-need-detector scores 93-96% before the edit, so a behaviour-preserving cleanup cannot gain the +10 points the frozen spec requires in improve mode (best +5.6, no regression).",
+  "options": [
+    {
+      "option_key": "no-regression",
+      "label": "Improve mode passes when it does not regress against the old version (authoring_regression_tolerance); +10 stays for new skills",
+      "one_line_preview": "Improve mode passes when it does not regress against the old version (authoring_regression_tolerance); +10 stays for new skills",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "override",
+      "label": "Keep +10 everywhere; record an S5 override for expert-need-detector",
+      "one_line_preview": "Keep +10 everywhere; record an S5 override for expert-need-detector",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-revising",
+      "label": "Keep +10 and revise the skill until it gains 10 points",
+      "one_line_preview": "Keep +10 and revise the skill until it gains 10 points",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-regression",
+  "created_at": "2026-10-31T18:29:16.137Z",
+  "status": "resolved",
+  "change": "01M6968HSVNBV1X20K3ANPE472",
+  "chosen": "no-regression",
+  "rationale": "Owner (Haider) chose no-regression for edits in chat after the expert-need-detector S5 result",
+  "resolved_at": "2026-10-31T18:29:16.957Z",
+  "decision_id": "D-01M69KJ77857JK6711KW9Z4CKV",
+  "fingerprint": "sha256:66aacc8c8f15a852e55df908a7371c049383f3bd66f57d4213b496eb578a1aed",
+  "question": "Improve-mode S5 gate: no regression instead of +10 points",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6968HSVNBV1X20K3ANPE472",
+  "ttl_until": "2026-11-30T18:29:16.137Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "no-regression",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T18:29:16.957Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) chose no-regression for edits in chat after the expert-need-detector S5 result"
+  }
+}

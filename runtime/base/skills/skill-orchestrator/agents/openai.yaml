@@ -1,0 +1,4 @@
+interface:
+  display_name: Skill Orchestrator
+  short_description: Takes a new or edited skill through nine gated stages, from proving
+    it is needed to releasing it with evidence, using the paqad-ai skill verbs.

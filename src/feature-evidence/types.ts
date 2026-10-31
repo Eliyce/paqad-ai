@@ -44,6 +44,14 @@ export interface FeatureLaneMove {
   at: string;
 }
 
+export interface FeatureAuthoringLaneRaise {
+  from: Exclude<FeatureLane, null>;
+  to: Exclude<FeatureLane, null>;
+  reason: string;
+  path: string;
+  at: string;
+}
+
 export interface FeatureRecord extends EnvelopeHeader {
   doc_type: typeof FEATURE_DOC_TYPE;
   issue: string | null;
@@ -60,6 +68,7 @@ export interface FeatureRecord extends EnvelopeHeader {
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
   lane_raised?: FeatureLaneMove;
+  lane_raised_for_authoring?: FeatureAuthoringLaneRaise;
 }
 
 export interface LegacyFeatureRecord {

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M697D5Z60M8QXDBPPRMDQ32E",
+  "category": "architecture-path",
+  "title": "Which module owns the new skill-authoring code (src/authoring)?",
+  "context": "Module attribution was deferred from planning: the extractor found no named module and the inferencer was not confident (top match cli-dashboard at 0.16). The High Table agreed src/authoring is a new top-level module with its own module-map.yml entry and docs/modules page, kept generic so the Agent Orchestrator (#795) reuses it; src/skills keeps discovering and loading skills. The answer is applied through src/module-decisions/apply.ts.",
+  "options": [
+    {
+      "option_key": "new-authoring",
+      "label": "New module 'authoring' (Skill and agent authoring), source src/authoring",
+      "one_line_preview": "New module 'authoring' (Skill and agent authoring), source src/authoring",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-skill-runtime",
+      "label": "Add it to the existing 'skill-runtime' module",
+      "one_line_preview": "Add it to the existing 'skill-runtime' module",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "new-authoring",
+  "created_at": "2026-10-31T14:56:48.102Z",
+  "status": "resolved",
+  "change": "01M6968HSVNBV1X20K3ANPE472",
+  "chosen": "new-authoring",
+  "rationale": "Owner (Haider) picked the recommended option in the spec question round",
+  "resolved_at": "2026-10-31T14:59:33.445Z",
+  "decision_id": "D-01M697D5Z60M8QXDBPPRMDQ32E",
+  "fingerprint": "sha256:87d96713a9d287d1e6ede2fc834d0cd04a99ee9ce5081626d6f2de84644ec1c3",
+  "question": "Which module owns the new skill-authoring code (src/authoring)?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6968HSVNBV1X20K3ANPE472",
+  "ttl_until": "2027-01-29T14:56:48.102Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "new-authoring",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T14:59:33.445Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) picked the recommended option in the spec question round"
+  }
+}

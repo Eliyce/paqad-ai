@@ -131,6 +131,17 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/skill-activation.mjs\\""
+          }
+        ]
+      }
     ]
   },
   "attribution": {

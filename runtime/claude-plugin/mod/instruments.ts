@@ -99,6 +99,7 @@ export const ROLE_INITIALS: Readonly<Record<string, string>> = {
   'integration-architect': 'IA',
   'devops-engineer': 'DO',
   'chief-architect': 'CA',
+  'skill-orchestrator': 'SO',
 };
 
 export function roleInitials(role: string): string {

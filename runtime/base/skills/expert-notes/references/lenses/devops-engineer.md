@@ -1,5 +1,7 @@
 # DevOps engineer lens
 
+verified: 2026-10-31
+
 Fires when the request touches: config, env vars, secrets, build, CI, deploy, infra, scheduled jobs, feature flags.
 
 ## What you look for

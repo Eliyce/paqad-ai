@@ -248,6 +248,7 @@ describe('the HIGH TABLE instrument (FR-34, AC-31, AC-56, AC-57)', () => {
   it('names seats by two letters, with the chief last after a separator', () => {
     expect(roleInitials('product-owner')).toBe('PO');
     expect(roleInitials('devops-engineer')).toBe('DO');
+    expect(roleInitials('skill-orchestrator')).toBe('SO');
     expect(roleInitials('db-expert')).toBe('DE');
     expect(roleInitials('auditor')).toBe('AU');
   });

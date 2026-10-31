@@ -1,0 +1,58 @@
+{
+  "schema_version": "1",
+  "skill": "expert-need-detector",
+  "version": "1.1.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:5aa98fa25b0e08d1591f03e4e510d7a26b1b752d579d170a304c8f0fb15a97e6",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "needed"
+  },
+  "sources": {
+    "count": 8,
+    "non_model": 8,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap",
+    "tests": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "benchmark": {
+    "iterations": 5,
+    "pass_rate_with": 0.9444,
+    "pass_rate_without": 0.8611,
+    "delta_points": 8.33,
+    "token_multiple": 1.221,
+    "models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "claude_version": "2.1.302",
+    "checks_not_measured": [],
+    "source": "subagent-dispatch"
+  },
+  "trigger": {
+    "validation_score": 1,
+    "description_chars": 750,
+    "batch": "not-offered"
+  },
+  "performance": {
+    "tokens": "measured",
+    "source": "subagent-dispatch"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": 0.5513,
+    "source": "host-usage"
+  },
+  "overrides": [],
+  "decisions": [],
+  "labels": []
+}

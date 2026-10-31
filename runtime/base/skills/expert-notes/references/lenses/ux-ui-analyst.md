@@ -1,5 +1,7 @@
 # UX/UI analyst lens
 
+verified: 2026-10-31
+
 Fires when the request touches: a screen, a component, a form, a visible state, user-facing copy.
 
 ## What you look for

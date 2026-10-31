@@ -15,6 +15,7 @@ const EXPERT_ROLE_SET: ReadonlySet<AgentRole> = new Set<AgentRole>([
   'user-flow-writer',
   'product-owner',
   'application-architect',
+  'skill-orchestrator',
 ]);
 
 export const EXPERT_ROLES: readonly AgentRole[] = AGENT_ROLES.filter((role) =>

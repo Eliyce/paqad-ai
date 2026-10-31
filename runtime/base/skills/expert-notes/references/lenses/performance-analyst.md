@@ -1,5 +1,7 @@
 # Performance analyst lens
 
+verified: 2026-10-31
+
 Fires when the request touches: a hot path, a list, report or export, background work, volume words, external calls in the request path.
 
 ## What you look for

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M697D5BSANJ9FD3X0R9ZEE6H",
+  "category": "intake.requirement",
+  "title": "How will we know the skill checks worked after this ships?",
+  "context": "Nobody stated how the team will know the checks stop unproven skills rather than only adding waiting time for developers.",
+  "options": [
+    {
+      "option_key": "count-added-refused",
+      "label": "Count skills added versus refused, read from the records paqad already keeps",
+      "one_line_preview": "Count skills added versus refused, read from the records paqad already keeps",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-measure",
+      "label": "No measure needed for now",
+      "one_line_preview": "No measure needed for now",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "count-added-refused",
+  "created_at": "2026-10-31T14:56:47.481Z",
+  "status": "resolved",
+  "change": "01M6968HSVNBV1X20K3ANPE472",
+  "chosen": "count-added-refused",
+  "rationale": "Owner (Haider) picked the recommended option in the spec question round",
+  "resolved_at": "2026-10-31T14:59:32.815Z",
+  "decision_id": "D-01M697D5BSANJ9FD3X0R9ZEE6H",
+  "fingerprint": "sha256:79d55f9b2180bd63527e2c61164a0ee68c3dfb654ab60146894c2e6ef8ec012f",
+  "question": "How will we know the skill checks worked after this ships?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6968HSVNBV1X20K3ANPE472",
+  "ttl_until": "2026-11-14T14:56:47.481Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "count-added-refused",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-31T14:59:32.815Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) picked the recommended option in the spec question round"
+  }
+}

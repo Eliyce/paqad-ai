@@ -1,0 +1,4 @@
+The briefs in this folder (grader.md, comparator.md and analyzer.md) are adapted from the agent
+briefs of the skill-creator skill in https://github.com/anthropics/skills, copyright Anthropic,
+licensed under the Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+They were rewritten for paqad's skill pipeline; the changes are paqad's.

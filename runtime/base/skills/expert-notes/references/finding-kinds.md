@@ -1,5 +1,7 @@
 # Finding kinds
 
+verified: 2026-10-31
+
 A lens returns findings. Each finding is a small, self-contained object:
 
 ```

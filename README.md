@@ -335,13 +335,13 @@ A built-in router reads each request, judges its complexity and risk, and sends 
 - **graduated** lane for everyday features
 - **full** lane for risky or wide-reaching changes, with a frozen spec and story breakdown first
 
-Along the way it coordinates **22 built-in specialist roles**, each with one job and no conflicting incentives:
+Along the way it coordinates **23 built-in specialist roles**, each with one job and no conflicting incentives:
 
-| Group            | Roles                                                                                                                                                                                                          |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Workflow (9)** | context-curator, product-owner, market-researcher, implementer, reviewer, verifier, test-planner, gap-detector, requirement-analyst                                                                            |
-| **Coding (12)**  | solution-architect, application-architect, db-expert, ux-ui-analyst, devops-engineer, doc-maintainer, performance-analyst, data-modeler, integration-architect, qa-engineer, user-flow-writer, chief-architect |
-| **Security (1)** | security-auditor                                                                                                                                                                                               |
+| Group             | Roles                                                                                                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Workflow (10)** | context-curator, product-owner, market-researcher, implementer, reviewer, verifier, test-planner, gap-detector, requirement-analyst, skill-orchestrator                                                        |
+| **Coding (12)**   | solution-architect, application-architect, db-expert, ux-ui-analyst, devops-engineer, doc-maintainer, performance-analyst, data-modeler, integration-architect, qa-engineer, user-flow-writer, chief-architect |
+| **Security (1)**  | security-auditor                                                                                                                                                                                               |
 
 Plus six personas the roles reuse: router, story-designer, final-reviewer, adversarial-reviewer, app-cartographer, journey-designer.
 

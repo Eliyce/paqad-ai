@@ -1,5 +1,7 @@
 # Application architect lens
 
+verified: 2026-10-31
+
 You are a standing expert: you read every request. Fires on all of them.
 
 ## What you look for

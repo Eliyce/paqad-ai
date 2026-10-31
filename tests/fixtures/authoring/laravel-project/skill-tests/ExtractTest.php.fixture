@@ -1,0 +1,45 @@
+<?php
+
+$skillDir = getenv('PAQAD_SKILL_UNDER_TEST') ?: dirname(__DIR__, 4).'/.claude/skills/processing-invoices';
+require_once $skillDir.'/scripts/extract.php';
+
+function invoice_fixture(): string
+{
+    $dir = sys_get_temp_dir().'/invoice-'.bin2hex(random_bytes(4));
+    mkdir($dir);
+    file_put_contents($dir.'/invoice.json', json_encode(['supplier' => 'Acme', 'total' => 120]));
+
+    return $dir.'/invoice.json';
+}
+
+it('extract help', function () {
+    expect(extract_invoice(['--help']))->toBe([0, EXTRACT_HELP, '']);
+});
+
+it('extract invalid input', function () {
+    expect(extract_invoice([])[2])->toContain('expected --input');
+});
+
+it('extract fixture output', function () {
+    expect(json_decode(extract_invoice(['--input', invoice_fixture()])[1], true))
+        ->toBe(['account' => 'payables', 'supplier' => 'Acme', 'amount' => 120]);
+});
+
+it('extract idempotency', function () {
+    $path = invoice_fixture();
+    expect(extract_invoice(['--input', $path]))->toBe(extract_invoice(['--input', $path]));
+});
+
+it('extract dry run', function () {
+    $path = invoice_fixture();
+    extract_invoice(['--input', $path, '--dry-run']);
+    expect(array_values(array_diff(scandir(dirname($path)), ['.', '..'])))->toBe(['invoice.json']);
+});
+
+it('extract output size', function () {
+    expect(strlen(extract_invoice(['--input', invoice_fixture()])[1]))->toBeLessThan(1000);
+});
+
+it('extract secrets', function () {
+    expect(extract_invoice(['--input', invoice_fixture()])[1])->not->toMatch('/AKIA|Bearer /');
+});

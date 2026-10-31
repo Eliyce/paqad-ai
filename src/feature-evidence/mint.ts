@@ -13,6 +13,7 @@ import {
   FEATURE_DOC_TYPE,
   PLAN_DOC_TYPE,
   REVIEW_DOC_TYPE,
+  type FeatureAuthoringLaneRaise,
   type FeatureChangeKind,
   type FeatureLane,
   type FeatureLaneMove,
@@ -117,6 +118,7 @@ export interface BuildFeatureRecordInput extends DocumentIdentityInput {
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
   lane_raised?: FeatureLaneMove;
+  lane_raised_for_authoring?: FeatureAuthoringLaneRaise;
   recorded_at?: string;
 }
 
@@ -145,6 +147,9 @@ export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecor
       ...(input.lane_source !== undefined ? { lane_source: input.lane_source } : {}),
       ...(input.lane_resized !== undefined ? { lane_resized: input.lane_resized } : {}),
       ...(input.lane_raised !== undefined ? { lane_raised: input.lane_raised } : {}),
+      ...(input.lane_raised_for_authoring !== undefined
+        ? { lane_raised_for_authoring: input.lane_raised_for_authoring }
+        : {}),
     },
   }) as FeatureRecord;
 }

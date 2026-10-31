@@ -139,6 +139,18 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Your module docs say tracking belongs elsewhere than this change — where should it go?';
     case 'analytics.new_event':
       return 'This adds a new tracked event — approve the name, rename it, or skip tracking?';
+    case 'authoring.overlap':
+      return 'This new skill overlaps one you already have. Extend that one, or create a new skill?';
+    case 'authoring.risky_script':
+      return 'A script in this skill reaches the network, installs packages or deletes files. Allow it?';
+    case 'authoring.intake_gap':
+      return 'Only you can answer this part of what the new skill is for. What should it be?';
+    case 'authoring.improvement':
+      return 'A skill in use could learn this correction. Add it to the skill?';
+    case 'authoring.retirement':
+      return 'The agent now does this right without the skill. Retire the skill?';
+    case 'authoring.override':
+      return 'This skill skipped one of its checks. Add it unverified, kept in this project?';
   }
 }
 
@@ -294,6 +306,12 @@ export function decisionOptionsForCategory(
     case 'analytics.no_provider_flag':
     case 'analytics.architecture_conflict':
     case 'analytics.new_event':
+    case 'authoring.overlap':
+    case 'authoring.risky_script':
+    case 'authoring.intake_gap':
+    case 'authoring.improvement':
+    case 'authoring.retirement':
+    case 'authoring.override':
       return { options: [] };
   }
 }

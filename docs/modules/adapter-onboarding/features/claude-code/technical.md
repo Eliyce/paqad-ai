@@ -114,8 +114,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 
 - Claude Code gets, in order: PreToolUse (entry gate, stage writer, decision-pause gate, capability
   gate), UserPromptSubmit, SessionStart, Stop, SubagentStart (`stage-agent-start.mjs`, stage
-  helpers only) and SubagentStop (`stage-agent-completion.mjs`). The SubagentStart hook never
-  blocks; the three edit gates stay fail-closed.
+  helpers only), SubagentStop (`stage-agent-completion.mjs`) and PostToolUse
+  (`skill-activation.mjs`, matcher `Skill|Read`). The SubagentStart and PostToolUse hooks never
+  block; the three edit gates stay fail-closed.
 
 ## Testing Entry Points
 

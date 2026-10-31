@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
+import { DYNAMIC_BUNDLE_FILES } from './manifest.js';
 import {
   FEATURE_BUNDLE_FILES,
   LEGACY_BUNDLE_FILES,
@@ -15,6 +16,13 @@ export const ALLOWED_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>([
   ...Object.values(FEATURE_BUNDLE_FILES),
   'report.html',
 ]);
+
+export function isAllowedBundleFilename(filename: string): boolean {
+  return (
+    ALLOWED_BUNDLE_FILENAMES.has(filename) ||
+    DYNAMIC_BUNDLE_FILES.some((entry) => entry.pattern.test(filename))
+  );
+}
 
 export const LEGACY_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>(
   Object.values(LEGACY_BUNDLE_FILES),
@@ -61,7 +69,7 @@ export function classifyBundlePath(relPath: string): BundlePathClassification | 
   return {
     dirName,
     filename,
-    allowed: ALLOWED_BUNDLE_FILENAMES.has(filename),
+    allowed: isAllowedBundleFilename(filename),
     screenshotSubtree: false,
   };
 }
@@ -84,7 +92,7 @@ export function strayBundleFiles(projectRoot: string, dirName: string): string[]
       strays.push(...strayScreenshotEntries(bundleAbs));
       continue;
     }
-    if (ALLOWED_BUNDLE_FILENAMES.has(name)) continue;
+    if (isAllowedBundleFilename(name)) continue;
     if (legacy && LEGACY_BUNDLE_FILENAMES.has(name)) continue;
     strays.push(name);
   }

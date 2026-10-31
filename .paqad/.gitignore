@@ -37,7 +37,8 @@ traceability/
 module-map/drift.json
 module-map/events.jsonl
 schema-migrations.jsonl
-skills/
+# .paqad/skills/ only: .paqad/authoring/skills/ holds tracked skill evidence
+/skills/
 delivery-detection.json
 checks/
 # compliance ledger (share via dashboard/SIEM, not git)

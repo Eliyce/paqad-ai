@@ -1,5 +1,7 @@
 # Solution architect lens
 
+verified: 2026-10-31
+
 Fires when the request touches: anything cross-module, a new abstraction or pattern, any build-new versus reuse fork.
 
 ## What you look for

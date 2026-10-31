@@ -9,6 +9,7 @@ import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
 import type {
+  FeatureAuthoringLaneRaise,
   FeatureChangeKind,
   FeatureLane,
   FeatureLaneMove,
@@ -140,6 +141,13 @@ export interface FeatureRecordPatch {
   laneSource?: Exclude<FeatureLaneSource, 'plan'>;
   resizeLaneFromPlan?: LaneMoveFacts;
   raiseLaneFromChange?: LaneMoveFacts;
+  raiseLaneForAuthoring?: AuthoringRaiseFacts;
+}
+
+export interface AuthoringRaiseFacts {
+  reason: string;
+  path: string;
+  at: string;
 }
 
 export interface LaneMoveFacts {
@@ -198,6 +206,7 @@ export function updateFeatureRecord(
     lane_source: laneState.lane_source,
     lane_resized: laneState.lane_resized,
     lane_raised: laneState.lane_raised,
+    lane_raised_for_authoring: laneState.lane_raised_for_authoring,
     now: () => new Date(current.updated_at),
   });
   if (next.content_hash === current.content_hash) {
@@ -217,6 +226,7 @@ interface LaneState {
   lane_source?: FeatureLaneSource;
   lane_resized?: FeatureLaneMove;
   lane_raised?: FeatureLaneMove;
+  lane_raised_for_authoring?: FeatureAuthoringLaneRaise;
 }
 
 const PRE_SPEC_ONLY_STAGES: ReadonlySet<string> = new Set([
@@ -242,12 +252,16 @@ function canLowerFromPlan(projectRoot: string, dirName: string, current: Feature
 }
 
 function canRaiseAfterResize(current: FeatureRecord): boolean {
+  const resizedByPlan = current.lane_source === 'plan' && current.lane_resized !== undefined;
   return (
     current.lane === 'graduated' &&
-    current.lane_source === 'plan' &&
-    current.lane_resized !== undefined &&
+    (resizedByPlan || current.lane_raised_for_authoring !== undefined) &&
     current.lane_raised === undefined
   );
+}
+
+function canRaiseForAuthoring(current: FeatureRecord): boolean {
+  return current.lane === 'fast' && current.lane_raised_for_authoring === undefined;
 }
 
 function nextLaneState(
@@ -261,7 +275,17 @@ function nextLaneState(
     lane_source: current.lane_source,
     lane_resized: current.lane_resized,
     lane_raised: current.lane_raised,
+    lane_raised_for_authoring: current.lane_raised_for_authoring,
   };
+  const authoring = patch.raiseLaneForAuthoring;
+  if (authoring !== undefined) {
+    if (!canRaiseForAuthoring(current)) return kept;
+    return {
+      ...kept,
+      lane: 'graduated',
+      lane_raised_for_authoring: { from: 'fast', to: 'graduated', ...authoring },
+    };
+  }
   const raise = patch.raiseLaneFromChange;
   if (raise !== undefined) {
     if (!canRaiseAfterResize(current)) return kept;
