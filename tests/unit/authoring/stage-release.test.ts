@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +14,7 @@ import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { skillCompletionFindings } from '@/authoring/completion.js';
-import { hashFolder, hashFolderWithoutDescription } from '@/authoring/hash.js';
+import { hashFolder, hashFolderWithoutDescription, listFolderFiles } from '@/authoring/hash.js';
 import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
 import { runSkillTest } from '@/authoring/stages/test.js';
@@ -312,5 +320,52 @@ describe('linting the workspace draft of a paqad runtime skill', () => {
     const lint = workspace.readJson<{ findings: Array<{ rule: string }> }>('lint.json')!;
     expect(lint.findings.some((finding) => finding.rule === 'SK-006')).toBe(true);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('symlinks in a skill folder', () => {
+  async function withLink(target: string): Promise<SkillWorkspace> {
+    const workspace = await readyWorkspace();
+    const folder = workspace.path(`draft/${NAME}`);
+    writeFileSync(join(folder, 'notes.md'), 'plain notes\n');
+    symlinkSync(target, join(folder, 'linked.md'));
+    await runSkillTest(workspace, { runTests: async () => ({ exitCode: 0, failedTests: null }) });
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      inputs_hash: hashFolderWithoutDescription(folder),
+    });
+    const trigger = workspace.readJson<Record<string, unknown>>('trigger-results.json')!;
+    workspace.writeJson('trigger-results.json', { ...trigger, inputs_hash: hashFolder(folder) });
+    return workspace;
+  }
+
+  it('lists a symlink and counts it in the folder hash', async () => {
+    const workspace = await readyWorkspace();
+    const folder = workspace.path(`draft/${NAME}`);
+    const before = hashFolder(folder);
+    symlinkSync('SKILL.md', join(folder, 'linked.md'));
+    expect(listFolderFiles(folder).find((file) => file.rel === 'linked.md')?.symlink).toBe(
+      'SKILL.md',
+    );
+    expect(hashFolder(folder)).not.toBe(before);
+  });
+
+  it('release refuses a symlink and copies nothing into the host', async () => {
+    const workspace = await withLink('notes.md');
+    expect(() => release(workspace)).toThrow('Release refused: linked.md is a symlink.');
+    expect(existsSync(join(root, `.claude/skills/${NAME}`))).toBe(false);
+  });
+
+  it('the lint blocks a symlink that leads outside the folder', async () => {
+    const outside = join(root, 'outside.md');
+    writeFileSync(outside, 'kept elsewhere\n');
+    const workspace = await withLink(outside);
+    const lint = workspace.readJson<{ findings: Array<{ rule: string; file: string }> }>(
+      'lint.json',
+    )!;
+    expect(lint.findings).toContainEqual(
+      expect.objectContaining({ rule: 'SK-011', file: 'linked.md' }),
+    );
   });
 });

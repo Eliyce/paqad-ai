@@ -21,7 +21,7 @@ import {
   type EvalTier,
 } from '../eval/adapters.js';
 import { recordGateFailure } from '../evidence.js';
-import { hashFolderWithoutDescription, listFolderFiles } from '../hash.js';
+import { hashFolderWithoutDescription, listFolderFiles, regularFiles } from '../hash.js';
 import { SKILL_FILE } from '../paths.js';
 import {
   AuthoringRefusal,
@@ -126,10 +126,10 @@ function pluginWrapper(workspace: SkillWorkspace, iteration: number): string {
     description: `Generated wrapper that evaluates the ${workspace.name} draft.`,
   });
   const draft = workspace.path(draftFolder(workspace));
-  for (const file of listFolderFiles(draft)) {
+  for (const file of regularFiles(listFolderFiles(draft))) {
     workspace.write(`${base}/skills/${workspace.name}/${file.rel}`, file.bytes.toString('utf8'));
   }
-  for (const file of listFolderFiles(workspace.path(EVALS_DIR))) {
+  for (const file of regularFiles(listFolderFiles(workspace.path(EVALS_DIR)))) {
     workspace.write(`${base}/evals/${file.rel}`, file.bytes.toString('utf8'));
   }
   return workspace.relPath(base);

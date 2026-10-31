@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import YAML from 'yaml';
@@ -7,6 +7,7 @@ import YAML from 'yaml';
 export interface HashedFile {
   rel: string;
   bytes: Buffer;
+  symlink?: string;
 }
 
 function compareText(left: string, right: string): number {
@@ -19,18 +20,26 @@ export function listFolderFiles(root: string, prefix = ''): HashedFile[] {
   for (const name of readdirSync(join(root, prefix)).sort(compareText)) {
     const rel = prefix === '' ? name : `${prefix}/${name}`;
     const stat = lstatSync(join(root, rel));
-    if (stat.isSymbolicLink()) continue;
+    if (stat.isSymbolicLink()) {
+      const target = readlinkSync(join(root, rel));
+      files.push({ rel, bytes: Buffer.from(target), symlink: target });
+      continue;
+    }
     if (stat.isDirectory()) files.push(...listFolderFiles(root, rel));
     else files.push({ rel, bytes: readFileSync(join(root, rel)) });
   }
   return files;
 }
 
+export function regularFiles(files: readonly HashedFile[]): HashedFile[] {
+  return files.filter((file) => file.symlink === undefined);
+}
+
 export function hashFiles(files: readonly HashedFile[]): string {
   const hash = createHash('sha256');
   for (const file of [...files].sort((left, right) => compareText(left.rel, right.rel))) {
     hash.update(file.rel);
-    hash.update('\u0000');
+    hash.update(file.symlink === undefined ? '\u0000' : '\u0000symlink\u0000');
     hash.update(file.bytes);
     hash.update('\u0000');
   }
@@ -68,7 +77,7 @@ export function withoutDescription(skillText: string): string {
 export function hashFolderWithoutDescription(root: string): string {
   return hashFiles(
     listFolderFiles(root).map((file) =>
-      file.rel === 'SKILL.md'
+      file.rel === 'SKILL.md' && file.symlink === undefined
         ? { rel: file.rel, bytes: Buffer.from(withoutDescription(file.bytes.toString('utf8'))) }
         : file,
     ),

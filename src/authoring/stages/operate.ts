@@ -5,7 +5,7 @@ import { readAuthoringConfig } from '../config.js';
 import { option, raiseAuthoringDecision, readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
 import { activeHost } from '../eval/adapters.js';
-import { listFolderFiles } from '../hash.js';
+import { listFolderFiles, regularFiles } from '../hash.js';
 import { SKILL_FILE } from '../paths.js';
 import { AuthoringRefusal, renderGateMarkdown, type SkillWorkspace } from '../workspace.js';
 import { draftFolder } from './draft.js';
@@ -123,7 +123,7 @@ export function resolveLearn(
   const source = installedSkillFolder(workspace)!;
   const target = draftFolder(workspace);
   if (!workspace.exists(`${target}/${SKILL_FILE}`)) {
-    for (const file of listFolderFiles(join(workspace.projectRoot, source))) {
+    for (const file of regularFiles(listFolderFiles(join(workspace.projectRoot, source)))) {
       workspace.write(`${target}/${file.rel}`, file.bytes.toString('utf8'));
     }
   }

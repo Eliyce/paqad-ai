@@ -2,7 +2,7 @@ import YAML from 'yaml';
 
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
-import { listFolderFiles } from '../hash.js';
+import { listFolderFiles, regularFiles } from '../hash.js';
 import { OPEN_SPEC_SKILL_FIELDS } from '../lint/fields.js';
 import { AuthoringRefusal, type SkillWorkspace } from '../workspace.js';
 import { quickValidateSkill, type QuickValidateResult } from './quick-validate.js';
@@ -61,7 +61,7 @@ export function buildPortableSkill(
   }
   const target = `${PORTABLE_DIR}/${workspace.name}`;
   workspace.remove(PORTABLE_DIR);
-  for (const file of listFolderFiles(sourceFolder)) {
+  for (const file of regularFiles(listFolderFiles(sourceFolder))) {
     const text = file.bytes.toString('utf8');
     workspace.write(
       `${target}/${file.rel}`,

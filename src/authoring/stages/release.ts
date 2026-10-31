@@ -1,13 +1,13 @@
 import {
   cpSync,
   existsSync,
-  lstatSync,
+  realpathSync,
   mkdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 
 import { AdapterFactory } from '@/adapters/factory.js';
 import { BaseAdapter } from '@/adapters/shared/base-adapter.js';
@@ -133,10 +133,16 @@ function nextVersion(previous: string | null, requested: string | undefined): st
 }
 
 function copyIntoHost(source: string, target: string): void {
+  const root = realpathSync(source);
   for (const file of listFolderFiles(source)) {
-    const abs = join(source, file.rel);
-    if (lstatSync(abs).isSymbolicLink()) {
-      throw new AuthoringRefusal(`Release refused: ${file.rel} is a symlink.`);
+    if (file.symlink !== undefined) {
+      throw new AuthoringRefusal(
+        `Release refused: ${file.rel} is a symlink. Copy the real file into the skill folder.`,
+      );
+    }
+    const resolved = realpathSync(join(source, file.rel));
+    if (!resolved.startsWith(`${root}${sep}`)) {
+      throw new AuthoringRefusal(`Release refused: ${file.rel} resolves outside the skill folder.`);
     }
   }
   rmSync(target, { recursive: true, force: true });

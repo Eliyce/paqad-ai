@@ -1,5 +1,13 @@
-import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, join, relative } from 'node:path';
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
+import { basename, join, relative, sep } from 'node:path';
 
 import { builtinSecretScan } from '@/codebase-health/gather.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
@@ -87,6 +95,7 @@ interface SkillFile {
   rel: string;
   text: string | null;
   lines: string[];
+  symlink?: { target: string; scannable: boolean };
 }
 
 function compareText(left: string, right: string): number {
@@ -105,7 +114,10 @@ function readTree(root: string, prefix = ''): SkillFile[] {
   for (const name of entries) {
     const rel = prefix === '' ? name : `${prefix}/${name}`;
     const stat = lstatSync(join(root, rel));
-    if (stat.isSymbolicLink()) continue;
+    if (stat.isSymbolicLink()) {
+      files.push(readSymlink(root, rel));
+      continue;
+    }
     if (stat.isDirectory()) {
       files.push(...readTree(root, rel));
       continue;
@@ -115,6 +127,29 @@ function readTree(root: string, prefix = ''): SkillFile[] {
     files.push({ rel, text, lines: text === null ? [] : text.split(/\r?\n/) });
   }
   return files;
+}
+
+function readSymlink(root: string, rel: string): SkillFile {
+  const target = readlinkSync(join(root, rel));
+  let resolved: string | null;
+  try {
+    resolved = realpathSync(join(root, rel));
+  } catch {
+    resolved = null;
+  }
+  const base = realpathSync(root);
+  const inside = resolved !== null && resolved.startsWith(`${base}${sep}`);
+  if (!inside || !statSync(resolved!).isFile()) {
+    return { rel, text: null, lines: [], symlink: { target, scannable: false } };
+  }
+  const buffer = readFileSync(resolved!);
+  const text = isBinary(buffer) ? null : buffer.toString('utf8');
+  return {
+    rel,
+    text,
+    lines: text === null ? [] : text.split(/\r?\n/),
+    symlink: { target, scannable: true },
+  };
 }
 
 function isMarkdown(rel: string): boolean {
@@ -563,6 +598,14 @@ export function lintSkillFolder(folder: string, options: SkillLintOptions): Skil
   const testDirs = skillTestDirectories(folderName);
   checkScripts(sink, files, testFilesFor(options.projectRoot, folderName));
 
+  for (const link of files.filter((file) => file.symlink?.scannable === false)) {
+    sink.block(
+      'SK-011',
+      link.rel,
+      1,
+      `A symlink to ${link.symlink!.target} that leads outside the skill folder, so it can't be scanned for secrets. Copy the real file into the folder.`,
+    );
+  }
   const textFiles = files.filter((file) => file.text !== null);
   checkSecrets(sink, [
     ...textFiles.map((file) => ({ path: file.rel, content: file.text! })),
