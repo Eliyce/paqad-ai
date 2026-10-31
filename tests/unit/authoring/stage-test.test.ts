@@ -76,7 +76,9 @@ describe('paqad-ai skill test (S4)', () => {
     const runTests = vi.fn(async () => ({ exitCode: 0, failedTests: null }));
     const result = await runSkillTest(workspace, { runTests });
     expect(result.ok).toBe(true);
-    expect(runTests).toHaveBeenCalledWith('npm test', root);
+    expect(runTests).toHaveBeenCalledWith('npm test', root, {
+      PAQAD_SKILL_UNDER_TEST: workspace.path(`draft/${NAME}`),
+    });
     const report = JSON.parse(readFileSync(workspace.path('script-tests.json'), 'utf8'));
     expect(report.gate).toBe('passed');
     expect(report.test_location).toBe(`tests/skills/${NAME}`);

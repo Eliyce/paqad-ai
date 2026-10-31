@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { execa } from 'execa';
 import { join } from 'node:path';
 
 import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
 import { readProjectProfile } from '@/core/project-profile.js';
-import { createDeliveryShell } from '@/delivery/shell.js';
+import type { DeliveryShell } from '@/delivery/runner.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readAuthoringConfig } from '../config.js';
@@ -40,16 +41,43 @@ export const RISKY_FILE = 'risky-scripts.json';
 export const ALLOW_OPTION = 'allow';
 export const REMOVE_OPTION = 'remove';
 
-export type TestCommandRunner = (command: string, cwd: string) => Promise<TestRun>;
+export const SKILL_UNDER_TEST_ENV = 'PAQAD_SKILL_UNDER_TEST';
 
-export async function defaultTestRunner(command: string, cwd: string): Promise<TestRun> {
+export type TestCommandRunner = (
+  command: string,
+  cwd: string,
+  env: Record<string, string>,
+) => Promise<TestRun>;
+
+function shellWithEnv(cwd: string, env: Record<string, string>): DeliveryShell {
+  return {
+    async run(command, args) {
+      const result = await execa(command, args, {
+        cwd,
+        env: { ...process.env, ...env },
+        reject: false,
+      });
+      return {
+        stdout: String(result.stdout ?? ''),
+        stderr: String(result.stderr ?? ''),
+        exitCode: typeof result.exitCode === 'number' ? result.exitCode : 1,
+      };
+    },
+  };
+}
+
+export async function defaultTestRunner(
+  command: string,
+  cwd: string,
+  env: Record<string, string> = {},
+): Promise<TestRun> {
   const parsed = parseCommandChain(command);
   if (!parsed.ok) {
     throw new AuthoringRefusal(
       `the project test command "${command}" holds "${parsed.invalidToken}", which skill test does not run.`,
     );
   }
-  const result = await runCommandChain(createDeliveryShell(cwd), parsed.steps, cwd);
+  const result = await runCommandChain(shellWithEnv(cwd, env), parsed.steps, cwd);
   return { exitCode: result.exitCode, failedTests: null };
 }
 
@@ -228,7 +256,9 @@ export async function runSkillTest(
           "Propose adding the stack's default test runner.",
       );
     }
-    run = await (options.runTests ?? defaultTestRunner)(command, projectRoot);
+    run = await (options.runTests ?? defaultTestRunner)(command, projectRoot, {
+      [SKILL_UNDER_TEST_ENV]: folder,
+    });
   }
   const reports = readScriptTestResults({ projectRoot, location, scripts, run });
   const scriptsPass = scriptReportsPass(reports);

@@ -31,8 +31,10 @@ env:
 #   discovery-plugin  the product-owner discovery skills under plugins/discovery: their Python
 #           tests and checks on Python 3.9, every host build, and a check that the skills
 #           committed under runtime/claude-plugin/skills match a fresh build
+#   skill-e2e-laravel  the Laravel half of the skill orchestrator e2e, with a pinned PHP and Composer
 #   gate    one job per required check, under the exact names branch protection expects,
-#           red unless scope, static, every test shard, every merge and discovery-plugin succeeded;
+#           red unless scope, static, every test shard, every merge, discovery-plugin and
+#           skill-e2e-laravel succeeded;
 #           test and merge may be skipped only when scope said so
 #
 # Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
@@ -338,10 +340,52 @@ jobs:
           fi
           echo "runtime/claude-plugin/skills matches a fresh build of plugins/discovery."
 
+  skill-e2e-laravel:
+    name: Skill e2e (Laravel)
+    # The one job that runs the Laravel half of tests/e2e/skill-orchestrator.e2e.test.ts. It installs
+    # the fixture's composer packages before the tests start, so the test itself never reaches the
+    # network. Every test shard above has no fixture vendor folder and skips that half with a reason.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP 8.3 with Composer 2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Cache the fixture's composer packages
+        uses: actions/cache@v4
+        with:
+          path: tests/fixtures/authoring/laravel-project/vendor
+          key: skill-laravel-vendor-${{ hashFiles('tests/fixtures/authoring/laravel-project/composer.json') }}
+
+      - name: Install the fixture's composer packages
+        working-directory: tests/fixtures/authoring/laravel-project
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the skill orchestrator e2e
+        run: pnpm exec vitest run tests/e2e/skill-orchestrator.e2e.test.ts
+
   gate:
     # These four names are the required status checks in branch protection. Keep them exact.
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
-    needs: [scope, static, test, merge, discovery-plugin]
+    needs: [scope, static, test, merge, discovery-plugin, skill-e2e-laravel]
     # Always runs: a job skipped because a dependency failed would count as passing, so the
     # gate runs anyway and fails unless every job it needs succeeded. GitHub reports a matrix
     # job's result as one value for all its legs, so a failing shard on any OS turns all four
@@ -357,7 +401,7 @@ jobs:
           - { os: macos-latest, node: 22 }
           - { os: windows-latest, node: 22 }
     steps:
-      - name: Require scope, static checks, every test shard, every merge and the discovery plugin to pass
+      - name: Require scope, static checks, every test shard, every merge, the discovery plugin and the Laravel skill e2e to pass
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
