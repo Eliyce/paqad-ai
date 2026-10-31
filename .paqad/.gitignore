@@ -4,6 +4,7 @@
 framework-version.txt
 cache/
 session/
+locks/
 context/
 vectors/
 secrets.env

@@ -180,6 +180,7 @@ describe('FrameworkUpdater', () => {
     const text = readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8');
     const block = text.slice(text.indexOf(begin), text.indexOf(end));
     expect(block.split('\n')).toContain('.agent-entry-loaded.d/');
+    expect(block.split('\n')).toContain('locks/');
     expect(block.split('\n')).toContain('vectors/');
     expect(text.startsWith(before)).toBe(true);
     expect(text.endsWith(after)).toBe(true);

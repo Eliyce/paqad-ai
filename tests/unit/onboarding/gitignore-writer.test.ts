@@ -61,6 +61,25 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('scripts/rules/.history/');
   });
 
+  it('ignores the per-machine lock directory', () => {
+    writeGitignore(projectRoot);
+
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('locks/');
+  });
+
+  it('leaves git status clean after a session writes a lock marker', () => {
+    gitInit(projectRoot);
+    writeGitignore(projectRoot);
+    execFileSync('git', ['add', '-A'], { cwd: projectRoot, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'onboard'], { cwd: projectRoot, stdio: 'ignore' });
+
+    mkdirSync(join(projectRoot, '.paqad/locks'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/locks/rule-context.marker'), '1');
+
+    const status = execFileSync('git', ['status', '--short'], { cwd: projectRoot }).toString();
+    expect(status).toBe('');
+  });
+
   it('ignores per-machine runtime state created on first use of later workflows', () => {
     writeGitignore(projectRoot);
 
