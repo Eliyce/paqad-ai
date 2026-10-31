@@ -31,7 +31,7 @@ describe('doctor: skill authoring settings', () => {
     expect(results[0]?.status).toBe('pass');
   });
 
-  it('warns once per out-of-range key, naming the key, the value and the range', () => {
+  it('AC-41: warns once per out-of-range key, naming the key, the value and the range', () => {
     const results = run('authoring_collision_jaccard=2\nauthoring_max_iterations=0\n');
     expect(results.map((result) => result.status)).toEqual(['warning', 'warning']);
     expect(results[0]?.detail).toContain('authoring_max_iterations=0');

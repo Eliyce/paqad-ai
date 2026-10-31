@@ -45,6 +45,7 @@ paqad-ai's modules live in three layers:
 | capability-model           | Capability Model (content / coding / security) | [↗](../../modules/capability-model/index/summary.md) |
 | workflow-engine            | Workflow Engine                        | [↗](../../modules/workflow-engine/index/summary.md) |
 | skill-runtime              | Skill Runtime                          | [↗](../../modules/skill-runtime/index/summary.md) |
+| authoring                  | Skill and Agent Authoring              | [↗](../../modules/authoring/index/summary.md) |
 | agent-runtime              | Built-in Agent Roles (20)              | [↗](../../modules/agent-runtime/index/summary.md) |
 | rules-runtime              | Rules Bundle                           | [↗](../../modules/rules-runtime/index/summary.md) |
 | template-engine            | Template Engine                        | [↗](../../modules/template-engine/index/summary.md) |

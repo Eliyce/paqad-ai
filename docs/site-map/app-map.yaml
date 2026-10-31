@@ -481,6 +481,20 @@ surfaces:
       - file: src/cli/commands/checks.ts
         line: 16
     trust: proven-in-code
+  - id: node-cli-skill
+    kind: cli-command
+    label: Take a new or edited skill through its gated pipeline, from justify to release
+    entry:
+      kind: bin
+      value: skill
+    area: feature-dev
+    module: authoring
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/skill.ts
+        line: 473
+    trust: proven-in-code
   - id: node-cli-compile
     kind: cli-command
     label: Compile the active feature plan.json from a filled JSON template

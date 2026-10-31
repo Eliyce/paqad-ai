@@ -258,6 +258,13 @@ state on its own.
   Blocking a SubagentStop is undocumented on Claude, so it always exits 0. High Table seats are not
   stages, so their tokens are read from their own transcript into `high-table.jsonl`, wrapped
   separately so a failure never changes the hook's result.
+- **`skill-activation.mjs` (PostToolUse, Claude Code only, matcher `Skill|Read`).** Appends
+  `{skill, request_id, session_id, at, source}` to `.paqad/ledger/authoring/activations.jsonl` when
+  the Skill tool fires or a SKILL.md is read, taking the name from the tool input only. It decides
+  "not a SKILL.md read" from the stdin path before importing anything, records nothing while paqad
+  or `skill_orchestrator_enabled` is off or the repo is not onboarded, prints nothing and always
+  exits 0. Codex has no matching event, so the catalog reports `activation data: none` there. See
+  the [authoring module](../../authoring/index/summary.md).
 - **`verification-completion.mjs` (Stop).** Runs on Claude Code and Codex, which share the same
   Stop semantics. It soft-fails on infra errors; the git and CI backstop is the hard layer. It
   resolves the project root through the shared helper, because a raw `process.cwd()` missed the

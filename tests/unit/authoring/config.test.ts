@@ -94,7 +94,7 @@ describe('authoringConfigProblems', () => {
     expect(authoringConfigProblems(root, NO_ENV)).toEqual([]);
   });
 
-  it('names the key, the value and the allowed range for each out-of-range value', () => {
+  it('AC-41: names the key, the value and the allowed range for each out-of-range value', () => {
     const root = project(
       [
         'skill_orchestrator_enabled=maybe',
