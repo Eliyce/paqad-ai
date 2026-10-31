@@ -415,7 +415,7 @@ describe('S6 trigger plan and record', () => {
     ]);
     expect(file.iterations[1].discarded).toBe(true);
     expect(readFileSync(workspace.path(`draft/${NAME}/SKILL.md`), 'utf8')).toContain(
-      `description: ${JSON.stringify(chosen)}`,
+      `description: ${chosen}\n`,
     );
     expect(file.inputs_hash).toMatch(/^sha256:/);
   });
