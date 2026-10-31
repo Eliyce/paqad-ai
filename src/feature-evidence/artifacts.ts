@@ -9,7 +9,12 @@ import { openVisualEvidenceReadinessPause } from '@/visual-evidence/readiness.js
 import { documentSessionId, stampFeatureDocument } from './bundle-document.js';
 import { buildTextHeader, renderFrontMatter } from './envelope.js';
 import { updateFeatureRecord } from './feature-record.js';
-import { planFiles, planLaneResize, raiseLaneIfGrown } from './lane-resize.js';
+import {
+  planFiles,
+  planLaneResize,
+  raiseLaneForAuthoring,
+  raiseLaneIfGrown,
+} from './lane-resize.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import {
   FEATURE_BUNDLE_FILES,
@@ -30,6 +35,7 @@ import {
   FEATURE_DOC_SCHEMA_VERSION,
   SPECIFICATION_DOC_TYPE,
   SPEC_SOURCE_DOC_TYPE,
+  type FeatureAuthoringLaneRaise,
   type FeatureLaneMove,
   type PlanRecord,
   type PlanRisk,
@@ -97,6 +103,7 @@ export interface CompiledArtifact<T> {
   readinessDecision?: string | null;
   laneResized?: FeatureLaneMove | null;
   laneRaised?: FeatureLaneMove | null;
+  laneRaisedForAuthoring?: FeatureAuthoringLaneRaise | null;
 }
 
 export interface WriteFeaturePlanOptions {
@@ -177,6 +184,13 @@ export function writeFeaturePlan(
     changesKnown: options.changedFiles !== undefined && options.gitReadable !== false,
     now: input.now,
   });
+  const laneRaisedForAuthoring = raiseLaneForAuthoring({
+    projectRoot,
+    dirName,
+    plannedFiles: planFiles(input.steps),
+    changedFiles: options.changedFiles ?? [],
+    now: input.now,
+  });
   const laneRaised = laneResized
     ? null
     : raiseLaneIfGrown({
@@ -217,6 +231,7 @@ export function writeFeaturePlan(
     readinessDecision,
     laneResized,
     laneRaised,
+    laneRaisedForAuthoring,
   };
 }
 

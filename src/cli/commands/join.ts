@@ -6,14 +6,14 @@ import { confirm } from '@inquirer/prompts';
 import { Command } from 'commander';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
+import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
-import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
-import type { OnboardingManifest } from '@/core/types/onboarding.js';
+import type { AdapterType } from '@/core/types/adapter.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
 import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
@@ -117,16 +117,7 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   process.stdout.write(`${JOIN_READY_MESSAGE}\n`);
 }
 
-export function deriveRecordedProviders(manifest: OnboardingManifest): AdapterType[] {
-  const artifactPaths = new Set(
-    manifest.generated_artifacts.map((artifact) => artifact.path.replaceAll('\\', '/')),
-  );
-  const recorded = ADAPTER_TYPES.filter((type) => {
-    const configPath = AdapterFactory.create(type).getConfigPath().replaceAll('\\', '/');
-    return artifactPaths.has(configPath);
-  });
-  return [manifest.adapter, ...recorded.filter((type) => type !== manifest.adapter)];
-}
+export { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 
 async function recreateLocalArtifacts(
   projectRoot: string,

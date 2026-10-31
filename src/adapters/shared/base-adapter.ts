@@ -44,6 +44,9 @@ export abstract class BaseAdapter implements AdapterInterface {
   getMcpPath(): string {
     return this.mcpOutputPath();
   }
+  getSkillsRoot(): string {
+    return this.skillsRoot();
+  }
 
   async generateConfig(context: AdapterContext): Promise<GeneratedFile[]> {
     const files: GeneratedFile[] = [

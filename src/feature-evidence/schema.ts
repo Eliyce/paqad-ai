@@ -85,6 +85,19 @@ const laneMove = {
   },
 } as const;
 
+const authoringLaneRaise = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['from', 'to', 'reason', 'path', 'at'],
+  properties: {
+    from: { enum: ['fast', 'graduated', 'full'] },
+    to: { enum: ['fast', 'graduated', 'full'] },
+    reason: { type: 'string', minLength: 1 },
+    path: { type: 'string', minLength: 1 },
+    at: { type: 'string', minLength: 1 },
+  },
+} as const;
+
 const FEATURE_SCHEMA_V1 = {
   type: 'object',
   additionalProperties: false,
@@ -158,6 +171,7 @@ export const FEATURE_SCHEMA = versionedSchema(
       lane_source: { enum: ['classifier', 'manual', 'plan'] },
       lane_resized: laneMove,
       lane_raised: laneMove,
+      lane_raised_for_authoring: authoringLaneRaise,
     },
   ),
 );

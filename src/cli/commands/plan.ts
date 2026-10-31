@@ -51,7 +51,7 @@ export function laneResizedLine(move: FeatureLaneMove): string {
   return `**▸ paqad** · lane set to ${move.to} from ${move.from}: ${move.reason}`;
 }
 
-export function laneRaisedLine(move: FeatureLaneMove): string {
+export function laneRaisedLine(move: Pick<FeatureLaneMove, 'from' | 'to' | 'reason'>): string {
   return `**▸ paqad** · lane raised to ${move.to} from ${move.from}: ${move.reason}`;
 }
 
@@ -142,6 +142,9 @@ export function createPlanCommand(): Command {
       if (result.laneResized) {
         console.log(laneResizedLine(result.laneResized));
       }
+      if (result.laneRaisedForAuthoring) {
+        console.log(laneRaisedLine(result.laneRaisedForAuthoring));
+      }
       if (result.laneRaised) {
         console.log(laneRaisedLine(result.laneRaised));
       }
@@ -154,6 +157,9 @@ export function createPlanCommand(): Command {
           ...(result.readinessDecision ? { readiness_decision: result.readinessDecision } : {}),
           ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
           ...(result.laneResized ? { lane_resized: result.laneResized } : {}),
+          ...(result.laneRaisedForAuthoring
+            ? { lane_raised_for_authoring: result.laneRaisedForAuthoring }
+            : {}),
           ...(result.laneRaised ? { lane_raised: result.laneRaised } : {}),
         }),
       );

@@ -1,8 +1,10 @@
+import { skillOrchestratorEnabled } from '@/authoring/config.js';
+import { findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
 import { readPendingImpact, type PendingImpact } from '@/stage-evidence/pending-lane.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 
 import { readFeatureRecord, updateFeatureRecord } from './feature-record.js';
-import type { FeatureLaneMove, PlanStep } from './types.js';
+import type { FeatureAuthoringLaneRaise, FeatureLaneMove, PlanStep } from './types.js';
 
 export const SMALL_CHANGE_MAX_FILES = 8;
 
@@ -99,7 +101,8 @@ function raiseFacts(input: LaneRaiseInput): { reason: string; files: number } | 
 
 export function laneMayRise(projectRoot: string, dirName: string): boolean {
   const record = readFeatureRecord(projectRoot, dirName);
-  return record?.lane_source === 'plan' && record.lane === 'graduated' && !record.lane_raised;
+  if (record?.lane !== 'graduated' || record.lane_raised) return false;
+  return record.lane_source === 'plan' || record.lane_raised_for_authoring !== undefined;
 }
 
 export function raiseLaneIfGrown(input: LaneRaiseInput): FeatureLaneMove | null {
@@ -114,4 +117,29 @@ export function raiseLaneIfGrown(input: LaneRaiseInput): FeatureLaneMove | null 
     input.now,
   );
   return written?.lane_raised?.at === at ? written.lane_raised : null;
+}
+
+export function authoringRaiseReason(path: string): string {
+  return (
+    `the change creates or edits a skill (${path}), so the Skill Orchestrator sits at the ` +
+    'High Table.'
+  );
+}
+
+export function raiseLaneForAuthoring(input: LaneRaiseInput): FeatureAuthoringLaneRaise | null {
+  const record = readFeatureRecord(input.projectRoot, input.dirName);
+  if (record?.lane !== 'fast' || record.lane_raised_for_authoring !== undefined) return null;
+  if (!skillOrchestratorEnabled(input.projectRoot)) return null;
+  const context = readSkillPathContext(input.projectRoot);
+  const candidates = [...new Set([...input.plannedFiles, ...editedFiles(input.changedFiles)])];
+  const path = findSkillPaths(candidates, context.adapters, context)[0];
+  if (path === undefined) return null;
+  const at = (input.now ?? (() => new Date()))().toISOString();
+  const written = updateFeatureRecord(
+    input.projectRoot,
+    input.dirName,
+    { raiseLaneForAuthoring: { reason: authoringRaiseReason(path), path, at } },
+    input.now,
+  );
+  return written?.lane_raised_for_authoring?.at === at ? written.lane_raised_for_authoring : null;
 }
