@@ -160,6 +160,7 @@ export interface S5GateInput {
   adapter: string;
   minGainPoints: number;
   maxTokenMultiple: number;
+  improve?: { regressionTolerance: number } | null;
   subjective?: { preferred: Array<'new' | 'old' | 'tie'> } | null;
 }
 
@@ -177,6 +178,13 @@ export function judgeS5Gate(input: S5GateInput): S5GateResult {
       input.subjective.preferred.length > 0 &&
       input.subjective.preferred.every((choice) => choice === 'new');
     if (!all) reasons.push('the blind comparator did not prefer the new version on every case');
+  } else if (input.improve) {
+    const floor = -Math.round(input.improve.regressionTolerance * 10000) / 100;
+    if (!meetsThreshold(input.summary.delta_points, floor)) {
+      reasons.push(
+        `the pass rate fell ${-input.summary.delta_points} points below the old version; an edit may fall at most ${-floor}`,
+      );
+    }
   } else if (!meetsThreshold(input.summary.delta_points, input.minGainPoints)) {
     reasons.push(
       `the pass rate gained ${input.summary.delta_points} points over the baseline; it needs ${input.minGainPoints}`,

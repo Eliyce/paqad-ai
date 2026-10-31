@@ -8,6 +8,6 @@ verified: 2026-10-31
 4. Write the assertions after the first outputs exist. Grade mechanical ones by script and the rest with the grader brief.
 5. Run `paqad-ai skill eval record <name>`. It refuses a partial iteration and names the missing runs.
 
-The gate passes on a pass-rate gain of at least the configured points over the baseline (for a subjective skill, the blind comparator prefers the revised skill on every case) and median tokens within the configured multiple. Where the host reports no tokens, the token checks are recorded as not measured.
+For a new skill the gate passes on a pass-rate gain of at least `skill_eval_min_gain_points` over the baseline (for a subjective skill, the blind comparator prefers the revised skill on every case). In improve mode it passes when the pass rate falls no more than `authoring_regression_tolerance` (a share: 0.2 is 20 points) below the old skill, so an edit that keeps the behaviour the same can pass. Both need median tokens within the configured multiple. Where the host reports no tokens, the token checks are recorded as not measured.
 
 Revise from the feedback: generalise, cut what does not pull its weight, explain the why, bundle a helper written twice. Each revision is a new iteration. The loop stops on empty feedback (`--feedback-empty`), after two iterations with no improvement, or at the iteration cap.

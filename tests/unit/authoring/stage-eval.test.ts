@@ -163,6 +163,19 @@ describe('S5 eval record on subagent dispatch', () => {
     }
   });
 
+  it('improve mode passes an edit with no gain over the old skill', async () => {
+    host('codex-cli');
+    const workspace = workspaceAtS5();
+    workspace.writeJson('mode.json', { entry: 'improve', source: '.claude/skills/x' });
+    const runs = planned(workspace);
+    expect(new Set(runs.map((entry) => entry.arm))).toEqual(new Set(['with_skill', 'old_skill']));
+    for (const entry of runs) writeRun(workspace, entry, true);
+    const result = await runEvalRecord(workspace);
+    expect(result.ok).toBe(true);
+    const benchmark = JSON.parse(readFileSync(workspace.path('benchmark.json'), 'utf8'));
+    expect(benchmark).toMatchObject({ gate: 'passed', delta_points: 0 });
+  });
+
   it('AC-44, AC-63: an interrupted iteration is partial, never aggregated, and status says how to resume', async () => {
     host('codex-cli');
     const workspace = workspaceAtS5();

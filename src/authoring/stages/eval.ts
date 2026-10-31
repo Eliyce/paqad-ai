@@ -557,6 +557,10 @@ export async function runEvalRecord(
     adapter: plan.adapter.adapter,
     minGainPoints: config.skill_eval_min_gain_points,
     maxTokenMultiple: config.skill_eval_max_token_multiple,
+    improve:
+      baselineArm === 'old_skill'
+        ? { regressionTolerance: config.authoring_regression_tolerance }
+        : null,
     subjective,
   });
   const previous =

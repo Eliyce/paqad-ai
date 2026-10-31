@@ -1109,7 +1109,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'S8: how far (0 to 1) a re-eval of a skill in use may fall below its recorded result before it fails.',
+      'S5 in improve mode and S8: how far (0 to 1) the pass rate of an edited or re-evaluated skill may fall below the old version before it fails.',
   },
   {
     key: 'authoring_dark_window_days',

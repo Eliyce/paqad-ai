@@ -136,6 +136,36 @@ describe('the S5 gate', () => {
     ]);
   });
 
+  it('improve mode passes without a gain and fails past the regression tolerance', () => {
+    const judge = (delta: number, multiple = 1) =>
+      judgeS5Gate({
+        summary: { ...base, delta_points: delta, token_multiple: multiple },
+        adapter: 'subagent-dispatch',
+        minGainPoints: 10,
+        maxTokenMultiple: 2,
+        improve: { regressionTolerance: 0.2 },
+      });
+    expect(judge(0).passed).toBe(true);
+    expect(judge(5.56).passed).toBe(true);
+    expect(judge(-20).passed).toBe(true);
+    expect(judge(-20.01).passed).toBe(false);
+    expect(judge(-20.01).reasons).toEqual([
+      'the pass rate fell 20.01 points below the old version; an edit may fall at most 20',
+    ]);
+    expect(judge(0, 2.01).passed).toBe(false);
+  });
+
+  it('a new skill still needs the gain when no improve tolerance is given', () => {
+    const result = judgeS5Gate({
+      summary: { ...base, delta_points: 5.56, token_multiple: 1 },
+      adapter: 'subagent-dispatch',
+      minGainPoints: 10,
+      maxTokenMultiple: 2,
+      improve: null,
+    });
+    expect(result.passed).toBe(false);
+  });
+
   it('EC-02: a subjective skill passes only when the comparator prefers the new version on every case', () => {
     const judge = (preferred: Array<'new' | 'old' | 'tie'>) =>
       judgeS5Gate({

@@ -89,7 +89,7 @@ const KNOB_CONSUMERS: Record<string, string> = {
   skill_body_max_tokens: 'skill lint SK-008 (body token limit)',
   authoring_tool_result_max_tokens: 'skill pipeline S5 analyst (oversize tool results)',
   authoring_cache_hit_min: 'skill pipeline S5 analyst (cache-hit defect)',
-  authoring_regression_tolerance: 'skill pipeline S8 regression gate',
+  authoring_regression_tolerance: 'skill pipeline S5 improve-mode gate + S8 regression gate',
   authoring_dark_window_days: 'skill catalog (dark skills) + activation log bound',
   authoring_batch_mode: 'skill pipeline S6 trigger plan (batch sweep)',
   authoring_run_max_cost_usd: 'skill pipeline S5/S6 plans (--max-cost-usd spend cap)',
