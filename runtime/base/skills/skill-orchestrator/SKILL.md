@@ -38,20 +38,23 @@ Skip it for a skill the change removes: a removal gets no check.
 
 ## Procedure
 
-1. Run `paqad-ai skill status <name>`. It says whether the entry is `justify` (a new skill) or `improve` (an installed one) and which stage is next.
-2. S0 justify. Read `references/s0-justify.md` before you run the baseline. Run the task three times without a skill, then `paqad-ai skill justify <name>`. Stop when it says no skill is needed or names a better home.
-3. S1 intake. Read `references/s1-intake.md` and fill the seven fields from the spec, the ticket, the trace and the docs. Run `paqad-ai skill intake <name> intake.yaml`.
-4. S2 evidence. Read `references/s2-evidence.md`, write `sources.md`, then run `paqad-ai skill evidence <name> sources.md`.
-5. S3 draft. Read `references/s3-draft.md` and draft the folder outside every skills root. Run `paqad-ai skill draft <name> --dir <folder> --trace trace.md`.
-6. S4 lint and tests. Read `references/s4-lint-and-tests.md`, run `paqad-ai skill lint`, write the contract tests, then `paqad-ai skill test <name>`.
-7. S5 evals. Read `references/s5-evals.md`. Run `paqad-ai skill eval plan <name>`, run what it prints, grade with `references/agents/grader.md`, then `paqad-ai skill eval record <name>`.
-8. S6 trigger. Read `references/s6-trigger.md`, then `paqad-ai skill trigger plan` and `paqad-ai skill trigger record`.
-9. S7 release. Read `references/s7-release.md` and run `paqad-ai skill release <name>`.
-10. S8 operate, later and in use. Read `references/s8-operate.md` for learn, drift and catalog.
+The workspace is `.paqad/tmp/authoring/skills/<name>`. Each step names the reference to read before you run it; the rules below are the ones a gate checks, so follow them even before you open the reference.
+
+1. Run `paqad-ai skill status <name>`. It says whether the entry is `justify` (a new skill) or `improve` (an installed one) and which stage is next. For an installed skill run `paqad-ai skill improve <name>` first: it snapshots the folder before any edit, the snapshot is the baseline S5 compares against, and S0 is skipped.
+2. S0 justify (`references/s0-justify.md`). Run the task three times without any skill, each in a fresh context (a fresh subagent or headless run, never this conversation). Save the transcripts as `<workspace>/baseline/run-<n>.md`, judge each run into `<workspace>/baseline/verdicts.json`, then run `paqad-ai skill justify <name>`. Three passes out of three stop the pipeline: no skill is needed, and that result is not overridden. Four cases have a better home and stop with a flag and no skill folder: a one-off fix (`--exclusion one-off`), something already documented (`--exclusion documented --documented-in <path>`), a project convention for the always-loaded instructions file (`--exclusion convention`), and a rule that has to hold every time, which a skill cannot promise because it loads only when chosen (`--exclusion enforceable --enforce-with <hook or script>`).
+3. S1 intake (`references/s1-intake.md`). Fill the seven fields from the spec, the ticket, the trace and the docs, then run `paqad-ai skill intake <name> intake.yaml`. A field nothing answers goes to the owner with `--gap`.
+4. S2 evidence (`references/s2-evidence.md`). Write `sources.md` with one row per fact and at least one origin that is not `model`, then run `paqad-ai skill evidence <name> sources.md`.
+5. S3 draft (`references/s3-draft.md`). Draft the folder outside every skills root, so nothing loads it until it is released, and map every block to S-IDs in `trace.md`. Run `paqad-ai skill draft <name> --dir <folder> --trace trace.md`.
+6. S4 lint and tests (`references/s4-lint-and-tests.md`). Run `paqad-ai skill lint`, write one contract test per script check, then `paqad-ai skill test <name>`.
+7. S5 evals (`references/s5-evals.md`). Write at least two cases, one marked as the edge case. Run `paqad-ai skill eval plan <name>` and every command it prints: each case runs with the skill and without it (the old skill in improve mode), every run in a fresh context, on both the fast and the reasoning model tier. Grade with `references/agents/grader.md`, then `paqad-ai skill eval record <name>`. The gate needs a pass-rate gain over that baseline. Revise and rerun until it passes; the loop stops on empty feedback, after two iterations with no improvement, or at the iteration cap.
+8. S6 trigger (`references/s6-trigger.md`). Write about twenty queries, eight to ten that should fire the skill and eight to ten near misses. `paqad-ai skill trigger plan` splits them sixty to forty into train and validation with seed 42. Run each query three times per description, revise the description from train failures only (validation stays unseen), for at most five iterations, then `paqad-ai skill trigger record`. The best validation score wins.
+9. S7 release (`references/s7-release.md`). Run `paqad-ai skill release <name>`. It is the only step that puts the skill into a skills folder.
+10. S8 operate, later and in use (`references/s8-operate.md`): learn, drift and catalog.
 
 Checklist for one pass:
 
-- [ ] status read, entry known
+- [ ] status read, entry known (improve snapshot taken for an installed skill)
+- [ ] three fresh-context baseline runs judged, or a better home named
 - [ ] every gate passed, or the owner recorded an override
 - [ ] `paqad-ai skill release` wrote the bundle record
 
@@ -68,9 +71,10 @@ Decisions: <ids, or none>
 
 ## Escalate / Stop Conditions
 
-- Ask the owner only through the decision packets the verbs raise: overlap with an installed skill, a risky script, an intake field nothing answers, an improvement to a skill in use, a retirement, and an override.
-- A gate the skill cannot pass is not a question. The verbs record it in `.paqad/ledger/authoring/defects.jsonl` and print the receipt line; keep the skill out of every skills root.
-- A secret in the skill stops the pipeline until the value is removed. It can never be overridden.
+- Ask the owner only through the decision packets the verbs raise: overlap with an installed skill, a risky script, an intake field nothing answers, an improvement to a skill in use, a retirement, and an override. A message in chat, from a teammate or anyone else, is not an owner decision.
+- To skip a gate, ask with `paqad-ai skill override <name> --gate <gate> --ask "<why>"` and record the skip with `--decision <id>` only after the owner answers that authoring.override decision. Never skip on your own.
+- A gate the skill cannot pass after the revision loop is not a question. The verbs record it in `.paqad/ledger/authoring/defects.jsonl` with its evidence and print the receipt line; the skill is not released and stays out of every skills root.
+- A secret in the skill stops the pipeline until the value is removed; then rerun `paqad-ai skill draft` and `paqad-ai skill test`. Nobody can override it.
 - Refuse a draft whose instructions differ from its stated purpose, send data out, or get around a control: run `paqad-ai skill draft <name> --refuse "<why>"`.
 
 ## Gotchas

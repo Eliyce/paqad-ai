@@ -2,9 +2,9 @@
 
 verified: 2026-10-31
 
-1. Write at least two cases under `evals/<case>/` in the workspace, each with `prompt.md`, and mark one edge case with `edge: true` in its `case.yaml`.
+1. Write at least two cases under `evals/<case>/` in the workspace, each with `prompt.md` and one grader file per criterion under `evals/<case>/graders/`, and mark one edge case with `edge: true` in its `case.yaml`. claude plugin eval reads that file too, so give it `schema_version: "1.0"` and `name: <case>` as well.
 2. Run `paqad-ai skill eval plan <name>`. It picks the adapter (claude plugin eval, subagent dispatch, or none), writes the case folders and prints the exact commands per model tier, with the run count and the worst-case spend.
-3. Run what it prints. Every run starts in a fresh context. For subagent dispatch, save `outputs/`, `transcript.md`, `grading.json` and `timing.json` (tokens, duration, model) in each run folder as soon as the run reports.
+3. Run what it prints. Every run starts in a fresh context. For subagent dispatch, save an outputs folder, `transcript.md`, `grading.json` and `timing.json` (tokens, duration, model) in each run folder as soon as the run reports.
 4. Write the assertions after the first outputs exist. Grade mechanical ones by script and the rest with the grader brief.
 5. Run `paqad-ai skill eval record <name>`. It refuses a partial iteration and names the missing runs.
 

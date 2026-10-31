@@ -15,7 +15,7 @@ Grade one S5 run: decide for each assertion whether the run's outputs back it, w
 ## Tools
 
 - The case prompt and its assertions
-- The run's `outputs/` folder and transcript
+- The run's outputs folder and its transcript
 
 ## Instructions
 
