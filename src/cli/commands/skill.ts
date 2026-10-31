@@ -23,6 +23,8 @@ import { skillStatus } from '@/authoring/stages/status.js';
 import { runSkillTest } from '@/authoring/stages/test.js';
 import { runEvalPlan, runEvalRecord } from '@/authoring/stages/eval.js';
 import { runTriggerPlan, runTriggerRecord } from '@/authoring/stages/trigger.js';
+import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
+import { runRelease } from '@/authoring/stages/release.js';
 import { AuthoringRefusal, SkillWorkspace } from '@/authoring/workspace.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
@@ -82,12 +84,15 @@ interface VerbOptions {
 const OFF_LINE =
   'The Skill Orchestrator is off (skill_orchestrator_enabled=false), so the skill pipeline does not run.';
 
-function changeKey(projectRoot: string, session?: string): string | null {
-  const sessionId = resolveSessionId(
+function sessionFor(projectRoot: string, session?: string): string {
+  return resolveSessionId(
     projectRoot,
     session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
   );
-  const dir = currentFeature(projectRoot, sessionId);
+}
+
+function changeKey(projectRoot: string, session?: string): string | null {
+  const dir = currentFeature(projectRoot, sessionFor(projectRoot, session));
   return dir === null ? null : (parseFeatureDirName(dir)?.ulid ?? null);
 }
 
@@ -341,6 +346,59 @@ function addEvalVerbs(command: Command): void {
   );
 }
 
+function addReleaseVerbs(command: Command): void {
+  withCommon(
+    command
+      .command('release')
+      .description(
+        'S7: refuse unless every gate passed or holds an override, then copy the skill into the host ' +
+          'skills folder, write evidence.json and CHANGELOG.md, and record skill-<name>.json in the bundle',
+      )
+      .argument('<name>', 'The skill name')
+      .option('--version <x.y.z>', 'The version to release (default: 1.0.0, then the next minor)')
+      .option('--portable', 'Also write a portable copy for claude.ai or the Skills API'),
+  ).action((name: string, options: VerbOptions & { version?: string; portable?: boolean }) =>
+    runVerb(name, options, (workspace, projectRoot) =>
+      runRelease(workspace, {
+        version: options.version,
+        portable: options.portable === true,
+        sessionId: sessionFor(projectRoot, options.session),
+      }),
+    ),
+  );
+
+  withCommon(
+    command
+      .command('override')
+      .description(
+        'Record an owner-approved skip of one gate from a resolved authoring.override decision, ' +
+          'or ask for one with --ask. A secret (SK-011) can never be skipped.',
+      )
+      .argument('<name>', 'The skill name')
+      .requiredOption('--gate <gate>', 'The gate to skip, S0 to S6')
+      .option('--decision <id>', 'The resolved authoring.override decision')
+      .option('--ask <why>', 'Ask the owner for the override, saying why'),
+  ).action(
+    (name: string, options: VerbOptions & { gate: string; decision?: string; ask?: string }) =>
+      runVerb(name, options, (workspace, projectRoot) => {
+        if (options.ask !== undefined) {
+          return askForOverride(workspace, {
+            gate: options.gate,
+            why: options.ask,
+            change: changeKey(projectRoot, options.session),
+          });
+        }
+        if (options.decision === undefined) {
+          throw new AuthoringRefusal(
+            'override needs --decision <id>, or --ask <why> to ask for one.',
+            2,
+          );
+        }
+        return recordOverride(workspace, { gate: options.gate, decision: options.decision });
+      }),
+  );
+}
+
 export function createSkillCommand(): Command {
   const command = new Command('skill').description(
     'Prove a new or edited skill through its gated pipeline before it is added',
@@ -361,6 +419,7 @@ export function createSkillCommand(): Command {
 
   addPipelineVerbs(command);
   addEvalVerbs(command);
+  addReleaseVerbs(command);
 
   return command;
 }

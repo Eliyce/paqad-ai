@@ -7,7 +7,7 @@ import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 import { openVisualEvidenceReadinessPause } from '@/visual-evidence/readiness.js';
 
 import { documentSessionId, stampFeatureDocument } from './bundle-document.js';
-import { buildTextHeader, renderFrontMatter } from './envelope.js';
+import { buildDocumentEnvelope, buildTextHeader, renderFrontMatter } from './envelope.js';
 import { updateFeatureRecord } from './feature-record.js';
 import {
   planFiles,
@@ -19,6 +19,7 @@ import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import {
   FEATURE_BUNDLE_FILES,
   featureChangeKey,
+  featureDir,
   featureFilePath,
   parseFeatureDirName,
 } from './paths.js';
@@ -345,4 +346,84 @@ export function writeFeatureReview(
 
 export function readFeatureReview(projectRoot: string, dirName: string): ReviewRecord | null {
   return readJson<ReviewRecord>(join(projectRoot, featureFilePath(dirName, 'review')));
+}
+
+export const SKILL_RECORD_DOC_TYPE = 'paqad.skill-record';
+export const SKILL_RECORD_SCHEMA_VERSION = 1;
+export const SKILL_RECORD_WRITER = 'paqad-ai skill release';
+
+export interface SkillRecordOverride {
+  gate: string;
+  reason: string;
+  by: string;
+  at: string;
+}
+
+export interface SkillRecordBody {
+  skill: string;
+  status: 'passed' | 'overridden';
+  version: string;
+  released_path: string;
+  folder_hash: string;
+  evidence_path: string;
+  overrides: SkillRecordOverride[];
+  labels: string[];
+}
+
+export function skillRecordFilename(name: string): string {
+  return `skill-${name}.json`;
+}
+
+export function skillRecordPath(dirName: string, name: string): string {
+  return join(featureDir(dirName), skillRecordFilename(name));
+}
+
+export function readSkillRecord(
+  projectRoot: string,
+  dirName: string,
+  name: string,
+): (SkillRecordBody & { change?: string }) | null {
+  return readJson<SkillRecordBody & { change?: string }>(
+    join(projectRoot, skillRecordPath(dirName, name)),
+  );
+}
+
+function sameSkillRecord(existing: SkillRecordBody | null, body: SkillRecordBody): boolean {
+  if (existing === null) return false;
+  return (
+    JSON.stringify({ ...body }) ===
+    JSON.stringify({
+      skill: existing.skill,
+      status: existing.status,
+      version: existing.version,
+      released_path: existing.released_path,
+      folder_hash: existing.folder_hash,
+      evidence_path: existing.evidence_path,
+      overrides: existing.overrides,
+      labels: existing.labels,
+    })
+  );
+}
+
+export function writeSkillRecord(
+  projectRoot: string,
+  sessionId: string,
+  body: SkillRecordBody,
+  now?: () => Date,
+): { dirName: string; path: string; written: boolean } {
+  const { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
+  const rel = skillRecordPath(dirName, body.skill);
+  if (sameSkillRecord(readSkillRecord(projectRoot, dirName, body.skill), body)) {
+    return { dirName, path: rel, written: false };
+  }
+  const record = buildDocumentEnvelope({
+    docType: SKILL_RECORD_DOC_TYPE,
+    change: parts.ulid,
+    sessionId,
+    schemaVersion: SKILL_RECORD_SCHEMA_VERSION,
+    now,
+    body: { ...body },
+  });
+  atomicWriteJson(join(projectRoot, rel), record);
+  return { dirName, path: rel, written: true };
 }

@@ -210,6 +210,19 @@ export interface WorkspaceMode {
 }
 
 export const MODE_FILE = 'mode.json';
+export const OVERRIDES_FILE = 'overrides.json';
+
+export interface OverrideRecord {
+  gate: string;
+  reason: string;
+  by: string;
+  at: string;
+  decision: string;
+}
+
+export function readOverrides(workspace: SkillWorkspace): OverrideRecord[] {
+  return workspace.readJson<OverrideRecord[]>(OVERRIDES_FILE) ?? [];
+}
 export const WAITING_FILE = 'waiting.json';
 
 export interface WaitingOn {
@@ -261,6 +274,16 @@ export function stageState(workspace: SkillWorkspace, stage: StageDefinition): S
       artifact,
       detail: waiting.resume,
       decision: waiting.decision,
+    };
+  }
+  const override = readOverrides(workspace).find((entry) => entry.gate === stage.id);
+  if (override) {
+    return {
+      stage,
+      state: 'overridden',
+      artifact,
+      detail: `override ${override.decision} by ${override.by}`,
+      decision: override.decision,
     };
   }
   if (stage.id === 'S0' && skippedInImprove(workspace, stage)) {

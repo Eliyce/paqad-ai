@@ -8,7 +8,13 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readAuthoringConfig } from '../config.js';
 import { option, raiseAuthoringDecision, readAuthoringDecision } from '../decisions.js';
-import { hashFiles, hashFolder, hashText, listFolderFiles } from '../hash.js';
+import {
+  hashFiles,
+  hashFolder,
+  hashFolderWithoutDescription,
+  hashText,
+  listFolderFiles,
+} from '../hash.js';
 import { lintSkillFolder } from '../lint/skill-lint.js';
 import { enabledAdapters, SKILL_FILE } from '../paths.js';
 import { checkSkillReferences, type BlockRunner } from '../tests/reference-checks.js';
@@ -118,11 +124,11 @@ function riskyGate(
   return { waiting, refused };
 }
 
-function testInputsHash(workspace: SkillWorkspace, folder: string, testDir: string): string {
+export function testInputsHash(projectRoot: string, folder: string, testDir: string): string {
   const skillFiles = listFolderFiles(folder)
     .filter((file) => file.rel.startsWith('scripts/') || file.rel.startsWith('references/'))
     .map((file) => ({ rel: `skill/${file.rel}`, bytes: file.bytes }));
-  const testFiles = listFolderFiles(join(workspace.projectRoot, testDir)).map((file) => ({
+  const testFiles = listFolderFiles(join(projectRoot, testDir)).map((file) => ({
     rel: `tests/${file.rel}`,
     bytes: file.bytes,
   }));
@@ -159,6 +165,7 @@ export async function runSkillTest(
   const lintArtifact = workspace.writeJson('lint.json', {
     gate: lint.blocking === 0 ? 'passed' : 'failed',
     inputs_hash: hashFolder(folder),
+    inputs_hash_without_description: hashFolderWithoutDescription(folder),
     ...lint,
   });
   if (lint.blocking > 0) {
@@ -233,7 +240,7 @@ export async function runSkillTest(
     gate: passed ? 'passed' : 'failed',
     stage: 'S4',
     ...(passed ? {} : { reason: reasons.join('; ') }),
-    inputs_hash: testInputsHash(workspace, folder, location.dir),
+    inputs_hash: testInputsHash(workspace.projectRoot, folder, location.dir),
     test_location: location.dir,
     test_exit_code: run.exitCode,
     lint: { blocking: lint.blocking, warnings: lint.warnings },
