@@ -61,13 +61,13 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('scripts/rules/.history/');
   });
 
-  it('ignores the per-machine lock directory', () => {
+  it('AC-5: ignores the per-machine lock directory', () => {
     writeGitignore(projectRoot);
 
     expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('locks/');
   });
 
-  it('leaves git status clean after a session writes a lock marker', () => {
+  it('AC-7: leaves git status clean after a session writes a lock marker', () => {
     gitInit(projectRoot);
     writeGitignore(projectRoot);
     execFileSync('git', ['add', '-A'], { cwd: projectRoot, stdio: 'ignore' });

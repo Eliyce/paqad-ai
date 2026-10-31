@@ -151,7 +151,7 @@ describe('PreClassifier', () => {
     expect(result.resolved.workflow).toBe('documentation-update');
   });
 
-  it('routes a code request that lists the docs sync stage to feature-development', async () => {
+  it('AC-3: routes a code request that lists the docs sync stage to feature-development', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
       source: 'default',
@@ -167,7 +167,7 @@ describe('PreClassifier', () => {
   });
 
   it.each(['update the docs for the install command', 'run the documentation sync for the readme'])(
-    'keeps routing a docs request to documentation-update (%s)',
+    'AC-4: keeps routing a docs request to documentation-update (%s)',
     async (request) => {
       vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
         modules: [],

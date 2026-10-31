@@ -205,7 +205,7 @@ describe('runRepositoryVerification — session-owned enforcement', () => {
     expect(verdict.summary).not.toContain('verification not applicable');
   });
 
-  it('judges a reopened change again at the next Stop, under a documentation-update route', async () => {
+  it('AC-2: judges a reopened change again at the next Stop, under a documentation-update route', async () => {
     const root = tempRepo();
     const dirName = ownChange(root, SES);
     closeActiveFeature(root, SES, BEFORE_TURN);

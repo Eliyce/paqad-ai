@@ -165,7 +165,7 @@ describe('FrameworkUpdater', () => {
     expect(app).toMatch(/^# auto_update=true$/m);
   });
 
-  it('adds a missing managed ignore line and keeps every line outside the managed block', async () => {
+  it('AC-6: adds a missing managed ignore line and keeps every line outside the managed block', async () => {
     const begin = '# >>> paqad-ai managed (do not edit between markers) >>>';
     const end = '# <<< paqad-ai managed <<<';
     const before = '# team lines\nmy-cache/\n\n';

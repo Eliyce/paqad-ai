@@ -152,7 +152,7 @@ describe('classifyCompletionEnforcement', () => {
     });
   });
 
-  it('enforces an owner that reopened a closed change and edited it this turn, under a documentation-update route', () => {
+  it('AC-1: enforces an owner that reopened a closed change and edited it this turn, under a documentation-update route', () => {
     const root = tempRoot();
     const dirName = ownChange(root, A);
     closeActiveFeature(root, A, BEFORE);
