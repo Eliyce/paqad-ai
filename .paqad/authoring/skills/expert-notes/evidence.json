@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "expert-notes",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:3884283ba2fe8f77757b9a8924a5fbc7b6b665c12766be01e639445ccc2d93c7",
+  "folder_hash": "sha256:2bdbb337592d4f9012e98184bb0dc408e78901f436058616e167dbb45595b731",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -25,11 +25,11 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 3,
-    "pass_rate_with": 0.5444,
-    "pass_rate_without": 0.3722,
-    "delta_points": 17.22,
-    "token_multiple": 1.912,
+    "iterations": 4,
+    "pass_rate_with": 0.6528,
+    "pass_rate_without": 0.5028,
+    "delta_points": 15,
+    "token_multiple": 1.558,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
