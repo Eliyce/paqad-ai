@@ -34,7 +34,7 @@ import {
   setWaiting,
   type SkillWorkspace,
 } from '../workspace.js';
-import { draftFolder } from './draft.js';
+import { draftFolder, draftLintsAsRuntime } from './draft.js';
 import type { StageResult } from './result.js';
 
 export const RISKY_FILE = 'risky-scripts.json';
@@ -189,6 +189,7 @@ export async function runSkillTest(
     projectRoot,
     claudeCode: enabledAdapters(projectRoot).includes('claude-code'),
     bodyMaxTokens: config.skill_body_max_tokens,
+    paqadRuntime: draftLintsAsRuntime(workspace),
   });
   const lintArtifact = workspace.writeJson('lint.json', {
     gate: lint.blocking === 0 ? 'passed' : 'failed',

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 import { Command } from 'commander';
 
@@ -13,7 +13,7 @@ import {
   type SkillLintResult,
 } from '@/authoring/lint/skill-lint.js';
 import { enabledAdapters } from '@/authoring/paths.js';
-import { runDraft } from '@/authoring/stages/draft.js';
+import { draftLintsAsRuntime, runDraft } from '@/authoring/stages/draft.js';
 import { runImprove } from '@/authoring/stages/improve.js';
 import { raiseIntakeGap, runIntake } from '@/authoring/stages/intake.js';
 import { runJustify } from '@/authoring/stages/justify.js';
@@ -26,7 +26,7 @@ import { runTriggerPlan, runTriggerRecord } from '@/authoring/stages/trigger.js'
 import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
 import { resolveLearn, runCatalog, runDrift, runLearn } from '@/authoring/stages/operate.js';
-import { AuthoringRefusal, SkillWorkspace } from '@/authoring/workspace.js';
+import { AuthoringRefusal, SkillWorkspace, WORKSPACE_ROOT } from '@/authoring/workspace.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -51,6 +51,20 @@ function printLint(result: SkillLintResult): void {
   );
 }
 
+function workspaceDraftLintsAsRuntime(projectRoot: string, folder: string): true | undefined {
+  const rel = relative(projectRoot, folder).replaceAll('\\', '/');
+  const prefix = `${WORKSPACE_ROOT}/`;
+  if (!rel.startsWith(prefix)) return undefined;
+  const [name, draft, inner, ...rest] = rel.slice(prefix.length).split('/');
+  if (name === undefined || draft !== 'draft' || inner !== name || rest.length > 0)
+    return undefined;
+  try {
+    return draftLintsAsRuntime(new SkillWorkspace(projectRoot, name));
+  } catch {
+    return undefined;
+  }
+}
+
 function runLint(folder: string, options: LintOptions): void {
   const projectRoot = resolve(options.projectRoot);
   let result: SkillLintResult;
@@ -59,6 +73,7 @@ function runLint(folder: string, options: LintOptions): void {
       projectRoot,
       claudeCode: enabledAdapters(projectRoot).includes('claude-code'),
       bodyMaxTokens: readAuthoringConfig(projectRoot).skill_body_max_tokens,
+      paqadRuntime: workspaceDraftLintsAsRuntime(projectRoot, resolve(folder)),
     });
   } catch (error) {
     if (error instanceof SkillLintUsageError || error instanceof NeverWriteListError) {

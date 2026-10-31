@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { AdapterFactory } from '@/adapters/factory.js';
 import { BaseAdapter } from '@/adapters/shared/base-adapter.js';
@@ -27,20 +27,19 @@ import { driftLine, listDriftedFacts } from '../drift.js';
 import { activeHost } from '../eval/adapters.js';
 import { hashFolder, hashFolderWithoutDescription, listFolderFiles } from '../hash.js';
 import { descriptionLength } from '../lint/fields.js';
-import { isPaqadRuntimeSkill, lintSkillFolder } from '../lint/skill-lint.js';
+import { lintSkillFolder } from '../lint/skill-lint.js';
 import { budgetWarningLine, catalogBudget, discoverInstalledSkills } from '../overlap.js';
 import { buildPortableSkill } from '../package/portable.js';
 import { enabledAdapters, readSkillPathContext, SKILL_FILE } from '../paths.js';
 import {
   AuthoringRefusal,
-  readMode,
   readOverrides,
   requireEarlierGates,
   TRACKED_ROOT,
   type OverrideRecord,
   type SkillWorkspace,
 } from '../workspace.js';
-import { draftFolder, readDraftSource } from './draft.js';
+import { draftFolder, draftLintsAsRuntime, runtimeSkillSource } from './draft.js';
 import { readWorkspaceSources } from './sources.js';
 import { ALLOW_OPTION, RISKY_FILE, testInputsHash } from './test.js';
 import type { StageResult } from './result.js';
@@ -61,15 +60,7 @@ export interface ReleaseOptions {
 }
 
 export function releaseTarget(workspace: SkillWorkspace, host: string): string {
-  const candidates = [readMode(workspace).source, readDraftSource(workspace)];
-  for (const candidate of candidates) {
-    if (candidate === undefined || candidate === null || candidate.startsWith('..')) continue;
-    const abs = join(workspace.projectRoot, candidate);
-    if (basename(abs) === workspace.name && isPaqadRuntimeSkill(workspace.projectRoot, abs)) {
-      return candidate;
-    }
-  }
-  return `${hostRoot(host)}/${workspace.name}`;
+  return runtimeSkillSource(workspace) ?? `${hostRoot(host)}/${workspace.name}`;
 }
 
 function hostRoot(host: string): string {
@@ -196,6 +187,7 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
     projectRoot,
     claudeCode: enabledAdapters(projectRoot).includes('claude-code'),
     bodyMaxTokens: config.skill_body_max_tokens,
+    paqadRuntime: draftLintsAsRuntime(workspace),
   });
   if (lint.blocking > 0) {
     throw new AuthoringRefusal(

@@ -7,12 +7,14 @@ import {
   readFileSync,
   realpathSync,
 } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import { recordGateFailure } from '../evidence.js';
+import { isPaqadRuntimeSkill } from '../lint/skill-lint.js';
 import { SKILL_FILE } from '../paths.js';
 import {
   AuthoringRefusal,
+  readMode,
   renderGateMarkdown,
   requireEarlierGates,
   type SkillWorkspace,
@@ -26,6 +28,27 @@ export const DRAFT_SOURCE_FILE = 'draft-source.json';
 export function readDraftSource(workspace: SkillWorkspace): string | null {
   return workspace.readJson<{ dir?: string }>(DRAFT_SOURCE_FILE)?.dir ?? null;
 }
+/**
+ * The paqad runtime skill folder this workspace came from (the improve-mode source or the
+ * folder handed to skill draft), or null. A skill with one is released back into it, and its
+ * workspace draft is linted with the paqad runtime loader fields.
+ */
+export function runtimeSkillSource(workspace: SkillWorkspace): string | null {
+  for (const candidate of [readMode(workspace).source, readDraftSource(workspace)]) {
+    if (candidate === undefined || candidate === null || candidate.startsWith('..')) continue;
+    const abs = join(workspace.projectRoot, candidate);
+    if (basename(abs) === workspace.name && isPaqadRuntimeSkill(workspace.projectRoot, abs)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/** The lint option for a workspace draft: true when it releases into a paqad runtime root. */
+export function draftLintsAsRuntime(workspace: SkillWorkspace): true | undefined {
+  return runtimeSkillSource(workspace) === null ? undefined : true;
+}
+
 export const UNSOURCED_HEADING = '## Unsourced';
 
 export function draftFolder(workspace: SkillWorkspace): string {

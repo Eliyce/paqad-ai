@@ -275,3 +275,42 @@ describe('releasing a paqad runtime skill', () => {
     expect(readSkillRecord(root, dir, NAME)!.released_path).toBe(`.claude/skills/${NAME}`);
   });
 });
+
+describe('linting the workspace draft of a paqad runtime skill', () => {
+  const RUNTIME_SKILL = SKILL.replace('---\n# Processing', 'model_tier: fast\n---\n# Processing');
+
+  function draftWithLoaderFields(source: string | null): SkillWorkspace {
+    const workspace = new SkillWorkspace(root, NAME);
+    workspace.write('justification.md', renderGateMarkdown({ gate: 'passed' }, 'x'));
+    workspace.write('intake.yaml', 'purpose: x\n');
+    workspace.write('overlap.md', renderGateMarkdown({ gate: 'passed' }, 'x'));
+    workspace.write('trace.md', renderGateMarkdown({ gate: 'passed' }, 'x'));
+    if (source !== null) workspace.writeJson('draft-source.json', { dir: source });
+    workspace.write(`draft/${NAME}/SKILL.md`, RUNTIME_SKILL);
+    return workspace;
+  }
+
+  it('accepts the paqad runtime loader fields when the draft came from a runtime skill folder', async () => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const source = `runtime/base/skills/${NAME}`;
+    mkdirSync(join(root, source), { recursive: true });
+    writeFileSync(join(root, source, 'SKILL.md'), RUNTIME_SKILL);
+    const workspace = draftWithLoaderFields(source);
+    const result = await runSkillTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    const lint = workspace.readJson<{ findings: Array<{ rule: string }> }>('lint.json')!;
+    expect(lint.findings.filter((finding) => finding.rule === 'SK-006')).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('still blocks those fields on a host skill draft', async () => {
+    const workspace = draftWithLoaderFields(null);
+    const result = await runSkillTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    const lint = workspace.readJson<{ findings: Array<{ rule: string }> }>('lint.json')!;
+    expect(lint.findings.some((finding) => finding.rule === 'SK-006')).toBe(true);
+    expect(result.ok).toBe(false);
+  });
+});
