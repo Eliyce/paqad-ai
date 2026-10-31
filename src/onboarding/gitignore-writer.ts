@@ -20,6 +20,7 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'framework-version.txt',
   'cache/',
   'session/',
+  'locks/',
   'context/',
   'vectors/',
   'secrets.env',

@@ -88,7 +88,11 @@ The reasons below are not obvious from the code.
   as whole words, with inflections listed one by one, so `add` never fires inside "address" or
   `fix` inside "prefix". The audit phrasings sit below pentest so "security audit" stays a
   pentest. "site map" is the docs sense and one-word "sitemap" only counts with a verb, so a
-  `sitemap.xml` feature stays feature-development. A question is a strong wh-word anywhere, an
+  `sitemap.xml` feature stays feature-development. When the prompt also carries a code-change
+  keyword, the stage names "documentation sync", "docs sync" and "doc sync" are left out of the
+  named-workflow match, so a code request that lists its stages ("build, review and docs sync,
+  checks") is not read as a docs request; a prompt with no code-change keyword still routes
+  "documentation sync" to `documentation-update`. A question is a strong wh-word anywhere, an
   `in short` or `show me` lead, or a trailing `?`, unless it is a polite code request ("can you
   add a logout button?"); auxiliary leads count only through the `?`, so "do the thing" is not
   a question. It takes the raw request because normalising strips `?`. An explicit "don't code"

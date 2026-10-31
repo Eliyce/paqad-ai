@@ -207,7 +207,7 @@ describe('the stage enforcement guardrails', () => {
     const golden = working(GOLDEN);
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
     expect(golden.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '')).toBe(
-      atBase(GOLDEN).replace(SEED_BLOCK, ''),
+      atBase(GOLDEN).replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, ''),
     );
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),

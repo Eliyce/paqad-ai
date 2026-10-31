@@ -136,7 +136,12 @@ any turn the session-ownership check skips (see below).
   `classifyCompletionEnforcement` decides whether this session's turn is checked at all.
   A session owns a change when an unclosed bundle holds a stage row with its own session id
   written by the agent (`evidence_source` `live-mark` or `redo`); hook-inferred rows never
-  count. No owned rows skips the turn (`not-owner`). An owner that wrote a row since the
+  count. The bundle this session's control points at also counts when it was closed and
+  then reopened (its last `open` or `close` row is an `open`, as `paqad-ai resume
+  --feature` writes), so a change the backstop closed and the agent reopened is checked
+  again at the next Stop whatever the recorded route says. The in-flight list itself keeps
+  excluding any bundle that was ever closed, so no other session adopts a reopened change.
+  No owned rows skips the turn (`not-owner`). An owner that wrote a row since the
   turn's `turn_started_at` stamp (in the per-session workflow-state) is checked; an owner
   on a non-feature route with no row this turn is skipped (`detour`). CLI stage rows carry
   `session_source` (`host` / `env` / `cache`), and a `cache` row never counts as this

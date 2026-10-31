@@ -165,7 +165,7 @@ describe('FrameworkUpdater', () => {
     expect(app).toMatch(/^# auto_update=true$/m);
   });
 
-  it('adds a missing managed ignore line and keeps every line outside the managed block', async () => {
+  it('AC-6: adds a missing managed ignore line and keeps every line outside the managed block', async () => {
     const begin = '# >>> paqad-ai managed (do not edit between markers) >>>';
     const end = '# <<< paqad-ai managed <<<';
     const before = '# team lines\nmy-cache/\n\n';
@@ -180,6 +180,7 @@ describe('FrameworkUpdater', () => {
     const text = readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8');
     const block = text.slice(text.indexOf(begin), text.indexOf(end));
     expect(block.split('\n')).toContain('.agent-entry-loaded.d/');
+    expect(block.split('\n')).toContain('locks/');
     expect(block.split('\n')).toContain('vectors/');
     expect(text.startsWith(before)).toBe(true);
     expect(text.endsWith(after)).toBe(true);

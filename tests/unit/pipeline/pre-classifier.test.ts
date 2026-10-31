@@ -151,6 +151,35 @@ describe('PreClassifier', () => {
     expect(result.resolved.workflow).toBe('documentation-update');
   });
 
+  it('AC-3: routes a code request that lists the docs sync stage to feature-development', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+
+    const result = await new PreClassifier(process.cwd()).classify({
+      request:
+        'Add a subtract(a, b) function to src/math.js and a test for it in tests/math.test.js. ' +
+        "Run this as a full paqad feature-development change on the graduated lane: follow the paqad framework exactly (load it as CLAUDE.md says, run 'paqad-ai lane set graduated' early, then plan, spec through the spec pipeline, load rules, build, review and docs sync, checks), dispatching stage subagents as the router says.",
+    });
+
+    expect(result.resolved.workflow).toBe('feature-development');
+  });
+
+  it.each(['update the docs for the install command', 'run the documentation sync for the readme'])(
+    'AC-4: keeps routing a docs request to documentation-update (%s)',
+    async (request) => {
+      vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+        modules: [],
+        source: 'default',
+      });
+
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+
+      expect(result.resolved.workflow).toBe('documentation-update');
+    },
+  );
+
   it('routes interrogative codebase questions to project-question', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],

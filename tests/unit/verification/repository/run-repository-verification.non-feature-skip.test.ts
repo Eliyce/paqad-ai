@@ -7,7 +7,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { VerificationOrigin } from '@/core/types/verification.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
-import { openFeatureChange, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import {
+  closeActiveFeature,
+  openFeatureChange,
+  readFeatureStageUnit,
+  resumeFeatureByRef,
+} from '@/feature-evidence/stage-ledger.js';
 import { writeWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { NON_FEATURE_SKIP_DOC_TYPE } from '@/session-ledger/non-feature-skip-audit.js';
@@ -198,6 +203,38 @@ describe('runRepositoryVerification — session-owned enforcement', () => {
 
     expect(skipAuditRows(root)).toHaveLength(0);
     expect(verdict.summary).not.toContain('verification not applicable');
+  });
+
+  it('AC-2: judges a reopened change again at the next Stop, under a documentation-update route', async () => {
+    const root = tempRepo();
+    const dirName = ownChange(root, SES);
+    closeActiveFeature(root, SES, BEFORE_TURN);
+    resumeFeatureByRef(root, SES, dirName, DURING_TURN);
+    startStage(root, 'development', {
+      sessionId: SES,
+      dirName,
+      adapter: 'claude-code',
+      now: DURING_TURN,
+    });
+    route(root, SES, {
+      active: { workflow: 'documentation-update' },
+      paused: [],
+      turn_started_at: TURN,
+    });
+    const reopenedAt = readFeatureStageUnit(root, dirName).length;
+
+    const verdict = await stop(root, SES);
+
+    expect(skipAuditRows(root)).toHaveLength(0);
+    expect(verdict.applicable).toBeUndefined();
+    expect(verdict.summary).not.toContain('verification not applicable');
+    expect(verdict.change).toBe(dirName);
+    expect(verdict.receipt).toBeDefined();
+    expect(
+      readFeatureStageUnit(root, dirName)
+        .slice(reopenedAt)
+        .some((row) => row.kind === 'verify'),
+    ).toBe(true);
   });
 
   it('AC-6: a session that owns nothing creates no bundle and no verify row', async () => {

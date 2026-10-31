@@ -71,7 +71,9 @@ Source directories owned by this feature:
 - `writeManagedGitignoreBlock` rewrites only the managed blocks of `.paqad/.gitignore` and
   `.paqad/.gitattributes`, between the paqad markers. Every line outside a block is kept. Unlike
   onboarding's `writeGitignore`, update does not scrub the root ignore files, untrack files or
-  delete old artifacts. The managed block always lists `vectors/`, whatever the RAG setting.
+  delete old artifacts. The managed block always lists `vectors/`, whatever the RAG setting,
+  and `locks/`, so the lock and marker files hooks write under `.paqad/locks/` never leave
+  `git status` dirty.
 - `writeWorktreeInclude` adds the one `.paqad/.config` line to the repo-root `.worktreeinclude`
   when it is missing and keeps every other line, so a new Desktop worktree gets the developer's
   local config.

@@ -1,4 +1,8 @@
-import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
+import {
+  isBundleClosed,
+  isBundleMaterialized,
+  listInFlightFeatures,
+} from '@/feature-evidence/adoption.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -32,6 +36,9 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
     return [];
   }
   const ownBundle = readSessionControl(projectRoot, sessionId).active;
+  if (ownBundle !== null && !dirNames.includes(ownBundle) && isReopened(projectRoot, ownBundle)) {
+    dirNames = [...dirNames, ownBundle];
+  }
   const lastPrompt = lastPromptAt(projectRoot, sessionId);
   return dirNames.flatMap((dirName) =>
     readFeatureStageUnit(projectRoot, dirName).filter(
@@ -44,6 +51,10 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
           stageAgentRowIsOwn(row, sessionId, lastPrompt)),
     ),
   );
+}
+
+function isReopened(projectRoot: string, dirName: string): boolean {
+  return isBundleMaterialized(projectRoot, dirName) && !isBundleClosed(projectRoot, dirName);
 }
 
 export function sessionWroteInEpisode(

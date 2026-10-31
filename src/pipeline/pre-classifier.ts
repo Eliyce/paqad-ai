@@ -354,9 +354,14 @@ function resolveWorkflow(
   }
 
   const normalized = normalizeText(requestText);
+  const codeWords = codeWordText(requestText);
+  const codeChange = highestMatch(CODE_CHANGE_PATTERNS, (pattern) =>
+    matchesWholeWord(codeWords, pattern),
+  );
+  const namedText = codeChange ? stripStageNames(normalized) : normalized;
 
   const named = highestMatch(WORKFLOW_PATTERNS, (pattern) =>
-    normalized.includes(normalizeText(pattern)),
+    namedText.includes(normalizeText(pattern)),
   );
   if (named) {
     return named;
@@ -371,10 +376,6 @@ function resolveWorkflow(
     return 'project-question';
   }
 
-  const codeWords = codeWordText(requestText);
-  const codeChange = highestMatch(CODE_CHANGE_PATTERNS, (pattern) =>
-    matchesWholeWord(codeWords, pattern),
-  );
   if (codeChange) {
     return codeChange;
   }
@@ -388,6 +389,15 @@ function resolveWorkflow(
   }
 
   return undefined;
+}
+
+const STAGE_NAME_PHRASES = ['documentation sync', 'docs sync', 'doc sync'];
+
+function stripStageNames(normalized: string): string {
+  return STAGE_NAME_PHRASES.reduce(
+    (text, phrase) => ` ${text} `.split(` ${phrase} `).join(' ').trim(),
+    normalized,
+  );
 }
 
 function highestMatch(
