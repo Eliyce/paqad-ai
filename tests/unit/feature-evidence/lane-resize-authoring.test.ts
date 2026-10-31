@@ -18,6 +18,18 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writePendingImpact } from '@/stage-evidence/pending-lane.js';
 import { requiredPreCodeStages } from '@/stage-evidence/stages.js';
 
+const scans = vi.hoisted(() => ({ count: 0 }));
+vi.mock('@/pipeline/change-evidence.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/pipeline/change-evidence.js')>();
+  return {
+    ...actual,
+    loadChangeEvidence: (...args: Parameters<typeof actual.loadChangeEvidence>) => {
+      scans.count += 1;
+      return actual.loadChangeEvidence(...args);
+    },
+  };
+});
+
 const SES = 'ses-authoring-raise';
 const AT = '2026-10-31T12:00:00.000Z';
 const now = () => new Date(AT);
@@ -252,5 +264,13 @@ describe('the raise at plan compile and at stage start', () => {
     const start = await stageStart('development');
     expect(start.some((line) => line.includes('lane raised'))).toBe(false);
     expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+  });
+
+  it('a fast-lane stage start with skill_orchestrator_enabled=false does not scan git', async () => {
+    fastChange();
+    turnOff();
+    scans.count = 0;
+    await stageStart('development');
+    expect(scans.count).toBe(0);
   });
 });

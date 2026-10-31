@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { skillOrchestratorEnabled } from '@/authoring/config.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
@@ -62,7 +63,11 @@ const NO_RAISES: StageStartRaises = { authoring: null, grown: null };
 
 function authoringRaiseMayApply(root: string, dirName: string): boolean {
   const record = readFeatureRecord(root, dirName);
-  return record?.lane === 'fast' && record.lane_raised_for_authoring === undefined;
+  return (
+    record?.lane === 'fast' &&
+    record.lane_raised_for_authoring === undefined &&
+    skillOrchestratorEnabled(root)
+  );
 }
 
 async function raiseLaneOnStageStart(root: string, sessionId: string): Promise<StageStartRaises> {
