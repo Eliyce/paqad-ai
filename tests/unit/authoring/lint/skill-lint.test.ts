@@ -496,3 +496,23 @@ describe('paqad-ai skill lint', () => {
     expect(errors.join('\n')).toContain('is not a folder');
   });
 });
+
+describe('paqad runtime skills', () => {
+  it("allows the paqad runtime loader's documented fields only for a runtime skill in the paqad repo", () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skill-lint-runtime-'));
+    roots.push(root);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const frontmatter = `---\nname: ${NAME}\ndescription: ${DESCRIPTION}\nmodel_tier: fast\ncacheable: false\n---\n${BODY}`;
+    for (const base of ['runtime/base/skills', '.claude/skills']) {
+      write(join(root, base, NAME), 'SKILL.md', frontmatter);
+      write(join(root, base, NAME), 'references/guide.md', 'guide\n');
+    }
+    const runtime = lintSkillFolder(join(root, 'runtime/base/skills', NAME), { projectRoot: root });
+    expect(rules(runtime.findings, 'SK-006')).toEqual([]);
+    const host = lintSkillFolder(join(root, '.claude/skills', NAME), { projectRoot: root });
+    expect(rules(host.findings, 'SK-006').map((finding) => finding.message)).toEqual([
+      'The frontmatter key "model_tier" is not a documented skill field.',
+      'The frontmatter key "cacheable" is not a documented skill field.',
+    ]);
+  });
+});

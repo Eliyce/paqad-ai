@@ -25,6 +25,8 @@ describe('the skill frontmatter field lists', () => {
     expect(allowedSkillFields(true).has('when_to_use')).toBe(true);
     expect(allowedSkillFields(false).has('when_to_use')).toBe(false);
     expect(allowedSkillFields(false).has('allowed-tools')).toBe(true);
+    expect(allowedSkillFields(false).has('model_tier')).toBe(false);
+    expect(allowedSkillFields(false, true).has('model_tier')).toBe(true);
   });
 
   it('was checked against the Claude Code skills reference in the last 60 days', () => {

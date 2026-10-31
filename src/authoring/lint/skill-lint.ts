@@ -1,10 +1,11 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 
 import { builtinSecretScan } from '@/codebase-health/gather.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
+import { isPaqadRepository, skillFolderOf } from '../paths.js';
 import { skillTestDirectories } from '../tests/locations.js';
 import { allowedSkillFields, DESCRIPTION_MAX_CHARS, descriptionLength } from './fields.js';
 import {
@@ -34,6 +35,7 @@ export interface SkillLintResult {
 export interface SkillLintOptions {
   projectRoot: string;
   claudeCode?: boolean;
+  paqadRuntime?: boolean;
   bodyMaxTokens?: number;
   extraScanRoots?: readonly string[];
   neverWrite?: NeverWriteList;
@@ -238,7 +240,7 @@ function checkFrontmatter(
   }
   checkName(sink, split.data.name, folderName, keyLine(split.frontmatterLines, 'name'));
   checkDescription(sink, split.data.description, keyLine(split.frontmatterLines, 'description'));
-  const allowed = allowedSkillFields(options.claudeCode !== false);
+  const allowed = allowedSkillFields(options.claudeCode !== false, options.paqadRuntime === true);
   for (const key of Object.keys(split.data).sort(compareText)) {
     if (!allowed.has(key)) {
       sink.block(
@@ -525,6 +527,13 @@ function sortFindings(findings: SkillLintFinding[]): SkillLintFinding[] {
   );
 }
 
+export function isPaqadRuntimeSkill(projectRoot: string, folder: string): boolean {
+  if (!isPaqadRepository(projectRoot)) return false;
+  const rel = relative(projectRoot, folder).replaceAll('\\', '/');
+  if (rel.startsWith('..')) return false;
+  return skillFolderOf(`${rel}/SKILL.md`, [], { paqadRepo: true })?.folder === rel;
+}
+
 export function lintSkillFolder(folder: string, options: SkillLintOptions): SkillLintResult {
   if (!existsSync(folder) || !lstatSync(folder).isDirectory()) {
     throw new SkillLintUsageError(`${folder} is not a folder`);
@@ -541,7 +550,10 @@ export function lintSkillFolder(folder: string, options: SkillLintOptions): Skil
     (options.neverWrite ?? loadNeverWriteList(options.projectRoot)).phrases,
   );
 
-  const parsed = checkFrontmatter(sink, skillFile, folderName, options);
+  const parsed = checkFrontmatter(sink, skillFile, folderName, {
+    ...options,
+    paqadRuntime: options.paqadRuntime ?? isPaqadRuntimeSkill(options.projectRoot, folder),
+  });
   if (parsed !== null)
     checkBody(sink, parsed.body, options.bodyMaxTokens ?? DEFAULT_BODY_MAX_TOKENS);
   for (const extra of skillFiles.filter((file) => file !== skillFile)) {

@@ -46,12 +46,28 @@ export function descriptionWithinLimit(description: string): boolean {
   return descriptionLength(description) <= DESCRIPTION_MAX_CHARS;
 }
 
-export function allowedSkillFields(claudeCode: boolean): ReadonlySet<string> {
-  return new Set<string>(
-    claudeCode
-      ? [...OPEN_SPEC_SKILL_FIELDS, ...CLAUDE_CODE_SKILL_FIELDS.fields]
-      : OPEN_SPEC_SKILL_FIELDS,
-  );
+export const PAQAD_RUNTIME_SKILL_FIELDS: readonly string[] = [
+  'name',
+  'description',
+  'model_tier',
+  'triggers',
+  'request_routing',
+  'cacheable',
+  'cache_key_inputs',
+  'output_format',
+  'input_schema',
+  'on_complete',
+  'max_lines',
+  'tools',
+  'max_output_tokens',
+];
+
+export function allowedSkillFields(claudeCode: boolean, paqadRuntime = false): ReadonlySet<string> {
+  return new Set<string>([
+    ...OPEN_SPEC_SKILL_FIELDS,
+    ...(claudeCode ? CLAUDE_CODE_SKILL_FIELDS.fields : []),
+    ...(paqadRuntime ? PAQAD_RUNTIME_SKILL_FIELDS : []),
+  ]);
 }
 
 export const CLAUDE_PLUGIN_EVAL_SUPPORT = {
