@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "skill-orchestrator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:4fca25df94dac73de97dd6a8318a9e5e995515df0b24ab58a91da22934dd2ae8",
+  "folder_hash": "sha256:0e1aa220d2e48e65963ad670bc80cb5c96edfed44c4253111a48652c0950092a",
   "baseline": {
     "runs": 3,
     "passed": 0,
@@ -25,10 +25,10 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 2,
-    "pass_rate_with": 0.5861,
-    "pass_rate_without": 0.2361,
-    "delta_points": 35,
+    "iterations": 3,
+    "pass_rate_with": 0.6,
+    "pass_rate_without": 0.2083,
+    "delta_points": 39.17,
     "token_multiple": null,
     "models": [
       "haiku",
