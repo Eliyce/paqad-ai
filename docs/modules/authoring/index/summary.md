@@ -123,7 +123,10 @@ the old one stood, leaving the file untouched when it is unchanged.
 ## Release and the completion check
 
 Release re-lints the final folder and recomputes each gate's input hash (S4 and S5 without the
-description, S6 the whole folder), refusing with the stage to rerun on a mismatch. The portable
+description, S6 the whole folder), refusing with the stage to rerun on a mismatch. A symlink in
+the folder is counted in every folder hash and refused at release, as is any file that resolves
+outside the folder; the lint scans a symlink that stays inside the folder for secrets and blocks
+one that leads outside (SK-011). The portable
 copy moves Claude Code-only fields under `metadata` and passes `quick-validate.ts` (a port of
 `quick_validate.py`); an unverified skill or one with an allowed risky script gets none.
 
