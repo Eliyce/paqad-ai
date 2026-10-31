@@ -120,7 +120,9 @@ that count towards the score (scored, not with-only), and a run that errored pas
 through the build-check-fix loop breaker. `trigger plan` splits the queries 60/40 with seed 42;
 `trigger record` scores every iteration, discards descriptions over 1024 characters, keeps the
 best validation score, rechecks overlap and writes the chosen description into the draft, where
-the old one stood, leaving the file untouched when it is unchanged.
+the old one stood, leaving the file untouched when it is unchanged. It is written as a plain
+scalar, or as a folded block when a plain one would not read back, so a formatter run leaves it
+alone.
 
 ## Release and the completion check
 

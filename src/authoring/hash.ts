@@ -93,22 +93,37 @@ function currentDescription(lines: readonly string[], close: number): unknown {
   }
 }
 
+function parsesAsPlain(description: string): boolean {
+  try {
+    const parsed = YAML.parse(`description: ${description}`) as { description?: unknown } | null;
+    return parsed?.description === description;
+  } catch {
+    return false;
+  }
+}
+
+function descriptionLines(description: string): string[] {
+  if (description.includes('\n')) return [`description: ${JSON.stringify(description)}`];
+  if (parsesAsPlain(description)) return [`description: ${description}`];
+  return ['description: >-', `  ${description}`];
+}
+
 export function withDescription(skillText: string, description: string): string {
   const lines = skillText.split('\n');
   if (lines[0] !== '---') return skillText;
   const close = lines.indexOf('---', 1);
   if (close === -1) return skillText;
   if (currentDescription(lines, close) === description) return skillText;
-  const line = `description: ${JSON.stringify(description)}`;
+  const replacement = descriptionLines(description);
   const front = lines.slice(1, close);
   const start = front.findIndex((entry) => /^description\s*:/u.test(entry));
   if (start !== -1) {
     let end = start + 1;
     while (end < front.length && /^\s/u.test(front[end]!)) end += 1;
-    front.splice(start, end - start, line);
+    front.splice(start, end - start, ...replacement);
   } else {
     const name = front.findIndex((entry) => /^name\s*:/u.test(entry));
-    front.splice(name + 1, 0, line);
+    front.splice(name + 1, 0, ...replacement);
   }
   return ['---', ...front, ...lines.slice(close)].join('\n');
 }

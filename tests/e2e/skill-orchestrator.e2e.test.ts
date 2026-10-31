@@ -43,7 +43,8 @@ function copyProject(fixture: string): string {
   rmSync(root, { recursive: true, force: true });
   cpSync(join(FIXTURES, fixture), root, { recursive: true });
   created.push(root);
-  if (existsSync(join(root, '.env.example'))) cpSync(join(root, '.env.example'), join(root, '.env'));
+  if (existsSync(join(root, '.env.example')))
+    cpSync(join(root, '.env.example'), join(root, '.env'));
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(
     join(root, '.paqad/onboarding-manifest.json'),
@@ -239,9 +240,7 @@ describe('skill orchestrator e2e: Laravel project with Pest', () => {
       const testDir = join(root, 'tests/Feature/Skills/ProcessingInvoices');
       mkdirSync(testDir, { recursive: true });
       cpSync(join(root, 'skill-tests/ExtractTest.php.fixture'), join(testDir, 'ExtractTest.php'));
-      expect(() => runEvalPlan(workspace, { probe: () => null })).toThrow(
-        "S5 evals can't start",
-      );
+      expect(() => runEvalPlan(workspace, { probe: () => null })).toThrow("S5 evals can't start");
       const s4 = await runSkillTest(workspace);
       expect(s4.lines.at(-1)).toContain('S4 passed');
       const report = JSON.parse(readFileSync(workspace.path('script-tests.json'), 'utf8'));
