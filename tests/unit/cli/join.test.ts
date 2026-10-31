@@ -11,6 +11,7 @@ import {
   JOIN_RAG_OFF_MESSAGE,
   JOIN_RAG_PRESENT_MESSAGE,
   JOIN_READY_MESSAGE,
+  JOIN_TEAM_SETUP_MISSING_MESSAGE,
   createJoinCommand,
   deriveRecordedProviders,
   joinProject,
@@ -201,6 +202,45 @@ describe('paqad-ai join', () => {
     expect(output.join('')).toContain(JOIN_READY_MESSAGE);
     expect(promptConfirm).not.toHaveBeenCalled();
     expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
+  });
+
+  it('writes no tracked file and asks for the lead when the team setup is missing', async () => {
+    seedOnboardedProject(root);
+    const git = (...args: string[]) =>
+      execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    git('add', '-A');
+    git(
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-qm',
+      'seed',
+    );
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
+    expect(existsSync(join(root, '.claude/agents'))).toBe(false);
+    expect(output.join('')).toContain(JOIN_TEAM_SETUP_MISSING_MESSAGE);
+    expect(JOIN_TEAM_SETUP_MISSING_MESSAGE).toContain('`paqad-ai update`');
+  });
+
+  it('stays quiet about the team setup once the repo carries it', async () => {
+    seedOnboardedProject(root);
+    write(join(root, '.paqad/hook.mjs'), 'launcher\n');
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    expect(output.join('')).not.toContain(JOIN_TEAM_SETUP_MISSING_MESSAGE);
   });
 
   it('does not overwrite local-artifact paths when the repository tracks them', async () => {

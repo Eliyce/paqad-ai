@@ -255,6 +255,14 @@ describe('coverage cli wrappers', () => {
     await command.parseAsync(['node', 'update', '--project-root', '/repo', '--silent']);
     expect(logSpy).toHaveBeenCalledTimes(1);
 
+    mockUpdaterRun.mockResolvedValueOnce({
+      previous_version: '0.1.0',
+      target_version: '0.2.2',
+      team_setup_notes: ['Commit these team setup files together.'],
+    });
+    await command.parseAsync(['node', 'update', '--project-root', '/repo']);
+    expect(logSpy).toHaveBeenLastCalledWith('Commit these team setup files together.');
+
     mockUpdaterRun.mockRejectedValueOnce(new Error('boom'));
     await expect(command.parseAsync(['node', 'update', '--project-root', '/repo'])).rejects.toThrow(
       'boom',

@@ -2,6 +2,7 @@ import { accessSync, constants as fsConstants, existsSync, readFileSync, statSyn
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { FrameworkError, ValidationError } from '@/core/errors/index.js';
 import {
@@ -245,6 +246,11 @@ export class OnboardingOrchestrator {
       for (const collision of readConfigsDir(options.projectRoot).collisions) {
         onboardingWarnings.push(
           `Config key "${collision.key}" is set in multiple .paqad/configs/ files; the last filename wins — keep it in one file.`,
+        );
+      }
+      if (adapters.includes('claude-code')) {
+        onboardingWarnings.push(
+          ...new ClaudeCodeAdapter().syncTeamSetup(options.projectRoot).notes,
         );
       }
       writeGitignore(options.projectRoot);

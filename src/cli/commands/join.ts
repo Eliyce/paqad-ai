@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -6,9 +5,11 @@ import { confirm } from '@inquirer/prompts';
 import { Command } from 'commander';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
+import { teamSetupMissing } from '@/adapters/claude/team-setup.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { isGitIgnored } from '@/core/fs/git-tracked.js';
+import { resolveFrameworkConfig, resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
@@ -56,6 +57,8 @@ export const JOIN_RAG_OFF_MESSAGE = 'RAG is off for this project, nothing to bui
 export const JOIN_RAG_PRESENT_MESSAGE = 'RAG index is already present and valid, nothing to build.';
 export const JOIN_RAG_BUILDING_MESSAGE =
   'Building your local RAG index (this stays on your machine and is not committed)...';
+export const JOIN_TEAM_SETUP_MISSING_MESSAGE =
+  'This repo does not carry the paqad team setup yet, so teammates and cloud sessions do not get paqad on their own. Ask the project lead to run `paqad-ai update` and commit the result.';
 export const JOIN_READY_MESSAGE =
   'Ready. Your machine is set up for this project. No tracked files changed.';
 
@@ -106,6 +109,14 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   await regenerateMachineArtifacts(projectRoot);
 
   writeWorktreeInclude(projectRoot);
+
+  if (
+    providers.includes('claude-code') &&
+    resolveTeamBootstrapEnabled(projectRoot) &&
+    teamSetupMissing(projectRoot)
+  ) {
+    process.stdout.write(`${JOIN_TEAM_SETUP_MISSING_MESSAGE}\n`);
+  }
 
   if (options.rag !== false) {
     const shouldContinue = await joinRag(projectRoot, options);
@@ -273,31 +284,4 @@ async function joinRag(
     buildOnly: true,
   });
   return true;
-}
-
-function isGitTracked(projectRoot: string, path: string): boolean {
-  try {
-    execFileSync('git', ['ls-files', '--error-unmatch', '--', path], {
-      cwd: projectRoot,
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isGitIgnored(projectRoot: string, path: string): boolean {
-  if (isGitTracked(projectRoot, path)) {
-    return false;
-  }
-  try {
-    execFileSync('git', ['check-ignore', '--quiet', '--no-index', '--', path], {
-      cwd: projectRoot,
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
 }

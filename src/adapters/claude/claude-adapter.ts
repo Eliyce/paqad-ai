@@ -6,6 +6,8 @@ import { BaseAdapter } from '../shared/base-adapter.js';
 import { buildFullHookChain, buildNativeHookConfigFile } from '../shared/native-hook-config.js';
 import { PAQAD_RUNTIME_PREFIX } from '../shared/paqad-hooks.js';
 
+import { syncTeamSetup, teamSetupNotes, type TeamSetupReport } from './team-setup.js';
+
 const CLAUDE_SETTINGS_FILE = '.claude/settings.json';
 
 const LEGACY_HOOK_COMMANDS = new Set(
@@ -59,6 +61,14 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   async generateConfig(context: AdapterContext): Promise<GeneratedFile[]> {
     const base = await super.generateConfig(context);
     return [...base, buildClaudeSettings(context.projectRoot)];
+  }
+
+  syncTeamSetup(
+    projectRoot: string,
+    env: NodeJS.ProcessEnv = process.env,
+  ): { report: TeamSetupReport; notes: string[] } {
+    const report = syncTeamSetup(projectRoot, env);
+    return { report, notes: teamSetupNotes(projectRoot, report) };
   }
 }
 

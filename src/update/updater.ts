@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   checkoutIsNewer,
@@ -48,6 +49,7 @@ export interface UpdateReport {
   new_mcp_servers: string[];
   new_scripts: string[];
   config_keys_pruned: string[];
+  team_setup_notes?: string[];
 }
 
 export interface FrameworkUpdaterOptions {
@@ -129,6 +131,12 @@ export class FrameworkUpdater {
       } catch {}
     }
 
+    const teamSetupNotes = candidates.some(
+      (candidate) => toPosixPath(candidate.path) === 'CLAUDE.md',
+    )
+      ? new ClaudeCodeAdapter().syncTeamSetup(projectRoot).notes
+      : [];
+
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
@@ -149,6 +157,7 @@ export class FrameworkUpdater {
       new_mcp_servers: [],
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
+      team_setup_notes: teamSetupNotes,
     };
   }
 
