@@ -259,6 +259,49 @@ function numberField(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+type PluginArm = 'with' | 'without';
+
+/**
+ * claude plugin eval --json (schemaVersion 1, Claude Code 2.1.302) reports each case as
+ * arms.with[] and arms.without[], one entry per run with its graders. A run scores the graders
+ * that count towards the score (scored, not with-only); a run that errored passes none.
+ */
+function pluginArmRuns(
+  where: string,
+  arms: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  const runs: Array<Record<string, unknown>> = [];
+  for (const arm of ['with', 'without'] as PluginArm[]) {
+    const entries = arms[arm];
+    if (entries === undefined) continue;
+    if (!Array.isArray(entries)) {
+      throw new AuthoringRefusal(`${where}.arms.${arm} is not a list of runs.`);
+    }
+    for (const [index, raw] of entries.entries()) {
+      const entry = (raw ?? {}) as Record<string, unknown>;
+      if (!Array.isArray(entry.graders) || !numberField(entry.durationSeconds)) {
+        throw new AuthoringRefusal(
+          `${where}.arms.${arm}[${index}] is missing ${Array.isArray(entry.graders) ? 'durationSeconds' : 'graders[]'}.`,
+        );
+      }
+      const scored = (entry.graders as Array<Record<string, unknown>>).filter(
+        (grader) => grader.scored !== false && grader.withOnly !== true,
+      );
+      const errored = entry.error !== null && entry.error !== undefined;
+      const cost = [entry.costUsd, entry.judgeCostUsd].filter(numberField);
+      runs.push({
+        arm,
+        run: index + 1,
+        passed: errored ? 0 : scored.filter((grader) => grader.passed === true).length,
+        total: scored.length,
+        duration_ms: Math.round(entry.durationSeconds * 1000),
+        ...(cost.length > 0 ? { cost_usd: cost.reduce((sum, part) => sum + part, 0) } : {}),
+      });
+    }
+  }
+  return runs;
+}
+
 function readPluginResults(
   workspace: SkillWorkspace,
   plan: EvalPlan,
@@ -275,6 +318,17 @@ function readPluginResults(
       );
     }
     if (typeof parsed.claude_version === 'string') claudeVersion = parsed.claude_version;
+    else if (typeof parsed.claudeVersion === 'string') claudeVersion = parsed.claudeVersion;
+    if (parsed.partial === true) {
+      throw new AuthoringRefusal(
+        `${workspace.relPath(rel)} is a partial sweep (it hit the cost cap), so it was not aggregated. ` +
+          recordGateFailure(workspace.projectRoot, {
+            skill: workspace.name,
+            gate: 'S5',
+            evidencePath: workspace.relPath(rel),
+          }),
+      );
+    }
     const cases = parsed.cases;
     if (!Array.isArray(cases) || cases.length === 0) {
       throw new AuthoringRefusal(`${workspace.relPath(rel)} is missing cases[] (or it is empty).`);
@@ -286,12 +340,21 @@ function readPluginResults(
           `${workspace.relPath(rel)} cases[${caseIndex}] is missing name.`,
         );
       }
-      if (!Array.isArray(record.runs)) {
+      const armsRecord =
+        typeof record.arms === 'object' && record.arms !== null
+          ? (record.arms as Record<string, unknown>)
+          : null;
+      const caseRuns = Array.isArray(record.runs)
+        ? (record.runs as unknown[])
+        : armsRecord !== null
+          ? pluginArmRuns(`${workspace.relPath(rel)} cases[${caseIndex}]`, armsRecord)
+          : null;
+      if (caseRuns === null) {
         throw new AuthoringRefusal(
-          `${workspace.relPath(rel)} cases[${caseIndex}] is missing runs[].`,
+          `${workspace.relPath(rel)} cases[${caseIndex}] is missing runs[] (or arms.with[] and arms.without[]).`,
         );
       }
-      for (const [runIndex, raw] of (record.runs as unknown[]).entries()) {
+      for (const [runIndex, raw] of caseRuns.entries()) {
         const run = raw as Record<string, unknown>;
         const missing = ['arm', 'run', 'passed', 'total', 'duration_ms'].filter((field) =>
           field === 'arm' ? run.arm !== 'with' && run.arm !== 'without' : !numberField(run[field]),

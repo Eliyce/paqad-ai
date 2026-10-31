@@ -251,6 +251,60 @@ describe('S5 eval record on claude plugin eval', () => {
     ]);
   });
 
+  function realShape(withPasses: boolean[], extra: Record<string, unknown> = {}) {
+    const run = (passed: boolean, error: string | null = null) => ({
+      score: passed ? 1 : 0,
+      passed,
+      costUsd: 0.01,
+      judgeCostUsd: 0.001,
+      durationSeconds: 7,
+      error,
+      graders: [
+        { name: 'criteria', passed, weight: 1, withOnly: false, scored: true },
+        { name: 'skill-fired', passed: true, weight: 1, withOnly: true, scored: false },
+      ],
+    });
+    return {
+      schemaVersion: 1,
+      claudeVersion: '2.1.302',
+      partial: false,
+      cases: [
+        {
+          name: 'happy',
+          arms: {
+            with: withPasses.map((passed) => run(passed)),
+            without: [run(false), run(true, 'timeout')],
+          },
+        },
+      ],
+      ...extra,
+    };
+  }
+
+  it('reads the claude plugin eval --json shape, scoring only the graders that count', async () => {
+    host('claude-code');
+    const workspace = workspaceAtS5();
+    runEvalPlan(workspace, { probe: () => '2.1.302' });
+    workspace.writeJson('iteration-1/fast.json', realShape([true, true]));
+    workspace.writeJson('iteration-1/reasoning.json', realShape([true, false]));
+    const result = await runEvalRecord(workspace);
+    const benchmark = JSON.parse(readFileSync(workspace.path('benchmark.json'), 'utf8'));
+    expect(benchmark.claude_version).toBe('2.1.302');
+    expect(benchmark.cases).toEqual([
+      { case: 'happy', pass_rate_with: 0.75, pass_rate_baseline: 0, delta_points: 75 },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses a partial plugin sweep and records it as a defect', async () => {
+    host('claude-code');
+    const workspace = workspaceAtS5();
+    runEvalPlan(workspace, { probe: () => '2.1.302' });
+    workspace.writeJson('iteration-1/fast.json', realShape([true], { partial: true }));
+    workspace.writeJson('iteration-1/reasoning.json', realShape([true]));
+    await expect(runEvalRecord(workspace)).rejects.toThrow('fast.json is a partial sweep');
+  });
+
   it('AC-63, INV-17: refuses a result missing a required field, naming it', async () => {
     host('claude-code');
     const workspace = workspaceAtS5();
