@@ -36,7 +36,13 @@ async function record(payload) {
   mkdirSync(dirname(file), { recursive: true });
   appendFileSync(file, line, 'utf8');
   if (statSync(file).size > core.PRUNE_THRESHOLD_BYTES) {
-    const window = Number(process.env.PAQAD_AUTHORING_DARK_WINDOW_DAYS);
+    const window = Number(
+      gate.readLayeredKey(
+        projectRoot,
+        'authoring_dark_window_days',
+        'PAQAD_AUTHORING_DARK_WINDOW_DAYS',
+      ),
+    );
     writeFileSync(
       file,
       core.pruneActivationText(
