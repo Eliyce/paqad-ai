@@ -72,13 +72,14 @@ describe('the launcher file', () => {
   it('the opt-out removes an unchanged launcher and keeps an edited one', () => {
     syncTeamSetup(root, {});
     optOut();
-    expect(syncTeamSetup(root, {}).removed).toEqual([TEAM_LAUNCHER_PATH]);
+    expect(syncTeamSetup(root, {}).removed).toContain(TEAM_LAUNCHER_PATH);
     expect(existsSync(launcherPath())).toBe(false);
     expect(syncTeamSetup(root, {}).removed).toEqual([]);
 
     writeFileSync(launcherPath(), 'hand written\n');
     const report = syncTeamSetup(root, {});
     expect(report.kept).toEqual([TEAM_LAUNCHER_PATH]);
+    expect(report.removed).toEqual([]);
     expect(readFileSync(launcherPath(), 'utf8')).toBe('hand written\n');
   });
 
@@ -98,9 +99,9 @@ describe('what the lead is told', () => {
     git('init', '-q');
     const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
     expect(notes).toEqual([
-      'Commit these team setup files together so teammates and cloud sessions get paqad: .paqad/hook.mjs.',
+      'Commit these team setup files together so teammates and cloud sessions get paqad: .paqad/hook.mjs, .claude/agents/paqad-*.md.',
     ]);
-    git('add', '-f', TEAM_LAUNCHER_PATH);
+    git('add', '-f', TEAM_LAUNCHER_PATH, '.claude/agents');
     git(
       '-c',
       'user.email=t@t',
@@ -117,7 +118,9 @@ describe('what the lead is told', () => {
 
   it('outside git it lists what it wrote', () => {
     const report = syncTeamSetup(root, {});
-    expect(teamFilesToCommit(root, report)).toEqual([TEAM_LAUNCHER_PATH]);
+    expect(teamFilesToCommit(root, report)).toEqual([...report.written].sort());
+    expect(report.written).toContain(TEAM_LAUNCHER_PATH);
+    expect(report.written).toHaveLength(9);
   });
 
   it('says nothing to commit when the team setup is off and names files it kept', () => {

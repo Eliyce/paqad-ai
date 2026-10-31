@@ -5,13 +5,16 @@ import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
 import { gitPendingPaths } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { versionAtLeast } from '@/core/version-compare.js';
+import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
 
 declare const __PKG_VERSION__: string;
 
 export const TEAM_LAUNCHER_PATH = '.paqad/hook.mjs';
 export const LAUNCHER_VERSION_TOKEN = '__PAQAD_VERSION__';
+export const TEAM_AGENTS_DIR = '.claude/agents';
 
 const LAUNCHER_STAMP = /PAQAD_LAUNCHER_VERSION = '([^']+)'/;
+const AGENT_STAMP = /<!-- written by paqad-ai ([^ ]+) -->/;
 
 export interface TeamSetupReport {
   enabled: boolean;
@@ -37,9 +40,19 @@ export function renderTeamLauncher(version: string = __PKG_VERSION__): string {
   return template.replace(LAUNCHER_VERSION_TOKEN, version);
 }
 
+export function renderTeamAgents(
+  version: string = __PKG_VERSION__,
+): { path: string; content: string }[] {
+  return renderStageAgentFiles('claude-code').map(({ name, content }) => ({
+    path: `${TEAM_AGENTS_DIR}/${name}`,
+    content: `${content}\n<!-- written by paqad-ai ${version} -->\n`,
+  }));
+}
+
 export function teamOwnedFiles(version: string = __PKG_VERSION__): OwnedFile[] {
   return [
     { path: TEAM_LAUNCHER_PATH, content: renderTeamLauncher(version), stamp: LAUNCHER_STAMP },
+    ...renderTeamAgents(version).map((agent) => ({ ...agent, stamp: AGENT_STAMP })),
   ];
 }
 
@@ -104,11 +117,11 @@ export function teamSetupMissing(projectRoot: string): boolean {
 }
 
 export function teamTrackedPaths(): string[] {
-  return [TEAM_LAUNCHER_PATH];
+  return [TEAM_LAUNCHER_PATH, TEAM_AGENTS_DIR];
 }
 
 function isTeamPath(path: string): boolean {
-  return teamTrackedPaths().includes(path);
+  return path === TEAM_LAUNCHER_PATH || path.startsWith(`${TEAM_AGENTS_DIR}/paqad-`);
 }
 
 export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport): string[] {
@@ -118,9 +131,15 @@ export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport):
   return pending.filter(isTeamPath);
 }
 
+function collapseAgents(paths: string[]): string[] {
+  const agentPrefix = `${TEAM_AGENTS_DIR}/paqad-`;
+  const others = paths.filter((path) => !path.startsWith(agentPrefix));
+  return others.length === paths.length ? others : [...others, `${agentPrefix}*.md`];
+}
+
 export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): string[] {
   const notes: string[] = [];
-  const toCommit = teamFilesToCommit(projectRoot, report);
+  const toCommit = collapseAgents(teamFilesToCommit(projectRoot, report));
   if (toCommit.length > 0) {
     notes.push(
       `Commit these team setup files together so teammates and cloud sessions get paqad: ${toCommit.join(', ')}.`,

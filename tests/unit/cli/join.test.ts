@@ -16,6 +16,7 @@ import {
   deriveRecordedProviders,
   joinProject,
 } from '@/cli/commands/join.js';
+import { syncTeamSetup } from '@/adapters/claude/team-setup.js';
 import { createProgram } from '@/cli/program.js';
 import { RagService } from '@/rag/service.js';
 
@@ -236,7 +237,7 @@ describe('paqad-ai join', () => {
 
   it('stays quiet about the team setup once the repo carries it', async () => {
     seedOnboardedProject(root);
-    write(join(root, '.paqad/hook.mjs'), 'launcher\n');
+    syncTeamSetup(root, {});
 
     await joinProject({ projectRoot: root, rag: false });
 

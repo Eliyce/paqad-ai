@@ -55,6 +55,17 @@ const PROJECT_SKILL_DIRS = [
   '.github/skills',
   '.aider/skills',
 ];
+const TEAM_STAGE_HELPERS = [
+  'paqad-checks.md',
+  'paqad-chief-architect.md',
+  'paqad-development.md',
+  'paqad-documentation-sync.md',
+  'paqad-expert.md',
+  'paqad-planning.md',
+  'paqad-review.md',
+  'paqad-specification.md',
+];
+
 const PROJECT_AGENT_DIRS = [
   '.claude/agents',
   '.codex/agents',
@@ -243,6 +254,12 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
           );
 
           for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
+            if (adapter === 'claude-code' && relativePath === '.claude/agents') {
+              expect(readdirSync(join(projectRoot, relativePath)).sort()).toEqual(
+                TEAM_STAGE_HELPERS,
+              );
+              continue;
+            }
             expect(existsSync(join(projectRoot, relativePath))).toBe(false);
           }
 

@@ -450,11 +450,31 @@ describe('FrameworkUpdater', () => {
       expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
     });
 
-    it('never writes the agents into the project', async () => {
+    it('writes only the Claude helpers into the project, for the team', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
-      expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
+      expect(readdirSync(join(projectRoot, '.claude/agents')).sort()).toEqual(
+        readdirSync(join(userHome, '.claude/agents'))
+          .filter((f) => f.endsWith('.md'))
+          .sort(),
+      );
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
+    });
+
+    it('still writes the Claude helpers into the project when the plugin is installed', async () => {
+      const pluginsDir = join(userHome, '.claude/plugins');
+      mkdirSync(pluginsDir, { recursive: true });
+      writeFileSync(
+        join(pluginsDir, 'installed_plugins.json'),
+        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+      );
+
+      await new FrameworkUpdater({
+        generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
+      }).run(projectRoot);
+
+      expect(readdirSync(join(projectRoot, '.claude/agents'))).toHaveLength(8);
+      expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
     });
 
     it('writes home stage agents on update by default', async () => {
