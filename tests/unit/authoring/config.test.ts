@@ -10,6 +10,7 @@ import {
   readAuthoringConfig,
   skillOrchestratorEnabled,
 } from '@/authoring/config.js';
+import { generateGroupConfig } from '@/core/framework-config.js';
 
 const roots: string[] = [];
 
@@ -118,5 +119,24 @@ describe('authoringConfigProblems', () => {
       { key: 'authoring_run_max_cost_usd', value: '0', allowed: 'a number above 0' },
       { key: 'authoring_otel_endpoint', value: 'not a url', allowed: 'empty or an http(s) URL' },
     ]);
+  });
+});
+
+describe('the policy group file', () => {
+  it('lists every key commented at its default and round-trips to the defaults', () => {
+    const text = generateGroupConfig('policy');
+    for (const key of AUTHORING_CONFIG_KEYS) {
+      expect(text).toMatch(new RegExp(`^# ${key}=`, 'm'));
+    }
+    const uncommented = text
+      .split('\n')
+      .filter((line) => AUTHORING_CONFIG_KEYS.some((key) => line.startsWith(`# ${key}=`)))
+      .map((line) => line.slice(2))
+      .join('\n');
+    const root = project();
+    mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad', 'configs', '.config.policy'), `${uncommented}\n`);
+    expect(readAuthoringConfig(root, NO_ENV)).toEqual(readAuthoringConfig(project(), NO_ENV));
+    expect(authoringConfigProblems(root, NO_ENV)).toEqual([]);
   });
 });
