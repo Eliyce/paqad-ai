@@ -256,6 +256,33 @@ describe('spec pipeline experts CLI', () => {
       ]);
     });
 
+    const SKILL = '.claude/skills/processing-invoices/SKILL.md';
+
+    it('AC-31: seats skill-orchestrator on graduated for a planned skill path the detector did not name', async () => {
+      const { roster, out } = await recordOn('graduated', [], planWith(['src/a.ts', SKILL]));
+      expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+        ['skill-orchestrator', `a planned file is a skill: ${SKILL}`],
+      ]);
+      expect(out.some((line) => line.includes('skipped the High Table'))).toBe(false);
+    });
+
+    it('AC-31: seats skill-orchestrator beside the standing four on full', async () => {
+      const { roster } = await recordOn('full', [], planWith([SKILL]));
+      expect(roster.map((entry) => entry.role)).toContain('skill-orchestrator');
+      expect(roster).toHaveLength(5);
+    });
+
+    it('AC-40, AC-42: seats nothing for a skill path while skill_orchestrator_enabled=false', async () => {
+      const { roster } = await recordOn('graduated', [], (root, dir) => {
+        planWith([SKILL])(root, dir);
+        writeFileSync(
+          join(root, '.paqad', '.config'),
+          'spec_pipeline_enabled=true\nspec_pipeline_experts_enabled=true\nskill_orchestrator_enabled=false\n',
+        );
+      });
+      expect(roster).toEqual([]);
+    });
+
     it.each(['full', null] as const)(
       'AC-19: seats the standing four plus the picks on %s',
       async (lane) => {

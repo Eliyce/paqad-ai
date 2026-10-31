@@ -19,17 +19,18 @@ script seats them for you. You may name a standing expert; it is harmless and re
 
 ## On call (you pick)
 
-| Role                    | Fires when the request touches…                                       |
-| ----------------------- | --------------------------------------------------------------------- |
-| `db-expert`             | The data model: a migration, a schema change, indexing, query shape.  |
-| `data-modeler`          | The conceptual model: entities, relationships, normalisation choices. |
-| `security-auditor`      | Auth, a trust boundary, secrets, input validation, access control.    |
-| `ux-ui-analyst`         | A screen, a component, a user-facing flow or interaction.             |
-| `performance-analyst`   | A hot path, a scaling concern, a latency/throughput budget.           |
-| `integration-architect` | A third-party integration, an external API, a webhook or event.       |
-| `solution-architect`    | A cross-cutting structural decision spanning several modules.         |
-| `devops-engineer`       | Build, deploy, CI/CD, infrastructure, runtime configuration.          |
-| `market-researcher`     | A product/market framing question the spec must answer first.         |
+| Role                    | Fires when the request touches…                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `db-expert`             | The data model: a migration, a schema change, indexing, query shape.               |
+| `data-modeler`          | The conceptual model: entities, relationships, normalisation choices.              |
+| `security-auditor`      | Auth, a trust boundary, secrets, input validation, access control.                 |
+| `ux-ui-analyst`         | A screen, a component, a user-facing flow or interaction.                          |
+| `performance-analyst`   | A hot path, a scaling concern, a latency/throughput budget.                        |
+| `integration-architect` | A third-party integration, an external API, a webhook or event.                    |
+| `solution-architect`    | A cross-cutting structural decision spanning several modules.                      |
+| `devops-engineer`       | Build, deploy, CI/CD, infrastructure, runtime configuration.                       |
+| `market-researcher`     | A product/market framing question the spec must answer first.                      |
+| `skill-orchestrator`    | A new or changed skill (a SKILL.md or a skill folder) in any host's skills folder. |
 
 `chief-architect` is never named. It chairs every run, because the standing experts always fire.
 

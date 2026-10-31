@@ -27,7 +27,13 @@ import {
   raiseFixProofMethodDecision,
 } from '@/fix-protocol/fix-proof-method-decision.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
-import { seatExpertsForLane, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import {
+  pathTriggeredSeats,
+  seatExpertsForLane,
+  validateExpertNeed,
+} from '@/spec-pipeline/experts/need.js';
+import { skillOrchestratorEnabled } from '@/authoring/config.js';
+import { findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { planFiles, sensitivePaths } from '@/feature-evidence/lane-resize.js';
@@ -273,6 +279,15 @@ const sessionOpt = [
   '--session <id>',
   'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)',
 ] as const;
+
+function firstPlannedSkillPath(
+  projectRoot: string,
+  plannedFiles: readonly string[],
+): string | null {
+  if (!skillOrchestratorEnabled(projectRoot)) return null;
+  const context = readSkillPathContext(projectRoot);
+  return findSkillPaths(plannedFiles, context.adapters, context)[0] ?? null;
+}
 
 export function createSpecPipelineCommand(): Command {
   const command = new Command('pipeline').description(
@@ -801,16 +816,18 @@ function createExpertsCommand(): Command {
       const config = readPipelineConfig(options.projectRoot);
       const lane = readChangeConstants(options.projectRoot, resolved.dirName).lane ?? 'full';
       const standingSits = config.experts_lanes.includes(lane);
+      const plannedFiles = planFiles(readFeaturePlan(options.projectRoot, resolved.dirName)?.steps);
       const needs = seatExpertsForLane({
         detectorNeeds: check.artifact.experts,
         standing: config.standing_experts,
         standingSits,
-        sensitivePath: standingSits
-          ? null
-          : (sensitivePaths(
-              options.projectRoot,
-              planFiles(readFeaturePlan(options.projectRoot, resolved.dirName)?.steps),
-            )[0] ?? null),
+        pathSeats: pathTriggeredSeats({
+          standingSits,
+          sensitivePath: standingSits
+            ? null
+            : (sensitivePaths(options.projectRoot, plannedFiles)[0] ?? null),
+          skillPath: firstPlannedSkillPath(options.projectRoot, plannedFiles),
+        }),
       });
       const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
       const { briefs } = buildExpertBriefs({

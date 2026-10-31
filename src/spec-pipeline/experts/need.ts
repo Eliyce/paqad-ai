@@ -19,27 +19,47 @@ export function seatStandingExperts(
 
 export const SENSITIVE_PATH_EXPERT: AgentRole = 'security-auditor';
 
+export const SKILL_PATH_EXPERT: AgentRole = 'skill-orchestrator';
+
+export interface PathTriggeredSeat {
+  role: AgentRole;
+  path: string | null;
+  reason: string;
+}
+
+export function pathTriggeredSeats(input: {
+  standingSits: boolean;
+  sensitivePath: string | null;
+  skillPath: string | null;
+}): PathTriggeredSeat[] {
+  return [
+    {
+      role: SENSITIVE_PATH_EXPERT,
+      path: input.standingSits ? null : input.sensitivePath,
+      reason: `a planned path is sensitive: ${input.sensitivePath}`,
+    },
+    {
+      role: SKILL_PATH_EXPERT,
+      path: input.skillPath,
+      reason: `a planned file is a skill: ${input.skillPath}`,
+    },
+  ];
+}
+
 export interface LaneSeatingInput {
   detectorNeeds: readonly ExpertNeed[];
   standing: readonly AgentRole[];
   standingSits: boolean;
-  sensitivePath: string | null;
+  pathSeats: readonly PathTriggeredSeat[];
 }
 
 export function seatExpertsForLane(input: LaneSeatingInput): ExpertNeed[] {
-  if (input.standingSits) return seatStandingExperts(input.detectorNeeds, input.standing);
-  const seated = seatStandingExperts(input.detectorNeeds, []);
-  if (input.sensitivePath === null || seated.some((need) => need.role === SENSITIVE_PATH_EXPERT)) {
-    return seated;
+  const seated = seatStandingExperts(input.detectorNeeds, input.standingSits ? input.standing : []);
+  for (const seat of input.pathSeats) {
+    if (seat.path === null || seated.some((need) => need.role === seat.role)) continue;
+    seated.push({ role: seat.role, reason: seat.reason, origin: 'detector' });
   }
-  return [
-    ...seated,
-    {
-      role: SENSITIVE_PATH_EXPERT,
-      reason: `a planned path is sensitive: ${input.sensitivePath}`,
-      origin: 'detector',
-    },
-  ];
+  return seated;
 }
 
 export interface ExpertNeedValidation {
