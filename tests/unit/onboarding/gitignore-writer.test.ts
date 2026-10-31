@@ -73,9 +73,17 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('module-map/drift.json');
     expect(content).toContain('module-map/events.jsonl');
     expect(content).toContain('schema-migrations.jsonl');
-    expect(content).toContain('skills/');
+    expect(content).toContain('\n/skills/\n');
     expect(content).toContain('delivery-detection.json');
     expect(content).not.toContain('module-map/history/');
+  });
+
+  it('keeps the tracked skill evidence under .paqad/authoring/skills/ out of the ignore list', () => {
+    writeGitignore(projectRoot);
+
+    const lines = read(projectRoot, '.paqad/.gitignore').split('\n');
+    expect(lines).toContain('/skills/');
+    expect(lines).not.toContain('skills/');
   });
 
   it('keeps the boot pointer shared and the version file local (the inversion)', () => {
