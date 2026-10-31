@@ -344,6 +344,7 @@ export function buildSkillEvidence(input: EvidenceInput): Record<string, unknown
   const overlap = workspace.read('overlap.md') ?? '';
   const scriptTests = workspace.readJson<{
     test_exit_code?: number;
+    test_command?: string | null;
     scripts?: Array<{ checks: Array<{ status: string }> }>;
   }>('script-tests.json');
   const checks = (scriptTests?.scripts ?? []).flatMap((script) => script.checks);
@@ -381,7 +382,10 @@ export function buildSkillEvidence(input: EvidenceInput): Record<string, unknown
     },
     lint: { blocking: input.lint.blocking, warnings: input.lint.warnings },
     script_tests: {
-      command: readProjectProfile(workspace.projectRoot)?.commands?.test ?? null,
+      command:
+        scriptTests?.test_command ??
+        readProjectProfile(workspace.projectRoot)?.commands?.test ??
+        null,
       tests: checks.length,
       passed: checks.filter((check) => check.status === 'passed').length,
       skipped: checks.filter((check) => check.status === 'skipped').length,

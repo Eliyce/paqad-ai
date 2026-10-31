@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runSkillTest } from '@/authoring/stages/test.js';
+import { runSkillTest, skillTestCommand } from '@/authoring/stages/test.js';
 import { CONTRACT_CHECKS } from '@/authoring/tests/script-contract.js';
 import { renderGateMarkdown, SkillWorkspace } from '@/authoring/workspace.js';
 import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
@@ -169,5 +169,36 @@ describe('paqad-ai skill test (S4)', () => {
   it('refuses before S3 has passed', async () => {
     const workspace = new SkillWorkspace(root, NAME);
     await expect(runSkillTest(workspace)).rejects.toThrow("S4 lint and tests can't start");
+  });
+});
+
+describe('the skill test command', () => {
+  const DIR = 'tests/skills/processing-invoices';
+
+  it('narrows a path-filtering runner to the skill test folder', () => {
+    expect(skillTestCommand(root, 'node vitest.mjs run --config v.mjs', DIR)).toBe(
+      `node vitest.mjs run --config v.mjs ${DIR}`,
+    );
+    expect(skillTestCommand(root, 'php artisan test', 'tests/Feature/Skills/X')).toBe(
+      'php artisan test tests/Feature/Skills/X',
+    );
+  });
+
+  it('follows a package test script to its runner, adding -- for npm', () => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }));
+    expect(skillTestCommand(root, 'pnpm test --reporter=tap', DIR)).toBe(
+      `pnpm test --reporter=tap ${DIR}`,
+    );
+    expect(skillTestCommand(root, 'npm test', DIR)).toBe(`npm test -- ${DIR}`);
+    expect(skillTestCommand(root, 'npm test -- --silent', DIR)).toBe(`npm test -- --silent ${DIR}`);
+  });
+
+  it('keeps the full command for a runner that cannot take a path', () => {
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ scripts: { test: 'go test ./...' } }),
+    );
+    expect(skillTestCommand(root, 'npm test', DIR)).toBe('npm test');
+    expect(skillTestCommand(root, 'make test', DIR)).toBe('make test');
   });
 });

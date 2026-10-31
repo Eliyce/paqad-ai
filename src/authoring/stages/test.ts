@@ -152,6 +152,32 @@ function riskyGate(
   return { waiting, refused };
 }
 
+const PATH_FILTER_RUNNERS = /\b(?:vitest|jest|pytest|phpunit|pest|artisan\s+test|mocha)\b/u;
+const PACKAGE_TEST = /^(npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b/u;
+
+function packageTestScript(projectRoot: string): string {
+  try {
+    const parsed = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, unknown>;
+    };
+    return typeof parsed.scripts?.test === 'string' ? parsed.scripts.test : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The project test command narrowed to the skill's own test folder, so S4 runs the skill's
+ * tests and not the whole suite. A runner that cannot take a path keeps the full command.
+ */
+export function skillTestCommand(projectRoot: string, command: string, testDir: string): string {
+  const manager = PACKAGE_TEST.exec(command)?.[1];
+  const runner = manager === undefined ? command : packageTestScript(projectRoot);
+  if (!PATH_FILTER_RUNNERS.test(runner)) return command;
+  if (manager === 'npm' && !/\s--(?:\s|$)/u.test(command)) return `${command} -- ${testDir}`;
+  return `${command} ${testDir}`;
+}
+
 export function testInputsHash(projectRoot: string, folder: string, testDir: string): string {
   const skillFiles = listFolderFiles(folder)
     .filter((file) => file.rel.startsWith('scripts/') || file.rel.startsWith('references/'))
@@ -249,6 +275,7 @@ export async function runSkillTest(
     .map((file) => file.rel)
     .filter((rel) => rel.startsWith('scripts/'));
   let run: TestRun = { exitCode: 0, failedTests: null };
+  let testCommand: string | null = null;
   if (scripts.length > 0) {
     const command = readProjectProfile(projectRoot)?.commands?.test?.trim();
     if (!command) {
@@ -257,7 +284,8 @@ export async function runSkillTest(
           "Propose adding the stack's default test runner.",
       );
     }
-    run = await (options.runTests ?? defaultTestRunner)(command, projectRoot, {
+    testCommand = skillTestCommand(projectRoot, command, location.dir);
+    run = await (options.runTests ?? defaultTestRunner)(testCommand, projectRoot, {
       [SKILL_UNDER_TEST_ENV]: folder,
     });
   }
@@ -273,6 +301,7 @@ export async function runSkillTest(
     ...(passed ? {} : { reason: reasons.join('; ') }),
     inputs_hash: testInputsHash(workspace.projectRoot, folder, location.dir),
     test_location: location.dir,
+    test_command: testCommand,
     test_exit_code: run.exitCode,
     lint: { blocking: lint.blocking, warnings: lint.warnings },
     references,
