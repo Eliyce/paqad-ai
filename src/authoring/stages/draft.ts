@@ -1,15 +1,8 @@
-import {
-  copyFileSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-} from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import { recordGateFailure } from '../evidence.js';
+import { readRegularFile, writeFileAtomic } from '../fs-io.js';
 import { isPaqadRuntimeSkill } from '../lint/skill-lint.js';
 import { SKILL_FILE } from '../paths.js';
 import {
@@ -149,11 +142,15 @@ function copyTree(source: string, target: string, workspace: SkillWorkspace, pre
       copyTree(source, target, workspace, rel);
       continue;
     }
-    const buffer = readFileSync(abs);
+    const file = readRegularFile(abs, false);
+    if (file === null) {
+      throw new AuthoringRefusal(`S3 draft refused: ${rel} is not a regular file.`);
+    }
+    const { buffer, mode } = file;
     if (buffer.subarray(0, 8000).includes(0)) {
       const out = workspace.path(`${target}/${rel}`);
       mkdirSync(dirname(out), { recursive: true });
-      copyFileSync(abs, out);
+      writeFileAtomic(out, buffer, mode);
       continue;
     }
     workspace.write(`${target}/${rel}`, buffer.toString('utf8'));

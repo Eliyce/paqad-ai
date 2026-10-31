@@ -15,9 +15,8 @@ function quickFilter(input) {
 }
 
 async function record(payload) {
-  const { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } =
-    await import('node:fs');
-  const { dirname, join } = await import('node:path');
+  const fs = await import('node:fs');
+  const { basename, dirname, join } = await import('node:path');
   const core = await import('./lib/skill-activation-core.mjs');
   const gate = await import('./lib/paqad-disabled.mjs');
   const projectRoot = gate.resolveProjectRoot(process.env, payload);
@@ -33,25 +32,35 @@ async function record(payload) {
   const line = entry === null ? null : core.activationLine(entry);
   if (line === null) return;
   const file = join(projectRoot, core.ACTIVATIONS_REL);
-  mkdirSync(dirname(file), { recursive: true });
-  appendFileSync(file, line, 'utf8');
-  if (statSync(file).size > core.PRUNE_THRESHOLD_BYTES) {
-    const window = Number(
-      gate.readLayeredKey(
-        projectRoot,
-        'authoring_dark_window_days',
-        'PAQAD_AUTHORING_DARK_WINDOW_DAYS',
-      ),
-    );
-    writeFileSync(
-      file,
-      core.pruneActivationText(
-        readFileSync(file, 'utf8'),
-        new Date(),
-        Number.isInteger(window) && window > 0 ? window : core.DEFAULT_DARK_WINDOW_DAYS,
-      ),
-      'utf8',
-    );
+  fs.mkdirSync(dirname(file), { recursive: true });
+  fs.appendFileSync(file, line, 'utf8');
+  const fd = fs.openSync(file, 'r');
+  let text;
+  try {
+    if (fs.fstatSync(fd).size <= core.PRUNE_THRESHOLD_BYTES) return;
+    text = fs.readFileSync(fd, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const window = Number(
+    gate.readLayeredKey(
+      projectRoot,
+      'authoring_dark_window_days',
+      'PAQAD_AUTHORING_DARK_WINDOW_DAYS',
+    ),
+  );
+  const pruned = core.pruneActivationText(
+    text,
+    new Date(),
+    Number.isInteger(window) && window > 0 ? window : core.DEFAULT_DARK_WINDOW_DAYS,
+  );
+  const tmp = join(dirname(file), `.${basename(file)}.${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(tmp, pruned, 'utf8');
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    fs.rmSync(tmp, { force: true });
+    throw error;
   }
 }
 

@@ -1,4 +1,14 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -175,6 +185,12 @@ describe('config, paths and activations', () => {
     );
     expect(pruneActivations(root, new Date('2026-10-31T00:00:00Z'), 30, true)).toBe(1);
     expect(readFileSync(join(root, ACTIVATIONS_LEDGER), 'utf8')).toBe('');
+    expect(readdirSync(join(root, ACTIVATIONS_LEDGER, '..'))).toEqual(['activations.jsonl']);
+  });
+
+  it('prunes nothing and creates no ledger when the ledger is missing', () => {
+    expect(pruneActivations(root, new Date('2026-10-31T00:00:00Z'), 30, true)).toBe(0);
+    expect(() => readFileSync(join(root, ACTIVATIONS_LEDGER))).toThrow(/ENOENT/u);
   });
 });
 
@@ -238,6 +254,7 @@ describe('draft and improve refusals', () => {
     );
     write('d/csv-dedupe/SKILL.md', '---\nname: csv-dedupe\n---\n\n# Steps\n\ntext\n');
     write('d/csv-dedupe/assets/icon.bin', Buffer.from([0, 9, 0]));
+    chmodSync(join(root, 'd/csv-dedupe/assets/icon.bin'), 0o640);
     const result = runDraft(workspace, {
       dir: join(root, 'd/csv-dedupe'),
       traceText:
@@ -247,6 +264,10 @@ describe('draft and improve refusals', () => {
     expect(readFileSync(workspace.path('draft/csv-dedupe/assets/icon.bin'))).toEqual(
       Buffer.from([0, 9, 0]),
     );
+    expect(readdirSync(workspace.path('draft/csv-dedupe/assets'))).toEqual(['icon.bin']);
+    if (process.platform !== 'win32') {
+      expect(statSync(workspace.path('draft/csv-dedupe/assets/icon.bin')).mode & 0o777).toBe(0o640);
+    }
   });
 
   it('refuses improve on a folder without SKILL.md and on a symlink inside it', () => {

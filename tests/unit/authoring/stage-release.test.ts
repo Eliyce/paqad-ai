@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -143,6 +144,10 @@ describe('paqad-ai skill release (S7)', () => {
     expect(readFileSync(join(root, `.paqad/authoring/skills/${NAME}/CHANGELOG.md`), 'utf8')).toBe(
       `# ${NAME}\n\n## 1.0.0\n\n- evals: 50 points over the baseline; trigger validation score 0.95\n`,
     );
+    expect(readdirSync(join(root, `.paqad/authoring/skills/${NAME}`)).sort()).toEqual([
+      'CHANGELOG.md',
+      'evidence.json',
+    ]);
     const record = readSkillRecord(root, dir, NAME)!;
     expect(record).toMatchObject({
       skill: NAME,

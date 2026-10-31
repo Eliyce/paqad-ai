@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
+
+import { readTextIfPresent } from '../fs-io.js';
 
 export const QUICK_VALIDATE_ALLOWED_KEYS: readonly string[] = [
   'name',
@@ -25,9 +26,8 @@ function result(valid: boolean, message: string): QuickValidateResult {
 }
 
 export function quickValidateSkill(folder: string): QuickValidateResult {
-  const file = join(folder, 'SKILL.md');
-  if (!existsSync(file)) return result(false, 'SKILL.md not found');
-  const content = readFileSync(file, 'utf8');
+  const content = readTextIfPresent(join(folder, 'SKILL.md'));
+  if (content === null) return result(false, 'SKILL.md not found');
   if (!content.startsWith('---')) return result(false, 'No YAML frontmatter found');
   const split = splitSkillFrontmatter(content);
   if (!split.ok) return result(false, split.message);

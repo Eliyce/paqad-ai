@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  lstatSync,
-  readdirSync,
-  readFileSync,
-  readlinkSync,
-  realpathSync,
-  statSync,
-} from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readlinkSync, realpathSync } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
 
 import YAML from 'yaml';
@@ -15,6 +7,7 @@ import { builtinSecretScan } from '@/codebase-health/gather.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
+import { readRegularFile } from '../fs-io.js';
 import { isPaqadRepository, skillFolderOf } from '../paths.js';
 import { skillTestDirectories } from '../tests/locations.js';
 import { allowedSkillFields, DESCRIPTION_MAX_CHARS, descriptionLength } from './fields.js';
@@ -124,8 +117,8 @@ function readTree(root: string, prefix = ''): SkillFile[] {
       files.push(...readTree(root, rel));
       continue;
     }
-    const buffer = readFileSync(join(root, rel));
-    const text = isBinary(buffer) ? null : buffer.toString('utf8');
+    const buffer = readRegularFile(join(root, rel), false)?.buffer ?? null;
+    const text = buffer === null || isBinary(buffer) ? null : buffer.toString('utf8');
     files.push({ rel, text, lines: text === null ? [] : text.split(/\r?\n/) });
   }
   return files;
@@ -141,10 +134,10 @@ function readSymlink(root: string, rel: string): SkillFile {
   }
   const base = realpathSync(root);
   const inside = resolved !== null && resolved.startsWith(`${base}${sep}`);
-  if (!inside || !statSync(resolved!).isFile()) {
+  const buffer = inside ? (readRegularFile(resolved!)?.buffer ?? null) : null;
+  if (buffer === null) {
     return { rel, text: null, lines: [], symlink: { target, scannable: false } };
   }
-  const buffer = readFileSync(resolved!);
   const text = isBinary(buffer) ? null : buffer.toString('utf8');
   return {
     rel,

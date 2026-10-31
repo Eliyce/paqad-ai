@@ -1,10 +1,11 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { jaccard } from '@/duplication/token-similarity.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
+import { readTextIfPresent } from './fs-io.js';
 import { descriptionLength } from './lint/fields.js';
 import { skillRoots, SKILL_FILE, type SkillPathContext } from './paths.js';
 import { meetsThreshold } from './thresholds.js';
@@ -224,10 +225,10 @@ function expandRoot(base: string, root: string): string[] {
 }
 
 function readSkillAt(base: string, rel: string, scope: ArtifactScope): InstalledArtifact | null {
-  const file = join(base, rel, SKILL_FILE);
-  if (!existsSync(file)) return null;
+  const text = readTextIfPresent(join(base, rel, SKILL_FILE));
+  if (text === null) return null;
   const folder = rel.split('/').at(-1)!;
-  const split = splitSkillFrontmatter(readFileSync(file, 'utf8'));
+  const split = splitSkillFrontmatter(text);
   const data = split.ok ? split.data : {};
   return {
     kind: 'skill',

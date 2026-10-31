@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -160,6 +168,24 @@ describe('runtime/hooks/skill-activation.mjs', () => {
       session_id: 'ses-1',
     });
     expect(ledger(root).map((entry) => entry.skill)).toEqual(['fresh-skill']);
+    expect(readdirSync(join(root, '.paqad/ledger/authoring'))).toEqual(['activations.jsonl']);
+  });
+
+  it('leaves a ledger at or under the prune threshold untouched', () => {
+    const root = project('authoring_dark_window_days=5\n');
+    const old = JSON.stringify({
+      skill: 'old-skill',
+      request_id: 'r',
+      session_id: 's',
+      at: new Date(Date.now() - 12 * 86_400_000).toISOString(),
+      source: 'Skill',
+    });
+    mkdirSync(join(root, '.paqad/ledger/authoring'), { recursive: true });
+    writeFileSync(join(root, LEDGER), `${old}\n`);
+    expect(runHook(root, { tool_name: 'Skill', tool_input: { skill: 'fresh-skill' } }).status).toBe(
+      0,
+    );
+    expect(ledger(root).map((entry) => entry.skill)).toEqual(['old-skill', 'fresh-skill']);
   });
 
   it('AC-15, AC-60: logs the Skill tool and a SKILL.md read by name with only five fields, and prints nothing', () => {

@@ -25,6 +25,7 @@ import { readAuthoringConfig } from '../config.js';
 import { readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
 import { activeHost } from '../eval/adapters.js';
+import { readTextIfPresent, writeFileAtomic } from '../fs-io.js';
 import { hashFolder, hashFolderWithoutDescription, listFolderFiles } from '../hash.js';
 import { descriptionLength } from '../lint/fields.js';
 import { lintSkillFolder } from '../lint/skill-lint.js';
@@ -255,18 +256,15 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
     mkdirSync(join(projectRoot, trackedDir), { recursive: true });
     writeFileSync(join(projectRoot, evidencePath), evidenceText, 'utf8');
     const changelogPath = join(projectRoot, trackedDir, 'CHANGELOG.md');
-    const existing = existsSync(changelogPath)
-      ? readFileSync(changelogPath, 'utf8')
-      : `# ${workspace.name}\n`;
+    const existing = readTextIfPresent(changelogPath) ?? `# ${workspace.name}\n`;
     const heading = `## ${version}\n`;
     if (!existing.includes(heading)) {
       const [title, ...rest] = existing.split('\n\n');
-      writeFileSync(
+      writeFileAtomic(
         changelogPath,
         [(title ?? '').trimEnd(), changelogEntry(version, evidence).trimEnd(), ...rest]
           .join('\n\n')
           .trimEnd() + '\n',
-        'utf8',
       );
     }
     lines.push(
