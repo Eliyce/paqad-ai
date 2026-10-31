@@ -143,6 +143,30 @@ describe('name rules (SK-001 to SK-004)', () => {
     expect(rules(result.findings, 'SK-003')[0]!.severity).toBe('warn');
   });
 
+  it('blocks a YAML file in the folder that does not parse, naming the line', () => {
+    const result = lint({
+      files: {
+        'references/guide.md': '# Guide\n\nLabel by area.\n',
+        'agents/openai.yaml':
+          'interface:\n  display_name: Notes\n  short_description: Writes notes for the\n    spec pipeline: findings plus questions.\n',
+      },
+    });
+    expect(rules(result.findings, 'SK-001')).toMatchObject([
+      { file: 'agents/openai.yaml', line: 3, severity: 'block' },
+    ]);
+  });
+
+  it('accepts the same text as a folded block', () => {
+    const result = lint({
+      files: {
+        'references/guide.md': '# Guide\n\nLabel by area.\n',
+        'agents/openai.yaml':
+          'interface:\n  short_description: >-\n    Writes notes for the spec pipeline: findings plus questions.\n',
+      },
+    });
+    expect(rules(result.findings, 'SK-001')).toEqual([]);
+  });
+
   it('AC-23: claude-tools blocks SK-002', () => {
     const result = lint({ name: 'claude-tools' });
     expect(rules(result.findings, 'SK-002')).toMatchObject([{ severity: 'block' }]);

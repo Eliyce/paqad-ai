@@ -61,6 +61,8 @@ An S0 stop is not a failure and writes no defect.
 and operating systems; the exit code is 0 with no blocking finding, 1 with one, 2 on a usage error.
 Choices the issue left open:
 
+- SK-001 also blocks a `.yaml` or `.yml` file in the folder that does not parse, naming its line,
+  as it does an unreadable frontmatter.
 - SK-003 checks each hyphen-separated word of the name; SK-004 warns whenever the first word does
   not end in "ing" (gerund names are the catalog rule).
 - SK-006 allows the six open-spec fields, plus Claude Code's documented fields

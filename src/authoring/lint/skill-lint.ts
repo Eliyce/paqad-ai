@@ -9,6 +9,8 @@ import {
 } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
 
+import YAML from 'yaml';
+
 import { builtinSecretScan } from '@/codebase-health/gather.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
@@ -150,6 +152,21 @@ function readSymlink(root: string, rel: string): SkillFile {
     lines: text === null ? [] : text.split(/\r?\n/),
     symlink: { target, scannable: true },
   };
+}
+
+function checkYamlFiles(sink: FindingSink, files: readonly SkillFile[]): void {
+  for (const file of files) {
+    if (file.text === null || !/\.ya?ml$/iu.test(file.rel)) continue;
+    const parsed = YAML.parseDocument(file.text, { prettyErrors: true });
+    const error = parsed.errors[0];
+    if (error === undefined) continue;
+    sink.block(
+      'SK-001',
+      file.rel,
+      error.linePos?.[0]?.line ?? 1,
+      `${file.rel} is not valid YAML: ${error.message.split('\n')[0]}`,
+    );
+  }
 }
 
 function isMarkdown(rel: string): boolean {
@@ -606,6 +623,7 @@ export function lintSkillFolder(folder: string, options: SkillLintOptions): Skil
       `A symlink to ${link.symlink!.target} that leads outside the skill folder, so it can't be scanned for secrets. Copy the real file into the folder.`,
     );
   }
+  checkYamlFiles(sink, files);
   const textFiles = files.filter((file) => file.text !== null);
   checkSecrets(sink, [
     ...textFiles.map((file) => ({ path: file.rel, content: file.text! })),
