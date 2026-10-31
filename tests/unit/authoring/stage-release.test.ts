@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { skillCompletionFindings } from '@/authoring/completion.js';
 import { hashFolder, hashFolderWithoutDescription } from '@/authoring/hash.js';
 import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
@@ -240,5 +241,37 @@ describe('paqad-ai skill release (S7)', () => {
     expect(result.lines.find((line) => line.includes('over the budget of 60'))).toContain(
       'drafting-notes',
     );
+  });
+});
+
+describe('releasing a paqad runtime skill', () => {
+  it('releases into the runtime folder the skill came from, and the completion check accepts it', async () => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const source = `runtime/base/skills/${NAME}`;
+    mkdirSync(join(root, source), { recursive: true });
+    writeFileSync(join(root, source, 'SKILL.md'), SKILL);
+    const workspace = await readyWorkspace();
+    workspace.writeJson('draft-source.json', { dir: source });
+    const result = release(workspace);
+    expect(result.lines[0]).toContain(`into ${source};`);
+    expect(existsSync(join(root, `.claude/skills/${NAME}`))).toBe(false);
+    const record = readSkillRecord(root, dir, NAME)!;
+    expect(record.released_path).toBe(source);
+    expect(
+      skillCompletionFindings({
+        projectRoot: root,
+        dirName: dir,
+        changedFiles: [`${source}/SKILL.md`],
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps the host skills folder outside the paqad repository', async () => {
+    const source = `runtime/base/skills/${NAME}`;
+    mkdirSync(join(root, source), { recursive: true });
+    const workspace = await readyWorkspace();
+    workspace.writeJson('draft-source.json', { dir: source });
+    release(workspace);
+    expect(readSkillRecord(root, dir, NAME)!.released_path).toBe(`.claude/skills/${NAME}`);
   });
 });

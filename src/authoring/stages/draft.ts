@@ -7,7 +7,7 @@ import {
   readFileSync,
   realpathSync,
 } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { recordGateFailure } from '../evidence.js';
 import { SKILL_FILE } from '../paths.js';
@@ -21,6 +21,11 @@ import { readWorkspaceSources } from './sources.js';
 import { stageResult, type StageResult } from './result.js';
 
 export const DRAFT_DIR = 'draft';
+export const DRAFT_SOURCE_FILE = 'draft-source.json';
+
+export function readDraftSource(workspace: SkillWorkspace): string | null {
+  return workspace.readJson<{ dir?: string }>(DRAFT_SOURCE_FILE)?.dir ?? null;
+}
 export const UNSOURCED_HEADING = '## Unsourced';
 
 export function draftFolder(workspace: SkillWorkspace): string {
@@ -170,6 +175,9 @@ export function runDraft(workspace: SkillWorkspace, input: DraftInput): StageRes
   const target = draftFolder(workspace);
   workspace.remove(DRAFT_DIR);
   copyTree(input.dir, target, workspace);
+  workspace.writeJson(DRAFT_SOURCE_FILE, {
+    dir: relative(workspace.projectRoot, resolve(input.dir)).replaceAll('\\', '/'),
+  });
 
   const skillText = workspace.read(`${target}/${SKILL_FILE}`) ?? '';
   const blocks = instructionBlocks(skillText);
