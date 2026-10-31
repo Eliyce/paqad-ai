@@ -96,8 +96,19 @@ export function claudeSettingsPath(env = process.env) {
   return join(claudeDir(env), 'settings.json');
 }
 
+export const TEAM_LAUNCHER_MARK = '/.paqad/hook.mjs';
+
+export function isTeamLauncherCommand(command) {
+  return typeof command === 'string' && command.replaceAll('\\', '/').includes(TEAM_LAUNCHER_MARK);
+}
+
+export function teamPluginRoot() {
+  return join(homedir(), '.paqad-ai', 'team-plugin');
+}
+
 export function paqadHookScriptPath(command) {
   if (typeof command !== 'string' || !command.includes('paqad')) return null;
+  if (isTeamLauncherCommand(command)) return null;
   const m = command.match(/"([^"]+\.mjs)"|(\S+\.mjs)/);
   const path = m ? (m[1] ?? m[2]) : null;
   return path && path.includes('paqad') ? path : null;
@@ -235,6 +246,7 @@ export function isSyncedPluginRoot(root) {
 
 function claimedRootIsLive(claimed, env) {
   if (isSyncedPluginRoot(claimed)) return true;
+  if (canonicalRoot(claimed) === canonicalRoot(teamPluginRoot())) return true;
   const installed = installedPluginRoots(env);
   if (installed === null) return true;
   return installed.includes(canonicalRoot(claimed));
