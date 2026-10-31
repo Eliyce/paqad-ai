@@ -69,9 +69,14 @@ describe('paqad-hooks command builders', () => {
     expect(() => buildHostHookChain('nope-host', ENV)).toThrow(/no native hook event map/);
   });
 
-  it('buildHostHookChain renders SubagentStop (agent-type matched) last, after Stop', () => {
+  it('buildHostHookChain renders SubagentStop (agent-type matched) after Stop, then only the skill PostToolUse entry', () => {
     const chain = buildHostHookChain('claude-code', ENV);
-    expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
+    expect(distinctEvents(chain).slice(-2)).toEqual(['SubagentStop', 'PostToolUse']);
+    const post = chain.filter((hook) => hook.nativeEvent === 'PostToolUse');
+    expect(post.map((hook) => [hook.matcher, hook.onFailure, hook.timeout])).toEqual([
+      ['Skill|Read', undefined, undefined],
+    ]);
+    expect(post[0]?.command).toContain('skill-activation.mjs');
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
     expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');
@@ -108,13 +113,13 @@ describe('paqad-hooks command builders', () => {
     expect(NATIVE_HOOK_EVENTS['codex-cli'].nativeEvent['subagent-start']).toBeUndefined();
   });
 
-  it('the plugin chain carries the same SubagentStart entry and keeps SubagentStop last', () => {
+  it('the plugin chain carries the same SubagentStart entry and keeps SubagentStop last before the skill PostToolUse entry', () => {
     const chain = buildPluginHookChain(ENV);
     const start = chain.find((hook) => hook.nativeEvent === 'SubagentStart');
     expect(start?.matcher).toBe(PAQAD_STAGE_HELPER_MATCHER);
     expect(start?.timeout).toBe(10);
     expect(start?.command).toContain('stage-agent-start.mjs');
-    expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
+    expect(distinctEvents(chain).slice(-2)).toEqual(['SubagentStop', 'PostToolUse']);
     expect(chain.filter((hook) => hook.timeout !== undefined)).toHaveLength(1);
   });
 

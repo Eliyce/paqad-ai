@@ -4,6 +4,8 @@ import {
   renderGateMarkdown,
   type SkillWorkspace,
 } from '../workspace.js';
+import { installedSkillFolder } from './improve.js';
+import { retirementDecision } from './operate.js';
 import { stageResult, type StageResult } from './result.js';
 
 export const EXCLUSIONS = ['one-off', 'documented', 'convention', 'enforceable'] as const;
@@ -27,6 +29,7 @@ export function exclusionLine(kind: Exclusion, detail?: string): string {
 }
 
 export interface JustifyInput {
+  change?: string | null;
   exclusion?: string;
   documentedIn?: string;
   enforceWith?: string;
@@ -160,7 +163,19 @@ export function runJustify(workspace: SkillWorkspace, input: JustifyInput = {}):
         `# Justification: ${workspace.name}\n\n${NO_SKILL_NEEDED_LINE}\n\n${table}`,
       ),
     );
-    return { ...stageResult(false, [NO_SKILL_NEEDED_LINE], [artifact]), stopped: true };
+    const lines = [NO_SKILL_NEEDED_LINE];
+    const result: StageResult = { ...stageResult(false, lines, [artifact]), stopped: true };
+    if (installedSkillFolder(workspace) !== null) {
+      result.decision = retirementDecision(workspace.projectRoot, {
+        skill: workspace.name,
+        why: `The agent did this right 3 times out of 3 without ${workspace.name}, so the skill no longer earns its place.`,
+        change: input.change,
+      });
+      lines.push(
+        `${workspace.name} is installed, so I proposed retiring it: decision ${result.decision}.`,
+      );
+    }
+    return result;
   }
   const line = `A skill is justified: the agent got it wrong ${BASELINE_RUNS - passed} time${BASELINE_RUNS - passed === 1 ? '' : 's'} out of ${BASELINE_RUNS} without one.`;
   const artifact = workspace.write(

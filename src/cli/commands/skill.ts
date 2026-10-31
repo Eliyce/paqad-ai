@@ -25,6 +25,7 @@ import { runEvalPlan, runEvalRecord } from '@/authoring/stages/eval.js';
 import { runTriggerPlan, runTriggerRecord } from '@/authoring/stages/trigger.js';
 import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
+import { resolveLearn, runCatalog, runDrift, runLearn } from '@/authoring/stages/operate.js';
 import { AuthoringRefusal, SkillWorkspace } from '@/authoring/workspace.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
@@ -160,6 +161,7 @@ function addPipelineVerbs(command: Command): void {
     ) =>
       runVerb(name, options, (workspace) =>
         runJustify(workspace, {
+          change: changeKey(workspace.projectRoot, options.session),
           exclusion: options.exclusion,
           documentedIn: options.documentedIn,
           enforceWith: options.enforceWith,
@@ -399,6 +401,75 @@ function addReleaseVerbs(command: Command): void {
   );
 }
 
+function printResult(result: StageResult, json?: boolean): void {
+  if (json) console.log(JSON.stringify(result, null, 2));
+  else for (const line of result.lines) console.log(line);
+  process.exitCode = stageExitCode(result);
+}
+
+function addOperateVerbs(command: Command): void {
+  withCommon(
+    command
+      .command('learn')
+      .description(
+        'S8: propose a correction to an installed skill through authoring.improvement, or apply it with --decision',
+      )
+      .argument('<name>', 'The skill name')
+      .argument('[correction]', 'The correction, in one sentence')
+      .option('--scope <where>', 'Where the correction was seen')
+      .option('--source <S-ID>', 'The trace S-ID it comes from')
+      .option('--decision <id>', 'The answered authoring.improvement decision'),
+  ).action(
+    (
+      name: string,
+      correction: string | undefined,
+      options: VerbOptions & { scope?: string; source?: string; decision?: string },
+    ) =>
+      runVerb(name, options, (workspace, projectRoot) => {
+        if (options.decision !== undefined) {
+          return resolveLearn(workspace, { decision: options.decision });
+        }
+        return runLearn(workspace, {
+          correction: correction ?? '',
+          scope: options.scope ?? '',
+          source: options.source ?? '',
+          change: changeKey(projectRoot, options.session),
+        });
+      }),
+  );
+
+  withCommon(
+    command
+      .command('drift')
+      .description('S8: list externally verified facts older than authoring_fact_max_age_days')
+      .argument('<name>', 'The skill name'),
+  ).action((name: string, options: VerbOptions) =>
+    runVerb(name, options, (workspace) => runDrift(workspace)),
+  );
+
+  withCommon(
+    command
+      .command('catalog')
+      .description(
+        'S8: trigger rate, dark skills, rivals and the added-versus-refused count for the installed skills',
+      )
+      .option('--propose-retirement', 'Raise authoring.retirement for every dark skill'),
+  ).action((options: VerbOptions & { proposeRetirement?: boolean }) => {
+    const projectRoot = resolve(options.projectRoot);
+    if (!readAuthoringConfig(projectRoot).skill_orchestrator_enabled) {
+      console.log(OFF_LINE);
+      return;
+    }
+    printResult(
+      runCatalog(projectRoot, {
+        proposeRetirement: options.proposeRetirement === true,
+        change: changeKey(projectRoot, options.session),
+      }),
+      options.json,
+    );
+  });
+}
+
 export function createSkillCommand(): Command {
   const command = new Command('skill').description(
     'Prove a new or edited skill through its gated pipeline before it is added',
@@ -420,6 +491,7 @@ export function createSkillCommand(): Command {
   addPipelineVerbs(command);
   addEvalVerbs(command);
   addReleaseVerbs(command);
+  addOperateVerbs(command);
 
   return command;
 }

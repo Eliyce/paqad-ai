@@ -122,6 +122,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/skill-activation.mjs\""
+          }
+        ]
+      }
     ]
   },
   "modules": [

@@ -20,6 +20,7 @@ import {
 } from '@/feature-evidence/artifacts.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
+import { lastFiredBySkill } from '../activations.js';
 import { readAuthoringConfig } from '../config.js';
 import { readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
@@ -251,7 +252,9 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
       const [title, ...rest] = existing.split('\n\n');
       writeFileSync(
         changelogPath,
-        [title, changelogEntry(version, evidence).trimEnd(), ...rest].join('\n\n').trimEnd() + '\n',
+        [(title ?? '').trimEnd(), changelogEntry(version, evidence).trimEnd(), ...rest]
+          .join('\n\n')
+          .trimEnd() + '\n',
         'utf8',
       );
     }
@@ -290,6 +293,7 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
   const budget = catalogBudget({
     installed,
     budgetChars: config.authoring_description_budget_chars,
+    lastFired: lastFiredBySkill(projectRoot),
   });
   const warning = budgetWarningLine(budget);
   if (warning) lines.push(warning);

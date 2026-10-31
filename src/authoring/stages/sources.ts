@@ -1,3 +1,4 @@
+import { lastFiredBySkill } from '../activations.js';
 import { readAuthoringConfig } from '../config.js';
 import { option, raiseAuthoringDecision, readAuthoringDecision } from '../decisions.js';
 import {
@@ -131,6 +132,7 @@ export function runEvidence(workspace: SkillWorkspace, input: EvidenceInput): Ev
     installed,
     threshold: config.authoring_collision_jaccard,
     budgetChars: config.authoring_description_budget_chars,
+    lastFired: lastFiredBySkill(workspace.projectRoot),
   });
 
   const sourcesArtifact = workspace.write('sources.md', input.sourcesText);

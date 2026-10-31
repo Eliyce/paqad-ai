@@ -107,7 +107,7 @@ function release(workspace: SkillWorkspace, extra: { version?: string; portable?
 }
 
 describe('paqad-ai skill release (S7)', () => {
-  it('copies the skill, writes evidence.json and CHANGELOG.md, and records skill-<name>.json', async () => {
+  it('AC-10: copies the skill, writes evidence.json and a CHANGELOG.md entry carrying the eval result, and records skill-<name>.json', async () => {
     const workspace = await readyWorkspace();
     const result = release(workspace);
     expect(result.lines[0]).toBe(
@@ -133,7 +133,9 @@ describe('paqad-ai skill release (S7)', () => {
     expect(JSON.stringify(evidence)).not.toContain(String.fromCodePoint(0x2014));
     expect(
       readFileSync(join(root, `.paqad/authoring/skills/${NAME}/CHANGELOG.md`), 'utf8'),
-    ).toContain('## 1.0.0');
+    ).toBe(
+      `# ${NAME}\n\n## 1.0.0\n\n- evals: 50 points over the baseline; trigger validation score 0.95\n`,
+    );
     const record = readSkillRecord(root, dir, NAME)!;
     expect(record).toMatchObject({
       skill: NAME,
