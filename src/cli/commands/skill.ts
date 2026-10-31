@@ -20,6 +20,7 @@ import { runJustify } from '@/authoring/stages/justify.js';
 import { stageExitCode, type StageResult } from '@/authoring/stages/result.js';
 import { runEvidence } from '@/authoring/stages/sources.js';
 import { skillStatus } from '@/authoring/stages/status.js';
+import { runSkillTest } from '@/authoring/stages/test.js';
 import { AuthoringRefusal, SkillWorkspace } from '@/authoring/workspace.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
@@ -96,11 +97,11 @@ function readInput(path: string, what: string): string {
   }
 }
 
-function runVerb(
+async function runVerb(
   name: string,
   options: VerbOptions,
-  action: (workspace: SkillWorkspace, projectRoot: string) => StageResult,
-): void {
+  action: (workspace: SkillWorkspace, projectRoot: string) => StageResult | Promise<StageResult>,
+): Promise<void> {
   const projectRoot = resolve(options.projectRoot);
   try {
     const workspace = new SkillWorkspace(projectRoot, name);
@@ -108,7 +109,7 @@ function runVerb(
       console.log(OFF_LINE);
       return;
     }
-    const result = action(workspace, projectRoot);
+    const result = await action(workspace, projectRoot);
     if (options.json) {
       console.log(JSON.stringify(result, null, 2));
     } else {
@@ -242,6 +243,20 @@ function addPipelineVerbs(command: Command): void {
           refuse: options.refuse,
         });
       }),
+  );
+
+  withCommon(
+    command
+      .command('test')
+      .description(
+        'S4: lint the draft, ask about risky scripts, check the references and run the skill tests ' +
+          'under the project test command',
+      )
+      .argument('<name>', 'The skill name'),
+  ).action((name: string, options: VerbOptions) =>
+    runVerb(name, options, (workspace, projectRoot) =>
+      runSkillTest(workspace, { change: changeKey(projectRoot, options.session) }),
+    ),
   );
 
   withCommon(
