@@ -1,5 +1,7 @@
 # Data modeler lens
 
+verified: 2026-10-31
+
 Fires when the request touches: a new entity or relationship, ownership, lifecycle or state, identifiers.
 
 ## What you look for

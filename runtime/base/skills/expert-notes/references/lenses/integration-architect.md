@@ -1,5 +1,7 @@
 # Integration architect lens
 
+verified: 2026-10-31
+
 Fires when the request touches: a third-party API, a webhook, an event, a queue, an MCP server, a cross-service call, a file exchange.
 
 ## What you look for

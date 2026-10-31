@@ -1,5 +1,7 @@
 # The Expert Roster
 
+verified: 2026-10-31
+
 The detector may name **only** roster roles. They are the expert subset of the framework's
 canonical `AGENT_ROLES` (`src/core/types/agent.ts`); the roster itself is derived in
 `src/spec-pipeline/experts/roster.ts`, and each role's token budget comes from

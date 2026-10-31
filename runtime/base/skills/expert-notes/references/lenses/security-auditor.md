@@ -1,5 +1,7 @@
 # Security auditor lens
 
+verified: 2026-10-31
+
 Fires when the request touches: auth, permissions, a tenant boundary, secrets, PII, uploads, external input, admin actions.
 
 This lens is grounded in OWASP ASVS 5.0 and the OWASP Top 10 (2025), applied to the request as written, not to a diff.

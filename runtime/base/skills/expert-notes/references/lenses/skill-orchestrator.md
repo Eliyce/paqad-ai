@@ -1,5 +1,7 @@
 # Skill orchestrator lens
 
+verified: 2026-10-31
+
 Fires when the request creates or changes a skill (a SKILL.md or a skill folder) in any host's skills folder.
 
 ## What you look for

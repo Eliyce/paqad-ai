@@ -1,5 +1,7 @@
 # Market researcher lens
 
+verified: 2026-10-31
+
 Fires when the request touches: a product or market framing question the spec must settle first. This is rare.
 
 ## What you look for
