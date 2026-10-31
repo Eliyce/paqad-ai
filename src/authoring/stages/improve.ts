@@ -1,6 +1,9 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { gitPathList } from '@/pipeline/git-paths.js';
+
+import { isPaqadRuntimeSkill } from '../lint/skill-lint.js';
 import { discoverInstalledSkills } from '../overlap.js';
 import { readSkillPathContext, SKILL_FILE } from '../paths.js';
 import {
@@ -23,11 +26,27 @@ export function installedSkillFolder(workspace: SkillWorkspace): string | null {
   return found ? found.path.slice(0, -`/${SKILL_FILE}`.length) : null;
 }
 
-export function isRegisteredSkill(workspace: SkillWorkspace): boolean {
+export const MERGE_BASE_REF = 'origin/main';
+
+export function existedAtMergeBase(projectRoot: string, folder: string): boolean | null {
+  const base = gitPathList(projectRoot, ['merge-base', 'HEAD', MERGE_BASE_REF])?.[0]?.trim();
+  if (!base) return null;
+  return gitPathList(projectRoot, ['cat-file', '-e', `${base}:${folder}/${SKILL_FILE}`]) !== null;
+}
+
+function newRuntimeSkill(projectRoot: string, folder: string): boolean {
   return (
-    installedSkillFolder(workspace) !== null ||
-    existsSync(join(workspace.projectRoot, TRACKED_ROOT, workspace.name, 'evidence.json'))
+    isPaqadRuntimeSkill(projectRoot, join(projectRoot, folder)) &&
+    existedAtMergeBase(projectRoot, folder) === false
   );
+}
+
+export function isRegisteredSkill(workspace: SkillWorkspace): boolean {
+  if (existsSync(join(workspace.projectRoot, TRACKED_ROOT, workspace.name, 'evidence.json'))) {
+    return true;
+  }
+  const folder = installedSkillFolder(workspace);
+  return folder !== null && !newRuntimeSkill(workspace.projectRoot, folder);
 }
 
 function snapshot(workspace: SkillWorkspace, sourceAbs: string, prefix = ''): number {
