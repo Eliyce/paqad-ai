@@ -9,6 +9,7 @@ import {
   appendFeatureStageRow,
   closeActiveFeature,
   openFeatureChange,
+  resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
 import {
   classifyCompletionEnforcement,
@@ -148,6 +149,48 @@ describe('classifyCompletionEnforcement', () => {
     expect(classifyCompletionEnforcement(root, A)).toMatchObject({
       enforce: true,
       reason: 'edited-this-turn',
+    });
+  });
+
+  it('enforces an owner that reopened a closed change and edited it this turn, under a documentation-update route', () => {
+    const root = tempRoot();
+    const dirName = ownChange(root, A);
+    closeActiveFeature(root, A, BEFORE);
+    expect(resumeFeatureByRef(root, A, dirName, AFTER)).toBe(dirName);
+    startStage(root, 'development', { sessionId: A, dirName, adapter: 'claude-code', now: AFTER });
+    route(root, A, {
+      active: { workflow: 'documentation-update' },
+      paused: [],
+      turn_started_at: TURN,
+    });
+    expect(sessionOwnedRows(root, A).length).toBeGreaterThan(0);
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+      activeWorkflow: 'documentation-update',
+    });
+  });
+
+  it('does not let another session own a reopened change', () => {
+    const root = tempRoot();
+    const dirName = ownChange(root, A);
+    closeActiveFeature(root, A, BEFORE);
+    resumeFeatureByRef(root, A, dirName, AFTER);
+    startStage(root, 'development', { sessionId: A, dirName, adapter: 'claude-code', now: AFTER });
+    expect(sessionOwnedRows(root, B)).toEqual([]);
+  });
+
+  it('skips an owner whose reopened change was closed again', () => {
+    const root = tempRoot();
+    const dirName = ownChange(root, A);
+    closeActiveFeature(root, A, BEFORE);
+    resumeFeatureByRef(root, A, dirName, AFTER);
+    startStage(root, 'development', { sessionId: A, dirName, adapter: 'claude-code', now: AFTER });
+    closeActiveFeature(root, A, AFTER);
+    route(root, A, { active: null, paused: [], turn_started_at: TURN });
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: false,
+      reason: 'not-owner',
     });
   });
 

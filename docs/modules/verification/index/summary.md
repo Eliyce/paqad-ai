@@ -45,7 +45,8 @@ from turning into a nuisance:
 - **It checks only the session that owns the change.**
   `runRepositoryVerification` asks `classifyCompletionEnforcement`
   (`src/pipeline/session-ownership.ts`) first. A session with no agent-written stage
-  rows of its own in an unclosed bundle is skipped with the audit reason `not-owner`,
+  rows of its own in an unclosed bundle (or in the closed-then-reopened bundle its
+  control points at) is skipped with the audit reason `not-owner`,
   so a question in a second session is never held to another session's change. An
   owner on a non-feature turn that edited nothing this turn is skipped as `detour`.
   Both skips are logged by `src/session-ledger/non-feature-skip-audit.ts`. This
