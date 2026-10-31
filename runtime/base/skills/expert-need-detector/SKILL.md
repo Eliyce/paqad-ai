@@ -1,6 +1,6 @@
 ---
 name: expert-need-detector
-description: "Decides, from the request and the S0 grounding, which domain experts (db, security, ui and the rest) the spec pipeline needs. It is the one model call that replaces a deterministic signal-scorer, because no script can reliably tell which expert a request needs without emitting false signals. Emits a roster-constrained JSON need artifact the pipeline script validates and records. Use when the spec pipeline runs with the expert roster on, after spec pipeline start has grounded and labelled the request and before the craft step (phase 2 of the spec pipeline; the TS guard is src/spec-pipeline/experts/need.ts)."
+description: "Picks which on-call domain experts from the roster (db-expert, security-auditor, ux-ui-analyst, integration-architect and the rest) a spec pipeline request needs, and answers whether a named expert is needed at all, as a roster-constrained JSON need artifact the pipeline validates and records. It is the one model call that replaces a deterministic signal-scorer, because no script can tell which expert a request needs without false signals. Use when the spec pipeline runs with the expert roster on and someone asks which experts or specialists to seat, pick or detect for a grounded request, or whether it needs a particular expert, after spec pipeline start and before the craft step (phase 2; the TS guard is src/spec-pipeline/experts/need.ts)."
 model_tier: fast
 triggers:
   - workflow:
