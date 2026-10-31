@@ -21,6 +21,60 @@ export interface ParsedSkillDocument {
   line_count: number;
 }
 
+export type SplitSkillFrontmatter =
+  | {
+      ok: true;
+      data: Record<string, unknown>;
+      frontmatterLines: string[];
+      body: string;
+      bodyStartLine: number;
+    }
+  | { ok: false; code: string; message: string };
+
+export function splitSkillFrontmatter(content: string): SplitSkillFrontmatter {
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== FRONTMATTER_BOUNDARY) {
+    return {
+      ok: false,
+      code: 'SKILL_BOUNDARY_MISSING',
+      message: 'SKILL.md must start with YAML frontmatter',
+    };
+  }
+  const closingIndex = lines.indexOf(FRONTMATTER_BOUNDARY, 1);
+  if (closingIndex === -1) {
+    return {
+      ok: false,
+      code: 'SKILL_BOUNDARY_UNCLOSED',
+      message: 'SKILL.md frontmatter is missing a closing boundary',
+    };
+  }
+  const frontmatterLines = lines.slice(1, closingIndex);
+  let parsed: unknown;
+  try {
+    parsed = YAML.parse(frontmatterLines.join('\n'));
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'SKILL_FRONTMATTER_INVALID_YAML',
+      message: `SKILL.md frontmatter is not valid YAML: ${(error as Error).message}`,
+    };
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {
+      ok: false,
+      code: 'SKILL_FRONTMATTER_NOT_OBJECT',
+      message: 'SKILL.md frontmatter must be a YAML object',
+    };
+  }
+  return {
+    ok: true,
+    data: parsed as Record<string, unknown>,
+    frontmatterLines,
+    body: lines.slice(closingIndex + 1).join('\n'),
+    bodyStartLine: closingIndex + 2,
+  };
+}
+
 export class SkillFrontmatterParser {
   parse(content: string): ParsedSkillDocument {
     const lines = content.split(/\r?\n/);
@@ -34,39 +88,13 @@ export class SkillFrontmatterParser {
       );
     }
 
-    if (lines[0] !== FRONTMATTER_BOUNDARY) {
-      throw new ValidationError(
-        'SKILL.md must start with YAML frontmatter',
-        undefined,
-        'SKILL_BOUNDARY_MISSING',
-      );
+    const split = splitSkillFrontmatter(content);
+    if (!split.ok) {
+      throw new ValidationError(split.message, undefined, split.code);
     }
 
-    const closingIndex = lines.indexOf(FRONTMATTER_BOUNDARY, 1);
-    if (closingIndex === -1) {
-      throw new ValidationError(
-        'SKILL.md frontmatter is missing a closing boundary',
-        undefined,
-        'SKILL_BOUNDARY_UNCLOSED',
-      );
-    }
-
-    const rawFrontmatter = lines.slice(1, closingIndex).join('\n');
-    const parsed = YAML.parse(rawFrontmatter);
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new ValidationError(
-        'SKILL.md frontmatter must be a YAML object',
-        undefined,
-        'SKILL_FRONTMATTER_NOT_OBJECT',
-      );
-    }
-
-    const frontmatter = normalizeDefinition(parsed as Record<string, unknown>);
-    const body = lines
-      .slice(closingIndex + 1)
-      .join('\n')
-      .trim();
+    const frontmatter = normalizeDefinition(split.data);
+    const body = split.body.trim();
 
     return {
       frontmatter,

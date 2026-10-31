@@ -68,6 +68,7 @@ describe('createProgram', () => {
       'hook',
       'managed-settings',
       'fix',
+      'skill',
     ]);
   });
 
