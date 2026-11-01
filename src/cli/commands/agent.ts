@@ -10,11 +10,22 @@ import {
 } from '@/authoring/lint/agent-lint.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
+import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
+import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
+import { raiseIntakeGap } from '@/authoring/stages/intake.js';
 import type { StageResult } from '@/authoring/stages/result.js';
 import { agentStatus } from '@/authoring/stages/status.js';
-import { AgentWorkspace } from '@/authoring/workspace.js';
+import { AgentWorkspace, AuthoringRefusal } from '@/authoring/workspace.js';
 
-import { runAuthoringVerb, USAGE_EXIT, withCommon, type VerbOptions } from './authoring-cli.js';
+import {
+  changeKey,
+  collect,
+  readInput,
+  runAuthoringVerb,
+  USAGE_EXIT,
+  withCommon,
+  type VerbOptions,
+} from './authoring-cli.js';
 
 export const AGENT_OFF_LINE =
   'The Agent Orchestrator is off (agent_orchestrator_enabled=false), so the agent pipeline does not run.';
@@ -77,6 +88,81 @@ export function runAgentVerb(
   );
 }
 
+function addIntakeVerbs(command: Command): void {
+  withCommon(
+    command
+      .command('justify')
+      .description(
+        'S0: decide from three main-conversation baseline runs whether an agent is needed',
+      )
+      .argument('<name>', 'The agent name')
+      .option('--task-file <file>', 'The task the agent would do')
+      .option(
+        '--reason <key>',
+        'verbose-output | restriction | summarisable | cheaper-model | parallel | recurring-role',
+      )
+      .option(
+        '--refuse <case>',
+        'quick-change | back-and-forth | shared-context | latency | one-off | skill-or-hook',
+      ),
+  ).action(
+    (
+      name: string,
+      options: VerbOptions & { taskFile?: string; reason?: string; refuse?: string },
+    ) =>
+      runAgentVerb(name, options, (workspace) =>
+        runAgentJustify(workspace, {
+          reason: options.reason,
+          refuse: options.refuse,
+          taskText: options.taskFile ? readInput(options.taskFile, 'the task file') : undefined,
+        }),
+      ),
+  );
+
+  withCommon(
+    command
+      .command('intake')
+      .description('S1: check every agent intake field, or raise an intake gap for the owner')
+      .argument('<name>', 'The agent name')
+      .argument('[intake-file]', 'The filled intake.yaml')
+      .option('--gap <field>', 'Raise authoring.intake_gap for a business field nothing answers')
+      .option('--question <text>', 'The question for the owner (with --gap)')
+      .option('--option <label>', 'An answer to offer (with --gap, 2 to 4 times)', collect)
+      .option('--recommend <label>', 'The recommended answer (with --gap)'),
+  ).action(
+    (
+      name: string,
+      file: string | undefined,
+      options: VerbOptions & {
+        gap?: string;
+        question?: string;
+        option?: string[];
+        recommend?: string;
+      },
+    ) =>
+      runAgentVerb(name, options, (workspace, projectRoot) => {
+        if (options.gap !== undefined) {
+          if (!options.question || !options.recommend) {
+            throw new AuthoringRefusal('--gap needs --question, --option and --recommend.', 2);
+          }
+          return raiseIntakeGap(
+            workspace,
+            {
+              field: options.gap,
+              question: options.question,
+              options: options.option ?? [],
+              recommend: options.recommend,
+              change: changeKey(projectRoot, options.session),
+            },
+            AGENT_INTAKE_FIELDS,
+          );
+        }
+        if (file === undefined) throw new AuthoringRefusal('name the intake.yaml file.', 2);
+        return runAgentIntake(workspace, readInput(file, 'the intake file'));
+      }),
+  );
+}
+
 export function createAgentCommand(): Command {
   const command = new Command('agent').description(
     'Prove a new or edited agent (subagent file) through its gated pipeline before it is added',
@@ -94,6 +180,8 @@ export function createAgentCommand(): Command {
     .action((file: string, options: LintOptions) => {
       runLint(file, options);
     });
+
+  addIntakeVerbs(command);
 
   withCommon(
     command
