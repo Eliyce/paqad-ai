@@ -2,9 +2,10 @@
 import { runRuleScripts } from 'paqad-ai/rule-scripts';
 
 const [, , projectRoot, mode, ...changed] = process.argv;
-if (!projectRoot || !mode) {
+const help = projectRoot === '--help' || projectRoot === '-h';
+if (help || !projectRoot || !mode) {
   process.stdout.write('Usage: node scripts/run.mjs <project-root> <mode> [changed-file ...]\n');
-  process.exit(1);
+  process.exit(help ? 0 : 1);
 }
 
 if (mode === 'off') {

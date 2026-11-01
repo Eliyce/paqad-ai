@@ -9,6 +9,7 @@ Usage:   bash scripts/filter-by-code.sh <MM-CODE> [project-root]
 Output:  JSON array of matching findings on stdout.
 Exits:   0 ok (may be empty array) | 2 usage / drift.json missing
 USAGE
+  case "${1:-}" in --help|-h) exit 0 ;; esac
   exit 2
 fi
 

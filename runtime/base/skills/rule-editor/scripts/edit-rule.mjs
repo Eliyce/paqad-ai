@@ -16,14 +16,20 @@ import {
 } from 'paqad-ai/rule-scripts';
 
 const [, , mode, projectRoot, a, b] = process.argv;
+const USAGE = 'Usage: node scripts/edit-rule.mjs <add|edit|remove|downgrade> <project-root> ...';
 
 function fail(msg) {
   process.stderr.write(`${msg}\n`);
   process.exit(1);
 }
 
+if (mode === '--help' || mode === '-h') {
+  process.stdout.write(`${USAGE}\n`);
+  process.exit(0);
+}
+
 if (!mode || !projectRoot) {
-  fail('Usage: node scripts/edit-rule.mjs <add|edit|remove|downgrade> <project-root> ...');
+  fail(USAGE);
 }
 
 function applyMapMutation(mutate, ruleId, action, note) {

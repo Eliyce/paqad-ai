@@ -1,7 +1,15 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, relative } from 'node:path';
+import { delimiter, isAbsolute, join, relative } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -15,6 +23,7 @@ export interface ContractRun {
   stdin?: string;
   files?: Readonly<Record<string, string>>;
   env?: Readonly<Record<string, string>>;
+  bin?: Readonly<Record<string, string>>;
 }
 
 export interface ContractFixture extends ContractRun {
@@ -35,6 +44,7 @@ export interface ScriptContract {
   writes?: readonly string[];
   rerun?: 'same-dir' | 'fresh-dir';
   maxBytes?: number;
+  volatile?: readonly RegExp[];
 }
 
 export const CONTRACT_MAX_BYTES = 64 * 1024;
@@ -78,8 +88,11 @@ function changedPaths(before: Map<string, string>, after: Map<string, string>): 
   return [...changed].sort();
 }
 
-function normalise(text: string, dir: string): string {
-  return text.split(dir).join('<dir>');
+function normalise(text: string, dir: string, volatile: readonly RegExp[] = []): string {
+  return volatile.reduce(
+    (current, pattern) => current.replace(pattern, '<volatile>'),
+    text.split(dir).join('<dir>'),
+  );
 }
 
 export function describeContract(spec: ScriptContract): void {
@@ -100,6 +113,9 @@ export function describeContract(spec: ScriptContract): void {
     for (const [rel, content] of Object.entries(run.files ?? {})) {
       writeFile(dir, rel, fill(content, dir));
     }
+    for (const [name, content] of Object.entries(run.bin ?? {})) {
+      chmodSync(writeFile(dir, join('.home', 'bin', name), fill(content, dir)), 0o755);
+    }
     return dir;
   };
   const exec = (run: ContractRun, dir: string, env: Record<string, string> = {}): RunResult =>
@@ -109,7 +125,14 @@ export function describeContract(spec: ScriptContract): void {
       {
         cwd: dir,
         input: run.stdin === undefined ? '' : fill(run.stdin, dir),
-        env: { HOME: join(dir, '.home'), ...(run.env ?? {}), ...env },
+        env: {
+          HOME: join(dir, '.home'),
+          ...(run.bin === undefined
+            ? {}
+            : { PATH: `${join(dir, '.home', 'bin')}${delimiter}${process.env.PATH ?? ''}` }),
+          ...(run.env ?? {}),
+          ...env,
+        },
         timeoutMs: 20_000,
       },
     );
@@ -143,9 +166,12 @@ export function describeContract(spec: ScriptContract): void {
       const result = exec(spec.fixture, dir);
       expect(result.status, result.stderr).toBe(spec.fixture.exit ?? 0);
       const { stdout, stderr } = spec.fixture;
-      if (typeof stdout === 'string') expect(normalise(result.stdout, dir)).toBe(stdout);
-      else if (stdout !== undefined) expect(normalise(result.stdout, dir)).toMatch(stdout);
-      if (stderr !== undefined) expect(normalise(result.stderr, dir)).toMatch(stderr);
+      if (typeof stdout === 'string')
+        expect(normalise(result.stdout, dir, spec.volatile)).toBe(stdout);
+      else if (stdout !== undefined)
+        expect(normalise(result.stdout, dir, spec.volatile)).toMatch(stdout);
+      if (stderr !== undefined)
+        expect(normalise(result.stderr, dir, spec.volatile)).toMatch(stderr);
     });
 
     it(idempotencyName, () => {
@@ -155,7 +181,9 @@ export function describeContract(spec: ScriptContract): void {
       const afterFirst = snapshot(first);
       const b = exec(spec.fixture, second);
       expect(b.status).toBe(a.status);
-      expect(normalise(b.stdout, second)).toBe(normalise(a.stdout, first));
+      expect(normalise(b.stdout, second, spec.volatile)).toBe(
+        normalise(a.stdout, first, spec.volatile),
+      );
       if (second === first) expect(snapshot(first)).toEqual(afterFirst);
     });
 

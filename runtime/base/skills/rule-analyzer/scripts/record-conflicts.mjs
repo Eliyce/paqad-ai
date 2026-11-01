@@ -1,16 +1,21 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { recordConflictFindings } from 'paqad-ai/rule-scripts';
 
 const [, , projectRoot, conflictsPath] = process.argv;
-if (!projectRoot || !conflictsPath) {
+const help = projectRoot === '--help' || projectRoot === '-h';
+if (help || !projectRoot || !conflictsPath) {
   process.stdout.write(
     'Usage: node scripts/record-conflicts.mjs <project-root> <conflicts.json>\n',
   );
-  process.exit(1);
+  process.exit(help ? 0 : 1);
 }
 
+if (!existsSync(conflictsPath)) {
+  process.stderr.write(`conflicts file not found: ${conflictsPath}\n`);
+  process.exit(1);
+}
 const conflicts = JSON.parse(readFileSync(conflictsPath, 'utf8'));
 const report = recordConflictFindings(projectRoot, conflicts);
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

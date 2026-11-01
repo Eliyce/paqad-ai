@@ -2,11 +2,12 @@
 import { resolvePendingDecision } from 'paqad-ai';
 
 const [projectRoot, id, chosen, ...rationaleParts] = process.argv.slice(2);
-if (!projectRoot || !id || !chosen) {
+const help = projectRoot === '--help' || projectRoot === '-h';
+if (help || !projectRoot || !id || !chosen) {
   process.stdout.write(
     'Usage: node scripts/resolve.mjs <project-root> <id> <chosen> [rationale]\n',
   );
-  process.exit(projectRoot && id && chosen ? 0 : 1);
+  process.exit(help ? 0 : 1);
 }
 
 try {

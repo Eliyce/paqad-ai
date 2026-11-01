@@ -11,11 +11,12 @@ import {
 import { readFileSync } from 'node:fs';
 
 const [, , projectRoot, scriptRel, ruleId, kind, scope] = process.argv;
-if (!projectRoot || !scriptRel || !ruleId || !kind || !scope) {
+const help = projectRoot === '--help' || projectRoot === '-h';
+if (help || !projectRoot || !scriptRel || !ruleId || !kind || !scope) {
   process.stdout.write(
     'Usage: node scripts/register-script.mjs <project-root> <script-path-rel> <rule-id> <kind> <scope>\n',
   );
-  process.exit(1);
+  process.exit(help ? 0 : 1);
 }
 
 const scriptAbs = join(projectRoot, scriptRel);

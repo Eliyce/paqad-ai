@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import {
   applyRuleScriptMap,
@@ -15,6 +15,10 @@ if (projectRootArg === '--help' || projectRootArg === '-h' || !classificationsPa
 }
 
 const projectRoot = projectRootArg;
+if (!existsSync(classificationsPath)) {
+  process.stderr.write(`classifications file not found: ${classificationsPath}\n`);
+  process.exit(1);
+}
 const classificationsList = JSON.parse(readFileSync(classificationsPath, 'utf8'));
 const classifications = new Map(
   classificationsList.map((c) => [

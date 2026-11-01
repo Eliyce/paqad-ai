@@ -11,9 +11,9 @@ describe('module-attribution-extractor scripts', () => {
   describe('extract.sh', () => {
     const path = sh('extract.sh');
 
-    it('--help exits 2 with usage on stdout', () => {
+    it('--help exits 0 with usage on stdout', () => {
       const r = runScript(path, ['--help']);
-      expect(r.status).toBe(2);
+      expect(r.status).toBe(0);
       expect(r.stdout).toContain('Usage:');
     });
 
