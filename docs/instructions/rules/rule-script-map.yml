@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-28T11:28:47.701Z
-rule_files_hash: sha256-6cf0d685003d0e1c1d9cdfcad298c46aaa7cd671435376f55220e3c7d4cd45d0
+generated_at: 2026-11-01T00:21:30.550Z
+rule_files_hash: sha256-2d25e9c3dda9c2af7f8e9f3dfc60a9e492005c56f78dba583704b9f3cf87fae9
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1331,18 +1331,12 @@ rules:
         fixtures_passed: true
   - id: RL-d898
     source: docs/instructions/rules/coding/cross-platform-hooks.md
-    text: 'Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. MUST NOT rely on `~` expansion, a shebang, or the executable bit.'
-    text_hash: 638572d1393a01322baccb04c8b88172fc9036aed896ddafca8962d2f6cb97a7
+    text: 'Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. The one exception is the Claude Code team chain committed in `.claude/settings.json`, which runs the committed launcher as `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]`. MUST NOT rely on `~` expansion, a shebang, or the executable bit.'
+    text_hash: 28d534d3365e17ad18ffde9834c6c5b5ce2d7938f0f19902ba18973d84dfea7e
     verifiability:
       kind: deterministic
     enforced_by: []
-    scripts:
-      - path: .paqad/scripts/rules/coding/cross-platform-hooks/002-hook-explicit-interpreter.mjs
-        kind: deterministic
-        runtime: node
-        scope: changed-files
-        last_validated_at: 2026-07-10T21:26:15.892Z
-        fixtures_passed: true
+    scripts: []
   - id: RL-4d16
     source: docs/instructions/rules/coding/cross-platform-hooks.md
     text: Recompute the absolute path from the local home directory at generate time, so it stays machine-agnostic across re-onboards instead of baking one machine's path into a shared file.
