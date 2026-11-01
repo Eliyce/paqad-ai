@@ -221,19 +221,36 @@ async function readCheckRuns(
   return runs;
 }
 
+const COMBINED_FAILURE = new Set(['failure', 'error']);
+
 async function readCommitStatuses(
   shell: DeliveryShell,
   target: OwnerRepo,
   sha: string,
 ): Promise<CheckRun[]> {
-  const result = await shell.run('gh', ['api', `${repoPath(target)}/commits/${sha}/status`]);
-  if (result.exitCode !== 0) return [];
-  const statuses = asRecord(parseJson(result.stdout))?.statuses;
-  if (!Array.isArray(statuses)) return [];
-  return statuses.map((row) => {
-    const status = asRecord(row) ?? {};
-    return { name: String(status.context ?? 'unknown'), state: statusState(status.state) };
-  });
+  const rows: CheckRun[] = [];
+  let combined: unknown;
+  for (let page = 1; page <= CHECK_RUNS_MAX_PAGES; page += 1) {
+    const result = await shell.run('gh', [
+      'api',
+      `${repoPath(target)}/commits/${sha}/status?per_page=${CHECK_RUNS_PAGE_SIZE}&page=${page}`,
+    ]);
+    if (result.exitCode !== 0) break;
+    const body = asRecord(parseJson(result.stdout));
+    if (page === 1) combined = body?.state;
+    const statuses = body?.statuses;
+    if (!Array.isArray(statuses)) break;
+    for (const row of statuses) {
+      const status = asRecord(row) ?? {};
+      rows.push({ name: String(status.context ?? 'unknown'), state: statusState(status.state) });
+    }
+    if (statuses.length < CHECK_RUNS_PAGE_SIZE) break;
+  }
+  const combinedFailed = typeof combined === 'string' && COMBINED_FAILURE.has(combined);
+  if (combinedFailed && !rows.some((row) => row.state === 'red')) {
+    rows.push({ name: 'combined commit status', state: 'red' });
+  }
+  return rows;
 }
 
 export async function restChecks(

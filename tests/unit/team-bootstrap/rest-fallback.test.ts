@@ -307,7 +307,7 @@ describe('reading checks when GraphQL is refused', () => {
       api((p) => p.startsWith('repos/acme/widgets/pulls?head='), { stdout: OPEN_PRS }),
       api((p) => p.endsWith('check-runs?per_page=100&page=1'), { stdout: checkRuns(100) }),
       api((p) => p.endsWith('check-runs?per_page=100&page=2'), { stdout: checkRuns(5, 'neutral') }),
-      api((p) => p.endsWith('/commits/abc123/status'), {
+      api((p) => p.includes('/commits/abc123/status'), {
         stdout: JSON.stringify({ statuses: [{ context: 'legacy', state: 'failure' }] }),
       }),
     ]);
@@ -329,7 +329,7 @@ describe('reading checks when GraphQL is refused', () => {
           ],
         }),
       }),
-      api((p) => p.endsWith('/status'), {
+      api((p) => p.includes('/status?'), {
         stdout: JSON.stringify({
           statuses: [
             { context: 'l', state: 'pending' },
@@ -359,7 +359,7 @@ describe('reading checks when GraphQL is refused', () => {
       origin,
       api((p) => p.startsWith('repos/acme/widgets/pulls?head='), { stdout: OPEN_PRS }),
       api((p) => p.includes('check-runs'), { stdout: checkRuns(1) }),
-      api((p) => p.endsWith('/status'), { exitCode: 1 }),
+      api((p) => p.includes('/status?'), { exitCode: 1 }),
     ];
     const shell = fakeShell(routes);
     const host = new GithubHostProvider(shell, { env: {} });
@@ -374,7 +374,7 @@ describe('reading checks when GraphQL is refused', () => {
       [
         api((p) => p.startsWith('repos/acme/widgets/pulls?head='), { stdout: OPEN_PRS }),
         api((p) => p.includes('check-runs'), { stdout: checkRuns(0) }),
-        api((p) => p.endsWith('/status'), { stdout: '{}' }),
+        api((p) => p.includes('/status?'), { stdout: '{}' }),
       ],
       [api((p) => p.startsWith('repos/acme/widgets/pulls?head='), { stdout: '[]' })],
       [
@@ -406,7 +406,7 @@ describe('reading checks when GraphQL is refused', () => {
       api((p) => p === 'repos/acme/widgets/commits/feed/check-runs?per_page=100&page=1', {
         stdout: checkRuns(1, 'failure'),
       }),
-      api((p) => p.endsWith('/status'), { stdout: '{"statuses":[]}' }),
+      api((p) => p.includes('/status?'), { stdout: '{"statuses":[]}' }),
     ]);
     expect(
       (
@@ -415,6 +415,50 @@ describe('reading checks when GraphQL is refused', () => {
         }).getChecksStatus('9')
       ).state,
     ).toBe('red');
+  });
+});
+
+describe('legacy commit statuses', () => {
+  function statuses(count: number, state: string, combined = state): string {
+    return JSON.stringify({
+      state: combined,
+      statuses: Array.from({ length: count }, (_, i) => ({ context: `s${i}`, state })),
+    });
+  }
+  function shellWith(...pages: Reply[]) {
+    return fakeShell([
+      origin,
+      api((p) => p.startsWith('repos/acme/widgets/pulls?head='), { stdout: OPEN_PRS }),
+      api((p) => p.includes('check-runs'), { stdout: JSON.stringify({ check_runs: [] }) }),
+      ...pages.map((reply, i) =>
+        api((p) => p.endsWith(`/status?per_page=100&page=${i + 1}`), reply),
+      ),
+    ]);
+  }
+  const cloud = { CLAUDE_CODE_REMOTE: 'true' } as NodeJS.ProcessEnv;
+
+  it('reads every page of statuses', async () => {
+    const shell = shellWith(
+      { stdout: statuses(100, 'success') },
+      { stdout: statuses(3, 'failure', 'failure') },
+    );
+    const status = await new GithubHostProvider(shell, { env: cloud }).getChecksStatus('feat/x');
+    expect(status.checks).toHaveLength(103);
+    expect(status.state).toBe('red');
+  });
+
+  it('trusts a failed combined state even when the listed statuses look green', async () => {
+    const shell = shellWith({ stdout: statuses(1, 'success', 'failure') });
+    const status = await new GithubHostProvider(shell, { env: cloud }).getChecksStatus('feat/x');
+    expect(status.state).toBe('red');
+    expect(status.checks.at(-1)).toEqual({ name: 'combined commit status', state: 'red' });
+  });
+
+  it('a failing later page keeps what was read', async () => {
+    const shell = shellWith({ stdout: statuses(100, 'success') }, { exitCode: 1 });
+    const status = await new GithubHostProvider(shell, { env: cloud }).getChecksStatus('feat/x');
+    expect(status).toMatchObject({ state: 'green' });
+    expect(status.checks).toHaveLength(100);
   });
 });
 
@@ -460,7 +504,7 @@ describe('odd REST answers', () => {
       api((p) => p.includes('check-runs'), {
         stdout: JSON.stringify({ check_runs: [7, { status: 'completed', conclusion: 'success' }] }),
       }),
-      api((p) => p.endsWith('/status'), { stdout: JSON.stringify({ statuses: [null] }) }),
+      api((p) => p.includes('/status?'), { stdout: JSON.stringify({ statuses: [null] }) }),
     ]);
     const status = await new GithubHostProvider(shell, {
       env: { CLAUDE_CODE_REMOTE: 'true' },
