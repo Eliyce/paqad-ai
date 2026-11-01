@@ -23,7 +23,9 @@ Join calls `bootstrapFrameworkHome()` (`src/install/bootstrap.ts`) before recrea
 
 ## Team files
 
-Join writes no tracked file. When `.paqad/hook.mjs`, the team keys in `.claude/settings.json` or
+Join writes no tracked file. Until the repo carries `.paqad/hook.mjs`, it keeps plain npm hook lines in
+the git-ignored `.claude/settings.json`; `refresh` writes the team setup, so the launcher exists
+whenever launcher lines do. When `.paqad/hook.mjs`, the team keys in `.claude/settings.json` or
 the `.claude/agents/paqad-*.md` files are missing, it tells the teammate to ask the lead to run
 `paqad-ai update`. A teammate can also skip join: the committed launcher runs every stage and check,
 but leaves out what join adds (the code index, the detection report and the quality baseline).

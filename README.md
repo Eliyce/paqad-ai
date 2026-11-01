@@ -118,7 +118,7 @@ Once the lead has onboarded a project and committed the setup, a teammate who cl
 - If the npm package is installed, the launcher hands every hook to it.
 - Otherwise, the first session prints `Setting up paqad for this repo (one time).`, downloads the plugin from `Eliyce/paqad-claude-plugin` into `~/.paqad-ai/team-plugin`, and runs the hooks from there. It refreshes that copy at most every 6 hours. If setup fails (offline, no git, Node older than 22), Claude tells the teammate once that paqad's checks are off for the session, and the next session tries again.
 
-Which route should a teammate use? Accepting the plugin offer is best. The launcher route runs every stage and check, but it leaves out what `paqad-ai join` adds on your own machine: the code index, the detection report and the quality baseline. Run `/paqad:join` or `paqad-ai join` if you want those. `join` writes no tracked file; if the committed setup is missing, it tells you to ask the lead to run `paqad-ai update`.
+Which route should a teammate use? Accepting the plugin offer is best. The launcher route runs every stage and check, but it leaves out what `paqad-ai join` adds on your own machine: the code index, the detection report and the quality baseline. Run `/paqad:join` or `paqad-ai join` if you want those. `join` writes no tracked file. Until the repo carries the launcher (`.paqad/hook.mjs`), it keeps plain npm hook lines in a git-ignored `.claude/settings.json` and tells you to ask the lead to run `paqad-ai update`. `paqad-ai refresh` writes the team setup too, so the launcher is there whenever its settings lines are.
 
 **Cloud sessions.** A Claude Code cloud session starts from a fresh machine every time, so the setup line, `Setting up paqad for this cloud session.`, and its short wait repeat on every cloud session. RAG is always off in cloud (`PAQAD_RAG_ENABLED=false`) and search uses plain text. When GitHub refuses `gh` from the cloud session, paqad opens the pull request, comments and reads checks through the GitHub REST API instead. The receipt notes when evidence starts in the cloud session because earlier steps were recorded on another machine.
 
@@ -130,7 +130,7 @@ Which route should a teammate use? Accepting the plugin offer is best. The launc
 
 - The settings lines are committed but `.paqad/hook.mjs` is not: edits are blocked with a hook error, rather than let through unchecked. Prompts and reads still work.
 - `.paqad/hook.mjs` is committed but the settings lines are not: nothing runs and paqad is simply off.
-- The launcher names a hook script the downloaded copy no longer has: edits are blocked with a sentence asking the lead to run `paqad-ai update`.
+- The launcher names a hook script your paqad no longer has: edits are blocked with one sentence. On the npm route it tells you to update your own `paqad-ai`; on the downloaded copy it asks the lead to run `paqad-ai update`.
 
 To recover, the lead runs `paqad-ai update`, commits every file it lists, and pushes.
 
