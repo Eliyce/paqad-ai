@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.114.0
+
+### Minor Changes
+
+- 4cfaf12: Teammates and Claude Code cloud sessions now get paqad straight from the repo, with nothing to install by hand. `paqad-ai onboard` and `paqad-ai update` write a shared `.claude/settings.json` (the paqad plugin offer plus the hook chain routed through a small committed launcher, `.paqad/hook.mjs`) and the stage helpers in `.claude/agents/`, and name the files to commit. The launcher steps aside when the paqad plugin is installed, forwards to an npm install when there is one, and otherwise sets up its own copy of the latest plugin on the first session and keeps it fresh, so stages and checks run the same for everyone and exactly one hook chain acts. Anything personal in an untracked `.claude/settings.json` moves to the git-ignored `.claude/settings.local.json`. In cloud sessions RAG is off, pull requests open, get comments and read checks through GitHub's REST API when GraphQL is refused, and the receipt says when evidence starts in the cloud. Set `team_bootstrap_enabled=false` to turn the team setup off; the next update removes what paqad wrote and keeps your npm hooks in `.claude/settings.local.json`.
+
 ## 1.113.1
 
 ### Patch Changes
