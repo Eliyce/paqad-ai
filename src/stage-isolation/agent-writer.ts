@@ -1,11 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import Handlebars from 'handlebars';
-
+import {
+  AGENT_HOST_TARGETS,
+  renderAgentTemplate,
+  type AgentHostTarget,
+} from '@/authoring/package/agent-render.js';
 import { resolveStageAgentSettings, type StageAgentSetting } from '@/core/framework-config.js';
-import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
 import {
@@ -17,27 +19,9 @@ import {
   type StageAgentDef,
 } from './stage-agents.js';
 
-interface HostTarget {
-  adapter: string;
-  agentsSubdir: string;
-  extension: 'md' | 'toml';
-  template: string;
-}
+type HostTarget = AgentHostTarget;
 
-export const STAGE_AGENT_HOSTS: readonly HostTarget[] = [
-  {
-    adapter: 'claude-code',
-    agentsSubdir: '.claude/agents',
-    extension: 'md',
-    template: 'claude.md.hbs',
-  },
-  {
-    adapter: 'codex-cli',
-    agentsSubdir: '.codex/agents',
-    extension: 'toml',
-    template: 'codex.toml.hbs',
-  },
-];
+export const STAGE_AGENT_HOSTS: readonly HostTarget[] = AGENT_HOST_TARGETS;
 
 export interface WriteStageAgentsOptions {
   homeDir?: string;
@@ -91,14 +75,9 @@ function renderHostAgents(
   host: HostTarget,
   settings?: Record<string, StageAgentSetting>,
 ): { name: string; content: string }[] {
-  const templateSource = readFileSync(
-    join(getRuntimeTemplatesRoot(), 'stage-agents', host.template),
-    'utf8',
-  );
-  const template = Handlebars.compile(templateSource);
   return allAgentContexts(host.adapter, settings).map(({ agentName, context }) => ({
     name: `${agentName}.${host.extension}`,
-    content: template(context),
+    content: renderAgentTemplate(host, context),
   }));
 }
 
