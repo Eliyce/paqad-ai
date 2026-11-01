@@ -546,7 +546,9 @@ export function runAgentRelease(
   }
   const overrides = readOverrides(workspace);
   const overridden = new Set(overrides.map((entry) => entry.gate));
-  const lint = lintAgentInProject(projectRoot, workspace.path(draft));
+  const lint = lintAgentInProject(projectRoot, workspace.path(draft), {
+    hookScriptRoot: workspace.path(DRAFT_DIR),
+  });
   if (lint.blocking > 0) {
     throw new AuthoringRefusal(
       `Release refused: the agent has ${lint.blocking} blocking lint finding(s) (${[

@@ -44,6 +44,7 @@ import {
 import { agentDraftFile, readAgentDraftSource } from './agent-draft.js';
 import { readAgentIntake, type AgentIntake } from './agent-intake.js';
 import { draftAgentHashWithoutDescription } from './agent-test.js';
+import { DRAFT_DIR } from './draft.js';
 import type { StageResult } from './result.js';
 
 export const AGENT_EVALS_DIR = 'evals';
@@ -275,7 +276,13 @@ function checkCases(
 }
 
 function refuseUnapprovedPowers(workspace: AuthoringWorkspace): void {
-  const lint = lintAgentInProject(workspace.projectRoot, workspace.path(agentDraftFile(workspace)));
+  const lint = lintAgentInProject(
+    workspace.projectRoot,
+    workspace.path(agentDraftFile(workspace)),
+    {
+      hookScriptRoot: workspace.path(DRAFT_DIR),
+    },
+  );
   const blocked = lint.findings.filter(
     (finding) => finding.severity === 'block' && POWER_RULES.includes(finding.rule),
   );

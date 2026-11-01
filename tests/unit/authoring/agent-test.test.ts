@@ -101,6 +101,30 @@ describe('agent test (S4)', () => {
     expect(runTests).not.toHaveBeenCalled();
   });
 
+  it('AC-33: S4 scans and hashes the draft copy of a hook script, the one release writes', async () => {
+    const workspace = npmAgent();
+    const draftScript = 'draft/.claude/hooks/block-edits.mjs';
+    const clean = workspace.read(draftScript)!;
+    workspace.write(draftScript, `${clean}const key = 'AKIAIOSFODNN7EXAMPLE';\n`);
+    const runTests = vi.fn(async () => ({ exitCode: 0, failedTests: null }));
+    const result = await runAgentTest(workspace, { runTests });
+    expect(result.ok).toBe(false);
+    expect(runTests).not.toHaveBeenCalled();
+    const lint = workspace.readJson<{ findings: Array<{ rule: string; file: string }> }>(
+      'lint.json',
+    )!;
+    expect(lint.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ rule: 'AG-012', file: '.claude/hooks/block-edits.mjs' }),
+      ]),
+    );
+    workspace.write(draftScript, `${clean}const note = 'changed in the draft';\n`);
+    await runAgentTest(workspace, { runTests });
+    expect(workspace.readJson<{ file_hash: string }>('lint.json')?.file_hash).toBe(
+      draftAgentHash(workspace),
+    );
+  });
+
   it('AC-5, AC-33: a risky power raises one authoring.agent_permission packet and clears once allowed', async () => {
     const workspace = agentThrough('S4');
     put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));

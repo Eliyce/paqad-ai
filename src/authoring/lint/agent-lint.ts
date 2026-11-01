@@ -89,6 +89,7 @@ export interface AgentLintOptions {
   memoryFile?: string;
   extraScanFiles?: readonly string[];
   emDashFiles?: readonly string[];
+  hookScriptRoot?: string;
   neverWrite?: NeverWriteList;
   now?: () => Date;
   limits?: Partial<AgentLintLimits>;
@@ -843,7 +844,8 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
     );
   }
 
-  const fileHash = hashAgentFile(projectRoot, rel, hooks.scripts);
+  const scriptRoot = options.hookScriptRoot ?? projectRoot;
+  const fileHash = hashAgentFile(projectRoot, rel, hooks.scripts, scriptRoot);
   const permission = split.data.permissionMode === 'bypassPermissions';
   const toolCount = rawTools?.length ?? 0;
   const toolTokens = toolCount * TOOL_DEFINITION_TOKENS_ESTIMATE;
@@ -895,19 +897,21 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
 
   const agentFile: LintTextFile = { rel, lines: content.split('\n') };
   const extras = [
-    ...hooks.scripts,
-    ...(options.extraScanFiles ?? []),
-    ...(options.memoryFile === undefined ? [] : [options.memoryFile]),
-  ]
-    .map((path) => textFile(projectRoot, path))
-    .filter((entry): entry is LintTextFile & { content: string } => entry !== null);
+    ...hooks.scripts.map((path) => textFile(scriptRoot, path)),
+    ...[
+      ...(options.extraScanFiles ?? []),
+      ...(options.memoryFile === undefined ? [] : [options.memoryFile]),
+    ].map((path) => textFile(projectRoot, path)),
+  ].filter((entry): entry is LintTextFile & { content: string } => entry !== null);
   checkSecrets(sink, 'AG-012', [
     { path: rel, content },
     ...extras.map((entry) => ({ path: entry.rel, content: entry.content })),
   ]);
   checkEmDash(sink, 'AG-013', agentFile);
-  for (const path of [...hooks.scripts, ...(options.emDashFiles ?? [])]) {
-    const extra = textFile(projectRoot, path);
+  for (const extra of [
+    ...hooks.scripts.map((path) => textFile(scriptRoot, path)),
+    ...(options.emDashFiles ?? []).map((path) => textFile(projectRoot, path)),
+  ]) {
     if (extra !== null) checkEmDash(sink, 'AG-013', extra);
   }
   checkDynamic(sink, 'AG-019', agentFile, {

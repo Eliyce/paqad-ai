@@ -146,7 +146,9 @@ export async function runAgentTest(
       `S4 can't start: ${workspace.relPath(draft)} holds no draft. Run paqad-ai agent draft ${workspace.name} first.`,
     );
   }
-  const lint = lintAgentInProject(projectRoot, workspace.path(draft));
+  const lint = lintAgentInProject(projectRoot, workspace.path(draft), {
+    hookScriptRoot: workspace.path(DRAFT_DIR),
+  });
   const lintArtifact = workspace.writeJson('lint.json', {
     gate: lint.blocking === 0 ? 'passed' : 'failed',
     inputs_hash: draftAgentHash(workspace),
