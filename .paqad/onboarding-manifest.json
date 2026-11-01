@@ -41,6 +41,16 @@
           "ecosystem": "node",
           "package_manager": "npm",
           "lockfile": "graph-ui/package-lock.json"
+        },
+        {
+          "ecosystem": "node",
+          "package_manager": "pnpm",
+          "lockfile": "evals/fixture/project/pnpm-lock.yaml"
+        },
+        {
+          "ecosystem": "node",
+          "package_manager": "npm",
+          "lockfile": "evals/fixture/project/package-lock.json"
         }
       ],
       "version_bands": [
@@ -60,6 +70,11 @@
         }
       ],
       "sources": [
+        {
+          "file": "evals/fixture/project/package.json",
+          "kind": "manifest",
+          "detail": "Used for stack detection and version resolution"
+        },
         {
           "file": "graph-ui/package.json",
           "kind": "manifest",
@@ -85,12 +100,19 @@
     "commands": {
       "install": "pnpm install",
       "dev": "pnpm dev",
-      "test": "pnpm test -- --reporter=tap",
-      "test_single": "pnpm test -- <pattern> --reporter=tap",
+      "test": "pnpm test --reporter=tap",
+      "test_single": "pnpm test <pattern> --reporter=tap",
       "lint": "pnpm lint",
       "format": "pnpm format",
       "migrate": "echo \"configure migrate command\"",
       "build": "pnpm build"
+    },
+    "testing": {
+      "runner_id": "vitest",
+      "detected_by": "script",
+      "recorded_at": "2026-10-27T21:11:15.233Z",
+      "lockfile_hash": "sha256:8797083b8f35f5dbe57ff4707ee8f4400d03620d8fbf1225bde06aa07fb7085a",
+      "parallel": "native"
     },
     "strictness": {
       "full_lane_default": false,
@@ -108,7 +130,10 @@
       "site_map": true,
       "lean_rules": true,
       "feature_report": true,
-      "metrics_enabled": true
+      "metrics_enabled": true,
+      "visual_evidence": false,
+      "checks_parallel": true,
+      "checks_max_processes": 0
     },
     "enterprise": {
       "enabled": true,
@@ -316,13 +341,15 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-09-05T21:47:19.135Z",
+    "timestamp": "2026-11-01T08:36:23.081Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
       "ignored_paths": [
+        ".ai",
         ".changeset",
         ".claude",
+        ".claude-plugin",
         ".codex",
         ".editorconfig",
         ".gemini",
@@ -335,16 +362,25 @@
         ".paqad",
         ".prettierignore",
         ".prettierrc.json",
+        ".tmp",
         ".windsurf",
         ".windsurfrules",
         "coverage",
         "dist",
         "docs",
+        "evals/fixture/project/.paqad",
+        "evals/fixture/project/docs",
         "graph-ui/node_modules",
         "node_modules",
+        "plugins/discovery/.gitignore",
+        "plugins/discovery/build",
+        "plugins/discovery/dist",
+        "plugins/discovery/tests",
         "runtime/graph-ui",
         "site-map-buildout",
-        "tests"
+        "src/authoring/tests",
+        "tests",
+        "website/.paqad"
       ],
       "projects": [
         {
@@ -368,6 +404,17 @@
           "ecosystems": [
             "node"
           ]
+        },
+        {
+          "root": "evals/fixture/project",
+          "role": "standalone",
+          "parent_root": null,
+          "markers": [
+            "package.json"
+          ],
+          "ecosystems": [
+            "node"
+          ]
         }
       ],
       "applications": [
@@ -378,6 +425,10 @@
         {
           "root": "graph-ui",
           "component_roots": []
+        },
+        {
+          "root": "evals/fixture/project",
+          "component_roots": []
         }
       ],
       "primary_project_root": "."
@@ -387,8 +438,10 @@
     "selected_root": ".",
     "scan_max_depth": 5,
     "ignored_paths": [
+      ".ai",
       ".changeset",
       ".claude",
+      ".claude-plugin",
       ".codex",
       ".editorconfig",
       ".gemini",
@@ -401,16 +454,25 @@
       ".paqad",
       ".prettierignore",
       ".prettierrc.json",
+      ".tmp",
       ".windsurf",
       ".windsurfrules",
       "coverage",
       "dist",
       "docs",
+      "evals/fixture/project/.paqad",
+      "evals/fixture/project/docs",
       "graph-ui/node_modules",
       "node_modules",
+      "plugins/discovery/.gitignore",
+      "plugins/discovery/build",
+      "plugins/discovery/dist",
+      "plugins/discovery/tests",
       "runtime/graph-ui",
       "site-map-buildout",
-      "tests"
+      "src/authoring/tests",
+      "tests",
+      "website/.paqad"
     ],
     "projects": [
       {
@@ -434,6 +496,17 @@
         "ecosystems": [
           "node"
         ]
+      },
+      {
+        "root": "evals/fixture/project",
+        "role": "standalone",
+        "parent_root": null,
+        "markers": [
+          "package.json"
+        ],
+        "ecosystems": [
+          "node"
+        ]
       }
     ],
     "applications": [
@@ -444,11 +517,15 @@
       {
         "root": "graph-ui",
         "component_roots": []
+      },
+      {
+        "root": "evals/fixture/project",
+        "component_roots": []
       }
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-09-05T21:47:23.923Z",
+  "generated_at": "2026-11-01T08:36:49.491Z",
   "generated_artifacts": [
     {
       "path": ".claude/.gitignore",
@@ -471,11 +548,67 @@
       "auto_update": true
     },
     {
+      "path": ".codex/.gitignore",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/settings.hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/.gitignore",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.json",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/AGENTS.md",
+      "auto_update": true
+    },
+    {
+      "path": ".paqad/mcp-recommendations.json",
+      "auto_update": true
+    },
+    {
       "path": ".paqad/templates/pr-body.md",
       "auto_update": false
     },
     {
+      "path": "AGENTS.md",
+      "auto_update": true
+    },
+    {
       "path": "CLAUDE.md",
+      "auto_update": true
+    },
+    {
+      "path": "GEMINI.md",
       "auto_update": true
     },
     {

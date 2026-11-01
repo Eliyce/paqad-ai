@@ -1,0 +1,163 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-entry-gate.mjs",
+            "onFailure": "block",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-writer.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" decision-pause-gate.mjs",
+            "onFailure": "block",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" capability-gate.mjs pre-mutation",
+            "onFailure": "block",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-entry-prompt-gate.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" ticket-intake-prompt.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-entry-session-start.mjs",
+            "timeout": 600
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" silent-update.mjs",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-marker-parse.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" verification-completion.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" capability-gate.mjs completion"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-agent-start.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^(paqad:)?paqad-",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-agent-completion.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" skill-activation.mjs"
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "eliyce": {
+      "source": {
+        "source": "github",
+        "repo": "Eliyce/paqad-claude-plugin"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "paqad@eliyce": true
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}
