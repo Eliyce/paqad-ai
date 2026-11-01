@@ -101,6 +101,7 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 
 Lenses, one per pickable expert; read only the one named by `role`:
 
+- `references/lenses/agent-orchestrator.md`
 - `references/lenses/application-architect.md`
 - `references/lenses/data-modeler.md`
 - `references/lenses/db-expert.md`

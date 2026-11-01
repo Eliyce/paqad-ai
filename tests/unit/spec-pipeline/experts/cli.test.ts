@@ -18,6 +18,7 @@ import {
   writeRequest,
 } from '@/spec-pipeline/run-store.js';
 import { stepComplete } from '@/spec-pipeline/orchestrator.js';
+import { EXPERT_OWNS } from '@/spec-pipeline/experts/roster.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
 const changed = vi.hoisted(() => ({ files: [] as string[] }));
@@ -307,6 +308,51 @@ describe('spec pipeline experts CLI', () => {
       expect(roster).toEqual([]);
     });
 
+    const AGENT = '.claude/agents/migration-reviewer.md';
+
+    it('AC-23: seats agent-orchestrator on graduated for a planned agent path the detector did not name', async () => {
+      const { roster } = await recordOn('graduated', [], planWith(['src/a.ts', AGENT]));
+      expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+        ['agent-orchestrator', `a planned file is an agent: ${AGENT}`],
+      ]);
+    });
+
+    it('AC-23: seats both orchestrators when the plan lists a skill path and an agent path', async () => {
+      const { roster } = await recordOn('graduated', [], planWith([SKILL, AGENT]));
+      expect(roster.map((entry) => entry.role)).toEqual([
+        'skill-orchestrator',
+        'agent-orchestrator',
+      ]);
+    });
+
+    it('AC-23: seats agent-orchestrator for an agent path in the edited files', async () => {
+      changed.files = ['src/a.ts', AGENT];
+      try {
+        const { roster } = await recordOn('graduated', [], planWith(['src/a.ts']));
+        expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+          ['agent-orchestrator', `an edited file is an agent: ${AGENT}`],
+        ]);
+      } finally {
+        changed.files = [];
+      }
+    });
+
+    it('AC-34: seats nothing for a file under .cursor/agents', async () => {
+      const { roster } = await recordOn('graduated', [], planWith(['.cursor/agents/x.md']));
+      expect(roster).toEqual([]);
+    });
+
+    it('AC-23: seats nothing for an agent path while agent_orchestrator_enabled=false', async () => {
+      const { roster } = await recordOn('graduated', [], (root, dir) => {
+        planWith([AGENT])(root, dir);
+        writeFileSync(
+          join(root, '.paqad', '.config'),
+          'spec_pipeline_enabled=true\nspec_pipeline_experts_enabled=true\nagent_orchestrator_enabled=false\n',
+        );
+      });
+      expect(roster).toEqual([]);
+    });
+
     it.each(['full', null] as const)(
       'AC-19: seats the standing four plus the picks on %s',
       async (lane) => {
@@ -412,6 +458,7 @@ describe('spec pipeline experts CLI', () => {
     ]);
     const after = JSON.parse((await run(root, ['experts', 'context'])).out[0]!);
     expect(after.roster).toHaveLength(1);
+    expect(after.owns).toEqual({ 'db-expert': EXPERT_OWNS['db-expert'] });
     expect(after.notes[0].findings[0].id).toBe('EX-db-expert-1');
     expect(after.merge.findings).toHaveLength(1);
 

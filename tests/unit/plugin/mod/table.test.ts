@@ -249,6 +249,7 @@ describe('the HIGH TABLE instrument (FR-34, AC-31, AC-56, AC-57)', () => {
     expect(roleInitials('product-owner')).toBe('PO');
     expect(roleInitials('devops-engineer')).toBe('DO');
     expect(roleInitials('skill-orchestrator')).toBe('SO');
+    expect(roleInitials('agent-orchestrator')).toBe('AO');
     expect(roleInitials('db-expert')).toBe('DE');
     expect(roleInitials('auditor')).toBe('AU');
   });
