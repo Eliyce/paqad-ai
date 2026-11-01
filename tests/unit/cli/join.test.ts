@@ -236,6 +236,49 @@ describe('paqad-ai join', () => {
     expect(JOIN_TEAM_SETUP_MISSING_MESSAGE).toContain('`paqad-ai update`');
   });
 
+  it('in a repo the lead has not updated, writes plain npm hook lines to the ignored settings and no launcher line', async () => {
+    seedOnboardedProject(root);
+    write(join(root, '.claude/.gitignore'), 'settings.json\nsettings.hooks.json\n');
+    const git = (...args: string[]) =>
+      execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    git('add', '-A');
+    git(
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-qm',
+      'seed',
+    );
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    const settings = readFileSync(join(root, '.claude/settings.json'), 'utf8');
+    expect(settings).not.toContain('/.paqad/hook.mjs');
+    expect(settings).toContain(
+      `${join(homeDir, '.paqad-ai', 'current').replace(/\\\\/g, '/')}/hooks/agent-entry-gate.mjs`,
+    );
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
+    expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
+  });
+
+  it('with the launcher present, the ignored settings get the launcher lines', async () => {
+    seedOnboardedProject(root);
+    write(join(root, '.claude/.gitignore'), 'settings.json\nsettings.hooks.json\n');
+    syncTeamSetup(root, {});
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).toContain('/.paqad/hook.mjs');
+  });
+
   it('stays quiet about the team setup once the repo carries it', async () => {
     seedOnboardedProject(root);
     for (const file of new ClaudeCodeAdapter().hostSettingsFiles(root, {})) {

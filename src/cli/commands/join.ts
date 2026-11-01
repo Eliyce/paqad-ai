@@ -5,9 +5,11 @@ import { confirm } from '@inquirer/prompts';
 import { Command } from 'commander';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { teamSetupMissing } from '@/adapters/claude/team-setup.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { isGitIgnored } from '@/core/fs/git-tracked.js';
 import { resolveFrameworkConfig, resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
@@ -61,6 +63,12 @@ export const JOIN_TEAM_SETUP_MISSING_MESSAGE =
   'This repo does not carry the paqad team setup yet, so teammates and cloud sessions do not get paqad on their own. Ask the project lead to run `paqad-ai update` and commit the result.';
 export const JOIN_READY_MESSAGE =
   'Ready. Your machine is set up for this project. No tracked files changed.';
+
+const CLAUDE_HOST_SETTINGS = new Set([
+  '.claude/.gitignore',
+  '.claude/settings.json',
+  '.claude/settings.local.json',
+]);
 
 const FRAMEWORK_VERSION_EPOCH_SEED = '1970-01-01T00:00:00Z';
 
@@ -148,13 +156,19 @@ async function recreateLocalArtifacts(
 
   for (const provider of providers) {
     const adapter = AdapterFactory.create(provider);
-    candidates.push(
-      ...(await adapter.generateConfig({
-        frameworkPath: PATHS.FRAMEWORK_PATH,
-        rulesPath: PATHS.RULES_DIR,
-        projectRoot,
-      })),
-    );
+    const generated = await adapter.generateConfig({
+      frameworkPath: PATHS.FRAMEWORK_PATH,
+      rulesPath: PATHS.RULES_DIR,
+      projectRoot,
+    });
+    if (adapter instanceof ClaudeCodeAdapter) {
+      candidates.push(
+        ...generated.filter((file) => !CLAUDE_HOST_SETTINGS.has(toPosixPath(file.path))),
+        ...adapter.joinSettingsFiles(projectRoot),
+      );
+    } else {
+      candidates.push(...generated);
+    }
     if (adapter.capabilities.hooks) {
       candidates.push(...(await adapter.installHooks(resolved.hooks)));
     }

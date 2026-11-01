@@ -358,6 +358,19 @@ describe('refresh command', () => {
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
   });
 
+  it('writes the team launcher whenever it writes launcher hook lines, so no hook points at a missing file', async () => {
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stale CLAUDE.md\n');
+
+    await createRefreshCommand().parseAsync(
+      ['node', 'refresh', '--project-root', projectRoot, '--providers'],
+      { from: 'node' },
+    );
+
+    const settings = readFileSync(join(projectRoot, '.claude/settings.json'), 'utf8');
+    expect(settings).toContain('/.paqad/hook.mjs');
+    expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(true);
+  });
+
   describe('--rules', () => {
     const rulesDir = (root: string) => join(root, 'docs/instructions/rules');
 

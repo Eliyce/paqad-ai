@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { AdapterFactory } from '@/adapters/factory.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { PATHS } from '@/core/constants/paths.js';
@@ -196,6 +197,9 @@ async function refreshProviderEntries(projectRoot: string): Promise<void> {
       projectRoot,
     });
     writeGeneratedFiles(projectRoot, files);
+    if (adapter instanceof ClaudeCodeAdapter) {
+      adapter.syncTeamSetup(projectRoot);
+    }
   }
 }
 

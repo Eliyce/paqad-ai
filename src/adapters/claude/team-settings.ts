@@ -231,6 +231,12 @@ export interface ClaudeSettingsPlan {
   tracked: boolean;
 }
 
+export function planMachineOnlySettings(options: ClaudeSettingsOptions): GeneratedFile {
+  const existing = readJson(join(options.projectRoot, CLAUDE_SETTINGS_FILE)) ?? {};
+  const merged = mergeNativeHooks(withoutPaqadLines(existing, options), options.npmChain);
+  return fileFor(CLAUDE_SETTINGS_FILE, options.transform(merged));
+}
+
 export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettingsPlan {
   const { projectRoot, env, transform } = options;
   const enabled = resolveTeamBootstrapEnabled(projectRoot, env);
@@ -258,9 +264,7 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   let shared: Json;
   let personal: Json = {};
   if (tracked) {
-    shared = transform(
-      addTeamKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)),
-    );
+    shared = transform(addTeamKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)));
   } else {
     const split = splitPersonal(withoutPaqadLines(existing, options));
     personal = split.personal;
