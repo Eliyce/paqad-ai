@@ -136,11 +136,12 @@ describe('renderProducedAgent', () => {
     const file = renderProducedAgent(source, 'codex-cli');
     expect(file.path).toBe('.codex/agents/migration-reviewer.toml');
     expect(tomlField(file.content, 'name')).toBe('migration-reviewer');
-    expect(tomlField(file.content, 'model')).toBe('haiku');
+    expect(tomlField(file.content, 'model')).toBeUndefined();
     expect(tomlField(file.content, 'model_reasoning_effort')).toBe('low');
     expect(tomlInstructions(file.content)).toBe(source.body);
     expect(file.content).not.toContain('maxTurns');
     expect(file.host_notes).toEqual([
+      'model omitted: haiku is a Claude Code model, so the Codex agent inherits the parent model',
       'tools omitted: Codex has no documented field for it',
       'maxTurns omitted: Codex has no documented field for it',
       'skills omitted: Codex has no documented field for it',
@@ -150,6 +151,17 @@ describe('renderProducedAgent', () => {
       'cacheTtl omitted: Codex has no documented field for it',
       'permissionMode omitted: Codex has no documented field for it',
     ]);
+  });
+
+  it('keeps a non-Claude model and notes an effort Codex lacks', () => {
+    const file = renderProducedAgent(
+      parseAgentSource(
+        '---\nname: a\ndescription: d\nmodel: gpt-6-luna\neffort: ultra-x\n---\nB\n',
+      ),
+      'codex-cli',
+    );
+    expect(tomlField(file.content, 'model')).toBe('gpt-6-luna');
+    expect(file.host_notes).toEqual(['effort omitted: Codex has no reasoning effort ultra-x']);
   });
 
   it('refuses a host with no agent support', () => {

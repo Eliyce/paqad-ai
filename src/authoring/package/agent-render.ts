@@ -7,6 +7,8 @@ import YAML from 'yaml';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
+import { CODEX_AGENT_FIELDS, isClaudeModel } from '../lint/fields.js';
+
 export interface AgentHostTarget {
   adapter: string;
   agentsSubdir: string;
@@ -205,13 +207,28 @@ function renderCodexAgent(source: AgentSource): { content: string; notes: string
     `name = ${tomlBasic(source.name)}`,
     `description = ${tomlBasic(source.description)}`,
   ];
-  if (source.model !== undefined) lines.push(`model = ${tomlBasic(source.model)}`);
+  const notes: string[] = [];
+  if (source.model !== undefined) {
+    if (isClaudeModel(source.model)) {
+      notes.push(
+        `model omitted: ${source.model} is a Claude Code model, so the Codex agent inherits the parent model`,
+      );
+    } else {
+      lines.push(`model = ${tomlBasic(source.model)}`);
+    }
+  }
   if (source.effort !== undefined) {
-    lines.push(`model_reasoning_effort = ${tomlBasic(source.effort)}`);
+    if ((CODEX_AGENT_FIELDS.efforts as readonly string[]).includes(source.effort)) {
+      lines.push(`model_reasoning_effort = ${tomlBasic(source.effort)}`);
+    } else {
+      notes.push(`effort omitted: Codex has no reasoning effort ${source.effort}`);
+    }
   }
   lines.push(`developer_instructions = ${tomlMultiline(source.body)}`);
-  const notes = CODEX_UNSUPPORTED.filter((key) => source[key] !== undefined).map(
-    (key) => `${key} omitted: Codex has no documented field for it`,
+  notes.push(
+    ...CODEX_UNSUPPORTED.filter((key) => source[key] !== undefined).map(
+      (key) => `${key} omitted: Codex has no documented field for it`,
+    ),
   );
   return { content: `${lines.join('\n')}\n`, notes };
 }

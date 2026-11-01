@@ -127,3 +127,21 @@ export function withDescription(skillText: string, description: string): string 
   }
   return ['---', ...front, ...lines.slice(close)].join('\n');
 }
+
+export const MISSING_HOOK_SCRIPT = '\u0000missing\u0000';
+
+export function hashAgentFile(
+  projectRoot: string,
+  file: string,
+  hookScripts: readonly string[] = [],
+): string {
+  const files: HashedFile[] = [{ rel: file, bytes: readFileSync(join(projectRoot, file)) }];
+  for (const script of [...new Set(hookScripts)]) {
+    const abs = join(projectRoot, script);
+    files.push({
+      rel: script,
+      bytes: existsSync(abs) ? readFileSync(abs) : Buffer.from(MISSING_HOOK_SCRIPT),
+    });
+  }
+  return hashFiles(files);
+}

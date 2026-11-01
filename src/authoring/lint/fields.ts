@@ -76,3 +76,111 @@ export const CLAUDE_PLUGIN_EVAL_SUPPORT = {
   minimum_version: '2.1.269',
   flags_checked_against: '2.1.302',
 } as const;
+
+export const CLAUDE_CODE_AGENT_FIELDS = {
+  checked: '2026-11-01',
+  source: 'https://code.claude.com/docs/en/sub-agents',
+  fields: [
+    'name',
+    'description',
+    'tools',
+    'disallowedTools',
+    'model',
+    'permissionMode',
+    'maxTurns',
+    'autoCompactWindow',
+    'skills',
+    'mcpServers',
+    'hooks',
+    'memory',
+    'background',
+    'omitClaudeMd',
+    'effort',
+    'isolation',
+    'color',
+    'initialPrompt',
+    'experimental',
+  ],
+  plugin_ignored_fields: ['permissionMode', 'mcpServers', 'hooks', 'initialPrompt'],
+  tools: [
+    'Agent',
+    'Artifact',
+    'AskUserQuestion',
+    'Bash',
+    'Edit',
+    'EndConversation',
+    'EnterPlanMode',
+    'EnterWorktree',
+    'ExitPlanMode',
+    'ExitWorktree',
+    'Glob',
+    'Grep',
+    'LSP',
+    'Monitor',
+    'NotebookEdit',
+    'PowerShell',
+    'Read',
+    'ScheduleWakeup',
+    'SendMessage',
+    'Skill',
+    'SubagentHandback',
+    'Task',
+    'TaskStop',
+    'TodoWrite',
+    'ToolSearch',
+    'WaitForMcpServers',
+    'WebFetch',
+    'WebSearch',
+    'Workflow',
+    'Write',
+  ],
+  models: ['inherit', 'haiku', 'sonnet', 'opus', 'fable'],
+  model_id_pattern: /^claude-[a-z0-9][a-z0-9.-]*$/u,
+  efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  memory_scopes: ['user', 'project', 'local'],
+  isolation: ['worktree'],
+  cache_ttls: ['5m', '1h'],
+  permission_modes: [
+    'default',
+    'manual',
+    'acceptEdits',
+    'auto',
+    'dontAsk',
+    'bypassPermissions',
+    'plan',
+  ],
+} as const;
+
+export const CODEX_AGENT_FIELDS = {
+  checked: '2026-11-01',
+  source: 'https://developers.openai.com/codex/subagents',
+  fields: ['name', 'description', 'developer_instructions', 'model', 'model_reasoning_effort'],
+  efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+} as const;
+
+export function isClaudeModel(model: string): boolean {
+  return (
+    (CLAUDE_CODE_AGENT_FIELDS.models as readonly string[]).includes(model) ||
+    CLAUDE_CODE_AGENT_FIELDS.model_id_pattern.test(model)
+  );
+}
+
+export const AGENT_ROLE_NOUNS: readonly string[] = [
+  'agent',
+  'analyst',
+  'architect',
+  'assistant',
+  'coach',
+  'critic',
+  'expert',
+  'guard',
+  'judge',
+  'scout',
+  'sentinel',
+  'specialist',
+];
+
+export function isObjectRoleName(name: string): boolean {
+  const last = name.split('-').at(-1) ?? '';
+  return /(?:er|or|ist|ian)$/u.test(last) || AGENT_ROLE_NOUNS.includes(last);
+}

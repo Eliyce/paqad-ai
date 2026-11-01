@@ -100,7 +100,9 @@ describe('the three forms of one agent', () => {
     expect(String(split.data.tools).split(', ')).toEqual(definition.tools);
     expect(split.data.model).toBe(definition.model);
     expect(split.body.replace(/^\n/u, '')).toBe(definition.prompt);
-    expect(codex.content).toContain(`model = "${definition.model}"`);
+    expect(codex.host_notes).toContain(
+      'model omitted: sonnet is a Claude Code model, so the Codex agent inherits the parent model',
+    );
     expect(codex.content).toContain(definition.prompt);
     expect(codex.host_notes).toContain('tools omitted: Codex has no documented field for it');
   });

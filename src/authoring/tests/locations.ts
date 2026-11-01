@@ -9,3 +9,7 @@ export function studlySkillName(name: string): string {
 export function skillTestDirectories(name: string): string[] {
   return [`tests/skills/${name}`, `tests/Feature/Skills/${studlySkillName(name)}`];
 }
+
+export function agentTestDirectories(name: string): string[] {
+  return [`tests/agents/${name}`, `tests/Feature/Agents/${studlySkillName(name)}`];
+}

@@ -7,14 +7,22 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readTextIfPresent } from './fs-io.js';
 import { descriptionLength } from './lint/fields.js';
-import { skillRoots, SKILL_FILE, type SkillPathContext } from './paths.js';
+import { agentNameOf, agentRoots, skillRoots, SKILL_FILE, type SkillPathContext } from './paths.js';
 import { meetsThreshold } from './thresholds.js';
 
 export type ArtifactKind = 'skill' | 'agent';
 
-export type ArtifactScope = 'project' | 'user';
+export type ArtifactScope = 'managed' | 'cli' | 'project' | 'user' | 'plugin';
 
 export const SCOPE_PRECEDENCE: readonly ArtifactScope[] = ['user', 'project'];
+
+export const AGENT_SCOPE_PRECEDENCE: readonly ArtifactScope[] = [
+  'managed',
+  'cli',
+  'project',
+  'user',
+  'plugin',
+];
 
 export interface InstalledArtifact {
   kind: ArtifactKind;
@@ -120,13 +128,20 @@ export function findCollisions(
   return { scores, collisions };
 }
 
-function outranks(left: ArtifactScope, right: ArtifactScope): boolean {
-  return SCOPE_PRECEDENCE.indexOf(left) < SCOPE_PRECEDENCE.indexOf(right);
+function outranks(
+  left: ArtifactScope,
+  right: ArtifactScope,
+  precedence: readonly ArtifactScope[],
+): boolean {
+  return precedence.indexOf(left) < precedence.indexOf(right);
 }
 
 export function findNameShadowing(
   candidate: OverlapCandidate,
   installed: readonly InstalledArtifact[],
+  precedence: readonly ArtifactScope[] = candidate.kind === 'agent'
+    ? AGENT_SCOPE_PRECEDENCE
+    : SCOPE_PRECEDENCE,
 ): NameShadowing[] {
   const shadowing: NameShadowing[] = [];
   for (const artifact of installed) {
@@ -139,7 +154,7 @@ export function findNameShadowing(
     }
     const existing: ShadowSide = { scope: artifact.scope, path: artifact.path };
     const fresh: ShadowSide = { scope: candidate.scope, path: null };
-    const existingWins = outranks(artifact.scope, candidate.scope);
+    const existingWins = outranks(artifact.scope, candidate.scope, precedence);
     shadowing.push({
       name: candidate.name,
       shadowing: existingWins ? existing : fresh,
@@ -269,6 +284,73 @@ export function discoverInstalledSkills(
   const user = scanScope(home, skillRoots(context.adapters), 'user').map((skill) => ({
     ...skill,
     path: `~/${skill.path}`,
+  }));
+  return [...project, ...user];
+}
+
+function readAgentAt(base: string, rel: string, scope: ArtifactScope): InstalledArtifact | null {
+  const text = readTextIfPresent(join(base, rel));
+  if (text === null) return null;
+  const stem = rel
+    .split('/')
+    .at(-1)!
+    .replace(/\.[^.]+$/u, '');
+  if (rel.endsWith('.toml')) {
+    const name = /^name\s*=\s*"([^"]*)"/mu.exec(text)?.[1];
+    const description = /^description\s*=\s*"((?:[^"\\]|\\.)*)"/mu.exec(text)?.[1];
+    return {
+      kind: 'agent',
+      name: name && name.trim() !== '' ? name.trim() : stem,
+      description: description === undefined ? '' : (JSON.parse(`"${description}"`) as string),
+      path: rel,
+      scope,
+    };
+  }
+  const split = splitSkillFrontmatter(text);
+  const data = split.ok ? split.data : {};
+  return {
+    kind: 'agent',
+    name: typeof data.name === 'string' && data.name.trim() !== '' ? data.name.trim() : stem,
+    description: typeof data.description === 'string' ? data.description : '',
+    path: rel,
+    scope,
+  };
+}
+
+function scanAgentScope(
+  base: string,
+  context: SkillPathContext,
+  scope: ArtifactScope,
+): InstalledArtifact[] {
+  const found: InstalledArtifact[] = [];
+  const options = { paqadRepo: scope === 'project' && context.paqadRepo };
+  for (const root of agentRoots(context.adapters, options)) {
+    for (const expanded of expandRoot(base, root)) {
+      const dir = join(base, expanded);
+      if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
+      for (const entry of readdirSync(dir).sort()) {
+        const rel = `${expanded}/${entry}`;
+        if (agentNameOf(rel, context.adapters, options) === null) continue;
+        if (!statSync(join(dir, entry)).isFile()) continue;
+        const agent = readAgentAt(base, rel, scope);
+        if (agent !== null) found.push(agent);
+      }
+    }
+  }
+  return found;
+}
+
+export function discoverInstalledAgents(
+  projectRoot: string,
+  context: SkillPathContext,
+  options: { userHome?: string | null } = {},
+): InstalledArtifact[] {
+  const project = scanAgentScope(projectRoot, context, 'project');
+  const home = options.userHome === undefined ? homedir() : options.userHome;
+  if (home === null) return project;
+  const user = scanAgentScope(home, { ...context, paqadRepo: false }, 'user').map((agent) => ({
+    ...agent,
+    path: `~/${agent.path}`,
   }));
   return [...project, ...user];
 }
