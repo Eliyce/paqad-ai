@@ -19,6 +19,7 @@ import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
 import { createFixCommand } from './commands/fix.js';
 import { createSkillCommand } from './commands/skill.js';
+import { createAgentCommand } from './commands/agent.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createHealthCommand } from './commands/health.js';
 import { createHookCommand } from './commands/hook.js';
@@ -123,6 +124,7 @@ export function createProgram(): Command {
   program.addCommand(createManagedSettingsCommand());
   program.addCommand(createFixCommand());
   program.addCommand(createSkillCommand());
+  program.addCommand(createAgentCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);

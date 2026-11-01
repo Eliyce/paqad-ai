@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 
 import { Command } from 'commander';
@@ -17,7 +16,7 @@ import { draftLintsAsRuntime, runDraft } from '@/authoring/stages/draft.js';
 import { runImprove } from '@/authoring/stages/improve.js';
 import { raiseIntakeGap, runIntake } from '@/authoring/stages/intake.js';
 import { runJustify } from '@/authoring/stages/justify.js';
-import { stageExitCode, type StageResult } from '@/authoring/stages/result.js';
+import { type StageResult } from '@/authoring/stages/result.js';
 import { runEvidence } from '@/authoring/stages/sources.js';
 import { skillStatus } from '@/authoring/stages/status.js';
 import { runSkillTest } from '@/authoring/stages/test.js';
@@ -27,11 +26,18 @@ import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
 import { resolveLearn, runCatalog, runDrift, runLearn } from '@/authoring/stages/operate.js';
 import { AuthoringRefusal, SkillWorkspace, WORKSPACE_ROOT } from '@/authoring/workspace.js';
-import { parseFeatureDirName } from '@/feature-evidence/paths.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
 
-const USAGE_EXIT = 2;
+import {
+  changeKey,
+  collect,
+  printResult,
+  readInput,
+  runAuthoringVerb,
+  sessionFor,
+  USAGE_EXIT,
+  withCommon,
+  type VerbOptions,
+} from './authoring-cli.js';
 
 interface LintOptions {
   json?: boolean;
@@ -91,73 +97,21 @@ function runLint(folder: string, options: LintOptions): void {
   process.exitCode = skillLintExitCode(result);
 }
 
-interface VerbOptions {
-  projectRoot: string;
-  session?: string;
-  json?: boolean;
-}
-
 const OFF_LINE =
   'The Skill Orchestrator is off (skill_orchestrator_enabled=false), so the skill pipeline does not run.';
 
-function sessionFor(projectRoot: string, session?: string): string {
-  return resolveSessionId(
-    projectRoot,
-    session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-  );
-}
-
-function changeKey(projectRoot: string, session?: string): string | null {
-  const dir = currentFeature(projectRoot, sessionFor(projectRoot, session));
-  return dir === null ? null : (parseFeatureDirName(dir)?.ulid ?? null);
-}
-
-function readInput(path: string, what: string): string {
-  try {
-    return readFileSync(resolve(path), 'utf8');
-  } catch {
-    throw new AuthoringRefusal(`could not read ${what} at ${path}`, 2);
-  }
-}
-
-async function runVerb(
+function runVerb(
   name: string,
   options: VerbOptions,
   action: (workspace: SkillWorkspace, projectRoot: string) => StageResult | Promise<StageResult>,
 ): Promise<void> {
-  const projectRoot = resolve(options.projectRoot);
-  try {
-    const workspace = new SkillWorkspace(projectRoot, name);
-    if (!readAuthoringConfig(projectRoot).skill_orchestrator_enabled) {
-      console.log(OFF_LINE);
-      return;
-    }
-    const result = await action(workspace, projectRoot);
-    if (options.json) {
-      console.log(JSON.stringify(result, null, 2));
-    } else {
-      for (const line of result.lines) console.log(line);
-    }
-    process.exitCode = stageExitCode(result);
-  } catch (error) {
-    if (error instanceof AuthoringRefusal) {
-      console.error(error.message);
-      process.exitCode = error.exitCode;
-      return;
-    }
-    throw error;
-  }
-}
-
-function collect(value: string, previous: string[] = []): string[] {
-  return [...previous, value];
-}
-
-function withCommon(command: Command): Command {
-  return command
-    .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
-    .option('--json', 'Print the result as JSON');
+  return runAuthoringVerb(
+    options,
+    (projectRoot) => new SkillWorkspace(projectRoot, name),
+    (projectRoot) => readAuthoringConfig(projectRoot).skill_orchestrator_enabled,
+    OFF_LINE,
+    action,
+  );
 }
 
 function addPipelineVerbs(command: Command): void {
@@ -414,12 +368,6 @@ function addReleaseVerbs(command: Command): void {
         return recordOverride(workspace, { gate: options.gate, decision: options.decision });
       }),
   );
-}
-
-function printResult(result: StageResult, json?: boolean): void {
-  if (json) console.log(JSON.stringify(result, null, 2));
-  else for (const line of result.lines) console.log(line);
-  process.exitCode = stageExitCode(result);
 }
 
 function addOperateVerbs(command: Command): void {

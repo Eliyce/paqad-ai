@@ -69,6 +69,7 @@ describe('createProgram', () => {
       'managed-settings',
       'fix',
       'skill',
+      'agent',
     ]);
   });
 

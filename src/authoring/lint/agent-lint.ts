@@ -6,6 +6,7 @@ import { DECISION_CATEGORY_DEFAULTS } from '@/planning/decision-packet.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
+import { readAuthoringConfig, type AuthoringConfig } from '../config.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
 import { readTextIfPresent } from '../fs-io.js';
 import { hashAgentFile } from '../hash.js';
@@ -20,6 +21,12 @@ import {
 } from '../overlap.js';
 import { readSkillPathContext, type SkillPathContext } from '../paths.js';
 import { agentTestDirectories } from '../tests/locations.js';
+import {
+  AGENT_TRACKED_ROOT,
+  AGENT_WORKSPACE_ROOT,
+  AuthoringRefusal,
+  validateAgentName,
+} from '../workspace.js';
 import { CLAUDE_CODE_AGENT_FIELDS, isClaudeModel, isObjectRoleName } from './fields.js';
 import {
   compileNeverWritePattern,
@@ -915,4 +922,68 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
     file_hash: fileHash,
     hook_scripts: hooks.scripts,
   };
+}
+
+export const PERMISSIONS_FILE = 'permissions.json';
+
+export function agentLintLimitsFrom(config: AuthoringConfig): AgentLintLimits {
+  return {
+    descriptionMaxTokens: config.agent_description_max_tokens,
+    catalogMaxTokens: config.agent_catalog_description_max_tokens,
+    promptMaxTokens: config.agent_prompt_max_tokens,
+    maxTools: config.agent_max_tools,
+    memoryMaxLines: config.agent_memory_max_lines,
+    collisionJaccard: config.authoring_collision_jaccard,
+  };
+}
+
+function idsIn(text: string | null, pick: (parsed: unknown) => unknown): string[] {
+  if (text === null) return [];
+  try {
+    const value = pick(JSON.parse(text));
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function readPermissionDecisionIds(projectRoot: string, name: string): string[] {
+  const tracked = readTextIfPresent(join(projectRoot, AGENT_TRACKED_ROOT, name, 'evidence.json'));
+  const workspace = readTextIfPresent(
+    join(projectRoot, AGENT_WORKSPACE_ROOT, name, PERMISSIONS_FILE),
+  );
+  return [
+    ...new Set([
+      ...idsIn(workspace, (parsed) => parsed),
+      ...idsIn(
+        tracked,
+        (parsed) => (parsed as { permission_decisions?: unknown })?.permission_decisions,
+      ),
+    ]),
+  ];
+}
+
+function isAgentName(name: string): boolean {
+  try {
+    validateAgentName(name);
+    return true;
+  } catch (error) {
+    if (error instanceof AuthoringRefusal) return false;
+    throw error;
+  }
+}
+
+export function lintAgentInProject(
+  projectRoot: string,
+  file: string,
+  extra: Partial<AgentLintOptions> = {},
+): AgentLintResult {
+  const config = readAuthoringConfig(projectRoot);
+  const stem = basename(file).replace(/\.[^.]+$/u, '');
+  return lintAgentFile(file, {
+    projectRoot,
+    limits: agentLintLimitsFrom(config),
+    permissionDecisions: isAgentName(stem) ? readPermissionDecisionIds(projectRoot, stem) : [],
+    ...extra,
+  });
 }

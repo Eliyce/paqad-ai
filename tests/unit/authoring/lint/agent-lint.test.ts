@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -10,7 +10,9 @@ import {
   agentHookScripts,
   bodyHeadingOrderProblem,
   lintAgentFile,
+  lintAgentInProject,
   permissionApproval,
+  readPermissionDecisionIds,
   projectMcpServers,
   type AgentLintOptions,
 } from '@/authoring/lint/agent-lint.js';
@@ -418,7 +420,11 @@ describe('lintAgentFile', () => {
 
   it('AC-38 and AC-60: AG-019 fires on dynamic content with the line, not on a semver, an issue number or a field value', () => {
     const root = project();
-    const clean = lint(root, agent({}, `${BODY}\nVersion 2.1.0, issue #795, maxTurns: 30.\n`));
+    const ids = readFileSync(
+      join(import.meta.dirname, '__fixtures__', 'agent-body-ids.md'),
+      'utf8',
+    );
+    const clean = lint(root, agent({}, `${BODY}\n${ids}`));
     expect(rules(clean)).not.toContain('AG-019');
     for (const dynamic of [
       'On 2026-11-01 run it.',
@@ -543,5 +549,33 @@ describe('bodyHeadingOrderProblem', () => {
       .replace('## Procedure', '## Objective')
       .replace('## TEMP', '## Procedure');
     expect(bodyHeadingOrderProblem(swapped)).toContain('must come in the order');
+  });
+});
+
+describe('readPermissionDecisionIds and lintAgentInProject', () => {
+  it('reads packet ids from the workspace and the tracked evidence, skipping bad JSON', () => {
+    const root = project();
+    expect(readPermissionDecisionIds(root, 'db-reader')).toEqual([]);
+    put(root, '.paqad/tmp/authoring/agents/db-reader/permissions.json', JSON.stringify(['D-1', 2]));
+    put(
+      root,
+      '.paqad/authoring/agents/db-reader/evidence.json',
+      JSON.stringify({ permission_decisions: ['D-2', 'D-1'] }),
+    );
+    expect(readPermissionDecisionIds(root, 'db-reader')).toEqual(['D-1', 'D-2']);
+    put(root, '.paqad/authoring/agents/db-reader/evidence.json', '{bad');
+    expect(readPermissionDecisionIds(root, 'db-reader')).toEqual(['D-1']);
+  });
+
+  it('lints with the configured limits and tolerates a file stem that is no agent name', () => {
+    const root = project();
+    put(root, '.paqad/.config', 'agent_prompt_max_tokens=10\n');
+    const rel = put(root, '.claude/agents/Bad_Name.md', agent());
+    const result = lintAgentInProject(root, rel, {
+      installedAgents: [],
+      installedSkills: [],
+      mcpServers: [],
+    });
+    expect(rules(result)).toContain('AG-014');
   });
 });
