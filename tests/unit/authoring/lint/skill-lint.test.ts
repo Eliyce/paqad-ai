@@ -522,7 +522,7 @@ describe('paqad-ai skill lint', () => {
 });
 
 describe('paqad runtime skills', () => {
-  it("allows the paqad runtime loader's documented fields only for a runtime skill in the paqad repo", () => {
+  it('AC-34: a paqad runtime skill with a new top-level custom key blocks under SK-006', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-skill-lint-runtime-'));
     roots.push(root);
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
@@ -531,12 +531,28 @@ describe('paqad runtime skills', () => {
       write(join(root, base, NAME), 'SKILL.md', frontmatter);
       write(join(root, base, NAME), 'references/guide.md', 'guide\n');
     }
-    const runtime = lintSkillFolder(join(root, 'runtime/base/skills', NAME), { projectRoot: root });
-    expect(rules(runtime.findings, 'SK-006')).toEqual([]);
-    const host = lintSkillFolder(join(root, '.claude/skills', NAME), { projectRoot: root });
-    expect(rules(host.findings, 'SK-006').map((finding) => finding.message)).toEqual([
-      'The frontmatter key "model_tier" is not a documented skill field.',
-      'The frontmatter key "cacheable" is not a documented skill field.',
-    ]);
+    for (const base of ['runtime/base/skills', '.claude/skills']) {
+      const result = lintSkillFolder(join(root, base, NAME), { projectRoot: root });
+      expect(rules(result.findings, 'SK-006').map((finding) => finding.message)).toEqual([
+        'The frontmatter key "model_tier" is not a documented skill field.',
+        'The frontmatter key "cacheable" is not a documented skill field.',
+      ]);
+    }
+  });
+
+  it('passes a paqad runtime skill that keeps its keys under metadata', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skill-lint-runtime-'));
+    roots.push(root);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const folder = join(root, 'runtime/base/skills', NAME);
+    write(
+      folder,
+      'SKILL.md',
+      `---\nname: ${NAME}\ndescription: ${DESCRIPTION}\nmetadata:\n  model_tier: fast\n  cacheable: 'false'\n  paqad-meta: skill.meta.yaml\n---\n${BODY}`,
+    );
+    write(folder, 'skill.meta.yaml', 'triggers:\n  - workflow: [feature-development]\n');
+    write(folder, 'references/guide.md', 'guide\n');
+    const result = lintSkillFolder(folder, { projectRoot: root });
+    expect(rules(result.findings, 'SK-006')).toEqual([]);
   });
 });
