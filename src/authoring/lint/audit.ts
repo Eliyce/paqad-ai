@@ -1,12 +1,8 @@
 import { existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { AGENT_HOST_TARGETS } from '@/authoring/package/agent-render.js';
-import { resolveStageAgentSettings } from '@/core/framework-config.js';
 import { gitPathList } from '@/pipeline/git-paths.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
-import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
-import { HIGH_TABLE_AGENTS, MANDATORY_STAGE_AGENTS } from '@/stage-isolation/stage-agents.js';
 
 import { ACTIVATIONS_LEDGER, forEachActivation } from '../activations.js';
 import { readAuthoringConfig } from '../config.js';
@@ -104,6 +100,7 @@ export interface AuditOptions {
   asOf?: string;
   files?: readonly string[];
   context?: SkillPathContext;
+  agentSources?: AgentAuditSources;
 }
 
 export class AuditUsageError extends Error {}
@@ -340,46 +337,24 @@ export function lintAllSkills(projectRoot: string, options: AuditOptions = {}): 
   return finishReport(projectRoot, 'skill', drafts, [], options);
 }
 
-const PAQAD_OWN_AGENTS: ReadonlySet<string> = new Set([
-  ...MANDATORY_STAGE_AGENTS.map((def) => def.agentName),
-  ...HIGH_TABLE_AGENTS.map((def) => def.agentName),
-]);
-
-export function isPaqadOwnAgent(name: string): boolean {
-  return PAQAD_OWN_AGENTS.has(name);
-}
-
-interface RenderedAgent {
+export interface RenderedTemplateAgent {
   name: string;
   path: string;
   host: AgentLintHost;
   content: string;
 }
 
-function codexToMarkdown(content: string): string {
-  const name = /^name\s*=\s*"([^"]*)"/mu.exec(content)?.[1] ?? '';
-  const description = /^description\s*=\s*"((?:[^"\\]|\\.)*)"/mu.exec(content)?.[1] ?? '';
-  const body = /^developer_instructions\s*=\s*"""\n([\s\S]*?)\n"""/mu.exec(content)?.[1] ?? '';
-  const quoted = (JSON.parse(`"${description}"`) as string).replaceAll("'", "''");
-  return `---\nname: ${name}\ndescription: '${quoted}'\n---\n\n${body}\n`;
+export interface AgentAuditSources {
+  renderTemplate: (templatePath: string) => RenderedTemplateAgent[];
+  dispatched: ReadonlySet<string>;
 }
 
-export function renderTemplateAgents(templatePath: string): RenderedAgent[] {
-  const host = AGENT_HOST_TARGETS.find((entry) => entry.template === basename(templatePath));
-  if (host === undefined) return [];
-  const codex = host.extension === 'toml';
-  return renderStageAgentFiles(host.adapter, resolveStageAgentSettings()).map((file) => {
-    const name = file.name.replace(/\.[^.]+$/u, '');
-    return {
-      name,
-      path: `${templatePath}#${name}`,
-      host: codex ? 'codex' : 'claude-code',
-      content: codex ? codexToMarkdown(file.content) : file.content,
-    };
-  });
-}
+const NO_AGENT_SOURCES: AgentAuditSources = { renderTemplate: () => [], dispatched: new Set() };
 
 export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): AuditReport {
+  const sources = options.agentSources ?? NO_AGENT_SOURCES;
+  const dispatched = (name: string) =>
+    sources.dispatched.has(name) ? { invocation: 'dispatched' as const } : {};
   const context = options.context ?? readSkillPathContext(projectRoot);
   const files =
     options.files ?? listProjectFiles(projectRoot, agentRoots(context.adapters, context));
@@ -405,14 +380,14 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
       continue;
     }
     if (kind === 'template') {
-      for (const rendered of renderTemplateAgents(path)) {
+      for (const rendered of sources.renderTemplate(path)) {
         const result = lintAgentInProject(projectRoot, rendered.path, {
           content: rendered.content,
           host: rendered.host,
           permissionDecisions: readPermissionDecisionIds(projectRoot, rendered.name),
           context,
           installedAgents: installed,
-          ...(isPaqadOwnAgent(rendered.name) ? { invocation: 'dispatched' as const } : {}),
+          ...dispatched(rendered.name),
         });
         drafts.push({
           name: rendered.name,
@@ -429,7 +404,7 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
     const result = lintAgentInProject(projectRoot, path, {
       context,
       installedAgents: installed,
-      ...(isPaqadOwnAgent(stem) ? { invocation: 'dispatched' as const } : {}),
+      ...dispatched(stem),
     });
     drafts.push({
       name: result.agent,
@@ -453,6 +428,7 @@ export interface RunAuditOptions {
   report?: string;
   groupBy?: string;
   asOf?: string;
+  agentSources?: AgentAuditSources;
 }
 
 export interface RunAuditResult {
@@ -475,7 +451,11 @@ export function runAudit(
   const report =
     kind === 'skill'
       ? lintAllSkills(projectRoot, { groupBy, asOf: options.asOf })
-      : lintAllAgents(projectRoot, { groupBy, asOf: options.asOf });
+      : lintAllAgents(projectRoot, {
+          groupBy,
+          asOf: options.asOf,
+          agentSources: options.agentSources,
+        });
   const reportPath =
     options.report ?? (kind === 'skill' ? DEFAULT_SKILL_AUDIT_REPORT : DEFAULT_AGENT_AUDIT_REPORT);
   const abs = resolve(projectRoot, reportPath);

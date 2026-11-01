@@ -10,10 +10,10 @@ import {
   lintAllAgents,
   lintAllSkills,
   parseGroupBy,
-  renderTemplateAgents,
   runAudit,
 } from '@/authoring/lint/audit.js';
 import { classifyAgentPath, isAgentTemplatePath, isPersonaRootPath } from '@/authoring/paths.js';
+import { renderTemplateAgents, STAGE_AGENT_AUDIT_SOURCES } from '@/stage-isolation/agent-audit.js';
 
 const roots: string[] = [];
 
@@ -199,7 +199,7 @@ describe('the stage-agent templates', () => {
     const root = fixture();
     write(root, 'runtime/templates/stage-agents/claude.md.hbs', 'x');
     write(root, 'runtime/templates/stage-agents/codex.toml.hbs', 'x');
-    const report = lintAllAgents(root);
+    const report = lintAllAgents(root, { agentSources: STAGE_AGENT_AUDIT_SOURCES });
     const templates = report.items.filter((item) => item.class === 'template');
     expect(templates.length).toBeGreaterThan(0);
     const codex = templates.filter((item) => item.path.includes('codex.toml.hbs#'));

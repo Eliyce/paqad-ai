@@ -34,6 +34,7 @@ import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import type { StageResult } from '@/authoring/stages/result.js';
 import { agentStatus } from '@/authoring/stages/status.js';
 import { AgentWorkspace, AuthoringRefusal } from '@/authoring/workspace.js';
+import { STAGE_AGENT_AUDIT_SOURCES } from '@/stage-isolation/agent-audit.js';
 
 import {
   changeKey,
@@ -78,7 +79,10 @@ function printLint(result: AgentLintResult): void {
 
 function runLintAll(projectRoot: string, options: LintOptions): void {
   try {
-    const { report, summary } = runAudit(projectRoot, 'agent', options);
+    const { report, summary } = runAudit(projectRoot, 'agent', {
+      ...options,
+      agentSources: STAGE_AGENT_AUDIT_SOURCES,
+    });
     console.log(summary);
     process.exitCode = lintExitCode(report);
   } catch (error) {

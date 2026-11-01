@@ -29,6 +29,7 @@ import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import { runRelease } from '@/authoring/stages/release.js';
 import { resolveLearn, runCatalog, runDrift, runLearn } from '@/authoring/stages/operate.js';
 import { AuthoringRefusal, SkillWorkspace, WORKSPACE_ROOT } from '@/authoring/workspace.js';
+import { STAGE_AGENT_AUDIT_SOURCES } from '@/stage-isolation/agent-audit.js';
 
 import {
   changeKey,
@@ -519,6 +520,7 @@ export function createSkillCommand(): Command {
           asOf: options.asOf,
           out: options.out,
           section: options.section as AuditSection | undefined,
+          agentSources: STAGE_AGENT_AUDIT_SOURCES,
         });
         console.log(`**▸ paqad** · wrote the ${written.section} audit to ${written.path}.`);
       } catch (error) {

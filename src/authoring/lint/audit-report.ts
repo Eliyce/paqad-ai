@@ -10,6 +10,7 @@ import {
   AuditUsageError,
   lintAllAgents,
   lintAllSkills,
+  type AgentAuditSources,
   type AuditItem,
   type AuditReport,
 } from './audit.js';
@@ -350,6 +351,7 @@ export interface WriteAuditDocOptions {
   asOf: string;
   section?: AuditSection;
   exceptions?: ReadonlyMap<string, string>;
+  agentSources?: AgentAuditSources;
 }
 
 export function writeAuditDoc(
@@ -366,7 +368,10 @@ export function writeAuditDoc(
   const abs = resolve(projectRoot, out);
   const previous = existsSync(abs) ? readFileSync(abs, 'utf8') : null;
   const skills = lintAllSkills(projectRoot, { asOf: options.asOf });
-  const agents = lintAllAgents(projectRoot, { asOf: options.asOf });
+  const agents = lintAllAgents(projectRoot, {
+    asOf: options.asOf,
+    agentSources: options.agentSources,
+  });
   const section =
     options.section ?? (previous !== null && beforeSection(previous) !== null ? 'after' : 'before');
   const text = renderAuditDoc({
