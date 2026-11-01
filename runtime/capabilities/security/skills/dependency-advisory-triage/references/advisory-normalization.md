@@ -4,7 +4,7 @@
 
 - Key advisories by package, ecosystem, installed version, and advisory identifier.
 - Keep source systems so retests can replay the same evidence.
-- Prefer one normalized finding per real package issue — deduplicate across native audit + OSV when they report the same advisory.
+- Prefer one normalized finding per real package issue: deduplicate across native audit + OSV when they report the same advisory.
 
 ## Supply Chain Signals (OWASP 2025 A03)
 
@@ -20,7 +20,7 @@ Beyond known CVEs, flag the following as elevated-risk indicators:
 ### Dependency Confusion
 
 - An internal or scoped package name (e.g. `@company/utils`) also exists on the public registry at a **higher version number**
-- Check `.npmrc` / `pip.conf` / Composer repository priority — verify private registry takes precedence
+- Check `.npmrc` / `pip.conf` / Composer repository priority: verify private registry takes precedence
 
 ### Abandoned Packages
 
@@ -29,7 +29,7 @@ Beyond known CVEs, flag the following as elevated-risk indicators:
 
 ### Lockfile Integrity
 
-- If `package-lock.json` / `composer.lock` / `pnpm-lock.yaml` is gitignored, builds are non-reproducible — record as a supply chain coverage gap
+- If `package-lock.json` / `composer.lock` / `pnpm-lock.yaml` is gitignored, builds are non-reproducible: record as a supply chain coverage gap
 - Flag deep transitive dependency chains (>5 levels) to a single critical package
 
 ### SBOM Gap

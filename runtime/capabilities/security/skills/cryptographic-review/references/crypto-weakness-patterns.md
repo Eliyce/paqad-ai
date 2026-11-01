@@ -2,15 +2,22 @@
 
 Concrete code patterns indicating cryptographic failures. Reference these when scanning source code.
 
+## Contents
+
+- [Hardcoded Secrets](#hardcoded-secrets)
+- [Weak Password Hashing](#weak-password-hashing)
+- [Insecure Random Number Generation](#insecure-random-number-generation)
+- [ECB Mode and Static IV](#ecb-mode-and-static-iv)
+- [Disabled TLS Verification](#disabled-tls-verification)
+- [PBKDF2 Insufficient Iterations](#pbkdf2-insufficient-iterations)
+
 ## Hardcoded Secrets
 
 Patterns to flag (by language):
 
 ```
 # Generic indicators
------BEGIN RSA PRIVATE KEY-----
------BEGIN PRIVATE KEY-----
------BEGIN EC PRIVATE KEY-----
+A PEM header line: five dashes, BEGIN, then RSA, EC or no key type, then PRIVATE KEY, then five dashes
 AKIA[0-9A-Z]{16}           # AWS access key ID
 eyJ[A-Za-z0-9_-]{10,}      # JWT token (base64url-encoded header)
 
@@ -31,7 +38,7 @@ DATABASE_URL = "postgres://user:pass@host/db"
 var hmacSecret = []byte("secret")
 ```
 
-**Note:** Report only the file path and line number — never include the actual secret value in the finding.
+**Note:** Report only the file path and line number, never include the actual secret value in the finding.
 
 ## Weak Password Hashing
 
@@ -47,26 +54,26 @@ crypto.createHash('sha1').update(password)
 # PHP
 md5($password)
 sha1($password)
-hash('sha256', $password)   # fast hash — not acceptable for passwords
-password_hash($p, PASSWORD_DEFAULT)  # OK — bcrypt
+hash('sha256', $password)   # fast hash: not acceptable for passwords
+password_hash($p, PASSWORD_DEFAULT)  # OK: bcrypt
 password_hash($p, PASSWORD_BCRYPT)   # OK
 
 # Python
 hashlib.md5(password.encode())
 hashlib.sha1(password.encode())
-hashlib.sha256(password.encode())  # fast — not acceptable for passwords
+hashlib.sha256(password.encode())  # fast: not acceptable for passwords
 bcrypt.hashpw(password, bcrypt.gensalt())  # OK
 
 # Java
 MessageDigest.getInstance("MD5")
 MessageDigest.getInstance("SHA-1")
-MessageDigest.getInstance("SHA-256")  # fast — not acceptable for passwords
+MessageDigest.getInstance("SHA-256")  # fast: not acceptable for passwords
 new BCryptPasswordEncoder()  # OK
 ```
 
 ## Insecure Random Number Generation
 
-**Not cryptographically secure — flag when used for tokens, session IDs, OTPs, or CSRF tokens:**
+**Not cryptographically secure: flag when used for tokens, session IDs, OTPs, or CSRF tokens:**
 
 ```
 # JavaScript
@@ -76,7 +83,7 @@ Math.floor(Math.random() * 1000000)  # OTP
 # PHP
 rand()
 mt_rand()
-uniqid()   # uses microtime — predictable
+uniqid()   # uses microtime: predictable
 
 # Python
 random.random()
@@ -88,7 +95,7 @@ new java.util.Random()
 Math.random()
 
 # Go
-rand.Intn()  # from math/rand — not crypto/rand
+rand.Intn()  # from math/rand: not crypto/rand
 ```
 
 **Safe alternatives:** `crypto.randomBytes(n)` (Node), `random_bytes(n)` (PHP), `secrets.token_bytes(n)` (Python), `java.security.SecureRandom`, `crypto/rand` (Go).

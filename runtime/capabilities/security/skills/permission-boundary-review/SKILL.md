@@ -1,6 +1,6 @@
 ---
 name: permission-boundary-review
-description: Review authorization, tenant isolation, and privileged route boundaries.
+description: 'Reviews authorization, tenant isolation and privileged route boundaries. Use when docs or route inventories describe privileged actions, admin surfaces, policy checks or tenant-specific data.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Reviews permission, authorization, and tenant-boundary expectations so pentest f
 
 ## Use This When
 
-Use this when module docs or route inventories describe privileged actions, admin surfaces, policy checks, or tenant-specific data handling.
+When module docs or route inventories describe privileged actions, admin surfaces, policy checks, or tenant-specific data handling.
 
 ## Inputs
 

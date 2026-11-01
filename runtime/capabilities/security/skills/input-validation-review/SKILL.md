@@ -1,6 +1,6 @@
 ---
 name: input-validation-review
-description: Reason about SSRF, IDOR, mass assignment, injection vectors, file upload abuse, prototype pollution, and ReDoS from code and docs evidence.
+description: 'Reasons about SSRF, IDOR, mass assignment, injection, file upload abuse, prototype pollution and ReDoS from code and docs evidence. Use when endpoints accept URLs, resource ids, body fields, uploads or any user input that reaches a downstream call.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -10,11 +10,11 @@ metadata:
 
 ## What It Does
 
-Reviews all code paths where user-supplied input reaches security-sensitive operations — outbound HTTP calls, database lookups, ORM constructors, shell commands, template renderers, deserializers, file operations, and regex evaluations — and produces findings for each category that lacks proof of safe handling.
+Reviews all code paths where user-supplied input reaches security-sensitive operations (outbound HTTP calls, database lookups, ORM constructors, shell commands, template renderers, deserializers, file operations, and regex evaluations) and produces findings for each category that lacks proof of safe handling.
 
 ## Use This When
 
-Use this when module docs or route inventories describe endpoints that accept URLs, resource IDs, request body fields, file uploads, or any user-controlled parameter that flows into a downstream system call.
+When module docs or route inventories describe endpoints that accept URLs, resource IDs, request body fields, file uploads, or any user-controlled parameter that flows into a downstream system call.
 
 ## Inputs
 
@@ -26,7 +26,7 @@ Use this when module docs or route inventories describe endpoints that accept UR
 
 1. **SSRF scan**: Find all code paths that accept a URL, IP, or hostname and make an outbound request. Check for an explicit allowlist or blocked private-range validation (127.x, 10.x, 169.254.x, 172.16–31.x, `::1`, fd00::/8, AWS metadata `169.254.169.254`).
 
-2. **IDOR scan**: Find resource lookups keyed by a user-controlled ID. Verify an authorization check exists **between** ID resolution and data return — not just at the route level.
+2. **IDOR scan**: Find resource lookups keyed by a user-controlled ID. Verify an authorization check exists **between** ID resolution and data return, not just at the route level.
 
 3. **Mass assignment scan**: Find ORM fill calls, model constructors, or serializers that accept the full request body. Verify an explicit allowlist (`$fillable`, `attr_accessible`, `schema.pick()`) or blocklist exists.
 
@@ -40,7 +40,7 @@ Use this when module docs or route inventories describe endpoints that accept UR
 
 5. **File upload abuse**: Check MIME type validation, file extension allowlist, path traversal in the filename, storage isolation from the web root, and max-file-size enforcement.
 
-6. **Prototype pollution (JS/Node)**: Find deep merges of user input into objects without property filtering — `lodash.merge`, `Object.assign`, `_.defaults` from untrusted source with `__proto__` or `constructor.prototype` keys.
+6. **Prototype pollution (JS/Node)**: Find deep merges of user input into objects without property filtering, `lodash.merge`, `Object.assign`, `_.defaults` from untrusted source with `__proto__` or `constructor.prototype` keys.
 
 7. **ReDoS**: Find user input fed into regex patterns that could cause catastrophic backtracking. Look for patterns of the form `(a+)+`, `(a|a)+`, or `.*.*` applied to unbounded input.
 
@@ -53,12 +53,12 @@ Use this when module docs or route inventories describe endpoints that accept UR
 
 - Ask when module docs describe external integrations but do not name the parameters or protocol used.
 - Warn when deserialization of complex objects (PHP `unserialize`, Python `pickle`) is found without a safe alternative.
-- Do not flag a finding purely because a URL parameter exists — only when there is no evidence of safe handling.
+- Do not flag a finding purely because a URL parameter exists: only when there is no evidence of safe handling.
 
 ## Resources
 
 - `references/input-attack-patterns.md`
-- `scripts/scan-injection-smells.sh` — pre-investigation grep for known sinks
-- `scripts/lint-findings.sh` — enforces WSTG id + Evidence:file:line per finding
+- `scripts/scan-injection-smells.sh`: pre-investigation grep for known sinks
+- `scripts/lint-findings.sh`: enforces WSTG id + Evidence:file:line per finding
 - `assets/output.template.md`
 - `assets/wstg-mapping.txt`

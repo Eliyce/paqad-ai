@@ -1,6 +1,6 @@
 ---
 name: cryptographic-review
-description: Identify cryptographic failures including weak hashing, insecure encryption modes, hardcoded keys, weak PRNG usage, and disabled TLS verification from code evidence.
+description: 'Finds cryptographic failures (weak hashing, insecure modes, hardcoded keys, weak PRNG, disabled TLS verification) from code evidence. Use when docs or code cover password storage, encryption, token or API key generation, outbound HTTPS or key management.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -10,11 +10,11 @@ metadata:
 
 ## What It Does
 
-Reviews the application's cryptographic implementation for weaknesses that could allow an attacker to recover sensitive data, forge tokens, or intercept communications — covering password storage, symmetric encryption, random number generation, key management, and TLS configuration. Maps to OWASP 2025 A04 — Cryptographic Failures.
+Reviews the application's cryptographic implementation for weaknesses that could allow an attacker to recover sensitive data, forge tokens, or intercept communications (covering password storage, symmetric encryption, random number generation, key management, and TLS configuration. Maps to OWASP 2025 A04) Cryptographic Failures.
 
 ## Use This When
 
-Use this when module docs or code evidence describes password storage, data encryption, token generation, API key creation, external HTTPS calls, or certificate/key management.
+When module docs or code evidence describes password storage, data encryption, token generation, API key creation, external HTTPS calls, or certificate/key management.
 
 ## Inputs
 
@@ -39,24 +39,24 @@ Use this when module docs or code evidence describes password storage, data encr
 
 5. **Random number generation**: Find uses of `Math.random()`, `rand()`, `mt_rand()`, `random.random()`, `java.util.Random` in security-sensitive contexts (session ID generation, token generation, OTP generation, CSRF token generation). These are not cryptographically secure. Require `crypto.randomBytes()`, `random_bytes()`, `secrets.token_bytes()`, `java.security.SecureRandom`.
 
-6. **Symmetric encryption**: Find uses of ECB mode (`AES/ECB`, `openssl_encrypt(..., "aes-128-ecb", ...)`). ECB mode leaks patterns in ciphertext — identical plaintext blocks produce identical ciphertext. Check for static/hardcoded IVs. Verify IVs are generated with a CSPRNG per encryption operation.
+6. **Symmetric encryption**: Find uses of ECB mode (`AES/ECB`, `openssl_encrypt(..., "aes-128-ecb", ...)`). ECB mode leaks patterns in ciphertext, identical plaintext blocks produce identical ciphertext. Check for static/hardcoded IVs. Verify IVs are generated with a CSPRNG per encryption operation.
 
 ## Output Contract
 
 - Match `assets/output.template.md`: `## Findings` with severity, WSTG-CRYP id (from `assets/wstg-mapping.txt`), `Evidence: file:line`, and `Required action:` per bullet.
 - Output must pass `scripts/lint-findings.sh` (exit 0).
-- Never include raw secret values — `file:line` only.
+- Never include raw secret values: `file:line` only.
 
 ## Escalate / Stop Conditions
 
-- Ask when the encryption library is not identified — cannot verify algorithm without knowing the library.
-- Warn when `MD5` or `SHA1` is used anywhere for password hashing — these are never acceptable regardless of salt.
+- Ask when the encryption library is not identified: cannot verify algorithm without knowing the library.
+- Warn when `MD5` or `SHA1` is used anywhere for password hashing: these are never acceptable regardless of salt.
 - Do not flag cryptography findings for non-security data (e.g., MD5 used for cache key generation or file checksums is acceptable).
 
 ## Resources
 
 - `references/crypto-weakness-patterns.md`
-- `scripts/scan-crypto-smells.sh` — pre-investigation grep for known anti-patterns
-- `scripts/lint-findings.sh` — enforces WSTG-CRYP id, Evidence:file:line, and no raw-secret leak
+- `scripts/scan-crypto-smells.sh`: pre-investigation grep for known anti-patterns
+- `scripts/lint-findings.sh`: enforces WSTG-CRYP id, Evidence:file:line, and no raw-secret leak
 - `assets/output.template.md`
 - `assets/wstg-mapping.txt`

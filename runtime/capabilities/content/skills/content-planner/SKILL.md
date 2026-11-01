@@ -11,7 +11,7 @@ Turns a broad content ask into a concrete brief that a writer can act on without
 
 ## Use This When
 
-Use this whenever the next step would be drafting and the request lacks audience, goal, structure, or success metric.
+Whenever the next step would be drafting and the request lacks audience, goal, structure, or success metric.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Use this whenever the next step would be drafting and the request lacks audience
 
 1. Walk `references/planner-checklist.md` (audience, goal, constraints, outline, dependencies, success metric); never skip a field silently.
 2. Fill `assets/brief.template.md` with project-specific values; mark unknowns explicitly.
-3. Validate with `scripts/lint-brief.sh` — exit 0 means every required field is present.
+3. Validate with `scripts/lint-brief.sh`: exit 0 means every required field is present.
 
 ## Output Contract
 

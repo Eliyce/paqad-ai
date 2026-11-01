@@ -10,10 +10,12 @@ USAGE
 fi
 [ -f "${1:-}" ] && [ -f "${2:-}" ] || { printf 'usage: %s <brief> <draft>\n' "$0" >&2; exit 2; }
 brief="$1"; draft="$2"
+# An outline line is "<section>: <purpose>"; the older "<section> <em dash> <purpose>" form still parses.
+em=$'\xe2\x80\x94'
 
 sections=$(awk '/^## Outline/{f=1;next} /^## /{f=0} f && /^[0-9]+\.[[:space:]]/' "$brief" \
   | sed -E 's/^[0-9]+\.[[:space:]]*//' \
-  | sed -E 's/[[:space:]]+—.*$//' \
+  | sed -E "s/(:[[:space:]]|[[:space:]]+${em}).*\$//" \
   | sed -E 's/[[:space:]]+$//')
 
 issues=0

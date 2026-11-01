@@ -1,6 +1,6 @@
 ---
 name: logging-monitoring-review
-description: Assess security logging and monitoring gaps including missing audit trails, log injection surfaces, sensitive data in logs, and alerting coverage.
+description: 'Assesses security logging and monitoring gaps: missing audit trails, log injection, sensitive data in logs and alert coverage. Use when docs describe authentication, authorization decisions, payments, exports, admin operations or other actions that must be auditable.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -10,11 +10,11 @@ metadata:
 
 ## What It Does
 
-Reviews whether the application logs security-relevant events with sufficient context for incident detection and forensic analysis — and whether the logging itself is secure (no sensitive data in logs, no log injection surfaces). Maps to OWASP 2025 A09 — Security Logging and Alerting Failures.
+Reviews whether the application logs security-relevant events with sufficient context for incident detection and forensic analysis (and whether the logging itself is secure (no sensitive data in logs, no log injection surfaces). Maps to OWASP 2025 A09) Security Logging and Alerting Failures.
 
 ## Use This When
 
-Use this when module docs describe authentication, authorization decisions, financial transactions, data exports, admin operations, or any high-value action that must be auditable for compliance or incident response.
+When module docs describe authentication, authorization decisions, financial transactions, data exports, admin operations, or any high-value action that must be auditable for compliance or incident response.
 
 ## Inputs
 
@@ -48,14 +48,14 @@ Use this when module docs describe authentication, authorization decisions, fina
 
 ## Escalate / Stop Conditions
 
-- Ask when logging configuration is not accessible in the project — cannot evaluate log destinations or levels.
-- Warn when financial transaction records lack an append-only audit trail — this is typically a compliance requirement, not just a security best practice.
+- Ask when logging configuration is not accessible in the project: cannot evaluate log destinations or levels.
+- Warn when financial transaction records lack an append-only audit trail: this is typically a compliance requirement, not just a security best practice.
 - Do not flag logging gaps for non-sensitive operations (e.g., a missing log for a public read endpoint is not a security finding).
 
 ## Resources
 
 - `references/logging-gaps-checklist.md`
-- `scripts/scan-log-smells.sh` — pre-investigation grep for sensitive data and injection candidates
-- `scripts/lint-findings.sh` — enforces WSTG id + Evidence:file:line per finding
+- `scripts/scan-log-smells.sh`: pre-investigation grep for sensitive data and injection candidates
+- `scripts/lint-findings.sh`: enforces WSTG id + Evidence:file:line per finding
 - `assets/output.template.md`
-- `assets/event-checklist.txt` — the 7-area walk required before drafting
+- `assets/event-checklist.txt`: the 7-area walk required before drafting

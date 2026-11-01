@@ -22,17 +22,17 @@ For each sensitive operation, verify an audit record exists with all four of: **
 
 Can an attacker inject fake log entries or corrupt log format?
 
-**Test 1 — Newline injection (line-based log formats):**
+**Test 1: Newline injection (line-based log formats):**
 
-- Set username to: `admin\n2026-01-01 00:00:00 INFO Login success user_id=1 ip=127.0.0.1`
+- Set username to: `admin\n<date> <time> INFO Login success user_id=1 ip=127.0.0.1` (a forged line in the log's own format)
 - If the application logs `"Login attempt: {username}"` → attacker creates a fake success entry above the real failure entry.
 
-**Test 2 — JSON log corruption:**
+**Test 2, JSON log corruption:**
 
 - Set a user-controlled field to: `","is_admin":true,"x":"`
 - If the application builds a JSON log string via string concatenation → the JSON structure is corrupted.
 
-**Test 3 — ANSI escape injection (terminal log viewers):**
+**Test 3: ANSI escape injection (terminal log viewers):**
 
 - Set input to: `\x1b[2J` (clear screen) or `\x1b[31m` (red text)
 - Affects developers reading logs in terminals; can hide log entries.
@@ -43,7 +43,7 @@ Can an attacker inject fake log entries or corrupt log format?
 
 **Never log:**
 
-- Passwords or password hashes (even failed login attempts — log username only)
+- Passwords or password hashes (even failed login attempts, log username only)
 - Authentication tokens (JWT, session ID, OAuth tokens)
 - Full credit card numbers (log last 4 digits maximum)
 - CVV / CVC codes
@@ -70,7 +70,7 @@ If any of these four are absent, record as a `logging-monitoring` finding with `
 
 ## GDPR / Data Retention Note
 
-Logs containing user PII (IP addresses, usernames, email addresses) are subject to GDPR Article 5(1)(e) — data minimization and storage limitation. Verify:
+Logs containing user PII (IP addresses, usernames, email addresses) are subject to GDPR Article 5(1)(e): data minimization and storage limitation. Verify:
 
 - Logs with PII have a defined retention period (typically 30–90 days)
 - Logs are not indefinitely retained by default

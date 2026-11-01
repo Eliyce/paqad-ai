@@ -1,6 +1,6 @@
 ---
 name: business-logic-abuse-review
-description: Derive abuse cases from module docs and validate them against tests and runtime evidence.
+description: 'Derives abuse cases from module docs and checks them against tests and runtime evidence. Use when docs describe stateful workflows, approvals, payments, exports, retries, invites or any action abusable without breaking auth.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Turns business workflow descriptions into concrete abuse hypotheses so pentest r
 
 ## Use This When
 
-Use this when module docs describe stateful workflows, approvals, payments, exports, retries, invites, or any action that can be abused without breaking auth.
+When module docs describe stateful workflows, approvals, payments, exports, retries, invites, or any action that can be abused without breaking auth.
 
 ## Inputs
 
@@ -32,7 +32,7 @@ Use this when module docs describe stateful workflows, approvals, payments, expo
 
 ## Output Contract
 
-- Match `assets/output.template.md`: `## Findings`, `### {{module}} — {{abuse-case-tag}}`, with `Module:`, `Step:`, `Abuse case:`, `Missing proof:`, `Reproduction:` segments.
+- Match `assets/output.template.md`: `## Findings`, `### {{module}}: {{abuse-case-tag}}`, with `Module:`, `Step:`, `Abuse case:`, `Missing proof:`, `Reproduction:` segments.
 - Output must pass `scripts/lint-findings.sh` (exit 0).
 - Reproduction steps must be concrete enough for a manual retest.
 

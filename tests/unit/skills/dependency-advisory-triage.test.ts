@@ -146,6 +146,19 @@ describe('dependency-advisory-triage', () => {
       expect(runScript(path, [], { input: ok }).status).toBe(0);
     });
 
+    it('passes valid block in the documented colon form', () => {
+      const ok = [
+        '## Dependency Findings',
+        '### npm:lodash: GHSA-x',
+        '- **Severity:** high',
+        '- **Installed:** 4.17.20',
+        '- **Sources:** npm-audit',
+        '- **Title:** Prototype pollution',
+        '- **Remediation:** upgrade to >= 4.17.21',
+      ].join('\n');
+      expect(runScript(path, [], { input: ok }).status).toBe(0);
+    });
+
     it('fails when key is duplicated', () => {
       const dup = [
         '## Dependency Findings',
@@ -155,6 +168,25 @@ describe('dependency-advisory-triage', () => {
         '- **Sources:** npm-audit',
         '- **Remediation:** y',
         '### npm:lodash — GHSA-x',
+        '- **Severity:** high',
+        '- **Installed:** 4.17.20',
+        '- **Sources:** npm-audit',
+        '- **Remediation:** y',
+      ].join('\n');
+      const r = runScript(path, [], { input: dup });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/duplicate/);
+    });
+
+    it('fails when key is duplicated in the documented colon form', () => {
+      const dup = [
+        '## Dependency Findings',
+        '### npm:lodash: GHSA-x',
+        '- **Severity:** high',
+        '- **Installed:** 4.17.20',
+        '- **Sources:** npm-audit',
+        '- **Remediation:** y',
+        '### npm:lodash: GHSA-x',
         '- **Severity:** high',
         '- **Installed:** 4.17.20',
         '- **Sources:** npm-audit',

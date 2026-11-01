@@ -25,7 +25,7 @@ Concrete attack scenarios. For each item, check whether the application's implem
 
 ### kid Header Injection
 
-- If the `kid` header is used in a file lookup: `"kid": "../../dev/null"` — server reads empty file as key, accepting any signature.
+- If the `kid` header is used in a file lookup: `"kid": "../../dev/null"`, server reads empty file as key, accepting any signature.
 - If used in a SQL query: `"kid": "x' UNION SELECT 'attackerkey'--"`.
 
 ## Session Attacks
