@@ -8,8 +8,8 @@ app:
   generated_from: paqad-ai sitemap run — node-cli extractor
   language: en
   freshness:
-    anchors_total: 105
-    anchors_resolved: 105
+    anchors_total: 106
+    anchors_resolved: 106
     anchors_broken: 0
 actors:
   - id: developer
@@ -483,7 +483,8 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-skill
     kind: cli-command
-    label: Take a new or edited skill through its gated pipeline, from justify to release
+    label: Take a new or edited skill through its gated pipeline, from justify to
+      release
     entry:
       kind: bin
       value: skill

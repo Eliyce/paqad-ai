@@ -30,7 +30,7 @@ steps:
     expect: A review.json artifact in the bundle.
   - surface: node-cli-deliver
     action: Run `paqad-ai deliver` to produce the end-of-change delivery receipt.
-    expect: A delivery receipt with the contract verdict.
+    expect: A delivery receipt with the contract verdict. In a cloud session where GitHub refuses `gh`, the pull request, comments and checks go through the GitHub REST API.
 ends:
   success: The change reaches a "Safe to merge" verdict with a complete evidence bundle.
   failure: A blocking gate leaves the change "Needs your attention".
