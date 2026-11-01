@@ -30,10 +30,25 @@ export interface ExpertFinding {
   merged_from?: string[];
 }
 
+export type QaVerdictStatus = 'pass' | 'concerns' | 'fail';
+
+export interface QaVerdict {
+  status: QaVerdictStatus;
+  reason: string;
+}
+
+export interface QaVerdicts {
+  spec_compliance: QaVerdict;
+  quality: QaVerdict;
+}
+
+export const QA_ROLE: AgentRole = 'qa-engineer';
+
 export interface ExpertNote {
   role: AgentRole;
   findings: ExpertFinding[];
   questions?: PipelineQuestion[];
+  verdicts?: QaVerdicts;
 }
 
 export interface ExpertConflict {
@@ -48,6 +63,7 @@ export interface MergedExpertNotes {
   findings: ExpertFinding[];
   conflicts: ExpertConflict[];
   voice_warnings?: VoiceWarning[];
+  qa_verdicts?: QaVerdicts;
 }
 
 export interface ExpertSlice {

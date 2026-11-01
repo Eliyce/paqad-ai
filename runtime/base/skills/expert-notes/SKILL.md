@@ -80,6 +80,10 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
   `{ "notes": [ { "role", "findings": [ { "target", "claim", "kind", "severity", "evidence"? } ], "questions": [ PipelineQuestion ] } ], "tokens": { "<role>": n } }`.
 - `findings` and `questions` may be empty. One note per brief; as a High Table seat that is one
   note, for your role. `evidence` is an optional grounding reference.
+- The `qa-engineer` note also carries `"verdicts": { "spec_compliance": { "status", "reason" },
+"quality": { "status", "reason" } }`, each status `pass | concerns | fail`: one verdict on
+  whether the spec meets the request, one on whether it is testable and complete. No other role
+  carries verdicts.
 - `paqad-ai spec pipeline experts notes` validates it and assigns the ids `EX-<role>-<n>` in
   note order. Write the artifact outside the feature bundle (for example under `.paqad/tmp/`).
 

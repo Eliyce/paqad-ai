@@ -20,6 +20,7 @@ import {
 import { stepComplete } from '@/spec-pipeline/orchestrator.js';
 import { EXPERT_OWNS } from '@/spec-pipeline/experts/roster.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
+import { qaVerdictsFor } from '../../../shared/qa-verdicts.js';
 
 const changed = vi.hoisted(() => ({ files: [] as string[] }));
 vi.mock('@/pipeline/change-evidence.js', async (importOriginal) => {
@@ -710,6 +711,7 @@ describe('spec pipeline experts CLI', () => {
         {
           role: 'qa-engineer',
           findings: [{ target: 'login', claim: 'a test must fail on the empty password first' }],
+          ...qaVerdictsFor('qa-engineer'),
         },
       ],
       tokens: { 'qa-engineer': 300 },

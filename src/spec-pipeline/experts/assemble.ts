@@ -29,7 +29,7 @@ export function assembleExpertRun(
   const notes =
     rawNotes === null
       ? { ok: true as const, artifact: { notes: [], tokens: {} } }
-      : validateExpertNotes(rawNotes);
+      : validateExpertNotes(rawNotes, undefined, undefined, { requireQaVerdicts: false });
   const notesArtifact = notes.ok && notes.artifact ? notes.artifact : { notes: [], tokens: {} };
 
   const merged = mergeExpertNotes(notesArtifact.notes);

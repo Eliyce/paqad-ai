@@ -996,6 +996,12 @@ function createExpertsCommand(): Command {
       if (refuseWhenOff(options)) return;
       const notes = readExpertNotes(options.projectRoot, resolved.dirName);
       const seated = (readExperts(options.projectRoot, resolved.dirName)?.roster.length ?? 0) > 0;
+      const merged = notes
+        ? mergeExpertNotes(
+            notes.notes,
+            readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
+          )
+        : null;
       console.log(
         JSON.stringify(
           {
@@ -1007,12 +1013,8 @@ function createExpertsCommand(): Command {
             notes: notes?.notes ?? null,
             voice_warnings:
               readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
-            merge: notes
-              ? mergeExpertNotes(
-                  notes.notes,
-                  readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
-                )
-              : null,
+            merge: merged,
+            qa_verdicts: merged?.qa_verdicts ?? null,
           },
           null,
           2,

@@ -64,6 +64,7 @@ import {
   repoRoot,
   runStage,
 } from './scope-fixtures.js';
+import { qaVerdictsFor } from '../../shared/qa-verdicts.js';
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
@@ -1452,6 +1453,7 @@ describe('the live High Table on the snapshot', () => {
           target: 't',
           claim: 'c',
         })),
+        ...qaVerdictsFor(note.role),
       })),
       tokens: Object.fromEntries(notes.map((note) => [note.role, note.tokens])),
     });

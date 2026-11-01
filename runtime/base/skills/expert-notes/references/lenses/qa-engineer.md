@@ -29,6 +29,15 @@ Fires when the request touches: any request with observable behaviour. That is n
 - How is each criterion proven: unit, integration, e2e, or manual?
 - What in here is timing- or concurrency-dependent, and how do we keep the test stable?
 
+## Your two verdicts
+
+Your note always carries `verdicts` with two parts, each a status (`pass`, `concerns` or `fail`) and a one-line reason:
+
+- `spec_compliance`: does the spec as drafted do what the request asks, no more and no less?
+- `quality`: is every criterion testable, with its negative cases, error paths and a proof_type?
+
+Give both even when your findings are empty. The chief architect reads them side by side.
+
 ## For depth
 
 See `runtime/base/agents/test-planner.md`, the review persona this lens is the request-time version of. This lens does not repeat its steps. The skills `test-per-ac-planner` and `edge-case-detection`, and the checklist `runtime/capabilities/coding/checklists/edge-cases-coding.md`, carry the detail.

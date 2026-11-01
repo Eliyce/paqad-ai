@@ -106,7 +106,7 @@ The experts and the chief architect sit at the High Table. Each seated expert ca
 
 A row that fails to write is reported on stderr and never changes the verb's result. Nothing here edits `experts.json`; the HUD folds both files into the live table.
 
-**Notes merge one role at a time.** `experts notes` replaces only the roles its artifact names (their findings, voice warnings, staged questions and reported tokens) and keeps every other role as it was. The whole read and write of `experts.json` and the staged questions runs under a file lock, so two seats that finish at the same moment never lose a note.
+**Notes merge one role at a time.** `experts notes` replaces only the roles its artifact names (their findings, voice warnings, staged questions and reported tokens) and keeps every other role as it was. The `qa-engineer` note must carry two verdicts, `spec_compliance` and `quality`, each a status (`pass`, `concerns` or `fail`) and a reason; `experts notes` refuses a QA note without both and refuses verdicts on any other role. They are staged in `expert-verdicts.json` and `experts context` surfaces them as `qa_verdicts` (and in `merge`) for the chief architect. The whole read and write of `experts.json` and the staged questions runs under a file lock, so two seats that finish at the same moment never lose a note.
 
 **A table that met late.** When any `done` row lands after the spec was frozen, the HUD table carries `met_after_freeze: true`, raises the flag "The High Table met after the spec was frozen, so it shaped no spec line." and credits the table with no spec line. A spec frozen by hand while the pipeline was on shows the table as skipped. The fast lane has no High Table.
 

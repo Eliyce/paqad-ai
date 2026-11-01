@@ -40,12 +40,14 @@ import {
 
 import type { ExpertNotesArtifact } from './experts/notes.js';
 import type { ExpertSynthesis } from './experts/synthesis.js';
-import type {
-  ExpertFinding,
-  ExpertNeedArtifact,
-  ExpertNote,
-  ExpertOrigin,
-  VoiceWarning,
+import {
+  QA_ROLE,
+  type ExpertFinding,
+  type ExpertNeedArtifact,
+  type ExpertNote,
+  type ExpertOrigin,
+  type QaVerdicts,
+  type VoiceWarning,
 } from './experts/types.js';
 import { frozenPipelineSection, type QuestionCounts, type StagedFinish } from './finish.js';
 import type {
@@ -68,6 +70,7 @@ export const STAGED_FILES = {
   craft: 'spec.md',
   finish: 'finish.json',
   expertQuestions: 'expert-questions.json',
+  expertVerdicts: 'expert-verdicts.json',
   inputs: 'inputs.json',
 } as const;
 
@@ -500,6 +503,20 @@ function mergeExpertNotesLocked(
   } else {
     clearStaged(projectRoot, dirName, 'expertQuestions');
   }
+
+  const verdicts = artifact.notes.find((note) => note.verdicts !== undefined)?.verdicts;
+  if (verdicts !== undefined) {
+    writeStagedJson(projectRoot, dirName, 'expertVerdicts', { role: QA_ROLE, verdicts });
+  } else if (roles.has(QA_ROLE)) {
+    clearStaged(projectRoot, dirName, 'expertVerdicts');
+  }
+}
+
+export function readStagedQaVerdicts(projectRoot: string, dirName: string): QaVerdicts | null {
+  return (
+    readStagedJson<{ verdicts?: QaVerdicts }>(projectRoot, dirName, 'expertVerdicts')?.verdicts ??
+    null
+  );
 }
 
 export function readStagedExpertQuestions(
@@ -534,6 +551,8 @@ export function readExpertNotes(projectRoot: string, dirName: string): ExpertNot
   for (const { role, questions } of readStagedExpertQuestions(projectRoot, dirName)) {
     noteFor(role).questions = questions;
   }
+  const verdicts = readStagedQaVerdicts(projectRoot, dirName);
+  if (verdicts !== null) noteFor(QA_ROLE).verdicts = verdicts;
   const tokens: Partial<Record<AgentRole, number>> = {};
   for (const entry of experts.roster) {
     if (entry.tokens_used !== null) tokens[entry.role] = entry.tokens_used;
