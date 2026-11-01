@@ -642,8 +642,11 @@ export function runAgentRelease(
     changed.push(sdkPath);
   }
   const unchanged = previous?.version === version && previous.file_hash === fileHash;
-  if (!unchanged || !existsSync(join(projectRoot, evidencePath))) {
-    writeIfChanged(projectRoot, evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+  const evidenceMissing = !existsSync(join(projectRoot, evidencePath));
+  if (writeIfChanged(projectRoot, evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)) {
+    changed.push(evidencePath);
+  }
+  if (!unchanged || evidenceMissing) {
     writeChangelog(
       join(projectRoot, trackedDir, 'CHANGELOG.md'),
       workspace.name,
@@ -654,7 +657,9 @@ export function runAgentRelease(
   lines.push(
     changed.length === 0 && unchanged
       ? `${workspace.name} ${version} is already released with this content; nothing changed.`
-      : `Released ${workspace.name} ${version} into ${plan.files.map((file) => file.path).join(', ') || 'no host folder'}; the SDK form is ${sdkPath} and the evidence is ${evidencePath}.`,
+      : unchanged && changed.length === 1 && changed[0] === evidencePath
+        ? `${workspace.name} ${version} is unchanged; its evidence in ${evidencePath} was rewritten from the recorded gates.`
+        : `Released ${workspace.name} ${version} into ${plan.files.map((file) => file.path).join(', ') || 'no host folder'}; the SDK form is ${sdkPath} and the evidence is ${evidencePath}.`,
   );
   lines.push(...plan.proposals);
   if (plan.plugin !== null && plan.plugin.settings_hooks.length > 0) {

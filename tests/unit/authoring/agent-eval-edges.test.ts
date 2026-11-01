@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -14,12 +14,14 @@ import {
   unsafeTarEntries,
 } from '@/authoring/stages/agent-eval.js';
 import { readAuthoringDefects } from '@/authoring/evidence.js';
+import { AgentWorkspace } from '@/authoring/workspace.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 
 import {
   AGENT_INTAKE,
   addCase,
   agentForEval,
+  agentProject,
   cleanAgentProjects,
   readLoose,
   put,
@@ -184,6 +186,52 @@ describe('record edges', () => {
       expect(performance[field]).toHaveProperty('source');
     }
     expect(performance.latency_p95_ms).toMatchObject({ measure: 'p95', samples: 12 });
+  });
+
+  it('FR-74: the performance source names the runner the recorded trials used, not the planned adapter', async () => {
+    const workspace = agentForEval(AGENT_INTAKE, 'claude-code');
+    addCase(workspace, 'drops-column', { adversarial: true });
+    addCase(workspace, 'clean-migration', { clean_input: true });
+    runAgentEvalPlan(workspace, { probe: () => '2.1.316' });
+    writeTrials(workspace, (trial) => ({
+      passed: trial.arm === 'with_agent',
+      timing: { source: 'subagent-dispatch' },
+    }));
+    await runAgentEvalRecord(workspace);
+    const benchmark = readLoose(workspace, 'benchmark.json');
+    expect(benchmark.adapter).toBe('claude-plugin-eval');
+    expect(benchmark.trial_source).toBe('subagent-dispatch');
+    expect(benchmark.performance.tokens_per_task.source).toBe('subagent-dispatch');
+    expect(benchmark.performance.latency_p95_ms.source).toBe('subagent-dispatch');
+  });
+
+  it('FR-74: trials that name no runner keep the planned adapter as their source', async () => {
+    const workspace = reviewer();
+    writeTrials(workspace, (trial) => ({ passed: trial.arm === 'with_agent' }));
+    await runAgentEvalRecord(workspace);
+    const benchmark = readLoose(workspace, 'benchmark.json');
+    expect(benchmark.trial_source).toBe('subagent-dispatch');
+    expect(benchmark.performance.tokens_per_task.source).toBe('subagent-dispatch');
+  });
+
+  it('AC-63: given only the workspace files, recomputing the S5 gate gives the recorded decision', async () => {
+    const workspace = reviewer();
+    writeTrials(workspace, (trial) => ({ passed: trial.arm === 'with_agent' }));
+    await runAgentEvalRecord(workspace);
+    const recorded = readLoose(workspace, 'benchmark.json');
+    const copy = agentProject();
+    put(copy, '.paqad/onboarding-manifest.json', JSON.stringify({ adapter: 'codex-cli' }));
+    cpSync(join(workspace.projectRoot, workspace.rel), join(copy, workspace.rel), {
+      recursive: true,
+    });
+    const again = new AgentWorkspace(copy, workspace.name);
+    again.remove('benchmark.json');
+    again.remove('iteration-1/benchmark.json');
+    await runAgentEvalRecord(again);
+    const recomputed = readLoose(again, 'benchmark.json');
+    for (const field of ['gate', 'passed', 'pass_hat_k', 'registered_tier', 'reliability']) {
+      expect(recomputed[field], field).toEqual(recorded[field]);
+    }
   });
 
   it('EC-A05, FR-87: queue time is reported apart from latency', async () => {

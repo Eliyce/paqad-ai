@@ -226,6 +226,26 @@ describe('paqad-ai agent release (S7)', () => {
     expect(evidence().sdk.uncarried_rules.join('\n')).toContain('node .claude/hooks/guard.mjs');
   });
 
+  it('AC-54: a re-recorded gate on an unchanged agent rewrites evidence.json without a new version or CHANGELOG entry', async () => {
+    const workspace = await ready();
+    release(workspace);
+    const changelogPath = join(root, `.paqad/authoring/agents/${AGENT_NAME}/CHANGELOG.md`);
+    const changelog = readFileSync(changelogPath, 'utf8');
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      performance: { tokens_per_task: { value: 42, source: 'subagent-dispatch' } },
+    });
+    const again = release(workspace);
+    expect(again.lines[0]).toContain('its evidence in');
+    expect(evidence().version).toBe('1.0.0');
+    expect(evidence().performance.tokens_per_task).toMatchObject({
+      value: 42,
+      source: 'subagent-dispatch',
+    });
+    expect(readFileSync(changelogPath, 'utf8')).toBe(changelog);
+  });
+
   it('AC-54: releasing twice writes the same files, one CHANGELOG entry and one bundle record', async () => {
     const workspace = await ready();
     release(workspace);

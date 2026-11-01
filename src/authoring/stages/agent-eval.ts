@@ -8,6 +8,7 @@ import { readAuthoringConfig } from '../config.js';
 import {
   chooseEvalAdapter,
   evalTiers,
+  type EvalAdapter,
   type EvalAdapterChoice,
   type EvalTier,
 } from '../eval/adapters.js';
@@ -466,6 +467,7 @@ export interface TrialTiming {
   max_tool_result_tokens: Measured;
   returned_to_main_tokens: Measured;
   form: string;
+  source: EvalAdapter | null;
   unenforced_rules: string[];
   batched: boolean;
   fell_back: boolean;
@@ -524,6 +526,7 @@ function readTiming(workspace: AuthoringWorkspace, trial: AgentTrial, rel: strin
     max_tool_result_tokens: number('max_tool_result_tokens'),
     returned_to_main_tokens: number('returned_to_main_tokens'),
     form: typeof raw.form === 'string' ? raw.form : 'project-agent',
+    source: trialSource(raw.source),
     unenforced_rules: stringList(raw.unenforced_rules),
     batched: raw.batched === true,
     fell_back: raw.fell_back === true,
@@ -708,6 +711,20 @@ function armMetrics(
         ? null
         : latencyMeasure(records.map((entry) => entry.timing.duration_ms)).value,
   };
+}
+
+const TRIAL_SOURCES: readonly EvalAdapter[] = ['claude-plugin-eval', 'subagent-dispatch'];
+
+function trialSource(value: unknown): EvalAdapter | null {
+  return (TRIAL_SOURCES as readonly unknown[]).includes(value) ? (value as EvalAdapter) : null;
+}
+
+export function recordedTrialSource(
+  records: ReadonlyArray<{ timing: Pick<TrialTiming, 'source'> }>,
+  planned: string,
+): string {
+  const named = [...new Set(records.map((entry) => entry.timing.source ?? planned))].sort();
+  return named.length === 0 ? planned : named.join('+');
 }
 
 function performance(records: readonly TrialRecord[], adapter: string) {
@@ -962,6 +979,7 @@ export async function runAgentEvalRecord(
     iteration: plan.iteration,
     lever: plan.lever,
     adapter: plan.adapter.adapter,
+    trial_source: recordedTrialSource(records, plan.adapter.adapter),
     passed,
     pass_hat_k: chosen.agent.pass_hat_k,
     threshold,
@@ -986,7 +1004,7 @@ export async function runAgentEvalRecord(
     analyst,
     forms: [...new Set(agentRecords.map((entry) => entry.timing.form))],
     unenforced_rules: [...new Set(agentRecords.flatMap((entry) => entry.timing.unenforced_rules))],
-    performance: performance(agentRecords, plan.adapter.adapter),
+    performance: performance(agentRecords, recordedTrialSource(records, plan.adapter.adapter)),
     batch:
       plan.batch === 'available'
         ? { requests_batched: batched, fell_back: fellBack, saving_usd: 'unavailable' }
