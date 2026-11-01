@@ -496,6 +496,21 @@ surfaces:
       - file: src/cli/commands/skill.ts
         line: 473
     trust: proven-in-code
+  - id: node-cli-agent
+    kind: cli-command
+    label: Take a new or edited agent through its gated pipeline, from justify to
+      release
+    entry:
+      kind: bin
+      value: agent
+    area: feature-dev
+    module: authoring
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/agent.ts
+        line: 507
+    trust: proven-in-code
   - id: node-cli-compile
     kind: cli-command
     label: Compile the active feature plan.json from a filled JSON template

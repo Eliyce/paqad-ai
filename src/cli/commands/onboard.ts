@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
 
+import { exploreOfferLine } from '@/authoring/explore.js';
 import { isNpmAvailable } from '@/core/npm-available.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import { STACKS, type Capability, type Stack } from '@/core/types/domain.js';
@@ -173,6 +174,11 @@ export function createOnboardCommand(): Command {
       const codexHint = codexTrustHint(result?.decision_pause_supported_adapters);
       if (codexHint) {
         console.log(`\n${codexHint}`);
+      }
+
+      const exploreOffer = exploreOfferLine(options.projectRoot);
+      if (exploreOffer) {
+        console.log(`\n${exploreOffer}`);
       }
 
       printOnboardingNotices(result);

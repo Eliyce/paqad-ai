@@ -8,12 +8,15 @@ import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { checkPlainLanguage, type PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion, VocabularyEntry } from '../types.js';
 import { isExpertRole } from './roster.js';
-import type {
-  ExpertFinding,
-  ExpertNote,
-  FindingKind,
-  FindingSeverity,
-  VoiceWarning,
+import {
+  QA_ROLE,
+  type ExpertFinding,
+  type ExpertNote,
+  type FindingKind,
+  type FindingSeverity,
+  type QaVerdicts,
+  type QaVerdictStatus,
+  type VoiceWarning,
 } from './types.js';
 
 const FINDING_KINDS: readonly FindingKind[] = [
@@ -108,10 +111,47 @@ function fail(error: string): ExpertNotesValidation {
   return { ok: false, error };
 }
 
+const QA_VERDICT_STATUSES: readonly QaVerdictStatus[] = ['pass', 'concerns', 'fail'];
+const QA_VERDICT_KEYS = ['spec_compliance', 'quality'] as const;
+
+function checkVerdicts(
+  role: string,
+  raw: unknown,
+  path: string,
+  required: boolean,
+): QaVerdicts | null | string {
+  if (role === QA_ROLE && raw === undefined && !required) return null;
+  if (role !== QA_ROLE) {
+    return raw === undefined
+      ? null
+      : `${path} ("${role}") may not carry verdicts; only ${QA_ROLE} gives them`;
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return `${path} ("${QA_ROLE}") needs verdicts with spec_compliance and quality`;
+  }
+  const out: Partial<QaVerdicts> = {};
+  for (const key of QA_VERDICT_KEYS) {
+    const verdict = (raw as Record<string, unknown>)[key];
+    if (typeof verdict !== 'object' || verdict === null || Array.isArray(verdict)) {
+      return `${path} ("${QA_ROLE}") needs a ${key} verdict`;
+    }
+    const { status, reason } = verdict as Record<string, unknown>;
+    if (!QA_VERDICT_STATUSES.includes(status as QaVerdictStatus)) {
+      return `${path}.verdicts.${key} has an unknown status "${String(status)}" (want ${QA_VERDICT_STATUSES.join(' | ')})`;
+    }
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      return `${path}.verdicts.${key} needs a non-empty reason`;
+    }
+    out[key] = { status: status as QaVerdictStatus, reason };
+  }
+  return out as QaVerdicts;
+}
+
 export function validateExpertNotes(
   raw: unknown,
   sources?: PlainLanguageSources,
   voiceSources?: FindingVoiceSources,
+  options: { requireQaVerdicts?: boolean } = {},
 ): ExpertNotesValidation {
   const parsed = typeof raw === 'string' ? parseJson(raw) : raw;
   if (parsed === undefined) return fail('expert-notes artifact is not valid JSON');
@@ -127,10 +167,17 @@ export function validateExpertNotes(
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
       return fail(`notes[${index}] must be an object with role and findings`);
     }
-    const { role, findings, questions } = entry as Record<string, unknown>;
+    const { role, findings, questions, verdicts } = entry as Record<string, unknown>;
     if (typeof role !== 'string' || !isExpertRole(role)) {
       return fail(`notes[${index}].role "${String(role)}" is not an expert in the roster`);
     }
+    const verdictCheck = checkVerdicts(
+      role,
+      verdicts,
+      `notes[${index}]`,
+      options.requireQaVerdicts !== false,
+    );
+    if (typeof verdictCheck === 'string') return fail(verdictCheck);
     if (!Array.isArray(findings)) {
       return fail(`notes[${index}] ("${role}") needs a findings[] array`);
     }
@@ -187,6 +234,7 @@ export function validateExpertNotes(
       role,
       findings: parsedFindings,
       ...(parsedQuestions.length > 0 ? { questions: parsedQuestions } : {}),
+      ...(verdictCheck === null ? {} : { verdicts: verdictCheck }),
     });
   }
 

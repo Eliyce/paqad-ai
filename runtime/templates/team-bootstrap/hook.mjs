@@ -63,6 +63,7 @@ const SCRIPT_EVENTS = {
   'stage-agent-start.mjs': 'SubagentStart',
   'stage-agent-completion.mjs': 'SubagentStop',
   'skill-activation.mjs': 'PostToolUse',
+  'agent-delegation.mjs': 'PostToolUse',
 };
 
 function lower(value) {

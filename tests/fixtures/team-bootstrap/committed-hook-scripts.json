@@ -1,5 +1,6 @@
 {
   "scripts": [
+    "agent-delegation.mjs",
     "agent-entry-gate.mjs",
     "agent-entry-prompt-gate.mjs",
     "agent-entry-session-start.mjs",

@@ -7,6 +7,7 @@ import {
 export type AuthoringCategory =
   | 'authoring.overlap'
   | 'authoring.risky_script'
+  | 'authoring.agent_permission'
   | 'authoring.intake_gap'
   | 'authoring.improvement'
   | 'authoring.retirement'
@@ -77,11 +78,18 @@ export const OVERRIDE_DO_NOT_ADD = 'do-not-add';
 
 export function raiseOverrideDecision(
   projectRoot: string,
-  input: { skill: string; gate: string; why: string; change?: string | null },
+  input: {
+    skill: string;
+    gate: string;
+    why: string;
+    change?: string | null;
+    kind?: 'skill' | 'agent';
+  },
 ): string {
+  const kind = input.kind ?? 'skill';
   return raiseAuthoringDecision(projectRoot, {
     category: 'authoring.override',
-    title: `The skill ${input.skill} cannot run its ${input.gate} check. Add it unverified, kept in this project?`,
+    title: `The ${kind} ${input.skill} cannot run its ${input.gate} check. Add it unverified, kept in this project?`,
     context: input.why,
     options: [
       option(
@@ -94,10 +102,46 @@ export function raiseOverrideDecision(
         OVERRIDE_DO_NOT_ADD,
         'Do not add it',
         `If you pick this, ${input.skill} is not added.`,
-        'You give up: the skill.',
+        `You give up: the ${kind}.`,
       ),
     ],
     recommendation: OVERRIDE_DO_NOT_ADD,
+    change: input.change,
+  });
+}
+
+export const AGENT_PERMISSION_ALLOW = 'allow';
+export const AGENT_PERMISSION_REMOVE = 'remove';
+
+export function agentPermissionContext(powers: readonly string[], fileHash: string): string {
+  return `Powers: ${[...powers].sort().join(', ')}. File hash: ${fileHash}.`;
+}
+
+export function raiseAgentPermissionDecision(
+  projectRoot: string,
+  input: { agent: string; powers: readonly string[]; fileHash: string; change?: string | null },
+): string {
+  const powers = [...new Set(input.powers)].sort();
+  const list = powers.join(', ');
+  return raiseAuthoringDecision(projectRoot, {
+    category: 'authoring.agent_permission',
+    title: `The agent ${input.agent} asks for these powers: ${list}. Allow these powers?`,
+    context: agentPermissionContext(powers, input.fileHash),
+    options: [
+      option(
+        AGENT_PERMISSION_ALLOW,
+        'Allow these powers',
+        `If you pick this, ${input.agent} keeps ${list}; adding a power or editing the agent asks again.`,
+        'You give up: an agent limited to the minimum tools.',
+      ),
+      option(
+        AGENT_PERMISSION_REMOVE,
+        'Remove them',
+        `If you pick this, ${list} is taken out of ${input.agent} before its checks run.`,
+        'You give up: whatever those powers let the agent do.',
+      ),
+    ],
+    recommendation: AGENT_PERMISSION_REMOVE,
     change: input.change,
   });
 }

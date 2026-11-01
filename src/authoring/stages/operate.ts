@@ -170,18 +170,19 @@ export function runDrift(workspace: SkillWorkspace, input: { now?: () => Date } 
 
 export function retirementDecision(
   projectRoot: string,
-  input: { skill: string; why: string; change?: string | null },
+  input: { skill: string; why: string; change?: string | null; kind?: 'skill' | 'agent' },
 ): string {
+  const kind = input.kind ?? 'skill';
   return raiseAuthoringDecision(projectRoot, {
     category: 'authoring.retirement',
-    title: `Retire the skill ${input.skill}?`,
+    title: `Retire the ${kind} ${input.skill}?`,
     context: input.why,
     options: [
       option(
         RETIRE_OPTION,
         'Retire it',
         `If you pick this, ${input.skill} is removed from the catalog.`,
-        'You give up: the skill.',
+        `You give up: the ${kind}.`,
       ),
       option(
         KEEP_OPTION,

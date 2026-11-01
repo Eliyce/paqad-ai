@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6BQRC68K8STT9JV82EHFK88",
+  "category": "authoring.overlap",
+  "title": "The new skill agent-orchestrator overlaps skill-orchestrator. Extend skill-orchestrator, or create a new skill?",
+  "context": "The overlap check scored agent-orchestrator against skill-orchestrator at 0.56, at or above the collision threshold of 0.4.",
+  "options": [
+    {
+      "option_key": "extend",
+      "label": "Extend skill-orchestrator",
+      "one_line_preview": "If you pick this, skill-orchestrator is improved instead and no new skill is added.",
+      "trade_off": "You give up: a separate skill for this job.",
+      "evidence": {}
+    },
+    {
+      "option_key": "create-new",
+      "label": "Create a new skill",
+      "one_line_preview": "If you pick this, agent-orchestrator is added beside skill-orchestrator.",
+      "trade_off": "You give up: one place for this job; the two may compete for the same requests.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "extend",
+  "created_at": "2026-11-01T14:21:01.001Z",
+  "status": "resolved",
+  "change": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "chosen": "create-new",
+  "rationale": "Owner: keep a separate agent-orchestrator skill as the issue specifies; reword its description to stay apart from skill-orchestrator",
+  "resolved_at": "2026-11-01T14:25:47.669Z",
+  "decision_id": "D-01M6BQRC68K8STT9JV82EHFK88",
+  "fingerprint": "sha256:47426e484c27308bff0e29ba4f096b20f8068c00a30f15eff52e2d2383248e88",
+  "question": "The new skill agent-orchestrator overlaps skill-orchestrator. Extend skill-orchestrator, or create a new skill?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "ttl_until": "2026-12-01T14:21:01.001Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "create-new",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T14:25:47.669Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep a separate agent-orchestrator skill as the issue specifies; reword its description to stay apart from skill-orchestrator"
+  }
+}

@@ -6,6 +6,10 @@ import {
   descriptionLength,
   descriptionWithinLimit,
   FIELDS_MAX_AGE_DAYS,
+  CLAUDE_CODE_AGENT_FIELDS,
+  CODEX_AGENT_FIELDS,
+  isClaudeModel,
+  isObjectRoleName,
   OPEN_SPEC_SKILL_FIELDS,
 } from '@/authoring/lint/fields.js';
 
@@ -48,5 +52,27 @@ describe('the description limit', () => {
     expect(descriptionWithinLimit('a'.repeat(1025))).toBe(false);
     expect(descriptionLength('\u{1F600}'.repeat(1024))).toBe(1024);
     expect(descriptionWithinLimit('\u{1F600}'.repeat(1024))).toBe(true);
+  });
+});
+
+describe('the agent field lists', () => {
+  it('were checked against the host subagent references in the last 60 days', () => {
+    for (const fields of [CLAUDE_CODE_AGENT_FIELDS, CODEX_AGENT_FIELDS]) {
+      const ageDays = Math.floor((Date.now() - Date.parse(`${fields.checked}T00:00:00Z`)) / DAY_MS);
+      expect(
+        ageDays,
+        `The agent field list was checked ${ageDays} days ago. Recheck it at ${fields.source}.`,
+      ).toBeLessThanOrEqual(FIELDS_MAX_AGE_DAYS);
+    }
+  });
+
+  it('tells Claude Code models apart and accepts object-role names', () => {
+    expect(isClaudeModel('haiku')).toBe(true);
+    expect(isClaudeModel('claude-opus-5-5')).toBe(true);
+    expect(isClaudeModel('gpt-6-luna')).toBe(false);
+    expect(isObjectRoleName('code-reviewer')).toBe(true);
+    expect(isObjectRoleName('db-reader')).toBe(true);
+    expect(isObjectRoleName('security-analyst')).toBe(true);
+    expect(isObjectRoleName('migrations')).toBe(false);
   });
 });

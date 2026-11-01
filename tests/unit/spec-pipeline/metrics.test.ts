@@ -26,6 +26,7 @@ import {
   recordSpecCorrection,
 } from '@/spec-pipeline/metrics.js';
 import type { PipelineConfig } from '@/spec-pipeline/config.js';
+import { qaVerdictsFor } from '../../shared/qa-verdicts.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -336,6 +337,7 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
               kind: 'non-goal',
             },
           ],
+          ...qaVerdictsFor('qa-engineer'),
         },
         {
           role: 'db-expert',

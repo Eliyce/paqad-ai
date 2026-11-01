@@ -6,6 +6,7 @@ import {
   clearWaiting,
   requireEarlierGates,
   setWaiting,
+  type AuthoringWorkspace,
   type SkillWorkspace,
 } from '../workspace.js';
 import { stageResult, type StageResult } from './result.js';
@@ -135,10 +136,14 @@ export interface IntakeGapInput {
   change?: string | null;
 }
 
-export function raiseIntakeGap(workspace: SkillWorkspace, input: IntakeGapInput): StageResult {
+export function raiseIntakeGap(
+  workspace: AuthoringWorkspace,
+  input: IntakeGapInput,
+  fields: readonly string[] = INTAKE_FIELDS,
+): StageResult {
   requireEarlierGates(workspace, 'S1');
-  if (!(INTAKE_FIELDS as readonly string[]).includes(input.field)) {
-    throw new AuthoringRefusal(`--gap must name an intake field: ${INTAKE_FIELDS.join(', ')}.`, 2);
+  if (!fields.includes(input.field)) {
+    throw new AuthoringRefusal(`--gap must name an intake field: ${fields.join(', ')}.`, 2);
   }
   if (input.options.length < 2 || input.options.length > 4) {
     throw new AuthoringRefusal('an intake gap needs 2 to 4 --option values.', 2);
@@ -152,7 +157,7 @@ export function raiseIntakeGap(workspace: SkillWorkspace, input: IntakeGapInput)
     category: 'authoring.intake_gap',
     title: input.question,
     context:
-      `The skill ${workspace.name} needs its ${input.field} field, and the spec, the ticket, the trace ` +
+      `The ${workspace.kind} ${workspace.name} needs its ${input.field} field, and the spec, the ticket, the trace ` +
       'and the project documents do not answer it.',
     options: input.options.map((label, index) =>
       option(
@@ -165,7 +170,7 @@ export function raiseIntakeGap(workspace: SkillWorkspace, input: IntakeGapInput)
     recommendation: keys[recommended]!,
     change: input.change,
   });
-  const resume = `paqad-ai skill intake ${workspace.name} <intake.yaml>`;
+  const resume = `paqad-ai ${workspace.kind} intake ${workspace.name} <intake.yaml>`;
   setWaiting(workspace, { stage: 'S1', decision: id, resume });
   return {
     ok: false,

@@ -52,10 +52,12 @@ export function mergeExpertNotes(
     });
   }
 
+  const qa = notes.find((note) => note.verdicts !== undefined)?.verdicts;
   return {
     findings,
     conflicts,
     ...(voiceWarnings.length > 0 ? { voice_warnings: [...voiceWarnings] } : {}),
+    ...(qa === undefined ? {} : { qa_verdicts: qa }),
   };
 }
 

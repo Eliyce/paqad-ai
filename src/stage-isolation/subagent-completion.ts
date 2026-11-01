@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 
+import { estimateTokens } from '@/authoring/tokens.js';
 import { readTranscriptUsage } from '@/cost/transcript-usage.js';
 import {
   appendFeatureStageRow,
@@ -20,12 +21,7 @@ import { readStageSetting } from './stage-settings.js';
 
 export { recordHighTableUsage };
 
-const CHARS_PER_TOKEN = 4;
-
-export function estimateTokens(text: string | null | undefined): number {
-  if (!text) return 0;
-  return Math.ceil(text.length / CHARS_PER_TOKEN);
-}
+export { estimateTokens };
 
 export function stageFromAgentType(agentType: string | null | undefined): string | null {
   if (typeof agentType !== 'string') {

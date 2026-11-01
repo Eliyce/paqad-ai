@@ -1163,6 +1163,114 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment:
       'Empty reads usage numbers from the host only. An http(s) URL also reads them from that OpenTelemetry endpoint. paqad never sends transcripts to it.',
   },
+  {
+    key: 'agent_orchestrator_enabled',
+    env: 'PAQAD_AGENT_ORCHESTRATOR_ENABLED',
+    type: 'boolean',
+    default: true,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Turn the Agent Orchestrator on or off. Off means no High Table seat on agent paths, no agent pipeline, no lane raise for agents and no agent completion check, so an agent edit is judged as before.',
+  },
+  {
+    key: 'agent_pass_k_threshold',
+    env: 'PAQAD_AGENT_PASS_K_THRESHOLD',
+    type: 'number',
+    default: 0.9,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment: 'S5 agent evals: the pass^3 score (0 to 1) an agent needs on its task cases.',
+  },
+  {
+    key: 'agent_stage_pass_k_threshold',
+    env: 'PAQAD_AGENT_STAGE_PASS_K_THRESHOLD',
+    type: 'number',
+    default: 0.95,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 agent evals: the pass^3 score (0 to 1) an unattended stage agent needs on its task cases.',
+  },
+  {
+    key: 'agent_delegation_threshold',
+    env: 'PAQAD_AGENT_DELEGATION_THRESHOLD',
+    type: 'number',
+    default: 0.9,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment: 'S6 delegation test: the validation pass rate (0 to 1) an agent description needs.',
+  },
+  {
+    key: 'agent_description_max_tokens',
+    env: 'PAQAD_AGENT_DESCRIPTION_MAX_TOKENS',
+    type: 'number',
+    default: 300,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Lint (AG-003): the most tokens an agent description may hold. A positive whole number.',
+  },
+  {
+    key: 'agent_report_max_tokens',
+    env: 'PAQAD_AGENT_REPORT_MAX_TOKENS',
+    type: 'number',
+    default: 2000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'The most tokens an agent report may hold when its Report section names no smaller maximum. A positive whole number.',
+  },
+  {
+    key: 'agent_prompt_max_tokens',
+    env: 'PAQAD_AGENT_PROMPT_MAX_TOKENS',
+    type: 'number',
+    default: 3000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Lint (AG-014): the most tokens an agent body (its system prompt) may hold. A positive whole number.',
+  },
+  {
+    key: 'agent_max_tools',
+    env: 'PAQAD_AGENT_MAX_TOOLS',
+    type: 'number',
+    default: 10,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Lint (AG-018): the most tools an agent may list before it needs an approval packet. A positive whole number.',
+  },
+  {
+    key: 'agent_max_cost_multiple',
+    env: 'PAQAD_AGENT_MAX_COST_MULTIPLE',
+    type: 'number',
+    default: 4,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'S5 agent evals: the most median cost an agent run may use, as a multiple of the main-thread baseline, unless it shows a parallel wall-time gain. 1 or more.',
+  },
+  {
+    key: 'agent_catalog_description_max_tokens',
+    env: 'PAQAD_AGENT_CATALOG_DESCRIPTION_MAX_TOKENS',
+    type: 'number',
+    default: 15000,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Lint (AG-004): the most tokens all installed agent descriptions may hold together. A positive whole number.',
+  },
+  {
+    key: 'agent_memory_max_lines',
+    env: 'PAQAD_AGENT_MEMORY_MAX_LINES',
+    type: 'number',
+    default: 200,
+    group: 'policy',
+    section: AUTHORING_SECTION,
+    comment:
+      'Lint (AG-010) and memory-consolidate: the most lines an agent MEMORY.md may hold. A positive whole number.',
+  },
 ] as const;
 
 function stageEffortComment(stage: string): string {

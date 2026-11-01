@@ -8,6 +8,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 
+import { AGENT_HOST_TARGETS, isSubagentCapableAdapter } from './package/agent-render.js';
+
 export const OPEN_STANDARD_SKILLS_ROOT = '.agents/skills';
 
 export const PAQAD_REPO_SKILL_ROOTS: readonly string[] = [
@@ -17,6 +19,13 @@ export const PAQAD_REPO_SKILL_ROOTS: readonly string[] = [
 ];
 
 export const SKILL_FILE = 'SKILL.md';
+
+export const PAQAD_REPO_AGENT_ROOTS: readonly string[] = [
+  'runtime/claude-plugin/agents',
+  'runtime/base/agents',
+  'runtime/capabilities/*/agents',
+  'runtime/templates/stage-agents',
+];
 
 const PAQAD_PACKAGE_NAME = 'paqad-ai';
 
@@ -37,6 +46,16 @@ function hostSkillsRoot(type: AdapterType): string | null {
     hostRootCache.set(type, adapter instanceof BaseAdapter ? adapter.getSkillsRoot() : null);
   }
   return hostRootCache.get(type) ?? null;
+}
+
+const agentRootCache = new Map<AdapterType, string | null>();
+
+function hostAgentsRoot(type: AdapterType): string | null {
+  if (!agentRootCache.has(type)) {
+    const adapter = AdapterFactory.create(type);
+    agentRootCache.set(type, adapter instanceof BaseAdapter ? adapter.getAgentsRoot() : null);
+  }
+  return agentRootCache.get(type) ?? null;
 }
 
 function normalize(path: string): string {
@@ -117,6 +136,69 @@ export function findSkillPaths(
 ): string[] {
   const roots = splitRoots(adapters, options);
   return files.filter((file) => nameFromSegments(normalize(file).split('/'), roots) !== null);
+}
+
+export function agentRoots(
+  adapters: readonly AdapterType[],
+  options: SkillPathOptions = {},
+): string[] {
+  const roots = new Set<string>();
+  for (const type of adapters) {
+    if (!isSubagentCapableAdapter(type, AGENT_HOST_TARGETS)) continue;
+    const root = hostAgentsRoot(type);
+    if (root !== null) roots.add(normalize(root).replace(/\/+$/u, ''));
+  }
+  if (options.paqadRepo === true) {
+    for (const root of PAQAD_REPO_AGENT_ROOTS) roots.add(root);
+  }
+  return [...roots];
+}
+
+function agentStem(file: string): string {
+  return file.replace(/\.hbs$/u, '').replace(/\.[^.]+$/u, '');
+}
+
+function agentNameFromSegments(
+  segments: readonly string[],
+  roots: readonly string[][],
+): string | null {
+  for (const root of roots) {
+    if (!matchRoot(segments, root)) continue;
+    const rest = segments.slice(root.length);
+    if (rest.length !== 1) continue;
+    const stem = agentStem(rest[0]!);
+    if (stem !== '' && !stem.startsWith('.')) return stem;
+  }
+  return null;
+}
+
+function splitAgentRoots(adapters: readonly AdapterType[], options: SkillPathOptions): string[][] {
+  return agentRoots(adapters, options).map((root) => root.split('/'));
+}
+
+export function agentNameOf(
+  path: string,
+  adapters: readonly AdapterType[],
+  options: SkillPathOptions = {},
+): string | null {
+  return agentNameFromSegments(normalize(path).split('/'), splitAgentRoots(adapters, options));
+}
+
+export function isAgentPath(
+  path: string,
+  adapters: readonly AdapterType[],
+  options: SkillPathOptions = {},
+): boolean {
+  return agentNameOf(path, adapters, options) !== null;
+}
+
+export function findAgentPaths(
+  files: readonly string[],
+  adapters: readonly AdapterType[],
+  options: SkillPathOptions = {},
+): string[] {
+  const roots = splitAgentRoots(adapters, options);
+  return files.filter((file) => agentNameFromSegments(normalize(file).split('/'), roots) !== null);
 }
 
 export function enabledAdapters(projectRoot: string): AdapterType[] {

@@ -39,6 +39,15 @@ export function readTextIfPresent(path: string): string | null {
   }
 }
 
+export function readBytesIfPresent(path: string): Buffer | null {
+  try {
+    return readFileSync(path);
+  } catch (error) {
+    if (isMissingPathError(error)) return null;
+    throw error;
+  }
+}
+
 export interface RegularFile {
   buffer: Buffer;
   mode: number;

@@ -4,7 +4,7 @@
 
 ## Purpose
 
-23 roles shipped in `runtime/base/agents` and capability sub-trees,
+24 roles shipped in `runtime/base/agents` and capability sub-trees,
 backed by 27 persona files: 10 workflow roles (context-curator,
 product-owner, verifier, test-planner, requirement-analyst, …), 12
 coding specialists (solution-architect, application-architect,

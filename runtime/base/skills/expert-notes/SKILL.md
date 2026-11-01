@@ -1,6 +1,7 @@
 ---
 name: expert-notes
-description: "Reads one expert's brief and, through that expert's lens, writes short request-time notes for the spec pipeline: what the request must do, must never break, and still leaves undecided, as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui and the rest), so the procedure is shared and only the lens differs; the pipeline script validates the output against the roster and never decides. Use when the spec pipeline runs with the expert roster on and an expert on the roster, or a High Table seat given one role, needs its notes written from its brief (phase 2 of the spec pipeline; the TS guard is src/spec-pipeline/experts/notes.ts)."
+description: >-
+  Reads one expert's brief and, through that expert's lens, writes short request-time notes for the spec pipeline: what the request must do, must never break, and still leaves undecided, as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui, qa-engineer, agent-orchestrator and the rest), so the procedure is shared and only the lens differs; the qa-engineer note also carries the spec compliance and quality verdicts. The pipeline script validates the output against the roster and never decides. Use when the spec pipeline runs with the expert roster on and an expert on the roster, or a High Table seat given one role, needs its note, findings, questions or verdicts written from its brief (phase 2 of the spec pipeline; the TS guard is src/spec-pipeline/experts/notes.ts).
 model_tier: reasoning
 triggers:
   - workflow:
@@ -80,6 +81,10 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
   `{ "notes": [ { "role", "findings": [ { "target", "claim", "kind", "severity", "evidence"? } ], "questions": [ PipelineQuestion ] } ], "tokens": { "<role>": n } }`.
 - `findings` and `questions` may be empty. One note per brief; as a High Table seat that is one
   note, for your role. `evidence` is an optional grounding reference.
+- The `qa-engineer` note also carries `"verdicts": { "spec_compliance": { "status", "reason" },
+"quality": { "status", "reason" } }`, each status `pass | concerns | fail`: one verdict on
+  whether the spec meets the request, one on whether it is testable and complete. No other role
+  carries verdicts.
 - `paqad-ai spec pipeline experts notes` validates it and assigns the ids `EX-<role>-<n>` in
   note order. Write the artifact outside the feature bundle (for example under `.paqad/tmp/`).
 
@@ -101,6 +106,7 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 
 Lenses, one per pickable expert; read only the one named by `role`:
 
+- `references/lenses/agent-orchestrator.md`
 - `references/lenses/application-architect.md`
 - `references/lenses/data-modeler.md`
 - `references/lenses/db-expert.md`

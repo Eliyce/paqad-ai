@@ -121,6 +121,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-completion.mjs\""
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/agent-delegation.mjs\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -130,6 +139,15 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/skill-activation.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/agent-delegation.mjs\""
           }
         ]
       }

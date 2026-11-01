@@ -304,6 +304,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `analytics.new_event`
 - `authoring.overlap`
 - `authoring.risky_script`
+- `authoring.agent_permission`
 - `authoring.intake_gap`
 - `authoring.improvement`
 - `authoring.retirement`

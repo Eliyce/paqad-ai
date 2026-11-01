@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -103,6 +103,30 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     const lines = read(projectRoot, '.paqad/.gitignore').split('\n');
     expect(lines).toContain('/skills/');
     expect(lines).not.toContain('skills/');
+  });
+
+  it('AC-46: keeps the tracked agent evidence under .paqad/authoring/agents/ out of the ignore list', () => {
+    writeGitignore(projectRoot);
+    const content = read(projectRoot, '.paqad/.gitignore');
+    expect(content).toContain('.paqad/authoring/agents/ hold tracked skill and agent evidence');
+    const rules = content.split('\n').filter((line) => line.trim() !== '' && !line.startsWith('#'));
+    for (const unanchored of ['agents/', 'authoring/', 'agents', 'authoring']) {
+      expect(rules).not.toContain(unanchored);
+    }
+    execFileSync('git', ['init', '-q'], { cwd: projectRoot });
+    const evidence = '.paqad/authoring/agents/migration-reviewer/evidence.json';
+    mkdirSync(join(projectRoot, '.paqad/authoring/agents/migration-reviewer'), { recursive: true });
+    writeFileSync(join(projectRoot, evidence), '{}');
+    expect(spawnSync('git', ['check-ignore', '-q', evidence], { cwd: projectRoot }).status).toBe(1);
+  });
+
+  it('AC-46: this repo does not ignore .paqad/authoring/agents/<name>/evidence.json', () => {
+    const result = spawnSync(
+      'git',
+      ['check-ignore', '-q', '.paqad/authoring/agents/agent-orchestrator/evidence.json'],
+      { cwd: process.cwd() },
+    );
+    expect(result.status).toBe(1);
   });
 
   it('keeps the boot pointer shared and the version file local (the inversion)', () => {

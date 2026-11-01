@@ -4,6 +4,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: Validate expert-notes output. Requires notes[]; each note names a role
          and findings[] of {target, claim}; kind/severity, when present, are known.
+         A qa-engineer note needs verdicts.spec_compliance and verdicts.quality.
 Usage:   bash scripts/lint-output.sh <file>   (or stdin)
 Exits:   0 clean | 1 issues | 2 usage error
 USAGE
@@ -37,6 +38,16 @@ process.stdin.on("end", () => {
       if (f && f.severity !== undefined && !SEV.includes(f.severity)) problems.push(`notes[${i}].findings[${j}] unknown severity "${f.severity}"`);
     });
     if (note.questions !== undefined && !Array.isArray(note.questions)) problems.push(`notes[${i}].questions must be an array`);
+    const STATUSES = ["pass", "concerns", "fail"];
+    if (note.role === "qa-engineer") {
+      for (const key of ["spec_compliance", "quality"]) {
+        const v = note.verdicts && note.verdicts[key];
+        if (!v || !STATUSES.includes(v.status)) problems.push(`notes[${i}].verdicts.${key} needs a status of pass, concerns or fail`);
+        else if (typeof v.reason !== "string" || v.reason.trim() === "") problems.push(`notes[${i}].verdicts.${key} needs a reason`);
+      }
+    } else if (note.verdicts !== undefined) {
+      problems.push(`notes[${i}] ("${note.role}") may not carry verdicts; only qa-engineer gives them`);
+    }
   });
   if (problems.length) { for (const p of problems) console.error(p); process.exit(1); }
   console.log("ok");

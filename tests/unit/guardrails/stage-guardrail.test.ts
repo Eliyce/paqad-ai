@@ -45,6 +45,28 @@ const ACTIVATION_EVENT = 'PostToolUse';
 const ACTIVATION_MATCHER = 'Skill|Read';
 const ACTIVATION_HOOK = 'skill-activation.mjs';
 const ACTIVATION_BLOCK = /,\n {4}"PostToolUse": \[\n(?: {6}.*\n)+? {4}\]/;
+const DELEGATION_HOOK = 'agent-delegation.mjs';
+const DELEGATION_STOP_GROUP =
+  /,\n {6}\{\n {8}"matcher": "\.\*",\n {8}"hooks": \[\n[\s\S]*?agent-delegation\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
+
+interface HookLine {
+  event: string;
+  matcher: string;
+  hook: string;
+}
+
+const APPENDED_ENTRIES: readonly HookLine[] = [
+  { event: ACTIVATION_EVENT, matcher: ACTIVATION_MATCHER, hook: ACTIVATION_HOOK },
+  { event: ACTIVATION_EVENT, matcher: 'Agent|Task', hook: DELEGATION_HOOK },
+  { event: 'SubagentStop', matcher: '.*', hook: DELEGATION_HOOK },
+];
+
+function isAppended(event: string, matcher: string | undefined, command: string): boolean {
+  return APPENDED_ENTRIES.some(
+    (entry) =>
+      entry.event === event && entry.matcher === (matcher ?? '') && entry.hook === hookOf(command),
+  );
+}
 
 type HookGroups = Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
 
@@ -54,27 +76,44 @@ interface PluginHooksFile {
 }
 
 function withoutSeedHook(hooks: HookGroups): HookGroups {
-  return Object.fromEntries(
-    Object.entries(hooks).filter(([event]) => event !== SEED_EVENT && event !== ACTIVATION_EVENT),
-  );
+  const kept: HookGroups = {};
+  for (const [event, groups] of Object.entries(hooks)) {
+    if (event === SEED_EVENT) continue;
+    const rest = groups.filter(
+      (group) => !group.hooks.every((entry) => isAppended(event, group.matcher, entry.command)),
+    );
+    if (rest.length > 0) kept[event] = rest;
+  }
+  return kept;
+}
+
+function appendedGroups(hooks: HookGroups, event: string) {
+  return (hooks[event] ?? [])
+    .map((group) => ({
+      matcher: group.matcher,
+      hooks: group.hooks.map((entry) => hookOf(entry.command)),
+    }))
+    .filter((group) => group.hooks.every((hook) => isAppended(event, group.matcher, hook)));
 }
 
 function expectOnlyTheActivationEntry(hooks: HookGroups): void {
   expect(Object.keys(hooks).at(-1)).toBe(ACTIVATION_EVENT);
-  expect(
-    (hooks[ACTIVATION_EVENT] ?? []).map((group) => ({
-      matcher: group.matcher,
-      hooks: group.hooks.map((entry) => hookOf(entry.command)),
-    })),
-  ).toEqual([{ matcher: ACTIVATION_MATCHER, hooks: [ACTIVATION_HOOK] }]);
+  expect(appendedGroups(hooks, ACTIVATION_EVENT)).toEqual([
+    { matcher: ACTIVATION_MATCHER, hooks: [ACTIVATION_HOOK] },
+    { matcher: 'Agent|Task', hooks: [DELEGATION_HOOK] },
+  ]);
+  expect((hooks[ACTIVATION_EVENT] ?? []).slice(-2).map((group) => group.matcher)).toEqual([
+    ACTIVATION_MATCHER,
+    'Agent|Task',
+  ]);
+  expect(appendedGroups(hooks, 'SubagentStop')).toEqual([
+    { matcher: '.*', hooks: [DELEGATION_HOOK] },
+  ]);
+  expect(hooks.SubagentStop?.at(-1)?.matcher).toBe('.*');
 }
 
 function isActivationLine(line: RenderedHook): boolean {
-  return (
-    line.nativeEvent === ACTIVATION_EVENT &&
-    line.matcher === ACTIVATION_MATCHER &&
-    hookOf(line.command) === ACTIVATION_HOOK
-  );
+  return isAppended(line.nativeEvent, line.matcher, line.command);
 }
 
 interface PinnedRenderings {
@@ -278,19 +317,13 @@ let launcherHome = '';
   ],
 ];
 
-function contractWithoutLauncherRoutes(source: string): string {
+function contractWithoutLauncherRoutes(source: string, required = true): string {
   let text = source;
   for (const [added, original] of LAUNCHER_ROUTE_ADDITIONS) {
-    expect(text).toContain(added);
+    if (required) expect(text).toContain(added);
     text = text.replace(added, original);
   }
   return text;
-}
-
-interface HookLine {
-  event: string;
-  matcher: string;
-  hook: string;
 }
 
 function hookOf(command: string): string {
@@ -315,7 +348,7 @@ describe('the stage enforcement guardrails', () => {
   it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT)))).toEqual(
-      printedCode(atBase(CONTRACT)),
+      printedCode(contractWithoutLauncherRoutes(atBase(CONTRACT), false)),
     );
   });
 
@@ -330,7 +363,7 @@ describe('the stage enforcement guardrails', () => {
     expect(contract).not.toMatch(/git clone|https:\/\//);
   });
 
-  it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook and the appended skill activation entry', (ctx) => {
+  it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook and the appended skill activation and agent delegation entries', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     const base = JSON.parse(atBase(PLUGIN_HOOKS)) as PluginHooksFile;
     const work = JSON.parse(working(PLUGIN_HOOKS)) as PluginHooksFile;
@@ -352,9 +385,10 @@ describe('the stage enforcement guardrails', () => {
     ).toBe('SubagentStop');
     const golden = goldenAsHost(working(GOLDEN));
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
-    expect(golden.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '')).toBe(
-      atBase(GOLDEN).replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, ''),
-    );
+    expect(DELEGATION_STOP_GROUP.exec(golden)?.[0]).toContain(DELEGATION_HOOK);
+    const stripped = (text: string) =>
+      text.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '').replace(DELEGATION_STOP_GROUP, '');
+    expect(stripped(golden)).toBe(stripped(goldenAsHost(atBase(GOLDEN))));
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),
     ).toEqual(['agent-entry-gate.mjs', 'decision-pause-gate.mjs', 'capability-gate.mjs']);
@@ -384,7 +418,7 @@ describe('the stage enforcement guardrails', () => {
     );
   });
 
-  it('AC-67: every host and plugin hook rendering matches the main branch capture apart from the Claude Code seed block and the skill activation entry', async () => {
+  it('AC-67: every host and plugin hook rendering matches the main branch capture apart from the Claude Code seed block and the skill activation and agent delegation entries', async () => {
     const env = { PAQAD_FRAMEWORK_HOME: PINNED.frameworkHome };
     expect(buildHostHookChain('codex-cli', env)).toEqual(PINNED.chains['codex-cli']);
     expect(buildHostHookChain('claude-code', env).filter(notSeed)).toEqual(
@@ -397,8 +431,12 @@ describe('the stage enforcement guardrails', () => {
     expect(buildPluginHookChain(env).filter((line) => line.nativeEvent === SEED_EVENT)).toEqual([
       seedLine(`${PLUGIN_RUNTIME_ROOT}/hooks`),
     ]);
-    expect(buildHostHookChain('claude-code', env).filter(isActivationLine)).toHaveLength(1);
-    expect(buildPluginHookChain(env).filter(isActivationLine)).toHaveLength(1);
+    expect(buildHostHookChain('claude-code', env).filter(isActivationLine)).toHaveLength(
+      APPENDED_ENTRIES.length,
+    );
+    expect(buildPluginHookChain(env).filter(isActivationLine)).toHaveLength(
+      APPENDED_ENTRIES.length,
+    );
     expect(buildHostHookChain('codex-cli', env).filter(isActivationLine)).toEqual([]);
 
     const rendered = await renderHookFiles();

@@ -1,0 +1,4 @@
+interface:
+  display_name: Agent Orchestrator
+  short_description: Decides whether a job deserves its own subagent, then fixes its brief, tools
+    and stop rules and proves it with pass^3 trials before it ships, using the paqad-ai agent verbs.

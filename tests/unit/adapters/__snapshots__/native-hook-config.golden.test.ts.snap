@@ -132,6 +132,15 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
             "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-completion.mjs"
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-delegation.mjs"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -141,6 +150,15 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
           {
             "type": "command",
             "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" skill-activation.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-delegation.mjs"
           }
         ]
       }

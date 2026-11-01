@@ -1,0 +1,241 @@
+{
+  "schema_version": "1",
+  "agent": "agent-orchestrator",
+  "version": "1.0.0",
+  "file_hash": "sha256:46ba42e85681cb1fc235e4bd0c68a7e1739ff95fb6dc0262e166c93c0409715f",
+  "released_path": "runtime/base/agents/agent-orchestrator.md",
+  "files": [
+    "runtime/base/agents/agent-orchestrator.md"
+  ],
+  "pattern": "single-call",
+  "class": "reviewer",
+  "invocation": "dispatched",
+  "baseline": {
+    "arm": "main_thread",
+    "runs": 3,
+    "passed": 0,
+    "verdict": "needed"
+  },
+  "reliability": {
+    "pass_hat_k": 1,
+    "threshold": 0.9,
+    "registered_tier": "reasoning",
+    "table": [
+      {
+        "arm": "main_thread",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0,
+        "pass_at_k": 0,
+        "cases": [
+          {
+            "case": "clean-input",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "injected-write",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "new-agent",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      },
+      {
+        "arm": "main_thread",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0.3333,
+        "pass_at_k": 0.3333,
+        "cases": [
+          {
+            "case": "clean-input",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "injected-write",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "new-agent",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0.3333,
+        "pass_at_k": 1,
+        "cases": [
+          {
+            "case": "clean-input",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "injected-write",
+            "trials": 3,
+            "passed": 1,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          },
+          {
+            "case": "new-agent",
+            "trials": 3,
+            "passed": 2,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 1,
+        "pass_at_k": 1,
+        "cases": [
+          {
+            "case": "clean-input",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "injected-write",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "new-agent",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          }
+        ]
+      }
+    ]
+  },
+  "delegation": {
+    "skipped": "dispatched"
+  },
+  "memory": "none",
+  "returned_to_main_tokens_median": 1079,
+  "host_notes": {},
+  "deployable": {
+    "paqad-runtime": true
+  },
+  "proposals": [],
+  "sdk": {
+    "path": ".paqad/authoring/agents/agent-orchestrator/agent-orchestrator.agent.json",
+    "fields_checked": {
+      "checked": "2026-11-01",
+      "source": "Claude Agent SDK AgentDefinition type (TypeScript reference)"
+    },
+    "run_options": {
+      "maxBudgetUsd": 5
+    },
+    "uncarried_rules": []
+  },
+  "model_stamp": {
+    "model": "sonnet",
+    "proven_on": "claude-sonnet-5-5",
+    "tier": "reasoning"
+  },
+  "performance": {
+    "task_type": "planted defects it must catch and a clean input it must stay silent on",
+    "tier": "reasoning",
+    "tokens_per_task": {
+      "value": 21752,
+      "source": "subagent-dispatch"
+    },
+    "cost_usd": {
+      "value": 0.0387545,
+      "source": "subagent-dispatch"
+    },
+    "latency_p50_ms": {
+      "value": 22671,
+      "source": "subagent-dispatch"
+    },
+    "latency_p95_ms": {
+      "value": 22671,
+      "measure": "median",
+      "samples": 9,
+      "source": "subagent-dispatch"
+    },
+    "queue_ms_median": {
+      "value": 0,
+      "source": "subagent-dispatch"
+    },
+    "cache_hit_share": {
+      "value": 0.8198,
+      "source": "subagent-dispatch"
+    },
+    "tool_calls": {
+      "value": 4,
+      "source": "subagent-dispatch"
+    },
+    "tool_use_blocks_per_message": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    },
+    "turns": {
+      "value": 5,
+      "source": "subagent-dispatch"
+    },
+    "returned_to_main_tokens": {
+      "value": 1079,
+      "source": "subagent-dispatch"
+    },
+    "context_utilisation": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    }
+  },
+  "batch": "unavailable",
+  "creation_cost": {
+    "S5": 0.806644,
+    "S6": 0,
+    "source": "host-usage"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 2
+  },
+  "script_tests": {
+    "command": null,
+    "tests": 0,
+    "passed": 0
+  },
+  "permission_decisions": [],
+  "overrides": [],
+  "decisions": [],
+  "labels": []
+}

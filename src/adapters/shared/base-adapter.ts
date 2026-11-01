@@ -48,6 +48,10 @@ export abstract class BaseAdapter implements AdapterInterface {
     return this.skillsRoot();
   }
 
+  getAgentsRoot(): string {
+    return this.agentsRoot();
+  }
+
   async generateConfig(context: AdapterContext): Promise<GeneratedFile[]> {
     const files: GeneratedFile[] = [
       {

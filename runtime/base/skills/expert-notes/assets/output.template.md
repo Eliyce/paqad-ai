@@ -35,3 +35,4 @@ Return exactly this JSON shape (one note, for the role in your brief):
 - `kind`: `requirement | invariant | acceptance | risk | non-goal`.
 - `severity`: `must | should | could`.
 - `evidence` is optional (a grounding reference).
+- The `qa-engineer` note adds `"verdicts": { "spec_compliance": { "status": "pass", "reason": "..." }, "quality": { "status": "concerns", "reason": "..." } }`, each status `pass | concerns | fail`. No other role carries verdicts.

@@ -34,6 +34,7 @@ describe('path-triggered seats', () => {
         reason: 'a planned path is sensitive: src/auth/k.ts',
       },
       { role: 'skill-orchestrator', path: SKILL, reason: `a planned file is a skill: ${SKILL}` },
+      { role: 'agent-orchestrator', path: null, reason: 'a planned file is an agent: null' },
     ]);
   });
 

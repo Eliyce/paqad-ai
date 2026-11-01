@@ -8,6 +8,7 @@ import {
   AUTHORING_CONFIG_KEYS,
   authoringConfigProblems,
   readAuthoringConfig,
+  agentOrchestratorEnabled,
   skillOrchestratorEnabled,
 } from '@/authoring/config.js';
 import { generateGroupConfig } from '@/core/framework-config.js';
@@ -49,8 +50,19 @@ describe('readAuthoringConfig', () => {
       authoring_batch_mode: 'auto',
       authoring_run_max_cost_usd: 5,
       authoring_otel_endpoint: '',
+      agent_orchestrator_enabled: true,
+      agent_pass_k_threshold: 0.9,
+      agent_stage_pass_k_threshold: 0.95,
+      agent_delegation_threshold: 0.9,
+      agent_description_max_tokens: 300,
+      agent_report_max_tokens: 2000,
+      agent_prompt_max_tokens: 3000,
+      agent_max_tools: 10,
+      agent_max_cost_multiple: 4,
+      agent_catalog_description_max_tokens: 15000,
+      agent_memory_max_lines: 200,
     });
-    expect(AUTHORING_CONFIG_KEYS).toHaveLength(18);
+    expect(AUTHORING_CONFIG_KEYS).toHaveLength(29);
   });
 
   it('reads set values and lets env win over the local file', () => {
@@ -119,6 +131,62 @@ describe('authoringConfigProblems', () => {
       { key: 'authoring_run_max_cost_usd', value: '0', allowed: 'a number above 0' },
       { key: 'authoring_otel_endpoint', value: 'not a url', allowed: 'empty or an http(s) URL' },
     ]);
+  });
+});
+
+describe('agent settings', () => {
+  it('reads agent_orchestrator_enabled from the local file and the env', () => {
+    expect(agentOrchestratorEnabled(project(), NO_ENV)).toBe(true);
+    expect(agentOrchestratorEnabled(project('agent_orchestrator_enabled=false\n'), NO_ENV)).toBe(
+      false,
+    );
+    expect(
+      agentOrchestratorEnabled(project(), {
+        PAQAD_AGENT_ORCHESTRATOR_ENABLED: 'off',
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
+  });
+
+  it('accepts the edge values of each agent range', () => {
+    const root = project(
+      [
+        'agent_pass_k_threshold=1',
+        'agent_stage_pass_k_threshold=0',
+        'agent_delegation_threshold=0.5',
+        'agent_max_tools=1',
+        'agent_max_cost_multiple=1',
+        'agent_memory_max_lines=1',
+      ].join('\n'),
+    );
+    expect(authoringConfigProblems(root, NO_ENV)).toEqual([]);
+    const config = readAuthoringConfig(root, NO_ENV);
+    expect(config.agent_pass_k_threshold).toBe(1);
+    expect(config.agent_max_cost_multiple).toBe(1);
+  });
+
+  it('warns on an out-of-range agent value and falls back to the default', () => {
+    const root = project(
+      [
+        'agent_pass_k_threshold=1.1',
+        'agent_description_max_tokens=0',
+        'agent_prompt_max_tokens=12.5',
+        'agent_max_cost_multiple=0.9',
+        'agent_orchestrator_enabled=perhaps',
+      ].join('\n'),
+    );
+    expect(authoringConfigProblems(root, NO_ENV)).toEqual([
+      { key: 'agent_orchestrator_enabled', value: 'perhaps', allowed: 'true or false' },
+      { key: 'agent_pass_k_threshold', value: '1.1', allowed: 'a number from 0 to 1' },
+      { key: 'agent_description_max_tokens', value: '0', allowed: 'a positive whole number' },
+      { key: 'agent_prompt_max_tokens', value: '12.5', allowed: 'a positive whole number' },
+      { key: 'agent_max_cost_multiple', value: '0.9', allowed: 'a number of 1 or more' },
+    ]);
+    const config = readAuthoringConfig(root, NO_ENV);
+    expect(config.agent_pass_k_threshold).toBe(0.9);
+    expect(config.agent_description_max_tokens).toBe(300);
+    expect(config.agent_prompt_max_tokens).toBe(3000);
+    expect(config.agent_max_cost_multiple).toBe(4);
+    expect(config.agent_orchestrator_enabled).toBe(true);
   });
 });
 

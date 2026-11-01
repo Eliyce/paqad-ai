@@ -77,4 +77,5 @@ export const ROLE_TOKEN_BUDGETS: Record<AgentRole, number> = {
   'chief-architect': 10000,
   'application-architect': 8000,
   'skill-orchestrator': 8000,
+  'agent-orchestrator': 8000,
 };

@@ -255,3 +255,25 @@
 # authoring_run_max_cost_usd=5
 # Empty reads usage numbers from the host only. An http(s) URL also reads them from that OpenTelemetry endpoint. paqad never sends transcripts to it. (env: PAQAD_AUTHORING_OTEL_ENDPOINT)
 # authoring_otel_endpoint=
+# Turn the Agent Orchestrator on or off. Off means no High Table seat on agent paths, no agent pipeline, no lane raise for agents and no agent completion check, so an agent edit is judged as before. (env: PAQAD_AGENT_ORCHESTRATOR_ENABLED)
+# agent_orchestrator_enabled=true
+# S5 agent evals: the pass^3 score (0 to 1) an agent needs on its task cases. (env: PAQAD_AGENT_PASS_K_THRESHOLD)
+# agent_pass_k_threshold=0.9
+# S5 agent evals: the pass^3 score (0 to 1) an unattended stage agent needs on its task cases. (env: PAQAD_AGENT_STAGE_PASS_K_THRESHOLD)
+# agent_stage_pass_k_threshold=0.95
+# S6 delegation test: the validation pass rate (0 to 1) an agent description needs. (env: PAQAD_AGENT_DELEGATION_THRESHOLD)
+# agent_delegation_threshold=0.9
+# Lint (AG-003): the most tokens an agent description may hold. A positive whole number. (env: PAQAD_AGENT_DESCRIPTION_MAX_TOKENS)
+# agent_description_max_tokens=300
+# The most tokens an agent report may hold when its Report section names no smaller maximum. A positive whole number. (env: PAQAD_AGENT_REPORT_MAX_TOKENS)
+# agent_report_max_tokens=2000
+# Lint (AG-014): the most tokens an agent body (its system prompt) may hold. A positive whole number. (env: PAQAD_AGENT_PROMPT_MAX_TOKENS)
+# agent_prompt_max_tokens=3000
+# Lint (AG-018): the most tools an agent may list before it needs an approval packet. A positive whole number. (env: PAQAD_AGENT_MAX_TOOLS)
+# agent_max_tools=10
+# S5 agent evals: the most median cost an agent run may use, as a multiple of the main-thread baseline, unless it shows a parallel wall-time gain. 1 or more. (env: PAQAD_AGENT_MAX_COST_MULTIPLE)
+# agent_max_cost_multiple=4
+# Lint (AG-004): the most tokens all installed agent descriptions may hold together. A positive whole number. (env: PAQAD_AGENT_CATALOG_DESCRIPTION_MAX_TOKENS)
+# agent_catalog_description_max_tokens=15000
+# Lint (AG-010) and memory-consolidate: the most lines an agent MEMORY.md may hold. A positive whole number. (env: PAQAD_AGENT_MEMORY_MAX_LINES)
+# agent_memory_max_lines=200

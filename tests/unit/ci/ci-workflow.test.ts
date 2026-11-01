@@ -72,14 +72,14 @@ describe('.github/workflows/ci.yml', () => {
     ]);
   });
 
-  it('FR-62: runs the Laravel skill e2e in one ubuntu job with a pinned PHP and Composer', () => {
+  it('FR-62, AC-15: runs the Laravel skill and agent e2e in one ubuntu job with a pinned PHP and Composer', () => {
     const job = jobs['skill-e2e-laravel'];
     expect(job['runs-on']).toBe('ubuntu-latest');
     const setup = job.steps.find((step) => step.uses === 'shivammathur/setup-php@v2');
     expect(setup?.with).toMatchObject({ 'php-version': '8.3', tools: 'composer:v2' });
     expect(job.steps.some((step) => step.run?.includes('composer install'))).toBe(true);
     expect(job.steps.at(-1)?.run).toBe(
-      'pnpm exec vitest run tests/e2e/skill-orchestrator.e2e.test.ts',
+      'pnpm exec vitest run tests/e2e/skill-orchestrator.e2e.test.ts tests/e2e/agent-orchestrator.e2e.test.ts',
     );
   });
 

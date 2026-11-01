@@ -25,6 +25,17 @@ export interface AuthoringConfig {
   authoring_batch_mode: AuthoringBatchMode;
   authoring_run_max_cost_usd: number;
   authoring_otel_endpoint: string;
+  agent_orchestrator_enabled: boolean;
+  agent_pass_k_threshold: number;
+  agent_stage_pass_k_threshold: number;
+  agent_delegation_threshold: number;
+  agent_description_max_tokens: number;
+  agent_report_max_tokens: number;
+  agent_prompt_max_tokens: number;
+  agent_max_tools: number;
+  agent_max_cost_multiple: number;
+  agent_catalog_description_max_tokens: number;
+  agent_memory_max_lines: number;
 }
 
 export type AuthoringConfigKey = keyof AuthoringConfig;
@@ -50,6 +61,17 @@ const RANGE_OF: Record<AuthoringConfigKey, RangeKind> = {
   authoring_batch_mode: 'batch',
   authoring_run_max_cost_usd: 'cost',
   authoring_otel_endpoint: 'endpoint',
+  agent_orchestrator_enabled: 'boolean',
+  agent_pass_k_threshold: 'share',
+  agent_stage_pass_k_threshold: 'share',
+  agent_delegation_threshold: 'share',
+  agent_description_max_tokens: 'count',
+  agent_report_max_tokens: 'count',
+  agent_prompt_max_tokens: 'count',
+  agent_max_tools: 'count',
+  agent_max_cost_multiple: 'multiple',
+  agent_catalog_description_max_tokens: 'count',
+  agent_memory_max_lines: 'count',
 };
 
 const ALLOWED_TEXT: Record<RangeKind, string> = {
@@ -158,4 +180,11 @@ export function skillOrchestratorEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return readAuthoringConfig(projectRoot, env).skill_orchestrator_enabled;
+}
+
+export function agentOrchestratorEnabled(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return readAuthoringConfig(projectRoot, env).agent_orchestrator_enabled;
 }

@@ -2,7 +2,7 @@
 
 # Agent roster
 
-The 23 built-in specialist roles, one row per `AGENT_ROLES` entry. Standing experts sit
+The 24 built-in specialist roles, one row per `AGENT_ROLES` entry. Standing experts sit
 at every spec run; on-call experts are picked by the detector; the chair runs whenever any expert
 fired; machinery roles are the pipeline's own build-time helpers. Generated so the roster, the
 persona files, and the README table cannot drift.
@@ -32,6 +32,7 @@ persona files, and the README table cannot drift.
 | chief-architect | chair | 10000 | runtime/capabilities/coding/agents/chief-architect.md | n/a |
 | application-architect | standing | 8000 | runtime/capabilities/coding/agents/application-architect.md | runtime/base/skills/expert-notes/references/lenses/application-architect.md |
 | skill-orchestrator | on-call | 8000 | runtime/base/agents/skill-orchestrator.md | runtime/base/skills/expert-notes/references/lenses/skill-orchestrator.md |
+| agent-orchestrator | on-call | 8000 | runtime/base/agents/agent-orchestrator.md | runtime/base/skills/expert-notes/references/lenses/agent-orchestrator.md |
 
 ## Personas the roles reuse
 

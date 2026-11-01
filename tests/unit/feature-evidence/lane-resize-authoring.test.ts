@@ -9,6 +9,9 @@ import { createPlanCommand } from '@/cli/commands/plan.js';
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
+  authoringMatches,
+  authoringRaisePaths,
+  authoringRaiseReason,
   laneMayRise,
   raiseLaneForAuthoring,
   raiseLaneIfGrown,
@@ -75,6 +78,22 @@ function turnOff(): void {
   writeFileSync(join(root, '.paqad', '.config'), 'skill_orchestrator_enabled=false\n');
 }
 
+function turnAgentsOff(): void {
+  writeFileSync(join(root, '.paqad', '.config'), 'agent_orchestrator_enabled=false\n');
+}
+
+function turnBothOff(): void {
+  writeFileSync(
+    join(root, '.paqad', '.config'),
+    'skill_orchestrator_enabled=false\nagent_orchestrator_enabled=false\n',
+  );
+}
+
+const AGENT = '.claude/agents/migration-reviewer.md';
+const AGENT_LINE =
+  '**▸ paqad** · lane raised to graduated from fast: the change creates or edits an agent ' +
+  '(.claude/agents/migration-reviewer.md), so the Agent Orchestrator sits at the High Table.';
+
 describe('raiseLaneForAuthoring', () => {
   it('AC-34: raises a fast lane to graduated for a planned skill path and records why', () => {
     const dir = change('fast');
@@ -86,6 +105,7 @@ describe('raiseLaneForAuthoring', () => {
         'the change creates or edits a skill (.claude/skills/processing-invoices/SKILL.md), so ' +
         'the Skill Orchestrator sits at the High Table.',
       path: SKILL,
+      paths: [{ kind: 'skill', path: SKILL }],
       at: AT,
     });
     const record = readFeatureRecord(root, dir)!;
@@ -150,6 +170,115 @@ describe('raiseLaneForAuthoring', () => {
     expect(record.lane_raised_for_authoring?.to).toBe('graduated');
     expect(laneMayRise(root, dir)).toBe(false);
     expect(raise(dir, [SKILL])).toBeNull();
+  });
+});
+
+describe('raiseLaneForAuthoring for agent paths (FR-5, FR-89)', () => {
+  it('AC-23: raises a fast lane to graduated for a planned agent path, naming the agent', () => {
+    const dir = change('fast');
+    const move = raise(dir, ['src/a.ts', AGENT]);
+    expect(move).toEqual({
+      from: 'fast',
+      to: 'graduated',
+      reason:
+        'the change creates or edits an agent (.claude/agents/migration-reviewer.md), so the ' +
+        'Agent Orchestrator sits at the High Table.',
+      path: AGENT,
+      paths: [{ kind: 'agent', path: AGENT }],
+      at: AT,
+    });
+    expect(readFeatureRecord(root, dir)?.lane).toBe('graduated');
+  });
+
+  it('AC-23: one reason names both kinds when a skill path and an agent path are planned', () => {
+    const dir = change('fast');
+    const move = raise(dir, [AGENT, SKILL]);
+    expect(move?.reason).toBe(
+      'the change creates or edits a skill (.claude/skills/processing-invoices/SKILL.md) and an ' +
+        'agent (.claude/agents/migration-reviewer.md), so the Skill Orchestrator and the Agent ' +
+        'Orchestrator sit at the High Table.',
+    );
+    expect(move?.path).toBe(SKILL);
+    expect(move?.paths).toEqual([
+      { kind: 'skill', path: SKILL },
+      { kind: 'agent', path: AGENT },
+    ]);
+  });
+
+  it('AC-23: leaves graduated and full untouched for an agent path', () => {
+    for (const lane of ['graduated', 'full'] as const) {
+      const dir = change(lane);
+      expect(raise(dir, [AGENT])).toBeNull();
+      expect(readFeatureRecord(root, dir)?.lane).toBe(lane);
+      rmSync(join(root, '.paqad'), { recursive: true, force: true });
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+    }
+  });
+
+  it('AC-23, EC-A11: an agent path raises nothing while agent_orchestrator_enabled=false', () => {
+    turnAgentsOff();
+    const dir = change('fast');
+    expect(raise(dir, [AGENT])).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+    expect(raise(dir, [AGENT, SKILL])?.paths).toEqual([{ kind: 'skill', path: SKILL }]);
+  });
+
+  it('AC-34: a file under .cursor/agents raises no lane', () => {
+    const dir = change('fast');
+    expect(raise(dir, ['.cursor/agents/x.md', '.gemini/agents/y.md'])).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+  });
+
+  it('the raise to full still fires after an agent raise', () => {
+    const dir = change('fast');
+    raise(dir, [AGENT]);
+    expect(laneMayRise(root, dir)).toBe(true);
+  });
+
+  it('AC-40, EC-A11: with both orchestrators off no planned path matches', () => {
+    turnBothOff();
+    expect(authoringMatches(root, [SKILL, AGENT])).toEqual([]);
+    const dir = change('fast');
+    expect(raise(dir, [SKILL, AGENT])).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+  });
+
+  it('AC-23: with only the agent orchestrator on, a skill path matches nothing and an agent path matches', () => {
+    turnOff();
+    expect(authoringMatches(root, [SKILL, AGENT])).toEqual([{ kind: 'agent', path: AGENT }]);
+  });
+
+  it('AC-34: stamps the raise with the current time when no clock is passed', () => {
+    const dir = change('fast');
+    const before = Date.now();
+    const raised = raiseLaneForAuthoring({
+      projectRoot: root,
+      dirName: dir,
+      plannedFiles: [SKILL],
+      changedFiles: [],
+    });
+    expect(Date.parse(raised!.at)).toBeGreaterThanOrEqual(before);
+  });
+
+  it('INV-18: a single-path record written before the list still reads', () => {
+    const legacy = {
+      from: 'fast' as const,
+      to: 'graduated' as const,
+      reason: 'r',
+      path: SKILL,
+      at: AT,
+    };
+    expect(authoringRaisePaths(legacy)).toEqual([{ kind: 'skill', path: SKILL }]);
+    expect(authoringRaisePaths({ ...legacy, paths: [] })).toEqual([{ kind: 'skill', path: SKILL }]);
+    const both = [
+      { kind: 'skill' as const, path: SKILL },
+      { kind: 'agent' as const, path: AGENT },
+    ];
+    expect(authoringRaisePaths({ ...legacy, paths: both })).toEqual(both);
+    expect(authoringRaiseReason(SKILL)).toBe(
+      'the change creates or edits a skill (.claude/skills/processing-invoices/SKILL.md), so the ' +
+        'Skill Orchestrator sits at the High Table.',
+    );
   });
 });
 
@@ -266,9 +395,21 @@ describe('the raise at plan compile and at stage start', () => {
     expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
   });
 
-  it('a fast-lane stage start with skill_orchestrator_enabled=false does not scan git', async () => {
+  it('AC-66: plan compile then stage start print the agent raised line once in total, one record', async () => {
+    const dir = fastChange();
+    const lines = await compile([AGENT]);
+    const start = await stageStart('specification');
+    expect([...lines, ...start].filter((line) => line.includes('lane raised'))).toEqual([
+      AGENT_LINE,
+    ]);
+    expect(readFeatureRecord(root, dir)?.lane_raised_for_authoring?.paths).toEqual([
+      { kind: 'agent', path: AGENT },
+    ]);
+  });
+
+  it('a fast-lane stage start with both orchestrators off does not scan git', async () => {
     fastChange();
-    turnOff();
+    turnBothOff();
     scans.count = 0;
     await stageStart('development');
     expect(scans.count).toBe(0);

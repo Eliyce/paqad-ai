@@ -21,6 +21,14 @@ function note(role: string, findings: number): object {
       severity: 'must',
     })),
     questions: [],
+    ...(role === 'qa-engineer'
+      ? {
+          verdicts: {
+            spec_compliance: { status: 'pass', reason: 'the spec does what the request asks' },
+            quality: { status: 'concerns', reason: 'the empty case has no criterion' },
+          },
+        }
+      : {}),
   };
 }
 
@@ -84,6 +92,41 @@ describe('expert-notes lint-output.sh contract', () => {
       'notes[0].findings[0] unknown kind "wish"',
       'notes[0].findings[0] unknown severity "maybe"',
     ]);
+  });
+
+  it('AC-19: lint-output needs both QA verdicts on the qa-engineer note and none on other roles', () => {
+    const qa = { role: 'qa-engineer', findings: [] };
+    const missing = runScript(SCRIPT, [], { input: JSON.stringify({ notes: [qa] }) });
+    expect(missing.status).toBe(1);
+    expect(missing.stderr.trim().split('\n')).toEqual([
+      'notes[0].verdicts.spec_compliance needs a status of pass, concerns or fail',
+      'notes[0].verdicts.quality needs a status of pass, concerns or fail',
+    ]);
+    const noReason = runScript(SCRIPT, [], {
+      input: JSON.stringify({
+        notes: [
+          {
+            ...qa,
+            verdicts: {
+              spec_compliance: { status: 'pass', reason: 'ok' },
+              quality: { status: 'fail', reason: ' ' },
+            },
+          },
+        ],
+      }),
+    });
+    expect(noReason.stderr.trim()).toBe('notes[0].verdicts.quality needs a reason');
+    const other = runScript(SCRIPT, [], {
+      input: JSON.stringify({
+        notes: [{ role: 'db-expert', findings: [], verdicts: {} }],
+      }),
+    });
+    expect(other.stderr.trim()).toBe(
+      'notes[0] ("db-expert") may not carry verdicts; only qa-engineer gives them',
+    );
+    expect(
+      runScript(SCRIPT, [], { input: JSON.stringify({ notes: [note('qa-engineer', 0)] }) }).status,
+    ).toBe(0);
   });
 
   it('lint-output idempotency', () => {

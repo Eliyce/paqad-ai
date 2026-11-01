@@ -12,7 +12,10 @@ import {
   type FindingVoiceSources,
 } from '@/spec-pipeline/experts/notes.js';
 import type { VocabularyEntry } from '@/spec-pipeline/types.js';
-import { writeExpertNotes, writeExpertRoster } from '@/spec-pipeline/run-store.js';
+import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
+import { readExpertNotes, writeExpertNotes, writeExpertRoster } from '@/spec-pipeline/run-store.js';
+
+import { QA_VERDICTS } from '../../../shared/qa-verdicts.js';
 
 const VOICE_VOCAB: VocabularyEntry[] = [
   { term: 'Customer', kind: 'role', source: 'docs/modules/billing/business.md' },
@@ -141,6 +144,60 @@ afterEach(() => {
 });
 
 const DIR = '521-x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+
+describe('the QA verdicts', () => {
+  const qa = (verdicts?: unknown) => ({
+    notes: [{ role: 'qa-engineer', findings: [], ...(verdicts === undefined ? {} : { verdicts }) }],
+  });
+
+  it('AC-19: refuses a qa-engineer note without both valid verdicts', () => {
+    expect(validateExpertNotes(qa()).error).toBe(
+      'notes[0] ("qa-engineer") needs verdicts with spec_compliance and quality',
+    );
+    expect(validateExpertNotes(qa({ spec_compliance: QA_VERDICTS.spec_compliance })).error).toBe(
+      'notes[0] ("qa-engineer") needs a quality verdict',
+    );
+    expect(
+      validateExpertNotes(qa({ ...QA_VERDICTS, quality: { status: 'great', reason: 'r' } })).error,
+    ).toContain('unknown status "great"');
+    expect(
+      validateExpertNotes(qa({ ...QA_VERDICTS, quality: { status: 'pass', reason: '' } })).error,
+    ).toBe('notes[0].verdicts.quality needs a non-empty reason');
+    const ok = validateExpertNotes(qa(QA_VERDICTS));
+    expect(ok.ok).toBe(true);
+    expect(ok.artifact?.notes[0]?.verdicts).toEqual(QA_VERDICTS);
+  });
+
+  it("AC-19: other roles' notes are unaffected and may not carry verdicts", () => {
+    expect(validateExpertNotes({ notes: [{ role: 'db-expert', findings: [] }] }).ok).toBe(true);
+    expect(
+      validateExpertNotes({ notes: [{ role: 'db-expert', findings: [], verdicts: QA_VERDICTS }] })
+        .error,
+    ).toBe('notes[0] ("db-expert") may not carry verdicts; only qa-engineer gives them');
+  });
+
+  it('AC-19: a stored note read back without verdicts still assembles, and merge surfaces both verdicts', () => {
+    expect(validateExpertNotes(qa(), undefined, undefined, { requireQaVerdicts: false }).ok).toBe(
+      true,
+    );
+    const merged = mergeExpertNotes(validateExpertNotes(qa(QA_VERDICTS)).artifact!.notes);
+    expect(merged.qa_verdicts).toEqual(QA_VERDICTS);
+    expect(mergeExpertNotes([]).qa_verdicts).toBeUndefined();
+  });
+
+  it('AC-19: the store keeps the verdicts so the chief reads them back', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-qa-verdicts-'));
+    try {
+      const dir = '795-qa-01JABCDEFGHJKMNPQRSTVWXYZ0';
+      writeExpertNotes(root, dir, validateExpertNotes(qa(QA_VERDICTS)).artifact!);
+      expect(
+        readExpertNotes(root, dir)?.notes.find((n) => n.role === 'qa-engineer')?.verdicts,
+      ).toEqual(QA_VERDICTS);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('validateExpertNotes', () => {
   it('accepts well-formed notes + tokens', () => {
@@ -383,6 +440,18 @@ describe('assembleExpertRun', () => {
     });
     const run = assembleExpertRun(root, DIR, 100);
     expect(run!.accounting.warnings.some((w) => /none dropped/.test(w))).toBe(true);
+  });
+
+  it('falls back to empty notes when the recorded notes fail validation', () => {
+    const root = tempRoot();
+    writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'migration' }] });
+    writeExpertNotes(root, DIR, {
+      notes: [{ role: 'db-expert', findings: [{ id: 'EX-db-expert-1', target: '', claim: '' }] }],
+      tokens: { 'db-expert': 700 },
+    });
+    const run = assembleExpertRun(root, DIR, 20000);
+    expect(run!.accounting.total_tokens).toBe(0);
+    expect(run!.conflicts).toEqual([]);
   });
 
   it('assembles from the need when the recorded notes carry no findings', () => {

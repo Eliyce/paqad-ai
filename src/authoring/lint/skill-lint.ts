@@ -3,30 +3,37 @@ import { basename, join, relative, sep } from 'node:path';
 
 import YAML from 'yaml';
 
-import { builtinSecretScan } from '@/codebase-health/gather.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
 import { readRegularFile } from '../fs-io.js';
 import { isPaqadRepository, skillFolderOf } from '../paths.js';
 import { skillTestDirectories } from '../tests/locations.js';
+import { estimateTokens } from '../tokens.js';
 import { allowedSkillFields, DESCRIPTION_MAX_CHARS, descriptionLength } from './fields.js';
+import {
+  checkDynamic as checkDynamicLines,
+  checkEmDash as checkEmDashLines,
+  checkNeverWrite,
+  checkSecrets as checkSecretsWith,
+  checkShouted,
+  compareText,
+  countFindings,
+  FindingSink,
+  formatLintJson,
+  lintExitCode,
+  sortFindings,
+  type LintFinding,
+  type LintSeverity,
+} from './runner.js';
 import {
   compileNeverWritePattern,
   loadNeverWriteList,
   type NeverWriteList,
 } from './never-write.js';
 
-export type SkillLintSeverity = 'block' | 'warn';
+export type SkillLintSeverity = LintSeverity;
 
-export interface SkillLintFinding {
-  rule: string;
-  severity: SkillLintSeverity;
-  file: string;
-  line: number;
-  message: string;
-  fingerprint?: string;
-}
+export type SkillLintFinding = LintFinding;
 
 export interface SkillLintResult {
   skill: string;
@@ -61,20 +68,14 @@ const VAGUE_NAME_WORDS: ReadonlySet<string> = new Set([
   'files',
 ]);
 const RESERVED_NAME_WORDS = ['claude', 'anthropic'];
-const EM_DASH = '\u2014';
 
 const WHEN_CLAUSE = /\bwhen\b/i;
-const SHOUTED = /\b(ALWAYS|NEVER|MUST|CRITICAL)\b/;
 const OPTIONS_INTRO = /\b(?:you can|either)\b|\boptions?:/i;
 const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+/;
 const DEFAULT_MARKER = /\b(?:default|recommended|prefer)/i;
 const TIME_SENSITIVE =
   /\b(?:currently|recently|as of now|new|latest|before|after) (?:version|release|api)\b/i;
 const YEAR = /\b(?:19|20)\d{2}\b/;
-const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/;
-const CLOCK_TIME = /\b\d{1,2}:\d{2}:\d{2}\b/;
-const DYNAMIC_PLACEHOLDER = /\{\{\s*(?:now|date|time|timestamp|today|counter|random|uuid)\s*\}\}/i;
-const COUNTER = /\b(?:run|iteration|attempt|build|request)\s*(?:#|no\.?\s*)\d+\b/i;
 const VERIFICATION_LINE = /\b(?:human-verified|verified|last checked|checked on|learned)\b/i;
 const TOC_LINE = /^#{1,6}\s*(?:table of )?contents\b|^\s*[-*]\s*\[[^\]]+\]\(#[^)]+\)/i;
 const REFERENCE_CITE = /(?:^|[\s(`'"[<])((?:\.\/)?references\/[^\s)`'">\]]+)/g;
@@ -91,10 +92,6 @@ interface SkillFile {
   text: string | null;
   lines: string[];
   symlink?: { target: string; scannable: boolean };
-}
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function isBinary(buffer: Buffer): boolean {
@@ -168,22 +165,6 @@ function isMarkdown(rel: string): boolean {
 
 function under(rel: string, folder: string): boolean {
   return rel.startsWith(`${folder}/`);
-}
-
-class FindingSink {
-  readonly findings: SkillLintFinding[] = [];
-
-  add(rule: string, severity: SkillLintSeverity, file: string, line: number, message: string) {
-    this.findings.push({ rule, severity, file, line, message });
-  }
-
-  block(rule: string, file: string, line: number, message: string) {
-    this.add(rule, 'block', file, line, message);
-  }
-
-  warn(rule: string, file: string, line: number, message: string) {
-    this.add(rule, 'warn', file, line, message);
-  }
 }
 
 function keyLine(frontmatterLines: readonly string[], key: string): number {
@@ -413,36 +394,15 @@ function checkSecrets(
   sink: FindingSink,
   files: ReadonlyArray<{ path: string; content: string }>,
 ): void {
-  for (const match of builtinSecretScan([...files])) {
-    sink.findings.push({
-      rule: 'SK-011',
-      severity: 'block',
-      file: match.file,
-      line: match.line,
-      message: `A secret (${match.rule}) is in this file, fingerprint ${match.fingerprint}. Remove it; a secret can never be approved.`,
-      fingerprint: match.fingerprint,
-    });
-  }
+  checkSecretsWith(sink, 'SK-011', files);
 }
 
 function checkProse(sink: FindingSink, file: SkillFile, neverWrite: RegExp): void {
   const lines = file.lines;
+  checkNeverWrite(sink, 'SK-012', file, neverWrite);
+  checkShouted(sink, 'SK-013', file);
   lines.forEach((text, index) => {
     const line = index + 1;
-    neverWrite.lastIndex = 0;
-    for (const match of text.matchAll(neverWrite)) {
-      const phrase = match[0].toLowerCase().replace(/\s+/g, ' ');
-      sink.block('SK-012', file.rel, line, `Generic phrase "${phrase}". Say what it means here.`);
-    }
-    const shouted = SHOUTED.exec(text);
-    if (shouted) {
-      sink.block(
-        'SK-013',
-        file.rel,
-        line,
-        `"${shouted[1]}" in capitals. Say why instead of shouting.`,
-      );
-    }
     if (OPTIONS_INTRO.test(text) && missingDefault(lines, index)) {
       sink.block(
         'SK-014',
@@ -471,36 +431,16 @@ function missingDefault(lines: readonly string[], index: number): boolean {
 }
 
 function checkDynamic(sink: FindingSink, file: SkillFile, firstLine: number): void {
-  file.lines.forEach((text, index) => {
-    const line = index + 1;
-    if (line < firstLine || VERIFICATION_LINE.test(text)) return;
-    if (
-      ISO_DATE.test(text) ||
-      CLOCK_TIME.test(text) ||
-      DYNAMIC_PLACEHOLDER.test(text) ||
-      COUNTER.test(text)
-    ) {
-      sink.block(
-        'SK-017',
-        file.rel,
-        line,
-        'Dynamic content (a date, a time, a placeholder or a counter). Keep the text the same on every run.',
-      );
-    }
+  checkDynamicLines(sink, 'SK-017', file, {
+    firstLine,
+    exempt: VERIFICATION_LINE,
+    message:
+      'Dynamic content (a date, a time, a placeholder or a counter). Keep the text the same on every run.',
   });
 }
 
 function checkEmDash(sink: FindingSink, file: SkillFile): void {
-  file.lines.forEach((text, index) => {
-    if (text.includes(EM_DASH)) {
-      sink.block(
-        'SK-016',
-        file.rel,
-        index + 1,
-        'An em dash (U+2014). Use a comma, a colon or two sentences.',
-      );
-    }
-  });
+  checkEmDashLines(sink, 'SK-016', file);
 }
 
 function checkTableOfContents(sink: FindingSink, file: SkillFile): void {
@@ -560,16 +500,6 @@ function extraScanFiles(
     }
   }
   return files;
-}
-
-function sortFindings(findings: SkillLintFinding[]): SkillLintFinding[] {
-  return findings.sort(
-    (left, right) =>
-      compareText(left.file, right.file) ||
-      left.line - right.line ||
-      compareText(left.rule, right.rule) ||
-      compareText(left.message, right.message),
-  );
 }
 
 export function isPaqadRuntimeSkill(projectRoot: string, folder: string): boolean {
@@ -634,14 +564,13 @@ export function lintSkillFolder(folder: string, options: SkillLintOptions): Skil
   }
 
   const findings = sortFindings(sink.findings);
-  const blocking = findings.filter((finding) => finding.severity === 'block').length;
-  return { skill: folderName, findings, blocking, warnings: findings.length - blocking };
+  return { skill: folderName, findings, ...countFindings(findings) };
 }
 
 export function skillLintExitCode(result: SkillLintResult): 0 | 1 {
-  return result.blocking > 0 ? 1 : 0;
+  return lintExitCode(result);
 }
 
 export function formatSkillLintJson(result: SkillLintResult): string {
-  return `${JSON.stringify(result, null, 2)}\n`;
+  return formatLintJson(result);
 }

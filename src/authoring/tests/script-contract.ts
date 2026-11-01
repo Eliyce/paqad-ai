@@ -17,10 +17,13 @@ export const CONTRACT_CHECKS = [
 ] as const;
 export type ContractCheck = (typeof CONTRACT_CHECKS)[number];
 
+export const HOOK_CONTRACT_CHECKS = ['blocks', 'allows', 'invalid input'] as const;
+export type HookContractCheck = (typeof HOOK_CONTRACT_CHECKS)[number];
+
 export type CheckStatus = 'passed' | 'failed' | 'skipped' | 'missing';
 
 export interface ScriptCheckResult {
-  check: ContractCheck;
+  check: ContractCheck | HookContractCheck;
   status: CheckStatus;
   test: string | null;
   reason?: string;
@@ -37,7 +40,7 @@ export interface TestLocation {
   framework: 'laravel' | 'default';
 }
 
-function usesLaravel(projectRoot: string): boolean {
+export function usesLaravel(projectRoot: string): boolean {
   const frameworks = readProjectProfile(projectRoot)?.stack_profile?.frameworks ?? [];
   if (frameworks.some((framework) => framework.toLowerCase() === 'laravel')) return true;
   try {
@@ -56,13 +59,19 @@ export function skillTestLocation(projectRoot: string, name: string): TestLocati
     : { dir: `tests/skills/${name}`, framework: 'default' };
 }
 
+export function agentTestLocation(projectRoot: string, name: string): TestLocation {
+  return usesLaravel(projectRoot)
+    ? { dir: `tests/Feature/Agents/${studlySkillName(name)}`, framework: 'laravel' }
+    : { dir: `tests/agents/${name}`, framework: 'default' };
+}
+
 export function scriptStemOf(script: string): string {
   const name = basename(script);
   const dot = name.indexOf('.');
   return dot <= 0 ? name : name.slice(0, dot);
 }
 
-export function contractTestName(script: string, check: ContractCheck): string {
+export function contractTestName(script: string, check: ContractCheck | HookContractCheck): string {
   return `${scriptStemOf(script)} ${check}`;
 }
 
@@ -180,10 +189,11 @@ export function readScriptTestResults(input: {
   location: TestLocation;
   scripts: readonly string[];
   run: TestRun;
+  checks?: readonly (ContractCheck | HookContractCheck)[];
 }): ScriptTestReport[] {
   const sources = readTestSources(input.projectRoot, input.location);
   return input.scripts.map((script) => {
-    const checks = CONTRACT_CHECKS.map((check): ScriptCheckResult => {
+    const checks = (input.checks ?? CONTRACT_CHECKS).map((check): ScriptCheckResult => {
       const testName = contractTestName(script, check);
       const found = findTest(sources, testName);
       if (found === null) {

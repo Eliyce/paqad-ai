@@ -33,7 +33,7 @@ export interface TriggerEval {
   queries: SplitQuery[];
 }
 
-function parseQueries(text: string): TriggerQuery[] {
+export function parseQueries(text: string): TriggerQuery[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -96,7 +96,10 @@ interface TriggerResultsFile {
   cost_usd?: unknown;
 }
 
-function parseResults(text: string): { iterations: TriggerIterationInput[]; cost: number | null } {
+export function parseResults(text: string): {
+  iterations: TriggerIterationInput[];
+  cost: number | null;
+} {
   let parsed: TriggerResultsFile;
   try {
     parsed = JSON.parse(text) as TriggerResultsFile;

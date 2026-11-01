@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import YAML from 'yaml';
 
+import { readBytesIfPresent } from './fs-io.js';
+
 export interface HashedFile {
   rel: string;
   bytes: Buffer;
@@ -126,4 +128,35 @@ export function withDescription(skillText: string, description: string): string 
     front.splice(name + 1, 0, ...replacement);
   }
   return ['---', ...front, ...lines.slice(close)].join('\n');
+}
+
+export const MISSING_HOOK_SCRIPT = '\u0000missing\u0000';
+
+export const AGENT_FILE_KEY = 'agent';
+
+export function hashAgentText(
+  agent: string | Buffer,
+  hookScripts: readonly string[],
+  scriptRoot: string,
+): string {
+  const files: HashedFile[] = [
+    { rel: AGENT_FILE_KEY, bytes: typeof agent === 'string' ? Buffer.from(agent) : agent },
+  ];
+  for (const script of [...new Set(hookScripts)]) {
+    const abs = join(scriptRoot, script);
+    files.push({
+      rel: `hooks/${script}`,
+      bytes: readBytesIfPresent(abs) ?? Buffer.from(MISSING_HOOK_SCRIPT),
+    });
+  }
+  return hashFiles(files);
+}
+
+export function hashAgentFile(
+  projectRoot: string,
+  file: string,
+  hookScripts: readonly string[] = [],
+  scriptRoot: string = projectRoot,
+): string {
+  return hashAgentText(readFileSync(join(projectRoot, file)), hookScripts, scriptRoot);
 }

@@ -7,14 +7,22 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readTextIfPresent } from './fs-io.js';
 import { descriptionLength } from './lint/fields.js';
-import { skillRoots, SKILL_FILE, type SkillPathContext } from './paths.js';
+import { agentNameOf, agentRoots, skillRoots, SKILL_FILE, type SkillPathContext } from './paths.js';
 import { meetsThreshold } from './thresholds.js';
 
 export type ArtifactKind = 'skill' | 'agent';
 
-export type ArtifactScope = 'project' | 'user';
+export type ArtifactScope = 'managed' | 'cli' | 'project' | 'user' | 'plugin';
 
 export const SCOPE_PRECEDENCE: readonly ArtifactScope[] = ['user', 'project'];
+
+export const AGENT_SCOPE_PRECEDENCE: readonly ArtifactScope[] = [
+  'managed',
+  'cli',
+  'project',
+  'user',
+  'plugin',
+];
 
 export interface InstalledArtifact {
   kind: ArtifactKind;
@@ -22,6 +30,7 @@ export interface InstalledArtifact {
   description: string;
   path: string;
   scope: ArtifactScope;
+  tools?: string[];
 }
 
 export interface OverlapCandidate {
@@ -36,6 +45,7 @@ export interface OverlapCollision {
   existing: string;
   existing_path: string;
   score: number;
+  subset?: boolean;
 }
 
 export interface ShadowSide {
@@ -93,6 +103,112 @@ export function overlapScore(left: string, right: string): number {
   return jaccard(wordSet(left), wordSet(right));
 }
 
+export const SUBSET_CONTAINMENT_MIN = 0.8;
+
+export function containment(inner: string, outer: string): number {
+  const words = wordSet(inner);
+  if (words.size === 0) return 0;
+  const outerWords = wordSet(outer);
+  let shared = 0;
+  for (const word of words) if (outerWords.has(word)) shared += 1;
+  return shared / words.size;
+}
+
+export interface SubsetCandidate {
+  name: string;
+  job: string;
+  tools: readonly string[];
+}
+
+export function findSubsetOverlaps(
+  candidate: SubsetCandidate,
+  installed: readonly InstalledArtifact[],
+  minContainment: number = SUBSET_CONTAINMENT_MIN,
+): OverlapCollision[] {
+  const overlaps: OverlapCollision[] = [];
+  for (const artifact of installed) {
+    if (artifact.kind !== 'agent' || artifact.name === candidate.name) continue;
+    if (artifact.tools === undefined) continue;
+    const theirs = new Set(artifact.tools);
+    if (!candidate.tools.every((tool) => theirs.has(tool))) continue;
+    const score = containment(candidate.job, artifact.description);
+    if (score < minContainment) continue;
+    overlaps.push({
+      candidate: candidate.name,
+      existing: artifact.name,
+      existing_path: artifact.path,
+      score,
+      subset: true,
+    });
+  }
+  return overlaps;
+}
+
+export interface ExpertProfile {
+  role: string;
+  owns: string;
+  lens?: string;
+}
+
+export interface ExpertCollision {
+  role: string;
+  owner: string;
+  on: 'owns' | 'lens';
+  score: number;
+}
+
+export function lensFocus(lens: string): string {
+  const section = lens.split(/^## What you look for\s*$/mu)[1];
+  return section === undefined ? lens : (section.split(/^## /mu)[0] ?? '');
+}
+
+function profileCollisions(
+  role: ExpertProfile,
+  owner: ExpertProfile,
+  threshold: number,
+): ExpertCollision[] {
+  const found: ExpertCollision[] = [];
+  const owns = overlapScore(role.owns, owner.owns);
+  if (meetsThreshold(owns, threshold)) {
+    found.push({ role: role.role, owner: owner.role, on: 'owns', score: owns });
+  }
+  if (role.lens !== undefined && owner.lens !== undefined) {
+    const lens = overlapScore(lensFocus(role.lens), lensFocus(owner.lens));
+    if (meetsThreshold(lens, threshold)) {
+      found.push({ role: role.role, owner: owner.role, on: 'lens', score: lens });
+    }
+  }
+  return found;
+}
+
+export function expertCollisions(
+  roster: readonly ExpertProfile[],
+  threshold: number,
+  candidate?: ExpertProfile,
+): ExpertCollision[] {
+  if (candidate !== undefined) {
+    return roster
+      .filter((owner) => owner.role !== candidate.role)
+      .flatMap((owner) => profileCollisions(candidate, owner, threshold));
+  }
+  const found: ExpertCollision[] = [];
+  roster.forEach((owner, index) => {
+    for (const role of roster.slice(index + 1)) {
+      found.push(...profileCollisions(role, owner, threshold));
+    }
+  });
+  return found;
+}
+
+export function expertCollisionLine(collision: ExpertCollision): string {
+  const what = collision.on === 'owns' ? 'Owns phrase' : 'lens';
+  return (
+    `The expert ${collision.role} collides with ${collision.owner} on its ${what} ` +
+    `(score ${collision.score.toFixed(2)}): ${collision.owner} already owns that question. ` +
+    `Give ${collision.role} a question no other role answers, or extend ${collision.owner}.`
+  );
+}
+
 export function candidateText(purpose: string, triggers: readonly string[]): string {
   return [purpose, ...triggers].join(' ');
 }
@@ -120,13 +236,20 @@ export function findCollisions(
   return { scores, collisions };
 }
 
-function outranks(left: ArtifactScope, right: ArtifactScope): boolean {
-  return SCOPE_PRECEDENCE.indexOf(left) < SCOPE_PRECEDENCE.indexOf(right);
+function outranks(
+  left: ArtifactScope,
+  right: ArtifactScope,
+  precedence: readonly ArtifactScope[],
+): boolean {
+  return precedence.indexOf(left) < precedence.indexOf(right);
 }
 
 export function findNameShadowing(
   candidate: OverlapCandidate,
   installed: readonly InstalledArtifact[],
+  precedence: readonly ArtifactScope[] = candidate.kind === 'agent'
+    ? AGENT_SCOPE_PRECEDENCE
+    : SCOPE_PRECEDENCE,
 ): NameShadowing[] {
   const shadowing: NameShadowing[] = [];
   for (const artifact of installed) {
@@ -139,7 +262,7 @@ export function findNameShadowing(
     }
     const existing: ShadowSide = { scope: artifact.scope, path: artifact.path };
     const fresh: ShadowSide = { scope: candidate.scope, path: null };
-    const existingWins = outranks(artifact.scope, candidate.scope);
+    const existingWins = outranks(artifact.scope, candidate.scope, precedence);
     shadowing.push({
       name: candidate.name,
       shadowing: existingWins ? existing : fresh,
@@ -273,6 +396,84 @@ export function discoverInstalledSkills(
   return [...project, ...user];
 }
 
+function toolList(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.filter((tool): tool is string => typeof tool === 'string');
+  if (typeof value !== 'string') return undefined;
+  return value
+    .split(',')
+    .map((tool) => tool.trim())
+    .filter((tool) => tool !== '');
+}
+
+function readAgentAt(base: string, rel: string, scope: ArtifactScope): InstalledArtifact | null {
+  const text = readTextIfPresent(join(base, rel));
+  if (text === null) return null;
+  const stem = rel
+    .split('/')
+    .at(-1)!
+    .replace(/\.[^.]+$/u, '');
+  if (rel.endsWith('.toml')) {
+    const name = /^name\s*=\s*"([^"]*)"/mu.exec(text)?.[1];
+    const description = /^description\s*=\s*"((?:[^"\\]|\\.)*)"/mu.exec(text)?.[1];
+    return {
+      kind: 'agent',
+      name: name && name.trim() !== '' ? name.trim() : stem,
+      description: description === undefined ? '' : (JSON.parse(`"${description}"`) as string),
+      path: rel,
+      scope,
+    };
+  }
+  const split = splitSkillFrontmatter(text);
+  const data = split.ok ? split.data : {};
+  const tools = toolList(data.tools);
+  return {
+    kind: 'agent',
+    name: typeof data.name === 'string' && data.name.trim() !== '' ? data.name.trim() : stem,
+    description: typeof data.description === 'string' ? data.description : '',
+    path: rel,
+    scope,
+    ...(tools === undefined ? {} : { tools }),
+  };
+}
+
+function scanAgentScope(
+  base: string,
+  context: SkillPathContext,
+  scope: ArtifactScope,
+): InstalledArtifact[] {
+  const found: InstalledArtifact[] = [];
+  const options = { paqadRepo: scope === 'project' && context.paqadRepo };
+  for (const root of agentRoots(context.adapters, options)) {
+    for (const expanded of expandRoot(base, root)) {
+      const dir = join(base, expanded);
+      if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
+      for (const entry of readdirSync(dir).sort()) {
+        const rel = `${expanded}/${entry}`;
+        if (agentNameOf(rel, context.adapters, options) === null) continue;
+        if (!statSync(join(dir, entry)).isFile()) continue;
+        const agent = readAgentAt(base, rel, scope);
+        if (agent !== null) found.push(agent);
+      }
+    }
+  }
+  return found;
+}
+
+export function discoverInstalledAgents(
+  projectRoot: string,
+  context: SkillPathContext,
+  options: { userHome?: string | null } = {},
+): InstalledArtifact[] {
+  const project = scanAgentScope(projectRoot, context, 'project');
+  const home = options.userHome === undefined ? homedir() : options.userHome;
+  if (home === null) return project;
+  const user = scanAgentScope(home, { ...context, paqadRepo: false }, 'user').map((agent) => ({
+    ...agent,
+    path: `~/${agent.path}`,
+  }));
+  return [...project, ...user];
+}
+
 export function buildOverlapReport(input: {
   candidate: OverlapCandidate;
   installed: readonly InstalledArtifact[];
@@ -315,8 +516,12 @@ export function renderOverlapReport(report: OverlapReport): string {
   } else {
     for (const collision of report.collisions) {
       lines.push(
-        `- ${collision.candidate} collides with ${collision.existing} (${collision.existing_path}), ` +
-          `score ${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`,
+        collision.subset === true
+          ? `- ${collision.candidate} is a subset of ${collision.existing} (${collision.existing_path}): ` +
+              `its tools are all in ${collision.existing} and its job is contained at ` +
+              `${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`
+          : `- ${collision.candidate} collides with ${collision.existing} (${collision.existing_path}), ` +
+              `score ${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`,
       );
     }
   }
@@ -326,14 +531,16 @@ export function renderOverlapReport(report: OverlapReport): string {
   } else {
     for (const entry of report.shadowing) lines.push(`- ${shadowingLine(entry)}`);
   }
-  lines.push('', '## Catalog budget', '');
-  const warning = budgetWarningLine(report.budget);
-  lines.push(
-    warning ??
-      `Within budget: ${report.budget.total_chars} of ${report.budget.budget_chars} characters.`,
-  );
-  if (!report.budget.activation_data) {
-    lines.push('', 'No activation data yet, so skills at risk are ordered by name.');
+  if (report.kind === 'skill') {
+    lines.push('', '## Catalog budget', '');
+    const warning = budgetWarningLine(report.budget);
+    lines.push(
+      warning ??
+        `Within budget: ${report.budget.total_chars} of ${report.budget.budget_chars} characters.`,
+    );
+    if (!report.budget.activation_data) {
+      lines.push('', 'No activation data yet, so skills at risk are ordered by name.');
+    }
   }
   lines.push('', '## Scores', '');
   if (report.scores.length === 0) {

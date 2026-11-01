@@ -1,8 +1,12 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { readAuthoringDecision } from '../decisions.js';
 import {
   allStageStates,
   gateSatisfied,
   readMode,
+  type AuthoringWorkspace,
   type SkillWorkspace,
   type StageState,
 } from '../workspace.js';
@@ -17,7 +21,7 @@ export interface SkillStatus {
   lines: string[];
 }
 
-function stateWords(workspace: SkillWorkspace, state: StageState): string {
+function stateWords(workspace: AuthoringWorkspace, state: StageState): string {
   switch (state.state) {
     case 'passed':
       return 'passed';
@@ -45,19 +49,35 @@ function stateWords(workspace: SkillWorkspace, state: StageState): string {
 
 export function skillStatus(workspace: SkillWorkspace): SkillStatus {
   const registered = isRegisteredSkill(workspace);
+  return authoringStatus(workspace, registered, () => installedSkillFolder(workspace));
+}
+
+export function agentStatus(workspace: AuthoringWorkspace): SkillStatus {
+  const registered = existsSync(
+    join(workspace.projectRoot, workspace.trackedRoot, workspace.name, 'evidence.json'),
+  );
+  return authoringStatus(workspace, registered, () => null);
+}
+
+function authoringStatus(
+  workspace: AuthoringWorkspace,
+  registered: boolean,
+  installedFolder: () => string | null,
+): SkillStatus {
+  const kind = workspace.kind;
   const improve = readMode(workspace).entry === 'improve';
   const entry: SkillStatus['entry'] = registered || improve ? 'improve' : 'justify';
   const stages = allStageStates(workspace);
   const lines: string[] = [];
   if (entry === 'improve') {
-    const folder = installedSkillFolder(workspace);
+    const folder = installedFolder();
     lines.push(
       improve
         ? `Entry: improve mode on ${workspace.name}.`
-        : `Entry: paqad-ai skill improve ${workspace.name} (the skill is already installed${folder ? ` at ${folder}` : ''}).`,
+        : `Entry: paqad-ai ${kind} improve ${workspace.name} (the ${kind} is already installed${folder ? ` at ${folder}` : ''}).`,
     );
   } else {
-    lines.push(`Entry: paqad-ai skill justify ${workspace.name} (a new skill).`);
+    lines.push(`Entry: paqad-ai ${kind} justify ${workspace.name} (a new ${kind}).`);
   }
   for (const state of stages) {
     lines.push(
@@ -74,7 +94,7 @@ export function skillStatus(workspace: SkillWorkspace): SkillStatus {
   const stopped = stages.find((state) => state.state === 'stopped');
   let next: string | null = null;
   if (stopped) {
-    lines.push(`The pipeline stopped at ${stopped.stage.id}, so no skill will be added.`);
+    lines.push(`The pipeline stopped at ${stopped.stage.id}, so no ${kind} will be added.`);
   } else {
     const first = stages.find((state) => !gateSatisfied(state.state));
     if (first?.state === 'waiting') {
@@ -83,9 +103,9 @@ export function skillStatus(workspace: SkillWorkspace): SkillStatus {
     } else if (first) {
       next =
         first.stage.id === 'S0' && entry === 'improve'
-          ? `paqad-ai skill improve ${workspace.name}`
+          ? `paqad-ai ${kind} improve ${workspace.name}`
           : first.stage.id === 'S5' && partial
-            ? `paqad-ai skill eval record ${workspace.name}`
+            ? `paqad-ai ${kind} eval record ${workspace.name}`
             : first.stage.command(workspace.name);
       lines.push(`Next: ${first.stage.id} ${first.stage.name}, run ${next}.`);
     } else {

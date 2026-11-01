@@ -2792,7 +2792,7 @@ rules:
         kind: heuristic
         runtime: node
         scope: changed-files
-        last_validated_at: 2026-07-10T21:26:20.189Z
+        last_validated_at: 2026-11-01T10:07:52.065Z
         fixtures_passed: true
   - id: RL-6c73
     source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md

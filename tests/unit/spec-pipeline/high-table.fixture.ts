@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentRole } from '@/core/types/agent.js';
+import { qaVerdictsFor } from '../../shared/qa-verdicts.js';
 
 export const ORD_501_REQUEST = 'add CSV export to the orders page';
 
@@ -41,6 +42,7 @@ export function seatNote(role: AgentRole, tokens: number, withQuestion = false):
           target: `orders export ${role} ${index + 1}`,
           claim,
         })),
+        ...qaVerdictsFor(role),
         ...(withQuestion
           ? {
               questions: [

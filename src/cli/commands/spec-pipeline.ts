@@ -14,6 +14,12 @@ import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
 import {
+  benchmarkPlanLines,
+  BenchmarkRefusal,
+  parseChanges,
+  recordHighTableBenchmark,
+} from '@/spec-pipeline/experts/benchmark.js';
+import {
   buildExpertBriefs,
   renderExpertBrief,
   rosterEntryFor,
@@ -32,8 +38,8 @@ import {
   seatExpertsForLane,
   validateExpertNeed,
 } from '@/spec-pipeline/experts/need.js';
-import { skillOrchestratorEnabled } from '@/authoring/config.js';
-import { findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
+import { agentOrchestratorEnabled, skillOrchestratorEnabled } from '@/authoring/config.js';
+import { findAgentPaths, findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
@@ -41,6 +47,7 @@ import { editedFiles, planFiles, sensitivePaths } from '@/feature-evidence/lane-
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
+import { EXPERT_OWNS } from '@/spec-pipeline/experts/roster.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
   aggregateSpecPipelineMetrics,
@@ -282,20 +289,67 @@ const sessionOpt = [
   'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)',
 ] as const;
 
-async function firstSkillPath(
+interface AuthoringPathMatch {
+  path: string | null;
+  edited: boolean;
+}
+
+const NO_MATCH: AuthoringPathMatch = { path: null, edited: false };
+
+async function firstAuthoringPaths(
   projectRoot: string,
   dirName: string,
   plannedFiles: readonly string[],
-): Promise<{ path: string | null; edited: boolean }> {
-  if (!skillOrchestratorEnabled(projectRoot)) return { path: null, edited: false };
+): Promise<{ skill: AuthoringPathMatch; agent: AuthoringPathMatch }> {
+  const skillsOn = skillOrchestratorEnabled(projectRoot);
+  const agentsOn = agentOrchestratorEnabled(projectRoot);
+  if (!skillsOn && !agentsOn) return { skill: NO_MATCH, agent: NO_MATCH };
   const context = readSkillPathContext(projectRoot);
-  const planned = findSkillPaths(plannedFiles, context.adapters, context)[0];
-  if (planned !== undefined) return { path: planned, edited: false };
-  const { files } = await loadChangeEvidence(projectRoot, {
-    since: readChangeStartPoint(projectRoot, dirName),
-  });
-  const edited = findSkillPaths(editedFiles(files), context.adapters, context)[0];
-  return { path: edited ?? null, edited: edited !== undefined };
+  const plannedSkill = skillsOn
+    ? findSkillPaths(plannedFiles, context.adapters, context)[0]
+    : undefined;
+  const plannedAgent = agentsOn
+    ? findAgentPaths(plannedFiles, context.adapters, context)[0]
+    : undefined;
+  let edited: string[] | null = null;
+  const editedList = async (): Promise<string[]> => {
+    if (edited !== null) return edited;
+    const { files } = await loadChangeEvidence(projectRoot, {
+      since: readChangeStartPoint(projectRoot, dirName),
+    });
+    edited = editedFiles(files);
+    return edited;
+  };
+  const resolve = async (
+    on: boolean,
+    planned: string | undefined,
+    find: (files: readonly string[]) => string | undefined,
+  ): Promise<AuthoringPathMatch> => {
+    if (!on) return NO_MATCH;
+    if (planned !== undefined) return { path: planned, edited: false };
+    const match = find(await editedList());
+    return { path: match ?? null, edited: match !== undefined };
+  };
+  const skill = await resolve(
+    skillsOn,
+    plannedSkill,
+    (files) => findSkillPaths(files, context.adapters, context)[0],
+  );
+  const agent = await resolve(
+    agentsOn,
+    plannedAgent,
+    (files) => findAgentPaths(files, context.adapters, context)[0],
+  );
+  return { skill, agent };
+}
+
+function seatedOwns(roster: readonly { role: string }[]): Record<string, string> {
+  const owns: Record<string, string> = {};
+  for (const entry of roster) {
+    const phrase = EXPERT_OWNS[entry.role];
+    if (phrase !== undefined) owns[entry.role] = phrase;
+  }
+  return owns;
 }
 
 export function createSpecPipelineCommand(): Command {
@@ -826,7 +880,11 @@ function createExpertsCommand(): Command {
       const lane = readChangeConstants(options.projectRoot, resolved.dirName).lane ?? 'full';
       const standingSits = config.experts_lanes.includes(lane);
       const plannedFiles = planFiles(readFeaturePlan(options.projectRoot, resolved.dirName)?.steps);
-      const skill = await firstSkillPath(options.projectRoot, resolved.dirName, plannedFiles);
+      const { skill, agent } = await firstAuthoringPaths(
+        options.projectRoot,
+        resolved.dirName,
+        plannedFiles,
+      );
       const needs = seatExpertsForLane({
         detectorNeeds: check.artifact.experts,
         standing: config.standing_experts,
@@ -838,6 +896,8 @@ function createExpertsCommand(): Command {
             : (sensitivePaths(options.projectRoot, plannedFiles)[0] ?? null),
           skillPath: skill.path,
           skillPathEdited: skill.edited,
+          agentPath: agent.path,
+          agentPathEdited: agent.edited,
         }),
       });
       const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
@@ -942,6 +1002,12 @@ function createExpertsCommand(): Command {
       if (refuseWhenOff(options)) return;
       const notes = readExpertNotes(options.projectRoot, resolved.dirName);
       const seated = (readExperts(options.projectRoot, resolved.dirName)?.roster.length ?? 0) > 0;
+      const merged = notes
+        ? mergeExpertNotes(
+            notes.notes,
+            readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
+          )
+        : null;
       console.log(
         JSON.stringify(
           {
@@ -949,15 +1015,12 @@ function createExpertsCommand(): Command {
             grounding: readGrounding(options.projectRoot, resolved.dirName),
             label: readLabel(options.projectRoot, resolved.dirName),
             roster: readExperts(options.projectRoot, resolved.dirName)?.roster ?? [],
+            owns: seatedOwns(readExperts(options.projectRoot, resolved.dirName)?.roster ?? []),
             notes: notes?.notes ?? null,
             voice_warnings:
               readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
-            merge: notes
-              ? mergeExpertNotes(
-                  notes.notes,
-                  readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
-                )
-              : null,
+            merge: merged,
+            qa_verdicts: merged?.qa_verdicts ?? null,
           },
           null,
           2,
@@ -1105,6 +1168,35 @@ function createExpertsCommand(): Command {
           ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
         }),
       );
+    });
+
+  experts
+    .command('benchmark')
+    .description(
+      'Measure the High Table form: print the replay plan for 3+ changes, or record the results and ask which form to keep',
+    )
+    .requiredOption('--changes <refs>', 'At least 3 change refs, comma separated')
+    .option('--results <file>', 'The recorded replay results')
+    .option(...projectRootOpt)
+    .action((options: { changes: string; results?: string; projectRoot: string }) => {
+      try {
+        const changes = parseChanges(options.changes);
+        if (options.results === undefined) {
+          for (const line of benchmarkPlanLines(options.projectRoot, changes)) console.log(line);
+          return;
+        }
+        const result = recordHighTableBenchmark({
+          projectRoot: options.projectRoot,
+          changes,
+          resultsText: readFileSync(options.results, 'utf8'),
+        });
+        for (const line of result.lines) console.log(line);
+        if (!result.ok) process.exitCode = 1;
+      } catch (error) {
+        if (!(error instanceof BenchmarkRefusal)) throw error;
+        console.error(`experts benchmark: ${error.message}`);
+        process.exitCode = 2;
+      }
     });
 
   return experts;

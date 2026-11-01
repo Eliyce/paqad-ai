@@ -66,6 +66,7 @@ export interface DynamicBundleFile {
 
 export const DYNAMIC_BUNDLE_FILES: readonly DynamicBundleFile[] = [
   { pattern: /^skill-[a-z0-9-]+\.json$/, writer: 'paqad-ai skill release' },
+  { pattern: /^agent-[A-Za-z0-9-]+\.json$/, writer: 'paqad-ai agent release' },
 ];
 
 export function bundleWriterFor(filename: string): string | null {

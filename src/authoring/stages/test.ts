@@ -32,6 +32,7 @@ import {
   clearWaiting,
   requireEarlierGates,
   setWaiting,
+  type AuthoringWorkspace,
   type SkillWorkspace,
 } from '../workspace.js';
 import { draftFolder, draftLintsAsRuntime } from './draft.js';
@@ -97,8 +98,8 @@ function scriptHash(folder: string, script: string): string {
   return hashText(readFileSync(join(folder, script.replace(/#.*$/u, '') || SKILL_FILE)));
 }
 
-function riskyGate(
-  workspace: SkillWorkspace,
+export function riskyGate(
+  workspace: AuthoringWorkspace,
   folder: string,
   findings: readonly RiskFinding[],
   change: string | null | undefined,
@@ -133,7 +134,7 @@ function riskyGate(
           ALLOW_OPTION,
           'Allow it',
           `If you pick this, ${script} keeps that behaviour; any later edit to it asks again.`,
-          'You give up: a skill that cannot touch the network, packages or files.',
+          `You give up: a ${workspace.kind} whose scripts cannot touch the network, packages or files.`,
         ),
         option(
           REMOVE_OPTION,
@@ -183,6 +184,30 @@ export function testInputsHash(projectRoot: string, folder: string, testDir: str
     bytes: file.bytes,
   }));
   return hashFiles([...skillFiles, ...testFiles]);
+}
+
+export async function runProjectTests(input: {
+  projectRoot: string;
+  testDir: string;
+  hasScripts: boolean;
+  env: Record<string, string>;
+  runTests?: TestCommandRunner;
+}): Promise<{ run: TestRun; testCommand: string | null }> {
+  if (!input.hasScripts) return { run: { exitCode: 0, failedTests: null }, testCommand: null };
+  const command = readProjectProfile(input.projectRoot)?.commands?.test?.trim();
+  if (!command) {
+    throw new AuthoringRefusal(
+      'S4 needs the project test command (commands.test in .paqad/project-profile.yaml), and there is none. ' +
+        "Propose adding the stack's default test runner.",
+    );
+  }
+  const testCommand = skillTestCommand(input.projectRoot, command, input.testDir);
+  const run = await (input.runTests ?? defaultTestRunner)(
+    testCommand,
+    input.projectRoot,
+    input.env,
+  );
+  return { run, testCommand };
 }
 
 function failReport(workspace: SkillWorkspace, reason: string, extra: object): string {
@@ -270,21 +295,13 @@ export async function runSkillTest(
   const scripts = listFolderFiles(folder)
     .map((file) => file.rel)
     .filter((rel) => rel.startsWith('scripts/'));
-  let run: TestRun = { exitCode: 0, failedTests: null };
-  let testCommand: string | null = null;
-  if (scripts.length > 0) {
-    const command = readProjectProfile(projectRoot)?.commands?.test?.trim();
-    if (!command) {
-      throw new AuthoringRefusal(
-        'S4 needs the project test command (commands.test in .paqad/project-profile.yaml), and there is none. ' +
-          "Propose adding the stack's default test runner.",
-      );
-    }
-    testCommand = skillTestCommand(projectRoot, command, location.dir);
-    run = await (options.runTests ?? defaultTestRunner)(testCommand, projectRoot, {
-      [SKILL_UNDER_TEST_ENV]: folder,
-    });
-  }
+  const { run, testCommand } = await runProjectTests({
+    projectRoot,
+    testDir: location.dir,
+    hasScripts: scripts.length > 0,
+    env: { [SKILL_UNDER_TEST_ENV]: folder },
+    runTests: options.runTests,
+  });
   const reports = readScriptTestResults({ projectRoot, location, scripts, run });
   const scriptsPass = scriptReportsPass(reports);
   const passed = references.length === 0 && scriptsPass;

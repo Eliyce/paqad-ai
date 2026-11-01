@@ -105,6 +105,11 @@ describe('the authoring categories', () => {
       reversibility: 'hard',
       ttl_days: 30,
     });
+    expect(DECISION_CATEGORY_DEFAULTS['authoring.agent_permission']).toEqual({
+      create_new: false,
+      reversibility: 'hard',
+      ttl_days: 30,
+    });
     expect(DECISION_CATEGORY_DEFAULTS['authoring.intake_gap']).toEqual({
       create_new: false,
       reversibility: 'easy',
@@ -127,11 +132,11 @@ describe('the authoring categories', () => {
     });
   });
 
-  it('lists all six in the Decision Pause Contract of the committed router', () => {
+  it('lists all seven in the Decision Pause Contract of the committed router', () => {
     const router = readFileSync(join(process.cwd(), 'runtime', 'AGENT-ROUTER.md'), 'utf8');
     for (const category of DECISION_CATEGORIES.filter((entry) => entry.startsWith('authoring.'))) {
       expect(router).toContain(`- \`${category}\``);
     }
-    expect(DECISION_CATEGORIES.filter((entry) => entry.startsWith('authoring.'))).toHaveLength(6);
+    expect(DECISION_CATEGORIES.filter((entry) => entry.startsWith('authoring.'))).toHaveLength(7);
   });
 });

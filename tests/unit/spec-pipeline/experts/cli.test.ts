@@ -18,7 +18,9 @@ import {
   writeRequest,
 } from '@/spec-pipeline/run-store.js';
 import { stepComplete } from '@/spec-pipeline/orchestrator.js';
+import { EXPERT_OWNS } from '@/spec-pipeline/experts/roster.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
+import { qaVerdictsFor } from '../../../shared/qa-verdicts.js';
 
 const changed = vi.hoisted(() => ({ files: [] as string[] }));
 vi.mock('@/pipeline/change-evidence.js', async (importOriginal) => {
@@ -307,6 +309,63 @@ describe('spec pipeline experts CLI', () => {
       expect(roster).toEqual([]);
     });
 
+    const AGENT = '.claude/agents/migration-reviewer.md';
+
+    it('AC-23: seats agent-orchestrator on graduated for a planned agent path the detector did not name', async () => {
+      const { roster } = await recordOn('graduated', [], planWith(['src/a.ts', AGENT]));
+      expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+        ['agent-orchestrator', `a planned file is an agent: ${AGENT}`],
+      ]);
+    });
+
+    it('AC-23: seats both orchestrators when the plan lists a skill path and an agent path', async () => {
+      const { roster } = await recordOn('graduated', [], planWith([SKILL, AGENT]));
+      expect(roster.map((entry) => entry.role)).toEqual([
+        'skill-orchestrator',
+        'agent-orchestrator',
+      ]);
+    });
+
+    it('AC-23: seats agent-orchestrator for an agent path in the edited files', async () => {
+      changed.files = ['src/a.ts', AGENT];
+      try {
+        const { roster } = await recordOn('graduated', [], planWith(['src/a.ts']));
+        expect(roster.map((entry) => [entry.role, entry.reason])).toEqual([
+          ['agent-orchestrator', `an edited file is an agent: ${AGENT}`],
+        ]);
+      } finally {
+        changed.files = [];
+      }
+    });
+
+    it('AC-34: seats nothing for a file under .cursor/agents', async () => {
+      const { roster } = await recordOn('graduated', [], planWith(['.cursor/agents/x.md']));
+      expect(roster).toEqual([]);
+    });
+
+    it('AC-23: seats nothing for an agent path while agent_orchestrator_enabled=false', async () => {
+      const { roster } = await recordOn('graduated', [], (root, dir) => {
+        planWith([AGENT])(root, dir);
+        writeFileSync(
+          join(root, '.paqad', '.config'),
+          'spec_pipeline_enabled=true\nspec_pipeline_experts_enabled=true\nagent_orchestrator_enabled=false\n',
+        );
+      });
+      expect(roster).toEqual([]);
+    });
+
+    it('AC-40, AC-23: seats no orchestrator while both orchestrators are off', async () => {
+      const { roster } = await recordOn('graduated', [], (root, dir) => {
+        planWith([SKILL, AGENT])(root, dir);
+        writeFileSync(
+          join(root, '.paqad', '.config'),
+          'spec_pipeline_enabled=true\nspec_pipeline_experts_enabled=true\n' +
+            'skill_orchestrator_enabled=false\nagent_orchestrator_enabled=false\n',
+        );
+      });
+      expect(roster).toEqual([]);
+    });
+
     it.each(['full', null] as const)(
       'AC-19: seats the standing four plus the picks on %s',
       async (lane) => {
@@ -412,6 +471,7 @@ describe('spec pipeline experts CLI', () => {
     ]);
     const after = JSON.parse((await run(root, ['experts', 'context'])).out[0]!);
     expect(after.roster).toHaveLength(1);
+    expect(after.owns).toEqual({ 'db-expert': EXPERT_OWNS['db-expert'] });
     expect(after.notes[0].findings[0].id).toBe('EX-db-expert-1');
     expect(after.merge.findings).toHaveLength(1);
 
@@ -663,6 +723,7 @@ describe('spec pipeline experts CLI', () => {
         {
           role: 'qa-engineer',
           findings: [{ target: 'login', claim: 'a test must fail on the empty password first' }],
+          ...qaVerdictsFor('qa-engineer'),
         },
       ],
       tokens: { 'qa-engineer': 300 },
@@ -820,5 +881,74 @@ describe('spec pipeline experts CLI', () => {
     const { err } = await run(root, ['finish']);
     expect(process.exitCode).toBe(1);
     expect(err.join('\n')).toMatch(/earlier step/);
+  });
+});
+
+describe('spec pipeline experts benchmark CLI', () => {
+  async function bench(root: string, args: string[]) {
+    const out: string[] = [];
+    const err: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((m?: unknown) => void out.push(String(m)));
+    vi.spyOn(console, 'error').mockImplementation((m?: unknown) => void err.push(String(m)));
+    process.exitCode = 0;
+    await createSpecPipelineCommand().parseAsync(
+      ['experts', 'benchmark', ...args, '--project-root', root],
+      { from: 'user' },
+    );
+    return { out, err, code: process.exitCode };
+  }
+
+  const CHANGES = 'ORD-1,ORD-2,ORD-3';
+
+  it('AC-20: prints the replay plan without results and refuses fewer than three changes', async () => {
+    const root = tempRoot();
+    const plan = await bench(root, ['--changes', CHANGES]);
+    expect(plan.code).toBe(0);
+    expect(plan.out[0]).toContain('18 trials');
+    const few = await bench(root, ['--changes', 'ORD-1,ORD-2']);
+    expect(few.code).toBe(2);
+    expect(few.err[0]).toContain('experts benchmark: experts benchmark needs at least 3 changes');
+  });
+
+  it('AC-20: exits 1 while trials are missing and 0 once every trial is recorded', async () => {
+    const root = tempRoot();
+    const partial = writeArtifact(root, 'partial.json', { runs: [] });
+    const missing = await bench(root, ['--changes', CHANGES, '--results', partial]);
+    expect(missing.code).toBe(1);
+    expect(missing.out[0]).toContain('18 of 18 trials are missing');
+    const runs = ['ORD-1', 'ORD-2', 'ORD-3'].flatMap((change) =>
+      ['A', 'B'].flatMap((form) =>
+        [1, 2, 3].map((trial) => ({
+          change,
+          form,
+          trial,
+          findings: ['index'],
+          accepted: ['index'],
+          questions: 0,
+          tokens: 100,
+          wall_ms: 1000,
+        })),
+      ),
+    );
+    const full = writeArtifact(root, 'full.json', { runs });
+    const recorded = await bench(root, ['--changes', CHANGES, '--results', full]);
+    expect(recorded.code).toBe(0);
+    expect(recorded.out.at(-1)).toContain('asks which form to keep');
+  });
+
+  it('a results file that is not JSON is a usage error', async () => {
+    const root = tempRoot();
+    const bad = join(root, 'bad.json');
+    writeFileSync(bad, '{nope');
+    const result = await bench(root, ['--changes', CHANGES, '--results', bad]);
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toContain('the results file is not valid JSON.');
+  });
+
+  it('an unreadable results file is not swallowed as a benchmark refusal', async () => {
+    const root = tempRoot();
+    await expect(
+      bench(root, ['--changes', CHANGES, '--results', join(root, 'missing.json')]),
+    ).rejects.toThrow(/ENOENT/u);
   });
 });

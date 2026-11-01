@@ -1340,9 +1340,20 @@ describe('skill and agent authoring keys', () => {
     authoring_batch_mode: 'auto',
     authoring_run_max_cost_usd: 5,
     authoring_otel_endpoint: '',
+    agent_orchestrator_enabled: true,
+    agent_pass_k_threshold: 0.9,
+    agent_stage_pass_k_threshold: 0.95,
+    agent_delegation_threshold: 0.9,
+    agent_description_max_tokens: 300,
+    agent_report_max_tokens: 2000,
+    agent_prompt_max_tokens: 3000,
+    agent_max_tools: 10,
+    agent_max_cost_multiple: 4,
+    agent_catalog_description_max_tokens: 15000,
+    agent_memory_max_lines: 200,
   };
 
-  it('declares the 18 keys in the policy group with the issue defaults', () => {
+  it('declares the 29 keys in the policy group with the issue defaults', () => {
     const specs = FRAMEWORK_CONFIG_SPECS.filter(
       (spec) => spec.section === 'Skill and agent authoring',
     );
@@ -1360,7 +1371,7 @@ describe('skill and agent authoring keys', () => {
     ]);
   });
 
-  it('lists every key in the generated example and the committed one', () => {
+  it('AC-51: lists every key in the generated example and the committed one', () => {
     const example = generateConfigExample();
     const committed = readFileSync(join(process.cwd(), '.paqad', '.config.example'), 'utf8');
     for (const [key, value] of Object.entries(AUTHORING_DEFAULTS)) {

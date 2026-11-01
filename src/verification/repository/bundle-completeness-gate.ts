@@ -33,8 +33,13 @@ import {
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
 import { sha256Hex } from '@/compliance/markdown.js';
-import { skillCompletionFindings } from '@/authoring/completion.js';
-import { SKILL_RECORD_WRITER, skillRecordFilename } from '@/feature-evidence/artifacts.js';
+import { agentCompletionFindings, skillCompletionFindings } from '@/authoring/completion.js';
+import {
+  AGENT_RECORD_WRITER,
+  agentRecordFilename,
+  SKILL_RECORD_WRITER,
+  skillRecordFilename,
+} from '@/feature-evidence/artifacts.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
   hasStageAgentEvidence,
@@ -200,6 +205,7 @@ export function bundleCompletenessGate(
     }
     assertStageAgentRows(input, dirName, state);
     assertSkillRecords(input, dirName, state);
+    assertAgentRecords(input, dirName, state);
     /* v8 ignore start -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {}
@@ -232,6 +238,25 @@ function assertSkillRecords(
   })) {
     state.missing.push({ file: skillRecordFilename(finding.skill), writer: SKILL_RECORD_WRITER });
     state.skillLines.push(finding.line);
+  }
+}
+
+function assertAgentRecords(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (!input.changedFiles || input.changedFiles.length === 0) return;
+  for (const finding of agentCompletionFindings({
+    projectRoot: input.projectRoot,
+    dirName,
+    changedFiles: input.changedFiles,
+  })) {
+    const file = agentRecordFilename(finding.agent);
+    if (!state.missing.some((entry) => entry.file === file)) {
+      state.missing.push({ file, writer: AGENT_RECORD_WRITER });
+    }
+    if (!state.skillLines.includes(finding.line)) state.skillLines.push(finding.line);
   }
 }
 

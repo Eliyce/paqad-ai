@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6BTEW4DADBG0C2VA6M9JGJF](TD-01M6BTEW4DADBG0C2VA6M9JGJF.md) (bug, low): Environment-dependent provider and agent-entry-gate tests fail under root/sandbox
+- [TD-01M6BTETM9JGZS1JJM63TDNPWE](TD-01M6BTETM9JGZS1JJM63TDNPWE.md) (bug, medium): Review digest line cap truncates deterministic high-severity rows behind info heuristics
 - [TD-01M6A82NGQG5FNG3XYEW73YD2P](TD-01M6A82NGQG5FNG3XYEW73YD2P.md) (follow-up, low): Team launcher clones the plugin repo's branch HEAD unpinned and unverified
 - [TD-01M6A82KP8HA6FTXB688F62B4R](TD-01M6A82KP8HA6FTXB688F62B4R.md) (gap, medium): git pull silently overwrites teammates' ignored per-machine .claude/settings.json once the shared file is committed
 - [TD-01M69MP7S0ANT922K506DWHZ31](TD-01M69MP7S0ANT922K506DWHZ31.md) (bug, low): Activation-ledger prune is a read-modify-write that can drop a concurrent append

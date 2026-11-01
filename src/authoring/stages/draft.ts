@@ -10,6 +10,7 @@ import {
   readMode,
   renderGateMarkdown,
   requireEarlierGates,
+  type AuthoringWorkspace,
   type SkillWorkspace,
 } from '../workspace.js';
 import { readWorkspaceSources } from './sources.js';
@@ -163,7 +164,7 @@ export interface DraftInput {
   refuse?: string;
 }
 
-function refuseDraft(workspace: SkillWorkspace, reason: string): StageResult {
+export function refuseDraft(workspace: AuthoringWorkspace, reason: string): StageResult {
   const artifact = workspace.write(
     'trace.md',
     renderGateMarkdown(
@@ -176,8 +177,59 @@ function refuseDraft(workspace: SkillWorkspace, reason: string): StageResult {
     skill: workspace.name,
     gate: 'S3',
     evidencePath: artifact,
+    ...(workspace.kind === 'agent' ? { kind: 'agent' as const } : {}),
   });
   return stageResult(false, [receipt], [artifact]);
+}
+
+export interface TraceCheck {
+  blocks: InstructionBlock[];
+  traceText: string;
+  reasons: string[];
+}
+
+export function checkTrace(
+  workspace: AuthoringWorkspace,
+  text: string,
+  rawTrace: string,
+): TraceCheck {
+  const blocks = instructionBlocks(text);
+  const known = new Set(readWorkspaceSources(workspace).map((row) => row.id));
+  const trace = parseTrace(rawTrace);
+  const unknownIds = new Set<string>();
+  const added: InstructionBlock[] = [];
+  const unjustified: string[] = [];
+
+  for (const block of blocks) {
+    const mapping = trace.mappings.find((entry) => entry.heading === block.heading);
+    const mapped = mapping?.sources.filter((id) => known.has(id)) ?? [];
+    for (const id of mapping?.sources ?? []) if (!known.has(id)) unknownIds.add(id);
+    if (mapped.length > 0) continue;
+    const listed = trace.unsourced.find((entry) => entry.heading === block.heading);
+    if (listed?.justified) continue;
+    unjustified.push(block.heading);
+    if (!listed) added.push(block);
+  }
+
+  let traceText = rawTrace.replace(/\s*$/u, '\n');
+  if (added.length > 0) {
+    if (
+      !traceText.includes(`\n${UNSOURCED_HEADING}\n`) &&
+      !traceText.startsWith(`${UNSOURCED_HEADING}\n`)
+    ) {
+      traceText += `\n${UNSOURCED_HEADING}\n\n`;
+    }
+    traceText += added
+      .map((block) => `- ${block.heading} (lines ${block.start}-${block.end}): needs a reason`)
+      .join('\n');
+    traceText += '\n';
+  }
+  const reasons: string[] = [];
+  if (unjustified.length > 0)
+    reasons.push(`unsourced blocks without a reason: ${unjustified.join(', ')}`);
+  if (unknownIds.size > 0)
+    reasons.push(`S-IDs not in sources.md: ${[...unknownIds].sort().join(', ')}`);
+  return { blocks, traceText, reasons };
 }
 
 export function runDraft(workspace: SkillWorkspace, input: DraftInput): StageResult {
@@ -194,43 +246,8 @@ export function runDraft(workspace: SkillWorkspace, input: DraftInput): StageRes
   });
 
   const skillText = workspace.read(`${target}/${SKILL_FILE}`) ?? '';
-  const blocks = instructionBlocks(skillText);
-  const known = new Set(readWorkspaceSources(workspace).map((row) => row.id));
-  const trace = parseTrace(input.traceText);
-  const unknownIds = new Set<string>();
-  const added: InstructionBlock[] = [];
-  const unjustified: string[] = [];
-
-  for (const block of blocks) {
-    const mapping = trace.mappings.find((entry) => entry.heading === block.heading);
-    const mapped = mapping?.sources.filter((id) => known.has(id)) ?? [];
-    for (const id of mapping?.sources ?? []) if (!known.has(id)) unknownIds.add(id);
-    if (mapped.length > 0) continue;
-    const listed = trace.unsourced.find((entry) => entry.heading === block.heading);
-    if (listed?.justified) continue;
-    unjustified.push(block.heading);
-    if (!listed) added.push(block);
-  }
-
-  let traceText = input.traceText.replace(/\s*$/u, '\n');
-  if (added.length > 0) {
-    if (
-      !traceText.includes(`\n${UNSOURCED_HEADING}\n`) &&
-      !traceText.startsWith(`${UNSOURCED_HEADING}\n`)
-    ) {
-      traceText += `\n${UNSOURCED_HEADING}\n\n`;
-    }
-    traceText += added
-      .map((block) => `- ${block.heading} (lines ${block.start}-${block.end}): needs a reason`)
-      .join('\n');
-    traceText += '\n';
-  }
-  const failed = unjustified.length > 0 || unknownIds.size > 0;
-  const reasons: string[] = [];
-  if (unjustified.length > 0)
-    reasons.push(`unsourced blocks without a reason: ${unjustified.join(', ')}`);
-  if (unknownIds.size > 0)
-    reasons.push(`S-IDs not in sources.md: ${[...unknownIds].sort().join(', ')}`);
+  const { blocks, traceText, reasons } = checkTrace(workspace, skillText, input.traceText);
+  const failed = reasons.length > 0;
   const artifact = workspace.write(
     'trace.md',
     renderGateMarkdown(

@@ -21,6 +21,8 @@ export const SENSITIVE_PATH_EXPERT: AgentRole = 'security-auditor';
 
 export const SKILL_PATH_EXPERT: AgentRole = 'skill-orchestrator';
 
+export const AGENT_PATH_EXPERT: AgentRole = 'agent-orchestrator';
+
 export interface PathTriggeredSeat {
   role: AgentRole;
   path: string | null;
@@ -32,7 +34,10 @@ export function pathTriggeredSeats(input: {
   sensitivePath: string | null;
   skillPath: string | null;
   skillPathEdited?: boolean;
+  agentPath?: string | null;
+  agentPathEdited?: boolean;
 }): PathTriggeredSeat[] {
+  const agentPath = input.agentPath ?? null;
   return [
     {
       role: SENSITIVE_PATH_EXPERT,
@@ -43,6 +48,11 @@ export function pathTriggeredSeats(input: {
       role: SKILL_PATH_EXPERT,
       path: input.skillPath,
       reason: `${input.skillPathEdited ? 'an edited' : 'a planned'} file is a skill: ${input.skillPath}`,
+    },
+    {
+      role: AGENT_PATH_EXPERT,
+      path: agentPath,
+      reason: `${input.agentPathEdited ? 'an edited' : 'a planned'} file is an agent: ${agentPath}`,
     },
   ];
 }

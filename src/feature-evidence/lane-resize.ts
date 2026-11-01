@@ -1,10 +1,16 @@
-import { skillOrchestratorEnabled } from '@/authoring/config.js';
-import { findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
+import { agentOrchestratorEnabled, skillOrchestratorEnabled } from '@/authoring/config.js';
+import { findAgentPaths, findSkillPaths, readSkillPathContext } from '@/authoring/paths.js';
 import { readPendingImpact, type PendingImpact } from '@/stage-evidence/pending-lane.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 
 import { readFeatureRecord, updateFeatureRecord } from './feature-record.js';
-import type { FeatureAuthoringLaneRaise, FeatureLaneMove, PlanStep } from './types.js';
+import type {
+  AuthoringMatchedPath,
+  AuthoringPathKind,
+  FeatureAuthoringLaneRaise,
+  FeatureLaneMove,
+  PlanStep,
+} from './types.js';
 
 export const SMALL_CHANGE_MAX_FILES = 8;
 
@@ -119,26 +125,74 @@ export function raiseLaneIfGrown(input: LaneRaiseInput): FeatureLaneMove | null 
   return written?.lane_raised?.at === at ? written.lane_raised : null;
 }
 
-export function authoringRaiseReason(path: string): string {
+const AUTHORING_KIND_WORDS: Record<AuthoringPathKind, { noun: string; seat: string }> = {
+  skill: { noun: 'a skill', seat: 'the Skill Orchestrator' },
+  agent: { noun: 'an agent', seat: 'the Agent Orchestrator' },
+};
+
+export function authoringRaiseReason(match: string | readonly AuthoringMatchedPath[]): string {
+  const matches: readonly AuthoringMatchedPath[] =
+    typeof match === 'string' ? [{ kind: 'skill', path: match }] : match;
+  if (matches.length === 1) {
+    const words = AUTHORING_KIND_WORDS[matches[0]!.kind];
+    return (
+      `the change creates or edits ${words.noun} (${matches[0]!.path}), so ${words.seat} sits at the ` +
+      'High Table.'
+    );
+  }
+  const parts = matches.map((entry) => `${AUTHORING_KIND_WORDS[entry.kind].noun} (${entry.path})`);
+  const seats = matches.map((entry) => AUTHORING_KIND_WORDS[entry.kind].seat);
   return (
-    `the change creates or edits a skill (${path}), so the Skill Orchestrator sits at the ` +
+    `the change creates or edits ${parts.join(' and ')}, so ${seats.join(' and ')} sit at the ` +
     'High Table.'
   );
+}
+
+export function authoringMatches(
+  projectRoot: string,
+  files: readonly string[],
+): AuthoringMatchedPath[] {
+  const skillsOn = skillOrchestratorEnabled(projectRoot);
+  const agentsOn = agentOrchestratorEnabled(projectRoot);
+  if (!skillsOn && !agentsOn) return [];
+  const context = readSkillPathContext(projectRoot);
+  const matches: AuthoringMatchedPath[] = [];
+  const skill = skillsOn ? findSkillPaths(files, context.adapters, context)[0] : undefined;
+  if (skill !== undefined) matches.push({ kind: 'skill', path: skill });
+  const agent = agentsOn ? findAgentPaths(files, context.adapters, context)[0] : undefined;
+  if (agent !== undefined) matches.push({ kind: 'agent', path: agent });
+  return matches;
+}
+
+export function authoringRaiseEnabled(projectRoot: string): boolean {
+  return skillOrchestratorEnabled(projectRoot) || agentOrchestratorEnabled(projectRoot);
+}
+
+export function authoringRaisePaths(raise: FeatureAuthoringLaneRaise): AuthoringMatchedPath[] {
+  return raise.paths !== undefined && raise.paths.length > 0
+    ? raise.paths
+    : [{ kind: 'skill', path: raise.path }];
 }
 
 export function raiseLaneForAuthoring(input: LaneRaiseInput): FeatureAuthoringLaneRaise | null {
   const record = readFeatureRecord(input.projectRoot, input.dirName);
   if (record?.lane !== 'fast' || record.lane_raised_for_authoring !== undefined) return null;
-  if (!skillOrchestratorEnabled(input.projectRoot)) return null;
-  const context = readSkillPathContext(input.projectRoot);
+  if (!authoringRaiseEnabled(input.projectRoot)) return null;
   const candidates = [...new Set([...input.plannedFiles, ...editedFiles(input.changedFiles)])];
-  const path = findSkillPaths(candidates, context.adapters, context)[0];
-  if (path === undefined) return null;
+  const paths = authoringMatches(input.projectRoot, candidates);
+  if (paths.length === 0) return null;
   const at = (input.now ?? (() => new Date()))().toISOString();
   const written = updateFeatureRecord(
     input.projectRoot,
     input.dirName,
-    { raiseLaneForAuthoring: { reason: authoringRaiseReason(path), path, at } },
+    {
+      raiseLaneForAuthoring: {
+        reason: authoringRaiseReason(paths),
+        path: paths[0]!.path,
+        paths,
+        at,
+      },
+    },
     input.now,
   );
   return written?.lane_raised_for_authoring?.at === at ? written.lane_raised_for_authoring : null;

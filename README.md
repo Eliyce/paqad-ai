@@ -368,11 +368,11 @@ A built-in router reads each request, judges its complexity and risk, and sends 
 - **graduated** lane for everyday features
 - **full** lane for risky or wide-reaching changes, with a frozen spec and story breakdown first
 
-Along the way it coordinates **23 built-in specialist roles**, each with one job and no conflicting incentives:
+Along the way it coordinates **24 built-in specialist roles**, each with one job and no conflicting incentives:
 
 | Group             | Roles                                                                                                                                                                                                          |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Workflow (10)** | context-curator, product-owner, market-researcher, implementer, reviewer, verifier, test-planner, gap-detector, requirement-analyst, skill-orchestrator                                                        |
+| **Workflow (11)** | context-curator, product-owner, market-researcher, implementer, reviewer, verifier, test-planner, gap-detector, requirement-analyst, skill-orchestrator, agent-orchestrator                                    |
 | **Coding (12)**   | solution-architect, application-architect, db-expert, ux-ui-analyst, devops-engineer, doc-maintainer, performance-analyst, data-modeler, integration-architect, qa-engineer, user-flow-writer, chief-architect |
 | **Security (1)**  | security-auditor                                                                                                                                                                                               |
 
@@ -568,6 +568,8 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 | `paqad-ai delivery-link refresh`         | Read the push, pull request and CI of the branch change from git and gh (read-only toward GitHub) |
 | `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization    |
 | `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                                 |
+| `paqad-ai skill`                         | Prove a new or edited skill through its gated pipeline before it is added                         |
+| `paqad-ai agent`                         | Prove a new or edited agent through nine gates with pass^k evals before it is added               |
 
 ```bash
 # a few common runs

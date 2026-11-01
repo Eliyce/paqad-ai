@@ -36,8 +36,8 @@ function lensExists(role: string): boolean {
 }
 
 describe('agent roster drift', () => {
-  it('AGENT_ROLES has exactly 23 roles', () => {
-    expect(AGENT_ROLES.length).toBe(23);
+  it('AGENT_ROLES has exactly 24 roles with agent-orchestrator (FR-1)', () => {
+    expect(AGENT_ROLES.length).toBe(24);
   });
 
   it('every expert role has a persona file', () => {
@@ -46,8 +46,8 @@ describe('agent roster drift', () => {
     }
   });
 
-  it('every expert role has a lens file (14 experts)', () => {
-    expect(EXPERT_ROLES.length).toBe(14);
+  it('every expert role has a lens file (15 experts)', () => {
+    expect(EXPERT_ROLES.length).toBe(15);
     for (const role of EXPERT_ROLES) {
       expect(lensExists(role), `missing lens for ${role}`).toBe(true);
     }
@@ -55,17 +55,17 @@ describe('agent roster drift', () => {
 
   it('the README and the module summary carry the role count', () => {
     const readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
-    expect(readme).toContain('23 built-in specialist roles');
+    expect(readme).toContain('24 built-in specialist roles');
     const summary = readFileSync(
       join(REPO_ROOT, 'docs/modules/agent-runtime/index/summary.md'),
       'utf8',
     );
-    expect(summary).toContain('23 roles');
+    expect(summary).toContain('24 roles');
   });
 
   it('the registry renders one row per role and six reused personas', () => {
     const rows = collectAgentRegistryRows(RUNTIME_ROOT);
-    expect(rows).toHaveLength(23);
+    expect(rows).toHaveLength(24);
     expect(rows.every((row) => row.role.length > 0)).toBe(true);
     const reused = collectReusedPersonaRows(RUNTIME_ROOT);
     expect(reused).toHaveLength(6);
