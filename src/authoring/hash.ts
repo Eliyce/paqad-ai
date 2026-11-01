@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import YAML from 'yaml';
 
+import { readBytesIfPresent } from './fs-io.js';
+
 export interface HashedFile {
   rel: string;
   bytes: Buffer;
@@ -144,7 +146,7 @@ export function hashAgentText(
     const abs = join(scriptRoot, script);
     files.push({
       rel: `hooks/${script}`,
-      bytes: existsSync(abs) ? readFileSync(abs) : Buffer.from(MISSING_HOOK_SCRIPT),
+      bytes: readBytesIfPresent(abs) ?? Buffer.from(MISSING_HOOK_SCRIPT),
     });
   }
   return hashFiles(files);

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { gitPathList } from '@/pipeline/git-paths.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
+import { isMissingPathError, readRegularFile, readTextIfPresent } from '../fs-io.js';
 import { agentHookScripts } from '../lint/agent-lint.js';
 import { isPaqadRuntimeSkill } from '../lint/skill-lint.js';
 import { discoverInstalledAgents, discoverInstalledSkills } from '../overlap.js';
@@ -116,6 +117,16 @@ export function installedAgentFile(workspace: AuthoringWorkspace): string | null
   return found?.path ?? null;
 }
 
+function readAgentSource(abs: string): string | null {
+  try {
+    return readRegularFile(abs, false)?.buffer.toString('utf8') ?? null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    if (isMissingPathError(error) || code === 'ELOOP' || code === 'EISDIR') return null;
+    throw error;
+  }
+}
+
 export function runAgentImprove(
   workspace: AuthoringWorkspace,
   input: { source?: string } = {},
@@ -126,8 +137,8 @@ export function runAgentImprove(
       `There is no installed agent named ${workspace.name}. For a new agent, start with paqad-ai agent justify ${workspace.name}.`,
     );
   }
-  const abs = join(workspace.projectRoot, source);
-  if (!existsSync(abs) || !lstatSync(abs).isFile()) {
+  const text = readAgentSource(join(workspace.projectRoot, source));
+  if (text === null) {
     throw new AuthoringRefusal(`${source} is not an agent file.`, 2);
   }
   const lines: string[] = [];
@@ -136,17 +147,14 @@ export function runAgentImprove(
       `The snapshot in ${workspace.relPath(AGENT_SNAPSHOT_DIR)} already exists; I kept it as the old_agent baseline.`,
     );
   } else {
-    const text = readFileSync(abs, 'utf8');
     workspace.write(`${AGENT_SNAPSHOT_DIR}/${workspace.name}.md`, text);
     const split = splitSkillFrontmatter(text);
     const scripts = split.ok
       ? agentHookScripts(workspace.projectRoot, split.data.hooks).scripts
       : [];
     for (const script of scripts) {
-      const scriptAbs = join(workspace.projectRoot, script);
-      if (existsSync(scriptAbs)) {
-        workspace.write(`${AGENT_SNAPSHOT_DIR}/${script}`, readFileSync(scriptAbs, 'utf8'));
-      }
+      const scriptText = readTextIfPresent(join(workspace.projectRoot, script));
+      if (scriptText !== null) workspace.write(`${AGENT_SNAPSHOT_DIR}/${script}`, scriptText);
     }
     lines.push(
       `Snapshotted ${source}${scripts.length > 0 ? ` and ${scripts.join(', ')}` : ''} to ${workspace.relPath(AGENT_SNAPSHOT_DIR)}; it is the old_agent baseline.`,

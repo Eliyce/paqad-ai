@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import {
@@ -18,7 +18,7 @@ import {
 } from '../explore.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
-import { readTextIfPresent, writeFileAtomic } from '../fs-io.js';
+import { readBytesIfPresent, readTextIfPresent, writeFileAtomic } from '../fs-io.js';
 import { hashAgentFile, hashText } from '../hash.js';
 import { lintAgentInProject, PERMISSIONS_FILE, type AgentLintResult } from '../lint/agent-lint.js';
 import {
@@ -156,13 +156,15 @@ function nextVersion(previous: string | null, requested: string | undefined): st
   return `${major}.${(minor ?? 0) + 1}.0`;
 }
 
+export function agentRootPattern(root: string): RegExp {
+  const parts = root.split('*').map((part) => part.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
+  return new RegExp(`^${parts.join('[^/]+')}/[^/]+$`, 'u');
+}
+
 export function runtimeAgentSource(workspace: AuthoringWorkspace): string | null {
   const file = readAgentDraftSource(workspace)?.file;
   if (file === undefined || !isPaqadRepository(workspace.projectRoot)) return null;
-  const inRoot = PAQAD_REPO_AGENT_ROOTS.some((root) => {
-    const pattern = new RegExp(`^${root.replace('*', '[^/]+')}/[^/]+$`, 'u');
-    return pattern.test(file);
-  });
+  const inRoot = PAQAD_REPO_AGENT_ROOTS.some((root) => agentRootPattern(root).test(file));
   return inRoot ? file : null;
 }
 
@@ -346,20 +348,28 @@ function permissionDecisions(workspace: AuthoringWorkspace): string[] {
   );
 }
 
-function writeIfChanged(projectRoot: string, rel: string, content: string | Buffer): boolean {
+type WriteOutcome = 'created' | 'updated' | 'unchanged';
+
+function writeFileChange(projectRoot: string, rel: string, content: string | Buffer): WriteOutcome {
   const abs = join(projectRoot, rel);
-  if (existsSync(abs) && readFileSync(abs).equals(Buffer.from(content))) return false;
+  const existing = readBytesIfPresent(abs);
+  if (existing !== null && existing.equals(Buffer.from(content))) return 'unchanged';
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, content);
-  return true;
+  return existing === null ? 'created' : 'updated';
+}
+
+function writeIfChanged(projectRoot: string, rel: string, content: string | Buffer): boolean {
+  return writeFileChange(projectRoot, rel, content) !== 'unchanged';
 }
 
 function writeHookScripts(workspace: AuthoringWorkspace): string[] {
   const written: string[] = [];
   for (const script of draftHookScripts(workspace)) {
     const draft = workspace.path(`${DRAFT_DIR}/${script}`);
-    if (!existsSync(draft)) continue;
-    if (writeIfChanged(workspace.projectRoot, script, readFileSync(draft))) written.push(script);
+    const bytes = readBytesIfPresent(draft);
+    if (bytes === null) continue;
+    if (writeIfChanged(workspace.projectRoot, script, bytes)) written.push(script);
   }
   return written;
 }
@@ -651,10 +661,13 @@ export function runAgentRelease(
     changed.push(sdkPath);
   }
   const unchanged = previous?.version === version && previous.file_hash === fileHash;
-  const evidenceMissing = !existsSync(join(projectRoot, evidencePath));
-  if (writeIfChanged(projectRoot, evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)) {
-    changed.push(evidencePath);
-  }
+  const evidenceWrite = writeFileChange(
+    projectRoot,
+    evidencePath,
+    `${JSON.stringify(evidence, null, 2)}\n`,
+  );
+  const evidenceMissing = evidenceWrite === 'created';
+  if (evidenceWrite !== 'unchanged') changed.push(evidencePath);
   if (!unchanged || evidenceMissing) {
     writeChangelog(
       join(projectRoot, trackedDir, 'CHANGELOG.md'),

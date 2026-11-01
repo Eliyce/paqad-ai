@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 
 import { readContractDecisions } from '@/decisions/authoring.js';
@@ -7,7 +7,7 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readAuthoringConfig, type AuthoringConfig } from '../config.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
-import { readTextIfPresent } from '../fs-io.js';
+import { isMissingPathError, readRegularFile, readTextIfPresent } from '../fs-io.js';
 import { hashAgentFile } from '../hash.js';
 import {
   discoverInstalledAgents,
@@ -595,8 +595,8 @@ function checkMemory(ctx: AgentLintContext): void {
   const memory = ctx.options.memoryFile;
   if (memory === undefined) return;
   const abs = join(ctx.options.projectRoot, memory);
-  if (!existsSync(abs)) return;
-  const text = readFileSync(abs, 'utf8');
+  const text = readTextIfPresent(abs);
+  if (text === null) return;
   const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
   const bytes = Buffer.byteLength(text);
   if (lines > ctx.limits.memoryMaxLines || bytes > AGENT_MEMORY_MAX_BYTES) {
@@ -637,7 +637,8 @@ function checkHooks(ctx: AgentLintContext, name: string, hooks: AgentHookScripts
   const tests = testFiles(ctx.options.projectRoot, name);
   for (const script of hooks.scripts) {
     const abs = join(ctx.options.projectRoot, script);
-    if (!existsSync(abs)) {
+    const scriptStat = statSync(abs, { throwIfNoEntry: false });
+    if (scriptStat === undefined) {
       ctx.sink.block('AG-011', ctx.rel, line, `The hook script ${script} does not exist.`);
       continue;
     }
@@ -647,7 +648,7 @@ function checkHooks(ctx: AgentLintContext, name: string, hooks: AgentHookScripts
     const viaInterpreter =
       command !== undefined &&
       SCRIPT_INTERPRETERS.test(command.command.trim().split(/\s+/u)[0] ?? '');
-    if (!viaInterpreter && (statSync(abs).mode & 0o111) === 0) {
+    if (!viaInterpreter && (scriptStat.mode & 0o111) === 0) {
       ctx.sink.block(
         'AG-011',
         ctx.rel,
@@ -748,10 +749,15 @@ function readAgentText(file: string): string {
       `${file} is a rendered Codex agent. Lint the Markdown source the release renders it from.`,
     );
   }
-  if (!existsSync(file) || !statSync(file).isFile()) {
-    throw new AgentLintUsageError(`${file} is not a file`);
+  let regular: ReturnType<typeof readRegularFile>;
+  try {
+    regular = readRegularFile(file);
+  } catch (error) {
+    if (!isMissingPathError(error)) throw error;
+    regular = null;
   }
-  return readFileSync(file, 'utf8');
+  if (regular === null) throw new AgentLintUsageError(`${file} is not a file`);
+  return regular.buffer.toString('utf8');
 }
 
 function relTo(projectRoot: string, file: string): string {

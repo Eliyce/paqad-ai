@@ -8,7 +8,7 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { AGENT_PERMISSION_ALLOW } from '@/authoring/decisions.js';
 import { lintAgentInProject } from '@/authoring/lint/agent-lint.js';
 import { parseAgentSource } from '@/authoring/package/agent-render.js';
-import { runAgentRelease } from '@/authoring/stages/agent-release.js';
+import { agentRootPattern, runAgentRelease } from '@/authoring/stages/agent-release.js';
 import {
   draftAgentHash,
   draftAgentHashWithoutDescription,
@@ -408,5 +408,21 @@ describe('paqad-ai agent improve', () => {
     expect(() => runAgentImprove(new AgentWorkspace(root, 'missing-reviewer'))).toThrow(
       /no installed agent named missing-reviewer/,
     );
+  });
+});
+
+describe('agentRootPattern', () => {
+  it('replaces every * in a root with one path segment', () => {
+    const pattern = agentRootPattern('packs/*/agents/*');
+    expect(pattern.test('packs/core/agents/review/reviewer.md')).toBe(true);
+    expect(pattern.test('packs/core/agents/reviewer.md')).toBe(false);
+    expect(pattern.test('packs/core/nested/agents/review/reviewer.md')).toBe(false);
+  });
+
+  it('matches regex special characters in a root literally', () => {
+    const pattern = agentRootPattern('runtime/agents.v1+(x)');
+    expect(pattern.test('runtime/agents.v1+(x)/reviewer.md')).toBe(true);
+    expect(pattern.test('runtime/agentsXv1+(x)/reviewer.md')).toBe(false);
+    expect(pattern.test('runtime/agents.v11(x)/reviewer.md')).toBe(false);
   });
 });
