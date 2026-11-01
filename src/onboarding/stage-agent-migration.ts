@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -74,6 +74,10 @@ export function migrateProjectStageAgents(
     const rel = `${PROJECT_AGENTS_DIR}/${name}`;
     let content: string;
     try {
+      if (!lstatSync(join(dir, name)).isFile()) {
+        result.kept.push(rel);
+        continue;
+      }
       content = readFileSync(join(dir, name), 'utf8');
     } catch {
       continue;
