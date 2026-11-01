@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 
 import { agentOrchestratorEnabled } from '@/authoring/config.js';
+import { runExploreIntake } from '@/authoring/explore.js';
 import { runMemoryConsolidate } from '@/authoring/memory.js';
 import {
   AgentLintUsageError,
@@ -146,7 +147,11 @@ function addIntakeVerbs(command: Command): void {
       .option('--gap <field>', 'Raise authoring.intake_gap for a business field nothing answers')
       .option('--question <text>', 'The question for the owner (with --gap)')
       .option('--option <label>', 'An answer to offer (with --gap, 2 to 4 times)', collect)
-      .option('--recommend <label>', 'The recommended answer (with --gap)'),
+      .option('--recommend <label>', 'The recommended answer (with --gap)')
+      .option(
+        '--preset <name>',
+        'Fill the intake from a preset: explore (only for the agent Explore)',
+      ),
   ).action(
     (
       name: string,
@@ -156,6 +161,7 @@ function addIntakeVerbs(command: Command): void {
         question?: string;
         option?: string[];
         recommend?: string;
+        preset?: string;
       },
     ) =>
       runAgentVerb(name, options, (workspace, projectRoot) => {
@@ -175,6 +181,7 @@ function addIntakeVerbs(command: Command): void {
             AGENT_INTAKE_FIELDS,
           );
         }
+        if (options.preset !== undefined) return runExploreIntake(workspace, options.preset);
         if (file === undefined) throw new AuthoringRefusal('name the intake.yaml file.', 2);
         return runAgentIntake(workspace, readInput(file, 'the intake file'));
       }),

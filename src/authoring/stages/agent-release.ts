@@ -9,6 +9,13 @@ import {
 } from '@/feature-evidence/artifacts.js';
 
 import { readAuthoringConfig } from '../config.js';
+import type { AgentArmMetrics } from '../eval/passk.js';
+import {
+  EXPLORE_NAME,
+  EXPLORE_PASS_K_MIN,
+  exploreRegistrationProblem,
+  hostAllowsBuiltinOverride,
+} from '../explore.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
 import { readTextIfPresent, writeFileAtomic } from '../fs-io.js';
@@ -261,8 +268,16 @@ export function planAgentRelease(input: {
   const deployable: Record<string, boolean> = {};
   const hostNotes: Record<string, string[]> = {};
   const proposals: string[] = [];
+  const builtinOverride = workspace.name === EXPLORE_NAME;
   for (const adapter of input.adapters) {
     const host = AGENT_HOST_TARGETS.find((target) => target.adapter === adapter);
+    if (builtinOverride && !hostAllowsBuiltinOverride(adapter)) {
+      deployable[adapter] = false;
+      proposals.push(
+        `${adapter} cannot override its built-in ${EXPLORE_NAME}, so ${EXPLORE_NAME} is not deployable there and nothing is written.`,
+      );
+      continue;
+    }
     if (host === undefined) {
       deployable[adapter] = false;
       proposals.push(
@@ -540,6 +555,22 @@ export function runAgentRelease(
     );
   }
   checkHashes(workspace, overridden);
+  if (workspace.name === EXPLORE_NAME && !overridden.has('S5')) {
+    const benchmark = workspace.readJson<{
+      registered_tier?: string | null;
+      tiers?: Array<{ tier: string; with_agent?: AgentArmMetrics; baseline?: AgentArmMetrics }>;
+    }>('benchmark.json');
+    const tier = benchmark?.tiers?.find((entry) => entry.tier === benchmark.registered_tier);
+    const problem = exploreRegistrationProblem({
+      agent: tier?.with_agent,
+      builtin: tier?.baseline,
+    });
+    if (problem !== null) {
+      throw new AuthoringRefusal(
+        `Release refused: the ${EXPLORE_NAME} override is registered only at pass^3 ${EXPLORE_PASS_K_MIN} for a lower median cost than the built-in, and ${problem}.`,
+      );
+    }
+  }
   const memoryOff = refuseUnmetMemory(workspace, overridden);
   const drifted = listDriftedFacts(
     readWorkspaceSources(workspace),
