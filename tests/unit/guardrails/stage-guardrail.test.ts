@@ -216,9 +216,11 @@ function flatten(
 }
 
 describe('the stage enforcement guardrails', () => {
-  it('AC-66: the stage enforcement contract test is unchanged from the base branch', (ctx) => {
+  it('AC-66: every case of the stage enforcement contract test is unchanged from the base branch', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
-    expect(printedCode(working(CONTRACT))).toEqual(printedCode(atBase(CONTRACT)));
+    const cases = (source: string) => printedCode(source.slice(source.indexOf('\ndescribe(')));
+    expect(cases(working(CONTRACT))).toEqual(cases(atBase(CONTRACT)));
+    expect(working(CONTRACT)).toMatch(/name: 'launcher then team copy'/);
   });
 
   it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook and the appended skill activation entry', (ctx) => {

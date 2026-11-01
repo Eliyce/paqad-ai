@@ -1,4 +1,6 @@
 import {
+  copyFileSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -8,10 +10,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { execa } from 'execa';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ensureBuiltDist } from './helpers/ensure-built';
 
@@ -24,10 +26,25 @@ const CAPABILITY = join(HOOKS, 'capability-gate.mjs');
 const DECISION_PAUSE = join(HOOKS, 'decision-pause-gate.mjs');
 const SUBAGENT_COMPLETION = join(HOOKS, 'stage-agent-completion.mjs');
 const VERIFICATION = join(HOOKS, 'verification-completion.mjs');
+const LAUNCHER_TEMPLATE = resolve(REPO, 'runtime/templates/team-bootstrap/hook.mjs');
+const LAUNCHER_ROUTE = '__PAQAD_CONTRACT_LAUNCHER_ROUTE';
+
+let launcherHome = '';
 
 beforeAll(async () => {
   await ensureBuiltDist();
+  launcherHome = mkdtempSync(join(tmpdir(), 'paqad-contract-home-'));
+  const copy = join(launcherHome, '.paqad-ai', 'team-plugin');
+  mkdirSync(copy, { recursive: true });
+  copyFileSync(join(REPO, 'package.json'), join(copy, 'package.json'));
+  for (const part of ['dist', 'runtime']) {
+    cpSync(join(REPO, part), join(copy, part), { recursive: true });
+  }
 }, 240_000);
+
+afterAll(() => {
+  if (launcherHome) rmSync(launcherHome, { recursive: true, force: true });
+});
 
 const roots: string[] = [];
 function freshRepo(): string {
@@ -54,12 +71,28 @@ function freshSentinel(root: string, session: string): void {
 }
 
 interface Route {
-  name: 'npm' | 'plugin';
+  name: 'npm' | 'plugin' | 'launcher then npm' | 'launcher then team copy';
   env: (root: string) => NodeJS.ProcessEnv;
+}
+function launcherEnv(root: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return {
+    CLAUDE_PROJECT_DIR: root,
+    CLAUDE_PLUGIN_ROOT: '',
+    HOME: launcherHome,
+    USERPROFILE: launcherHome,
+    CLAUDE_CONFIG_DIR: join(launcherHome, '.claude'),
+    [LAUNCHER_ROUTE]: '1',
+    ...extra,
+  };
 }
 const ROUTES: Route[] = [
   { name: 'npm', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: '' }) },
   { name: 'plugin', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: REPO }) },
+  {
+    name: 'launcher then npm',
+    env: (root) => launcherEnv(root, { PAQAD_FRAMEWORK_HOME: resolve(REPO, 'runtime') }),
+  },
+  { name: 'launcher then team copy', env: (root) => launcherEnv(root) },
 ];
 
 interface HookResult {
@@ -75,7 +108,14 @@ async function runHook(
 ): Promise<HookResult> {
   const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: process.env.HOME, ...routeEnv };
   if (env.CLAUDE_PLUGIN_ROOT === '') delete env.CLAUDE_PLUGIN_ROOT;
-  const result = await execa('node', [script, ...argv], {
+  let command = [script, ...argv];
+  if (env[LAUNCHER_ROUTE]) {
+    delete env[LAUNCHER_ROUTE];
+    const launcher = join(env.CLAUDE_PROJECT_DIR!, '.paqad', 'hook.mjs');
+    copyFileSync(LAUNCHER_TEMPLATE, launcher);
+    command = [launcher, basename(script), ...argv];
+  }
+  const result = await execa('node', command, {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     env,
     reject: false,
