@@ -727,7 +727,7 @@ export function recordedTrialSource(
   return named.length === 0 ? planned : named.join('+');
 }
 
-function performance(records: readonly TrialRecord[], adapter: string) {
+function performance(records: readonly TrialRecord[], adapter: string, tier: string) {
   const label = (values: readonly Measured[]) => {
     const value = medianOrNull(values);
     return value === null
@@ -736,6 +736,7 @@ function performance(records: readonly TrialRecord[], adapter: string) {
   };
   const latency = latencyMeasure(records.map((entry) => entry.timing.duration_ms));
   return {
+    tier,
     tokens_per_task: label(records.map((entry) => entry.timing.tokens)),
     cost_usd: label(records.map((entry) => entry.timing.cost_usd)),
     latency_p50_ms: {
@@ -1004,7 +1005,11 @@ export async function runAgentEvalRecord(
     analyst,
     forms: [...new Set(agentRecords.map((entry) => entry.timing.form))],
     unenforced_rules: [...new Set(agentRecords.flatMap((entry) => entry.timing.unenforced_rules))],
-    performance: performance(agentRecords, recordedTrialSource(records, plan.adapter.adapter)),
+    performance: performance(
+      agentRecords.filter((entry) => entry.run.tier === chosen.tier),
+      recordedTrialSource(records, plan.adapter.adapter),
+      chosen.tier,
+    ),
     batch:
       plan.batch === 'available'
         ? { requests_batched: batched, fell_back: fellBack, saving_usd: 'unavailable' }

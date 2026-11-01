@@ -185,7 +185,26 @@ describe('record edges', () => {
     ]) {
       expect(performance[field]).toHaveProperty('source');
     }
-    expect(performance.latency_p95_ms).toMatchObject({ measure: 'p95', samples: 12 });
+    expect(performance.latency_p95_ms).toMatchObject({ measure: 'median', samples: 6 });
+  });
+
+  it('AC-37: performance is measured on the registered tier only and names that tier', async () => {
+    const workspace = reviewer();
+    writeTrials(workspace, (trial) => ({
+      passed: trial.arm === 'with_agent' && trial.tier === 'reasoning',
+      timing:
+        trial.tier === 'fast'
+          ? { tokens: 100, cost_usd: 0.001, duration_ms: 500 }
+          : { tokens: 5000, cost_usd: 0.05, duration_ms: 9000 },
+    }));
+    await runAgentEvalRecord(workspace);
+    const benchmark = readLoose(workspace, 'benchmark.json');
+    expect(benchmark.registered_tier).toBe('reasoning');
+    expect(benchmark.performance.tier).toBe('reasoning');
+    expect(benchmark.performance.tokens_per_task.value).toBe(5000);
+    expect(benchmark.performance.cost_usd.value).toBe(0.05);
+    expect(benchmark.performance.latency_p50_ms.value).toBe(9000);
+    expect(benchmark.performance.latency_p95_ms.samples).toBe(6);
   });
 
   it('FR-74: the performance source names the runner the recorded trials used, not the planned adapter', async () => {
