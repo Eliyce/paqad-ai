@@ -94,6 +94,18 @@ const KNOB_CONSUMERS: Record<string, string> = {
   authoring_batch_mode: 'skill pipeline S6 trigger plan (batch sweep)',
   authoring_run_max_cost_usd: 'skill pipeline S5/S6 plans (--max-cost-usd spend cap)',
   authoring_otel_endpoint: 'skill pipeline usage reader (OpenTelemetry source)',
+  agent_orchestrator_enabled:
+    'agent orchestrator (High Table seat, lane raise, agent pipeline, completion check)',
+  agent_pass_k_threshold: 'agent pipeline S5 eval gate (pass^3 threshold)',
+  agent_stage_pass_k_threshold: 'agent pipeline S5 eval gate (pass^3 threshold for stage agents)',
+  agent_delegation_threshold: 'agent pipeline S6 delegation gate (validation pass rate)',
+  agent_description_max_tokens: 'agent lint AG-003 (description token limit)',
+  agent_report_max_tokens: 'agent pipeline S5 grader (report length limit)',
+  agent_prompt_max_tokens: 'agent lint AG-014 (body token limit)',
+  agent_max_tools: 'agent lint AG-018 (tool count limit)',
+  agent_max_cost_multiple: 'agent pipeline S5 eval gate (cost budget)',
+  agent_catalog_description_max_tokens: 'agent lint AG-004 (catalog description budget)',
+  agent_memory_max_lines: 'agent lint AG-010 + agent memory-consolidate (memory size)',
 };
 
 interface EffectiveKnob {

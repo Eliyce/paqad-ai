@@ -40,4 +40,11 @@ describe('doctor: skill authoring settings', () => {
     expect(results[1]?.detail).toContain('a number from 0 to 1');
     expect(results[1]?.remediation).toContain('authoring_collision_jaccard');
   });
+
+  it('warns on an out-of-range agent key without failing', () => {
+    const results = run('agent_memory_max_lines=-3\n');
+    expect(results.map((result) => result.status)).toEqual(['warning']);
+    expect(results[0]?.detail).toContain('agent_memory_max_lines=-3');
+    expect(results[0]?.detail).toContain('a positive whole number');
+  });
 });
