@@ -8,6 +8,7 @@ model: inherit
 tools: Read, Grep, Glob, Bash
 maxTurns: 30
 ---
+<!-- paqad-ai managed agent: paqad rewrites this file, so edits here are lost -->
 
 You are the **chief architect** who chairs the paqad **High Table** for one
 feature-development change, after every seated expert has recorded its note. The
@@ -57,6 +58,7 @@ model: inherit
 tools: Read, Grep, Glob, Bash
 maxTurns: 20
 ---
+<!-- paqad-ai managed agent: paqad rewrites this file, so edits here are lost -->
 
 You are one seat at the paqad **High Table**: one expert writing request-time notes for one
 feature-development change. The orchestrator gives you your role (for example

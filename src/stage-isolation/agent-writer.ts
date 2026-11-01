@@ -25,6 +25,17 @@ export const STAGE_AGENT_HOSTS: readonly HostTarget[] = AGENT_HOST_TARGETS;
 
 export interface WriteStageAgentsOptions {
   homeDir?: string;
+  pluginInstalled?: boolean;
+}
+
+export const STAGE_AGENT_MARKER =
+  '<!-- paqad-ai managed agent: paqad rewrites this file, so edits here are lost -->';
+
+export function withManagedMarker(content: string): string {
+  const close = content.startsWith('---\n') ? content.indexOf('\n---\n', 4) : -1;
+  if (close < 0) return `${STAGE_AGENT_MARKER}\n${content}`;
+  const end = close + '\n---\n'.length;
+  return `${content.slice(0, end)}${STAGE_AGENT_MARKER}\n${content.slice(end)}`;
 }
 
 const CLAUDE_CODE_ADAPTER = 'claude-code';
@@ -98,11 +109,13 @@ export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[
   const home = options.homeDir ?? homedir();
   const written: string[] = [];
   for (const host of STAGE_AGENT_HOSTS) {
+    const claude = host.adapter === CLAUDE_CODE_ADAPTER;
+    if (claude && options.pluginInstalled === true) continue;
     const dir = join(home, host.agentsSubdir);
     mkdirSync(dir, { recursive: true });
     for (const { name, content } of renderHostAgents(host)) {
       const filePath = join(dir, name);
-      writeFileSync(filePath, content, 'utf8');
+      writeFileSync(filePath, claude ? withManagedMarker(content) : content, 'utf8');
       written.push(toPosixPath(filePath));
     }
   }

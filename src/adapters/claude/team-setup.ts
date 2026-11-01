@@ -6,7 +6,7 @@ import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { versionAtLeast } from '@/core/version-compare.js';
-import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
+import { migrateProjectStageAgents } from '@/onboarding/stage-agent-migration.js';
 
 import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
 
@@ -14,16 +14,15 @@ declare const __PKG_VERSION__: string;
 
 export const TEAM_LAUNCHER_PATH = '.paqad/hook.mjs';
 export const LAUNCHER_VERSION_TOKEN = '__PAQAD_VERSION__';
-export const TEAM_AGENTS_DIR = '.claude/agents';
 
 const LAUNCHER_STAMP = /PAQAD_LAUNCHER_VERSION = '([^']+)'/;
-const AGENT_STAMP = /<!-- written by paqad-ai ([^ ]+) -->/;
 
 export interface TeamSetupReport {
   enabled: boolean;
   written: string[];
   removed: string[];
   kept: string[];
+  handEditedAgents?: string[];
 }
 
 interface OwnedFile {
@@ -40,19 +39,9 @@ export function renderTeamLauncher(version: string = __PKG_VERSION__): string {
   return template.replace(LAUNCHER_VERSION_TOKEN, version);
 }
 
-export function renderTeamAgents(
-  version: string = __PKG_VERSION__,
-): { path: string; content: string }[] {
-  return renderStageAgentFiles('claude-code').map(({ name, content }) => ({
-    path: `${TEAM_AGENTS_DIR}/${name}`,
-    content: `${content}\n<!-- written by paqad-ai ${version} -->\n`,
-  }));
-}
-
 export function teamOwnedFiles(version: string = __PKG_VERSION__): OwnedFile[] {
   return [
     { path: TEAM_LAUNCHER_PATH, content: renderTeamLauncher(version), stamp: LAUNCHER_STAMP },
-    ...renderTeamAgents(version).map((agent) => ({ ...agent, stamp: AGENT_STAMP })),
   ];
 }
 
@@ -109,6 +98,10 @@ export function syncTeamSetup(
   for (const file of teamOwnedFiles(version)) {
     syncOwnedFile(projectRoot, file, enabled, version, report);
   }
+  const agents = migrateProjectStageAgents(projectRoot);
+  report.removed.push(...agents.removed);
+  report.kept.push(...agents.kept);
+  report.handEditedAgents = agents.kept;
   return report;
 }
 
@@ -135,15 +128,12 @@ export function teamSetupMissing(projectRoot: string): boolean {
 }
 
 export function teamTrackedPaths(): string[] {
-  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH, TEAM_AGENTS_DIR];
+  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH];
 }
 
 function isTeamPath(path: string): boolean {
   return (
-    path === CLAUDE_SETTINGS_FILE ||
-    path === CLAUDE_GITIGNORE_FILE ||
-    path === TEAM_LAUNCHER_PATH ||
-    path.startsWith(`${TEAM_AGENTS_DIR}/paqad-`)
+    path === CLAUDE_SETTINGS_FILE || path === CLAUDE_GITIGNORE_FILE || path === TEAM_LAUNCHER_PATH
   );
 }
 
@@ -152,12 +142,6 @@ export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport):
   const pending = gitPendingPaths(projectRoot, teamTrackedPaths());
   if (pending === null) return [...report.written].sort();
   return pending.filter(isTeamPath);
-}
-
-function collapseAgents(paths: string[]): string[] {
-  const agentPrefix = `${TEAM_AGENTS_DIR}/paqad-`;
-  const others = paths.filter((path) => !path.startsWith(agentPrefix));
-  return others.length === paths.length ? others : [...others, `${agentPrefix}*.md`];
 }
 
 export const SHARED_SETTINGS_NOTE =
@@ -172,15 +156,28 @@ export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): st
   ) {
     notes.push(SHARED_SETTINGS_NOTE);
   }
-  const toCommit = collapseAgents(teamFilesToCommit(projectRoot, report));
+  const toCommit = teamFilesToCommit(projectRoot, report);
   if (toCommit.length > 0) {
     notes.push(
       `Commit these team setup files together so teammates and cloud sessions get paqad: ${toCommit.join(', ')}.`,
     );
   }
-  if (report.kept.length > 0) {
+  const handEdited = new Set(report.handEditedAgents ?? []);
+  const removedAgents = report.removed.filter((path) => path.startsWith('.claude/agents/'));
+  if (removedAgents.length > 0) {
     notes.push(
-      `Left alone because they were edited by hand or written by a newer paqad: ${report.kept.join(', ')}.`,
+      `Removed the old paqad stage agents from .claude/agents, because the paqad plugin now provides them: ${removedAgents.join(', ')}.`,
+    );
+  }
+  if (handEdited.size > 0) {
+    notes.push(
+      `Kept these .claude/agents files because they do not match what paqad wrote; check them and delete any you no longer need: ${[...handEdited].join(', ')}.`,
+    );
+  }
+  const keptOther = report.kept.filter((path) => !handEdited.has(path));
+  if (keptOther.length > 0) {
+    notes.push(
+      `Left alone because they were edited by hand or written by a newer paqad: ${keptOther.join(', ')}.`,
     );
   }
   return notes;
