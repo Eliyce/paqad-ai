@@ -10,6 +10,7 @@ import {
 } from '@/authoring/lint/agent-lint.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
+import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
 import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
@@ -187,6 +188,33 @@ function addIntakeVerbs(command: Command): void {
           lensText: options.lens ? readInput(options.lens, 'the lens file') : undefined,
         }),
       ),
+  );
+
+  withCommon(
+    command
+      .command('draft')
+      .description('S3: take the drafted agent file, its hook scripts and the trace')
+      .argument('<name>', 'The agent name')
+      .option('--file <agent.md>', 'The drafted agent file')
+      .option('--trace <file>', 'The trace.md mapping blocks to S-IDs')
+      .option('--memory <file>', 'The seeded MEMORY.md (memory candidates only)')
+      .option('--refuse <reason>', 'Refuse the draft'),
+  ).action(
+    (
+      name: string,
+      options: VerbOptions & { file?: string; trace?: string; memory?: string; refuse?: string },
+    ) =>
+      runAgentVerb(name, options, (workspace) => {
+        if (options.refuse === undefined && (!options.file || !options.trace)) {
+          throw new AuthoringRefusal('draft needs --file <agent.md> and --trace <trace.md>.', 2);
+        }
+        return runAgentDraft(workspace, {
+          file: options.file,
+          traceText: options.trace ? readInput(options.trace, 'the trace file') : '',
+          memoryText: options.memory ? readInput(options.memory, 'the memory file') : undefined,
+          refuse: options.refuse,
+        });
+      }),
   );
 }
 
