@@ -33,7 +33,7 @@ export const LOCK_STALE_MS = 600 * 1000;
 export const LOCK_WAIT_MS = 590 * 1000;
 export const LOCK_POLL_MS = 500;
 export const CLONE_TIMEOUT_MS = 540 * 1000;
-export const EDIT_WAIT_MS = 8 * 1000;
+export const EDIT_WAIT_MS = 5 * 1000;
 export const REFRESH_AGE_MS = 6 * 60 * 60 * 1000;
 export const MIN_NODE_MAJOR = 22;
 

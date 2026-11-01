@@ -314,7 +314,7 @@ describe('the install lock', () => {
 });
 
 describe('an edit while the first install runs', () => {
-  it('waits up to 8 s and then blocks with one line', async () => {
+  it('waits up to 5 s, well inside the 10 s gate timeout, and then blocks with one line', async () => {
     holdLock({ pid: 1, started_at: T0 });
     const c = clock();
     const { code, captured } = await launch('PreToolUse', 'agent-entry-gate.mjs', 'se', {
@@ -322,8 +322,8 @@ describe('an edit while the first install runs', () => {
       pidAlive: () => true,
     });
     expect(code).toBe(2);
-    expect(c.now() - T0).toBeGreaterThanOrEqual(8_000);
-    expect(c.now() - T0).toBeLessThan(9_000);
+    expect(c.now() - T0).toBeGreaterThanOrEqual(5_000);
+    expect(c.now() - T0).toBeLessThan(6_000);
     expect(captured.stderr).toEqual([
       'paqad is still being set up for this repo, so this edit is blocked until it is ready; try it again in a moment.\n',
     ]);
