@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CG6W9M6GN70AW52REH71SZ",
+  "category": "intake.requirement",
+  "title": "How do the edited skills and agents pass the authoring gate?",
+  "context": "This change edits about 108 skills and 9 agents. The authoring gate needs a passing or overridden pipeline record for each. Evals and trigger tests need paid model runs (about $27 per 3 skills).",
+  "options": [
+    {
+      "option_key": "skip-s0-s1-s5-s6",
+      "label": "Run lint, script tests and release; override justify, intake, eval and trigger per item",
+      "one_line_preview": "Run lint, script tests and release; override justify, intake, eval and trigger per item",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "full",
+      "label": "Run the full pipeline for every item",
+      "one_line_preview": "Run the full pipeline for every item",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ship-red",
+      "label": "Leave the gate red and file a follow-up",
+      "one_line_preview": "Leave the gate red and file a follow-up",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "skip-s0-s1-s5-s6",
+  "created_at": "2026-11-01T21:28:22.069Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "skip-s0-s1-s5-s6",
+  "rationale": "Owner, asked in session: run the deterministic stages, override S0/S1/S5/S6 per item citing this decision; secrets and agent powers are never overridden",
+  "resolved_at": "2026-11-01T21:28:27.930Z",
+  "decision_id": "D-01M6CG6W9M6GN70AW52REH71SZ",
+  "fingerprint": "sha256:ceb806e54a17f2dedaec8e34e51c4904a67d960bda36e9f04d22f5b3038e3a76",
+  "question": "How do the edited skills and agents pass the authoring gate?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T21:28:22.069Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "skip-s0-s1-s5-s6",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T21:28:27.930Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, asked in session: run the deterministic stages, override S0/S1/S5/S6 per item citing this decision; secrets and agent powers are never overridden"
+  }
+}
