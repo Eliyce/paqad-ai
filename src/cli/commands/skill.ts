@@ -4,6 +4,7 @@ import { Command } from 'commander';
 
 import { readAuthoringConfig } from '@/authoring/config.js';
 import { AuditUsageError, DEFAULT_SKILL_AUDIT_REPORT, runAudit } from '@/authoring/lint/audit.js';
+import { AUDIT_DOC, writeAuditDoc, type AuditSection } from '@/authoring/lint/audit-report.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import {
   formatSkillLintJson,
@@ -497,6 +498,37 @@ export function createSkillCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((folder: string | undefined, options: LintOptions) => {
       runLint(folder, options);
+    });
+
+  command
+    .command('audit')
+    .description(
+      'Render the skill and agent audit page from skill lint --all and agent lint --all. ' +
+        'The first run writes the Before section; later runs keep it and rewrite only After.',
+    )
+    .requiredOption(
+      '--as-of <date>',
+      'The audit date (YYYY-MM-DD); also ends the 30-day fire window',
+    )
+    .option('--out <file>', `The page to write (default ${AUDIT_DOC})`)
+    .option('--section <which>', 'Force the section to write: before or after')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { asOf: string; out?: string; section?: string; projectRoot: string }) => {
+      try {
+        const written = writeAuditDoc(resolve(options.projectRoot), {
+          asOf: options.asOf,
+          out: options.out,
+          section: options.section as AuditSection | undefined,
+        });
+        console.log(`**▸ paqad** · wrote the ${written.section} audit to ${written.path}.`);
+      } catch (error) {
+        if (error instanceof AuditUsageError || error instanceof NeverWriteListError) {
+          console.error(`skill audit: ${error.message}`);
+          process.exitCode = USAGE_EXIT;
+          return;
+        }
+        throw error;
+      }
     });
 
   addPipelineVerbs(command);
