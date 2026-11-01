@@ -268,7 +268,10 @@ describe('the committed team settings', () => {
       true,
     );
     expect(
-      isMachinePaqadCommand('node "C:\\Users\\x\\.paqad-ai\\current\\hooks\\x.mjs"', env),
+      isMachinePaqadCommand(
+        `node "${['C:', 'Users', 'x', '.paqad-ai', 'current', 'hooks', 'x.mjs'].join('\\')}"`,
+        env,
+      ),
     ).toBe(true);
     expect(isMachinePaqadCommand(LEGACY_SH, env)).toBe(true);
     expect(isMachinePaqadCommand('node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" x.mjs', env)).toBe(
