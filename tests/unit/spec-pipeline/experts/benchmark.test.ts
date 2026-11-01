@@ -1,20 +1,24 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readAuthoringDecision } from '@/authoring/decisions.js';
-import { readContractDecisions } from '@/decisions/authoring.js';
+import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
 import {
   BenchmarkRefusal,
   benchmarkPlanLines,
   HIGH_TABLE_BENCHMARK,
+  KEEP_SEATS_OPTION,
   missingTrials,
+  parseBenchmarkRuns,
   parseChanges,
   plannedTrials,
   recordHighTableBenchmark,
+  summariseForms,
+  SWITCH_SKILLS_OPTION,
   type BenchmarkRun,
 } from '@/spec-pipeline/experts/benchmark.js';
 import { buildExpertBriefs } from '@/spec-pipeline/experts/brief.js';
@@ -200,5 +204,160 @@ describe('experts benchmark', () => {
       .trim()
       .split('\n');
     expect(readers).toEqual(['src/cli/commands/spec-pipeline.ts']);
+  });
+});
+
+describe('experts benchmark results parsing and packet reuse', () => {
+  it('refuses a results file that is not JSON or has no runs array', () => {
+    expect(() => parseBenchmarkRuns('not json')).toThrow(/not valid JSON/u);
+    expect(() => parseBenchmarkRuns('null')).toThrow(/needs a runs\[\] array/u);
+    expect(() => parseBenchmarkRuns('{"runs":{}}')).toThrow(/needs a runs\[\] array/u);
+    expect(() => parseBenchmarkRuns('{"runs":[null]}')).toThrow(/runs\[0\] needs change/u);
+  });
+
+  it('refuses a run with a bad form, a fractional trial, a negative count or non-string findings', () => {
+    const good = { change: 'a', form: 'A', trial: 1, findings: [], accepted: [] };
+    const base = { ...good, questions: 0, tokens: 1, wall_ms: 1 };
+    for (const bad of [
+      { ...base, form: 'C' },
+      { ...base, trial: 1.5 },
+      { ...base, tokens: -1 },
+      { ...base, wall_ms: Number.NaN },
+      { ...base, findings: [1] },
+      { ...base, accepted: 'x' },
+      { ...base, questions: '1' },
+      { ...base, change: 7 },
+    ]) {
+      expect(() => parseBenchmarkRuns(JSON.stringify({ runs: [bad] }))).toThrow(BenchmarkRefusal);
+    }
+  });
+
+  it('keeps queue_ms and cost_usd only when they are non-negative numbers', () => {
+    const base = {
+      change: 'a',
+      form: 'B',
+      trial: 2,
+      findings: ['x'],
+      accepted: [],
+      questions: 0,
+      tokens: 10,
+      wall_ms: 20,
+    };
+    const [kept, dropped] = parseBenchmarkRuns(
+      JSON.stringify({
+        runs: [
+          { ...base, queue_ms: 5, cost_usd: 0.1 },
+          { ...base, queue_ms: -5, cost_usd: 'free' },
+        ],
+      }),
+    );
+    expect(kept).toMatchObject({ queue_ms: 5, cost_usd: 0.1 });
+    expect(dropped).not.toHaveProperty('queue_ms');
+    expect(dropped).not.toHaveProperty('cost_usd');
+  });
+
+  it('takes the median of an even sample and zero for a form with no runs', () => {
+    const run = (form: 'A' | 'B', tokens: number): BenchmarkRun => ({
+      change: 'a',
+      form,
+      trial: 1,
+      findings: [],
+      accepted: [],
+      questions: 0,
+      tokens,
+      wall_ms: tokens,
+      queue_ms: tokens,
+    });
+    const [a, b] = summariseForms([run('A', 10), run('A', 30)]);
+    expect(a!.tokens_median).toBe(20);
+    expect(a!.queue_ms_median).toBe(20);
+    expect(b!.tokens_median).toBe(0);
+    expect(b!.questions).toBe(0);
+  });
+
+  it('lists only the first five missing trials and drops runs for changes outside the set', () => {
+    const root = project();
+    const extra = { ...runs()[0]!, change: 'ORD-999' };
+    const result = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: JSON.stringify({ runs: [...runs(7), extra] }),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toContain('7 of 18 trials are missing');
+    expect(result.lines[0]).toContain(', ...)');
+    expect(result.lines[1]).toContain('(11 kept)');
+  });
+
+  it('AC-20: recommends switching to skills when form B matches as many accepted findings for fewer tokens', () => {
+    const root = project();
+    const cheaperB = runs().map((run) => ({
+      ...run,
+      tokens: run.form === 'B' ? 1000 : 9000,
+    }));
+    const result = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: JSON.stringify({ runs: cheaperB }),
+      change: 'ORD-600',
+      now: () => new Date('2026-01-02T03:04:05.000Z'),
+    });
+    const packet = readContractDecisions(root).find((row) => row.packet.id === result.decision)!;
+    expect(packet.packet.recommendation).toBe(SWITCH_SKILLS_OPTION);
+    const file = JSON.parse(readFileSync(join(root, HIGH_TABLE_BENCHMARK), 'utf8'));
+    expect(file.recorded_at).toBe('2026-01-02T03:04:05.000Z');
+    expect(file.spend_usd).toBe(0.9);
+    expect(result.lines[2]).not.toContain('is reused');
+  });
+
+  it('AC-20: raises a new packet when the earlier one was resolved, the change set differs or the record is unreadable', () => {
+    const root = project();
+    const text = JSON.stringify({ runs: runs() });
+    const first = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: text,
+    });
+    resolvePendingDecision(root, first.decision!, KEEP_SEATS_OPTION);
+    const second = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: text,
+    });
+    expect(second.decision).not.toBe(first.decision);
+
+    const wider = [...CHANGES, 'ORD-504'];
+    const widerRuns = plannedTrials(wider).map((trial) => ({ ...runs()[0]!, ...trial }));
+    const third = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: wider,
+      resultsText: JSON.stringify({ runs: widerRuns }),
+    });
+    expect(third.decision).not.toBe(second.decision);
+
+    const path = join(root, HIGH_TABLE_BENCHMARK);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, '{broken');
+    const fourth = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: text,
+    });
+    expect(fourth.decision).not.toBe(second.decision);
+    expect(fourth.ok).toBe(true);
+  });
+
+  it('AC-20: a previous record with no decision raises a fresh packet for the same change set', () => {
+    const root = project();
+    const path = join(root, HIGH_TABLE_BENCHMARK);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify({ changes: CHANGES, decision: null }));
+    const result = recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: JSON.stringify({ runs: runs() }),
+    });
+    expect(result.decision).not.toBeNull();
+    expect(readContractDecisions(root)).toHaveLength(1);
   });
 });

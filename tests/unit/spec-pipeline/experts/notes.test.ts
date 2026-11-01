@@ -442,6 +442,18 @@ describe('assembleExpertRun', () => {
     expect(run!.accounting.warnings.some((w) => /none dropped/.test(w))).toBe(true);
   });
 
+  it('falls back to empty notes when the recorded notes fail validation', () => {
+    const root = tempRoot();
+    writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'migration' }] });
+    writeExpertNotes(root, DIR, {
+      notes: [{ role: 'db-expert', findings: [{ id: 'EX-db-expert-1', target: '', claim: '' }] }],
+      tokens: { 'db-expert': 700 },
+    });
+    const run = assembleExpertRun(root, DIR, 20000);
+    expect(run!.accounting.total_tokens).toBe(0);
+    expect(run!.conflicts).toEqual([]);
+  });
+
   it('assembles from the need when the recorded notes carry no findings', () => {
     const root = tempRoot();
     writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'a' }] });

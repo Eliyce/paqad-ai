@@ -171,3 +171,81 @@ describe('agent learn, drift, catalog and regression (S8)', () => {
     expect(runAgentRegression(workspace).lines[0]).toMatch(/2000.*1100/u);
   });
 });
+
+describe('agent learn, drift and regression edges (S8)', () => {
+  it('AC-12: learn refuses an empty correction or scope and a decision it did not ask', () => {
+    const root = project();
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    expect(() => runAgentLearn(workspace, { correction: ' ', scope: 'y', source: 'S-1' })).toThrow(
+      /learn needs a correction and --scope/u,
+    );
+    expect(() => runAgentLearn(workspace, { correction: 'x', scope: '', source: 'S-1' })).toThrow(
+      /learn needs a correction and --scope/u,
+    );
+    expect(() => resolveAgentLearn(workspace, { decision: 'D-nothing' })).toThrow(
+      /There is no pending correction for decision D-nothing/u,
+    );
+  });
+
+  it('AC-12: leaving the agent as it is removes the pending correction and changes nothing', () => {
+    const root = project();
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const asked = runAgentLearn(workspace, {
+      correction: 'Check the down migration too.',
+      scope: 'change 12',
+      source: 'S-1',
+    });
+    resolvePendingDecision(root, asked.decision!, 'leave', 'no');
+    const done = resolveAgentLearn(workspace, { decision: asked.decision! });
+    expect(done.lines).toEqual([`Left ${AGENT_NAME} unchanged, as the owner chose.`]);
+    expect(workspace.exists(`draft/${AGENT_NAME}.md`)).toBe(false);
+  });
+
+  it('AC-12: on yes without a clock the correction is stamped with today', () => {
+    const root = project();
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const asked = runAgentLearn(workspace, {
+      correction: 'Name the table.',
+      scope: 'change 13',
+      source: 'S-2',
+    });
+    resolvePendingDecision(root, asked.decision!, 'improve', 'yes');
+    resolveAgentLearn(workspace, { decision: asked.decision! });
+    const today = new Date().toISOString().slice(0, 10);
+    expect(workspace.read(`draft/${AGENT_NAME}.md`)).toContain(`- learned ${today} in change 13`);
+  });
+
+  it('FR-29: drift passes with fresh facts, no evidence and an unreadable evidence file', () => {
+    const root = project();
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const fresh = runAgentDrift(workspace);
+    expect(fresh.ok).toBe(true);
+    expect(fresh.lines).toEqual([
+      `${AGENT_NAME}: every externally verified fact is fresh and the model is unchanged.`,
+    ]);
+    put(root, `.paqad/authoring/agents/${AGENT_NAME}/evidence.json`, '{broken');
+    expect(runAgentDrift(workspace).ok).toBe(true);
+    put(root, `.paqad/authoring/agents/${AGENT_NAME}/evidence.json`, '{}');
+    expect(runAgentDrift(workspace).ok).toBe(true);
+  });
+
+  it('AC-41: regression needs two iterations and a shared tier to compare', () => {
+    const root = project();
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    expect(() => runAgentRegression(workspace)).toThrow(/needs two recorded iterations/u);
+    workspace.writeJson('iteration-1/benchmark.json', {});
+    workspace.writeJson('iteration-2/benchmark.json', {});
+    expect(() => runAgentRegression(workspace)).toThrow(/have no registered tier to compare/u);
+    workspace.writeJson('iteration-2/benchmark.json', {
+      registered_tier: 'fast',
+      tiers: [{ tier: 'fast', with_agent: metrics(1, 100) }],
+    });
+    expect(() => runAgentRegression(workspace)).toThrow(/have no fast tier to compare/u);
+  });
+
+  it('AC-42: the catalog without retirement raises no decision', () => {
+    const root = project();
+    const result = runAgentCatalog(root);
+    expect(result.decision).toBeUndefined();
+  });
+});

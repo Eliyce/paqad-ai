@@ -234,3 +234,69 @@ describe('the agent completion check', () => {
     }
   });
 });
+
+describe('the agent completion check, more shapes', () => {
+  it('AC-21: findings come out sorted by path for two changed agents', () => {
+    const root = project();
+    write(
+      root,
+      '.claude/agents/aaa-reviewer.md',
+      AGENT().replace(`name: ${NAME}`, 'name: aaa-reviewer'),
+    );
+    const found = changedAgentFiles(root, [FILE, '.claude/agents/aaa-reviewer.md', FILE]);
+    expect(found.map((entry) => entry.path)).toEqual(['.claude/agents/aaa-reviewer.md', FILE]);
+    const reversed = changedAgentFiles(root, ['.claude/agents/aaa-reviewer.md', FILE]);
+    expect(reversed.map((entry) => entry.path)).toEqual(['.claude/agents/aaa-reviewer.md', FILE]);
+  });
+
+  it('AC-35: two hook scripts look the owners up once; an agent with broken frontmatter owns none', () => {
+    const root = project();
+    write(root, '.claude/agents/broken.md', 'no frontmatter here\n');
+    write(root, '.claude/hooks/other.mjs', 'x\n');
+    expect(changedAgentFiles(root, [HOOK, '.claude/hooks/other.mjs'])).toEqual([
+      { name: NAME, path: FILE },
+    ]);
+  });
+
+  it('AC-21: a record released from another path with no files list does not match', () => {
+    const root = project();
+    const hash = hashAgentFile(root, FILE, [HOOK]);
+    write(
+      root,
+      `${featureDir(DIR)}/agent-${NAME}.json`,
+      JSON.stringify({
+        agent: NAME,
+        status: 'passed',
+        version: '1.0.0',
+        released_path: '.codex/agents/migration-reviewer.toml',
+        file_hash: hash,
+        hook_scripts: [HOOK],
+        evidence_path: `.paqad/authoring/agents/${NAME}/evidence.json`,
+        overrides: [],
+        labels: [],
+      }),
+    );
+    expect(gate(root, [FILE]).status).toBe('fail');
+  });
+
+  it('AC-21: a record with no files list matches on the released path', () => {
+    const root = project();
+    const hash = hashAgentFile(root, FILE, [HOOK]);
+    write(
+      root,
+      `${featureDir(DIR)}/agent-${NAME}.json`,
+      JSON.stringify({
+        agent: NAME,
+        status: 'passed',
+        version: '1.0.0',
+        released_path: FILE,
+        file_hash: hash,
+        hook_scripts: [HOOK],
+        evidence_path: `.paqad/authoring/agents/${NAME}/evidence.json`,
+        overrides: [],
+        labels: [],
+      }),
+    );
+    expect(gate(root, [FILE]).status).toBe('pass');
+  });
+});

@@ -13,6 +13,7 @@ import {
   AGENT_INTAKE,
   agentForEval,
   cleanAgentProjects,
+  put,
   readLoose,
 } from '../../shared/agent-pipeline.js';
 
@@ -183,5 +184,73 @@ describe('agent delegation (S6)', () => {
       skipped: 'dispatched',
     });
     expect(gateSatisfied(stageState(workspace, AGENT_STAGES[6]!).state)).toBe(true);
+  });
+});
+
+describe('agent delegation (S6) refusals and options', () => {
+  it('plan needs a requests file, and a batch-mode setting names the batch state', () => {
+    expect(() => runDelegationPlan(atS6(), null)).toThrow(/delegation plan needs <requests.json>/u);
+    const offered = atS6();
+    expect(runDelegationPlan(offered, requests(), { batchOffered: true }).lines[1]).toContain(
+      'Batch: offered.',
+    );
+    const off = atS6();
+    put(off.projectRoot, '.paqad/.config', 'authoring_batch_mode=off\n');
+    expect(runDelegationPlan(off, requests(), { batchOffered: true }).lines[1]).toContain(
+      'Batch: off.',
+    );
+  });
+
+  it('plan reads a request list that is not a JSON array as raw text and refuses it', () => {
+    expect(() => runDelegationPlan(atS6(), '{"requests": []}')).toThrow();
+    expect(() => runDelegationPlan(atS6(), 'not json')).toThrow();
+  });
+
+  it('record needs the plan, a results file and well-formed iterations', () => {
+    expect(() => runDelegationRecord(atS6(), '{}')).toThrow(/delegation-eval.json is missing/u);
+    const workspace = atS6();
+    runDelegationPlan(workspace, requests());
+    expect(() => runDelegationRecord(workspace, null)).toThrow(
+      /delegation record needs <results.json>/u,
+    );
+    expect(() => runDelegationRecord(workspace, 'nope')).toThrow(/not valid JSON/u);
+    expect(() => runDelegationRecord(workspace, '{"iterations": []}')).toThrow(
+      /missing iterations\[\]/u,
+    );
+    expect(() =>
+      runDelegationRecord(workspace, JSON.stringify({ iterations: [{ description: 'x' }] })),
+    ).toThrow(/iterations\[0\] is missing description or results\[\]/u);
+    const six = Array.from({ length: 6 }, (_, index) => ({
+      ...allRight(IDS),
+      iteration: index + 1,
+    }));
+    expect(() => runDelegationRecord(workspace, JSON.stringify({ iterations: six }))).toThrow(
+      /at most \d+ description iterations; found 6/u,
+    );
+    const short = { ...allRight(IDS), results: allRight(IDS).results.slice(3) };
+    expect(() => runDelegationRecord(workspace, JSON.stringify({ iterations: [short] }))).toThrow(
+      /Iteration 1 is missing results for p0/u,
+    );
+  });
+
+  it('AC-10: numbers unnumbered iterations, reads batch runs and fails below the threshold', () => {
+    const workspace = atS6();
+    runDelegationPlan(workspace, requests());
+    const wrong = {
+      description: 'Use this agent sometimes.',
+      source: 'batch',
+      results: allRight(IDS).results.map((row) => ({ ...row, fired: false })),
+    };
+    const result = runDelegationRecord(
+      workspace,
+      JSON.stringify({
+        iterations: [wrong],
+        fresh: [{ runs: 'x' }, { request: 'r', source: 'ci' }],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    const file = readLoose(workspace, 'delegation-results.json');
+    expect(file.iterations.map((entry) => [entry.iteration, entry.source])).toEqual([[1, 'batch']]);
+    expect(result.lines.join('\n')).toMatch(/best validation score is/u);
   });
 });

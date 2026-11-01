@@ -169,3 +169,191 @@ describe('paqad-ai agent status', () => {
     expect(`${result.out}${result.err}`).toContain('no installed agent named migration-reviewer');
   });
 });
+
+describe('paqad-ai agent verb options', () => {
+  const missing = (name: string): string => join(root, 'nowhere', name);
+  const text = async (...args: string[]): Promise<{ all: string; code: number }> => {
+    const result = await run(...args);
+    return { all: `${result.out}\n${result.err}`, code: result.code };
+  };
+
+  it('justify reads --task-file and names a file it cannot read', async () => {
+    const result = await text(
+      'justify',
+      'migration-reviewer',
+      '--task-file',
+      missing('task.md'),
+      '--reason',
+      'parallel',
+    );
+    expect(result.code).toBe(2);
+    expect(result.all).toContain('could not read the task file');
+    expect((await text('justify', 'migration-reviewer', '--refuse', 'one-off')).all).not.toContain(
+      'could not read',
+    );
+  });
+
+  it('intake: --gap needs --question and --recommend, a preset needs no file, and no file is refused', async () => {
+    const gap = await text('intake', 'migration-reviewer', '--gap', 'owner');
+    expect(gap.code).toBe(2);
+    expect(gap.all).toContain('--gap needs --question, --option and --recommend.');
+    const noRecommend = await text(
+      'intake',
+      'migration-reviewer',
+      '--gap',
+      'owner',
+      '--question',
+      'Who owns it?',
+    );
+    expect(noRecommend.all).toContain('--gap needs --question');
+    const asked = await text(
+      'intake',
+      'migration-reviewer',
+      '--gap',
+      'owner',
+      '--question',
+      'Who owns it?',
+      '--recommend',
+      'Platform',
+    );
+    expect(asked.all).not.toContain('--gap needs');
+    const preset = await text('intake', 'migration-reviewer', '--preset', 'explore');
+    expect(preset.all).not.toContain('name the intake.yaml file.');
+    const none = await text('intake', 'migration-reviewer');
+    expect(none.code).toBe(2);
+    expect(none.all).toContain('name the intake.yaml file.');
+    const unreadable = await text('intake', 'migration-reviewer', missing('intake.yaml'));
+    expect(unreadable.all).toContain('could not read the intake file');
+  });
+
+  it('evidence reads the sources file and an optional --lens file', async () => {
+    const sources = write('sources.md', '| S-ID | source |\n');
+    const lens = await text(
+      'evidence',
+      'migration-reviewer',
+      sources,
+      '--owns',
+      'which migration is safe',
+      '--lens',
+      missing('lens.md'),
+    );
+    expect(lens.all).toContain('could not read the lens file');
+    const plain = await text('evidence', 'migration-reviewer', sources);
+    expect(plain.all).not.toContain('could not read');
+  });
+
+  it('draft needs --file and --trace unless it refuses, and reads --memory when given', async () => {
+    const bare = await text('draft', 'migration-reviewer');
+    expect(bare.code).toBe(2);
+    expect(bare.all).toContain('draft needs --file <agent.md> and --trace <trace.md>.');
+    const noTrace = await text('draft', 'migration-reviewer', '--file', 'agent.md');
+    expect(noTrace.all).toContain('draft needs --file');
+    const unreadTrace = await text(
+      'draft',
+      'migration-reviewer',
+      '--file',
+      'agent.md',
+      '--trace',
+      missing('trace.md'),
+    );
+    expect(unreadTrace.all).toContain('could not read the trace file');
+    const trace = write('trace.md', '| block | S-ID |\n');
+    const unreadMemory = await text(
+      'draft',
+      'migration-reviewer',
+      '--file',
+      'agent.md',
+      '--trace',
+      trace,
+      '--memory',
+      missing('MEMORY.md'),
+    );
+    expect(unreadMemory.all).toContain('could not read the memory file');
+    const refused = await text('draft', 'migration-reviewer', '--refuse', 'not needed');
+    expect(refused.all).not.toContain('draft needs --file');
+  });
+
+  it('delegation plan and record read their files only when named', async () => {
+    expect(
+      (await text('delegation', 'plan', 'migration-reviewer', missing('requests.json'))).all,
+    ).toContain('could not read the requests file');
+    expect((await text('delegation', 'plan', 'migration-reviewer')).all).not.toContain(
+      'could not read',
+    );
+    expect(
+      (await text('delegation', 'record', 'migration-reviewer', missing('results.json'))).all,
+    ).toContain('could not read the results file');
+    expect((await text('delegation', 'record', 'migration-reviewer')).all).not.toContain(
+      'could not read',
+    );
+  });
+
+  it('eval plan and record run their stage for the agent', async () => {
+    const plan = await text('eval', 'plan', 'migration-reviewer', '--lever', 'brief');
+    expect(plan.code).not.toBe(0);
+    const record = await text('eval', 'record', 'migration-reviewer');
+    expect(record.code).not.toBe(0);
+  });
+
+  it('override records from --decision and asks with --gate and --reason', async () => {
+    const recorded = await text('override', 'migration-reviewer', 'S5', '--decision', 'D-nope');
+    expect(recorded.code).not.toBe(0);
+    const asked = await text(
+      'override',
+      'migration-reviewer',
+      '--gate',
+      'S5',
+      '--reason',
+      'the eval harness is down',
+    );
+    expect(asked.all).not.toContain('override needs');
+  });
+
+  it('learn applies a --decision or proposes a correction with empty defaults', async () => {
+    const applied = await text('learn', 'migration-reviewer', '--decision', 'D-nope');
+    expect(applied.code).not.toBe(0);
+    const proposed = await text('learn', 'migration-reviewer');
+    expect(proposed.code).not.toBe(0);
+    const full = await text(
+      'learn',
+      'migration-reviewer',
+      'Check the down migration too.',
+      '--scope',
+      'review',
+      '--source',
+      'S-1',
+    );
+    expect(full.code).not.toBe(0);
+  });
+
+  it('memory-consolidate reads --file only when named', async () => {
+    expect(
+      (await text('memory-consolidate', 'migration-reviewer', '--file', missing('MEMORY.md'))).all,
+    ).toContain('could not read the MEMORY.md');
+    expect((await text('memory-consolidate', 'migration-reviewer')).all).not.toContain(
+      'could not read',
+    );
+  });
+
+  it('drift, regression and test run for an agent with no release yet', async () => {
+    for (const verb of ['drift', 'regression', 'test']) {
+      const result = await text(verb, 'migration-reviewer');
+      expect(result.all).not.toBe('\n');
+    }
+  });
+
+  it('catalog lists the installed agents and honours the off switch', async () => {
+    const listed = await text('catalog', '--propose-retirement');
+    expect(listed.code).toBe(0);
+    vi.stubEnv('PAQAD_AGENT_ORCHESTRATOR_ENABLED', 'false');
+    expect((await run('catalog')).out).toBe(AGENT_OFF_LINE);
+  });
+
+  it('lint prints a broken project never-write list as a usage error', async () => {
+    write('docs/instructions/rules/authoring/never-write.yaml', 'phrases: [unclosed\n');
+    const file = write('.claude/agents/migration-reviewer.md', GOOD);
+    const result = await run('lint', file);
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('agent lint: docs/instructions/rules/authoring/never-write.yaml');
+  });
+});

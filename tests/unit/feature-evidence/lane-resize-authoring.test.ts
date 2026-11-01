@@ -9,6 +9,7 @@ import { createPlanCommand } from '@/cli/commands/plan.js';
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
+  authoringMatches,
   authoringRaisePaths,
   authoringRaiseReason,
   laneMayRise,
@@ -234,6 +235,31 @@ describe('raiseLaneForAuthoring for agent paths (FR-5, FR-89)', () => {
     expect(laneMayRise(root, dir)).toBe(true);
   });
 
+  it('AC-40, EC-A11: with both orchestrators off no planned path matches', () => {
+    turnBothOff();
+    expect(authoringMatches(root, [SKILL, AGENT])).toEqual([]);
+    const dir = change('fast');
+    expect(raise(dir, [SKILL, AGENT])).toBeNull();
+    expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+  });
+
+  it('AC-23: with only the agent orchestrator on, a skill path matches nothing and an agent path matches', () => {
+    turnOff();
+    expect(authoringMatches(root, [SKILL, AGENT])).toEqual([{ kind: 'agent', path: AGENT }]);
+  });
+
+  it('AC-34: stamps the raise with the current time when no clock is passed', () => {
+    const dir = change('fast');
+    const before = Date.now();
+    const raised = raiseLaneForAuthoring({
+      projectRoot: root,
+      dirName: dir,
+      plannedFiles: [SKILL],
+      changedFiles: [],
+    });
+    expect(Date.parse(raised!.at)).toBeGreaterThanOrEqual(before);
+  });
+
   it('INV-18: a single-path record written before the list still reads', () => {
     const legacy = {
       from: 'fast' as const,
@@ -243,6 +269,12 @@ describe('raiseLaneForAuthoring for agent paths (FR-5, FR-89)', () => {
       at: AT,
     };
     expect(authoringRaisePaths(legacy)).toEqual([{ kind: 'skill', path: SKILL }]);
+    expect(authoringRaisePaths({ ...legacy, paths: [] })).toEqual([{ kind: 'skill', path: SKILL }]);
+    const both = [
+      { kind: 'skill' as const, path: SKILL },
+      { kind: 'agent' as const, path: AGENT },
+    ];
+    expect(authoringRaisePaths({ ...legacy, paths: both })).toEqual(both);
     expect(authoringRaiseReason(SKILL)).toBe(
       'the change creates or edits a skill (.claude/skills/processing-invoices/SKILL.md), so the ' +
         'Skill Orchestrator sits at the High Table.',
