@@ -212,6 +212,13 @@ detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
   branch is honoured wherever the working tree is. `gh pr checks` exits non-zero while checks are
   pending or failing but still prints JSON, so stdout is parsed regardless of the exit code. Check
   states combine with red first, then pending, then green.
+- **REST fallback (`github-rest-fallback.ts`).** Claude Code cloud sessions refuse GitHub GraphQL.
+  When `gh pr create`, `gh pr comment` or `gh pr checks` fails with that refusal, or with HTTP 403
+  while `CLAUDE_CODE_REMOTE` is true, the provider retries once through `gh api` REST calls and logs
+  why. Owner and repo come strictly from the origin URL (the cloud proxy form included), which is
+  never printed. Checks page through every check run plus legacy commit statuses. After the first
+  refusal, or in cloud, later check polls go straight to REST. `src/delivery/runner.ts` opens its
+  pull request through the provider's `openPR`.
 - **`github-issues-ticket-provider.ts`.** It is read-only for now; the write operations are left
   unsupported so an accidental call fails loudly instead of doing nothing. GitHub issues have no
   type, so a `type:` or `kind:` label is used, else "Issue".

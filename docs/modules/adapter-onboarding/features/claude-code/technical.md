@@ -130,6 +130,36 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - Tracker writes (`.paqad/doc-progress.json`, `.paqad/stack-drift.json`, etc.).
 - Exit codes (for CLI features).
 
+## Team setup (committed launcher)
+
+- **Key.** `team_bootstrap_enabled` (env `PAQAD_TEAM_BOOTSTRAP_ENABLED`, default true, group app,
+  section "Team and cloud setup") sits right after `paqad_enable` and resolves the same way.
+- **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
+  onboard and update both call, against the real project root: the team keys in
+  `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
+  `runtime/templates/team-bootstrap/hook.mjs`, and the 8 `.claude/agents/paqad-*.md` files from
+  `renderStageAgentFiles('claude-code')`. It runs whether or not the plugin is installed on the
+  lead's machine.
+- **`.claude/settings.json` is tracked and portable.** It holds only
+  `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
+  The chain is `buildHostHookChain('claude-code')` with only the command mapped to
+  `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]` and a 600 second timeout on the
+  two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and
+  any line with an absolute home path move to the git-ignored `.claude/settings.local.json`. The
+  managed `.claude/.gitignore` block lists `settings.hooks.json` and `settings.local.json`.
+- **Versions.** The launcher and agent files carry the paqad version that wrote them; an older paqad
+  leaves newer files alone, so two versions do not flip the files back and forth.
+- **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
+  launcher and agent files whose bytes match what paqad wrote, and writes the npm chain to
+  `.claude/settings.local.json`.
+- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (installed
+  plugin, npm install, its own copy in `~/.paqad-ai/team-plugin`, or none), records it under
+  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. The copy is a `git clone --depth 1`
+  of `Eliyce/paqad-claude-plugin` under the lock `~/.paqad-ai/locks/team-plugin.lock`, refreshed
+  after 6 hours. In a cloud session (`CLAUDE_CODE_REMOTE=true`) it sets `PAQAD_RAG_ENABLED=false`.
+  `paqadHookScriptPath()` ignores launcher lines and `claimedRootIsLive` counts the copy as a live
+  claim, so the plugin's stand-down logic keeps one chain per session.
+
 ## Onboarding from the plugin
 
 - The plugin brings its own hook chain (`runtime/claude-plugin/hooks.json`), so onboarding from

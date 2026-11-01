@@ -21,6 +21,13 @@ Join calls `bootstrapFrameworkHome()` (`src/install/bootstrap.ts`) before recrea
 
 `regenerateMachineArtifacts()` regenerates the Git-ignored artifacts a clone does not carry, each best-effort: the detection report (`Detector.detect` + `writeDetectionReport`), the stack snapshot and drift (`StackIntrospector.snapshot` + `writeStackArtifacts`), the code-knowledge index (`buildCodeKnowledgeIndex` + `writeCodeKnowledgeIndex`, index only, not the tracked `docs/instructions/registries/` side artifacts), delivery detection (`runDeliveryDetection`), and the quality baseline (`collectQualityMeasures` + `createBaseline` + `writeQualityBaseline`, seeded from the clean HEAD, only when absent). `onboard` also builds the code-knowledge index.
 
+## Team files
+
+Join writes no tracked file. When `.paqad/hook.mjs`, the team keys in `.claude/settings.json` or
+the `.claude/agents/paqad-*.md` files are missing, it tells the teammate to ask the lead to run
+`paqad-ai update`. A teammate can also skip join: the committed launcher runs every stage and check,
+but leaves out what join adds (the code index, the detection report and the quality baseline).
+
 ## Writes and Safety
 
 Adapter-generated candidates are limited to paths that pass the ignore gate (`isGitIgnored`), which now guards with `git ls-files --error-unmatch` first so a tracked file matching an ignore pattern is never treated as ignored, and are regenerated even when present so a stale host config is refreshed. Compiled rules, session context, vector and decision directories, and the framework version each have the same ignored-path gate. The framework version is seeded at the epoch (`1970-01-01T00:00:00Z`), matching `silent-update.mjs`, so the next session's update check fires immediately. The dead agent-entry-sentinel write was removed (SessionStart deletes the sentinel every session). Git hooks use the idempotent chaining installer; when `core.hooksPath` points at a tracked directory, `installGitHooks` writes nothing and returns a `trackedHooksDir`/`snippet` for join to print.

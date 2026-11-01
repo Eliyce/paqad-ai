@@ -33,6 +33,10 @@ Source directories owned by this feature:
 - `writeOnboardingManifest` normalizes persisted paths and deterministic collections before serialization. When semantic content is unchanged, it carries forward both `generated_at` and `detected.timestamp` and avoids rewriting byte-identical output.
 - Detection signals and generated artifact paths are repository-relative; ignored repository paths omit `.DS_Store`, `.idea`, and `.vscode` noise and are sorted.
 
+- With `team_bootstrap_enabled` on, onboard (and update) also write the Claude team files:
+  `.claude/settings.json`, `.claude/.gitignore`, `.paqad/hook.mjs` and the 8
+  `.claude/agents/paqad-*.md` files, and the summary lists them as files to commit together.
+
 ## Error Codes
 
 - Structured error IDs emitted by this feature.
