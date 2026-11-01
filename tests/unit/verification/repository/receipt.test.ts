@@ -378,3 +378,30 @@ describe('unrecordedMandatoryStages', () => {
     expect(receipt).toContain('No record yet for: Review, Checks');
   });
 });
+
+describe('composeChangeReceipt cloud note', () => {
+  const note =
+    'Evidence starts in this cloud session; earlier steps were recorded on another machine.';
+
+  it('adds the cloud note as its own line, after delivery and before the report', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: 'summary',
+      fold: null,
+      delivery: 'PR opened',
+      cloudNote: note,
+      reportPath: 'r.html',
+    });
+    expect(receipt.split('\n')).toEqual([
+      'summary',
+      '> PR opened',
+      `> ${note}`,
+      '> Report: r.html',
+    ]);
+  });
+
+  it('leaves the receipt unchanged without a note', () => {
+    expect(composeChangeReceipt({ verdictSummary: 'summary', fold: null, cloudNote: null })).toBe(
+      'summary',
+    );
+  });
+});
