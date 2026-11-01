@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -261,8 +261,30 @@ input_schema:
     const dir = folder({});
     symlinkSync(join(outside, 'skill.meta.yaml'), join(dir, 'skill.meta.yaml'));
     expect(() => parser.parse(NEW, dir)).toThrowError(
-      /Skill "drafting-notes": skill\.meta\.yaml is a symlink that leads outside the skill folder/u,
+      /Skill "drafting-notes": skill\.meta\.yaml leads through a symlink outside the skill folder/u,
     );
+    const linked = folder({});
+    symlinkSync(outside, join(linked, 'sub'));
+    expect(() =>
+      parser.parse(
+        NEW.replace('paqad-meta: skill.meta.yaml', 'paqad-meta: sub/skill.meta.yaml'),
+        linked,
+      ),
+    ).toThrowError(
+      /Skill "drafting-notes": sub\/skill\.meta\.yaml leads through a symlink outside the skill folder/u,
+    );
+  });
+
+  it('AC-6: reads a paqad-meta through a symlinked directory that stays inside the skill folder', () => {
+    const dir = folder({});
+    mkdirSync(join(dir, 'real'));
+    writeFileSync(join(dir, 'real', 'skill.meta.yaml'), META);
+    symlinkSync(join(dir, 'real'), join(dir, 'sub'));
+    const parsed = parser.parse(
+      NEW.replace('paqad-meta: skill.meta.yaml', 'paqad-meta: sub/skill.meta.yaml'),
+      dir,
+    );
+    expect(parsed.frontmatter.triggers).toEqual([{ workflow: ['feature-development'] }]);
   });
 
   it('sees request_routing in the sidecar for the workflow router', () => {

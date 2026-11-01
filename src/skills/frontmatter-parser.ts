@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { basename, isAbsolute, join, sep } from 'node:path';
 
 import YAML from 'yaml';
@@ -145,10 +145,11 @@ function readMetaFile(
   let text: string;
   try {
     const base = realpathSync(folder);
-    if (lstatSync(path).isSymbolicLink() && !realpathSync(path).startsWith(`${base}${sep}`)) {
-      throw metaError(skill, `${ref} is a symlink that leads outside the skill folder.`);
+    const real = realpathSync(path);
+    if (!real.startsWith(`${base}${sep}`)) {
+      throw metaError(skill, `${ref} leads through a symlink outside the skill folder.`);
     }
-    text = readFileSync(path, 'utf8');
+    text = readFileSync(real, 'utf8');
   } catch (error) {
     if (error instanceof ValidationError) throw error;
     throw metaError(skill, `${ref} named by metadata.${SKILL_META_KEY} is missing.`);
