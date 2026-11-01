@@ -4,18 +4,18 @@ The `decision` skill authors the small, human-facing decision record described b
 the **Decision Pause Contract** (shipped inline in the framework bootstrap,
 `AGENT-BOOTSTRAP.md`). It is deliberately distinct from the rich `DecisionPacket`
 that the automated intake / reuse pipeline (`DecisionStore`,
-`src/planning/decision-packet.ts`) mints and consumes — this one is a readable
+`src/planning/decision-packet.ts`) mints and consumes: this one is a readable
 trail committed alongside the PR it justifies.
 
 ## Lifecycle
 
-1. **Create** — `create.mjs` mints a collision-free `D-<ULID>` id and writes the
+1. **Create**: `create.mjs` mints a collision-free `D-<ULID>` id and writes the
    pending packet to `.paqad/decisions/pending/D-<ULID>.json`.
-2. **Present** — surface the options to the user via the host's interactive UI
+2. **Present**: surface the options to the user via the host's interactive UI
    (on Claude Code, the `AskUserQuestion` tray).
-3. **Resolve** — `resolve.mjs` records the chosen option and rationale, moves the
+3. **Resolve**: `resolve.mjs` records the chosen option and rationale, moves the
    packet to `.paqad/decisions/resolved/D-<ULID>.json`, and stamps `resolved_at`.
-4. **Commit** — stage the resolved packet with the change it justifies (delivery
+4. **Commit**: stage the resolved packet with the change it justifies (delivery
    workflow), so a reviewer and future `git blame` can see _why_.
 
 ## Pending shape
@@ -56,6 +56,6 @@ The resolved packet is the pending packet plus:
 - **At least two options**, each with a unique non-empty `option_key` and
   `label`. A `recommendation`, when present, must reference one of them.
 - **`chosen` must reference an `option_key`** of the packet being resolved.
-- **Never hand-edit the JSON, the timestamps, or the pending/resolved move** —
+- **Never hand-edit the JSON, the timestamps, or the pending/resolved move**,
   drive every transition through the scripts, exactly as `paqad-ai stage`
   drives the stage-evidence ledger.

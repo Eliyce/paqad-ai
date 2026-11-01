@@ -1,6 +1,6 @@
 # Documentation Sync Orchestration Rules
 
-This skill is the canonical entry point for "after my code change lands, which docs need updating?". It does not replace the per-domain skills below — it dispatches to them.
+This skill is the canonical entry point for "after my code change lands, which docs need updating?". It does not replace the per-domain skills below: it dispatches to them.
 
 ## Per-domain skills
 
@@ -34,8 +34,8 @@ Skip a domain when:
 
 ## What this skill does NOT do
 
-- It does not rewrite the docs itself — every actual edit is made by the delegate skill.
-- It does not invent doc paths — it only routes paths returned by `diff-doc-sync`.
+- It does not rewrite the docs itself: every actual edit is made by the delegate skill.
+- It does not invent doc paths: it only routes paths returned by `diff-doc-sync`.
 - It does not bypass any delegate's own escalation conditions; warnings from delegates surface in the consolidated report.
 
 ## When `target_domains` is provided

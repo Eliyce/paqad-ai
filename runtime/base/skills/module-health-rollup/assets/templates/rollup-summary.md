@@ -7,7 +7,7 @@ Fill `## Module Health Rollup` from the rollup report and
 ## Module Health Rollup
 
 <!-- One row per module. blocked-metrics column populated from
-     `list-blocked-metrics.sh`; leave `—` when nothing is blocked. -->
+     `list-blocked-metrics.sh`; leave `none` when nothing is blocked. -->
 
 | Module     | Tier     | Coverage %       | Tests                               | Blocked metrics     |
 | ---------- | -------- | ---------------- | ----------------------------------- | ------------------- |
@@ -16,7 +16,7 @@ Fill `## Module Health Rollup` from the rollup report and
 ## Unattributed Coverage Files
 
 <!-- One path per line from `list-unattributed.sh`. These are MM-ADD
-     candidates — hand off to the module-map reconciler. Omit the section
+     candidates: hand off to the module-map reconciler. Omit the section
      entirely when the list is empty. -->
 
 - `{{path}}`

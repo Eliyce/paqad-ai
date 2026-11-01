@@ -1,6 +1,6 @@
 ---
 name: edge-case-detection
-description: Identify failure modes and uncommon but relevant paths.
+description: 'Identifies failure modes and uncommon but relevant paths. Use when planning, design or review changes user flows, data transitions or operational behavior and the happy path is understood.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Finds missing failure modes, uncommon paths, and state transitions that would ma
 
 ## Use This When
 
-Use this during planning, design, or review when the work changes user flows, data transitions, or operational behavior and the happy path is already understood.
+During planning, design, or review when the work changes user flows, data transitions, or operational behavior and the happy path is already understood.
 
 ## Inputs
 

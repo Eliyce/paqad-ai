@@ -1,6 +1,6 @@
 ---
 name: module-map-reconciler
-description: Retrospective reconciler that scans the source tree against module-map.yml and docs/modules/, emits MM-* findings into .paqad/module-map/drift.json, and surfaces user-approvable deltas. The TS engine lives in `src/module-map/reconciler.ts`; this skill is the agent-side wrapper that invokes it via the CLI and routes accepted deltas through `src/module-decisions/apply.ts` (the only writer of module-map.yml).
+description: 'Scans the source tree against module-map.yml and docs/modules, writes MM-* findings to .paqad/module-map/drift.json, and routes accepted deltas through src/module-decisions/apply.ts. Use when the user asks to reconcile or refresh the module map, when documentation sync is closing, or when paqad-ai refresh runs.'
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -25,7 +25,7 @@ Walks the source tree under `module_health.source_roots` (declared on the active
 
 Findings are written to `.paqad/module-map/drift.json` and consumed by:
 
-- `paqad-ai status` (drift badge per module — Phase 4).
+- `paqad-ai status` (drift badge per module: Phase 4).
 - `paqad-ai refresh` (non-zero exit on drift).
 - `feature-development.documentation_sync` (stop with `stale_docs: stop` if undeclared modules were touched by the diff).
 - `finding-normalizer` (via the `MM-*` code-prefix recognised in `assets/vocabulary.txt`).
@@ -38,14 +38,14 @@ Findings are written to `.paqad/module-map/drift.json` and consumed by:
 
 ## Inputs
 
-- The active stack pack's `module_health.source_roots`. **Required** — refuses to run with `blocked: source_roots_unknown` when missing. Bundled details in `runtime/base/skills/module-map-reconciler/references/source-roots-contract.md`.
+- The active stack pack's `module_health.source_roots`. **Required**: refuses to run with `blocked: source_roots_unknown` when missing. Bundled details in `references/source-roots-contract.md`.
 - `module-map.yml` (read-only here; mutations go through `src/module-decisions/apply.ts`).
 - `docs/modules/<slug>/` tree for orphan / missing checks.
 - Existing `.paqad/decisions/module-decisions/*.yml` for `MM-MISMATCH` cross-referencing.
 
 ## Procedure
 
-1. Resolve `source_roots` from the active stack pack. If absent, surface a single Decision Pause packet asking the user to add `module_health.source_roots` to their pack — do **not** guess.
+1. Resolve `source_roots` from the active stack pack. If absent, surface a single Decision Pause packet asking the user to add `module_health.source_roots` to their pack, do **not** guess.
 2. Invoke the TS engine via the bundled wrapper:
    ```
    bash scripts/reconcile.sh [project-root]
@@ -53,8 +53,8 @@ Findings are written to `.paqad/module-map/drift.json` and consumed by:
    The wrapper shells out to `paqad-ai module-map reconcile --project-root <root>`, producing `.paqad/module-map/drift.json` and a JSON summary on stdout.
 3. Parse findings. Group by code and module for presentation.
 4. For each finding, surface a Decision Pause packet:
-   - `MM-ADD` → "New module under `<dir>`. Declare? (extract → inferencer → apply)" — pipes through the Attribution Gate.
-   - `MM-FEAT-ADD` → "Add feature glob to `<module>`?" — collects feature name + glob, then routes to apply.
+   - `MM-ADD` → "New module under `<dir>`. Declare? (extract → inferencer → apply)": pipes through the Attribution Gate.
+   - `MM-FEAT-ADD` → "Add feature glob to `<module>`?": collects feature name + glob, then routes to apply.
    - `MM-REMOVE` / `MM-FEAT-STALE` → "Remove declaration?" or "Update glob?".
    - `MM-DOC-ORPHAN` → "Delete `docs/modules/<slug>/` or declare module?"
    - `MM-DOC-MISSING` → "Run `create module documentation` for `<slug>`?".
@@ -71,29 +71,29 @@ Findings are written to `.paqad/module-map/drift.json` and consumed by:
 ## Escalate / Stop Conditions
 
 - Hard-fail with the literal status `blocked: source_roots_unknown` when the active stack pack has no `module_health.source_roots`. Print the path to the pack manifest that needs updating; do **not** prompt to "use a default."
-- Stop if `module-map.yml` is missing — the reconciler needs declarations to reconcile against. Surface `Reconciler requires module-map.yml; run "create documentation" first.`
-- Stop if any `MM-RENAME` is ambiguous (multiple candidates within Levenshtein bound) — collect the user's choice.
+- Stop if `module-map.yml` is missing: the reconciler needs declarations to reconcile against. Surface `Reconciler requires module-map.yml; run "create documentation" first.`
+- Stop if any `MM-RENAME` is ambiguous (multiple candidates within Levenshtein bound): collect the user's choice.
 - Do **not** write `module-map.yml` from this skill. All map mutations go through `src/module-decisions/apply.ts`.
 
 ## Scripts
 
-Deterministic plumbing — do **not** re-derive these in the LLM layer.
+Deterministic plumbing: do **not** re-derive these in the LLM layer.
 
-- `scripts/reconcile.sh [project-root]` — invoke the reconciler; writes `.paqad/module-map/drift.json` and prints a JSON summary.
-- `scripts/has-findings.sh [project-root]` — exit 0 if findings exist, 1 if clean, 2 if blocked (`source_roots_unknown`), 3 if drift.json is missing. Prints the count.
-- `scripts/is-blocked.sh [project-root]` — exit 1 with the blocked reason on stdout when the reconciler is blocked.
-- `scripts/count-by-code.sh [project-root]` — sorted `MM-CODE: N` lines for use in the `## Reconciliation Findings` block.
-- `scripts/filter-by-code.sh <MM-CODE> [project-root]` — JSON array of findings for a specific code.
+- `scripts/reconcile.sh [project-root]`: invoke the reconciler; writes `.paqad/module-map/drift.json` and prints a JSON summary.
+- `scripts/has-findings.sh [project-root]`: exit 0 if findings exist, 1 if clean, 2 if blocked (`source_roots_unknown`), 3 if drift.json is missing. Prints the count.
+- `scripts/is-blocked.sh [project-root]`: exit 1 with the blocked reason on stdout when the reconciler is blocked.
+- `scripts/count-by-code.sh [project-root]`: sorted `MM-CODE: N` lines for use in the `## Reconciliation Findings` block.
+- `scripts/filter-by-code.sh <MM-CODE> [project-root]`: JSON array of findings for a specific code.
 
 ## Assets
 
-- `assets/templates/findings-summary.md` — markdown template for the `## Reconciliation Findings` + `## Pending User Decisions` output blocks.
+- `assets/templates/findings-summary.md`: markdown template for the `## Reconciliation Findings` + `## Pending User Decisions` output blocks.
 
 ## Resources
 
-- `runtime/base/skills/module-map-reconciler/references/source-roots-contract.md` — the source_roots requirement.
-- `runtime/base/skills/module-map-reconciler/agents/openai.yaml` — agent interface metadata.
-- `src/module-map/reconciler.ts` — detection engine.
-- `src/module-decisions/apply.ts` — atomic apply path (only writer of `module-map.yml`).
-- `runtime/base/skills/documentation-workflow/scripts/list-orphan-module-dirs.sh` — back-compat orphan detector promoted into `MM-DOC-ORPHAN`.
-- the Decision Pause Contract (in the framework bootstrap) — packet semantics.
+- `references/source-roots-contract.md`: the source_roots requirement.
+- `runtime/base/skills/module-map-reconciler/agents/openai.yaml`: agent interface metadata.
+- `src/module-map/reconciler.ts`: detection engine.
+- `src/module-decisions/apply.ts`: atomic apply path (only writer of `module-map.yml`).
+- `runtime/base/skills/documentation-workflow/scripts/list-orphan-module-dirs.sh`: back-compat orphan detector promoted into `MM-DOC-ORPHAN`.
+- the Decision Pause Contract (in the framework bootstrap): packet semantics.

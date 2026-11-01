@@ -43,4 +43,4 @@ Recommend deletion or splitting into a separate, explicitly out-of-scope story.
 
 ## When in doubt
 
-If a step is genuinely ambiguous, do not guess — emit it under `Open Questions` with a one-line description of the ambiguity. Do not invent justification for keeping or dropping a step.
+If a step is genuinely ambiguous, do not guess: emit it under `Open Questions` with a one-line description of the ambiguity. Do not invent justification for keeping or dropping a step.

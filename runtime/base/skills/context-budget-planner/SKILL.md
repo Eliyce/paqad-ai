@@ -1,6 +1,6 @@
 ---
 name: context-budget-planner
-description: Estimate the implementation phase's token footprint from spec, test plan, and affected files; recommend compaction before context starvation.
+description: "Estimates the implementation phase's token footprint from spec, test plan and affected files, and recommends compaction before context runs out. Use when a graduated or full lane change moves from planning to implementation."
 metadata:
   model_tier: fast
   cacheable: 'false'
@@ -16,7 +16,7 @@ The point is to catch starvation before it happens, not after compaction has alr
 
 ## Use This When
 
-Use this once at the boundary between planning and implementation in the graduated and full lanes — after acceptance criteria and test plan exist, before the first source file is opened. Skip in the fast lane; the overhead is not justified for low-complexity work.
+Once at the boundary between planning and implementation in the graduated and full lanes: after acceptance criteria and test plan exist, before the first source file is opened. Skip in the fast lane; the overhead is not justified for low-complexity work.
 
 ## Inputs
 
@@ -29,7 +29,7 @@ Use this once at the boundary between planning and implementation in the graduat
 
 1. Determine the project's model context window (from project profile) and committed tokens (default 200000 / 30000 if not declared).
 2. Pick per-line weights from `references/budget-heuristics.md` (or `assets/weights.default.txt` if the project has none yet).
-3. Pipe `<weight> <path>` rows into `scripts/estimate-tokens.sh --available <N> --committed <N>` — it line-counts, multiplies, sums, picks the tier, and emits the markdown block.
+3. Pipe `<weight> <path>` rows into `scripts/estimate-tokens.sh --available <N> --committed <N>`: it line-counts, multiplies, sums, picks the tier, and emits the markdown block.
 4. When the script reports Amber or Red, fill the compaction list using the priority order from `references/budget-heuristics.md`.
 5. Validate the final output with `scripts/lint-output.sh`.
 
@@ -42,7 +42,7 @@ Use this once at the boundary between planning and implementation in the graduat
 ## Escalate / Stop Conditions
 
 - Ask when the project profile declares no model context window and the default would clearly overcommit.
-- Warn when `Tier: red` is reached even after applying every available compaction — implementation should be split into smaller stories rather than starting with no headroom.
+- Warn when `Tier: red` is reached even after applying every available compaction: implementation should be split into smaller stories rather than starting with no headroom.
 - Do not recommend evicting the active spec, the rules constitution, the project profile, or the active decision packet under any tier.
 
 ## Resources

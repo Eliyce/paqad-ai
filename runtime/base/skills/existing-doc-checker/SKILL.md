@@ -1,6 +1,6 @@
 ---
 name: existing-doc-checker
-description: Inspect canonical docs and registries before new artifacts are written.
+description: 'Inspects canonical docs and registries before new artifacts are written. Use when creating or rewriting docs, plans or implementation notes and the project may already hold a canonical source.'
 metadata:
   model_tier: medium
   cacheable: 'true'
@@ -14,7 +14,7 @@ Finds the canonical docs, registries, and previously generated artifacts that al
 
 ## Use This When
 
-Use this before creating or rewriting docs, plans, or implementation notes whenever there is any chance the project already has a canonical source for the topic.
+Before creating or rewriting docs, plans, or implementation notes whenever there is any chance the project already has a canonical source for the topic.
 
 ## Inputs
 
@@ -24,7 +24,7 @@ Use this before creating or rewriting docs, plans, or implementation notes whene
 
 ## Procedure
 
-1. Walk surfaces in the order in `assets/scan-order.txt` — registries / module indexes first, then per-module support docs.
+1. Walk surfaces in the order in `assets/scan-order.txt`: registries / module indexes first, then per-module support docs.
 2. Pipe topic keywords into `scripts/scan-docs.sh <keyword> ...` to enumerate canonical doc hits.
 3. Classify each hit as canonical, drifted, or missing based on freshness and stated ownership.
 4. Format per `assets/output.template.md`; validate with `scripts/lint-output.sh`.

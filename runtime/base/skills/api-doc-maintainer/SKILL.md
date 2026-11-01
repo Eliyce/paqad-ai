@@ -1,6 +1,6 @@
 ---
 name: api-doc-maintainer
-description: Maintains per-module API documentation after endpoint changes
+description: 'Maintains per-module API documentation. Use when a change adds, removes or modifies endpoints, payloads, auth rules or API error behavior.'
 metadata:
   model_tier: medium
   max_lines: '200'
@@ -15,7 +15,7 @@ Keeps per-module API docs accurate after endpoint changes by updating routes, sc
 
 ## Use This When
 
-Use this after any implementation or design change that adds, removes, or modifies endpoints, payloads, auth rules, or API error behavior.
+After any implementation or design change that adds, removes, or modifies endpoints, payloads, auth rules, or API error behavior.
 
 ## Inputs
 
@@ -27,7 +27,7 @@ Use this after any implementation or design change that adds, removes, or modifi
 
 1. Run `scripts/find-api-docs.sh` to enumerate the canonical per-module API doc paths that already exist.
 2. Identify endpoints whose request, response, auth, permission, or error behavior changed.
-3. Update or add endpoint entries using `assets/endpoint-entry.template.md` — fill every required field; never ship a partial entry.
+3. Update or add endpoint entries using `assets/endpoint-entry.template.md`: fill every required field; never ship a partial entry.
 4. Update schemas and error codes in the same pass; cross-link new errors to the module error catalog.
 5. Verify documented auth, versioning, and rate-limit statements still match implementation.
 6. Format the report per `assets/output.template.md` and validate with `scripts/lint-output.sh`.

@@ -10,7 +10,7 @@ The reconciler refuses to run unless the active stack pack declares
   reconciler falls back to it, it can never detect undeclared modules
   (the entire purpose of `MM-ADD`).
 - A user who has not configured `module_health.source_roots` has
-  implicitly opted out of reconciliation — surfacing the missing config is
+  implicitly opted out of reconciliation: surfacing the missing config is
   the right user-facing signal.
 
 ## Shape
@@ -56,4 +56,4 @@ array), it writes the following report and exits:
 
 Callers (`paqad-ai status`, `paqad-ai refresh`,
 `feature-development.documentation_sync`) treat the `blocked` field as a
-hard signal — they do not retry with a guessed source_roots.
+hard signal: they do not retry with a guessed source_roots.

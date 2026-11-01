@@ -1,6 +1,6 @@
 ---
 name: documentation-workflow
-description: Run the post-onboarding documentation creation workflow using the canonical tracker and the current application manifests. Supports two stages — foundation (docs/instructions/** and module-map.yml) and module-docs (docs/modules/** from reviewed map).
+description: 'Runs the post-onboarding documentation workflow from the canonical tracker and the application manifests, in two stages: foundation (docs/instructions and module-map.yml) and module docs (docs/modules from the reviewed map). Use when instruction docs need creating or refreshing, or when the user has reviewed module-map.yml.'
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -12,10 +12,10 @@ metadata:
 
 Runs the two-stage post-onboarding documentation workflow.
 
-**Stage 1 — Foundation (`create documentation`)**
+**Stage 1, Foundation (`create documentation`)**
 Generates `docs/instructions/**` (stack, architecture, design-system, registries, benchmarks, tech-debt) and writes `docs/instructions/rules/module-map.yml`. Module docs are explicitly deferred until the user reviews the map.
 
-**Stage 2 — Module documentation (`create module documentation`)**
+**Stage 2, Module documentation (`create module documentation`)**
 Reads `docs/instructions/rules/module-map.yml` as the sole authority for module and feature names, then generates `docs/modules/**`. Refuses to run if the map is absent.
 
 ## Use This When
@@ -28,7 +28,7 @@ Reads `docs/instructions/rules/module-map.yml` as the sole authority for module 
 - Read `.paqad/project-profile.yaml`, `.paqad/detection-report.json`, and `.paqad/doc-progress.json` if they exist.
 - For Stage 2: require `docs/instructions/rules/module-map.yml`. Refuse if absent.
 
-## Procedure — Stage 1 (foundation)
+## Procedure: Stage 1 (foundation)
 
 1. Validate the effective stack and capabilities against current manifests.
 2. Recover any interrupted tracker entries still marked in-progress.
@@ -46,9 +46,9 @@ Review and verify the module and feature names first. After the map is correct, 
 
 If any modules have low confidence, call them out explicitly in the final message.
 
-## Procedure — Stage 2 (module-docs)
+## Procedure: Stage 2 (module-docs)
 
-1. Run `scripts/check-stage2-prereq.sh` — exits non-zero (with the canonical refusal message) if `docs/instructions/rules/module-map.yml` is missing.
+1. Run `scripts/check-stage2-prereq.sh`: exits non-zero (with the canonical refusal message) if `docs/instructions/rules/module-map.yml` is missing.
 2. Read the map as the sole authority. Do not run discovery as a substitute.
 3. Generate or update `docs/modules/{slug}/index/summary.md`, `docs/modules/{slug}/features/{featureSlug}/business.md`, `docs/modules/{slug}/features/{featureSlug}/technical.md`, and existing module support docs (database, api, integration, ui, error-catalog).
 4. Update registries using map slugs, not raw folder names.
@@ -67,7 +67,7 @@ If any modules have low confidence, call them out explicitly in the final messag
 - Stop Stage 2 immediately if `module-map.yml` is missing.
 - Ask when manifests and the stored onboarding profile disagree on stack or capability context.
 - Do not skip a stage silently because a partial doc already exists.
-- Do not invent module names when the map is present — use the map.
+- Do not invent module names when the map is present, use the map.
 
 ## Resources
 

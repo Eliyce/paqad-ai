@@ -2,7 +2,7 @@
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
-Purpose: Stage 2 prerequisite check — ensure module-map.yml exists.
+Purpose: Stage 2 prerequisite check: ensure module-map.yml exists.
 Usage:   bash scripts/check-stage2-prereq.sh
 Output:  "ok" when present; otherwise the canonical refusal message on stderr.
 USAGE

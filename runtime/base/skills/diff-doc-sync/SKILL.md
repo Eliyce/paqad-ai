@@ -1,6 +1,6 @@
 ---
 name: diff-doc-sync
-description: Identify only the canonical docs made stale by the current diff.
+description: 'Lists only the canonical docs the current diff made stale. Use when implementation or validation is done, the changed files are known, and only the stale doc set is needed.'
 metadata:
   model_tier: fast
   cacheable: 'true'
@@ -14,7 +14,7 @@ Narrows documentation follow-up to only the canonical docs made stale by the cur
 
 ## Use This When
 
-Use this after implementation or validation when you already know which files changed and only want the stale canonical documentation set.
+After implementation or validation when you already know which files changed and only want the stale canonical documentation set.
 
 ## Inputs
 
@@ -23,10 +23,10 @@ Use this after implementation or validation when you already know which files ch
 
 ## Procedure
 
-1. Pipe the changed file list into `scripts/detect-stale-docs.sh` — it cross-references against existing canonical docs and emits candidate paths.
+1. Pipe the changed file list into `scripts/detect-stale-docs.sh`: it cross-references against existing canonical docs and emits candidate paths.
 2. Drop any paths that `references/diff-sync-rules.md` declares safe to skip in this scenario.
 3. Format as a JSON array exactly matching `assets/output.template.json` (sorted, duplicate-free).
-4. Validate with `scripts/lint-output.sh` — it enforces JSON shape, sortedness, dedupe, and `.md` suffix.
+4. Validate with `scripts/lint-output.sh`: it enforces JSON shape, sortedness, dedupe, and `.md` suffix.
 
 ## Output Contract
 

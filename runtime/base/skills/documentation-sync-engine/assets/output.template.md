@@ -4,23 +4,23 @@ Stale Doc Set: Detected: {{N}} | Routed: {{M}} | Skipped (target_domains filter)
 
 ### api
 
-- `{{path}}` — {{what changed}}
+- `{{path}}`: {{what changed}}
 
 ### integration
 
-- `{{path}}` — {{what changed}}
+- `{{path}}`: {{what changed}}
 
 ### error
 
-- `{{path}}` — {{what changed}}
+- `{{path}}`: {{what changed}}
 
 ### glossary
 
-- `{{path}}` — {{what changed}}
+- `{{path}}`: {{what changed}}
 
 ### canonical
 
-- `{{path}}` — {{what changed}}
+- `{{path}}`: {{what changed}}
 
 Known Drift: {{none | bulleted list with backticked paths}}
 

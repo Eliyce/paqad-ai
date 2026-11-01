@@ -20,7 +20,7 @@ esac
 code="$1"
 root="${2:-$PWD}"
 path="$root/.paqad/module-map/drift.json"
-[ -f "$path" ] || { printf 'drift.json missing — run `paqad-ai module-map reconcile`\n' >&2; exit 2; }
+[ -f "$path" ] || { printf 'drift.json missing; run `paqad-ai module-map reconcile`\n' >&2; exit 2; }
 
 CODE="$code" node -e '
 const fs = require("fs");

@@ -1,6 +1,6 @@
 ---
 name: integration-doc-maintainer
-description: Maintains cross-module integration documentation
+description: 'Maintains cross-module integration documentation. Use when a request affects published or consumed events, background jobs, external service contracts or any cross-module dependency.'
 metadata:
   model_tier: medium
   max_lines: '200'
@@ -15,7 +15,7 @@ Maintains cross-module integration docs by documenting events, jobs, contracts, 
 
 ## Use This When
 
-Use this when a request affects published events, consumed events, background jobs, external service contracts, or any cross-module dependency.
+When a request affects published events, consumed events, background jobs, external service contracts, or any cross-module dependency.
 
 ## Inputs
 

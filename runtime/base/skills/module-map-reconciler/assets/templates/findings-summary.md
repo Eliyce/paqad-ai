@@ -18,6 +18,6 @@ Fill `## Reconciliation Findings` from `count-by-code.sh` output and
 
 ## Pending User Decisions
 
-<!-- One bullet per surfaced Decision Pause packet — question + selected option. -->
+<!-- One bullet per surfaced Decision Pause packet: question + selected option. -->
 
-- **{{question}}** — {{selected_option}}
+- **{{question}}**: {{selected_option}}
