@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "expert-notes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:2bdbb337592d4f9012e98184bb0dc408e78901f436058616e167dbb45595b731",
+  "folder_hash": "sha256:df3c429eb01058b3715d2b034ee188fa3a2aad1b349efe589c9c1b052603283c",
   "baseline": {
     "runs": 3,
     "passed": null,
     "verdict": "needed"
   },
   "sources": {
-    "count": 12,
-    "non_model": 12,
+    "count": 10,
+    "non_model": 10,
     "kind": "repo"
   },
   "lint": {
@@ -25,22 +25,22 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 4,
-    "pass_rate_with": 0.6528,
-    "pass_rate_without": 0.5028,
-    "delta_points": 15,
-    "token_multiple": 1.558,
+    "iterations": 1,
+    "pass_rate_with": 0.7778,
+    "pass_rate_without": 0.5,
+    "delta_points": 27.78,
+    "token_multiple": 1.257,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
     ],
-    "claude_version": "2.1.302",
+    "claude_version": "2.1.316",
     "checks_not_measured": [],
     "source": "subagent-dispatch"
   },
   "trigger": {
     "validation_score": 1,
-    "description_chars": 680,
+    "description_chars": 821,
     "batch": "not-offered"
   },
   "performance": {
@@ -49,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.4066,
+    "S6": 4.8453,
     "source": "host-usage"
   },
   "overrides": [],
