@@ -25,7 +25,10 @@ When several tool calls don't depend on each other, make them in the same turn.
 
 ## Report
 
-Findings as `{ target, claim, kind, severity, evidence? }` plus the questions for the owner, at most 1500 tokens.
+One JSON object in the expert-notes shape, at most 1500 tokens: `{ "notes": [ { "role": "agent-orchestrator", "findings": [ { target, claim, kind, severity, evidence? } ], "questions": [ { business_text, why_it_matters, options, grounded_in } ] } ], "tokens": { "agent-orchestrator": <n> } }`. `kind` is requirement, invariant, acceptance, risk or non-goal; `severity` is must, should or could; the `tokens` key is always present.
+
+- Name the agent the request adds as `new <name> agent`, and each installed agent by its file name.
+- When the request touches no agent, return exactly one finding: kind `non-goal`, target `this request`, claim `no agent concerns: <one reason>`, and no questions.
 
 Status: DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT or BLOCKED
 
