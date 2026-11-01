@@ -179,9 +179,14 @@ host are ignored. The workspace is `.paqad/tmp/authoring/agents/<name>/` and the
 
 Hashes bind the agent text and the hook scripts it names, not their paths, so a permission
 approved on the draft copy still holds on the released file and an edit to either needs a rerun.
-Release writes the Claude Code Markdown and the Codex TOML from one source; a host that runs no
-subagents, or a form that would drop a tool restriction or blocking hook the agent relies on, gets
-no file and is recorded `deployable: false` with a skill proposed. A plugin agent moves its
+Release writes the Claude Code Markdown and the Codex TOML from one source, at paths built from
+the validated agent name; it refuses a draft whose frontmatter `name` differs from it, and AG-001
+blocks a name outside the lowercase-hyphen pattern. A host that runs no subagents, or a form that
+would drop a tool restriction or blocking hook the agent relies on, gets no file and is recorded
+`deployable: false` with a skill proposed. The Codex form has no field for a `tools` list or
+`disallowedTools`, so an agent that sets either is not written for Codex. The S4 and S7 lint of
+the draft scans and hashes the draft copies of the hook scripts, the ones release writes. The
+performance block in `evidence.json` is measured on the registered tier and names it. A plugin agent moves its
 must-not rules to SubagentStart and SubagentStop settings hooks. The end-of-change check needs a
 passed or overridden `agent-<name>.json` whose file hash matches each changed agent file (or the
 agent whose hook script changed), and names an agent whose power approval has expired.

@@ -55,8 +55,10 @@ The delegation hook writes one line per Agent or Task call and per SubagentStop 
 `.paqad/ledger/authoring/delegations.jsonl`. It records metadata only: the agent name, request
 and session ids, time, tokens, duration and status, never the prompt or the report. The ledger
 folder is git-ignored, so each machine keeps its own log. The hook runs on Claude Code only,
-prints nothing and never blocks. `agent catalog` reads it to show each agent's last use and the
-agents nobody has called.
+prints nothing and never blocks. Past 1 MB it compacts the log under a `.lock` file: it moves
+the log aside, keeps the rows inside twice the dark window, and carries over any row written
+during the compaction; when another run holds the lock it skips the compaction. `agent catalog`
+reads it to show each agent's last use and the agents nobody has called.
 
 ## The cheaper Explore offer
 
