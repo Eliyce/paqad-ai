@@ -1,6 +1,6 @@
 ---
 name: workflow-router
-description: Match raw prompts to canonical framework workflows before any pipeline phases begin.
+description: 'Matches raw prompts to canonical framework workflows before any pipeline phase begins. Use when any request comes in, first; with no matching rule it returns no workflow match.'
 metadata:
   model_tier: fast
   cacheable: 'true'
@@ -14,7 +14,7 @@ Routes the incoming request into one canonical workflow before the pipeline star
 
 ## Use This When
 
-Use this first for every incoming request. If no routing rule matches, stop and return no workflow match instead of guessing.
+First for every incoming request. If no routing rule matches, stop and return no workflow match instead of guessing.
 
 ## Inputs
 
@@ -24,7 +24,7 @@ Use this first for every incoming request. If no routing rule matches, stop and 
 
 ## Procedure
 
-1. Pipe the raw request into `scripts/route-request.sh` — it lowercase-normalizes, walks `assets/routing-rules.txt` (priority ordered, longest-pattern tiebreak), and emits the YAML decision.
+1. Pipe the raw request into `scripts/route-request.sh`: it lowercase-normalizes, walks `assets/routing-rules.txt` (priority ordered, longest-pattern tiebreak), and emits the YAML decision.
 2. When a rule targets `custom:{workflow-name}`, the LLM confirms the template exists before returning it (script does not).
 3. Validate with `scripts/lint-output.sh`.
 

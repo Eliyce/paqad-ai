@@ -1,6 +1,6 @@
 ---
 name: rule-script-runner
-description: Executes the registered rule scripts diff-scoped during feature-development.checks, aggregates findings into .paqad/scripts/rules/.cache/report.json with hash-cache invalidation, and decides whether the checks stage is blocked. No LLM — the TS engine is src/rule-scripts/runner.ts; this skill is the thin agent-side wrapper invoked from the checks stage. deterministic findings block under mode:strict; heuristic findings route to the review stage and never block.
+description: 'Runs the registered rule scripts on the diff during feature-development checks, aggregates findings into the rules report with a hash cache, and decides whether checks is blocked: deterministic findings block under strict mode, heuristic ones go to review. Use when the checks stage runs with rule_compliance in warn or strict mode.'
 metadata:
   model_tier: fast
   cacheable: 'false'
@@ -14,7 +14,7 @@ During `feature-development.checks`, runs every script registered in `docs/instr
 
 - `deterministic` findings → block the `checks` stage under `mode: strict`.
 - `heuristic` findings → informational; routed to the `review` stage alongside `adversarial-review`. They never block.
-- A script declaring `requires.binaries` that are missing emits a clean "missing dependency" result and is skipped — it never crashes the stage.
+- A script declaring `requires.binaries` that are missing emits a clean "missing dependency" result and is skipped: it never crashes the stage.
 
 Results are written to `.paqad/scripts/rules/.cache/report.json`, hash-cached on `rule_files_hash × script_files_hash × target_files_hash` so unchanged inputs re-use the cached report.
 
@@ -49,12 +49,12 @@ Results are written to `.paqad/scripts/rules/.cache/report.json`, hash-cached on
 ## Escalate / Stop Conditions
 
 - Under `mode: strict`, stop the `checks` stage on any `deterministic` finding.
-- Never block on `heuristic` findings — they inform `review` only.
+- Never block on `heuristic` findings: they inform `review` only.
 - A missing declared binary is reported and the single script skipped; the stage is never crashed by it.
 - If `rule-script-map.yml` is absent, the runner returns an empty, non-blocking report.
 
 ## Resources
 
-- `runtime/base/skills/rule-script-runner/references/run-contract.md` — mode + exit-code + diff-scope contract.
-- `runtime/base/skills/rule-script-runner/agents/openai.yaml` — agent interface metadata.
-- `src/rule-scripts/runner.ts` — the execution + aggregation + hash-cache engine.
+- `references/run-contract.md`: mode + exit-code + diff-scope contract.
+- `runtime/base/skills/rule-script-runner/agents/openai.yaml`: agent interface metadata.
+- `src/rule-scripts/runner.ts`: the execution + aggregation + hash-cache engine.

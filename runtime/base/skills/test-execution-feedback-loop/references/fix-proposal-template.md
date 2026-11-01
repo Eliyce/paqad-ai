@@ -1,11 +1,11 @@
 # Fix Proposal Template
 
-When the verifier reports a failing test, every proposed fix must include the following fields. The template enforces evidence-anchored proposals — no speculation without anchors.
+When the verifier reports a failing test, every proposed fix must include the following fields. The template enforces evidence-anchored proposals: no speculation without anchors.
 
 ## Required fields per failure
 
 ```markdown
-### Failure {N} — {failures[N].test_id}
+### Failure {N}: {failures[N].test_id}
 
 - **AC:** {failures[N].ac_id or "untraced"}
 - **Failure category:** {test-failure | test-error | test-timeout | gate-failure}
@@ -19,9 +19,9 @@ When the verifier reports a failing test, every proposed fix must include the fo
 
 ## Confidence calibration
 
-- **`high`** — the failure is `test-failure` (assertion mismatch), the AC is known, the implementation file is in the change set, and the proposed fix is a one-line change.
-- **`medium`** — the failure is `test-failure`, but the proposed fix touches multiple files or the AC is untraced.
-- **`low`** — the failure is `test-error` or `test-timeout`, the implementation file is not in the change set, or the root-cause requires inspecting code outside the diff.
+- **`high`**: the failure is `test-failure` (assertion mismatch), the AC is known, the implementation file is in the change set, and the proposed fix is a one-line change.
+- **`medium`**: the failure is `test-failure`, but the proposed fix touches multiple files or the AC is untraced.
+- **`low`**: the failure is `test-error` or `test-timeout`, the implementation file is not in the change set, or the root-cause requires inspecting code outside the diff.
 
 When confidence is `low`, the proposal must end with `Recommend: defer to human` and not be auto-applied.
 

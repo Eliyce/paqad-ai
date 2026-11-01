@@ -1,6 +1,6 @@
 ---
 name: scope-check
-description: Validate that requested work stays inside the active spec boundary.
+description: 'Checks that requested work stays inside the active spec boundary. Use when an implementation, refactor or bug fix could quietly grow past the approved story or solution.'
 metadata:
   model_tier: fast
   cacheable: 'false'
@@ -14,7 +14,7 @@ Checks whether the requested change is already authorized by the active spec so 
 
 ## Use This When
 
-Use this before implementation, refactors, or bug fixes that could quietly expand scope beyond the approved story or solution artifact.
+Before implementation, refactors, or bug fixes that could quietly expand scope beyond the approved story or solution artifact.
 
 ## Inputs
 
@@ -24,7 +24,7 @@ Use this before implementation, refactors, or bug fixes that could quietly expan
 
 ## Procedure
 
-1. Run `scripts/check-spec-presence.sh` — exit 1 means immediately classify as `blocked-no-spec` and stop.
+1. Run `scripts/check-spec-presence.sh`: exit 1 means immediately classify as `blocked-no-spec` and stop.
 2. Extract requested behavior change, modules, and constraints from the request.
 3. Compare against the active spec artifacts only (no inferred memory, no informal context).
 4. Pick a decision from `assets/decision-vocabulary.txt` (`within-scope | extension-needed | blocked-no-spec`).

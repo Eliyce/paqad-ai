@@ -2,7 +2,7 @@
 
 The rubric the rule-analyzer applies to every rule under `docs/instructions/rules/**`.
 
-## Step 1 — already enforced?
+## Step 1: already enforced?
 
 Before classifying verifiability, check whether an existing tool already enforces the rule. If so, record it in `enforced_by` and generate **no** script (avoids double-enforcement and check-stage bloat).
 
@@ -17,7 +17,7 @@ Before classifying verifiability, check whether an existing tool already enforce
 
 When `enforced_by` is non-empty, leave `scripts: []` and do not generate.
 
-## Step 2 — verifiability
+## Step 2: verifiability
 
 | Kind            | Test                                                                                         | Examples                                                                                 |
 | --------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ When `enforced_by` is non-empty, leave `scripts: []` and do not generate.
 
 Bias toward `unverifiable` (with a reason) over a brittle script. A bad deterministic script that over-flags is worse than an honest "unverifiable".
 
-## Step 3 — conflict pass
+## Step 3: conflict pass
 
 Scan all rules for direct contradictions before writing the map. Classic example:
 

@@ -1,6 +1,6 @@
 ---
 name: rollback-safety-planner
-description: For each story with hard reversibility or wide blast radius, draft an executable rollback procedure before the story leaves planning.
+description: 'Drafts an executable rollback procedure for each story with hard reversibility or wide blast radius before it leaves planning. Use when the story designer has emitted its plan in the graduated or full lanes, and always for migrations.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -12,11 +12,11 @@ metadata:
 
 Reads the story plan and selects every story tagged `reversibility: hard` or `blast-radius: wide`. For each, drafts a concrete rollback procedure: trigger condition, time-to-rollback target, step list executable by the on-call without consulting the original implementer, forward-only recovery notes when applicable, and a drill plan.
 
-The point is to prevent surprised rollback failures during incidents — an explicit procedure is required before any high-cost story can be marked ready.
+The point is to prevent surprised rollback failures during incidents: an explicit procedure is required before any high-cost story can be marked ready.
 
 ## Use This When
 
-Use this immediately after the story-designer emits its plan in the graduated and full lanes. Skip stories where reversibility is `easy` and blast-radius is `isolated`. Always run for migration workflows.
+Immediately after the story-designer emits its plan in the graduated and full lanes. Skip stories where reversibility is `easy` and blast-radius is `isolated`. Always run for migration workflows.
 
 ## Inputs
 
@@ -31,19 +31,19 @@ Use this immediately after the story-designer emits its plan in the graduated an
 2. For each selected story, draft a procedure with every field in `assets/required-fields.txt` (Trigger, Time-to-rollback, Steps, Verification, Forward-only, Drill).
 3. Feature-flag rollouts: list the flag name as step 1; confirm the flag exists in the project's flag registry, never invent one.
 4. Data migrations: describe forward-only recovery explicitly and call out permanently-lost data.
-5. Every step must be idempotent and verifiable — declare the post-step check inline.
+5. Every step must be idempotent and verifiable: declare the post-step check inline.
 6. Format per `assets/output.template.md`; validate with `scripts/lint-output.sh`.
 
 ## Output Contract
 
-- Match `assets/output.template.md`: `## Rollback Plans`, per-story `### S-N — name` with the 6 required fields, and a `Coverage:` footer.
+- Match `assets/output.template.md`: `## Rollback Plans`, per-story `### S-N: name` with the 6 required fields, and a `Coverage:` footer.
 - When no stories require a rollback plan, output the literal `Rollback Plans: none required (all stories have easy reversibility and isolated blast radius).`
 - Output must pass `scripts/lint-output.sh` (exit 0).
 
 ## Escalate / Stop Conditions
 
 - Ask when a story implies operational machinery (kill switch, blue/green deployment, traffic shift) that the project profile does not declare available.
-- Warn when a step would require the original implementer's tacit knowledge — rewrite until the on-call can run it cold.
+- Warn when a step would require the original implementer's tacit knowledge: rewrite until the on-call can run it cold.
 - Warn when "restore from backup" is proposed without a stated Recovery Point Objective and a verified backup retention window.
 - Do not mark a procedure complete if any field in the template is left unfilled.
 

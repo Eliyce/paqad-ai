@@ -1009,7 +1009,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         "type": "path[]",
       },
       "grounding_terms": {
-        "description": "The S0 grounding vocabulary (glossary + module-doc headings) — the first-priority wording source.",
+        "description": "The S0 grounding vocabulary (glossary + module-doc headings), the first-priority wording source.",
         "required": false,
         "type": "string[]",
       },
@@ -1506,7 +1506,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         "type": "path",
       },
       "test_command": {
-        "description": "The project's mapped \`commands.test\` — the parallel command must build on it.",
+        "description": "The project's mapped \`commands.test\`; the parallel command must build on it.",
         "required": true,
         "type": "string",
       },

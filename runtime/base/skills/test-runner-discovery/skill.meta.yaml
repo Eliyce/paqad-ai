@@ -10,4 +10,4 @@ input_schema:
   test_command:
     type: string
     required: true
-    description: The project's mapped `commands.test` — the parallel command must build on it.
+    description: The project's mapped `commands.test`; the parallel command must build on it.

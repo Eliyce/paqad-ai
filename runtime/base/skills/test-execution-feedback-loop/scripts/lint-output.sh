@@ -13,7 +13,9 @@ elif [ -f "$1" ]; then body=$(cat "$1")
 else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
-if grep -qE '^Fix Proposals: none — verification passed\.$' <<<"$body"; then
+# The em dash form is still accepted from older output; the documented line uses a comma.
+em=$'\xe2\x80\x94'
+if grep -qE "^Fix Proposals: none(,| ${em}) verification passed\\.\$" <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 

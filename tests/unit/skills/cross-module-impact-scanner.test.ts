@@ -99,6 +99,13 @@ describe('cross-module-impact-scanner', () => {
       expect(r.status).toBe(0);
     });
 
+    it('passes the internal-only short-circuit line in the documented comma form', () => {
+      const r = runScript(path, [], {
+        input: 'Cross-Module Impact: internal-only, no consumers affected.\n',
+      });
+      expect(r.status).toBe(0);
+    });
+
     it('passes a valid Impact Map block with allowed severity tokens', () => {
       const ok = [
         '## Cross-Module Impact',

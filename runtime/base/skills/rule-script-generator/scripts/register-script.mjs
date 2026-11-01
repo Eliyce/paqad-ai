@@ -37,7 +37,7 @@ if (!header.ok || !fixtures.passed) {
 
 const map = loadRuleScriptMap(projectRoot);
 if (!map) {
-  process.stderr.write('rule-script-map.yml not found — run `analyze rules` first.\n');
+  process.stderr.write('rule-script-map.yml not found; run `analyze rules` first.\n');
   process.exit(1);
 }
 

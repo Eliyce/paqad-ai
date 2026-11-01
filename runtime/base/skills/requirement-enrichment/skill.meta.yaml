@@ -11,7 +11,7 @@ input_schema:
   grounding_terms:
     type: string[]
     required: false
-    description: The S0 grounding vocabulary (glossary + module-doc headings) — the first-priority wording source.
+    description: The S0 grounding vocabulary (glossary + module-doc headings), the first-priority wording source.
   grounding_references:
     type: path[]
     required: false

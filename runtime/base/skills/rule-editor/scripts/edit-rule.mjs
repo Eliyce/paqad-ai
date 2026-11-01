@@ -29,7 +29,7 @@ if (!mode || !projectRoot) {
 function applyMapMutation(mutate, ruleId, action, note) {
   const map = loadRuleScriptMap(projectRoot);
   if (!map) {
-    fail('rule-script-map.yml not found — run `analyze rules` first.');
+    fail('rule-script-map.yml not found; run `analyze rules` first.');
   }
   const next = mutate(map);
   return applyRuleScriptMap({

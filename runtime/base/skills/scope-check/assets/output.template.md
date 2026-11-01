@@ -1,10 +1,10 @@
 ## Scope Decision
 
-{{within-scope | extension-needed | blocked-no-spec}} — {{one-line justification}}
+{{within-scope | extension-needed | blocked-no-spec}}, {{one-line justification}}
 
 ## Spec Evidence
 
-- `{{spec-path.md}}` — {{exact line / criterion / passage that supports the decision}}
+- `{{spec-path.md}}`: {{exact line / criterion / passage that supports the decision}}
 
 ## Required Next Step
 

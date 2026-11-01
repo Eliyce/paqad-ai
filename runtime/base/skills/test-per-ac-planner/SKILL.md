@@ -1,6 +1,6 @@
 ---
 name: test-per-ac-planner
-description: Map acceptance criteria to specific verification actions.
+description: 'Maps acceptance criteria to specific verification actions. Use when acceptance criteria exist and coding or handoff has not started, above all when work spans several layers.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Maps each acceptance criterion to the narrowest useful verification path so impo
 
 ## Use This When
 
-Use this after acceptance criteria exist and before coding or handoff, especially when the work spans multiple layers or mixes automated and manual verification.
+After acceptance criteria exist and before coding or handoff, especially when the work spans multiple layers or mixes automated and manual verification.
 
 ## Inputs
 
