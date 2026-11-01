@@ -25,6 +25,8 @@ CLI:
 
 stdout: {"ok", "issues": [{"code", "path", "message", "suggestion"}]}. Exit 0 clean, 1 on any
 finding.
+
+Run with --help to print the usage.
 """
 
 import argparse

@@ -1,6 +1,6 @@
 ---
 name: understand-idea
-description: "Chat and Claude Code: Step 1 of the discover journey, run by discover and not started directly: clarifies the goal, who benefits, success and constraints into the idea block."
+description: "Chat and Claude Code: Step 1 of the discover journey: clarifies the goal, who benefits, success and constraints into the idea block. Use when discover runs step 1, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

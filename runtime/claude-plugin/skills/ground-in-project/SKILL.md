@@ -1,6 +1,6 @@
 ---
 name: ground-in-project
-description: "Chat and Claude Code: Step 2 of the discover journey, run by discover and not started directly: records what exists today for the idea from the project's documents and code, with sources."
+description: "Chat and Claude Code: Step 2 of the discover journey: records what exists today for the idea from the project's documents and code, with sources. Use when discover runs step 2, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

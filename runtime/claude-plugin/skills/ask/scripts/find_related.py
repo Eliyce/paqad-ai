@@ -15,6 +15,8 @@ CLI:
 stdout: a JSON list of {"module", "plain_name", "score", "matched_terms"}. Exit 0 on success,
 1 when the registry is missing or unreadable, or when the modules folder is missing or holds no
 module summary, 2 on a usage error.
+
+Run with --help to print the usage.
 """
 
 import argparse
