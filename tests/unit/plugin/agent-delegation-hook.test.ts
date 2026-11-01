@@ -1,5 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import * as nodeFs from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -7,6 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   agentNameFromPayload,
+  compactDelegations,
   delegationFromPayload,
   pruneDelegationText,
 } from '../../../runtime/hooks/lib/agent-delegation-core.mjs';
@@ -109,6 +120,76 @@ describe('the delegation core', () => {
     );
     expect(pruneDelegationText(text, now, 30)).toBe(`${keep}\n`);
     expect(pruneDelegationText('', now, 30)).toBe('');
+  });
+});
+
+describe('INV-9, AC-11: compacting the delegation ledger under concurrent appends', () => {
+  const now = new Date('2026-10-31T00:00:00.000Z');
+  const old = JSON.stringify({ agent: 'old', at: '2026-01-01T00:00:00.000Z' });
+  const recent = JSON.stringify({ agent: 'recent', at: '2026-10-30T00:00:00.000Z' });
+
+  function ledgerFile(): string {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-delegation-compact-'));
+    roots.push(root);
+    const file = join(root, 'delegations.jsonl');
+    writeFileSync(file, `${old}\n${recent}\n`);
+    return file;
+  }
+
+  function agents(file: string): string[] {
+    return readFileSync(file, 'utf8')
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => (JSON.parse(line) as { agent: string }).agent)
+      .sort();
+  }
+
+  it('INV-9: keeps a line a hook writes to the old file after the read and one it writes to the new file', () => {
+    const file = ledgerFile();
+    let reads = 0;
+    const racing = {
+      ...nodeFs,
+      readSync: (...args: Parameters<typeof nodeFs.readSync>) => {
+        const read = nodeFs.readSync(...args);
+        reads += 1;
+        if (reads === 1) {
+          appendFileSync(
+            `${file}.compacting`,
+            `${JSON.stringify({ agent: 'late-old-inode', at: now.toISOString() })}\n`,
+          );
+          appendFileSync(
+            file,
+            `${JSON.stringify({ agent: 'late-new-file', at: now.toISOString() })}\n`,
+          );
+        }
+        return read;
+      },
+    };
+    expect(compactDelegations(racing, file, now, 30)).toBe(true);
+    expect(agents(file)).toEqual(['late-new-file', 'late-old-inode', 'recent']);
+    expect(existsSync(`${file}.compacting`)).toBe(false);
+    expect(existsSync(`${file}.lock`)).toBe(false);
+  });
+
+  it('INV-9: a fresh lock held by another compaction leaves the ledger alone; a stale one is cleared', () => {
+    const file = ledgerFile();
+    writeFileSync(`${file}.lock`, '');
+    expect(compactDelegations(nodeFs, file, new Date(), 30)).toBe(false);
+    expect(agents(file)).toEqual(['old', 'recent']);
+    const stale = new Date(Date.now() - 120_000);
+    utimesSync(`${file}.lock`, stale, stale);
+    expect(compactDelegations(nodeFs, file, new Date(), 30)).toBe(false);
+    expect(existsSync(`${file}.lock`)).toBe(false);
+    expect(compactDelegations(nodeFs, file, now, 30)).toBe(true);
+    expect(agents(file)).toEqual(['recent']);
+  });
+
+  it('INV-9: folds a compacting file an interrupted run left behind, losing nothing recent', () => {
+    const file = ledgerFile();
+    nodeFs.renameSync(file, `${file}.compacting`);
+    writeFileSync(file, `${JSON.stringify({ agent: 'after-crash', at: now.toISOString() })}\n`);
+    expect(compactDelegations(nodeFs, file, now, 30)).toBe(true);
+    expect(agents(file)).toEqual(['after-crash', 'recent']);
   });
 });
 

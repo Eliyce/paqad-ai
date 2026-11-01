@@ -82,3 +82,80 @@ export function pruneDelegationText(
   }
   return kept.length === 0 ? '' : `${kept.join('\n')}\n`;
 }
+
+export const COMPACTING_SUFFIX = '.compacting';
+export const LOCK_SUFFIX = '.lock';
+export const STALE_LOCK_MS = 60_000;
+const TAIL_PASSES = 3;
+
+function takeLock(fs, lock, now) {
+  try {
+    fs.closeSync(fs.openSync(lock, 'wx'));
+    return true;
+  } catch {
+    try {
+      if (now.getTime() - fs.statSync(lock).mtimeMs > STALE_LOCK_MS)
+        fs.rmSync(lock, { force: true });
+    } catch {
+      return false;
+    }
+    return false;
+  }
+}
+
+function readFrom(fs, path, start) {
+  const fd = fs.openSync(path, 'r');
+  try {
+    const size = fs.fstatSync(fd).size;
+    if (size <= start) return { text: '' };
+    const buffer = Buffer.alloc(size - start);
+    let offset = 0;
+    while (offset < buffer.length) {
+      const read = fs.readSync(fd, buffer, offset, buffer.length - offset, start + offset);
+      if (read === 0) break;
+      offset += read;
+    }
+    return { text: buffer.subarray(0, offset).toString('utf8') };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function completeLines(text) {
+  const end = text.lastIndexOf('\n');
+  return end === -1 ? '' : text.slice(0, end + 1);
+}
+
+export function compactDelegations(
+  fs,
+  file,
+  now = new Date(),
+  darkWindowDays = DEFAULT_DARK_WINDOW_DAYS,
+) {
+  const lock = `${file}${LOCK_SUFFIX}`;
+  if (!takeLock(fs, lock, now)) return false;
+  const compacting = `${file}${COMPACTING_SUFFIX}`;
+  try {
+    if (!fs.existsSync(compacting)) {
+      try {
+        fs.renameSync(file, compacting);
+      } catch {
+        return false;
+      }
+    }
+    const head = completeLines(readFrom(fs, compacting, 0).text);
+    const pruned = pruneDelegationText(head, now, darkWindowDays);
+    if (pruned !== '') fs.appendFileSync(file, pruned, 'utf8');
+    let offset = Buffer.byteLength(head);
+    for (let pass = 0; pass < TAIL_PASSES; pass += 1) {
+      const tail = completeLines(readFrom(fs, compacting, offset).text);
+      if (tail === '') break;
+      fs.appendFileSync(file, tail, 'utf8');
+      offset += Buffer.byteLength(tail);
+    }
+    fs.rmSync(compacting, { force: true });
+    return true;
+  } finally {
+    fs.rmSync(lock, { force: true });
+  }
+}

@@ -17,7 +17,7 @@ function quickFilter(input) {
 
 async function record(payload) {
   const fs = await import('node:fs');
-  const { basename, dirname, join } = await import('node:path');
+  const { dirname, join } = await import('node:path');
   const core = await import('./lib/agent-delegation-core.mjs');
   const gate = await import('./lib/paqad-disabled.mjs');
   const projectRoot = gate.resolveProjectRoot(process.env, payload);
@@ -35,14 +35,7 @@ async function record(payload) {
   const file = join(projectRoot, core.DELEGATIONS_REL);
   fs.mkdirSync(dirname(file), { recursive: true });
   fs.appendFileSync(file, line, 'utf8');
-  const fd = fs.openSync(file, 'r');
-  let text;
-  try {
-    if (fs.fstatSync(fd).size <= core.PRUNE_THRESHOLD_BYTES) return;
-    text = fs.readFileSync(fd, 'utf8');
-  } finally {
-    fs.closeSync(fd);
-  }
+  if (fs.statSync(file).size <= core.PRUNE_THRESHOLD_BYTES) return;
   const window = Number(
     gate.readLayeredKey(
       projectRoot,
@@ -50,19 +43,12 @@ async function record(payload) {
       'PAQAD_AUTHORING_DARK_WINDOW_DAYS',
     ),
   );
-  const pruned = core.pruneDelegationText(
-    text,
+  core.compactDelegations(
+    fs,
+    file,
     new Date(),
     Number.isInteger(window) && window > 0 ? window : core.DEFAULT_DARK_WINDOW_DAYS,
   );
-  const tmp = join(dirname(file), `.${basename(file)}.${process.pid}.tmp`);
-  try {
-    fs.writeFileSync(tmp, pruned, 'utf8');
-    fs.renameSync(tmp, file);
-  } catch (error) {
-    fs.rmSync(tmp, { force: true });
-    throw error;
-  }
 }
 
 async function main() {
