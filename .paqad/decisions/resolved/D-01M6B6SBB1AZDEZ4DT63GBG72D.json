@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6B6SBB1AZDEZ4DT63GBG72D",
+  "category": "workflow-or-tool",
+  "title": "A rules check is broken before this change starts: fix it in this change, or leave it?",
+  "context": "The planning entry check (rule-script-reconciler) found RS-FIXTURE-FAIL for rule RL-469b ('Run the same format, lint, test, and build gates in CI that block local delivery'). Its check script .paqad/scripts/rules/coding/stacks/_shared/ci-cd/001-ci-runs-tests.mjs was committed without any test fixtures (since #721), so it can never pass its own fixtures. It is unrelated to the Agent Orchestrator (#795). The project policy (escalation.rule_scripts_stale: ask) says planning asks before it continues. The #795 plan is otherwise ready.",
+  "options": [
+    {
+      "option_key": "regenerate",
+      "label": "Regenerate the RL-469b check and its fixtures as one small first commit in this change",
+      "one_line_preview": "Regenerate the RL-469b check and its fixtures as one small first commit in this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "defer",
+      "label": "Leave it out of this change and fix it separately",
+      "one_line_preview": "Leave it out of this change and fix it separately",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "regenerate",
+  "created_at": "2026-11-01T09:24:27.106Z",
+  "status": "resolved",
+  "change": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "chosen": "regenerate",
+  "rationale": "Owner: fix RL-469b fixtures as the first small commit in this PR",
+  "resolved_at": "2026-11-01T09:37:30.754Z",
+  "decision_id": "D-01M6B6SBB1AZDEZ4DT63GBG72D",
+  "fingerprint": "sha256:f4a1b33d03b8409bc40c03fa83820021ffb81221c65b7128f40677b7724f0f8d",
+  "question": "A rules check is broken before this change starts: fix it in this change, or leave it?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "ttl_until": "2026-11-08T09:24:27.106Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "regenerate",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T09:37:30.754Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: fix RL-469b fixtures as the first small commit in this PR"
+  }
+}
