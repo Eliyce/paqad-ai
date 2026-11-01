@@ -31,7 +31,7 @@ function optOut(): void {
   writeFileSync(join(root, '.paqad', 'configs', '.config.app'), 'team_bootstrap_enabled=false\n');
 }
 
-describe('the managed block in .claude/.gitignore', () => {
+describe('AC-19: the managed block in .claude/.gitignore', () => {
   it('lists settings.hooks.json and settings.local.json and leaves settings.json shared', async () => {
     expect(await managedLines('claude-code', '.claude')).toEqual([
       'settings.hooks.json',

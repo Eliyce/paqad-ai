@@ -134,7 +134,7 @@ function installPlugin(root: string): void {
   );
 }
 
-describe('exactly one hook chain acts on each route', () => {
+describe('AC-33: exactly one hook chain acts on each route', () => {
   it('launcher then team copy writes one stage-agent row', async () => {
     const { root, payload } = await onboardedChange();
     expect(await runLauncher(root, payload, baseEnv(root))).toBe(0);

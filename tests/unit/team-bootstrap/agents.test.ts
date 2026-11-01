@@ -93,7 +93,7 @@ describe("the stage helpers in the repo's .claude/agents", () => {
     expect(readdirSync(agentsDir()).sort()).toEqual(['my-agent.md', 'paqad-review.md']);
   });
 
-  it('an older paqad leaves helpers written by a newer one alone', () => {
+  it('AC-23: an older paqad leaves helpers written by a newer one alone', () => {
     const newer = renderTeamAgents('999.0.0');
     mkdirSync(agentsDir(), { recursive: true });
     for (const agent of newer) writeFileSync(join(root, agent.path), agent.content);

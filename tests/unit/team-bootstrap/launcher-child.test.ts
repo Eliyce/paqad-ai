@@ -69,7 +69,7 @@ function records(): HookRecord[] {
 const edit = (sid = 'ses-child'): string =>
   JSON.stringify({ session_id: sid, hook_event_name: 'PreToolUse', tool_name: 'Edit' });
 
-describe('the launcher runs the copy like an installed plugin', () => {
+describe('AC-4: the launcher runs the copy like an installed plugin', () => {
   it('passes the plugin env and stdin byte for byte', () => {
     const input = Buffer.from(`${edit()}\né中 \u0000tail`, 'utf8');
     const result = runReal(['capability-gate.mjs', 'pre-mutation'], input);
@@ -112,7 +112,40 @@ describe('the launcher runs the copy like an installed plugin', () => {
   });
 });
 
-describe('cloud sessions', () => {
+describe('AC-36: the committed hook command runs through a real shell', () => {
+  const shell = process.platform === 'win32' ? 'bash' : 'sh';
+  const available = spawnSync(shell, ['-c', 'exit 0']).status === 0;
+  const shellIt = available ? it : it.skip;
+
+  shellIt('expands $CLAUDE_PROJECT_DIR, runs the launcher and a gate blocks', () => {
+    const command = 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" agent-entry-gate.mjs';
+    const env = {
+      PATH: process.env.PATH,
+      HOME: sandbox.home,
+      USERPROFILE: sandbox.home,
+      CLAUDE_PROJECT_DIR: sandbox.project,
+      FAKE_HOOK_LOG: hookLog,
+    };
+    const blocked = spawnSync(shell, ['-c', command], {
+      input: edit('ses-shell'),
+      env: { ...env, FAKE_HOOK_EXIT: '2' },
+      encoding: 'utf8',
+    });
+    expect(blocked.status).toBe(2);
+    const allowed = spawnSync(shell, ['-c', command], {
+      input: edit('ses-shell'),
+      env,
+      encoding: 'utf8',
+    });
+    expect(allowed.status).toBe(0);
+    expect(records().map((r) => r.script)).toEqual([
+      'agent-entry-gate.mjs',
+      'agent-entry-gate.mjs',
+    ]);
+  });
+});
+
+describe('AC-5: cloud sessions', () => {
   it('turn RAG off through the env, once in CLAUDE_ENV_FILE, with the cloud setup line', async () => {
     const envFile = join(sandbox.home, 'claude-env');
     writeFileSync(envFile, 'PATH=/x');
@@ -143,7 +176,7 @@ describe('cloud sessions', () => {
   });
 });
 
-describe('a missing or unstartable hook', () => {
+describe('AC-13, AC-14: a missing or unstartable hook', () => {
   it('a copy missing the named script blocks PreToolUse with one sentence and passes Stop', () => {
     const hooks = join(sandbox.home, '.paqad-ai', 'team-plugin', 'runtime', 'hooks');
     rmSync(join(hooks, 'stage-writer.mjs'));

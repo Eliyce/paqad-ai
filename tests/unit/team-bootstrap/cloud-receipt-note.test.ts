@@ -63,7 +63,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('the cloud continuation note', () => {
+describe('AC-31: the cloud continuation note', () => {
   it('appears in a cloud session for a bundle opened here on a branch with earlier commits', () => {
     setStart(git('rev-parse', 'HEAD'), 'main');
     expect(cloudContinuationNote(root, dir, SESSION, REMOTE)).toBe(CLOUD_CONTINUATION_NOTE);

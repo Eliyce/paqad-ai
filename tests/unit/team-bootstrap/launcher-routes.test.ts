@@ -105,7 +105,7 @@ const FALL_THROUGH: PluginCase[] = [
   },
 ];
 
-describe('the plugin route steps aside only for a plugin that loads here', () => {
+describe('AC-2: the plugin route steps aside only for a plugin that loads here', () => {
   it('a user-scope install that loads here exits 0 and starts no child', async () => {
     writeInstalled(entry());
     for (const event of ['SessionStart', 'PreToolUse', 'Stop']) {
@@ -204,7 +204,7 @@ describe('the launcher and the hook libs agree on the plugin', () => {
   });
 });
 
-describe('the npm route forwards to the npm install', () => {
+describe('AC-3, AC-34: the npm route forwards to the npm install', () => {
   function npmInstall(kind: 'node_modules' | 'dev'): string {
     const pkg =
       kind === 'node_modules'
@@ -279,7 +279,7 @@ describe('the npm route forwards to the npm install', () => {
   });
 });
 
-describe('the route is decided once per session', () => {
+describe('AC-16: the route is decided once per session', () => {
   it('SessionStart records the route and a later event follows it', async () => {
     const start = await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-a');
     expect(start.captured.spawns.map((c) => c.args[0]!.split(/[\\/]/).pop())).toEqual([
@@ -353,7 +353,7 @@ describe('the route is decided once per session', () => {
   });
 });
 
-describe('the launcher stays cheap', () => {
+describe('AC-35: the launcher stays cheap', () => {
   it('its own work before the hook starts stays under 50 ms', async () => {
     const launcher = await loadLauncher();
     await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-perf');

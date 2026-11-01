@@ -70,7 +70,7 @@ function writeProjectSettings(commands: string[]): string {
   return path;
 }
 
-describe('launcher lines are never live npm hooks', () => {
+describe('AC-17: launcher lines are never live npm hooks', () => {
   it('paqadHookScriptPath returns null for launcher commands in posix and windows form', () => {
     expect(paqadHookScriptPath(LAUNCHER)).toBeNull();
     expect(paqadHookScriptPath(LAUNCHER_WIN)).toBeNull();

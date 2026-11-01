@@ -206,7 +206,7 @@ describe('paqad-ai join', () => {
     expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
   });
 
-  it('writes no tracked file and asks for the lead when the team setup is missing', async () => {
+  it('AC-26: writes no tracked file and asks for the lead when the team setup is missing', async () => {
     seedOnboardedProject(root);
     const git = (...args: string[]) =>
       execFileSync('git', args, {

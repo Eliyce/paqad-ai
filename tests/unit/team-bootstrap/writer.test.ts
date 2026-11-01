@@ -63,7 +63,7 @@ describe('the launcher file', () => {
     expect(readFileSync(launcherPath(), 'utf8')).toBe(renderTeamLauncher());
   });
 
-  it('an older paqad leaves a launcher written by a newer one alone', () => {
+  it('AC-23: an older paqad leaves a launcher written by a newer one alone', () => {
     const newer = renderTeamLauncher('999.0.0');
     writeFileSync(launcherPath(), newer);
     const report = syncTeamSetup(root, {}, '1.0.0');

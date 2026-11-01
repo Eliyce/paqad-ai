@@ -85,7 +85,7 @@ function apiCalls(shell: { calls: string[][] }): string[][] {
   return shell.calls.filter((call) => call[0] === 'gh' && call[1] === 'api');
 }
 
-describe('opening a pull request when GraphQL is refused', () => {
+describe('AC-27, AC-28: opening a pull request when GraphQL is refused', () => {
   it('creates it through REST with -f fields, then reviewers and labels, and keeps the result shape', async () => {
     const shell = fakeShell([
       refuse('create'),
@@ -230,7 +230,7 @@ describe('opening a pull request when GraphQL is refused', () => {
   });
 });
 
-describe('commenting when GraphQL is refused', () => {
+describe('AC-27, AC-29: commenting when GraphQL is refused', () => {
   it('finds the open pull request by branch and comments through REST', async () => {
     const shell = fakeShell([
       refuse('comment'),
@@ -288,7 +288,7 @@ describe('commenting when GraphQL is refused', () => {
   });
 });
 
-describe('reading checks when GraphQL is refused', () => {
+describe('AC-27, AC-29, AC-30: reading checks when GraphQL is refused', () => {
   function checkRuns(count: number, conclusion = 'success'): string {
     return JSON.stringify({
       total_count: count,

@@ -106,7 +106,7 @@ function launcherEntries(
   );
 }
 
-describe('the committed team settings', () => {
+describe('AC-18, AC-20: the committed team settings', () => {
   it('maps every hook to the launcher, changing only the command and the SessionStart timeouts', () => {
     const chain = buildHostHookChain('claude-code');
     const team = buildTeamHookChain();
@@ -325,7 +325,7 @@ describe('the committed team settings', () => {
   });
 });
 
-describe('the team setup turned off', () => {
+describe('AC-21: the team setup turned off', () => {
   beforeEach(() => {
     mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
     writeFileSync(join(root, '.paqad', 'configs', '.config.app'), 'team_bootstrap_enabled=false\n');

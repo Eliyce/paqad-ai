@@ -98,7 +98,7 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe('update shares the Claude settings with the team', () => {
+describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the team', () => {
   it('moves personal entries of an untracked settings.json to settings.local.json and says so in one line', async () => {
     mkdirSync(join(root, '.claude'), { recursive: true });
     writeFileSync(
@@ -207,7 +207,7 @@ describe('update shares the Claude settings with the team', () => {
   });
 });
 
-describe('no home path reaches a tracked file', () => {
+describe('AC-24: no home path reaches a tracked file', () => {
   function tracked(): string[] {
     const agents = existsSync(join(root, '.claude/agents'))
       ? readdirSync(join(root, '.claude/agents')).map((name) => `.claude/agents/${name}`)

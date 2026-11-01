@@ -43,7 +43,7 @@ async function run(env: NodeJS.ProcessEnv, event = 'PreToolUse', script = 'agent
   return { code, captured };
 }
 
-describe('launcher off switches', () => {
+describe('AC-1, AC-39: launcher off switches', () => {
   it.each(['1', 'true', 'YES', 'On', ' on '])(
     'PAQAD_DISABLED=%s exits 0 with no output and no child',
     async (value) => {

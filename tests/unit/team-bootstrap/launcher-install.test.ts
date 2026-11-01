@@ -90,7 +90,7 @@ function leftovers(): string[] {
   return readdirSync(join(sandbox.home, '.paqad-ai')).filter((n) => n.startsWith('team-plugin.'));
 }
 
-describe('first install', () => {
+describe('AC-6: first install', () => {
   it('clones once into a temp name, renames it into place, prints the setup line, releases the lock', async () => {
     const gitArgs: string[][] = [];
     const { code, captured } = await launch('SessionStart', 'agent-entry-session-start.mjs', 's1', {
@@ -180,7 +180,7 @@ describe('first install', () => {
   });
 });
 
-describe('the failed-install path', () => {
+describe('AC-11, AC-12: the failed-install path', () => {
   it('prints the notice exactly once per session id and never blocks an edit', async () => {
     const first = await launch('SessionStart', 'agent-entry-session-start.mjs', 'sf');
     expect(first.captured.stdout).toEqual([NOTICE]);
@@ -217,7 +217,7 @@ describe('the failed-install path', () => {
   });
 });
 
-describe('the install lock', () => {
+describe('AC-9, AC-10: the install lock', () => {
   it('an orphaned lock whose owner pid is gone is taken over at once', async () => {
     holdLock({ pid: 999_999, started_at: T0 });
     const c = clock();
@@ -428,7 +428,7 @@ describe('an edit while the first install runs', () => {
   });
 });
 
-describe('leftovers and refresh', () => {
+describe('AC-15: leftovers and refresh', () => {
   it('sweeps temp folders of dead installs on the next SessionStart and keeps live ones', async () => {
     writeCopy(copyRoot);
     const base = join(sandbox.home, '.paqad-ai');
@@ -520,7 +520,7 @@ describe('leftovers and refresh', () => {
 
 const posixIt = process.platform === 'win32' ? it.skip : it;
 
-describe('two launchers racing on a fresh machine', () => {
+describe('AC-6, AC-7, AC-8: two launchers racing on a fresh machine', () => {
   posixIt.each([
     ['two SessionStart lines in one session', 'same', 'same'],
     ['two sessions opened at once', 'first', 'second'],
