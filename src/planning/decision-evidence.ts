@@ -147,6 +147,7 @@ export function defaultSimilarityFor(
     case 'analytics.new_event':
     case 'authoring.overlap':
     case 'authoring.risky_script':
+    case 'authoring.agent_permission':
     case 'authoring.intake_gap':
     case 'authoring.improvement':
     case 'authoring.retirement':

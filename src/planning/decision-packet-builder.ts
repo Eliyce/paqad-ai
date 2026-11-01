@@ -143,6 +143,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'This new skill overlaps one you already have. Extend that one, or create a new skill?';
     case 'authoring.risky_script':
       return 'A script in this skill reaches the network, installs packages or deletes files. Allow it?';
+    case 'authoring.agent_permission':
+      return 'This agent asks for risky powers (bypassPermissions, network, package install, delete rights, or more than the tool limit). Allow these powers?';
     case 'authoring.intake_gap':
       return 'Only you can answer this part of what the new skill is for. What should it be?';
     case 'authoring.improvement':
@@ -308,6 +310,7 @@ export function decisionOptionsForCategory(
     case 'analytics.new_event':
     case 'authoring.overlap':
     case 'authoring.risky_script':
+    case 'authoring.agent_permission':
     case 'authoring.intake_gap':
     case 'authoring.improvement':
     case 'authoring.retirement':
