@@ -88,7 +88,7 @@ function commandsOf(hooks: Record<string, Array<{ hooks: Array<{ command: string
 }
 
 describe('the plugin hooks.json', () => {
-  it('AC-39, INV-12: keeps every existing entry identical and in order, adding only the PostToolUse entry', () => {
+  it('AC-39, INV-12: keeps every existing entry identical and in order, adding only the PostToolUse entry and the appended agent delegation entries', () => {
     const committed = JSON.parse(
       readFileSync(join(REPO, 'runtime/claude-plugin/hooks.json'), 'utf8'),
     );
@@ -97,20 +97,20 @@ describe('the plugin hooks.json', () => {
     );
     const commands = commandsOf(committed.hooks);
     expect(Object.keys(commands)).toEqual([...Object.keys(PRE_EXISTING_ENTRIES), 'PostToolUse']);
+    const appended: Record<string, string[]> = { SubagentStop: ['agent-delegation.mjs'] };
     for (const [event, entries] of Object.entries(PRE_EXISTING_ENTRIES)) {
-      expect(commands[event]).toEqual(entries);
+      expect(commands[event]).toEqual([...entries, ...(appended[event] ?? [])]);
     }
-    expect(committed.hooks.PostToolUse).toEqual([
-      {
-        matcher: 'Skill|Read',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node "${CLAUDE_PLUGIN_ROOT}/runtime/hooks/skill-activation.mjs"',
-          },
-        ],
-      },
-    ]);
+    expect(committed.hooks.PostToolUse[0]).toEqual({
+      matcher: 'Skill|Read',
+      hooks: [
+        {
+          type: 'command',
+          command: 'node "${CLAUDE_PLUGIN_ROOT}/runtime/hooks/skill-activation.mjs"',
+        },
+      ],
+    });
+    expect(commands.PostToolUse).toEqual(['skill-activation.mjs', 'agent-delegation.mjs']);
   });
 });
 

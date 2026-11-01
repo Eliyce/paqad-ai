@@ -63,23 +63,34 @@ describe('paqad-hooks command builders', () => {
 
   it('buildHostHookChain renders every event in the fixed order and throws for an unknown host', () => {
     const chain = buildHostHookChain('claude-code', ENV);
-    expect(distinctEvents(chain)).toEqual(
-      PAQAD_HOOK_EVENT_ORDER.map((event) => NATIVE_HOOK_EVENTS['claude-code'].nativeEvent[event]),
-    );
+    expect(distinctEvents(chain)).toEqual([
+      ...new Set(
+        PAQAD_HOOK_EVENT_ORDER.map((event) => NATIVE_HOOK_EVENTS['claude-code'].nativeEvent[event]),
+      ),
+    ]);
     expect(() => buildHostHookChain('nope-host', ENV)).toThrow(/no native hook event map/);
   });
 
-  it('buildHostHookChain renders SubagentStop (agent-type matched) after Stop, then only the skill PostToolUse entry', () => {
+  it('AC-11: buildHostHookChain renders SubagentStop after Stop, then the skill and agent delegation PostToolUse entries, then the delegation SubagentStop entry', () => {
     const chain = buildHostHookChain('claude-code', ENV);
     expect(distinctEvents(chain).slice(-2)).toEqual(['SubagentStop', 'PostToolUse']);
     const post = chain.filter((hook) => hook.nativeEvent === 'PostToolUse');
     expect(post.map((hook) => [hook.matcher, hook.onFailure, hook.timeout])).toEqual([
       ['Skill|Read', undefined, undefined],
+      ['Agent|Task', undefined, undefined],
     ]);
     expect(post[0]?.command).toContain('skill-activation.mjs');
-    const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
-    expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
-    expect(subagent?.command).toContain('stage-agent-completion.mjs');
+    expect(post[1]?.command).toContain('agent-delegation.mjs');
+    const subagent = chain.filter((hook) => hook.nativeEvent === 'SubagentStop');
+    expect(subagent.map((hook) => hook.matcher)).toEqual(['^(paqad:)?paqad-', '.*']);
+    expect(subagent[0]?.command).toContain('stage-agent-completion.mjs');
+    expect(subagent[1]?.command).toContain('agent-delegation.mjs');
+    expect(chain.at(-1)?.command).toContain('agent-delegation.mjs');
+    expect(
+      buildHostHookChain('codex-cli', ENV).some((hook) =>
+        hook.command.includes('agent-delegation.mjs'),
+      ),
+    ).toBe(false);
   });
 
   it('the Codex chain gets the same SubagentStop matcher and host argv', () => {

@@ -8,7 +8,9 @@ export type PaqadHookEvent =
   | 'completion'
   | 'subagent-start'
   | 'subagent-completion'
-  | 'post-tool-read';
+  | 'post-tool-read'
+  | 'post-tool-agent'
+  | 'subagent-stop-any';
 
 export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'pre-tool-mutation',
@@ -18,6 +20,8 @@ export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'subagent-start',
   'subagent-completion',
   'post-tool-read',
+  'post-tool-agent',
+  'subagent-stop-any',
 ];
 
 export interface PaqadLiveHookSpec {
@@ -48,6 +52,10 @@ export const PAQAD_STAGE_HELPER_MATCHER =
 
 export const PAQAD_SKILL_READ_MATCHER = 'Skill|Read';
 
+export const PAQAD_AGENT_TOOL_MATCHER = 'Agent|Task';
+
+export const PAQAD_ANY_SUBAGENT_MATCHER = '.*';
+
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
 export interface HostHookEventMap {
@@ -56,6 +64,8 @@ export interface HostHookEventMap {
   subagentMatcher: string;
   subagentStartMatcher?: string;
   postReadMatcher?: string;
+  postAgentMatcher?: string;
+  anySubagentMatcher?: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -68,11 +78,15 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'subagent-start': 'SubagentStart',
       'subagent-completion': 'SubagentStop',
       'post-tool-read': 'PostToolUse',
+      'post-tool-agent': 'PostToolUse',
+      'subagent-stop-any': 'SubagentStop',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
     subagentStartMatcher: PAQAD_STAGE_HELPER_MATCHER,
     postReadMatcher: PAQAD_SKILL_READ_MATCHER,
+    postAgentMatcher: PAQAD_AGENT_TOOL_MATCHER,
+    anySubagentMatcher: PAQAD_ANY_SUBAGENT_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -225,6 +239,18 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     description:
       'Log a skill firing (the Skill tool, or a Read of a SKILL.md) to the activation ledger.',
   },
+  {
+    id: 'agent-delegation-call',
+    event: 'post-tool-agent',
+    hookFile: 'agent-delegation.mjs',
+    description: 'Log an agent delegation (an Agent or Task call) to the delegation ledger.',
+  },
+  {
+    id: 'agent-delegation-stop',
+    event: 'subagent-stop-any',
+    hookFile: 'agent-delegation.mjs',
+    description: 'Log a subagent stop to the delegation ledger.',
+  },
 ];
 
 export interface RenderedHook {
@@ -293,6 +319,12 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
   }
   if (event === 'post-tool-read') {
     return host.postReadMatcher;
+  }
+  if (event === 'post-tool-agent') {
+    return host.postAgentMatcher;
+  }
+  if (event === 'subagent-stop-any') {
+    return host.anySubagentMatcher;
   }
   return undefined;
 }
