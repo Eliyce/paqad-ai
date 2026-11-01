@@ -101,6 +101,39 @@ A few things worth knowing:
   - The Claude Desktop app picks up a plugin added on claude.ai, but a `claude` session in a terminal does not load plugins uploaded to claude.ai. Terminal users install it themselves with the two `/plugin` commands above, or IT deploys it as a managed plugin.
   - The plugin and its `eliyce` marketplace live together in the public repo `Eliyce/paqad-claude-plugin`. You never edit that repo: every npm release builds the plugin here, writes its marketplace file, and pushes it there with a `v<version>` tag, but only after npm publish succeeds. When nothing in the plugin changed, it pushes no new commit. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN`, a token that can push to `Eliyce/paqad-claude-plugin`. Without it, or when the push fails, the release job fails, so a missing plugin release never goes unnoticed. To see what would be pushed, run `pnpm build && node scripts/assemble-plugin.mjs <folder>`.
 
+## Teammates and cloud sessions
+
+Once the lead has onboarded a project and committed the setup, a teammate who clones the repo, or a Claude Code cloud session, gets the same stages and checks as the lead with no command to run.
+
+**What the lead commits.** `paqad-ai onboard` and `paqad-ai update` list the files to commit together:
+
+- `.claude/settings.json`, now shared with the team. It holds only portable content: the `eliyce` marketplace, `paqad@eliyce` turned on, and hook lines that run `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs`. Anything personal that was there before, such as your own permissions or a hook path under your home folder, moves to the git-ignored `.claude/settings.local.json`, and update says so in one line.
+- `.claude/.gitignore`, which now ignores `settings.local.json` and `settings.hooks.json` instead of `settings.json`.
+- `.paqad/hook.mjs`, a small launcher.
+- `.claude/agents/paqad-*.md`, the eight stage agents.
+
+**What a teammate sees.** They clone and open the repo, trust the folder, and Claude Code offers the paqad plugin. Either way, the launcher picks one route at the start of each session and keeps it for that session:
+
+- If the paqad plugin is installed and turned on for this project, the launcher steps aside and the plugin runs.
+- If the npm package is installed, the launcher hands every hook to it.
+- Otherwise, the first session prints `Setting up paqad for this repo (one time).`, downloads the plugin from `Eliyce/paqad-claude-plugin` into `~/.paqad-ai/team-plugin`, and runs the hooks from there. It refreshes that copy at most every 6 hours. If setup fails (offline, no git, Node older than 22), Claude tells the teammate once that paqad's checks are off for the session, and the next session tries again.
+
+Which route should a teammate use? Accepting the plugin offer is best. The launcher route runs every stage and check, but it leaves out what `paqad-ai join` adds on your own machine: the code index, the detection report and the quality baseline. Run `/paqad:join` or `paqad-ai join` if you want those. `join` writes no tracked file; if the committed setup is missing, it tells you to ask the lead to run `paqad-ai update`.
+
+**Cloud sessions.** A Claude Code cloud session starts from a fresh machine every time, so the setup line, `Setting up paqad for this cloud session.`, and its short wait repeat on every cloud session. RAG is always off in cloud (`PAQAD_RAG_ENABLED=false`) and search uses plain text. When GitHub refuses `gh` from the cloud session, paqad opens the pull request, comments and reads checks through the GitHub REST API instead. The receipt notes when evidence starts in the cloud session because earlier steps were recorded on another machine.
+
+**Turning it off.** Set `team_bootstrap_enabled=false` in `.paqad/configs/.config.app` (or `PAQAD_TEAM_BOOTSTRAP_ENABLED=false`) and run `paqad-ai update`. That removes the launcher, its settings lines, the plugin keys and the agent files paqad wrote, and keeps your own hooks in `.claude/settings.local.json`. A teammate who has the plugin or npm installed keeps every hook.
+
+**A bad plugin release.** Revert the release in `Eliyce/paqad-claude-plugin`; teammates pick the revert up within 6 hours. Meanwhile set `PAQAD_DISABLED=1` on an affected machine, or set `team_bootstrap_enabled=false` for the team. Keep branch protection on the plugin repo so only the release job pushes to it.
+
+**A half-committed setup.** If only part of the setup reached the branch:
+
+- The settings lines are committed but `.paqad/hook.mjs` is not: edits are blocked with a hook error, rather than let through unchecked. Prompts and reads still work.
+- `.paqad/hook.mjs` is committed but the settings lines are not: nothing runs and paqad is simply off.
+- The launcher names a hook script the downloaded copy no longer has: edits are blocked with a sentence asking the lead to run `paqad-ai update`.
+
+To recover, the lead runs `paqad-ai update`, commits every file it lists, and pushes.
+
 ## What paqad runs, writes and sends
 
 paqad runs on your machine. There's no paqad account, no paqad server, and no telemetry.
