@@ -107,3 +107,14 @@ describe('trigger scoring', () => {
     ]);
   });
 });
+
+describe('descriptionOverLimit (agent descriptions)', () => {
+  it('AC-31: an agent description is limited in tokens, a skill description in characters', async () => {
+    const { descriptionOverLimit } = await import('@/authoring/eval/split.js');
+    expect(descriptionOverLimit('x'.repeat(1200), 300)).toBeNull();
+    expect(descriptionOverLimit('x'.repeat(1204), 300)).toBe(
+      'the description is 301 tokens, over 300',
+    );
+    expect(descriptionOverLimit('x'.repeat(1025))).toMatch(/1025 characters, over 1024/);
+  });
+});

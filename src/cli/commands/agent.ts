@@ -14,6 +14,7 @@ import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
 import { runAgentEvalPlan, runAgentEvalRecord } from '@/authoring/stages/agent-eval.js';
 import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
 import { runAgentTest } from '@/authoring/stages/agent-test.js';
+import { runDelegationPlan, runDelegationRecord } from '@/authoring/stages/delegation.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
 import { raiseIntakeGap } from '@/authoring/stages/intake.js';
@@ -271,6 +272,48 @@ function addEvalVerbs(command: Command): void {
   );
 }
 
+function addDelegationVerbs(command: Command): void {
+  const delegation = command
+    .command('delegation')
+    .description('S6: plan and record the delegation test (skipped for dispatched agents)');
+  withCommon(
+    delegation
+      .command('plan')
+      .description('Split the delegation requests 60/40 with seed 42 into delegation-eval.json')
+      .argument('<name>', 'The agent name')
+      .argument('[requests-file]', 'The requests as [{request, should_delegate}]')
+      .option('--batch-offered', 'The client offers a batch API for this sweep'),
+  ).action(
+    (name: string, file: string | undefined, options: VerbOptions & { batchOffered?: boolean }) =>
+      runAgentVerb(name, options, (workspace) =>
+        runDelegationPlan(
+          workspace,
+          file === undefined ? null : readInput(file, 'the requests file'),
+          {
+            batchOffered: options.batchOffered === true,
+          },
+        ),
+      ),
+  );
+  withCommon(
+    delegation
+      .command('record')
+      .description('Score every description iteration and the fresh host requests, and judge S6')
+      .argument('<name>', 'The agent name')
+      .argument('[results-file]', 'The delegation results'),
+  ).action((name: string, file: string | undefined, options: VerbOptions) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runDelegationRecord(
+        workspace,
+        file === undefined ? null : readInput(file, 'the results file'),
+        {
+          change: changeKey(projectRoot, options.session),
+        },
+      ),
+    ),
+  );
+}
+
 export function createAgentCommand(): Command {
   const command = new Command('agent').description(
     'Prove a new or edited agent (subagent file) through its gated pipeline before it is added',
@@ -291,6 +334,7 @@ export function createAgentCommand(): Command {
 
   addIntakeVerbs(command);
   addEvalVerbs(command);
+  addDelegationVerbs(command);
 
   withCommon(
     command

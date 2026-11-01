@@ -1,3 +1,5 @@
+import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
+
 import { descriptionLength, descriptionWithinLimit } from '../lint/fields.js';
 import { meetsThreshold } from '../thresholds.js';
 
@@ -97,6 +99,15 @@ export function missingTriggerResults(
   return missing;
 }
 
+export function descriptionOverLimit(description: string, maxTokens?: number): string | null {
+  if (maxTokens !== undefined) {
+    const tokens = estimateTokens(description);
+    return tokens > maxTokens ? `the description is ${tokens} tokens, over ${maxTokens}` : null;
+  }
+  if (descriptionWithinLimit(description)) return null;
+  return `the description is ${descriptionLength(description)} characters, over 1024`;
+}
+
 function share(correct: number, total: number): number | null {
   return total === 0 ? null : correct / total;
 }
@@ -106,16 +117,18 @@ export function scoreTriggerIterations(input: {
   iterations: readonly TriggerIterationInput[];
   minRuns: number;
   runs?: number;
+  maxDescriptionTokens?: number;
 }): TriggerIterationScore[] {
   const runs = input.runs ?? TRIGGER_RUNS;
   const scores = input.iterations.map((iteration): TriggerIterationScore => {
     const chars = descriptionLength(iteration.description);
-    if (!descriptionWithinLimit(iteration.description)) {
+    const overLimit = descriptionOverLimit(iteration.description, input.maxDescriptionTokens);
+    if (overLimit !== null) {
       return {
         iteration: iteration.iteration,
         description_chars: chars,
         discarded: true,
-        discard_reason: `the description is ${chars} characters, over 1024`,
+        discard_reason: overLimit,
         train_score: null,
         validation_score: null,
         failed_queries: [],
