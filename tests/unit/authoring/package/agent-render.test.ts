@@ -170,3 +170,18 @@ describe('renderProducedAgent', () => {
     );
   });
 });
+
+describe('parseAgentSource and renderProducedAgent edges', () => {
+  it('reads a numeric name as text and an empty description as empty', () => {
+    const source = parseAgentSource('---\nname: 42\ndescription: ""\n---\n\nBody\n');
+    expect(source.name).toBe('42');
+    expect(source.description).toBe('');
+  });
+
+  it('INV-5: refuses to render an agent whose name is not a safe file name', () => {
+    const source = parseAgentSource('---\nname: Bad Name\ndescription: d\n---\n\nBody\n');
+    expect(() => renderProducedAgent(source, 'claude-code')).toThrow(
+      /"Bad Name" is not an agent name/u,
+    );
+  });
+});

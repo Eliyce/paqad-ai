@@ -6,7 +6,7 @@ import YAML from 'yaml';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { InstalledArtifact } from '@/authoring/overlap.js';
-import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
+import { expertRosterProfiles, runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
 import { CREATE_OPTION, EXTEND_OPTION } from '@/authoring/stages/sources.js';
 import {
   AGENT_STAGES,
@@ -135,5 +135,27 @@ describe('agent evidence (S2)', () => {
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toContain('collides with db-expert on its Owns phrase');
     expect(stageState(workspace, AGENT_STAGES[2]!).state).toBe('failed');
+  });
+});
+
+describe('agent evidence (S2) for experts', () => {
+  it('AC-26: an expert role with no lens file is checked on its Owns phrase against a roster with no lenses', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-agent-evidence-'));
+    roots.push(root);
+    const workspace = new AgentWorkspace(root, 'db-expert');
+    workspace.write(
+      'justification.md',
+      renderGateMarkdown({ gate: 'passed', stage: 'S0' }, '# J\n'),
+    );
+    workspace.write('intake.yaml', YAML.stringify({ job: JOB, tools: ['Read'] }));
+    const result = runAgentEvidence(workspace, { sourcesText: SOURCES, installed: [] });
+    expect(result.ok).toBe(true);
+    expect(expertRosterProfiles(root).every((profile) => profile.lens === undefined)).toBe(true);
+  });
+
+  it('refuses before the intake is recorded', () => {
+    const workspace = ready();
+    workspace.remove('intake.yaml');
+    expect(() => runAgentEvidence(workspace, { sourcesText: SOURCES, installed: [] })).toThrow();
   });
 });

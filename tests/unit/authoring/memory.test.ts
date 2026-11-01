@@ -82,3 +82,10 @@ describe('agent memory-consolidate (S8)', () => {
     expect(result.lines[0]).toContain(`paqad-ai agent eval plan ${AGENT_NAME}`);
   });
 });
+
+describe('memory sizes and append checks, edges', () => {
+  it('an empty memory has no lines, and any rewrite of an empty memory is allowed', () => {
+    expect(memorySize('')).toEqual({ lines: 0, bytes: 0 });
+    expect(appendOnlyProblem('\n', '- one\n- two\n')).toBeNull();
+  });
+});

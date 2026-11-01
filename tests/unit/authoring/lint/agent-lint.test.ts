@@ -689,3 +689,23 @@ describe('agent lint edges', () => {
     }
   });
 });
+
+describe('agent lint file locations', () => {
+  it('AG-010: a memory file with no trailing newline is counted line by line', () => {
+    const root = project();
+    const memory = put(root, '.claude/agent-memory/migration-reviewer/MEMORY.md', 'one\ntwo');
+    expect(rules(lint(root, agent(), { memoryFile: memory }))).not.toContain('AG-010');
+  });
+
+  it('AG-011: finds a hook script test in a nested test folder', () => {
+    const root = project();
+    put(root, '.claude/hooks/guard.mjs', 'x\n');
+    put(root, 'tests/agents/migration-reviewer/nested/guard.test.mjs', 'x\n');
+    const hooks =
+      '\n  PreToolUse:\n    - matcher: "Edit"\n      hooks:\n        - type: command\n          command: node .claude/hooks/guard.mjs';
+    const messages = lint(root, agent({ hooks }))
+      .findings.filter((finding) => finding.rule === 'AG-011')
+      .map((finding) => finding.message);
+    expect(messages.join(' ')).not.toContain('has no test');
+  });
+});

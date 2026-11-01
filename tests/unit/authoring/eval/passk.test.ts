@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   combinations,
+  judgeAgentS5Gate,
   latencyMeasure,
+  memoryDecision,
   passAtK,
   passHatK,
   percentile,
@@ -82,5 +84,42 @@ describe('pass^k and pass@k (FR-15, NFR-1)', () => {
     expect(percentile([], 0.95)).toBe(0);
     expect(latencyMeasure([])).toEqual({ value: 0, measure: 'median', samples: 0 });
     expect(latencyMeasure([1, 2]).value).toBe(1.5);
+  });
+});
+
+describe('agent gate edges', () => {
+  const arm = (
+    pass: number,
+    tokens: number | null,
+    cost: number | null = 0.01,
+    latency: number | null = 1000,
+  ) => ({ pass_hat_k: pass, tokens_median: tokens, cost_median: cost, latency_ms: latency });
+
+  it('pass@k and pass^k are zero with fewer trials than k, and a case-less arm has mean zero', () => {
+    expect(passAtK(2, 2)).toBe(0);
+    expect(passHatK(2, 2)).toBe(0);
+    expect(reliabilityOf([], 'with_agent', 'fast').pass_hat_k).toBe(0);
+  });
+
+  it('AC-41: a regression from a zero baseline is an infinite rise', () => {
+    const result = judgeAgentS5Gate({
+      agent: arm(1, 100),
+      baseline: arm(1, 0),
+      passKThreshold: 0.8,
+      minGainPoints: 0,
+      maxCostMultiple: 10,
+      edited: { previous: arm(1, 0), tolerance: 0.2 },
+    });
+    expect(result.reasons.join(' ')).toContain('(Infinity%)');
+  });
+
+  it('AC-18: a memory arm is kept when the agent arm has no token number to compare', () => {
+    expect(
+      memoryDecision({
+        withAgent: arm(0.5, null),
+        withMemory: arm(1, 900),
+        tokenTolerance: 0.2,
+      }).kept,
+    ).toBe(true);
   });
 });

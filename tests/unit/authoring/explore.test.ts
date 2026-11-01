@@ -72,6 +72,9 @@ describe('the cheap-tier Explore override', () => {
     expect(exploreRegistrationProblem({ agent: undefined, builtin: undefined })).toContain(
       'no Explore',
     );
+    expect(exploreRegistrationProblem({ agent: metrics(1, null), builtin: metrics(1, null) })).toBe(
+      'its median cost (unavailable) is not lower than the built-in Explore (unavailable)',
+    );
   });
 
   it('only Claude Code can override the built-in; elsewhere nothing is written and it is not deployable', () => {
