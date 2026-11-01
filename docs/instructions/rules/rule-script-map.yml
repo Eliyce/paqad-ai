@@ -1336,7 +1336,13 @@ rules:
     verifiability:
       kind: deterministic
     enforced_by: []
-    scripts: []
+    scripts:
+      - path: .paqad/scripts/rules/coding/cross-platform-hooks/002-hook-explicit-interpreter.mjs
+        kind: deterministic
+        runtime: node
+        scope: changed-files
+        last_validated_at: 2026-11-01T00:54:23.762Z
+        fixtures_passed: true
   - id: RL-4d16
     source: docs/instructions/rules/coding/cross-platform-hooks.md
     text: Recompute the absolute path from the local home directory at generate time, so it stays machine-agnostic across re-onboards instead of baking one machine's path into a shared file.
