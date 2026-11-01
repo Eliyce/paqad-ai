@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { basename } from 'pathe';
+import { basename, dirname } from 'pathe';
 
 import { ValidationError } from '@/core/errors/index.js';
 import type { ResolvedArtifact } from '@/core/types/resolution.js';
@@ -26,7 +26,7 @@ export class SkillLoader {
       skillArtifacts.map(async (artifact) => {
         const content = await readFile(artifact.path, 'utf8');
         try {
-          return toLoadedSkill(artifact.path, this.parser.parse(content));
+          return toLoadedSkill(artifact.path, this.parser.parse(content, dirname(artifact.path)));
         } catch (error) {
           if (error instanceof ValidationError) {
             emitSkillAuditEvent(

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import fg from 'fast-glob';
 
@@ -167,7 +167,7 @@ export class SkillCacheManager {
     );
 
     for (const file of files) {
-      const parsed = this.parser.parse(await readFile(file, 'utf8'));
+      const parsed = this.parser.parse(await readFile(file, 'utf8'), dirname(file));
       this.cacheability.set(parsed.frontmatter.name, parsed.frontmatter.cacheable);
     }
 

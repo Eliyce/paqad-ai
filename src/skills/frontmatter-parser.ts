@@ -1,3 +1,6 @@
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { basename, isAbsolute, join, sep } from 'node:path';
+
 import YAML from 'yaml';
 
 import { CLASSIFICATION_WORKFLOWS } from '@/core/types/classification.js';
@@ -14,6 +17,38 @@ import { ConditionalSectionProcessor } from './conditional-processor.js';
 
 const FRONTMATTER_BOUNDARY = '---';
 const DEFAULT_MAX_LINES = 300;
+
+export const SKILL_META_KEY = 'paqad-meta';
+export const SKILL_META_FILE = 'skill.meta.yaml';
+export const SKILL_METADATA_STRING_KEYS: readonly string[] = [
+  'model_tier',
+  'cacheable',
+  'output_format',
+  'max_lines',
+  'max_output_tokens',
+];
+export const SKILL_META_FILE_KEYS: readonly string[] = [
+  'triggers',
+  'input_schema',
+  'cache_key_inputs',
+  'request_routing',
+  'on_complete',
+  'tools',
+];
+export const SKILL_CUSTOM_KEYS: readonly string[] = [
+  ...SKILL_METADATA_STRING_KEYS,
+  ...SKILL_META_FILE_KEYS,
+];
+
+const recordedDeprecations = new Set<string>();
+
+export function skillMetadataDeprecations(): string[] {
+  return [...recordedDeprecations];
+}
+
+export function clearSkillMetadataDeprecations(): void {
+  recordedDeprecations.clear();
+}
 
 export interface ParsedSkillDocument {
   frontmatter: SkillDefinition;
@@ -75,8 +110,134 @@ export function splitSkillFrontmatter(content: string): SplitSkillFrontmatter {
   };
 }
 
+function metaError(skill: string, message: string, field = SKILL_META_KEY): ValidationError {
+  return new ValidationError(
+    `Skill "${skill}": ${message}`,
+    undefined,
+    `SKILL_FIELD_INVALID:metadata.${field}`,
+  );
+}
+
+function readMetaFile(
+  skill: string,
+  folder: string | undefined,
+  ref: unknown,
+): Record<string, unknown> {
+  if (typeof ref !== 'string' || ref.trim() === '') {
+    throw metaError(skill, `metadata.${SKILL_META_KEY} must name a file in the skill folder.`);
+  }
+  if (isAbsolute(ref) || ref.startsWith('/') || ref.split(/[\\/]/u).includes('..')) {
+    throw metaError(
+      skill,
+      `metadata.${SKILL_META_KEY} "${ref}" must be a path inside the skill folder (no absolute path, no "..").`,
+    );
+  }
+  if (folder === undefined) {
+    throw metaError(
+      skill,
+      `metadata.${SKILL_META_KEY} "${ref}" needs the skill folder to be read.`,
+    );
+  }
+  const path = join(folder, ref);
+  let text: string;
+  try {
+    const base = realpathSync(folder);
+    if (lstatSync(path).isSymbolicLink() && !realpathSync(path).startsWith(`${base}${sep}`)) {
+      throw metaError(skill, `${ref} is a symlink that leads outside the skill folder.`);
+    }
+    text = readFileSync(path, 'utf8');
+  } catch (error) {
+    if (error instanceof ValidationError) throw error;
+    throw metaError(skill, `${ref} named by metadata.${SKILL_META_KEY} is missing.`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = YAML.parse(text);
+  } catch (error) {
+    throw metaError(skill, `${ref} is not valid YAML: ${(error as Error).message}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw metaError(skill, `${ref} must be a YAML object.`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function coerceMetadataString(key: string, value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  if (key === 'cacheable') {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  }
+  if (key === 'max_lines' || key === 'max_output_tokens') {
+    return /^\d+$/u.test(value.trim()) ? Number(value.trim()) : value;
+  }
+  return value;
+}
+
+function same(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function recordDeprecation(skill: string, key: string, disagrees: boolean): void {
+  recordedDeprecations.add(
+    disagrees
+      ? `Skill "${skill}": top-level "${key}" disagrees with its metadata value; the metadata value wins. Remove the top-level key.`
+      : `Skill "${skill}": top-level "${key}" is deprecated; move it under metadata (or ${SKILL_META_FILE}) before the fallback is removed.`,
+  );
+}
+
+export function resolveSkillMetadata(
+  data: Record<string, unknown>,
+  folder?: string,
+): Record<string, unknown> {
+  const skill =
+    typeof data.name === 'string' && data.name.trim() !== ''
+      ? data.name.trim()
+      : folder
+        ? basename(folder)
+        : 'unknown';
+  const metadata =
+    data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata)
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+  const sidecar =
+    metadata[SKILL_META_KEY] === undefined
+      ? {}
+      : readMetaFile(skill, folder, metadata[SKILL_META_KEY]);
+  const resolved: Record<string, unknown> = { ...data };
+  const fresh: Record<string, unknown> = {};
+  for (const key of SKILL_METADATA_STRING_KEYS) {
+    if (metadata[key] !== undefined) fresh[key] = coerceMetadataString(key, metadata[key]);
+  }
+  for (const key of SKILL_META_FILE_KEYS) {
+    if (sidecar[key] !== undefined) fresh[key] = sidecar[key];
+  }
+  for (const key of SKILL_CUSTOM_KEYS) {
+    const old = data[key];
+    if (old !== undefined) recordDeprecation(skill, key, key in fresh && !same(old, fresh[key]));
+    if (key in fresh) resolved[key] = fresh[key];
+  }
+  return resolved;
+}
+
+export function skillDeclaresRequestRouting(content: string, folder?: string): boolean {
+  const split = splitSkillFrontmatter(content);
+  if (!split.ok) return false;
+  if (split.data.request_routing !== undefined) return true;
+  const metadata = split.data.metadata as Record<string, unknown> | undefined;
+  if (!metadata || typeof metadata !== 'object' || metadata[SKILL_META_KEY] === undefined) {
+    return false;
+  }
+  try {
+    return resolveSkillMetadata(split.data, folder).request_routing !== undefined;
+  } catch {
+    return true;
+  }
+}
+
 export class SkillFrontmatterParser {
-  parse(content: string): ParsedSkillDocument {
+  parse(content: string, folder?: string): ParsedSkillDocument {
     const lines = content.split(/\r?\n/);
     const lineCount = lines.length;
 
@@ -93,7 +254,7 @@ export class SkillFrontmatterParser {
       throw new ValidationError(split.message, undefined, split.code);
     }
 
-    const frontmatter = normalizeDefinition(split.data);
+    const frontmatter = normalizeDefinition(resolveSkillMetadata(split.data, folder));
     const body = split.body.trim();
 
     return {

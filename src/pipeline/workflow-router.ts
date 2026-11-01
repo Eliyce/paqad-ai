@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import fg from 'fast-glob';
 
@@ -21,7 +21,11 @@ import type {
 } from '@/core/types/skill.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { Resolver } from '@/resolver/resolver.js';
-import { SkillFrontmatterParser, toLoadedSkill } from '@/skills/frontmatter-parser.js';
+import {
+  SkillFrontmatterParser,
+  skillDeclaresRequestRouting,
+  toLoadedSkill,
+} from '@/skills/frontmatter-parser.js';
 import type { RuntimeSkillRegistry } from '@/skills/runtime-registry.js';
 import { WorkflowTemplateLoader } from '@/workflows/template-loader.js';
 
@@ -153,11 +157,12 @@ export class WorkflowRouterService {
 
     for (const artifact of artifacts) {
       const content = await readFile(artifact.path, 'utf8');
-      if (!frontmatterHasRequestRouting(content)) {
+      const folder = dirname(artifact.path);
+      if (!skillDeclaresRequestRouting(content, folder)) {
         continue;
       }
 
-      const parsed = this.parser.parse(content);
+      const parsed = this.parser.parse(content, folder);
       if (!parsed.frontmatter.request_routing?.length) {
         continue;
       }
@@ -199,27 +204,6 @@ export class WorkflowRouterService {
 
     return artifacts;
   }
-}
-
-function frontmatterHasRequestRouting(content: string): boolean {
-  const lines = content.split(/\r?\n/);
-
-  if (lines[0] !== '---') {
-    return false;
-  }
-
-  const closingIndex = lines.indexOf('---', 1);
-  if (closingIndex === -1) {
-    return false;
-  }
-
-  for (let i = 1; i < closingIndex; i += 1) {
-    if (lines[i].startsWith('request_routing:')) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 function buildRoutingConfig(

@@ -33,7 +33,7 @@ export async function buildSkillIndex(
 
   const entries = await Promise.all(
     files.map(async (file) => {
-      const parsed = parser.parse(await readFile(file, 'utf8'));
+      const parsed = parser.parse(await readFile(file, 'utf8'), dirname(file));
 
       return {
         name: parsed.frontmatter.name,

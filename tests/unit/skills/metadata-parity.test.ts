@@ -29,8 +29,12 @@ function skillFolders(): string[] {
 function parsedFrontmatter(folder: string): unknown {
   const parser = new SkillFrontmatterParser();
   try {
-    const parsed = parser.parse(readFileSync(join(REPO, folder, 'SKILL.md'), 'utf8'));
-    const { description: _description, ...rest } = parsed.frontmatter;
+    const parsed = parser.parse(
+      readFileSync(join(REPO, folder, 'SKILL.md'), 'utf8'),
+      join(REPO, folder),
+    );
+    const rest: Record<string, unknown> = { ...parsed.frontmatter };
+    delete rest.description;
     return JSON.parse(JSON.stringify(rest)) as unknown;
   } catch (error) {
     return { error: (error as Error).message };
