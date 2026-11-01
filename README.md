@@ -568,6 +568,8 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 | `paqad-ai delivery-link refresh`         | Read the push, pull request and CI of the branch change from git and gh (read-only toward GitHub) |
 | `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization    |
 | `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                                 |
+| `paqad-ai skill`                         | Prove a new or edited skill through its gated pipeline before it is added                         |
+| `paqad-ai agent`                         | Prove a new or edited agent through nine gates with pass^k evals before it is added               |
 
 ```bash
 # a few common runs

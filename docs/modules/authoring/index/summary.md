@@ -4,12 +4,14 @@
 
 ## Purpose
 
-Gates new and edited skills before they are added. A change that creates or edits a skill gets
-the Skill Orchestrator at the High Table, runs `paqad-ai skill` through nine gated stages during
-development, and fails the end-of-change check when a new or edited skill has no passing or
+Gates new and edited skills and agents before they are added. A change that creates or edits a
+skill gets the Skill Orchestrator at the High Table and runs `paqad-ai skill` through nine gated
+stages; a change that creates or edits an agent gets the Agent Orchestrator and runs `paqad-ai
+agent` through nine gated stages (see [The agent pipeline](#the-agent-pipeline)). The
+end-of-change check fails a change whose new or edited skill or agent has no passing or
 overridden record. `src/skills` discovers and loads skills; `src/authoring` gates new and edited
-ones. Its overlap, evidence, aggregation, activation and catalog code takes a generic artifact kind
-so agents can reuse it later.
+skills and agents. The workspace, overlap, evidence, aggregation and catalog code takes the
+artifact kind.
 
 ## Source Footprint
 
@@ -18,6 +20,9 @@ so agents can reuse it later.
 - `runtime/base/authoring/never-write.yaml`
 - `runtime/base/skills/skill-orchestrator`
 - `runtime/hooks/skill-activation.mjs` and `runtime/hooks/lib/skill-activation-core.mjs`
+- `src/cli/commands/agent.ts` and `runtime/base/skills/agent-orchestrator`
+- the delegation hook `runtime/hooks/agent-delegation.mjs` is owned by the claude-plugin module;
+  `src/authoring/delegations.ts` reads its log
 
 ## The pipeline
 
@@ -153,12 +158,45 @@ improve-mode draft once `authoring.improvement` is answered yes. `skill drift` l
 verified facts older than `authoring_fact_max_age_days`. The activation and defect ledgers are
 operational: they are always written locally, whatever the enterprise knobs say.
 
+## The agent pipeline
+
+Agent paths are the agents folders of hosts that run subagents (`.claude/agents/`,
+`.codex/agents/`) and, in this repo, the stage, plugin and persona roots; files under any other
+host are ignored. The workspace is `.paqad/tmp/authoring/agents/<name>/` and the tracked evidence
+`.paqad/authoring/agents/<name>/`.
+
+| Stage | Verb | Artifact | Gate |
+| --- | --- | --- | --- |
+| S0 justify | `agent justify <name> --task-file --reason` | `justification.md` | a reason backed by three baseline runs; `--refuse` writes nothing |
+| S1 intake | `agent intake <name> <intake.yaml>` | `intake.yaml` | all 14 fields filled and valid; `--preset explore` fills the `Explore` override |
+| S2 evidence | `agent evidence <name> <sources.md>` | `overlap.md` | one non-model source; no unresolved overlap with an agent or expert |
+| S3 draft | `agent draft <name> --file --trace` | `draft/`, `trace.md`, `brief-template.md` | every block traced; body headings in order; the BLOCKED report shape |
+| S4 lint and tests | `agent lint`, `agent test <name>` | `lint.json`, `script-tests.json` | AG-001 to AG-022 clean; risky powers approved by a resolved `authoring.agent_permission` packet; hook script tests (blocks, allows, invalid input) green |
+| S5 evals | `agent eval plan`, `agent eval record` | `iteration-N/`, `benchmark.json` | pass^3 at `agent_pass_k_threshold` (stage agents `agent_stage_pass_k_threshold`) on the cheapest tier, a gain over the baseline, cost within `agent_max_cost_multiple`; worst-case spend printed first |
+| S6 delegation | `agent delegation plan`, `agent delegation record` | `delegation-results.json` | validation at or above `agent_delegation_threshold`; the chosen description is written into the draft; dispatched agents skip |
+| S7 release | `agent release <name>` | host files, `<name>.agent.json`, `evidence.json`, `CHANGELOG.md`, bundle `agent-<name>.json` | earlier gates passed or overridden; the agent and its hook scripts unchanged since they were judged |
+| S8 operate | `agent learn`, `drift`, `regression`, `memory-consolidate`, `catalog` | `learn.json`, `drift.md`, `regression.json`, `memory-curation.json` | the regression gate allows 20% on tokens, cost and p95 latency and no pass^3 drop |
+
+Hashes bind the agent text and the hook scripts it names, not their paths, so a permission
+approved on the draft copy still holds on the released file and an edit to either needs a rerun.
+Release writes the Claude Code Markdown and the Codex TOML from one source; a host that runs no
+subagents, or a form that would drop a tool restriction or blocking hook the agent relies on, gets
+no file and is recorded `deployable: false` with a skill proposed. A plugin agent moves its
+must-not rules to SubagentStart and SubagentStop settings hooks. The end-of-change check needs a
+passed or overridden `agent-<name>.json` whose file hash matches each changed agent file (or the
+agent whose hook script changed), and names an agent whose power approval has expired.
+
+The delegation hook logs `{agent, request_id, session_id, at, tokens, duration_ms, status}` for
+every Agent or Task call and SubagentStop to `.paqad/ledger/authoring/delegations.jsonl`; it
+prints nothing and never blocks. `agent catalog` uses it for the last delegation and dark agents.
+
 ## Configuration
 
-The 18 keys live in the policy group under "Skill and agent authoring"; `readAuthoringConfig`
+The 18 skill keys and the 11 `agent_*` keys live in the policy group under "Skill and agent authoring"; `readAuthoringConfig`
 falls back to the default for an out-of-range value and `paqad-ai doctor` names it.
 `skill_orchestrator_enabled=false` turns off the seat, the lane raise, the pipeline verbs, the
-completion check and the activation log.
+completion check and the activation log. `agent_orchestrator_enabled=false` does the same for
+agents and the delegation log.
 
 ## Attribution
 
