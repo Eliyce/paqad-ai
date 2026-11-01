@@ -357,7 +357,11 @@ describe('AC-21: the team setup turned off', () => {
     );
     expect(localCommands).toHaveLength(buildHostHookChain('claude-code').length);
     expect(
-      localCommands.every((command) => command.includes(`${home}/.paqad-ai/current/hooks/`)),
+      localCommands.every((command) =>
+        command.startsWith(
+          `node "${join(home, '.paqad-ai', 'current').replace(/\\/g, '/')}/hooks/`,
+        ),
+      ),
     ).toBe(true);
 
     writeFileSync(

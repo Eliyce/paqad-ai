@@ -262,9 +262,16 @@ describe('paqad-ai join', () => {
 
     const settings = readFileSync(join(root, '.claude/settings.json'), 'utf8');
     expect(settings).not.toContain('/.paqad/hook.mjs');
-    expect(settings).toContain(
-      `${join(homeDir, '.paqad-ai', 'current').replace(/\\\\/g, '/')}/hooks/agent-entry-gate.mjs`,
+    const hooks = (
+      JSON.parse(settings) as {
+        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      }
+    ).hooks;
+    const commands = Object.values(hooks).flatMap((groups) =>
+      groups.flatMap((group) => group.hooks.map((hook) => hook.command)),
     );
+    const npmHooks = `${join(homeDir, '.paqad-ai', 'current').replace(/\\/g, '/')}/hooks/`;
+    expect(commands).toContain(`node "${npmHooks}agent-entry-gate.mjs"`);
     expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
     expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
   });

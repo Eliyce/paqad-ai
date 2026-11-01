@@ -50,8 +50,8 @@ export interface Sandbox {
 }
 
 export function makeSandbox(): Sandbox {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), 'paqad-team-home-')));
-  const project = realpathSync(mkdtempSync(join(tmpdir(), 'paqad-team-project-')));
+  const home = realpathSync.native(mkdtempSync(join(tmpdir(), 'paqad-team-home-')));
+  const project = realpathSync.native(mkdtempSync(join(tmpdir(), 'paqad-team-project-')));
   mkdirSync(join(project, '.paqad'), { recursive: true });
   writeFileSync(join(project, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current\n');
   return {

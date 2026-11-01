@@ -199,8 +199,15 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(JSON.stringify(shared)).not.toContain('/.paqad/hook.mjs');
     expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
     expect(readdirSync(join(root, '.claude/agents'))).toEqual(['paqad-review.md']);
-    const local = JSON.stringify(readJson('.claude/settings.local.json'));
-    expect(local).toContain(`${home}/.paqad-ai/current/hooks/agent-entry-gate.mjs`);
+    const localHooks = readJson('.claude/settings.local.json').hooks as Record<
+      string,
+      Array<{ hooks: Array<{ command: string }> }>
+    >;
+    const localCommands = Object.values(localHooks).flatMap((groups) =>
+      groups.flatMap((group) => group.hooks.map((hook) => hook.command)),
+    );
+    const npmHooks = `${join(home, '.paqad-ai', 'current').replace(/\\/g, '/')}/hooks/`;
+    expect(localCommands).toContain(`node "${npmHooks}agent-entry-gate.mjs"`);
     expect(git('check-ignore', '-v', '.claude/settings.local.json')).toContain(
       '.claude/.gitignore',
     );
