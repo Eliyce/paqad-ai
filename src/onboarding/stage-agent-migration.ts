@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -7,6 +8,8 @@ import {
   renderStageAgentFiles,
   withManagedMarker,
 } from '@/stage-isolation/agent-writer.js';
+
+import { PAST_RELEASE_STAGE_AGENT_BODY_HASHES } from './stage-agent-past-bodies.js';
 
 export const PROJECT_AGENTS_DIR = '.claude/agents';
 const LEGACY_STAMP = /^<!-- written by paqad-ai \S+ -->$/u;
@@ -33,18 +36,23 @@ export function carriesManagedMarker(content: string): boolean {
   return lines[0] === STAGE_AGENT_MARKER || lines[bodyStart(lines)] === STAGE_AGENT_MARKER;
 }
 
-function carriesLegacyStamp(content: string): boolean {
+function stripLegacyStamp(content: string): string | null {
   const lines = content.trimEnd().split('\n');
-  return LEGACY_STAMP.test(lines[lines.length - 1] ?? '');
+  if (!LEGACY_STAMP.test(lines[lines.length - 1] ?? '')) return null;
+  return lines.slice(0, -1).join('\n');
+}
+
+export function stageAgentBodyHash(body: string): string {
+  return createHash('sha256').update(body.trimEnd()).digest('hex');
 }
 
 export function knownGeneratedBodies(): Set<string> {
-  const bodies = new Set<string>();
+  const hashes = new Set<string>(PAST_RELEASE_STAGE_AGENT_BODY_HASHES);
   for (const { content } of renderStageAgentFiles('claude-code')) {
-    bodies.add(content.trimEnd());
-    bodies.add(withManagedMarker(content).trimEnd());
+    hashes.add(stageAgentBodyHash(content));
+    hashes.add(stageAgentBodyHash(withManagedMarker(content)));
   }
-  return bodies;
+  return hashes;
 }
 
 function removalReason(
@@ -52,8 +60,9 @@ function removalReason(
   known: ReadonlySet<string>,
 ): RemovedStageAgent['reason'] | null {
   if (carriesManagedMarker(content)) return 'managed-marker';
-  if (carriesLegacyStamp(content)) return 'legacy-stamp';
-  if (known.has(content.trimEnd())) return 'generated-body';
+  const unstamped = stripLegacyStamp(content);
+  if (unstamped !== null) return known.has(stageAgentBodyHash(unstamped)) ? 'legacy-stamp' : null;
+  if (known.has(stageAgentBodyHash(content))) return 'generated-body';
   return null;
 }
 

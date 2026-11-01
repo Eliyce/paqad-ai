@@ -16,7 +16,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { syncTeamSetup, teamSetupMissing } from '@/adapters/claude/team-setup.js';
-import { migrateProjectStageAgents } from '@/onboarding/stage-agent-migration.js';
+import {
+  knownGeneratedBodies,
+  migrateProjectStageAgents,
+  stageAgentBodyHash,
+} from '@/onboarding/stage-agent-migration.js';
+import { PAST_RELEASE_STAGE_AGENT_BODY_HASHES } from '@/onboarding/stage-agent-past-bodies.js';
 import {
   STAGE_AGENT_MARKER,
   renderStageAgentFiles,
@@ -96,6 +101,34 @@ describe("the stage agents in the repo's .claude/agents", () => {
     expect(readdirSync(agentsDir()).sort()).toEqual(['my-agent.md', first!.name].sort());
     expect(notes.join('\n')).toContain(`.claude/agents/${first!.name}`);
     expect(notes.join('\n')).toContain('do not match what paqad wrote');
+  });
+
+  it('keeps a hand-edited copy that still carries the legacy stamp, and names it', () => {
+    const [first] = renderStageAgentFiles('claude-code');
+    const handEdited = `${first!.content}my own note\n\n<!-- written by paqad-ai 1.115.0 -->\n`;
+    writeAgent(first!.name, handEdited);
+    expect(migrateProjectStageAgents(root)).toEqual({
+      removed: [],
+      kept: [`.claude/agents/${first!.name}`],
+    });
+    expect(readFileSync(join(agentsDir(), first!.name), 'utf8')).toBe(handEdited);
+  });
+
+  it('removes a stamped copy whose body an earlier release generated', () => {
+    const pastBody = '---\nname: paqad-planning\n---\n\nAn earlier release body.\n';
+    writeAgent('paqad-planning.md', `${pastBody}\n<!-- written by paqad-ai 1.114.0 -->\n`);
+    const known = new Set([...knownGeneratedBodies(), stageAgentBodyHash(pastBody)]);
+    expect(migrateProjectStageAgents(root, known).removed).toEqual([
+      '.claude/agents/paqad-planning.md',
+    ]);
+  });
+
+  it('knows the bodies of every released stage agent', () => {
+    const known = knownGeneratedBodies();
+    for (const hash of PAST_RELEASE_STAGE_AGENT_BODY_HASHES) expect(known.has(hash)).toBe(true);
+    for (const { content } of renderStageAgentFiles('claude-code')) {
+      expect(known.has(stageAgentBodyHash(content))).toBe(true);
+    }
   });
 
   it('names the removed files in what the lead is told', () => {
