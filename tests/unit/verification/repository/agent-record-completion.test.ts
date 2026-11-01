@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -22,6 +22,7 @@ const DIR = '795-add-agent-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const NAME = 'migration-reviewer';
 const FILE = `.claude/agents/${NAME}.md`;
 const HOOK = '.claude/hooks/block-edits.mjs';
+const NPM_FIXTURE = join(process.cwd(), 'tests/fixtures/authoring/npm-project');
 
 const CONFIG: BundleCompletenessConfig = {
   lane: 'full',
@@ -152,7 +153,7 @@ describe('the agent completion check', () => {
     expect(gate(root, []).status).toBe('pass');
   });
 
-  it('an edit to a hook script the agent names, after release, needs a rerun', () => {
+  it('AC-35: an edit to a hook script the agent names, after release, makes its pass invalid', () => {
     const root = project();
     record(root);
     expect(changedAgentFiles(root, [HOOK])).toEqual([{ name: NAME, path: FILE }]);
@@ -160,7 +161,7 @@ describe('the agent completion check', () => {
     expect(gate(root, [HOOK]).status).toBe('fail');
   });
 
-  it('a removed agent file and files under a host with no subagents get no finding', () => {
+  it('AC-35: a deleted agent file needs no record, and files under a host with no subagents get no finding', () => {
     const root = project();
     write(root, `.cursor/agents/${NAME}.md`, AGENT());
     expect(
@@ -174,6 +175,18 @@ describe('the agent completion check', () => {
     expect(
       agentCompletionFindings({ projectRoot: root, dirName: DIR, changedFiles: [FILE] }),
     ).toEqual([]);
+  });
+
+  it('AC-64: on the npm fixture, a change with no agent path and one adding a .cursor/agents file get the main verdict', () => {
+    const root = project();
+    cpSync(NPM_FIXTURE, root, { recursive: true });
+    write(root, `.cursor/agents/${NAME}.md`, AGENT());
+    const changes = [['src/a.ts'], [`.cursor/agents/${NAME}.md`]];
+    const withSeat = changes.map((files) => gate(root, files));
+    vi.stubEnv('PAQAD_AGENT_ORCHESTRATOR_ENABLED', 'false');
+    const main = changes.map((files) => gate(root, files));
+    expect(withSeat).toEqual(main);
+    expect(main.map((verdict) => verdict.status)).toEqual(['pass', 'pass']);
   });
 
   it('returns nothing when agent_orchestrator_enabled is false', () => {

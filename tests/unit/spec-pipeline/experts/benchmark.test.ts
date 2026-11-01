@@ -17,6 +17,7 @@ import {
   recordHighTableBenchmark,
   type BenchmarkRun,
 } from '@/spec-pipeline/experts/benchmark.js';
+import { buildExpertBriefs } from '@/spec-pipeline/experts/brief.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 
 const roots: string[] = [];
@@ -32,6 +33,28 @@ function project(): string {
 }
 
 const CHANGES = ['ORD-501', 'ORD-502', 'ORD-503'];
+
+const MAIN_BRIEF_HASH = 'c792638b34f02db41621412177f48fdcb1fbdd18fcad5bff3bb286db80de4bd1';
+const MAIN_NOTES = {
+  ok: true,
+  artifact: {
+    notes: [
+      {
+        role: 'db-expert',
+        findings: [
+          {
+            id: 'EX-db-expert-1',
+            target: 'invoices',
+            claim: 'every new filter needs an index on invoices.customer_id',
+            kind: 'requirement',
+            severity: 'must',
+          },
+        ],
+      },
+    ],
+    tokens: { 'db-expert': 900 },
+  },
+};
 
 function runs(drop = 0): BenchmarkRun[] {
   return plannedTrials(CHANGES)
@@ -113,6 +136,50 @@ describe('experts benchmark', () => {
         resultsText: '{"runs":[{}]}',
       }),
     ).toThrow(/runs\[0\] needs change/);
+  });
+
+  it('AC-63: with the benchmark packet unresolved, experts brief and experts notes output match main', () => {
+    const root = project();
+    recordHighTableBenchmark({
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: JSON.stringify({ runs: runs() }),
+    });
+    expect(
+      readContractDecisions(root).filter((decision) => decision.status === 'pending'),
+    ).toHaveLength(1);
+    const { briefs } = buildExpertBriefs({
+      needs: [{ role: 'db-expert', reason: 'touches the invoices migration' }],
+      request: 'Let customers download their invoices as CSV',
+      grounding: {
+        references: [{ kind: 'doc', ref: 'docs/modules/billing/index.md' }],
+        terms: ['invoice'],
+        sparse: false,
+        path: 'docs-fallback',
+      },
+      label: { label: 'clear', signals: [], question_budget: 3 },
+      ceiling: 60000,
+    });
+    expect(briefs[0]!.hash).toBe(MAIN_BRIEF_HASH);
+    expect(
+      validateExpertNotes({
+        notes: [
+          {
+            role: 'db-expert',
+            findings: [
+              {
+                target: 'invoices',
+                claim: 'every new filter needs an index on invoices.customer_id',
+                kind: 'requirement',
+                severity: 'must',
+              },
+            ],
+            questions: [],
+          },
+        ],
+        tokens: { 'db-expert': 900 },
+      }),
+    ).toEqual(MAIN_NOTES);
   });
 
   it('AC-20: no High Table code path reads the benchmark, so notes validate the same with a pending packet', () => {

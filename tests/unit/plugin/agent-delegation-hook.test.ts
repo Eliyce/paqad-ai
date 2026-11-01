@@ -154,6 +154,19 @@ describe('runtime/hooks/agent-delegation.mjs', () => {
     expect(existsSync(join(root, LEDGER))).toBe(false);
   });
 
+  it('AC-65: malformed input and a non-Agent tool call exit 0 and write nothing', () => {
+    const root = project();
+    for (const payload of [
+      '{not json',
+      '',
+      { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } },
+    ]) {
+      expect(runHook(root, payload)).toEqual({ status: 0, stdout: '', stderr: '' });
+    }
+    expect(existsSync(join(root, LEDGER))).toBe(false);
+    expect(existsSync(join(root, '.paqad/ledger/authoring'))).toBe(false);
+  });
+
   it('INV-9: a broken payload or an unwritable ledger never blocks', () => {
     const root = project();
     expect(runHook(root, '{not json')).toEqual({ status: 0, stdout: '', stderr: '' });
