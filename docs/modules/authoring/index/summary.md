@@ -190,6 +190,8 @@ The delegation hook logs `{agent, request_id, session_id, at, tokens, duration_m
 every Agent or Task call and SubagentStop to `.paqad/ledger/authoring/delegations.jsonl`; it
 prints nothing and never blocks. `agent catalog` uses it for the last delegation and dark agents.
 
+See the [technical notes](technical.md) for the agent settings, the permission decision, the delegation log and the Explore offer.
+
 ## Configuration
 
 The 18 skill keys and the 11 `agent_*` keys live in the policy group under "Skill and agent authoring"; `readAuthoringConfig`
