@@ -7,6 +7,7 @@ import { clearAgentEntryMarkers, sentinelPath } from './lib/agent-entry-sentinel
 import {
   appendHooksLog,
   hookStandsDown,
+  isProjectOnboarded,
   parseHookPayload,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
@@ -65,7 +66,22 @@ async function main(input) {
     }
   } catch {}
 
+  await announceMissingStageAgents(projectRoot);
+
   return 0;
+}
+
+async function announceMissingStageAgents(projectRoot) {
+  if (!process.env.CLAUDE_PROJECT_DIR || !isProjectOnboarded(projectRoot)) return;
+  try {
+    const url = new URL('../../dist/stage-isolation/agent-availability.js', import.meta.url);
+    const { stageDispatchStopHookOutput } = await import(url.href);
+    const output = stageDispatchStopHookOutput(projectRoot);
+    if (output) process.stdout.write(output);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: stage agent check skipped: ${message}`);
+  }
 }
 
 let input = '';
