@@ -147,7 +147,7 @@
     "skipped": "dispatched"
   },
   "memory": "none",
-  "returned_to_main_tokens_median": 1119.5,
+  "returned_to_main_tokens_median": 1079,
   "host_notes": {},
   "deployable": {
     "paqad-runtime": true
@@ -171,22 +171,23 @@
   },
   "performance": {
     "task_type": "planted defects it must catch and a clean input it must stay silent on",
+    "tier": "reasoning",
     "tokens_per_task": {
-      "value": 22012.5,
+      "value": 21752,
       "source": "subagent-dispatch"
     },
     "cost_usd": {
-      "value": 0.007306775,
+      "value": 0.0387545,
       "source": "subagent-dispatch"
     },
     "latency_p50_ms": {
-      "value": 23974.5,
+      "value": 22671,
       "source": "subagent-dispatch"
     },
     "latency_p95_ms": {
-      "value": 44868,
-      "measure": "p95",
-      "samples": 18,
+      "value": 22671,
+      "measure": "median",
+      "samples": 9,
       "source": "subagent-dispatch"
     },
     "queue_ms_median": {
@@ -194,11 +195,11 @@
       "source": "subagent-dispatch"
     },
     "cache_hit_share": {
-      "value": 0.77295,
+      "value": 0.8198,
       "source": "subagent-dispatch"
     },
     "tool_calls": {
-      "value": 5,
+      "value": 4,
       "source": "subagent-dispatch"
     },
     "tool_use_blocks_per_message": {
@@ -206,11 +207,11 @@
       "source": "subagent-dispatch"
     },
     "turns": {
-      "value": 6,
+      "value": 5,
       "source": "subagent-dispatch"
     },
     "returned_to_main_tokens": {
-      "value": 1119.5,
+      "value": 1079,
       "source": "subagent-dispatch"
     },
     "context_utilisation": {
