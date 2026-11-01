@@ -1,3 +1,4 @@
+import { GithubHostProvider } from '@/providers/github-host-provider.js';
 import type { HostStepResult, OpenPrInput, PullRequest } from '@/providers/host-provider.js';
 
 import type { RenderedDelivery } from './templates.js';
@@ -93,57 +94,22 @@ export async function runDelivery(
     return { steps, ok: false };
   }
 
-  if (openPr) {
-    const opened = await openPr({
-      title: inputs.rendered.pr_title,
-      body: inputs.rendered.pr_body,
-      base: inputs.base,
-      head: inputs.rendered.branch,
-      draft: inputs.open_pr === 'draft',
-      reviewers: inputs.reviewers,
-      labels: inputs.labels,
-    });
-    steps.push({
-      step: 'pr',
-      ok: opened.ok,
-      output: opened.output,
-      remediation: opened.ok ? undefined : opened.remediation,
-      pr: opened.pr,
-    });
-    return { steps, ok: opened.ok };
-  }
-
-  const prArgs = [
-    'pr',
-    'create',
-    '--base',
-    inputs.base,
-    '--head',
-    inputs.rendered.branch,
-    '--title',
-    inputs.rendered.pr_title,
-    '--body',
-    inputs.rendered.pr_body,
-  ];
-  if (inputs.open_pr === 'draft') {
-    prArgs.push('--draft');
-  }
-  for (const reviewer of inputs.reviewers) {
-    prArgs.push('--reviewer', reviewer);
-  }
-  for (const label of inputs.labels) {
-    prArgs.push('--label', label);
-  }
-  const prResult = await shell.run('gh', prArgs);
+  const open: OpenPullRequest = openPr ?? ((input) => new GithubHostProvider(shell).openPR(input));
+  const opened = await open({
+    title: inputs.rendered.pr_title,
+    body: inputs.rendered.pr_body,
+    base: inputs.base,
+    head: inputs.rendered.branch,
+    draft: inputs.open_pr === 'draft',
+    reviewers: inputs.reviewers,
+    labels: inputs.labels,
+  });
   steps.push({
     step: 'pr',
-    ok: prResult.exitCode === 0,
-    output: prResult.stderr || prResult.stdout,
-    remediation:
-      prResult.exitCode === 0
-        ? undefined
-        : 'gh pr create failed. Ensure `gh auth status` is OK and the branch was pushed cleanly, then re-run delivery.',
+    ok: opened.ok,
+    output: opened.output,
+    remediation: opened.ok ? undefined : opened.remediation,
+    pr: opened.pr,
   });
-
-  return { steps, ok: prResult.exitCode === 0 };
+  return { steps, ok: opened.ok };
 }
