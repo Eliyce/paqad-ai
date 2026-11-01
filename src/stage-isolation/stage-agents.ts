@@ -374,9 +374,6 @@ export interface StageReportReading {
 const STATUS_LINE = /\bStatus:\s*`?(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gu;
 const PAUSED_DECISION = /\bpaused:\s*(D-[A-Za-z0-9]+)/u;
 
-// How the orchestrator reads a stage agent's return. The last Status line wins. A return with
-// no Status line (for example a stage that ran out of turns) reads as BLOCKED, never DONE, so
-// the stage does not advance.
 export function readStageReportStatus(text: string): StageReportReading {
   const statuses = [...text.matchAll(STATUS_LINE)].map((match) => match[1] as StageReportStatus);
   const status = statuses.at(-1) ?? 'BLOCKED';

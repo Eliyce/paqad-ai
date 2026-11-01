@@ -139,7 +139,7 @@ describe('stage-agent definitions', () => {
   });
 });
 
-describe('stage-agent turn limits and Report sections (#796)', () => {
+describe('stage-agent turn limits and Report sections', () => {
   const TURNS: Record<string, number> = {
     'paqad-planning': 60,
     'paqad-specification': 60,

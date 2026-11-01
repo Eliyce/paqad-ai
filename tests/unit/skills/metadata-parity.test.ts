@@ -23,9 +23,6 @@ function skillFolders(): string[] {
   );
 }
 
-// The parsed frontmatter of every paqad skill, taken before the custom keys moved under
-// `metadata` and `skill.meta.yaml`. The description and body are left out on purpose: the
-// text cleanup in the same change edits them, while the metadata move must change nothing.
 function parsedFrontmatter(folder: string): unknown {
   const parser = new SkillFrontmatterParser();
   try {

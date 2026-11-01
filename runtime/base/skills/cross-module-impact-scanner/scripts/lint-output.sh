@@ -16,7 +16,6 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-# The em dash form is still accepted from older output; the documented line uses a comma.
 em=$'\xe2\x80\x94'
 if grep -qE "^Cross-Module Impact: internal-only(,| ${em}) no consumers affected\\.\$" <<<"$body"; then
   printf 'ok\n'; exit 0

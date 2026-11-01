@@ -157,7 +157,7 @@ Body.
   });
 });
 
-describe('SkillFrontmatterParser metadata placement (#796)', () => {
+describe('SkillFrontmatterParser metadata placement', () => {
   const parser = new SkillFrontmatterParser();
   const dirs: string[] = [];
 

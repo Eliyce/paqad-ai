@@ -41,8 +41,6 @@ function pick(source, keys) {
   );
 }
 
-// paqad skills keep their custom keys under `metadata`, with JSON-shaped values in the
-// sibling file named by `metadata.paqad-meta`; older skills still carry them top level.
 function resolveMetadata(raw, folder) {
   const metadata = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
   const ref = metadata['paqad-meta'];
