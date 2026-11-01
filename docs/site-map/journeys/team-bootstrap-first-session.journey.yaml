@@ -1,4 +1,4 @@
-# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# Proposed journey: becomes `confirmed` only via human sign-off through the dashboard
 # (`paqad-ai sitemap journey confirm`), never self-approved.
 schema_version: 1
 id: team-bootstrap-first-session
