@@ -10,10 +10,12 @@ export type PaqadHookEvent =
   | 'subagent-completion'
   | 'post-tool-read'
   | 'post-tool-agent'
-  | 'subagent-stop-any';
+  | 'subagent-stop-any'
+  | 'pre-tool-bash';
 
 export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'pre-tool-mutation',
+  'pre-tool-bash',
   'prompt-submit',
   'session-start',
   'completion',
@@ -56,6 +58,8 @@ export const PAQAD_AGENT_TOOL_MATCHER = 'Agent|Task';
 
 export const PAQAD_ANY_SUBAGENT_MATCHER = '.*';
 
+export const PAQAD_BASH_TOOL_MATCHER = 'Bash';
+
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
 export interface HostHookEventMap {
@@ -66,6 +70,7 @@ export interface HostHookEventMap {
   postReadMatcher?: string;
   postAgentMatcher?: string;
   anySubagentMatcher?: string;
+  bashMatcher?: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -80,6 +85,7 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'post-tool-read': 'PostToolUse',
       'post-tool-agent': 'PostToolUse',
       'subagent-stop-any': 'SubagentStop',
+      'pre-tool-bash': 'PreToolUse',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
@@ -87,6 +93,7 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
     postReadMatcher: PAQAD_SKILL_READ_MATCHER,
     postAgentMatcher: PAQAD_AGENT_TOOL_MATCHER,
     anySubagentMatcher: PAQAD_ANY_SUBAGENT_MATCHER,
+    bashMatcher: PAQAD_BASH_TOOL_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -251,6 +258,13 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     hookFile: 'agent-delegation.mjs',
     description: 'Log a subagent stop to the delegation ledger.',
   },
+  {
+    id: 'stage-agent-write-guard',
+    event: 'pre-tool-bash',
+    hookFile: 'stage-agent-write-guard.mjs',
+    description:
+      'Block shell file writes from the read-only paqad agents; High Table seats write only under .paqad/tmp/high-table/.',
+  },
 ];
 
 export interface RenderedHook {
@@ -325,6 +339,9 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
   }
   if (event === 'subagent-stop-any') {
     return host.anySubagentMatcher;
+  }
+  if (event === 'pre-tool-bash') {
+    return host.bashMatcher;
   }
   return undefined;
 }

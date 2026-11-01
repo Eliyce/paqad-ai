@@ -40,6 +40,10 @@ import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev, isFeatureDevEdit } from '@/stage-evidence/scope.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 import {
+  formatStageAgentWriteSummary,
+  stageAgentWriteDecision,
+} from '@/stage-isolation/bash-write-guard.js';
+import {
   formatUnresolvedStageSummary,
   unresolvedStageAgent,
 } from '@/stage-isolation/must-not-judge.js';
@@ -443,6 +447,15 @@ const stagesCapability: Capability = {
           bundleFileWriter(bundleTarget.filename),
         ),
       };
+    }
+    const writeDecision = stageAgentWriteDecision({
+      projectRoot,
+      agentType: payload?.agentType,
+      toolName: payload?.toolName,
+      targets,
+    });
+    if (writeDecision.blocked) {
+      return { ran: true, blocking: true, summary: formatStageAgentWriteSummary(writeDecision) };
     }
     const unresolvedAgent = unresolvedStageAgent(payload?.agentType);
     if (unresolvedAgent !== null) {

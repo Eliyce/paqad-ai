@@ -120,7 +120,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
-    expect(parsed.hooks.PreToolUse).toHaveLength(5);
+    expect(parsed.hooks.PreToolUse).toHaveLength(6);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.mjs');
     expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('stage-writer.mjs');
@@ -128,6 +128,8 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(isCapabilityGate(parsed.hooks.PreToolUse[4].hooks[0].command, 'pre-mutation')).toBe(
       true,
     );
+    expect(parsed.hooks.PreToolUse[5].matcher).toBe('Bash');
+    expect(parsed.hooks.PreToolUse[5].hooks[0].command).toContain('stage-agent-write-guard.mjs');
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(2);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.mjs',
@@ -223,7 +225,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         Stop: unknown[];
       };
     };
-    expect(parsed.hooks.PreToolUse).toHaveLength(4);
+    expect(parsed.hooks.PreToolUse).toHaveLength(5);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(2);
     expect(parsed.hooks.SessionStart).toHaveLength(2);
     expect(parsed.hooks.Stop).toHaveLength(3);

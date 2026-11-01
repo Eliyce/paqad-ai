@@ -46,6 +46,9 @@ const ACTIVATION_MATCHER = 'Skill|Read';
 const ACTIVATION_HOOK = 'skill-activation.mjs';
 const ACTIVATION_BLOCK = /,\n {4}"PostToolUse": \[\n(?: {6}.*\n)+? {4}\]/;
 const DELEGATION_HOOK = 'agent-delegation.mjs';
+const WRITE_GUARD_HOOK = 'stage-agent-write-guard.mjs';
+const WRITE_GUARD_GROUP =
+  /,\n {6}\{\n {8}"matcher": "Bash",\n {8}"hooks": \[\n[\s\S]*?stage-agent-write-guard\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 const DELEGATION_STOP_GROUP =
   /,\n {6}\{\n {8}"matcher": "\.\*",\n {8}"hooks": \[\n[\s\S]*?agent-delegation\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 
@@ -59,6 +62,7 @@ const APPENDED_ENTRIES: readonly HookLine[] = [
   { event: ACTIVATION_EVENT, matcher: ACTIVATION_MATCHER, hook: ACTIVATION_HOOK },
   { event: ACTIVATION_EVENT, matcher: 'Agent|Task', hook: DELEGATION_HOOK },
   { event: 'SubagentStop', matcher: '.*', hook: DELEGATION_HOOK },
+  { event: 'PreToolUse', matcher: 'Bash', hook: WRITE_GUARD_HOOK },
 ];
 
 function isAppended(event: string, matcher: string | undefined, command: string): boolean {
@@ -110,6 +114,10 @@ function expectOnlyTheActivationEntry(hooks: HookGroups): void {
     { matcher: '.*', hooks: [DELEGATION_HOOK] },
   ]);
   expect(hooks.SubagentStop?.at(-1)?.matcher).toBe('.*');
+  expect(appendedGroups(hooks, 'PreToolUse')).toEqual([
+    { matcher: 'Bash', hooks: [WRITE_GUARD_HOOK] },
+  ]);
+  expect(hooks.PreToolUse?.at(-1)?.matcher).toBe('Bash');
 }
 
 function isActivationLine(line: RenderedHook): boolean {
@@ -386,8 +394,13 @@ describe('the stage enforcement guardrails', () => {
     const golden = goldenAsHost(working(GOLDEN));
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
     expect(DELEGATION_STOP_GROUP.exec(golden)?.[0]).toContain(DELEGATION_HOOK);
+    expect(WRITE_GUARD_GROUP.exec(golden)?.[0]).toContain(WRITE_GUARD_HOOK);
     const stripped = (text: string) =>
-      text.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '').replace(DELEGATION_STOP_GROUP, '');
+      text
+        .replace(SEED_BLOCK, '')
+        .replace(ACTIVATION_BLOCK, '')
+        .replace(DELEGATION_STOP_GROUP, '')
+        .replace(WRITE_GUARD_GROUP, '');
     expect(stripped(golden)).toBe(stripped(goldenAsHost(atBase(GOLDEN))));
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),
