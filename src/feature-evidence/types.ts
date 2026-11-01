@@ -44,11 +44,19 @@ export interface FeatureLaneMove {
   at: string;
 }
 
+export type AuthoringPathKind = 'skill' | 'agent';
+
+export interface AuthoringMatchedPath {
+  kind: AuthoringPathKind;
+  path: string;
+}
+
 export interface FeatureAuthoringLaneRaise {
   from: Exclude<FeatureLane, null>;
   to: Exclude<FeatureLane, null>;
   reason: string;
   path: string;
+  paths?: AuthoringMatchedPath[];
   at: string;
 }
 

@@ -9,6 +9,7 @@ import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
 import type {
+  AuthoringMatchedPath,
   FeatureAuthoringLaneRaise,
   FeatureChangeKind,
   FeatureLane,
@@ -147,6 +148,7 @@ export interface FeatureRecordPatch {
 export interface AuthoringRaiseFacts {
   reason: string;
   path: string;
+  paths?: AuthoringMatchedPath[];
   at: string;
 }
 

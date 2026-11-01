@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 
-import { skillOrchestratorEnabled } from '@/authoring/config.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
   laneMayRise,
   planFiles,
+  authoringRaiseEnabled,
   raiseLaneForAuthoring,
   raiseLaneIfGrown,
 } from '@/feature-evidence/lane-resize.js';
@@ -66,7 +66,7 @@ function authoringRaiseMayApply(root: string, dirName: string): boolean {
   return (
     record?.lane === 'fast' &&
     record.lane_raised_for_authoring === undefined &&
-    skillOrchestratorEnabled(root)
+    authoringRaiseEnabled(root)
   );
 }
 

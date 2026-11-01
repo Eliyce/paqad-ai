@@ -94,6 +94,18 @@ const authoringLaneRaise = {
     to: { enum: ['fast', 'graduated', 'full'] },
     reason: { type: 'string', minLength: 1 },
     path: { type: 'string', minLength: 1 },
+    paths: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['kind', 'path'],
+        properties: {
+          kind: { enum: ['skill', 'agent'] },
+          path: { type: 'string', minLength: 1 },
+        },
+      },
+    },
     at: { type: 'string', minLength: 1 },
   },
 } as const;
