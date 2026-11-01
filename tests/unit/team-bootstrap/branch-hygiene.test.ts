@@ -22,10 +22,11 @@ function git(...args: string[]): string | null {
 }
 
 const base = git('merge-base', 'HEAD', 'origin/main')?.trim() || null;
-const branchIt = base ? it : it.skip;
+const NO_BASE = 'origin/main is not available in this checkout, so there is no branch diff';
 
 describe('the branch stays portable', () => {
-  branchIt('AC-25: no added line in the branch diff holds an absolute home path', () => {
+  it('AC-25: no added line in the branch diff holds an absolute home path', (ctx) => {
+    if (!base) return ctx.skip(NO_BASE);
     const diff = git('diff', `${base}...HEAD`) ?? '';
     const hits = diff
       .split('\n')
@@ -40,7 +41,8 @@ describe('the branch stays portable', () => {
     ).not.toBeNull();
   });
 
-  branchIt('AC-42: a changeset added on this branch is a minor one in plain words', () => {
+  it('AC-42: a changeset added on this branch is a minor one in plain words', (ctx) => {
+    if (!base) return ctx.skip(NO_BASE);
     const added = (
       git('diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', '.changeset') ?? ''
     )
