@@ -9,6 +9,7 @@ import type { LoadedSkill } from '@/core/types/skill.js';
 import {
   emitSkillAuditEvent,
   getSharedSkillAuditBuffer,
+  recordSkillMetadataDeprecation,
   type SkillAuditBuffer,
 } from './audit-events.js';
 import { SkillFrontmatterParser, toLoadedSkill } from './frontmatter-parser.js';
@@ -16,7 +17,10 @@ import { SkillFrontmatterParser, toLoadedSkill } from './frontmatter-parser.js';
 export class SkillLoader {
   private readonly parser = new SkillFrontmatterParser();
 
-  constructor(private readonly auditBuffer: SkillAuditBuffer = getSharedSkillAuditBuffer()) {}
+  constructor(
+    private readonly auditBuffer: SkillAuditBuffer = getSharedSkillAuditBuffer(),
+    private readonly warn?: (line: string) => void,
+  ) {}
 
   async load(artifacts: ResolvedArtifact[], projectRoot?: string): Promise<LoadedSkill[]> {
     const skillArtifacts = artifacts.filter((artifact) =>
@@ -26,7 +30,21 @@ export class SkillLoader {
       skillArtifacts.map(async (artifact) => {
         const content = await readFile(artifact.path, 'utf8');
         try {
-          return toLoadedSkill(artifact.path, this.parser.parse(content, dirname(artifact.path)));
+          const parsed = this.parser.parse(content, dirname(artifact.path));
+          if (parsed.deprecation !== null) {
+            recordSkillMetadataDeprecation(
+              {
+                ts: new Date().toISOString(),
+                type: 'skill.metadata_deprecated',
+                path: artifact.path,
+                skill: parsed.frontmatter.name,
+                message: parsed.deprecation,
+              },
+              projectRoot,
+              this.warn,
+            );
+          }
+          return toLoadedSkill(artifact.path, parsed);
         } catch (error) {
           if (error instanceof ValidationError) {
             emitSkillAuditEvent(

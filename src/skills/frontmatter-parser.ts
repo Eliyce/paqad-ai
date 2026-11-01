@@ -40,6 +40,8 @@ export const SKILL_CUSTOM_KEYS: readonly string[] = [
   ...SKILL_META_FILE_KEYS,
 ];
 
+export const SKILL_METADATA_FALLBACK_REMOVED_IN = '1.117.0';
+
 const recordedDeprecations = new Set<string>();
 
 export function skillMetadataDeprecations(): string[] {
@@ -54,6 +56,7 @@ export interface ParsedSkillDocument {
   frontmatter: SkillDefinition;
   body: string;
   line_count: number;
+  deprecation: string | null;
 }
 
 export type SplitSkillFrontmatter =
@@ -179,18 +182,25 @@ function same(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function recordDeprecation(skill: string, key: string, disagrees: boolean): void {
-  recordedDeprecations.add(
-    disagrees
-      ? `Skill "${skill}": top-level "${key}" disagrees with its metadata value; the metadata value wins. Remove the top-level key.`
-      : `Skill "${skill}": top-level "${key}" is deprecated; move it under metadata (or ${SKILL_META_FILE}) before the fallback is removed.`,
-  );
+export function skillMetadataDeprecationLine(
+  skill: string,
+  oldKeys: readonly string[],
+  disagreeing: readonly string[],
+): string | null {
+  if (oldKeys.length === 0) return null;
+  const keys = [...oldKeys].sort().join(', ');
+  const line =
+    `Skill "${skill}": top-level ${keys} ${oldKeys.length === 1 ? 'is' : 'are'} deprecated and ` +
+    `stop${oldKeys.length === 1 ? 's' : ''} working in ${SKILL_METADATA_FALLBACK_REMOVED_IN}; ` +
+    `move ${oldKeys.length === 1 ? 'it' : 'them'} under metadata (or ${SKILL_META_FILE}).`;
+  if (disagreeing.length === 0) return line;
+  return `${line} ${[...disagreeing].sort().join(', ')} ${disagreeing.length === 1 ? 'disagrees' : 'disagree'} with metadata; the metadata value wins.`;
 }
 
-export function resolveSkillMetadata(
+function resolveWithDeprecation(
   data: Record<string, unknown>,
   folder?: string,
-): Record<string, unknown> {
+): { resolved: Record<string, unknown>; deprecation: string | null } {
   const skill =
     typeof data.name === 'string' && data.name.trim() !== ''
       ? data.name.trim()
@@ -213,12 +223,26 @@ export function resolveSkillMetadata(
   for (const key of SKILL_META_FILE_KEYS) {
     if (sidecar[key] !== undefined) fresh[key] = sidecar[key];
   }
+  const oldKeys: string[] = [];
+  const disagreeing: string[] = [];
   for (const key of SKILL_CUSTOM_KEYS) {
     const old = data[key];
-    if (old !== undefined) recordDeprecation(skill, key, key in fresh && !same(old, fresh[key]));
+    if (old !== undefined) {
+      oldKeys.push(key);
+      if (key in fresh && !same(old, fresh[key])) disagreeing.push(key);
+    }
     if (key in fresh) resolved[key] = fresh[key];
   }
-  return resolved;
+  const deprecation = skillMetadataDeprecationLine(skill, oldKeys, disagreeing);
+  if (deprecation !== null) recordedDeprecations.add(deprecation);
+  return { resolved, deprecation };
+}
+
+export function resolveSkillMetadata(
+  data: Record<string, unknown>,
+  folder?: string,
+): Record<string, unknown> {
+  return resolveWithDeprecation(data, folder).resolved;
 }
 
 export function skillDeclaresRequestRouting(content: string, folder?: string): boolean {
@@ -254,13 +278,15 @@ export class SkillFrontmatterParser {
       throw new ValidationError(split.message, undefined, split.code);
     }
 
-    const frontmatter = normalizeDefinition(resolveSkillMetadata(split.data, folder));
+    const { resolved, deprecation } = resolveWithDeprecation(split.data, folder);
+    const frontmatter = normalizeDefinition(resolved);
     const body = split.body.trim();
 
     return {
       frontmatter,
       body,
       line_count: lineCount,
+      deprecation,
     };
   }
 }

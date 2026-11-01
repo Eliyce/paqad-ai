@@ -216,22 +216,27 @@ input_schema:
     expect(moved.frontmatter.cacheable).toBe(true);
   });
 
-  it('AC-34: still parses a user skill with the old top-level keys, recording one deprecation per key', () => {
+  it('AC-34: still parses a user skill with the old top-level keys, recording one deprecation line for the skill', () => {
+    const first = parser.parse(OLD, folder({}));
     parser.parse(OLD, folder({}));
-    parser.parse(OLD, folder({}));
-    const lines = skillMetadataDeprecations();
-    expect(lines.filter((line) => line.includes('"model_tier"'))).toHaveLength(1);
-    expect(lines.every((line) => line.startsWith('Skill "drafting-notes"'))).toBe(true);
+    const line =
+      'Skill "drafting-notes": top-level cacheable, input_schema, model_tier, output_format, triggers are deprecated and stop working in 1.117.0; move them under metadata (or skill.meta.yaml).';
+    expect(first.deprecation).toBe(line);
+    expect(skillMetadataDeprecations()).toEqual([line]);
   });
 
   it('AC-5: a disagreeing top-level key loses to metadata with one deprecation line', () => {
     const both = NEW.replace('metadata:\n', 'model_tier: reasoning\nmetadata:\n');
     const parsed = parser.parse(both, folder({ 'skill.meta.yaml': META }));
     expect(parsed.frontmatter.model_tier).toBe('fast');
-    const lines = skillMetadataDeprecations().filter((line) => line.includes('disagrees'));
-    expect(lines).toEqual([
-      'Skill "drafting-notes": top-level "model_tier" disagrees with its metadata value; the metadata value wins. Remove the top-level key.',
+    expect(skillMetadataDeprecations()).toEqual([
+      'Skill "drafting-notes": top-level model_tier is deprecated and stops working in 1.117.0; move it under metadata (or skill.meta.yaml). model_tier disagrees with metadata; the metadata value wins.',
     ]);
+  });
+
+  it('a skill that uses only metadata records no deprecation', () => {
+    expect(parser.parse(NEW, folder({ 'skill.meta.yaml': META })).deprecation).toBeNull();
+    expect(skillMetadataDeprecations()).toEqual([]);
   });
 
   it('AC-5: a missing or malformed skill.meta.yaml fails naming the skill and the file', () => {
