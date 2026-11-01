@@ -46,4 +46,4 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
 - Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at
   most five lines of summary. Nothing else.
 
-<!-- written by paqad-ai 1.114.0 -->
+<!-- written by paqad-ai 1.115.0 -->

@@ -46,4 +46,4 @@ Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never
 - Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at
   most five lines of summary. Nothing else.
 
-<!-- written by paqad-ai 1.114.0 -->
+<!-- written by paqad-ai 1.115.0 -->
