@@ -37,9 +37,6 @@ export function renderTeamLauncher(version: string = __PKG_VERSION__): string {
     join(getRuntimeTemplatesRoot(), 'team-bootstrap', 'hook.mjs'),
     'utf8',
   );
-  if (!template.includes(LAUNCHER_VERSION_TOKEN)) {
-    throw new Error('the team launcher template has no version token');
-  }
   return template.replace(LAUNCHER_VERSION_TOKEN, version);
 }
 

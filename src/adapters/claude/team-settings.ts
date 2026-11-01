@@ -214,7 +214,7 @@ function mergeKeepingExisting(base: unknown, extra: unknown): unknown {
     }
     return out;
   }
-  return base === undefined ? extra : base;
+  return base;
 }
 
 function serialize(settings: Json): string {
@@ -235,12 +235,12 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   const { projectRoot, env, transform } = options;
   const enabled = resolveTeamBootstrapEnabled(projectRoot, env);
   const tracked = isGitTracked(projectRoot, CLAUDE_SETTINGS_FILE);
-  const existing = readJson(join(projectRoot, CLAUDE_SETTINGS_FILE));
+  const existing = readJson(join(projectRoot, CLAUDE_SETTINGS_FILE)) ?? {};
   const existingLocal = readJson(join(projectRoot, CLAUDE_LOCAL_SETTINGS_FILE));
   const files: GeneratedFile[] = [];
 
   if (!enabled) {
-    const shared = withoutTeamKeys(withoutPaqadLines(existing ?? {}, options));
+    const shared = withoutTeamKeys(withoutPaqadLines(existing, options));
     files.push(fileFor(CLAUDE_SETTINGS_FILE, transform(shared)));
     const local = mergeNativeHooks(
       withoutPaqadLines(existingLocal ?? {}, options),
@@ -259,10 +259,10 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   let personal: Json = {};
   if (tracked) {
     shared = transform(
-      addTeamKeys(mergeNativeHooks(withoutPaqadLines(existing ?? {}, options), chain)),
+      addTeamKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)),
     );
   } else {
-    const split = splitPersonal(withoutPaqadLines(existing ?? {}, options));
+    const split = splitPersonal(withoutPaqadLines(existing, options));
     personal = split.personal;
     shared = transform({ ...addTeamKeys(mergeNativeHooks({}, chain)), ...split.team });
   }

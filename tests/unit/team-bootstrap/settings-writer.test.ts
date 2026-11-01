@@ -282,6 +282,28 @@ describe('the committed team settings', () => {
     expect(holdsHomePath({ a: 'node scripts/x.mjs' })).toBe(false);
   });
 
+  it('tolerates odd settings shapes without losing team content', async () => {
+    writeSettings('settings.json', {
+      hooks: { PreToolUse: 'not-a-list', Stop: [null, { hooks: [{ type: 'command' }, 7] }] },
+      extraKnownMarketplaces: 'weird',
+      permissions: { allow: 'Bash(ls)' },
+    });
+    writeSettings('settings.local.json', { permissions: { allow: ['Read(*)'] }, hooks: 'nope' });
+    const files = await render();
+    const shared = JSON.parse(files.get('.claude/settings.json')!) as Settings;
+    expect(shared.enabledPlugins).toEqual({ 'paqad@eliyce': true });
+    const local = JSON.parse(files.get('.claude/settings.local.json')!) as Settings;
+    expect(local.permissions).toEqual({ allow: ['Read(*)'] });
+    expect(local.hooks).toEqual({ Stop: [{ hooks: [{ type: 'command' }] }] });
+    expect(holdsHomePath(undefined)).toBe(false);
+  });
+
+  it('a settings.json holding a JSON array is treated as empty', async () => {
+    writeSettings('settings.json', ['x']);
+    const shared = JSON.parse((await render()).get('.claude/settings.json')!) as Settings;
+    expect(shared.enabledPlugins).toEqual({ 'paqad@eliyce': true });
+  });
+
   it('a malformed settings.json is replaced with team content', async () => {
     mkdirSync(join(root, '.claude'), { recursive: true });
     writeFileSync(join(root, '.claude/settings.json'), '{ nope');
