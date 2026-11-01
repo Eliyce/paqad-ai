@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CAWX6SVB0MVTSQZX1F5K2K",
+  "category": "intake.requirement",
+  "title": "Do the 8 paqad agents keep Bash?",
+  "context": "Agent lint AG-022 flags Bash as a risky power on all 8 agents (planning, specification, development, review, checks, documentation-sync, expert, chief-architect) until an owner-resolved authoring.agent_permission packet allows it. Every stage runs paqad-ai verbs through Bash, and the expert and chief-architect seats use it to record their notes. The answer sets what the agent-permission packets will ask you to allow; those packets are still raised and answered separately.",
+  "options": [
+    {
+      "option_key": "allow-all",
+      "label": "Keep Bash on all 8 agents, confirmed by one agent-permission packet per agent",
+      "one_line_preview": "Keep Bash on all 8 agents, confirmed by one agent-permission packet per agent",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "stages-only",
+      "label": "Keep Bash on the 6 stage agents; remove it from expert and chief-architect, which then write their notes without Bash",
+      "one_line_preview": "Keep Bash on the 6 stage agents; remove it from expert and chief-architect, which then write their notes without Bash",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "per-agent",
+      "label": "Decide agent by agent when the agent-permission packets come up",
+      "one_line_preview": "Decide agent by agent when the agent-permission packets come up",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow-all",
+  "created_at": "2026-11-01T19:55:32.442Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "allow-all",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:41.392Z",
+  "decision_id": "D-01M6CAWX6SVB0MVTSQZX1F5K2K",
+  "fingerprint": "sha256:5275e11a00df1eee3b1c0e16bf5fe7639fa2b00fd7e9613cfa9243a8c8235c42",
+  "question": "Do the 8 paqad agents keep Bash?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:32.442Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow-all",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:41.392Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M6CAQA6ZEG06M2CGVMRNNXH8",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/claude-plugin/hooks.json SubagentStart and SubagentStop entries",
+  "context": "Chief architect: The claims do not contradict each other, and the devops constraints (additive entries, unchanged decisions, one copy per session) stay accepted through the hooks.json ruling. This is a pick only because it includes a must-level security finding, so the owner confirms it. The security claim carries the stricter rule: no enforcement gap, and fail closed.\n\nTarget: runtime/claude-plugin/hooks.json SubagentStart and SubagentStop entries\n- security-auditor: moving the must-not rules (no edits outside the stage, no writes into a feature bundle, no asking the human) from agent bodies into settings hooks must not open a window where neither the body text nor a hook enforces them; the hooks land in the same change that removes the body text, and fail closed when the stage cannot be resolved\n- devops-engineer: The new must-not hook entries are added beside the existing paqad-* matchers; the existing entries keep their exact command and decisions, and when the npm-route settings hooks and the plugin hooks are both installed only one copy runs per session.\n\n[expert-conflict-fork:f88864f8e0b8e47a]",
+  "options": [
+    {
+      "option_key": "moving-the-must-not-rules-no-edits-outsi",
+      "label": "moving the must-not rules (no edits outside the stage, no writes into a feature bundle, no asking the human) from agent bodies into settings hooks must not open a window where neither the body text nor a hook enforces them; the hooks land in the same change that removes the body text, and fail closed when the stage cannot be resolved — security-auditor",
+      "one_line_preview": "moving the must-not rules (no edits outside the stage, no writes into a feature bundle, no asking the human) from agent bodies into settings hooks must not open a window where neither the body text nor a hook enforces them; the hooks land in the same change that removes the body text, and fail closed when the stage cannot be resolved — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-new-must-not-hook-entries-are-added-",
+      "label": "The new must-not hook entries are added beside the existing paqad-* matchers; the existing entries keep their exact command and decisions, and when the npm-route settings hooks and the plugin hooks are both installed only one copy runs per session. — devops-engineer",
+      "one_line_preview": "The new must-not hook entries are added beside the existing paqad-* matchers; the existing entries keep their exact command and decisions, and when the npm-route settings hooks and the plugin hooks are both installed only one copy runs per session. — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "moving-the-must-not-rules-no-edits-outsi",
+  "created_at": "2026-11-01T19:52:29.151Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "moving-the-must-not-rules-no-edits-outsi",
+  "rationale": "Owner: no enforcement gap, hooks fail closed; existing entries unchanged, one copy",
+  "resolved_at": "2026-11-01T20:03:36.494Z",
+  "decision_id": "D-01M6CAQA6ZEG06M2CGVMRNNXH8",
+  "fingerprint": "sha256:2f3acd29a812c5b02f7a606db83df3c9ae61d12ca3d3cbeb30c48d1b7764e24f",
+  "question": "Experts disagree on runtime/claude-plugin/hooks.json SubagentStart and SubagentStop entries",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-01T19:52:29.151Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "moving-the-must-not-rules-no-edits-outsi",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:36.494Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: no enforcement gap, hooks fail closed; existing entries unchanged, one copy"
+  }
+}
