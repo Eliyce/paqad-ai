@@ -1,6 +1,6 @@
 ---
 name: site-map-assembly
-description: Drive the compile verb that folds the surface, transition, and guard layers into app-map.yaml, and resolve merge conflicts against the locked committed content without overwriting curated entries.
+description: 'Drives the compile verb that folds the surface, transition and guard layers into app-map.yaml, and resolves merge conflicts against the committed content without overwriting curated entries. Use when modeling and flow tracing are done and verification has not run.'
 metadata:
   model_tier: fast
   cacheable: 'false'
@@ -10,14 +10,14 @@ metadata:
 
 ## What It Does
 
-Compiles the modeled layers — surfaces, transitions, guards, areas — into the single
+Compiles the modeled layers (surfaces, transitions, guards, areas) into the single
 `app-map.yaml` of record, and reconciles them against what is already committed. The compile is
 the engine's; this skill drives it and resolves conflicts by preserving locked human-curated
 content rather than clobbering it.
 
 ## Use This When
 
-Use this after modeling and flow tracing, once the layers are ready to become one map. It
+After modeling and flow tracing, once the layers are ready to become one map. It
 precedes verification and publication.
 
 ## Inputs
@@ -34,7 +34,7 @@ The compile and its schema validation are the engine's; do not hand-assemble the
    result against the app-map schema.
 2. Read the reconciliation: entries added, entries the committed map already covers, and any
    conflict between a fresh layer and a curated entry.
-3. Resolve each conflict per the merge policy — locked, human-curated content wins over a
+3. Resolve each conflict per the merge policy: locked, human-curated content wins over a
    re-derived layer; a genuine change is surfaced, not silently overwritten.
 
 ## Output Contract
@@ -46,7 +46,7 @@ The compile and its schema validation are the engine's; do not hand-assemble the
 ## Escalate / Stop Conditions
 
 - Stop when schema validation fails; a map that does not validate is not written.
-- Do not overwrite a locked, human-curated entry to resolve a conflict — surface the change for a
+- Do not overwrite a locked, human-curated entry to resolve a conflict: surface the change for a
   human decision.
 - Do not hand-edit `app-map.yaml` outside the compile; the engine owns its shape.
 

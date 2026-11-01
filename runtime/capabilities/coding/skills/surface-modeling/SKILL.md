@@ -1,6 +1,6 @@
 ---
 name: surface-modeling
-description: Turn raw extracted surfaces into named, typed, module-attributed surfaces with entry and exit marks — the non-inferable layer the engine cannot derive from the code alone.
+description: 'Turns raw extracted surfaces into named, typed, module-attributed surfaces with entry and exit marks, the layer the engine cannot infer from code. Use when extraction is done and flow tracing has not started.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -17,7 +17,7 @@ judgment is load-bearing and must stay honest.
 
 ## Use This When
 
-Use this after extraction and before flow tracing. Every surface the map publishes passes
+After extraction and before flow tracing. Every surface the map publishes passes
 through here to get its name and type.
 
 ## Inputs
@@ -41,7 +41,7 @@ lint; your job is the naming and typing judgment.
 
 - A JSON object `{ surfaces: [{ id, slug, title, kind, area, module, entry, evidence }], excluded: [{ id, reason }] }`.
 - Every modeled surface carries a resolving `file:line` evidence pointer.
-- Every extracted entry appears in `surfaces` or `excluded` — none is dropped silently.
+- Every extracted entry appears in `surfaces` or `excluded`: none is dropped silently.
 
 ## Escalate / Stop Conditions
 

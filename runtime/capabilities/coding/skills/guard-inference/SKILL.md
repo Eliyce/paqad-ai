@@ -1,6 +1,6 @@
 ---
 name: guard-inference
-description: Find and evidence the guards that gate surfaces and transitions — permissions, roles, feature flags, auth and data states — and how each is satisfied, without inventing protection the code does not enforce.
+description: 'Finds and evidences the guards that gate surfaces and transitions (permissions, roles, feature flags, auth and data states) and how each is satisfied, never inventing protection the code does not enforce. Use when modeling is done, beside transition-tracing.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -13,11 +13,11 @@ metadata:
 Adds the access-control layer: the guards that decide who may reach a surface or take a
 transition, and the `satisfy_via` that says how a guard is met. Runs in parallel with
 `transition-tracing` over the same modeled surfaces. A guard is recorded only where the code
-enforces it — an inferred guard the code does not check is a false sense of security.
+enforces it: an inferred guard the code does not check is a false sense of security.
 
 ## Use This When
 
-Use this after modeling, alongside `transition-tracing`. It only adds guards and their
+After modeling, alongside `transition-tracing`. It only adds guards and their
 satisfaction; edges are the other skill's job.
 
 ## Inputs
@@ -50,7 +50,7 @@ capability | environment`), what it requires, and its `satisfy_via`, each with a
   about missing enforcement, not a guard on the map.
 - Flag a backstage surface with no guard rather than assuming an inherited one that is not
   evidenced.
-- Never expose a secret or credential value in guard evidence — cite the `file:line` and the
+- Never expose a secret or credential value in guard evidence: cite the `file:line` and the
   enforcement, not the secret's bytes.
 
 ## Resources

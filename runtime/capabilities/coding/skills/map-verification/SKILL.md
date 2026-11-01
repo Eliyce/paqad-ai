@@ -1,6 +1,6 @@
 ---
 name: map-verification
-description: Adversarially refute or confirm the claims the deterministic checks could not settle — the Tier-B pass over the site map — grounding each verdict in resolving evidence and never rubber-stamping.
+description: "Refutes or confirms the claims the deterministic checks could not settle, the Tier-B pass over the site map, grounding each verdict in resolving evidence. Use when assembly is done and the engine's inconclusive-claim table has entries."
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -11,13 +11,13 @@ metadata:
 ## What It Does
 
 Provides the Tier-B judgment layer: the engine's deterministic checks settle what they can and
-hand over a table of claims they could not — an evidence pointer that half-resolves, a
+hand over a table of claims they could not: an evidence pointer that half-resolves, a
 transition whose runtime behaviour is ambiguous. This skill refutes or confirms each, grounded
-in the code, so an inconclusive claim becomes either a finding or a fact — never a shrug.
+in the code, so an inconclusive claim becomes either a finding or a fact, never a shrug.
 
 ## Use This When
 
-Use this after assembly, over the engine's inconclusive-claim table. It settles only what the
+After assembly, over the engine's inconclusive-claim table. It settles only what the
 deterministic checks left open; it never re-litigates a claim the engine already proved.
 
 ## Inputs

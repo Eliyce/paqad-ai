@@ -1,6 +1,6 @@
 ---
 name: motion-review
-description: Verify animations match motion.md budgets and prefers-reduced-motion is respected.
+description: 'Checks that animations meet the motion.md budgets and respect prefers-reduced-motion. Use when a design-test run has finished responsive-review.'
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -24,7 +24,7 @@ Use for every design-test run after `responsive-review`.
 
 ## Procedure
 
-Scan and budget parsing are deterministic — drive them with the scripts.
+Scan and budget parsing are deterministic: drive them with the scripts.
 
 1. Run `scripts/parse-motion-budget.sh <motion.md>` → key/value rows: `duration-ceiling`, `easing`, `reduced-motion`. This is the declared budget.
 2. Run `scripts/scan-animations.sh [search-root]` → `<file>:<line>\t<duration-ms>\t<excerpt>` rows. Every duration is normalized to milliseconds (`300ms`, `0.5s` → `500ms`, framer-motion `duration: 0.3` → `300ms`).
@@ -45,9 +45,9 @@ Scan and budget parsing are deterministic — drive them with the scripts.
 ## Resources
 
 - `references/motion-checklist.md`
-- `scripts/parse-motion-budget.sh` — declared budget from `motion.md`.
-- `scripts/scan-animations.sh` — every animation declaration in source, duration normalized to ms.
-- `scripts/find-reduced-motion-violations.sh` — files that animate without a reduced-motion guard.
+- `scripts/parse-motion-budget.sh`: declared budget from `motion.md`.
+- `scripts/scan-animations.sh`: every animation declaration in source, duration normalized to ms.
+- `scripts/find-reduced-motion-violations.sh`: files that animate without a reduced-motion guard.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

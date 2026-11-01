@@ -1,6 +1,6 @@
 ---
 name: copy-and-ia-review
-description: Audit voice, tone, labeling, and information architecture against patterns.md.
+description: 'Audits voice, tone, labels and information architecture against patterns.md. Use when a design-test run reaches its last skill.'
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -14,7 +14,7 @@ Audits user-facing copy and information architecture against `patterns.md`: voic
 
 ## Use This When
 
-Use for every design-test run. Runs last in the skill sequence — its findings are usually lower severity than token/component/a11y, but they accumulate into a coherent UX signal.
+Use for every design-test run. Runs last in the skill sequence: its findings are usually lower severity than token/component/a11y, but they accumulate into a coherent UX signal.
 
 ## Inputs
 
@@ -23,13 +23,13 @@ Use for every design-test run. Runs last in the skill sequence — its findings 
 
 ## Procedure
 
-Extraction and rule-checking are deterministic — drive them with the scripts.
+Extraction and rule-checking are deterministic: drive them with the scripts.
 The LLM picks severity and writes findings.
 
 1. Run `scripts/extract-user-strings.sh [search-root]` → `<category>\t<file>:<line>\t<string>` rows. Categories: `aria-label | placeholder | title | jsx-text`. This is the inventory of every user-facing string.
 2. Run `scripts/check-action-verbs.sh --verbs <a,b,c> --root <dir>` to flag button labels outside the declared action-verb set. The match is case-insensitive; the offending label is reported as-typed.
 3. Run `scripts/check-terminology.sh --preferred <Word> --avoid <a,b,c> --root <dir>` once per glossary entry. Each match is a `copy` finding citing the preferred term.
-4. IA check: navigation labels and route names form a consistent hierarchy (no two routes labeled "Dashboard"; no label that contradicts its destination). No scripted detector — the LLM compares the route inventory from `runtime/scripts/design/enumerate-surface.sh` against the strings extractor's output.
+4. IA check: navigation labels and route names form a consistent hierarchy (no two routes labeled "Dashboard"; no label that contradicts its destination). No scripted detector, the LLM compares the route inventory from `runtime/scripts/design/enumerate-surface.sh` against the strings extractor's output.
 
 ## Output Contract
 
@@ -39,14 +39,14 @@ The LLM picks severity and writes findings.
 
 ## Escalate / Stop Conditions
 
-- Ask when `patterns.md` declares no copy/voice rules — defer; emit a `documentation-drift` finding suggesting the team add one.
+- Ask when `patterns.md` declares no copy/voice rules: defer; emit a `documentation-drift` finding suggesting the team add one.
 
 ## Resources
 
 - `references/copy-checklist.md`
-- `scripts/extract-user-strings.sh` — user-facing strings (`aria-label`, `placeholder`, `title`, JSX text).
-- `scripts/check-action-verbs.sh` — button labels outside the declared verb set.
-- `scripts/check-terminology.sh` — usages of disallowed terms given a `preferred -> avoid` map.
+- `scripts/extract-user-strings.sh`: user-facing strings (`aria-label`, `placeholder`, `title`, JSX text).
+- `scripts/check-action-verbs.sh`: button labels outside the declared verb set.
+- `scripts/check-terminology.sh`: usages of disallowed terms given a `preferred -> avoid` map.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

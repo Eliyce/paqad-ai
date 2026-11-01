@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
-Purpose: Extract user-facing strings from UI source — JSX text nodes,
+Purpose: Extract user-facing strings from UI source: JSX text nodes,
          `aria-label`, `placeholder`, `title`. Deterministic extraction so
          the LLM doesn't re-derive what counts as "user-visible copy."
 

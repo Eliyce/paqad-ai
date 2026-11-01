@@ -4,7 +4,7 @@ set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: Emit `DT-DS-XXXX` finding rows for gaps in the design-system contract
-         itself — files absent, files empty, namespaces missing. Used when the
+         itself : files absent, files empty, namespaces missing. Used when the
          tier is `bare` (the workflow runs anyway but the contract gets graded).
 
 Usage:   bash scripts/gap-report.sh [contract-dir]

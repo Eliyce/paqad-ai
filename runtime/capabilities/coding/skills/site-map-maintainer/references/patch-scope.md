@@ -26,5 +26,5 @@ the maintainer stays out of the way.
 ## Removals are decisions
 
 - When a change removes a surface that a journey still references, that is not a silent deletion.
-  Surface it for a human decision — the journey may need updating, or the removal may be a
+  Surface it for a human decision: the journey may need updating, or the removal may be a
   mistake. The map never quietly loses a surface a journey depends on.

@@ -2,11 +2,11 @@
 
 For each user-facing string:
 
-- **Case style** — sentence case vs title case must match `patterns.md`. Mixed case within a page is a finding.
-- **Action verbs on buttons** — declared verb set (e.g. `Save | Cancel | Delete | Submit | Create | Update | Done`). Unusual labels (`OK`, `Yes`, `Got it`) need explicit allowance.
-- **Error format** — declared template (e.g. "What happened. What to do."). Errors that only say "Error" are findings.
-- **Terminology** — one term per concept. Mixing `User / Account / Member` across the same app is a finding.
-- **Empty-state copy** — declared format (illustration + headline + action). Plain "No items" is a finding.
+- **Case style**: sentence case vs title case must match `patterns.md`. Mixed case within a page is a finding.
+- **Action verbs on buttons**: declared verb set (e.g. `Save | Cancel | Delete | Submit | Create | Update | Done`). Unusual labels (`OK`, `Yes`, `Got it`) need explicit allowance.
+- **Error format**: declared template (e.g. "What happened. What to do."). Errors that only say "Error" are findings.
+- **Terminology**: one term per concept. Mixing `User / Account / Member` across the same app is a finding.
+- **Empty-state copy**: declared format (illustration + headline + action). Plain "No items" is a finding.
 
 ## IA checks
 

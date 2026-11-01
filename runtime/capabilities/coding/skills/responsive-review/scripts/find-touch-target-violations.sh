@@ -6,7 +6,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
 Purpose: Grep UI source for icon-only / tap targets whose declared sizing is
          below the WCAG-2.2-2.5.8 minimum (default 24×24 CSS pixels). The
          minimum is configurable via --min. Emits candidate lines the LLM
-         confirms — anything declaring a width/height < the minimum or using
+         confirms : anything declaring a width/height < the minimum or using
          a Tailwind size utility below the floor.
 
 Usage:   bash scripts/find-touch-target-violations.sh [search-root]
@@ -67,7 +67,7 @@ emit() {
 
       # Tailwind: w-N / h-N where N maps to N * 0.25rem = N * 4px (assuming the
       # default 16px root font size; projects with different roots will still
-      # see N*4 — the LLM picks severity, not the script).
+      # see N*4: the LLM picks severity, not the script).
       if (px == 0 && match(excerpt, /(^|[^A-Za-z0-9_-])[wh]-[0-9]+([^A-Za-z0-9_-]|$)/)) {
         s = substr(excerpt, RSTART, RLENGTH)
         if (match(s, /[0-9]+/)) {

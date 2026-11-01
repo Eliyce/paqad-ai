@@ -4,7 +4,7 @@ set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: Given a leaked literal value and a parsed tokens TSV (as emitted
-         by parse-tokens.sh), suggest the matching declared token — purely
+         by parse-tokens.sh), suggest the matching declared token: purely
          deterministic, no LLM guessing.
 
 Usage:   bash scripts/match-leak-to-token.sh --leak <value> --tokens <tsv-file>

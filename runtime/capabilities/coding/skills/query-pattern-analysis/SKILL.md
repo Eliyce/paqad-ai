@@ -1,6 +1,6 @@
 ---
 name: query-pattern-analysis
-description: Analyze query behavior for correctness and performance risk.
+description: 'Analyzes query behavior for correctness and performance risk. Use when a request changes filtering, pagination, aggregation, eager loading, write batching or another query path that real data volume could regress.'
 metadata:
   model_tier: reasoning
   cacheable: 'true'
@@ -14,7 +14,7 @@ Analyzes changed query behavior for correctness, safety, and runtime cost so new
 
 ## Use This When
 
-Use this when a request changes filtering, pagination, aggregation, eager loading, write batching, or any query path that could regress with real data volume.
+When a request changes filtering, pagination, aggregation, eager loading, write batching, or any query path that could regress with real data volume.
 
 ## Inputs
 

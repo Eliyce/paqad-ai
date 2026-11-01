@@ -1,6 +1,6 @@
 ---
 name: token-conformance-review
-description: Detect hard-coded design values (hex, raw px/rem, ad-hoc font stacks) in UI source that should resolve to a declared token. High severity by default.
+description: 'Detects hard-coded design values (hex, raw px or rem, ad-hoc font stacks) in UI source that should resolve to a declared token, high severity by default. Use when any design-test run checks contract conformance.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -12,22 +12,22 @@ metadata:
 
 Scans UI source for **hard-coded design values that should resolve back to a declared token**: hex literals, raw `px`/`rem`/`em`, unregistered color names, ad-hoc font stacks, magic shadow values. The presence of `color.primary.500` in `tokens.md` while a component inlines `#1a73e8` is a finding, not a stylistic preference.
 
-`token` findings default to **high severity** — this is the load-bearing check for "is the design system actually being followed."
+`token` findings default to **high severity**: this is the load-bearing check for "is the design system actually being followed."
 
 ## Use This When
 
-Use this for every design-test run. It is one of the two primary "is the contract followed" skills, alongside `component-conformance-review`.
+For every design-test run. It is one of the two primary "is the contract followed" skills, alongside `component-conformance-review`.
 
 ## Inputs
 
 - Read `docs/instructions/design-system/tokens.md` to know what's declared.
 - Read the contract-summary from `design-system-coverage` (lists every declared token name).
 - Read `references/token-leak-checklist.md` before scanning.
-- Read `tailwind.config.*` if present — Tailwind theme entries count as tokens too.
+- Read `tailwind.config.*` if present: Tailwind theme entries count as tokens too.
 
 ## Procedure
 
-The mechanics are deterministic — drive them with the scripts in `scripts/`
+The mechanics are deterministic: drive them with the scripts in `scripts/`
 rather than re-deriving them on every finding. Reserve LLM reasoning for the
 "is this leak resolvable to which token" judgment, not for parsing files.
 
@@ -37,7 +37,7 @@ rather than re-deriving them on every finding. Reserve LLM reasoning for the
    - `match\t<token-name>` → emit a `token` finding, **high** severity. `Required action:` writes itself: replace `<leak>` at `<file>:<line>` with `<token-name>` from `tokens.md`.
    - `ambiguous\t<n1>,<n2>...` → still a finding; pick the more specific token (most dotted segments) and explain the alternatives in the finding body.
    - `no-match` → emit a parallel `documentation-drift` finding pointing at the gap in the contract; the token leak finding becomes `medium` until the gap is filled.
-4. If the hit lands inside a known exemption path (`**/*.test.*`, `**/*.stories.*`, `**/__tests__/**`, `src/design-tokens/**`, `tailwind.config.*`) the scanner already drops it — never re-check those manually.
+4. If the hit lands inside a known exemption path (`**/*.test.*`, `**/*.stories.*`, `**/__tests__/**`, `src/design-tokens/**`, `tailwind.config.*`) the scanner already drops it: never re-check those manually.
 
 ## Categories of Hard-Coded Values
 
@@ -58,17 +58,17 @@ rather than re-deriving them on every finding. Reserve LLM reasoning for the
 
 ## Escalate / Stop Conditions
 
-- Ask when `tokens.md` is missing or all-empty — defer to `design-system-coverage` to gate the workflow.
-- Warn when the project uses CSS-in-JS without a declared theme provider — token resolution can't be verified without it.
+- Ask when `tokens.md` is missing or all-empty: defer to `design-system-coverage` to gate the workflow.
+- Warn when the project uses CSS-in-JS without a declared theme provider: token resolution can't be verified without it.
 - Do not downgrade severity to compensate for an incomplete contract; emit a parallel `documentation-drift` finding instead.
 
 ## Resources
 
 - `references/token-leak-checklist.md`
-- `scripts/scan-tokens.sh` — pre-investigation grep over the codebase
-- `scripts/parse-tokens.sh` — turn `tokens.md` into a `<name>\t<value>\t<namespace>` TSV.
-- `scripts/normalize-color.sh` — canonicalize colors so hex/rgb/uppercase variants compare cleanly.
-- `scripts/match-leak-to-token.sh` — deterministic leak-to-token resolver (`match | ambiguous | no-match`).
-- `scripts/lint-findings.sh` — enforces `contract_ref` + `Evidence: file:line` per finding
+- `scripts/scan-tokens.sh`: pre-investigation grep over the codebase
+- `scripts/parse-tokens.sh`: turn `tokens.md` into a `<name>\t<value>\t<namespace>` TSV.
+- `scripts/normalize-color.sh`: canonicalize colors so hex/rgb/uppercase variants compare cleanly.
+- `scripts/match-leak-to-token.sh`: deterministic leak-to-token resolver (`match | ambiguous | no-match`).
+- `scripts/lint-findings.sh`: enforces `contract_ref` + `Evidence: file:line` per finding
 - `assets/output.template.md`
 - `agents/openai.yaml`

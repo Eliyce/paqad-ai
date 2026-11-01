@@ -1,6 +1,6 @@
 ---
 name: ux-heuristic-evaluation
-description: Evaluate UI behavior against usability heuristics.
+description: 'Evaluates UI behavior against usability heuristics. Use when a meaningful UI change has known target flows and states, above all before final review or doc handoff.'
 metadata:
   model_tier: medium
   cacheable: 'true'
@@ -14,7 +14,7 @@ Evaluates changed UI behavior against a defined heuristic rubric so usability is
 
 ## Use This When
 
-Use this for any meaningful UI change once the target flow and states are known, especially before final review or documentation handoff.
+For any meaningful UI change once the target flow and states are known, especially before final review or documentation handoff.
 
 ## Inputs
 
@@ -25,7 +25,7 @@ Use this for any meaningful UI change once the target flow and states are known,
 ## Procedure
 
 1. Walk every heuristic in `assets/heuristics.txt` against the changed interface; never skip a category silently.
-2. Tie each issue to a user task, state, or observed confusion point — never style preference.
+2. Tie each issue to a user task, state, or observed confusion point, never style preference.
 3. Bucket findings into Blocking Issues vs Improvement Opportunities per `assets/output.template.md`.
 4. Note any UI doc that must update because the heuristic reveals missing state documentation.
 5. Validate with `scripts/lint-output.sh`.

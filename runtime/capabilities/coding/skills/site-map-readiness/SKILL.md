@@ -1,6 +1,6 @@
 ---
 name: site-map-readiness
-description: Grade whether the project is mappable — app kind, frameworks, and an extractor that covers its shape — and route the unmappable case before any other site-map skill runs.
+description: 'Grades whether the project is mappable (app kind, frameworks, an extractor that covers its shape) and routes the unmappable case. Use when a site-map run starts; it always runs first.'
 metadata:
   model_tier: fast
   cacheable: 'false'
@@ -17,7 +17,7 @@ like `design-system-coverage` gates the design-test workflow.
 
 ## Use This When
 
-Use this as the **first skill in every site-map run**. Never run extraction, modeling, or
+As the **first skill in every site-map run**. Never run extraction, modeling, or
 verification without a `ready` or `partial` verdict from it.
 
 ## Inputs
@@ -28,7 +28,7 @@ verification without a `ready` or `partial` verdict from it.
 
 ## Procedure
 
-The verdict is a deterministic function of what the engine can detect — drive it from the
+The verdict is a deterministic function of what the engine can detect: drive it from the
 engine, do not re-derive detection in prose.
 
 1. Run `paqad-ai sitemap run` and read the `readiness` and `blocked_checks` it reports; the

@@ -1,6 +1,6 @@
 ---
 name: user-flow-generation
-description: Generate or update user flows for UI-facing features.
+description: 'Generates or updates user flows for UI-facing features. Use when a request changes a screen, component or major interaction path and the flow docs must describe the new journey.'
 metadata:
   model_tier: medium
   cacheable: 'true'
@@ -14,7 +14,7 @@ Generates or updates user flow documentation for UI-facing work so primary, alte
 
 ## Use This When
 
-Use this when the request changes a screen, component, or major interaction path and the canonical flow docs need to describe the resulting user journey clearly.
+When the request changes a screen, component, or major interaction path and the canonical flow docs need to describe the resulting user journey clearly.
 
 ## Inputs
 
@@ -25,7 +25,7 @@ Use this when the request changes a screen, component, or major interaction path
 ## Procedure
 
 1. Define Actor / Entry / Success up top per `assets/output.template.md`.
-2. Write the Primary Flow as an ordered, user-observable list — defer implementation steps to technical docs.
+2. Write the Primary Flow as an ordered, user-observable list: defer implementation steps to technical docs.
 3. Walk `assets/branch-categories.txt` (Empty, Loading, Error, Permission, Retry, Blocked); add a sub-flow only when the change touches that branch.
 4. Keep names consistent with the glossary and screen docs.
 5. Validate with `scripts/lint-output.sh`.

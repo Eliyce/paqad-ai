@@ -2351,7 +2351,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
     "file": "",
     "input_schema": {
       "source_roots": {
-        "description": "Roots to scan for UI source — typically \`src/\`, \`app/\`, or \`graph-ui/src/\`.",
+        "description": "Roots to scan for UI source; typically \`src/\`, \`app/\`, or \`graph-ui/src/\`.",
         "required": true,
         "type": "path[]",
       },

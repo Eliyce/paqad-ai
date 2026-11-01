@@ -9,12 +9,12 @@
 
 ## Timeline
 
-- {{HH:MM}} — {{event}}
-- {{HH:MM}} — {{event}}
+- {{HH:MM}}, {{event}}
+- {{HH:MM}}, {{event}}
 
 ## Evidence
 
-- {{log/trace/test/path}} — {{exact line or excerpt}}
+- {{log/trace/test/path}}: {{exact line or excerpt}}
 
 ## Root Cause
 
@@ -26,7 +26,7 @@
 
 ## Solution
 
-{{remediation — proposed or deployed; include rollout plan and rollback}}
+{{remediation: proposed or deployed; include rollout plan and rollback}}
 
 ## Verification & Follow-Up
 

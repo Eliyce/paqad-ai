@@ -52,7 +52,7 @@ emit() {
     | awk -F: -v allow="$verbs_lower" '
         {
           excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
-          # No {n,m} interval in the awk regex — mawk (Debian default awk)
+          # No {n,m} interval in the awk regex: mawk (Debian default awk)
           # does not support intervals; the 41-char label cap from the grep
           # prefilter is enforced via length() below instead.
           if (match(excerpt, /<(button|Button)[^>]*>[A-Za-z][A-Za-z ]*</)) {

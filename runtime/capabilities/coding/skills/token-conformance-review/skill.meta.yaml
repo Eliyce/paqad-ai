@@ -9,7 +9,7 @@ input_schema:
   source_roots:
     type: path[]
     required: true
-    description: Roots to scan for UI source — typically `src/`, `app/`, or `graph-ui/src/`.
+    description: Roots to scan for UI source; typically `src/`, `app/`, or `graph-ui/src/`.
   tokens_path:
     type: path
     required: true

@@ -1,6 +1,6 @@
 ---
 name: state-coverage-review
-description: Verify every component in the AST inventory implements its declared states (default/hover/focus/disabled/loading/error/empty) and is exercised by Playwright tests.
+description: 'Checks that every component in the AST inventory implements its declared states (default, hover, focus, disabled, loading, error, empty) and that Playwright tests exercise them. Use when a design-test run has finished component-conformance-review.'
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Cross-checks the declared state machine of each component against (1) what the s
 
 ## Use This When
 
-Use this for every design-test run after `component-conformance-review`. It depends on the AST inventory that skill produced.
+For every design-test run after `component-conformance-review`. It depends on the AST inventory that skill produced.
 
 ## Inputs
 
@@ -24,7 +24,7 @@ Use this for every design-test run after `component-conformance-review`. It depe
 
 ## Procedure
 
-The set arithmetic across declared / implemented / tested is deterministic — drive
+The set arithmetic across declared / implemented / tested is deterministic, drive
 it with the scripts. LLM picks severity per missing state (focus and error are
 elevated to **high** per the checklist).
 
@@ -44,15 +44,15 @@ elevated to **high** per the checklist).
 
 ## Escalate / Stop Conditions
 
-- Ask when Playwright is not configured — coverage cross-check can't run; emit all state findings as `confidence: low`.
-- Warn when a component has no declared states in `components.md` — defer the check, emit a `documentation-drift` finding instead.
+- Ask when Playwright is not configured: coverage cross-check can't run; emit all state findings as `confidence: low`.
+- Warn when a component has no declared states in `components.md`: defer the check, emit a `documentation-drift` finding instead.
 
 ## Resources
 
 - `references/state-coverage-checklist.md`
-- `scripts/extract-source-states.sh` — implemented-states detector for one component file.
-- `scripts/extract-tested-states.sh` — tested-states detector across a Playwright tests dir.
-- `scripts/cross-reference-states.sh` — declared/implemented/tested set-difference gap emitter.
+- `scripts/extract-source-states.sh`: implemented-states detector for one component file.
+- `scripts/extract-tested-states.sh`: tested-states detector across a Playwright tests dir.
+- `scripts/cross-reference-states.sh`: declared/implemented/tested set-difference gap emitter.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

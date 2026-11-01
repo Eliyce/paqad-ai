@@ -1,6 +1,6 @@
 ---
 name: database-design-review
-description: Review schema and migration changes for integrity and safety.
+description: 'Reviews schema and migration changes for integrity and safety. Use when a request changes tables, constraints, nullability, data movement or migration order, even in a small code change.'
 metadata:
   model_tier: reasoning
   cacheable: 'true'
@@ -14,7 +14,7 @@ Reviews schema and migration changes for correctness, rollout safety, and mainta
 
 ## Use This When
 
-Use this for any request that changes tables, constraints, nullability, data movement, or migration sequencing, even when the code change seems small.
+For any request that changes tables, constraints, nullability, data movement, or migration sequencing, even when the code change seems small.
 
 ## Inputs
 

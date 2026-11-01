@@ -32,8 +32,8 @@ For each hit emitted by `scan-tokens.sh`, decide whether it is a token leak (a h
 
 ## Override leaks (handled by component-conformance-review, but listed here for cross-reference)
 
-- `!important` — never a token problem per se, but often hides a token leak.
-- Inline `style=` — every property in the inline object is a token candidate.
+- `!important`: never a token problem per se, but often hides a token leak.
+- Inline `style=`: every property in the inline object is a token candidate.
 
 ## Exemptions
 

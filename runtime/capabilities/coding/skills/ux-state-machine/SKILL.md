@@ -1,6 +1,6 @@
 ---
 name: ux-state-machine
-description: Define interface states and transitions for UI-heavy work.
+description: 'Defines interface states and transitions for UI-heavy work. Use when a UI change adds async behavior, branching flows or recovery paths that are hard to reason about from the happy path.'
 metadata:
   model_tier: medium
   cacheable: 'true'
@@ -14,7 +14,7 @@ Defines the user-visible states, transitions, and triggers for a changed interfa
 
 ## Use This When
 
-Use this when a UI change introduces new async behavior, branching flows, or recovery paths that are hard to reason about from the happy path alone.
+When a UI change introduces new async behavior, branching flows, or recovery paths that are hard to reason about from the happy path alone.
 
 ## Inputs
 
@@ -25,7 +25,7 @@ Use this when a UI change introduces new async behavior, branching flows, or rec
 ## Procedure
 
 1. Walk `assets/canonical-states.txt` (idle, loading, success, empty, error, disabled, stale, permission, retry); include every state the UI actually exposes.
-2. For each transition, name the trigger explicitly (user event, async resolve, timeout, permission denied) — never imply it.
+2. For each transition, name the trigger explicitly (user event, async resolve, timeout, permission denied): never imply it.
 3. Build the table per `assets/output.template.md` (From / Trigger / To / Notes).
 4. Surface any contradictory or undocumented state under `## Gaps`.
 5. Validate with `scripts/lint-output.sh`.
