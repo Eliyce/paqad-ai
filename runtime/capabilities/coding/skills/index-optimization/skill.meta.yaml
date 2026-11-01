@@ -1,0 +1,17 @@
+triggers:
+  - database_impact:
+      - schema-change
+      - query-change
+cache_key_inputs:
+  - database/migrations/**
+  - docs/modules/*/database/indexes.md
+  - docs/modules/*/database/queries.md
+input_schema:
+  query_paths:
+    type: path[]
+    required: true
+    description: Queries or explain plans to analyze.
+  schema_paths:
+    type: path[]
+    required: false
+    description: Relevant schema docs or migrations.

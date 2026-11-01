@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - pentest
+      - pentest-retest
+      - codebase-health
+      - health-retest
+      - site-map
+      - site-map-retest
+cache_key_inputs: []
+input_schema:
+  raw_finding_inputs:
+    type: object
+    required: true
+    description: Structured evidence to normalize into canonical pentest findings.

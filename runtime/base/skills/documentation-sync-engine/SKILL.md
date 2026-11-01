@@ -1,29 +1,11 @@
 ---
 name: documentation-sync-engine
 description: Canonical orchestrator that runs the fast stale-doc detector and dispatches to per-domain doc-sync skills for the affected canonical paths.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Changed source or doc files from the current diff.
-  detector_script_path:
-    type: path
-    required: true
-    description: Path to the canonical stale doc detector used by diff-doc-sync.
-  target_domains:
-    type: string[]
-    required: false
-    description: Optional restriction to specific domains (api, integration, module, error, glossary). Empty means all.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

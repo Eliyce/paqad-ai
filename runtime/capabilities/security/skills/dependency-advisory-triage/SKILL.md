@@ -1,26 +1,11 @@
 ---
 name: dependency-advisory-triage
 description: Normalize dependency advisories across native audits and OSV evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - package.json
-  - pnpm-lock.yaml
-  - package-lock.json
-  - composer.lock
-output_format: markdown
-input_schema:
-  advisory_artifact_paths:
-    type: path[]
-    required: true
-    description: Raw audit and advisory artifacts to normalize.
-  stack_snapshot_path:
-    type: path
-    required: false
-    description: Optional stack snapshot with installed package versions.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -2,22 +2,11 @@
 name: expert-notes
 description: >-
   Reads one expert's brief and, through that expert's lens, writes short request-time notes for the spec pipeline: what the request must do, must never break, and still leaves undecided, as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui, qa-engineer, agent-orchestrator and the rest), so the procedure is shared and only the lens differs; the qa-engineer note also carries the spec compliance and quality verdicts. The pipeline script validates the output against the roster and never decides. Use when the spec pipeline runs with the expert roster on and an expert on the roster, or a High Table seat given one role, needs its note, findings, questions or verdicts written from its brief (phase 2 of the spec pipeline; the TS guard is src/spec-pipeline/experts/notes.ts).
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  role:
-    type: string
-    required: true
-    description: The expert role to write notes as, one of the pickable roster roles.
-  brief:
-    type: string
-    required: true
-    description: The brief printed by `paqad-ai spec pipeline experts brief <role>` (the request, grounding pointers, label, and granted budget).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

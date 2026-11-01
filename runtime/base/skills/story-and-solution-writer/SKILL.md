@@ -1,27 +1,11 @@
 ---
 name: story-and-solution-writer
 description: Turn scoped work into story and solution artifacts.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  requirements_path:
-    type: path
-    required: true
-    description: Accepted requirements artifact.
-  sequence_plan_path:
-    type: path
-    required: true
-    description: Implementation sequence artifact.
-  canonical_doc_paths:
-    type: path[]
-    required: false
-    description: Relevant canonical docs.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

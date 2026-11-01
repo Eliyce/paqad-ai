@@ -1,18 +1,11 @@
 ---
 name: site-map-assembly
 description: Drive the compile verb that folds the surface, transition, and guard layers into app-map.yaml, and resolve merge conflicts against the locked committed content without overwriting curated entries.
-model_tier: fast
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  run_bundle:
-    type: path
-    required: true
-    description: The site-map run bundle whose modeled layers compile into app-map.yaml.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

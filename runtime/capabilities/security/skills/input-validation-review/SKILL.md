@@ -1,24 +1,11 @@
 ---
 name: input-validation-review
 description: Reason about SSRF, IDOR, mass assignment, injection vectors, file upload abuse, prototype pollution, and ReDoS from code and docs evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing endpoints, data flows, and external integrations.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove input validation and abuse-path coverage.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

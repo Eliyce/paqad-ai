@@ -1,29 +1,11 @@
 ---
 name: diff-minimizer
 description: Classify each proposed implementation step against the acceptance criteria so scaffolding and over-build are dropped before code is written.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-    process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  acceptance_criteria_path:
-    type: path
-    required: true
-    description: Acceptance criteria artifact written by the requirement analyst or acceptance-criteria-gen skill.
-  proposed_solution_path:
-    type: path
-    required: true
-    description: Implementation outline or solution proposal whose steps will be classified.
-  module_doc_paths:
-    type: path[]
-    required: false
-    description: Canonical module docs that establish what abstractions and patterns already exist as project convention.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

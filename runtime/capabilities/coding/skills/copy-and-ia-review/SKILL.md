@@ -1,25 +1,11 @@
 ---
 name: copy-and-ia-review
 description: Audit voice, tone, labeling, and information architecture against patterns.md.
-model_tier: medium
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/patterns.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for user-facing copy.
-  patterns_path:
-    type: path
-    required: true
-    description: Path to patterns.md contract clause.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

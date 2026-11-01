@@ -1,25 +1,11 @@
 ---
 name: scope-check
 description: Validate that requested work stays inside the active spec boundary.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incoming request to validate against the active spec.
-  spec_paths:
-    type: path[]
-    required: true
-    description: Active spec artifacts that define the approved scope.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

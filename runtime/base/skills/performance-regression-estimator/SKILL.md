@@ -1,31 +1,11 @@
 ---
 name: performance-regression-estimator
 description: Identify performance hazards in a proposed solution or change set before code is written, classified by severity and hot-path placement.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-  - workflow:
-      - feature-development
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  proposed_solution_path:
-    type: path
-    required: true
-    description: Implementation outline that describes the data access, concurrency, caching, and I/O the change introduces.
-  changed_file_paths:
-    type: path[]
-    required: false
-    description: Source files in the current change set; used to scope hazards to actually-changing code.
-  module_doc_paths:
-    type: path[]
-    required: false
-    description: Canonical module docs that establish hot-path requirements (latency budgets, throughput targets).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

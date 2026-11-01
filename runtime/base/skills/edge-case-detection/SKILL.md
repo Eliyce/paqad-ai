@@ -1,23 +1,11 @@
 ---
 name: edge-case-detection
 description: Identify failure modes and uncommon but relevant paths.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Scoped request or solution summary.
-  acceptance_criteria_path:
-    type: path
-    required: false
-    description: Acceptance criteria artifact for edge-case evaluation.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

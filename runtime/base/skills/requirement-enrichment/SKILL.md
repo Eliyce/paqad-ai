@@ -1,27 +1,11 @@
 ---
 name: requirement-enrichment
 description: Phrase the pipeline's clarification questions as plain-language two-layer question objects.
-model_tier: fast
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: The user's own request wording (second-priority vocabulary source).
-  grounding_terms:
-    type: string[]
-    required: false
-    description: The S0 grounding vocabulary (glossary + module-doc headings) — the first-priority wording source.
-  grounding_references:
-    type: path[]
-    required: false
-    description: Doc/glossary refs the phrasing can cite in each question's grounded_in.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

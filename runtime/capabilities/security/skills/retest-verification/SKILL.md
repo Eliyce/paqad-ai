@@ -1,23 +1,11 @@
 ---
 name: retest-verification
 description: Re-evaluate prior pentest findings against fresh local evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest-retest
-cacheable: false
-cache_key_inputs:
-  - docs/pentest/**/*.json
-output_format: markdown
-input_schema:
-  source_report_path:
-    type: path
-    required: true
-    description: Source pentest sidecar to retest.
-  fresh_evidence_paths:
-    type: path[]
-    required: false
-    description: New evidence collected during the retest run.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

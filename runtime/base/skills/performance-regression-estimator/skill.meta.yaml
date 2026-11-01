@@ -1,0 +1,22 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+  - workflow:
+      - feature-development
+      - refactor
+      - migration
+cache_key_inputs: []
+input_schema:
+  proposed_solution_path:
+    type: path
+    required: true
+    description: Implementation outline that describes the data access, concurrency, caching, and I/O the change introduces.
+  changed_file_paths:
+    type: path[]
+    required: false
+    description: Source files in the current change set; used to scope hazards to actually-changing code.
+  module_doc_paths:
+    type: path[]
+    required: false
+    description: Canonical module docs that establish hot-path requirements (latency budgets, throughput targets).

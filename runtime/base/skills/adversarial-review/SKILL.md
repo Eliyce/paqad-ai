@@ -1,27 +1,11 @@
 ---
 name: adversarial-review
 description: Perform rigorous, risk-first review after design and implementation.
-model_tier: reasoning
-triggers:
-  - risk:
-      - medium
-      - high
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Accepted request or change summary.
-  diff_paths:
-    type: path[]
-    required: true
-    description: Changed artifacts to review.
-  verification_summary:
-    type: string
-    required: false
-    description: Claimed verification evidence.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,24 +1,11 @@
 ---
 name: business-logic-abuse-review
 description: Derive abuse cases from module docs and validate them against tests and runtime evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical module docs that describe workflows and state transitions.
-  runtime_artifact_paths:
-    type: path[]
-    required: false
-    description: Optional runtime artifacts that help validate the abuse hypotheses.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

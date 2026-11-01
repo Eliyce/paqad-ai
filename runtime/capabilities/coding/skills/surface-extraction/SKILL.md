@@ -1,20 +1,11 @@
 ---
 name: surface-extraction
 description: Run the extractors, normalize the raw surfaces, and fingerprint the result so the site-map run has a deterministic, evidence-backed inventory of what the app exposes.
-model_tier: fast
-triggers:
-  - workflow:
-      - site-map
-      - site-map-retest
-cacheable: false
-cache_key_inputs:
-  - .paqad/site-map/baseline.json
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: true
-    description: Repository root the extractors scan for surfaces (routes, commands, endpoints).
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

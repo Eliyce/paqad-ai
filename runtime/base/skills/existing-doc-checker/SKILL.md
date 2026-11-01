@@ -1,28 +1,11 @@
 ---
 name: existing-doc-checker
 description: Inspect canonical docs and registries before new artifacts are written.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-      - investigation
-cacheable: true
-cache_key_inputs:
-  - docs/**/*.md
-  - .paqad/indexes/**/*.json
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incoming request to reconcile against existing docs.
-  candidate_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical docs to inspect.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

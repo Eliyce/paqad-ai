@@ -1,25 +1,11 @@
 ---
 name: component-conformance-review
 description: Verify every component in the AST-derived inventory matches its declared spec in components.md. Flag undocumented variants, !important, inline style=, and unwrapped primitives.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/components.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for component definitions and usages.
-  components_path:
-    type: path
-    required: true
-    description: Path to the project's components.md contract clause.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

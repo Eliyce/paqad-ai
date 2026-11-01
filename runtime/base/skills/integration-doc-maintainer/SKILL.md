@@ -1,24 +1,12 @@
 ---
 name: integration-doc-maintainer
 description: Maintains cross-module integration documentation
-model_tier: medium
-triggers:
-  - scope:
-      - multi-module
-      - system-wide
-max_lines: 200
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Implementation files affecting integrations.
-  integration_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical integration docs to sync.
+metadata:
+  model_tier: medium
+  max_lines: '200'
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

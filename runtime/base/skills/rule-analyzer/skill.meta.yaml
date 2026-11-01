@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - rules-analyze
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve docs/instructions/rules and the map. Defaults to cwd.

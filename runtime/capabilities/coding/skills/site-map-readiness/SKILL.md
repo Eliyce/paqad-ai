@@ -1,20 +1,11 @@
 ---
 name: site-map-readiness
 description: Grade whether the project is mappable — app kind, frameworks, and an extractor that covers its shape — and route the unmappable case before any other site-map skill runs.
-model_tier: fast
-triggers:
-  - workflow:
-      - site-map
-      - site-map-retest
-cacheable: false
-cache_key_inputs:
-  - .paqad/project-profile.yaml
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: true
-    description: Repository root whose manifests and profile establish the app kind and frameworks.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

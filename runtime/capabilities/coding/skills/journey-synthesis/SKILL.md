@@ -1,18 +1,11 @@
 ---
 name: journey-synthesis
 description: Propose a small set of capped, well-formed journeys over the verified map — one actor, one goal, ordered evidenced steps, dual ends — all marked proposed for human confirmation, never auto-confirmed.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  app_map:
-    type: path
-    required: true
-    description: The compiled, verified app-map.yaml whose surfaces and transitions the journeys compose.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

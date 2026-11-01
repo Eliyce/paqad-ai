@@ -1,34 +1,11 @@
 ---
 name: analytics-instrumentation
 description: When the `analytics_instrumentation` flag is on and the classify-time gate resolved to `instrument`, this skill wires a feature's analytics the tracking-plan-as-code way. The LLM only names the event (following the project's one consistent convention) and writes the doc body; the bundled `instrument.mjs` script computes the normalized slug and the module-owned doc path, writes the per-event doc and refreshes the per-module index via the framework's doc-tree primitives, and prints the provider tracking-call snippet. A brand-new event is never added silently — it goes through the `analytics.new_event` Decision Pause first. Scales to N providers by data (one doc, a section per provider), not by code.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: true
-    description: Project root used to resolve the docs tree and read the analytics decision sidecar.
-  module:
-    type: string
-    required: true
-    description: Module slug the event belongs to (from the module map).
-  feature:
-    type: string
-    required: true
-    description: Feature slug the event belongs to.
-  event:
-    type: string
-    required: true
-    description: The exact event name, in the project's one consistent convention.
-  provider:
-    type: string
-    required: true
-    description: One or more analytics provider ids the event fires to (repeatable).
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 # Analytics instrumentation

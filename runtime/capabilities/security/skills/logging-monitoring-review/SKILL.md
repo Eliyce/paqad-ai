@@ -1,24 +1,11 @@
 ---
 name: logging-monitoring-review
 description: Assess security logging and monitoring gaps including missing audit trails, log injection surfaces, sensitive data in logs, and alerting coverage.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing sensitive operations, financial actions, and authentication flows.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove audit logging or log integrity.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

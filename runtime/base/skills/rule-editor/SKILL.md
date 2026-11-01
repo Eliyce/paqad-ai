@@ -1,22 +1,11 @@
 ---
 name: rule-editor
 description: Single entry point for mutating rules in rules-as-scripts — add / edit / remove / downgrade — with a per-rule cascade and no global rebuild. Adding inserts a bullet + mints a stable RL-<hash> id; editing preserves the id and regenerates only that rule's scripts; removing archives the map entry (delayed delete); downgrading flips a rule to unverifiable and drops its scripts. The deterministic file + map mechanics live in src/rule-scripts/{editor,mutate}.ts; this skill orchestrates re-analysis, regeneration, and Decision Pause diffs. All map writes go through src/rule-scripts/apply.ts.
-model_tier: medium
-triggers:
-  - workflow:
-      - rules-edit
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve rule files and the map. Defaults to cwd.
-  mode:
-    type: string
-    required: false
-    description: add | edit | remove | downgrade. Inferred from the user's prompt.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

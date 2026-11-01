@@ -1,24 +1,11 @@
 ---
 name: design-system-sync
 description: Sync docs/instructions/design-system/* when a token, component, or breakpoint is added to source. Mirror of canonical-doc-sync.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/design-tokens/**
-  - src/components/**
-  - tailwind.config.*
-  - docs/instructions/design-system/**
-output_format: markdown
-input_schema:
-  diff_paths:
-    type: path[]
-    required: true
-    description: Changed files in the current diff that may require a design-system contract update.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

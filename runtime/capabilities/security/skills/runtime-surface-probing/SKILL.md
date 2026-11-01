@@ -1,22 +1,11 @@
 ---
 name: runtime-surface-probing
 description: Plan and interpret safe runtime checks against a locally running application.
-model_tier: medium
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  target_url:
-    type: string
-    required: true
-    description: Base URL for the locally running application.
-  runtime_artifact_paths:
-    type: path[]
-    required: false
-    description: Artifacts produced by runtime-check scripts.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

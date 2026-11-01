@@ -1,43 +1,11 @@
 ---
 name: decision
 description: Authors the small, human-facing Decision Pause packet described by the Decision Pause Contract (in the framework bootstrap AGENT-BOOTSTRAP.md) without the agent hand-authoring the id, timestamps, or JSON. `create` mints a collision-free `D-<ULID>` id and writes the pending packet; `resolve` records the chosen option and rationale and moves it to resolved. A hand-picked sequential `D-{N}` is rejected, so two developers on parallel branches never collide. The writer lives in `src/decisions/authoring.ts`; this skill is the agent-side wrapper that invokes the bundled `create.mjs` / `resolve.mjs` scripts, the exact counterpart to `paqad-ai stage` on the stage-evidence ledger.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - documentation-update
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve `.paqad/decisions/`. Defaults to cwd.
-  category:
-    type: string
-    required: false
-    description: Decision Pause category (e.g. workflow-or-tool, architecture-path). Required by `create`.
-  title:
-    type: string
-    required: false
-    description: One-line question the decision answers. Required by `create`.
-  context:
-    type: string
-    required: false
-    description: The situation and trade-offs the user needs to weigh. Required by `create`.
-  options:
-    type: string[]
-    required: false
-    description: Two or more `<key>=<label>` option pairs. Required by `create`.
-  id:
-    type: string
-    required: false
-    description: The `D-<ULID>` id of a pending packet. Required by `resolve`.
-  chosen:
-    type: string
-    required: false
-    description: The `option_key` the user selected. Required by `resolve`.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

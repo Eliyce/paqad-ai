@@ -1,24 +1,11 @@
 ---
 name: rate-limiting-review
 description: Identify missing rate limiting and denial-of-service surfaces on authentication endpoints, bulk operations, expensive queries, and WebSocket handlers.
-model_tier: medium
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing API endpoints, authentication flows, and bulk operations.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove rate limiting or throttle enforcement.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

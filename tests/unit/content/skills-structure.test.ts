@@ -34,8 +34,8 @@ describe('runtime skills', () => {
 
     for (const file of files) {
       const content = await readFile(file, 'utf8');
-      const parsed = parser.parse(content);
       const skillDir = dirname(file);
+      const parsed = parser.parse(content, skillDir);
       const agentConfigPath = join(skillDir, 'agents', 'openai.yaml');
       const bundledReferences = await fg('references/**/*', {
         cwd: skillDir,
@@ -71,6 +71,7 @@ describe('runtime skills', () => {
     const parser = new SkillFrontmatterParser();
     const parsed = parser.parse(
       await readFile('runtime/base/skills/api-doc-maintainer/SKILL.md', 'utf8'),
+      'runtime/base/skills/api-doc-maintainer',
     );
 
     expect(parsed.frontmatter.name).toBe('api-doc-maintainer');
@@ -84,6 +85,7 @@ describe('runtime skills', () => {
     const parser = new SkillFrontmatterParser();
     const parsed = parser.parse(
       await readFile('runtime/base/skills/integration-doc-maintainer/SKILL.md', 'utf8'),
+      'runtime/base/skills/integration-doc-maintainer',
     );
 
     expect(parsed.frontmatter.name).toBe('integration-doc-maintainer');
@@ -95,6 +97,7 @@ describe('runtime skills', () => {
     const parser = new SkillFrontmatterParser();
     const parsed = parser.parse(
       await readFile('runtime/base/skills/error-catalog-maintainer/SKILL.md', 'utf8'),
+      'runtime/base/skills/error-catalog-maintainer',
     );
 
     expect(parsed.frontmatter.name).toBe('error-catalog-maintainer');
@@ -106,6 +109,7 @@ describe('runtime skills', () => {
     const parser = new SkillFrontmatterParser();
     const parsed = parser.parse(
       await readFile('runtime/base/skills/documentation-workflow/SKILL.md', 'utf8'),
+      'runtime/base/skills/documentation-workflow',
     );
 
     expect(parsed.frontmatter.name).toBe('documentation-workflow');
@@ -118,6 +122,7 @@ describe('runtime skills', () => {
     const parser = new SkillFrontmatterParser();
     const parsed = parser.parse(
       await readFile('runtime/base/skills/spec-quality-review/SKILL.md', 'utf8'),
+      'runtime/base/skills/spec-quality-review',
     );
 
     expect(parsed.frontmatter.name).toBe('spec-quality-review');

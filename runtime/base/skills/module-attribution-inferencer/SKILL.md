@@ -1,27 +1,11 @@
 ---
 name: module-attribution-inferencer
 description: Form a hypothesis about which existing module a user prompt belongs to when the deterministic extractor returns nothing. Reads existing module-map.yml features and source paths, scores token overlap, returns a ranked multi-choice draft, and surfaces it via the Decision Pause Contract. Second half of the Attribution Gate. TS-canonical (`src/module-decisions/inferencer.ts`).
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - module-attribution
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  prompt:
-    type: string
-    required: true
-    description: The user prompt to analyse.
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve module-map.yml. Defaults to cwd.
-  max_choices:
-    type: string
-    required: false
-    description: Cap on existing-module choices returned (default "3"). CLI passes as a string and parses internally.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

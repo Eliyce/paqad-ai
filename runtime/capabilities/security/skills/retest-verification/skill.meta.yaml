@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - pentest-retest
+cache_key_inputs:
+  - docs/pentest/**/*.json
+input_schema:
+  source_report_path:
+    type: path
+    required: true
+    description: Source pentest sidecar to retest.
+  fresh_evidence_paths:
+    type: path[]
+    required: false
+    description: New evidence collected during the retest run.

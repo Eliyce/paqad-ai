@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - docs/modules/**
+  - tests/**
+input_schema:
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Module docs describing endpoints, data flows, and external integrations.
+  test_paths:
+    type: path[]
+    required: false
+    description: Tests that may prove input validation and abuse-path coverage.

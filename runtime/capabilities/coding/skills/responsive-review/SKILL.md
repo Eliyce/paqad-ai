@@ -1,29 +1,11 @@
 ---
 name: responsive-review
 description: Verify declared breakpoints are exercised, no horizontal scroll appears, touch targets meet spec, and RTL parity holds when declared.
-model_tier: medium
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/responsive.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for UI source.
-  responsive_path:
-    type: path
-    required: true
-    description: Path to responsive.md contract clause.
-  surface_walk_results:
-    type: path
-    required: false
-    description: JSON of route screenshots × breakpoints from runtime-checks.ts.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

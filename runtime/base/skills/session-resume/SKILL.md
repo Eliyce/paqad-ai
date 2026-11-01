@@ -1,31 +1,11 @@
 ---
 name: session-resume
 description: Reconstruct compact session context from canonical handoff artifacts.
-model_tier: fast
-triggers:
-  - process_depth:
-      - fast lane
-      - graduated lane
-      - full lane
-cacheable: true
-cache_key_inputs:
-  - .paqad/onboarding-manifest.json
-  - .paqad/project-profile.yaml
-  - .paqad/session/handoff.md
-output_format: markdown
-input_schema:
-  handoff_path:
-    type: path
-    required: true
-    description: Session handoff document written before compaction.
-  onboarding_manifest_path:
-    type: path
-    required: true
-    description: Canonical onboarding manifest for the active project.
-  project_profile_path:
-    type: path
-    required: true
-    description: Canonical project profile for the active project.
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

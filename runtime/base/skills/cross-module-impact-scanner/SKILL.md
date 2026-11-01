@@ -1,40 +1,11 @@
 ---
 name: cross-module-impact-scanner
 description: Pre-implementation scan that classifies how a proposed change affects each consuming module's public surface and recommends coordinated changes.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-    process_depth:
-      - graduated lane
-      - full lane
-  - api_impact:
-      - additive-endpoint
-      - modified-endpoint
-      - breaking-change
-  - scope:
-      - multi-module
-      - system-wide
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  proposed_solution_path:
-    type: path
-    required: true
-    description: Implementation outline or solution proposal that lists the modules and surfaces being changed.
-  module_map_path:
-    type: path
-    required: true
-    description: docs/instructions/rules/module-map.yml so the scanner knows the canonical module list.
-  integration_doc_paths:
-    type: path[]
-    required: false
-    description: Per-module integration docs (events.md, contracts.md) that describe consumer relationships.
-  api_doc_paths:
-    type: path[]
-    required: false
-    description: Per-module API docs (endpoints.md, schemas.md, error-codes.md) that describe public endpoints.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

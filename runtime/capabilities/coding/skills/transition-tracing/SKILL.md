@@ -1,18 +1,11 @@
 ---
 name: transition-tracing
 description: Find and evidence the transitions between surfaces — where navigation actually goes, what triggers it, and the file:line that proves it — without inventing edges from mere links.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  surfaces:
-    type: path
-    required: true
-    description: The modeled surfaces the transitions connect (output of surface-modeling).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

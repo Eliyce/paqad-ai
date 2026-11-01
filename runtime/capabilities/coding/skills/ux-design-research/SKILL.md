@@ -1,26 +1,11 @@
 ---
 name: ux-design-research
 description: Research external UI references for full-lane UI work.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - full lane
-    ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: UX problem to research.
-  current_ui_paths:
-    type: path[]
-    required: false
-    description: Current UI docs or screenshots.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

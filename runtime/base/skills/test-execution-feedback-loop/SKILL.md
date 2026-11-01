@@ -1,31 +1,11 @@
 ---
 name: test-execution-feedback-loop
 description: For each failing test in the verification evidence, propose the smallest fix anchored to file, line, and acceptance criterion.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  verification_evidence_path:
-    type: path
-    required: true
-    description: Path to .paqad/session/verification-evidence.json (schema 1.0.0 or compatible).
-  acceptance_criteria_path:
-    type: path
-    required: false
-    description: Acceptance criteria artifact for cross-checking each failure's AC id.
-  changed_file_paths:
-    type: path[]
-    required: false
-    description: Files in the current change set so confidence can be calibrated.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

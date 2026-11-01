@@ -1,20 +1,11 @@
 ---
 name: design-system-coverage
 description: Grade the project's design-system contract for completeness and produce a coverage inventory every downstream design-test skill references. Analog of stride-threat-model.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - docs/instructions/design-system/**
-output_format: json
-input_schema:
-  contract_paths:
-    type: path[]
-    required: true
-    description: Files under docs/instructions/design-system/* that make up the project's design-system contract.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

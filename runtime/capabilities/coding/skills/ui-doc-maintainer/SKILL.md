@@ -1,26 +1,11 @@
 ---
 name: ui-doc-maintainer
 description: Maintain UI screens, components, and state docs after UI changes.
-model_tier: medium
-triggers:
-  - ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: true
-cache_key_inputs:
-  - docs/modules/*/ui/*.md
-  - src/components/**
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: UI implementation files that changed.
-  ui_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical UI docs to update.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

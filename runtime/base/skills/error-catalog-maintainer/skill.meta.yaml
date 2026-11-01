@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - feature-development
+      - bug-fix
+cache_key_inputs: []
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: Implementation files affecting errors.
+  error_catalog_paths:
+    type: path[]
+    required: true
+    description: Canonical error docs to update.

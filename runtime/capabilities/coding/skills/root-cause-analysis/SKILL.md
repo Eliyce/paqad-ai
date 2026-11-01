@@ -1,22 +1,11 @@
 ---
 name: root-cause-analysis
 description: Generate a canonical RCA artifact for an incident or failure.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - root-cause-analysis
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incident or problem statement to analyze.
-  stack_snapshot_path:
-    type: path
-    required: false
-    description: Optional stack snapshot to ground the investigation.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

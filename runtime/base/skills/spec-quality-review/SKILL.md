@@ -1,18 +1,11 @@
 ---
 name: spec-quality-review
 description: Optional pre-pass that surfaces spec defects for a human before freeze.
-model_tier: reasoning
-triggers:
-  - doc:
-      - spec
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  spec_file:
-    type: path
-    required: true
-    description: Markdown specification file to review.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

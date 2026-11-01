@@ -1,18 +1,11 @@
 ---
 name: map-verification
 description: Adversarially refute or confirm the claims the deterministic checks could not settle — the Tier-B pass over the site map — grounding each verdict in resolving evidence and never rubber-stamping.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  claims:
-    type: path
-    required: true
-    description: The machine-built table of inconclusive claims the engine's Tier-A checks could not settle.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

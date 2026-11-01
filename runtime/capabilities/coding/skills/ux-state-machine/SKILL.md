@@ -1,26 +1,11 @@
 ---
 name: ux-state-machine
 description: Define interface states and transitions for UI-heavy work.
-model_tier: medium
-triggers:
-  - ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: true
-cache_key_inputs:
-  - docs/modules/*/ui/states.md
-  - docs/modules/*/ui/screens.md
-output_format: markdown
-input_schema:
-  flow_path:
-    type: path
-    required: true
-    description: Flow or interaction artifact.
-  state_doc_paths:
-    type: path[]
-    required: false
-    description: Existing state docs.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

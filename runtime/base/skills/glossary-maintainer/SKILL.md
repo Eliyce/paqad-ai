@@ -1,25 +1,11 @@
 ---
 name: glossary-maintainer
 description: Maintain shared business terminology in the glossary.
-model_tier: fast
-triggers:
-  - output_type:
-      - documentation
-      - report
-cacheable: true
-cache_key_inputs:
-  - .paqad/glossary.md
-  - docs/**/*.md
-output_format: markdown
-input_schema:
-  changed_terms:
-    type: string[]
-    required: true
-    description: Terms introduced or modified by the change.
-  glossary_path:
-    type: path
-    required: true
-    description: Canonical glossary file.
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

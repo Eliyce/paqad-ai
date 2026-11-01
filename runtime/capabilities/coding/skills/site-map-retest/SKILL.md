@@ -1,18 +1,11 @@
 ---
 name: site-map-retest
 description: Re-check the stored site map against the current code by running the same verification again — never invent a finding, never soften one, never call the absence of proof a fix.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map-retest
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  app_map:
-    type: path
-    required: true
-    description: The stored docs/site-map/app-map.yaml the re-run verifies against the code.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

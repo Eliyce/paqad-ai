@@ -1,25 +1,11 @@
 ---
 name: spec-diff
 description: Compare a new request against the current spec to classify coverage or conflict.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incoming request to compare against the active spec.
-  spec_paths:
-    type: path[]
-    required: true
-    description: Active spec artifacts that define the current approved behavior.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

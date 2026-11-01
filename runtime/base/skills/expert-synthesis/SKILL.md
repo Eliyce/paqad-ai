@@ -1,18 +1,11 @@
 ---
 name: expert-synthesis
 description: The chief architect for the spec pipeline. Read the request, the grounding, every expert note and the script's merge, then accept or decline each finding with a reason, recommend a resolution for each conflict (never apply it), list the gaps nobody covered, and give a readiness verdict. It is never picked by the detector; it runs automatically once any expert fired, and it may not invent a finding. The pipeline script validates the output and turns each conflict into a decision packet. Phase 2 of the spec pipeline. TS guard is `src/spec-pipeline/experts/synthesis.ts`.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  context:
-    type: object
-    required: true
-    description: The JSON printed by `paqad-ai spec pipeline experts context`, with the request, the grounding, the label, the roster, every expert note, and the merge (findings with ids, and conflicts).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

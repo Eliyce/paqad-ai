@@ -1,20 +1,11 @@
 ---
 name: stride-threat-model
 description: Enumerate threats systematically using STRIDE before scripted checks run so all downstream findings map to a threat category.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - docs/instructions/**
-output_format: json
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing assets, workflows, integrations, and user actions.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

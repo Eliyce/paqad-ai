@@ -1,26 +1,11 @@
 ---
 name: ux-heuristic-evaluation
 description: Evaluate UI behavior against usability heuristics.
-model_tier: medium
-triggers:
-  - ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: true
-cache_key_inputs:
-  - docs/modules/*/ui/components.md
-  - docs/modules/*/ui/screens.md
-output_format: markdown
-input_schema:
-  ui_surface_paths:
-    type: path[]
-    required: true
-    description: UI surfaces or docs to evaluate.
-  request_text:
-    type: string
-    required: false
-    description: Optional evaluation scope.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

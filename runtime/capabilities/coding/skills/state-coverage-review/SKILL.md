@@ -1,27 +1,11 @@
 ---
 name: state-coverage-review
 description: Verify every component in the AST inventory implements its declared states (default/hover/focus/disabled/loading/error/empty) and is exercised by Playwright tests.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/components.md
-  - tests/**
-  - e2e/**
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for component definitions.
-  test_paths:
-    type: path[]
-    required: false
-    description: Playwright test files that exercise component states.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

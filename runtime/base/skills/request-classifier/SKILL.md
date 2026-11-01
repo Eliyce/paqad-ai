@@ -1,32 +1,11 @@
 ---
 name: request-classifier
 description: Classify incoming requests into the framework routing model.
-model_tier: fast
-triggers:
-  - workflow:
-      - project-question
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-      - investigation
-cacheable: true
-cache_key_inputs:
-  - request_text
-output_format: yaml
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Raw user request to classify.
-  linked_spec_paths:
-    type: path[]
-    required: false
-    description: Optional spec or issue files explicitly linked to the request.
-on_complete:
-  emit: classification_ready
-  triggers:
-    - router
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: yaml
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

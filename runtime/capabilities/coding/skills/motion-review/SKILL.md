@@ -1,25 +1,11 @@
 ---
 name: motion-review
 description: Verify animations match motion.md budgets and prefers-reduced-motion is respected.
-model_tier: medium
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/motion.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for animation/transition definitions.
-  motion_path:
-    type: path
-    required: true
-    description: Path to motion.md contract clause.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,23 +1,11 @@
 ---
 name: acceptance-criteria-gen
 description: Generate acceptance criteria tied to observable outcomes.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Scoped request or story to convert into acceptance criteria.
-  constraints_path:
-    type: path
-    required: false
-    description: Optional canonical constraints document.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

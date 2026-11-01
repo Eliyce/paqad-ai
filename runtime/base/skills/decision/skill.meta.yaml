@@ -1,0 +1,34 @@
+triggers:
+  - workflow:
+      - feature-development
+      - documentation-update
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve `.paqad/decisions/`. Defaults to cwd.
+  category:
+    type: string
+    required: false
+    description: Decision Pause category (e.g. workflow-or-tool, architecture-path). Required by `create`.
+  title:
+    type: string
+    required: false
+    description: One-line question the decision answers. Required by `create`.
+  context:
+    type: string
+    required: false
+    description: The situation and trade-offs the user needs to weigh. Required by `create`.
+  options:
+    type: string[]
+    required: false
+    description: Two or more `<key>=<label>` option pairs. Required by `create`.
+  id:
+    type: string
+    required: false
+    description: The `D-<ULID>` id of a pending packet. Required by `resolve`.
+  chosen:
+    type: string
+    required: false
+    description: The `option_key` the user selected. Required by `resolve`.

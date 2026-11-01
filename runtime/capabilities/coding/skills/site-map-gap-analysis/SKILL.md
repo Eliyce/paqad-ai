@@ -1,18 +1,11 @@
 ---
 name: site-map-gap-analysis
 description: Turn the graph invariants and verification verdicts into stable SM-* findings and a gap report, so the map's problems are triaged, evidenced, and each carry a concrete fix.
-model_tier: medium
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  run_bundle:
-    type: path
-    required: true
-    description: The run bundle whose invariants and verdicts become SM-* findings.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

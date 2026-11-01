@@ -1,26 +1,11 @@
 ---
 name: user-flow-generation
 description: Generate or update user flows for UI-facing features.
-model_tier: medium
-triggers:
-  - ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: true
-cache_key_inputs:
-  - docs/**/*.md
-  - runtime/templates/user-flow.md.hbs
-output_format: markdown
-input_schema:
-  story_path:
-    type: path
-    required: true
-    description: Story artifact describing the feature.
-  module_doc_paths:
-    type: path[]
-    required: false
-    description: Relevant module docs.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

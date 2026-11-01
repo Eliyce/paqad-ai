@@ -1,27 +1,11 @@
 ---
 name: canonical-doc-sync
 description: Synchronize implementation changes back into canonical documentation.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: true
-cache_key_inputs:
-  - docs/**/*.md
-  - src/**/*.ts
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Changed implementation or doc files.
-  canonical_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical docs to review for drift.
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

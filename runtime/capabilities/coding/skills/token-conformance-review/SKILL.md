@@ -1,25 +1,11 @@
 ---
 name: token-conformance-review
 description: Detect hard-coded design values (hex, raw px/rem, ad-hoc font stacks) in UI source that should resolve to a declared token. High severity by default.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/tokens.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for UI source — typically `src/`, `app/`, or `graph-ui/src/`.
-  tokens_path:
-    type: path
-    required: true
-    description: Path to the project's tokens.md contract clause.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

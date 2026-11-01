@@ -1,31 +1,11 @@
 ---
 name: documentation-workflow
 description: Run the post-onboarding documentation creation workflow using the canonical tracker and the current application manifests. Supports two stages — foundation (docs/instructions/** and module-map.yml) and module-docs (docs/modules/** from reviewed map).
-model_tier: medium
-triggers:
-  - workflow:
-      - documentation-update
-      - module-documentation
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_profile_path:
-    type: path
-    required: true
-    description: Canonical project profile.
-  detection_report_path:
-    type: path
-    required: false
-    description: Current detection report.
-  doc_progress_path:
-    type: path
-    required: false
-    description: Canonical doc tracker.
-  mode:
-    type: string
-    required: false
-    description: 'foundation (default) or module-docs'
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

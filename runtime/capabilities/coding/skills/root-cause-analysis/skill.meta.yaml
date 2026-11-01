@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - root-cause-analysis
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Incident or problem statement to analyze.
+  stack_snapshot_path:
+    type: path
+    required: false
+    description: Optional stack snapshot to ground the investigation.

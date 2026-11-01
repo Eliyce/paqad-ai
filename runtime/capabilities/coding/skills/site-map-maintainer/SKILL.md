@@ -1,18 +1,11 @@
 ---
 name: site-map-maintainer
 description: Keep the site map fresh during a feature-development change — when a diff touches flow-relevant files, patch just the affected surfaces so the map never drifts from the code it describes.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: The files a feature-development change touched, checked for flow relevance.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

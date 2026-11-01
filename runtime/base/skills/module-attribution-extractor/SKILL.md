@@ -1,23 +1,11 @@
 ---
 name: module-attribution-extractor
 description: Run the deterministic module-attribution extractor over a user prompt and surface any MD-XXXX drafts via the Decision Pause Contract. This is the first half of the Attribution Gate spliced into feature-development.planning. Pattern set is finite, framework-owned, and TS-canonical (`src/module-decisions/extractor.ts`); extending it is a framework PR.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - module-attribution
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  prompt:
-    type: string
-    required: true
-    description: The user prompt to analyse (typically a pasted ticket or feature request).
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve module-map.yml for collision detection. Defaults to cwd.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

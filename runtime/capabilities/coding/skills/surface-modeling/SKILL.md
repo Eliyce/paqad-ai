@@ -1,18 +1,11 @@
 ---
 name: surface-modeling
 description: Turn raw extracted surfaces into named, typed, module-attributed surfaces with entry and exit marks — the non-inferable layer the engine cannot derive from the code alone.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  extraction:
-    type: path
-    required: true
-    description: The extraction.json produced by surface-extraction, the raw surfaces to model.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

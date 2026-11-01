@@ -1,23 +1,11 @@
 ---
 name: finding-normalizer
 description: Convert heterogeneous security evidence into stable pentest finding entries.
-model_tier: medium
-triggers:
-  - workflow:
-      - pentest
-      - pentest-retest
-      - codebase-health
-      - health-retest
-      - site-map
-      - site-map-retest
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  raw_finding_inputs:
-    type: object
-    required: true
-    description: Structured evidence to normalize into canonical pentest findings.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,22 +1,11 @@
 ---
 name: rule-script-generator
 description: Generates one or more deterministic .mjs verification scripts (plus pass/fail fixtures) for each rule classified deterministic or heuristic with no existing enforcer in rule-script-map.yml. Every script is validated against its own __fixtures__ before registration — a script that misclassifies its fixtures is rejected and surfaced via the Decision Pause Contract, never added to the map. Strict from generation; there is no shadow mode. The deterministic gate lives in src/rule-scripts/{fixture-runner,header,execute,guard}.ts; this skill is the agent-side wrapper that authors the scripts and invokes the bundled .mjs validators.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - rules-generate
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve rule-script-map.yml and write scripts. Defaults to cwd.
-  only_rule_id:
-    type: string
-    required: false
-    description: When set, regenerate scripts for just this rule (RL-<hash>).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,24 +1,11 @@
 ---
 name: cryptographic-review
 description: Identify cryptographic failures including weak hashing, insecure encryption modes, hardcoded keys, weak PRNG usage, and disabled TLS verification from code evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing data storage, encryption, token generation, and external communication.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove cryptographic strength or key management.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,19 +1,11 @@
 ---
 name: rule-script-reconciler
 description: Retrospective drift detector for rules-as-scripts. Compares rule-script-map.yml against the rule markdown on disk and the registered scripts, emits RS-* findings into .paqad/scripts/rules/.cache/drift.json, and surfaces user-approvable deltas via the Decision Pause Contract at feature-development planning entry. No LLM judgement — the TS engine is src/rule-scripts/reconciler.ts; this skill is the agent-side wrapper that invokes it and routes resolutions through rule-editor / rule-script-generator.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - rules-analyze
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve rule-script-map.yml and rule files. Defaults to cwd.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,22 +1,11 @@
 ---
 name: agent-orchestrator
 description: 'Proves a subagent earns its place before it ships: three main-conversation baselines, a fourteen-field intake, the smallest tool list with risky powers put to the owner, hook script tests, pass^3 trials against a general-purpose agent, a delegation sweep for agents picked by their description, then the host agent file, its SDK form and a tracked record. Use when work adds or modifies a subagent definition (.claude/agents/*.md, .codex/agents/*.toml), a stage helper agent or an expert persona, when the Agent Orchestrator seat reviews one, or when paqad-ai agent status reports what comes after.'
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  name:
-    type: string
-    required: true
-    description: The agent name, lowercase and hyphenated, equal to its file name.
-  task:
-    type: string
-    required: true
-    description: The job the agent is for, taken from the frozen spec and the ticket.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

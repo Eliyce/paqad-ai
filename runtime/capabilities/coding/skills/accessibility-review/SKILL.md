@@ -1,30 +1,11 @@
 ---
 name: accessibility-review
 description: Audit the running UI against WCAG 2.2 A/AA — contrast, focus visibility, keyboard order, ARIA, target size, prefers-reduced-motion. Findings tagged WCAG-2.2.x.x.x.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/accessibility.md
-  - docs/instructions/design-system/tokens.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for UI source.
-  accessibility_path:
-    type: path
-    required: true
-    description: Path to the project's accessibility.md contract clause.
-  axe_results_path:
-    type: path
-    required: false
-    description: Path to axe-core results JSON emitted by runtime-checks.ts (live phase).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

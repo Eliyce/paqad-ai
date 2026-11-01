@@ -1,28 +1,11 @@
 ---
 name: sequence-planner
 description: Break work into ordered, coherent stories.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  requirements_path:
-    type: path
-    required: true
-    description: Accepted requirements artifact.
-  acceptance_criteria_path:
-    type: path
-    required: true
-    description: Acceptance criteria to sequence.
-  canonical_doc_paths:
-    type: path[]
-    required: false
-    description: Supporting canonical docs.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,18 +1,11 @@
 ---
 name: guard-inference
 description: Find and evidence the guards that gate surfaces and transitions — permissions, roles, feature flags, auth and data states — and how each is satisfied, without inventing protection the code does not enforce.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  surfaces:
-    type: path
-    required: true
-    description: The modeled surfaces and transitions whose access controls this skill evidences.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

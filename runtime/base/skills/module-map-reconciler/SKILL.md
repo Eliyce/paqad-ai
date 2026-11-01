@@ -1,24 +1,11 @@
 ---
 name: module-map-reconciler
 description: Retrospective reconciler that scans the source tree against module-map.yml and docs/modules/, emits MM-* findings into .paqad/module-map/drift.json, and surfaces user-approvable deltas. The TS engine lives in `src/module-map/reconciler.ts`; this skill is the agent-side wrapper that invokes it via the CLI and routes accepted deltas through `src/module-decisions/apply.ts` (the only writer of module-map.yml).
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - documentation-update
-      - module-map-reconcile
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve module-map.yml and source_roots. Defaults to cwd.
-  source_roots:
-    type: string[]
-    required: false
-    description: Override source_roots discovered from the active stack pack. Hard-fails when neither is provided.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

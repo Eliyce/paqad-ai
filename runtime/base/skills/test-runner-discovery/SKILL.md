@@ -1,22 +1,11 @@
 ---
 name: test-runner-discovery
 description: When no script can classify how a project's test runner parallelizes, read the manifests and lockfiles, decide whether a parallel mode exists and its prerequisite is installed, and emit a validated JSON record for `paqad-ai checks record-runner`. The deterministic guard is the `checks record-runner` verb (src/checks/record-runner.ts), which validates the result against an argv allowlist and never trusts it.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: true
-    description: The project whose test runner is being classified.
-  test_command:
-    type: string
-    required: true
-    description: The project's mapped `commands.test` — the parallel command must build on it.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

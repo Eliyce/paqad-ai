@@ -1,22 +1,11 @@
 ---
 name: skill-orchestrator
 description: Takes a new or edited skill through paqad's nine gated stages, from proving the skill is needed to releasing it with evidence, so no skill is added on a hunch. Use when a change creates or edits a SKILL.md or any file in a skill folder, when the Skill Orchestrator sits at the High Table, or when paqad-ai skill status names a stage to run next.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  name:
-    type: string
-    required: true
-    description: The skill name, lowercase and hyphenated, equal to its folder name.
-  task:
-    type: string
-    required: true
-    description: The job the skill is for, taken from the frozen spec and the ticket.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

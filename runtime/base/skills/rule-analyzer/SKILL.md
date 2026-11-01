@@ -1,18 +1,11 @@
 ---
 name: rule-analyzer
 description: One-shot classifier for rules-as-scripts. Reads every rule file under docs/instructions/rules/**, embeds stable RL-<hash> markers, classifies each rule's verifiability (deterministic / heuristic / unverifiable), detects rules already enforced by ESLint/TS/Prettier/existing paqad infra, detects rule conflicts, and writes a draft docs/instructions/rules/rule-script-map.yml for the user to review before `generate rule scripts`. The deterministic mechanics live in src/rule-scripts/; this skill is the agent-side wrapper that invokes the bundled .mjs scripts and routes all writes through src/rule-scripts/apply.ts (the only writer of rule-script-map.yml).
-model_tier: medium
-triggers:
-  - workflow:
-      - rules-analyze
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve docs/instructions/rules and the map. Defaults to cwd.
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

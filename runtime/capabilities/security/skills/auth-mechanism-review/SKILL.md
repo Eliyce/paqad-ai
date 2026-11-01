@@ -1,24 +1,11 @@
 ---
 name: auth-mechanism-review
 description: Reason about authentication weaknesses including JWT vulnerabilities, session security, OAuth/OIDC flaws, brute-force surfaces, and password storage from code and docs evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing authentication flows, sessions, and token handling.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove authentication mechanism security.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

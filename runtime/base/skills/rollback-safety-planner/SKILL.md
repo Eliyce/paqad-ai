@@ -1,31 +1,11 @@
 ---
 name: rollback-safety-planner
 description: For each story with hard reversibility or wide blast radius, draft an executable rollback procedure before the story leaves planning.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-  - workflow:
-      - feature-development
-      - migration
-      - refactor
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  story_plan_path:
-    type: path
-    required: true
-    description: Story plan emitted by the story-designer agent.
-  spec_path:
-    type: path
-    required: false
-    description: Active spec used to validate rollback affects only the documented scope.
-  module_doc_paths:
-    type: path[]
-    required: false
-    description: Canonical module docs that establish operational conventions and feature flags.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

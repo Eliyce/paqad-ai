@@ -1,28 +1,11 @@
 ---
 name: diff-doc-sync
 description: Identify only the canonical docs made stale by the current diff.
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: true
-cache_key_inputs:
-  - .paqad/session/review-digest.md
-  - docs/maintainers/canonical-contract-map.md
-  - docs/modules/README.md
-output_format: json
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Changed source or doc files from the current diff, as listed by `paqad-ai review digest` or read from git.
-  detector_script_path:
-    type: path
-    required: true
-    description: Path to the canonical stale doc detector script.
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

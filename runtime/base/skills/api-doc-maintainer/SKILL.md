@@ -1,25 +1,12 @@
 ---
 name: api-doc-maintainer
 description: Maintains per-module API documentation after endpoint changes
-model_tier: medium
-triggers:
-  - api_impact:
-      - additive-endpoint
-      - modified-endpoint
-      - breaking-change
-max_lines: 200
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Implementation files that changed API behavior.
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical API docs to sync.
+metadata:
+  model_tier: medium
+  max_lines: '200'
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

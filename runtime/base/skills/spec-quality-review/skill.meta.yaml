@@ -1,0 +1,9 @@
+triggers:
+  - doc:
+      - spec
+cache_key_inputs: []
+input_schema:
+  spec_file:
+    type: path
+    required: true
+    description: Markdown specification file to review.

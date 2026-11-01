@@ -25,10 +25,42 @@ const files = (
   )
 ).sort();
 
+const STRING_KEYS = ['model_tier', 'cacheable', 'output_format', 'max_lines', 'max_output_tokens'];
+const META_FILE_KEYS = [
+  'triggers',
+  'input_schema',
+  'cache_key_inputs',
+  'request_routing',
+  'on_complete',
+  'tools',
+];
+
+function pick(source, keys) {
+  return Object.fromEntries(
+    keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]),
+  );
+}
+
+// paqad skills keep their custom keys under `metadata`, with JSON-shaped values in the
+// sibling file named by `metadata.paqad-meta`; older skills still carry them top level.
+function resolveMetadata(raw, folder) {
+  const metadata = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+  const ref = metadata['paqad-meta'];
+  let sidecar = {};
+  if (typeof ref === 'string' && !ref.startsWith('/') && !ref.split(/[\\/]/).includes('..')) {
+    try {
+      sidecar = YAML.parse(readFileSync(join(folder, ref), 'utf8')) ?? {};
+    } catch {
+      sidecar = {};
+    }
+  }
+  return { ...raw, ...pick(metadata, STRING_KEYS), ...pick(sidecar, META_FILE_KEYS) };
+}
+
 const index = files.map((file) => {
   const content = readFileSync(file, 'utf8');
   const [, frontmatterBlock = ''] = content.split(/^---$/m);
-  const frontmatter = YAML.parse(frontmatterBlock);
+  const frontmatter = resolveMetadata(YAML.parse(frontmatterBlock), dirname(file));
   const model =
     frontmatter.model_tier === 'fast'
       ? profile.model_routing.fast_model

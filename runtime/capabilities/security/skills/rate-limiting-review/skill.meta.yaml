@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - docs/modules/**
+  - tests/**
+input_schema:
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Module docs describing API endpoints, authentication flows, and bulk operations.
+  test_paths:
+    type: path[]
+    required: false
+    description: Tests that may prove rate limiting or throttle enforcement.

@@ -1,26 +1,11 @@
 ---
 name: index-optimization
 description: Review and improve indexing strategy for changed data paths.
-model_tier: reasoning
-triggers:
-  - database_impact:
-      - schema-change
-      - query-change
-cacheable: true
-cache_key_inputs:
-  - database/migrations/**
-  - docs/modules/*/database/indexes.md
-  - docs/modules/*/database/queries.md
-output_format: markdown
-input_schema:
-  query_paths:
-    type: path[]
-    required: true
-    description: Queries or explain plans to analyze.
-  schema_paths:
-    type: path[]
-    required: false
-    description: Relevant schema docs or migrations.
+metadata:
+  model_tier: reasoning
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

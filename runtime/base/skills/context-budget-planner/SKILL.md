@@ -1,31 +1,11 @@
 ---
 name: context-budget-planner
 description: Estimate the implementation phase's token footprint from spec, test plan, and affected files; recommend compaction before context starvation.
-model_tier: fast
-triggers:
-  - process_depth:
-      - graduated lane
-      - full lane
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  spec_path:
-    type: path
-    required: true
-    description: Active spec artifact whose acceptance criteria drive the implementation.
-  test_plan_path:
-    type: path
-    required: false
-    description: Test plan artifact when available.
-  affected_module_doc_paths:
-    type: path[]
-    required: false
-    description: Canonical module docs the implementation will read.
-  changed_file_paths:
-    type: path[]
-    required: false
-    description: Files known to be in the change set so far.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

@@ -1,0 +1,22 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+  - workflow:
+      - feature-development
+      - migration
+      - refactor
+cache_key_inputs: []
+input_schema:
+  story_plan_path:
+    type: path
+    required: true
+    description: Story plan emitted by the story-designer agent.
+  spec_path:
+    type: path
+    required: false
+    description: Active spec used to validate rollback affects only the documented scope.
+  module_doc_paths:
+    type: path[]
+    required: false
+    description: Canonical module docs that establish operational conventions and feature flags.

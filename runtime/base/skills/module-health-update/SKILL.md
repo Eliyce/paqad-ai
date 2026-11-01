@@ -1,18 +1,11 @@
 ---
 name: module-health-update
 description: Whole-project module-health refresh. The agent-facing "update module health" workflow. Runs the test-driven rollup (coverage / tests / change_velocity from the active stack pack's declared reports) and then the session-evidence sync (defect frequency / contract stability / verification status) across every declared module in one pass, writing the extended .paqad/module-health/<slug>.json records. Wraps the existing `paqad-ai module-health rollup` and `paqad-ai module-health sync` verbs — it introduces no new command. Use this to bring every module's health off its onboarding stub, or to recompute it on demand. The lower-level rollup-only path lives in the module-health-rollup skill.
-model_tier: fast
-triggers:
-  - workflow:
-      - module-health-update
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  project_root:
-    type: path
-    required: false
-    description: Project root used to resolve module-map.yml and the active stack pack. Defaults to cwd.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
