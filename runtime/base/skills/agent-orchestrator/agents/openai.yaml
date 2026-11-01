@@ -1,0 +1,4 @@
+interface:
+  display_name: Agent Orchestrator
+  short_description: Takes a new or edited agent through nine gated stages, from proving
+    it is needed to releasing it with pass^k evals and evidence, using the paqad-ai agent verbs.

@@ -1593,17 +1593,19 @@ modules:
     layer: framework-internals
     confidence: medium
     summary: |
-      Gates new and edited skills (and, later, agents) before they are
-      added: skill paths and the authoring lane raise, the deterministic
-      skill lint and never-write list, overlap and catalog budget, script
-      and reference contract checks, eval adapters and aggregation,
-      portable packaging, evidence, activations, drift and the catalog
-      report. src/skills discovers and loads skills; src/authoring gates
-      new and edited ones.
+      Gates new and edited skills and agents before they are added: skill
+      and agent paths and the authoring lane raise, the deterministic skill
+      and agent lints and never-write list, overlap and catalog budget,
+      script, reference and hook script contract checks, eval adapters,
+      aggregation and pass^k, the agent delegation test, host and SDK
+      agent forms, portable packaging, evidence, activations and
+      delegations, drift and the catalog report. src/skills discovers and
+      loads skills; src/authoring gates new and edited skills and agents.
     sources:
       - src/authoring
       - runtime/base/authoring
       - runtime/base/skills/skill-orchestrator
+      - runtime/base/skills/agent-orchestrator
 
   - slug: agent-runtime
     name: Built-in Agent Roles
@@ -3288,6 +3290,8 @@ modules:
     sources:
       - src/plugin
       - runtime/claude-plugin
+      - runtime/hooks/agent-delegation.mjs
+      - runtime/hooks/lib/agent-delegation-core.mjs
       - plugins/discovery
       - scripts/assemble-plugin.mjs
       - scripts/build-plugin-manifest.mjs
