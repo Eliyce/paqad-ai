@@ -6,6 +6,15 @@ verified: 2026-11-01
 
 Read one recorded iteration and name the single lever to change next.
 
+## Model
+
+`reasoning`.
+
+## Tools
+
+- The iteration's `benchmark.json` and `trials.json`
+- The graded trials of the iteration
+
 ## Instructions
 
 1. Read `benchmark.json` for the iteration: pass^3 per tier, cut-off trials, cache-hit share, tool-use blocks per message and oversize tool results.

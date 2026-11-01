@@ -6,6 +6,15 @@ verified: 2026-11-01
 
 Compare the old and the new agent on one case without knowing which is which.
 
+## Model
+
+`reasoning`.
+
+## Tools
+
+- The two labelled reports for one case
+- The case's `case.yaml` and its expected outcome
+
 ## Instructions
 
 1. You get two reports labelled A and B for the same case. You are not told which agent wrote which.

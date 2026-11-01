@@ -6,6 +6,15 @@ verified: 2026-11-01
 
 Grade one S5 trial of an agent: decide for each assertion whether the trial's outputs back it, with evidence.
 
+## Model
+
+`fast` for mechanical assertions, `reasoning` for the rest.
+
+## Tools
+
+- The case prompt, `case.yaml` and its assertions
+- The trial's `outputs/` folder, its transcript and `timing.json`
+
 ## Instructions
 
 You never saw the drafting session.
