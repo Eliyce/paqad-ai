@@ -123,7 +123,11 @@ describe('FrameworkUpdater', () => {
 
     expect(report.previous_version).toBe('0.0.0');
     expect(report.target_version).toBe(VERSION);
-    expect(report.regenerated).toEqual(['CLAUDE.md']);
+    expect(report.regenerated).toEqual([
+      'CLAUDE.md',
+      '.claude/.gitignore',
+      '.claude/settings.json',
+    ]);
     expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).toBe('new');
     const versionFileContent = readFileSync(
       join(projectRoot, '.paqad/framework-version.txt'),
@@ -450,11 +454,31 @@ describe('FrameworkUpdater', () => {
       expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
     });
 
-    it('never writes the agents into the project', async () => {
+    it('writes only the Claude helpers into the project, for the team', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
-      expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
+      expect(readdirSync(join(projectRoot, '.claude/agents')).sort()).toEqual(
+        readdirSync(join(userHome, '.claude/agents'))
+          .filter((f) => f.endsWith('.md'))
+          .sort(),
+      );
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
+    });
+
+    it('still writes the Claude helpers into the project when the plugin is installed', async () => {
+      const pluginsDir = join(userHome, '.claude/plugins');
+      mkdirSync(pluginsDir, { recursive: true });
+      writeFileSync(
+        join(pluginsDir, 'installed_plugins.json'),
+        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+      );
+
+      await new FrameworkUpdater({
+        generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
+      }).run(projectRoot);
+
+      expect(readdirSync(join(projectRoot, '.claude/agents'))).toHaveLength(8);
+      expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
     });
 
     it('writes home stage agents on update by default', async () => {
@@ -532,8 +556,13 @@ describe('FrameworkUpdater', () => {
         expect(written.hooks.SubagentStart[0].hooks[0].command).toBe(startCommand);
       });
 
-      it('leaves the settings to the plugin when they hold no live npm hook lines', async () => {
+      it('with the team setup off, leaves the settings to the plugin when they hold no live npm hook lines', async () => {
         installPlugin();
+        mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+        writeFileSync(
+          join(projectRoot, '.paqad/configs/.config.app'),
+          'team_bootstrap_enabled=false\n',
+        );
         mkdirSync(join(projectRoot, '.claude'), { recursive: true });
         const before = JSON.stringify({
           hooks: {
@@ -551,6 +580,41 @@ describe('FrameworkUpdater', () => {
         expect(report.regenerated).not.toContain('.claude/settings.json');
         expect(readFileSync(settingsPath(), 'utf8')).toBe(before);
       });
+    });
+  });
+
+  describe('team setup on update', () => {
+    const claudeCandidates = async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }];
+
+    it('writes .paqad/hook.mjs for a Claude project, names it to commit, and gives no diff on a rerun', async () => {
+      const report = await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(
+        projectRoot,
+      );
+      const launcher = join(projectRoot, '.paqad/hook.mjs');
+      const bytes = readFileSync(launcher, 'utf8');
+      expect(bytes).toContain(`PAQAD_LAUNCHER_VERSION = '${VERSION}'`);
+      expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
+      await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
+      expect(readFileSync(launcher, 'utf8')).toBe(bytes);
+    });
+
+    it('writes no team setup for a project without Claude', async () => {
+      const report = await new FrameworkUpdater({
+        generateCandidates: async () => [{ path: 'AGENTS.md', content: 'x', autoUpdate: true }],
+      }).run(projectRoot);
+      expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(false);
+      expect(report.team_setup_notes).toEqual([]);
+    });
+
+    it('removes an unchanged launcher once the team opts out', async () => {
+      await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
+      mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.paqad/configs/.config.app'),
+        'team_bootstrap_enabled=false\n',
+      );
+      await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
+      expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(false);
     });
   });
 });

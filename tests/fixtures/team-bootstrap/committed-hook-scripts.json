@@ -1,0 +1,18 @@
+{
+  "scripts": [
+    "agent-entry-gate.mjs",
+    "agent-entry-prompt-gate.mjs",
+    "agent-entry-session-start.mjs",
+    "capability-gate.mjs",
+    "decision-pause-gate.mjs",
+    "plugin-session-start.mjs",
+    "silent-update.mjs",
+    "skill-activation.mjs",
+    "stage-agent-completion.mjs",
+    "stage-agent-start.mjs",
+    "stage-marker-parse.mjs",
+    "stage-writer.mjs",
+    "ticket-intake-prompt.mjs",
+    "verification-completion.mjs"
+  ]
+}

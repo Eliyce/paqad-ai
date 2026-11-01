@@ -76,6 +76,13 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   `.paqad/.config` (local wins), and `PAQAD_*` env — and the onboarding manifest
   ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
+On Claude Code, onboarding also writes team files the lead commits: a portable
+`.claude/settings.json` (plugin marketplace keys plus hooks that run `.paqad/hook.mjs`), the
+launcher itself and the 8 stage agents. A teammate or a cloud session that clones the repo then gets
+the same stages and checks with no command to run; the launcher uses the installed plugin, the npm
+install, or a copy it fetches once into `~/.paqad-ai/team-plugin`. `team_bootstrap_enabled=false`
+turns this off.
+
 On **Claude Code only**, the framework can also install as a **plugin** instead of
 the npm package. The plugin ships its own manifest
 ([`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)), generated at build by

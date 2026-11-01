@@ -15,6 +15,7 @@ export function createUpdateCommand(): Command {
         const report = await new FrameworkUpdater().run(options.projectRoot);
         if (!options.silent) {
           console.log(JSON.stringify(report, null, 2));
+          for (const note of report.team_setup_notes ?? []) console.log(note);
         }
         appendAuditLog(options.projectRoot, report.previous_version, report.target_version);
         if (options.silent) {

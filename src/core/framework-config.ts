@@ -115,6 +115,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'Turn paqad off entirely (vanilla mode). Absent/true = on.',
   },
   {
+    key: 'team_bootstrap_enabled',
+    env: 'PAQAD_TEAM_BOOTSTRAP_ENABLED',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Team and cloud setup',
+    comment:
+      'Let teammates and Claude Code cloud sessions set paqad up from this repo on their own. ' +
+      'false = onboarding writes no team setup and the launcher does nothing.',
+  },
+  {
     key: 'auto_update',
     env: 'PAQAD_AUTO_UPDATE',
     type: 'boolean',
@@ -1369,6 +1380,14 @@ export function configSaysPaqadDisabled(
   return raw !== undefined && FALSY.has(raw.trim().toLowerCase());
 }
 
+export function resolveTeamBootstrapEnabled(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = layeredConfigMap(projectRoot, env).get('team_bootstrap_enabled');
+  return raw === undefined || !FALSY.has(raw.trim().toLowerCase());
+}
+
 export interface PluginMigrationConfig {
   migration: (typeof PLUGIN_MIGRATION_MODES)[number];
   install_mode: (typeof CLAUDE_INSTALL_MODES)[number];
@@ -2298,6 +2317,10 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   {
     present: () => false,
     keys: ['plugin_migration', 'claude_install_mode'],
+  },
+  {
+    present: () => false,
+    keys: ['team_bootstrap_enabled'],
   },
   {
     present: () => false,

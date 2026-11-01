@@ -1,0 +1,1 @@
+{ "cmd": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-entry-gate.mjs" }

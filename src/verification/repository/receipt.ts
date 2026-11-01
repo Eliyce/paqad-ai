@@ -120,6 +120,7 @@ export interface ComposeChangeReceiptInput {
   techDebt?: readonly { id: string }[] | null;
   ruleOverrides?: readonly { rule: string; file: string; by: string; at: string }[] | null;
   fixProof?: { required: boolean; state: FixProofState } | null;
+  cloudNote?: string | null;
 }
 
 function fixProofLine(fixProof: { required: boolean; state: FixProofState }): string {
@@ -164,6 +165,9 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);
+  }
+  if (input.cloudNote) {
+    parts.push(`> ${input.cloudNote}`);
   }
   if (input.reportPath) {
     parts.push(`> Report: ${input.reportPath}`);

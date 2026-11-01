@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
+  resolveTeamBootstrapEnabled,
   syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
@@ -29,7 +31,17 @@ import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
-const CLAUDE_HOOK_ARTIFACTS = new Set(['.claude/settings.json', '.claude/settings.hooks.json']);
+const CLAUDE_HOOK_ARTIFACTS = new Set([
+  '.claude/settings.json',
+  '.claude/settings.hooks.json',
+  '.claude/settings.local.json',
+]);
+const CLAUDE_TEAM_HOOK_ARTIFACTS = new Set(['.claude/settings.hooks.json']);
+const CLAUDE_HOST_FILES = new Set([
+  '.claude/.gitignore',
+  '.claude/settings.json',
+  '.claude/settings.local.json',
+]);
 
 export type UpdateCandidate = GeneratedFile;
 
@@ -48,6 +60,7 @@ export interface UpdateReport {
   new_mcp_servers: string[];
   new_scripts: string[];
   config_keys_pruned: string[];
+  team_setup_notes?: string[];
 }
 
 export interface FrameworkUpdaterOptions {
@@ -77,18 +90,29 @@ export class FrameworkUpdater {
     const artifactPolicy = new Map(
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],
     );
-    const candidates = await this.getCandidates(projectRoot);
+    const generated = await this.getCandidates(projectRoot);
+    const usesClaude = generated.some((candidate) => toPosixPath(candidate.path) === 'CLAUDE.md');
+    const claude = new ClaudeCodeAdapter();
+    const candidates = usesClaude
+      ? [
+          ...generated.filter((candidate) => !CLAUDE_HOST_FILES.has(toPosixPath(candidate.path))),
+          ...claude.hostSettingsFiles(projectRoot),
+        ]
+      : generated;
     const regenerated: string[] = [];
     const skipped: UpdateDiff[] = [];
     const newScripts: string[] = [];
 
     const pluginInstalled = isPluginInstalled();
     const pluginOwnsClaudeHooks = pluginInstalled && !projectWiresLiveNpmHooks(projectRoot);
+    const pluginSkips = resolveTeamBootstrapEnabled(projectRoot)
+      ? CLAUDE_TEAM_HOOK_ARTIFACTS
+      : CLAUDE_HOOK_ARTIFACTS;
 
     for (const candidate of candidates) {
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
-      if (pluginOwnsClaudeHooks && CLAUDE_HOOK_ARTIFACTS.has(reportedPath)) {
+      if (pluginOwnsClaudeHooks && pluginSkips.has(reportedPath)) {
         continue;
       }
       const existing = readExistingText(target);
@@ -129,6 +153,8 @@ export class FrameworkUpdater {
       } catch {}
     }
 
+    const teamSetupNotes = usesClaude ? claude.syncTeamSetup(projectRoot).notes : [];
+
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
@@ -149,6 +175,7 @@ export class FrameworkUpdater {
       new_mcp_servers: [],
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
+      team_setup_notes: teamSetupNotes,
     };
   }
 

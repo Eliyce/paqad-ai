@@ -1,4 +1,14 @@
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
+
+import {
+  type RestTrigger,
+  isCloudSession,
+  restChecks,
+  restComment,
+  restOpenPr,
+  restTrigger,
+} from './github-rest-fallback.js';
 
 import type {
   ChecksState,
@@ -9,10 +19,47 @@ import type {
   PullRequest,
 } from './host-provider.js';
 
+export interface GithubHostOptions {
+  env?: NodeJS.ProcessEnv;
+  projectRoot?: string;
+}
+
+const PR_CREATE_REMEDIATION =
+  'gh pr create failed. Ensure `gh auth status` is OK and the branch was pushed cleanly, then re-run delivery.';
+
+let graphqlRefusedInProcess = false;
+
+export function resetGraphqlRefusal(): void {
+  graphqlRefusedInProcess = false;
+}
+
 export class GithubHostProvider implements HostProvider {
   readonly kind = 'github' as const;
+  private readonly env: NodeJS.ProcessEnv;
 
-  constructor(private readonly shell: DeliveryShell) {}
+  constructor(
+    private readonly shell: DeliveryShell,
+    private readonly options: GithubHostOptions = {},
+  ) {
+    this.env = options.env ?? process.env;
+  }
+
+  private fallbackTrigger(
+    call: string,
+    result: { exitCode: number; stderr: string },
+  ): RestTrigger | null {
+    const trigger = restTrigger(result, this.env);
+    if (trigger !== null) {
+      graphqlRefusedInProcess = true;
+      if (this.options.projectRoot) {
+        appendHooksLog(
+          this.options.projectRoot,
+          `delivery: ${call} retried through REST (${trigger})`,
+        );
+      }
+    }
+    return trigger;
+  }
 
   async ensureBranch(name: string, base: string): Promise<HostStepResult> {
     const result = await this.shell.run('git', ['checkout', '-b', name, base]);
@@ -74,11 +121,14 @@ export class GithubHostProvider implements HostProvider {
     }
     const result = await this.shell.run('gh', args);
     if (result.exitCode !== 0) {
+      const viaRest = this.fallbackTrigger('gh pr create', result)
+        ? await restOpenPr(this.shell, input)
+        : null;
+      if (viaRest) return viaRest;
       return {
         ok: false,
         output: result.stderr || result.stdout,
-        remediation:
-          'gh pr create failed. Ensure `gh auth status` is OK and the branch was pushed cleanly, then re-run delivery.',
+        remediation: PR_CREATE_REMEDIATION,
       };
     }
     return {
@@ -90,6 +140,10 @@ export class GithubHostProvider implements HostProvider {
 
   async comment(prOrBranch: string, body: string): Promise<HostStepResult> {
     const result = await this.shell.run('gh', ['pr', 'comment', prOrBranch, '--body', body]);
+    if (result.exitCode !== 0 && this.fallbackTrigger('gh pr comment', result)) {
+      const viaRest = await restComment(this.shell, prOrBranch, body);
+      if (viaRest) return viaRest;
+    }
     return {
       ok: result.exitCode === 0,
       output: result.stderr || result.stdout,
@@ -101,12 +155,24 @@ export class GithubHostProvider implements HostProvider {
   }
 
   async getChecksStatus(prOrBranch: string): Promise<ChecksStatus> {
+    if (graphqlRefusedInProcess || isCloudSession(this.env)) {
+      return this.checksViaRest(prOrBranch);
+    }
     const result = await this.shell.run('gh', ['pr', 'checks', prOrBranch, '--json', 'name,state']);
+    if (this.fallbackTrigger('gh pr checks', result)) {
+      return this.checksViaRest(prOrBranch);
+    }
     const checks = parseChecks(result.stdout);
     if (checks === null) {
       return { state: 'unknown', checks: [] };
     }
     return { state: aggregate(checks.map((c) => c.state)), checks };
+  }
+
+  private async checksViaRest(prOrBranch: string): Promise<ChecksStatus> {
+    const viaRest = await restChecks(this.shell, prOrBranch);
+    if (!viaRest) return { state: 'unknown', checks: [] };
+    return { state: aggregate(viaRest.checks.map((c) => c.state)), checks: viaRest.checks };
   }
 }
 

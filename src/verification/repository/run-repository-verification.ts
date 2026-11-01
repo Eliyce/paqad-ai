@@ -106,6 +106,7 @@ import {
   buildRepositoryVerificationContext,
   type BuildRepositoryVerificationContextOptions,
 } from './repository-context.js';
+import { cloudContinuationNote } from './cloud-continuation.js';
 import { composeChangeReceipt, unrecordedMandatoryStages } from './receipt.js';
 import {
   buildRepositoryVerificationVerdict,
@@ -653,10 +654,8 @@ export async function runRepositoryVerification(
     /* v8 ignore stop */
   }
 
-  const receiptFeature = currentFeature(
-    context.project_root,
-    resolveSessionId(context.project_root, options.hostSessionId ?? null),
-  );
+  const receiptSession = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+  const receiptFeature = currentFeature(context.project_root, receiptSession);
   verdict.change = receiptFeature;
   const parts = verdictParts(verdict.gates, verdictStageGaps);
   if (fold && fold.lane === null) {
@@ -682,6 +681,7 @@ export async function runRepositoryVerification(
       : null,
     ruleOverrides: receiptFeature ? readRuleOverrides(context.project_root, receiptFeature) : null,
     fixProof,
+    cloudNote: cloudContinuationNote(context.project_root, receiptFeature, receiptSession),
   });
 
   if (reportPath) {

@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6A82NGQG5FNG3XYEW73YD2P](TD-01M6A82NGQG5FNG3XYEW73YD2P.md) (follow-up, low): Team launcher clones the plugin repo's branch HEAD unpinned and unverified
+- [TD-01M6A82KP8HA6FTXB688F62B4R](TD-01M6A82KP8HA6FTXB688F62B4R.md) (gap, medium): git pull silently overwrites teammates' ignored per-machine .claude/settings.json once the shared file is committed
 - [TD-01M69MP7S0ANT922K506DWHZ31](TD-01M69MP7S0ANT922K506DWHZ31.md) (bug, low): Activation-ledger prune is a read-modify-write that can drop a concurrent append
 - [TD-01M69MP747DP27WB5NYZ4MTVMV](TD-01M69MP747DP27WB5NYZ4MTVMV.md) (follow-up, medium): Improve-mode S5 default regression tolerance 0.2 lets a 20-point pass-rate drop pass as no regression
 - [TD-01M69AJBSK7DRB2XJ3YW0XDBVA](TD-01M69AJBSK7DRB2XJ3YW0XDBVA.md) (gap, low): Skill reference checks: framework console commands and non-JSON/YAML examples are not verified

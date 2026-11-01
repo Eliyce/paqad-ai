@@ -96,8 +96,19 @@ export function claudeSettingsPath(env = process.env) {
   return join(claudeDir(env), 'settings.json');
 }
 
+export const TEAM_LAUNCHER_MARK = '/.paqad/hook.mjs';
+
+export function isTeamLauncherCommand(command) {
+  return typeof command === 'string' && command.replaceAll('\\', '/').includes(TEAM_LAUNCHER_MARK);
+}
+
+export function teamPluginRoot() {
+  return join(homedir(), '.paqad-ai', 'team-plugin');
+}
+
 export function paqadHookScriptPath(command) {
   if (typeof command !== 'string' || !command.includes('paqad')) return null;
+  if (isTeamLauncherCommand(command)) return null;
   const m = command.match(/"([^"]+\.mjs)"|(\S+\.mjs)/);
   const path = m ? (m[1] ?? m[2]) : null;
   return path && path.includes('paqad') ? path : null;
@@ -226,6 +237,51 @@ export function installedPluginRoots(env = process.env) {
   return roots.length > 0 ? roots : null;
 }
 
+function readJsonFile(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+export function pluginSettingsLayers(projectRoot, env = process.env) {
+  return [claudeSettingsPath(env), ...projectClaudeSettingsPaths(projectRoot)];
+}
+
+export function pluginEnabledInSettings(projectRoot, env = process.env) {
+  let enabled;
+  for (const path of pluginSettingsLayers(projectRoot, env)) {
+    const map = readJsonFile(path)?.enabledPlugins;
+    if (map && typeof map === 'object' && typeof map[PAQAD_PLUGIN_ID] === 'boolean') {
+      enabled = map[PAQAD_PLUGIN_ID];
+    }
+  }
+  return enabled !== false;
+}
+
+function entryLoadsHere(entry, projectRoot) {
+  if (!entry || typeof entry !== 'object') return false;
+  const path = entry.installPath;
+  if (typeof path !== 'string' || path.trim() === '' || !existsSync(path)) return false;
+  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
+  if (scope !== 'project' && scope !== 'local') return true;
+  return (
+    typeof entry.projectPath === 'string' &&
+    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
+  );
+}
+
+export function pluginLoadState(projectRoot, env = process.env) {
+  const parsed = readJsonFile(join(claudeDir(env), 'plugins', 'installed_plugins.json'));
+  if (!parsed || typeof parsed !== 'object' || parsed.version !== 2) return 'unknown';
+  if (!parsed.plugins || typeof parsed.plugins !== 'object') return 'unknown';
+  const value = parsed.plugins[PAQAD_PLUGIN_ID];
+  const entries = Array.isArray(value) ? value : [value];
+  if (!entries.some((entry) => entryLoadsHere(entry, projectRoot))) return 'absent';
+  return pluginEnabledInSettings(projectRoot, env) ? 'live' : 'absent';
+}
+
 export function isSyncedPluginRoot(root) {
   const path = root.replaceAll('\\', '/');
   if (path.includes('/plugins/synced/')) return true;
@@ -235,6 +291,7 @@ export function isSyncedPluginRoot(root) {
 
 function claimedRootIsLive(claimed, env) {
   if (isSyncedPluginRoot(claimed)) return true;
+  if (canonicalRoot(claimed) === canonicalRoot(teamPluginRoot())) return true;
   const installed = installedPluginRoots(env);
   if (installed === null) return true;
   return installed.includes(canonicalRoot(claimed));

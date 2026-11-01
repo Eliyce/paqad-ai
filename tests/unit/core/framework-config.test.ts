@@ -32,6 +32,7 @@ import {
   resolveRuleGateConfig,
   resolveStageIsolationLanes,
   resolveStageAgentSettings,
+  resolveTeamBootstrapEnabled,
   autoRuleGateConcurrency,
   setConfigValue,
   setGroupConfigValue,
@@ -1366,5 +1367,73 @@ describe('skill and agent authoring keys', () => {
       expect(example).toContain(`# ${key}=${String(value)}\n`);
       expect(committed).toContain(`# ${key}=${String(value)}\n`);
     }
+  });
+});
+
+describe('team bootstrap key', () => {
+  let root: string;
+  beforeEach(() => {
+    root = tmpRoot();
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('sits right after paqad_enable in the app group with default true', () => {
+    const keys = FRAMEWORK_CONFIG_SPECS.map((spec) => spec.key);
+    expect(keys.indexOf('team_bootstrap_enabled')).toBe(keys.indexOf('paqad_enable') + 1);
+    const spec = FRAMEWORK_CONFIG_SPECS.find((s) => s.key === 'team_bootstrap_enabled');
+    expect(spec).toMatchObject({
+      env: 'PAQAD_TEAM_BOOTSTRAP_ENABLED',
+      type: 'boolean',
+      default: true,
+      group: 'app',
+      section: 'Team and cloud setup',
+    });
+    expect(KNOWN_CONFIG_KEYS.has('team_bootstrap_enabled')).toBe(true);
+  });
+
+  it('defaults to on', () => {
+    expect(resolveTeamBootstrapEnabled(root, {})).toBe(true);
+  });
+
+  it.each(['false', '0', 'no', 'OFF'])('a team file value %s turns it off', (value) => {
+    writeConfigsFile(root, '.config.app', `team_bootstrap_enabled=${value}\n`);
+    expect(resolveTeamBootstrapEnabled(root, {})).toBe(false);
+  });
+
+  it('a local .paqad/.config false turns it off', () => {
+    writeConfig(root, 'team_bootstrap_enabled=false\n');
+    expect(resolveTeamBootstrapEnabled(root, {})).toBe(false);
+  });
+
+  it('the env var turns it off and beats the files', () => {
+    expect(resolveTeamBootstrapEnabled(root, { PAQAD_TEAM_BOOTSTRAP_ENABLED: 'false' })).toBe(
+      false,
+    );
+    writeConfigsFile(root, '.config.app', 'team_bootstrap_enabled=false\n');
+    expect(resolveTeamBootstrapEnabled(root, { PAQAD_TEAM_BOOTSTRAP_ENABLED: 'true' })).toBe(true);
+  });
+
+  it('an unknown value keeps it on', () => {
+    writeConfig(root, 'team_bootstrap_enabled=banana\n');
+    expect(resolveTeamBootstrapEnabled(root, {})).toBe(true);
+  });
+
+  it('is listed in the generated app group, the example and the committed files', () => {
+    const line = '# team_bootstrap_enabled=true\n';
+    expect(generateGroupConfig('app')).toContain(line);
+    expect(generateConfigExample()).toContain(line);
+    const committedApp = readFileSync(
+      join(process.cwd(), '.paqad', 'configs', '.config.app'),
+      'utf8',
+    );
+    const committedExample = readFileSync(join(process.cwd(), '.paqad', '.config.example'), 'utf8');
+    for (const committed of [committedApp, committedExample]) {
+      expect(committed).toContain('# ── Team and cloud setup ');
+      expect(committed).toContain(line);
+    }
+    expect(generateGroupConfig('app')).toContain(`# ── Team and cloud setup ${'─'.repeat(36)}\n`);
+    expect(committedApp).toContain(`# ── Team and cloud setup ${'─'.repeat(36)}\n`);
   });
 });

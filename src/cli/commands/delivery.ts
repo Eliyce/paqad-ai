@@ -376,7 +376,7 @@ export function createDeliveryCommand(): Command {
     .action(async (options: DeliverOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
-      const host = new GithubHostProvider(shell);
+      const host = new GithubHostProvider(shell, { projectRoot });
       const dirName = activeChange(projectRoot, options.session);
       const result = await runDeliver({
         projectRoot,

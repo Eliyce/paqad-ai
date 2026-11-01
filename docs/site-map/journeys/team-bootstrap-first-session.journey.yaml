@@ -1,0 +1,27 @@
+# Proposed journey: becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: team-bootstrap-first-session
+label: A teammate or cloud session starts on an onboarded repo
+actor: developer
+goal: Get the same stages and checks as the lead straight from the repo, with no command to run.
+entry: node-cli-update
+priority: high
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-update
+    action: The lead runs `paqad-ai update` and commits every file it lists (`.claude/settings.json`, `.claude/.gitignore`, `.paqad/hook.mjs`, `.claude/agents/paqad-*.md`).
+    expect: A portable team setup on the branch, with personal settings moved to `.claude/settings.local.json`.
+  - surface: node-cli-update
+    action: A teammate clones and opens the repo, trusts the folder, and accepts or declines the plugin offer.
+    expect: The committed launcher picks one route for the session (plugin, npm, its own copy, or none).
+  - surface: node-cli-update
+    action: On the first session with no plugin and no npm install, the launcher shows the setup line and waits while it fetches the plugin copy.
+    expect: "`Setting up paqad for this repo (one time).` on a laptop, or `Setting up paqad for this cloud session.` in cloud; a failed setup says once that checks are off for the session."
+  - surface: node-cli-join
+    action: The first prompt runs through the entry gate; optionally the teammate runs `paqad-ai join` for the code index, detection report and quality baseline.
+    expect: Stages and checks enforced as for the lead; join writes no tracked file.
+ends:
+  success: The teammate's first prompt runs with stages enforced and evidence recorded.
+  abandoned: Setup failed and the session ran with paqad's checks off.
