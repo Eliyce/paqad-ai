@@ -191,6 +191,102 @@ function goldenAsHost(text: string): string {
     );
 }
 
+const LAUNCHER_ROUTE_ADDITIONS: ReadonlyArray<readonly [string, string]> = [
+  [
+    `import {
+  copyFileSync,
+  cpSync,
+  mkdirSync,`,
+    `import {
+  mkdirSync,`,
+  ],
+  [
+    `import { basename, join, resolve } from 'node:path';`,
+    `import { join, resolve } from 'node:path';`,
+  ],
+  [
+    `import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';`,
+    `import { afterEach, beforeAll, describe, expect, it } from 'vitest';`,
+  ],
+  [
+    `const LAUNCHER_TEMPLATE = resolve(REPO, 'runtime/templates/team-bootstrap/hook.mjs');
+const LAUNCHER_ROUTE = '__PAQAD_CONTRACT_LAUNCHER_ROUTE';
+
+let launcherHome = '';
+`,
+    ``,
+  ],
+  [
+    `  await ensureBuiltDist();
+  launcherHome = mkdtempSync(join(tmpdir(), 'paqad-contract-home-'));
+  const copy = join(launcherHome, '.paqad-ai', 'team-plugin');
+  mkdirSync(copy, { recursive: true });
+  copyFileSync(join(REPO, 'package.json'), join(copy, 'package.json'));
+  for (const part of ['dist', 'runtime']) {
+    cpSync(join(REPO, part), join(copy, part), { recursive: true });
+  }
+`,
+    `  await ensureBuiltDist();
+`,
+  ],
+  [
+    `afterAll(() => {
+  if (launcherHome) rmSync(launcherHome, { recursive: true, force: true });
+});
+
+`,
+    ``,
+  ],
+  [
+    `  name: 'npm' | 'plugin' | 'launcher then npm' | 'launcher then team copy';`,
+    `  name: 'npm' | 'plugin';`,
+  ],
+  [
+    `function launcherEnv(root: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return {
+    CLAUDE_PROJECT_DIR: root,
+    CLAUDE_PLUGIN_ROOT: '',
+    HOME: launcherHome,
+    USERPROFILE: launcherHome,
+    CLAUDE_CONFIG_DIR: join(launcherHome, '.claude'),
+    [LAUNCHER_ROUTE]: '1',
+    ...extra,
+  };
+}
+`,
+    ``,
+  ],
+  [
+    `  {
+    name: 'launcher then npm',
+    env: (root) => launcherEnv(root, { PAQAD_FRAMEWORK_HOME: resolve(REPO, 'runtime') }),
+  },
+  { name: 'launcher then team copy', env: (root) => launcherEnv(root) },
+`,
+    ``,
+  ],
+  [
+    `  let command = [script, ...argv];
+  if (env[LAUNCHER_ROUTE]) {
+    delete env[LAUNCHER_ROUTE];
+    const launcher = join(env.CLAUDE_PROJECT_DIR!, '.paqad', 'hook.mjs');
+    copyFileSync(LAUNCHER_TEMPLATE, launcher);
+    command = [launcher, basename(script), ...argv];
+  }
+  const result = await execa('node', command, {`,
+    `  const result = await execa('node', [script, ...argv], {`,
+  ],
+];
+
+function contractWithoutLauncherRoutes(source: string): string {
+  let text = source;
+  for (const [added, original] of LAUNCHER_ROUTE_ADDITIONS) {
+    expect(text).toContain(added);
+    text = text.replace(added, original);
+  }
+  return text;
+}
+
 interface HookLine {
   event: string;
   matcher: string;
@@ -216,11 +312,11 @@ function flatten(
 }
 
 describe('the stage enforcement guardrails', () => {
-  it('AC-66: every case of the stage enforcement contract test is unchanged from the base branch', (ctx) => {
+  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
-    const cases = (source: string) => printedCode(source.slice(source.indexOf('\ndescribe(')));
-    expect(cases(working(CONTRACT))).toEqual(cases(atBase(CONTRACT)));
-    expect(working(CONTRACT)).toMatch(/name: 'launcher then team copy'/);
+    expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT)))).toEqual(
+      printedCode(atBase(CONTRACT)),
+    );
   });
 
   it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook and the appended skill activation entry', (ctx) => {
