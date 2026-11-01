@@ -313,6 +313,74 @@ describe('the install lock', () => {
   });
 });
 
+describe('taking over a stale lock', () => {
+  it('never steals a lock that a peer replaced after it was judged stale', async () => {
+    const launcher = (await loadLauncher()) as unknown as {
+      acquireLock: (home: string, deps: Partial<FakeDeps>) => boolean;
+    };
+    holdLock({ pid: 5, started_at: T0 });
+    let judged = false;
+    const { deps } = fakeDeps(sandbox, {
+      pidAlive: (pid) => {
+        if (pid === 5 && !judged) {
+          judged = true;
+          rmSync(lockDir, { recursive: true, force: true });
+          holdLock({ pid: 6, started_at: T0 + 1 });
+          return false;
+        }
+        return true;
+      },
+    });
+    expect(launcher.acquireLock(sandbox.home, deps)).toBe(false);
+    expect(JSON.parse(readFileSync(join(lockDir, 'owner.json'), 'utf8'))).toEqual({
+      pid: 6,
+      started_at: T0 + 1,
+    });
+    expect(leftovers()).toEqual([]);
+  });
+
+  it('retries a Windows rename that is briefly blocked, and gives up after five tries', async () => {
+    type Rename = (from: string, to: string) => void;
+    const launcher = (await loadLauncher()) as unknown as {
+      renameWithRetry: (
+        from: string,
+        to: string,
+        deps: { platform: string; sleep: (ms: number) => void; rename: Rename },
+      ) => void;
+    };
+    const busy = (code: string) => Object.assign(new Error(code), { code });
+    function flaky(failures: number, code = 'EPERM'): { rename: Rename; calls: () => number } {
+      let calls = 0;
+      return {
+        rename: () => {
+          calls += 1;
+          if (calls <= failures) throw busy(code);
+        },
+        calls: () => calls,
+      };
+    }
+    const waits: number[] = [];
+    const sleep = (ms: number) => waits.push(ms);
+
+    const twice = flaky(2);
+    launcher.renameWithRetry('a', 'b', { platform: 'win32', sleep, rename: twice.rename });
+    expect(twice.calls()).toBe(3);
+    expect(waits).toEqual([20, 40]);
+
+    const always = flaky(99, 'EBUSY');
+    expect(() =>
+      launcher.renameWithRetry('a', 'b', { platform: 'win32', sleep, rename: always.rename }),
+    ).toThrow('EBUSY');
+    expect(always.calls()).toBe(5);
+
+    const posix = flaky(1);
+    expect(() =>
+      launcher.renameWithRetry('a', 'b', { platform: 'linux', sleep, rename: posix.rename }),
+    ).toThrow('EPERM');
+    expect(posix.calls()).toBe(1);
+  });
+});
+
 describe('an edit while the first install runs', () => {
   it('waits up to 5 s, well inside the 10 s gate timeout, and then blocks with one line', async () => {
     holdLock({ pid: 1, started_at: T0 });

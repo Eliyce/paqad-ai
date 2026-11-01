@@ -345,9 +345,13 @@ function defaultPidAlive(pid) {
   }
 }
 
-export function lockIsStale(home, deps) {
+function lockOwner(home) {
+  return readJson(join(lockDir(home), 'owner.json'));
+}
+
+export function lockIsStale(home, deps, judgedOwner) {
   const dir = lockDir(home);
-  const owner = readJson(join(dir, 'owner.json'));
+  const owner = judgedOwner === undefined ? lockOwner(home) : judgedOwner;
   let started;
   if (owner && typeof owner.started_at === 'number') {
     started = owner.started_at;
@@ -366,6 +370,10 @@ function lockHeld(home) {
   return existsSync(lockDir(home));
 }
 
+function sameOwner(a, b) {
+  return Boolean(a && b && a.pid === b.pid && a.started_at === b.started_at);
+}
+
 function mkdirLock(home, deps) {
   const dir = lockDir(home);
   try {
@@ -373,14 +381,35 @@ function mkdirLock(home, deps) {
   } catch {
     return false;
   }
+  const mine = { pid: deps.pid, started_at: deps.now() };
   try {
-    writeFileSync(
-      join(dir, 'owner.json'),
-      JSON.stringify({ pid: deps.pid, started_at: deps.now() }),
-    );
+    writeFileSync(join(dir, 'owner.json'), JSON.stringify(mine));
   } catch {
-    return true;
+    rmSync(dir, { recursive: true, force: true });
+    return false;
   }
+  return sameOwner(readJson(join(dir, 'owner.json')), mine);
+}
+
+function takeOverStaleLock(home, deps, judged) {
+  const dir = lockDir(home);
+  const grave = dir + '.stale-' + deps.pid;
+  rmSync(grave, { recursive: true, force: true });
+  try {
+    renameSync(dir, grave);
+  } catch {
+    return false;
+  }
+  const moved = readJson(join(grave, 'owner.json'));
+  if (judged && !sameOwner(moved, judged)) {
+    try {
+      renameSync(grave, dir);
+    } catch {
+      rmSync(grave, { recursive: true, force: true });
+    }
+    return false;
+  }
+  rmSync(grave, { recursive: true, force: true });
   return true;
 }
 
@@ -391,9 +420,27 @@ export function acquireLock(home, deps) {
     return false;
   }
   if (mkdirLock(home, deps)) return true;
-  if (!lockIsStale(home, deps)) return false;
-  rmSync(lockDir(home), { recursive: true, force: true });
+  const judged = lockOwner(home);
+  if (!lockIsStale(home, deps, judged)) return false;
+  if (!takeOverStaleLock(home, deps, judged)) return false;
   return mkdirLock(home, deps);
+}
+
+const RENAME_RETRY_CODES = ['EPERM', 'EACCES', 'EBUSY'];
+const RENAME_ATTEMPTS = 5;
+
+export function renameWithRetry(from, to, deps) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      (deps.rename || renameSync)(from, to);
+      return;
+    } catch (error) {
+      const retry =
+        deps.platform === 'win32' && RENAME_RETRY_CODES.indexOf(errorCode(error)) !== -1;
+      if (!retry || attempt >= RENAME_ATTEMPTS) throw error;
+      deps.sleep(20 * Math.pow(2, attempt - 1));
+    }
+  }
 }
 
 export function releaseLock(home) {
@@ -459,7 +506,7 @@ function installCopy(home, deps, ctx) {
   const tmp = cloneInto(home, deps, ctx);
   if (!tmp) return false;
   try {
-    renameSync(tmp, teamPluginRoot(home));
+    renameWithRetry(tmp, teamPluginRoot(home), deps);
     return true;
   } catch (error) {
     rmSync(tmp, { recursive: true, force: true });
@@ -472,11 +519,11 @@ export function swapCopy(home, tmp, deps) {
   const live = teamPluginRoot(home);
   const old = join(home, '.paqad-ai', 'team-plugin.old-' + deps.pid);
   rmSync(old, { recursive: true, force: true });
-  renameSync(live, old);
+  renameWithRetry(live, old, deps);
   try {
-    renameSync(tmp, live);
+    renameWithRetry(tmp, live, deps);
   } catch (error) {
-    renameSync(old, live);
+    renameWithRetry(old, live, deps);
     throw error;
   }
   rmSync(old, { recursive: true, force: true });
@@ -723,6 +770,7 @@ function defaultDeps() {
     home: homedir,
     now: Date.now,
     pid: process.pid,
+    platform: process.platform,
     nodeMajor: Number(String(process.versions.node).split('.')[0]),
     sleep: (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms),
     pidAlive: defaultPidAlive,
