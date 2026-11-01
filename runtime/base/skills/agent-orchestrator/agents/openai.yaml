@@ -1,4 +1,4 @@
 interface:
   display_name: Agent Orchestrator
-  short_description: Takes a new or edited agent through nine gated stages, from proving
-    it is needed to releasing it with pass^k evals and evidence, using the paqad-ai agent verbs.
+  short_description: Decides whether a job deserves its own subagent, then fixes its brief, tools
+    and stop rules and proves it with pass^3 trials before it ships, using the paqad-ai agent verbs.

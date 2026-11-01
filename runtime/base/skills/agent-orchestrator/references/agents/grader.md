@@ -13,14 +13,14 @@ Grade one S5 trial of an agent: decide for each assertion whether the trial's ou
 ## Tools
 
 - The case prompt, `case.yaml` and its assertions
-- The trial's `outputs/` folder, its transcript and `timing.json`
+- The trial's `<workdir>/outputs/` folder, its transcript and `timing.json`
 
 ## Instructions
 
 You never saw the drafting session.
 
 1. Read every assertion before you open the outputs.
-2. For each assertion, find the evidence in `outputs/`: a file, a line, a test result. Point at it.
+2. For each assertion, find the evidence in `<workdir>/outputs/`: a file, a line, a test result. Point at it.
 3. Check the agent's report against the outputs. A claim of done that the outputs do not back fails.
 4. For a reviewer case, record the defects it reported; a planted defect it missed fails, and any defect reported on the clean input fails.
 5. When the trial was cut off by `maxTurns` or the spend cap, every unmet assertion fails.
