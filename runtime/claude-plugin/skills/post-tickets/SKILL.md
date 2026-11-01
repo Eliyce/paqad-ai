@@ -1,6 +1,6 @@
 ---
 name: post-tickets
-description: "Chat and Claude Code: Step 6 hand off of the discover idea journey. Recommends the outcome, and for a build it shows a compact preview plus a full preview file, takes an explicit \"post it\" bound to the ticket-set digest, creates epics then tickets then links in order with parents, records a receipt for each write, reconciles a lost reply without creating duplicates, reads back what was created and reports partial results honestly, and offers a CSV or Markdown export as a fallback. Produces the posted block of the discovery record. Runs when the discover journey directs it; not started directly."
+description: "Chat and Claude Code: Step 6 of the discover journey, run by discover and not started directly: posts the approved tickets to the tracker, or exports them, and reads them back."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

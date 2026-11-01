@@ -1,6 +1,6 @@
 ---
 name: get-connected
-description: "Chat and Claude Code: Step 0 of the discover journey. Runs when the discover journey directs it; not started directly. It confirms the project is reachable and detects its evidence level (from project docs, from docs and code, or from code only), confirms the tracker can be written to, and reads the tracker project's setup (issue types, required fields, link types, the size and sprint field ids) into the record. If nothing is readable at all, or the tracker cannot be written to, it stops and says plainly what is needed before any drafting is wasted."
+description: "Chat and Claude Code: Step 0 of the discover journey, run by discover and not started directly: confirms the repository and tracker are reachable and records their setup."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

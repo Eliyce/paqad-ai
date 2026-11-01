@@ -1,6 +1,6 @@
 ---
 name: check-tickets
-description: "Chat and Claude Code: Step 5 checking of the discover idea journey. Runs the prose check and the structure check over the drafted ticket set, searches the tracker for duplicate or similar issues and shows the matches before anything is posted, and applies the judgment checks for whether each ticket serves its epic and is testable. Produces the readiness block of the discovery record. Runs when the discover journey directs it; not started directly."
+description: "Chat and Claude Code: Step 5 of the discover journey, run by discover and not started directly: checks the drafted tickets for prose, structure and duplicates before posting."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

@@ -2,6 +2,7 @@
 name: join
 description: 'Claude Code: Set up an already-onboarded paqad project on your own machine. Builds your local RAG index if the team uses one, and changes no tracked files. Use when you cloned a repo that already has a committed .paqad/ and you are not the lead.'
 compatibility: 'Claude Code with a project folder open (needs a shell)'
+disable-model-invocation: true
 ---
 
 # Join an onboarded paqad project

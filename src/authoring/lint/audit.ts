@@ -56,6 +56,7 @@ export interface AuditItem {
   warnings: number;
   body_tokens: number;
   listing_tokens: number;
+  listed: boolean;
   rival: AuditRival | null;
   script_test_findings: number;
   fired_30d: number | null;
@@ -156,12 +157,16 @@ export function auditGroupOf(root: string): string {
   return root;
 }
 
-function bodyAndDescription(text: string | null): { body: string; description: string } {
-  if (text === null) return { body: '', description: '' };
+function bodyAndDescription(text: string | null): {
+  body: string;
+  description: string;
+  listed: boolean;
+} {
+  if (text === null) return { body: '', description: '', listed: true };
   const split = splitSkillFrontmatter(text);
-  if (!split.ok) return { body: text, description: '' };
+  if (!split.ok) return { body: text, description: '', listed: true };
   const description = typeof split.data.description === 'string' ? split.data.description : '';
-  return { body: split.body, description };
+  return { body: split.body, description, listed: split.data['disable-model-invocation'] !== true };
 }
 
 function windowStart(asOf: string): { start: number; end: number } {
@@ -251,6 +256,7 @@ interface DraftItem {
   class: AuditItemClass;
   description: string;
   body: string;
+  listed: boolean;
   findings: LintFinding[];
 }
 
@@ -279,6 +285,7 @@ function finishReport(
       ...countFindings(findings),
       body_tokens: estimateTokens(draft.body),
       listing_tokens: estimateTokens(draft.description),
+      listed: draft.listed,
       rival: rivals.get(draft.path) ?? null,
       script_test_findings: findings.filter((finding) => finding.rule === 'SK-010').length,
       fired_30d: fired === null ? null : (fired.get(draft.name) ?? 0),
@@ -318,7 +325,7 @@ export function lintAllSkills(projectRoot: string, options: AuditOptions = {}): 
       bodyMaxTokens: config.skill_body_max_tokens,
     });
     const text = readTextIfPresent(join(projectRoot, folder, 'SKILL.md'));
-    const { body, description } = bodyAndDescription(text);
+    const { body, description, listed } = bodyAndDescription(text);
     return {
       name: result.skill,
       path: folder,
@@ -326,6 +333,7 @@ export function lintAllSkills(projectRoot: string, options: AuditOptions = {}): 
       class: 'skill',
       description,
       body,
+      listed,
       findings: result.findings.map((finding) => ({
         ...finding,
         file: existsSync(join(projectRoot, folder, finding.file))

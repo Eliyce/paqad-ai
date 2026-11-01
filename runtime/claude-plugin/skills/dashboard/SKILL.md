@@ -2,6 +2,7 @@
 name: dashboard
 description: "Claude Code: Open the paqad dashboard, the local web view of this project's rules, evidence, approvals, graph, and trust signals. Use when the user wants to see the project's governance state in a browser."
 compatibility: 'Claude Code with a project folder open (needs a shell)'
+disable-model-invocation: true
 ---
 
 # Open the paqad dashboard

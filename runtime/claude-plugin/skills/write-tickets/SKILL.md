@@ -1,6 +1,6 @@
 ---
 name: write-tickets
-description: "Chat and Claude Code: Step 5 drafting of the discover idea journey. Builds the epics and tickets from the discovery record into a canonical ticket set file and a readable, compact preview. Follows the epic and ticket templates and the writing rules so every ticket reads in plain business words, each ticket is a user story (As a, I want, So that) with 2 to 8 Given, When, Then acceptance criteria, and nothing is invented. Produces ticket-set.json and the preview that check-tickets and post-tickets build on. Runs when the discover journey directs it; not started directly."
+description: "Chat and Claude Code: Step 5 of the discover journey, run by discover and not started directly: drafts the epics and user-story tickets into the ticket set and a preview."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

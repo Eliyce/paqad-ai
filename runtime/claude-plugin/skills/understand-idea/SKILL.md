@@ -1,6 +1,6 @@
 ---
 name: understand-idea
-description: "Chat and Claude Code: Step 1 of the discover journey. Runs when the discover journey directs it; not started directly. It works out what the idea really is, one question at a time, until the goal, who benefits, what success looks like and the constraints are clear, then records them in the idea block. It asks as a consultant, with a recommendation and two or three choices on each question, and it never re-asks anything the first message or the documents already answered."
+description: "Chat and Claude Code: Step 1 of the discover journey, run by discover and not started directly: clarifies the goal, who benefits, success and constraints into the idea block."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

@@ -2,6 +2,7 @@
 name: onboard
 description: "Claude Code: Set up paqad in this project so it enforces your team's rules at edit time and records evidence for every change. Use when the project has not been onboarded yet, or when the lead wants to (re)configure the stack, capabilities, providers, or RAG."
 compatibility: 'Claude Code with a project folder open (needs a shell)'
+disable-model-invocation: true
 ---
 
 # Onboard this project with paqad

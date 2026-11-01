@@ -173,7 +173,7 @@ function summaryLines(input: AuditDocInput): string[] {
         items.length,
         sum(items, (item) => item.blocking),
         sum(items, (item) => item.warnings),
-        sum(items, (item) => item.listing_tokens),
+        sum(items, (item) => (item.listed ? item.listing_tokens : 0)),
         sum(items, (item) => descriptionChars(input.projectRoot, item)),
         sum(items, (item) => item.body_tokens),
       ]);
@@ -307,7 +307,41 @@ export function renderAuditSection(
     '',
     ...detailLines(input, input.agents, 'agent', before, agentRival),
     ...personaLines(input.agents),
-    ...(section === 'before' ? [bodyTokenData(input), ''] : []),
+    ...(section === 'before' ? [bodyTokenData(input), ''] : listingLines(input.skills)),
+  ];
+}
+
+export function listingSaving(skills: AuditReport): {
+  before: number;
+  after: number;
+  saving: number;
+  unlisted: string[];
+} {
+  const before = sum(skills.items, (item) => item.listing_tokens);
+  const unlistedItems = skills.items.filter((item) => !item.listed);
+  const saving = sum(unlistedItems, (item) => item.listing_tokens);
+  return {
+    before,
+    after: before - saving,
+    saving,
+    unlisted: unlistedItems.map((item) => item.name).sort(compareText),
+  };
+}
+
+function listingLines(skills: AuditReport): string[] {
+  const listing = listingSaving(skills);
+  if (listing.unlisted.length === 0) return [];
+  return [
+    '### Skill listing',
+    '',
+    `Skills that start only from their command (\`disable-model-invocation: true\`) leave the listing: ` +
+      `${listing.unlisted.join(', ')}.`,
+    '',
+    ...table(
+      ['Listing tokens with them', 'Listing tokens without them', 'Saving'],
+      [[listing.before, listing.after, listing.saving]],
+    ),
+    '',
   ];
 }
 

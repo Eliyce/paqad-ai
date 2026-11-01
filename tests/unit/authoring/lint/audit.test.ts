@@ -12,6 +12,7 @@ import {
   parseGroupBy,
   runAudit,
 } from '@/authoring/lint/audit.js';
+import { listingSaving, renderAuditSection } from '@/authoring/lint/audit-report.js';
 import { classifyAgentPath, isAgentTemplatePath, isPersonaRootPath } from '@/authoring/paths.js';
 import { renderTemplateAgents, STAGE_AGENT_AUDIT_SOURCES } from '@/stage-isolation/agent-audit.js';
 
@@ -138,6 +139,40 @@ describe('lintAllSkills', () => {
     expect(sql.listing_tokens).toBeGreaterThan(0);
     expect(sql.body_tokens).toBeGreaterThan(0);
     expect(sql.fired_30d).toBeNull();
+  });
+
+  it('takes a skill that starts only from its command out of the listing', () => {
+    const root = fixture();
+    write(
+      root,
+      'runtime/base/skills/opening-dashboards/SKILL.md',
+      SKILL(
+        'opening-dashboards',
+        'Opens the dashboard. Use when the user asks for the dashboard.',
+      ).replace('---\n#', 'disable-model-invocation: true\n---\n#'),
+    );
+    const report = lintAllSkills(root);
+    const listed = report.items.map((item) => [item.name, item.listed]);
+    expect(listed).toEqual([
+      ['drafting-notes', true],
+      ['opening-dashboards', false],
+      ['reviewing-sql', true],
+    ]);
+    const saving = listingSaving(report);
+    const dashboard = report.items[1]!.listing_tokens;
+    expect(saving).toEqual({
+      before: report.items.reduce((total, item) => total + item.listing_tokens, 0),
+      after: saving.before - dashboard,
+      saving: dashboard,
+      unlisted: ['opening-dashboards'],
+    });
+    const after = renderAuditSection(
+      { projectRoot: root, asOf: '2026-11-01', skills: report, agents: lintAllAgents(root) },
+      'after',
+      null,
+    ).join('\n');
+    expect(after).toContain('### Skill listing');
+    expect(after).toContain(`| ${saving.before} | ${saving.after} | ${saving.saving} |`);
   });
 
   it('groups by folder on request', () => {
