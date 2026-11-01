@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import YAML from 'yaml';
@@ -407,6 +407,67 @@ describe('paqad-ai agent improve', () => {
     expect(runAgentImprove(workspace).lines[0]).toContain('already exists');
     expect(() => runAgentImprove(new AgentWorkspace(root, 'missing-reviewer'))).toThrow(
       /no installed agent named missing-reviewer/,
+    );
+  });
+});
+
+describe('paqad-ai agent improve sources', () => {
+  it('refuses a source that is missing or a folder, with exit 2', () => {
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const refused = (source: string) => {
+      try {
+        runAgentImprove(workspace, { source });
+      } catch (error) {
+        return error as AuthoringRefusal;
+      }
+      throw new Error(`${source} was not refused`);
+    };
+    expect(refused('.claude/agents/none.md').message).toBe(
+      '.claude/agents/none.md is not an agent file.',
+    );
+    mkdirSync(join(root, '.claude/agents/folder.md'), { recursive: true });
+    expect(refused('.claude/agents/folder.md').exitCode).toBe(2);
+  });
+
+  it.skipIf(process.platform === 'win32')('refuses an agent source that is a symlink', () => {
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const refused = (source: string) => {
+      try {
+        runAgentImprove(workspace, { source });
+      } catch (error) {
+        return error as AuthoringRefusal;
+      }
+      throw new Error(`${source} was not refused`);
+    };
+    put(root, 'elsewhere/real.md', agentText());
+    mkdirSync(join(root, '.claude/agents'), { recursive: true });
+    symlinkSync(join(root, 'elsewhere/real.md'), join(root, '.claude/agents/link.md'));
+    expect(refused('.claude/agents/link.md').message).toBe(
+      '.claude/agents/link.md is not an agent file.',
+    );
+  });
+
+  it('AC-35: snapshots the hook scripts the agent names that exist, and skips S1 once intake exists', () => {
+    put(root, '.claude/hooks/guard.mjs', 'guard\n');
+    const hooks =
+      '\n  PreToolUse:\n    - matcher: "Edit"\n      hooks:\n        - type: command\n          command: node .claude/hooks/guard.mjs\n        - type: command\n          command: node .claude/hooks/gone.mjs';
+    put(root, `.claude/agents/${AGENT_NAME}.md`, agentText({ hooks }));
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    workspace.write('intake.yaml', 'class: reviewer\n');
+    const result = runAgentImprove(workspace);
+    expect(workspace.read('agent-snapshot/.claude/hooks/guard.mjs')).toBe('guard\n');
+    expect(workspace.exists('agent-snapshot/.claude/hooks/gone.mjs')).toBe(false);
+    expect(result.lines[0]).toContain('.claude/hooks/guard.mjs');
+    expect(result.lines.at(-1)).toContain('S0 and S1 are skipped');
+  });
+
+  it('snapshots an agent whose frontmatter does not parse, with no hook scripts', () => {
+    put(root, '.claude/agents/odd.md', 'no frontmatter\n');
+    const workspace = new AgentWorkspace(root, AGENT_NAME);
+    const result = runAgentImprove(workspace, { source: '.claude/agents/odd.md' });
+    expect(workspace.read(`agent-snapshot/${AGENT_NAME}.md`)).toBe('no frontmatter\n');
+    expect(result.lines[0]).toBe(
+      `Snapshotted .claude/agents/odd.md to ${workspace.relPath('agent-snapshot')}; it is the old_agent baseline.`,
     );
   });
 });

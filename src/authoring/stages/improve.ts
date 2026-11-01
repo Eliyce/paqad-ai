@@ -121,8 +121,9 @@ function readAgentSource(abs: string): string | null {
   try {
     return readRegularFile(abs, false)?.buffer.toString('utf8') ?? null;
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException | null)?.code;
-    if (isMissingPathError(error) || code === 'ELOOP' || code === 'EISDIR') return null;
+    if (isMissingPathError(error) || (error as NodeJS.ErrnoException).code === 'ELOOP') {
+      return null;
+    }
     throw error;
   }
 }

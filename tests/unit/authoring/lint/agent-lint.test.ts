@@ -4,7 +4,11 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AGENT_PERMISSION_ALLOW, raiseAgentPermissionDecision } from '@/authoring/decisions.js';
+import {
+  AGENT_PERMISSION_ALLOW,
+  option,
+  raiseAgentPermissionDecision,
+} from '@/authoring/decisions.js';
 import {
   AgentLintUsageError,
   agentHookScripts,
@@ -17,7 +21,7 @@ import {
   type AgentLintOptions,
 } from '@/authoring/lint/agent-lint.js';
 import type { InstalledArtifact } from '@/authoring/overlap.js';
-import { resolvePendingDecision } from '@/decisions/authoring.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 
 const roots: string[] = [];
 
@@ -609,5 +613,79 @@ describe('readPermissionDecisionIds and lintAgentInProject', () => {
       mcpServers: [],
     });
     expect(rules(result)).toContain('AG-014');
+  });
+});
+
+describe('agent lint edges', () => {
+  it('AG-005: an mcpServers list names string and object entries and ignores anything else', () => {
+    const root = project();
+    const result = lint(root, agent({ mcpServers: '\n  - github\n  - jira: {}\n  - 7' }), {
+      mcpServers: ['github'],
+    });
+    const messages = result.findings
+      .filter((finding) => finding.rule === 'AG-005')
+      .map((finding) => finding.message);
+    expect(messages).toEqual(['The MCP server jira is not configured.']);
+  });
+
+  it('agentHookScripts treats an interpreter with no script and a bare word as inline, and keeps an absolute path inside the project', () => {
+    const root = project();
+    const result = agentHookScripts(root, {
+      PreToolUse: [
+        null,
+        { hooks: [{ command: 'node' }, { command: 'guard' }, null] },
+        { hooks: [{ command: `node ${join(root, 'hooks', 'abs.mjs')}` }] },
+        { hooks: [{ command: 'node ../outside.mjs' }] },
+      ],
+    });
+    expect(result.scripts).toEqual(['hooks/abs.mjs']);
+    expect(result.problems.map((problem) => problem.command)).toEqual([
+      'node',
+      'guard',
+      'node ../outside.mjs',
+    ]);
+  });
+
+  it('AC-68: a packet of another category or for an earlier file is not an approval', () => {
+    const root = project();
+    const other = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: 'Which form?',
+      context: 'x',
+      options: [
+        option('a', 'A', 'If you pick this, a.', 'You give up: b.'),
+        option('b', 'B', 'If you pick this, b.', 'You give up: a.'),
+      ],
+      recommendation: 'a',
+    }).id;
+    expect(permissionApproval(root, [other], ['Bash'], 'h', new Date()).reason).toBe(
+      `decision ${other} is a workflow-or-tool decision`,
+    );
+    const id = raiseAgentPermissionDecision(root, { agent: 'a', powers: ['Bash'], fileHash: 'h' });
+    resolvePendingDecision(root, id, AGENT_PERMISSION_ALLOW, '');
+    expect(permissionApproval(root, [id], ['Bash'], 'other', new Date()).reason).toBe(
+      `decision ${id} approved an earlier version of the agent file`,
+    );
+  });
+
+  it('AG-021: a Do not item naming a tool the allowlist leaves out is enforced', () => {
+    const root = project();
+    const body = BODY.replace(
+      '- Do not edit any file.',
+      '- Do not run Bash.\n- Do not use WebFetch.',
+    );
+    expect(rules(lint(root, agent({}, body)))).not.toContain('AG-021');
+  });
+
+  it('a PreToolUse hook with an empty or invalid matcher still covers the tool it names', () => {
+    const root = project();
+    put(root, '.claude/hooks/guard.mjs', 'x\n');
+    put(root, 'tests/agents/migration-reviewer/guard.test.mjs', 'x\n');
+    const hooks = (matcher: string) =>
+      `\n  PreToolUse:\n    - matcher: "${matcher}"\n      hooks:\n        - type: command\n          command: node .claude/hooks/guard.mjs`;
+    for (const matcher of ['', 'Bash(', 'Bash']) {
+      const result = lint(root, agent({ tools: 'Read, Bash', hooks: hooks(matcher) }));
+      expect(rules(result)).not.toContain('AG-016');
+    }
   });
 });

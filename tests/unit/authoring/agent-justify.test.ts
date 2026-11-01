@@ -187,3 +187,45 @@ describe('reasonBacking', () => {
     expect(median([])).toBe(0);
   });
 });
+
+describe('agent justify (S0) baseline shapes', () => {
+  it('names every missing field of a null entry, a bad passed and a missing note', () => {
+    const workspace = new AgentWorkspace(project(), 'test-runner');
+    baseline(workspace, [run(), run({}, 2), run({}, 3)]);
+    writeFileSync(
+      workspace.path('baseline/verdicts.json'),
+      JSON.stringify([null, run({}, 2), run({}, 3)]),
+    );
+    expect(() => runAgentJustify(workspace, { reason: 'verbose-output', taskText: TASK })).toThrow(
+      /entry 1 is missing run, passed, note, run, tokens, duration_ms, verbose_tokens_in_main/u,
+    );
+    const odd: Record<string, unknown> = { ...run({}, 2), passed: 'yes' };
+    delete odd.note;
+    writeFileSync(
+      workspace.path('baseline/verdicts.json'),
+      JSON.stringify([run(), odd, run({}, 3)]),
+    );
+    expect(() => runAgentJustify(workspace, { reason: 'verbose-output', taskText: TASK })).toThrow(
+      /entry 2 is missing passed, note\./u,
+    );
+  });
+
+  it('refuses a verdicts file that is not JSON and a missing run file', () => {
+    const workspace = new AgentWorkspace(project(), 'test-runner');
+    baseline(workspace, [run(), run({}, 2), run({}, 3)]);
+    rmSync(workspace.path('baseline/run-2.md'));
+    expect(() => runAgentJustify(workspace, { reason: 'verbose-output', taskText: TASK })).toThrow(
+      /baseline\/run-2.md is missing/u,
+    );
+    writeFileSync(workspace.path('baseline/verdicts.json'), '{nope');
+    expect(() => runAgentJustify(workspace, { reason: 'verbose-output', taskText: TASK })).toThrow(
+      /verdicts.json is not valid JSON/u,
+    );
+  });
+
+  it('verbose-output with zero baseline tokens is not backed', () => {
+    const zero = [run({ tokens: 0, verbose_tokens_in_main: 0 }), run({ tokens: 0 }, 2)];
+    expect(reasonBacking('verbose-output', zero, TASK, 2000).backed).toBe(false);
+    expect(taskSection('## A\nx\n# Next\ny\n', 'A')).toEqual(['x']);
+  });
+});

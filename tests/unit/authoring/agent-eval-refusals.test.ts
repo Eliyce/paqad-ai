@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { runAgentEvalPlan, runAgentEvalRecord } from '@/authoring/stages/agent-eval.js';
+import {
+  isStageAgent,
+  recordedTrialSource,
+  runAgentEvalPlan,
+  runAgentEvalRecord,
+  steadyCacheHitShare,
+} from '@/authoring/stages/agent-eval.js';
 import { MODE_FILE, type AgentWorkspace } from '@/authoring/workspace.js';
 
 import {
@@ -230,5 +236,33 @@ describe('S5 record judgement inputs', () => {
     }));
     const result = await runAgentEvalRecord(workspace);
     expect(result.lines.join('\n')).toMatch(/Spend reached the worst case of \$/u);
+  });
+});
+
+describe('S5 small helpers', () => {
+  it('FR-15: a plan with no evals folder finds no case', () => {
+    const workspace = agentForEval();
+    expect(() => runAgentEvalPlan(workspace)).toThrow(/needs at least 2 task cases.*found 0/u);
+  });
+
+  it('an agent with no recorded draft source is not a stage agent', () => {
+    const workspace = agentForEval();
+    workspace.remove('draft-source.json');
+    expect(isStageAgent(workspace)).toBe(false);
+  });
+
+  it('AC-50: a request with non-number counts adds nothing to the cache share', () => {
+    expect(steadyCacheHitShare([{ input: 1 }, { input: 'x', cache_read: 'y' }])).toBeNull();
+    expect(steadyCacheHitShare([{ input: 1 }, null, { input: 50, cache_read: 50 }])).toBe(0.5);
+  });
+
+  it('FR-74: no recorded trials name the planned adapter as the source', () => {
+    expect(recordedTrialSource([], 'subagent-dispatch')).toBe('subagent-dispatch');
+    expect(
+      recordedTrialSource(
+        [{ timing: { source: 'claude-plugin-eval' } }, { timing: { source: null } }],
+        'subagent-dispatch',
+      ),
+    ).toBe('claude-plugin-eval+subagent-dispatch');
   });
 });

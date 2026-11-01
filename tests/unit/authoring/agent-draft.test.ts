@@ -131,3 +131,41 @@ describe('agent draft (S3)', () => {
     expect(missingBlockedShape('Status: BLOCKED\nOptions: a, b')).toEqual(['Decision needed:']);
   });
 });
+
+describe('agent draft (S3) refusals', () => {
+  it('needs --file unless it refuses, and an intake to draft from', () => {
+    const workspace = agentThrough('S3');
+    expect(() => runAgentDraft(workspace, { traceText: AGENT_TRACE })).toThrow(
+      /draft needs --file <agent.md> and --trace <trace.md>./u,
+    );
+    workspace.remove('intake.yaml');
+    put(workspace.projectRoot, FILE, agentText());
+    expect(() => runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE })).toThrow(
+      AuthoringRefusal,
+    );
+  });
+
+  it('refuses an agent file that is missing or has no valid frontmatter', () => {
+    const workspace = agentThrough('S3');
+    expect(() => runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE })).toThrow(
+      /the agent file .claude\/agents\/migration-reviewer.md is missing or not a regular file/u,
+    );
+    put(workspace.projectRoot, FILE, 'no frontmatter\n');
+    expect(() => runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE })).toThrow(
+      /has no valid frontmatter/u,
+    );
+  });
+
+  it('AC-18: a memory candidate with no seeded memory gets a titled MEMORY.md', () => {
+    const workspace = agentThrough('S3', { ...AGENT_INTAKE, memory: 'candidate' });
+    put(workspace.projectRoot, FILE, agentText());
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    expect(workspace.read(MEMORY_FILE)).toBe('# Memory: migration-reviewer\n');
+  });
+
+  it('reads a draft source with no hook script list as an empty list', () => {
+    const workspace = agentThrough('S3');
+    workspace.writeJson('draft-source.json', { file: FILE });
+    expect(readAgentDraftSource(workspace)).toEqual({ file: FILE, hook_scripts: [] });
+  });
+});

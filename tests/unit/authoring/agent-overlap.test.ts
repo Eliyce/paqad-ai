@@ -2,13 +2,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { hashAgentFile } from '@/authoring/hash.js';
 import {
   AGENT_SCOPE_PRECEDENCE,
   discoverInstalledAgents,
   findNameShadowing,
+  findSubsetOverlaps,
   shadowingLine,
 } from '@/authoring/overlap.js';
 
@@ -150,5 +151,75 @@ describe('hashAgentFile', () => {
     expect(hashAgentFile(root, 'draft/a.md', ['hooks/h.mjs'], join(root, 'draft'))).not.toBe(
       released,
     );
+  });
+});
+
+describe('discoverInstalledAgents edges', () => {
+  it('reads a YAML tools list, skips a hidden file and scans the home folder by default', () => {
+    const root = tmp();
+    const home = tmp();
+    put(
+      root,
+      '.claude/agents/lister.md',
+      '---\nname: lister\ndescription: Lists\ntools:\n  - Read\n  - 7\n  - Grep\n---\n',
+    );
+    put(root, '.claude/agents/.hidden.md', 'not an agent\n');
+    put(home, '.claude/agents/mine.md', '---\nname: mine\ndescription: Mine\n---\n');
+    vi.stubEnv('HOME', home);
+    vi.stubEnv('USERPROFILE', home);
+    try {
+      const found = discoverInstalledAgents(root, { adapters: ['claude-code'], paqadRepo: false });
+      expect(found.map((agent) => [agent.name, agent.tools])).toEqual([
+        ['lister', ['Read', 'Grep']],
+        ['mine', undefined],
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe('findSubsetOverlaps (AC-13)', () => {
+  const installed = (tools: string[], description: string) => [
+    {
+      kind: 'agent' as const,
+      name: 'b',
+      description,
+      path: '.claude/agents/b.md',
+      scope: 'project' as const,
+      tools,
+    },
+  ];
+
+  it('flags an agent whose tools and job sit inside an installed one', () => {
+    expect(
+      findSubsetOverlaps(
+        { name: 'a', job: 'review migration', tools: ['Read'] },
+        installed(['Read', 'Grep'], 'we review every migration'),
+      ),
+    ).toEqual([
+      {
+        candidate: 'a',
+        existing: 'b',
+        existing_path: '.claude/agents/b.md',
+        score: 1,
+        subset: true,
+      },
+    ]);
+  });
+
+  it('skips an installed agent missing one of the tools, or with a different job', () => {
+    expect(
+      findSubsetOverlaps(
+        { name: 'a', job: 'review migration', tools: ['Read', 'Bash'] },
+        installed(['Read'], 'we review every migration'),
+      ),
+    ).toEqual([]);
+    expect(
+      findSubsetOverlaps(
+        { name: 'a', job: 'review migration', tools: ['Read'] },
+        installed(['Read'], 'formats invoices'),
+      ),
+    ).toEqual([]);
   });
 });

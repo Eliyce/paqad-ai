@@ -8,6 +8,7 @@ import type { AgentLintResult } from '@/authoring/lint/agent-lint.js';
 import { parseAgentSource } from '@/authoring/package/agent-render.js';
 import {
   buildAgentEvidence,
+  planAgentRelease,
   reliedRestrictions,
   runAgentRelease,
   type AgentReleasePlan,
@@ -284,5 +285,91 @@ describe('buildAgentEvidence', () => {
       chosen_iteration: null,
       threshold: null,
     });
+  });
+});
+
+describe('agent release targets', () => {
+  it('AC-22: with only a host that runs no subagents, only the SDK form is written', async () => {
+    put(root, '.paqad/onboarding-manifest.json', JSON.stringify({ adapter: 'cursor' }));
+    const workspace = await ready();
+    const result = release(workspace);
+    expect(result.lines.join('\n')).toContain(
+      `No enabled host runs subagents, so only the SDK form of ${AGENT_NAME} is written.`,
+    );
+    expect(result.lines[0]).toContain('into no host folder');
+  });
+
+  it('a stage agent in the paqad repo is released verbatim into its runtime folder', async () => {
+    put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    const workspace = await ready();
+    workspace.writeJson('draft-source.json', {
+      file: `runtime/templates/stage-agents/${AGENT_NAME}.md`,
+      hook_scripts: [],
+    });
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      inputs_hash: draftAgentHashWithoutDescription(workspace),
+    });
+    workspace.writeJson('delegation-results.json', {
+      gate: 'passed',
+      stage: 'S6',
+      skipped: 'dispatched',
+      inputs_hash: draftAgentHash(workspace),
+    });
+    release(workspace);
+    expect(
+      readFileSync(join(root, `runtime/templates/stage-agents/${AGENT_NAME}.md`), 'utf8'),
+    ).toBe(workspace.read(`draft/${AGENT_NAME}.md`));
+  });
+
+  it('EC-A04: a plugin agent moves Stop hooks to SubagentStop and skips entries with no command', async () => {
+    put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    const workspace = await ready();
+    workspace.writeJson('draft-source.json', {
+      file: `runtime/claude-plugin/agents/${AGENT_NAME}.md`,
+      hook_scripts: [],
+    });
+    const plan = planAgentRelease({
+      workspace,
+      source: {
+        ...parseAgentSource(agentText({}, PORTABLE_BODY)),
+        hooks: {
+          Stop: [{ hooks: [{ type: 'command', command: 'node a.mjs' }, { type: 'prompt' }] }],
+          PreToolUse: [{ matcher: 'Edit' }, null],
+          PostToolUse: 'not a list',
+        },
+      } as never,
+      draftText: agentText({}, PORTABLE_BODY),
+      lint: LINT,
+      adapters: ['claude-code'],
+    });
+    expect(plan.plugin?.settings_hooks).toEqual([
+      {
+        event: 'SubagentStop',
+        matcher: `^(paqad:)?${AGENT_NAME}$`,
+        command: 'node a.mjs',
+        replaces: 'Stop (*)',
+      },
+    ]);
+  });
+
+  it('refuses when the draft is gone', async () => {
+    const workspace = await ready();
+    workspace.remove(`draft/${AGENT_NAME}.md`);
+    expect(() => release(workspace)).toThrow(/Release refused: there is no draft/u);
+  });
+
+  it('keeps an existing CHANGELOG entry for the same version and adds none', async () => {
+    const workspace = await ready();
+    put(
+      root,
+      `.paqad/authoring/agents/${AGENT_NAME}/CHANGELOG.md`,
+      `# ${AGENT_NAME}\n\n## 1.0.0\n\n- hand written\n`,
+    );
+    release(workspace);
+    expect(
+      readFileSync(join(root, `.paqad/authoring/agents/${AGENT_NAME}/CHANGELOG.md`), 'utf8'),
+    ).toBe(`# ${AGENT_NAME}\n\n## 1.0.0\n\n- hand written\n`);
   });
 });

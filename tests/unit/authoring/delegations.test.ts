@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  DELEGATION_STALE_LOCK_MS,
   DELEGATIONS_LEDGER,
   forEachDelegation,
   lastDelegatedByAgent,
@@ -108,5 +109,34 @@ describe('the delegation ledger reader', () => {
     expect(existsSync(`${path}.compacting`)).toBe(false);
     expect(existsSync(`${path}.lock`)).toBe(false);
     expect([...lastDelegatedByAgent(root).keys()].sort()).toEqual(['a', 'c']);
+  });
+});
+
+describe('the delegation ledger edges', () => {
+  it('AC-11: reads a last row with no trailing newline', () => {
+    const root = project([]);
+    writeFileSync(
+      join(root, DELEGATIONS_LEDGER),
+      `${row('a', '2026-10-01T00:00:00.000Z')}\n${row('b', '2026-10-02T00:00:00.000Z')}`,
+    );
+    expect([...lastDelegatedByAgent(root).keys()].sort()).toEqual(['a', 'b']);
+  });
+
+  it('INV-9: a lock older than the stale bound is cleared so the next prune can run', () => {
+    const root = project([row('b', '2026-01-01T00:00:00.000Z')]);
+    const path = join(root, DELEGATIONS_LEDGER);
+    writeFileSync(`${path}.lock`, '');
+    const later = new Date(Date.now() + DELEGATION_STALE_LOCK_MS + 60_000);
+    expect(pruneDelegations(root, later, 30, true)).toBe(0);
+    expect(existsSync(`${path}.lock`)).toBe(false);
+    expect(pruneDelegations(root, later, 30, true)).toBe(1);
+  });
+
+  it('INV-9: a cut-short compaction with the ledger gone keeps every recent row', () => {
+    const root = project([row('a', '2026-10-30T00:00:00.000Z')]);
+    const path = join(root, DELEGATIONS_LEDGER);
+    renameSync(path, `${path}.compacting`);
+    expect(pruneDelegations(root, new Date('2026-10-31T00:00:00.000Z'), 30)).toBe(0);
+    expect([...lastDelegatedByAgent(root).keys()]).toEqual(['a']);
   });
 });

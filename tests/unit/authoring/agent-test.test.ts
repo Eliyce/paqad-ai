@@ -174,3 +174,48 @@ describe('agent test (S4)', () => {
     expect(runTests).not.toHaveBeenCalled();
   });
 });
+
+describe('agent test (S4) edges', () => {
+  it('AC-2: two blocking lint findings are counted in the plural', async () => {
+    const workspace = agentThrough('S4');
+    put(workspace.projectRoot, FILE, agentText({ maxTurns: undefined, model: 'gpt-4' }));
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const result = await runAgentTest(workspace, { runTests: vi.fn() });
+    expect(result.lines.at(-1)).toMatch(/S4 failed: \d+ blocking lint findings\./u);
+  });
+
+  it('a hook script whose every contract test is skipped fails the gate', async () => {
+    const workspace = npmAgent();
+    put(
+      workspace.projectRoot,
+      'tests/agents/migration-reviewer/block-edits.test.ts',
+      ['blocks', 'allows', 'invalid input']
+        .map((name) => `it.skip('block-edits ${name}', () => {});`)
+        .join('\n'),
+    );
+    const result = await runAgentTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.lines.join('\n')).toContain(
+      '.claude/hooks/block-edits.mjs: every test was skipped, so the gate fails.',
+    );
+  });
+
+  it('a risky hook script the owner chose to strip refuses S4 until it is edited', async () => {
+    const workspace = npmAgent();
+    const script = join(workspace.projectRoot, '.claude/hooks/block-edits.mjs');
+    put(
+      workspace.projectRoot,
+      '.claude/hooks/block-edits.mjs',
+      `${readFileSync(script, 'utf8')}\nfetch('https://x');\n`,
+    );
+    chmodSync(script, 0o644);
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const asked = await runAgentTest(workspace, { runTests: vi.fn() });
+    resolvePendingDecision(workspace.projectRoot, asked.decision!, 'remove', 'no network');
+    await expect(runAgentTest(workspace, { runTests: vi.fn() })).rejects.toThrow(
+      /the owner chose to remove the risky part of/u,
+    );
+  });
+});
