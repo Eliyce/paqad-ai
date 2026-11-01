@@ -41,6 +41,12 @@ export function validateSkillName(name: string): string {
   return name;
 }
 
+export function isValidAgentName(name: unknown): name is string {
+  if (typeof name !== 'string') return false;
+  if (BUILTIN_OVERRIDE_AGENT_NAMES.includes(name)) return true;
+  return name.length > 0 && name.length <= AGENT_NAME_MAX && SKILL_NAME_PATTERN.test(name);
+}
+
 export function validateAgentName(name: string): string {
   if (typeof name === 'string' && BUILTIN_OVERRIDE_AGENT_NAMES.includes(name)) return name;
   if (typeof name !== 'string' || name.length === 0 || name.length > AGENT_NAME_MAX) {

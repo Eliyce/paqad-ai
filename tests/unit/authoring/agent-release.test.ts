@@ -143,8 +143,21 @@ describe('paqad-ai agent release (S7)', () => {
     expect(() => release(bare)).toThrow(AuthoringRefusal);
   });
 
+  async function approvedInheritingAgent(): Promise<AgentWorkspace> {
+    const workspace = await ready(agentText({ tools: undefined }, PORTABLE_BODY));
+    const id = workspace.readJson<string[]>('permissions.json')![0]!;
+    resolvePendingDecision(root, id, AGENT_PERMISSION_ALLOW, 'needs every tool');
+    await runAgentTest(workspace, { runTests: async () => ({ exitCode: 0, failedTests: null }) });
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      inputs_hash: draftAgentHashWithoutDescription(workspace),
+    });
+    return workspace;
+  }
+
   it('AC-14 AC-62: writes a Claude Code file, a Codex TOML and an SDK form with the same tools, model and prompt', async () => {
-    const workspace = await ready();
+    const workspace = await approvedInheritingAgent();
     const result = release(workspace);
     expect(result.ok).toBe(true);
     const claude = parseAgentSource(
@@ -161,10 +174,58 @@ describe('paqad-ai agent release (S7)', () => {
     expect(sdk.model).toBe(claude.model);
     expect(sdk.prompt).toBe(claude.body);
     expect(tomlInstructions(toml).trim()).toBe(claude.body.trim());
+    expect(claude.tools).toBeUndefined();
     const notes = evidence().host_notes['codex-cli'] as string[];
-    expect(notes).toContain('tools omitted: Codex has no documented field for it');
     expect(notes.some((note) => note.startsWith('model omitted'))).toBe(true);
     expect(evidence().deployable).toEqual({ 'claude-code': true, 'codex-cli': true });
+  });
+
+  it('INV-6: a plain tools allowlist the Codex form drops leaves Codex not deployable with a skill proposal', async () => {
+    const workspace = await ready(agentText({ tools: 'Read, Grep' }, PORTABLE_BODY));
+    const result = release(workspace);
+    expect(existsSync(join(root, `.claude/agents/${AGENT_NAME}.md`))).toBe(true);
+    expect(existsSync(join(root, `.codex/agents/${AGENT_NAME}.toml`))).toBe(false);
+    expect(evidence().deployable).toEqual({ 'claude-code': true, 'codex-cli': false });
+    expect(evidence().host_notes['codex-cli']).toContain(
+      'tools omitted: Codex has no documented field for it',
+    );
+    expect(result.lines.join('\n')).toMatch(
+      /not deployable on codex-cli: its form would drop the tool allowlist Read, Grep.*Propose a skill/,
+    );
+  });
+
+  it('INV-5: a draft whose frontmatter name walks out of the agents folder is refused and nothing is written', async () => {
+    const workspace = await ready();
+    const sneaky = agentText({ name: '../../pwned-reviewer' }, PORTABLE_BODY);
+    const lint = lintAgentInProject(root, workspace.path(`draft/${AGENT_NAME}.md`));
+    expect(lint.blocking).toBe(0);
+    workspace.write(`draft/${AGENT_NAME}.md`, sneaky);
+    const blocked = lintAgentInProject(root, workspace.path(`draft/${AGENT_NAME}.md`));
+    expect(blocked.findings.filter((entry) => entry.rule === 'AG-001')).toHaveLength(1);
+    expect(() => release(workspace)).toThrow(/Release refused/);
+    expect(existsSync(join(root, 'pwned-reviewer.md'))).toBe(false);
+    expect(existsSync(join(root, '.claude/agents'))).toBe(false);
+  });
+
+  it('INV-5: a draft whose frontmatter name differs from the agent name is refused before any path is built', async () => {
+    const workspace = await ready();
+    const renamed = agentText({ name: 'schema-reviewer' }, PORTABLE_BODY);
+    workspace.write(`draft/${AGENT_NAME}.md`, renamed);
+    await runAgentTest(workspace, { runTests: async () => ({ exitCode: 0, failedTests: null }) });
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      inputs_hash: draftAgentHashWithoutDescription(workspace),
+    });
+    const delegation = workspace.readJson<Record<string, unknown>>('delegation-results.json')!;
+    workspace.writeJson('delegation-results.json', {
+      ...delegation,
+      inputs_hash: draftAgentHash(workspace),
+    });
+    expect(() => release(workspace)).toThrow(
+      /the draft frontmatter names "schema-reviewer", but the agent is migration-reviewer/,
+    );
+    expect(existsSync(join(root, '.claude/agents/schema-reviewer.md'))).toBe(false);
   });
 
   it('AC-22: a host with no agent support gets no file, deployable false and a skill proposal', async () => {
@@ -266,10 +327,7 @@ describe('paqad-ai agent release (S7)', () => {
     expect(readAgentRecord(root, dir, AGENT_NAME)).toEqual(first);
     expect(first.status).toBe('passed');
     expect(first.released_path).toBe(`.claude/agents/${AGENT_NAME}.md`);
-    expect(first.files.map((file) => file.path)).toEqual([
-      `.claude/agents/${AGENT_NAME}.md`,
-      `.codex/agents/${AGENT_NAME}.toml`,
-    ]);
+    expect(first.files.map((file) => file.path)).toEqual([`.claude/agents/${AGENT_NAME}.md`]);
   });
 
   it('a later edit to the agent or a named hook script needs a rerun of the stage that judged it', async () => {

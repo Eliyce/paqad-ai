@@ -25,6 +25,7 @@ import {
   AGENT_TRACKED_ROOT,
   AGENT_WORKSPACE_ROOT,
   AuthoringRefusal,
+  isValidAgentName,
   validateAgentName,
 } from '../workspace.js';
 import { CLAUDE_CODE_AGENT_FIELDS, isClaudeModel, isObjectRoleName } from './fields.js';
@@ -377,6 +378,13 @@ function checkName(ctx: AgentLintContext): string {
       rel,
       line,
       `The name "${name}" has a colon, a leading hyphen or more than ${AGENT_NAME_MAX} characters, so the host skips the file.`,
+    );
+  } else if (!isValidAgentName(name)) {
+    sink.block(
+      'AG-001',
+      rel,
+      line,
+      `The name "${name}" is not an agent name: use a-z, 0-9 and single hyphens, with no hyphen at either end, so no path built from it leaves the agents folder.`,
     );
   }
   if (!isObjectRoleName(name)) {

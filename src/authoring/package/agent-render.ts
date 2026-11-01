@@ -38,6 +38,8 @@ export function isSubagentCapableAdapter(
   return typeof adapter === 'string' && hosts.some((host) => host.adapter === adapter);
 }
 
+const AGENT_FILE_NAME = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/u;
+
 const compiledTemplates = new Map<string, Handlebars.TemplateDelegate>();
 
 export function renderAgentTemplate(
@@ -253,6 +255,11 @@ export function renderProducedAgent(
   options: RenderProducedAgentOptions = {},
 ): ProducedAgentFile {
   const target = hostOf(host);
+  if (!AGENT_FILE_NAME.test(source.name)) {
+    throw new Error(
+      `"${source.name}" is not an agent name: use letters, digits and single hyphens, so the path stays inside ${target.agentsSubdir}.`,
+    );
+  }
   const rendered =
     target.extension === 'md' ? renderClaudeAgent(source, options) : renderCodexAgent(source);
   return {

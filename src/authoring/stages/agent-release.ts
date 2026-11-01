@@ -41,6 +41,7 @@ import {
   requireEarlierGates,
   type AuthoringWorkspace,
   type OverrideRecord,
+  validateAgentName,
 } from '../workspace.js';
 import { agentDraftFile, readAgentDraftSource } from './agent-draft.js';
 import { AGENT_S5_TASK_TYPE, readAgentIntake, type AgentIntake } from './agent-intake.js';
@@ -187,8 +188,8 @@ export function reliedRestrictions(source: AgentSource, lint: AgentLintResult): 
       );
     }
   }
-  for (const tool of source.tools ?? []) {
-    if (/^(?:Bash|PowerShell)\(.+\)$/u.test(tool)) relied.push(`the tool allowlist ${tool}`);
+  if (source.tools !== undefined) {
+    relied.push(`the tool allowlist ${source.tools.join(', ') || '(no tools)'}`);
   }
   if ((source.disallowedTools ?? []).length > 0) {
     relied.push(`disallowedTools ${source.disallowedTools!.join(', ')}`);
@@ -233,7 +234,8 @@ export function planAgentRelease(input: {
   lint: AgentLintResult;
   adapters: readonly string[];
 }): AgentReleasePlan {
-  const { workspace, source, lint } = input;
+  const { workspace, lint } = input;
+  const source: AgentSource = { ...input.source, name: validateAgentName(workspace.name) };
   const permissionApproved = lint.powers.includes('bypassPermissions') && lint.blocking === 0;
   const runtime = runtimeAgentSource(workspace);
   if (runtime !== null) {
@@ -585,6 +587,11 @@ export function runAgentRelease(
 
   const draftText = workspace.read(draft)!;
   const source = parseAgentSource(draftText);
+  if (source.name !== workspace.name) {
+    throw new AuthoringRefusal(
+      `Release refused: the draft frontmatter names "${source.name}", but the agent is ${workspace.name}. Set name: ${workspace.name} in ${workspace.relPath(draft)} and rerun paqad-ai agent test ${workspace.name}.`,
+    );
+  }
   const plan = planAgentRelease({
     workspace,
     source,
