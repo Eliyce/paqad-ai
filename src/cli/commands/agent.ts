@@ -17,7 +17,10 @@ import { runAgentTest } from '@/authoring/stages/agent-test.js';
 import { runDelegationPlan, runDelegationRecord } from '@/authoring/stages/delegation.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
+import { runAgentRelease } from '@/authoring/stages/agent-release.js';
+import { runAgentImprove } from '@/authoring/stages/improve.js';
 import { raiseIntakeGap } from '@/authoring/stages/intake.js';
+import { askForOverride, recordOverride } from '@/authoring/stages/override.js';
 import type { StageResult } from '@/authoring/stages/result.js';
 import { agentStatus } from '@/authoring/stages/status.js';
 import { AgentWorkspace, AuthoringRefusal } from '@/authoring/workspace.js';
@@ -27,6 +30,7 @@ import {
   collect,
   readInput,
   runAuthoringVerb,
+  sessionFor,
   USAGE_EXIT,
   withCommon,
   type VerbOptions,
@@ -314,6 +318,81 @@ function addDelegationVerbs(command: Command): void {
   );
 }
 
+function addReleaseVerbs(command: Command): void {
+  withCommon(
+    command
+      .command('release')
+      .description(
+        'S7: refuse unless every gate passed or holds an override, then write the agent in each ' +
+          'enabled host format, the SDK form, evidence.json and CHANGELOG.md, and record ' +
+          'agent-<name>.json in the bundle',
+      )
+      .argument('<name>', 'The agent name')
+      .option('--version <x.y.z>', 'The version to release (default: 1.0.0, then the next minor)'),
+  ).action((name: string, options: VerbOptions & { version?: string }) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runAgentRelease(workspace, {
+        version: options.version,
+        sessionId: sessionFor(projectRoot, options.session),
+      }),
+    ),
+  );
+
+  withCommon(
+    command
+      .command('override')
+      .description(
+        'Ask the owner to skip one gate with --reason, or record the skip from the resolved ' +
+          'authoring.override decision with --decision. A secret (AG-012) or a risky power can never be skipped.',
+      )
+      .argument('<name>', 'The agent name')
+      .argument('[stage]', 'The gate to skip, S0 to S6')
+      .option('--gate <gate>', 'The gate to skip (same as the stage argument)')
+      .option('--reason <text>', 'Ask the owner for the override, saying why')
+      .option('--decision <id>', 'The resolved authoring.override decision'),
+  ).action(
+    (
+      name: string,
+      stage: string | undefined,
+      options: VerbOptions & { gate?: string; reason?: string; decision?: string },
+    ) =>
+      runAgentVerb(name, options, (workspace, projectRoot) => {
+        const gate = stage ?? options.gate;
+        if (gate === undefined) {
+          throw new AuthoringRefusal('override needs the stage, as in S5.', USAGE_EXIT);
+        }
+        if (options.decision !== undefined) {
+          return recordOverride(workspace, { gate, decision: options.decision });
+        }
+        if (options.reason === undefined) {
+          throw new AuthoringRefusal(
+            'override needs --reason <text> to ask, or --decision <id> to record the answer.',
+            USAGE_EXIT,
+          );
+        }
+        return askForOverride(workspace, {
+          gate,
+          why: options.reason,
+          change: changeKey(projectRoot, options.session),
+        });
+      }),
+  );
+
+  withCommon(
+    command
+      .command('improve')
+      .description(
+        'Start improve mode on an installed agent: snapshot it as the old_agent baseline, S0 skipped',
+      )
+      .argument('<name>', 'The agent name')
+      .option('--source <file>', 'The installed agent file, when it is not found by name'),
+  ).action((name: string, options: VerbOptions & { source?: string }) =>
+    runAgentVerb(name, options, (workspace) =>
+      runAgentImprove(workspace, { source: options.source }),
+    ),
+  );
+}
+
 export function createAgentCommand(): Command {
   const command = new Command('agent').description(
     'Prove a new or edited agent (subagent file) through its gated pipeline before it is added',
@@ -335,6 +414,7 @@ export function createAgentCommand(): Command {
   addIntakeVerbs(command);
   addEvalVerbs(command);
   addDelegationVerbs(command);
+  addReleaseVerbs(command);
 
   withCommon(
     command

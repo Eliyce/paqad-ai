@@ -149,4 +149,23 @@ describe('paqad-ai agent status', () => {
     vi.stubEnv('PAQAD_AGENT_ORCHESTRATOR_ENABLED', 'false');
     expect((await run('status', 'migration-reviewer')).out).toBe(AGENT_OFF_LINE);
   });
+
+  it('AC-9: release refuses an agent whose gates have not passed', async () => {
+    const result = await run('release', 'migration-reviewer');
+    expect(result.code).not.toBe(0);
+    expect(`${result.out}${result.err}`).toContain("S7 release can't start");
+  });
+
+  it('override needs a stage and either --reason or --decision', async () => {
+    expect((await run('override', 'migration-reviewer')).code).toBe(2);
+    const missing = await run('override', 'migration-reviewer', 'S5');
+    expect(missing.code).toBe(2);
+    expect(missing.err).toContain('--reason <text>');
+  });
+
+  it('improve refuses an agent that is not installed', async () => {
+    const result = await run('improve', 'migration-reviewer');
+    expect(result.code).not.toBe(0);
+    expect(`${result.out}${result.err}`).toContain('no installed agent named migration-reviewer');
+  });
 });

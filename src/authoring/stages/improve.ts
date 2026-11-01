@@ -2,15 +2,18 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { gitPathList } from '@/pipeline/git-paths.js';
+import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
+import { agentHookScripts } from '../lint/agent-lint.js';
 import { isPaqadRuntimeSkill } from '../lint/skill-lint.js';
-import { discoverInstalledSkills } from '../overlap.js';
+import { discoverInstalledAgents, discoverInstalledSkills } from '../overlap.js';
 import { readSkillPathContext, SKILL_FILE } from '../paths.js';
 import {
   AuthoringRefusal,
   MODE_FILE,
   readMode,
   TRACKED_ROOT,
+  type AuthoringWorkspace,
   type SkillWorkspace,
   type WorkspaceMode,
 } from '../workspace.js';
@@ -101,4 +104,63 @@ export function runImprove(
       : `Improve mode: S0 is skipped. Next: paqad-ai skill intake ${workspace.name} <intake.yaml>`,
   );
   return stageResult(true, lines, [workspace.relPath(SNAPSHOT_DIR), workspace.relPath(MODE_FILE)]);
+}
+
+export const AGENT_SNAPSHOT_DIR = 'agent-snapshot';
+
+export function installedAgentFile(workspace: AuthoringWorkspace): string | null {
+  const context = readSkillPathContext(workspace.projectRoot);
+  const found = discoverInstalledAgents(workspace.projectRoot, context, { userHome: null }).find(
+    (agent) => agent.name === workspace.name && agent.scope === 'project',
+  );
+  return found?.path ?? null;
+}
+
+export function runAgentImprove(
+  workspace: AuthoringWorkspace,
+  input: { source?: string } = {},
+): StageResult {
+  const source = input.source ?? installedAgentFile(workspace);
+  if (source === null) {
+    throw new AuthoringRefusal(
+      `There is no installed agent named ${workspace.name}. For a new agent, start with paqad-ai agent justify ${workspace.name}.`,
+    );
+  }
+  const abs = join(workspace.projectRoot, source);
+  if (!existsSync(abs) || !lstatSync(abs).isFile()) {
+    throw new AuthoringRefusal(`${source} is not an agent file.`, 2);
+  }
+  const lines: string[] = [];
+  if (workspace.exists(AGENT_SNAPSHOT_DIR)) {
+    lines.push(
+      `The snapshot in ${workspace.relPath(AGENT_SNAPSHOT_DIR)} already exists; I kept it as the old_agent baseline.`,
+    );
+  } else {
+    const text = readFileSync(abs, 'utf8');
+    workspace.write(`${AGENT_SNAPSHOT_DIR}/${workspace.name}.md`, text);
+    const split = splitSkillFrontmatter(text);
+    const scripts = split.ok
+      ? agentHookScripts(workspace.projectRoot, split.data.hooks).scripts
+      : [];
+    for (const script of scripts) {
+      const scriptAbs = join(workspace.projectRoot, script);
+      if (existsSync(scriptAbs)) {
+        workspace.write(`${AGENT_SNAPSHOT_DIR}/${script}`, readFileSync(scriptAbs, 'utf8'));
+      }
+    }
+    lines.push(
+      `Snapshotted ${source}${scripts.length > 0 ? ` and ${scripts.join(', ')}` : ''} to ${workspace.relPath(AGENT_SNAPSHOT_DIR)}; it is the old_agent baseline.`,
+    );
+  }
+  const mode: WorkspaceMode = { entry: 'improve', source };
+  if (readMode(workspace).entry !== 'improve') workspace.writeJson(MODE_FILE, mode);
+  lines.push(
+    workspace.exists('intake.yaml')
+      ? `Improve mode: S0 and S1 are skipped. Next: paqad-ai agent evidence ${workspace.name} <sources.md>`
+      : `Improve mode: S0 is skipped. Next: paqad-ai agent intake ${workspace.name} <intake.yaml>`,
+  );
+  return stageResult(true, lines, [
+    workspace.relPath(AGENT_SNAPSHOT_DIR),
+    workspace.relPath(MODE_FILE),
+  ]);
 }

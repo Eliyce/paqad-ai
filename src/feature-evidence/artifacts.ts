@@ -427,3 +427,83 @@ export function writeSkillRecord(
   atomicWriteJson(join(projectRoot, rel), record);
   return { dirName, path: rel, written: true };
 }
+
+export const AGENT_RECORD_DOC_TYPE = 'paqad.agent-record';
+export const AGENT_RECORD_SCHEMA_VERSION = 1;
+export const AGENT_RECORD_WRITER = 'paqad-ai agent release';
+
+export interface AgentRecordFile {
+  path: string;
+  hash: string;
+}
+
+export interface AgentRecordBody {
+  agent: string;
+  status: 'passed' | 'overridden';
+  version: string;
+  released_path: string;
+  file_hash: string;
+  hook_scripts: string[];
+  files: AgentRecordFile[];
+  evidence_path: string;
+  overrides: SkillRecordOverride[];
+  labels: string[];
+}
+
+export function agentRecordFilename(name: string): string {
+  return `agent-${name}.json`;
+}
+
+export function agentRecordPath(dirName: string, name: string): string {
+  return join(featureDir(dirName), agentRecordFilename(name));
+}
+
+export function readAgentRecord(
+  projectRoot: string,
+  dirName: string,
+  name: string,
+): (AgentRecordBody & { change?: string }) | null {
+  return readJson<AgentRecordBody & { change?: string }>(
+    join(projectRoot, agentRecordPath(dirName, name)),
+  );
+}
+
+function sameAgentRecord(existing: AgentRecordBody | null, body: AgentRecordBody): boolean {
+  if (existing === null) return false;
+  const pick = (record: AgentRecordBody) => ({
+    agent: record.agent,
+    status: record.status,
+    version: record.version,
+    released_path: record.released_path,
+    file_hash: record.file_hash,
+    hook_scripts: record.hook_scripts,
+    files: record.files,
+    evidence_path: record.evidence_path,
+    overrides: record.overrides,
+    labels: record.labels,
+  });
+  return JSON.stringify(pick(body)) === JSON.stringify(pick(existing));
+}
+
+export function writeAgentRecord(
+  projectRoot: string,
+  sessionId: string,
+  body: AgentRecordBody,
+  now?: () => Date,
+): { dirName: string; path: string; written: boolean } {
+  const { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
+  const rel = agentRecordPath(dirName, body.agent);
+  if (sameAgentRecord(readAgentRecord(projectRoot, dirName, body.agent), body)) {
+    return { dirName, path: rel, written: false };
+  }
+  const record = buildDocumentEnvelope({
+    docType: AGENT_RECORD_DOC_TYPE,
+    change: parts.ulid,
+    sessionId,
+    schemaVersion: AGENT_RECORD_SCHEMA_VERSION,
+    now,
+    body: { ...body },
+  });
+  atomicWriteJson(join(projectRoot, rel), record);
+  return { dirName, path: rel, written: true };
+}

@@ -415,6 +415,11 @@ export function runAgentEvalPlan(
       `(never the working checkout), under the session's permission mode and a $${cap} spend cap, and save outputs/, ` +
       'transcript.md, grading.json and timing.json in its workdir.',
   );
+  if (baselineArm === 'old_agent') {
+    commands.push(
+      `The old_agent arm runs the installed agent snapshotted in ${workspace.relPath(`agent-snapshot/${workspace.name}.md`)}.`,
+    );
+  }
   const plan: AgentEvalPlan = {
     iteration,
     adapter,

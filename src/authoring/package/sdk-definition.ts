@@ -14,6 +14,11 @@ export const SDK_DEFINITION_FIELDS = [
   'effort',
 ] as const;
 
+export const SDK_DEFINITION_CHECKED = {
+  checked: '2026-11-01',
+  source: 'Claude Agent SDK AgentDefinition type (TypeScript reference)',
+} as const;
+
 export interface AgentDefinition {
   description: string;
   prompt: string;
