@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { draftAgentHash } from '@/authoring/stages/agent-test.js';
 import { runDelegationPlan, runDelegationRecord } from '@/authoring/stages/delegation.js';
 import {
   AGENT_STAGES,
@@ -108,6 +109,21 @@ describe('agent delegation (S6)', () => {
     ]);
     expect(result.lines[1]).toContain('<- chosen');
     expect(stageState(workspace, AGENT_STAGES[6]!).state).toBe('passed');
+  });
+
+  it('AC-10: a passing S6 writes the chosen description into the draft and hashes the result', () => {
+    const workspace = atS6();
+    runDelegationPlan(workspace, requests());
+    runDelegationRecord(
+      workspace,
+      JSON.stringify({ iterations: [allRight(IDS)], fresh: FRESH, cost_usd: 0.1 }),
+    );
+    expect(workspace.read('draft/migration-reviewer.md')).toContain(
+      'description: Use this agent when a migration is added.',
+    );
+    expect(readLoose(workspace, 'delegation-results.json').inputs_hash).toBe(
+      draftAgentHash(workspace),
+    );
   });
 
   it('AC-59: a request delegating in 2 of 3 runs passes while 1 of 3 fails', () => {

@@ -511,6 +511,38 @@ describe('lintAgentFile', () => {
       'approved an earlier version of the agent file',
     );
   });
+
+  it('AC-68: a packet approved on the draft copy still approves the released file, and an edit to a hook script invalidates it', () => {
+    const root = project();
+    put(root, '.claude/hooks/guard.mjs', 'x\n');
+    put(root, 'tests/agents/migration-reviewer/guard.test.mjs', 'x\n');
+    const hooks =
+      '\n  PreToolUse:\n    - matcher: "Edit"\n      hooks:\n        - type: command\n          command: node .claude/hooks/guard.mjs';
+    const text = agent({ permissionMode: 'bypassPermissions', hooks });
+    const draft = put(
+      root,
+      '.paqad/tmp/authoring/agents/migration-reviewer/draft/migration-reviewer.md',
+      text,
+    );
+    const options = {
+      projectRoot: root,
+      installedAgents: [],
+      installedSkills: [],
+      mcpServers: [],
+    };
+    const drafted = lintAgentFile(draft, options);
+    const id = raiseAgentPermissionDecision(root, {
+      agent: 'migration-reviewer',
+      powers: drafted.powers,
+      fileHash: drafted.file_hash,
+    });
+    resolvePendingDecision(root, id, AGENT_PERMISSION_ALLOW, 'needed');
+    const released = lint(root, text, { permissionDecisions: [id] });
+    expect(released.file_hash).toBe(drafted.file_hash);
+    expect(rules(released)).not.toContain('AG-015');
+    put(root, '.claude/hooks/guard.mjs', 'y\n');
+    expect(rules(lint(root, text, { permissionDecisions: [id] }))).toContain('AG-015');
+  });
 });
 
 describe('permissionApproval', () => {

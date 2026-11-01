@@ -136,4 +136,19 @@ describe('hashAgentFile', () => {
     const missing = hashAgentFile(root, '.claude/agents/a.md', ['hooks/gone.mjs']);
     expect(missing).not.toBe(hashAgentFile(root, '.claude/agents/a.md'));
   });
+
+  it('AC-68: the hash binds the contents, not the path, so a draft copy and its released file match', () => {
+    const root = tmp();
+    put(root, '.claude/agents/a.md', 'A\n');
+    put(root, 'hooks/h.mjs', 'H\n');
+    put(root, 'draft/a.md', 'A\n');
+    put(root, 'draft/hooks/h.mjs', 'H\n');
+    const released = hashAgentFile(root, '.claude/agents/a.md', ['hooks/h.mjs']);
+    const draft = hashAgentFile(root, 'draft/a.md', ['hooks/h.mjs'], join(root, 'draft'));
+    expect(draft).toBe(released);
+    put(root, 'draft/hooks/h.mjs', 'H2\n');
+    expect(hashAgentFile(root, 'draft/a.md', ['hooks/h.mjs'], join(root, 'draft'))).not.toBe(
+      released,
+    );
+  });
 });

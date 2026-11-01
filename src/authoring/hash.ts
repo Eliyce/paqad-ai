@@ -130,18 +130,31 @@ export function withDescription(skillText: string, description: string): string 
 
 export const MISSING_HOOK_SCRIPT = '\u0000missing\u0000';
 
-export function hashAgentFile(
-  projectRoot: string,
-  file: string,
-  hookScripts: readonly string[] = [],
+export const AGENT_FILE_KEY = 'agent';
+
+export function hashAgentText(
+  agent: string | Buffer,
+  hookScripts: readonly string[],
+  scriptRoot: string,
 ): string {
-  const files: HashedFile[] = [{ rel: file, bytes: readFileSync(join(projectRoot, file)) }];
+  const files: HashedFile[] = [
+    { rel: AGENT_FILE_KEY, bytes: typeof agent === 'string' ? Buffer.from(agent) : agent },
+  ];
   for (const script of [...new Set(hookScripts)]) {
-    const abs = join(projectRoot, script);
+    const abs = join(scriptRoot, script);
     files.push({
-      rel: script,
+      rel: `hooks/${script}`,
       bytes: existsSync(abs) ? readFileSync(abs) : Buffer.from(MISSING_HOOK_SCRIPT),
     });
   }
   return hashFiles(files);
+}
+
+export function hashAgentFile(
+  projectRoot: string,
+  file: string,
+  hookScripts: readonly string[] = [],
+  scriptRoot: string = projectRoot,
+): string {
+  return hashAgentText(readFileSync(join(projectRoot, file)), hookScripts, scriptRoot);
 }

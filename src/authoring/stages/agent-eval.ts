@@ -42,6 +42,7 @@ import {
 } from '../workspace.js';
 import { agentDraftFile, readAgentDraftSource } from './agent-draft.js';
 import { readAgentIntake, type AgentIntake } from './agent-intake.js';
+import { draftAgentHashWithoutDescription } from './agent-test.js';
 import type { StageResult } from './result.js';
 
 export const AGENT_EVALS_DIR = 'evals';
@@ -989,6 +990,7 @@ export async function runAgentEvalRecord(
     stop_reason: loop.status === 'continue' ? null : loop.reason,
     creation_cost_usd: { S5: spentUsd },
     spend,
+    inputs_hash: draftAgentHashWithoutDescription(workspace),
   };
   workspace.writeJson(`${iterDir}/benchmark.json`, benchmark);
   const artifact = workspace.writeJson('benchmark.json', benchmark);

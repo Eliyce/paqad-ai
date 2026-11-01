@@ -12,8 +12,11 @@ import {
   type TriggerIterationScore,
 } from '../eval/split.js';
 import { planSpend, recordSpend } from '../eval/spend.js';
+import { withDescription } from '../hash.js';
 import { AuthoringRefusal, requireEarlierGates, type AuthoringWorkspace } from '../workspace.js';
+import { agentDraftFile } from './agent-draft.js';
 import { readAgentIntake } from './agent-intake.js';
+import { draftAgentHash } from './agent-test.js';
 import type { StageResult } from './result.js';
 import { parseQueries } from './trigger.js';
 
@@ -44,6 +47,7 @@ function skipDispatched(workspace: AuthoringWorkspace): StageResult {
     stage: 'S6',
     skipped: 'dispatched',
     reason: 'a dispatched agent is only ever called by name',
+    inputs_hash: workspace.exists(agentDraftFile(workspace)) ? draftAgentHash(workspace) : null,
   });
   return {
     ok: true,
@@ -263,6 +267,9 @@ export function runDelegationRecord(
   const description = chosen
     ? results.iterations.find((entry) => entry.iteration === chosen.iteration)!.description
     : null;
+  const draft = agentDraftFile(workspace);
+  const published = passed && description !== null && workspace.exists(draft);
+  if (published) workspace.write(draft, withDescription(workspace.read(draft)!, description!));
   const artifact = workspace.writeJson(DELEGATION_RESULTS_FILE, {
     gate: passed ? 'passed' : 'failed',
     stage: 'S6',
@@ -276,6 +283,7 @@ export function runDelegationRecord(
     fresh,
     creation_cost_usd: { S6: results.cost },
     spend,
+    inputs_hash: published ? draftAgentHash(workspace) : null,
   });
   const table = scores.map(
     (score) =>
@@ -287,7 +295,7 @@ export function runDelegationRecord(
     lines: [
       ...table,
       passed
-        ? `S6 passed: the chosen description scores ${chosen!.validation_score} on validation and every fresh host request delegated right. Next: paqad-ai agent release ${workspace.name}`
+        ? `S6 passed: the chosen description scores ${chosen!.validation_score} on validation and every fresh host request delegated right; it is now in the draft. Next: paqad-ai agent release ${workspace.name}`
         : `S6 failed: ${reasons.join('; ')}.`,
     ],
   };

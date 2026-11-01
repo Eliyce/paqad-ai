@@ -1,6 +1,12 @@
 import { existsSync } from 'node:fs';
 
-import { hashAgentFile, hashFiles, listFolderFiles } from '../hash.js';
+import {
+  hashAgentFile,
+  hashAgentText,
+  hashFiles,
+  listFolderFiles,
+  withoutDescription,
+} from '../hash.js';
 import {
   AGENT_PERMISSION_ALLOW,
   raiseAgentPermissionDecision,
@@ -43,8 +49,20 @@ export function draftHookScripts(workspace: AuthoringWorkspace): string[] {
 }
 
 export function draftAgentHash(workspace: AuthoringWorkspace): string {
-  const scripts = draftHookScripts(workspace).map((script) => `${DRAFT_DIR}/${script}`);
-  return hashAgentFile(workspace.dir, agentDraftFile(workspace), scripts);
+  return hashAgentFile(
+    workspace.dir,
+    agentDraftFile(workspace),
+    draftHookScripts(workspace),
+    workspace.path(DRAFT_DIR),
+  );
+}
+
+export function draftAgentHashWithoutDescription(workspace: AuthoringWorkspace): string {
+  return hashAgentText(
+    withoutDescription(workspace.read(agentDraftFile(workspace)) ?? ''),
+    draftHookScripts(workspace),
+    workspace.path(DRAFT_DIR),
+  );
 }
 
 export function agentTestInputsHash(workspace: AuthoringWorkspace, testDir: string): string {
@@ -52,7 +70,10 @@ export function agentTestInputsHash(workspace: AuthoringWorkspace, testDir: stri
     rel: `tests/${file.rel}`,
     bytes: file.bytes,
   }));
-  return hashFiles([{ rel: 'agent', bytes: Buffer.from(draftAgentHash(workspace)) }, ...tests]);
+  return hashFiles([
+    { rel: 'agent', bytes: Buffer.from(draftAgentHashWithoutDescription(workspace)) },
+    ...tests,
+  ]);
 }
 
 export function readPermissionIds(workspace: AuthoringWorkspace): string[] {
@@ -129,6 +150,7 @@ export async function runAgentTest(
   const lintArtifact = workspace.writeJson('lint.json', {
     gate: lint.blocking === 0 ? 'passed' : 'failed',
     inputs_hash: draftAgentHash(workspace),
+    inputs_hash_without_description: draftAgentHashWithoutDescription(workspace),
     ...lint,
   });
   const permission = permissionGate(workspace, lint, options.change);
