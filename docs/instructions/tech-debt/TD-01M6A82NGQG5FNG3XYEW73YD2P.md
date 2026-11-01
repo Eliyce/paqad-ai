@@ -20,6 +20,6 @@ closed_reason: null
 
 ## What
 
-`runtime/templates/team-bootstrap/hook.mjs` clones the default branch HEAD of `https://github.com/Eliyce/paqad-claude-plugin.git` (`git clone --depth 1`) and swaps in a fresh clone every 6 hours. It does not pin a tag or commit and does not verify a signature or checksum. On every teammate laptop and every cloud session, whatever is on that branch runs as hook code. The owner accepted this for #802: AC-40 documents the rollback path (revert in the plugin repo, `PAQAD_DISABLED`, `team_bootstrap_enabled=false`).
+`runtime/templates/team-bootstrap/hook.mjs` clones the default branch HEAD of `https://github.com/Eliyce/paqad-claude-plugin.git` (`git clone --depth 1`) and swaps in a fresh clone every 6 hours. It does not pin a tag or commit and does not verify a signature or checksum. On every teammate laptop and every cloud session, whatever is on that branch runs as hook code. The owner accepted this for the committed team setup: AC-40 documents the rollback path (revert in the plugin repo, `PAQAD_DISABLED`, `team_bootstrap_enabled=false`).
 
 Follow-up to consider: clone a release tag, for example the newest `v*` tag, or check the copy's `package.json` version against a minimum or maximum written into the committed launcher stamp. Either way a compromised or broken push to the plugin repo's main branch would not reach every machine within 6 hours.
