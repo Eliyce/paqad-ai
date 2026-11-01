@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 
 import { agentOrchestratorEnabled } from '@/authoring/config.js';
+import { runMemoryConsolidate } from '@/authoring/memory.js';
 import {
   AgentLintUsageError,
   lintAgentInProject,
@@ -17,6 +18,13 @@ import { runAgentTest } from '@/authoring/stages/agent-test.js';
 import { runDelegationPlan, runDelegationRecord } from '@/authoring/stages/delegation.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
+import {
+  resolveAgentLearn,
+  runAgentCatalog,
+  runAgentDrift,
+  runAgentLearn,
+  runAgentRegression,
+} from '@/authoring/stages/agent-operate.js';
 import { runAgentRelease } from '@/authoring/stages/agent-release.js';
 import { runAgentImprove } from '@/authoring/stages/improve.js';
 import { raiseIntakeGap } from '@/authoring/stages/intake.js';
@@ -28,6 +36,7 @@ import { AgentWorkspace, AuthoringRefusal } from '@/authoring/workspace.js';
 import {
   changeKey,
   collect,
+  printResult,
   readInput,
   runAuthoringVerb,
   sessionFor,
@@ -393,6 +402,101 @@ function addReleaseVerbs(command: Command): void {
   );
 }
 
+function addOperateVerbs(command: Command): void {
+  withCommon(
+    command
+      .command('learn')
+      .description(
+        'S8: propose a correction to an installed agent through authoring.improvement, or apply it with --decision',
+      )
+      .argument('<name>', 'The agent name')
+      .argument('[correction]', 'The correction, in one sentence')
+      .option('--scope <where>', 'Where the correction was seen')
+      .option('--source <S-ID>', 'The trace S-ID it comes from')
+      .option('--decision <id>', 'The answered authoring.improvement decision'),
+  ).action(
+    (
+      name: string,
+      correction: string | undefined,
+      options: VerbOptions & { scope?: string; source?: string; decision?: string },
+    ) =>
+      runAgentVerb(name, options, (workspace, projectRoot) => {
+        if (options.decision !== undefined) {
+          return resolveAgentLearn(workspace, { decision: options.decision });
+        }
+        return runAgentLearn(workspace, {
+          correction: correction ?? '',
+          scope: options.scope ?? '',
+          source: options.source ?? '',
+          change: changeKey(projectRoot, options.session),
+        });
+      }),
+  );
+
+  withCommon(
+    command
+      .command('drift')
+      .description(
+        'S8: list facts older than authoring_fact_max_age_days and a model change since the agent was proven',
+      )
+      .argument('<name>', 'The agent name'),
+  ).action((name: string, options: VerbOptions) =>
+    runAgentVerb(name, options, (workspace) => runAgentDrift(workspace)),
+  );
+
+  withCommon(
+    command
+      .command('regression')
+      .description(
+        'S8: compare the latest eval rerun with the one before it (tokens, cost, p95 latency, any pass^3 drop)',
+      )
+      .argument('<name>', 'The agent name'),
+  ).action((name: string, options: VerbOptions) =>
+    runAgentVerb(name, options, (workspace) => runAgentRegression(workspace)),
+  );
+
+  withCommon(
+    command
+      .command('memory-consolidate')
+      .description(
+        'S8: keep MEMORY.md within agent_memory_max_lines by consolidating it, never by appending',
+      )
+      .argument('<name>', 'The agent name')
+      .option('--file <MEMORY.md>', 'The consolidated MEMORY.md')
+      .option('--alters-behaviour', 'The new memory changes how the agent behaves'),
+  ).action((name: string, options: VerbOptions & { file?: string; altersBehaviour?: boolean }) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runMemoryConsolidate(workspace, {
+        text: options.file === undefined ? undefined : readInput(options.file, 'the MEMORY.md'),
+        altersBehaviour: options.altersBehaviour === true,
+        change: changeKey(projectRoot, options.session),
+      }),
+    ),
+  );
+
+  withCommon(
+    command
+      .command('catalog')
+      .description(
+        'S8: the installed agents with their listing cost, last delegation, dark agents and expired power approvals',
+      )
+      .option('--propose-retirement', 'Raise authoring.retirement for every dark agent'),
+  ).action((options: VerbOptions & { proposeRetirement?: boolean }) => {
+    const projectRoot = resolve(options.projectRoot);
+    if (!agentOrchestratorEnabled(projectRoot)) {
+      console.log(AGENT_OFF_LINE);
+      return;
+    }
+    printResult(
+      runAgentCatalog(projectRoot, {
+        proposeRetirement: options.proposeRetirement === true,
+        change: changeKey(projectRoot, options.session),
+      }),
+      options.json,
+    );
+  });
+}
+
 export function createAgentCommand(): Command {
   const command = new Command('agent').description(
     'Prove a new or edited agent (subagent file) through its gated pipeline before it is added',
@@ -415,6 +519,7 @@ export function createAgentCommand(): Command {
   addEvalVerbs(command);
   addDelegationVerbs(command);
   addReleaseVerbs(command);
+  addOperateVerbs(command);
 
   withCommon(
     command
