@@ -377,6 +377,18 @@ export function notEntryPoints(readme: string | null): Set<string> {
   return names;
 }
 
+const ENTRY_POINT_MARKS: readonly RegExp[] = [
+  /^#!/u,
+  /__name__\s*==\s*['"]__main__['"]/u,
+  /require\.main\s*===?\s*module/u,
+  /import\.meta\.main\b/u,
+  /import\.meta\.url\s*===?\s*`file:\/\/\$\{process\.argv\[1\]/u,
+];
+
+export function hasRunnableEntryPoint(text: string): boolean {
+  return ENTRY_POINT_MARKS.some((mark) => mark.test(text));
+}
+
 function checkScripts(
   sink: FindingSink,
   files: readonly SkillFile[],
@@ -384,13 +396,20 @@ function checkScripts(
 ): void {
   const readme = files.find((entry) => entry.rel === SCRIPTS_README)?.text ?? null;
   const excluded = notEntryPoints(readme);
-  const scripts = files.filter(
-    (entry) =>
-      under(entry.rel, 'scripts') &&
-      entry.text !== null &&
-      entry.rel !== SCRIPTS_README &&
-      !excluded.has(entry.rel.slice('scripts/'.length)),
+  const candidates = files.filter(
+    (entry) => under(entry.rel, 'scripts') && entry.text !== null && entry.rel !== SCRIPTS_README,
   );
+  const scripts = candidates.filter((entry) => {
+    if (!excluded.has(entry.rel.slice('scripts/'.length))) return true;
+    if (!hasRunnableEntryPoint(entry.text!)) return false;
+    sink.block(
+      'SK-010',
+      entry.rel,
+      1,
+      `The script ${entry.rel} is listed under Not entry points in ${SCRIPTS_README} but has a runnable entry point.`,
+    );
+    return true;
+  });
   for (const file of scripts) {
     if (!file.text!.includes('--help')) {
       sink.block('SK-010', file.rel, 1, `The script ${file.rel} has no --help.`);

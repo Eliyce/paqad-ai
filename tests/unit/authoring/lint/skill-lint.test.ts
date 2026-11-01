@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   formatSkillLintJson,
   lintSkillFolder,
+  hasRunnableEntryPoint,
   notEntryPoints,
   skillLintExitCode,
   SkillLintUsageError,
@@ -364,6 +365,28 @@ describe('scripts (SK-010) and inline dependencies (SK-019)', () => {
     expect(rules(result.findings, 'SK-010')).toEqual([]);
     expect(notEntryPoints(readme)).toEqual(new Set(['patterns.txt', 'lib.sh']));
     expect(notEntryPoints(null)).toEqual(new Set());
+  });
+
+  it('AC-12: still flags a script listed under Not entry points that has a runnable entry point', () => {
+    const readme = ['# Scripts', '', '## Not entry points', '', '- `run.py`: helpers', ''].join(
+      '\n',
+    );
+    const result = lint({
+      files: {
+        'references/guide.md': 'x\n',
+        'scripts/README.md': readme,
+        'scripts/run.py': 'def main():\n    pass\n\nif __name__ == "__main__":\n    main()\n',
+      },
+      projectFiles: TEST,
+    });
+    const flagged = rules(result.findings, 'SK-010');
+    expect(flagged.map((finding) => finding.file)).toContain('scripts/run.py');
+    expect(flagged.some((finding) => finding.message.includes('has a runnable entry point'))).toBe(
+      true,
+    );
+    expect(hasRunnableEntryPoint('#!/usr/bin/env bash\necho hi\n')).toBe(true);
+    expect(hasRunnableEntryPoint('if (require.main === module) main();\n')).toBe(true);
+    expect(hasRunnableEntryPoint('say() { :; }\n')).toBe(false);
   });
 
   it('blocks a script without --help', () => {
