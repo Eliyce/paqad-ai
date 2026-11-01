@@ -342,9 +342,9 @@ function checkReferences(
   }
 }
 
-function testFilesFor(projectRoot: string, skill: string): string[] {
+function testFilesFor(projectRoot: string, testDirs: readonly string[]): string[] {
   const found: string[] = [];
-  for (const dir of skillTestDirectories(skill)) {
+  for (const dir of testDirs) {
     const abs = join(projectRoot, dir);
     if (!existsSync(abs)) continue;
     found.push(...readTree(abs).map((file) => `${dir}/${file.rel}`));
@@ -358,12 +358,40 @@ function scriptStem(rel: string): string {
   return dot <= 0 ? name : name.slice(0, dot);
 }
 
+const SCRIPTS_README = 'scripts/README.md';
+const NOT_ENTRY_HEADING = /^#{2,}\s+not entry points\s*$/iu;
+
+export function notEntryPoints(readme: string | null): Set<string> {
+  const names = new Set<string>();
+  if (readme === null) return names;
+  let inside = false;
+  for (const line of readme.split(/\r?\n/u)) {
+    if (/^#{1,}\s/u.test(line)) {
+      inside = NOT_ENTRY_HEADING.test(line);
+      continue;
+    }
+    if (!inside) continue;
+    const item = /^\s*[-*]\s+`?([^`\s:]+)`?/u.exec(line);
+    if (item) names.add(item[1]!.replace(/^scripts\//u, ''));
+  }
+  return names;
+}
+
 function checkScripts(
   sink: FindingSink,
   files: readonly SkillFile[],
   testFiles: readonly string[],
 ): void {
-  for (const file of files.filter((entry) => under(entry.rel, 'scripts') && entry.text !== null)) {
+  const readme = files.find((entry) => entry.rel === SCRIPTS_README)?.text ?? null;
+  const excluded = notEntryPoints(readme);
+  const scripts = files.filter(
+    (entry) =>
+      under(entry.rel, 'scripts') &&
+      entry.text !== null &&
+      entry.rel !== SCRIPTS_README &&
+      !excluded.has(entry.rel.slice('scripts/'.length)),
+  );
+  for (const file of scripts) {
     if (!file.text!.includes('--help')) {
       sink.block('SK-010', file.rel, 1, `The script ${file.rel} has no --help.`);
     }
@@ -535,8 +563,10 @@ export function lintSkillFolder(folder: string, options: SkillLintOptions): Skil
     sink.block('SK-007', extra.rel, 1, 'A second SKILL.md in the folder. Keep one per skill.');
   }
   checkReferences(sink, files, skillFile);
-  const testDirs = skillTestDirectories(folderName);
-  checkScripts(sink, files, testFilesFor(options.projectRoot, folderName));
+  const testDirs = skillTestDirectories(folderName, {
+    paqadRepo: isPaqadRepository(options.projectRoot),
+  });
+  checkScripts(sink, files, testFilesFor(options.projectRoot, testDirs));
 
   for (const link of files.filter((file) => file.symlink?.scannable === false)) {
     sink.block(

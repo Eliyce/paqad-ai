@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   formatSkillLintJson,
   lintSkillFolder,
+  notEntryPoints,
   skillLintExitCode,
   SkillLintUsageError,
   type SkillLintFinding,
@@ -319,6 +320,50 @@ describe('scripts (SK-010) and inline dependencies (SK-019)', () => {
       projectFiles: { 'tests/Feature/Skills/DraftingNotes/ExtractTest.php': '<?php\n' },
     });
     expect(rules(laravel.findings, 'SK-010')).toEqual([]);
+  });
+
+  it('finds paqad skill tests under tests/unit/skills/<skill> in the paqad repository only', () => {
+    const files = { 'references/guide.md': 'x\n', 'scripts/extract.sh': '# --help\n' };
+    const projectFiles = {
+      'tests/unit/skills/drafting-notes/extract.contract.test.ts': 'x\n',
+    };
+    expect(rules(lint({ files, projectFiles }).findings, 'SK-010')).toHaveLength(1);
+    const paqad = lint({
+      files,
+      projectFiles: { ...projectFiles, 'package.json': JSON.stringify({ name: 'paqad-ai' }) },
+    });
+    expect(rules(paqad.findings, 'SK-010')).toEqual([]);
+  });
+
+  it('skips the files a scripts/README.md lists under Not entry points', () => {
+    const readme = [
+      '# Scripts',
+      '',
+      'Each entry script takes --help.',
+      '',
+      '## Not entry points',
+      '',
+      '- `patterns.txt`: data read by extract.sh',
+      '- lib.sh: sourced helpers',
+      '',
+      '## Other',
+      '',
+      '- `extract.sh`',
+      '',
+    ].join('\n');
+    const result = lint({
+      files: {
+        'references/guide.md': 'x\n',
+        'scripts/README.md': readme,
+        'scripts/extract.sh': '# --help\n',
+        'scripts/patterns.txt': 'a\n',
+        'scripts/lib.sh': 'say() { :; }\n',
+      },
+      projectFiles: { 'tests/skills/drafting-notes/extract.test.ts': 'x\n' },
+    });
+    expect(rules(result.findings, 'SK-010')).toEqual([]);
+    expect(notEntryPoints(readme)).toEqual(new Set(['patterns.txt', 'lib.sh']));
+    expect(notEntryPoints(null)).toEqual(new Set());
   });
 
   it('blocks a script without --help', () => {
