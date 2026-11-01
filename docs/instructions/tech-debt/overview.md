@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6CNDMGJ8MXW9KKC9Y2466CR](TD-01M6CNDMGJ8MXW9KKC9Y2466CR.md) (bug, low): Authoring gate names the Claude stage-agent template as an agent called claude
+- [TD-01M6CNDKRACD0HTQAEH86186FS](TD-01M6CNDKRACD0HTQAEH86186FS.md) (gap, medium): Rule RL-70a6 still teaches top-level paqad skill keys and flags metadata on every paqad skill
 - [TD-01M6BTEW4DADBG0C2VA6M9JGJF](TD-01M6BTEW4DADBG0C2VA6M9JGJF.md) (bug, low): Environment-dependent provider and agent-entry-gate tests fail under root/sandbox
 - [TD-01M6BTETM9JGZS1JJM63TDNPWE](TD-01M6BTETM9JGZS1JJM63TDNPWE.md) (bug, medium): Review digest line cap truncates deterministic high-severity rows behind info heuristics
 - [TD-01M6A82NGQG5FNG3XYEW73YD2P](TD-01M6A82NGQG5FNG3XYEW73YD2P.md) (follow-up, low): Team launcher clones the plugin repo's branch HEAD unpinned and unverified
