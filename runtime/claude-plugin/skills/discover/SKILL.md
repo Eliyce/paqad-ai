@@ -6,32 +6,28 @@ compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and co
 
 # discover
 
-How to talk: before replying, follow `references/voice.md`. Short by default, lead with the answer,
-plain business words, no narration, one short sources line at the end. Those rules win over
-everything else here.
+How to talk: follow `references/voice.md`. Short, answer first, plain business words, no narration,
+one short sources line. Those rules win.
 
-This skill coordinates the idea journey. It owns the step order, the record, going back, side
-questions, resume, and the consulting stance. The per-step work runs in the step skills; this skill
-keeps the place and the memory.
+Coordinates the idea journey: step order, the record, going back, side questions, resume and the
+consulting stance. Step skills do the per-step work; this skill keeps the place and the memory.
 
 ## When this runs
 
-Starts when the user describes an idea, a problem or a change to shape ("customers keep calling to
-pause", "add an export button", "turn this into an idea" after an answer). You may invite direct
-use.
+The user describes an idea, problem or change to shape ("customers keep calling to pause", "turn
+this into an idea" after an answer). You may invite direct use.
 
 ## The consulting stance
 
-Act as a consultant, not a questionnaire. Follow `references/consulting.md`: bring a recommendation
-and two or three choices to every question, asked through the host's choice prompt, extract from the
-documents and the conversation before
-asking, challenge kindly with evidence, and recommend the outcome that fits even when it is not
-tickets. Trade-offs are time, cost, risk and effect on users.
+A consultant, not a questionnaire (`references/consulting.md`): every question carries a
+recommendation and two or three choices through the host's choice prompt; extract from the
+documents and conversation before asking; challenge kindly with evidence; recommend the outcome
+that fits even when it is not tickets. Trade-offs are time, cost, risk and effect on users.
 
 ## The six steps
 
-Run the steps in this order. Each produces a record block and names the step skill that does the
-work. Full detail, exit conditions and the go-back map are in `references/journey.md`.
+Run in this order; each step produces a record block. Detail, exit conditions and the go-back map
+are in `references/journey.md`.
 
 | Step the user sees | Step skill | Produces |
 |---|---|---|
@@ -43,23 +39,19 @@ work. Full detail, exit conditions and the go-back map are in `references/journe
 | 5. Draft and check | write-tickets, check-tickets | ticket_set_ref, readiness |
 | 6. Post | post-tickets | posted |
 
-Show each step change as a single short line (TALK-12), for example "Step 3 of 6: shaping the idea."
-Never a summary paragraph. Then go straight into the next step. Never ask whether to carry on; stop
-only for a real decision the user must make (a choice, an approval, a missing fact).
+Show each step change as one short line (TALK-12), e.g. "Step 3 of 6: shaping the idea.", never a
+summary paragraph, then go straight on. Never ask whether to carry on; stop only for a real decision
+(a choice, an approval, a missing fact).
 
 ## The record
 
-The record is the only memory. Create it once at the start from `assets/record-template.md`. It
-holds one block per step plus run, setup, glossary, assumptions, outcome and ticket_set_ref. Keep it
-current as each step finishes.
+The record is the only memory. Create it once from `assets/record-template.md`: one block per step
+plus run, setup, glossary, assumptions, outcome and ticket_set_ref. Update it as each step finishes.
 
-Write the record by capability, not by host (REC-2). Where the host can create files, write the
-record as a file in the working folder, silently. Never offer, name or describe the record or its
-file to the user. Where the host cannot create files, keep the record as a chat summary and show it
-only when the user asks to stop and come back later, or on resume, so the memory survives without a
-file. The refine,
-size and plan mode records follow the same rule, so resume and the one-line status are
-host-independent either way.
+Write the record by capability, not by host (REC-2). Where the host can create files, write it
+silently as a file in the working folder; never offer, name or describe it to the user. Otherwise
+keep it as a chat summary, shown only when the user asks to stop and come back later, or on resume.
+The refine, size and plan records follow the same rule.
 
 Use the record scripts when they run:
 
@@ -73,33 +65,31 @@ Use the record scripts when they run:
 - `scripts/check_record.py --path <record.json>` reports whether the current step's required
   blocks are present and not stale.
 
-Every write names the revision it expects. A write against an older revision is refused. The record
-never holds credentials, connector tokens or personal data the run does not need.
+Every write names the revision it expects; an older revision is refused. The record never holds
+credentials, connector tokens or personal data the run does not need.
 
 ## Going back
 
-The user can return to an earlier step at any time ("actually, the goal is different"). Apply the
-change through `record.py update`: it raises the revision and marks the dependent blocks stale using
-the fixed map, keeping everything that does not depend on the change. Redo only the stale blocks.
-Say in one line what changes, for example "Changing the goal, so I'll redo what exists today and the
-shaping; the refund decision stays." The go-back map is in `references/journey.md`.
+The user can return to an earlier step any time ("actually, the goal is different"). Apply it with
+`record.py update`, which marks only the dependent blocks stale (`references/journey.md`); redo only
+those. Say in one line what changes ("Changing the goal, so I'll redo what exists today and the
+shaping; the refund decision stays.").
 
 ## Side questions
 
-If the user asks a side question mid-journey, answer it with sources and stay at the current step.
-Do not advance or change the record because of a side answer. Return to the step the run was on.
+Answer a side question with sources and stay at the current step; never advance or change the
+record because of it.
 
 ## Resume
 
-Do not offer the record at the end of a step. Only when the user says they want to stop and come
-back later, offer a resume file in plain words, without naming its format (where no file can be
-made, give the chat summary to copy). A new chat with that resume file attached resumes at the
-recorded step and asks nothing already answered. On resume, read it first, confirm the step in one
-line, and continue.
+Never offer the record at the end of a step. Only when the user wants to stop and come back later,
+offer a resume file in plain words without naming its format (or the chat summary to copy). A new
+chat with it attached resumes at the recorded step and asks nothing already answered: read it,
+confirm the step in one line, continue.
 
 ## If the checks cannot run
 
-When the record scripts cannot run on this host, keep the same record by hand:
+Keep the same record by hand:
 
 - Keep one record object with the blocks listed in `assets/record-template.md`, and a revision
   number that starts at 0.
