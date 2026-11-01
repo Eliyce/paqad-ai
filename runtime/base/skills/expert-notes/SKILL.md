@@ -27,8 +27,7 @@ repo; the pipeline script validates, numbers and merges what comes back.
   note covers that role only: write one note, hand it to `experts notes`, and the verb merges it
   beside the other seats' notes without touching them.
 
-Do **not** run this when the experts flag is off: with it off the pipeline is byte-identical to
-v1 and this skill never runs. Do **not** invent a role: you write as the role in the brief.
+Do **not** run this when the experts flag is off; the skill never runs then. Do **not** invent a role: you write as the role in the brief.
 
 ## Inputs
 
@@ -40,9 +39,8 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 ## Procedure
 
 1. Print your brief with `paqad-ai spec pipeline experts brief <role>`. Read your lens, the file
-   named for your role in the lens list under Resources. The lens is the only file you need: the
-   kinds, the severities and the output shape are on this page, so each extra read only costs
-   tokens from your budget.
+   named for your role in the lens list under Resources. The lens is the only file you need: kinds,
+   severities and the output shape are on this page, and each extra read costs budget.
 2. Decide from the request and the grounding **only**. Do not read the whole repo.
 3. Write findings about concrete targets (a table, an endpoint, a screen, a journey step), each
    about ONE target and making ONE claim. Mark each finding's `kind` (`requirement` becomes an

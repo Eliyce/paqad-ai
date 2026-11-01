@@ -41,10 +41,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep the report under 2,000 tokens and finish in at most 60 turns.
-Leave the synced canonical docs. Return the pillar file path and at most five lines of summary. End with exactly one of these four lines:
-
-- `Status: DONE`: the stage is complete (the orchestrator reads it as `completed`).
-- `Status: DONE_WITH_CONCERNS`: complete, with the concerns named in the summary.
-- `Status: NEEDS_CONTEXT`: you lack something only the orchestrator can give; name it.
-- `Status: BLOCKED`: you stopped. After a decision pause, add `paused: D-<id>`.
+Keep it under 2,000 tokens and finish in at most 60 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
+End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns),
+`Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED` (after a decision pause,
+add `paused: D-<id>`).

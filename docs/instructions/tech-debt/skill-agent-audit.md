@@ -319,14 +319,14 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 
 | Group | Items | Blocking | Warnings | Listing tokens | Description characters | Body tokens |
 | --- | --- | --- | --- | --- | --- | --- |
-| skills: base | 47 | 0 | 45 | 3234 | 12876 | 40480 |
+| skills: base | 47 | 0 | 45 | 3234 | 12876 | 40397 |
 | skills: coding | 29 | 0 | 29 | 1459 | 5788 | 16922 |
 | skills: content | 6 | 0 | 6 | 301 | 1192 | 1639 |
-| skills: plugin | 17 | 0 | 17 | 1384 | 6860 | 15422 |
+| skills: plugin | 17 | 0 | 17 | 1384 | 6860 | 15360 |
 | skills: security | 11 | 0 | 10 | 602 | 2396 | 7334 |
 | agents: base | 1 | 0 | 2 | 59 | 0 | 684 |
-| agents: plugin | 8 | 8 | 6 | 272 | 0 | 4523 |
-| agents: templates | 16 | 8 | 12 | 544 | 0 | 9846 |
+| agents: plugin | 8 | 8 | 6 | 272 | 0 | 3985 |
+| agents: templates | 16 | 8 | 12 | 544 | 0 | 8522 |
 
 ### Skills
 
@@ -337,7 +337,7 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `runtime/base/skills/acceptance-criteria-gen` | 0 | 1 | no activation data | 44 | 928 | 924 | 4 |  | tested | SK-004 |  |
 | `runtime/base/skills/adversarial-review` | 0 | 1 | no activation data | 42 | 557 | 554 | 3 |  | tested | SK-004 |  |
-| `runtime/base/skills/agent-orchestrator` | 0 | 1 | no activation data | 150 | 2072 | 2072 | 0 |  | no scripts | SK-004 |  |
+| `runtime/base/skills/agent-orchestrator` | 0 | 1 | no activation data | 150 | 2072 | 2059 | 13 |  | no scripts | SK-004 |  |
 | `runtime/base/skills/analytics-instrumentation` | 0 | 1 | no activation data | 103 | 733 | 731 | 2 |  | tested | SK-004 |  |
 | `runtime/base/skills/api-doc-maintainer` | 0 | 1 | no activation data | 35 | 535 | 532 | 3 |  | tested | SK-004 |  |
 | `runtime/base/skills/canonical-doc-sync` | 0 | 1 | no activation data | 47 | 475 | 473 | 2 |  | tested | SK-004 |  |
@@ -351,8 +351,8 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | `runtime/base/skills/edge-case-detection` | 0 | 1 | no activation data | 47 | 492 | 490 | 2 |  | tested | SK-004 |  |
 | `runtime/base/skills/error-catalog-maintainer` | 0 | 1 | no activation data | 39 | 544 | 542 | 2 |  | tested | SK-004 |  |
 | `runtime/base/skills/existing-doc-checker` | 0 | 0 | no activation data | 48 | 442 | 439 | 3 |  | tested |  |  |
-| `runtime/base/skills/expert-need-detector` | 0 | 1 | no activation data | 188 | 1112 | 1112 | 0 |  | no scripts | SK-004 |  |
-| `runtime/base/skills/expert-notes` | 0 | 1 | no activation data | 206 | 1485 | 1485 | 0 |  | tested | SK-004 |  |
+| `runtime/base/skills/expert-need-detector` | 0 | 1 | no activation data | 188 | 1112 | 1092 | 20 |  | no scripts | SK-004 |  |
+| `runtime/base/skills/expert-notes` | 0 | 1 | no activation data | 206 | 1485 | 1465 | 20 |  | tested | SK-004 |  |
 | `runtime/base/skills/expert-synthesis` | 0 | 1 | no activation data | 88 | 1366 | 1363 | 3 |  | tested | SK-004 |  |
 | `runtime/base/skills/finding-normalizer` | 0 | 0 | no activation data | 42 | 693 | 689 | 4 |  | tested |  |  |
 | `runtime/base/skills/glossary-maintainer` | 0 | 1 | no activation data | 38 | 466 | 463 | 3 |  | tested | SK-004 |  |
@@ -374,7 +374,7 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | `runtime/base/skills/scope-check` | 0 | 1 | no activation data | 43 | 460 | 457 | 3 |  | tested | SK-004 |  |
 | `runtime/base/skills/sequence-planner` | 0 | 1 | no activation data | 44 | 482 | 479 | 3 |  | tested | SK-004 |  |
 | `runtime/base/skills/session-resume` | 0 | 1 | no activation data | 49 | 465 | 462 | 3 |  | tested | SK-004 |  |
-| `runtime/base/skills/skill-orchestrator` | 0 | 1 | no activation data | 87 | 2010 | 2010 | 0 |  | no scripts | SK-004 |  |
+| `runtime/base/skills/skill-orchestrator` | 0 | 1 | no activation data | 87 | 2010 | 1980 | 30 |  | no scripts | SK-004 |  |
 | `runtime/base/skills/spec-diff` | 0 | 1 | no activation data | 50 | 440 | 438 | 2 |  | tested | SK-004 |  |
 | `runtime/base/skills/spec-quality-review` | 0 | 1 | no activation data | 46 | 650 | 646 | 4 |  | tested | SK-004 |  |
 | `runtime/base/skills/story-and-solution-writer` | 0 | 1 | no activation data | 45 | 483 | 481 | 2 |  | tested | SK-004 |  |
@@ -443,13 +443,13 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `runtime/claude-plugin/skills/ask` | 0 | 1 | no activation data | 246 | 1743 | 1585 | 158 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/check-tickets` | 0 | 1 | no activation data | 45 | 906 | 795 | 111 | write-tickets (0.43) | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/dashboard` | 0 | 1 | no activation data | 52 | 213 | 213 | 0 |  | no scripts | SK-004 |  |
-| `runtime/claude-plugin/skills/decide-together` | 0 | 1 | no activation data | 42 | 767 | 767 | 0 | get-connected (0.43) | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/dashboard` | 0 | 1 | no activation data | 52 | 213 | 201 | 12 |  | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/decide-together` | 0 | 1 | no activation data | 42 | 767 | 741 | 26 | get-connected (0.43) | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/discover` | 0 | 1 | no activation data | 165 | 1448 | 1236 | 212 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/get-connected` | 0 | 1 | no activation data | 44 | 1000 | 871 | 129 | decide-together (0.43) | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/ground-in-project` | 0 | 1 | no activation data | 48 | 1406 | 1246 | 160 |  | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/join` | 0 | 1 | no activation data | 62 | 230 | 230 | 0 |  | no scripts | SK-004 |  |
-| `runtime/claude-plugin/skills/onboard` | 0 | 1 | no activation data | 65 | 396 | 395 | 1 |  | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/join` | 0 | 1 | no activation data | 62 | 230 | 218 | 12 |  | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/onboard` | 0 | 1 | no activation data | 65 | 396 | 383 | 13 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/plan-sprint` | 0 | 1 | no activation data | 220 | 1183 | 1183 | 0 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/post-tickets` | 0 | 1 | no activation data | 45 | 1440 | 1439 | 1 | get-connected (0.41) | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/refine-ticket` | 0 | 1 | no activation data | 205 | 1568 | 1435 | 133 |  | tested | SK-004 |  |
@@ -496,14 +496,14 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 
 | Agent | Blocking | Warnings | Fired (30 days) | Listing tokens | Body tokens before | after | drop | Rival (Jaccard 0.4 or more) | Naming (later decision) | Open packet |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `runtime/claude-plugin/agents/paqad-checks.md` | 1 | 1 | 0 | 32 | 532 | 528 | 4 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-chief-architect.md` | 1 | 0 | 2 | 39 | 438 | 559 | -121 |  |  |  |
-| `runtime/claude-plugin/agents/paqad-development.md` | 1 | 1 | 7 | 33 | 547 | 552 | -5 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-documentation-sync.md` | 1 | 1 | 0 | 37 | 624 | 609 | 15 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-expert.md` | 1 | 0 | 18 | 33 | 475 | 589 | -114 |  |  |  |
-| `runtime/claude-plugin/agents/paqad-planning.md` | 1 | 1 | 2 | 28 | 510 | 507 | 3 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-review.md` | 1 | 1 | 0 | 32 | 644 | 635 | 9 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-specification.md` | 1 | 1 | 4 | 38 | 545 | 544 | 1 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-checks.md` | 1 | 1 | 0 | 32 | 532 | 482 | 50 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-chief-architect.md` | 1 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
+| `runtime/claude-plugin/agents/paqad-development.md` | 1 | 1 | 9 | 33 | 547 | 505 | 42 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-documentation-sync.md` | 1 | 1 | 2 | 37 | 624 | 563 | 61 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-expert.md` | 1 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
+| `runtime/claude-plugin/agents/paqad-planning.md` | 1 | 1 | 2 | 28 | 510 | 461 | 49 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-review.md` | 1 | 1 | 2 | 32 | 644 | 589 | 55 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-specification.md` | 1 | 1 | 4 | 38 | 545 | 498 | 47 |  | AG-002 |  |
 
 </details>
 
@@ -512,22 +512,22 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 
 | Agent | Blocking | Warnings | Fired (30 days) | Listing tokens | Body tokens before | after | drop | Rival (Jaccard 0.4 or more) | Naming (later decision) | Open packet |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-checks` | 1 | 1 | 0 | 32 | 532 | 528 | 4 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-chief-architect` | 1 | 0 | 2 | 39 | 438 | 559 | -121 |  |  |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-development` | 1 | 1 | 7 | 33 | 547 | 552 | -5 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-documentation-sync` | 1 | 1 | 0 | 37 | 624 | 609 | 15 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-expert` | 1 | 0 | 18 | 33 | 475 | 589 | -114 |  |  |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-planning` | 1 | 1 | 2 | 28 | 510 | 507 | 3 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-review` | 1 | 1 | 0 | 32 | 644 | 635 | 9 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-specification` | 1 | 1 | 4 | 38 | 545 | 544 | 1 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-checks` | 0 | 1 | 0 | 32 | 597 | 662 | -65 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-chief-architect` | 0 | 0 | 2 | 39 | 438 | 559 | -121 |  |  |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-development` | 0 | 1 | 7 | 33 | 612 | 685 | -73 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-documentation-sync` | 0 | 1 | 0 | 37 | 689 | 742 | -53 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-expert` | 0 | 0 | 18 | 33 | 475 | 589 | -114 |  |  |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-planning` | 0 | 1 | 2 | 28 | 575 | 640 | -65 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-review` | 0 | 1 | 0 | 32 | 709 | 769 | -60 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-specification` | 0 | 1 | 4 | 38 | 610 | 677 | -67 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-checks` | 1 | 1 | 0 | 32 | 532 | 482 | 50 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-chief-architect` | 1 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-development` | 1 | 1 | 9 | 33 | 547 | 505 | 42 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-documentation-sync` | 1 | 1 | 2 | 37 | 624 | 563 | 61 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-expert` | 1 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-planning` | 1 | 1 | 2 | 28 | 510 | 461 | 49 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-review` | 1 | 1 | 2 | 32 | 644 | 589 | 55 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-specification` | 1 | 1 | 4 | 38 | 545 | 498 | 47 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-checks` | 0 | 1 | 0 | 32 | 597 | 574 | 23 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-chief-architect` | 0 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-development` | 0 | 1 | 9 | 33 | 612 | 597 | 15 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-documentation-sync` | 0 | 1 | 2 | 37 | 689 | 655 | 34 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-expert` | 0 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-planning` | 0 | 1 | 2 | 28 | 575 | 553 | 22 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-review` | 0 | 1 | 2 | 32 | 709 | 681 | 28 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-specification` | 0 | 1 | 4 | 38 | 610 | 590 | 20 |  | AG-002 |  |
 
 </details>
 

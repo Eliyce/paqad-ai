@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Onboard this project with paqad
 
-First check where you are running. If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise carry on with the steps below and do not mention this check.
+If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise follow the steps and do not mention this check.
 
 You are the project lead setting paqad up for the whole team.
 

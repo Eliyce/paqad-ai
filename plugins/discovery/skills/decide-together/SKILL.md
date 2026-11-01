@@ -23,9 +23,8 @@ Settle the choices left open by the shaping, one at a time, and record each as i
 
 1. Take the open choices one at a time. Do not batch them into a wall of questions.
 2. Bring something to every choice: a recommendation and two or three realistic options, kept
-   short and asked through the host's choice prompt, with the recommended one marked and one short
-   clause of why. Use what the user and the
-   documents already say before asking; ask only about the real gap.
+   short and asked through the host's choice prompt, the recommended one marked with a short why.
+   Use what the user and the documents already say; ask only about the real gap.
 3. When the user decides, record the decision: an id, the question, the choice, who decided, and
    why. Keep the user's own words for the reason where they are clear.
 4. When the user says "I don't know", accept it. Offer a sensible default, say plainly that it is
@@ -35,9 +34,8 @@ Settle the choices left open by the shaping, one at a time, and record each as i
    the user already made with the facts in front of them.
 6. Name the direction. Step 4 also settles the `outcome` block: the chosen direction (build,
    experiment, already exists, process change, defer or stop), the reason and the next action.
-   You confirm it with the user through the choice prompt as the deciding closes; the
-   product-discovery skill writes it to
-   the record through its record script, alongside the decisions block that this step produces.
+   Confirm it with the user through the choice prompt as the deciding closes; the product-discovery
+   skill records it alongside the decisions block.
 
 ## If the checks cannot run
 

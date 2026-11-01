@@ -15,8 +15,7 @@ spec needs**: a database expert when the request touches the data model, a secur
 it touches auth or a trust boundary, a UI expert when it touches a screen, and so on. It returns
 a small JSON artifact naming each needed expert and, in one plain sentence, why it fired.
 
-This is the model call that **replaces a deterministic signal-scorer** (the "one
-change"): a script cannot reliably tell which expert a request needs (file-path and keyword
+This model call **replaces a deterministic signal-scorer**: a script cannot reliably tell which expert a request needs (file-path and keyword
 heuristics emit false signals both ways), so the judgement is the model's. The script's job is
 only to VALIDATE the result against the roster, never to make it. Nothing needed ⇒ an empty
 list ⇒ zero experts, zero cost.
@@ -26,8 +25,7 @@ list ⇒ zero experts, zero cost.
 - The spec pipeline is running with the expert roster enabled (`spec_pipeline_experts_enabled`),
   after `spec pipeline start` has grounded and labelled the request, and before the craft step.
 
-Do **not** run this when the experts flag is off: with it off the pipeline is byte-identical to
-v1 and this skill never runs.
+Do **not** run this when the experts flag is off; the skill never runs then.
 
 ## Inputs
 

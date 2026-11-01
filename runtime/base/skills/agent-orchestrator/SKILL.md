@@ -10,7 +10,7 @@ metadata:
 
 ## What It Does
 
-Decides whether a job deserves its own subagent and, when it does, proves that subagent before any host loads it. An agent is a separate context with its own tools, model and turn budget, so the questions are about delegation: is a fresh context worth its cost, what brief does the caller hand over, what report comes back, which tools it may hold, how it stops, and whether it beats the main conversation on real tasks. Each answer is checked by a `paqad-ai agent` verb that writes one artifact into `.paqad/tmp/authoring/agents/<name>/`. The verbs never call a model: you run the baselines and trials, the verbs judge what you saved.
+Decides whether a job deserves its own subagent and, when it does, proves that subagent before any host loads it. An agent is a separate context with its own tools, model and turn budget, so the questions are about delegation: is a fresh context worth its cost, what brief goes in and what report comes back, which tools it holds, how it stops, and whether it beats the main conversation on real tasks. Each answer is checked by a `paqad-ai agent` verb that writes one artifact into `.paqad/tmp/authoring/agents/<name>/`. The verbs never call a model: you run the baselines and trials, the verbs judge what you saved.
 
 ## Use This When
 
@@ -83,7 +83,7 @@ Decisions: <ids, or none>
 - `references/s6-delegation.md`: the delegation sweep and the fresh checks.
 - `references/s7-release.md`: host forms, the SDK form, evidence and overrides.
 - `references/s8-operate.md`: learn, drift, regression, memory and catalog.
-- `references/agents/grader.md`: the brief for grading one trial's end state.
-- `references/agents/comparator.md`: the blind comparison of an edited agent.
-- `references/agents/analyzer.md`: the brief for reading an iteration and picking one lever.
+- `references/agents/grader.md`: grading one trial's end state.
+- `references/agents/comparator.md`: blind comparison of an edited agent.
+- `references/agents/analyzer.md`: reading an iteration and picking one lever.
 - `agents/openai.yaml`: the display name and short description for hosts that read it.

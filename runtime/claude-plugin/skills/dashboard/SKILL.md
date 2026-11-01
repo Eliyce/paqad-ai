@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Open the paqad dashboard
 
-First check where you are running. If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise carry on with the steps below and do not mention this check.
+If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise follow the steps and do not mention this check.
 
 The dashboard is a local web app for this project. It never leaves the machine.
 
