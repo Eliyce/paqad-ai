@@ -581,19 +581,19 @@ function exitFor(child, ctx) {
   return blocking ? 2 : child.status;
 }
 
-function missingScript(ctx) {
+function missingScript(ctx, route) {
   if (ctx.event !== 'PreToolUse') return 0;
-  ctx.deps.stderr(
-    'paqad cannot run ' +
-      ctx.script +
-      ' because the paqad setup committed in this repo is out of date, so the lead must run `paqad-ai update` and commit the result.\n',
-  );
+  const reason =
+    route === 'npm'
+      ? ' because your paqad-ai install does not have it, so update your own paqad-ai (for example `npm install -g paqad-ai@latest`) and try again.\n'
+      : ' because the paqad setup committed in this repo is out of date, so the lead must run `paqad-ai update` and commit the result.\n';
+  ctx.deps.stderr('paqad cannot run ' + ctx.script + reason);
   return 2;
 }
 
 function runNpm(target, ctx) {
   const hookPath = join(target, 'hooks', ctx.script);
-  if (!ctx.validScript || !existsSync(hookPath)) return missingScript(ctx);
+  if (!ctx.validScript || !existsSync(hookPath)) return missingScript(ctx, 'npm');
   return exitFor(runChild(hookPath, ctx.args, ctx, ctx.env), ctx);
 }
 
@@ -602,7 +602,7 @@ function runCopy(ctx) {
   if (ctx.script === 'silent-update.mjs') return 0;
   const hooks = join(teamPluginRoot(home), 'runtime', 'hooks');
   const hookPath = join(hooks, ctx.script);
-  if (!ctx.validScript || !existsSync(hookPath)) return missingScript(ctx);
+  if (!ctx.validScript || !existsSync(hookPath)) return missingScript(ctx, 'copy');
   const env = copyEnv(ctx.env, home);
   if (ctx.event === 'SessionStart' && isRemote(ctx.env)) {
     try {

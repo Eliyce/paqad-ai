@@ -272,7 +272,8 @@ describe('the npm route forwards to the npm install', () => {
     npmInstall('dev');
     const blocked = await runEvent({}, 'PreToolUse', 'decision-pause-gate.mjs');
     expect(blocked.code).toBe(2);
-    expect(blocked.captured.stderr.join('')).toContain('paqad-ai update');
+    expect(blocked.captured.stderr.join('')).toContain('update your own paqad-ai');
+    expect(blocked.captured.stderr.join('')).not.toContain('the lead');
     const stop = await runEvent({}, 'Stop', 'stage-marker-parse.mjs');
     expect(stop.code).toBe(0);
   });
