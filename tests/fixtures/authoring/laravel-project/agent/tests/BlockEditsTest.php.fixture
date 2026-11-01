@@ -1,0 +1,15 @@
+<?php
+
+require_once dirname(__DIR__, 4).'/.claude/hooks/BlockEdits.php';
+
+it('BlockEdits blocks', function () {
+    expect(block_edits_decide(json_encode(['tool_name' => 'Edit'])))->toBe([2, BLOCK_EDITS_MESSAGE]);
+});
+
+it('BlockEdits allows', function () {
+    expect(block_edits_decide(json_encode(['tool_name' => 'Read'])))->toBe([0, '']);
+});
+
+it('BlockEdits invalid input', function () {
+    expect(block_edits_decide('not json')[0])->toBe(2);
+});

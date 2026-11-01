@@ -1,0 +1,21 @@
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+const root = resolve(import.meta.dirname, '../../..');
+const { decide, BLOCKED } = (await import(
+  pathToFileURL(join(root, '.claude/hooks/block-edits.mjs')).href
+)) as { decide: (raw: string) => { code: number; stderr: string }; BLOCKED: string };
+
+describe('block-edits', () => {
+  it('block-edits blocks', () => {
+    expect(decide(JSON.stringify({ tool_name: 'Edit' }))).toEqual({ code: 2, stderr: BLOCKED });
+  });
+  it('block-edits allows', () => {
+    expect(decide(JSON.stringify({ tool_name: 'Read' }))).toEqual({ code: 0, stderr: '' });
+  });
+  it('block-edits invalid input', () => {
+    expect(decide('not json').code).toBe(2);
+  });
+});

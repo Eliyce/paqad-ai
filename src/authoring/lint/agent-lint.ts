@@ -59,6 +59,7 @@ export const TOOL_LIMIT_POWER = 'tool-limit';
 const PERMISSION_RULE = 'AG-015';
 const TOOL_LIMIT_RULE = 'AG-018';
 const RISKY_POWER_RULE = 'AG-022';
+export const POWER_RULES: readonly string[] = [PERMISSION_RULE, TOOL_LIMIT_RULE, RISKY_POWER_RULE];
 const SCRIPT_INTERPRETERS = /^(?:node|php|python3?|ruby|bash|sh|deno|bun|tsx)$/u;
 const SHELL_OPERATORS = /[;&|`<>]|\$\(/u;
 const HOOK_SCRIPT_PREFIX = /^(?:"?\$\{?CLAUDE_PROJECT_DIR\}?"?\/|\.\/)/u;

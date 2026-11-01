@@ -10,3 +10,9 @@ Two small projects for `tests/e2e/skill-orchestrator.e2e.test.ts`. Each holds a 
   `tests/Feature/Skills/ProcessingInvoices/`, run with `php artisan test`. Its `vendor/` is not
   committed: the dedicated CI job runs `composer install` before the tests. Without `php` or
   `vendor/autoload.php` the Laravel half skips with a stated reason.
+
+Each project also holds an agent (`agent/`) for `tests/e2e/agent-orchestrator.e2e.test.ts`: the
+agent file `migration-reviewer.md`, the hook script it names (`hooks/`) and that script's three
+named hook tests (`tests/`: blocks, allows, invalid input), which the e2e copies into
+`.claude/agents/`, `.claude/hooks/` and the stack's agent test folder (`tests/agents/<name>/` for
+npm, `tests/Feature/Agents/<Name>/` for Laravel).

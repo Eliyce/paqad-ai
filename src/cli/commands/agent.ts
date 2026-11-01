@@ -12,6 +12,7 @@ import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
 import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
 import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
+import { runAgentTest } from '@/authoring/stages/agent-test.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
 import { raiseIntakeGap } from '@/authoring/stages/intake.js';
@@ -215,6 +216,20 @@ function addIntakeVerbs(command: Command): void {
           refuse: options.refuse,
         });
       }),
+  );
+
+  withCommon(
+    command
+      .command('test')
+      .description(
+        'S4: lint the drafted agent, ask about risky powers and hook scripts, and run the hook ' +
+          'script tests under the project test command',
+      )
+      .argument('<name>', 'The agent name'),
+  ).action((name: string, options: VerbOptions) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runAgentTest(workspace, { change: changeKey(projectRoot, options.session) }),
+    ),
   );
 }
 
