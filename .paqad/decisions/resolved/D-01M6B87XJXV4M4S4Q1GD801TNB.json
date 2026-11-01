@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6B87XJXV4M4S4Q1GD801TNB",
+  "category": "intake.requirement",
+  "title": "Total spend limit for testing one agent and the High Table comparison",
+  "context": "Chief architect gap: authoring_run_max_cost_usd caps only one trial. One agent needs 24 to 36 eval trials plus 48 to 60 delegation runs per iteration, up to 3 iterations, on two model tiers, and the one-time High Table comparison (paqad-ai experts benchmark) replays at least 18 full reviews. Only the owner can say how much money the total may reach before paqad stops and asks.",
+  "options": [
+    {
+      "option_key": "worst-case-upfront",
+      "label": "Show the worst-case total before testing starts, and stop and ask only if real spend reaches it",
+      "one_line_preview": "Show the worst-case total before testing starts, and stop and ask only if real spend reaches it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "dollar-cap",
+      "label": "Stop and ask once the total passes a dollar amount you set (default: 50 times the single-run limit)",
+      "one_line_preview": "Stop and ask once the total passes a dollar amount you set (default: 50 times the single-run limit)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-total-cap",
+      "label": "No total limit; only each single run stays capped",
+      "one_line_preview": "No total limit; only each single run stays capped",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "worst-case-upfront",
+  "created_at": "2026-11-01T09:49:53.117Z",
+  "status": "resolved",
+  "change": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "chosen": "worst-case-upfront",
+  "rationale": "Owner: show worst-case total upfront, ask only when real spend reaches it",
+  "resolved_at": "2026-11-01T09:53:07.715Z",
+  "decision_id": "D-01M6B87XJXV4M4S4Q1GD801TNB",
+  "fingerprint": "sha256:b7a2d4457e09262f2805d456d5cd022e0d88b3cc533786d8aa79293618da4e3b",
+  "question": "Total spend limit for testing one agent and the High Table comparison",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "ttl_until": "2026-11-15T09:49:53.117Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "worst-case-upfront",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T09:53:07.715Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: show worst-case total upfront, ask only when real spend reaches it"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "D-01M6B856FJBJH88E468ZYZ7Z1V",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on .paqad/ledger/authoring/delegations.jsonl",
+  "context": "Chief architect: This holds a must-level security-auditor constraint, so the owner rules it. The other two claims do not contradict it and the plan should keep them: one row per delegation keyed on the Agent tool call's tool_use_id (also accepted as EX-user-flow-writer-7), and a catalog report that says the 30-day never-fired count covers this machine only. That matches the #794 activation log, which is local operational data.\n\nTarget: .paqad/ledger/authoring/delegations.jsonl\n- security-auditor: The delegation log records only {agent, request_id, session_id, at, tokens, duration_ms, status}; it never stores the delegation message, the report text or tool output, which can carry secrets or personal data.\n- devops-engineer: the ledger/ ignore rule (gitignore-writer.ts:62) keeps the delegation log and high-table-benchmark.json per machine, so the 30-day retirement check (AC-P06) and the benchmark numbers only reflect one machine; the spec must say so or move the benchmark result into tracked evidence\n- integration-architect: one delegation fires both the new PostToolUse Agent|Task entry and the new SubagentStop entry, and a background agent's PostToolUse fires at launch before tokens and duration are final; each row must carry the tool_use_id from the Agent tool call as request_id, and the catalog and learn readers must merge rows by that key so one delegation is counted once, whatever order the two events arrive in\n\n[expert-conflict-fork:6f2b0c4fd00cfe38]",
+  "options": [
+    {
+      "option_key": "the-delegation-log-records-only-agent-re",
+      "label": "The delegation log records only {agent, request_id, session_id, at, tokens, duration_ms, status}; it never stores the delegation message, the report text or tool output, which can carry secrets or personal data. — security-auditor",
+      "one_line_preview": "The delegation log records only {agent, request_id, session_id, at, tokens, duration_ms, status}; it never stores the delegation message, the report text or tool output, which can carry secrets or personal data. — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-ledger-ignore-rule-gitignore-writer-",
+      "label": "the ledger/ ignore rule (gitignore-writer.ts:62) keeps the delegation log and high-table-benchmark.json per machine, so the 30-day retirement check (AC-P06) and the benchmark numbers only reflect one machine; the spec must say so or move the benchmark result into tracked evidence — devops-engineer",
+      "one_line_preview": "the ledger/ ignore rule (gitignore-writer.ts:62) keeps the delegation log and high-table-benchmark.json per machine, so the 30-day retirement check (AC-P06) and the benchmark numbers only reflect one machine; the spec must say so or move the benchmark result into tracked evidence — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-delegation-fires-both-the-new-postto",
+      "label": "one delegation fires both the new PostToolUse Agent|Task entry and the new SubagentStop entry, and a background agent's PostToolUse fires at launch before tokens and duration are final; each row must carry the tool_use_id from the Agent tool call as request_id, and the catalog and learn readers must merge rows by that key so one delegation is counted once, whatever order the two events arrive in — integration-architect",
+      "one_line_preview": "one delegation fires both the new PostToolUse Agent|Task entry and the new SubagentStop entry, and a background agent's PostToolUse fires at launch before tokens and duration are final; each row must carry the tool_use_id from the Agent tool call as request_id, and the catalog and learn readers must merge rows by that key so one delegation is counted once, whatever order the two events arrive in — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-delegation-log-records-only-agent-re",
+  "created_at": "2026-11-01T09:48:23.923Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "chosen": "the-delegation-log-records-only-agent-re",
+  "rationale": "Owner: metadata only leads; per-machine caveat and tool_use_id merge stay in the plan",
+  "resolved_at": "2026-11-01T09:53:07.074Z",
+  "decision_id": "D-01M6B856FJBJH88E468ZYZ7Z1V",
+  "fingerprint": "sha256:f7dac679d8fb97341615bd931fd880d67279eda080beacdd9fbc046d676d41ec",
+  "question": "Experts disagree on .paqad/ledger/authoring/delegations.jsonl",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M6B5R44JDNFBPXYAESEE5SN5",
+  "ttl_until": "2026-12-01T09:48:23.923Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-delegation-log-records-only-agent-re",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T09:53:07.074Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: metadata only leads; per-machine caveat and tool_use_id merge stay in the plan"
+  }
+}
