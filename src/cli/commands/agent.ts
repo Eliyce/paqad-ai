@@ -11,6 +11,7 @@ import {
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
 import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
+import { runAgentEvalPlan, runAgentEvalRecord } from '@/authoring/stages/agent-eval.js';
 import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
 import { runAgentTest } from '@/authoring/stages/agent-test.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
@@ -233,6 +234,43 @@ function addIntakeVerbs(command: Command): void {
   );
 }
 
+function addEvalVerbs(command: Command): void {
+  const evalCommand = command.command('eval').description('S5: plan and record the agent evals');
+  withCommon(
+    evalCommand
+      .command('plan')
+      .description(
+        'Write the next iteration of trials and print the run commands; never calls a model',
+      )
+      .argument('<name>', 'The agent name')
+      .option(
+        '--lever <lever>',
+        'The revision lever this iteration changed: brief | tools | stopping | report | prose',
+      )
+      .option('--batch-available', 'The client offers a batch API for this sweep'),
+  ).action((name: string, options: VerbOptions & { lever?: string; batchAvailable?: boolean }) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runAgentEvalPlan(workspace, {
+        lever: options.lever,
+        batchAvailable: options.batchAvailable === true,
+        change: changeKey(projectRoot, options.session),
+      }),
+    ),
+  );
+  withCommon(
+    evalCommand
+      .command('record')
+      .description(
+        'Validate the trials of the latest iteration, compute pass^k and judge the S5 gate',
+      )
+      .argument('<name>', 'The agent name'),
+  ).action((name: string, options: VerbOptions) =>
+    runAgentVerb(name, options, (workspace, projectRoot) =>
+      runAgentEvalRecord(workspace, { change: changeKey(projectRoot, options.session) }),
+    ),
+  );
+}
+
 export function createAgentCommand(): Command {
   const command = new Command('agent').description(
     'Prove a new or edited agent (subagent file) through its gated pipeline before it is added',
@@ -252,6 +290,7 @@ export function createAgentCommand(): Command {
     });
 
   addIntakeVerbs(command);
+  addEvalVerbs(command);
 
   withCommon(
     command
