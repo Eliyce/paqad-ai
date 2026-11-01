@@ -51,7 +51,9 @@ describe('the agent bundle record', () => {
     expect(agentRecordFilename('migration-reviewer')).toBe('agent-migration-reviewer.json');
     const first = writeAgentRecord(root, sessionId, BODY);
     expect(first.written).toBe(true);
-    expect(first.path.endsWith(`${dir}/agent-migration-reviewer.json`)).toBe(true);
+    expect(first.path.replaceAll('\\', '/').endsWith(`${dir}/agent-migration-reviewer.json`)).toBe(
+      true,
+    );
     expect(writeAgentRecord(root, sessionId, BODY).written).toBe(false);
     const record = readAgentRecord(root, dir, 'migration-reviewer') as unknown as Record<
       string,

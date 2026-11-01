@@ -317,7 +317,7 @@ describe('paqad-ai agent release (S7)', () => {
     );
     const again = release(workspace);
     expect(again.lines[0]).toContain('already released with this content');
-    expect(again.lines.at(-1)).toMatch(
+    expect(again.lines.at(-1)?.replaceAll('\\', '/')).toMatch(
       new RegExp(`${dir}/agent-${AGENT_NAME}\\.json is already current\\.$`, 'u'),
     );
     expect(
