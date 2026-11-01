@@ -42,6 +42,15 @@ const CONFIG: BundleCompletenessConfig = {
   stageIsolationUnresolved: false,
 };
 
+const MAIN_VERDICT_AT_MERGE_BASE = {
+  name: 'bundle-completeness',
+  status: 'pass',
+  detail:
+    'Every required bundle file is present for this feature (8 checked). Skipped (flag off): ai-bom.json, change-metrics.jsonl, clarification.json, duplication.jsonl, experts.json, rag.jsonl, receipt.json, report.html, request.md, rule-run.jsonl.',
+  remediation: null,
+  failures: [],
+};
+
 const AGENT = (extra = '') => `---
 name: ${NAME}
 description: 'Use this agent when a change adds a database migration, as in "review this migration" or "is this safe".'
@@ -177,16 +186,13 @@ describe('the agent completion check', () => {
     ).toEqual([]);
   });
 
-  it('AC-64: on the npm fixture, a change with no agent path and one adding a .cursor/agents file get the main verdict', () => {
+  it('AC-64: on the npm fixture, a change with no agent path and one adding a .cursor/agents file get the verdict recorded from main', () => {
     const root = project();
     cpSync(NPM_FIXTURE, root, { recursive: true });
     write(root, `.cursor/agents/${NAME}.md`, AGENT());
     const changes = [['src/a.ts'], [`.cursor/agents/${NAME}.md`]];
     const withSeat = changes.map((files) => gate(root, files));
-    vi.stubEnv('PAQAD_AGENT_ORCHESTRATOR_ENABLED', 'false');
-    const main = changes.map((files) => gate(root, files));
-    expect(withSeat).toEqual(main);
-    expect(main.map((verdict) => verdict.status)).toEqual(['pass', 'pass']);
+    expect(withSeat).toEqual([MAIN_VERDICT_AT_MERGE_BASE, MAIN_VERDICT_AT_MERGE_BASE]);
   });
 
   it('returns nothing when agent_orchestrator_enabled is false', () => {
