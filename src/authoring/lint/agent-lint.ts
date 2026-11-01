@@ -4,7 +4,6 @@ import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { DECISION_CATEGORY_DEFAULTS } from '@/planning/decision-packet.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
 import { readAuthoringConfig, type AuthoringConfig } from '../config.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
@@ -21,6 +20,7 @@ import {
 } from '../overlap.js';
 import { readSkillPathContext, type SkillPathContext } from '../paths.js';
 import { agentTestDirectories } from '../tests/locations.js';
+import { estimateTokens } from '../tokens.js';
 import {
   AGENT_TRACKED_ROOT,
   AGENT_WORKSPACE_ROOT,

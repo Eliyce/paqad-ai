@@ -7,8 +7,8 @@ import { BaseAdapter } from '@/adapters/shared/base-adapter.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
-import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
-import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
+
+import { AGENT_HOST_TARGETS, isSubagentCapableAdapter } from './package/agent-render.js';
 
 export const OPEN_STANDARD_SKILLS_ROOT = '.agents/skills';
 
@@ -144,7 +144,7 @@ export function agentRoots(
 ): string[] {
   const roots = new Set<string>();
   for (const type of adapters) {
-    if (!isSubagentCapableAdapter(type, STAGE_AGENT_HOSTS)) continue;
+    if (!isSubagentCapableAdapter(type, AGENT_HOST_TARGETS)) continue;
     const root = hostAgentsRoot(type);
     if (root !== null) roots.add(normalize(root).replace(/\/+$/u, ''));
   }

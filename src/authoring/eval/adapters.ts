@@ -7,10 +7,9 @@ import type { AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 import { defaultClaudeVersion } from '@/install/plugin-migration.js';
-import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
-import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 
 import { CLAUDE_PLUGIN_EVAL_SUPPORT } from '../lint/fields.js';
+import { AGENT_HOST_TARGETS, isSubagentCapableAdapter } from '../package/agent-render.js';
 
 export type EvalAdapter = 'claude-plugin-eval' | 'subagent-dispatch' | 'none';
 
@@ -46,7 +45,7 @@ export function selectEvalAdapter(input: {
           : `Claude Code ${input.claudeVersion} is older than ${CLAUDE_PLUGIN_EVAL_SUPPORT.minimum_version}`,
     };
   }
-  if (isSubagentCapableAdapter(input.host, STAGE_AGENT_HOSTS)) {
+  if (isSubagentCapableAdapter(input.host, AGENT_HOST_TARGETS)) {
     return {
       ...base,
       adapter: 'subagent-dispatch',

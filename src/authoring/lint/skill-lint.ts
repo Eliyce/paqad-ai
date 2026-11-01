@@ -4,11 +4,11 @@ import { basename, join, relative, sep } from 'node:path';
 import YAML from 'yaml';
 
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
 import { readRegularFile } from '../fs-io.js';
 import { isPaqadRepository, skillFolderOf } from '../paths.js';
 import { skillTestDirectories } from '../tests/locations.js';
+import { estimateTokens } from '../tokens.js';
 import { allowedSkillFields, DESCRIPTION_MAX_CHARS, descriptionLength } from './fields.js';
 import {
   checkDynamic as checkDynamicLines,

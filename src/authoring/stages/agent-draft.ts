@@ -1,11 +1,11 @@
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
 
 import { readAuthoringConfig } from '../config.js';
 import { readRegularFile } from '../fs-io.js';
 import { agentHookScripts, bodyHeadingOrderProblem } from '../lint/agent-lint.js';
+import { estimateTokens } from '../tokens.js';
 import {
   AuthoringRefusal,
   renderGateMarkdown,

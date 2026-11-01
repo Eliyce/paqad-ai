@@ -1,7 +1,6 @@
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
-
 import { descriptionLength, descriptionWithinLimit } from '../lint/fields.js';
 import { meetsThreshold } from '../thresholds.js';
+import { estimateTokens } from '../tokens.js';
 
 export const TRIGGER_SEED = 42;
 export const TRAIN_SHARE = 0.6;

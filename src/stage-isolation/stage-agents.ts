@@ -1,3 +1,4 @@
+import { isSubagentCapableAdapter } from '@/authoring/package/agent-render.js';
 import {
   OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
   REVIEW_DIGEST_REFRESH_INSTRUCTION,
@@ -272,9 +273,4 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
   ].join('\n');
 }
 
-export function isSubagentCapableAdapter(
-  adapter: string | null | undefined,
-  hosts: readonly { adapter: string }[],
-): boolean {
-  return typeof adapter === 'string' && hosts.some((host) => host.adapter === adapter);
-}
+export { isSubagentCapableAdapter };

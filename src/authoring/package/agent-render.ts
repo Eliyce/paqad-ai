@@ -31,6 +31,13 @@ export const AGENT_HOST_TARGETS: readonly AgentHostTarget[] = [
   },
 ];
 
+export function isSubagentCapableAdapter(
+  adapter: string | null | undefined,
+  hosts: readonly { adapter: string }[] = AGENT_HOST_TARGETS,
+): boolean {
+  return typeof adapter === 'string' && hosts.some((host) => host.adapter === adapter);
+}
+
 const compiledTemplates = new Map<string, Handlebars.TemplateDelegate>();
 
 export function renderAgentTemplate(

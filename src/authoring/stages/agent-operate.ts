@@ -1,7 +1,5 @@
 import { join } from 'node:path';
 
-import { estimateTokens } from '@/stage-isolation/subagent-completion.js';
-
 import { ACTIVATION_HOOK_HOSTS } from '../catalog.js';
 import { readAuthoringConfig } from '../config.js';
 import { option, raiseAuthoringDecision, readAuthoringDecision } from '../decisions.js';
@@ -13,6 +11,7 @@ import { readTextIfPresent } from '../fs-io.js';
 import { lintAgentInProject, POWER_RULES } from '../lint/agent-lint.js';
 import { discoverInstalledAgents } from '../overlap.js';
 import { readSkillPathContext } from '../paths.js';
+import { estimateTokens } from '../tokens.js';
 import {
   AGENT_TRACKED_ROOT,
   AuthoringRefusal,
