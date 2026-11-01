@@ -141,7 +141,7 @@ describe('the High Table agent bodies', () => {
     const notes = body.indexOf('paqad-ai spec pipeline experts notes');
     expect(brief).toBeGreaterThan(-1);
     expect(notes).toBeGreaterThan(brief);
-    expect(body).toContain('ONE note for your role only');
+    expect(body).toContain('Write one note for your role');
     expect(body).toContain('expert-notes');
     expect(body).toContain('Never edit source');
     expect(body).toContain('SE_SESSION');

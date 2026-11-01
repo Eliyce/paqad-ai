@@ -10,24 +10,76 @@ export interface StageAgentDef {
   ledgerStage: string;
   claudeTools: string;
   role: string;
+  description: string;
+  artifact: string;
+  maxTurns: number;
 }
+
+export const REPORT_MAX_TOKENS = 2000;
+export const STAGE_REPORT_STATUSES = [
+  'DONE',
+  'DONE_WITH_CONCERNS',
+  'NEEDS_CONTEXT',
+  'BLOCKED',
+] as const;
+export type StageReportStatus = (typeof STAGE_REPORT_STATUSES)[number];
+
+const DISPATCHED_LINE = 'Dispatched by the paqad orchestrator only.';
 
 const READ_ONLY_TOOLS = 'Read, Grep, Glob, Bash';
 const DEVELOPMENT_TOOLS = 'Read, Edit, Write, NotebookEdit, Grep, Glob, Bash';
 const DOC_SYNC_TOOLS = 'Read, Edit, Write, Grep, Glob, Bash';
 
-const STAGE_META: Record<string, { tools: string; role: string }> = {
-  planning: { tools: READ_ONLY_TOOLS, role: 'plan the change and record the reuse-checked plan' },
+interface StageMeta {
+  tools: string;
+  role: string;
+  summary: string;
+  artifact: string;
+  maxTurns: number;
+}
+
+const STAGE_META: Record<string, StageMeta> = {
+  planning: {
+    tools: READ_ONLY_TOOLS,
+    role: 'plan the change and record the reuse-checked plan',
+    summary: 'maps reuse candidates and compiles plan.json',
+    artifact: '`plan.json`, written by `paqad-ai plan compile`',
+    maxTurns: 60,
+  },
   specification: {
     tools: READ_ONLY_TOOLS,
     role: 'write and freeze the feature spec before any code',
+    summary: 'drafts acceptance criteria, seats the High Table and freezes specification.json',
+    artifact: '`specification.json`, written by `paqad-ai spec freeze`',
+    maxTurns: 60,
   },
-  development: { tools: DEVELOPMENT_TOOLS, role: 'implement the frozen spec' },
-  review: { tools: READ_ONLY_TOOLS, role: 'review the change and record the review' },
-  checks: { tools: READ_ONLY_TOOLS, role: 'run the project checks and record the result' },
+  development: {
+    tools: DEVELOPMENT_TOOLS,
+    role: 'implement the frozen spec',
+    summary: 'implements the frozen spec in source and tests after rules load',
+    artifact: 'the source and test edits, plus `rules-loaded.json` from `paqad-ai rules load`',
+    maxTurns: 150,
+  },
+  review: {
+    tools: READ_ONLY_TOOLS,
+    role: 'review the change and record the review',
+    summary: 'reads the diff against the spec and records review.json findings',
+    artifact: '`review.json`, written by `paqad-ai review record`',
+    maxTurns: 60,
+  },
+  checks: {
+    tools: READ_ONLY_TOOLS,
+    role: 'run the project checks and record the result',
+    summary: 'runs lint, typecheck and the test suite once into checks.json',
+    artifact: '`checks.json`, written by `paqad-ai checks run`',
+    maxTurns: 60,
+  },
   documentation_sync: {
     tools: DOC_SYNC_TOOLS,
     role: 'sync the canonical docs the change affects',
+    summary: 'updates the canonical docs whose described behaviour the diff changed',
+    artifact: 'the synced canonical docs',
+    maxTurns: 60,
   },
 };
 
@@ -40,12 +92,18 @@ export function agentNameForStage(ledgerStage: string): string {
 }
 
 export const MANDATORY_STAGE_AGENTS: readonly StageAgentDef[] = STAGE_AGENT_STAGES.map(
-  (ledgerStage) => ({
-    agentName: agentNameForStage(ledgerStage),
-    ledgerStage,
-    claudeTools: STAGE_META[ledgerStage]!.tools,
-    role: STAGE_META[ledgerStage]!.role,
-  }),
+  (ledgerStage) => {
+    const meta = STAGE_META[ledgerStage]!;
+    return {
+      agentName: agentNameForStage(ledgerStage),
+      ledgerStage,
+      claudeTools: meta.tools,
+      role: meta.role,
+      description: `paqad ${ledgerStage.replace(/_/g, ' ')} stage: ${meta.summary}. ${DISPATCHED_LINE}`,
+      artifact: meta.artifact,
+      maxTurns: meta.maxTurns,
+    };
+  },
 );
 
 export const PLUGIN_AGENT_NAMESPACE = 'paqad:';
@@ -71,20 +129,21 @@ export interface HighTableAgentDef {
   agentName: string;
   claudeTools: string;
   description: string;
+  maxTurns: number;
 }
 
 export const HIGH_TABLE_AGENTS: readonly HighTableAgentDef[] = [
   {
     agentName: EXPERT_AGENT_NAME,
     claudeTools: READ_ONLY_TOOLS,
-    description:
-      'paqad High Table seat: one expert writes one note for its role. Dispatched by the paqad orchestrator only.',
+    description: `paqad High Table seat: one expert role records its notes JSON of findings and questions. ${DISPATCHED_LINE}`,
+    maxTurns: 20,
   },
   {
     agentName: CHIEF_ARCHITECT_AGENT_NAME,
     claudeTools: READ_ONLY_TOOLS,
-    description:
-      'paqad High Table chair: the chief architect rules on the expert notes. Dispatched by the paqad orchestrator only.',
+    description: `paqad High Table chair: the chief architect rules on every seat and records synthesis.json with its conflicts. ${DISPATCHED_LINE}`,
+    maxTurns: 30,
   },
 ];
 
@@ -97,62 +156,91 @@ export function isHighTableAgent(agentType: string | null | undefined): boolean 
 const SEAT_RULES = [
   '## Hard rules',
   '',
-  '- **Never edit source, docs or config.** You write one artifact under `.paqad/tmp/high-table/`',
+  '- Never edit source, docs or config. You write one artifact under `.paqad/tmp/high-table/`',
   '  with the shell (a heredoc) and hand it to the verb. You have no Edit or Write tool.',
-  '- **Never write into a feature bundle directory.** Only the verb writes there.',
-  '- **Never ask the human.** A question only a person can answer goes into your artifact in the',
+  '- Never write into a feature bundle directory. Only the verb writes there.',
+  '- Never ask the human. A question only a person can answer goes into your artifact in the',
   '  skill format; the orchestrator asks it in the question round.',
   '- You do not load the paqad router or the rules. Your brief carries what a seat needs.',
-  '- **Export `SE_SESSION`** from the value the orchestrator gave you for every `paqad-ai` command,',
+  '- Export `SE_SESSION` from the value the orchestrator gave you for every `paqad-ai` command,',
   '  so every row you write lands under the one change.',
 ];
 
+export function reportSection(artifact: string, maxTurns: number, returnLine: string): string[] {
+  return [
+    '## Report',
+    '',
+    `Keep the report under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens and finish in at most ${maxTurns} turns.`,
+    `Leave ${artifact}. ${returnLine} End with exactly one of these four lines:`,
+    '',
+    '- `Status: DONE`: the stage is complete (the orchestrator reads it as `completed`).',
+    '- `Status: DONE_WITH_CONCERNS`: complete, with the concerns named in the summary.',
+    '- `Status: NEEDS_CONTEXT`: you lack something only the orchestrator can give; name it.',
+    '- `Status: BLOCKED`: you stopped. After a decision pause, add `paused: D-<id>`.',
+  ];
+}
+
+const EXPERT_DEF = (): HighTableAgentDef =>
+  HIGH_TABLE_AGENTS.find((def) => def.agentName === EXPERT_AGENT_NAME)!;
+const CHIEF_DEF = (): HighTableAgentDef =>
+  HIGH_TABLE_AGENTS.find((def) => def.agentName === CHIEF_ARCHITECT_AGENT_NAME)!;
+
 export function buildExpertAgentBody(): string {
   return [
-    'You are one seat at the paqad **High Table**: a single expert writing request-time notes for',
-    'one feature-development change. The orchestrator tells you your role (for example',
+    'You are one seat at the paqad **High Table**: one expert writing request-time notes for one',
+    'feature-development change. The orchestrator gives you your role (for example',
     '`security-auditor`), the change ref and `SE_SESSION`. Other experts run beside you in their',
-    'own subagents, so you cover your role only.',
+    'own subagents, so cover your role only.',
     '',
     '## Run your seat',
     '',
-    '1. Print your brief first: `paqad-ai spec pipeline experts brief <role>`. This also records',
-    '   that your seat started writing.',
-    '2. Follow the `expert-notes` skill for your role. Use your host skill when it is installed,',
-    '   otherwise read `runtime/base/skills/expert-notes/SKILL.md` in the paqad install directory',
-    '   that `.paqad/framework-path.txt` names, and your lens under its `references/lenses/`.',
-    '3. Write ONE note for your role only, in the skill format, with one entry in `notes` (your',
-    '   role, its `findings` and `questions`) and your spent tokens under `tokens.<role>`.',
-    '   Save it as `.paqad/tmp/high-table/<role>-notes.json`.',
+    '1. Print your brief: `paqad-ai spec pipeline experts brief <role>`. This also records that',
+    '   your seat started.',
+    '2. Follow the `expert-notes` skill for your role: your host skill when it is installed,',
+    '   otherwise `runtime/base/skills/expert-notes/SKILL.md` in the paqad install directory that',
+    '   `.paqad/framework-path.txt` names, with your lens under its `references/lenses/`.',
+    '3. Write one note for your role in the skill format: one entry in `notes` (your role, its',
+    '   `findings` and `questions`) and your spent tokens under `tokens.<role>`. Save it as',
+    '   `.paqad/tmp/high-table/<role>-notes.json`.',
     '4. Record it: `paqad-ai spec pipeline experts notes .paqad/tmp/high-table/<role>-notes.json`.',
     '   A refusal names what to fix; fix the artifact and run the verb again.',
-    '5. Return one line: your role, the number of findings and questions, and the tokens you spent.',
     '',
     ...SEAT_RULES,
+    '',
+    ...reportSection(
+      'your recorded `.paqad/tmp/high-table/<role>-notes.json`',
+      EXPERT_DEF().maxTurns,
+      'Return one line: your role, the number of findings and questions, and the tokens you spent.',
+    ),
   ].join('\n');
 }
 
 export function buildChiefArchitectAgentBody(): string {
   return [
     'You are the **chief architect** who chairs the paqad **High Table** for one',
-    'feature-development change. Every seated expert has recorded its note. The orchestrator gives',
-    'you the change ref and `SE_SESSION`.',
+    'feature-development change, after every seated expert has recorded its note. The',
+    'orchestrator gives you the change ref and `SE_SESSION`.',
     '',
     '## Rule on the notes',
     '',
-    '1. Read the table first: `paqad-ai spec pipeline experts context`. It prints the request, the',
+    '1. Read the table: `paqad-ai spec pipeline experts context`. It prints the request, the',
     '   grounding, every note, the voice warnings and the merge, and records that you started.',
-    '2. Follow the `expert-synthesis` skill. Use your host skill when it is installed, otherwise',
-    '   read `runtime/base/skills/expert-synthesis/SKILL.md` in the paqad install directory that',
+    '2. Follow the `expert-synthesis` skill: your host skill when it is installed, otherwise',
+    '   `runtime/base/skills/expert-synthesis/SKILL.md` in the paqad install directory that',
     '   `.paqad/framework-path.txt` names.',
     '3. Write the synthesis in the skill format and save it as',
     '   `.paqad/tmp/high-table/synthesis.json`.',
     '4. Record it: `paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json`.',
     '   Each conflict becomes a decision packet the orchestrator asks the owner about. A refusal',
     '   names what to fix; fix the artifact and run the verb again.',
-    '5. Return one line: your verdict and the counts of accepted, declined, conflicts and gaps.',
     '',
     ...SEAT_RULES,
+    '',
+    ...reportSection(
+      'the recorded `.paqad/tmp/high-table/synthesis.json`',
+      CHIEF_DEF().maxTurns,
+      'Return one line: your verdict and the counts of accepted, declined, conflicts and gaps.',
+    ),
   ].join('\n');
 }
 
@@ -163,21 +251,17 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 }
 
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
-  '- **Never ask the human.** If you hit a decision pause, create the packet with',
-  '  `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the',
-  '  orchestrator asks the human and then resumes you with the answer.',
-  '- **Never write into a feature bundle directory by hand.** Only the stage verbs write there.',
-  '- **Never skip a CLI verb** because "the orchestrator will do it" — it will not.',
-  '- Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at',
-  '  most five lines of summary. Nothing else.',
+  '- Never ask the human. On a decision pause, create the packet with',
+  '  `paqad-ai decision create …` and return at once with `paused: D-<id>`;',
+  '  the orchestrator asks the human and then resumes you with the answer.',
+  '- Never write into a feature bundle directory by hand. Only the stage verbs write there.',
+  '- Never skip a CLI verb because "the orchestrator will do it". It will not.',
 ];
 
 const STAGES_THAT_RAISE_DEBT: ReadonlySet<string> = new Set(['review', 'documentation_sync']);
 
 function outOfScopeSection(ledgerStage: string): string[] {
-  return STAGES_THAT_RAISE_DEBT.has(ledgerStage)
-    ? ['## Out-of-scope findings', '', OUT_OF_SCOPE_FINDINGS_INSTRUCTION, '']
-    : [];
+  return STAGES_THAT_RAISE_DEBT.has(ledgerStage) ? [OUT_OF_SCOPE_FINDINGS_INSTRUCTION, ''] : [];
 }
 
 const LOAD_FRAMEWORK_SECTION: readonly string[] = [
@@ -185,12 +269,11 @@ const LOAD_FRAMEWORK_SECTION: readonly string[] = [
   '',
   '1. Resolve `.paqad/framework-path.txt` to the paqad install directory.',
   '2. Load `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md` from there and follow them, then write',
-  '   the `.paqad/.agent-entry-loaded` sentinel. You are a feature-development stage, so load',
-  '   the rules too (`paqad-ai rules load`).',
-  '3. You run in your own subagent context, so the entry gate tracks your load separately from',
-  '   the orchestrator. If it blocks your first edit, it names a per-agent marker under',
-  '   `.paqad/session/agent-entry/` — create exactly that file (or write `.paqad/.agent-entry-loaded`',
-  '   with the Write tool) and retry. This is the gate confirming YOU loaded the framework.',
+  '   the `.paqad/.agent-entry-loaded` sentinel. As a feature-development stage, load the rules',
+  '   too (`paqad-ai rules load`).',
+  '3. The entry gate tracks your load apart from the orchestrator. If it blocks your first edit,',
+  '   it names a per-agent marker under `.paqad/session/agent-entry/`: create that file (or write',
+  '   `.paqad/.agent-entry-loaded` with the Write tool) and retry.',
 ];
 
 export const STAGE_BRIEF_FALLBACK_LINE =
@@ -244,15 +327,15 @@ function workQuicklySection(ledgerStage: string): string[] {
 export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): string {
   return [
     `You are the paqad **${def.ledgerStage}** stage agent. You run one stage of one`,
-    `feature-development change in your own isolated context and then return. Your job: ${def.role}.`,
+    `feature-development change in your own context and then return. Your job: ${def.role}.`,
     '',
     ...(host === 'claude-code' ? STAGE_BRIEF_SECTION : LOAD_FRAMEWORK_SECTION),
     '',
     '## What you were dispatched with',
     '',
-    'The orchestrator passes you the change ref, the lane, the previous stage pillar file(s), and',
-    "`SE_SESSION` — the orchestrator's session id. **Export `SE_SESSION` for every command you run**",
-    'so every row and artifact you write is recorded under the one change identity.',
+    'The orchestrator passes the change ref, the lane, the previous stage pillar file(s) and',
+    "`SE_SESSION`, the orchestrator's session id. Export `SE_SESSION` for every command you run,",
+    'so every row and artifact you write is recorded under the one change.',
     '',
     ...workQuicklySection(def.ledgerStage),
     ...stageNoteSection(def.ledgerStage),
@@ -270,7 +353,37 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '## Hard rules',
     '',
     ...STAGE_AGENT_HARD_RULES,
+    '',
+    ...reportSection(
+      def.artifact,
+      def.maxTurns,
+      'Return the pillar file path and at most five lines of summary.',
+    ),
   ].join('\n');
 }
 
 export { isSubagentCapableAdapter };
+
+export interface StageReportReading {
+  status: StageReportStatus;
+  advance: boolean;
+  decision: string | null;
+  stated: boolean;
+}
+
+const STATUS_LINE = /\bStatus:\s*`?(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gu;
+const PAUSED_DECISION = /\bpaused:\s*(D-[A-Za-z0-9]+)/u;
+
+// How the orchestrator reads a stage agent's return. The last Status line wins. A return with
+// no Status line (for example a stage that ran out of turns) reads as BLOCKED, never DONE, so
+// the stage does not advance.
+export function readStageReportStatus(text: string): StageReportReading {
+  const statuses = [...text.matchAll(STATUS_LINE)].map((match) => match[1] as StageReportStatus);
+  const status = statuses.at(-1) ?? 'BLOCKED';
+  return {
+    status,
+    advance: status === 'DONE' || status === 'DONE_WITH_CONCERNS',
+    decision: PAUSED_DECISION.exec(text)?.[1] ?? null,
+    stated: statuses.length > 0,
+  };
+}

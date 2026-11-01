@@ -36,8 +36,9 @@ function agentContext(
 ): Record<string, unknown> {
   return {
     agentName: def.agentName,
-    description: `paqad feature-development stage: ${def.ledgerStage}. Dispatched by the paqad orchestrator only.`,
+    description: def.description,
     tools: def.claudeTools,
+    maxTurns: def.maxTurns,
     model: setting.model,
     effort: setting.effort === 'inherit' ? undefined : setting.effort,
     omitClaudeMd: adapter === CLAUDE_CODE_ADAPTER,
@@ -50,6 +51,7 @@ function highTableAgentContext(def: HighTableAgentDef): Record<string, unknown> 
     agentName: def.agentName,
     description: def.description,
     tools: def.claudeTools,
+    maxTurns: def.maxTurns,
     model: 'inherit',
     body: buildHighTableAgentBody(def),
   };
