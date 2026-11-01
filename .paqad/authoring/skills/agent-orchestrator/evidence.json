@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "agent-orchestrator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:89c6d1477ce3ba9517ee525ff27c7f472138040e81d7c82080fc045b8406808d",
+  "folder_hash": "sha256:262c24e6cb97e77231b8220edd73b223afdbcb85784c0808d625e79b4fca40f4",
   "baseline": {
     "runs": 3,
     "passed": 0,
@@ -25,10 +25,10 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.5764,
+    "iterations": 2,
+    "pass_rate_with": 0.5,
     "pass_rate_without": 0,
-    "delta_points": 57.64,
+    "delta_points": 50,
     "token_multiple": null,
     "models": [
       "claude-haiku-5-5",
@@ -58,7 +58,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 2.5828,
+    "S6": 2.5954,
     "source": "host-usage"
   },
   "overrides": [],
