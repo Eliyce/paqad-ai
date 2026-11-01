@@ -10,6 +10,7 @@ import {
 } from '@/authoring/lint/agent-lint.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
+import { runAgentEvidence } from '@/authoring/stages/agent-evidence.js';
 import { AGENT_INTAKE_FIELDS, runAgentIntake } from '@/authoring/stages/agent-intake.js';
 import { runAgentJustify } from '@/authoring/stages/agent-justify.js';
 import { raiseIntakeGap } from '@/authoring/stages/intake.js';
@@ -160,6 +161,32 @@ function addIntakeVerbs(command: Command): void {
         if (file === undefined) throw new AuthoringRefusal('name the intake.yaml file.', 2);
         return runAgentIntake(workspace, readInput(file, 'the intake file'));
       }),
+  );
+
+  withCommon(
+    command
+      .command('evidence')
+      .description('S2: record the sources and check overlap with installed agents and experts')
+      .argument('<name>', 'The agent name')
+      .argument('<sources-file>', 'The sources.md table')
+      .option('--decision <id>', 'The answered authoring.overlap decision')
+      .option('--owns <phrase>', 'For a new expert: the question it alone answers')
+      .option('--lens <file>', 'For a new expert: its lens file'),
+  ).action(
+    (
+      name: string,
+      file: string,
+      options: VerbOptions & { decision?: string; owns?: string; lens?: string },
+    ) =>
+      runAgentVerb(name, options, (workspace, projectRoot) =>
+        runAgentEvidence(workspace, {
+          sourcesText: readInput(file, 'the sources file'),
+          decision: options.decision,
+          change: changeKey(projectRoot, options.session),
+          owns: options.owns,
+          lensText: options.lens ? readInput(options.lens, 'the lens file') : undefined,
+        }),
+      ),
   );
 }
 

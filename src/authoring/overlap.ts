@@ -30,6 +30,7 @@ export interface InstalledArtifact {
   description: string;
   path: string;
   scope: ArtifactScope;
+  tools?: string[];
 }
 
 export interface OverlapCandidate {
@@ -44,6 +45,7 @@ export interface OverlapCollision {
   existing: string;
   existing_path: string;
   score: number;
+  subset?: boolean;
 }
 
 export interface ShadowSide {
@@ -99,6 +101,112 @@ export function wordSet(text: string): Set<string> {
 
 export function overlapScore(left: string, right: string): number {
   return jaccard(wordSet(left), wordSet(right));
+}
+
+export const SUBSET_CONTAINMENT_MIN = 0.8;
+
+export function containment(inner: string, outer: string): number {
+  const words = wordSet(inner);
+  if (words.size === 0) return 0;
+  const outerWords = wordSet(outer);
+  let shared = 0;
+  for (const word of words) if (outerWords.has(word)) shared += 1;
+  return shared / words.size;
+}
+
+export interface SubsetCandidate {
+  name: string;
+  job: string;
+  tools: readonly string[];
+}
+
+export function findSubsetOverlaps(
+  candidate: SubsetCandidate,
+  installed: readonly InstalledArtifact[],
+  minContainment: number = SUBSET_CONTAINMENT_MIN,
+): OverlapCollision[] {
+  const overlaps: OverlapCollision[] = [];
+  for (const artifact of installed) {
+    if (artifact.kind !== 'agent' || artifact.name === candidate.name) continue;
+    if (artifact.tools === undefined) continue;
+    const theirs = new Set(artifact.tools);
+    if (!candidate.tools.every((tool) => theirs.has(tool))) continue;
+    const score = containment(candidate.job, artifact.description);
+    if (score < minContainment) continue;
+    overlaps.push({
+      candidate: candidate.name,
+      existing: artifact.name,
+      existing_path: artifact.path,
+      score,
+      subset: true,
+    });
+  }
+  return overlaps;
+}
+
+export interface ExpertProfile {
+  role: string;
+  owns: string;
+  lens?: string;
+}
+
+export interface ExpertCollision {
+  role: string;
+  owner: string;
+  on: 'owns' | 'lens';
+  score: number;
+}
+
+export function lensFocus(lens: string): string {
+  const section = lens.split(/^## What you look for\s*$/mu)[1];
+  return section === undefined ? lens : (section.split(/^## /mu)[0] ?? '');
+}
+
+function profileCollisions(
+  role: ExpertProfile,
+  owner: ExpertProfile,
+  threshold: number,
+): ExpertCollision[] {
+  const found: ExpertCollision[] = [];
+  const owns = overlapScore(role.owns, owner.owns);
+  if (meetsThreshold(owns, threshold)) {
+    found.push({ role: role.role, owner: owner.role, on: 'owns', score: owns });
+  }
+  if (role.lens !== undefined && owner.lens !== undefined) {
+    const lens = overlapScore(lensFocus(role.lens), lensFocus(owner.lens));
+    if (meetsThreshold(lens, threshold)) {
+      found.push({ role: role.role, owner: owner.role, on: 'lens', score: lens });
+    }
+  }
+  return found;
+}
+
+export function expertCollisions(
+  roster: readonly ExpertProfile[],
+  threshold: number,
+  candidate?: ExpertProfile,
+): ExpertCollision[] {
+  if (candidate !== undefined) {
+    return roster
+      .filter((owner) => owner.role !== candidate.role)
+      .flatMap((owner) => profileCollisions(candidate, owner, threshold));
+  }
+  const found: ExpertCollision[] = [];
+  roster.forEach((owner, index) => {
+    for (const role of roster.slice(index + 1)) {
+      found.push(...profileCollisions(role, owner, threshold));
+    }
+  });
+  return found;
+}
+
+export function expertCollisionLine(collision: ExpertCollision): string {
+  const what = collision.on === 'owns' ? 'Owns phrase' : 'lens';
+  return (
+    `The expert ${collision.role} collides with ${collision.owner} on its ${what} ` +
+    `(score ${collision.score.toFixed(2)}): ${collision.owner} already owns that question. ` +
+    `Give ${collision.role} a question no other role answers, or extend ${collision.owner}.`
+  );
 }
 
 export function candidateText(purpose: string, triggers: readonly string[]): string {
@@ -288,6 +396,15 @@ export function discoverInstalledSkills(
   return [...project, ...user];
 }
 
+function toolList(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.filter((tool): tool is string => typeof tool === 'string');
+  if (typeof value !== 'string') return undefined;
+  return value
+    .split(',')
+    .map((tool) => tool.trim())
+    .filter((tool) => tool !== '');
+}
+
 function readAgentAt(base: string, rel: string, scope: ArtifactScope): InstalledArtifact | null {
   const text = readTextIfPresent(join(base, rel));
   if (text === null) return null;
@@ -308,12 +425,14 @@ function readAgentAt(base: string, rel: string, scope: ArtifactScope): Installed
   }
   const split = splitSkillFrontmatter(text);
   const data = split.ok ? split.data : {};
+  const tools = toolList(data.tools);
   return {
     kind: 'agent',
     name: typeof data.name === 'string' && data.name.trim() !== '' ? data.name.trim() : stem,
     description: typeof data.description === 'string' ? data.description : '',
     path: rel,
     scope,
+    ...(tools === undefined ? {} : { tools }),
   };
 }
 
@@ -397,8 +516,12 @@ export function renderOverlapReport(report: OverlapReport): string {
   } else {
     for (const collision of report.collisions) {
       lines.push(
-        `- ${collision.candidate} collides with ${collision.existing} (${collision.existing_path}), ` +
-          `score ${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`,
+        collision.subset === true
+          ? `- ${collision.candidate} is a subset of ${collision.existing} (${collision.existing_path}): ` +
+              `its tools are all in ${collision.existing} and its job is contained at ` +
+              `${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`
+          : `- ${collision.candidate} collides with ${collision.existing} (${collision.existing_path}), ` +
+              `score ${formatScore(collision.score)}. Extending ${collision.existing} is recommended.`,
       );
     }
   }
@@ -408,14 +531,16 @@ export function renderOverlapReport(report: OverlapReport): string {
   } else {
     for (const entry of report.shadowing) lines.push(`- ${shadowingLine(entry)}`);
   }
-  lines.push('', '## Catalog budget', '');
-  const warning = budgetWarningLine(report.budget);
-  lines.push(
-    warning ??
-      `Within budget: ${report.budget.total_chars} of ${report.budget.budget_chars} characters.`,
-  );
-  if (!report.budget.activation_data) {
-    lines.push('', 'No activation data yet, so skills at risk are ordered by name.');
+  if (report.kind === 'skill') {
+    lines.push('', '## Catalog budget', '');
+    const warning = budgetWarningLine(report.budget);
+    lines.push(
+      warning ??
+        `Within budget: ${report.budget.total_chars} of ${report.budget.budget_chars} characters.`,
+    );
+    if (!report.budget.activation_data) {
+      lines.push('', 'No activation data yet, so skills at risk are ordered by name.');
+    }
   }
   lines.push('', '## Scores', '');
   if (report.scores.length === 0) {

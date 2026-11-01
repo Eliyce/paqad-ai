@@ -17,6 +17,7 @@ import {
   renderGateMarkdown,
   requireEarlierGates,
   setWaiting,
+  type AuthoringWorkspace,
   type SkillWorkspace,
 } from '../workspace.js';
 import { readWorkspaceIntake } from './intake.js';
@@ -81,7 +82,10 @@ export interface EvidenceResult extends StageResult {
   extend?: string;
 }
 
-function overlapDecision(workspace: SkillWorkspace, decisionId: string): { chosen: string } {
+export function overlapDecision(
+  workspace: AuthoringWorkspace,
+  decisionId: string,
+): { chosen: string } {
   const record = readAuthoringDecision(workspace.projectRoot, decisionId);
   if (record === null || record.category !== 'authoring.overlap') {
     throw new AuthoringRefusal(`${decisionId} is not an authoring.overlap decision.`);
@@ -92,9 +96,8 @@ function overlapDecision(workspace: SkillWorkspace, decisionId: string): { chose
   return { chosen: record.chosen };
 }
 
-export function runEvidence(workspace: SkillWorkspace, input: EvidenceInput): EvidenceResult {
-  requireEarlierGates(workspace, 'S2');
-  const rows = parseSources(input.sourcesText);
+export function groundedSources(sourcesText: string): { rows: SourceRow[]; grounded: SourceRow[] } {
+  const rows = parseSources(sourcesText);
   if (rows.length === 0) {
     throw new AuthoringRefusal(
       `S2 evidence failed: sources.md has no rows. Use the columns ${SOURCE_COLUMNS.join(' | ')}, one row per fact.`,
@@ -107,6 +110,12 @@ export function runEvidence(workspace: SkillWorkspace, input: EvidenceInput): Ev
         'the repository, the web or the interview.',
     );
   }
+  return { rows, grounded };
+}
+
+export function runEvidence(workspace: SkillWorkspace, input: EvidenceInput): EvidenceResult {
+  requireEarlierGates(workspace, 'S2');
+  const { rows, grounded } = groundedSources(input.sourcesText);
   if (input.sourcesKind !== undefined && input.sourcesKind !== 'no-repo') {
     throw new AuthoringRefusal('--sources-kind only accepts no-repo.', 2);
   }
