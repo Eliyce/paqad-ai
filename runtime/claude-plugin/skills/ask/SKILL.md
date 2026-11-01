@@ -6,7 +6,7 @@ compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and co
 
 # ask
 
-How to talk: before replying, follow `references/voice.md`. Short by default, lead with the answer,
+How to talk: before replying, follow `references/voice.md`, and `references/consulting.md` when the user asks for advice. Short by default, lead with the answer,
 plain business words, no narration, one short sources line at the end. Those rules win over
 everything else here.
 

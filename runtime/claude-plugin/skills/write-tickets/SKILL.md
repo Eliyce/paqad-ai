@@ -35,7 +35,7 @@ assumptions blocks, not from fresh invention. The story rules are in `references
    try is not written: say so in one line and offer, through the choice prompt, to leave it out or
    name the user pain.
 4. Follow the writing rules in `references/writing-rules.md` and the shared deny-list in
-   `plain-language.md`: no em or en dash, no code words in the title, the story lines or the
+   `references/plain-language.md`: no em or en dash, no code words in the title, the story lines or the
    acceptance criteria (a confirmed permission key in inline code is the one allowed code span), no
    jargon from the deny-list, short sentences, and no invented numbers, dates or names. The later
    prose check skips quotes, code and URLs, so quoted evidence is safe.

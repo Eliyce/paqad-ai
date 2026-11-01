@@ -2,7 +2,7 @@
 
 Get the project in front of you by capability, not by host (GRD-3). Work only from what you
 actually read, and name anything you need but cannot reach. The evidence level you reach, the
-source line and the upgrade nudge are defined once in `references/evidence-levels.md`; detect the
+source line and the upgrade nudge are defined once in `evidence-levels.md`; detect the
 level there and answer at the best level the repository allows.
 
 ## By capability

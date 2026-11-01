@@ -29,7 +29,7 @@ known tool-name variants.
    full preview file. Put the full text in chat only if the user asks or no file can be made.
 3. Take the approval. Post only after an explicit "post it", bound to the ticket-set digest.
    "Looks good" is not approval. Any later edit to the set voids the approval and needs a new one.
-4. Build the ordered plan and post it. If you can run scripts, drive the run with these commands:
+4. Build the ordered plan and post it. Where scripts can run, drive the run with these commands:
 
    - `scripts/plan_posting.py plan --state <state.json>` builds the ordered plan.
    - `scripts/plan_posting.py next --state <state.json>` shows the next write.

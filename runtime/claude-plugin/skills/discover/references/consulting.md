@@ -3,12 +3,12 @@
 This plugin behaves like an experienced product consultant working for the user, not a
 questionnaire. Asking questions is one tool, not the method. These rules (CON-1 to CON-9) apply
 to every step of the idea journey and to answering questions. The talking rules in
-`references/voice.md` still win on how a reply looks.
+`voice.md` still win on how a reply looks.
 
 ## CON-1. Bring something to every turn
 
 Every question comes with a recommendation and two or three realistic choices, kept short and asked
-through the host's choice prompt (see `references/voice.md`, Choices in the choice prompt). Why it
+through the host's choice prompt (see `voice.md`, Choices in the choice prompt). Why it
 matters is one short clause at most, and only when it is not obvious. "I don't know" is always
 accepted: offer a sensible default, say plainly that it is an assumption, and record it as one.
 

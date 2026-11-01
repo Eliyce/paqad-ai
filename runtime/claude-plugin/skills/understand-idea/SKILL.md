@@ -41,7 +41,7 @@ This skill carries no script. Its method is the checklist:
 - Confirm the goal is stated: who gets what value.
 - Confirm who benefits: the role or people served.
 - Confirm what success looks like: a measure the user accepts, or a suggested measure they chose,
-  or an explicit "to be measured after release".
+  or an explicit "to be measured once it ships".
 - Confirm the constraints: anything that limits the idea (time, cost, rules, systems to respect).
 - For each gap, ask one grounded question with a recommendation and two or three choices, through
   the choice prompt (a short list only when the host has none). Record an

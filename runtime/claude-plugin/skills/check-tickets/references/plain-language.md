@@ -2,14 +2,15 @@
 
 Each line below is a jargon term and the plain business replacement to use instead. The prose
 checker (check_prose.py) reads this file: any line that holds `term -> replacement` is one
-deny-list entry. The match is on whole words and is case-insensitive. Keep this list
+deny-list entry. The match is on whole words and is case-insensitive; a term ending in `*`
+matches every word that starts with it. Keep this list
 provider-neutral and ASCII only.
 
 ## Deny-list
 
-- leverage -> use
-- utilize -> use
-- utilise -> use
+- leverag* -> use
+- utiliz* -> use
+- utilis* -> use
 - synergy -> shared benefit
 - synergies -> shared benefits
 - facilitate -> help

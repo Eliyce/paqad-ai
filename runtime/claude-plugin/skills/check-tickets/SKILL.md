@@ -23,7 +23,7 @@ Check the drafted set three ways, then report readiness.
 1. Prose check. If you have a tool that runs scripts, run `scripts/check_prose.py --ticket-set
    <ticket-set.json>`. It flags em and en dashes (TKT-1), code words in the title, goal, the story
    lines (As a, I want, So that) and the acceptance criteria (TKT-2; a confirmed permission key in
-   inline code is allowed), and jargon from the shared `plain-language.md` deny-list
+   inline code is allowed), and jargon from the shared `references/plain-language.md` deny-list
    (TKT-3), each with a line and a suggested fix. It skips quotes, code blocks and URLs, so quoted
    evidence is never rewritten. Fix the findings and run it again until it is clean.
 2. Structure check. Run `scripts/check_ticket_set.py --ticket-set <ticket-set.json>`. It validates
