@@ -6,7 +6,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AGENT_PERMISSION_ALLOW, AGENT_PERMISSION_REMOVE } from '@/authoring/decisions.js';
 import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
-import { draftAgentHash, readPermissionIds, runAgentTest } from '@/authoring/stages/agent-test.js';
+import {
+  draftAgentHash,
+  draftAgentHashWithoutDescription,
+  draftHookScripts,
+  readPermissionIds,
+  runAgentTest,
+} from '@/authoring/stages/agent-test.js';
 import { AGENT_STAGES, AuthoringRefusal, stageState } from '@/authoring/workspace.js';
 import { resolvePendingDecision } from '@/decisions/authoring.js';
 
@@ -217,5 +223,13 @@ describe('agent test (S4) edges', () => {
     await expect(runAgentTest(workspace, { runTests: vi.fn() })).rejects.toThrow(
       /the owner chose to remove the risky part of/u,
     );
+  });
+});
+
+describe('agent test (S4) draft hashes', () => {
+  it('a workspace with no draft source names no hook scripts and hashes an empty draft', () => {
+    const workspace = agentThrough('S4');
+    expect(draftHookScripts(workspace)).toEqual([]);
+    expect(draftAgentHashWithoutDescription(workspace)).toMatch(/^sha256:/u);
   });
 });

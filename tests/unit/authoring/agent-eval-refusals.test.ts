@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   isStageAgent,
+  outcomeFailures,
   recordedTrialSource,
   runAgentEvalPlan,
   runAgentEvalRecord,
@@ -76,7 +77,7 @@ describe('S5 plan refusals (FR-15)', () => {
     expect(() => runAgentEvalPlan(workspace)).toThrow(/needs a planted-failure case/u);
   });
 
-  it('FR-59: refuses a case whose fixture tarball is missing and lists directories as safe', () => {
+  it('FR-59: refuses a case whose fixture tarball is missing and lists directories and hard links as safe', () => {
     const missing = agentForEval();
     addCase(missing, 'a', {
       adversarial: true,
@@ -90,6 +91,7 @@ describe('S5 plan refusals (FR-15)', () => {
     const staging = join(safe.projectRoot, 'staging');
     mkdirSync(join(staging, 'src'), { recursive: true });
     writeFileSync(join(staging, 'src', 'a.txt'), 'a');
+    linkSync(join(staging, 'src', 'a.txt'), join(staging, 'src', 'b.txt'));
     addCase(safe, 'a', {
       adversarial: true,
       clean_input: true,
@@ -264,5 +266,44 @@ describe('S5 small helpers', () => {
         'subagent-dispatch',
       ),
     ).toBe('claude-plugin-eval+subagent-dispatch');
+  });
+});
+
+describe('S5 for a stage agent (AC-27)', () => {
+  it('judges a stage agent against the stage pass^k threshold', async () => {
+    const workspace = agentForEval({ ...AGENT_INTAKE, class: 'verifier' });
+    workspace.writeJson('draft-source.json', {
+      file: `runtime/templates/stage-agents/${AGENT_NAME}.md`,
+      hook_scripts: [],
+    });
+    addCase(workspace, 'a', { adversarial: true, planted_failure: true });
+    addCase(workspace, 'b');
+    runAgentEvalPlan(workspace);
+    writeTrials(workspace, (trial) => ({ passed: trial.arm !== 'with_agent' }));
+    const result = await runAgentEvalRecord(workspace);
+    expect(result.ok).toBe(false);
+    const benchmark = readLoose(workspace, 'benchmark.json');
+    expect(benchmark.gate).toBe('failed');
+  });
+});
+
+describe('S5 outcome rules for a stage agent (AC-27)', () => {
+  it('a stage agent claiming done with no missing artifact list does not fail on artifacts', () => {
+    const failures = outcomeFailures({
+      grading: { assertions: [], claimed_done: true },
+      timing: { max_turns_hit: false, spend_cap_hit: false },
+      agentCase: {
+        name: 'a',
+        adversarial: false,
+        clean_input: false,
+        planted_failure: true,
+        repo_state: { git_ref: 'HEAD' },
+        inputs: ['x'],
+        expected: 'y',
+      },
+      intake: { class: 'verifier', report: { template: 't', max_tokens: 2000 } },
+      stageAgent: true,
+    });
+    expect(failures).toEqual([]);
   });
 });

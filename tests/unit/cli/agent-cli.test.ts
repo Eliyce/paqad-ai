@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AGENT_OFF_LINE, createAgentCommand } from '@/cli/commands/agent.js';
+import { AGENT_OFF_LINE, createAgentCommand, runAgentVerb } from '@/cli/commands/agent.js';
 
 let root: string;
 
@@ -355,5 +355,15 @@ describe('paqad-ai agent verb options', () => {
     const result = await run('lint', file);
     expect(result.code).toBe(2);
     expect(result.err).toContain('agent lint: docs/instructions/rules/authoring/never-write.yaml');
+  });
+});
+
+describe('runAuthoringVerb', () => {
+  it('lets an error that is not a refusal through to the caller', async () => {
+    await expect(
+      runAgentVerb('migration-reviewer', { projectRoot: root }, () => {
+        throw new Error('disk on fire');
+      }),
+    ).rejects.toThrow('disk on fire');
   });
 });

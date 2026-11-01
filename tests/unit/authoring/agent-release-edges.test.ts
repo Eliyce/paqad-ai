@@ -373,3 +373,87 @@ describe('agent release targets', () => {
     ).toBe(`# ${AGENT_NAME}\n\n## 1.0.0\n\n- hand written\n`);
   });
 });
+
+describe('agent release defaults', () => {
+  it('stamps the release with the current time when no clock is passed', async () => {
+    const workspace = await ready();
+    const result = runAgentRelease(workspace, { sessionId: 'ses-none' });
+    expect(result.ok).toBe(true);
+  });
+
+  it('keeps 1.0.0 for an unchanged agent whose earlier evidence names no version', async () => {
+    const workspace = await ready();
+    release(workspace);
+    const recorded = evidence();
+    put(
+      root,
+      `.paqad/authoring/agents/${AGENT_NAME}/evidence.json`,
+      JSON.stringify({ file_hash: recorded.file_hash }),
+    );
+    expect(release(workspace).lines[0]).toContain(`${AGENT_NAME} 1.0.0`);
+  });
+
+  it('AC-37: performance with no intake records no task type', async () => {
+    const workspace = await ready();
+    const benchmark = workspace.readJson<Record<string, unknown>>('benchmark.json')!;
+    workspace.writeJson('benchmark.json', {
+      ...benchmark,
+      performance: { tokens_per_task: { value: 1, source: 'subagent-dispatch' } },
+    });
+    const built = buildAgentEvidence({
+      workspace,
+      intake: null,
+      version: '1.0.0',
+      fileHash: 'h',
+      plan: { files: [], deployable: {}, host_notes: {}, proposals: [], plugin: null, primary: '' },
+      source: parseAgentSource(agentText()),
+      lint: LINT,
+      overrides: [],
+      labels: [],
+      sdkPath: 'x.sdk.json',
+      maxBudgetUsd: 1,
+      autoMemoryOff: false,
+    });
+    expect(built.performance).toMatchObject({ task_type: null });
+  });
+});
+
+describe('agent release of the Explore override (AC-60)', () => {
+  async function explore(): Promise<AgentWorkspace> {
+    const workspace = new AgentWorkspace(root, 'Explore');
+    passGate(workspace, 'justification.md', 'S0');
+    workspace.write('intake.yaml', YAML.stringify(AGENT_INTAKE));
+    workspace.write(
+      'sources.md',
+      '| S-ID | Fact | Origin | Date | Verified |\n| --- | --- | --- | --- | --- |\n| S-1 | x | repository | 2026-11-01 | yes |\n',
+    );
+    passGate(workspace, 'overlap.md', 'S2');
+    workspace.write('draft/Explore.md', agentText({ name: 'Explore' }, PORTABLE_BODY));
+    workspace.writeJson('draft-source.json', {
+      file: '.claude/agents/Explore.md',
+      hook_scripts: [],
+    });
+    passGate(workspace, 'trace.md', 'S3');
+    await runAgentTest(workspace, { runTests: async () => ({ exitCode: 0, failedTests: null }) });
+    workspace.writeJson('benchmark.json', {
+      gate: 'passed',
+      stage: 'S5',
+      inputs_hash: draftAgentHashWithoutDescription(workspace),
+      registered_tier: 'fast',
+    });
+    workspace.writeJson('delegation-results.json', {
+      gate: 'passed',
+      stage: 'S6',
+      skipped: 'dispatched',
+      inputs_hash: draftAgentHash(workspace),
+    });
+    return workspace;
+  }
+
+  it('refuses an Explore override with no Explore and built-in numbers to compare', async () => {
+    const workspace = await explore();
+    expect(() => runAgentRelease(workspace, { sessionId: 'ses-none', now: NOW })).toThrow(
+      /the Explore override is registered only at pass\^3 .* no Explore and built-in Explore numbers/u,
+    );
+  });
+});
