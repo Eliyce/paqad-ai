@@ -119,7 +119,7 @@ async function renderHookFiles(): Promise<Record<string, Record<string, string>>
       });
       for (const file of files) {
         const content = file.content.split(projectRoot).join('<root>');
-        if (content.includes('/hooks/')) {
+        if (content.includes('/hooks/') || content.includes('/.paqad/hook.mjs')) {
           (out[type] ??= {})[file.path] = content;
         }
       }
@@ -152,6 +152,43 @@ function atBase(file: string): string {
 
 function working(file: string): string {
   return readFileSync(join(REPO, file), 'utf8');
+}
+
+const LAUNCHER_PREFIX = 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" ';
+const GOLDEN_HOME = '/fake/home/.paqad-ai/current';
+
+function launcherToHost(command: string, frameworkHome: string): string {
+  if (!command.startsWith(LAUNCHER_PREFIX)) return command;
+  const [script, ...args] = command.slice(LAUNCHER_PREFIX.length).split(' ');
+  return [`node "${frameworkHome}/hooks/${script}"`, ...args].join(' ');
+}
+
+function teamSettingsAsHost(content: string, frameworkHome: string): string {
+  const parsed = JSON.parse(content) as { hooks: HookGroups; [key: string]: unknown };
+  delete parsed.extraKnownMarketplaces;
+  delete parsed.enabledPlugins;
+  for (const [event, groups] of Object.entries(parsed.hooks)) {
+    for (const group of groups) {
+      for (const hook of group.hooks as Array<{ command: string; timeout?: number }>) {
+        hook.command = launcherToHost(hook.command, frameworkHome);
+        if (event === 'SessionStart' && hook.timeout === 600) delete hook.timeout;
+      }
+    }
+  }
+  return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
+function goldenAsHost(text: string): string {
+  return text
+    .replace(
+      /node \\\\"\$CLAUDE_PROJECT_DIR\/\.paqad\/hook\.mjs\\\\" ([\w.-]+\.mjs)/g,
+      `node \\\\"${GOLDEN_HOME}/hooks/$1\\\\"`,
+    )
+    .replace(/,\n {12}"timeout": 600/g, '')
+    .replace(
+      / {2}"extraKnownMarketplaces": \{\n[\s\S]*?\n {2}"enabledPlugins": \{\n[^}]*\},\n/,
+      '',
+    );
 }
 
 interface HookLine {
@@ -204,7 +241,7 @@ describe('the stage enforcement guardrails', () => {
         .filter((event) => event !== ACTIVATION_EVENT)
         .at(-1),
     ).toBe('SubagentStop');
-    const golden = working(GOLDEN);
+    const golden = goldenAsHost(working(GOLDEN));
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
     expect(golden.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '')).toBe(
       atBase(GOLDEN).replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, ''),
@@ -265,7 +302,9 @@ describe('the stage enforcement guardrails', () => {
           expect(now).toBe(content);
           continue;
         }
-        const parsed = JSON.parse(now) as { hooks: HookGroups };
+        const parsed = JSON.parse(teamSettingsAsHost(now, PINNED.frameworkHome)) as {
+          hooks: HookGroups;
+        };
         const events = Object.keys(parsed.hooks);
         expect(events.indexOf(SEED_EVENT)).toBe(events.indexOf('SubagentStop') - 1);
         expect(flatten({ [SEED_EVENT]: parsed.hooks[SEED_EVENT]! })).toEqual([

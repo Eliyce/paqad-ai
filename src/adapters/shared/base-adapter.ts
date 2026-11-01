@@ -84,7 +84,12 @@ export abstract class BaseAdapter implements AdapterInterface {
     if (!hostDir || hostDir === '.') {
       return null;
     }
-    const ignored = new Set<string>([basename(this.hooksOutputPath()), ...executed]);
+    return this.renderHostGitignore([basename(this.hooksOutputPath()), ...executed]);
+  }
+
+  protected renderHostGitignore(names: readonly string[]): GeneratedFile {
+    const hostDir = dirname(this.hooksOutputPath());
+    const ignored = new Set<string>(names);
 
     const body = [
       '# >>> paqad-ai managed (do not edit between markers) >>>',

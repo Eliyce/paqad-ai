@@ -123,7 +123,11 @@ describe('FrameworkUpdater', () => {
 
     expect(report.previous_version).toBe('0.0.0');
     expect(report.target_version).toBe(VERSION);
-    expect(report.regenerated).toEqual(['CLAUDE.md']);
+    expect(report.regenerated).toEqual([
+      'CLAUDE.md',
+      '.claude/.gitignore',
+      '.claude/settings.json',
+    ]);
     expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).toBe('new');
     const versionFileContent = readFileSync(
       join(projectRoot, '.paqad/framework-version.txt'),
@@ -552,8 +556,13 @@ describe('FrameworkUpdater', () => {
         expect(written.hooks.SubagentStart[0].hooks[0].command).toBe(startCommand);
       });
 
-      it('leaves the settings to the plugin when they hold no live npm hook lines', async () => {
+      it('with the team setup off, leaves the settings to the plugin when they hold no live npm hook lines', async () => {
         installPlugin();
+        mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+        writeFileSync(
+          join(projectRoot, '.paqad/configs/.config.app'),
+          'team_bootstrap_enabled=false\n',
+        );
         mkdirSync(join(projectRoot, '.claude'), { recursive: true });
         const before = JSON.stringify({
           hooks: {

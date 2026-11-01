@@ -41,13 +41,17 @@ describe('generated hook commands are cross-platform', () => {
 });
 
 describe('hook-wiring adapters gitignore their per-machine hook config', () => {
-  const hostByAdapter: Record<string, { dir: string; ignored: string[] }> = {
-    'claude-code': { dir: '.claude', ignored: ['settings.json', 'settings.hooks.json'] },
+  const hostByAdapter: Record<string, { dir: string; ignored: string[]; shared?: string[] }> = {
+    'claude-code': {
+      dir: '.claude',
+      ignored: ['settings.hooks.json', 'settings.local.json'],
+      shared: ['settings.json'],
+    },
     'codex-cli': { dir: '.codex', ignored: ['hooks.json', 'settings.hooks.json'] },
     'gemini-cli': { dir: '.gemini', ignored: ['settings.json', 'settings.hooks.json'] },
   };
 
-  for (const [type, { dir, ignored }] of Object.entries(hostByAdapter)) {
+  for (const [type, { dir, ignored, shared = [] }] of Object.entries(hostByAdapter)) {
     it(`${type}: emits ${dir}/.gitignore covering its executed hook config + sidecar`, async () => {
       const projectRoot = mkdtempSync(join(tmpdir(), `paqad-ignore-${type}-`));
       try {
@@ -58,8 +62,12 @@ describe('hook-wiring adapters gitignore their per-machine hook config', () => {
         });
         const gitignore = files.find((file) => file.path === `${dir}/.gitignore`);
         expect(gitignore, `${type} must emit ${dir}/.gitignore`).toBeDefined();
+        const lines = gitignore!.content.split('\n');
         for (const name of ignored) {
-          expect(gitignore!.content).toContain(name);
+          expect(lines).toContain(name);
+        }
+        for (const name of shared) {
+          expect(lines).not.toContain(name);
         }
       } finally {
         rmSync(projectRoot, { recursive: true, force: true });

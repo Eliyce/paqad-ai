@@ -1,14 +1,16 @@
+import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
+import { isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
-import { buildFullHookChain, buildNativeHookConfigFile } from '../shared/native-hook-config.js';
+import { buildFullHookChain } from '../shared/native-hook-config.js';
 import { PAQAD_RUNTIME_PREFIX } from '../shared/paqad-hooks.js';
 
-import { syncTeamSetup, teamSetupNotes, type TeamSetupReport } from './team-setup.js';
+import { CLAUDE_SETTINGS_FILE, planClaudeSettings } from './team-settings.js';
 
-const CLAUDE_SETTINGS_FILE = '.claude/settings.json';
+import { syncTeamSetup, teamSetupNotes, type TeamSetupReport } from './team-setup.js';
 
 const LEGACY_HOOK_COMMANDS = new Set(
   [
@@ -54,13 +56,24 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     return '.claude/memory.json';
   }
 
-  protected executedHookConfigFiles(): string[] {
-    return ['settings.json'];
+  private claudeGitignore(projectRoot: string, env: NodeJS.ProcessEnv): GeneratedFile {
+    const names = ['settings.hooks.json', 'settings.local.json'];
+    if (
+      !resolveTeamBootstrapEnabled(projectRoot, env) &&
+      !isGitTracked(projectRoot, CLAUDE_SETTINGS_FILE)
+    ) {
+      names.push('settings.json');
+    }
+    return this.renderHostGitignore(names);
   }
 
   async generateConfig(context: AdapterContext): Promise<GeneratedFile[]> {
     const base = await super.generateConfig(context);
-    return [...base, buildClaudeSettings(context.projectRoot)];
+    return [...base, ...this.hostSettingsFiles(context.projectRoot)];
+  }
+
+  hostSettingsFiles(projectRoot: string, env: NodeJS.ProcessEnv = process.env): GeneratedFile[] {
+    return [this.claudeGitignore(projectRoot, env), ...buildClaudeSettings(projectRoot, env)];
   }
 
   syncTeamSetup(
@@ -101,15 +114,15 @@ export function isRunningUnderPlugin(
 function buildClaudeSettings(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
-): GeneratedFile {
-  return buildNativeHookConfigFile({
+): GeneratedFile[] {
+  return planClaudeSettings({
     projectRoot,
-    settingsPath: CLAUDE_SETTINGS_FILE,
-    chain: isRunningUnderPlugin(env) ? [] : buildFullHookChain('claude-code', env),
+    env,
+    npmChain: isRunningUnderPlugin(env) ? [] : buildFullHookChain('claude-code', env),
     pruneExact: LEGACY_HOOK_COMMANDS,
     pruneBasenames: RETIRED_HOOK_FILES,
     transform: (merged) => mergeAttribution(merged, projectRoot),
-  });
+  }).files;
 }
 
 function mergeAttribution(

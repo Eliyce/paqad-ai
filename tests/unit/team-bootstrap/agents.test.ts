@@ -16,7 +16,7 @@ import { renderTeamAgents, syncTeamSetup, teamSetupMissing } from '@/adapters/cl
 import { VERSION } from '@/index.js';
 import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
 
-import { HOME_PATH_PATTERN } from './helpers';
+import { HOME_PATH_PATTERN, writeTeamSetup } from './helpers';
 
 const AGENTS = [
   'paqad-checks.md',
@@ -104,8 +104,8 @@ describe("the stage helpers in the repo's .claude/agents", () => {
     }
   });
 
-  it('counts a missing helper as a missing team setup', () => {
-    syncTeamSetup(root, {});
+  it('counts a missing helper as a missing team setup', async () => {
+    await writeTeamSetup(root);
     expect(teamSetupMissing(root)).toBe(false);
     rmSync(join(agentsDir(), 'paqad-expert.md'));
     expect(teamSetupMissing(root)).toBe(true);

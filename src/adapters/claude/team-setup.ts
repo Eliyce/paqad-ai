@@ -2,10 +2,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
-import { gitPendingPaths } from '@/core/fs/git-tracked.js';
+import { PLUGIN_ID } from '@/health/plugin-install.js';
+import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
+
+import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
 
 declare const __PKG_VERSION__: string;
 
@@ -112,16 +115,39 @@ export function syncTeamSetup(
   return report;
 }
 
+export const CLAUDE_GITIGNORE_FILE = '.claude/.gitignore';
+
+function settingsCarryTeamSetup(projectRoot: string): boolean {
+  const raw = readIfPresent(join(projectRoot, CLAUDE_SETTINGS_FILE));
+  if (raw === null) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  const enabled = (parsed as { enabledPlugins?: Record<string, unknown> } | null)?.enabledPlugins;
+  return raw.includes(TEAM_LAUNCHER_MARK) && enabled?.[PLUGIN_ID] !== undefined;
+}
+
 export function teamSetupMissing(projectRoot: string): boolean {
-  return teamOwnedFiles().some((file) => readIfPresent(join(projectRoot, file.path)) === null);
+  return (
+    !settingsCarryTeamSetup(projectRoot) ||
+    teamOwnedFiles().some((file) => readIfPresent(join(projectRoot, file.path)) === null)
+  );
 }
 
 export function teamTrackedPaths(): string[] {
-  return [TEAM_LAUNCHER_PATH, TEAM_AGENTS_DIR];
+  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH, TEAM_AGENTS_DIR];
 }
 
 function isTeamPath(path: string): boolean {
-  return path === TEAM_LAUNCHER_PATH || path.startsWith(`${TEAM_AGENTS_DIR}/paqad-`);
+  return (
+    path === CLAUDE_SETTINGS_FILE ||
+    path === CLAUDE_GITIGNORE_FILE ||
+    path === TEAM_LAUNCHER_PATH ||
+    path.startsWith(`${TEAM_AGENTS_DIR}/paqad-`)
+  );
 }
 
 export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport): string[] {
@@ -137,8 +163,18 @@ function collapseAgents(paths: string[]): string[] {
   return others.length === paths.length ? others : [...others, `${agentPrefix}*.md`];
 }
 
+export const SHARED_SETTINGS_NOTE =
+  '`.claude/settings.json` is now shared with your team, so review and commit it; anything personal it held now lives in the git-ignored `.claude/settings.local.json`.';
+
 export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): string[] {
   const notes: string[] = [];
+  if (
+    report.enabled &&
+    readIfPresent(join(projectRoot, CLAUDE_SETTINGS_FILE)) !== null &&
+    !isGitTracked(projectRoot, CLAUDE_SETTINGS_FILE)
+  ) {
+    notes.push(SHARED_SETTINGS_NOTE);
+  }
   const toCommit = collapseAgents(teamFilesToCommit(projectRoot, report));
   if (toCommit.length > 0) {
     notes.push(

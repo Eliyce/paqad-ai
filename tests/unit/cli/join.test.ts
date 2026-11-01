@@ -16,6 +16,7 @@ import {
   deriveRecordedProviders,
   joinProject,
 } from '@/cli/commands/join.js';
+import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { syncTeamSetup } from '@/adapters/claude/team-setup.js';
 import { createProgram } from '@/cli/program.js';
 import { RagService } from '@/rag/service.js';
@@ -237,6 +238,9 @@ describe('paqad-ai join', () => {
 
   it('stays quiet about the team setup once the repo carries it', async () => {
     seedOnboardedProject(root);
+    for (const file of new ClaudeCodeAdapter().hostSettingsFiles(root, {})) {
+      write(join(root, file.path), file.content);
+    }
     syncTeamSetup(root, {});
 
     await joinProject({ projectRoot: root, rag: false });

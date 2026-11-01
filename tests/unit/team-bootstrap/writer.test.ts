@@ -16,6 +16,8 @@ import {
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { VERSION } from '@/index.js';
 
+import { writeTeamSetup } from './helpers';
+
 let root: string;
 
 beforeEach(() => {
@@ -133,9 +135,15 @@ describe('what the lead is told', () => {
     ]);
   });
 
-  it('knows when the team setup is missing', () => {
+  it('knows when the team setup is missing', async () => {
     expect(teamSetupMissing(root)).toBe(true);
     syncTeamSetup(root, {});
+    expect(teamSetupMissing(root)).toBe(true);
+    await writeTeamSetup(root);
     expect(teamSetupMissing(root)).toBe(false);
+    writeFileSync(join(root, '.claude', 'settings.json'), '{ broken');
+    expect(teamSetupMissing(root)).toBe(true);
+    writeFileSync(join(root, '.claude', 'settings.json'), '{"hooks":{}}');
+    expect(teamSetupMissing(root)).toBe(true);
   });
 });

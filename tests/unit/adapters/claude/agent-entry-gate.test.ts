@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
   afterEach(() => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
+
+  function trackSettings(): void {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+    git('init', '-q');
+    git('add', '-f', '.claude/settings.json');
+  }
 
   it('emits .claude/settings.json with the PreToolUse and SessionStart gate hooks', async () => {
     const adapter = new ClaudeCodeAdapter();
@@ -77,7 +85,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(false);
   });
 
-  it('preserves existing settings.json keys and existing hook entries when merging', async () => {
+  it('preserves existing keys and hook entries of a committed settings.json when merging', async () => {
     mkdirSync(join(projectRoot, '.claude'), { recursive: true });
     writeFileSync(
       join(projectRoot, '.claude/settings.json'),
@@ -93,6 +101,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         },
       }),
     );
+    trackSettings();
 
     const adapter = new ClaudeCodeAdapter();
     const files = await adapter.generateConfig({
@@ -279,8 +288,15 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     );
   });
 
-  describe('skip-when-plugin', () => {
+  describe('skip-when-plugin with the team setup turned off', () => {
     const prev = process.env.CLAUDE_PLUGIN_ROOT;
+    beforeEach(() => {
+      mkdirSync(join(projectRoot, '.paqad', 'configs'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.paqad', 'configs', '.config.app'),
+        'team_bootstrap_enabled=false\n',
+      );
+    });
     afterEach(() => {
       if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
       else process.env.CLAUDE_PLUGIN_ROOT = prev;
@@ -294,19 +310,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         rulesPath: 'docs/instructions/rules',
         projectRoot,
       });
-      const settings = files.find((file) => file.path === '.claude/settings.json');
-      expect(settings).toBeDefined();
-      const parsed = JSON.parse(settings!.content) as {
-        hooks?: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
-      };
-      const commands = Object.values(parsed.hooks ?? {})
-        .flat()
-        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(files.find((file) => file.path === '.claude/settings.json')).toBeDefined();
+      expect(files.find((file) => file.path === '.claude/settings.local.json')).toBeUndefined();
+      const commands = hookCommands(files);
       expect(commands.some((command) => command.includes('paqad'))).toBe(false);
       expect(commands.some((command) => command.includes('agent-entry-gate.mjs'))).toBe(false);
     });
 
-    it('writes the full paqad hook chain when onboarding from npm (no CLAUDE_PLUGIN_ROOT)', async () => {
+    it('writes the full paqad hook chain to the git-ignored local settings when onboarding from npm', async () => {
       delete process.env.CLAUDE_PLUGIN_ROOT;
       const adapter = new ClaudeCodeAdapter();
       const files = await adapter.generateConfig({
@@ -314,14 +325,12 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         rulesPath: 'docs/instructions/rules',
         projectRoot,
       });
-      const settings = files.find((file) => file.path === '.claude/settings.json');
-      const parsed = JSON.parse(settings!.content) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
-      };
-      const commands = Object.values(parsed.hooks)
-        .flat()
-        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
-      expect(commands.some((command) => command.includes('agent-entry-gate.mjs'))).toBe(true);
+      const local = files.filter((file) => file.path === '.claude/settings.local.json');
+      expect(hookCommands(local).some((command) => command.includes('agent-entry-gate.mjs'))).toBe(
+        true,
+      );
+      const shared = files.filter((file) => file.path === '.claude/settings.json');
+      expect(hookCommands(shared)).toEqual([]);
     });
 
     async function renderSettings(): Promise<Record<string, unknown>> {
@@ -395,6 +404,19 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     });
   });
 });
+
+function hookCommands(files: Array<{ path: string; content: string }>): string[] {
+  return files
+    .filter((file) => file.path.startsWith('.claude/settings'))
+    .flatMap((file) => {
+      const parsed = JSON.parse(file.content) as {
+        hooks?: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      };
+      return Object.values(parsed.hooks ?? {})
+        .flat()
+        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+    });
+}
 
 function isCapabilityGate(command: string, seam: 'pre-mutation' | 'completion'): boolean {
   return command.includes('capability-gate.mjs') && command.endsWith(` ${seam}`);
