@@ -58,6 +58,7 @@ interface LintOptions {
   report?: string;
   groupBy?: string;
   asOf?: string;
+  ownerPowersAsWarnings?: boolean;
 }
 
 function plural(count: number, word: string): string {
@@ -112,6 +113,11 @@ function runLint(file: string | undefined, options: LintOptions): void {
       return;
     }
     runLintAll(projectRoot, options);
+    return;
+  }
+  if (options.ownerPowersAsWarnings === true) {
+    console.error('agent lint: --owner-powers-as-warnings needs --all.');
+    process.exitCode = USAGE_EXIT;
     return;
   }
   if (file === undefined) {
@@ -569,6 +575,10 @@ export function createAgentCommand(): Command {
     .option(
       '--as-of <date>',
       'With --all: count dispatches in the 30 days up to this date (YYYY-MM-DD)',
+    )
+    .option(
+      '--owner-powers-as-warnings',
+      'With --all: report AG-015, AG-018 and AG-022 as warnings; the owner permission packets and the authoring completion gate still enforce them',
     )
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((file: string | undefined, options: LintOptions) => {

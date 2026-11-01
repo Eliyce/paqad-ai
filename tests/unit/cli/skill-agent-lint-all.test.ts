@@ -94,6 +94,40 @@ describe('paqad-ai skill lint --all', () => {
   });
 });
 
+const BASH_AGENT = `---
+name: migration-runner
+description: 'Use this agent when a change adds a database migration, as in "run this migration".'
+tools: Read, Grep, Glob, Bash
+model: haiku
+effort: low
+maxTurns: 20
+---
+
+## Objective
+
+Run the migration.
+
+## Procedure
+
+1. Read it.
+
+## Report
+
+At most 400 tokens. Status: DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT or BLOCKED.
+
+## Stop when
+
+It has run.
+
+## Do not
+
+- Do not edit any file.
+
+## Example
+
+Input: <path>.
+`;
+
 describe('paqad-ai agent lint --all', () => {
   it('lists personas apart and never fails on them', async () => {
     write('package.json', '{"name":"paqad-ai"}\n');
@@ -109,6 +143,57 @@ describe('paqad-ai agent lint --all', () => {
     write('.claude/agents/broken.md', '# Broken\n');
     const result = await run('agent', 'lint', '--all', '--report', 'agents.json');
     expect(result.code).toBe(1);
+  });
+
+  it('--owner-powers-as-warnings reports the owner-permission rules as warnings and blocks on the rest', async () => {
+    write('.claude/agents/runner.md', BASH_AGENT);
+    const strict = await run('agent', 'lint', '--all', '--report', 'agents.json');
+    expect(strict.code).toBe(1);
+    const strictReport = JSON.parse(readFileSync(join(root, 'agents.json'), 'utf8'));
+    const strictPower = strictReport.items[0].findings.filter(
+      (finding: { rule: string }) => finding.rule === 'AG-022',
+    );
+    expect(strictPower.map((finding: { severity: string }) => finding.severity)).toEqual(['block']);
+
+    const relaxed = await run(
+      'agent',
+      'lint',
+      '--all',
+      '--owner-powers-as-warnings',
+      '--report',
+      'agents.json',
+    );
+    expect(relaxed.code).toBe(0);
+    const report = JSON.parse(readFileSync(join(root, 'agents.json'), 'utf8'));
+    const power = report.items[0].findings.filter(
+      (finding: { rule: string }) => finding.rule === 'AG-022',
+    );
+    expect(power.map((finding: { severity: string }) => finding.severity)).toEqual(['warn']);
+  });
+
+  it('--owner-powers-as-warnings still blocks on every other agent rule', async () => {
+    write('.claude/agents/broken.md', '# Broken\n');
+    const result = await run(
+      'agent',
+      'lint',
+      '--all',
+      '--owner-powers-as-warnings',
+      '--report',
+      'agents.json',
+    );
+    expect(result.code).toBe(1);
+  });
+
+  it('a single-file agent lint refuses --owner-powers-as-warnings and keeps its rules', async () => {
+    write('.claude/agents/runner.md', BASH_AGENT);
+    expect((await run('agent', 'lint', join(root, '.claude/agents/runner.md'))).code).toBe(1);
+    const flagged = await run(
+      'agent',
+      'lint',
+      join(root, '.claude/agents/runner.md'),
+      '--owner-powers-as-warnings',
+    );
+    expect(flagged.code).toBe(2);
   });
 
   it('exits 2 with neither a file nor --all', async () => {

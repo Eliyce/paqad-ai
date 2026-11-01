@@ -22,7 +22,12 @@ import {
 } from '../paths.js';
 import { meetsThreshold } from '../thresholds.js';
 import { estimateTokens } from '../tokens.js';
-import { lintAgentInProject, readPermissionDecisionIds, type AgentLintHost } from './agent-lint.js';
+import {
+  lintAgentInProject,
+  POWER_RULES,
+  readPermissionDecisionIds,
+  type AgentLintHost,
+} from './agent-lint.js';
 import {
   compareText,
   countFindings,
@@ -102,6 +107,7 @@ export interface AuditOptions {
   files?: readonly string[];
   context?: SkillPathContext;
   agentSources?: AgentAuditSources;
+  ownerPowersAsWarnings?: boolean;
 }
 
 export class AuditUsageError extends Error {}
@@ -359,7 +365,15 @@ export interface AgentAuditSources {
 
 const NO_AGENT_SOURCES: AgentAuditSources = { renderTemplate: () => [], dispatched: new Set() };
 
+function ownerPowerAsWarning(finding: LintFinding): LintFinding {
+  return finding.severity === 'block' && POWER_RULES.includes(finding.rule)
+    ? { ...finding, severity: 'warn' }
+    : finding;
+}
+
 export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): AuditReport {
+  const report = (findings: LintFinding[]): LintFinding[] =>
+    options.ownerPowersAsWarnings === true ? findings.map(ownerPowerAsWarning) : findings;
   const sources = options.agentSources ?? NO_AGENT_SOURCES;
   const dispatched = (name: string) =>
     sources.dispatched.has(name) ? { invocation: 'dispatched' as const } : {};
@@ -403,7 +417,7 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
           group,
           class: 'template',
           ...bodyAndDescription(rendered.content),
-          findings: result.findings,
+          findings: report(result.findings),
         });
       }
       continue;
@@ -420,7 +434,7 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
       group,
       class: 'agent',
       ...bodyAndDescription(text),
-      findings: result.findings,
+      findings: report(result.findings),
     });
   }
   return finishReport(projectRoot, 'agent', drafts, personas, options);
@@ -437,6 +451,7 @@ export interface RunAuditOptions {
   groupBy?: string;
   asOf?: string;
   agentSources?: AgentAuditSources;
+  ownerPowersAsWarnings?: boolean;
 }
 
 export interface RunAuditResult {
@@ -463,6 +478,7 @@ export function runAudit(
           groupBy,
           asOf: options.asOf,
           agentSources: options.agentSources,
+          ownerPowersAsWarnings: options.ownerPowersAsWarnings,
         });
   const reportPath =
     options.report ?? (kind === 'skill' ? DEFAULT_SKILL_AUDIT_REPORT : DEFAULT_AGENT_AUDIT_REPORT);

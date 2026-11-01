@@ -511,7 +511,7 @@ describe('static job: skill and agent lint over the whole repo', () => {
     const build = names.indexOf('Build');
     for (const [name, command] of [
       ['Lint every skill', 'node dist/cli/index.js skill lint --all'],
-      ['Lint every agent', 'node dist/cli/index.js agent lint --all'],
+      ['Lint every agent', 'node dist/cli/index.js agent lint --all --owner-powers-as-warnings'],
     ] as const) {
       const index = names.indexOf(name);
       expect(index).toBeGreaterThan(build);
