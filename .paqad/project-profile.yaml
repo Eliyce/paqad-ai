@@ -48,6 +48,12 @@ stack_profile:
     - ecosystem: node
       package_manager: npm
       lockfile: graph-ui/package-lock.json
+    - ecosystem: node
+      package_manager: pnpm
+      lockfile: evals/fixture/project/pnpm-lock.yaml
+    - ecosystem: node
+      package_manager: npm
+      lockfile: evals/fixture/project/package-lock.json
   version_bands:
     - name: react:^19
       package_name: react
@@ -60,6 +66,9 @@ stack_profile:
       locked_version: ^4.0.0
       source: manifest
   sources:
+    - file: evals/fixture/project/package.json
+      kind: manifest
+      detail: Used for stack detection and version resolution
     - file: graph-ui/package.json
       kind: manifest
       detail: Used for stack detection and version resolution

@@ -33,6 +33,9 @@
     "source": "hooks/decision-pause-gate.mjs"
   },
   {
+    "source": "hooks/lib/agent-entry-directive.mjs"
+  },
+  {
     "source": "hooks/lib/agent-entry-sentinel.mjs"
   },
   {
@@ -40,6 +43,27 @@
   },
   {
     "source": "hooks/lib/context-seam-emit.mjs"
+  },
+  {
+    "source": "hooks/lib/cost-refresh.mjs"
+  },
+  {
+    "source": "hooks/lib/direct-entry.mjs"
+  },
+  {
+    "source": "hooks/lib/edit-targets.mjs"
+  },
+  {
+    "source": "hooks/lib/gate-failure.mjs"
+  },
+  {
+    "source": "hooks/lib/hook-log.mjs"
+  },
+  {
+    "source": "hooks/lib/hud-heartbeat.mjs"
+  },
+  {
+    "source": "hooks/lib/hud-snapshot.mjs"
   },
   {
     "source": "hooks/lib/loop-guard.mjs"
@@ -51,7 +75,19 @@
     "source": "hooks/lib/paqad-disabled.sh"
   },
   {
+    "source": "hooks/lib/plugin-migration-tick.mjs"
+  },
+  {
+    "source": "hooks/lib/skill-activation-core.mjs"
+  },
+  {
+    "source": "hooks/lib/transcript.mjs"
+  },
+  {
     "source": "hooks/module-health-sync.sh"
+  },
+  {
+    "source": "hooks/plugin-session-start.mjs"
   },
   {
     "source": "hooks/post-destructive-approved.sh"
@@ -81,6 +117,9 @@
     "source": "hooks/silent-update.mjs"
   },
   {
+    "source": "hooks/skill-activation.mjs"
+  },
+  {
     "source": "hooks/skill-cache-check.mjs"
   },
   {
@@ -88,6 +127,12 @@
   },
   {
     "source": "hooks/skill-index-gen.mjs"
+  },
+  {
+    "source": "hooks/stage-agent-completion.mjs"
+  },
+  {
+    "source": "hooks/stage-agent-start.mjs"
   },
   {
     "source": "hooks/stage-marker-parse.mjs"
