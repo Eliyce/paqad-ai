@@ -54,7 +54,7 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'module-map/drift.json',
   'module-map/events.jsonl',
   'schema-migrations.jsonl',
-  '# .paqad/skills/ only: .paqad/authoring/skills/ holds tracked skill evidence',
+  '# .paqad/skills/ only: .paqad/authoring/skills/ and .paqad/authoring/agents/ hold tracked skill and agent evidence',
   '/skills/',
   'delivery-detection.json',
   'checks/',
