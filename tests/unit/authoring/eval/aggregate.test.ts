@@ -258,3 +258,36 @@ describe('the revision loop', () => {
     );
   });
 });
+
+describe('aggregateBenchmark for agent arms', () => {
+  it('AC-6: takes the with_agent arm and adds p50/p95 latency, median cost and their deltas', () => {
+    const runs = [
+      run({ arm: 'with_agent', duration_ms: 1000, cost_usd: 0.02 }),
+      run({ arm: 'with_agent', run: 2, duration_ms: 3000, cost_usd: 0.04 }),
+      run({ arm: 'main_thread', duration_ms: 2000, cost_usd: 0.01 }),
+    ];
+    const summary = aggregateBenchmark(runs, 'main_thread', 'with_agent');
+    expect(summary.with_arm).toBe('with_agent');
+    expect(summary.latency).toEqual({
+      with: { p50_ms: 2000, p95_ms: 3000, samples: 2 },
+      baseline: { p50_ms: 2000, p95_ms: 2000, samples: 1 },
+      p95_delta_ms: 1000,
+    });
+    expect(summary.cost).toEqual({ median_with: 0.03, median_baseline: 0.01, delta_usd: 0.02 });
+  });
+
+  it('leaves the skill summary shape unchanged', () => {
+    const summary = aggregateBenchmark([run({})], 'without_skill');
+    expect(summary).not.toHaveProperty('latency');
+    expect(summary).not.toHaveProperty('with_arm');
+  });
+
+  it('reports cost as unavailable when a run has no cost', () => {
+    const summary = aggregateBenchmark(
+      [run({ arm: 'with_agent', cost_usd: null }), run({ arm: 'old_agent' })],
+      'old_agent',
+      'with_agent',
+    );
+    expect(summary.cost?.delta_usd).toBeNull();
+  });
+});

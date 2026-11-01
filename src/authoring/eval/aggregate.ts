@@ -2,7 +2,15 @@ import { runBuildCheckFixLoop } from '@/loop/build-check-fix-loop.js';
 
 import { meetsThreshold, withinLimit } from '../thresholds.js';
 
-export type EvalArm = 'with_skill' | 'without_skill' | 'old_skill';
+export type EvalArm =
+  | 'with_skill'
+  | 'without_skill'
+  | 'old_skill'
+  | 'with_agent'
+  | 'main_thread'
+  | 'old_agent'
+  | 'with_agent_memory'
+  | 'builtin_explore';
 
 export interface AssertionResult {
   text: string;
@@ -24,6 +32,7 @@ export interface RunRecord {
   cache_hit_share: number | null;
   max_tool_result_tokens: number | null;
   truncated: boolean;
+  cut_off?: boolean;
 }
 
 export interface Stats {
@@ -59,6 +68,45 @@ export interface BenchmarkSummary {
   token_multiple: number | null;
   models: string[];
   tokens_available: boolean;
+  with_arm?: EvalArm;
+  latency?: {
+    with: LatencySummary;
+    baseline: LatencySummary;
+    p95_delta_ms: number;
+  };
+  cost?: {
+    median_with: number | null;
+    median_baseline: number | null;
+    delta_usd: number | null;
+  };
+}
+
+export interface LatencySummary {
+  p50_ms: number;
+  p95_ms: number;
+  samples: number;
+}
+
+function latencySummary(runs: readonly RunRecord[]): LatencySummary {
+  const durations = runs.map((run) => run.duration_ms);
+  return {
+    p50_ms: median(durations),
+    p95_ms: percentileOf(durations, 0.95),
+    samples: durations.length,
+  };
+}
+
+function percentileOf(values: readonly number[], share: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const rank = Math.ceil(share * sorted.length) - 1;
+  return sorted[Math.min(sorted.length - 1, Math.max(0, rank))]!;
+}
+
+function costMedian(runs: readonly RunRecord[]): number | null {
+  const costs = runs.map((run) => run.cost_usd);
+  if (costs.length === 0 || costs.some((cost) => cost === null)) return null;
+  return median(costs as number[]);
 }
 
 function round(value: number, places = 4): number {
@@ -103,6 +151,7 @@ function pooledRate(runs: readonly RunRecord[]): number {
 export function aggregateBenchmark(
   runs: readonly RunRecord[],
   baselineArm: EvalArm,
+  withArm: EvalArm = 'with_skill',
 ): BenchmarkSummary {
   const keys = [...new Set(runs.map((run) => `${run.arm}|${run.tier}`))].sort(compareText);
   const tokensAvailable = runs.length > 0 && runs.every((run) => run.tokens !== null);
@@ -124,7 +173,7 @@ export function aggregateBenchmark(
           : null,
     };
   });
-  const withRuns = runs.filter((run) => run.arm === 'with_skill');
+  const withRuns = runs.filter((run) => run.arm === withArm);
   const baseRuns = runs.filter((run) => run.arm === baselineArm);
   const cases = [...new Set(runs.map((run) => run.case))].sort(compareText).map((name) => {
     const withRate = pooledRate(withRuns.filter((run) => run.case === name));
@@ -139,7 +188,26 @@ export function aggregateBenchmark(
   const withRate = pooledRate(withRuns);
   const baseRate = pooledRate(baseRuns);
   const baseTokens = median(baseRuns.map((run) => run.tokens ?? 0));
+  const agentExtras: Partial<BenchmarkSummary> = {};
+  if (withArm !== 'with_skill') {
+    const withLatency = latencySummary(withRuns);
+    const baseLatency = latencySummary(baseRuns);
+    const withCost = costMedian(withRuns);
+    const baseCost = costMedian(baseRuns);
+    agentExtras.with_arm = withArm;
+    agentExtras.latency = {
+      with: withLatency,
+      baseline: baseLatency,
+      p95_delta_ms: withLatency.p95_ms - baseLatency.p95_ms,
+    };
+    agentExtras.cost = {
+      median_with: withCost,
+      median_baseline: baseCost,
+      delta_usd: withCost === null || baseCost === null ? null : round(withCost - baseCost, 6),
+    };
+  }
   return {
+    ...agentExtras,
     baseline_arm: baselineArm,
     configurations,
     cases,
@@ -204,6 +272,7 @@ export function judgeS5Gate(input: S5GateInput): S5GateResult {
 export interface AnalystInput {
   runs: readonly RunRecord[];
   baselineArm: EvalArm;
+  withArm?: EvalArm;
   toolResultMaxTokens: number;
   cacheHitMin: number;
 }
@@ -224,7 +293,7 @@ const COST_OUTLIER_MULTIPLE = 2;
 
 export function analystFacts(input: AnalystInput): AnalystFacts {
   const relevant = input.runs.filter(
-    (run) => run.arm === 'with_skill' || run.arm === input.baselineArm,
+    (run) => run.arm === (input.withArm ?? 'with_skill') || run.arm === input.baselineArm,
   );
   const outcomes = new Map<string, boolean[]>();
   for (const run of relevant) {
