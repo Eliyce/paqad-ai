@@ -160,7 +160,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and
   any line with an absolute home path move to the git-ignored `.claude/settings.local.json`. The
   managed `.claude/.gitignore` block lists `settings.hooks.json` and `settings.local.json`.
-- **Versions.** The launcher carries the paqad version that wrote them; an older paqad
+- **Versions.** The launcher carries the paqad version that wrote it; an older paqad
   leaves newer files alone, so two versions do not flip the files back and forth.
 - **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
   launcher file whose bytes match what paqad wrote, and writes the npm chain to
