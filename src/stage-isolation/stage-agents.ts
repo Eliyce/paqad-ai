@@ -350,10 +350,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     `4. \`paqad-ai stage end ${def.ledgerStage} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
     '',
     ...outOfScopeSection(def.ledgerStage),
-    '## Hard rules',
-    '',
-    ...STAGE_AGENT_HARD_RULES,
-    '',
+    ...(host === 'claude-code' ? [] : ['## Hard rules', '', ...STAGE_AGENT_HARD_RULES, '']),
     ...reportSection(
       def.artifact,
       def.maxTurns,

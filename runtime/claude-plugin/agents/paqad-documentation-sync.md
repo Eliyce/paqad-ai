@@ -39,14 +39,6 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
 
 Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
 
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  `paqad-ai decision create …` and return at once with `paused: D-<id>`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
-
 ## Report
 
 Keep the report under 2,000 tokens and finish in at most 60 turns.

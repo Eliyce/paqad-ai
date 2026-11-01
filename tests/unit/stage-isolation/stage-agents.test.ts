@@ -60,12 +60,25 @@ describe('stage-agent definitions', () => {
   });
 
   it('the cold-brief body carries the load steps, the stage verbs, and the hard rules', () => {
-    const body = buildStageAgentBody(MANDATORY_STAGE_AGENTS[0]!);
+    const body = buildStageAgentBody(MANDATORY_STAGE_AGENTS[0]!, 'codex-cli');
     expect(body).toContain('framework-path.txt');
     expect(body).toContain('SE_SESSION');
     expect(body).toContain('stage start planning');
     expect(body).toContain('Never ask the human');
     expect(body).toContain('paused: D-<id>');
+  });
+
+  it('the claude-code body leaves the hard rules to the SubagentStart brief, codex keeps them', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const claude = buildStageAgentBody(def, 'claude-code');
+      expect(claude).toContain('framework-path.txt');
+      expect(claude).toContain(`stage start ${def.ledgerStage}`);
+      expect(claude).not.toContain('## Hard rules');
+      expect(claude).not.toContain(STAGE_AGENT_HARD_RULES[0]);
+      const codex = buildStageAgentBody(def, 'codex-cli');
+      expect(codex).toContain('## Hard rules');
+      for (const line of STAGE_AGENT_HARD_RULES) expect(codex).toContain(line);
+    }
   });
 
   it('the claude-code body points at the stage brief and keeps the fallback and marker sentence', () => {

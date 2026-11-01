@@ -141,14 +141,6 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
    edits for a mutation stage.
 4. \`paqad-ai stage end checks --artifact <the-rigid-file>\` (mutation stages need no artifact).
 
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
-
 ## Report
 
 Keep the report under 2,000 tokens and finish in at most 60 turns.
@@ -199,14 +191,6 @@ You may be resumed with a follow-up task for the same change. Keep working from 
    (\`plan compile\` / \`spec freeze\` / \`rules load\` / \`review record\` / \`checks run\`), or make the
    edits for a mutation stage.
 4. \`paqad-ai stage end development --artifact <the-rigid-file>\` (mutation stages need no artifact).
-
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
 
 ## Report
 
@@ -262,14 +246,6 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
 
 Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with \`paqad-ai debt add\` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
 
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
-
 ## Report
 
 Keep the report under 2,000 tokens and finish in at most 60 turns.
@@ -319,14 +295,6 @@ so every row and artifact you write is recorded under the one change.
    (\`plan compile\` / \`spec freeze\` / \`rules load\` / \`review record\` / \`checks run\`), or make the
    edits for a mutation stage.
 4. \`paqad-ai stage end planning --artifact <the-rigid-file>\` (mutation stages need no artifact).
-
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
 
 ## Report
 
@@ -382,14 +350,6 @@ Just before \`paqad-ai review record\`, run \`paqad-ai review digest\` again so 
 
 Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with \`paqad-ai debt add\` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
 
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
-
 ## Report
 
 Keep the report under 2,000 tokens and finish in at most 60 turns.
@@ -441,14 +401,6 @@ Run \`spec pipeline start\` in the foreground. It returns within 20 seconds. Nev
    (\`plan compile\` / \`spec freeze\` / \`rules load\` / \`review record\` / \`checks run\`), or make the
    edits for a mutation stage.
 4. \`paqad-ai stage end specification --artifact <the-rigid-file>\` (mutation stages need no artifact).
-
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  \`paqad-ai decision create …\` and return at once with \`paused: D-<id>\`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
 
 ## Report
 

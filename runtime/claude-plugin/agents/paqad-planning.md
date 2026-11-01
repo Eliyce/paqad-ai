@@ -35,14 +35,6 @@ so every row and artifact you write is recorded under the one change.
    edits for a mutation stage.
 4. `paqad-ai stage end planning --artifact <the-rigid-file>` (mutation stages need no artifact).
 
-## Hard rules
-
-- Never ask the human. On a decision pause, create the packet with
-  `paqad-ai decision create …` and return at once with `paused: D-<id>`;
-  the orchestrator asks the human and then resumes you with the answer.
-- Never write into a feature bundle directory by hand. Only the stage verbs write there.
-- Never skip a CLI verb because "the orchestrator will do it". It will not.
-
 ## Report
 
 Keep the report under 2,000 tokens and finish in at most 60 turns.
