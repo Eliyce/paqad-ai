@@ -9,15 +9,20 @@ import {
   clearWaiting,
   OVERRIDES_FILE,
   readOverrides,
-  SKILL_STAGES,
-  type SkillWorkspace,
+  type AuthoringWorkspace,
 } from '../workspace.js';
 import type { StageResult } from './result.js';
 
 export const SECRET_RULE = 'SK-011';
+export const AGENT_SECRET_RULE = 'AG-012';
+export const AGENT_PERMISSION_RULES: readonly string[] = ['AG-015', 'AG-018', 'AG-022'];
 
-function assertGate(gate: string): void {
-  if (!SKILL_STAGES.some((stage) => stage.id === gate && stage.id !== 'S7')) {
+function secretRuleOf(workspace: AuthoringWorkspace): string {
+  return workspace.kind === 'agent' ? AGENT_SECRET_RULE : SECRET_RULE;
+}
+
+function assertGate(workspace: AuthoringWorkspace, gate: string): void {
+  if (!workspace.stages.some((stage) => stage.id === gate && stage.id !== 'S7')) {
     throw new AuthoringRefusal(
       `--gate must name a stage from S0 to S6 (got "${gate}"). Release itself can't be skipped.`,
       2,
@@ -25,26 +30,41 @@ function assertGate(gate: string): void {
   }
 }
 
-export function hasSecretFinding(workspace: SkillWorkspace): boolean {
+function lintRules(workspace: AuthoringWorkspace): string[] {
   const lint = workspace.readJson<{ findings?: SkillLintFinding[] }>('lint.json');
-  return (lint?.findings ?? []).some((finding) => finding.rule === SECRET_RULE);
+  return (lint?.findings ?? []).map((finding) => finding.rule);
 }
 
-function refuseSecrets(workspace: SkillWorkspace, gate: string): void {
-  if (gate === 'S4' && hasSecretFinding(workspace)) {
+export function hasSecretFinding(workspace: AuthoringWorkspace): boolean {
+  return lintRules(workspace).includes(secretRuleOf(workspace));
+}
+
+function refuseSecrets(workspace: AuthoringWorkspace, gate: string): void {
+  if (gate !== 'S4') return;
+  if (hasSecretFinding(workspace)) {
     throw new AuthoringRefusal(
-      `${workspace.name} holds a secret (SK-011). A secret can never be approved or skipped: remove the value, rerun paqad-ai skill draft and paqad-ai skill test.`,
+      `${workspace.name} holds a secret (${secretRuleOf(workspace)}). A secret can never be approved or skipped: remove the value, rerun paqad-ai ${workspace.kind} draft and paqad-ai ${workspace.kind} test.`,
+    );
+  }
+  if (workspace.kind !== 'agent') return;
+  const powers = [...new Set(lintRules(workspace))]
+    .filter((rule) => AGENT_PERMISSION_RULES.includes(rule))
+    .sort();
+  if (powers.length > 0) {
+    throw new AuthoringRefusal(
+      `${workspace.name} asks for risky powers (${powers.join(', ')}). An override can't clear them: only a resolved authoring.agent_permission packet can, or remove the powers and rerun paqad-ai agent test.`,
     );
   }
 }
 
 export function askForOverride(
-  workspace: SkillWorkspace,
+  workspace: AuthoringWorkspace,
   input: { gate: string; why: string; change?: string | null },
 ): StageResult {
-  assertGate(input.gate);
+  assertGate(workspace, input.gate);
   refuseSecrets(workspace, input.gate);
   const decision = raiseOverrideDecision(workspace.projectRoot, {
+    kind: workspace.kind,
     skill: workspace.name,
     gate: input.gate,
     why: input.why,
@@ -55,16 +75,16 @@ export function askForOverride(
     decision,
     artifacts: [],
     lines: [
-      `Asked decision ${decision}. Once it is answered, run paqad-ai skill override ${workspace.name} --gate ${input.gate} --decision ${decision}.`,
+      `Asked decision ${decision}. Once it is answered, run paqad-ai ${workspace.kind} override ${workspace.name} --gate ${input.gate} --decision ${decision}.`,
     ],
   };
 }
 
 export function recordOverride(
-  workspace: SkillWorkspace,
+  workspace: AuthoringWorkspace,
   input: { gate: string; decision: string },
 ): StageResult {
-  assertGate(input.gate);
+  assertGate(workspace, input.gate);
   refuseSecrets(workspace, input.gate);
   const record = readAuthoringDecision(workspace.projectRoot, input.decision);
   if (record === null) {

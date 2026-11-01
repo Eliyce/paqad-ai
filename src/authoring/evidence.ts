@@ -11,6 +11,7 @@ export interface AuthoringDefect {
   gate: string;
   evidence_path: string;
   at: string;
+  kind?: 'skill' | 'agent';
 }
 
 export function appendAuthoringDefect(projectRoot: string, defect: AuthoringDefect): void {
@@ -21,6 +22,7 @@ export function appendAuthoringDefect(projectRoot: string, defect: AuthoringDefe
     gate: defect.gate,
     evidence_path: defect.evidence_path,
     at: defect.at,
+    ...(defect.kind === 'agent' ? { kind: 'agent' } : {}),
   });
   appendFileSync(path, `${line}\n`, 'utf8');
 }
@@ -59,22 +61,34 @@ export function readAuthoringDefects(projectRoot: string): AuthoringDefect[] {
   return defects;
 }
 
-export function gateFailureReceiptLine(skill: string, gate: string, evidencePath: string): string {
+export function gateFailureReceiptLine(
+  skill: string,
+  gate: string,
+  evidencePath: string,
+  kind: 'skill' | 'agent' = 'skill',
+): string {
   return (
-    `I couldn't get the skill ${skill} through its ${gate} check, so I didn't add it. ` +
+    `I couldn't get the ${kind} ${skill} through its ${gate} check, so I didn't add it. ` +
     `The evidence is in ${evidencePath}. This is ours to fix, not yours.`
   );
 }
 
 export function recordGateFailure(
   projectRoot: string,
-  input: { skill: string; gate: string; evidencePath: string; now?: () => Date },
+  input: {
+    skill: string;
+    gate: string;
+    evidencePath: string;
+    now?: () => Date;
+    kind?: 'skill' | 'agent';
+  },
 ): string {
   appendAuthoringDefect(projectRoot, {
     skill: input.skill,
     gate: input.gate,
     evidence_path: input.evidencePath,
     at: (input.now ?? (() => new Date()))().toISOString(),
+    ...(input.kind === 'agent' ? { kind: 'agent' as const } : {}),
   });
-  return gateFailureReceiptLine(input.skill, input.gate, input.evidencePath);
+  return gateFailureReceiptLine(input.skill, input.gate, input.evidencePath, input.kind);
 }

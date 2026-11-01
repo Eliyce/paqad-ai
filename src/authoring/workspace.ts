@@ -9,6 +9,12 @@ import { SKILL_NAME_MAX, SKILL_NAME_PATTERN } from './lint/skill-lint.js';
 
 export const WORKSPACE_ROOT = '.paqad/tmp/authoring/skills';
 export const TRACKED_ROOT = '.paqad/authoring/skills';
+export const AGENT_WORKSPACE_ROOT = '.paqad/tmp/authoring/agents';
+export const AGENT_TRACKED_ROOT = '.paqad/authoring/agents';
+export const AGENT_NAME_MAX = 256;
+export const BUILTIN_OVERRIDE_AGENT_NAMES: readonly string[] = ['Explore'];
+
+export type AuthoringKind = 'skill' | 'agent';
 
 export class AuthoringRefusal extends Error {
   constructor(
@@ -29,6 +35,23 @@ export function validateSkillName(name: string): string {
   if (!SKILL_NAME_PATTERN.test(name)) {
     throw new AuthoringRefusal(
       `"${name}" is not a skill name: use a-z, 0-9 and single hyphens, with no hyphen at either end.`,
+      2,
+    );
+  }
+  return name;
+}
+
+export function validateAgentName(name: string): string {
+  if (typeof name === 'string' && BUILTIN_OVERRIDE_AGENT_NAMES.includes(name)) return name;
+  if (typeof name !== 'string' || name.length === 0 || name.length > AGENT_NAME_MAX) {
+    throw new AuthoringRefusal(
+      `"${String(name)}" is not an agent name: use 1 to ${AGENT_NAME_MAX} characters.`,
+      2,
+    );
+  }
+  if (!SKILL_NAME_PATTERN.test(name)) {
+    throw new AuthoringRefusal(
+      `"${name}" is not an agent name: use a-z, 0-9 and single hyphens, with no hyphen at either end, naming the role (code-reviewer, test-runner).`,
       2,
     );
   }
@@ -96,24 +119,80 @@ export const SKILL_STAGES: readonly StageDefinition[] = [
   },
 ];
 
-export function stageById(id: string): StageDefinition {
-  const stage = SKILL_STAGES.find((entry) => entry.id === id);
-  if (!stage) throw new Error(`unknown skill stage ${id}`);
+export const AGENT_STAGES: readonly StageDefinition[] = [
+  {
+    id: 'S0',
+    name: 'justify',
+    artifact: 'justification.md',
+    command: (name) => `paqad-ai agent justify ${name} --task-file <task.md> --reason <key>`,
+  },
+  {
+    id: 'S1',
+    name: 'intake',
+    artifact: 'intake.yaml',
+    command: (name) => `paqad-ai agent intake ${name} <intake.yaml>`,
+  },
+  {
+    id: 'S2',
+    name: 'evidence',
+    artifact: 'overlap.md',
+    command: (name) => `paqad-ai agent evidence ${name} <sources.md>`,
+  },
+  {
+    id: 'S3',
+    name: 'draft',
+    artifact: 'trace.md',
+    command: (name) => `paqad-ai agent draft ${name} --file <agent.md> --trace <trace.md>`,
+  },
+  {
+    id: 'S4',
+    name: 'lint and tests',
+    artifact: 'script-tests.json',
+    command: (name) => `paqad-ai agent test ${name}`,
+  },
+  {
+    id: 'S5',
+    name: 'evals',
+    artifact: 'benchmark.json',
+    command: (name) => `paqad-ai agent eval plan ${name}`,
+  },
+  {
+    id: 'S6',
+    name: 'delegation',
+    artifact: 'delegation-results.json',
+    command: (name) => `paqad-ai agent delegation plan ${name}`,
+  },
+  {
+    id: 'S7',
+    name: 'release',
+    artifact: 'release.json',
+    command: (name) => `paqad-ai agent release ${name}`,
+  },
+];
+
+export function stageById(
+  id: string,
+  stages: readonly StageDefinition[] = SKILL_STAGES,
+): StageDefinition {
+  const stage = stages.find((entry) => entry.id === id);
+  if (!stage) throw new Error(`unknown ${stages === AGENT_STAGES ? 'agent' : 'skill'} stage ${id}`);
   return stage;
 }
 
-export class SkillWorkspace {
-  readonly name: string;
+export class AuthoringWorkspace {
   readonly rel: string;
   readonly dir: string;
 
   constructor(
     readonly projectRoot: string,
-    name: string,
+    readonly name: string,
+    readonly kind: AuthoringKind,
+    readonly root: string,
+    readonly trackedRoot: string,
+    readonly stages: readonly StageDefinition[],
   ) {
-    this.name = validateSkillName(name);
-    this.rel = `${WORKSPACE_ROOT}/${this.name}`;
-    this.dir = join(projectRoot, WORKSPACE_ROOT, this.name);
+    this.rel = `${root}/${name}`;
+    this.dir = join(projectRoot, root, name);
   }
 
   path(rel: string): string {
@@ -169,6 +248,32 @@ export class SkillWorkspace {
   }
 }
 
+export class SkillWorkspace extends AuthoringWorkspace {
+  constructor(projectRoot: string, name: string) {
+    super(
+      projectRoot,
+      validateSkillName(name),
+      'skill',
+      WORKSPACE_ROOT,
+      TRACKED_ROOT,
+      SKILL_STAGES,
+    );
+  }
+}
+
+export class AgentWorkspace extends AuthoringWorkspace {
+  constructor(projectRoot: string, name: string) {
+    super(
+      projectRoot,
+      validateAgentName(name),
+      'agent',
+      AGENT_WORKSPACE_ROOT,
+      AGENT_TRACKED_ROOT,
+      AGENT_STAGES,
+    );
+  }
+}
+
 export interface GateMeta {
   gate: GateState;
   [key: string]: unknown;
@@ -220,7 +325,7 @@ export interface OverrideRecord {
   decision: string;
 }
 
-export function readOverrides(workspace: SkillWorkspace): OverrideRecord[] {
+export function readOverrides(workspace: AuthoringWorkspace): OverrideRecord[] {
   return workspace.readJson<OverrideRecord[]>(OVERRIDES_FILE) ?? [];
 }
 export const WAITING_FILE = 'waiting.json';
@@ -231,20 +336,20 @@ export interface WaitingOn {
   resume: string;
 }
 
-export function readMode(workspace: SkillWorkspace): WorkspaceMode {
+export function readMode(workspace: AuthoringWorkspace): WorkspaceMode {
   return workspace.readJson<WorkspaceMode>(MODE_FILE) ?? { entry: 'new' };
 }
 
-export function readWaiting(workspace: SkillWorkspace): WaitingOn[] {
+export function readWaiting(workspace: AuthoringWorkspace): WaitingOn[] {
   return workspace.readJson<WaitingOn[]>(WAITING_FILE) ?? [];
 }
 
-export function setWaiting(workspace: SkillWorkspace, entry: WaitingOn): void {
+export function setWaiting(workspace: AuthoringWorkspace, entry: WaitingOn): void {
   const rest = readWaiting(workspace).filter((item) => item.stage !== entry.stage);
   workspace.writeJson(WAITING_FILE, [...rest, entry]);
 }
 
-export function clearWaiting(workspace: SkillWorkspace, stage: string): void {
+export function clearWaiting(workspace: AuthoringWorkspace, stage: string): void {
   const rest = readWaiting(workspace).filter((item) => item.stage !== stage);
   if (rest.length === 0) workspace.remove(WAITING_FILE);
   else workspace.writeJson(WAITING_FILE, rest);
@@ -258,11 +363,11 @@ export interface StageState {
   decision: string | null;
 }
 
-function skipsJustify(workspace: SkillWorkspace, stage: StageDefinition): boolean {
+function skipsJustify(workspace: AuthoringWorkspace, stage: StageDefinition): boolean {
   return stage.id === 'S0' && readMode(workspace).entry === 'improve';
 }
 
-export function stageState(workspace: SkillWorkspace, stage: StageDefinition): StageState {
+export function stageState(workspace: AuthoringWorkspace, stage: StageDefinition): StageState {
   const artifact = workspace.relPath(stage.artifact);
   const waiting = readWaiting(workspace).find((entry) => entry.stage === stage.id);
   if (waiting) {
@@ -301,20 +406,20 @@ export function stageState(workspace: SkillWorkspace, stage: StageDefinition): S
   return { stage, state: meta.gate, artifact, detail, decision: null };
 }
 
-export function allStageStates(workspace: SkillWorkspace): StageState[] {
-  return SKILL_STAGES.map((stage) => stageState(workspace, stage));
+export function allStageStates(workspace: AuthoringWorkspace): StageState[] {
+  return workspace.stages.map((stage) => stageState(workspace, stage));
 }
 
 export function gateSatisfied(state: GateState): boolean {
   return state === 'passed' || state === 'skipped' || state === 'overridden';
 }
 
-export function requireEarlierGates(workspace: SkillWorkspace, stageId: string): void {
-  for (const stage of SKILL_STAGES) {
+export function requireEarlierGates(workspace: AuthoringWorkspace, stageId: string): void {
+  for (const stage of workspace.stages) {
     if (stage.id === stageId) return;
     const state = stageState(workspace, stage);
     if (gateSatisfied(state.state)) continue;
-    const current = stageById(stageId);
+    const current = stageById(stageId, workspace.stages);
     const why =
       state.state === 'waiting'
         ? `it is waiting on decision ${state.decision}`

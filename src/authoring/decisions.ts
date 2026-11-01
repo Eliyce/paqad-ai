@@ -78,11 +78,18 @@ export const OVERRIDE_DO_NOT_ADD = 'do-not-add';
 
 export function raiseOverrideDecision(
   projectRoot: string,
-  input: { skill: string; gate: string; why: string; change?: string | null },
+  input: {
+    skill: string;
+    gate: string;
+    why: string;
+    change?: string | null;
+    kind?: 'skill' | 'agent';
+  },
 ): string {
+  const kind = input.kind ?? 'skill';
   return raiseAuthoringDecision(projectRoot, {
     category: 'authoring.override',
-    title: `The skill ${input.skill} cannot run its ${input.gate} check. Add it unverified, kept in this project?`,
+    title: `The ${kind} ${input.skill} cannot run its ${input.gate} check. Add it unverified, kept in this project?`,
     context: input.why,
     options: [
       option(
@@ -95,7 +102,7 @@ export function raiseOverrideDecision(
         OVERRIDE_DO_NOT_ADD,
         'Do not add it',
         `If you pick this, ${input.skill} is not added.`,
-        'You give up: the skill.',
+        `You give up: the ${kind}.`,
       ),
     ],
     recommendation: OVERRIDE_DO_NOT_ADD,
