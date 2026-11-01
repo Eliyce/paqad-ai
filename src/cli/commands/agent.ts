@@ -10,6 +10,7 @@ import {
   lintAgentInProject,
   type AgentLintResult,
 } from '@/authoring/lint/agent-lint.js';
+import { AuditUsageError, DEFAULT_AGENT_AUDIT_REPORT, runAudit } from '@/authoring/lint/audit.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import { formatLintJson, lintExitCode } from '@/authoring/lint/runner.js';
 import { runAgentDraft } from '@/authoring/stages/agent-draft.js';
@@ -52,6 +53,10 @@ export const AGENT_OFF_LINE =
 interface LintOptions {
   json?: boolean;
   projectRoot: string;
+  all?: boolean;
+  report?: string;
+  groupBy?: string;
+  asOf?: string;
 }
 
 function plural(count: number, word: string): string {
@@ -71,10 +76,43 @@ function printLint(result: AgentLintResult): void {
   );
 }
 
-function runLint(file: string, options: LintOptions): void {
+function runLintAll(projectRoot: string, options: LintOptions): void {
+  try {
+    const { report, summary } = runAudit(projectRoot, 'agent', options);
+    console.log(summary);
+    process.exitCode = lintExitCode(report);
+  } catch (error) {
+    if (
+      error instanceof AuditUsageError ||
+      error instanceof AgentLintUsageError ||
+      error instanceof NeverWriteListError
+    ) {
+      console.error(`agent lint: ${error.message}`);
+      process.exitCode = USAGE_EXIT;
+      return;
+    }
+    throw error;
+  }
+}
+
+function runLint(file: string | undefined, options: LintOptions): void {
   const projectRoot = resolve(options.projectRoot);
   if (!agentOrchestratorEnabled(projectRoot)) {
     console.log(AGENT_OFF_LINE);
+    return;
+  }
+  if (options.all === true) {
+    if (file !== undefined) {
+      console.error('agent lint: give a file or --all, not both.');
+      process.exitCode = USAGE_EXIT;
+      return;
+    }
+    runLintAll(projectRoot, options);
+    return;
+  }
+  if (file === undefined) {
+    console.error('agent lint: name an agent file, or pass --all.');
+    process.exitCode = USAGE_EXIT;
     return;
   }
   let result: AgentLintResult;
@@ -512,13 +550,24 @@ export function createAgentCommand(): Command {
   command
     .command('lint')
     .description(
-      'Check an agent file against the deterministic agent rules (AG-001 to AG-022). ' +
+      'Check an agent file, or every agent in the project with --all, against the ' +
+        'deterministic agent rules (AG-001 to AG-022). Persona files are listed apart and never block. ' +
         'Exit 0 with no blocking finding, 1 with one, 2 on a usage error.',
     )
-    .argument('<file>', 'The agent Markdown file')
+    .argument('[file]', 'The agent Markdown file')
     .option('--json', 'Print the findings as JSON')
+    .option('--all', 'Lint every agent file in the project and write one JSON report')
+    .option(
+      '--report <file>',
+      `With --all: the report path (default ${DEFAULT_AGENT_AUDIT_REPORT})`,
+    )
+    .option('--group-by <how>', 'With --all: group the findings by rule or folder', 'rule')
+    .option(
+      '--as-of <date>',
+      'With --all: count dispatches in the 30 days up to this date (YYYY-MM-DD)',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
-    .action((file: string, options: LintOptions) => {
+    .action((file: string | undefined, options: LintOptions) => {
       runLint(file, options);
     });
 

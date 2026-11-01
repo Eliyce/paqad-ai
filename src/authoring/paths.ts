@@ -27,6 +27,13 @@ export const PAQAD_REPO_AGENT_ROOTS: readonly string[] = [
   'runtime/templates/stage-agents',
 ];
 
+export const PAQAD_PERSONA_ROOTS: readonly string[] = [
+  'runtime/base/agents',
+  'runtime/capabilities/*/agents',
+];
+
+export const PAQAD_AGENT_TEMPLATE_ROOT = 'runtime/templates/stage-agents';
+
 const PAQAD_PACKAGE_NAME = 'paqad-ai';
 
 export interface SkillPathOptions {
@@ -199,6 +206,30 @@ export function findAgentPaths(
 ): string[] {
   const roots = splitAgentRoots(adapters, options);
   return files.filter((file) => agentNameFromSegments(normalize(file).split('/'), roots) !== null);
+}
+
+function underRoots(path: string, roots: readonly string[]): boolean {
+  const segments = normalize(path).split('/');
+  return roots.some((root) => {
+    const parts = root.split('/');
+    return segments.length === parts.length + 1 && matchRoot(segments, parts);
+  });
+}
+
+export function isPersonaRootPath(path: string): boolean {
+  return underRoots(path, PAQAD_PERSONA_ROOTS);
+}
+
+export function isAgentTemplatePath(path: string): boolean {
+  return underRoots(path, [PAQAD_AGENT_TEMPLATE_ROOT]) && normalize(path).endsWith('.hbs');
+}
+
+export type AgentPathClass = 'agent' | 'persona' | 'template';
+
+export function classifyAgentPath(path: string, hasFrontmatter: boolean): AgentPathClass {
+  if (isAgentTemplatePath(path)) return 'template';
+  if (isPersonaRootPath(path) && !hasFrontmatter) return 'persona';
+  return 'agent';
 }
 
 export function enabledAdapters(projectRoot: string): AdapterType[] {

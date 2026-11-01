@@ -3,6 +3,7 @@ import { relative, resolve } from 'node:path';
 import { Command } from 'commander';
 
 import { readAuthoringConfig } from '@/authoring/config.js';
+import { AuditUsageError, DEFAULT_SKILL_AUDIT_REPORT, runAudit } from '@/authoring/lint/audit.js';
 import { NeverWriteListError } from '@/authoring/lint/never-write.js';
 import {
   formatSkillLintJson,
@@ -11,6 +12,7 @@ import {
   SkillLintUsageError,
   type SkillLintResult,
 } from '@/authoring/lint/skill-lint.js';
+import { lintExitCode } from '@/authoring/lint/runner.js';
 import { enabledAdapters } from '@/authoring/paths.js';
 import { draftLintsAsRuntime, runDraft } from '@/authoring/stages/draft.js';
 import { runImprove } from '@/authoring/stages/improve.js';
@@ -42,6 +44,10 @@ import {
 interface LintOptions {
   json?: boolean;
   projectRoot: string;
+  all?: boolean;
+  report?: string;
+  groupBy?: string;
+  asOf?: string;
 }
 
 function printLint(result: SkillLintResult): void {
@@ -71,7 +77,41 @@ function workspaceDraftLintsAsRuntime(projectRoot: string, folder: string): true
   }
 }
 
-function runLint(folder: string, options: LintOptions): void {
+function runLintAll(options: LintOptions): void {
+  const projectRoot = resolve(options.projectRoot);
+  try {
+    const { report, summary } = runAudit(projectRoot, 'skill', options);
+    console.log(summary);
+    process.exitCode = lintExitCode(report);
+  } catch (error) {
+    if (
+      error instanceof AuditUsageError ||
+      error instanceof SkillLintUsageError ||
+      error instanceof NeverWriteListError
+    ) {
+      console.error(`skill lint: ${error.message}`);
+      process.exitCode = USAGE_EXIT;
+      return;
+    }
+    throw error;
+  }
+}
+
+function runLint(folder: string | undefined, options: LintOptions): void {
+  if (options.all === true) {
+    if (folder !== undefined) {
+      console.error('skill lint: give a folder or --all, not both.');
+      process.exitCode = USAGE_EXIT;
+      return;
+    }
+    runLintAll(options);
+    return;
+  }
+  if (folder === undefined) {
+    console.error('skill lint: name a skill folder, or pass --all.');
+    process.exitCode = USAGE_EXIT;
+    return;
+  }
   const projectRoot = resolve(options.projectRoot);
   let result: SkillLintResult;
   try {
@@ -441,13 +481,21 @@ export function createSkillCommand(): Command {
   command
     .command('lint')
     .description(
-      'Check a skill folder against the deterministic skill rules (SK-001 to SK-019). ' +
+      'Check a skill folder, or every skill in the project with --all, against the ' +
+        'deterministic skill rules (SK-001 to SK-019). ' +
         'Exit 0 with no blocking finding, 1 with one, 2 on a usage error.',
     )
-    .argument('<folder>', 'The skill folder (the one holding SKILL.md)')
+    .argument('[folder]', 'The skill folder (the one holding SKILL.md)')
     .option('--json', 'Print the findings as JSON')
+    .option('--all', 'Lint every skill folder in the project and write one JSON report')
+    .option(
+      '--report <file>',
+      `With --all: the report path (default ${DEFAULT_SKILL_AUDIT_REPORT})`,
+    )
+    .option('--group-by <how>', 'With --all: group the findings by rule or folder', 'rule')
+    .option('--as-of <date>', 'With --all: count fires in the 30 days up to this date (YYYY-MM-DD)')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .action((folder: string, options: LintOptions) => {
+    .action((folder: string | undefined, options: LintOptions) => {
       runLint(folder, options);
     });
 
