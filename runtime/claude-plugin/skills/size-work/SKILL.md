@@ -59,8 +59,8 @@ Size by hand with this checklist:
   link and its recorded size.
 - Give a size or range, list the drivers behind it, and set a confidence of low, medium or high.
 - Lower the confidence and state the reason when the area's documents are template text or missing.
-- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: an uncovered area is not
-  documented, never not built; report a status line as what the docs say, for the exact thing it
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: call an uncovered area not
+  documented, never say or imply it is not built; report a status line as what the docs say, for the exact thing it
   names only; never use a requirements document as current behaviour; when the code is reachable,
   open at most 5 files of that area and say at most one line, labelled "the code suggests".
 - Recommend a split when the size is above a sprint's worth or confidence is low because of size.

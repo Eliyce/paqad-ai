@@ -69,8 +69,8 @@ Refine by hand with this checklist:
 - Diagnose in plain words with evidence for each finding; read the title, description and "done
   when" for em or en dashes, code words and `plain-language.md` jargon, ignoring quotes, code and
   URLs.
-- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: an uncovered area is not
-  documented, never not built; report a status line as what the docs say, for the exact thing it
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: call an uncovered area not
+  documented, never say or imply it is not built; report a status line as what the docs say, for the exact thing it
   names only; never use a requirements document as current behaviour; when the code is reachable,
   open at most 5 files of that area and say at most one line, labelled "the code suggests".
 - Write a field-by-field before and after, limited to summary, description, labels, parent, links

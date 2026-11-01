@@ -21,9 +21,9 @@ said. Raise conflicts kindly (`references/challenge-guide.md`).
 
 1. Play the idea back, goal first. Use the shape in `references/playback-template.md`: the goal,
    what exists today (including what the docs could not confirm), the options with their
-   trade-offs in business terms, a smaller first step where it helps, and a recommendation. An
-   uncovered area is not documented, never not built, and code lines keep "the code suggests"
-   ("What the documents prove" in `references/paqad-docs-map.md`). Evidence stays at its level, with
+   trade-offs in business terms, a smaller first step where it helps, and a recommendation. Call
+   an area the documents do not cover not documented; never say or imply it is not built. Code
+   lines keep "the code suggests" ("What the documents prove" in `references/paqad-docs-map.md`). Evidence stays at its level, with
    the run's one source line (`references/evidence-levels.md`). End with the sources line, then the
    closing question through the choice prompt.
 2. Look through the expert lenses (`references/expert-lenses.md`): customer value and experience,
@@ -56,8 +56,9 @@ No script; shape by hand with this checklist:
   condition is offered.
 - If the idea already exists, that is said with the source and the already-exists outcome is
   recommended.
-- "What the documents prove" (`references/paqad-docs-map.md`) by hand: an area the today block does
-  not document is not documented, never not built; code lines keep "the code suggests".
+- "What the documents prove" (`references/paqad-docs-map.md`) by hand: call an area the today block
+  does not document not documented; never say or imply it is not built. Code lines keep "the code
+  suggests".
 - Every suggested measure or scope cut is labelled a suggestion and only recorded once accepted.
 
 ## Output

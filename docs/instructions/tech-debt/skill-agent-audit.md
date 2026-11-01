@@ -322,7 +322,7 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | skills: base | 47 | 0 | 45 | 3234 | 12876 | 40397 |
 | skills: coding | 29 | 0 | 29 | 1459 | 5788 | 16922 |
 | skills: content | 6 | 0 | 6 | 301 | 1192 | 1639 |
-| skills: plugin | 17 | 0 | 17 | 1384 | 6860 | 15360 |
+| skills: plugin | 17 | 0 | 17 | 1384 | 6860 | 15384 |
 | skills: security | 11 | 0 | 10 | 602 | 2396 | 7334 |
 | agents: base | 1 | 0 | 2 | 59 | 0 | 684 |
 | agents: plugin | 8 | 8 | 6 | 272 | 0 | 3985 |
@@ -452,9 +452,9 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | `runtime/claude-plugin/skills/onboard` | 0 | 1 | no activation data | 65 | 396 | 383 | 13 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/plan-sprint` | 0 | 1 | no activation data | 220 | 1183 | 1183 | 0 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/post-tickets` | 0 | 1 | no activation data | 45 | 1440 | 1439 | 1 | get-connected (0.41) | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/refine-ticket` | 0 | 1 | no activation data | 205 | 1568 | 1435 | 133 |  | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/shape-idea` | 0 | 1 | no activation data | 42 | 1129 | 912 | 217 |  | no scripts | SK-004 |  |
-| `runtime/claude-plugin/skills/size-work` | 0 | 1 | no activation data | 193 | 1255 | 1110 | 145 |  | tested | SK-004 |  |
+| `runtime/claude-plugin/skills/refine-ticket` | 0 | 1 | no activation data | 205 | 1568 | 1440 | 128 |  | tested | SK-004 |  |
+| `runtime/claude-plugin/skills/shape-idea` | 0 | 1 | no activation data | 42 | 1129 | 926 | 203 |  | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/size-work` | 0 | 1 | no activation data | 193 | 1255 | 1115 | 140 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/start` | 0 | 1 | no activation data | 160 | 484 | 484 | 0 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/understand-idea` | 0 | 1 | no activation data | 45 | 638 | 518 | 120 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/write-tickets` | 0 | 1 | no activation data | 44 | 1088 | 1003 | 85 | check-tickets (0.43) | no scripts | SK-004 |  |
