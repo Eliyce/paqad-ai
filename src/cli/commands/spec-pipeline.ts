@@ -14,6 +14,12 @@ import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
 import {
+  benchmarkPlanLines,
+  BenchmarkRefusal,
+  parseChanges,
+  recordHighTableBenchmark,
+} from '@/spec-pipeline/experts/benchmark.js';
+import {
   buildExpertBriefs,
   renderExpertBrief,
   rosterEntryFor,
@@ -1162,6 +1168,35 @@ function createExpertsCommand(): Command {
           ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
         }),
       );
+    });
+
+  experts
+    .command('benchmark')
+    .description(
+      'Measure the High Table form: print the replay plan for 3+ changes, or record the results and ask which form to keep',
+    )
+    .requiredOption('--changes <refs>', 'At least 3 change refs, comma separated')
+    .option('--results <file>', 'The recorded replay results')
+    .option(...projectRootOpt)
+    .action((options: { changes: string; results?: string; projectRoot: string }) => {
+      try {
+        const changes = parseChanges(options.changes);
+        if (options.results === undefined) {
+          for (const line of benchmarkPlanLines(options.projectRoot, changes)) console.log(line);
+          return;
+        }
+        const result = recordHighTableBenchmark({
+          projectRoot: options.projectRoot,
+          changes,
+          resultsText: readFileSync(options.results, 'utf8'),
+        });
+        for (const line of result.lines) console.log(line);
+        if (!result.ok) process.exitCode = 1;
+      } catch (error) {
+        if (!(error instanceof BenchmarkRefusal)) throw error;
+        console.error(`experts benchmark: ${error.message}`);
+        process.exitCode = 2;
+      }
     });
 
   return experts;
