@@ -24,6 +24,7 @@ import {
   stageBriefHookOutput,
   stageHelperStage,
 } from '@/stage-isolation/stage-brief.js';
+import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 
@@ -42,6 +43,12 @@ afterEach(() => {
 
 function policyDir(root: string): string {
   const dir = join(root, 'docs/instructions/workflows');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function teamDir(root: string): string {
+  const dir = join(root, '.paqad/configs/feature-development');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -96,16 +103,8 @@ describe('buildStageBrief', () => {
       (_, index) => `      - "Overflow instruction ${index} ${'x'.repeat(400)}"`,
     );
     writeFileSync(
-      join(policyDir(root), 'feature-development.yaml'),
-      [
-        'schema_version: "1"',
-        'merge_mode: append',
-        'stages:',
-        '  development:',
-        '    instructions:',
-        ...lines,
-        '',
-      ].join('\n'),
+      join(teamDir(root), 'workflow.yaml'),
+      ['stages:', '  development:', '    instructions:', ...lines, ''].join('\n'),
       'utf8',
     );
     const brief = buildStageBrief('development', root, SESSION);
@@ -123,22 +122,39 @@ describe('buildStageBrief', () => {
       (_, index) => `      - "docs/${index}/${'r'.repeat(300)}"`,
     );
     writeFileSync(
-      join(policyDir(root), 'feature-development.yaml'),
-      [
-        'schema_version: "1"',
-        'merge_mode: append',
-        'stages:',
-        '  review:',
-        '    read:',
-        ...reads,
-        '',
-      ].join('\n'),
+      join(teamDir(root), 'workflow.yaml'),
+      ['stages:', '  review:', '    read:', ...reads, ''].join('\n'),
       'utf8',
     );
     const brief = buildStageBrief('review', root, SESSION);
     expect(brief.length).toBeLessThanOrEqual(STAGE_BRIEF_MAX_CHARS);
     expect(brief).toContain(STAGE_BRIEF_MORE_LINE);
     expect(brief).toContain('No extra instructions for this stage.');
+  });
+
+  it('AC-55: puts team read and instructions after paqad own', () => {
+    const root = tempRoot();
+    writeFileSync(
+      join(teamDir(root), 'workflow.yaml'),
+      'stages:\n  review:\n    read: [docs/team/**]\n    instructions:\n      - Team review rule.\n',
+      'utf8',
+    );
+    const brief = buildStageBrief('review', root, SESSION);
+    const own = defaultFeatureDevelopmentPolicy().stages.review.instructions[0]!;
+    expect(brief.indexOf('Team review rule.')).toBeGreaterThan(brief.indexOf(own));
+    expect(brief).toContain('docs/team/**');
+  });
+
+  it('prints the module attribution setting in the planning brief', () => {
+    const root = tempRoot();
+    expect(buildStageBrief('planning', root, SESSION)).toContain('Module attribution: defer');
+    writeFileSync(
+      join(teamDir(root), 'workflow.yaml'),
+      'stages:\n  planning:\n    module_attribution: stop\n',
+      'utf8',
+    );
+    expect(buildStageBrief('planning', root, SESSION)).toContain('Module attribution: stop');
+    expect(buildStageBrief('review', root, SESSION)).not.toContain('Module attribution:');
   });
 
   it('says no active change was found when the session has none', () => {
