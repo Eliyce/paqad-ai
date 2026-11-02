@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 import { AdapterFactory } from '@/adapters/factory.js';
 import { BaseAdapter } from '@/adapters/shared/base-adapter.js';
@@ -40,7 +40,7 @@ import {
   type OverrideRecord,
   type SkillWorkspace,
 } from '../workspace.js';
-import { draftFolder, draftLintsAsRuntime, runtimeSkillSource } from './draft.js';
+import { draftFolder, draftLintsAsRuntime, readDraftSource, runtimeSkillSource } from './draft.js';
 import { readWorkspaceSources } from './sources.js';
 import { ALLOW_OPTION, RISKY_FILE, testInputsHash } from './test.js';
 import type { StageResult } from './result.js';
@@ -119,6 +119,12 @@ function checkHashes(workspace: SkillWorkspace, folder: string, overridden: Set<
       );
     }
   }
+}
+
+export function releasesInPlace(workspace: SkillWorkspace, target: string): boolean {
+  const source = readDraftSource(workspace);
+  if (source === null) return false;
+  return resolve(workspace.projectRoot, source) === resolve(workspace.projectRoot, target);
 }
 
 function nextVersion(previous: string | null, requested: string | undefined): string {
@@ -250,9 +256,15 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
   const evidenceText = `${JSON.stringify(evidence, null, 2)}\n`;
   const lines: string[] = [];
 
+  const inPlace = releasesInPlace(workspace, target);
+  if (inPlace && hashFolder(join(projectRoot, target)) !== folderHash) {
+    throw new AuthoringRefusal(
+      `Release refused: ${target} changed after S3 drafted it, and the release target is that same folder. Rerun paqad-ai skill draft ${workspace.name} --dir ${target} and the stages after it.`,
+    );
+  }
   const unchanged = previous?.version === version && previous.folder_hash === folderHash;
   if (!unchanged) {
-    copyIntoHost(folder, join(projectRoot, target));
+    if (!inPlace) copyIntoHost(folder, join(projectRoot, target));
     mkdirSync(join(projectRoot, trackedDir), { recursive: true });
     writeFileSync(join(projectRoot, evidencePath), evidenceText, 'utf8');
     const changelogPath = join(projectRoot, trackedDir, 'CHANGELOG.md');
@@ -270,6 +282,8 @@ export function runRelease(workspace: SkillWorkspace, options: ReleaseOptions): 
     lines.push(
       `Released ${workspace.name} ${version} into ${target}; evidence in ${evidencePath}.`,
     );
+    if (inPlace)
+      lines.push(`The draft came from ${target}, so no file in it was copied or changed.`);
   } else {
     lines.push(
       `${workspace.name} ${version} is already released with this content; nothing changed.`,

@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import { recordGateFailure } from '../evidence.js';
@@ -156,6 +156,7 @@ function copyTree(source: string, target: string, workspace: SkillWorkspace, pre
       continue;
     }
     workspace.write(`${target}/${rel}`, buffer.toString('utf8'));
+    chmodSync(workspace.path(`${target}/${rel}`), mode);
   }
 }
 
