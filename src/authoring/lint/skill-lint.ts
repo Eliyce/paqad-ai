@@ -389,6 +389,23 @@ export function hasRunnableEntryPoint(text: string): boolean {
   return ENTRY_POINT_MARKS.some((mark) => mark.test(text));
 }
 
+export function contractScriptPaths(
+  files: ReadonlyArray<{ rel: string; text: string | null }>,
+): string[] {
+  const readme = files.find((entry) => entry.rel === SCRIPTS_README)?.text ?? null;
+  const excluded = notEntryPoints(readme);
+  return files
+    .filter(
+      (entry) =>
+        under(entry.rel, 'scripts') &&
+        entry.rel !== SCRIPTS_README &&
+        (entry.text === null ||
+          !excluded.has(entry.rel.slice('scripts/'.length)) ||
+          hasRunnableEntryPoint(entry.text)),
+    )
+    .map((entry) => entry.rel);
+}
+
 function checkScripts(
   sink: FindingSink,
   files: readonly SkillFile[],
