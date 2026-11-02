@@ -61,6 +61,7 @@ describe('createProgram', () => {
       'config',
       'intake',
       'deliver',
+      'git-workflow',
       'delivery-link',
       'discovery',
       'status',

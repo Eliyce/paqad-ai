@@ -22,6 +22,7 @@ import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js'
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -238,6 +239,9 @@ function updateGitWorkflow(projectRoot: string): string[] {
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
   syncGitWorkflow(projectRoot);
+  try {
+    installGitHooks(projectRoot);
+  } catch {}
   return migration.lines;
 }
 

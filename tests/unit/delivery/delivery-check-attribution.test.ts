@@ -34,7 +34,7 @@ function policy(): ResolvedGitWorkflow {
 function runner(over: { branch?: string; log?: string; prBody?: string | null }): CommandRunner {
   return async (command, args): Promise<CommandRun> => {
     if (command === 'git' && args.includes('--abbrev-ref')) {
-      return { stdout: over.branch ?? 'feat/thing', exitCode: 0 };
+      return { stdout: over.branch ?? 'feature/thing', exitCode: 0 };
     }
     if (command === 'git' && args.includes('log')) {
       return { stdout: over.log ?? '', exitCode: 0 };

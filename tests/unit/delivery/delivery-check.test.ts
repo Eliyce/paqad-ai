@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,6 +24,7 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { ticketRef } from '../../shared/ticket-ref.js';
 
 function policy(
@@ -51,8 +52,12 @@ function runner(handlers: {
   commit?: CommandRun;
   upstream?: CommandRun;
   gh?: CommandRun;
+  ahead?: CommandRun;
 }): CommandRunner {
   return async (command, args) => {
+    if (command === 'git' && args.includes('rev-list')) {
+      return handlers.ahead ?? { stdout: '1', exitCode: 0 };
+    }
     if (command === 'git' && args.includes('@{upstream}')) {
       return handlers.upstream ?? { stdout: '', exitCode: 128 };
     }
@@ -64,6 +69,12 @@ function runner(handlers: {
     }
     return handlers.gh ?? { stdout: '', exitCode: 1 };
   };
+}
+
+function warnRoot(root: string): string {
+  mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+  writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'enforcement.yaml'), 'agents: warn\n');
+  return root;
 }
 
 const ok = (stdout: string): CommandRun => ({ stdout, exitCode: 0 });
@@ -102,6 +113,15 @@ describe('evaluateDelivery — convention findings', () => {
     expect(result.ran).toBe(false);
   });
 
+  it('on the base branch with nothing committed → no on-base-branch finding', async () => {
+    const result = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy({ base: 'main' }),
+      run: runner({ branch: ok('main'), commit: ok('sha'), ahead: ok('0') }),
+    });
+    expect(result.findings).toEqual([]);
+  });
+
   it('on the base branch → on-base-branch warning', async () => {
     const result = await evaluateDelivery({
       projectRoot: root,
@@ -120,7 +140,9 @@ describe('evaluateDelivery — convention findings', () => {
       run: runner({ branch: ok('random-thing'), commit: ok('sha') }),
     });
     expect(result.findings.map((f) => f.code)).toEqual(['branch-shape']);
-    expect(result.findings[0]?.message).toContain('feat/');
+    expect(result.findings[0]?.message).toBe(
+      "branch random-thing doesn't follow this team's pattern {prefix}/{ticket}-{title_slug}.",
+    );
   });
 
   it('conventional branch, no type_map → no branch-shape warning (nothing to check against)', async () => {
@@ -233,7 +255,7 @@ describe('formatDeliverySummary', () => {
 describe('runDeliveryCapability — the kernel-wired behaviour', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -297,7 +319,7 @@ describe('execaCommandRunner — the real subprocess seam', () => {
 describe('the Stop delivery check saves what ships', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-ship-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-ship-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -362,7 +384,6 @@ describe('the Stop delivery check saves what ships', () => {
     });
     expect(calls).toHaveLength(1);
     expect(calls[0]!.at(-1)).toContain('changedFiles,additions,deletions');
-    expect(calls[0]!.at(-1)).not.toContain('title');
     expect(readFeatureDelivery(root, dir).pr).not.toHaveProperty('title');
     expect(readFeatureDelivery(root, dir).pr).toMatchObject({
       number: 12,
@@ -647,7 +668,7 @@ describe('the Stop delivery check saves what ships', () => {
 describe('the Stop delivery reader records the push it can see', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-push-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-push-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -771,7 +792,7 @@ describe('the Stop delivery reader records the push it can see', () => {
 describe('a delivery reading never overwrites a newer one', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-order-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-order-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -811,7 +832,7 @@ describe('a delivery reading never overwrites a newer one', () => {
 describe('a sha that is not 40 hex characters is no reading', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-sha-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-sha-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -837,7 +858,7 @@ describe('a sha that is not 40 hex characters is no reading', () => {
 describe('delivery.json holds only states, numbers and ids', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-free-text-'));
+    root = warnRoot(mkdtempSync(join(tmpdir(), 'paqad-delivery-free-text-')));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));

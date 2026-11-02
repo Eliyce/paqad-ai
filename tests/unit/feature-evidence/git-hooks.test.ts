@@ -5,7 +5,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { GIT_HOOK_MARKER, installGitHooks, resolveHooksDir } from '@/feature-evidence/git-hooks.js';
+import { PATHS } from '@/core/constants/paths.js';
+import {
+  GIT_HOOK_MARKER,
+  GIT_WORKFLOW_HOOK_MARKER,
+  installGitHooks,
+  resolveHooksDir,
+  workflowHooksInstalled,
+} from '@/feature-evidence/git-hooks.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
 
@@ -24,7 +31,12 @@ describe('installGitHooks', () => {
   it('installs post-commit + post-merge with the paqad marker', () => {
     const root = tempRepo();
     const result = installGitHooks(root);
-    expect(result.installed.sort()).toEqual(['post-commit', 'post-merge']);
+    expect(result.installed.sort()).toEqual([
+      'commit-msg',
+      'post-commit',
+      'post-merge',
+      'pre-push',
+    ]);
     const dir = resolveHooksDir(root)!;
     for (const hook of ['post-commit', 'post-merge']) {
       const body = readFileSync(join(dir, hook), 'utf8');
@@ -50,7 +62,7 @@ describe('installGitHooks', () => {
     installGitHooks(root);
     const again = installGitHooks(root);
     expect(again.installed).toEqual([]);
-    expect(again.skipped.sort()).toEqual(['post-commit', 'post-merge']);
+    expect(again.skipped.sort()).toEqual(['commit-msg', 'post-commit', 'post-merge', 'pre-push']);
   });
 
   it('writes a marker line that carries no issue number', () => {
@@ -78,7 +90,7 @@ describe('installGitHooks', () => {
 
     const result = installGitHooks(root);
 
-    expect(result.installed).toEqual([]);
+    expect(result.installed).toEqual(['commit-msg', 'pre-push']);
     expect(result.skipped.sort()).toEqual(['post-commit', 'post-merge']);
     expect(readFileSync(join(dir, 'post-commit'), 'utf8')).toBe(olderBlock('commit'));
     expect(readFileSync(join(dir, 'post-merge'), 'utf8')).toBe(olderBlock('merge'));
@@ -131,5 +143,54 @@ describe('installGitHooks', () => {
     const result = installGitHooks(dir);
     expect(result.notAGitRepo).toBe(true);
     expect(result.installed).toEqual([]);
+  });
+});
+
+function people(root: string, value: string): void {
+  mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+  writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'enforcement.yaml'), `people: ${value}\n`);
+}
+
+describe('installGitHooks: commit-msg and pre-push for people', () => {
+  it('adds the two hook blocks when people is warn or block', () => {
+    for (const value of ['warn', 'block']) {
+      const root = tempRepo();
+      people(root, value);
+      installGitHooks(root);
+      const dir = resolveHooksDir(root)!;
+      expect(readFileSync(join(dir, 'commit-msg'), 'utf8')).toBe(
+        '#!/bin/sh\n' +
+          `${GIT_WORKFLOW_HOOK_MARKER}\n` +
+          'if command -v paqad-ai >/dev/null 2>&1; then paqad-ai git-workflow check-commit "$1" || exit 1; fi\n',
+      );
+      expect(readFileSync(join(dir, 'pre-push'), 'utf8')).toContain(
+        'if command -v paqad-ai >/dev/null 2>&1; then paqad-ai git-workflow check-push || exit 1; fi',
+      );
+      expect(workflowHooksInstalled(root)).toBe(true);
+    }
+  });
+
+  it('installs neither when people is off', () => {
+    const root = tempRepo();
+    people(root, 'off');
+    const result = installGitHooks(root);
+    expect(result.installed.sort()).toEqual(['post-commit', 'post-merge']);
+    expect(existsSync(join(resolveHooksDir(root)!, 'commit-msg'))).toBe(false);
+  });
+
+  it('switching to off removes only the two new blocks and keeps post-commit, post-merge and other hook lines', () => {
+    const root = tempRepo();
+    const dir = resolveHooksDir(root)!;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'pre-push'), '#!/bin/sh\necho "team pre-push"\n');
+    installGitHooks(root);
+    people(root, 'off');
+    const result = installGitHooks(root);
+    expect(result.removed?.sort()).toEqual(['commit-msg', 'pre-push']);
+    expect(existsSync(join(dir, 'commit-msg'))).toBe(false);
+    expect(readFileSync(join(dir, 'pre-push'), 'utf8')).toBe('#!/bin/sh\necho "team pre-push"\n');
+    expect(readFileSync(join(dir, 'post-commit'), 'utf8')).toContain(GIT_HOOK_MARKER);
+    expect(readFileSync(join(dir, 'post-merge'), 'utf8')).toContain(GIT_HOOK_MARKER);
+    expect(workflowHooksInstalled(root)).toBe(false);
   });
 });

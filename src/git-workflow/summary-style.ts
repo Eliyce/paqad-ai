@@ -1,4 +1,4 @@
-import { firstLine } from './patterns.js';
+import { firstLine, ticketPatterns } from './patterns.js';
 import type { ResolvedGitWorkflow } from './types.js';
 
 const FILE_PATH = /\b[\w.-]+\/[\w./-]+\b/;
@@ -67,18 +67,23 @@ export function summaryPart(
       escapeRegExp(type.commit_type),
     );
     const typePiece = types.length > 0 ? `(?:${types.join('|')})` : '\\w+';
+    const tickets = ticketPatterns(config);
+    const ticketPiece =
+      tickets.length > 0 ? `(?:${tickets.map((pattern) => `(?:${pattern})`).join('|')})?` : '';
     const source = line
       .split(/(\{[a-z_]+\})/)
       .map((part) => {
         const key = /^\{([a-z_]+)\}$/.exec(part)?.[1];
-        if (key === 'summary') return '(.+?)';
+        if (key === 'summary') return '(?<summary>.+?)';
         if (key === 'type') return typePiece;
+        if (key === 'ticket') return ticketPiece;
         if (key && SUMMARY_PIECES[key]) return SUMMARY_PIECES[key];
         return escapeRegExp(part).replace(/[ :([\]\\)]+/g, (sep) => `(?:${sep})?`);
       })
       .join('');
     const match = new RegExp(`^${source}$`).exec(subject);
-    if (match?.[1] !== undefined) return withoutTickets(match[1], config);
+    const summary = match?.groups?.summary;
+    if (summary !== undefined) return withoutTickets(summary, config);
   }
   return withoutTickets(subject, config);
 }

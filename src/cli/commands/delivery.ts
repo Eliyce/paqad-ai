@@ -33,6 +33,7 @@ import {
   type MatchedSource,
 } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
+import { ticketInBranch } from '@/delivery/workflow-findings.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
 import { describeEarlierWork } from '@/delivery/commit-split.js';
 import {
@@ -458,17 +459,7 @@ export interface DeliverCommitDeps {
 }
 
 export function ticketFromBranch(config: ResolvedGitWorkflow, branch: string): string {
-  for (const source of Object.values(config.tickets.sources)) {
-    const hashed = source.pattern.startsWith('#');
-    const pattern = hashed ? source.pattern.slice(1) : source.pattern;
-    try {
-      const found = new RegExp(`(?<![A-Za-z0-9])(?:${pattern})(?![A-Za-z0-9])`).exec(branch);
-      if (found) return hashed ? `#${found[0]}` : found[0];
-    } catch {
-      continue;
-    }
-  }
-  return '';
+  return ticketInBranch(config, branch);
 }
 
 export async function runDeliverCommit(deps: DeliverCommitDeps): Promise<DeliverResult> {

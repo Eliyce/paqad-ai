@@ -9,6 +9,7 @@ import { createComplianceCommand } from './commands/compliance.js';
 import { createDuplicationCommand } from './commands/duplication.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDeliveryCommand } from './commands/delivery.js';
+import { createGitWorkflowCommand } from './commands/git-workflow.js';
 import { createDeliveryLinkCommand } from './commands/delivery-link.js';
 import { createDiscoveryCommand } from './commands/discovery.js';
 import { createDisableCommand } from './commands/disable.js';
@@ -116,6 +117,7 @@ export function createProgram(): Command {
   program.addCommand(createConfigCommand());
   program.addCommand(createIntakeCommand());
   program.addCommand(createDeliveryCommand());
+  program.addCommand(createGitWorkflowCommand());
   program.addCommand(createDeliveryLinkCommand());
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());

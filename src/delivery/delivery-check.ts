@@ -14,13 +14,26 @@ import {
 } from '@/feature-evidence/delivery.js';
 import type { CapabilitySeam } from '@/kernel/registry.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
-import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
+import type { GitWorkflowIssue, ResolvedGitWorkflow } from '@/git-workflow/types.js';
 import { isOnPath } from '@/rule-scripts/execute.js';
 import { recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
 import { AI_ATTRIBUTION_MARKERS, detectAiAttribution } from './ai-attribution.js';
 import { shouldStripAiAttribution } from './attribution-config.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE, DELIVERY_EVIDENCE_SCHEMA_VERSION } from './delivery-ledger.js';
+import { isConfiguredBase, isGlob } from './runner.js';
+import {
+  BLOCKING_CODES,
+  SUBJECT_FORMAT,
+  branchFinding,
+  commitFindings,
+  expectedBase,
+  invalidFinding,
+  onBaseFinding,
+  parseSubjects,
+  prFindings,
+  type WorkflowFindingCode,
+} from './workflow-findings.js';
 
 export interface CommandRun {
   stdout: string;
@@ -54,7 +67,7 @@ export interface DeliveryPrReading {
 export type CommandRunner = (command: string, args: string[]) => Promise<CommandRun>;
 
 export interface DeliveryFinding {
-  code: 'on-base-branch' | 'branch-shape' | 'ci-red' | 'ai-attribution' | 'ticket-move-pending';
+  code: WorkflowFindingCode | 'ci-red' | 'ai-attribution';
   message: string;
 }
 
@@ -89,12 +102,51 @@ export interface EvaluateDeliveryInput {
   projectRoot: string;
   policy: ResolvedGitWorkflow;
   run: CommandRunner;
+  errors?: GitWorkflowIssue[];
 }
 
-function allowedBranchTypes(policy: ResolvedGitWorkflow): string[] {
-  return Array.from(
-    new Set(Object.values(policy.branches.types).map((type) => type.prefix)),
-  ).filter(Boolean);
+async function branchSubjectFindings(
+  run: CommandRunner,
+  projectRoot: string,
+  policy: ResolvedGitWorkflow,
+  branch: string,
+): Promise<DeliveryFinding[]> {
+  const base = expectedBase(policy, branch);
+  if (isGlob(base)) return [];
+  for (const ref of [base, `origin/${base}`]) {
+    const result = await run('git', [
+      '-C',
+      projectRoot,
+      'log',
+      `${ref}..HEAD`,
+      `--format=${SUBJECT_FORMAT}`,
+    ]);
+    if (result.exitCode !== 0) continue;
+    return parseSubjects(result.stdout).flatMap((commit) => commitFindings(policy, commit));
+  }
+  return [];
+}
+
+async function committedOnBase(
+  run: CommandRunner,
+  projectRoot: string,
+  branch: string,
+): Promise<boolean> {
+  const ahead = await readLine(run, 'git', [
+    '-C',
+    projectRoot,
+    'rev-list',
+    '--count',
+    `origin/${branch}..HEAD`,
+  ]);
+  return ahead !== null && /^\d+$/.test(ahead) && Number.parseInt(ahead, 10) > 0;
+}
+
+function labelNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (entry as { name?: unknown }).name)
+    .filter((name): name is string => typeof name === 'string');
 }
 
 async function readLine(
@@ -248,25 +300,27 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
   const commit = await readLine(run, 'git', ['-C', projectRoot, 'rev-parse', 'HEAD']);
   const upstream = await readLine(run, 'git', ['-C', projectRoot, 'rev-parse', '@{upstream}']);
 
+  if (input.errors && input.errors.length > 0) {
+    return {
+      ran: true,
+      branch,
+      commit,
+      ghAvailable: false,
+      findings: [invalidFinding(input.errors)],
+      upstream,
+    };
+  }
+
   const findings: DeliveryFinding[] = [];
   const base = policy.branches.base_branch;
+  const onBase = isConfiguredBase(policy, branch);
 
-  if (branch === base) {
-    findings.push({
-      code: 'on-base-branch',
-      message: `you're committing on \`${base}\` — the workflow expects a \`{type}/…\` branch you open a PR from.`,
-    });
+  if (onBase) {
+    if (await committedOnBase(run, projectRoot, branch)) findings.push(onBaseFinding(branch));
   } else {
-    const types = allowedBranchTypes(policy);
-    const shaped = types.some((type) => branch.startsWith(`${type}/`));
-    if (!shaped && types.length > 0) {
-      findings.push({
-        code: 'branch-shape',
-        message: `branch \`${branch}\` doesn't match the \`{type}/…\` convention (expected one of: ${types
-          .map((type) => `${type}/`)
-          .join(', ')}).`,
-      });
-    }
+    const shape = branchFinding(policy, branch);
+    if (shape) findings.push(shape);
+    findings.push(...(await branchSubjectFindings(run, projectRoot, policy, branch)));
   }
 
   let ghAvailable = false;
@@ -278,7 +332,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     'view',
     branch,
     '--json',
-    'number,url,state,headRefOid,statusCheckRollup,body,isDraft,changedFiles,additions,deletions',
+    'number,url,state,headRefOid,statusCheckRollup,body,isDraft,changedFiles,additions,deletions,baseRefName,title,labels',
   ]);
   if (prView.exitCode === 0) {
     ghAvailable = true;
@@ -294,6 +348,9 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         changedFiles?: unknown;
         additions?: unknown;
         deletions?: unknown;
+        baseRefName?: unknown;
+        title?: unknown;
+        labels?: unknown;
       };
       prBody = typeof pr.body === 'string' ? pr.body : '';
       prReading = {
@@ -307,6 +364,17 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         deletions: countOrNull(pr.deletions),
       };
       ciReading = readRollup(pr.statusCheckRollup);
+      if (!onBase) {
+        findings.push(
+          ...prFindings(policy, branch, {
+            number: prReading.number,
+            base: textOrNull(pr.baseRefName),
+            title: typeof pr.title === 'string' ? pr.title : null,
+            labels: labelNames(pr.labels),
+            body: prBody,
+          }),
+        );
+      }
       if (
         policy.pull_requests.ci.gate === 'wait_for_green' &&
         rollupHasFailure(pr.statusCheckRollup)
@@ -486,16 +554,21 @@ export async function refreshDelivery(
   return storedOutcome(projectRoot, feature, result.ghAvailable, reason);
 }
 
-export function formatDeliverySummary(result: DeliveryCheckResult): string {
+export function isBlockingFinding(finding: DeliveryFinding): boolean {
+  return BLOCKING_CODES.has(finding.code);
+}
+
+export function formatDeliverySummary(result: DeliveryCheckResult, blocking = false): string {
   if (result.findings.length === 0) {
     return '';
   }
-  const lines = result.findings.map((finding) => `> - 🟡 ${finding.message}`);
-  return (
-    `**▸ paqad** · checked how this change would ship\n` +
-    `> Heads up — a delivery convention to tidy before you push (not blocking):\n` +
-    lines.join('\n')
+  const lines = result.findings.map(
+    (finding) => `> - ${blocking && isBlockingFinding(finding) ? '🔴' : '🟡'} ${finding.message}`,
   );
+  const lead = blocking
+    ? `> 🔴 Needs your attention: this team's git workflow (agents: block) holds this turn until these are fixed:\n`
+    : `> Heads up — a delivery convention to tidy before you push (not blocking):\n`;
+  return `**▸ paqad** · checked how this change would ship\n` + lead + lines.join('\n');
 }
 
 export async function runDeliveryCapability(
@@ -506,13 +579,14 @@ export async function runDeliveryCapability(
   if (seam !== 'completion') {
     return NO_OP;
   }
-  const policy = loadGitWorkflow(projectRoot).config;
+  const loaded = loadGitWorkflow(projectRoot);
+  const policy = loaded.config;
   const startedAt = new Date().toISOString();
-  const result = await evaluateDelivery({ projectRoot, policy, run });
+  const result = await evaluateDelivery({ projectRoot, policy, run, errors: loaded.errors });
   if (!result.ran) {
     return NO_OP;
   }
-  saveDeliveryReading(projectRoot, result, undefined, { startedAt });
+  if (loaded.valid) saveDeliveryReading(projectRoot, result, undefined, { startedAt });
   recordProjectEvent(
     projectRoot,
     DELIVERY_EVIDENCE_DOC_TYPE,
@@ -525,8 +599,12 @@ export async function runDeliveryCapability(
     },
     DELIVERY_EVIDENCE_SCHEMA_VERSION,
   );
-  const summary = formatDeliverySummary(result);
-  return summary ? { ran: true, blocking: false, summary } : NO_OP;
+  const blocking =
+    loaded.valid &&
+    policy.enforcement.agents === 'block' &&
+    result.findings.some((finding) => isBlockingFinding(finding));
+  const summary = formatDeliverySummary(result, blocking);
+  return summary ? { ran: true, blocking, summary } : NO_OP;
 }
 
 export const execaCommandRunner: CommandRunner = async (command, args) => {
