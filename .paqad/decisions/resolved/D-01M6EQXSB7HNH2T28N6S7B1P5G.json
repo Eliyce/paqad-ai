@@ -1,0 +1,55 @@
+{
+  "decision_id": "D-01M6EQXSB7HNH2T28N6S7B1P5G",
+  "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+  "category": "create-vs-reuse",
+  "question": "Use what exists or make new?",
+  "context": "This looks like a reuse-or-create choice that affects <agent-scratchpad>/plan-818.json. Pick the path before more is built on it.",
+  "options": [
+    {
+      "option_key": "reuse-existing",
+      "label": "Reuse what exists",
+      "one_line_preview": "If you pick this, we will update <agent-scratchpad>/plan-818.json.",
+      "trade_off": "You give up: a blank-slate implementation.",
+      "technical_detail": "Reusing <agent-scratchpad>/plan-818.json keeps behavior aligned with the existing project structure.",
+      "evidence": {
+        "file": "<agent-scratchpad>/plan-818.json",
+        "callers": 0,
+        "similarity": 0.91,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    },
+    {
+      "option_key": "make-new",
+      "label": "Make a new one",
+      "one_line_preview": "If you pick this, we will create <agent-scratchpad>/new-plan-818.json.",
+      "trade_off": "You give up: the shared path that already exists.",
+      "technical_detail": "Creating <agent-scratchpad>/new-plan-818.json gives isolation but increases maintenance and consistency risk.",
+      "evidence": {
+        "file": "<agent-scratchpad>/new-plan-818.json",
+        "callers": 0,
+        "similarity": 0.42,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    }
+  ],
+  "confidence": 0.92,
+  "requested_by": "paqad",
+  "task_session_id": "0a6b1103-83a6-4ee0-8fce-29eb52c51f71",
+  "created_at": "2026-11-02T18:21:41.606Z",
+  "status": "resolved",
+  "ttl_until": "2026-12-02T18:21:41.606Z",
+  "invalidation_watch": [
+    "<agent-scratchpad>/plan-818.json"
+  ],
+  "human_response": {
+    "chosen_option_key": "reuse-existing",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T18:30:22.232Z",
+    "responded_by": "paqad-decision-cli",
+    "carry_over_scope": "session",
+    "note": "Owner: keep the one scratch plan draft; the trigger was a scratch file outside the repo"
+  }
+}
