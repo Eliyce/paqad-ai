@@ -145,10 +145,16 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
   npm-only users keep their stage agents. Codex keeps its written agents.
 - **Migration.** `migrateProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) removes a
-  project's old `.claude/agents/paqad-*.md` file only when it is paqad's own: it carries the managed
-  marker, ends in the old `<!-- written by paqad-ai <version> -->` stamp, or its body matches a
-  known generated body exactly. Hand-edited files and symlinks are kept and reported, and nothing
-  else in the folder is touched.
+  project's old `.claude/agents/paqad-*.md` file, stamped or unmarked, only when its body matches a
+  known generated body (the hash list in `src/onboarding/stage-agent-past-bodies.ts`). A marker or
+  stamp alone is not enough. Hand-edited files and symlinks are kept and named, and nothing else in
+  the folder is touched.
+- **Bash write guard.** The PreToolUse hook `runtime/hooks/stage-agent-write-guard.mjs`
+  (`src/stage-isolation/bash-write-guard.ts`) checks Bash writes by paqad stage agents, and the
+  Edit/Write branch of `src/stage-isolation/capability.ts` applies the same limits. Read-only stage
+  agents write only to `.paqad/tmp/` and the system temp folder; High Table seats only to
+  `.paqad/tmp/high-table/`. A target that cannot be resolved, and any unknown `paqad-*` agent, is
+  denied.
 - **Missing agents stop the flow.** At SessionStart in an onboarded project, when neither the plugin
   agents nor the home copy is present, the hook prints `stage agents are missing` with Needs your
   attention, telling the Developer to run `/plugin install paqad@eliyce` and start a new session.
