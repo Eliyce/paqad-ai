@@ -164,7 +164,10 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
     writeFileSync(
       join(home, '.claude', 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+      JSON.stringify({
+        version: 2,
+        plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: home }] },
+      }),
     );
     const report = await new FrameworkUpdater({
       generateCandidates: async () => [

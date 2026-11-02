@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, readlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export type FrameworkCopy = 'plugin' | 'npm' | 'directory' | 'unknown';
 
@@ -29,6 +29,90 @@ export function isPluginInstalled(path: string = installedPluginsPath()): boolea
   } catch {
     return false;
   }
+}
+
+export type PluginLoadState = 'live' | 'absent' | 'unknown';
+
+export interface PluginLoadOptions {
+  env?: NodeJS.ProcessEnv;
+  home?: string;
+}
+
+function readJsonFile(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function canonicalRoot(path: string): string {
+  let full: string;
+  try {
+    full = realpathSync.native(path);
+  } catch {
+    full = resolve(path);
+  }
+  const trimmed = full.replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? trimmed.toLowerCase() : trimmed;
+}
+
+function claudeConfigDir(env: NodeJS.ProcessEnv, home: string): string {
+  return env.CLAUDE_CONFIG_DIR || join(home, '.claude');
+}
+
+function entryLoadsHere(entry: unknown, projectRoot: string | null): boolean {
+  if (!isRecord(entry)) return false;
+  const path = entry.installPath;
+  if (typeof path !== 'string' || path.trim() === '' || !existsSync(path)) return false;
+  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
+  if (scope !== 'project' && scope !== 'local') return true;
+  return (
+    projectRoot !== null &&
+    typeof entry.projectPath === 'string' &&
+    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
+  );
+}
+
+function pluginSwitchedOn(
+  projectRoot: string | null,
+  env: NodeJS.ProcessEnv,
+  home: string,
+): boolean {
+  const layers = [join(claudeConfigDir(env, home), 'settings.json')];
+  if (projectRoot !== null) {
+    layers.push(
+      join(projectRoot, '.claude', 'settings.json'),
+      join(projectRoot, '.claude', 'settings.local.json'),
+    );
+  }
+  let enabled: boolean | undefined;
+  for (const layer of layers) {
+    const settings = readJsonFile(layer);
+    const map = isRecord(settings) ? settings.enabledPlugins : undefined;
+    if (isRecord(map) && typeof map[PLUGIN_ID] === 'boolean') enabled = map[PLUGIN_ID];
+  }
+  return enabled !== false;
+}
+
+export function pluginLoadState(
+  projectRoot: string | null,
+  options: PluginLoadOptions = {},
+): PluginLoadState {
+  const env = options.env ?? process.env;
+  const home = options.home ?? homedir();
+  const parsed = readJsonFile(
+    join(claudeConfigDir(env, home), 'plugins', 'installed_plugins.json'),
+  );
+  if (!isRecord(parsed) || parsed.version !== 2 || !isRecord(parsed.plugins)) return 'unknown';
+  const value = parsed.plugins[PLUGIN_ID];
+  const entries = Array.isArray(value) ? value : [value];
+  if (!entries.some((entry) => entryLoadsHere(entry, projectRoot))) return 'absent';
+  return pluginSwitchedOn(projectRoot, env, home) ? 'live' : 'absent';
 }
 
 export function readPackageVersion(dir: string): string | null {

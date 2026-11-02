@@ -9,6 +9,7 @@ import {
   describeFrameworkLink,
   frameworkLinkHome,
   isPluginInstalled,
+  pluginLoadState,
   readPackageVersion,
 } from '@/health/plugin-install.js';
 
@@ -117,5 +118,78 @@ describe('isPluginInstalled', () => {
     const bad = join(root, 'bad.json');
     writeFileSync(bad, 'not json');
     expect(isPluginInstalled(bad)).toBe(false);
+  });
+});
+
+describe('AC-6: pluginLoadState reads whether the plugin loads for this repo', () => {
+  function writePlugins(home: string, content: unknown): void {
+    const dir = join(home, '.claude', 'plugins');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'installed_plugins.json'),
+      typeof content === 'string' ? content : JSON.stringify(content),
+    );
+  }
+
+  function entry(extra: Record<string, unknown> = {}): Record<string, unknown> {
+    const installPath = join(root, 'cache', 'paqad');
+    mkdirSync(installPath, { recursive: true });
+    return { scope: 'user', installPath, ...extra };
+  }
+
+  it('is live for a version 2 user-scope entry that is switched on', () => {
+    writePlugins(root, { version: 2, plugins: { 'paqad@eliyce': [entry()] } });
+    expect(pluginLoadState(join(root, 'repo'), { home: root, env: {} })).toBe('live');
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('live');
+  });
+
+  it('is absent when the plugin is switched off in user or project settings', () => {
+    writePlugins(root, { version: 2, plugins: { 'paqad@eliyce': [entry()] } });
+    writeFileSync(
+      join(root, '.claude', 'settings.json'),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }),
+    );
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('absent');
+    const repo = join(root, 'repo');
+    mkdirSync(join(repo, '.claude'), { recursive: true });
+    writeFileSync(
+      join(repo, '.claude', 'settings.local.json'),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': true } }),
+    );
+    expect(pluginLoadState(repo, { home: root, env: {} })).toBe('live');
+  });
+
+  it('is absent for a project-scope entry installed for another repo', () => {
+    const repo = join(root, 'repo');
+    mkdirSync(repo, { recursive: true });
+    writePlugins(root, {
+      version: 2,
+      plugins: { 'paqad@eliyce': [entry({ scope: 'project', projectPath: join(root, 'other') })] },
+    });
+    expect(pluginLoadState(repo, { home: root, env: {} })).toBe('absent');
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('absent');
+  });
+
+  it('is absent when the install path is gone, and unknown for version 1 or a broken file', () => {
+    writePlugins(root, {
+      version: 2,
+      plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: join(root, 'gone') }] },
+    });
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('absent');
+    writePlugins(root, { version: 1, plugins: { 'paqad@eliyce': [entry()] } });
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('unknown');
+    writePlugins(root, 'not json');
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('unknown');
+  });
+
+  it('reads the plugin list from CLAUDE_CONFIG_DIR when it is set', () => {
+    const config = join(root, 'config');
+    mkdirSync(join(config, 'plugins'), { recursive: true });
+    writeFileSync(
+      join(config, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'paqad@eliyce': [entry()] } }),
+    );
+    expect(pluginLoadState(null, { home: root, env: {} })).toBe('unknown');
+    expect(pluginLoadState(null, { home: root, env: { CLAUDE_CONFIG_DIR: config } })).toBe('live');
   });
 });

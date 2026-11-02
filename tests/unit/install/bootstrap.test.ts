@@ -92,7 +92,10 @@ describe('bootstrapFramework', () => {
       mkdirSync(join(home, '.claude/plugins'), { recursive: true });
       writeFileSync(
         join(home, '.claude/plugins/installed_plugins.json'),
-        JSON.stringify({ plugins: { 'paqad@eliyce': [{}] } }),
+        JSON.stringify({
+          version: 2,
+          plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: home }] },
+        }),
       );
       bootstrapFrameworkHome();
       expect(existsSync(join(home, '.claude/agents'))).toBe(false);

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { installedPluginsPath, isPluginInstalled } from '@/health/plugin-install.js';
+import { pluginLoadState } from '@/health/plugin-install.js';
 
 import { MANDATORY_STAGE_AGENTS } from './stage-agents.js';
 
@@ -50,11 +50,10 @@ export function claudeStageAgentSource(
   const home = options.homeDir ?? homedir();
   const plugin =
     options.pluginInstalled ??
-    isPluginInstalled(
-      options.homeDir === undefined
-        ? installedPluginsPath()
-        : join(home, '.claude', 'plugins', 'installed_plugins.json'),
-    );
+    pluginLoadState(options.projectRoot ?? null, {
+      home,
+      env: options.homeDir === undefined ? process.env : {},
+    }) === 'live';
   if (plugin) return 'plugin';
   if (options.projectRoot !== undefined && fullCopyPresent(options.projectRoot)) return 'project';
   return fullCopyPresent(home) ? 'home' : null;

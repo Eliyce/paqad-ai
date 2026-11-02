@@ -19,7 +19,7 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
-import { isPluginInstalled } from '@/health/plugin-install.js';
+import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
@@ -148,7 +148,7 @@ export class FrameworkUpdater {
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
-      writeStageAgents({ pluginInstalled });
+      writeStageAgents({ pluginInstalled: pluginLoadState(null) === 'live' });
     } catch {}
 
     const teamSetupNotes = usesClaude ? claude.syncTeamSetup(projectRoot).notes : [];

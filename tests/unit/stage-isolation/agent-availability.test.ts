@@ -39,7 +39,10 @@ function writePluginInstall(home: string): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'installed_plugins.json'),
-    JSON.stringify({ plugins: { 'paqad@eliyce': [{}] } }),
+    JSON.stringify({
+      version: 2,
+      plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: home }] },
+    }),
     'utf8',
   );
 }
@@ -79,6 +82,18 @@ describe('Claude Code stage agent source', () => {
     expect(
       stageDispatchStopHookOutput(project, { homeDir: home, pluginInstalled: false }),
     ).not.toBeNull();
+  });
+
+  it('AC-7: a plugin switched off in settings does not count, so the stop message shows', () => {
+    const home = tempRoot();
+    onboard(home);
+    writePluginInstall(home);
+    expect(stageDispatchStopHookOutput(home, { homeDir: home })).toBeNull();
+    writeFileSync(
+      join(home, '.claude', 'settings.json'),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }),
+    );
+    expect(stageDispatchStopHookOutput(home, { homeDir: home })).not.toBeNull();
   });
 
   it('treats a home copy missing one stage agent as no home copy', () => {

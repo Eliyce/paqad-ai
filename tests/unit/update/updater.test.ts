@@ -466,7 +466,10 @@ describe('FrameworkUpdater', () => {
       mkdirSync(pluginsDir, { recursive: true });
       writeFileSync(
         join(pluginsDir, 'installed_plugins.json'),
-        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+        JSON.stringify({
+          version: 2,
+          plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: userHome }] },
+        }),
       );
 
       await new FrameworkUpdater({
@@ -486,7 +489,10 @@ describe('FrameworkUpdater', () => {
       mkdirSync(pluginsDir, { recursive: true });
       writeFileSync(
         join(pluginsDir, 'installed_plugins.json'),
-        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+        JSON.stringify({
+          version: 2,
+          plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: userHome }] },
+        }),
       );
 
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
