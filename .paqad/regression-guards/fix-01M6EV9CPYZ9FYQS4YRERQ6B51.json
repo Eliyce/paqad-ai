@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M6EV9CPYZ9FYQS4YRERQ6B51",
+  "created_at": "2026-11-02T19:34:32.061Z",
+  "proof": {
+    "test_id": "asks nothing and works the providers out from the recorded entry files",
+    "test_file": "tests/unit/update/no-prompt.test.ts",
+    "command": "pnpm vitest run tests/unit/update/no-prompt.test.ts"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/update/no-prompt.test.ts",
+    "line": null,
+    "test_id": "asks nothing and works the providers out from the recorded entry files",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"asks nothing and works the providers out from the recorded entry files\" fails before the fix.",
+    "stderr_excerpt": " ❯ promptProviders src/onboarding/prompts.ts:264:26\n ❯ runInteractivePrompts src/onboarding/prompts.ts:170:29\n ❯ resolveSelections src/onboarding/prompts.ts:58:12\n ❯ OnboardingOrchestrator.run src/onboarding/orchestrator.ts:131:30\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯"
+  },
+  "linked_ac_id": null
+}
