@@ -284,6 +284,7 @@ function addIntakeVerbs(command: Command): void {
           traceText: options.trace ? readInput(options.trace, 'the trace file') : '',
           memoryText: options.memory ? readInput(options.memory, 'the memory file') : undefined,
           refuse: options.refuse,
+          agentSources: STAGE_AGENT_AUDIT_SOURCES,
         });
       }),
   );
@@ -298,7 +299,10 @@ function addIntakeVerbs(command: Command): void {
       .argument('<name>', 'The agent name'),
   ).action((name: string, options: VerbOptions) =>
     runAgentVerb(name, options, (workspace, projectRoot) =>
-      runAgentTest(workspace, { change: changeKey(projectRoot, options.session) }),
+      runAgentTest(workspace, {
+        change: changeKey(projectRoot, options.session),
+        agentSources: STAGE_AGENT_AUDIT_SOURCES,
+      }),
     ),
   );
 }
@@ -398,6 +402,7 @@ function addReleaseVerbs(command: Command): void {
       runAgentRelease(workspace, {
         version: options.version,
         sessionId: sessionFor(projectRoot, options.session),
+        agentSources: STAGE_AGENT_AUDIT_SOURCES,
       }),
     ),
   );

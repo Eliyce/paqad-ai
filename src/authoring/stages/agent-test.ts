@@ -16,8 +16,10 @@ import {
   lintAgentInProject,
   PERMISSIONS_FILE,
   POWER_RULES,
+  readPermissionDecisionIds,
   type AgentLintResult,
 } from '../lint/agent-lint.js';
+import type { AgentAuditSources } from '../lint/audit.js';
 import {
   agentTestLocation,
   HOOK_CONTRACT_CHECKS,
@@ -32,7 +34,12 @@ import {
   setWaiting,
   type AuthoringWorkspace,
 } from '../workspace.js';
-import { agentDraftFile, readAgentDraftSource } from './agent-draft.js';
+import {
+  agentDraftFile,
+  draftIsTemplate,
+  readAgentDraftSource,
+  renderTemplateDraft,
+} from './agent-draft.js';
 import { DRAFT_DIR } from './draft.js';
 import type { StageResult } from './result.js';
 import { RISKY_FILE, riskyGate, runProjectTests, type TestCommandRunner } from './test.js';
@@ -42,6 +49,43 @@ export const AGENT_UNDER_TEST_ENV = 'PAQAD_AGENT_UNDER_TEST';
 export interface AgentTestOptions {
   runTests?: TestCommandRunner;
   change?: string | null;
+  agentSources?: AgentAuditSources;
+}
+
+export function lintTemplateDraft(
+  workspace: AuthoringWorkspace,
+  sources: AgentAuditSources | undefined,
+  stage: string,
+): AgentLintResult {
+  const file = readAgentDraftSource(workspace)!.file;
+  const results = renderTemplateDraft(file, sources, stage).map((agent) =>
+    lintAgentInProject(workspace.projectRoot, agent.path, {
+      content: agent.content,
+      host: agent.host,
+      permissionDecisions: readPermissionDecisionIds(workspace.projectRoot, agent.name),
+      ...(sources!.dispatched.has(agent.name) ? { invocation: 'dispatched' as const } : {}),
+    }),
+  );
+  return {
+    agent: workspace.name,
+    findings: results.flatMap((result) => result.findings),
+    blocking: results.reduce((sum, result) => sum + result.blocking, 0),
+    warnings: results.reduce((sum, result) => sum + result.warnings, 0),
+    powers: [...new Set(results.flatMap((result) => result.powers))].sort(),
+    file_hash: draftAgentHash(workspace),
+    hook_scripts: [],
+  };
+}
+
+export function lintAgentDraft(
+  workspace: AuthoringWorkspace,
+  sources: AgentAuditSources | undefined,
+  stage: string,
+): AgentLintResult {
+  if (draftIsTemplate(workspace)) return lintTemplateDraft(workspace, sources, stage);
+  return lintAgentInProject(workspace.projectRoot, workspace.path(agentDraftFile(workspace)), {
+    hookScriptRoot: workspace.path(DRAFT_DIR),
+  });
 }
 
 export function draftHookScripts(workspace: AuthoringWorkspace): string[] {
@@ -146,16 +190,16 @@ export async function runAgentTest(
       `S4 can't start: ${workspace.relPath(draft)} holds no draft. Run paqad-ai agent draft ${workspace.name} first.`,
     );
   }
-  const lint = lintAgentInProject(projectRoot, workspace.path(draft), {
-    hookScriptRoot: workspace.path(DRAFT_DIR),
-  });
+  const lint = lintAgentDraft(workspace, options.agentSources, 'S4');
   const lintArtifact = workspace.writeJson('lint.json', {
     gate: lint.blocking === 0 ? 'passed' : 'failed',
     inputs_hash: draftAgentHash(workspace),
     inputs_hash_without_description: draftAgentHashWithoutDescription(workspace),
     ...lint,
   });
-  const permission = permissionGate(workspace, lint, options.change);
+  const permission = draftIsTemplate(workspace)
+    ? null
+    : permissionGate(workspace, lint, options.change);
   if (permission !== null)
     return { ...permission, artifacts: [lintArtifact, ...permission.artifacts] };
   if (lint.blocking > 0) {
