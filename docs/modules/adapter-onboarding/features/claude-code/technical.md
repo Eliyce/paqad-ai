@@ -180,9 +180,15 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
   launcher file whose bytes match what paqad wrote, and writes the npm chain to
   `.claude/settings.local.json`.
-- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (installed
+- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (the
   plugin, npm install, its own copy in `~/.paqad-ai/team-plugin`, or none), records it under
-  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. The copy is a `git clone --depth 1`
+  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. It takes the plugin route only when
+  the plugin claimed this session: its SessionStart wrote `.paqad/session/plugin-active.d/<session
+  id>` naming a root on disk that is not the launcher's copy. Being listed in
+  `installed_plugins.json` is not enough, since a plugin installed during startup loads only in the
+  next session. When the plugin is installed and enabled for this repo but has not claimed yet, the
+  launcher waits up to 2 seconds for the claim, because both SessionStart hooks run side by side.
+  A plugin route recorded with no claim is decided again on the next event. The copy is a `git clone --depth 1`
   of `Eliyce/paqad-claude-plugin` under the lock `~/.paqad-ai/locks/team-plugin.lock`, refreshed
   after 6 hours. In a cloud session (`CLAUDE_CODE_REMOTE=true`) it sets `PAQAD_RAG_ENABLED=false`.
   `paqadHookScriptPath()` ignores launcher lines and `claimedRootIsLive` counts the copy as a live
