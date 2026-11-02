@@ -428,11 +428,31 @@ function formatChecksRecordWriteSummary(relPath: string): string {
   );
 }
 
+export const GIT_WORKFLOW_FILES_GUARD = 'git-workflow-files';
+
+function firstGitWorkflowTarget(targets: string[]): string | null {
+  const dir = PATHS.GIT_WORKFLOW_DIR;
+  return targets.find((rel) => rel === dir || rel.startsWith(`${dir}/`)) ?? null;
+}
+
+export function formatGitWorkflowWriteSummary(relPath: string): string {
+  return (
+    `**▸ paqad** · the git workflow rules are changed by the git-workflow skill\n` +
+    `> 🔴 Needs your attention: \`${relPath}\` holds this team's git workflow rules. Only the ` +
+    `git-workflow skill changes them, so every change is checked, explained and recorded. Use ` +
+    `the git-workflow skill instead.`
+  );
+}
+
 const stagesCapability: Capability = {
   id: 'stages',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
     const targets = normalizedPayloadTargets(payload, projectRoot);
+    const workflowTarget = firstGitWorkflowTarget(targets);
+    if (workflowTarget) {
+      return { ran: true, blocking: true, summary: formatGitWorkflowWriteSummary(workflowTarget) };
+    }
     const checksTarget = firstChecksRecordTarget(targets);
     if (checksTarget) {
       return { ran: true, blocking: true, summary: formatChecksRecordWriteSummary(checksTarget) };

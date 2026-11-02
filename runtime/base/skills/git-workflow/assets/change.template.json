@@ -1,0 +1,5 @@
+{
+  "edits": [
+    { "file": "branches.yaml", "path": ["types", "hotfix", "base_branch"], "value": "main" }
+  ]
+}

@@ -5,7 +5,7 @@ export const LOADED_INSTRUCTION_DIRS: readonly string[] = ['stack', 'design-syst
 
 const LOADED_DIR_NOTES: Readonly<Record<string, string>> = {
   workflows:
-    'the feature-development and delivery-policy workflows that govern how a change is built and shipped',
+    'the feature-development workflow that governs how a change is built',
 };
 
 function alwaysLoadList(): string {
@@ -105,6 +105,7 @@ When you routed to **site-map**, load the app's authored map from \`docs/site-ma
 - Interpret short Paqad workflow prompts such as \`create documentation\` as workflow invocations.
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.
 - Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
+- A request to set up or change how this team names branches, writes commits, opens PRs, links tickets, or how strictly that is checked, is handled by the git-workflow skill, whatever workflow it routed to. Never edit .paqad/configs/git-workflow/ yourself.
 
 ## 3. Confirm the load (sentinel)
 

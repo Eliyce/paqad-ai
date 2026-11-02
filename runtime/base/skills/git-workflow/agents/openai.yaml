@@ -1,0 +1,5 @@
+interface:
+  display_name: Git Workflow Rules
+  short_description: Sets up and changes the team's branch, commit, PR and ticket rules
+    from its real history, asking the team where history is mixed. The only way the
+    git workflow files change.

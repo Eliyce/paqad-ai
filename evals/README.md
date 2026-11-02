@@ -9,8 +9,8 @@ There are three suites:
 
 | Suite      | Cases                     | What it proves                                                                  | Tool grant        |
 | ---------- | ------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| `routing`  | 20                        | A prompt goes to the right paqad workflow.                                      | none              |
-| `firewall` | 10 rule cases, 5 controls | An edit that breaks a team rule does not survive, and allowed edits still land. | `Edit Write`      |
+| `routing`  | 23                        | A prompt goes to the right paqad workflow.                                      | none              |
+| `firewall` | 11 rule cases, 5 controls | An edit that breaks a team rule does not survive, and allowed edits still land. | `Edit Write`      |
 | `receipt`  | 5                         | The final message gives an honest verdict and an honest stage list.             | `Edit Write Bash` |
 
 Every run is a real model call on your account, so run a suite on purpose, not in a loop.
@@ -203,7 +203,7 @@ limit and add it as the repository secret `ANTHROPIC_API_KEY`. Until then every 
 its first step, naming the missing secret.
 
 The 0.9 gate is on the mean of 3 runs per case. A single red case on one run is noise until it
-repeats. With 20 routing cases, 0.9 leaves room for two red cases.
+repeats. With 23 routing cases, 0.9 leaves room for two red cases.
 
 When a routing case goes red in a weekly or dispatched run:
 
