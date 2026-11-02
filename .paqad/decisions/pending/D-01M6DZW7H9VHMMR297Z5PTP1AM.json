@@ -1,0 +1,35 @@
+{
+  "id": "D-01M6DZW7H9VHMMR297Z5PTP1AM",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-documentation-sync asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:1c2f5a1fd7fce37bfd5868b86bf5c03f97d5e13920b3e37b7bf8eb46184a6c84.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-documentation-sync keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-documentation-sync before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-02T11:21:24.778Z",
+  "status": "pending",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "decision_id": "D-01M6DZW7H9VHMMR297Z5PTP1AM",
+  "fingerprint": "sha256:b2b2f4a765e72ccf75b355c77b820b826088deac0361ea2db96484fb34e51022",
+  "question": "The agent paqad-documentation-sync asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-02T11:21:24.778Z",
+  "invalidation_watch": []
+}
