@@ -529,17 +529,15 @@ describe('the origin parser', () => {
   });
 });
 
-describe('the manual delivery instruction', () => {
-  it('names the gh api fallback for cloud sessions in both rendered forms', () => {
+describe('the delivery instruction', () => {
+  it('routes cloud sessions through paqad-ai deliver, which carries the REST fallback, in both rendered forms', () => {
     const policy = defaultFeatureDevelopmentPolicy();
-    const text = JSON.stringify(policy);
-    expect(text).toContain('gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=');
-    expect(YAML.stringify(policy)).toContain('cloud session');
-    const rendered = JSON.stringify(
-      YAML.parse(renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy())),
-    );
-    expect(rendered).toContain(
-      'gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=\\"$(cat /tmp/paqad-evidence.md)\\"',
-    );
+    const rendered = YAML.parse(renderFeatureDevelopmentView(policy)) as typeof policy;
+    for (const form of [policy, rendered]) {
+      const text = form.stages.delivery!.instructions.join('\n');
+      expect(text).toContain('Deliver only through paqad');
+      expect(text).toContain('Never run git commit, git push or gh pr create yourself');
+      expect(text).not.toContain('gh api repos/<owner>/<repo>/issues/<pr-number>/comments');
+    }
   });
 });
