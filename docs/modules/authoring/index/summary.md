@@ -201,6 +201,14 @@ must-not rules to SubagentStart and SubagentStop settings hooks. The end-of-chan
 passed or overridden `agent-<name>.json` whose file hash matches each changed agent file (or the
 agent whose hook script changed), and names an agent whose power approval has expired.
 
+When the draft came from the runtime or plugin agent file it releases to, release leaves that file
+byte for byte as it is and records its hash, so a regenerated plugin agent keeps the frontmatter
+its build script writes. Release refuses when that file changed after the draft. A stage-agent
+template (`runtime/templates/stage-agents/claude.md.hbs`) is rendered once per agent, through the
+same renderer `agent audit` uses: S3 runs on every rendered agent and S4 lints each one with that
+agent's own permission decision. Release never writes into the template; its `claude` record
+carries the template file's own hash.
+
 The delegation hook logs `{agent, request_id, session_id, at, tokens, duration_ms, status}` for
 every Agent or Task call and SubagentStop to `.paqad/ledger/authoring/delegations.jsonl`; it
 prints nothing and never blocks. `agent catalog` uses it for the last delegation and dark agents.
