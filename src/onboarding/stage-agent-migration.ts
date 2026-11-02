@@ -1,11 +1,17 @@
 import { createHash } from 'node:crypto';
 import {
+  closeSync,
+  constants,
+  fstatSync,
+  ftruncateSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
+  writeSync,
   type Dirent,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -122,32 +128,58 @@ export function isGeneratedProjectStageAgent(path: string, content: string): boo
   );
 }
 
+type SyncOutcome = 'same' | 'kept' | 'written';
+
+const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
+
+function createAgentFile(target: string, wanted: string): SyncOutcome {
+  let fd: number;
+  try {
+    fd = openSync(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NO_FOLLOW);
+  } catch {
+    return 'kept';
+  }
+  try {
+    writeSync(fd, wanted, 0, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
+  return 'written';
+}
+
+function syncAgentFile(target: string, wanted: string, known: ReadonlySet<string>): SyncOutcome {
+  let fd: number;
+  try {
+    fd = openSync(target, constants.O_RDWR | NO_FOLLOW);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return createAgentFile(target, wanted);
+    return 'kept';
+  }
+  try {
+    if (!fstatSync(fd).isFile() || lstatSync(target).isSymbolicLink()) return 'kept';
+    const existing = readFileSync(fd, 'utf8');
+    if (existing === wanted) return 'same';
+    if (removalReason(existing, known) === null) return 'kept';
+    ftruncateSync(fd, 0);
+    writeSync(fd, wanted, 0, 'utf8');
+    return 'written';
+  } finally {
+    closeSync(fd);
+  }
+}
+
 export function syncProjectStageAgents(
   projectRoot: string,
   known: ReadonlySet<string> = knownGeneratedBodies(),
 ): { written: string[]; kept: string[] } {
   const result = { written: [] as string[], kept: [] as string[] };
   const dir = join(projectRoot, PROJECT_AGENTS_DIR);
+  mkdirSync(dir, { recursive: true });
   for (const { name, content } of renderStageAgentFiles('claude-code')) {
     const rel = `${PROJECT_AGENTS_DIR}/${name}`;
-    const target = join(dir, name);
-    const wanted = withManagedMarker(content);
-    let existing: string | null = null;
-    try {
-      if (!lstatSync(target).isFile()) {
-        result.kept.push(rel);
-        continue;
-      }
-      existing = readFileSync(target, 'utf8');
-    } catch {}
-    if (existing === wanted) continue;
-    if (existing !== null && removalReason(existing, known) === null) {
-      result.kept.push(rel);
-      continue;
-    }
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(target, wanted, 'utf8');
-    result.written.push(rel);
+    const outcome = syncAgentFile(join(dir, name), withManagedMarker(content), known);
+    if (outcome === 'written') result.written.push(rel);
+    if (outcome === 'kept') result.kept.push(rel);
   }
   return result;
 }

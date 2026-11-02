@@ -96,6 +96,15 @@ describe("the stage agents in the repo's .claude/agents", () => {
     expect(keptNote).toContain(`.claude/agents/${first!.name}`);
   });
 
+  it('a team setup with it on keeps a folder that has an agent file name', () => {
+    const [first] = renderStageAgentFiles('claude-code');
+    mkdirSync(join(agentsDir(), first!.name), { recursive: true });
+    const report = syncTeamSetup(root, {});
+    expect(lstatSync(join(agentsDir(), first!.name)).isDirectory()).toBe(true);
+    expect(report.kept).toContain(`.claude/agents/${first!.name}`);
+    expect(report.written.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(7);
+  });
+
   it('a team setup with it on rewrites an older paqad copy', () => {
     const [legacy] = legacyCopies();
     writeAgent(legacy!.name, legacy!.content);
