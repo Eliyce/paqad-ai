@@ -1,0 +1,10 @@
+stages_mode=warn
+rule_compliance=strict
+escalate_risky_migrations=require_approval
+decisions_ask_threshold=permissive
+checks_max_processes=0
+checks_flaky_under_parallel=fail
+lean_rules=false
+spec_pipeline_standing_experts=product-owner, qa-engineer
+ai_attribution=keep
+authoring_batch_mode=off
