@@ -26,6 +26,7 @@ import {
   skillDeclaresRequestRouting,
   toLoadedSkill,
 } from '@/skills/frontmatter-parser.js';
+import { recordSkillMetadataDeprecation } from '@/skills/audit-events.js';
 import type { RuntimeSkillRegistry } from '@/skills/runtime-registry.js';
 import { WorkflowTemplateLoader } from '@/workflows/template-loader.js';
 
@@ -163,6 +164,18 @@ export class WorkflowRouterService {
       }
 
       const parsed = this.parser.parse(content, folder);
+      if (parsed.deprecation !== null) {
+        recordSkillMetadataDeprecation(
+          {
+            ts: new Date().toISOString(),
+            type: 'skill.metadata_deprecated',
+            path: artifact.path,
+            skill: parsed.frontmatter.name,
+            message: parsed.deprecation,
+          },
+          this.projectRoot,
+        );
+      }
       if (!parsed.frontmatter.request_routing?.length) {
         continue;
       }
