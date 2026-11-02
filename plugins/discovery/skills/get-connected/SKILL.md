@@ -1,6 +1,6 @@
 ---
 name: get-connected
-description: "Chat and Claude Code: Step 0 of the product-discovery journey: confirms the repository and tracker are reachable and records their setup. Use when the journey directs it to step 0, not directly."
+description: "Chat and Claude Code: Step 0 of the product-discovery journey: confirms the repository and issue tracker are reachable, finds the evidence level and saves the connection setup. Use when the journey directs it to step 0, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
