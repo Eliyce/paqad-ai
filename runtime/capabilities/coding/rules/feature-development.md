@@ -18,7 +18,7 @@ Do **not** improvise. Do **not** jump straight to editing code. Always run the s
 
 ## Authoritative source
 
-The canonical, project-customizable definition of these stages lives in `docs/instructions/workflows/feature-development.yaml` (delivery conventions live in the team's `.paqad/configs/git-workflow/` files). The workflow YAML uses `merge_mode: append`, so a project's overrides win. Load those files and follow them. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
+The definition of these stages lives in `docs/instructions/workflows/feature-development.yaml`, a view paqad generates from its own defaults and the team's `.paqad/configs/feature-development/` files on every session (delivery conventions live in the team's `.paqad/configs/git-workflow/` files). A team changes the workflow in `.paqad/configs/feature-development/`, never in the view: a hand edit is moved there and the view is rebuilt. Load those files and follow them. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
 
 Honor every stage's escalation flag through the Decision Pause Contract:
 
@@ -26,6 +26,8 @@ Honor every stage's escalation flag through the Decision Pause Contract:
 - `ask` → ask the user and wait for the answer.
 - `warn` → surface a note and continue.
 - `defer` → raise the Decision Packet with its change set, keep working, and ask it in the change's one spec question round.
+
+Enforcement tiers: an escalation is honoured on one of two tiers, and this contract never claims script enforcement it does not have. SCRIPT-ENFORCED: `checks` `block_on_failure` (`on_failure: block` in `checks.yaml`), because `paqad-ai checks run` exits non-zero on any red command and the completion gate reads its report, and missing mandatory stages, which the stage-evidence completion gate catches. AGENT-RAISED -> DECISION-PAUSE-ENFORCED: `review_findings: stop` in review and `stale_docs: stop` in documentation_sync. These need judgment to raise, so no script detects them; once raised as a `stop`, the Decision-Pause gate holds edits until the packet resolves.
 
 ## Announce each stage
 
@@ -125,7 +127,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 - Run the project command checks: `format`, `test`, `build` (use the project profile's mapped commands). `block_on_failure` is true — a failing gate stops forward progress; fix it before continuing. Run them deterministically with `paqad-ai checks run`: it executes the mapped commands, exits non-zero on any red, and persists a structured report the completion gate reads so success is proven, not assumed.
 - Before `paqad-ai checks run`, run `paqad-ai checks plan`. If it prints `test: sequential (unknown)`, run the test-runner-discovery skill and record its result with `paqad-ai checks record-runner <file>` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used.
 - Verify test coverage meets the project bar.
-- Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `paqad-ai rules compile`; without it enforcement fast-skips. Strictness is the stricter of the tracked `configs/.config.*` `rule_compliance` value and this workflow's `checks.rule_compliance.mode` — both are real inputs.
+- Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `paqad-ai rules compile`; without it enforcement fast-skips. Strictness comes from `enforcement` in the tracked `.paqad/configs/feature-development/rules.yaml` (flat name `rule_compliance`), which a personal or env value may only raise.
 - Run the `module-health` rollup; rollup-blocked metrics are informational `warn`.
 
 ### Stage 6 — documentation_sync

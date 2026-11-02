@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-01T00:21:30.550Z
-rule_files_hash: sha256-2d25e9c3dda9c2af7f8e9f3dfc60a9e492005c56f78dba583704b9f3cf87fae9
+generated_at: 2026-11-02T22:46:47.381Z
+rule_files_hash: sha256-6fb6e9904c0bd43e4411e9d5a3b2ddeaac3f20d072eea4a46a7588fb4d744670
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1253,22 +1253,16 @@ rules:
         fixtures_passed: true
   - id: RL-0a01
     source: docs/instructions/rules/coding/config-visibility.md
-    text: "Keep every knob discoverable: onboarding writes it into its group file, commented out, with its default and `PAQAD_*`"
-    text_hash: 350d26736f22e2b3f8b9896ddc7e735997f9b39e3a6932897e9407cf9e928eb4
+    text: "Keep every knob discoverable: give it a registry row with a YAML home, so it shows in its file's schema, the generated"
+    text_hash: b5e3b92cd6619fb30c5b034499df7b1045eae91090ec188091a3da89e0ec3916
     verifiability:
       kind: heuristic
     enforced_by: []
-    scripts:
-      - path: .paqad/scripts/rules/coding/config-visibility/003-knob-discoverable.mjs
-        kind: heuristic
-        runtime: node
-        scope: changed-files
-        last_validated_at: 2026-07-10T21:26:14.581Z
-        fixtures_passed: true
+    scripts: []
   - id: RL-5163
     source: docs/instructions/rules/coding/config-visibility.md
-    text: "Resolve in the fixed precedence: defaults, then `configs/.config.*` (team, merged), then `.config` (local), then"
-    text_hash: a0e3963423a0e380bf3a1fe2d85c4c50172575ae3195f3808fb2986b86f84459
+    text: "Resolve in the fixed precedence: defaults, then the YAML team files in `configs/`, then `.config` (local), then"
+    text_hash: 2a3a0ffb50de5cb3bfd6967df9a2f9c0bfa987e912d38a42abe0b4238612cba6
     verifiability:
       kind: unverifiable
       reason: Config precedence order is a resolver contract, not a static code rule.
@@ -1308,8 +1302,8 @@ rules:
     scripts: []
   - id: RL-6a6f
     source: docs/instructions/rules/coding/config-visibility.md
-    text: "Reconcile on re-onboard and update, never reset: sync the group files (creating a missing file, appending a new"
-    text_hash: 2f0d5ebd86d950f83960e01f18091cd9cd0eeaac4bccb071dc7a3a121e2e5310
+    text: "Reconcile on re-onboard and update, never reset: create a missing team file from its header, regenerate the schemas"
+    text_hash: bcae0100affa1bf3104f56c2dc8c1da5ec8055a9ed94087d4ace1956ec271caa
     verifiability:
       kind: unverifiable
       reason: Reconcile-not-reset on re-onboard is a runtime behavior.
@@ -2490,8 +2484,8 @@ rules:
     scripts: []
   - id: RL-c543
     source: docs/instructions/rules/coding/feature-development.md
-    text: "Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `paqad-ai rules compile`; without it enforcement fast-skips. Strictness is the stricter of the tracked `configs/.config.*` `rule_compliance` value and this workflow's `checks.rule_compliance.mode` — both are real inputs."
-    text_hash: e3125940ac67bdf20ab64a834ea34b2725a3c410ab24b7548eecde492a220148
+    text: "Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `paqad-ai rules compile`; without it enforcement fast-skips. Strictness comes from `enforcement` in the tracked `.paqad/configs/feature-development/rules.yaml` (flat name `rule_compliance`), which a personal or env value may only raise."
+    text_hash: 35a15b649410571a30deb8e3f65eabefad2a131525bd4638a48c25345c3186ff
     verifiability:
       kind: unverifiable
       reason: The rule_compliance gate is itself the enforcement layer.

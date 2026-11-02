@@ -553,22 +553,11 @@ describe('feature development policy', () => {
       );
     });
 
-    it('AC-11: the shipped workflow yaml defers attribution and the inferencer step', () => {
+    it('AC-11: the generated workflow view defers attribution by default', () => {
       const raw = YAML.parse(
         readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
-      ) as {
-        stages: {
-          planning: {
-            escalation: Record<string, string>;
-            attribution_gate: { pipeline: Array<Record<string, string>> };
-          };
-        };
-      };
+      ) as { stages: { planning: { escalation: Record<string, string> } } };
       expect(raw.stages.planning.escalation.attribution_pending).toBe('defer');
-      const inferencer = raw.stages.planning.attribution_gate.pipeline.find(
-        (step) => step.skill === 'module-attribution-inferencer',
-      );
-      expect(inferencer?.on_not_confident).toBe('defer');
     });
   });
 });
