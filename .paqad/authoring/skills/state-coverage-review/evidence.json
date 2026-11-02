@@ -1,0 +1,81 @@
+{
+  "schema_version": "1",
+  "skill": "state-coverage-review",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:b971473341f8124552f46ada32b2c888d57ebd32831a1d5af590d49d868ccb38",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/state-coverage-review",
+    "tests": 28,
+    "passed": 28,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:19:50.576Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:19:52.303Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:19:53.928Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:19:55.421Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:19:56.873Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ1WM05PPCMY21CKEE0XE6",
+    "D-01M6DJ1Y9G3M5PRCJZZW1G14TJ",
+    "D-01M6DJ1ZWX7YXNGNCHSFZPB14T",
+    "D-01M6DJ21DFSKRSC9NH741P2PZ0",
+    "D-01M6DJ22SS5Y99K0YPMNS9TAZ2",
+    "D-01M6DJ24KZ75EA0W6Z34Z885RP"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}
