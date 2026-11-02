@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "existing-doc-checker",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:12dd956a33d8f567783c8ff63e5499eaf000d6126a542944311be4204865ce64",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 0
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/existing-doc-checker",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:57.185Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:58.698Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:11:00.087Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:11:01.467Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:11:03.073Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHHKSFV7XEW9BM6Z2S87X0",
+    "D-01M6DHHN8NHA5XHQ5RGT1Q16DC",
+    "D-01M6DHHPMWH4M65MGTPBEH1N88",
+    "D-01M6DHHQZ9E7FAEC4PSG503GWZ",
+    "D-01M6DHHSGTW8J7FSNVXPTJ36PP"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

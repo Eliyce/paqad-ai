@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "content-reviewer",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:196ded3fa3938e0e10566bb075e30f5e96df95b2ce3c7ff11495ec08f2f7519c",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/content-reviewer",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:21:41.222Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:21:42.739Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:21:44.324Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:21:45.985Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:21:47.552Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ58QBHB0MMZTPGQEZ2BFQ",
+    "D-01M6DJ5A5F938MXXMB1JHJ0EDN",
+    "D-01M6DJ5BQPXGXB5D33TWTHMN8M",
+    "D-01M6DJ5DC0HRGPYTMPH8XGXH8M",
+    "D-01M6DJ5EVSAW96D9GYRTY2ZGPH"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

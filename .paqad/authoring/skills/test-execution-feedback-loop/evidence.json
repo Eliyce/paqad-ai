@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "test-execution-feedback-loop",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:28fcdd094a10f2a3325ed3691f18f37e73baa8cab4d260ab1f72c9a9bd2171d6",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/test-execution-feedback-loop",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:15:46.261Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:15:47.781Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:15:49.398Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:15:50.968Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:15:52.615Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHTE0REAJJ1BY11Y0J61GX",
+    "D-01M6DHTFHSM7G06BGVS2G2ZTSC",
+    "D-01M6DHTH3W1FB78AKBTWEQSGA1",
+    "D-01M6DHTJNGG1D801CGVKX3HVCM",
+    "D-01M6DHTM7DXY2EXAPCMJ41M7R9"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "cryptographic-review",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:25bc2fa102819aa9a4ca4eb03e414fe91b7ec31118491fe83922c7e06d24ae7d",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/cryptographic-review",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:22:56.244Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:22:57.709Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:22:59.203Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:00.661Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:02.225Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ7J0ZH0BZMDSMPMTACBHX",
+    "D-01M6DJ7KDAE2G8A8DZ3TBE7V4E",
+    "D-01M6DJ7MWCYQ7JNN35H4E6WE1M",
+    "D-01M6DJ7P8VG1X4M7VR8BJKF407",
+    "D-01M6DJ7QTX58TH2BNFWWJJN6VK"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

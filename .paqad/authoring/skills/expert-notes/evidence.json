@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "expert-notes",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "host": "claude-code",
-  "folder_hash": "sha256:df3c429eb01058b3715d2b034ee188fa3a2aad1b349efe589c9c1b052603283c",
+  "folder_hash": "sha256:e7ee8b6e7135b92f81a090dfa311eb6dd6c2cc38684871646b4e94ad1cb61411",
   "baseline": {
     "runs": 3,
     "passed": null,
-    "verdict": "needed"
+    "verdict": "overridden"
   },
   "sources": {
-    "count": 10,
-    "non_model": 10,
+    "count": 0,
+    "non_model": 0,
     "kind": "repo"
   },
   "lint": {
@@ -19,40 +19,62 @@
     "warnings": 1
   },
   "script_tests": {
-    "command": "pnpm test --reporter=tap tests/skills/expert-notes",
+    "command": "pnpm test --reporter=tap tests/unit/skills/expert-notes",
     "tests": 7,
     "passed": 7,
     "skipped": 0
   },
-  "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.7778,
-    "pass_rate_without": 0.5,
-    "delta_points": 27.78,
-    "token_multiple": 1.257,
-    "models": [
-      "claude-haiku-5-5",
-      "claude-sonnet-5-5"
-    ],
-    "claude_version": "2.1.316",
-    "checks_not_measured": [],
-    "source": "subagent-dispatch"
-  },
-  "trigger": {
-    "validation_score": 1,
-    "description_chars": 821,
-    "batch": "not-offered"
-  },
+  "benchmark": null,
+  "trigger": null,
   "performance": {
-    "tokens": "measured",
-    "source": "subagent-dispatch"
+    "tokens": "unavailable",
+    "source": "unavailable"
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 4.8453,
+    "S6": "unavailable",
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T05:45:58.385Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T05:45:59.854Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T05:46:01.294Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T05:46:02.786Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T05:46:04.235Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DCP0C7Y3QQ0AWQYT009FVB",
+    "D-01M6DCP1XAA4PP3F30KRT76CNS",
+    "D-01M6DCP3AS40M7T5J5SYXV1A0V",
+    "D-01M6DCP4QH89TG6SZ1P480PZ7B",
+    "D-01M6DCP6646D4VAHNEPQ3Y4GTC"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }
