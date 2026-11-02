@@ -2,7 +2,7 @@
 
 The deterministic pattern set lives in `src/module-decisions/extractor.ts`.
 Patterns are applied in order; the first hit per slug wins. The set is
-intentionally small and framework-owned — extending it is a framework PR.
+intentionally small and framework-owned: extending it is a framework PR.
 
 | Label                     | Pattern shape             | Notes                                        |
 | ------------------------- | ------------------------- | -------------------------------------------- |
@@ -18,10 +18,10 @@ intentionally small and framework-owned — extending it is a framework PR.
 
 Each emitted candidate is one of:
 
-- `exact-match` — slug already exists in `module-map.yml`. No decision required.
-- `near-collision` — Levenshtein distance ≤ 2 from an existing slug. Always
+- `exact-match`: slug already exists in `module-map.yml`. No decision required.
+- `near-collision`: Levenshtein distance ≤ 2 from an existing slug. Always
   surfaced for explicit user disambiguation.
-- `unknown` — neither match nor near-match. Becomes an `MD-XXXX` draft.
+- `unknown`: neither match nor near-match. Becomes an `MD-XXXX` draft.
 
 ## Why no LLM
 

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   SkillAuditBuffer,
+  clearShownSkillMetadataDeprecations,
   type SkillLoadFailedEvent,
   readSkillAuditEvents,
 } from '@/skills/audit-events.js';
@@ -223,7 +224,9 @@ Valid body.
 
     expect(skills.map((skill) => skill.name)).toEqual(['valid']);
 
-    const events = readSkillAuditEvents(projectRoot) as SkillLoadFailedEvent[];
+    const events = readSkillAuditEvents(projectRoot).filter(
+      (event) => event.type === 'skill.load_failed',
+    ) as SkillLoadFailedEvent[];
     expect(events).toHaveLength(1);
     expect(events[0]?.path).toBe(brokenSkill);
     expect(events[0]?.type).toBe('skill.load_failed');
@@ -521,5 +524,39 @@ Body.
     );
 
     await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:on_complete');
+  });
+
+  it('writes one deprecation line per skill with old top-level keys, once across loads', async () => {
+    clearShownSkillMetadataDeprecations();
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skills-'));
+    const projectRoot = join(root, 'project');
+    mkdirSync(projectRoot, { recursive: true });
+    const skillFile = join(root, 'old.SKILL.md');
+    writeFileSync(
+      skillFile,
+      `---\nname: old-keys\ndescription: Old keys\nmodel_tier: fast\noutput_format: markdown\ncacheable: false\ninput_schema:\n  request:\n    type: string\n    required: true\ntriggers:\n  - workflow: [feature-development]\n---\n\nBody.\n`,
+    );
+    const line =
+      'Skill "old-keys": top-level cacheable, input_schema, model_tier, output_format, triggers are deprecated and stop working in 1.117.0; move them under metadata (or skill.meta.yaml).';
+
+    const shown: string[] = [];
+    const warn = (text: string) => shown.push(text);
+    await new SkillLoader(new SkillAuditBuffer(), warn).load(
+      [fixtureResolvedArtifact(skillFile)],
+      projectRoot,
+    );
+    clearShownSkillMetadataDeprecations();
+    await new SkillLoader(new SkillAuditBuffer(), warn).load(
+      [fixtureResolvedArtifact(skillFile)],
+      projectRoot,
+    );
+
+    expect(shown).toEqual([`paqad: ${line}`]);
+    const events = readSkillAuditEvents(projectRoot).filter(
+      (event) => event.type === 'skill.metadata_deprecated',
+    );
+    expect(events).toEqual([
+      expect.objectContaining({ path: skillFile, skill: 'old-keys', message: line }),
+    ]);
   });
 });

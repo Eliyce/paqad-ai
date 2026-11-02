@@ -1,4 +1,4 @@
-The output is a JSON object — the FR-4 two-layer question batch the spec
+The output is a JSON object: the FR-4 two-layer question batch the spec
 pipeline's `questions` step consumes. `questions[]` is the only required field;
 each question is a `PipelineQuestion` (see `src/spec-pipeline/types.ts`).
 
@@ -30,9 +30,9 @@ each question is a `PipelineQuestion` (see `src/spec-pipeline/types.ts`).
 
 Rules:
 
-- `business_text` and every `options[]` entry use the project's own words —
+- `business_text` and every `options[]` entry use the project's own words,
   grounding terms first, then the prompt's wording, then plain English.
 - `options[]` are OUTCOMES, never mechanisms (no "exponential backoff").
 - `grounded_in` is a doc/glossary ref, or `null` when the wording can't be tied
   to project evidence.
-- `technical_note` is optional and internal — never shown to the user.
+- `technical_note` is optional and internal: never shown to the user.

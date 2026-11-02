@@ -39,6 +39,8 @@ append_section, append_comment.
 
 stdout: {"ok", "status" (match | partial | mismatch), "differences": [..]}. Exit 0 on a full
 match, 1 otherwise.
+
+Run with --help to print the usage.
 """
 
 import argparse

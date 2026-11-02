@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - feature-development
+      - module-attribution
+cache_key_inputs: []
+input_schema:
+  prompt:
+    type: string
+    required: true
+    description: The user prompt to analyse (typically a pasted ticket or feature request).
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve module-map.yml for collision detection. Defaults to cwd.

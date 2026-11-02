@@ -1,26 +1,11 @@
 ---
 name: dependency-advisory-triage
-description: Normalize dependency advisories across native audits and OSV evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - package.json
-  - pnpm-lock.yaml
-  - package-lock.json
-  - composer.lock
-output_format: markdown
-input_schema:
-  advisory_artifact_paths:
-    type: path[]
-    required: true
-    description: Raw audit and advisory artifacts to normalize.
-  stack_snapshot_path:
-    type: path
-    required: false
-    description: Optional stack snapshot with installed package versions.
+description: "Normalizes dependency advisories from native audits and OSV evidence into stable findings. Use when a pentest run's audit scripts and advisory lookups have produced raw artifacts to merge."
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -29,7 +14,7 @@ Normalizes native package-manager audit output and online advisory results into 
 
 ## Use This When
 
-Use this during the pentest workflow after dependency audit scripts and advisory lookups have produced raw artifacts that need to be merged into stable findings.
+During the pentest workflow after dependency audit scripts and advisory lookups have produced raw artifacts that need to be merged into stable findings.
 
 ## Inputs
 
@@ -42,11 +27,11 @@ Use this during the pentest workflow after dependency audit scripts and advisory
 1. Run `scripts/normalize-advisories.sh <artifact1> <artifact2> ...` to merge npm/pnpm/OSV outputs into one JSONL stream keyed by (ecosystem, package, advisory_id).
 2. For each merged record, write one finding using `assets/output.template.md`.
 3. Keep remediation focused on upgrade, replacement, or compensating control.
-4. Validate with `scripts/lint-output.sh` — duplicate keys fail the build.
+4. Validate with `scripts/lint-output.sh`: duplicate keys fail the build.
 
 ## Output Contract
 
-- Match `assets/output.template.md`: `## Dependency Findings` with `### {{ecosystem}}:{{package}} — {{advisory-id}}` per finding plus Severity/Installed/Sources/Title/Remediation lines.
+- Match `assets/output.template.md`: `## Dependency Findings` with `### {{ecosystem}}:{{package}}: {{advisory-id}}` per finding plus Severity/Installed/Sources/Title/Remediation lines.
 - Output must pass `scripts/lint-output.sh` (exit 0).
 
 ## Escalate / Stop Conditions

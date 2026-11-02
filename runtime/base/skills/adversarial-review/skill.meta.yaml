@@ -1,0 +1,18 @@
+triggers:
+  - risk:
+      - medium
+      - high
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Accepted request or change summary.
+  diff_paths:
+    type: path[]
+    required: true
+    description: Changed artifacts to review.
+  verification_summary:
+    type: string
+    required: false
+    description: Claimed verification evidence.

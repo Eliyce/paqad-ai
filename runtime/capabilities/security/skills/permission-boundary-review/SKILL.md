@@ -1,25 +1,11 @@
 ---
 name: permission-boundary-review
-description: Review authorization, tenant isolation, and privileged route boundaries.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**/business.md
-  - docs/modules/**/technical.md
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing roles, permissions, or tenant-sensitive actions.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove authorization and boundary behavior.
+description: 'Reviews authorization, tenant isolation and privileged route boundaries. Use when docs or route inventories describe privileged actions, admin surfaces, policy checks or tenant-specific data.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -28,7 +14,7 @@ Reviews permission, authorization, and tenant-boundary expectations so pentest f
 
 ## Use This When
 
-Use this when module docs or route inventories describe privileged actions, admin surfaces, policy checks, or tenant-specific data handling.
+When module docs or route inventories describe privileged actions, admin surfaces, policy checks, or tenant-specific data handling.
 
 ## Inputs
 

@@ -1,24 +1,12 @@
 ---
 name: integration-doc-maintainer
-description: Maintains cross-module integration documentation
-model_tier: medium
-triggers:
-  - scope:
-      - multi-module
-      - system-wide
-max_lines: 200
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Implementation files affecting integrations.
-  integration_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical integration docs to sync.
+description: 'Maintains cross-module integration documentation. Use when a request affects published or consumed events, background jobs, external service contracts or any cross-module dependency.'
+metadata:
+  model_tier: medium
+  max_lines: '200'
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -27,7 +15,7 @@ Maintains cross-module integration docs by documenting events, jobs, contracts, 
 
 ## Use This When
 
-Use this when a request affects published events, consumed events, background jobs, external service contracts, or any cross-module dependency.
+When a request affects published events, consumed events, background jobs, external service contracts, or any cross-module dependency.
 
 ## Inputs
 

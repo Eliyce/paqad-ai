@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CAWF861YKG2M5KJ7BWN5G0",
+  "category": "intake.requirement",
+  "title": "How is the filler removal signed off?",
+  "context": "The owner's main ask is that every skill and agent loses its filler wording without its meaning changing. The automatic checks catch generic phrases, shouting, options with no default and undated wording, but not padding, restated headings or repeated instructions. How do we confirm the rest?",
+  "options": [
+    {
+      "option_key": "review-all",
+      "label": "The audit shows the size drop per skill and agent, and a person reviews every changed skill and agent before merge",
+      "one_line_preview": "The audit shows the size drop per skill and agent, and a person reviews every changed skill and agent before merge",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "review-sample",
+      "label": "The audit shows the size drop per skill and agent, and a person reviews a sample",
+      "one_line_preview": "The audit shows the size drop per skill and agent, and a person reviews a sample",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "checks-only",
+      "label": "Passing the automatic checks is enough",
+      "one_line_preview": "Passing the automatic checks is enough",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "review-all",
+  "created_at": "2026-11-01T19:55:18.151Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "review-all",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:38.763Z",
+  "decision_id": "D-01M6CAWF861YKG2M5KJ7BWN5G0",
+  "fingerprint": "sha256:a4e1f24627c95417727cf521a636d6ea779ff3939e90ad28d27727864ce99ddb",
+  "question": "How is the filler removal signed off?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:18.151Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "review-all",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:38.763Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

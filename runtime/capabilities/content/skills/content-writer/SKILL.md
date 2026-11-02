@@ -11,7 +11,7 @@ Drafts copy from an approved brief, pulling technical context only when the proj
 
 ## Use This When
 
-Use this after `content-planner` produced a brief and the next step is a draft. Skip when the brief is incomplete (run `content-planner` first).
+After `content-planner` produced a brief and the next step is a draft. Skip when the brief is incomplete (run `content-planner` first).
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Use this after `content-planner` produced a brief and the next step is a draft. 
 ## Procedure
 
 1. Confirm the brief passes `content-planner/scripts/lint-brief.sh` before starting.
-2. Draft into `assets/draft.template.md` — never start without the audience and goal in mind.
+2. Draft into `assets/draft.template.md`: never start without the audience and goal in mind.
 3. Run `scripts/check-coverage.sh <brief> <draft>` to confirm every brief outline section appears in the draft.
 4. Run `scripts/word-count.sh <draft>` to confirm length aligns with the brief's constraints.
 5. Hand off to `content-reviewer` for the structural review pass.

@@ -46,6 +46,9 @@ const ACTIVATION_MATCHER = 'Skill|Read';
 const ACTIVATION_HOOK = 'skill-activation.mjs';
 const ACTIVATION_BLOCK = /,\n {4}"PostToolUse": \[\n(?: {6}.*\n)+? {4}\]/;
 const DELEGATION_HOOK = 'agent-delegation.mjs';
+const WRITE_GUARD_HOOK = 'stage-agent-write-guard.mjs';
+const WRITE_GUARD_GROUP =
+  /,\n {6}\{\n {8}"matcher": "Bash",\n {8}"hooks": \[\n[\s\S]*?stage-agent-write-guard\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 const DELEGATION_STOP_GROUP =
   /,\n {6}\{\n {8}"matcher": "\.\*",\n {8}"hooks": \[\n[\s\S]*?agent-delegation\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 
@@ -59,6 +62,7 @@ const APPENDED_ENTRIES: readonly HookLine[] = [
   { event: ACTIVATION_EVENT, matcher: ACTIVATION_MATCHER, hook: ACTIVATION_HOOK },
   { event: ACTIVATION_EVENT, matcher: 'Agent|Task', hook: DELEGATION_HOOK },
   { event: 'SubagentStop', matcher: '.*', hook: DELEGATION_HOOK },
+  { event: 'PreToolUse', matcher: 'Bash', hook: WRITE_GUARD_HOOK },
 ];
 
 function isAppended(event: string, matcher: string | undefined, command: string): boolean {
@@ -110,6 +114,10 @@ function expectOnlyTheActivationEntry(hooks: HookGroups): void {
     { matcher: '.*', hooks: [DELEGATION_HOOK] },
   ]);
   expect(hooks.SubagentStop?.at(-1)?.matcher).toBe('.*');
+  expect(appendedGroups(hooks, 'PreToolUse')).toEqual([
+    { matcher: 'Bash', hooks: [WRITE_GUARD_HOOK] },
+  ]);
+  expect(hooks.PreToolUse?.at(-1)?.matcher).toBe('Bash');
 }
 
 function isActivationLine(line: RenderedHook): boolean {
@@ -317,11 +325,62 @@ let launcherHome = '';
   ],
 ];
 
+const STALE_AGENT_CASE = `
+describe('contract: a stale project stage agent does not double the dispatch', () => {
+  for (const route of ROUTES.slice(0, 2)) {
+    it(\`[\${route.name}] AC-21: one SubagentStart record and one stage-agent row for the plugin agent\`, async () => {
+      const root = freshRepo();
+      await recordPlanning(root, 'ses11', '567');
+      mkdirSync(join(root, '.claude/agents'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude/agents/paqad-development.md'),
+        '---\\nname: paqad-development\\ndescription: old onboarding copy\\n---\\n\\nOld body.\\n',
+      );
+      const transcript = join(root, 'sub11.jsonl');
+      writeFileSync(
+        transcript,
+        \`\${JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'work' } })}\\n\`,
+      );
+      const base = {
+        session_id: 'ses11',
+        cwd: root,
+        transcript_path: transcript,
+        agent_id: 'agent11',
+        agent_type: 'paqad:paqad-development',
+      };
+      const start = await runHook(
+        join(HOOKS, 'stage-agent-start.mjs'),
+        { ...base, hook_event_name: 'SubagentStart' },
+        route.env(root),
+      );
+      expect(start.exitCode).toBe(0);
+      const stop = await runHook(
+        SUBAGENT_COMPLETION,
+        { ...base, hook_event_name: 'SubagentStop' },
+        route.env(root),
+      );
+      expect(stop.exitCode).toBe(0);
+      const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+        .trim()
+        .split('\\n')
+        .map((line) => JSON.parse(line) as { kind?: string; event_status?: string; stage?: string })
+        .filter((row) => row.kind === 'stage-agent' && row.stage === 'development');
+      expect(rows.filter((row) => row.event_status === 'started')).toHaveLength(1);
+      expect(rows.filter((row) => row.event_status === 'completed')).toHaveLength(1);
+    });
+  }
+});
+`;
+
 function contractWithoutLauncherRoutes(source: string, required = true): string {
   let text = source;
   for (const [added, original] of LAUNCHER_ROUTE_ADDITIONS) {
     if (required) expect(text).toContain(added);
     text = text.replace(added, original);
+  }
+  if (required) {
+    expect(text.endsWith(STALE_AGENT_CASE)).toBe(true);
+    text = text.slice(0, -STALE_AGENT_CASE.length);
   }
   return text;
 }
@@ -345,7 +404,7 @@ function flatten(
 }
 
 describe('the stage enforcement guardrails', () => {
-  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes', (ctx) => {
+  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes and the appended stale stage agent case', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT)))).toEqual(
       printedCode(contractWithoutLauncherRoutes(atBase(CONTRACT), false)),
@@ -386,8 +445,13 @@ describe('the stage enforcement guardrails', () => {
     const golden = goldenAsHost(working(GOLDEN));
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
     expect(DELEGATION_STOP_GROUP.exec(golden)?.[0]).toContain(DELEGATION_HOOK);
+    expect(WRITE_GUARD_GROUP.exec(golden)?.[0]).toContain(WRITE_GUARD_HOOK);
     const stripped = (text: string) =>
-      text.replace(SEED_BLOCK, '').replace(ACTIVATION_BLOCK, '').replace(DELEGATION_STOP_GROUP, '');
+      text
+        .replace(SEED_BLOCK, '')
+        .replace(ACTIVATION_BLOCK, '')
+        .replace(DELEGATION_STOP_GROUP, '')
+        .replace(WRITE_GUARD_GROUP, '');
     expect(stripped(golden)).toBe(stripped(goldenAsHost(atBase(GOLDEN))));
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),

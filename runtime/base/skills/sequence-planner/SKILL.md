@@ -1,28 +1,11 @@
 ---
 name: sequence-planner
-description: Break work into ordered, coherent stories.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  requirements_path:
-    type: path
-    required: true
-    description: Accepted requirements artifact.
-  acceptance_criteria_path:
-    type: path
-    required: true
-    description: Acceptance criteria to sequence.
-  canonical_doc_paths:
-    type: path[]
-    required: false
-    description: Supporting canonical docs.
+description: 'Breaks work into ordered, coherent stories. Use when requirements are stable enough to split, above all when database, contract, documentation or UI changes must land in order.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -31,7 +14,7 @@ Builds a deterministic work sequence that orders stories by dependency, rollback
 
 ## Use This When
 
-Use this after requirements are stable enough to split work, especially when database, contract, documentation, or UI changes must land in a deliberate order.
+After requirements are stable enough to split work, especially when database, contract, documentation, or UI changes must land in a deliberate order.
 
 ## Inputs
 
@@ -42,14 +25,14 @@ Use this after requirements are stable enough to split work, especially when dat
 ## Procedure
 
 1. List prerequisites, irreversible steps, and verification gates implied by the requirements.
-2. Group tasks into independently reviewable stories — each must leave the system in a coherent state.
+2. Group tasks into independently reviewable stories: each must leave the system in a coherent state.
 3. Apply the precedence rules in `assets/order-rules.txt` (schema → contracts → registries → flag → code → UI; irreversible steps last per workstream).
 4. Attach a single verification focus to each story.
 5. Format per `assets/output.template.md`; validate with `scripts/lint-output.sh`.
 
 ## Output Contract
 
-- Match `assets/output.template.md`: `## Implementation Sequence`, per-story `### Story N — name` numbered sequentially from 1 with Goal/Dependencies/Verification/Reversibility/Blast-radius lines, and `## Sequencing Risks`.
+- Match `assets/output.template.md`: `## Implementation Sequence`, per-story `### Story N: name` numbered sequentially from 1 with Goal/Dependencies/Verification/Reversibility/Blast-radius lines, and `## Sequencing Risks`.
 - Output must pass `scripts/lint-output.sh` (exit 0).
 
 ## Escalate / Stop Conditions

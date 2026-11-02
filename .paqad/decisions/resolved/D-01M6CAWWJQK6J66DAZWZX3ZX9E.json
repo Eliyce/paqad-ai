@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CAWWJQK6J66DAZWZX3ZX9E",
+  "category": "intake.requirement",
+  "title": "Keep writing paqad stage agents to the home folder when the plugin is not installed?",
+  "context": "This change stops writing paqad-* agents into each project's .claude/agents folder; the plugin becomes the one source on Claude Code. Today paqad also writes them to the Developer's home ~/.claude/agents. If that stops too, a Developer who installed paqad from npm without the plugin has no stage agents and stages cannot dispatch.",
+  "options": [
+    {
+      "option_key": "home-when-no-plugin",
+      "label": "Keep the home copy only when the plugin is not installed, so npm-only Developers keep their stage agents",
+      "one_line_preview": "Keep the home copy only when the plugin is not installed, so npm-only Developers keep their stage agents",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "always-home",
+      "label": "Always keep the home copy",
+      "one_line_preview": "Always keep the home copy",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "never-home",
+      "label": "Stop the home copy; npm-only Developers must install the plugin",
+      "one_line_preview": "Stop the home copy; npm-only Developers must install the plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "home-when-no-plugin",
+  "created_at": "2026-11-01T19:55:31.800Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "home-when-no-plugin",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:40.715Z",
+  "decision_id": "D-01M6CAWWJQK6J66DAZWZX3ZX9E",
+  "fingerprint": "sha256:e24a262cf920ea8e67e153ec45e43a3b34eecaa217e9eeb399ede83d973153d0",
+  "question": "Keep writing paqad stage agents to the home folder when the plugin is not installed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:31.800Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "home-when-no-plugin",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:40.715Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

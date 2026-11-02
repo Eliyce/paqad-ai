@@ -36,6 +36,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/capability-gate.mjs\" pre-mutation"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-write-guard.mjs\""
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

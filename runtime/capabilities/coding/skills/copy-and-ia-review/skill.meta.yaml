@@ -1,0 +1,16 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/**
+  - docs/instructions/design-system/patterns.md
+input_schema:
+  source_roots:
+    type: path[]
+    required: true
+    description: Roots to scan for user-facing copy.
+  patterns_path:
+    type: path
+    required: true
+    description: Path to patterns.md contract clause.

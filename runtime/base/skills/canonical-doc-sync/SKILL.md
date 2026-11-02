@@ -1,27 +1,11 @@
 ---
 name: canonical-doc-sync
-description: Synchronize implementation changes back into canonical documentation.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: true
-cache_key_inputs:
-  - docs/**/*.md
-  - src/**/*.ts
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Changed implementation or doc files.
-  canonical_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical docs to review for drift.
+description: 'Syncs implementation changes back into canonical documentation. Use when code changes are understood and handoff has not closed, above all when several doc surfaces must change together.'
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -30,7 +14,7 @@ Updates canonical project documentation after implementation changes so specs, m
 
 ## Use This When
 
-Use this after code changes are understood and before handoff closes, especially when multiple doc surfaces must be updated together to avoid drift.
+After code changes are understood and before handoff closes, especially when multiple doc surfaces must be updated together to avoid drift.
 
 ## Inputs
 
@@ -42,7 +26,7 @@ Use this after code changes are understood and before handoff closes, especially
 
 1. Run `scripts/list-canonical-docs.sh` to enumerate the canonical doc surfaces that exist in this project.
 2. Identify which of those are now stale relative to the implementation change.
-3. Update behavior docs, module docs, and registries together — never patch only one surface.
+3. Update behavior docs, module docs, and registries together: never patch only one surface.
 4. Prefer generated inventories or script output for routes, events, and error codes when available.
 5. Format per `assets/output.template.md` and validate with `scripts/lint-output.sh`.
 

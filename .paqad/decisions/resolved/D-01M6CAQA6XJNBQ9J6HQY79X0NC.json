@@ -1,0 +1,55 @@
+{
+  "id": "D-01M6CAQA6XJNBQ9J6HQY79X0NC",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/authoring/lint/fields.ts",
+  "context": "Chief architect: The claims disagree on timing: narrow in this change, or wait until the fallback minor ends. Narrowing in this change is the only way the AC-C02 zero-blocking state stays protected against a new top-level key in a paqad skill. The narrowing covers the paqadRuntime allowance only, so users' skills still go through the parser fallback. Per EX-application-architect-3 it lands in a later commit than the move, after every paqad skill has moved. If the owner prefers EX-solution-architect-6, the allowance stays wide until the fallback is removed.\n\nTarget: src/authoring/lint/fields.ts\n- skill-orchestrator: After the move, PAQAD_RUNTIME_SKILL_FIELDS narrows so a new top-level custom key in a paqad skill blocks under SK-006, while the parser fallback still reads old keys in users' own skills for one minor.\n- solution-architect: Narrowing PAQAD_RUNTIME_SKILL_FIELDS waits until the fallback minor ends; narrowing it in this change makes skills from user projects that still use top-level keys fail lint while the parser still accepts them.\n- application-architect: PAQAD_RUNTIME_SKILL_FIELDS is narrowed only after every skill has moved its keys under metadata; narrowing it in the same commit as the move would block the fallback window.\n\n[expert-conflict-fork:9ac99cecb07cab84]",
+  "options": [
+    {
+      "option_key": "after-the-move-paqad-runtime-skill-field",
+      "label": "After the move, PAQAD_RUNTIME_SKILL_FIELDS narrows so a new top-level custom key in a paqad skill blocks under SK-006, while the parser fallback still reads old keys in users' own skills for one minor. — skill-orchestrator",
+      "one_line_preview": "After the move, PAQAD_RUNTIME_SKILL_FIELDS narrows so a new top-level custom key in a paqad skill blocks under SK-006, while the parser fallback still reads old keys in users' own skills for one minor. — skill-orchestrator",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "narrowing-paqad-runtime-skill-fields-wai",
+      "label": "Narrowing PAQAD_RUNTIME_SKILL_FIELDS waits until the fallback minor ends; narrowing it in this change makes skills from user projects that still use top-level keys fail lint while the parser still accepts them. — solution-architect",
+      "one_line_preview": "Narrowing PAQAD_RUNTIME_SKILL_FIELDS waits until the fallback minor ends; narrowing it in this change makes skills from user projects that still use top-level keys fail lint while the parser still accepts them. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "paqad-runtime-skill-fields-is-narrowed-o",
+      "label": "PAQAD_RUNTIME_SKILL_FIELDS is narrowed only after every skill has moved its keys under metadata; narrowing it in the same commit as the move would block the fallback window. — application-architect",
+      "one_line_preview": "PAQAD_RUNTIME_SKILL_FIELDS is narrowed only after every skill has moved its keys under metadata; narrowing it in the same commit as the move would block the fallback window. — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "after-the-move-paqad-runtime-skill-field",
+  "created_at": "2026-11-01T19:52:29.150Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "after-the-move-paqad-runtime-skill-field",
+  "rationale": "Owner: narrow in this PR, in a commit after the move",
+  "resolved_at": "2026-11-01T20:03:35.674Z",
+  "decision_id": "D-01M6CAQA6XJNBQ9J6HQY79X0NC",
+  "fingerprint": "sha256:931300c7677146221d716536551b792fd117f5768f8d50a630df06a4cbfa5be3",
+  "question": "Experts disagree on src/authoring/lint/fields.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-01T19:52:29.150Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "after-the-move-paqad-runtime-skill-field",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:35.674Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: narrow in this PR, in a commit after the move"
+  }
+}

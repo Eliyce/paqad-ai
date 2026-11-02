@@ -1,7 +1,7 @@
 # Transition evidence
 
 A transition is a claim that a user moves from one surface to another. The map is only as
-trustworthy as this claim, so an edge exists only when the code proves the navigation happens —
+trustworthy as this claim, so an edge exists only when the code proves the navigation happens,
 not when a link merely appears in the source.
 
 ## What proves a transition
@@ -25,5 +25,5 @@ performed at runtime.
 
 - An edge whose evidence directly shows the navigation is `high`. An edge inferred from a weaker
   signal is `low`; say so rather than inflating it.
-- A `to` that points at no known surface is a dangling target — hand it to the engine as a
+- A `to` that points at no known surface is a dangling target: hand it to the engine as a
   cross-reference finding. Do not invent the missing surface to make the edge resolve.

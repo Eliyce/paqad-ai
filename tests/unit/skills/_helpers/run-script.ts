@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { extname, resolve } from 'node:path';
 
 export interface RunResult {
   status: number;
@@ -22,6 +22,13 @@ function sleepSync(ms: number): void {
 const INFRA_STDERR =
   /cannot allocate memory|resource temporarily unavailable|cannot fork|cannot make pipe|here-document/i;
 
+export function interpreterFor(scriptPath: string): string {
+  const ext = extname(scriptPath);
+  if (ext === '.py') return 'python3';
+  if (ext === '.mjs' || ext === '.js') return process.execPath;
+  return 'bash';
+}
+
 export function runScript(
   scriptPath: string,
   args: string[] = [],
@@ -32,7 +39,7 @@ export function runScript(
     return { status: -1, stdout: '', stderr: `script not found: ${abs}` };
   }
   const invoke = (): RunResult => {
-    const r = spawnSync('bash', [abs, ...args], {
+    const r = spawnSync(interpreterFor(abs), [abs, ...args], {
       input: opts.input,
       cwd: opts.cwd,
       env: { ...process.env, ...(opts.env ?? {}) },

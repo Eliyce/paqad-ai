@@ -2,7 +2,7 @@
 
 ## Financial Manipulation
 
-- **Negative quantity / amount**: send `quantity: -1` or `amount: -100` in payment/order flows — refund reversal, gift card drain
+- **Negative quantity / amount**: send `quantity: -1` or `amount: -100` in payment/order flows, refund reversal, gift card drain
 - **Price parameter tampering**: client-submitted `price=0` or `price=0.01` in order payload
 - **Coupon / discount stacking**: apply promo → remove qualifying item from cart → discount persists
 - **Currency rounding abuse**: repeated micro-transactions that accumulate rounding gains
@@ -10,11 +10,11 @@
 
 ## Race Conditions / TOCTOU
 
-- **Concurrent duplicate submission**: fire identical high-value POST simultaneously — double-charge, double-redeem, or over-allocate inventory
-- **HTTP/2 single-packet attack**: bundle 20–30 identical checkout/redeem requests into one TCP packet to eliminate network jitter and reliably collapse the race window — bypasses naive rate-limit-based race detection
+- **Concurrent duplicate submission**: fire identical high-value POST simultaneously, double-charge, double-redeem, or over-allocate inventory
+- **HTTP/2 single-packet attack**: bundle 20–30 identical checkout/redeem requests into one TCP packet to eliminate network jitter and reliably collapse the race window, bypasses naive rate-limit-based race detection
 - **Idempotency key reuse**: reuse same idempotency key across different users or different amounts
 - **Single-use token TOCTOU**: fire parallel requests against a password reset link, email confirmation link, or one-time promo code before the "used" flag is written
-- **Database-level TOCTOU**: SELECT-then-UPDATE without row locking or serializable isolation — concurrent requests both pass the check
+- **Database-level TOCTOU**: SELECT-then-UPDATE without row locking or serializable isolation, concurrent requests both pass the check
 
 ## Workflow / State Machine Abuse
 

@@ -1,0 +1,17 @@
+triggers:
+  - ui_impact:
+      - new-component
+      - new-screen
+      - redesign
+cache_key_inputs:
+  - docs/**/*.md
+  - runtime/templates/user-flow.md.hbs
+input_schema:
+  story_path:
+    type: path
+    required: true
+    description: Story artifact describing the feature.
+  module_doc_paths:
+    type: path[]
+    required: false
+    description: Relevant module docs.

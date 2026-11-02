@@ -147,11 +147,9 @@ export class FrameworkUpdater {
     syncGroupConfigs(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
-    if (!pluginInstalled) {
-      try {
-        writeStageAgents();
-      } catch {}
-    }
+    try {
+      writeStageAgents({ pluginInstalled });
+    } catch {}
 
     const teamSetupNotes = usesClaude ? claude.syncTeamSetup(projectRoot).notes : [];
 

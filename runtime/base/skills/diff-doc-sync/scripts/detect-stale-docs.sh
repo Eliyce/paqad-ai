@@ -18,7 +18,7 @@ canonical=$(find "$docs_root" -type f -name '*.md' \
   \( -name 'README.md' -o -name 'endpoints.md' -o -name 'schemas.md' \
      -o -name 'error-codes.md' -o -name 'events.md' -o -name 'contracts.md' \
      -o -name 'state.md' -o -name 'workflows.md' \) 2>/dev/null \
-  | sort -u)
+  | LC_ALL=C sort -u)
 
 emit() { printf '%s\n' "$1"; }
 
@@ -36,4 +36,4 @@ while IFS= read -r changed; do
   done <<EOF
 $canonical
 EOF
-done | sort -u
+done | LC_ALL=C sort -u

@@ -19,7 +19,7 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '"tier"[[:space:]]*:[[:space:]]*"(missing|bare|adequate|strong)"' <<<"$body" \
-  || say 'missing or invalid "tier" — must be missing|bare|adequate|strong'
+  || say 'missing or invalid "tier": must be missing|bare|adequate|strong'
 
 grep -qE '"files"[[:space:]]*:' <<<"$body" || say 'missing "files" array'
 grep -qE '"clauses"[[:space:]]*:' <<<"$body" || say 'missing "clauses" object'

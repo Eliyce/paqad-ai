@@ -1,0 +1,17 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - package.json
+  - pnpm-lock.yaml
+  - package-lock.json
+  - composer.lock
+input_schema:
+  advisory_artifact_paths:
+    type: path[]
+    required: true
+    description: Raw audit and advisory artifacts to normalize.
+  stack_snapshot_path:
+    type: path
+    required: false
+    description: Optional stack snapshot with installed package versions.

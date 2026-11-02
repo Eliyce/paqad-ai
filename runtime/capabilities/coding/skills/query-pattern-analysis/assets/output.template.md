@@ -12,6 +12,6 @@
 
 ## Performance Risks
 
-- {{query path: N+1 / over-fetch / leading-wildcard / unbounded result set}} — {{remediation tied to expected data scale}}
+- {{query path: N+1 / over-fetch / leading-wildcard / unbounded result set}}, {{remediation tied to expected data scale}}
 
 <!-- "Performance Risks: none" allowed -->

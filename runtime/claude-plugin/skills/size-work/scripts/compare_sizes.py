@@ -35,6 +35,8 @@ suggest stdout: {"ok", "suggestion": {"size","range","drivers":[...],"confidence
                  "confidence_reason","comparables":[{"key","link","size"}],"label":"suggested size"}}
 set stdout:     {"ok", "write": bool, "reason"}
 Exit 0 on a clean suggestion or an allowed write; 1 on a refused overwrite or an error.
+
+Run with --help to print the usage.
 """
 
 import argparse

@@ -45,6 +45,15 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-write-guard.mjs"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

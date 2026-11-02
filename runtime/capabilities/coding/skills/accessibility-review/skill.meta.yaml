@@ -1,0 +1,21 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/**
+  - docs/instructions/design-system/accessibility.md
+  - docs/instructions/design-system/tokens.md
+input_schema:
+  source_roots:
+    type: path[]
+    required: true
+    description: Roots to scan for UI source.
+  accessibility_path:
+    type: path
+    required: true
+    description: Path to the project's accessibility.md contract clause.
+  axe_results_path:
+    type: path
+    required: false
+    description: Path to axe-core results JSON emitted by runtime-checks.ts (live phase).

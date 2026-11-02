@@ -1,0 +1,19 @@
+triggers:
+  - workflow:
+      - feature-development
+      - bug-fix
+      - refactor
+      - migration
+      - investigation
+cache_key_inputs:
+  - docs/**/*.md
+  - .paqad/indexes/**/*.json
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Incoming request to reconcile against existing docs.
+  candidate_doc_paths:
+    type: path[]
+    required: true
+    description: Canonical docs to inspect.

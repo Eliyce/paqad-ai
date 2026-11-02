@@ -18,4 +18,4 @@ fi
       | { grep -oE "[\"'][a-z][a-z0-9_-]+[\"']" || true; } \
       | tr -d '"'"'"
   done
-} | sort -u
+} | LC_ALL=C sort -u

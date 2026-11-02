@@ -1,27 +1,16 @@
 ---
 name: agent-orchestrator
 description: 'Proves a subagent earns its place before it ships: three main-conversation baselines, a fourteen-field intake, the smallest tool list with risky powers put to the owner, hook script tests, pass^3 trials against a general-purpose agent, a delegation sweep for agents picked by their description, then the host agent file, its SDK form and a tracked record. Use when work adds or modifies a subagent definition (.claude/agents/*.md, .codex/agents/*.toml), a stage helper agent or an expert persona, when the Agent Orchestrator seat reviews one, or when paqad-ai agent status reports what comes after.'
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  name:
-    type: string
-    required: true
-    description: The agent name, lowercase and hyphenated, equal to its file name.
-  task:
-    type: string
-    required: true
-    description: The job the agent is for, taken from the frozen spec and the ticket.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
 
-Decides whether a job deserves its own subagent and, when it does, proves that subagent before any host loads it. An agent is a separate context with its own tools, model and turn budget, so the questions are about delegation: is a fresh context worth its cost, what brief does the caller hand over, what report comes back, which tools it may hold, how it stops, and whether it beats the main conversation on real tasks. Each answer is checked by a `paqad-ai agent` verb that writes one artifact into `.paqad/tmp/authoring/agents/<name>/`. The verbs never call a model: you run the baselines and trials, the verbs judge what you saved.
+Decides whether a job deserves its own subagent and, when it does, proves that subagent before any host loads it. An agent is a separate context with its own tools, model and turn budget, so the questions are about delegation: is a fresh context worth its cost, what brief goes in and what report comes back, which tools it holds, how it stops, and whether it beats the main conversation on real tasks. Each answer is checked by a `paqad-ai agent` verb that writes one artifact into `.paqad/tmp/authoring/agents/<name>/`. The verbs never call a model: you run the baselines and trials, the verbs judge what you saved.
 
 ## Use This When
 
@@ -94,7 +83,7 @@ Decisions: <ids, or none>
 - `references/s6-delegation.md`: the delegation sweep and the fresh checks.
 - `references/s7-release.md`: host forms, the SDK form, evidence and overrides.
 - `references/s8-operate.md`: learn, drift, regression, memory and catalog.
-- `references/agents/grader.md`: the brief for grading one trial's end state.
-- `references/agents/comparator.md`: the blind comparison of an edited agent.
-- `references/agents/analyzer.md`: the brief for reading an iteration and picking one lever.
+- `references/agents/grader.md`: grading one trial's end state.
+- `references/agents/comparator.md`: blind comparison of an edited agent.
+- `references/agents/analyzer.md`: reading an iteration and picking one lever.
 - `agents/openai.yaml`: the display name and short description for hosts that read it.

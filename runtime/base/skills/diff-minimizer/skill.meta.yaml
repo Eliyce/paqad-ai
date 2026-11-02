@@ -1,0 +1,20 @@
+triggers:
+  - workflow:
+      - feature-development
+    process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  acceptance_criteria_path:
+    type: path
+    required: true
+    description: Acceptance criteria artifact written by the requirement analyst or acceptance-criteria-gen skill.
+  proposed_solution_path:
+    type: path
+    required: true
+    description: Implementation outline or solution proposal whose steps will be classified.
+  module_doc_paths:
+    type: path[]
+    required: false
+    description: Canonical module docs that establish what abstractions and patterns already exist as project convention.

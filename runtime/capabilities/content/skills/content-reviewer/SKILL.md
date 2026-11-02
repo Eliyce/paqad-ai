@@ -11,7 +11,7 @@ Runs a structured review pass over a draft so feedback is concrete (line + heuri
 
 ## Use This When
 
-Use this when a draft is ready for review and the team wants consistent, traceable feedback rather than personal taste.
+When a draft is ready for review and the team wants consistent, traceable feedback rather than personal taste.
 
 ## Inputs
 

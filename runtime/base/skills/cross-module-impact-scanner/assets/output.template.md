@@ -10,11 +10,11 @@
 
 <!-- Include only when any breaking or silent-shift impact has no deprecation window. -->
 
-1. Decision Packet: `{{api-breakage|event-contract-breakage|schema-breakage|config-breakage}}` — {{one-line description}}.
+1. Decision Packet: `{{api-breakage|event-contract-breakage|schema-breakage|config-breakage}}`, {{one-line description}}.
 
 ### Open Questions
 
 - {{surfaces that could not be classified from available docs; "none" allowed}}
 
 <!-- If the change has only internal-only impacts, replace this entire body with: -->
-<!-- Cross-Module Impact: internal-only — no consumers affected. -->
+<!-- Cross-Module Impact: internal-only, no consumers affected. -->

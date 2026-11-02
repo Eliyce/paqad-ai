@@ -1,25 +1,11 @@
 ---
 name: component-conformance-review
-description: Verify every component in the AST-derived inventory matches its declared spec in components.md. Flag undocumented variants, !important, inline style=, and unwrapped primitives.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - design-test
-      - design-retest
-cacheable: false
-cache_key_inputs:
-  - src/**
-  - docs/instructions/design-system/components.md
-output_format: markdown
-input_schema:
-  source_roots:
-    type: path[]
-    required: true
-    description: Roots to scan for component definitions and usages.
-  components_path:
-    type: path
-    required: true
-    description: Path to the project's components.md contract clause.
+description: 'Checks every component in the AST-derived inventory against its spec in components.md, flagging undocumented variants, !important, inline style= and unwrapped primitives. Use when a design-test run has finished token-conformance-review.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -28,7 +14,7 @@ Audits the project's UI components against `components.md`. The AST-derived comp
 
 ## Use This When
 
-Use this for every design-test run, after `token-conformance-review`. The two together form the "is the contract followed at the source level" pair.
+For every design-test run, after `token-conformance-review`. The two together form the "is the contract followed at the source level" pair.
 
 ## Inputs
 
@@ -38,7 +24,7 @@ Use this for every design-test run, after `token-conformance-review`. The two to
 
 ## Procedure
 
-The set difference between source and contract is deterministic — drive it
+The set difference between source and contract is deterministic, drive it
 with the scripts. Reserve LLM judgment for severity and the "is this primitive
 correctly wrapped" question.
 
@@ -58,15 +44,15 @@ correctly wrapped" question.
 
 ## Escalate / Stop Conditions
 
-- Ask when `components.md` has no entries — defer to `design-system-coverage` (tier likely `bare`).
-- Warn when the inventory exceeds 100 components — the audit may need to be chunked.
+- Ask when `components.md` has no entries: defer to `design-system-coverage` (tier likely `bare`).
+- Warn when the inventory exceeds 100 components: the audit may need to be chunked.
 
 ## Resources
 
 - `references/component-conformance-checklist.md`
-- `scripts/derive-inventory.sh` — AST-ish inventory of `src/components/**`.
-- `scripts/parse-components-md.sh` — declared inventory + variants/states from `components.md`.
-- `scripts/diff-inventories.sh` — set difference between source and declared.
+- `scripts/derive-inventory.sh`: AST-ish inventory of `src/components/**`.
+- `scripts/parse-components-md.sh`: declared inventory + variants/states from `components.md`.
+- `scripts/diff-inventories.sh`: set difference between source and declared.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

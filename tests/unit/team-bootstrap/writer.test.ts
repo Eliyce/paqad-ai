@@ -101,9 +101,9 @@ describe('what the lead is told', () => {
     git('init', '-q');
     const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
     expect(notes).toEqual([
-      'Commit these team setup files together so teammates and cloud sessions get paqad: .paqad/hook.mjs, .claude/agents/paqad-*.md.',
+      'Commit these team setup files together so teammates and cloud sessions get paqad: .paqad/hook.mjs.',
     ]);
-    git('add', '-f', TEAM_LAUNCHER_PATH, '.claude/agents');
+    git('add', '-f', TEAM_LAUNCHER_PATH);
     git(
       '-c',
       'user.email=t@t',
@@ -122,7 +122,7 @@ describe('what the lead is told', () => {
     const report = syncTeamSetup(root, {});
     expect(teamFilesToCommit(root, report)).toEqual([...report.written].sort());
     expect(report.written).toContain(TEAM_LAUNCHER_PATH);
-    expect(report.written).toHaveLength(9);
+    expect(report.written).toHaveLength(1);
   });
 
   it('says nothing to commit when the team setup is off and names files it kept', () => {

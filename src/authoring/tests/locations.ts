@@ -6,8 +6,12 @@ export function studlySkillName(name: string): string {
     .join('');
 }
 
-export function skillTestDirectories(name: string): string[] {
-  return [`tests/skills/${name}`, `tests/Feature/Skills/${studlySkillName(name)}`];
+export function skillTestDirectories(
+  name: string,
+  options: { paqadRepo?: boolean } = {},
+): string[] {
+  const dirs = [`tests/skills/${name}`, `tests/Feature/Skills/${studlySkillName(name)}`];
+  return options.paqadRepo === true ? [`tests/unit/skills/${name}`, ...dirs] : dirs;
 }
 
 export function agentTestDirectories(name: string): string[] {

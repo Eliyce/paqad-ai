@@ -9,7 +9,7 @@ USAGE
   exit 0
 fi
 root="${1:-docs/modules}"
-[ -d "$root" ] || exit 0
+[ -d "$root" ] || { echo "note: docs root not found: $root" >&2; exit 0; }
 find "$root" -type f -name '*.md' 2>/dev/null \
   | { grep -E '/ui/(screens|components|states|variants|flows)\.md$' || true; } \
-  | sort -u
+  | LC_ALL=C sort -u

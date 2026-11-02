@@ -1,0 +1,22 @@
+triggers:
+  - workflow:
+      - documentation-update
+      - module-documentation
+cache_key_inputs: []
+input_schema:
+  project_profile_path:
+    type: path
+    required: true
+    description: Canonical project profile.
+  detection_report_path:
+    type: path
+    required: false
+    description: Current detection report.
+  doc_progress_path:
+    type: path
+    required: false
+    description: Canonical doc tracker.
+  mode:
+    type: string
+    required: false
+    description: 'foundation (default) or module-docs'

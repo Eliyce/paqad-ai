@@ -16,7 +16,8 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-if grep -qE '^Cross-Module Impact: internal-only — no consumers affected\.$' <<<"$body"; then
+em=$'\xe2\x80\x94'
+if grep -qE "^Cross-Module Impact: internal-only(,| ${em}) no consumers affected\\.\$" <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 

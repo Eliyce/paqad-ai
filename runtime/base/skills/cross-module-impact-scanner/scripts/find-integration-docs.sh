@@ -13,4 +13,4 @@ root="${1:-docs/modules}"
 [ -d "$root" ] || { printf 'note: not found: %s\n' "$root" >&2; exit 0; }
 find "$root" -type f -name '*.md' 2>/dev/null \
   | { grep -E '/(events|contracts|integration|integrations)\.md$' || true; } \
-  | sort -u
+  | LC_ALL=C sort -u

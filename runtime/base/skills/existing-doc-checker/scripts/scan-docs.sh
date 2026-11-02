@@ -20,4 +20,4 @@ for kw in "$@"; do
   pattern=$(printf '%s' "$kw" | sed -E 's/[][()|?+*^$.\\]/\\&/g')
   { grep -rlEi --include='*.md' --include='*.json' "$pattern" $roots 2>/dev/null || true; } \
     | while IFS= read -r p; do printf '%s\t%s\n' "$p" "$kw"; done
-done | sort -u
+done | LC_ALL=C sort -u

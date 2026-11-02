@@ -1,18 +1,11 @@
 ---
 name: site-map-retest
-description: Re-check the stored site map against the current code by running the same verification again — never invent a finding, never soften one, never call the absence of proof a fix.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map-retest
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  app_map:
-    type: path
-    required: true
-    description: The stored docs/site-map/app-map.yaml the re-run verifies against the code.
+description: 'Re-checks the stored site map against the current code by running the same verification again, never inventing or softening a finding and never calling missing proof a fix. Use when the user asks whether the map still matches the code or prior gaps are fixed.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -20,12 +13,12 @@ input_schema:
 Drives the same deterministic verification the `site-map` workflow runs and reads what changed:
 the engine re-resolves every cited `file:line`, re-derives the findings, and re-stamps the
 stored map's earned trust tiers and its map-vs-code freshness. There is no separate retest
-engine and no report replay — a re-run is the same run again, and drift shows up as stamped
+engine and no report replay: a re-run is the same run again, and drift shows up as stamped
 proof in the map itself.
 
 ## Use This When
 
-Use this for the `site-map-retest` workflow: the user wants to know whether the map still
+For the `site-map-retest` workflow: the user wants to know whether the map still
 matches the code or prior gaps got fixed, not a fresh map.
 
 ## Inputs
@@ -43,7 +36,7 @@ The verification is the engine's; you drive it and narrate honestly.
    resolves. Finding ids are content-addressed (`SM-<hash8>`), so a persisting finding keeps
    its id and the baseline ratchet marks it `pre-existing`; a finding that disappears was
    resolved by whatever change removed its evidence.
-3. Narrate the split in the paqad voice — Safe to merge only when the run exits clean and no
+3. Narrate the split in the paqad voice: Safe to merge only when the run exits clean and no
    cited anchor is broken.
 
 ## Output Contract
@@ -54,7 +47,7 @@ The verification is the engine's; you drive it and narrate honestly.
 ## Escalate / Stop Conditions
 
 - Never invent a finding in a re-run; the engine's output is the only source.
-- Never soften a finding: absence of proof is drift, not a fix — a surface whose cited
+- Never soften a finding: absence of proof is drift, not a fix, a surface whose cited
   evidence no longer resolves is a finding, never silently fine.
 - Never hand-edit the stamped freshness; only the verb writes it.
 

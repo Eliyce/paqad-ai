@@ -8,6 +8,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -68,6 +69,34 @@ describe('bootstrapFramework', () => {
       expect(existsSync(join(home, '.claude/agents/paqad-planning.md'))).toBe(true);
       expect(existsSync(join(projectRoot, '.paqad/framework-path.txt'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/schema-version.json'))).toBe(false);
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME;
+      else process.env.HOME = savedHome;
+      if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = savedUserProfile;
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('AC-27: onboarding writes the home Claude agents only when the plugin is not installed', () => {
+    const home = mkdtempSync(join(tmpdir(), 'paqad-home-plugin-'));
+    const savedHome = process.env.HOME;
+    const savedUserProfile = process.env.USERPROFILE;
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    try {
+      bootstrapFrameworkHome();
+      expect(existsSync(join(home, '.claude/agents/paqad-development.md'))).toBe(true);
+
+      rmSync(join(home, '.claude'), { recursive: true, force: true });
+      mkdirSync(join(home, '.claude/plugins'), { recursive: true });
+      writeFileSync(
+        join(home, '.claude/plugins/installed_plugins.json'),
+        JSON.stringify({ plugins: { 'paqad@eliyce': [{}] } }),
+      );
+      bootstrapFrameworkHome();
+      expect(existsSync(join(home, '.claude/agents'))).toBe(false);
+      expect(existsSync(join(home, '.codex/agents/paqad-development.toml'))).toBe(true);
     } finally {
       if (savedHome === undefined) delete process.env.HOME;
       else process.env.HOME = savedHome;

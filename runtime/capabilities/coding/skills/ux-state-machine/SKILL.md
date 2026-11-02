@@ -1,26 +1,11 @@
 ---
 name: ux-state-machine
-description: Define interface states and transitions for UI-heavy work.
-model_tier: medium
-triggers:
-  - ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: true
-cache_key_inputs:
-  - docs/modules/*/ui/states.md
-  - docs/modules/*/ui/screens.md
-output_format: markdown
-input_schema:
-  flow_path:
-    type: path
-    required: true
-    description: Flow or interaction artifact.
-  state_doc_paths:
-    type: path[]
-    required: false
-    description: Existing state docs.
+description: 'Defines interface states and transitions for UI-heavy work. Use when a UI change adds async behavior, branching flows or recovery paths that are hard to reason about from the happy path.'
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -29,7 +14,7 @@ Defines the user-visible states, transitions, and triggers for a changed interfa
 
 ## Use This When
 
-Use this when a UI change introduces new async behavior, branching flows, or recovery paths that are hard to reason about from the happy path alone.
+When a UI change introduces new async behavior, branching flows, or recovery paths that are hard to reason about from the happy path alone.
 
 ## Inputs
 
@@ -40,7 +25,7 @@ Use this when a UI change introduces new async behavior, branching flows, or rec
 ## Procedure
 
 1. Walk `assets/canonical-states.txt` (idle, loading, success, empty, error, disabled, stale, permission, retry); include every state the UI actually exposes.
-2. For each transition, name the trigger explicitly (user event, async resolve, timeout, permission denied) — never imply it.
+2. For each transition, name the trigger explicitly (user event, async resolve, timeout, permission denied): never imply it.
 3. Build the table per `assets/output.template.md` (From / Trigger / To / Notes).
 4. Surface any contradictory or undocumented state under `## Gaps`.
 5. Validate with `scripts/lint-output.sh`.

@@ -9,8 +9,8 @@ Every generated rule script is a Node ESM (`.mjs`) file. No `.sh` (cross-machine
 ├── 001-<short-name>.mjs
 └── 001-<short-name>/
     └── __fixtures__/
-        ├── pass/   (2–4 files; each MUST yield zero findings)
-        └── fail/   (2–4 files; each MUST yield ≥1 finding)
+        ├── pass/   (2–4 files; each yields zero findings)
+        └── fail/   (2–4 files; each yields ≥1 finding)
 ```
 
 `<mirror>` mirrors the rule file's path under `docs/instructions/rules/` (e.g. `coding/code-quality`).
@@ -30,7 +30,7 @@ Every generated rule script is a Node ESM (`.mjs`) file. No `.sh` (cross-machine
 // false_positive_surface: "Hook files that legitimately call services."  // optional
 ```
 
-`requires` must be valid JSON. Declared binaries are checked at run time; a missing one yields a clean "missing dependency" finding and skips just that script — it never crashes the stage.
+`requires` must be valid JSON. Declared binaries are checked at run time; a missing one yields a clean "missing dependency" finding and skips just that script: it never crashes the stage.
 
 `per_file: true` says each file's findings depend only on that file's own content: the script loops `for (const file of files)`, reads no other file and keeps no state across files (the skeleton below is per-file). Before an edit, paqad then keeps each file's findings in `.paqad/scripts/rules/.cache/file-results.json`, keyed by the script path, the script's sha256, the file path and the file's sha256, and runs the script only on files that changed since. Leave it out when the script compares files with each other or checks that another file exists; such a script always gets the full file list. The turn-end check never reads this cache.
 
@@ -81,12 +81,12 @@ process.stdout.write(JSON.stringify({ rule_id: 'RL-7f3a', kind: 'deterministic',
 
 ## Fixtures are the test of the test
 
-- **Synthetic, 5–15 lines, hand-crafted** — never extracted from the user's real code (privacy, stability, clarity).
+- **Synthetic, 5–15 lines, hand-crafted**: never extracted from the user's real code (privacy, stability, clarity).
 - **pass/** files demonstrate the rule satisfied → zero findings.
 - **fail/** files demonstrate the rule violated → ≥1 finding each.
-- If `validate-script.mjs` reports any mismatch, the script is **rejected** and must be regenerated, edited, or the rule marked unverifiable — it is never registered.
+- If `validate-script.mjs` reports any mismatch, the script is **rejected** and must be regenerated, edited, or the rule marked unverifiable: it is never registered.
 
 ## Caveats
 
-- **Fixture `projectRoot`.** During fixture validation the runner sets `projectRoot` to the fixture directory (`__fixtures__/pass` or `__fixtures__/fail`), not the real repo root. A script that shells out to `git` or reads files outside its `files` argument will behave differently in the gate than in production — keep detection logic confined to the passed `files`.
-- **Single-line rules.** A rule is one markdown bullet on one line; the `<!-- @rule -->` marker and the text hash are computed from that line only. Do not author rules that soft-wrap across continuation lines — keep each rule a single line so edits are tracked.
+- **Fixture `projectRoot`.** During fixture validation the runner sets `projectRoot` to the fixture directory (`__fixtures__/pass` or `__fixtures__/fail`), not the real repo root. A script that shells out to `git` or reads files outside its `files` argument will behave differently in the gate than in production: keep detection logic confined to the passed `files`.
+- **Single-line rules.** A rule is one markdown bullet on one line; the `<!-- @rule -->` marker and the text hash are computed from that line only. Do not author rules that soft-wrap across continuation lines: keep each rule a single line so edits are tracked.

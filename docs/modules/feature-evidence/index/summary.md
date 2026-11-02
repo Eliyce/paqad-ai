@@ -161,7 +161,7 @@ any turn the session-ownership check skips (see below).
   (`kind`, `stage`, `agent`, `tokens_used`, `tokens_not_recarried`, `estimate`) when a
   `paqad-<stage>` agent finishes. When `paqad-ai stage settings` wrote
   `.paqad/session/stage-settings.d/<session id>.json` for the resolved session, the row also
-  carries that stage's `requested_effort` and `requested_model`; with no file it carries neither. They record what the project asked for, not what the helper ran at: paqad cannot see the effort or model the host actually used. The SubagentStart
+  carries that stage's `requested_effort` and `requested_model`; with no file it carries neither. The row also records how the agent returned, read from its transcript: `report_status` (`DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT` or `BLOCKED`, the last status line in its reply, `BLOCKED` when there is none), `report_stated` (whether it gave a status line), `advance` (true only for `DONE` or `DONE_WITH_CONCERNS` with no must-not breach) and, only when it broke a rule, `must_not` (`asked_human`, `bundle_write`, `out_of_stage_edit`), judged from its tool calls by `src/stage-isolation/must-not-judge.ts`. They record what the project asked for, not what the helper ran at: paqad cannot see the effort or model the host actually used. The SubagentStart
   seed hook (`stage-agent-start`) writes no row, so there is still exactly one row per stage agent. The session is resolved by `resolveHookSession` in
   `src/rag-ledger/session.ts`: the payload `session_id`, then `SE_SESSION`, then
   `CLAUDE_SESSION_ID`, then the shared cache, taking the first one whose session control

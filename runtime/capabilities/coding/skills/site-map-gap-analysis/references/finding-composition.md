@@ -11,7 +11,7 @@ it. A finding that fails any of those three is noise. This reference is the bar.
 - The `SM-ADD` reconciliation: an extracted surface the committed map does not cover.
 - The confirmed Tier-B verdicts from `map-verification`.
 
-You never invent a finding from a fresh reading of the code — the finding must trace to an
+You never invent a finding from a fresh reading of the code: the finding must trace to an
 invariant or a confirmed verdict.
 
 ## Identity and vocabulary

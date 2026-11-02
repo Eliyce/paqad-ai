@@ -4,13 +4,13 @@ Default state set (when `components.md` does not declare otherwise): `default / 
 
 ## Static implementation evidence
 
-- **default** — the component renders without any state prop set.
-- **hover** — `:hover` selector, `data-hover` attribute, or `useHover` hook.
-- **focus** — `:focus-visible` selector with a non-zero outline, OR a focus ring rendered via `data-state="focused"`.
-- **disabled** — `disabled` prop OR `aria-disabled="true"` with pointer-events handled.
-- **loading** — conditional render for `loading` prop (spinner, skeleton).
-- **error** — conditional render for `error` prop (error text, error border).
-- **empty** — conditional render for "no data" cases (placeholder, illustration).
+- **default**: the component renders without any state prop set.
+- **hover**: `:hover` selector, `data-hover` attribute, or `useHover` hook.
+- **focus**: `:focus-visible` selector with a non-zero outline, OR a focus ring rendered via `data-state="focused"`.
+- **disabled**: `disabled` prop OR `aria-disabled="true"` with pointer-events handled.
+- **loading**: conditional render for `loading` prop (spinner, skeleton).
+- **error**: conditional render for `error` prop (error text, error border).
+- **empty**: conditional render for "no data" cases (placeholder, illustration).
 
 ## Test coverage evidence
 

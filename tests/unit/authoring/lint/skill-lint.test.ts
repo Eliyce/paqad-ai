@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   formatSkillLintJson,
   lintSkillFolder,
+  hasRunnableEntryPoint,
+  notEntryPoints,
   skillLintExitCode,
   SkillLintUsageError,
   type SkillLintFinding,
@@ -321,6 +323,72 @@ describe('scripts (SK-010) and inline dependencies (SK-019)', () => {
     expect(rules(laravel.findings, 'SK-010')).toEqual([]);
   });
 
+  it('finds paqad skill tests under tests/unit/skills/<skill> in the paqad repository only', () => {
+    const files = { 'references/guide.md': 'x\n', 'scripts/extract.sh': '# --help\n' };
+    const projectFiles = {
+      'tests/unit/skills/drafting-notes/extract.contract.test.ts': 'x\n',
+    };
+    expect(rules(lint({ files, projectFiles }).findings, 'SK-010')).toHaveLength(1);
+    const paqad = lint({
+      files,
+      projectFiles: { ...projectFiles, 'package.json': JSON.stringify({ name: 'paqad-ai' }) },
+    });
+    expect(rules(paqad.findings, 'SK-010')).toEqual([]);
+  });
+
+  it('skips the files a scripts/README.md lists under Not entry points', () => {
+    const readme = [
+      '# Scripts',
+      '',
+      'Each entry script takes --help.',
+      '',
+      '## Not entry points',
+      '',
+      '- `patterns.txt`: data read by extract.sh',
+      '- lib.sh: sourced helpers',
+      '',
+      '## Other',
+      '',
+      '- `extract.sh`',
+      '',
+    ].join('\n');
+    const result = lint({
+      files: {
+        'references/guide.md': 'x\n',
+        'scripts/README.md': readme,
+        'scripts/extract.sh': '# --help\n',
+        'scripts/patterns.txt': 'a\n',
+        'scripts/lib.sh': 'say() { :; }\n',
+      },
+      projectFiles: { 'tests/skills/drafting-notes/extract.test.ts': 'x\n' },
+    });
+    expect(rules(result.findings, 'SK-010')).toEqual([]);
+    expect(notEntryPoints(readme)).toEqual(new Set(['patterns.txt', 'lib.sh']));
+    expect(notEntryPoints(null)).toEqual(new Set());
+  });
+
+  it('AC-12: still flags a script listed under Not entry points that has a runnable entry point', () => {
+    const readme = ['# Scripts', '', '## Not entry points', '', '- `run.py`: helpers', ''].join(
+      '\n',
+    );
+    const result = lint({
+      files: {
+        'references/guide.md': 'x\n',
+        'scripts/README.md': readme,
+        'scripts/run.py': 'def main():\n    pass\n\nif __name__ == "__main__":\n    main()\n',
+      },
+      projectFiles: TEST,
+    });
+    const flagged = rules(result.findings, 'SK-010');
+    expect(flagged.map((finding) => finding.file)).toContain('scripts/run.py');
+    expect(flagged.some((finding) => finding.message.includes('has a runnable entry point'))).toBe(
+      true,
+    );
+    expect(hasRunnableEntryPoint('#!/usr/bin/env bash\necho hi\n')).toBe(true);
+    expect(hasRunnableEntryPoint('if (require.main === module) main();\n')).toBe(true);
+    expect(hasRunnableEntryPoint('say() { :; }\n')).toBe(false);
+  });
+
   it('blocks a script without --help', () => {
     const result = lint({
       files: { 'references/guide.md': 'x\n', 'scripts/extract.ts': 'export {};\n' },
@@ -522,7 +590,7 @@ describe('paqad-ai skill lint', () => {
 });
 
 describe('paqad runtime skills', () => {
-  it("allows the paqad runtime loader's documented fields only for a runtime skill in the paqad repo", () => {
+  it('AC-34: a paqad runtime skill with a new top-level custom key blocks under SK-006', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-skill-lint-runtime-'));
     roots.push(root);
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
@@ -531,12 +599,28 @@ describe('paqad runtime skills', () => {
       write(join(root, base, NAME), 'SKILL.md', frontmatter);
       write(join(root, base, NAME), 'references/guide.md', 'guide\n');
     }
-    const runtime = lintSkillFolder(join(root, 'runtime/base/skills', NAME), { projectRoot: root });
-    expect(rules(runtime.findings, 'SK-006')).toEqual([]);
-    const host = lintSkillFolder(join(root, '.claude/skills', NAME), { projectRoot: root });
-    expect(rules(host.findings, 'SK-006').map((finding) => finding.message)).toEqual([
-      'The frontmatter key "model_tier" is not a documented skill field.',
-      'The frontmatter key "cacheable" is not a documented skill field.',
-    ]);
+    for (const base of ['runtime/base/skills', '.claude/skills']) {
+      const result = lintSkillFolder(join(root, base, NAME), { projectRoot: root });
+      expect(rules(result.findings, 'SK-006').map((finding) => finding.message)).toEqual([
+        'The frontmatter key "model_tier" is not a documented skill field.',
+        'The frontmatter key "cacheable" is not a documented skill field.',
+      ]);
+    }
+  });
+
+  it('passes a paqad runtime skill that keeps its keys under metadata', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skill-lint-runtime-'));
+    roots.push(root);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const folder = join(root, 'runtime/base/skills', NAME);
+    write(
+      folder,
+      'SKILL.md',
+      `---\nname: ${NAME}\ndescription: ${DESCRIPTION}\nmetadata:\n  model_tier: fast\n  cacheable: 'false'\n  paqad-meta: skill.meta.yaml\n---\n${BODY}`,
+    );
+    write(folder, 'skill.meta.yaml', 'triggers:\n  - workflow: [feature-development]\n');
+    write(folder, 'references/guide.md', 'guide\n');
+    const result = lintSkillFolder(folder, { projectRoot: root });
+    expect(rules(result.findings, 'SK-006')).toEqual([]);
   });
 });

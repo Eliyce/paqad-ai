@@ -28,7 +28,7 @@ needs-manual-verification
 # code-prefix
 # Finding-id prefixes the normalizer recognises. Each prefix scopes which
 # downstream workflow consumes the finding. Extending this set is a framework
-# PR — no project-side codes.
+# PR: no project-side codes.
 PEN-      # pentest findings (security workflow)
 DT-       # design-test findings (design-system audit; issue #76)
 HL-       # codebase-health findings (health workflow; issue #355; docs/health/<ts>.json)

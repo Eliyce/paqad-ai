@@ -1,0 +1,19 @@
+triggers:
+  - workflow:
+      - feature-development
+      - refactor
+      - migration
+cache_key_inputs: []
+input_schema:
+  requirements_path:
+    type: path
+    required: true
+    description: Accepted requirements artifact.
+  acceptance_criteria_path:
+    type: path
+    required: true
+    description: Acceptance criteria to sequence.
+  canonical_doc_paths:
+    type: path[]
+    required: false
+    description: Supporting canonical docs.

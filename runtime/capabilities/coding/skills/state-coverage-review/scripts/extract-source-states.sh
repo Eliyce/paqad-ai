@@ -4,7 +4,7 @@ set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: For one component source file, emit which states the implementation
-         appears to support — based on conventional signals (selectors, props,
+         appears to support: based on conventional signals (selectors, props,
          data-state attributes, conditional renders). Deterministic detection;
          the LLM still decides whether the signal is a real implementation.
 

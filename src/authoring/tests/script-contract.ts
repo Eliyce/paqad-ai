@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 import { readProjectProfile } from '@/core/project-profile.js';
 
 import { listFolderFiles } from '../hash.js';
+import { isPaqadRepository } from '../paths.js';
 import { studlySkillName } from './locations.js';
 
 export const CONTRACT_CHECKS = [
@@ -54,6 +55,9 @@ export function usesLaravel(projectRoot: string): boolean {
 }
 
 export function skillTestLocation(projectRoot: string, name: string): TestLocation {
+  if (isPaqadRepository(projectRoot)) {
+    return { dir: `tests/unit/skills/${name}`, framework: 'default' };
+  }
   return usesLaravel(projectRoot)
     ? { dir: `tests/Feature/Skills/${studlySkillName(name)}`, framework: 'laravel' }
     : { dir: `tests/skills/${name}`, framework: 'default' };

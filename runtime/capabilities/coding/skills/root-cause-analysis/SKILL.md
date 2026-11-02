@@ -1,22 +1,11 @@
 ---
 name: root-cause-analysis
-description: Generate a canonical RCA artifact for an incident or failure.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - root-cause-analysis
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incident or problem statement to analyze.
-  stack_snapshot_path:
-    type: path
-    required: false
-    description: Optional stack snapshot to ground the investigation.
+description: 'Writes a canonical RCA artifact for an incident or failure. Use when the workflow is root-cause-analysis and the team needs one durable record of problem, evidence, root cause and solution.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -25,7 +14,7 @@ Produces a canonical root cause analysis document with a fixed section set so in
 
 ## Use This When
 
-Use this when the workflow is explicitly root-cause-analysis and the team needs a durable artifact that captures the problem, evidence, root cause, and solution in one place.
+When the workflow is explicitly root-cause-analysis and the team needs a durable artifact that captures the problem, evidence, root cause, and solution in one place.
 
 ## Inputs
 
@@ -45,7 +34,7 @@ Use this when the workflow is explicitly root-cause-analysis and the team needs 
 
 - Match `assets/output.template.md` exactly: 8 canonical sections in the order from `assets/section-order.txt`.
 - `## Solution` is always present, even when the remediation is proposed not deployed.
-- Output must pass `scripts/lint-output.sh` (exit 0) — it enforces the section order strictly.
+- Output must pass `scripts/lint-output.sh` (exit 0): it enforces the section order strictly.
 
 ## Escalate / Stop Conditions
 

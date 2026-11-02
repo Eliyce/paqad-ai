@@ -6,7 +6,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
 Purpose: Read a combined refresh report (JSON, from `refresh.sh` stdout or a
          file) and report whether the rollup pass was blocked (e.g.
          `module_health_unknown`). The sync pass runs regardless, so a blocked
-         rollup is informational — not a hard stop for the update workflow.
+         rollup is informational, not a hard stop for the update workflow.
 Usage:   bash scripts/is-blocked.sh <report.json>   (or stdin)
 Output:  Blocked reason on stdout (or `none`).
 Exits:   0 not blocked | 1 blocked | 2 usage / parse error

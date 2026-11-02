@@ -15,6 +15,7 @@ export const ALLOWED_KEYS = [
   'compatibility',
   'metadata',
   'allowed-tools',
+  'disable-model-invocation',
 ];
 
 export const HOST_LABELS = [

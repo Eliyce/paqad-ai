@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  role:
+    type: string
+    required: true
+    description: The expert role to write notes as, one of the pickable roster roles.
+  brief:
+    type: string
+    required: true
+    description: The brief printed by `paqad-ai spec pipeline experts brief <role>` (the request, grounding pointers, label, and granted budget).

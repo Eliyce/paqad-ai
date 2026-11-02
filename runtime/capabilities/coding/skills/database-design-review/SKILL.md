@@ -1,26 +1,11 @@
 ---
 name: database-design-review
-description: Review schema and migration changes for integrity and safety.
-model_tier: reasoning
-triggers:
-  - database_impact:
-      - schema-change
-      - data-migration
-cacheable: true
-cache_key_inputs:
-  - database/migrations/**
-  - docs/modules/*/database/schema.md
-  - docs/modules/*/database/indexes.md
-output_format: markdown
-input_schema:
-  schema_paths:
-    type: path[]
-    required: true
-    description: Schema or migration artifacts to review.
-  request_text:
-    type: string
-    required: false
-    description: Optional change summary.
+description: 'Reviews schema and migration changes for integrity and safety. Use when a request changes tables, constraints, nullability, data movement or migration order, even in a small code change.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -29,7 +14,7 @@ Reviews schema and migration changes for correctness, rollout safety, and mainta
 
 ## Use This When
 
-Use this for any request that changes tables, constraints, nullability, data movement, or migration sequencing, even when the code change seems small.
+For any request that changes tables, constraints, nullability, data movement, or migration sequencing, even when the code change seems small.
 
 ## Inputs
 

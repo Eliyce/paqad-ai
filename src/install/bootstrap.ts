@@ -17,6 +17,7 @@ import { setEngineLogger } from '@/core/logger-registry.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { ensureSchemaMarkerSync } from '@/core/schema-version.js';
 import type { EngineLogger } from '@/core/types/logger.js';
+import { isPluginInstalled } from '@/health/plugin-install.js';
 import { VERSION } from '@/index.js';
 import {
   resolveFrameworkInstallPath,
@@ -41,7 +42,7 @@ export function bootstrapFrameworkHome(): { framework_home: string } {
   ensureFrameworkSymlink(runtimeRoot, frameworkHome);
 
   try {
-    writeStageAgents();
+    writeStageAgents({ pluginInstalled: isPluginInstalled() });
   } catch {}
 
   return { framework_home: frameworkHome };

@@ -2,6 +2,16 @@
 
 Per-framework patterns that indicate rate limiting is present or absent.
 
+## Contents
+
+- [Laravel](#laravel)
+- [Express.js](#expressjs)
+- [Django / Django REST Framework](#django--django-rest-framework)
+- [FastAPI](#fastapi)
+- [Rails](#rails)
+- [Spring Boot](#spring-boot)
+- [General Red Flags (All Frameworks)](#general-red-flags-all-frameworks)
+
 ## Laravel
 
 **Present (safe):**

@@ -137,9 +137,28 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
   onboard and update both call, against the real project root: the team keys in
   `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
-  `runtime/templates/team-bootstrap/hook.mjs`, and the 8 `.claude/agents/paqad-*.md` files from
-  `renderStageAgentFiles('claude-code')`. It runs whether or not the plugin is installed on the
-  lead's machine.
+  `runtime/templates/team-bootstrap/hook.mjs`. It no longer writes `.claude/agents/paqad-*.md`
+  files and runs whether or not the plugin is installed on the lead's machine.
+- **Stage agents come from the plugin.** paqad's Claude Code stage and High Table agents ship only
+  in `runtime/claude-plugin/agents/*.md`, generated from `src/stage-isolation/stage-agents.ts` by
+  `node scripts/build-plugin-manifest.mjs` and checked for drift in CI; never hand-edit them. The
+  user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
+  npm-only users keep their stage agents. Codex keeps its written agents.
+- **Migration.** `migrateProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) removes a
+  project's old `.claude/agents/paqad-*.md` file, stamped or unmarked, only when its body matches a
+  known generated body (the hash list in `src/onboarding/stage-agent-past-bodies.ts`). A marker or
+  stamp alone is not enough. Hand-edited files and symlinks are kept and named, and nothing else in
+  the folder is touched.
+- **Bash write guard.** The PreToolUse hook `runtime/hooks/stage-agent-write-guard.mjs`
+  (`src/stage-isolation/bash-write-guard.ts`) checks Bash writes by paqad stage agents, and the
+  Edit/Write branch of `src/stage-isolation/capability.ts` applies the same limits. Read-only stage
+  agents write only to `.paqad/tmp/` and the system temp folder; High Table seats only to
+  `.paqad/tmp/high-table/`. A target that cannot be resolved, and any unknown `paqad-*` agent, is
+  denied.
+- **Missing agents stop the flow.** At SessionStart in an onboarded project, when neither the plugin
+  agents nor the home copy is present, the hook prints `stage agents are missing` with Needs your
+  attention, telling the Developer to run `/plugin install paqad@eliyce` and start a new session.
+  paqad stops there instead of running a stage in the main session.
 - **`.claude/settings.json` is tracked and portable.** It holds only
   `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
   The chain is `buildHostHookChain('claude-code')` with only the command mapped to
@@ -147,10 +166,10 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and
   any line with an absolute home path move to the git-ignored `.claude/settings.local.json`. The
   managed `.claude/.gitignore` block lists `settings.hooks.json` and `settings.local.json`.
-- **Versions.** The launcher and agent files carry the paqad version that wrote them; an older paqad
+- **Versions.** The launcher carries the paqad version that wrote it; an older paqad
   leaves newer files alone, so two versions do not flip the files back and forth.
 - **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
-  launcher and agent files whose bytes match what paqad wrote, and writes the npm chain to
+  launcher file whose bytes match what paqad wrote, and writes the npm chain to
   `.claude/settings.local.json`.
 - **The launcher.** Node built-ins only. At SessionStart it picks one route per session (installed
   plugin, npm install, its own copy in `~/.paqad-ai/team-plugin`, or none), records it under

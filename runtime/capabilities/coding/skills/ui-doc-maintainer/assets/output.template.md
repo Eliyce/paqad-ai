@@ -1,7 +1,7 @@
 ## Updated UI Docs
 
-- `{{path/to/ui/screens.md}}` — {{screen | component | state}} updated: {{what}}
-- `{{path/to/ui/components.md}}` — {{...}}
+- `{{path/to/ui/screens.md}}`: {{screen | component | state}} updated: {{what}}
+- `{{path/to/ui/components.md}}`: {{...}}
 
 ## Open UI Gaps
 

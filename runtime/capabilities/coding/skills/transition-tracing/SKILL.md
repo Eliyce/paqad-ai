@@ -1,18 +1,11 @@
 ---
 name: transition-tracing
-description: Find and evidence the transitions between surfaces — where navigation actually goes, what triggers it, and the file:line that proves it — without inventing edges from mere links.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - site-map
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  surfaces:
-    type: path
-    required: true
-    description: The modeled surfaces the transitions connect (output of surface-modeling).
+description: 'Finds and evidences the transitions between surfaces: where navigation goes, what triggers it and the file:line that proves it, never inventing edges from bare links. Use when modeling is done, beside guard-inference.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -24,7 +17,7 @@ engine to recompute reachability and dead ends.
 
 ## Use This When
 
-Use this after modeling, alongside `guard-inference`. It only adds edges; guards are the other
+After modeling, alongside `guard-inference`. It only adds edges; guards are the other
 skill's job.
 
 ## Inputs
@@ -53,7 +46,7 @@ The graph analysis is the engine's; your job is to propose evidenced edges for i
 
 ## Escalate / Stop Conditions
 
-- Do not record a transition because a link or route string exists — only when evidence shows the
+- Do not record a transition because a link or route string exists: only when evidence shows the
   navigation is actually performed. A stale or unreachable link is not an edge.
 - Flag a `to` that references no known surface as a dangling target for the engine, do not invent
   the missing surface.

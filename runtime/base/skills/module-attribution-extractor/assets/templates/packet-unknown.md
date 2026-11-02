@@ -1,5 +1,5 @@
 <!--
-Decision Pause packet template — "unknown" candidate.
+Decision Pause packet template, "unknown" candidate.
 Variables: {{display_name}} {{slug}} {{excerpt}} {{pattern}}
 -->
 
@@ -9,8 +9,8 @@ Variables: {{display_name}} {{slug}} {{excerpt}} {{pattern}}
 
 **Detected in:** `{{excerpt}}` (pattern: `{{pattern}}`)
 
-**Options:**
+**Options:** (default: **Accept**, since the prompt named the module)
 
-- **Accept** — promote MD-XXXX from `draft` → `proposed` → `accepted`; apply.ts mutates `module-map.yml`.
-- **Rename** — collect a new slug; loop back through `module-attribution-extractor`.
-- **Reject** — mark the draft `rejected`; no map mutation.
+- **Accept**: promote MD-XXXX from `draft` → `proposed` → `accepted`; apply.ts mutates `module-map.yml`.
+- **Rename**: collect a new slug; loop back through `module-attribution-extractor`.
+- **Reject**: mark the draft `rejected`; no map mutation.

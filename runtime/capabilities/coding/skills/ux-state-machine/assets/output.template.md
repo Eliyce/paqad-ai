@@ -1,6 +1,6 @@
 ## State Inventory
 
-- **{{state-name}}** — {{visible UI condition}} — {{entered when ...}}
+- **{{state-name}}**: {{visible UI condition}}, {{entered when ...}}
 - **idle / loading / success / empty / error / disabled / stale** ...
 
 ## Transitions

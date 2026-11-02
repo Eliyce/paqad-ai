@@ -1,0 +1,18 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: The user's own request wording (second-priority vocabulary source).
+  grounding_terms:
+    type: string[]
+    required: false
+    description: The S0 grounding vocabulary (glossary + module-doc headings), the first-priority wording source.
+  grounding_references:
+    type: path[]
+    required: false
+    description: Doc/glossary refs the phrasing can cite in each question's grounded_in.

@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  name:
+    type: string
+    required: true
+    description: The agent name, lowercase and hyphenated, equal to its file name.
+  task:
+    type: string
+    required: true
+    description: The job the agent is for, taken from the frozen spec and the ticket.

@@ -2,7 +2,7 @@
 
 The [summary](summary.md) lists the stages and their gates. This page covers the parts that are
 easy to get wrong: which orchestrator does what, the agent settings, the permission decision, the
-delegation log and the Explore offer.
+delegation log, the Explore offer, the whole-project lint and audit, and the skill metadata layout.
 
 ## Two orchestrators, two skills
 
@@ -68,3 +68,56 @@ prints one offer line to build a cheaper `Explore` agent on the fast tier, unles
 `paqad-ai agent intake Explore --preset explore`. Release refuses the override unless it reaches
 pass^3 of 0.9 at a lower cost than the built-in agent, and on other hosts it is recorded as not
 deployable with nothing written.
+
+## Linting the whole project
+
+`paqad-ai skill lint --all` and `paqad-ai agent lint --all` lint every skill folder or agent file
+in the project and write one deterministic JSON report. `--report <file>` sets the report path,
+`--group-by rule|folder` groups the findings (default `rule`), and `--as-of <YYYY-MM-DD>` counts
+skill fires or agent dispatches in the 30 days up to that date. Giving a folder or file together
+with `--all` is refused. Persona files are listed apart instead of being linted as agents, and the
+stage-agent templates are linted after they are rendered.
+`agent lint --all --owner-powers-as-warnings` reports the owner-permission rules AG-015, AG-018 and
+AG-022 as warnings, so other agent findings still fail; CI runs it this way. Linting a single file
+refuses the flag.
+
+`paqad-ai skill audit --as-of <YYYY-MM-DD>` renders
+`docs/instructions/tech-debt/skill-agent-audit.md` from both reports. The first run writes the
+Before section; later runs keep it and rewrite only After. `--out <file>` writes elsewhere and
+`--section before|after` forces the section.
+
+## Skill metadata layout
+
+paqad's own skill keys live under `metadata` in `SKILL.md`, as strings: `model_tier`,
+`cacheable` (`'true'` or `'false'`), `output_format`, `max_lines` and `max_output_tokens`. Values
+shaped like JSON (`triggers`, `input_schema`, `cache_key_inputs`, `request_routing`,
+`on_complete`, `tools`) go in a sibling `skill.meta.yaml`, named by `metadata.paqad-meta:
+skill.meta.yaml`; the path must stay inside the skill folder. The parser and
+`runtime/hooks/skill-index-gen.mjs` refuse a `paqad-meta` path whose real path (after symlinks)
+leaves the skill folder. Every path that copies a skill into
+a project (the onboarding file writer and the plugin build) copies `skill.meta.yaml` with it.
+
+A skill that still carries these keys at the top level keeps working through a parser fallback
+that is removed in 1.117.0. Each such skill records one deprecation line: it is logged once to
+`.paqad/skills/events.jsonl` as `skill.metadata_deprecated` and printed to stderr. When a top-level key and
+its `metadata` value disagree, the `metadata` value wins.
+
+The command-only skills `dashboard`, `join`, `onboard` and `start` set
+`disable-model-invocation: true`, so they run only when the Developer calls them and cost nothing
+in the skill listing.
+
+## Skill scripts (SK-010)
+
+Every runnable script under a skill's `scripts/` handles `--help` (printing its usage and notes),
+never reads input interactively, and has a test file whose name holds the script's
+name. Tests are found under `tests/skills/<name>/` or `tests/Feature/Skills/<StudlyName>/`; in the
+paqad repo also under `tests/unit/skills/<name>/`, where each script has a contract test. A helper
+that is only imported is listed in a `## Not entry points` section of `scripts/README.md` and is
+then skipped, unless it still has a runnable entry point, which SK-010 blocks.
+
+## Retirement step
+
+`runRetirementStep` (`src/authoring/retirement.ts`) reads the skill activation log. While the log
+is younger than 30 days, a never-fired skill cannot be told apart from a new log, so it raises a
+follow-up debt item due on the day the log turns 30 days old. After that it raises an
+`authoring.retirement` decision for each skill that did not fire in the last 30 days.

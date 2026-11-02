@@ -25,6 +25,8 @@ CLI:
 
 stdout: {"ok", "issues": [{"code", "path", "message", "suggestion"}]}. Exit 0 clean, 1 on any
 finding.
+
+Run with --help to print the usage.
 """
 
 import argparse
@@ -90,6 +92,13 @@ def load_denylist(path):
         if term and replacement and " " not in term:
             pairs.append((term, replacement))
     return pairs
+
+
+def term_pattern(term):
+    """A term ending in * matches every word that starts with it (leverag* matches leveraging)."""
+    if term.endswith("*"):
+        return re.escape(term[:-1]) + r"\w*"
+    return re.escape(term)
 
 
 def finding(code, path, message, suggestion):
@@ -172,11 +181,12 @@ def scan(lines, path, denylist, check_code):
 
         folded = prose.casefold()
         for term, replacement in denylist:
-            if re.search(r"\b" + re.escape(term) + r"\b", folded):
+            hit = re.search(r"\b" + term_pattern(term) + r"\b", folded)
+            if hit:
                 issues.append(finding(
                     "TKT3", where,
-                    "Jargon '{0}' in ticket prose.".format(term),
-                    "Use '{0}' instead of '{1}'.".format(replacement, term)))
+                    "Jargon '{0}' in ticket prose.".format(hit.group(0)),
+                    "Use '{0}' instead of '{1}'.".format(replacement, hit.group(0))))
 
         for piece in SENTENCE_END.split(prose):
             count = len(piece.split())

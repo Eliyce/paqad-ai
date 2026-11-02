@@ -1,25 +1,11 @@
 ---
 name: glossary-maintainer
-description: Maintain shared business terminology in the glossary.
-model_tier: fast
-triggers:
-  - output_type:
-      - documentation
-      - report
-cacheable: true
-cache_key_inputs:
-  - .paqad/glossary.md
-  - docs/**/*.md
-output_format: markdown
-input_schema:
-  changed_terms:
-    type: string[]
-    required: true
-    description: Terms introduced or modified by the change.
-  glossary_path:
-    type: path
-    required: true
-    description: Canonical glossary file.
+description: 'Maintains shared business terms in the glossary. Use when documentation or reporting introduces new domain terms, product language or renamed concepts.'
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -28,7 +14,7 @@ Keeps shared business terminology aligned across generated and canonical docs so
 
 ## Use This When
 
-Use this whenever documentation or reporting introduces new domain terms, product language, or renamed concepts that should become canonical across the repo.
+Whenever documentation or reporting introduces new domain terms, product language, or renamed concepts that should become canonical across the repo.
 
 ## Inputs
 
@@ -39,9 +25,9 @@ Use this whenever documentation or reporting introduces new domain terms, produc
 ## Procedure
 
 1. Identify canonical business terms versus one-off phrasing.
-2. For each candidate term, run `scripts/find-term-uses.sh "<term>"` to gather AC ids / API endpoints / doc files / source files factually — never invent paths.
+2. For each candidate term, run `scripts/find-term-uses.sh "<term>"` to gather AC ids / API endpoints / doc files / source files factually, never invent paths.
 3. Add or update concise product-focused definitions (no implementation detail).
-4. Format per `assets/output.template.md`. When no cross-references exist for a new term, write `Used in: pending — flag for first consumer` exactly.
+4. Format per `assets/output.template.md`. When no cross-references exist for a new term, write `Used in: pending, flag for first consumer` exactly.
 5. Validate with `scripts/lint-output.sh`.
 
 ## Output Contract

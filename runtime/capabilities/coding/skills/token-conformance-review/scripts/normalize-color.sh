@@ -9,13 +9,13 @@ Purpose: Normalize a color literal to canonical lowercase 6-digit hex so
 
 Usage:   bash scripts/normalize-color.sh <color>     (or read stdin)
 
-Output:  canonical hex (e.g. #1a73e8) to stdout — single line, no trailing
+Output:  canonical hex (e.g. #1a73e8) to stdout: single line, no trailing
          space. Diagnostics to stderr.
 
 Accepts:
   - #RGB / #RRGGBB / #RRGGBBAA  (alpha stripped if = ff)
   - rgb(r, g, b) / rgba(r, g, b, a)  (alpha ignored)
-  - simple named CSS colors are NOT resolved here — those are leaks by
+  - simple named CSS colors are NOT resolved here: those are leaks by
     definition and the LLM treats them as gaps in the contract.
 
 Exits:   0 normalized   | 1 unrecognized format

@@ -1,26 +1,11 @@
 ---
 name: expert-need-detector
 description: 'Picks which on-call domain experts from the roster (db-expert, security-auditor, ux-ui-analyst, integration-architect and the rest) a spec pipeline request needs, and answers whether a named expert is needed at all, as a roster-constrained JSON need artifact the pipeline validates and records. It is the one model call that replaces a deterministic signal-scorer, because no script can tell which expert a request needs without false signals. Use when the spec pipeline runs with the expert roster on and someone asks which experts or specialists to seat, pick or detect for a grounded request, or whether it needs a particular expert, after spec pipeline start and before the craft step (phase 2; the TS guard is src/spec-pipeline/experts/need.ts).'
-model_tier: fast
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: The user's request being specced.
-  grounding:
-    type: object
-    required: true
-    description: The S0 grounding (references and business terms for the touched area), as printed by `paqad-ai spec pipeline experts context`.
-  roster:
-    type: string[]
-    required: false
-    description: The allowed expert roles. Defaults to the framework roster; the detector may name only these.
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -30,8 +15,7 @@ spec needs**: a database expert when the request touches the data model, a secur
 it touches auth or a trust boundary, a UI expert when it touches a screen, and so on. It returns
 a small JSON artifact naming each needed expert and, in one plain sentence, why it fired.
 
-This is the model call that **replaces a deterministic signal-scorer** (the "one
-change"): a script cannot reliably tell which expert a request needs (file-path and keyword
+This model call **replaces a deterministic signal-scorer**: a script cannot reliably tell which expert a request needs (file-path and keyword
 heuristics emit false signals both ways), so the judgement is the model's. The script's job is
 only to VALIDATE the result against the roster, never to make it. Nothing needed ⇒ an empty
 list ⇒ zero experts, zero cost.
@@ -41,8 +25,7 @@ list ⇒ zero experts, zero cost.
 - The spec pipeline is running with the expert roster enabled (`spec_pipeline_experts_enabled`),
   after `spec pipeline start` has grounded and labelled the request, and before the craft step.
 
-Do **not** run this when the experts flag is off: with it off the pipeline is byte-identical to
-v1 and this skill never runs.
+Do **not** run this when the experts flag is off; the skill never runs then.
 
 ## Inputs
 

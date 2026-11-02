@@ -1,26 +1,11 @@
 ---
 name: ux-design-research
-description: Research external UI references for full-lane UI work.
-model_tier: reasoning
-triggers:
-  - process_depth:
-      - full lane
-    ui_impact:
-      - new-component
-      - new-screen
-      - redesign
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: UX problem to research.
-  current_ui_paths:
-    type: path[]
-    required: false
-    description: Current UI docs or screenshots.
+description: 'Researches external UI references for full-lane UI work. Use when full-lane work changes screens, components or a major redesign; not for non-UI or small interface changes.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -29,7 +14,7 @@ Collects external and internal UI references for high-scope interface work, tran
 
 ## Use This When
 
-Use this only for full-lane work that also changes screens, components, or major redesigns. It should not activate for non-UI work or small graduated-lane interface adjustments.
+Only for full-lane work that also changes screens, components, or major redesigns. It should not activate for non-UI work or small graduated-lane interface adjustments.
 
 ## Inputs
 
@@ -49,7 +34,7 @@ Use this only for full-lane work that also changes screens, components, or major
 
 - Match `assets/output.template.md`: `## Research Targets`, `## Reference Findings`, `## Recommended Directions`.
 - Every Reference Finding states **Pattern** and **Why it matters here**; never aesthetics-only.
-- Sources must be dated and quoted minimally — no long quotations.
+- Sources must be dated and quoted minimally: no long quotations.
 - Output must pass `scripts/lint-output.sh` (exit 0).
 
 ## Escalate / Stop Conditions

@@ -1,7 +1,7 @@
 # Re-run rules
 
 A re-run is a re-check, not a re-audit with moved goalposts. Its whole value is that it answers
-one question honestly — does the stored map still match the code — using the exact verification
+one question honestly (does the stored map still match the code) using the exact verification
 the `site-map` workflow runs. These are the rules that keep it honest.
 
 ## One engine, one map
@@ -20,7 +20,7 @@ the `site-map` workflow runs. These are the rules that keep it honest.
 
 - `anchors_broken > 0` in the stamped freshness is the drift verdict: code the map cites no
   longer resolves. That is a finding against the map, never a reason to quietly drop the claim.
-- A finding that disappears between runs was resolved by whatever change removed its evidence —
+- A finding that disappears between runs was resolved by whatever change removed its evidence,
   say which change, when you can see it, rather than just counting it gone.
 
 ## What a re-run never does
@@ -32,4 +32,4 @@ the `site-map` workflow runs. These are the rules that keep it honest.
 ## The verdict
 
 Safe to merge only when the run exits clean and no cited anchor is broken. Blocked checks are a
-gap in confidence, not a pass — surface them, do not bury them.
+gap in confidence, not a pass: surface them, do not bury them.

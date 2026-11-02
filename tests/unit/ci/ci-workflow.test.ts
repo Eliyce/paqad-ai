@@ -503,3 +503,21 @@ describe('package.json pnpm.overrides', () => {
     expect(pkg.scripts.lint).toBe('eslint .');
   });
 });
+
+describe('static job: skill and agent lint over the whole repo', () => {
+  it('runs skill lint --all and agent lint --all after the build, each under a 60 s ceiling', () => {
+    const job = jobs.static;
+    const names = job.steps.map((step) => step.name ?? '');
+    const build = names.indexOf('Build');
+    for (const [name, command] of [
+      ['Lint every skill', 'node dist/cli/index.js skill lint --all'],
+      ['Lint every agent', 'node dist/cli/index.js agent lint --all --owner-powers-as-warnings'],
+    ] as const) {
+      const index = names.indexOf(name);
+      expect(index).toBeGreaterThan(build);
+      const step = job.steps[index] as Step & { 'timeout-minutes'?: number };
+      expect(step.run).toBe(command);
+      expect(step['timeout-minutes']).toBe(1);
+    }
+  });
+});

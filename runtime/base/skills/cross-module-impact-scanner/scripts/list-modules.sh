@@ -13,4 +13,4 @@ map="${1:-docs/instructions/rules/module-map.yml}"
 [ -f "$map" ] || { printf 'error: module map not found: %s\n' "$map" >&2; exit 1; }
 { grep -E '^[a-z][a-z0-9_-]*:[[:space:]]*$' "$map" || true; } \
   | sed -E 's/^([a-z0-9_-]+):.*/\1/' \
-  | sort -u
+  | LC_ALL=C sort -u

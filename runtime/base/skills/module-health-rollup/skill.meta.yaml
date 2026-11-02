@@ -1,0 +1,22 @@
+triggers:
+  - workflow:
+      - feature-development
+      - module-health-rollup
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve module-map.yml and the active stack pack. Defaults to cwd.
+  from_report:
+    type: path
+    required: false
+    description: Path to a pre-generated coverage report. Skips test_command and uses this file as the coverage source.
+  test_report:
+    type: path
+    required: false
+    description: Path to a pre-generated test report (junit-xml / go-json / vitest-json). Skips test_command and uses this file as the test source.
+  run_test_command:
+    type: boolean
+    required: false
+    description: When true, run the pack's `test_command` before reading reports. Off by default in CI / from-report flows.

@@ -1,32 +1,23 @@
 ---
 name: surface-extraction
-description: Run the extractors, normalize the raw surfaces, and fingerprint the result so the site-map run has a deterministic, evidence-backed inventory of what the app exposes.
-model_tier: fast
-triggers:
-  - workflow:
-      - site-map
-      - site-map-retest
-cacheable: false
-cache_key_inputs:
-  - .paqad/site-map/baseline.json
-output_format: json
-input_schema:
-  project_root:
-    type: path
-    required: true
-    description: Repository root the extractors scan for surfaces (routes, commands, endpoints).
+description: 'Runs the extractors, normalizes the raw surfaces and fingerprints the result, so the site-map run has an evidence-backed inventory of what the app exposes. Use when readiness passed and modeling has not started.'
+metadata:
+  model_tier: fast
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
 
 Produces the raw surface inventory the rest of the workflow builds on: every page, screen,
 endpoint, or command the extractor can prove from the code, each with resolving `file:line`
-evidence, deduped, and folded into a stable fingerprint. Mostly deterministic — the engine
+evidence, deduped, and folded into a stable fingerprint. Mostly deterministic, the engine
 does the scanning; this skill orchestrates it and confirms the output is clean.
 
 ## Use This When
 
-Use this after readiness passes and before modeling. It is the bridge from "the app is
+After readiness passes and before modeling. It is the bridge from "the app is
 mappable" to "here is what the app exposes, with proof".
 
 ## Inputs
@@ -37,7 +28,7 @@ mappable" to "here is what the app exposes, with proof".
 
 ## Procedure
 
-Extraction is deterministic — the engine owns it. Do not re-scan the code by hand.
+Extraction is deterministic: the engine owns it. Do not re-scan the code by hand.
 
 1. Run `paqad-ai sitemap run`; it runs the extractors, dedupes, unions evidence, and computes
    the extraction fingerprint.
@@ -56,7 +47,7 @@ Extraction is deterministic — the engine owns it. Do not re-scan the code by h
 
 - Stop and record a `blocked_checks` entry when the extractor cannot read the app shape; never
   invent a surface to fill the gap.
-- Warn when the extraction is empty on a non-trivial app — that is a coverage gap, not a clean map.
+- Warn when the extraction is empty on a non-trivial app: that is a coverage gap, not a clean map.
 - Do not promote a `convention`-derived surface to `static` confidence without resolving evidence.
 
 ## Resources

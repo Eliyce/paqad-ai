@@ -11,7 +11,7 @@ Usage:   bash scripts/map-axe-to-wcag.sh <axe-rule-id>      (or read stdin)
 
 Output:  the WCAG id to stdout (e.g. WCAG-2.2-1.4.3).
          When the rule is not in the table, emits `WCAG-UNKNOWN` and a
-         diagnostic to stderr — the LLM then maps it manually.
+         diagnostic to stderr: the LLM then maps it manually.
 
 Exits:   0 ok (incl. unknown)
 USAGE

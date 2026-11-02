@@ -1,27 +1,11 @@
 ---
 name: adversarial-review
-description: Perform rigorous, risk-first review after design and implementation.
-model_tier: reasoning
-triggers:
-  - risk:
-      - medium
-      - high
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Accepted request or change summary.
-  diff_paths:
-    type: path[]
-    required: true
-    description: Changed artifacts to review.
-  verification_summary:
-    type: string
-    required: false
-    description: Claimed verification evidence.
+description: 'Runs a risk-first review after design and implementation. Use when a change is medium or high risk, customer-facing, security-sensitive, or hard to roll back safely.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -30,7 +14,7 @@ Runs a risk-first review that looks for correctness defects, rollback hazards, m
 
 ## Use This When
 
-Use this after design or implementation when the change is medium or high risk, customer-facing, security-sensitive, or hard to roll back safely.
+After design or implementation when the change is medium or high risk, customer-facing, security-sensitive, or hard to roll back safely.
 
 ## Inputs
 
@@ -41,10 +25,10 @@ Use this after design or implementation when the change is medium or high risk, 
 ## Procedure
 
 1. Run `scripts/digest-evidence.sh` to flatten `.paqad/session/verification-evidence.json` into a `gate | category | file:line | ac_id | message` table; cite this table directly when anchoring findings.
-2. Review the diff and digest against the dimensions in `references/review-dimensions.md` — correctness, safety, performance, docs drift, verification sufficiency.
+2. Review the diff and digest against the dimensions in `references/review-dimensions.md`: correctness, safety, performance, docs drift, verification sufficiency.
 3. Prioritize user-visible failure, data corruption, migration risk, and contract breakage above style.
 4. Draft the output following `assets/output.template.md`. Severity tags must come from `assets/severity-ranks.txt`. Order findings non-increasing by severity.
-5. Validate with `scripts/lint-findings.sh` before returning — exit 0 means the structural contract is met.
+5. Validate with `scripts/lint-findings.sh` before returning: exit 0 means the structural contract is met.
 
 ## Output Contract
 

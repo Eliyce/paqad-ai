@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - site-map-retest
+cache_key_inputs: []
+input_schema:
+  app_map:
+    type: path
+    required: true
+    description: The stored docs/site-map/app-map.yaml the re-run verifies against the code.

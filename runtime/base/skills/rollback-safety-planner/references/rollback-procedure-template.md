@@ -5,7 +5,7 @@ Every story flagged with `reversibility: hard` or `blast-radius: wide` must popu
 ## Required fields
 
 ```markdown
-### Story {S-N} — {short name}
+### Story {S-N}: {short name}
 
 - **Reversibility class:** `hard` | `irreversible-with-data-loss`
 - **Blast radius:** `moderate` | `wide`
@@ -21,7 +21,7 @@ Every story flagged with `reversibility: hard` or `blast-radius: wide` must popu
 
 ## What disqualifies a rollback procedure
 
-- "Revert the commit" alone — that does not reverse data migrations or external side effects.
+- "Revert the commit" alone: that does not reverse data migrations or external side effects.
 - Steps that require the original implementer's tacit knowledge.
 - Steps that depend on infrastructure that is itself part of the change.
 - "Restore from backup" without a target Recovery Point Objective and the actual backup retention window.

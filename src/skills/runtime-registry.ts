@@ -20,10 +20,10 @@ export class RuntimeSkillRegistry {
     this.builtInNames = new Set(this.builtIns.map((skill) => skill.name));
   }
 
-  register(content: string, sourceLabel?: string): LoadedSkill {
+  register(content: string, sourceLabel?: string, folder?: string): LoadedSkill {
     let skill: LoadedSkill;
     try {
-      const parsed = this.parser.parse(content);
+      const parsed = this.parser.parse(content, folder);
       skill = toLoadedSkill(`${RUNTIME_PREFIX}${sourceLabel ?? parsed.frontmatter.name}`, parsed);
     } catch (cause) {
       throw new SkillRegistrationError(

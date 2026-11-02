@@ -1,0 +1,17 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: The user's request being specced.
+  grounding:
+    type: object
+    required: true
+    description: The S0 grounding (references and business terms for the touched area), as printed by `paqad-ai spec pipeline experts context`.
+  roster:
+    type: string[]
+    required: false
+    description: The allowed expert roles. Defaults to the framework roster; the detector may name only these.

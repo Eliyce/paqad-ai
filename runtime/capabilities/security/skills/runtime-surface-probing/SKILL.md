@@ -1,22 +1,11 @@
 ---
 name: runtime-surface-probing
-description: Plan and interpret safe runtime checks against a locally running application.
-model_tier: medium
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  target_url:
-    type: string
-    required: true
-    description: Base URL for the locally running application.
-  runtime_artifact_paths:
-    type: path[]
-    required: false
-    description: Artifacts produced by runtime-check scripts.
+description: 'Plans and interprets safe runtime checks against a locally running application. Use when a pentest run has the project running and safe probes have executed.'
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -25,7 +14,7 @@ Interprets safe browser and HTTP probe results so exposed debug, admin, and sens
 
 ## Use This When
 
-Use this during pentest runs when the local project is already running and safe runtime probes have been executed.
+During pentest runs when the local project is already running and safe runtime probes have been executed.
 
 ## Inputs
 
@@ -35,9 +24,9 @@ Use this during pentest runs when the local project is already running and safe 
 
 ## Procedure
 
-1. Run `scripts/probe-surfaces.sh <base-url>` — GET-only probe of `assets/probe-paths.txt`; exits 1 if the base is unreachable.
+1. Run `scripts/probe-surfaces.sh <base-url>`: GET-only probe of `assets/probe-paths.txt`; exits 1 if the base is unreachable.
 2. Review the `status | path` output and decide which non-404 results indicate unintended public exposure vs expected local-only behavior.
-3. Format findings per `assets/output.template.md` — every finding must cite path and numeric status code.
+3. Format findings per `assets/output.template.md`: every finding must cite path and numeric status code.
 4. Validate with `scripts/lint-findings.sh`.
 5. Record blocked probes (base unreachable, paths skipped) under `## Coverage Notes`, not as findings.
 

@@ -22,7 +22,7 @@ readiness.
 5. **Are there similar issues already in the tracker?** Search by key phrases and show the matches
    to the user before posting. The user decides whether a ticket is new, a duplicate, or should
    extend an existing issue. This search only reads the tracker.
-6. **Is each ticket a real user story?** Judge it by `references/user-stories.md`: a specific role
+6. **Is each ticket a real user story?** Judge it by `user-stories.md`: a specific role
    (not developer, platform or system), an I want that is a capability and not how it is built, a
    So that that is a real outcome, and a target of API or UI. A UI ticket that needs an API ticket
    depends on it. A gated capability carries a positive and a negative permission criterion with a

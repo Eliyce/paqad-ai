@@ -5,13 +5,13 @@ engine can detect, never from optimism about what the code "probably" contains.
 
 ## The three verdicts
 
-- **ready** — the app kind is detected and a dedicated extractor covers its shape (for example a
+- **ready**: the app kind is detected and a dedicated extractor covers its shape (for example a
   Node CLI with a discoverable command program, or a service with a route convention the
   extractor recognises). The run proceeds with normal confidence.
-- **partial** — the app kind is detected but only the generic convention fallback applies. The
+- **partial**: the app kind is detected but only the generic convention fallback applies. The
   run proceeds in exploratory mode; every surface it produces is tagged `confidence: low` so a
   reader knows the map is a first pass, not a proof.
-- **blocked** — no extractor covers the app shape. The engine records a `blocked_checks` entry
+- **blocked**: no extractor covers the app shape. The engine records a `blocked_checks` entry
   with the reason. The run stops here; a map built by guessing surfaces is worse than no map.
 
 ## What counts as "detectable"

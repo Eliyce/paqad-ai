@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { ValidationError } from '@/core/errors/index.js';
-import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
+import {
+  clearSkillMetadataDeprecations,
+  SkillFrontmatterParser,
+  skillDeclaresRequestRouting,
+  skillMetadataDeprecations,
+} from '@/skills/frontmatter-parser.js';
 
 describe('SkillFrontmatterParser', () => {
   const parser = new SkillFrontmatterParser();
@@ -145,5 +154,144 @@ Body.
         patterns: ['create documentation'],
       },
     ]);
+  });
+});
+
+describe('SkillFrontmatterParser metadata placement', () => {
+  const parser = new SkillFrontmatterParser();
+  const dirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+    clearSkillMetadataDeprecations();
+  });
+
+  const OLD = `---
+name: drafting-notes
+description: Drafts notes.
+model_tier: fast
+cacheable: true
+output_format: markdown
+triggers:
+  - workflow: [feature-development]
+input_schema:
+  request:
+    type: string
+    required: true
+---
+Body
+`;
+
+  const NEW = `---
+name: drafting-notes
+description: Drafts notes.
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
+---
+Body
+`;
+
+  const META = `triggers:
+  - workflow: [feature-development]
+input_schema:
+  request:
+    type: string
+    required: true
+`;
+
+  function folder(files: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-skill-meta-'));
+    dirs.push(dir);
+    for (const [rel, content] of Object.entries(files)) writeFileSync(join(dir, rel), content);
+    return dir;
+  }
+
+  it('AC-4: resolves the new placement to the same object as the old top-level keys', () => {
+    const old = parser.parse(OLD, folder({}));
+    const moved = parser.parse(NEW, folder({ 'skill.meta.yaml': META }));
+    expect(moved.frontmatter).toEqual(old.frontmatter);
+    expect(moved.frontmatter.cacheable).toBe(true);
+  });
+
+  it('AC-34: still parses a user skill with the old top-level keys, recording one deprecation line for the skill', () => {
+    const first = parser.parse(OLD, folder({}));
+    parser.parse(OLD, folder({}));
+    const line =
+      'Skill "drafting-notes": top-level cacheable, input_schema, model_tier, output_format, triggers are deprecated and stop working in 1.117.0; move them under metadata (or skill.meta.yaml).';
+    expect(first.deprecation).toBe(line);
+    expect(skillMetadataDeprecations()).toEqual([line]);
+  });
+
+  it('AC-5: a disagreeing top-level key loses to metadata with one deprecation line', () => {
+    const both = NEW.replace('metadata:\n', 'model_tier: reasoning\nmetadata:\n');
+    const parsed = parser.parse(both, folder({ 'skill.meta.yaml': META }));
+    expect(parsed.frontmatter.model_tier).toBe('fast');
+    expect(skillMetadataDeprecations()).toEqual([
+      'Skill "drafting-notes": top-level model_tier is deprecated and stops working in 1.117.0; move it under metadata (or skill.meta.yaml). model_tier disagrees with metadata; the metadata value wins.',
+    ]);
+  });
+
+  it('a skill that uses only metadata records no deprecation', () => {
+    expect(parser.parse(NEW, folder({ 'skill.meta.yaml': META })).deprecation).toBeNull();
+    expect(skillMetadataDeprecations()).toEqual([]);
+  });
+
+  it('AC-5: a missing or malformed skill.meta.yaml fails naming the skill and the file', () => {
+    expect(() => parser.parse(NEW, folder({}))).toThrowError(
+      /Skill "drafting-notes": skill\.meta\.yaml named by metadata\.paqad-meta is missing/u,
+    );
+    expect(() => parser.parse(NEW, folder({ 'skill.meta.yaml': 'triggers: [\n' }))).toThrowError(
+      /Skill "drafting-notes": skill\.meta\.yaml is not valid YAML/u,
+    );
+    expect(() => parser.parse(NEW, folder({ 'skill.meta.yaml': '- a\n' }))).toThrowError(
+      /Skill "drafting-notes": skill\.meta\.yaml must be a YAML object/u,
+    );
+  });
+
+  it('AC-6: refuses an absolute, parent or outside-symlink paqad-meta', () => {
+    const outside = folder({ 'skill.meta.yaml': META });
+    for (const ref of ['/etc/skill.meta.yaml', '../skill.meta.yaml', 'a/../../x.yaml']) {
+      expect(() => parser.parse(NEW.replace('skill.meta.yaml', ref), outside)).toThrowError(
+        /Skill "drafting-notes": .*inside the skill folder/u,
+      );
+    }
+    const dir = folder({});
+    symlinkSync(join(outside, 'skill.meta.yaml'), join(dir, 'skill.meta.yaml'));
+    expect(() => parser.parse(NEW, dir)).toThrowError(
+      /Skill "drafting-notes": skill\.meta\.yaml leads through a symlink outside the skill folder/u,
+    );
+    const linked = folder({});
+    symlinkSync(outside, join(linked, 'sub'));
+    expect(() =>
+      parser.parse(
+        NEW.replace('paqad-meta: skill.meta.yaml', 'paqad-meta: sub/skill.meta.yaml'),
+        linked,
+      ),
+    ).toThrowError(
+      /Skill "drafting-notes": sub\/skill\.meta\.yaml leads through a symlink outside the skill folder/u,
+    );
+  });
+
+  it('AC-6: reads a paqad-meta through a symlinked directory that stays inside the skill folder', () => {
+    const dir = folder({});
+    mkdirSync(join(dir, 'real'));
+    writeFileSync(join(dir, 'real', 'skill.meta.yaml'), META);
+    symlinkSync(join(dir, 'real'), join(dir, 'sub'));
+    const parsed = parser.parse(
+      NEW.replace('paqad-meta: skill.meta.yaml', 'paqad-meta: sub/skill.meta.yaml'),
+      dir,
+    );
+    expect(parsed.frontmatter.triggers).toEqual([{ workflow: ['feature-development'] }]);
+  });
+
+  it('sees request_routing in the sidecar for the workflow router', () => {
+    const routed =
+      'request_routing:\n  - priority: 1\n    patterns: [hello]\n    target_workflow: feature-development\n';
+    expect(skillDeclaresRequestRouting(NEW, folder({ 'skill.meta.yaml': routed }))).toBe(true);
+    expect(skillDeclaresRequestRouting(NEW, folder({ 'skill.meta.yaml': META }))).toBe(false);
+    expect(skillDeclaresRequestRouting(`---\nname: x\nrequest_routing: []\n---\n`)).toBe(true);
   });
 });

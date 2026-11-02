@@ -1,28 +1,11 @@
 ---
 name: existing-doc-checker
-description: Inspect canonical docs and registries before new artifacts are written.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-      - investigation
-cacheable: true
-cache_key_inputs:
-  - docs/**/*.md
-  - .paqad/indexes/**/*.json
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incoming request to reconcile against existing docs.
-  candidate_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical docs to inspect.
+description: 'Inspects canonical docs and registries before new artifacts are written. Use when creating or rewriting docs, plans or implementation notes and the project may already hold a canonical source.'
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -31,7 +14,7 @@ Finds the canonical docs, registries, and previously generated artifacts that al
 
 ## Use This When
 
-Use this before creating or rewriting docs, plans, or implementation notes whenever there is any chance the project already has a canonical source for the topic.
+Before creating or rewriting docs, plans, or implementation notes whenever there is any chance the project already has a canonical source for the topic.
 
 ## Inputs
 
@@ -41,7 +24,7 @@ Use this before creating or rewriting docs, plans, or implementation notes whene
 
 ## Procedure
 
-1. Walk surfaces in the order in `assets/scan-order.txt` — registries / module indexes first, then per-module support docs.
+1. Walk surfaces in the order in `assets/scan-order.txt`: registries / module indexes first, then per-module support docs.
 2. Pipe topic keywords into `scripts/scan-docs.sh <keyword> ...` to enumerate canonical doc hits.
 3. Classify each hit as canonical, drifted, or missing based on freshness and stated ownership.
 4. Format per `assets/output.template.md`; validate with `scripts/lint-output.sh`.

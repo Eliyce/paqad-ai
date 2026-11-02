@@ -1,4 +1,4 @@
-# Bundled fallback rules — used only when docs/instructions/rules/writing-style.md is missing.
+# Bundled fallback rules: used only when docs/instructions/rules/writing-style.md is missing.
 # Format: "<directive>\t<regex pattern>"
 # Directives: forbid | warn
 forbid	\b(literally|basically|simply|just)\b

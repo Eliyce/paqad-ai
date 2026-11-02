@@ -369,3 +369,48 @@ describe('contract: disabled and un-onboarded no-op', () => {
     }
   });
 });
+
+describe('contract: a stale project stage agent does not double the dispatch', () => {
+  for (const route of ROUTES.slice(0, 2)) {
+    it(`[${route.name}] AC-21: one SubagentStart record and one stage-agent row for the plugin agent`, async () => {
+      const root = freshRepo();
+      await recordPlanning(root, 'ses11', '567');
+      mkdirSync(join(root, '.claude/agents'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude/agents/paqad-development.md'),
+        '---\nname: paqad-development\ndescription: old onboarding copy\n---\n\nOld body.\n',
+      );
+      const transcript = join(root, 'sub11.jsonl');
+      writeFileSync(
+        transcript,
+        `${JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'work' } })}\n`,
+      );
+      const base = {
+        session_id: 'ses11',
+        cwd: root,
+        transcript_path: transcript,
+        agent_id: 'agent11',
+        agent_type: 'paqad:paqad-development',
+      };
+      const start = await runHook(
+        join(HOOKS, 'stage-agent-start.mjs'),
+        { ...base, hook_event_name: 'SubagentStart' },
+        route.env(root),
+      );
+      expect(start.exitCode).toBe(0);
+      const stop = await runHook(
+        SUBAGENT_COMPLETION,
+        { ...base, hook_event_name: 'SubagentStop' },
+        route.env(root),
+      );
+      expect(stop.exitCode).toBe(0);
+      const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as { kind?: string; event_status?: string; stage?: string })
+        .filter((row) => row.kind === 'stage-agent' && row.stage === 'development');
+      expect(rows.filter((row) => row.event_status === 'started')).toHaveLength(1);
+      expect(rows.filter((row) => row.event_status === 'completed')).toHaveLength(1);
+    });
+  }
+});

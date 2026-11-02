@@ -11,6 +11,8 @@ CLI:
   check_record.py --path <record.json> [--step <n>]   (step defaults to run.step)
 
 stdout: {"ok", "issues"}. Exit 0 when clean, 1 when a required block is missing or stale.
+
+Run with --help to print the usage.
 """
 
 import argparse

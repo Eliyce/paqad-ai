@@ -16,6 +16,10 @@ export interface OnboardingManifest {
     auto_update: boolean;
     executable?: boolean;
   }>;
+  removed_stage_agents?: Array<{
+    path: string;
+    reason: 'managed-marker' | 'legacy-stamp' | 'generated-body';
+  }>;
   planning_artifacts?: {
     compiled_rules_path: string;
     module_health_initialized: string[];

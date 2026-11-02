@@ -11,6 +11,7 @@
     "skill-activation.mjs",
     "stage-agent-completion.mjs",
     "stage-agent-start.mjs",
+    "stage-agent-write-guard.mjs",
     "stage-marker-parse.mjs",
     "stage-writer.mjs",
     "ticket-intake-prompt.mjs",

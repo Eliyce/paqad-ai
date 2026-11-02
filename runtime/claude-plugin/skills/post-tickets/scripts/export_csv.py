@@ -18,6 +18,8 @@ CLI:
 
 With --out the export is written to that path (inside the working folder); otherwise it is printed
 to stdout. Exit 0 clean, 1 on error.
+
+Run with --help to print the usage.
 """
 
 import argparse

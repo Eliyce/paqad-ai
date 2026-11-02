@@ -62,7 +62,14 @@ export function readExistingOnboardingManifest(projectRoot: string): OnboardingM
 export function writeOnboardingManifest(projectRoot: string, manifest: OnboardingManifest): string {
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
   mkdirSync(dirname(path), { recursive: true });
-  const sanitized = sanitizeOnboardingManifest(projectRoot, manifest);
+  const previous = readPreviousJson(path);
+  const removedAgents = previous?.removed_stage_agents;
+  const sanitized = sanitizeOnboardingManifest(projectRoot, {
+    ...manifest,
+    ...(manifest.removed_stage_agents === undefined && Array.isArray(removedAgents)
+      ? { removed_stage_agents: removedAgents as OnboardingManifest['removed_stage_agents'] }
+      : {}),
+  });
   writeJsonPreservingTimestamp(path, sanitized, ['generated_at', 'detected.timestamp']);
   return path;
 }

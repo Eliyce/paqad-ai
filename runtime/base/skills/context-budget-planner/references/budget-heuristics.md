@@ -1,6 +1,6 @@
 # Context Budget Heuristics
 
-Per-artifact token estimates used by the planner. Numbers are conservative upper bounds — better to recommend compaction earlier than to discover starvation mid-implementation.
+Per-artifact token estimates used by the planner. Numbers are conservative upper bounds: better to recommend compaction earlier than to discover starvation mid-implementation.
 
 ## Per-line token weights
 
@@ -21,10 +21,10 @@ When the artifact type is unknown, use 2.0 tokens/line as a default.
 
 Compute `available_tokens = model_context_window - committed_tokens`. Then:
 
-- **Green** when `estimate <= 0.40 * available_tokens` — proceed.
-- **Yellow** when `0.40 * available_tokens < estimate <= 0.65 * available_tokens` — proceed but warn.
-- **Amber** when `0.65 * available_tokens < estimate <= 0.85 * available_tokens` — recommend compaction of supporting context.
-- **Red** when `estimate > 0.85 * available_tokens` — recommend compaction or splitting before any implementation begins.
+- **Green** when `estimate <= 0.40 * available_tokens`: proceed.
+- **Yellow** when `0.40 * available_tokens < estimate <= 0.65 * available_tokens`: proceed but warn.
+- **Amber** when `0.65 * available_tokens < estimate <= 0.85 * available_tokens`: recommend compaction of supporting context.
+- **Red** when `estimate > 0.85 * available_tokens`: recommend compaction or splitting before any implementation begins.
 
 ## Compaction recommendations
 

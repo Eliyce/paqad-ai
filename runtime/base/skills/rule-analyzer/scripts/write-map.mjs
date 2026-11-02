@@ -15,7 +15,15 @@ if (projectRootArg === '--help' || projectRootArg === '-h' || !classificationsPa
 }
 
 const projectRoot = projectRootArg;
-const classificationsList = JSON.parse(readFileSync(classificationsPath, 'utf8'));
+let classificationsText;
+try {
+  classificationsText = readFileSync(classificationsPath, 'utf8');
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+  process.stderr.write(`classifications file not found: ${classificationsPath}\n`);
+  process.exit(1);
+}
+const classificationsList = JSON.parse(classificationsText);
 const classifications = new Map(
   classificationsList.map((c) => [
     c.id,

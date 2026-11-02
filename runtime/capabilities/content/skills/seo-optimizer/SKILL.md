@@ -1,6 +1,6 @@
 ---
 name: seo-optimizer
-description: Revise drafts for search visibility — keyword placement, heading hierarchy, meta fields, internal links — without sacrificing readability. Use after the draft is reader-ready and before publishing.
+description: 'Revises drafts for search visibility (keyword placement, heading hierarchy, meta fields, internal links) without losing readability. Use when content-reviewer has passed the draft and the destination gets search traffic.'
 ---
 
 # SEO Optimizer
@@ -11,7 +11,7 @@ Audits a near-final draft for SEO essentials and emits a checklist of concrete e
 
 ## Use This When
 
-Use this after `content-reviewer` has passed the draft and the destination supports search-driven traffic.
+After `content-reviewer` has passed the draft and the destination supports search-driven traffic.
 
 ## Inputs
 

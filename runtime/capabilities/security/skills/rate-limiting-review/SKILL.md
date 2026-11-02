@@ -1,33 +1,20 @@
 ---
 name: rate-limiting-review
-description: Identify missing rate limiting and denial-of-service surfaces on authentication endpoints, bulk operations, expensive queries, and WebSocket handlers.
-model_tier: medium
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing API endpoints, authentication flows, and bulk operations.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove rate limiting or throttle enforcement.
+description: 'Finds missing rate limits and denial-of-service surfaces on authentication endpoints, bulk operations, expensive queries and WebSocket handlers. Use when docs or routes describe login, registration, OTP or MFA checks, password reset, exports, bulk or expensive endpoints.'
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
 
-Reviews the application for endpoints and operations that lack rate limiting, creating denial-of-service or brute-force surfaces. Maps to OWASP API Security Top 10 2023 #4 — Unrestricted Resource Consumption.
+Reviews the application for endpoints and operations that lack rate limiting, creating denial-of-service or brute-force surfaces. Maps to OWASP API Security Top 10 2023 #4, Unrestricted Resource Consumption.
 
 ## Use This When
 
-Use this when module docs or route inventories describe authentication endpoints, registration flows, OTP/MFA verification, password resets, data export endpoints, bulk operations, or any endpoint that triggers expensive backend work.
+When module docs or route inventories describe authentication endpoints, registration flows, OTP/MFA verification, password resets, data export endpoints, bulk operations, or any endpoint that triggers expensive backend work.
 
 ## Inputs
 
@@ -56,14 +43,14 @@ Use this when module docs or route inventories describe authentication endpoints
 
 ## Escalate / Stop Conditions
 
-- Ask when routing configuration is not accessible — cannot enumerate endpoints without it.
-- Warn when authentication endpoints have no rate limiting at all — this is a critical gap enabling automated attacks.
+- Ask when routing configuration is not accessible: cannot enumerate endpoints without it.
+- Warn when authentication endpoints have no rate limiting at all: this is a critical gap enabling automated attacks.
 - Do not flag rate limiting gaps on read-only, public, lightweight endpoints with no meaningful abuse potential.
 
 ## Resources
 
 - `references/rate-limit-signals.md`
-- `scripts/scan-rate-limit.sh` — surfaces sensitive endpoints + presence of throttle middleware
-- `scripts/lint-findings.sh` — enforces WSTG-INPV-13/ATHN id + Evidence + Required action
+- `scripts/scan-rate-limit.sh`: surfaces sensitive endpoints + presence of throttle middleware
+- `scripts/lint-findings.sh`: enforces WSTG-INPV-13/ATHN id + Evidence + Required action
 - `assets/output.template.md`
 - `assets/category-rubric.txt`

@@ -1,29 +1,11 @@
 ---
 name: documentation-sync-engine
-description: Canonical orchestrator that runs the fast stale-doc detector and dispatches to per-domain doc-sync skills for the affected canonical paths.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Changed source or doc files from the current diff.
-  detector_script_path:
-    type: path
-    required: true
-    description: Path to the canonical stale doc detector used by diff-doc-sync.
-  target_domains:
-    type: string[]
-    required: false
-    description: Optional restriction to specific domains (api, integration, module, error, glossary). Empty means all.
+description: 'Runs the fast stale-doc detector and dispatches the per-domain doc-sync skills for the affected canonical paths. Use when implementation lands, or just before handoff, on feature-development, bug-fix, refactor or migration work.'
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -34,7 +16,7 @@ The point is to give callers one place to ask "sync the docs after this change" 
 
 ## Use This When
 
-Use this after implementation lands (or just before handoff) on `feature-development`, `bug-fix`, `refactor`, or `migration` workflows. Skip when `differential_refresh` is disabled in the project profile and the team prefers running the per-domain skills directly.
+After implementation lands (or just before handoff) on `feature-development`, `bug-fix`, `refactor`, or `migration` workflows. Skip when `differential_refresh` is disabled in the project profile and the team prefers running the per-domain skills directly.
 
 ## Inputs
 
@@ -67,7 +49,7 @@ See `assets/output.template.md` for the canonical shape; `scripts/lint-output.sh
 - Stop when `diff-doc-sync` cannot run (missing detector, missing changed-files list).
 - Warn when any delegate reports a consistency warning; surface every such warning in the consolidated report rather than swallowing it.
 - Do not invent doc paths the detector did not report as stale.
-- Do not re-route a path between delegates — the per-domain table in `references/orchestration-rules.md` is the only routing source of truth.
+- Do not re-route a path between delegates: the per-domain table in `references/orchestration-rules.md` is the only routing source of truth.
 
 ## Resources
 

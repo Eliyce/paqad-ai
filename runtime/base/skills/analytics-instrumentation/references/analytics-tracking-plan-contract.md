@@ -19,11 +19,11 @@ implements the governance triple that every tracked event carries.
 ## Convention
 
 Pick one naming convention and be 100% consistent. Object-action names and past tense are common
-defaults, not rigid rules. No variable data in event names — dynamic values are properties.
+defaults, not rigid rules. No variable data in event names: dynamic values are properties.
 
 ## Honest limits
 
 This is PR/review-time governance via doc + AC existence. It is not type-safe codegen, not
-ingestion-time or real-time blocking, and not PII redaction at capture — those live at the CDP.
+ingestion-time or real-time blocking, and not PII redaction at capture: those live at the CDP.
 The `analytics_strictness` knob (off | warn | strict, default warn) decides what a missing event
 doc means: warn flags it, strict blocks on Done, off is silent.

@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - docs/modules/**
+  - tests/**
+input_schema:
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Canonical module docs that describe workflows and state transitions.
+  runtime_artifact_paths:
+    type: path[]
+    required: false
+    description: Optional runtime artifacts that help validate the abuse hypotheses.

@@ -1,0 +1,16 @@
+triggers:
+  - workflow:
+      - feature-development
+      - bug-fix
+      - refactor
+      - migration
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Incoming request to compare against the active spec.
+  spec_paths:
+    type: path[]
+    required: true
+    description: Active spec artifacts that define the current approved behavior.

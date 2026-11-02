@@ -4,12 +4,12 @@ Always confirm base reachability first. Treat blocked runtime access as a covera
 
 ## Security Headers (OWASP 2025 A02)
 
-- `Strict-Transport-Security` — missing or short `max-age`
-- `X-Frame-Options` or CSP `frame-ancestors` — clickjacking protection
-- `X-Content-Type-Options: nosniff` — MIME sniffing prevention
-- `Content-Security-Policy` — present and non-trivial (not `default-src *`)
+- `Strict-Transport-Security`: missing or short `max-age`
+- `X-Frame-Options` or CSP `frame-ancestors`: clickjacking protection
+- `X-Content-Type-Options: nosniff`: MIME sniffing prevention
+- `Content-Security-Policy`: present and non-trivial (not `default-src *`)
 - `Referrer-Policy`, `Permissions-Policy`
-- `X-Powered-By` / `Server` — information disclosure via server identity headers
+- `X-Powered-By` / `Server`: information disclosure via server identity headers
 
 ## CORS Misconfiguration
 
@@ -44,7 +44,7 @@ Always confirm base reachability first. Treat blocked runtime access as a covera
 
 ## SSRF Surface
 
-- Identify endpoints accepting a URL, IP, or hostname parameter — probe with:
+- Identify endpoints accepting a URL, IP, or hostname parameter, probe with:
   `127.0.0.1`, `0x7f000001`, `[::1]`, `169.254.169.254` (AWS metadata)
 
 ## API Documentation Exposure

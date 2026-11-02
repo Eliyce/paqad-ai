@@ -1,0 +1,18 @@
+triggers:
+  - workflow:
+      - feature-development
+      - module-attribution
+cache_key_inputs: []
+input_schema:
+  prompt:
+    type: string
+    required: true
+    description: The user prompt to analyse.
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve module-map.yml. Defaults to cwd.
+  max_choices:
+    type: string
+    required: false
+    description: Cap on existing-module choices returned (default "3"). CLI passes as a string and parses internally.

@@ -1,25 +1,11 @@
 ---
 name: spec-diff
-description: Compare a new request against the current spec to classify coverage or conflict.
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Incoming request to compare against the active spec.
-  spec_paths:
-    type: path[]
-    required: true
-    description: Active spec artifacts that define the current approved behavior.
+description: 'Compares a new request with the current spec to classify coverage or conflict. Use when new work arrives against an existing story or solution and you must decide to continue, extend the spec or stop.'
+metadata:
+  model_tier: medium
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -28,7 +14,7 @@ Compares an incoming request against the active spec so the framework can tell w
 
 ## Use This When
 
-Use this when new work arrives against an existing story or solution and you need to decide whether to continue, extend the spec, or stop because the request conflicts with approved behavior.
+When new work arrives against an existing story or solution and you need to decide whether to continue, extend the spec, or stop because the request conflicts with approved behavior.
 
 ## Inputs
 

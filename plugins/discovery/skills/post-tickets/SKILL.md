@@ -1,6 +1,6 @@
 ---
 name: post-tickets
-description: "Chat and Claude Code: Step 6 hand off of the product-discovery idea journey. Recommends the outcome, and for a build it shows a compact preview plus a full preview file, takes an explicit \"post it\" bound to the ticket-set digest, creates epics then tickets then links in order with parents, records a receipt for each write, reconciles a lost reply without creating duplicates, reads back what was created and reports partial results honestly, and offers a CSV or Markdown export as a fallback. Produces the posted block of the discovery record. Runs when the product-discovery journey directs it; not started directly."
+description: "Chat and Claude Code: Step 6 of the product-discovery journey: posts the approved tickets to the tracker, or exports them, and reads them back. Use when the journey directs it to step 6, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
@@ -29,7 +29,7 @@ known tool-name variants.
    full preview file. Put the full text in chat only if the user asks or no file can be made.
 3. Take the approval. Post only after an explicit "post it", bound to the ticket-set digest.
    "Looks good" is not approval. Any later edit to the set voids the approval and needs a new one.
-4. Build the ordered plan and post it. If you can run scripts, drive the run with these commands:
+4. Build the ordered plan and post it. Where scripts can run, drive the run with these commands:
 
    - `scripts/plan_posting.py plan --state <state.json>` builds the ordered plan.
    - `scripts/plan_posting.py next --state <state.json>` shows the next write.

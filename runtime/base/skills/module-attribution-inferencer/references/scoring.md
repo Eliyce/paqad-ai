@@ -36,9 +36,9 @@ Capped at 1.0. The default confidence floor is 0.5.
 
 Two fallback `InferenceChoice` entries are always appended to the result:
 
-- `new-module-fallback` — the agent collects a name and loops back through
+- `new-module-fallback`: the agent collects a name and loops back through
   the extractor.
-- `no-attribution` — proceed without any `module-map.yml` mutation.
+- `no-attribution`: proceed without any `module-map.yml` mutation.
 
 This guarantees the Decision Pause packet is complete even when no existing
 module clears the floor.

@@ -1,13 +1,13 @@
 ## Rollback Plans
 
-### S-{{N}} — {{short story name}}
+### S-{{N}}: {{short story name}}
 
 - **Trigger:** {{condition that demands rollback (alarm, metric threshold, customer report)}}
-- **Time-to-rollback:** {{target — e.g. "≤ 5 min from trigger to recovery"}}
+- **Time-to-rollback:** {{target, e.g. "≤ 5 min from trigger to recovery"}}
 - **Steps:**
   1. {{idempotent, verifiable, on-call-runnable step (cite flag/script/command)}}
   2. {{...}}
-- **Verification:** {{post-rollback check — metric/query/probe with expected value}}
+- **Verification:** {{post-rollback check, metric/query/probe with expected value}}
 - **Forward-only recovery:** {{when applicable: data permanently lost on rollback / required reconciliation}}
 - **Drill:** {{when and how to dry-run this procedure}}
 
