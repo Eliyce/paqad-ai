@@ -8,8 +8,13 @@ import { PATHS } from './constants/paths.js';
 import { readTeamConfig, type TeamConfigRead } from './team-config.js';
 import { listConfigsFiles } from './team-config-legacy.js';
 import {
+  GIT_WORKFLOW_COMMITS_FILE,
   personalValue,
+  TEAM_CONFIG_FILE_DESCRIPTIONS,
+  TEAM_CONFIG_FILES,
   teamConfigHome,
+  yamlDefault,
+  yamlEnumOf,
   type TeamConfigFile,
   type YamlValueMap,
 } from './team-config-values.js';
@@ -92,13 +97,6 @@ const FALSY = new Set(['0', 'false', 'no', 'off']);
 type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum';
 
 export type ConfigGroup = 'app' | 'rag' | 'models' | 'policy';
-
-export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
-  app: '.config.app',
-  rag: '.config.rag',
-  models: '.config.models',
-  policy: '.config.policy',
-};
 
 interface BaseConfigSpec {
   key: string;
@@ -1578,41 +1576,6 @@ export function setConfigValue(projectRoot: string, key: string, value: string):
   return path;
 }
 
-export function setGroupConfigValue(
-  projectRoot: string,
-  group: ConfigGroup,
-  key: string,
-  value: string,
-): string {
-  const path = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES[group]);
-  let existing = '';
-  try {
-    existing = readFileSync(path, 'utf8');
-  } catch {}
-
-  const lines = existing.replace(/\n+$/u, '').split(/\r?\n/);
-  const escapedKey = escapeRegExp(key);
-  const assignmentRe = new RegExp(`^\\s*(?:export\\s+)?${escapedKey}\\s*=`, 'u');
-  const commentedRe = new RegExp(`^\\s*#\\s*(?:export\\s+)?${escapedKey}\\s*=`, 'u');
-  const activeIndex = lines.findIndex((line) => assignmentRe.test(line));
-  const targetIndex =
-    activeIndex === -1 ? lines.findIndex((line) => commentedRe.test(line)) : activeIndex;
-
-  if (targetIndex === -1) {
-    if (lines.length === 1 && lines[0] === '') {
-      lines[0] = `${key}=${value}`;
-    } else {
-      lines.push(`${key}=${value}`);
-    }
-  } else {
-    lines[targetIndex] = `${key}=${value}`;
-  }
-
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${lines.join('\n')}\n`, 'utf8');
-  return path;
-}
-
 function asBool(raw: string | undefined, def: boolean): boolean {
   if (raw === undefined) {
     return def;
@@ -1878,156 +1841,64 @@ export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile
   return clone as Partial<ProjectProfile>;
 }
 
-const CONFIG_GROUP_TITLES: Record<ConfigGroup, string> = {
-  app: 'Application, version, enterprise, and feature flags',
-  rag: 'Intelligence / RAG',
-  models: 'Research depth, model routing, and stage helper effort and model',
-  policy: 'Quality, escalation, and decision policy',
-};
-
-const CONFIG_GROUP_INTROS: Record<ConfigGroup, string[]> = {
-  app: [
-    'The framework master switch, the background version/update policy, the licensed',
-    'enterprise/governance switches, and the planning feature flags.',
-  ],
-  rag: [
-    'Retrieval-augmented context loading: whether it is on, the embedding provider and',
-    'model, and the retrieval tuning (similarity threshold, top-N, file-size limit).',
-  ],
-  models: [
-    'How deep research goes, which models handle routine, heavy-reasoning, and',
-    'fast/cheap work, and the effort and model each feature-development stage helper',
-    'runs at (applied on the next dispatch through `paqad-ai stage settings`).',
-  ],
-  policy: [
-    'Strictness gates (adversarial review, stale-doc blocking, DB-migration review),',
-    'escalation modes for risky operations, and decision-pause tuning.',
-  ],
-};
-
-function renderDefault(spec: FrameworkConfigSpec): string {
-  return spec.default === undefined ? '' : String(spec.default);
-}
-
-function fileHasKey(text: string, key: string): boolean {
-  return new RegExp(`^\\s*#?\\s*(?:export\\s+)?${escapeRegExp(key)}\\s*=`, 'mu').test(text);
-}
-
-export function generateGroupConfig(
-  group: ConfigGroup,
-  overrides: Map<string, string> = new Map(),
-): string {
-  const lines: string[] = [
-    `# .paqad/configs/${CONFIG_GROUP_FILES[group]} — ${CONFIG_GROUP_TITLES[group]}`,
-    '#',
-    ...CONFIG_GROUP_INTROS[group].map((l) => `# ${l}`),
-    '#',
-    '# Every key below is COMMENTED OUT, so paqad uses its built-in default until you',
-    '# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >',
-    '# your local ../.config > these tracked team files > code default. This file is',
-    '# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.',
-    '',
-  ];
-
-  let currentSection = '';
-  for (const spec of FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group)) {
-    if (spec.section !== currentSection) {
-      if (currentSection !== '') {
-        lines.push('');
-      }
-      lines.push(`# ── ${spec.section} ${'─'.repeat(Math.max(0, 56 - spec.section.length))}`);
-      currentSection = spec.section;
-    }
-    lines.push(`# ${spec.comment} (env: ${spec.env})`);
-    const override = overrides.get(spec.key);
-    lines.push(
-      override !== undefined ? `${spec.key}=${override}` : `# ${spec.key}=${renderDefault(spec)}`,
-    );
-  }
-
-  lines.push('');
-  return lines.join('\n');
-}
-
-export function syncGroupConfigs(projectRoot: string): string[] {
-  const written: string[] = [];
-  if (checkoutIsNewer(projectRoot)) return written;
-  for (const group of Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]) {
-    const file = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES[group]);
-    let existing: string | null;
-    try {
-      existing = readFileSync(file, 'utf8');
-    } catch {
-      existing = null;
-    }
-    mkdirSync(dirname(file), { recursive: true });
-
-    if (existing === null) {
-      writeFileSync(file, generateGroupConfig(group), 'utf8');
-      written.push(file);
-      continue;
-    }
-
-    const missing = FRAMEWORK_CONFIG_SPECS.filter(
-      (s) => s.group === group && !fileHasKey(existing as string, s.key),
-    );
-    if (missing.length === 0) {
-      continue;
-    }
-    const additions = ['', `# ── Added in a newer paqad version ${'─'.repeat(28)}`];
-    for (const spec of missing) {
-      additions.push(`# ${spec.comment} (env: ${spec.env})`);
-      additions.push(`# ${spec.key}=${renderDefault(spec)}`);
-    }
-    writeFileSync(file, `${existing.replace(/\n+$/u, '')}\n${additions.join('\n')}\n`, 'utf8');
-    written.push(file);
-  }
-  return written;
-}
-
 export function generateConfigsReadme(): string {
-  const groupLines = (Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]).map(
-    (group) => `- \`${CONFIG_GROUP_FILES[group]}\` — ${CONFIG_GROUP_TITLES[group]}`,
+  const fileLines = TEAM_CONFIG_FILES.map(
+    (file) => `- \`${file}\` — ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
   );
+  const settingSections = [...TEAM_CONFIG_FILES, GIT_WORKFLOW_COMMITS_FILE].flatMap((file) => {
+    const rows = FRAMEWORK_CONFIG_SPECS.filter((spec) => spec.file === file);
+    return [
+      `### \`${file}\``,
+      '',
+      '| Path | Default | Allowed values | Description | `.paqad/.config` name | Env var |',
+      '|---|---|---|---|---|---|',
+      ...rows.map((spec) => readmeRow(spec)),
+      '',
+    ];
+  });
   return [
     '# paqad team configuration (`.paqad/configs/`)',
     '',
-    'Tracked, team-shared framework overrides. Onboarding writes one file per group,',
-    'each pre-filled with every knob in that group, commented out and documented:',
+    'Tracked, team-shared settings, in small YAML files that hold only what this team',
+    "changed. A setting that isn't in a file uses paqad's default.",
     '',
-    ...groupLines,
+    ...fileLines,
+    '- `git-workflow/` — the team rules for tickets, branches, commits, pull requests and',
+    '  enforcement (see below).',
+    '- `schemas/` — JSON schemas for your editor, written by paqad and git-ignored.',
     '',
-    'Every file in this directory is merged into one map and read at runtime, so the',
-    'split is purely organizational — a key works in any file.',
-    '',
-    'For a single copy-paste reference listing every knob in one place, see',
-    '`../.config.example` (tracked, never read at runtime).',
+    'Run `paqad-ai config show` to see every setting, its value and where it comes from',
+    '(`--changed` lists only the ones that differ from the default).',
     '',
     '## How to use',
     '',
-    '- Uncomment a line to override that knob. While a key stays commented (or absent),',
-    '  paqad uses its built-in code default, so an untouched project runs entirely on',
-    '  defaults.',
-    '- Keys must be globally unique across these files. The same key uncommented in two',
-    '  files is a collision: the alphabetically-last filename wins, and `paqad-ai',
-    '  onboard`/`update` reports it.',
-    '- A teammate’s local `../.config` (git-ignored) overrides anything here, and a',
-    '  `PAQAD_*` env var overrides everything.',
-    '- `paqad-ai update` refreshes these files: it appends knobs added in a new version',
-    '  (commented) and prunes knobs a new version removed, but never changes a value you',
-    '  uncommented. It never resets your settings to defaults.',
-    '- `../.config.example` names the paqad version that generated it. A paqad older than',
-    '  that version leaves the example, these files and this README exactly as they are,',
-    '  so a teammate on an older install never rewrites a newer checkout.',
+    '- Add a setting at its path to change it; delete the line to go back to the default.',
+    '- Each file starts with a `# yaml-language-server` line, so VS Code (with the Red Hat',
+    '  YAML extension) and JetBrains IDEs offer every setting with its description,',
+    '  default and allowed values.',
+    '- Gates use one vocabulary: `off | warn | block`.',
+    '- `paqad-ai update` never changes a value you set. It regenerates the schemas and this',
+    '  README, and creates any missing file with only its header.',
     '',
+    '## Personal overrides',
+    '',
+    'A teammate can override a setting for themselves in the git-ignored `../.config`',
+    '(`<name>=<value>`, using the `.paqad/.config` name below), and a `PAQAD_*` env var',
+    'overrides everything. Both accept the values below as well as the older values.',
+    '`../.config.example` lists every name with its YAML home.',
+    '',
+    '## Every setting',
+    '',
+    ...settingSections,
     '## git-workflow/',
     '',
     "`git-workflow/` holds this team's rules for tickets, branches, commits, pull requests",
     "and how strictly they're checked, in five YAML files: `tickets.yaml`, `branches.yaml`,",
     '`commits.yaml`, `pull-requests.yaml` and `enforcement.yaml`.',
     '',
-    '- These files are YAML, not the `key=value` files above.',
     "- No personal override applies: `../.config` and `PAQAD_*` env vars don't change them.",
+    '  The one exception is `ai_attribution` in `commits.yaml`, which keeps its personal',
+    '  and env override.',
     '- `paqad-ai update` adds new settings with a `# Added in paqad-ai <version>` line and',
     '  never changes a value you set.',
     "- The commit-msg and pre-push hooks check people's commits and pushes;",
@@ -2036,6 +1907,27 @@ export function generateConfigsReadme(): string {
     '  branches start from main".',
     '',
   ].join('\n');
+}
+
+function yamlText(value: unknown): string {
+  if (value === undefined) return '(unset)';
+  if (Array.isArray(value)) return `[${value.join(', ')}]`;
+  return String(value);
+}
+
+function readmeRow(spec: FrameworkConfigSpec): string {
+  const allowed = spec.yaml?.list
+    ? 'a list'
+    : spec.yaml?.zeroIsAuto
+      ? 'a number or auto'
+      : (yamlEnumOf(spec)?.join(' \\| ') ??
+        (spec.type === 'boolean'
+          ? 'true \\| false'
+          : spec.type === 'number'
+            ? 'a number'
+            : 'text'));
+  const description = spec.comment.replace(/\|/gu, '\\|');
+  return `| \`${spec.path.join('.')}\` | \`${yamlText(yamlDefault(spec))}\` | ${allowed} | ${description} | \`${spec.key}\` | \`${spec.env}\` |`;
 }
 
 export function writeConfigsReadme(projectRoot: string): string {
@@ -2051,32 +1943,33 @@ export function generateConfigExample(version: string = __PKG_VERSION__): string
     '# paqad framework configuration — catalog of every knob (.paqad/.config.example)',
     `${CONFIG_EXAMPLE_STAMP}${version}`,
     '#',
-    '# A copy-paste reference: every framework knob, with its default, a one-line',
-    '# explanation, and its PAQAD_* env equivalent. This file is NEVER read at',
-    '# runtime. To override a knob, copy its line into a tracked configs/.config.*',
-    '# file (team) or your git-ignored .config (local), uncomment it, and set a value.',
+    '# The reference for personal overrides: every setting, with its default, a one-line',
+    '# explanation and its PAQAD_* env equivalent, grouped by its team YAML file. This',
+    '# file is NEVER read at runtime. To override a setting for yourself, copy its line',
+    '# into your git-ignored .config, uncomment it and set a value. To change it for the',
+    '# team, set it at the YAML file and path named above it (see configs/README.md).',
     '#',
-    '# Precedence, highest first: PAQAD_* env var > .config (local) > configs/.config.*',
-    '# (team) > code default. With nothing uncommented anywhere, every knob is at the',
+    '# Precedence, highest first: PAQAD_* env var > .config (personal) > configs/*.yaml',
+    '# (team) > code default. With nothing set anywhere, every setting is at the',
     '# default shown below — identical to a fresh install.',
     '',
   ];
 
-  let currentSection = '';
-  for (const spec of FRAMEWORK_CONFIG_SPECS) {
-    if (spec.section !== currentSection) {
-      if (currentSection !== '') {
-        lines.push('');
-      }
-      lines.push(`# ── ${spec.section} ${'─'.repeat(Math.max(0, 56 - spec.section.length))}`);
-      currentSection = spec.section;
+  for (const file of [...TEAM_CONFIG_FILES, GIT_WORKFLOW_COMMITS_FILE]) {
+    lines.push(`# ── ${file} ${'─'.repeat(Math.max(0, 56 - file.length))}`);
+    for (const spec of FRAMEWORK_CONFIG_SPECS.filter((row) => row.file === file)) {
+      lines.push(`# ${file}: ${spec.path.join('.')}`);
+      lines.push(`# ${spec.comment} (env: ${spec.env})`);
+      lines.push(`# ${spec.key}=${renderDefault(spec)}`);
     }
-    lines.push(`# ${spec.comment} (env: ${spec.env})`);
-    lines.push(`# ${spec.key}=${renderDefault(spec)}`);
+    lines.push('');
   }
 
-  lines.push('');
   return lines.join('\n');
+}
+
+function renderDefault(spec: FrameworkConfigSpec): string {
+  return spec.default === undefined ? '' : String(spec.default);
 }
 
 export function writeConfigExample(projectRoot: string): string {

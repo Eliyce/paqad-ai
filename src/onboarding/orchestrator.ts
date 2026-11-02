@@ -10,12 +10,11 @@ import {
   detectFlippedFrameworkValues,
   readConfigsDir,
   reconcileConfigOverrides,
-  syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
-import { setTeamConfigValue } from '@/core/team-config.js';
+import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -245,7 +244,7 @@ export class OnboardingOrchestrator {
       );
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
-      syncGroupConfigs(options.projectRoot);
+      syncTeamConfigFiles(options.projectRoot);
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {

@@ -82,14 +82,22 @@ describe('OnboardingOrchestrator', () => {
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).not.toContain('enterprise:');
 
-    const appConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
-    expect(appConfig).toMatch(/^# enterprise=false$/m);
-    expect(appConfig).toMatch(/^# enterprise_evidence_ledger=false$/m);
-    expect(appConfig).toMatch(/^# enterprise_ai_bom=false$/m);
-    expect(appConfig).toMatch(/^# enterprise_compliance_citations=false$/m);
+    const evidence = readFileSync(
+      join(projectRoot, '.paqad/configs/feature-development/evidence.yaml'),
+      'utf8',
+    );
+    expect(evidence).not.toMatch(/^enterprise:/m);
+    expect(
+      existsSync(
+        join(projectRoot, '.paqad/configs/schemas/feature-development/evidence.schema.json'),
+      ),
+    ).toBe(true);
 
     const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
     expect(example).toMatch(/^# enterprise=false$/m);
+    expect(example).toMatch(/^# enterprise_evidence_ledger=false$/m);
+    expect(example).toMatch(/^# enterprise_ai_bom=false$/m);
+    expect(example).toMatch(/^# enterprise_compliance_citations=false$/m);
     expect(example).toMatch(/^# rag_top_n=20$/m);
     expect(example).toMatch(/^# model_default=gpt-5$/m);
   });

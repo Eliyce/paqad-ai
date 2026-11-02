@@ -11,7 +11,7 @@ import {
   agentOrchestratorEnabled,
   skillOrchestratorEnabled,
 } from '@/authoring/config.js';
-import { generateGroupConfig } from '@/core/framework-config.js';
+import { generateConfigExample } from '@/core/framework-config.js';
 
 const roots: string[] = [];
 
@@ -190,9 +190,9 @@ describe('agent settings', () => {
   });
 });
 
-describe('the policy group file', () => {
+describe('the config example', () => {
   it('lists every key commented at its default and round-trips to the defaults', () => {
-    const text = generateGroupConfig('policy');
+    const text = generateConfigExample();
     for (const key of AUTHORING_CONFIG_KEYS) {
       expect(text).toMatch(new RegExp(`^# ${key}=`, 'm'));
     }

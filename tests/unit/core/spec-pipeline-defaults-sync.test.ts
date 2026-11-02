@@ -5,12 +5,11 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  generateGroupConfig,
   layeredConfigMap,
   reconcileConfigOverrides,
-  syncGroupConfigs,
   writeConfigExample,
 } from '@/core/framework-config.js';
+import { syncTeamConfigFiles } from '@/core/team-config.js';
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 import { readSpecPipelineFlags } from '@/verification/repository/bundle-completeness-config.js';
 
@@ -33,18 +32,12 @@ describe('the spec-pipeline-on defaults never reach a config file (AC-22)', () =
 
   function runUpdateConfigPath(): void {
     writeConfigExample(root);
-    syncGroupConfigs(root);
+    syncTeamConfigFiles(root);
     reconcileConfigOverrides(root);
   }
 
   it('keeps explicit values byte for byte in the team and local files', () => {
-    const team = generateGroupConfig(
-      'policy',
-      new Map([
-        ['spec_pipeline_enabled', 'false'],
-        ['spec_pipeline_experts_enabled', 'false'],
-      ]),
-    );
+    const team = '# team policy\nspec_pipeline_enabled=false\nspec_pipeline_experts_enabled=false\n';
     writeFileSync(policy(), team);
     writeFileSync(local(), 'spec_pipeline_adoption=warn\n');
 
@@ -63,9 +56,8 @@ describe('the spec-pipeline-on defaults never reach a config file (AC-22)', () =
     runUpdateConfigPath();
 
     const after = readFileSync(policy(), 'utf8');
-    expect(after.startsWith(old.trimEnd())).toBe(true);
+    expect(after).toBe(old);
     for (const key of SWITCHES) {
-      expect(after).toMatch(new RegExp(`^# ${key}=`, 'mu'));
       expect(after).not.toMatch(new RegExp(`^${key}=`, 'mu'));
       expect(layeredConfigMap(root, {}).has(key)).toBe(false);
     }
@@ -84,7 +76,7 @@ describe('the spec-pipeline-on defaults never reach a config file (AC-22)', () =
     runUpdateConfigPath();
 
     const after = readFileSync(policy(), 'utf8');
-    expect(after.startsWith(stale.trimEnd())).toBe(true);
+    expect(after).toBe(stale);
     for (const key of SWITCHES) {
       expect(after).not.toMatch(new RegExp(`^${key}=`, 'mu'));
       expect(layeredConfigMap(root, {}).has(key)).toBe(false);

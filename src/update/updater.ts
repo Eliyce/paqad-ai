@@ -11,10 +11,10 @@ import {
   checkoutIsNewer,
   reconcileConfigOverrides,
   resolveTeamBootstrapEnabled,
-  syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
+import { syncTeamConfigFiles } from '@/core/team-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
@@ -161,7 +161,7 @@ export class FrameworkUpdater {
 
     writeConfigsReadme(projectRoot);
     writeConfigExample(projectRoot);
-    syncGroupConfigs(projectRoot);
+    syncTeamConfigFiles(projectRoot);
     const gitWorkflowNotes = updateGitWorkflow(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 

@@ -2,7 +2,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from './constants/paths.js';
-import { parseDotConfig } from './framework-config.js';
+import { parseDotConfig, type ConfigGroup } from './framework-config.js';
+
+export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
+  app: '.config.app',
+  rag: '.config.rag',
+  models: '.config.models',
+  policy: '.config.policy',
+};
 
 export const MIGRATED_STUB_MARKER = '# paqad-migrated-stub';
 

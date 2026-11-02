@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import {
-  CONFIG_GROUP_FILES,
   CONFIG_KEY_SECTIONS,
   DEFAULT_FRAMEWORK_CONFIG,
   FRAMEWORK_CONFIG_SPECS,
@@ -17,7 +16,6 @@ import {
   frameworkOverridesToFlat,
   generateConfigExample,
   generateConfigsReadme,
-  generateGroupConfig,
   layeredConfigMap,
   listConfigsFiles,
   parseDotConfig,
@@ -35,17 +33,17 @@ import {
   resolveTeamBootstrapEnabled,
   autoRuleGateConcurrency,
   setConfigValue,
-  setGroupConfigValue,
   STAGE_EFFORT_LEVELS,
   STAGE_MODELS,
   stripFrameworkConfigFromProfile,
   syncFrameworkConfig,
-  syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
+import { syncTeamConfigFiles, teamConfigHeader } from '@/core/team-config.js';
+import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
 declare const __PKG_VERSION__: string;
@@ -405,50 +403,6 @@ describe('readDotConfig / resolveFrameworkConfig', () => {
   });
 });
 
-describe('generateGroupConfig — self-documenting group files, defaults by default', () => {
-  const GROUPS = Object.keys(CONFIG_GROUP_FILES) as Array<keyof typeof CONFIG_GROUP_FILES>;
-
-  it('each group file has an intro header and documents its keys, all commented out', () => {
-    for (const group of GROUPS) {
-      const text = generateGroupConfig(group);
-      expect(text).toMatch(/^# \.paqad\/configs\/\.config\./m);
-      for (const spec of FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group)) {
-        expect(text).toContain(spec.env);
-        expect(text).toMatch(new RegExp(`^# ${spec.key}=`, 'm'));
-        expect(text).not.toMatch(new RegExp(`^${spec.key}=`, 'm'));
-      }
-    }
-  });
-
-  it('the four group files together cover every knob exactly once', () => {
-    const inFiles = GROUPS.flatMap((g) =>
-      FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === g).map((s) => s.key),
-    ).sort();
-    expect(inFiles).toEqual(FRAMEWORK_CONFIG_SPECS.map((s) => s.key).sort());
-  });
-
-  it('is byte-stable across re-runs (idempotent onboarding)', () => {
-    for (const group of GROUPS) {
-      expect(generateGroupConfig(group)).toBe(generateGroupConfig(group));
-    }
-  });
-
-  it('round-trips: uncommenting every knob line resolves back to the code defaults', () => {
-    const uncommented = GROUPS.map((g) => generateGroupConfig(g))
-      .join('\n')
-      .replace(/^# ([a-z0-9_]+=.*)$/gm, '$1');
-    expect(resolveFrameworkConfigFromMap(parseDotConfig(uncommented))).toEqual(
-      DEFAULT_FRAMEWORK_CONFIG,
-    );
-  });
-
-  it('re-emits an already-active override instead of commenting it', () => {
-    const text = generateGroupConfig('app', new Map([['enterprise', 'true']]));
-    expect(text).toMatch(/^enterprise=true$/m);
-    expect(text).not.toMatch(/^# enterprise=/m);
-  });
-});
-
 describe('generateConfigExample — the single copy-paste catalog', () => {
   const example = generateConfigExample();
 
@@ -462,6 +416,13 @@ describe('generateConfigExample — the single copy-paste catalog', () => {
 
   it('is byte-stable across re-runs (idempotent onboarding/update)', () => {
     expect(generateConfigExample()).toBe(example);
+  });
+
+  it('groups every key by its YAML home and names the file and path above it', () => {
+    for (const spec of FRAMEWORK_CONFIG_SPECS) {
+      expect(example).toContain(`# ${spec.file}: ${spec.path.join('.')}\n# ${spec.comment}`);
+    }
+    expect(example).toContain('# feature-development/specification.yaml: experts.standing\n');
   });
 
   it('round-trips: uncommenting every knob line resolves back to the code defaults', () => {
@@ -486,10 +447,15 @@ describe('generateConfigExample — the single copy-paste catalog', () => {
 
 describe('generateConfigsReadme — the team-override convention', () => {
   const readme = generateConfigsReadme();
-  it('names each suggested group file', () => {
-    for (const file of Object.values(CONFIG_GROUP_FILES)) {
-      expect(readme).toContain(file);
+  it('names each team file and lists every setting with its flat name and env var', () => {
+    for (const file of TEAM_CONFIG_FILES) {
+      expect(readme).toContain(`\`${file}\``);
     }
+    for (const spec of FRAMEWORK_CONFIG_SPECS) {
+      expect(readme).toContain(`| \`${spec.path.join('.')}\` |`);
+      expect(readme).toContain(`| \`${spec.key}\` | \`${spec.env}\` |`);
+    }
+    expect(readme).toContain('paqad-ai config show');
   });
   it('explains the git-workflow folder', () => {
     expect(readme).toContain('## git-workflow/');
@@ -498,9 +464,8 @@ describe('generateConfigsReadme — the team-override convention', () => {
     expect(readme).toContain('--no-verify');
     expect(readme).toContain('make hotfix');
   });
-  it('states the never-reset / prune-only contract', () => {
-    expect(readme.toLowerCase()).toContain('prune');
-    expect(readme).toContain('never');
+  it('states that update never changes a team value', () => {
+    expect(readme).toContain('never changes a value you set');
   });
 });
 
@@ -600,42 +565,6 @@ describe('config value writers — local and tracked group paths', () => {
     const out = readFileSync(configPath(), 'utf8');
     expect(out).toContain('# rag_top_n=20');
     expect(out).toMatch(/^rag_top_n=5$/m);
-  });
-
-  it('uncomments a generated group key in place without adding a duplicate', () => {
-    writeConfigsFile(
-      root,
-      '.config.rag',
-      '# RAG header\n# Enable retrieval.\n# rag_enabled=false\n\n# next section\n',
-    );
-
-    const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
-    const out = readFileSync(path, 'utf8');
-    expect(out).toBe('# RAG header\n# Enable retrieval.\nrag_enabled=true\n\n# next section\n');
-    expect(out.match(/^#?\s*rag_enabled=/gm)).toHaveLength(1);
-  });
-
-  it('replaces an existing group assignment and preserves surrounding text', () => {
-    writeConfigsFile(root, '.config.rag', '# header\nrag_enabled=false\n# footer\n');
-
-    setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
-
-    expect(readFileSync(join(root, '.paqad/configs/.config.rag'), 'utf8')).toBe(
-      '# header\nrag_enabled=true\n# footer\n',
-    );
-  });
-
-  it('creates the group file with just the key when none exists yet', () => {
-    const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
-    expect(readFileSync(path, 'utf8')).toBe('rag_enabled=true\n');
-  });
-
-  it('appends a new group key to an existing file without a matching assignment', () => {
-    writeConfigsFile(root, '.config.rag', '# header\nrag_top_n=5\n');
-    setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
-    expect(readFileSync(join(root, '.paqad/configs/.config.rag'), 'utf8')).toBe(
-      '# header\nrag_top_n=5\nrag_enabled=true\n',
-    );
   });
 
   it('removeConfigValue deletes the key but keeps comments and other keys', () => {
@@ -778,7 +707,7 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
     writeConfigsFile(root, '.config.app', 'hud_chime=true\n');
     writeConfig(root, 'hud_chime=true\n');
     writeConfigExample(root);
-    syncGroupConfigs(root);
+    syncTeamConfigFiles(root);
     expect(reconcileConfigOverrides(root)).toEqual([]);
     syncFrameworkConfig(root, baseProfile());
     expect(readFileSync(join(root, '.paqad/configs/.config.app'), 'utf8')).toMatch(
@@ -895,7 +824,7 @@ describe('the knob registry — internally consistent, no drift', () => {
   });
 });
 
-describe('syncGroupConfigs / writeConfigsReadme — the tracked team files', () => {
+describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', () => {
   let root: string;
   beforeEach(() => {
     root = tmpRoot();
@@ -903,27 +832,30 @@ describe('syncGroupConfigs / writeConfigsReadme — the tracked team files', () 
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('onboard writes one commented file per group; everything still resolves to defaults', () => {
-    const written = syncGroupConfigs(root);
-    expect(written).toHaveLength(4);
-    for (const file of Object.values(CONFIG_GROUP_FILES)) {
-      expect(existsSync(join(root, '.paqad', 'configs', file))).toBe(true);
+  it('onboard writes every team file with only its header; everything resolves to defaults', () => {
+    const written = syncTeamConfigFiles(root);
+    expect(written).toHaveLength(TEAM_CONFIG_FILES.length);
+    for (const file of TEAM_CONFIG_FILES) {
+      expect(readFileSync(join(root, '.paqad', 'configs', file), 'utf8')).toBe(
+        teamConfigHeader(file),
+      );
     }
     expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
   });
 
   it('is idempotent: a second sync changes nothing', () => {
-    syncGroupConfigs(root);
-    expect(syncGroupConfigs(root)).toEqual([]);
+    syncTeamConfigFiles(root);
+    expect(syncTeamConfigFiles(root)).toEqual([]);
   });
 
-  it('appends a newly-introduced key (commented) to an existing file, preserving edits', () => {
-    writeConfigsFile(root, '.config.app', '# our team header\nenterprise=true\n');
-    syncGroupConfigs(root);
-    const app = readFileSync(join(root, '.paqad', 'configs', '.config.app'), 'utf8');
-    expect(app).toContain('# our team header');
-    expect(app).toContain('enterprise=true');
-    expect(app).toMatch(/^# auto_update=true$/m);
+  it('never writes a new setting into an existing team file', () => {
+    const text = '# our team header\nenterprise:\n  enabled: true\n';
+    mkdirSync(join(root, '.paqad', 'configs', 'feature-development'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/feature-development/evidence.yaml'), text);
+    syncTeamConfigFiles(root);
+    expect(
+      readFileSync(join(root, '.paqad/configs/feature-development/evidence.yaml'), 'utf8'),
+    ).toBe(text);
   });
 
   it('writes .paqad/configs/README.md matching generateConfigsReadme()', () => {
@@ -1058,7 +990,7 @@ describe('an older paqad leaves a newer checkout untouched', () => {
     const { app, local } = seedNewerCheckout(newer);
 
     writeConfigExample(root);
-    expect(syncGroupConfigs(root)).toEqual([]);
+    expect(syncTeamConfigFiles(root)).toEqual([]);
     expect(reconcileConfigOverrides(root)).toEqual([]);
     writeConfigsReadme(root);
 
@@ -1073,7 +1005,7 @@ describe('an older paqad leaves a newer checkout untouched', () => {
     seedNewerCheckout(generateConfigExample());
 
     writeConfigExample(root);
-    expect(syncGroupConfigs(root).length).toBeGreaterThan(0);
+    expect(syncTeamConfigFiles(root).length).toBeGreaterThan(0);
     expect(reconcileConfigOverrides(root).map((file) => file.removed)).toEqual([
       ['future_local_knob'],
       ['future_knob'],
@@ -1177,15 +1109,14 @@ describe('stage agent effort and model settings', () => {
     }
   });
 
-  it('keeps a team value when config reconcile and group sync run', () => {
+  it('keeps a team value when config reconcile and team file sync run', () => {
     const root = tmpRoot();
     try {
       writeConfigsFile(root, '.config.models', 'stage_effort_review=medium\n');
       reconcileConfigOverrides(root);
-      syncGroupConfigs(root);
+      syncTeamConfigFiles(root);
       const text = readFileSync(join(root, '.paqad', 'configs', '.config.models'), 'utf8');
       expect(text).toContain('stage_effort_review=medium');
-      expect(text).toContain('# stage_model_checks=inherit');
       expect(resolveStageAgentSettings(root, {} as NodeJS.ProcessEnv).review.effort).toBe('medium');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -1307,7 +1238,7 @@ describe('lane lists', () => {
 
   it('AC-22: writes the knob, commented, into the policy file and the example', () => {
     expect(generateConfigExample()).toContain('PAQAD_STAGE_ISOLATION_LANES');
-    expect(generateGroupConfig('policy')).toMatch(/^# stage_isolation_lanes=full$/m);
+    expect(generateConfigExample()).toMatch(/^# stage_isolation_lanes=full$/m);
   });
 
   it('AC-22: declares spec_pipeline_experts_lanes in the spec pipeline section and writes it commented', () => {
@@ -1323,7 +1254,7 @@ describe('lane lists', () => {
     });
     expect(spec?.comment).toContain('graduated,full');
     expect(generateConfigExample()).toContain('PAQAD_SPEC_PIPELINE_EXPERTS_LANES');
-    expect(generateGroupConfig('policy')).toMatch(/^# spec_pipeline_experts_lanes=full$/m);
+    expect(generateConfigExample()).toMatch(/^# spec_pipeline_experts_lanes=full$/m);
   });
 });
 
@@ -1438,20 +1369,12 @@ describe('team bootstrap key', () => {
     expect(resolveTeamBootstrapEnabled(root, {})).toBe(true);
   });
 
-  it('is listed in the generated app group, the example and the committed files', () => {
+  it('is listed in the example under its paqad.yaml home, and in the committed example', () => {
     const line = '# team_bootstrap_enabled=true\n';
-    expect(generateGroupConfig('app')).toContain(line);
+    expect(generateConfigExample()).toContain(`# paqad.yaml: team_bootstrap.enabled\n`);
     expect(generateConfigExample()).toContain(line);
-    const committedApp = readFileSync(
-      join(process.cwd(), '.paqad', 'configs', '.config.app'),
-      'utf8',
-    );
     const committedExample = readFileSync(join(process.cwd(), '.paqad', '.config.example'), 'utf8');
-    for (const committed of [committedApp, committedExample]) {
-      expect(committed).toContain('# ── Team and cloud setup ');
-      expect(committed).toContain(line);
-    }
-    expect(generateGroupConfig('app')).toContain(`# ── Team and cloud setup ${'─'.repeat(36)}\n`);
-    expect(committedApp).toContain(`# ── Team and cloud setup ${'─'.repeat(36)}\n`);
+    expect(committedExample).toContain('# paqad.yaml: team_bootstrap.enabled\n');
+    expect(committedExample).toContain(line);
   });
 });

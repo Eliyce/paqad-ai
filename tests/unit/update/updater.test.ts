@@ -166,7 +166,8 @@ describe('FrameworkUpdater', () => {
     );
     const app = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
     expect(app).not.toContain('future_knob');
-    expect(app).toMatch(/^# auto_update=true$/m);
+    expect(existsSync(join(projectRoot, '.paqad/configs/paqad.yaml'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas/paqad.schema.json'))).toBe(true);
   });
 
   it('AC-6: adds a missing managed ignore line and keeps every line outside the managed block', async () => {
