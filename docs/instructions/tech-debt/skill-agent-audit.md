@@ -304,7 +304,7 @@ Persona files have no frontmatter, so no host loads them as a subagent. They are
 
 ## After
 
-As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 personas.
+As of 2026-11-02: 110 skills, 25 agents (rendered templates included) and 27 personas.
 
 ### By rule
 
@@ -322,7 +322,7 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | skills: base | 47 | 0 | 45 | 3234 | 12876 | 40397 |
 | skills: coding | 29 | 0 | 29 | 1459 | 5788 | 16922 |
 | skills: content | 6 | 0 | 6 | 301 | 1192 | 1639 |
-| skills: plugin | 17 | 0 | 17 | 1408 | 6956 | 15488 |
+| skills: plugin | 17 | 0 | 17 | 1451 | 7133 | 15488 |
 | skills: security | 11 | 0 | 10 | 602 | 2396 | 7334 |
 | agents: base | 1 | 0 | 2 | 59 | 0 | 684 |
 | agents: plugin | 8 | 8 | 6 | 272 | 0 | 3985 |
@@ -442,22 +442,22 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 | Skill | Blocking | Warnings | Fired (30 days) | Listing tokens | Body tokens before | after | drop | Rival (Jaccard 0.4 or more) | Script tests | Naming (later decision) | Open packet |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `runtime/claude-plugin/skills/ask` | 0 | 1 | no activation data | 246 | 1743 | 1615 | 128 |  | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/check-tickets` | 0 | 1 | no activation data | 48 | 906 | 795 | 111 | write-tickets (0.43) | tested | SK-004 |  |
+| `runtime/claude-plugin/skills/check-tickets` | 0 | 1 | no activation data | 58 | 906 | 795 | 111 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/dashboard` | 0 | 1 | no activation data | 52 | 213 | 201 | 12 |  | no scripts | SK-004 |  |
-| `runtime/claude-plugin/skills/decide-together` | 0 | 1 | no activation data | 45 | 767 | 741 | 26 | get-connected (0.43) | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/decide-together` | 0 | 1 | no activation data | 54 | 767 | 741 | 26 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/discover` | 0 | 1 | no activation data | 165 | 1448 | 1252 | 196 |  | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/get-connected` | 0 | 1 | no activation data | 47 | 1000 | 871 | 129 | decide-together (0.43) | tested | SK-004 |  |
+| `runtime/claude-plugin/skills/get-connected` | 0 | 1 | no activation data | 56 | 1000 | 871 | 129 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/ground-in-project` | 0 | 1 | no activation data | 51 | 1406 | 1276 | 130 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/join` | 0 | 1 | no activation data | 62 | 230 | 218 | 12 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/onboard` | 0 | 1 | no activation data | 65 | 396 | 383 | 13 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/plan-sprint` | 0 | 1 | no activation data | 220 | 1183 | 1183 | 0 |  | tested | SK-004 |  |
-| `runtime/claude-plugin/skills/post-tickets` | 0 | 1 | no activation data | 48 | 1440 | 1439 | 1 | get-connected (0.41) | tested | SK-004 |  |
+| `runtime/claude-plugin/skills/post-tickets` | 0 | 1 | no activation data | 54 | 1440 | 1439 | 1 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/refine-ticket` | 0 | 1 | no activation data | 205 | 1568 | 1454 | 114 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/shape-idea` | 0 | 1 | no activation data | 45 | 1129 | 926 | 203 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/size-work` | 0 | 1 | no activation data | 193 | 1255 | 1129 | 126 |  | tested | SK-004 |  |
 | `runtime/claude-plugin/skills/start` | 0 | 1 | no activation data | 160 | 484 | 484 | 0 |  | no scripts | SK-004 |  |
 | `runtime/claude-plugin/skills/understand-idea` | 0 | 1 | no activation data | 48 | 638 | 518 | 120 |  | no scripts | SK-004 |  |
-| `runtime/claude-plugin/skills/write-tickets` | 0 | 1 | no activation data | 47 | 1088 | 1003 | 85 | check-tickets (0.43) | no scripts | SK-004 |  |
+| `runtime/claude-plugin/skills/write-tickets` | 0 | 1 | no activation data | 56 | 1088 | 1003 | 85 |  | no scripts | SK-004 |  |
 
 </details>
 
@@ -496,10 +496,10 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 
 | Agent | Blocking | Warnings | Fired (30 days) | Listing tokens | Body tokens before | after | drop | Rival (Jaccard 0.4 or more) | Naming (later decision) | Open packet |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `runtime/claude-plugin/agents/paqad-checks.md` | 1 | 1 | 0 | 32 | 532 | 482 | 50 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-checks.md` | 1 | 1 | 8 | 32 | 532 | 482 | 50 |  | AG-002 |  |
 | `runtime/claude-plugin/agents/paqad-chief-architect.md` | 1 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
-| `runtime/claude-plugin/agents/paqad-development.md` | 1 | 1 | 9 | 33 | 547 | 505 | 42 |  | AG-002 |  |
-| `runtime/claude-plugin/agents/paqad-documentation-sync.md` | 1 | 1 | 2 | 37 | 624 | 563 | 61 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-development.md` | 1 | 1 | 19 | 33 | 547 | 505 | 42 |  | AG-002 |  |
+| `runtime/claude-plugin/agents/paqad-documentation-sync.md` | 1 | 1 | 4 | 37 | 624 | 563 | 61 |  | AG-002 |  |
 | `runtime/claude-plugin/agents/paqad-expert.md` | 1 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
 | `runtime/claude-plugin/agents/paqad-planning.md` | 1 | 1 | 2 | 28 | 510 | 461 | 49 |  | AG-002 |  |
 | `runtime/claude-plugin/agents/paqad-review.md` | 1 | 1 | 2 | 32 | 644 | 589 | 55 |  | AG-002 |  |
@@ -512,18 +512,18 @@ As of 2026-11-01: 110 skills, 25 agents (rendered templates included) and 27 per
 
 | Agent | Blocking | Warnings | Fired (30 days) | Listing tokens | Body tokens before | after | drop | Rival (Jaccard 0.4 or more) | Naming (later decision) | Open packet |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-checks` | 1 | 1 | 0 | 32 | 532 | 482 | 50 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-checks` | 1 | 1 | 8 | 32 | 532 | 482 | 50 |  | AG-002 |  |
 | `runtime/templates/stage-agents/claude.md.hbs#paqad-chief-architect` | 1 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-development` | 1 | 1 | 9 | 33 | 547 | 505 | 42 |  | AG-002 |  |
-| `runtime/templates/stage-agents/claude.md.hbs#paqad-documentation-sync` | 1 | 1 | 2 | 37 | 624 | 563 | 61 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-development` | 1 | 1 | 19 | 33 | 547 | 505 | 42 |  | AG-002 |  |
+| `runtime/templates/stage-agents/claude.md.hbs#paqad-documentation-sync` | 1 | 1 | 4 | 37 | 624 | 563 | 61 |  | AG-002 |  |
 | `runtime/templates/stage-agents/claude.md.hbs#paqad-expert` | 1 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
 | `runtime/templates/stage-agents/claude.md.hbs#paqad-planning` | 1 | 1 | 2 | 28 | 510 | 461 | 49 |  | AG-002 |  |
 | `runtime/templates/stage-agents/claude.md.hbs#paqad-review` | 1 | 1 | 2 | 32 | 644 | 589 | 55 |  | AG-002 |  |
 | `runtime/templates/stage-agents/claude.md.hbs#paqad-specification` | 1 | 1 | 4 | 38 | 545 | 498 | 47 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-checks` | 0 | 1 | 0 | 32 | 597 | 574 | 23 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-checks` | 0 | 1 | 8 | 32 | 597 | 574 | 23 |  | AG-002 |  |
 | `runtime/templates/stage-agents/codex.toml.hbs#paqad-chief-architect` | 0 | 0 | 2 | 39 | 438 | 431 | 7 |  |  |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-development` | 0 | 1 | 9 | 33 | 612 | 597 | 15 |  | AG-002 |  |
-| `runtime/templates/stage-agents/codex.toml.hbs#paqad-documentation-sync` | 0 | 1 | 2 | 37 | 689 | 655 | 34 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-development` | 0 | 1 | 19 | 33 | 612 | 597 | 15 |  | AG-002 |  |
+| `runtime/templates/stage-agents/codex.toml.hbs#paqad-documentation-sync` | 0 | 1 | 4 | 37 | 689 | 655 | 34 |  | AG-002 |  |
 | `runtime/templates/stage-agents/codex.toml.hbs#paqad-expert` | 0 | 0 | 18 | 33 | 475 | 456 | 19 |  |  |  |
 | `runtime/templates/stage-agents/codex.toml.hbs#paqad-planning` | 0 | 1 | 2 | 28 | 575 | 553 | 22 |  | AG-002 |  |
 | `runtime/templates/stage-agents/codex.toml.hbs#paqad-review` | 0 | 1 | 2 | 32 | 709 | 681 | 28 |  | AG-002 |  |
@@ -571,4 +571,4 @@ Skills that start only from their command (`disable-model-invocation: true`) lea
 
 | Listing tokens with them | Listing tokens without them | Saving |
 | --- | --- | --- |
-| 7343 | 7004 | 339 |
+| 7386 | 7047 | 339 |

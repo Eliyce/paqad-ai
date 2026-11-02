@@ -27,4 +27,4 @@ An unmapped block is listed under Unsourced and the gate fails until it carries 
 
 When S2 evidence holds an owner override there is no `sources.md` to trace to. Draft then lists each untraced block under Unsourced as `accepted: S2 evidence was overridden by decision <id>` and the gate passes. A block you listed under Unsourced yourself still needs its own reason.
 
-Draft keeps each copied file's mode, so an executable script stays executable in the workspace and after release.
+Draft keeps each copied file's mode, so an executable script stays executable in the workspace and in the released folder.
