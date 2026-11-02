@@ -10,7 +10,7 @@ USAGE
 fi
 [ -f "${1:-}" ] && [ -f "${2:-}" ] || { printf 'usage: %s <ac-file> <plan-file>\n' "$0" >&2; exit 2; }
 
-ac_ids=$( { grep -hEo 'AC-[0-9]+(\.[0-9]+)?' "$1" || true; } | sort -u)
-plan_acs=$( { grep -hE '^### AC-' "$2" || true; } | { grep -hEo 'AC-[0-9]+(\.[0-9]+)?' || true; } | sort -u)
+ac_ids=$( { grep -hEo 'AC-[0-9]+(\.[0-9]+)?' "$1" || true; } | LC_ALL=C sort -u)
+plan_acs=$( { grep -hE '^### AC-' "$2" || true; } | { grep -hEo 'AC-[0-9]+(\.[0-9]+)?' || true; } | LC_ALL=C sort -u)
 
-comm -23 <(printf '%s\n' "$ac_ids") <(printf '%s\n' "$plan_acs")
+LC_ALL=C comm -23 <(printf '%s\n' "$ac_ids") <(printf '%s\n' "$plan_acs")

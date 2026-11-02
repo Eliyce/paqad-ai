@@ -17,18 +17,18 @@ if [ -d .paqad/specs ]; then
   matches=$( { grep -lEi "$escaped" .paqad/specs/*.md 2>/dev/null || true; } )
   if [ -n "$matches" ]; then
     printf '%s\n' "$matches" | xargs grep -hEo 'AC-[0-9]+(\.[0-9]+)?' 2>/dev/null \
-      | sort -u | while IFS= read -r id; do printf 'ac-id\t%s\n' "$id"; done
+      | LC_ALL=C sort -u | while IFS= read -r id; do printf 'ac-id\t%s\n' "$id"; done
   fi
 fi
 
 if [ -d docs ]; then
   { grep -rlEi --include='*.md' "$escaped" docs 2>/dev/null || true; } \
-    | sort -u | while IFS= read -r p; do [ -n "$p" ] && printf 'doc-file\t%s\n' "$p"; done
+    | LC_ALL=C sort -u | while IFS= read -r p; do [ -n "$p" ] && printf 'doc-file\t%s\n' "$p"; done
 fi
 
 if [ -d src ]; then
   { grep -rlEi "$escaped" src 2>/dev/null || true; } \
-    | head -100 | sort -u | while IFS= read -r p; do [ -n "$p" ] && printf 'source-file\t%s\n' "$p"; done
+    | LC_ALL=C sort -u | head -100 | while IFS= read -r p; do [ -n "$p" ] && printf 'source-file\t%s\n' "$p"; done
 fi
 
 if [ -d docs ]; then
@@ -37,6 +37,6 @@ if [ -d docs ]; then
     printf '%s\n' "$endpoints_files" | xargs grep -hEi "(GET|POST|PUT|PATCH|DELETE)[[:space:]]+/[A-Za-z0-9_/{}-]+" 2>/dev/null \
       | { grep -Ei "$escaped" || true; } \
       | { grep -oE "(GET|POST|PUT|PATCH|DELETE)[[:space:]]+/[A-Za-z0-9_/{}-]+" || true; } \
-      | sort -u | while IFS= read -r e; do [ -n "$e" ] && printf 'api-endpoint\t%s\n' "$e"; done
+      | LC_ALL=C sort -u | while IFS= read -r e; do [ -n "$e" ] && printf 'api-endpoint\t%s\n' "$e"; done
   fi
 fi

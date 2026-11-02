@@ -20,7 +20,7 @@ describeContract({
       'src/Slow.css': '.z { animation: slide 800ms linear; }',
     },
     stdout:
-      '<dir>/src/C.tsx:1\t300\t<motion.div transition={{ duration: 0.3 }} />\n<dir>/src/B.css:1\t500\t.y { transition-duration: 0.5s; }\n<dir>/src/A.css:1\t300\t.x { transition: all 300ms ease; }\n<dir>/src/Slow.css:1\t800\t.z { animation: slide 800ms linear; }\n',
+      '<dir>/src/A.css:1\t300\t.x { transition: all 300ms ease; }\n<dir>/src/B.css:1\t500\t.y { transition-duration: 0.5s; }\n<dir>/src/C.tsx:1\t300\t<motion.div transition={{ duration: 0.3 }} />\n<dir>/src/Slow.css:1\t800\t.z { animation: slide 800ms linear; }\n',
   },
   invalid: { args: ['no-such-root'], exit: 0 },
 });

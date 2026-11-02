@@ -14,10 +14,10 @@ map="docs/instructions/rules/module-map.yml"
 
 declared=$( { grep -E '^[a-z][a-z0-9_-]*:[[:space:]]*$' "$map" || true; } \
   | sed -E 's/^([a-z0-9_-]+):.*/\1/' \
-  | sort -u)
+  | LC_ALL=C sort -u)
 
 for d in docs/modules/*/; do
   [ -d "$d" ] || continue
   slug=$(basename "$d")
   grep -qx "$slug" <<<"$declared" || printf 'docs/modules/%s\n' "$slug"
-done | sort -u
+done | LC_ALL=C sort -u

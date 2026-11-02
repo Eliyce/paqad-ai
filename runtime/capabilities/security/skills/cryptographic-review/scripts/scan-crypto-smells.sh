@@ -14,6 +14,7 @@ root="${1:-src}"
 scan() {
   pat="$1"; smell="$2"
   { grep -rEni --binary-files=without-match "$pat" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -25 \
     | awk -v s="$smell" -F: '{ excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i;
         gsub(/[ \t]+/, " ", excerpt);

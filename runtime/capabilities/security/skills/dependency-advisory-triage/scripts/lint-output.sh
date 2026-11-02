@@ -20,7 +20,7 @@ grep -qE '^## Dependency Findings' <<<"$body" || say 'missing "## Dependency Fin
 
 em=$'\xe2\x80\x94'
 keys=$(printf '%s\n' "$body" | grep -E '^### ' | sed -E "s/^### //; s/(:[[:space:]]|[[:space:]]+${em}).*\$//")
-dupes=$(printf '%s\n' "$keys" | sort | uniq -d)
+dupes=$(printf '%s\n' "$keys" | LC_ALL=C sort | uniq -d)
 [ -n "$dupes" ] && say "duplicate finding keys: $(printf '%s' "$dupes" | tr '\n' ' ')"
 
 count=$(printf '%s\n' "$keys" | grep -c '.' || true)

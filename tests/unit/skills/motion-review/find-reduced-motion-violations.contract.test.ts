@@ -20,7 +20,7 @@ describeContract({
         "import { motion } from 'framer-motion';\nexport const T = () => <motion.div transition={{ duration: 0.3 }} />;",
     },
     stdout:
-      '<dir>/src/Toast.tsx\texport const T = () => <motion.div transition={{ duration: 0.3 }} />;\n<dir>/src/Bad.css\t.x { transition: all 300ms ease; }\n',
+      '<dir>/src/Bad.css\t.x { transition: all 300ms ease; }\n<dir>/src/Toast.tsx\texport const T = () => <motion.div transition={{ duration: 0.3 }} />;\n',
   },
   invalid: { args: ['no-such-root'], exit: 0 },
 });

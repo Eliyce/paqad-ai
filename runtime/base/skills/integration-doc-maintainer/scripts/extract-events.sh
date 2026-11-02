@@ -18,4 +18,4 @@ fi
       | { grep -oE "[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*" || true; } \
       | { grep -E '\.(created|updated|deleted|completed|failed|started|finished|refunded|charged|invited)$' || true; }
   done
-} | sort -u
+} | LC_ALL=C sort -u

@@ -34,7 +34,7 @@ animated=$(grep -rlE --binary-files=without-match \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \
   --exclude='*.test.*' --exclude='*.spec.*' --exclude='*.stories.*' \
   -E '(transition|animation)(-duration)?[[:space:]]*:|@keyframes\b|<motion\.|useAnimation\(' \
-  "$root" 2>/dev/null || true)
+  "$root" 2>/dev/null | LC_ALL=C sort || true)
 
 [ -z "$animated" ] && exit 0
 

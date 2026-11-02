@@ -18,7 +18,7 @@ describeContract({
       'src/B.tsx': '<Button>Yes</Button>',
       'src/C.tsx': '<button>Save</button>',
     },
-    stdout: '<dir>/src/B.tsx:1\tYes\n<dir>/src/A.tsx:1\tOK\n',
+    stdout: '<dir>/src/A.tsx:1\tOK\n<dir>/src/B.tsx:1\tYes\n',
   },
   invalid: { args: [], exit: 2 },
 });

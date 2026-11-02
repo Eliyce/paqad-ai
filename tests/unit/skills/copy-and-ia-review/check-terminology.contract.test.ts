@@ -18,7 +18,7 @@ describeContract({
       'src/Settings.tsx': '<h1>User Settings</h1>',
       'src/Team.tsx': '<p>Add a user to the team.</p>',
     },
-    stdout: '<dir>/src/Team.tsx:1\tuser\tMember\n<dir>/src/Settings.tsx:1\tUser\tMember\n',
+    stdout: '<dir>/src/Settings.tsx:1\tUser\tMember\n<dir>/src/Team.tsx:1\tuser\tMember\n',
   },
   invalid: { args: [], exit: 2 },
 });

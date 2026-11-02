@@ -22,6 +22,6 @@ while IFS= read -r p; do
     *) domain=canonical ;;
   esac
   printf '%s\t%s\n' "$domain" "$p"
-done > >(sort -u)
+done > >(LC_ALL=C sort -u)
 wait
 [ "$routed" -eq 1 ] || echo "note: no doc paths on stdin" >&2

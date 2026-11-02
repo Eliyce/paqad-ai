@@ -9,4 +9,4 @@ USAGE
   exit 0
 fi
 [ -f "${1:-}" ] || { printf 'usage: bash scripts/extract-ac-ids.sh <ac-file>\n' >&2; exit 2; }
-{ grep -Eo 'AC-[0-9]+(\.[0-9]+)?' "$1" || true; } | sort -u
+{ grep -Eo 'AC-[0-9]+(\.[0-9]+)?' "$1" || true; } | LC_ALL=C sort -u

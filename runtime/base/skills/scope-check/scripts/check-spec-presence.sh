@@ -14,7 +14,7 @@ if [ ! -d "$root" ]; then
   printf 'no specs directory at %s: blocked-no-spec\n' "$root" >&2
   exit 1
 fi
-specs=$(find "$root" -maxdepth 2 -type f -name '*.md' 2>/dev/null | sort -u)
+specs=$(find "$root" -maxdepth 2 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort -u)
 if [ -z "$specs" ]; then
   printf 'no spec artifacts found under %s: blocked-no-spec\n' "$root" >&2
   exit 1

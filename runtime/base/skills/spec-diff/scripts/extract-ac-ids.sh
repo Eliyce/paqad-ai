@@ -12,4 +12,4 @@ fi
 { for f in "$@"; do
   [ -f "$f" ] || continue
   grep -hEo 'AC-[0-9]+(\.[0-9]+)?' "$f" 2>/dev/null || true
-done; } | sort -u
+done; } | LC_ALL=C sort -u

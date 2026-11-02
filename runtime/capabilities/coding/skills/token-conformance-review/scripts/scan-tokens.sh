@@ -34,6 +34,7 @@ exclude=(
 scan() {
   pattern="$1"; category="$2"
   { grep -rEn --binary-files=without-match "${exclude[@]}" "$pattern" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -200 \
     | awk -v c="$category" -F: '
         { excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i;
