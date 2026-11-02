@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const PAQAD_LAUNCHER_VERSION = '1.115.0';
+export const PAQAD_LAUNCHER_VERSION = '1.116.0';
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
