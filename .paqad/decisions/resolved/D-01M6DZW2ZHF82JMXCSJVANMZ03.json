@@ -21,8 +21,11 @@
   ],
   "recommendation": "remove",
   "created_at": "2026-11-02T11:21:20.114Z",
-  "status": "pending",
+  "status": "resolved",
   "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "allow",
+  "rationale": "Owner re-approved Bash after the review fixes changed the body; the reasons are unchanged.",
+  "resolved_at": "2026-11-02T11:22:40.288Z",
   "decision_id": "D-01M6DZW2ZHF82JMXCSJVANMZ03",
   "fingerprint": "sha256:7de67d7c50615b9a0bb465dce45403b8ca2811ee76d85f8139f5100a3ca9e8dc",
   "question": "The agent paqad-specification asks for these powers: Bash. Allow these powers?",
@@ -31,5 +34,14 @@
   "requested_by": "paqad-decision-cli",
   "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
   "ttl_until": "2026-12-02T11:21:20.114Z",
-  "invalidation_watch": []
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T11:22:40.288Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner re-approved Bash after the review fixes changed the body; the reasons are unchanged."
+  }
 }
