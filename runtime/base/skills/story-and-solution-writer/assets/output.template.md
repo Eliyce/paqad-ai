@@ -1,6 +1,6 @@
 ## Story
 
-{{one paragraph user/business problem grounded in the request — no implementation detail}}
+{{one paragraph user/business problem grounded in the request, no implementation detail}}
 
 ## Constraints
 
@@ -9,7 +9,7 @@
 
 ## Proposed Solution
 
-1. {{ordered step describing the workflow outcome — not code}}
+1. {{ordered step describing the workflow outcome: not code}}
 2. {{...}}
 
 ## Verification Notes

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readAgentRecord, readSkillRecord } from '@/feature-evidence/artifacts.js';
+import { isGeneratedProjectStageAgent } from '@/onboarding/stage-agent-migration.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { agentOrchestratorEnabled, skillOrchestratorEnabled } from './config.js';
@@ -86,6 +87,12 @@ function hookScriptsOf(projectRoot: string, path: string): string[] {
   return split.ok ? agentHookScripts(projectRoot, split.data.hooks).scripts : [];
 }
 
+function generatedStageAgent(projectRoot: string, path: string): boolean {
+  if (!path.startsWith('.claude/agents/paqad-')) return false;
+  const text = readTextIfPresent(join(projectRoot, path));
+  return text !== null && isGeneratedProjectStageAgent(path, text);
+}
+
 export function changedAgentFiles(
   projectRoot: string,
   changedFiles: readonly string[],
@@ -109,6 +116,7 @@ export function changedAgentFiles(
   for (const file of changedFiles) {
     const normal = file.replaceAll('\\', '/');
     const name = agentNameOf(normal, context.adapters, context);
+    if (name !== null && generatedStageAgent(projectRoot, normal)) continue;
     if (name !== null) {
       found.set(normal, { name, path: normal });
       continue;

@@ -1,0 +1,15 @@
+triggers:
+  - api_impact:
+      - additive-endpoint
+      - modified-endpoint
+      - breaking-change
+cache_key_inputs: []
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: Implementation files that changed API behavior.
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Canonical API docs to sync.

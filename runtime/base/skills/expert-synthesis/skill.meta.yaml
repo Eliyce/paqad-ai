@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  context:
+    type: object
+    required: true
+    description: The JSON printed by `paqad-ai spec pipeline experts context`, with the request, the grounding, the label, the roster, every expert note, and the merge (findings with ids, and conflicts).

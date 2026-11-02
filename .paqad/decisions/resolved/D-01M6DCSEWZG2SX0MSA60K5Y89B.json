@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6DCSEWZG2SX0MSA60K5Y89B",
+  "category": "authoring.override",
+  "title": "The agent paqad-checks cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485: this change edits the agent in bulk; the owner chose to run lint, script tests and release and override justify, intake, evidence, eval and trigger/delegation per item. Secrets and agent risky powers are not overridden.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-checks is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-checks helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-checks is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-02T05:47:51.072Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "add-unverified",
+  "rationale": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+  "resolved_at": "2026-11-02T05:47:51.465Z",
+  "decision_id": "D-01M6DCSEWZG2SX0MSA60K5Y89B",
+  "fingerprint": "sha256:7d3b2498967e4b920d08ab918d9e33b011ddd1890b7ebc557408a2be6e68aa58",
+  "question": "The agent paqad-checks cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-02T05:47:51.072Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T05:47:51.465Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485"
+  }
+}

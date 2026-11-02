@@ -34,7 +34,7 @@ for (const [i, t] of arr.entries()) {
     console.error("#" + i + ": bad severity_hint " + t.severity_hint); issues++;
   }
   if (t.threat_description && /^(generic|boilerplate)/i.test(t.threat_description)) {
-    console.error("#" + i + ": generic threat_description — name the specific asset/route"); issues++;
+    console.error("#" + i + ": generic threat_description; name the specific asset/route"); issues++;
   }
 }
 if (issues) process.exit(1);

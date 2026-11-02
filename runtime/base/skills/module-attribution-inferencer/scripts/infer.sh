@@ -11,6 +11,7 @@ Usage:   bash scripts/infer.sh <prompt-file> [project-root] [max-choices]
 Output:  JSON on stdout (hypothesis + alternatives).
 Exits:   0 ok | 2 usage error
 USAGE
+  case "${1:-}" in --help|-h) exit 0 ;; esac
   exit 2
 fi
 

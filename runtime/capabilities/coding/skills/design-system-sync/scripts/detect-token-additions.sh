@@ -39,7 +39,7 @@ printf '%s\n' "$body" | awk '
     line = $0
     sub(/^\+/, "", line)
     # Accept either an identifier key (`brand:`) or a quoted key
-    # (`"14": '56px'` or `'14': '56px'`) — Tailwind config commonly uses both.
+    # (`"14": '56px'` or `'14': '56px'`): Tailwind config commonly uses both.
     if (match(line, /([A-Za-z][A-Za-z0-9_-]*|['"'"'"][A-Za-z0-9_-]+['"'"'"])[[:space:]]*:[[:space:]]*['"'"'"][^'"'"'"]+['"'"'"]/)) {
       s = substr(line, RSTART, RLENGTH)
       colon = index(s, ":")

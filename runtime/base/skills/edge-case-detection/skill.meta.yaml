@@ -1,0 +1,14 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Scoped request or solution summary.
+  acceptance_criteria_path:
+    type: path
+    required: false
+    description: Acceptance criteria artifact for edge-case evaluation.

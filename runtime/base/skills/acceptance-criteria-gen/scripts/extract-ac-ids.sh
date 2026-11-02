@@ -24,4 +24,4 @@ fi
 printf '%s' "$src" \
   | { grep -Eo 'AC-[0-9]+(\.[0-9]+)?' || true; } \
   | { grep -Ev '\.' || true; } \
-  | sort -u -t- -k2 -n
+  | LC_ALL=C sort -u -t- -k2 -n

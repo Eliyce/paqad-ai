@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "canonical-doc-sync",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:8fc3c5ac551ddb07ac354e042eac92612f4f9371306054c144cb055317681af7",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/canonical-doc-sync",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:07.872Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:09.405Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:10.917Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:12.356Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:13.815Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHE8Z3CWMAV8HKZTY51KXX",
+    "D-01M6DHEAHWYD880BCJS7JBBBYB",
+    "D-01M6DHEC0GEH9GS34RSY1PPV8R",
+    "D-01M6DHEDDKW0BXFFNW9TGWAN7R",
+    "D-01M6DHEEV2N8YJRN6KHQPYQ5D3"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

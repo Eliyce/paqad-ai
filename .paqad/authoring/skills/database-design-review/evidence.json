@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "database-design-review",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:b66b6d63dc1da51af23b8dc9f0a53ae37c318ddb7f7db8e37ae8b1bdec5876bc",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/database-design-review",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:17:06.396Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:17:07.923Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:17:09.511Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:17:11.024Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:17:12.628Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHWWAEA03R2DNEHE1MPFK5",
+    "D-01M6DHWXTXH1SS326F0SQD4V0R",
+    "D-01M6DHWZCWCS3M4JMJHAWBKHZZ",
+    "D-01M6DHX0VHRMQWSRAW56RK4F2V",
+    "D-01M6DHX2CSFAFF54NWA2WC40E7"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

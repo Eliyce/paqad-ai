@@ -1,0 +1,14 @@
+triggers:
+  - scope:
+      - multi-module
+      - system-wide
+cache_key_inputs: []
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: Implementation files affecting integrations.
+  integration_doc_paths:
+    type: path[]
+    required: true
+    description: Canonical integration docs to sync.

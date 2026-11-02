@@ -1,5 +1,7 @@
 # Guard evidence
 
+verified: 2026-11-02
+
 A guard is a claim that access to a surface or transition is controlled. Recording a guard the
 code does not actually enforce is worse than recording none: it puts a lock on the map where the
 door is open. So a guard exists only where the enforcement is proven.

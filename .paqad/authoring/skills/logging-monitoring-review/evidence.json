@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "logging-monitoring-review",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:2dc66a81aca1b7f770996f4c711ad65d8777c9053a75821375d78efa3bde3a2d",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 0
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/logging-monitoring-review",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:26.953Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:28.476Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:30.204Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:31.727Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:33.337Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ8FZBPY76V7T7BYX6JTDQ",
+    "D-01M6DJ8HF79EV9WP2Z8MZJ0D3G",
+    "D-01M6DJ8K61TH7JXG1QTMW0E48R",
+    "D-01M6DJ8MMT3KR9GW2SKVYY1E7G",
+    "D-01M6DJ8P6V08S0ZEYH0F15SRMB"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6DJ9WSY91HYZCKGG87QHTVE",
+  "category": "authoring.override",
+  "title": "The skill runtime-surface-probing cannot run its S1 check. Add it unverified, kept in this project?",
+  "context": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485: this change edits the skill in bulk; the owner chose to run lint, script tests and release and override justify, intake, evidence, eval and trigger per item. Secrets are not overridden.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, runtime-surface-probing is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that runtime-surface-probing helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, runtime-surface-probing is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-02T07:24:12.478Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "add-unverified",
+  "rationale": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+  "resolved_at": "2026-11-02T07:24:12.903Z",
+  "decision_id": "D-01M6DJ9WSY91HYZCKGG87QHTVE",
+  "fingerprint": "sha256:87c2cbfa4f2f7d1375edc67b63c4d350e2765d373f5582a7e24b47264318af4f",
+  "question": "The skill runtime-surface-probing cannot run its S1 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-02T07:24:12.478Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T07:24:12.903Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485"
+  }
+}

@@ -22,6 +22,8 @@ CLI:
   check_ticket_set.py --ticket-set <ticket-set.json>
 
 stdout: {"ok", "issues"}. Exit 0 clean, 1 on any failure.
+
+Run with --help to print the usage.
 """
 
 import argparse

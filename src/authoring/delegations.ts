@@ -66,17 +66,20 @@ function visitDelegations(fd: number, visit: (delegation: AgentDelegation) => vo
 export function forEachDelegation(
   projectRoot: string,
   visit: (delegation: AgentDelegation) => void,
-): void {
+): boolean {
   const path = join(projectRoot, DELEGATIONS_LEDGER);
+  let ledgerFound = false;
   for (const file of [`${path}${DELEGATION_COMPACTING_SUFFIX}`, path]) {
     const fd = openIfPresent(file);
     if (fd === null) continue;
+    if (file === path) ledgerFound = true;
     try {
       visitDelegations(fd, visit);
     } finally {
       closeSync(fd);
     }
   }
+  return ledgerFound;
 }
 
 function takeLock(lock: string, now: Date): boolean {

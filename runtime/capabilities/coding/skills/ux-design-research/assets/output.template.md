@@ -6,13 +6,13 @@
 
 ## Reference Findings
 
-- **Source:** {{site/product, dated}} — **Pattern:** {{interaction pattern observed}} — **Why it matters here:** {{ties back to project constraint or state in our flow}}
+- **Source:** {{site/product, dated}} (**Pattern:** {{interaction pattern observed}}) **Why it matters here:** {{ties back to project constraint or state in our flow}}
 - ...
 
 ## Recommended Directions
 
-- **Pattern:** {{which observed pattern to adopt}} — **Adapt for:** {{specific state/flow/component}} — **Validation:** {{what would prove it works in this product}}
+- **Pattern:** {{which observed pattern to adopt}} (**Adapt for:** {{specific state/flow/component}}) **Validation:** {{what would prove it works in this product}}
 
 <!-- If research found nothing applicable, use: -->
 <!-- ## Recommended Directions
-- none — patterns surveyed do not transfer; recommend in-house exploration. -->
+- none: patterns surveyed do not transfer; recommend in-house exploration. -->

@@ -1,0 +1,117 @@
+{
+  "schema_version": "1",
+  "agent": "paqad-development",
+  "version": "1.1.0",
+  "file_hash": "sha256:01648a827f3b323d0ca82f1cf0b52ea749c661f742bfd3b0463b0de228ce9a43",
+  "released_path": "runtime/claude-plugin/agents/paqad-development.md",
+  "files": [
+    "runtime/claude-plugin/agents/paqad-development.md"
+  ],
+  "pattern": null,
+  "class": null,
+  "invocation": null,
+  "baseline": {
+    "arm": null,
+    "runs": 0,
+    "passed": "unavailable",
+    "verdict": "overridden"
+  },
+  "reliability": null,
+  "delegation": null,
+  "memory": "none",
+  "returned_to_main_tokens_median": "unavailable",
+  "host_notes": {
+    "claude-plugin": [
+      "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
+    ]
+  },
+  "deployable": {
+    "claude-plugin": true
+  },
+  "proposals": [],
+  "sdk": {
+    "path": ".paqad/authoring/agents/paqad-development/paqad-development.agent.json",
+    "fields_checked": {
+      "checked": "2026-11-01",
+      "source": "Claude Agent SDK AgentDefinition type (TypeScript reference)"
+    },
+    "run_options": {
+      "maxBudgetUsd": 5
+    },
+    "uncarried_rules": []
+  },
+  "plugin": {
+    "settings_hooks": []
+  },
+  "model_stamp": {
+    "model": "inherit",
+    "proven_on": null,
+    "tier": null
+  },
+  "performance": {
+    "source": "unavailable"
+  },
+  "batch": "unavailable",
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 4
+  },
+  "script_tests": {
+    "command": null,
+    "tests": 0,
+    "passed": 0
+  },
+  "permission_decisions": [
+    "D-01M6DXJ0TT9THJYXWHBTB1WM7C",
+    "D-01M6DZW44C0VQY1QQ4SS38SZ34"
+  ],
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:40:44.599Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:40:46.210Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:40:47.848Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:40:49.575Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:40:51.242Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DXHR53NCFVNCRE8BPNJYA1",
+    "D-01M6DXHSQTJ4VBWFXBEP9BQ9RA",
+    "D-01M6DXHV9Q9D1ST2C20D8YPJAE",
+    "D-01M6DXHX0QHWCKZBW226AP50Y5",
+    "D-01M6DXHYMQXAHGBTAXH0PGGRF6",
+    "D-01M6DXJ0TT9THJYXWHBTB1WM7C",
+    "D-01M6DZW44C0VQY1QQ4SS38SZ34"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

@@ -1,0 +1,16 @@
+triggers:
+  - output_type:
+      - documentation
+      - report
+cache_key_inputs:
+  - .paqad/glossary.md
+  - docs/**/*.md
+input_schema:
+  changed_terms:
+    type: string[]
+    required: true
+    description: Terms introduced or modified by the change.
+  glossary_path:
+    type: path
+    required: true
+    description: Canonical glossary file.

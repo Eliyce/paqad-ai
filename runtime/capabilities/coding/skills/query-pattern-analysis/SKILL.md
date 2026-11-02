@@ -1,25 +1,11 @@
 ---
 name: query-pattern-analysis
-description: Analyze query behavior for correctness and performance risk.
-model_tier: reasoning
-triggers:
-  - database_impact:
-      - query-change
-      - schema-change
-cacheable: true
-cache_key_inputs:
-  - docs/modules/*/database/queries.md
-  - docs/modules/*/database/schema.md
-output_format: markdown
-input_schema:
-  query_paths:
-    type: path[]
-    required: true
-    description: Queries or logs to inspect.
-  module_doc_paths:
-    type: path[]
-    required: false
-    description: Related module docs.
+description: 'Analyzes query behavior for correctness and performance risk. Use when a request changes filtering, pagination, aggregation, eager loading, write batching or another query path that real data volume could regress.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -28,7 +14,7 @@ Analyzes changed query behavior for correctness, safety, and runtime cost so new
 
 ## Use This When
 
-Use this when a request changes filtering, pagination, aggregation, eager loading, write batching, or any query path that could regress with real data volume.
+When a request changes filtering, pagination, aggregation, eager loading, write batching, or any query path that could regress with real data volume.
 
 ## Inputs
 

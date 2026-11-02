@@ -26,7 +26,7 @@ Bulleted. "Not in scope" is required, even when it reads "Nothing excluded yet".
 
 ## How we'll know it worked
 
-The author's success measures. Without a number, write "To be measured after release". Never
+The author's success measures. Without a number, write "To be measured once it ships". Never
 invent one.
 
 ## Decisions made

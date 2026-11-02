@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - site-map
+cache_key_inputs: []
+input_schema:
+  surfaces:
+    type: path
+    required: true
+    description: The modeled surfaces the transitions connect (output of surface-modeling).

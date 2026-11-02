@@ -1,0 +1,17 @@
+triggers:
+  - ui_impact:
+      - new-component
+      - new-screen
+      - redesign
+cache_key_inputs:
+  - docs/modules/*/ui/*.md
+  - src/components/**
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: UI implementation files that changed.
+  ui_doc_paths:
+    type: path[]
+    required: true
+    description: Canonical UI docs to update.

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CYQ0JFG84Y6JXY78QBM485",
+  "category": "workflow-or-tool",
+  "title": "The skill authoring flow can't run as decided: S2 needs an intake, and release strips the executable bit from 162 skill scripts",
+  "context": "Following D-01M6CG6W9M6GN70AW52REH71SZ (skip S0/S1/S5/S6) hits two blockers before any of the 110 changed skills can release. (1) S3 draft requires S2 evidence passed, and S2 (src/authoring/stages/sources.ts runEvidence) refuses when intake.yaml is missing, which it always is once S1 is overridden; S2 also runs the overlap check, so check-tickets, write-tickets, decide-together, get-connected and post-tickets would wait on authoring.overlap packets. S2 is not in the approved skip list. (2) S3 draft copies text files into the workspace with workspace.write (writeFileSync with no mode, so 0644), and S7 release (src/authoring/stages/release.ts copyIntoHost) runs rmSync on the runtime source folder and copies the draft back over it. That drops the executable bit on 162 tracked 100755 scripts in 69 changed skills (for example runtime/base/skills/acceptance-criteria-gen/scripts/*.sh). git core.fileMode is true, so release would change committed skill files. Nothing has been run yet: no override packets, no workspaces.",
+  "options": [
+    {
+      "option_key": "fix-then-run",
+      "label": "Fix draft/release to keep file modes (and skip the copy when the target is the source folder) in this change, add S2 to the overrides, then run the flow",
+      "one_line_preview": "Fix draft/release to keep file modes (and skip the copy when the target is the source folder) in this change, add S2 to the overrides, then run the flow",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "intake-from-frontmatter",
+      "label": "Fix the file-mode bug, run S1 intake and S2 evidence for real from each SKILL.md (generated intake and repo sources), override only S0/S5/S6",
+      "one_line_preview": "Fix the file-mode bug, run S1 intake and S2 evidence for real from each SKILL.md (generated intake and repo sources), override only S0/S5/S6",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ship-red",
+      "label": "Leave the gate red for the skills and file a follow-up issue for both bugs",
+      "one_line_preview": "Leave the gate red for the skills and file a follow-up issue for both bugs",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fix-then-run",
+  "created_at": "2026-11-02T01:41:50.799Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "fix-then-run",
+  "rationale": "Owner, asked in session: fix file-mode handling in draft/release and skip the self-copy, add S2 to the overrides, then run the records",
+  "resolved_at": "2026-11-02T05:31:33.112Z",
+  "decision_id": "D-01M6CYQ0JFG84Y6JXY78QBM485",
+  "fingerprint": "sha256:cc342457cbe06f35350466162ceec11430ebb702755f365a967291fdf1fe4e90",
+  "question": "The skill authoring flow can't run as decided: S2 needs an intake, and release strips the executable bit from 162 skill scripts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-09T01:41:50.799Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix-then-run",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T05:31:33.112Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, asked in session: fix file-mode handling in draft/release and skip the self-copy, add S2 to the overrides, then run the records"
+  }
+}

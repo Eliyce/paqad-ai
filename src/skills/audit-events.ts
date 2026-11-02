@@ -3,7 +3,8 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
-export type SkillAuditEventType = 'skill.load_failed' | 'skill.pack_load_failed';
+export type SkillAuditEventType =
+  'skill.load_failed' | 'skill.pack_load_failed' | 'skill.metadata_deprecated';
 
 export interface SkillLoadFailedEvent {
   ts: string;
@@ -25,7 +26,22 @@ export interface SkillPackLoadFailedEvent {
   content_hash: string;
 }
 
-export type SkillAuditEvent = SkillLoadFailedEvent | SkillPackLoadFailedEvent;
+export interface SkillMetadataDeprecatedEvent {
+  ts: string;
+  type: 'skill.metadata_deprecated';
+  path: string;
+  skill: string;
+  message: string;
+}
+
+export type SkillAuditEvent =
+  SkillLoadFailedEvent | SkillPackLoadFailedEvent | SkillMetadataDeprecatedEvent;
+
+const AUDIT_EVENT_TYPES: ReadonlySet<string> = new Set<SkillAuditEventType>([
+  'skill.load_failed',
+  'skill.pack_load_failed',
+  'skill.metadata_deprecated',
+]);
 
 export const DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY = 50;
 
@@ -99,14 +115,41 @@ export function readSkillAuditEvents(projectRoot: string): SkillAuditEvent[] {
     if (trimmed.length === 0) continue;
     try {
       const parsed = JSON.parse(trimmed) as SkillAuditEvent;
-      if (
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        (parsed.type === 'skill.load_failed' || parsed.type === 'skill.pack_load_failed')
-      ) {
+      if (typeof parsed === 'object' && parsed !== null && AUDIT_EVENT_TYPES.has(parsed.type)) {
         out.push(parsed);
       }
     } catch {}
   }
   return out;
+}
+
+const shownDeprecations = new Set<string>();
+
+function deprecationKey(event: SkillMetadataDeprecatedEvent): string {
+  return `${event.path}\n${event.message}`;
+}
+
+export function recordSkillMetadataDeprecation(
+  event: SkillMetadataDeprecatedEvent,
+  projectRoot: string | undefined,
+  warn: (line: string) => void = (line) => process.stderr.write(`${line}\n`),
+): boolean {
+  const key = deprecationKey(event);
+  if (shownDeprecations.has(key)) return false;
+  shownDeprecations.add(key);
+  if (projectRoot !== undefined) {
+    const seen = readSkillAuditEvents(projectRoot).some(
+      (prior) => prior.type === 'skill.metadata_deprecated' && deprecationKey(prior) === key,
+    );
+    if (seen) return false;
+    try {
+      appendSkillAuditEvent(projectRoot, event);
+    } catch {}
+  }
+  warn(`paqad: ${event.message}`);
+  return true;
+}
+
+export function clearShownSkillMetadataDeprecations(): void {
+  shownDeprecations.clear();
 }

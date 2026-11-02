@@ -303,6 +303,10 @@ const NOT_APPLICABLE = [
     'contract: SubagentStop records a stage-agent row (stage-agent-completion)',
     'appends exactly one stage-agent row and exits 0',
   ),
+  caseKey(
+    'contract: a stale project stage agent does not double the dispatch',
+    'AC-21: one SubagentStart record and one stage-agent row for the plugin agent',
+  ),
 ];
 
 interface ContractCase {

@@ -1,0 +1,22 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+  - workflow:
+      - feature-development
+      - bug-fix
+      - refactor
+cache_key_inputs: []
+input_schema:
+  verification_evidence_path:
+    type: path
+    required: true
+    description: Path to .paqad/session/verification-evidence.json (schema 1.0.0 or compatible).
+  acceptance_criteria_path:
+    type: path
+    required: false
+    description: Acceptance criteria artifact for cross-checking each failure's AC id.
+  changed_file_paths:
+    type: path[]
+    required: false
+    description: Files in the current change set so confidence can be calibrated.

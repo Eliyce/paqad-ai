@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - module-health-update
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve module-map.yml and the active stack pack. Defaults to cwd.

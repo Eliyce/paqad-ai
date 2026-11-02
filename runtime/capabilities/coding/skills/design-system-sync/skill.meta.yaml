@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - feature-development
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/design-tokens/**
+  - src/components/**
+  - tailwind.config.*
+  - docs/instructions/design-system/**
+input_schema:
+  diff_paths:
+    type: path[]
+    required: true
+    description: Changed files in the current diff that may require a design-system contract update.

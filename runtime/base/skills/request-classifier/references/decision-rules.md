@@ -1,5 +1,7 @@
 # Classification Decision Rules
 
+verified: 2026-11-02
+
 Prefer explicit request language over inference.
 
 When unsure:

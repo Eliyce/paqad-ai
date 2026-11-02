@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
+import { overlapScore } from '@/authoring/overlap';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy';
+import { renderStageAgentFiles } from '@/stage-isolation/agent-writer';
 import {
+  HIGH_TABLE_AGENTS,
   MANDATORY_STAGE_AGENTS,
+  readStageReportStatus,
+  REPORT_MAX_TOKENS,
+  STAGE_REPORT_STATUSES,
   STAGE_AGENT_STAGES,
   agentNameForStage,
   AGENT_ENTRY_MARKER_FALLBACK,
   buildStageAgentBody,
   DEVELOPMENT_RESUME_LINE,
   SPEC_FOREGROUND_START_LINE,
+  SPEC_HIGH_TABLE_HANDBACK_LINE,
   STAGE_AGENT_HARD_RULES,
   STAGE_BRIEF_FALLBACK_LINE,
+  READ_ONLY_DO_NOT,
   WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion';
@@ -54,7 +62,7 @@ describe('stage-agent definitions', () => {
   });
 
   it('the cold-brief body carries the load steps, the stage verbs, and the hard rules', () => {
-    const body = buildStageAgentBody(MANDATORY_STAGE_AGENTS[0]!);
+    const body = buildStageAgentBody(MANDATORY_STAGE_AGENTS[0]!, 'codex-cli');
     expect(body).toContain('framework-path.txt');
     expect(body).toContain('SE_SESSION');
     expect(body).toContain('stage start planning');
@@ -62,22 +70,93 @@ describe('stage-agent definitions', () => {
     expect(body).toContain('paused: D-<id>');
   });
 
+  it('every body uses the authoring headings in order and carries the BLOCKED report shape', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        const body = buildStageAgentBody(def, host);
+        const headings = body.split('\n').filter((line) => line.startsWith('## '));
+        expect(headings).toEqual([
+          '## Objective',
+          '## Procedure',
+          '## Report',
+          '## Stop when',
+          '## Do not',
+          '## Example',
+        ]);
+        for (const line of ['Status: BLOCKED', 'Decision needed:', 'Options:']) {
+          expect(body).toContain(line);
+        }
+      }
+    }
+  });
+
+  it('the claude-code Do not section states what the hooks enforce, codex keeps the hard rules', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const claude = buildStageAgentBody(def, 'claude-code');
+      expect(claude).toContain(`stage start ${def.ledgerStage}`);
+      expect(claude).not.toContain(STAGE_AGENT_HARD_RULES[0]);
+      const doNot = claude.slice(claude.indexOf('## Do not'), claude.indexOf('## Example'));
+      expect(doNot).toContain(
+        'Do not ask the human. The SubagentStop check holds a stage that asked',
+      );
+      expect(doNot).toContain('Do not write into a feature bundle directory by hand');
+      expect(doNot).toContain('Do not skip a stage verb');
+      expect(doNot.includes(READ_ONLY_DO_NOT)).toBe(!def.claudeTools.includes('Edit'));
+      const codex = buildStageAgentBody(def, 'codex-cli');
+      const codexDoNot = codex.slice(codex.indexOf('## Do not'), codex.indexOf('## Example'));
+      for (const line of STAGE_AGENT_HARD_RULES) expect(codexDoNot).toContain(line);
+    }
+  });
+
   it('the claude-code body points at the stage brief and keeps the fallback and marker sentence', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'claude-code');
-      expect(body).toContain('## Your stage brief');
       expect(body).toContain(STAGE_BRIEF_FALLBACK_LINE);
-      expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join('\n'));
-      expect(body).not.toContain('## Load the framework first');
+      expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
+      expect(body).not.toContain('.paqad/.agent-entry-loaded');
       expect(buildStageAgentBody(def)).toBe(body);
     }
   });
 
-  it('the codex-cli body keeps the load-the-framework section', () => {
+  it('the codex-cli body loads the framework itself instead of pointing at a stage brief', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'codex-cli');
-      expect(body).toContain('## Load the framework first');
-      expect(body).not.toContain('## Your stage brief');
+      expect(body).toContain('load and follow `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md`');
+      expect(body).toContain('.paqad/session/agent-entry/');
+      expect(body).not.toContain(STAGE_BRIEF_FALLBACK_LINE);
+    }
+  });
+
+  it('lets a read-only stage write only its stage input under .paqad/tmp/ with a heredoc', () => {
+    expect(READ_ONLY_DO_NOT).toBe(
+      '- Do not edit project files. Write only your stage input (the plan template, the spec input or the review template) under `.paqad/tmp/`, with a shell heredoc. The write guard blocks every other file write from Bash, and the SubagentStop check holds a stage that edited.',
+    );
+    expect(READ_ONLY_DO_NOT).not.toContain('Do not edit or write files');
+  });
+
+  it('says the agent is dispatched with the change ref and the lane', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host)).toContain(
+          '4. You were dispatched with the change ref, the lane and the previous pillar file(s).',
+        );
+      }
+    }
+  });
+
+  it('names the stage verb and the stage end command of each stage', () => {
+    const verbs: Record<string, string> = {
+      planning: 'paqad-ai plan compile',
+      specification: 'paqad-ai spec freeze',
+      development: 'paqad-ai rules load',
+      review: 'paqad-ai review record',
+      checks: 'paqad-ai checks run',
+      documentation_sync: 'paqad-ai stage end documentation_sync',
+    };
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const body = buildStageAgentBody(def, 'claude-code');
+      expect(body).toContain(verbs[def.ledgerStage]);
+      expect(body).toContain(`paqad-ai stage end ${def.ledgerStage}`);
     }
   });
 
@@ -130,5 +209,110 @@ describe('stage-agent definitions', () => {
     'xpaqad-planning',
   ])('stageFromAgentType returns null for %s', (agentType) => {
     expect(stageFromAgentType(agentType)).toBeNull();
+  });
+});
+
+describe('stage-agent turn limits and Report sections', () => {
+  const TURNS: Record<string, number> = {
+    'paqad-planning': 60,
+    'paqad-specification': 60,
+    'paqad-development': 150,
+    'paqad-review': 60,
+    'paqad-checks': 60,
+    'paqad-documentation-sync': 60,
+    'paqad-expert': 20,
+    'paqad-chief-architect': 30,
+  };
+
+  it('sets maxTurns per the issue table on every stage and High Table agent', () => {
+    const defs = [...MANDATORY_STAGE_AGENTS, ...HIGH_TABLE_AGENTS];
+    expect(Object.fromEntries(defs.map((def) => [def.agentName, def.maxTurns]))).toEqual(TURNS);
+  });
+
+  it('AC-9: every rendered agent carries maxTurns, a token maximum, the artifact and a Status line', () => {
+    for (const agent of renderStageAgentFiles('claude-code')) {
+      const name = agent.name.replace(/\.md$/u, '');
+      expect(agent.content).toContain(`\nmaxTurns: ${TURNS[name]}\n`);
+      const report = agent.content.slice(agent.content.indexOf('\n## Report\n'));
+      expect(report).toContain(`under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens`);
+      for (const status of STAGE_REPORT_STATUSES) expect(report).toContain(`\`Status: ${status}\``);
+      expect(report).toContain('Leave ');
+      expect(agent.content).not.toContain('—');
+    }
+  });
+
+  it('AC-33: the Codex render keeps the must-not rules and states the turn limit in the Report', () => {
+    for (const agent of renderStageAgentFiles('codex-cli')) {
+      const name = agent.name.replace(/\.toml$/u, '');
+      expect(agent.content).toContain('Never ask the human');
+      expect(agent.content).toContain('Never write into a feature bundle directory');
+      expect(agent.content).toContain(`finish in at most ${TURNS[name]} turns`);
+      expect(agent.content).toContain('## Report');
+      expect(agent.content).not.toContain('—');
+    }
+  });
+
+  it('FR-30: each stage description names its own stage and artifact and stays dispatched-only', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      expect(def.description).toContain(`paqad ${def.ledgerStage.replace(/_/g, ' ')} stage:`);
+      expect(def.description.endsWith('Dispatched by the paqad orchestrator only.')).toBe(true);
+    }
+    const all = [...MANDATORY_STAGE_AGENTS, ...HIGH_TABLE_AGENTS];
+    for (const left of all) {
+      for (const right of all) {
+        if (left === right) continue;
+        expect(overlapScore(left.description, right.description)).toBeLessThan(0.4);
+      }
+    }
+  });
+});
+
+describe('readStageReportStatus (AC-32)', () => {
+  it('advances only on DONE or DONE_WITH_CONCERNS', () => {
+    expect(readStageReportStatus('plan.json\nStatus: DONE').advance).toBe(true);
+    expect(readStageReportStatus('Status: DONE_WITH_CONCERNS').advance).toBe(true);
+    expect(readStageReportStatus('Status: NEEDS_CONTEXT').advance).toBe(false);
+    expect(readStageReportStatus('paused: D-01ABC\nStatus: BLOCKED')).toEqual({
+      status: 'BLOCKED',
+      advance: false,
+      decision: 'D-01ABC',
+      stated: true,
+    });
+  });
+
+  it('reads a return with no Status line as BLOCKED, never DONE', () => {
+    expect(readStageReportStatus('I ran out of turns.')).toEqual({
+      status: 'BLOCKED',
+      advance: false,
+      decision: null,
+      stated: false,
+    });
+  });
+});
+
+describe('stage agent returns the orchestrator can act on', () => {
+  function renderedClaude(name: string): string {
+    const file = renderStageAgentFiles('claude-code').find((agent) => agent.name === `${name}.md`);
+    return file!.content;
+  }
+
+  it('AC-10: the checks example returns DONE_WITH_CONCERNS for failing checks', () => {
+    const checks = renderedClaude('paqad-checks');
+    expect(checks).toContain(
+      'one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them',
+    );
+    expect(checks).toContain('return `Status: DONE` only when every check is green');
+    expect(checks).not.toMatch(/one line per failing check, and `Status: DONE`\./u);
+  });
+
+  it('AC-11: the specification agent hands the seated roles back with NEEDS_CONTEXT', () => {
+    const spec = renderedClaude('paqad-specification');
+    expect(spec).toContain(SPEC_HIGH_TABLE_HANDBACK_LINE);
+    expect(SPEC_HIGH_TABLE_HANDBACK_LINE).toContain(
+      'return at once with `Status: NEEDS_CONTEXT` naming every seated role',
+    );
+    expect(spec).toContain(
+      '`experts record` seated experts and you returned `Status: NEEDS_CONTEXT` naming them',
+    );
   });
 });

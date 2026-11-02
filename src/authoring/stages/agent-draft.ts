@@ -5,9 +5,12 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { readAuthoringConfig } from '../config.js';
 import { readRegularFile } from '../fs-io.js';
 import { agentHookScripts, bodyHeadingOrderProblem } from '../lint/agent-lint.js';
+import type { AgentAuditSources, RenderedTemplateAgent } from '../lint/audit.js';
+import { isAgentTemplatePath } from '../paths.js';
 import { estimateTokens } from '../tokens.js';
 import {
   AuthoringRefusal,
+  readOverrides,
   renderGateMarkdown,
   requireEarlierGates,
   type AuthoringWorkspace,
@@ -31,12 +34,16 @@ export interface AgentDraftInput {
   traceText: string;
   memoryText?: string;
   refuse?: string;
+  agentSources?: AgentAuditSources;
 }
 
 export interface AgentDraftSource {
   file: string;
   hook_scripts: string[];
+  rendered?: string[];
 }
+
+export const RENDERED_DIR = `${DRAFT_DIR}/rendered`;
 
 export function agentDraftFile(workspace: AuthoringWorkspace): string {
   return `${DRAFT_DIR}/${workspace.name}.md`;
@@ -45,7 +52,45 @@ export function agentDraftFile(workspace: AuthoringWorkspace): string {
 export function readAgentDraftSource(workspace: AuthoringWorkspace): AgentDraftSource | null {
   const source = workspace.readJson<Partial<AgentDraftSource>>(DRAFT_SOURCE_FILE);
   if (typeof source?.file !== 'string') return null;
-  return { file: source.file, hook_scripts: source.hook_scripts ?? [] };
+  return {
+    file: source.file,
+    hook_scripts: source.hook_scripts ?? [],
+    ...(source.rendered === undefined ? {} : { rendered: source.rendered }),
+  };
+}
+
+export function draftedRenderNames(workspace: AuthoringWorkspace): string[] {
+  return readAgentDraftSource(workspace)?.rendered ?? [];
+}
+
+export function draftIsTemplate(workspace: AuthoringWorkspace): boolean {
+  const file = readAgentDraftSource(workspace)?.file;
+  return file !== undefined && isAgentTemplatePath(file);
+}
+
+export function templateStem(file: string): string {
+  return file
+    .slice(file.lastIndexOf('/') + 1)
+    .replace(/\.hbs$/u, '')
+    .replace(/\.[^.]+$/u, '');
+}
+
+export function renderTemplateDraft(
+  file: string,
+  sources: AgentAuditSources | undefined,
+  stage: string,
+): RenderedTemplateAgent[] {
+  if (sources === undefined) {
+    throw new AuthoringRefusal(
+      `${stage} refused: ${file} is a stage-agent template, and this run has no renderer for it. Run it through paqad-ai agent.`,
+      2,
+    );
+  }
+  const rendered = sources.renderTemplate(file);
+  if (rendered.length === 0) {
+    throw new AuthoringRefusal(`${stage} refused: ${file} renders no agent.`, 2);
+  }
+  return rendered;
 }
 
 function projectRel(projectRoot: string, file: string): string {
@@ -133,12 +178,13 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     throw new AuthoringRefusal('draft needs --file <agent.md> and --trace <trace.md>.', 2);
   }
   const intake = readAgentIntake(workspace);
-  if (intake === null) {
+  const intakeOverridden = readOverrides(workspace).some((entry) => entry.gate === 'S1');
+  if (intake === null && !intakeOverridden) {
     throw new AuthoringRefusal(
       `S3 draft can't start: ${workspace.relPath('intake.yaml')} is missing. Run paqad-ai agent intake ${workspace.name} <intake.yaml> first.`,
     );
   }
-  if (input.memoryText !== undefined && !hasMemoryArm(intake)) {
+  if (input.memoryText !== undefined && intake !== null && !hasMemoryArm(intake)) {
     throw new AuthoringRefusal(
       `S3 draft refused: ${workspace.name} is one-shot (intake memory: none), so it gets no MEMORY.md.`,
       2,
@@ -146,6 +192,7 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
   }
   const rel = projectRel(workspace.projectRoot, input.file);
   const text = readDraftedText(workspace.projectRoot, rel, 'the agent file');
+  if (isAgentTemplatePath(rel)) return runTemplateDraft(workspace, input, rel, text, intake);
   const split = splitSkillFrontmatter(text);
   if (!split.ok) {
     throw new AuthoringRefusal(
@@ -175,9 +222,14 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     );
   }
   workspace.writeJson(DRAFT_SOURCE_FILE, { file: rel, hook_scripts: hooks.scripts });
-  artifacts.push(workspace.write(BRIEF_TEMPLATE_FILE, renderBriefTemplate(workspace.name, intake)));
+  workspace.remove(BRIEF_TEMPLATE_FILE);
+  if (intake !== null) {
+    artifacts.push(
+      workspace.write(BRIEF_TEMPLATE_FILE, renderBriefTemplate(workspace.name, intake)),
+    );
+  }
   workspace.remove(MEMORY_FILE);
-  if (hasMemoryArm(intake)) {
+  if (intake === null ? input.memoryText !== undefined : hasMemoryArm(intake)) {
     artifacts.push(
       workspace.write(MEMORY_FILE, input.memoryText ?? `# Memory: ${workspace.name}\n`),
     );
@@ -218,6 +270,116 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     true,
     [
       `S3 draft passed: all ${blocks.length} instruction blocks are traced and the body is ${bodyTokens} tokens.`,
+      `Next: paqad-ai agent test ${workspace.name}`,
+    ],
+    [trace, ...artifacts],
+  );
+}
+
+export function changedTemplateRenders(
+  workspace: AuthoringWorkspace,
+  sources: AgentAuditSources | undefined,
+  stage: string,
+): string[] {
+  const source = readAgentDraftSource(workspace)!;
+  const rendered = renderTemplateDraft(source.file, sources, stage);
+  const drafted = draftedRenderNames(workspace);
+  const changed = rendered
+    .filter((agent) => workspace.read(`${RENDERED_DIR}/${agent.name}.md`) !== agent.content)
+    .map((agent) => agent.name);
+  const gone = drafted.filter((name) => !rendered.some((agent) => agent.name === name));
+  return [...new Set([...changed, ...gone])].sort();
+}
+
+function runTemplateDraft(
+  workspace: AuthoringWorkspace,
+  input: AgentDraftInput,
+  rel: string,
+  text: string,
+  intake: AgentIntake | null,
+): StageResult {
+  if (templateStem(rel) !== workspace.name) {
+    throw new AuthoringRefusal(
+      `S3 draft refused: ${rel} is the template of the agent ${templateStem(rel)}, not ${workspace.name}.`,
+      2,
+    );
+  }
+  if (input.memoryText !== undefined) {
+    throw new AuthoringRefusal(`S3 draft refused: a stage-agent template gets no MEMORY.md.`, 2);
+  }
+  const rendered = renderTemplateDraft(rel, input.agentSources, 'S3 draft');
+  workspace.remove(DRAFT_DIR);
+  const artifacts = [workspace.write(agentDraftFile(workspace), text)];
+  for (const agent of rendered) {
+    artifacts.push(workspace.write(`${RENDERED_DIR}/${agent.name}.md`, agent.content));
+  }
+  workspace.writeJson(DRAFT_SOURCE_FILE, {
+    file: rel,
+    hook_scripts: [],
+    rendered: rendered.map((agent) => agent.name),
+  });
+  workspace.remove(BRIEF_TEMPLATE_FILE);
+  if (intake !== null) {
+    artifacts.push(
+      workspace.write(BRIEF_TEMPLATE_FILE, renderBriefTemplate(workspace.name, intake)),
+    );
+  }
+  workspace.remove(MEMORY_FILE);
+
+  const config = readAuthoringConfig(workspace.projectRoot);
+  const problems: string[] = [];
+  let traceText = input.traceText;
+  let blocks = 0;
+  let bodyTokens = 0;
+  for (const agent of rendered) {
+    const split = splitSkillFrontmatter(agent.content);
+    if (!split.ok) {
+      problems.push(
+        `${agent.name}: the rendered agent has no valid frontmatter (${split.message})`,
+      );
+      continue;
+    }
+    const traced = checkTrace(workspace, agent.content, traceText);
+    traceText = traced.traceText;
+    blocks += traced.blocks.length;
+    const tokens = estimateTokens(split.body);
+    bodyTokens = Math.max(bodyTokens, tokens);
+    for (const problem of [
+      ...traced.reasons,
+      ...draftProblems(split.body, tokens, config.agent_prompt_max_tokens, []),
+    ]) {
+      problems.push(`${agent.name}: ${problem}`);
+    }
+  }
+  const failed = problems.length > 0;
+  const trace = workspace.write(
+    'trace.md',
+    renderGateMarkdown(
+      {
+        gate: failed ? 'failed' : 'passed',
+        stage: 'S3',
+        ...(failed ? { reason: problems.join('; ') } : {}),
+        blocks,
+        body_tokens: bodyTokens,
+      },
+      traceText,
+    ),
+  );
+  const names = rendered.map((agent) => agent.name).join(', ');
+  if (failed) {
+    return stageResult(
+      false,
+      [
+        `S3 draft failed for the template ${rel}: ${problems.join('; ')}.`,
+        `Fix the bodies it renders (${names}), then rerun.`,
+      ],
+      [trace, ...artifacts],
+    );
+  }
+  return stageResult(
+    true,
+    [
+      `S3 draft passed: the template ${rel} renders ${rendered.length} agents (${names}), every one traced, the largest body ${bodyTokens} tokens.`,
       `Next: paqad-ai agent test ${workspace.name}`,
     ],
     [trace, ...artifacts],

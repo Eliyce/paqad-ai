@@ -1,0 +1,735 @@
+{
+  "captured_from": "main",
+  "items": [
+    {
+      "path": "runtime/base/agents/adversarial-reviewer.md",
+      "folder": "adversarial-reviewer",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/agent-orchestrator.md",
+      "folder": "agent-orchestrator",
+      "name": "agent-orchestrator"
+    },
+    {
+      "path": "runtime/base/agents/context-curator.md",
+      "folder": "context-curator",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/final-reviewer.md",
+      "folder": "final-reviewer",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/gap-detector.md",
+      "folder": "gap-detector",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/market-researcher.md",
+      "folder": "market-researcher",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/product-owner.md",
+      "folder": "product-owner",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/requirement-analyst.md",
+      "folder": "requirement-analyst",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/router.md",
+      "folder": "router",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/skill-orchestrator.md",
+      "folder": "skill-orchestrator",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/story-designer.md",
+      "folder": "story-designer",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/test-planner.md",
+      "folder": "test-planner",
+      "name": null
+    },
+    {
+      "path": "runtime/base/agents/verifier.md",
+      "folder": "verifier",
+      "name": null
+    },
+    {
+      "path": "runtime/base/skills/acceptance-criteria-gen/SKILL.md",
+      "folder": "acceptance-criteria-gen",
+      "name": "acceptance-criteria-gen"
+    },
+    {
+      "path": "runtime/base/skills/adversarial-review/SKILL.md",
+      "folder": "adversarial-review",
+      "name": "adversarial-review"
+    },
+    {
+      "path": "runtime/base/skills/agent-orchestrator/SKILL.md",
+      "folder": "agent-orchestrator",
+      "name": "agent-orchestrator"
+    },
+    {
+      "path": "runtime/base/skills/analytics-instrumentation/SKILL.md",
+      "folder": "analytics-instrumentation",
+      "name": "analytics-instrumentation"
+    },
+    {
+      "path": "runtime/base/skills/api-doc-maintainer/SKILL.md",
+      "folder": "api-doc-maintainer",
+      "name": "api-doc-maintainer"
+    },
+    {
+      "path": "runtime/base/skills/canonical-doc-sync/SKILL.md",
+      "folder": "canonical-doc-sync",
+      "name": "canonical-doc-sync"
+    },
+    {
+      "path": "runtime/base/skills/context-budget-planner/SKILL.md",
+      "folder": "context-budget-planner",
+      "name": "context-budget-planner"
+    },
+    {
+      "path": "runtime/base/skills/cross-module-impact-scanner/SKILL.md",
+      "folder": "cross-module-impact-scanner",
+      "name": "cross-module-impact-scanner"
+    },
+    {
+      "path": "runtime/base/skills/decision/SKILL.md",
+      "folder": "decision",
+      "name": "decision"
+    },
+    {
+      "path": "runtime/base/skills/diff-doc-sync/SKILL.md",
+      "folder": "diff-doc-sync",
+      "name": "diff-doc-sync"
+    },
+    {
+      "path": "runtime/base/skills/diff-minimizer/SKILL.md",
+      "folder": "diff-minimizer",
+      "name": "diff-minimizer"
+    },
+    {
+      "path": "runtime/base/skills/documentation-sync-engine/SKILL.md",
+      "folder": "documentation-sync-engine",
+      "name": "documentation-sync-engine"
+    },
+    {
+      "path": "runtime/base/skills/documentation-workflow/SKILL.md",
+      "folder": "documentation-workflow",
+      "name": "documentation-workflow"
+    },
+    {
+      "path": "runtime/base/skills/edge-case-detection/SKILL.md",
+      "folder": "edge-case-detection",
+      "name": "edge-case-detection"
+    },
+    {
+      "path": "runtime/base/skills/error-catalog-maintainer/SKILL.md",
+      "folder": "error-catalog-maintainer",
+      "name": "error-catalog-maintainer"
+    },
+    {
+      "path": "runtime/base/skills/existing-doc-checker/SKILL.md",
+      "folder": "existing-doc-checker",
+      "name": "existing-doc-checker"
+    },
+    {
+      "path": "runtime/base/skills/expert-need-detector/SKILL.md",
+      "folder": "expert-need-detector",
+      "name": "expert-need-detector"
+    },
+    {
+      "path": "runtime/base/skills/expert-notes/SKILL.md",
+      "folder": "expert-notes",
+      "name": "expert-notes"
+    },
+    {
+      "path": "runtime/base/skills/expert-synthesis/SKILL.md",
+      "folder": "expert-synthesis",
+      "name": "expert-synthesis"
+    },
+    {
+      "path": "runtime/base/skills/finding-normalizer/SKILL.md",
+      "folder": "finding-normalizer",
+      "name": "finding-normalizer"
+    },
+    {
+      "path": "runtime/base/skills/glossary-maintainer/SKILL.md",
+      "folder": "glossary-maintainer",
+      "name": "glossary-maintainer"
+    },
+    {
+      "path": "runtime/base/skills/integration-doc-maintainer/SKILL.md",
+      "folder": "integration-doc-maintainer",
+      "name": "integration-doc-maintainer"
+    },
+    {
+      "path": "runtime/base/skills/module-attribution-extractor/SKILL.md",
+      "folder": "module-attribution-extractor",
+      "name": "module-attribution-extractor"
+    },
+    {
+      "path": "runtime/base/skills/module-attribution-inferencer/SKILL.md",
+      "folder": "module-attribution-inferencer",
+      "name": "module-attribution-inferencer"
+    },
+    {
+      "path": "runtime/base/skills/module-health-rollup/SKILL.md",
+      "folder": "module-health-rollup",
+      "name": "module-health-rollup"
+    },
+    {
+      "path": "runtime/base/skills/module-health-update/SKILL.md",
+      "folder": "module-health-update",
+      "name": "module-health-update"
+    },
+    {
+      "path": "runtime/base/skills/module-map-reconciler/SKILL.md",
+      "folder": "module-map-reconciler",
+      "name": "module-map-reconciler"
+    },
+    {
+      "path": "runtime/base/skills/performance-regression-estimator/SKILL.md",
+      "folder": "performance-regression-estimator",
+      "name": "performance-regression-estimator"
+    },
+    {
+      "path": "runtime/base/skills/request-classifier/SKILL.md",
+      "folder": "request-classifier",
+      "name": "request-classifier"
+    },
+    {
+      "path": "runtime/base/skills/requirement-enrichment/SKILL.md",
+      "folder": "requirement-enrichment",
+      "name": "requirement-enrichment"
+    },
+    {
+      "path": "runtime/base/skills/rollback-safety-planner/SKILL.md",
+      "folder": "rollback-safety-planner",
+      "name": "rollback-safety-planner"
+    },
+    {
+      "path": "runtime/base/skills/rule-analyzer/SKILL.md",
+      "folder": "rule-analyzer",
+      "name": "rule-analyzer"
+    },
+    {
+      "path": "runtime/base/skills/rule-editor/SKILL.md",
+      "folder": "rule-editor",
+      "name": "rule-editor"
+    },
+    {
+      "path": "runtime/base/skills/rule-script-generator/SKILL.md",
+      "folder": "rule-script-generator",
+      "name": "rule-script-generator"
+    },
+    {
+      "path": "runtime/base/skills/rule-script-reconciler/SKILL.md",
+      "folder": "rule-script-reconciler",
+      "name": "rule-script-reconciler"
+    },
+    {
+      "path": "runtime/base/skills/rule-script-runner/SKILL.md",
+      "folder": "rule-script-runner",
+      "name": "rule-script-runner"
+    },
+    {
+      "path": "runtime/base/skills/scope-check/SKILL.md",
+      "folder": "scope-check",
+      "name": "scope-check"
+    },
+    {
+      "path": "runtime/base/skills/sequence-planner/SKILL.md",
+      "folder": "sequence-planner",
+      "name": "sequence-planner"
+    },
+    {
+      "path": "runtime/base/skills/session-resume/SKILL.md",
+      "folder": "session-resume",
+      "name": "session-resume"
+    },
+    {
+      "path": "runtime/base/skills/skill-orchestrator/SKILL.md",
+      "folder": "skill-orchestrator",
+      "name": "skill-orchestrator"
+    },
+    {
+      "path": "runtime/base/skills/spec-diff/SKILL.md",
+      "folder": "spec-diff",
+      "name": "spec-diff"
+    },
+    {
+      "path": "runtime/base/skills/spec-quality-review/SKILL.md",
+      "folder": "spec-quality-review",
+      "name": "spec-quality-review"
+    },
+    {
+      "path": "runtime/base/skills/story-and-solution-writer/SKILL.md",
+      "folder": "story-and-solution-writer",
+      "name": "story-and-solution-writer"
+    },
+    {
+      "path": "runtime/base/skills/test-execution-feedback-loop/SKILL.md",
+      "folder": "test-execution-feedback-loop",
+      "name": "test-execution-feedback-loop"
+    },
+    {
+      "path": "runtime/base/skills/test-per-ac-planner/SKILL.md",
+      "folder": "test-per-ac-planner",
+      "name": "test-per-ac-planner"
+    },
+    {
+      "path": "runtime/base/skills/test-runner-discovery/SKILL.md",
+      "folder": "test-runner-discovery",
+      "name": "test-runner-discovery"
+    },
+    {
+      "path": "runtime/base/skills/workflow-router/SKILL.md",
+      "folder": "workflow-router",
+      "name": "workflow-router"
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/app-cartographer.md",
+      "folder": "app-cartographer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/application-architect.md",
+      "folder": "application-architect",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/chief-architect.md",
+      "folder": "chief-architect",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/data-modeler.md",
+      "folder": "data-modeler",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/database-expert.md",
+      "folder": "database-expert",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/devops-engineer.md",
+      "folder": "devops-engineer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/doc-maintainer.md",
+      "folder": "doc-maintainer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/integration-architect.md",
+      "folder": "integration-architect",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/journey-designer.md",
+      "folder": "journey-designer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/performance-analyst.md",
+      "folder": "performance-analyst",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/qa-engineer.md",
+      "folder": "qa-engineer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/solution-architect.md",
+      "folder": "solution-architect",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/user-flow-writer.md",
+      "folder": "user-flow-writer",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/agents/ux-ui-analyst.md",
+      "folder": "ux-ui-analyst",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/accessibility-review/SKILL.md",
+      "folder": "accessibility-review",
+      "name": "accessibility-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/component-conformance-review/SKILL.md",
+      "folder": "component-conformance-review",
+      "name": "component-conformance-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/copy-and-ia-review/SKILL.md",
+      "folder": "copy-and-ia-review",
+      "name": "copy-and-ia-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/database-design-review/SKILL.md",
+      "folder": "database-design-review",
+      "name": "database-design-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/design-system-coverage/SKILL.md",
+      "folder": "design-system-coverage",
+      "name": "design-system-coverage"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/design-system-sync/SKILL.md",
+      "folder": "design-system-sync",
+      "name": "design-system-sync"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/guard-inference/SKILL.md",
+      "folder": "guard-inference",
+      "name": "guard-inference"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/index-optimization/SKILL.md",
+      "folder": "index-optimization",
+      "name": "index-optimization"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/journey-synthesis/SKILL.md",
+      "folder": "journey-synthesis",
+      "name": "journey-synthesis"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/map-verification/SKILL.md",
+      "folder": "map-verification",
+      "name": "map-verification"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/motion-review/SKILL.md",
+      "folder": "motion-review",
+      "name": "motion-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/query-pattern-analysis/SKILL.md",
+      "folder": "query-pattern-analysis",
+      "name": "query-pattern-analysis"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/responsive-review/SKILL.md",
+      "folder": "responsive-review",
+      "name": "responsive-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/root-cause-analysis/SKILL.md",
+      "folder": "root-cause-analysis",
+      "name": "root-cause-analysis"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map-assembly/SKILL.md",
+      "folder": "site-map-assembly",
+      "name": "site-map-assembly"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md",
+      "folder": "site-map-gap-analysis",
+      "name": "site-map-gap-analysis"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md",
+      "folder": "site-map-maintainer",
+      "name": "site-map-maintainer"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map-readiness/SKILL.md",
+      "folder": "site-map-readiness",
+      "name": "site-map-readiness"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map-retest/SKILL.md",
+      "folder": "site-map-retest",
+      "name": "site-map-retest"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/state-coverage-review/SKILL.md",
+      "folder": "state-coverage-review",
+      "name": "state-coverage-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/surface-extraction/SKILL.md",
+      "folder": "surface-extraction",
+      "name": "surface-extraction"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/surface-modeling/SKILL.md",
+      "folder": "surface-modeling",
+      "name": "surface-modeling"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/token-conformance-review/SKILL.md",
+      "folder": "token-conformance-review",
+      "name": "token-conformance-review"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/transition-tracing/SKILL.md",
+      "folder": "transition-tracing",
+      "name": "transition-tracing"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/ui-doc-maintainer/SKILL.md",
+      "folder": "ui-doc-maintainer",
+      "name": "ui-doc-maintainer"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/user-flow-generation/SKILL.md",
+      "folder": "user-flow-generation",
+      "name": "user-flow-generation"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/ux-design-research/SKILL.md",
+      "folder": "ux-design-research",
+      "name": "ux-design-research"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/ux-heuristic-evaluation/SKILL.md",
+      "folder": "ux-heuristic-evaluation",
+      "name": "ux-heuristic-evaluation"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/ux-state-machine/SKILL.md",
+      "folder": "ux-state-machine",
+      "name": "ux-state-machine"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/content-planner/SKILL.md",
+      "folder": "content-planner",
+      "name": "content-planner"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/content-reviewer/SKILL.md",
+      "folder": "content-reviewer",
+      "name": "content-reviewer"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/content-writer/SKILL.md",
+      "folder": "content-writer",
+      "name": "content-writer"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/script-writer/SKILL.md",
+      "folder": "script-writer",
+      "name": "script-writer"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/seo-optimizer/SKILL.md",
+      "folder": "seo-optimizer",
+      "name": "seo-optimizer"
+    },
+    {
+      "path": "runtime/capabilities/content/skills/style-enforcer/SKILL.md",
+      "folder": "style-enforcer",
+      "name": "style-enforcer"
+    },
+    {
+      "path": "runtime/capabilities/security/agents/security-auditor.md",
+      "folder": "security-auditor",
+      "name": null
+    },
+    {
+      "path": "runtime/capabilities/security/skills/auth-mechanism-review/SKILL.md",
+      "folder": "auth-mechanism-review",
+      "name": "auth-mechanism-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/business-logic-abuse-review/SKILL.md",
+      "folder": "business-logic-abuse-review",
+      "name": "business-logic-abuse-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/cryptographic-review/SKILL.md",
+      "folder": "cryptographic-review",
+      "name": "cryptographic-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/dependency-advisory-triage/SKILL.md",
+      "folder": "dependency-advisory-triage",
+      "name": "dependency-advisory-triage"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/input-validation-review/SKILL.md",
+      "folder": "input-validation-review",
+      "name": "input-validation-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/logging-monitoring-review/SKILL.md",
+      "folder": "logging-monitoring-review",
+      "name": "logging-monitoring-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/permission-boundary-review/SKILL.md",
+      "folder": "permission-boundary-review",
+      "name": "permission-boundary-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/rate-limiting-review/SKILL.md",
+      "folder": "rate-limiting-review",
+      "name": "rate-limiting-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/retest-verification/SKILL.md",
+      "folder": "retest-verification",
+      "name": "retest-verification"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/runtime-surface-probing/SKILL.md",
+      "folder": "runtime-surface-probing",
+      "name": "runtime-surface-probing"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/stride-threat-model/SKILL.md",
+      "folder": "stride-threat-model",
+      "name": "stride-threat-model"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-checks.md",
+      "folder": "paqad-checks",
+      "name": "paqad-checks"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-chief-architect.md",
+      "folder": "paqad-chief-architect",
+      "name": "paqad-chief-architect"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-development.md",
+      "folder": "paqad-development",
+      "name": "paqad-development"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-documentation-sync.md",
+      "folder": "paqad-documentation-sync",
+      "name": "paqad-documentation-sync"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-expert.md",
+      "folder": "paqad-expert",
+      "name": "paqad-expert"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-planning.md",
+      "folder": "paqad-planning",
+      "name": "paqad-planning"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-review.md",
+      "folder": "paqad-review",
+      "name": "paqad-review"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-specification.md",
+      "folder": "paqad-specification",
+      "name": "paqad-specification"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/ask/SKILL.md",
+      "folder": "ask",
+      "name": "ask"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/check-tickets/SKILL.md",
+      "folder": "check-tickets",
+      "name": "check-tickets"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/dashboard/SKILL.md",
+      "folder": "dashboard",
+      "name": "dashboard"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/decide-together/SKILL.md",
+      "folder": "decide-together",
+      "name": "decide-together"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/discover/SKILL.md",
+      "folder": "discover",
+      "name": "discover"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/get-connected/SKILL.md",
+      "folder": "get-connected",
+      "name": "get-connected"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/ground-in-project/SKILL.md",
+      "folder": "ground-in-project",
+      "name": "ground-in-project"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/join/SKILL.md",
+      "folder": "join",
+      "name": "join"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/onboard/SKILL.md",
+      "folder": "onboard",
+      "name": "onboard"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/plan-sprint/SKILL.md",
+      "folder": "plan-sprint",
+      "name": "plan-sprint"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/post-tickets/SKILL.md",
+      "folder": "post-tickets",
+      "name": "post-tickets"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/refine-ticket/SKILL.md",
+      "folder": "refine-ticket",
+      "name": "refine-ticket"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/shape-idea/SKILL.md",
+      "folder": "shape-idea",
+      "name": "shape-idea"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/size-work/SKILL.md",
+      "folder": "size-work",
+      "name": "size-work"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/start/SKILL.md",
+      "folder": "start",
+      "name": "start"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/understand-idea/SKILL.md",
+      "folder": "understand-idea",
+      "name": "understand-idea"
+    },
+    {
+      "path": "runtime/claude-plugin/skills/write-tickets/SKILL.md",
+      "folder": "write-tickets",
+      "name": "write-tickets"
+    }
+  ]
+}

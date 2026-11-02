@@ -1,5 +1,7 @@
 # Documentation Workflow Stages
 
+verified: 2026-11-02
+
 Run in this order:
 
 1. validate stack and context

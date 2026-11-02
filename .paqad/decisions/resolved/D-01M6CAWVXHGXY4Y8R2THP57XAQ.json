@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CAWVXHGXY4Y8R2THP57XAQ",
+  "category": "intake.requirement",
+  "title": "When and under which change are the overlap, retirement and agent-permission packets raised?",
+  "context": "The change raises one authoring.overlap packet per colliding skill or agent pair, authoring.retirement packets for skills that never fired, and authoring.agent_permission packets for agent powers. Agent-permission packets are tied to the agent file's exact content, so they must come after the agent files are final. A packet under this change id holds only this change's remaining edits; a packet with no change holds every change until it is answered. The owner already chose one PR for the whole issue.",
+  "options": [
+    {
+      "option_key": "end-this-change",
+      "label": "Raise them at the very end, after development and doc sync, under this change",
+      "one_line_preview": "Raise them at the very end, after development and doc sync, under this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "now-this-change",
+      "label": "Raise them now under this change (agent-permission packets would need raising again once the agent files change)",
+      "one_line_preview": "Raise them now under this change (agent-permission packets would need raising again once the agent files change)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "end-no-change",
+      "label": "Raise them at the end with no change attached, so they hold every change until answered",
+      "one_line_preview": "Raise them at the end with no change attached, so they hold every change until answered",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "end-this-change",
+  "created_at": "2026-11-01T19:55:31.121Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "end-this-change",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:40.051Z",
+  "decision_id": "D-01M6CAWVXHGXY4Y8R2THP57XAQ",
+  "fingerprint": "sha256:6969d4eae95e1ed63f3ca432ebb4248363b6623ce86576cdc62489e18793b883",
+  "question": "When and under which change are the overlap, retirement and agent-permission packets raised?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:31.121Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "end-this-change",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:40.051Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

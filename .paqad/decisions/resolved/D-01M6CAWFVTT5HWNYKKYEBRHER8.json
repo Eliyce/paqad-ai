@@ -1,0 +1,61 @@
+{
+  "id": "D-01M6CAWFVTT5HWNYKKYEBRHER8",
+  "category": "intake.requirement",
+  "title": "Which plugin skills start only from their command?",
+  "context": "Turning off automatic start (disable-model-invocation) takes a skill's description out of the listing paid on every turn, but then it starts only when the Developer types its command, not from a plain ask. discover runs its step skills (get-connected, understand-idea, ground-in-project, shape-idea, decide-together, write-tickets, check-tickets, post-tickets) by name, so turning automatic start off for them would break discover unless discover loads their files instead. dashboard, join, onboard and start are reached by command or plain ask today.",
+  "options": [
+    {
+      "option_key": "entry-only",
+      "label": "dashboard, join, onboard and start become command only; the discover step skills keep automatic start so discover still runs them, with one-line descriptions",
+      "one_line_preview": "dashboard, join, onboard and start become command only; the discover step skills keep automatic start so discover still runs them, with one-line descriptions",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "all-command",
+      "label": "All of them become command only, and discover loads each step skill's file instead of starting it by name",
+      "one_line_preview": "All of them become command only, and discover loads each step skill's file instead of starting it by name",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-onboard-start",
+      "label": "onboard and start keep answering plain asks; dashboard and join become command only; the step skills keep automatic start",
+      "one_line_preview": "onboard and start keep answering plain asks; dashboard and join become command only; the step skills keep automatic start",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-all",
+      "label": "Keep all of them answering plain asks",
+      "one_line_preview": "Keep all of them answering plain asks",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "entry-only",
+  "created_at": "2026-11-01T19:55:18.779Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "entry-only",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:39.403Z",
+  "decision_id": "D-01M6CAWFVTT5HWNYKKYEBRHER8",
+  "fingerprint": "sha256:dd93fa28f342ba4b67cf5c3dc9d1839444b4ab3f14569ac0c2722f07c8a60d58",
+  "question": "Which plugin skills start only from their command?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:18.779Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "entry-only",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:39.403Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

@@ -20,7 +20,7 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 grep -qE '^## Implementation Sequence' <<<"$body" || say 'missing "## Implementation Sequence"'
 grep -qE '^## Sequencing Risks'        <<<"$body" || say 'missing "## Sequencing Risks"'
 
-nums=$(printf '%s\n' "$body" | grep -E '^### Story [0-9]+' | grep -oE '[0-9]+' | sort -n)
+nums=$(printf '%s\n' "$body" | grep -E '^### Story [0-9]+' | grep -oE '[0-9]+' | LC_ALL=C sort -n)
 if [ -n "$nums" ]; then
   expected=1
   while IFS= read -r n; do

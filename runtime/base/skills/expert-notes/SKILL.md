@@ -2,22 +2,11 @@
 name: expert-notes
 description: >-
   Reads one expert's brief and, through that expert's lens, writes short request-time notes for the spec pipeline: what the request must do, must never break, and still leaves undecided, as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui, qa-engineer, agent-orchestrator and the rest), so the procedure is shared and only the lens differs; the qa-engineer note also carries the spec compliance and quality verdicts. The pipeline script validates the output against the roster and never decides. Use when the spec pipeline runs with the expert roster on and an expert on the roster, or a High Table seat given one role, needs its note, findings, questions or verdicts written from its brief (phase 2 of the spec pipeline; the TS guard is src/spec-pipeline/experts/notes.ts).
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: json
-input_schema:
-  role:
-    type: string
-    required: true
-    description: The expert role to write notes as, one of the pickable roster roles.
-  brief:
-    type: string
-    required: true
-    description: The brief printed by `paqad-ai spec pipeline experts brief <role>` (the request, grounding pointers, label, and granted budget).
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: json
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -38,8 +27,7 @@ repo; the pipeline script validates, numbers and merges what comes back.
   note covers that role only: write one note, hand it to `experts notes`, and the verb merges it
   beside the other seats' notes without touching them.
 
-Do **not** run this when the experts flag is off: with it off the pipeline is byte-identical to
-v1 and this skill never runs. Do **not** invent a role: you write as the role in the brief.
+Do **not** run this when the experts flag is off; the skill never runs then. Do **not** invent a role: you write as the role in the brief.
 
 ## Inputs
 
@@ -51,9 +39,8 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 ## Procedure
 
 1. Print your brief with `paqad-ai spec pipeline experts brief <role>`. Read your lens, the file
-   named for your role in the lens list under Resources. The lens is the only file you need: the
-   kinds, the severities and the output shape are on this page, so each extra read only costs
-   tokens from your budget.
+   named for your role in the lens list under Resources. The lens is the only file you need: kinds,
+   severities and the output shape are on this page, and each extra read costs budget.
 2. Decide from the request and the grounding **only**. Do not read the whole repo.
 3. Write findings about concrete targets (a table, an endpoint, a screen, a journey step), each
    about ONE target and making ONE claim. Mark each finding's `kind` (`requirement` becomes an

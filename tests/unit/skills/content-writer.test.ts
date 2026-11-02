@@ -38,6 +38,24 @@ describe('content-writer', () => {
       });
     });
 
+    it('exits 0 with "ok" when every brief outline section appears in draft with colon outline lines', () => {
+      withTempDir((dir) => {
+        const brief = writeFile(
+          dir,
+          'brief.md',
+          '## Outline\n1. Hook: opening\n2. Body: middle\n3. CTA: close\n',
+        );
+        const draft = writeFile(
+          dir,
+          'draft.md',
+          '# Title\n\n## Hook\n...\n## Body\n...\n## CTA\n...\n',
+        );
+        const r = runScript(path, [brief, draft]);
+        expect(r.status).toBe(0);
+        expect(r.stdout.trim()).toBe('ok');
+      });
+    });
+
     it('exits 1 listing each missing section', () => {
       withTempDir((dir) => {
         const brief = writeFile(

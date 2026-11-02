@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - rules-edit
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve rule files and the map. Defaults to cwd.
+  mode:
+    type: string
+    required: false
+    description: add | edit | remove | downgrade. Inferred from the user's prompt.

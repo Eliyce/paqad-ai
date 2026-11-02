@@ -12,6 +12,12 @@ export interface HashedFile {
   symlink?: string;
 }
 
+const NEVER_LISTED = new Set(['__pycache__', '.DS_Store']);
+
+function neverListed(name: string): boolean {
+  return NEVER_LISTED.has(name) || name.endsWith('.pyc');
+}
+
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -20,6 +26,7 @@ export function listFolderFiles(root: string, prefix = ''): HashedFile[] {
   if (!existsSync(join(root, prefix))) return [];
   const files: HashedFile[] = [];
   for (const name of readdirSync(join(root, prefix)).sort(compareText)) {
+    if (neverListed(name)) continue;
     const rel = prefix === '' ? name : `${prefix}/${name}`;
     const stat = lstatSync(join(root, rel));
     if (stat.isSymbolicLink()) {

@@ -7,11 +7,11 @@ description: Write concise spoken-word scripts and narrative sequences optimized
 
 ## What It Does
 
-Drafts spoken-word scripts where each segment is timed, transitionally clean, and easy to perform aloud — never reads like written prose.
+Drafts spoken-word scripts where each segment is timed, transitionally clean, and easy to perform aloud: never reads like written prose.
 
 ## Use This When
 
-Use this when the output is meant to be spoken: video VO, podcast segment, conference demo, walkthrough.
+When the output is meant to be spoken: video VO, podcast segment, conference demo, walkthrough.
 
 ## Inputs
 

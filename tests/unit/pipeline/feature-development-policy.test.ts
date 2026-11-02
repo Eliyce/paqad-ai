@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import YAML from 'yaml';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +18,7 @@ import {
   reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
 import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
+import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
 describe('feature development policy', () => {
   it('returns framework defaults when the project policy file is missing', () => {
@@ -331,10 +332,9 @@ describe('feature development policy', () => {
 
     function skillTriggers(relPath: string): Array<Record<string, string[]>> {
       const text = readFileSync(join(REPO_ROOT, relPath), 'utf8');
-      const match = /^---\n([\s\S]*?)\n---/.exec(text);
-      expect(match, `${relPath} has no frontmatter block`).not.toBeNull();
-      const front = YAML.parse(match![1]) as { triggers?: Array<Record<string, string[]>> };
-      return front.triggers ?? [];
+      expect(text.startsWith('---\n'), `${relPath} has no frontmatter block`).toBe(true);
+      const parsed = new SkillFrontmatterParser().parse(text, dirname(join(REPO_ROOT, relPath)));
+      return parsed.frontmatter.triggers as Array<Record<string, string[]>>;
     }
 
     it('AC-4: the fast lane pays exactly one sentence — the reuse reflex, no skill blocks', () => {

@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "api-doc-maintainer",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:410a994cd713e3ee82338df80e836c52700c0cbb20ac6302b190d4dd456fa29d",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/api-doc-maintainer",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:08:57.462Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:08:58.916Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:00.304Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:01.848Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:09:03.300Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHDYWARN3AGY9YC6TEQHXR",
+    "D-01M6DHE0A0A0A6T9NKZ71TX7KH",
+    "D-01M6DHE1MZF3V21VK0N51KKHVF",
+    "D-01M6DHE35D9V55RJ4QGP9W3PP7",
+    "D-01M6DHE4JHZ2HJPFV9QDDWDHG9"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

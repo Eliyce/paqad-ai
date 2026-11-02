@@ -27,7 +27,7 @@ fi
 next=$( { grep -Eo 'AC-[0-9]+(\.[0-9]+)?' "$spec" || true; } \
   | { grep -Ev '\.' || true; } \
   | awk -F- '{print $2}' \
-  | sort -n \
+  | LC_ALL=C sort -n \
   | tail -1)
 next=$(( ${next:-0} + 1 ))
 printf 'AC-%s\n' "$next"

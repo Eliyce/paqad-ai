@@ -1,5 +1,7 @@
 # Connecting the tracker
 
+verified: 2026-11-02
+
 Confirm the tracker can be written to, and read the project's setup, by capability (PLG-7). Resolve
 each action from what the connector exposes; do not hard-code a tool name. This skill handles no
 credentials and no connector authorization: those stay with the user or their admin.
@@ -33,7 +35,7 @@ Read these through the connector and store them in the `setup` block:
 Tracker profiles name actions; the right tool for each action is found at runtime from the
 connector. For example, link creation is exposed under different names in different connector
 versions, so pick whichever the connector offers. The Jira action names are in
-`references/tracker-profiles-jira.md`.
+`tracker-profiles-jira.md`.
 
 ## Warn about run labels once (PUB-4)
 

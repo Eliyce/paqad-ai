@@ -4,7 +4,7 @@ set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: Diff the AST-derived component inventory against the declared
-         components.md inventory. Emits the gaps in both directions —
+         components.md inventory. Emits the gaps in both directions:
          the LLM picks severities and writes findings; this script just
          enumerates set differences deterministically.
 

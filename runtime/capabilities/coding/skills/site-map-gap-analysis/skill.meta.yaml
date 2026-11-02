@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - site-map
+cache_key_inputs: []
+input_schema:
+  run_bundle:
+    type: path
+    required: true
+    description: The run bundle whose invariants and verdicts become SM-* findings.

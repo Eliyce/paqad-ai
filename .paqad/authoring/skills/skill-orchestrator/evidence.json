@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "skill-orchestrator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:0e1aa220d2e48e65963ad670bc80cb5c96edfed44c4253111a48652c0950092a",
+  "folder_hash": "sha256:6ef48add2f546e15e6b58f044fdc032ed30af153e26b52c00b9e0ad3b985312f",
   "baseline": {
     "runs": 3,
-    "passed": 0,
-    "verdict": "needed"
+    "passed": null,
+    "verdict": "overridden"
   },
   "sources": {
-    "count": 24,
-    "non_model": 24,
+    "count": 0,
+    "non_model": 0,
     "kind": "repo"
   },
   "lint": {
@@ -24,44 +24,57 @@
     "passed": 0,
     "skipped": 0
   },
-  "benchmark": {
-    "iterations": 3,
-    "pass_rate_with": 0.6,
-    "pass_rate_without": 0.2083,
-    "delta_points": 39.17,
-    "token_multiple": null,
-    "models": [
-      "haiku",
-      "sonnet"
-    ],
-    "claude_version": "2.1.302",
-    "checks_not_measured": [
-      {
-        "check": "token-multiple",
-        "reason": "tokens: unavailable on claude-plugin-eval"
-      },
-      {
-        "check": "cache-hit",
-        "reason": "tokens: unavailable on claude-plugin-eval"
-      }
-    ],
-    "source": "claude-plugin-eval"
-  },
-  "trigger": {
-    "validation_score": 1,
-    "description_chars": 345,
-    "batch": "not-offered"
-  },
+  "benchmark": null,
+  "trigger": null,
   "performance": {
     "tokens": "unavailable",
-    "source": "claude-plugin-eval"
+    "source": "unavailable"
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.5051,
+    "S6": "unavailable",
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:32:11.022Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:32:12.679Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:32:14.574Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:32:16.408Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:32:18.295Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJRFS6T2XY739FDV6XXEYB",
+    "D-01M6DJRHA6011CNNFM1K4C0F9V",
+    "D-01M6DJRK45RB53PD582QY88Q3Z",
+    "D-01M6DJRMXJ8WKAXQYAR27HQQ11",
+    "D-01M6DJRPPC87Z9E5EQ8FVGSVHA"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }

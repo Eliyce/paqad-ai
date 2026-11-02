@@ -75,6 +75,13 @@ export const STAGE_EVIDENCE_SCHEMA = {
     estimate: { type: 'boolean' },
     requested_effort: { enum: STAGE_EFFORT_LEVELS },
     requested_model: { enum: STAGE_MODELS },
+    report_status: { enum: ['DONE', 'DONE_WITH_CONCERNS', 'NEEDS_CONTEXT', 'BLOCKED'] },
+    report_stated: { type: 'boolean' },
+    advance: { type: 'boolean' },
+    must_not: {
+      type: 'array',
+      items: { enum: ['asked_human', 'bundle_write', 'out_of_stage_edit'] },
+    },
     step: { type: 'string', minLength: 1 },
     outcome: { enum: SPEC_STEP_OUTCOMES },
     artifact_hash: { type: 'string' },

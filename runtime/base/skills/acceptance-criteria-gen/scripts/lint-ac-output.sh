@@ -38,11 +38,11 @@ crit_lines=$(printf '%s\n' "$body" | grep -E '^[[:space:]]*(([-*+][[:space:]]+))
 [ -z "$crit_lines" ] && say_issue 'no "- AC-N: ..." criterion lines found'
 
 if grep -qE 'AC-[0-9]+\.[0-9]+[[:space:]]*:' <<<"$crit_lines"; then
-  say_issue 'dotted AC-N.N ids are not allowed — use flat AC-N (the freeze parser reads flat ids)'
+  say_issue 'dotted AC-N.N ids are not allowed; use flat AC-N (the freeze parser reads flat ids)'
 fi
 
 ids=$(printf '%s\n' "$crit_lines" | grep -Eo 'AC-[0-9]+' || true)
-dupes=$(printf '%s\n' "$ids" | sort | uniq -d | { grep -v '^$' || true; })
+dupes=$(printf '%s\n' "$ids" | LC_ALL=C sort | uniq -d | { grep -v '^$' || true; })
 [ -n "$dupes" ] && say_issue "duplicate AC ids: $(printf '%s' "$dupes" | tr '\n' ' ')"
 
 while IFS= read -r line; do

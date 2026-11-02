@@ -19,6 +19,7 @@ root="${1:-src}"
 scan() {
   pattern="$1"; smell="$2"
   { grep -rEn --binary-files=without-match "$pattern" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -50 \
     | awk -v s="$smell" -F: '
         { excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i;

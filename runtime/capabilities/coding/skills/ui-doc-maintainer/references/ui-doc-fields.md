@@ -1,5 +1,7 @@
 # UI Doc Fields
 
+verified: 2026-11-02
+
 Capture for each screen or component:
 
 - purpose and entry context

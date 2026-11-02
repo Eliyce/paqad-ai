@@ -1,5 +1,7 @@
 # Database Review Rubric
 
+verified: 2026-11-02
+
 Classify findings as:
 
 - correctness risk: wrong schema semantics, invalid constraints, broken relationships

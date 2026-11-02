@@ -1,5 +1,7 @@
 # Step Classification Guide
 
+verified: 2026-11-02
+
 Use this guide when classifying each step of a proposed solution.
 
 ## ac-satisfying
@@ -43,4 +45,4 @@ Recommend deletion or splitting into a separate, explicitly out-of-scope story.
 
 ## When in doubt
 
-If a step is genuinely ambiguous, do not guess — emit it under `Open Questions` with a one-line description of the ambiguity. Do not invent justification for keeping or dropping a step.
+If a step is genuinely ambiguous, do not guess: emit it under `Open Questions` with a one-line description of the ambiguity. Do not invent justification for keeping or dropping a step.

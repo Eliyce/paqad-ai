@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "rate-limiting-review",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:92bb8895790fee8d62535420ace6a335cdb349048920a6498cb1b561ef3a7040",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/rate-limiting-review",
+    "tests": 14,
+    "passed": 14,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:49.030Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:50.503Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:52.001Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:53.570Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:23:55.084Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ95GGG6GKDHXAD0FVWNVT",
+    "D-01M6DJ96ZKX4H1GXE1XS0J88GF",
+    "D-01M6DJ98ET6SE3N1KJABCKRBP5",
+    "D-01M6DJ99YQ7Y7338YKC8C599BX",
+    "D-01M6DJ9BE29ZF6XQBTX0Z3J1W3"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

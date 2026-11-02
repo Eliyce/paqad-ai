@@ -129,6 +129,15 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-agent-completion.mjs"
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-delegation.mjs"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -138,6 +147,15 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" skill-activation.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" agent-delegation.mjs"
           }
         ]
       }

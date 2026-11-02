@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "module-health-update",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:f9dfd88221fa672a7d8d3ca8455983fe7aa91899d89528219992bba2ab838b96",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/module-health-update",
+    "tests": 35,
+    "passed": 35,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:12:28.416Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:12:30.035Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:12:31.680Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:12:33.257Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:12:34.791Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHMCVMDX0WRGE4GVETNBPV",
+    "D-01M6DHMED1MK3VY8NK4AK0AQ75",
+    "D-01M6DHMG0GMY5680P894097SGV",
+    "D-01M6DHMHK99XC03T8Y1QNC7BN3",
+    "D-01M6DHMK2Y97Z32F4FWTPX42D8"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

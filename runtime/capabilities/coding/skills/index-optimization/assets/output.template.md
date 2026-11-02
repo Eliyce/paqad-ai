@@ -12,6 +12,6 @@
 
 ## Performance Risks
 
-- {{missing or redundant index for: query-shape | query-file | column}} — {{recommendation}}
+- {{missing or redundant index for: query-shape | query-file | column}}, {{recommendation}}
 
 <!-- "Performance Risks: none" allowed -->

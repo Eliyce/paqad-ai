@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "error-catalog-maintainer",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:737ca6ecc752c1db3c2703488343bd9334fc265aadc2452574dc5bc9861df026",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/error-catalog-maintainer",
+    "tests": 21,
+    "passed": 21,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:46.492Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:48.027Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:49.682Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:51.095Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:52.612Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHH9AACWFTXCCH2S49HW0V",
+    "D-01M6DHHAS5P5QM53BH8ZNBSKWP",
+    "D-01M6DHHCEDNTT95K2MWKE6G937",
+    "D-01M6DHHDTXVSC2EW137FF01SQ6",
+    "D-01M6DHHF8VNRMD5RNCJW2TATVV"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

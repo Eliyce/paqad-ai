@@ -1,8 +1,10 @@
 # Making the documents readable
 
+verified: 2026-11-02
+
 Get the project in front of you by capability, not by host (GRD-3). Work only from what you
 actually read, and name anything you need but cannot reach. The evidence level you reach, the
-source line and the upgrade nudge are defined once in `references/evidence-levels.md`; detect the
+source line and the upgrade nudge are defined once in `evidence-levels.md`; detect the
 level there and answer at the best level the repository allows.
 
 ## By capability
@@ -62,7 +64,8 @@ The check reads the modules list, `docs/instructions/registries/modules.md`, and
 summaries, `docs/modules/<area>/index/summary.md` for each folder under `docs/modules/` (a folder
 whose name starts with a dot is not an area). A file that is empty, holds only whitespace or cannot
 be read counts as missing. Where the check script ships with the skill, run it; otherwise do it by
-hand: list the `docs/modules` folders, read each `index/summary.md`, then look for the modules list.
+hand: list the `docs/modules` folders, read each `docs/modules/<area>/index/summary.md`, then look for
+the modules list.
 Its output names the evidence level; its not-set-up output is read as the code-only level, not a
 stop.
 
@@ -91,4 +94,5 @@ most once, worded for the level: in code-only mode it offers to install paqad, e
 ## What never to read
 
 Never read `.paqad/` runtime state, `docs/instructions/rules/`, secrets, environment files, `.git/`,
-`vendor/` or `node_modules/`. This skill only reads; it never edits the repository.
+`vendor/` or `node_modules/` (external folders of the repository being read). This skill only
+reads; it never edits the repository.

@@ -1,0 +1,22 @@
+triggers:
+  - process_depth:
+      - fast lane
+      - graduated lane
+      - full lane
+cache_key_inputs:
+  - .paqad/onboarding-manifest.json
+  - .paqad/project-profile.yaml
+  - .paqad/session/handoff.md
+input_schema:
+  handoff_path:
+    type: path
+    required: true
+    description: Session handoff document written before compaction.
+  onboarding_manifest_path:
+    type: path
+    required: true
+    description: Canonical onboarding manifest for the active project.
+  project_profile_path:
+    type: path
+    required: true
+    description: Canonical project profile for the active project.

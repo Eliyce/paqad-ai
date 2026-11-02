@@ -1,0 +1,17 @@
+triggers:
+  - database_impact:
+      - schema-change
+      - data-migration
+cache_key_inputs:
+  - database/migrations/**
+  - docs/modules/*/database/schema.md
+  - docs/modules/*/database/indexes.md
+input_schema:
+  schema_paths:
+    type: path[]
+    required: true
+    description: Schema or migration artifacts to review.
+  request_text:
+    type: string
+    required: false
+    description: Optional change summary.

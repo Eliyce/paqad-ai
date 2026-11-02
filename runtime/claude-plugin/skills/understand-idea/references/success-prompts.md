@@ -1,5 +1,7 @@
 # Helping a user who cannot state success
 
+verified: 2026-11-02
+
 Some users cannot say what success looks like. Do not leave it blank and do not invent a number
 (CON-6, TKT-5, AC-25). Offer suggested measures, label each one, and keep only the one the user
 accepts.

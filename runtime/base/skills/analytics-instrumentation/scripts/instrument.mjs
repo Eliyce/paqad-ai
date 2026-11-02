@@ -33,7 +33,9 @@ function snippetFor(provider, event) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const help = args.projectRoot === '--help' || args.projectRoot === '-h';
   if (
+    help ||
     !args.projectRoot ||
     !args.module ||
     !args.feature ||
@@ -44,7 +46,7 @@ async function main() {
       'Usage: node scripts/instrument.mjs <project-root> --module <m> --feature <f> ' +
         '--event <name> --provider <p> [--provider <p> ...]\n',
     );
-    process.exit(1);
+    process.exit(help ? 0 : 1);
   }
 
   const { syncAnalyticsDocs } = await import('paqad-ai');

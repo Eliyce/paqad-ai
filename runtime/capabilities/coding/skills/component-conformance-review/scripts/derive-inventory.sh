@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
-Purpose: Derive the AST-ish component inventory from src/components/** —
+Purpose: Derive the AST-ish component inventory from src/components/**:
          one row per component file. The inventory is the SUBJECT of the
          audit; components.md is the CONTRACT. The LLM compares the two.
 

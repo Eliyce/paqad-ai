@@ -1,5 +1,7 @@
 # The answer shape
 
+verified: 2026-11-02
+
 Lead with the answer. The first line is the answer, never a preamble, a restatement of the question
 or a summary of what you just said. Then one short Sources line at the end. Nothing else unless the
 user asks.

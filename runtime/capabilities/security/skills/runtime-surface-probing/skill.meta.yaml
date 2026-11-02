@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs: []
+input_schema:
+  target_url:
+    type: string
+    required: true
+    description: Base URL for the locally running application.
+  runtime_artifact_paths:
+    type: path[]
+    required: false
+    description: Artifacts produced by runtime-check scripts.

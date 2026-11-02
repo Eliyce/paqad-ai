@@ -1,0 +1,22 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  spec_path:
+    type: path
+    required: true
+    description: Active spec artifact whose acceptance criteria drive the implementation.
+  test_plan_path:
+    type: path
+    required: false
+    description: Test plan artifact when available.
+  affected_module_doc_paths:
+    type: path[]
+    required: false
+    description: Canonical module docs the implementation will read.
+  changed_file_paths:
+    type: path[]
+    required: false
+    description: Files known to be in the change set so far.

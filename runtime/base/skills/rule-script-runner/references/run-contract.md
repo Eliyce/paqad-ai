@@ -1,5 +1,7 @@
 # Rule-script runner contract
 
+verified: 2026-11-02
+
 How `feature-development.checks` consumes the rules-as-scripts gate.
 
 ## Modes (`checks.rule_compliance.mode`)
@@ -25,9 +27,9 @@ How `feature-development.checks` consumes the rules-as-scripts gate.
 
 ## Missing dependencies
 
-A script header may declare `requires: {"binaries":["git"]}`. If a declared binary is absent on the running machine, that single script is skipped with a `missing dependency: <bin>` result — the stage is never crashed. Other scripts still run.
+A script header may declare `requires: {"binaries":["git"]}`. If a declared binary is absent on the running machine, that single script is skipped with a `missing dependency: <bin>` result: the stage is never crashed. Other scripts still run.
 
 ## Exit codes
 
-- `0` — stage may proceed (mode `off`/`warn`, or `strict` with zero deterministic findings).
-- `1` — `mode: strict` and at least one `deterministic` finding blocks the stage.
+- `0`: stage may proceed (mode `off`/`warn`, or `strict` with zero deterministic findings).
+- `1`: `mode: strict` and at least one `deterministic` finding blocks the stage.

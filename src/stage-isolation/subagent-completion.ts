@@ -12,8 +12,10 @@ import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { extractAssistantText, extractMarkers } from '@/stage-evidence/marker-parse.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
+import { judgeMustNot, transcriptToolUses } from './must-not-judge.js';
 import {
   STAGE_AGENT_STAGES,
+  readStageReportStatus,
   stageForAgentName,
   stripPluginAgentNamespace,
 } from './stage-agents.js';
@@ -166,6 +168,31 @@ export function stagesRunByAgent(
   return STAGE_AGENT_STAGES.filter((candidate) => ran.has(candidate));
 }
 
+export interface StageAgentJudgement {
+  report_status?: string;
+  report_stated?: boolean;
+  advance?: boolean;
+  must_not?: string[];
+}
+
+export function judgeStageAgentReturn(
+  stage: string,
+  payload: SubagentStopPayload,
+): StageAgentJudgement {
+  const path = payload.agent_transcript_path;
+  if (typeof path !== 'string' || path.trim() === '') return {};
+  const text = readAgentTranscriptText(path);
+  if (text === null) return {};
+  const report = readStageReportStatus(extractAssistantText(text));
+  const violations = judgeMustNot(stage, transcriptToolUses(text));
+  return {
+    report_status: report.status,
+    report_stated: report.stated,
+    advance: report.advance && violations.length === 0,
+    ...(violations.length > 0 ? { must_not: violations } : {}),
+  };
+}
+
 export interface RecordStageAgentStartInput {
   projectRoot: string;
   payload: SubagentStopPayload;
@@ -238,6 +265,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
         tokens_not_recarried: tokens.tokens_not_recarried,
         estimate: !tokens.exact,
         ...requestedSetting(input.projectRoot, sessionId, stage),
+        ...judgeStageAgentReturn(stage, input.payload),
       },
       input.now,
     );

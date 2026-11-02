@@ -1,26 +1,11 @@
 ---
 name: index-optimization
-description: Review and improve indexing strategy for changed data paths.
-model_tier: reasoning
-triggers:
-  - database_impact:
-      - schema-change
-      - query-change
-cacheable: true
-cache_key_inputs:
-  - database/migrations/**
-  - docs/modules/*/database/indexes.md
-  - docs/modules/*/database/queries.md
-output_format: markdown
-input_schema:
-  query_paths:
-    type: path[]
-    required: true
-    description: Queries or explain plans to analyze.
-  schema_paths:
-    type: path[]
-    required: false
-    description: Relevant schema docs or migrations.
+description: 'Reviews and improves indexing for changed data paths. Use when a request adds filters, sorts, joins, uniqueness rules or query-heavy flows that depend on index coverage.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -29,7 +14,7 @@ Evaluates whether changed query paths have the right supporting indexes and expl
 
 ## Use This When
 
-Use this when a request introduces new filters, sorts, joins, uniqueness rules, or query-heavy flows that depend on index coverage.
+When a request introduces new filters, sorts, joins, uniqueness rules, or query-heavy flows that depend on index coverage.
 
 ## Inputs
 
@@ -43,7 +28,7 @@ Use this when a request introduces new filters, sorts, joins, uniqueness rules, 
 2. Cross-reference each shape with `assets/index-rules.txt` to know which index shape actually serves it.
 3. Audit existing index docs for redundancy and ordering against those shapes.
 4. Bucket findings into Correctness / Migration Safety / Performance per `assets/output.template.md`.
-5. Validate with `scripts/lint-output.sh`. Recommend only indexes that serve the changed behavior or a directly adjacent hot path — no speculative.
+5. Validate with `scripts/lint-output.sh`. Recommend only indexes that serve the changed behavior or a directly adjacent hot path, no speculative.
 
 ## Output Contract
 

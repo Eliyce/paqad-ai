@@ -3,9 +3,10 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { WorkflowRouterService } from '@/pipeline/workflow-router.js';
+import { readSkillAuditEvents } from '@/skills/audit-events.js';
 
 function writeSkill(root: string, relativePath: string, frontmatter: string): void {
   const target = join(root, relativePath);
@@ -359,5 +360,48 @@ Body content.
 
     expect(result.workflow).toBe('documentation-update');
     expect(result.workflow_source).toBe('routing-skill');
+  });
+});
+
+describe('AC-14: the live routing path records the skill metadata deprecation', () => {
+  it('records one skill.metadata_deprecated event per old-format skill and warns once', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-workflow-router-'));
+    const runtimeRoot = mkdtempSync(join(tmpdir(), 'paqad-runtime-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeSkill(
+      runtimeRoot,
+      'base/skills/workflow-router/SKILL.md',
+      `name: workflow-router
+description: Route requests
+model_tier: fast
+request_routing:
+  - priority: 100
+    target_workflow: documentation-update
+    patterns:
+      - create documentation
+cacheable: true
+cache_key_inputs: [request_text]
+output_format: yaml
+input_schema:
+  request_text:
+    type: string
+    required: true`,
+    );
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      await new WorkflowRouterService({ projectRoot, runtimeRoot }).resolve('create documentation');
+      await new WorkflowRouterService({ projectRoot, runtimeRoot }).resolve('create documentation');
+      const events = readSkillAuditEvents(projectRoot).filter(
+        (event) => event.type === 'skill.metadata_deprecated',
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0]!.message).toContain('workflow-router');
+      const warnings = stderr.mock.calls.filter(([line]) =>
+        String(line).includes('are deprecated and stop working'),
+      );
+      expect(warnings).toHaveLength(1);
+    } finally {
+      stderr.mockRestore();
+    }
   });
 });

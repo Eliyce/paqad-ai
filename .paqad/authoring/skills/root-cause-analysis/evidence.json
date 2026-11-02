@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "root-cause-analysis",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:c92868d8f16612a6dd63f103ec49b6ccf1ad34227b412b2f69bb2c5442ec551f",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/root-cause-analysis",
+    "tests": 7,
+    "passed": 7,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:18:53.399Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:18:54.950Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:18:56.599Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:18:58.223Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:18:59.811Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJ04S8ZSYBH0ZVT9N756R2",
+    "D-01M6DJ06ADKWC0P6AGQA8WP0KC",
+    "D-01M6DJ07Y1ZHC8WCE6ZF2RSS7R",
+    "D-01M6DJ09G7W3VQ5656F0QFX519",
+    "D-01M6DJ0B2PRSK0WYYSYKKSMK6Y"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": "1",
+  "agent": "claude",
+  "version": "1.0.0",
+  "file_hash": "sha256:abbce0c261bc4bf6e1fb34fa51adadfcbade2a1ec1c2bca06208a9e5e8f142d9",
+  "released_path": "runtime/templates/stage-agents/claude.md.hbs",
+  "files": [
+    "runtime/templates/stage-agents/claude.md.hbs"
+  ],
+  "pattern": null,
+  "class": null,
+  "invocation": null,
+  "baseline": {
+    "arm": null,
+    "runs": 0,
+    "passed": "unavailable",
+    "verdict": "overridden"
+  },
+  "reliability": null,
+  "delegation": null,
+  "memory": "none",
+  "returned_to_main_tokens_median": "unavailable",
+  "host_notes": {},
+  "deployable": {
+    "paqad-runtime": true
+  },
+  "proposals": [],
+  "sdk": null,
+  "model_stamp": {
+    "model": "inherit",
+    "proven_on": null,
+    "tier": null
+  },
+  "performance": {
+    "source": "unavailable"
+  },
+  "batch": "unavailable",
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 24
+  },
+  "script_tests": {
+    "command": null,
+    "tests": 0,
+    "passed": 0
+  },
+  "permission_decisions": [],
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T11:02:24.718Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T11:02:26.439Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T11:02:28.099Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T11:02:29.722Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T11:02:31.402Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DYSDS7MBRXXHQAFNVJRW4A",
+    "D-01M6DYSFFG3DNNPVRTAEDFAHQ6",
+    "D-01M6DYSH3EZDHGBXMRGRHR9QQ3",
+    "D-01M6DYSJP5P2ACC1WTX2N8SRC5",
+    "D-01M6DYSMBHZ3GSV0YF5ZAB24YB"
+  ],
+  "labels": [
+    "unverified"
+  ],
+  "rendered": [
+    "paqad-planning",
+    "paqad-specification",
+    "paqad-development",
+    "paqad-review",
+    "paqad-checks",
+    "paqad-documentation-sync",
+    "paqad-expert",
+    "paqad-chief-architect"
+  ]
+}

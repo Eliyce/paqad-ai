@@ -143,7 +143,7 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(SHARED_SETTINGS_NOTE.split('\n')).toHaveLength(1);
     expect(report.team_setup_notes.join('\n')).toContain('.claude/settings.json');
     expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
-    expect(report.team_setup_notes.join('\n')).toContain('.claude/agents/paqad-*.md');
+    expect(report.team_setup_notes.join('\n')).toContain('.claude/agents/paqad-');
     expect(git('check-ignore', '-v', '.claude/settings.local.json')).toContain(
       '.claude/.gitignore',
     );
@@ -160,11 +160,14 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(git('status', '--porcelain')).toBe('');
   });
 
-  it('writes the team settings and helpers while the plugin is installed, skipping only the rest', async () => {
+  it('writes the team settings while the plugin is installed, skipping only the rest', async () => {
     mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
     writeFileSync(
       join(home, '.claude', 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+      JSON.stringify({
+        version: 2,
+        plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: home }] },
+      }),
     );
     const report = await new FrameworkUpdater({
       generateCandidates: async () => [
@@ -173,7 +176,7 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
       ],
     }).run(root);
     expect(readJson('.claude/settings.json').enabledPlugins).toEqual({ 'paqad@eliyce': true });
-    expect(readdirSync(join(root, '.claude/agents'))).toHaveLength(8);
+    expect(existsSync(join(root, '.claude/agents/paqad-development.md'))).toBe(true);
     expect(existsSync(join(root, '.claude/settings.hooks.json'))).toBe(false);
     expect(existsSync(join(home, '.claude/agents'))).toBe(false);
     expect(report.regenerated).toContain('.claude/settings.json');
@@ -184,8 +187,8 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     const settings = readJson('.claude/settings.json');
     settings.permissions = { allow: ['Bash(ls)'] };
     writeFileSync(join(root, '.claude/settings.json'), `${JSON.stringify(settings, null, 2)}\n`);
-    const edited = join(root, '.claude/agents/paqad-review.md');
-    writeFileSync(edited, `${readFileSync(edited, 'utf8')}team note\n`);
+    mkdirSync(join(root, '.claude/agents'), { recursive: true });
+    writeFileSync(join(root, '.claude/agents/paqad-review.md'), 'team note\n');
     commitAll('team setup');
 
     mkdirSync(join(root, '.paqad/configs'), { recursive: true });

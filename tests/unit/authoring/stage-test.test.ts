@@ -103,6 +103,41 @@ describe('paqad-ai skill test (S4)', () => {
     expect(JSON.parse(readFileSync(workspace.path('lint.json'), 'utf8')).gate).toBe('failed');
   });
 
+  it('asks no contract test of scripts/README.md or a helper it lists under Not entry points', async () => {
+    allTests();
+    const workspace = workspaceAtS4();
+    workspace.write(
+      `draft/${NAME}/scripts/README.md`,
+      '# Scripts\n\n## Not entry points\n\n- `shared.py`: helpers extract imports.\n',
+    );
+    workspace.write(`draft/${NAME}/scripts/shared.py`, 'def helper():\n    return 1\n');
+    const result = await runSkillTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    expect(result.ok).toBe(true);
+    const report = JSON.parse(readFileSync(workspace.path('script-tests.json'), 'utf8'));
+    expect(report.scripts.map((entry: { script: string }) => entry.script)).toEqual([
+      'scripts/extract.ts',
+    ]);
+  });
+
+  it('still asks contract tests of a listed helper that keeps a runnable entry point', async () => {
+    allTests();
+    const workspace = workspaceAtS4();
+    workspace.write(
+      `draft/${NAME}/scripts/README.md`,
+      '# Scripts\n\n## Not entry points\n\n- `shared.py`: helpers extract imports.\n',
+    );
+    workspace.write(
+      `draft/${NAME}/scripts/shared.py`,
+      'if __name__ == "__main__":\n    print("--help")\n',
+    );
+    const result = await runSkillTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('a failing test run fails the gate', async () => {
     allTests();
     const result = await runSkillTest(workspaceAtS4(), {

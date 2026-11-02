@@ -1,6 +1,8 @@
 # STRIDE Checklist
 
-One concrete question per STRIDE letter per surface type. Answer each — if the answer is "unknown" or "not covered", flag it as a threat.
+verified: 2026-11-02
+
+One concrete question per STRIDE letter per surface type. Answer each: if the answer is "unknown" or "not covered", flag it as a threat.
 
 ## Surface: API Endpoint
 

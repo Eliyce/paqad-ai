@@ -1,33 +1,20 @@
 ---
 name: auth-mechanism-review
-description: Reason about authentication weaknesses including JWT vulnerabilities, session security, OAuth/OIDC flaws, brute-force surfaces, and password storage from code and docs evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Module docs describing authentication flows, sessions, and token handling.
-  test_paths:
-    type: path[]
-    required: false
-    description: Tests that may prove authentication mechanism security.
+description: 'Reasons about authentication weaknesses (JWT flaws, session security, OAuth and OIDC flaws, brute-force surfaces, password storage) from code and docs evidence. Use when docs or route inventories describe login, sessions, token handling, OAuth callbacks, password reset or MFA.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
 
-Reviews authentication implementation for weaknesses that let an attacker bypass identity verification — JWT algorithm confusion, session fixation, OAuth redirect manipulation, brute-force surfaces, and weak password storage — producing findings backed by code or test evidence.
+Reviews authentication implementation for weaknesses that let an attacker bypass identity verification (JWT algorithm confusion, session fixation, OAuth redirect manipulation, brute-force surfaces, and weak password storage) producing findings backed by code or test evidence.
 
 ## Use This When
 
-Use this when module docs or route inventories describe login flows, session management, token issuance/validation, OAuth/OIDC callbacks, password reset flows, or MFA enforcement.
+When module docs or route inventories describe login flows, session management, token issuance/validation, OAuth/OIDC callbacks, password reset flows, or MFA enforcement.
 
 ## Inputs
 
@@ -67,7 +54,7 @@ Use this when module docs or route inventories describe login flows, session man
 6. **OAuth / OIDC review**: Check:
    - `state` parameter is present and validated on the callback (CSRF protection)
    - Authorization code flow is used, not implicit flow
-   - Redirect URI is strictly validated — no wildcard, no open redirect via callback
+   - Redirect URI is strictly validated: no wildcard, no open redirect via callback
    - PKCE is enforced for public clients (mobile, SPA)
    - Token scopes are properly minimized (principle of least privilege)
 
@@ -79,14 +66,14 @@ Use this when module docs or route inventories describe login flows, session man
 
 ## Escalate / Stop Conditions
 
-- Ask when the auth library in use is not identified — cannot verify JWT validation without knowing the library.
+- Ask when the auth library in use is not identified: cannot verify JWT validation without knowing the library.
 - Warn when `alg:none` is not explicitly blocked and the framework does not reject it by default.
-- Do not mark authentication as safe purely because a login endpoint exists — each of the 6 areas must be verified independently.
+- Do not mark authentication as safe purely because a login endpoint exists: each of the 6 areas must be verified independently.
 
 ## Resources
 
 - `references/auth-attack-checklist.md`
-- `scripts/scan-auth-smells.sh` — pre-investigation grep over the codebase
-- `scripts/lint-findings.sh` — enforces WSTG id + Evidence citation per finding
+- `scripts/scan-auth-smells.sh`: pre-investigation grep over the codebase
+- `scripts/lint-findings.sh`: enforces WSTG id + Evidence citation per finding
 - `assets/output.template.md`
-- `assets/wstg-mapping.txt` — area → WSTG test id lookup
+- `assets/wstg-mapping.txt`: area → WSTG test id lookup

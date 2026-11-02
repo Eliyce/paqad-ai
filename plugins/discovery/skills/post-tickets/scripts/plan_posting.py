@@ -32,6 +32,8 @@ CLI (over a --state JSON file holding ticket_set, setup, connector, approval, re
   plan_posting.py claim     --state <state.json>
   plan_posting.py record    --state <state.json> --operation <id> --receipt <receipt.json>
   plan_posting.py reconcile --state <state.json> --operation <id> [--tracker-issues <found.json>]
+
+Run with --help to print the usage.
 """
 
 import argparse

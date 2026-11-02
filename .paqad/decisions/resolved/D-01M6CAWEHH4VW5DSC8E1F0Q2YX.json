@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6CAWEHH4VW5DSC8E1F0Q2YX",
+  "category": "intake.requirement",
+  "title": "Remove older unmarked paqad agent files on re-onboard?",
+  "context": "Older projects have paqad agent files in their .claude/agents folder that carry no paqad mark (today's generated files start with '---'). When they re-onboard, should paqad remove those too? Without a mark paqad can only spot its own old files by name and content. Removing them leaves one copy of each stage agent; leaving them means stages may run twice. A file the Developer changed by hand is kept either way and named in the output.",
+  "options": [
+    {
+      "option_key": "content-match",
+      "label": "Remove an unmarked file only when its content matches a file paqad generated before",
+      "one_line_preview": "Remove an unmarked file only when its content matches a file paqad generated before",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "leave",
+      "label": "Leave unmarked files alone and ask the Developer to delete them",
+      "one_line_preview": "Leave unmarked files alone and ask the Developer to delete them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "name-prefix",
+      "label": "Remove any file whose name starts with paqad-",
+      "one_line_preview": "Remove any file whose name starts with paqad-",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "content-match",
+  "created_at": "2026-11-01T19:55:17.425Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "content-match",
+  "rationale": "Owner",
+  "resolved_at": "2026-11-01T20:03:38.076Z",
+  "decision_id": "D-01M6CAWEHH4VW5DSC8E1F0Q2YX",
+  "fingerprint": "sha256:353e66a9efff341aaf2dc635c2bf6e660bf1db86e513262e650d175721b89b2f",
+  "question": "Remove older unmarked paqad agent files on re-onboard?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-15T19:55:17.425Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "content-match",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-01T20:03:38.076Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner"
+  }
+}

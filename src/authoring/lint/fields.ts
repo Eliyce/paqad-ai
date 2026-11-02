@@ -46,21 +46,7 @@ export function descriptionWithinLimit(description: string): boolean {
   return descriptionLength(description) <= DESCRIPTION_MAX_CHARS;
 }
 
-export const PAQAD_RUNTIME_SKILL_FIELDS: readonly string[] = [
-  'name',
-  'description',
-  'model_tier',
-  'triggers',
-  'request_routing',
-  'cacheable',
-  'cache_key_inputs',
-  'output_format',
-  'input_schema',
-  'on_complete',
-  'max_lines',
-  'tools',
-  'max_output_tokens',
-];
+export const PAQAD_RUNTIME_SKILL_FIELDS: readonly string[] = [];
 
 export function allowedSkillFields(claudeCode: boolean, paqadRuntime = false): ReadonlySet<string> {
   return new Set<string>([

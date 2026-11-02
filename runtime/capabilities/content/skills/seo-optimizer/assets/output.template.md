@@ -1,6 +1,6 @@
 ## SEO Findings
 
-- **{{Field}}** — current: {{value}} — issue: {{what fails}} — fix: {{specific edit}}
+- **{{Field}}**: current: {{value}} (issue: {{what fails}}) fix: {{specific edit}}
 - {{...}}
 
 ## Suggested Title/Meta

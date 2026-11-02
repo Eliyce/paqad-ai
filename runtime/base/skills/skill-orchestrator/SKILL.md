@@ -1,22 +1,11 @@
 ---
 name: skill-orchestrator
 description: Takes a new or edited skill through paqad's nine gated stages, from proving the skill is needed to releasing it with evidence, so no skill is added on a hunch. Use when a change creates or edits a SKILL.md or any file in a skill folder, when the Skill Orchestrator sits at the High Table, or when paqad-ai skill status names a stage to run next.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - feature-development
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  name:
-    type: string
-    required: true
-    description: The skill name, lowercase and hyphenated, equal to its folder name.
-  task:
-    type: string
-    required: true
-    description: The job the skill is for, taken from the frozen spec and the ticket.
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -38,7 +27,7 @@ Skip it for a skill the change removes: a removal gets no check.
 
 ## Procedure
 
-The workspace is `.paqad/tmp/authoring/skills/<name>`. Each step names the reference to read before you run it; the rules below are the ones a gate checks, so follow them even before you open the reference.
+Each step names the reference to read first; the rules below are what a gate checks, so follow them even before you open it.
 
 1. Run `paqad-ai skill status <name>`. It says whether the entry is `justify` (a new skill) or `improve` (an installed one) and which stage is next. For an installed skill run `paqad-ai skill improve <name>` first: it snapshots the folder before any edit, the snapshot is the baseline S5 compares against, and S0 is skipped.
 2. S0 justify (`references/s0-justify.md`). Run the task three times without any skill, each in a fresh context (a fresh subagent or headless run, never this conversation). Save the transcripts as `<workspace>/baseline/run-<n>.md`, judge each run into `<workspace>/baseline/verdicts.json`, then run `paqad-ai skill justify <name>`. Three passes out of three stop the pipeline: no skill is needed, and that result is not overridden. Four cases have a better home and stop with a flag and no skill folder: a one-off fix (`--exclusion one-off`), something already documented (`--exclusion documented --documented-in <path>`), a project convention for the always-loaded instructions file (`--exclusion convention`), and a rule that has to hold every time, which a skill cannot promise because it loads only when chosen (`--exclusion enforceable --enforce-with <hook or script>`).
@@ -94,8 +83,8 @@ Decisions: <ids, or none>
 - `references/s6-trigger.md`: the trigger queries, the split and the description rules.
 - `references/s7-release.md`: release, overrides and the portable copy.
 - `references/s8-operate.md`: learn, drift and catalog.
-- `references/agents/grader.md`: the brief for the grader agent in S5.
-- `references/agents/comparator.md`: the brief for the blind comparator in S5.
-- `references/agents/analyzer.md`: the brief for the analyst in S5.
+- `references/agents/grader.md`: the S5 grader brief.
+- `references/agents/comparator.md`: the S5 blind comparator brief.
+- `references/agents/analyzer.md`: the S5 analyst brief.
 - `references/agents/NOTICE`: the Apache 2.0 notice for the three adapted briefs.
 - `agents/openai.yaml`: the display name and short description for hosts that read it.

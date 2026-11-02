@@ -5,7 +5,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: Grep UI source for hard-coded design values that should reference
          a declared token. Each hit is an investigation candidate, not an
-         automatic finding — the LLM confirms each.
+         automatic finding: the LLM confirms each.
 Usage:   bash scripts/scan-tokens.sh [search-root]
          Default search-root: src
 Output:  category | file:line | excerpt
@@ -34,6 +34,7 @@ exclude=(
 scan() {
   pattern="$1"; category="$2"
   { grep -rEn --binary-files=without-match "${exclude[@]}" "$pattern" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -200 \
     | awk -v c="$category" -F: '
         { excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i;

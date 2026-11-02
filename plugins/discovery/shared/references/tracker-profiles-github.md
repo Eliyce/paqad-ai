@@ -1,5 +1,7 @@
 # GitHub Issues tracker profile
 
+verified: 2026-11-02
+
 A tracker profile names the actions a skill needs and lets the skill pick the connector tool that
 performs each action from whatever the connector exposes. This profile covers GitHub Issues.
 "GitHub" is the name of the tracker, not a host.

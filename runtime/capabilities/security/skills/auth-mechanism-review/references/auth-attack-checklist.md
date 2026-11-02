@@ -1,5 +1,7 @@
 # Auth Attack Checklist
 
+verified: 2026-11-02
+
 Concrete attack scenarios. For each item, check whether the application's implementation would block it.
 
 ## JWT Attacks
@@ -14,7 +16,7 @@ Concrete attack scenarios. For each item, check whether the application's implem
 
 ### RS256 → HS256 Confusion
 
-1. Obtain the server's RS256 public key (often exposed at `/jwks.json` or in cert).
+1. Obtain the server's RS256 public key (often exposed at the external endpoint `/jwks.json` or in cert).
 2. Use the **public key bytes** as the HMAC secret to sign a modified payload with `"alg":"HS256"`.
 3. **Expected**: 401. If the server accepts it → the library does not pin the expected algorithm.
 
@@ -25,7 +27,7 @@ Concrete attack scenarios. For each item, check whether the application's implem
 
 ### kid Header Injection
 
-- If the `kid` header is used in a file lookup: `"kid": "../../dev/null"` — server reads empty file as key, accepting any signature.
+- If the `kid` header is used in a file lookup: `"kid": "../../dev/null"`, server reads empty file as key, accepting any signature.
 - If used in a SQL query: `"kid": "x' UNION SELECT 'attackerkey'--"`.
 
 ## Session Attacks

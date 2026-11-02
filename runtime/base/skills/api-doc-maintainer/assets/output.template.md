@@ -1,8 +1,8 @@
 ## Updated API Docs
 
-- `{{path/to/api/endpoints.md}}` — {{fields updated}}
-- `{{path/to/api/schemas.md}}` — {{fields updated}}
-- `{{path/to/api/error-codes.md}}` — {{fields updated}}
+- `{{path/to/api/endpoints.md}}`: {{fields updated}}
+- `{{path/to/api/schemas.md}}`: {{fields updated}}
+- `{{path/to/api/error-codes.md}}`: {{fields updated}}
 
 ## Coverage Gaps
 

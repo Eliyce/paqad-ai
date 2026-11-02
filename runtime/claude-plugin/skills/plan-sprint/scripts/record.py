@@ -18,6 +18,8 @@ CLI:
 
 stdout: {"revision", "step", "status"} on success. On failure: {"ok": false, "error": <msg>}
 to stderr and exit code 1.
+
+Run with --help to print the usage.
 """
 
 import argparse

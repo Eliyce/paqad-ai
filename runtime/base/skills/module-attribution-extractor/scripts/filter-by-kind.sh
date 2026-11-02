@@ -10,6 +10,7 @@ Usage:   bash scripts/filter-by-kind.sh <kind> [report.json]
 Output:  JSON array of matching candidates on stdout.
 Exits:   0 ok (may be empty array) | 2 usage / parse error
 USAGE
+  case "${1:-}" in --help|-h) exit 0 ;; esac
   exit 2
 fi
 

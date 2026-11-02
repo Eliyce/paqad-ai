@@ -1,0 +1,16 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - docs/modules/**/business.md
+  - docs/modules/**/technical.md
+  - tests/**
+input_schema:
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Module docs describing roles, permissions, or tenant-sensitive actions.
+  test_paths:
+    type: path[]
+    required: false
+    description: Tests that may prove authorization and boundary behavior.

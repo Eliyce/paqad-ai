@@ -1,5 +1,7 @@
 # RCA Sections
 
+verified: 2026-11-02
+
 Canonical RCA sections, in order:
 
 1. Summary

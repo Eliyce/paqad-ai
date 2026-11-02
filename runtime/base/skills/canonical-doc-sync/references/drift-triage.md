@@ -1,5 +1,7 @@
 # Drift Triage
 
+verified: 2026-11-02
+
 Update immediately when drift affects:
 
 - user-facing behavior

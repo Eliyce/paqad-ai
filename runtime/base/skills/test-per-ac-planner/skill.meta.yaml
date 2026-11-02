@@ -1,0 +1,14 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  acceptance_criteria_path:
+    type: path
+    required: true
+    description: Acceptance criteria artifact.
+  changed_files:
+    type: path[]
+    required: false
+    description: Implementation files under test.

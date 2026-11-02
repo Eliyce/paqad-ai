@@ -1,5 +1,7 @@
 # Sequencing Rules
 
+verified: 2026-11-02
+
 Prefer this order when applicable:
 
 1. clarify requirements

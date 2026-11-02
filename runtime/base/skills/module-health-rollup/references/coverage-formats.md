@@ -1,5 +1,7 @@
 # Supported Coverage / Test Report Formats
 
+verified: 2026-11-02
+
 The module-health rollup understands a fixed set of report formats, mirrored
 by the `coverage_format` / `test_report_format` enum on
 `module_health` blocks in stack-pack manifests.
@@ -29,7 +31,7 @@ The rollup never zeroes a metric to avoid the null path.
 
 Extending the parser set is a framework change. A project that
 ships its own coverage tooling either picks the closest existing format or
-opens an issue for the new one — `module_health.coverage_format` is gated by
+opens an issue for the new one: `module_health.coverage_format` is gated by
 a closed JSON-Schema enum in
 [`src/validators/schemas/stack-pack.schema.json`](src/validators/schemas/stack-pack.schema.json).
 

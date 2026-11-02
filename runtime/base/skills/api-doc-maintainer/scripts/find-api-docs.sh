@@ -22,4 +22,4 @@ find "$root" -type f \( \
   -path '*/api/endpoints.md' -o \
   -path '*/api/schemas.md' -o \
   -path '*/api/error-codes.md' \
-  \) 2>/dev/null | sort -u
+  \) 2>/dev/null | LC_ALL=C sort -u

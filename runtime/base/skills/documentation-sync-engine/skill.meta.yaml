@@ -1,0 +1,20 @@
+triggers:
+  - workflow:
+      - feature-development
+      - bug-fix
+      - refactor
+      - migration
+cache_key_inputs: []
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: Changed source or doc files from the current diff.
+  detector_script_path:
+    type: path
+    required: true
+    description: Path to the canonical stale doc detector used by diff-doc-sync.
+  target_domains:
+    type: string[]
+    required: false
+    description: Optional restriction to specific domains (api, integration, module, error, glossary). Empty means all.

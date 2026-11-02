@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - feature-development
+      - documentation-update
+      - module-map-reconcile
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve module-map.yml and source_roots. Defaults to cwd.
+  source_roots:
+    type: string[]
+    required: false
+    description: Override source_roots discovered from the active stack pack. Hard-fails when neither is provided.

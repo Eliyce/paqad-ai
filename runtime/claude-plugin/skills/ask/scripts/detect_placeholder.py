@@ -14,6 +14,8 @@ CLI:
 
 The markers file defaults to shared/references/template-markers.md next to this script. stdout:
 {"sections": [{"heading", "status", "markers_hit"}]}. Exit 0.
+
+Run with --help to print the usage.
 """
 
 import argparse

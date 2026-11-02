@@ -1,24 +1,11 @@
 ---
 name: business-logic-abuse-review
-description: Derive abuse cases from module docs and validate them against tests and runtime evidence.
-model_tier: reasoning
-triggers:
-  - workflow:
-      - pentest
-cacheable: false
-cache_key_inputs:
-  - docs/modules/**
-  - tests/**
-output_format: markdown
-input_schema:
-  module_doc_paths:
-    type: path[]
-    required: true
-    description: Canonical module docs that describe workflows and state transitions.
-  runtime_artifact_paths:
-    type: path[]
-    required: false
-    description: Optional runtime artifacts that help validate the abuse hypotheses.
+description: 'Derives abuse cases from module docs and checks them against tests and runtime evidence. Use when docs describe stateful workflows, approvals, payments, exports, retries, invites or any action abusable without breaking auth.'
+metadata:
+  model_tier: reasoning
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -27,7 +14,7 @@ Turns business workflow descriptions into concrete abuse hypotheses so pentest r
 
 ## Use This When
 
-Use this when module docs describe stateful workflows, approvals, payments, exports, retries, invites, or any action that can be abused without breaking auth.
+When module docs describe stateful workflows, approvals, payments, exports, retries, invites, or any action that can be abused without breaking auth.
 
 ## Inputs
 
@@ -45,7 +32,7 @@ Use this when module docs describe stateful workflows, approvals, payments, expo
 
 ## Output Contract
 
-- Match `assets/output.template.md`: `## Findings`, `### {{module}} — {{abuse-case-tag}}`, with `Module:`, `Step:`, `Abuse case:`, `Missing proof:`, `Reproduction:` segments.
+- Match `assets/output.template.md`: `## Findings`, `### {{module}}: {{abuse-case-tag}}`, with `Module:`, `Step:`, `Abuse case:`, `Missing proof:`, `Reproduction:` segments.
 - Output must pass `scripts/lint-findings.sh` (exit 0).
 - Reproduction steps must be concrete enough for a manual retest.
 

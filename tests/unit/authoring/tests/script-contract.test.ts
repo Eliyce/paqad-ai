@@ -53,6 +53,14 @@ describe('where the skill tests live', () => {
     );
   });
 
+  it('uses tests/unit/skills/<name>/ in the paqad repository', () => {
+    const paqad = project({ 'package.json': JSON.stringify({ name: 'paqad-ai' }) });
+    expect(skillTestLocation(paqad, 'processing-invoices')).toEqual({
+      dir: 'tests/unit/skills/processing-invoices',
+      framework: 'default',
+    });
+  });
+
   it('plans the seven named contract tests per script', () => {
     const plan = planScriptContractTests(project(), 'processing-invoices', ['scripts/extract.ts']);
     expect(plan.scripts[0]!.tests).toEqual([

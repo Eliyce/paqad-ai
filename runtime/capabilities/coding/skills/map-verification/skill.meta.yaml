@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - site-map
+cache_key_inputs: []
+input_schema:
+  claims:
+    type: path
+    required: true
+    description: The machine-built table of inconclusive claims the engine's Tier-A checks could not settle.

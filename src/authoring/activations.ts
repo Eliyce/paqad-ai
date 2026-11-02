@@ -50,14 +50,15 @@ function visitActivations(fd: number, visit: (activation: SkillActivation) => vo
 export function forEachActivation(
   projectRoot: string,
   visit: (activation: SkillActivation) => void,
-): void {
+): boolean {
   const fd = openIfPresent(join(projectRoot, ACTIVATIONS_LEDGER));
-  if (fd === null) return;
+  if (fd === null) return false;
   try {
     visitActivations(fd, visit);
   } finally {
     closeSync(fd);
   }
+  return true;
 }
 
 export function activationCutoff(now: Date, darkWindowDays: number): number {

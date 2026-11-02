@@ -1,5 +1,7 @@
 # Motion Checklist
 
+verified: 2026-11-02
+
 For each animation in source:
 
 - **Duration ≤ declared ceiling.** `motion.md` typically declares 400ms for UI; transitions ≥ 500ms outside of full-page transitions are findings.

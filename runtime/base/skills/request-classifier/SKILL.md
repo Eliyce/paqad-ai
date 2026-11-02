@@ -1,32 +1,11 @@
 ---
 name: request-classifier
-description: Classify incoming requests into the framework routing model.
-model_tier: fast
-triggers:
-  - workflow:
-      - project-question
-      - feature-development
-      - bug-fix
-      - refactor
-      - migration
-      - investigation
-cacheable: true
-cache_key_inputs:
-  - request_text
-output_format: yaml
-input_schema:
-  request_text:
-    type: string
-    required: true
-    description: Raw user request to classify.
-  linked_spec_paths:
-    type: path[]
-    required: false
-    description: Optional spec or issue files explicitly linked to the request.
-on_complete:
-  emit: classification_ready
-  triggers:
-    - router
+description: 'Classifies incoming requests into the framework routing model. Use when a new request starts, or when its scope changed enough that earlier routing may no longer hold.'
+metadata:
+  model_tier: fast
+  cacheable: 'true'
+  output_format: yaml
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -35,7 +14,7 @@ Produces a deterministic request classification across the routing dimensions us
 
 ## Use This When
 
-Use this at the start of a new request or whenever the effective scope changed enough that prior routing assumptions may no longer be safe.
+At the start of a new request or whenever the effective scope changed enough that prior routing assumptions may no longer be safe.
 
 ## Inputs
 
@@ -46,7 +25,7 @@ Use this at the start of a new request or whenever the effective scope changed e
 ## Procedure
 
 1. Pipe the raw request into `scripts/extract-signals.sh` to get baseline keyword-derived dimensions (workflow, ui/api/db impact, scope, risk hint).
-2. Override script defaults only when canonical evidence (linked spec, stack manifest, module map) contradicts them — record the override under Evidence.
+2. Override script defaults only when canonical evidence (linked spec, stack manifest, module map) contradicts them: record the override under Evidence.
 3. Use `assets/dimensions.txt` for the allowed value set per dimension.
 4. Default to most conservative accurate value when ambiguous; never invent certainty for risk/sensitivity.
 5. Format per `assets/output.template.md`; validate with `scripts/lint-output.sh`.

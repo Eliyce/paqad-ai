@@ -168,6 +168,11 @@ describe('test-execution-feedback-loop', () => {
       expect(r.status).toBe(0);
     });
 
+    it('passes the empty short-circuit literal in the documented comma form', () => {
+      const r = runScript(path, [], { input: 'Fix Proposals: none, verification passed.\n' });
+      expect(r.status).toBe(0);
+    });
+
     it('passes a valid block with required field lines per proposal', () => {
       const ok = [
         '## Fix Proposals',

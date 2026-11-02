@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
-Purpose: Stop-condition gate — refuse to run the inferencer when
+Purpose: Stop-condition gate: refuse to run the inferencer when
          module-map.yml is missing (the inferencer needs the map to
          form hypotheses; see SKILL.md "Escalate / Stop Conditions").
 Usage:   bash scripts/require-module-map.sh [project-root]

@@ -67,7 +67,7 @@ function messages(findings: Finding[]): string[] {
 }
 
 describe('checkPluginSkills', () => {
-  it('AC-9: a skill using all six allowed keys passes', () => {
+  it('AC-9: a skill using all seven allowed keys passes', () => {
     expect(ALLOWED_KEYS).toEqual([
       'name',
       'description',
@@ -75,6 +75,7 @@ describe('checkPluginSkills', () => {
       'compatibility',
       'metadata',
       'allowed-tools',
+      'disable-model-invocation',
     ]);
     const all = skill(
       [
@@ -85,6 +86,7 @@ describe('checkPluginSkills', () => {
         'metadata:',
         '  owner: eliyce',
         'allowed-tools: Read Grep',
+        'disable-model-invocation: true',
       ].join('\n'),
     );
     expect(check(all)).toEqual([]);

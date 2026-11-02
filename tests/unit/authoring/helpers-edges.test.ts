@@ -110,6 +110,16 @@ describe('the never-write list', () => {
 });
 
 describe('folder hashing and the description helpers', () => {
+  it('leaves Python bytecode caches and .DS_Store out of the listing and the hash', () => {
+    write('f/scripts/run.py', 'print(1)');
+    const clean = hashFolder(join(root, 'f'));
+    write('f/scripts/__pycache__/run.cpython-313.pyc', 'x');
+    write('f/scripts/stray.pyc', 'y');
+    write('f/.DS_Store', 'z');
+    expect(listFolderFiles(join(root, 'f')).map((file) => file.rel)).toEqual(['scripts/run.py']);
+    expect(hashFolder(join(root, 'f'))).toBe(clean);
+  });
+
   it('sorts names, filters with include, and leaves text without frontmatter alone', () => {
     write('f/b.md', 'b');
     write('f/a.md', 'a');

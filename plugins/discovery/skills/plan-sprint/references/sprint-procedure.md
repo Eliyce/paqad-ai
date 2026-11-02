@@ -1,5 +1,7 @@
 # Sprint procedure
 
+verified: 2026-11-02
+
 The ordered procedure for proposing a sprint plan, with the SPR limits and the by-hand fallback.
 Follow it top to bottom. The rules are SPR-1 to SPR-7.
 

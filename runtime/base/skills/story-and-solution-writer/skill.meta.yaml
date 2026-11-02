@@ -1,0 +1,18 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  requirements_path:
+    type: path
+    required: true
+    description: Accepted requirements artifact.
+  sequence_plan_path:
+    type: path
+    required: true
+    description: Implementation sequence artifact.
+  canonical_doc_paths:
+    type: path[]
+    required: false
+    description: Relevant canonical docs.

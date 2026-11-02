@@ -1,5 +1,7 @@
 # Goal-first playback template
 
+verified: 2026-11-02
+
 The playback is how step 3 shows the user the shaped idea. It always starts with the goal, never
 with a restatement of the request. Keep it compact and in business words (see `voice.md`). Fill
 only the parts that apply; leave out an empty one rather than padding it.

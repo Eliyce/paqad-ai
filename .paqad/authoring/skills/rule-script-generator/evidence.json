@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "rule-script-generator",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:a7f2fd64834d3280d0d1a7942b9b75452da38afe2f04fe481d6b995fc488ac23",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/rule-script-generator",
+    "tests": 21,
+    "passed": 21,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:14:01.764Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:14:03.363Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:14:04.975Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:14:06.696Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:14:08.265Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHQ8233GP30TXRN8XZGF99",
+    "D-01M6DHQ9K1Z394VJFWGR14T2JJ",
+    "D-01M6DHQB56BRR2A4HGN5KXYSNN",
+    "D-01M6DHQCSR9X91XG6XAFJRZXN7",
+    "D-01M6DHQEB3TNWDQDVVRCE71K43"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

@@ -10,8 +10,10 @@ USAGE
   exit 0
 fi
 
+routed=0
 while IFS= read -r p; do
   [ -z "$p" ] && continue
+  routed=1
   case "$p" in
     *"/api/endpoints.md"|*"/api/schemas.md"|*"/api/error-codes.md") domain=api ;;
     *"/events.md"|*"/contracts.md"|*"/integration.md"|*"/integrations.md") domain=integration ;;
@@ -20,4 +22,6 @@ while IFS= read -r p; do
     *) domain=canonical ;;
   esac
   printf '%s\t%s\n' "$domain" "$p"
-done | sort -u
+done > >(LC_ALL=C sort -u)
+wait
+[ "$routed" -eq 1 ] || echo "note: no doc paths on stdin" >&2

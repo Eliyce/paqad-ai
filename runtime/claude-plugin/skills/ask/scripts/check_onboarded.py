@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Report whether this repository is onboarded with paqad and which docs exist.
+
+Run with --help to print the usage.
+"""
+
 import argparse
 import json
 import sys

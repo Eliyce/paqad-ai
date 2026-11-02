@@ -1,0 +1,11 @@
+triggers:
+  - workflow:
+      - pentest
+cache_key_inputs:
+  - docs/modules/**
+  - docs/instructions/**
+input_schema:
+  module_doc_paths:
+    type: path[]
+    required: true
+    description: Module docs describing assets, workflows, integrations, and user actions.

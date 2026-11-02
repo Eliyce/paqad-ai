@@ -1,0 +1,13 @@
+triggers:
+  - workflow:
+      - rules-generate
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve rule-script-map.yml and write scripts. Defaults to cwd.
+  only_rule_id:
+    type: string
+    required: false
+    description: When set, regenerate scripts for just this rule (RL-<hash>).

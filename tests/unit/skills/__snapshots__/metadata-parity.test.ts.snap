@@ -1,0 +1,2970 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the same frontmatter object as before the move 1`] = `
+{
+  "runtime/base/skills/acceptance-criteria-gen": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "constraints_path": {
+        "description": "Optional canonical constraints document.",
+        "required": false,
+        "type": "path",
+      },
+      "request_text": {
+        "description": "Scoped request or story to convert into acceptance criteria.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "acceptance-criteria-gen",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/adversarial-review": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "diff_paths": {
+        "description": "Changed artifacts to review.",
+        "required": true,
+        "type": "path[]",
+      },
+      "request_text": {
+        "description": "Accepted request or change summary.",
+        "required": true,
+        "type": "string",
+      },
+      "verification_summary": {
+        "description": "Claimed verification evidence.",
+        "required": false,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "adversarial-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "risk": [
+          "medium",
+          "high",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/agent-orchestrator": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "name": {
+        "description": "The agent name, lowercase and hyphenated, equal to its file name.",
+        "required": true,
+        "type": "string",
+      },
+      "task": {
+        "description": "The job the agent is for, taken from the frozen spec and the ticket.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "agent-orchestrator",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/analytics-instrumentation": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "event": {
+        "description": "The exact event name, in the project's one consistent convention.",
+        "required": true,
+        "type": "string",
+      },
+      "feature": {
+        "description": "Feature slug the event belongs to.",
+        "required": true,
+        "type": "string",
+      },
+      "module": {
+        "description": "Module slug the event belongs to (from the module map).",
+        "required": true,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root used to resolve the docs tree and read the analytics decision sidecar.",
+        "required": true,
+        "type": "path",
+      },
+      "provider": {
+        "description": "One or more analytics provider ids the event fires to (repeatable).",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "analytics-instrumentation",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/api-doc-maintainer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "Implementation files that changed API behavior.",
+        "required": true,
+        "type": "path[]",
+      },
+      "module_doc_paths": {
+        "description": "Canonical API docs to sync.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 200,
+    "model_tier": "medium",
+    "name": "api-doc-maintainer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "api_impact": [
+          "additive-endpoint",
+          "modified-endpoint",
+          "breaking-change",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/canonical-doc-sync": {
+    "cache_key_inputs": [
+      "docs/**/*.md",
+      "src/**/*.ts",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "canonical_doc_paths": {
+        "description": "Canonical docs to review for drift.",
+        "required": true,
+        "type": "path[]",
+      },
+      "changed_files": {
+        "description": "Changed implementation or doc files.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "canonical-doc-sync",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/context-budget-planner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "affected_module_doc_paths": {
+        "description": "Canonical module docs the implementation will read.",
+        "required": false,
+        "type": "path[]",
+      },
+      "changed_file_paths": {
+        "description": "Files known to be in the change set so far.",
+        "required": false,
+        "type": "path[]",
+      },
+      "spec_path": {
+        "description": "Active spec artifact whose acceptance criteria drive the implementation.",
+        "required": true,
+        "type": "path",
+      },
+      "test_plan_path": {
+        "description": "Test plan artifact when available.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "context-budget-planner",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/cross-module-impact-scanner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "api_doc_paths": {
+        "description": "Per-module API docs (endpoints.md, schemas.md, error-codes.md) that describe public endpoints.",
+        "required": false,
+        "type": "path[]",
+      },
+      "integration_doc_paths": {
+        "description": "Per-module integration docs (events.md, contracts.md) that describe consumer relationships.",
+        "required": false,
+        "type": "path[]",
+      },
+      "module_map_path": {
+        "description": "docs/instructions/rules/module-map.yml so the scanner knows the canonical module list.",
+        "required": true,
+        "type": "path",
+      },
+      "proposed_solution_path": {
+        "description": "Implementation outline or solution proposal that lists the modules and surfaces being changed.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "cross-module-impact-scanner",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+        "workflow": [
+          "feature-development",
+        ],
+      },
+      {
+        "api_impact": [
+          "additive-endpoint",
+          "modified-endpoint",
+          "breaking-change",
+        ],
+      },
+      {
+        "scope": [
+          "multi-module",
+          "system-wide",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/decision": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "category": {
+        "description": "Decision Pause category (e.g. workflow-or-tool, architecture-path). Required by \`create\`.",
+        "required": false,
+        "type": "string",
+      },
+      "chosen": {
+        "description": "The \`option_key\` the user selected. Required by \`resolve\`.",
+        "required": false,
+        "type": "string",
+      },
+      "context": {
+        "description": "The situation and trade-offs the user needs to weigh. Required by \`create\`.",
+        "required": false,
+        "type": "string",
+      },
+      "id": {
+        "description": "The \`D-<ULID>\` id of a pending packet. Required by \`resolve\`.",
+        "required": false,
+        "type": "string",
+      },
+      "options": {
+        "description": "Two or more \`<key>=<label>\` option pairs. Required by \`create\`.",
+        "required": false,
+        "type": "string[]",
+      },
+      "project_root": {
+        "description": "Project root used to resolve \`.paqad/decisions/\`. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+      "title": {
+        "description": "One-line question the decision answers. Required by \`create\`.",
+        "required": false,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "decision",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "documentation-update",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/diff-doc-sync": {
+    "cache_key_inputs": [
+      ".paqad/session/review-digest.md",
+      "docs/maintainers/canonical-contract-map.md",
+      "docs/modules/README.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "Changed source or doc files from the current diff, as listed by \`paqad-ai review digest\` or read from git.",
+        "required": true,
+        "type": "path[]",
+      },
+      "detector_script_path": {
+        "description": "Path to the canonical stale doc detector script.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "diff-doc-sync",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/diff-minimizer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "acceptance_criteria_path": {
+        "description": "Acceptance criteria artifact written by the requirement analyst or acceptance-criteria-gen skill.",
+        "required": true,
+        "type": "path",
+      },
+      "module_doc_paths": {
+        "description": "Canonical module docs that establish what abstractions and patterns already exist as project convention.",
+        "required": false,
+        "type": "path[]",
+      },
+      "proposed_solution_path": {
+        "description": "Implementation outline or solution proposal whose steps will be classified.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "diff-minimizer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/documentation-sync-engine": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "Changed source or doc files from the current diff.",
+        "required": true,
+        "type": "path[]",
+      },
+      "detector_script_path": {
+        "description": "Path to the canonical stale doc detector used by diff-doc-sync.",
+        "required": true,
+        "type": "path",
+      },
+      "target_domains": {
+        "description": "Optional restriction to specific domains (api, integration, module, error, glossary). Empty means all.",
+        "required": false,
+        "type": "string[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "documentation-sync-engine",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/documentation-workflow": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "detection_report_path": {
+        "description": "Current detection report.",
+        "required": false,
+        "type": "path",
+      },
+      "doc_progress_path": {
+        "description": "Canonical doc tracker.",
+        "required": false,
+        "type": "path",
+      },
+      "mode": {
+        "description": "foundation (default) or module-docs",
+        "required": false,
+        "type": "string",
+      },
+      "project_profile_path": {
+        "description": "Canonical project profile.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "documentation-workflow",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "documentation-update",
+          "module-documentation",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/edge-case-detection": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "acceptance_criteria_path": {
+        "description": "Acceptance criteria artifact for edge-case evaluation.",
+        "required": false,
+        "type": "path",
+      },
+      "request_text": {
+        "description": "Scoped request or solution summary.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "edge-case-detection",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/error-catalog-maintainer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "Implementation files affecting errors.",
+        "required": true,
+        "type": "path[]",
+      },
+      "error_catalog_paths": {
+        "description": "Canonical error docs to update.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 200,
+    "model_tier": "medium",
+    "name": "error-catalog-maintainer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/existing-doc-checker": {
+    "cache_key_inputs": [
+      "docs/**/*.md",
+      ".paqad/indexes/**/*.json",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "candidate_doc_paths": {
+        "description": "Canonical docs to inspect.",
+        "required": true,
+        "type": "path[]",
+      },
+      "request_text": {
+        "description": "Incoming request to reconcile against existing docs.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "existing-doc-checker",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+          "investigation",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/expert-need-detector": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "grounding": {
+        "description": "The S0 grounding (references and business terms for the touched area), as printed by \`paqad-ai spec pipeline experts context\`.",
+        "required": true,
+        "type": "object",
+      },
+      "request_text": {
+        "description": "The user's request being specced.",
+        "required": true,
+        "type": "string",
+      },
+      "roster": {
+        "description": "The allowed expert roles. Defaults to the framework roster; the detector may name only these.",
+        "required": false,
+        "type": "string[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "expert-need-detector",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/expert-notes": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "brief": {
+        "description": "The brief printed by \`paqad-ai spec pipeline experts brief <role>\` (the request, grounding pointers, label, and granted budget).",
+        "required": true,
+        "type": "string",
+      },
+      "role": {
+        "description": "The expert role to write notes as, one of the pickable roster roles.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "expert-notes",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/expert-synthesis": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "context": {
+        "description": "The JSON printed by \`paqad-ai spec pipeline experts context\`, with the request, the grounding, the label, the roster, every expert note, and the merge (findings with ids, and conflicts).",
+        "required": true,
+        "type": "object",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "expert-synthesis",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/finding-normalizer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "raw_finding_inputs": {
+        "description": "Structured evidence to normalize into canonical pentest findings.",
+        "required": true,
+        "type": "object",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "finding-normalizer",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+          "pentest-retest",
+          "codebase-health",
+          "health-retest",
+          "site-map",
+          "site-map-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/glossary-maintainer": {
+    "cache_key_inputs": [
+      ".paqad/glossary.md",
+      "docs/**/*.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "changed_terms": {
+        "description": "Terms introduced or modified by the change.",
+        "required": true,
+        "type": "string[]",
+      },
+      "glossary_path": {
+        "description": "Canonical glossary file.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "glossary-maintainer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "output_type": [
+          "documentation",
+          "report",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/integration-doc-maintainer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "Implementation files affecting integrations.",
+        "required": true,
+        "type": "path[]",
+      },
+      "integration_doc_paths": {
+        "description": "Canonical integration docs to sync.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 200,
+    "model_tier": "medium",
+    "name": "integration-doc-maintainer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "scope": [
+          "multi-module",
+          "system-wide",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/module-attribution-extractor": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Project root used to resolve module-map.yml for collision detection. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+      "prompt": {
+        "description": "The user prompt to analyse (typically a pasted ticket or feature request).",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "module-attribution-extractor",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "module-attribution",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/module-attribution-inferencer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "max_choices": {
+        "description": "Cap on existing-module choices returned (default "3"). CLI passes as a string and parses internally.",
+        "required": false,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root used to resolve module-map.yml. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+      "prompt": {
+        "description": "The user prompt to analyse.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "module-attribution-inferencer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "module-attribution",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/module-health-rollup": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "from_report": {
+        "description": "Path to a pre-generated coverage report. Skips test_command and uses this file as the coverage source.",
+        "required": false,
+        "type": "path",
+      },
+      "project_root": {
+        "description": "Project root used to resolve module-map.yml and the active stack pack. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+      "run_test_command": {
+        "description": "When true, run the pack's \`test_command\` before reading reports. Off by default in CI / from-report flows.",
+        "required": false,
+        "type": "boolean",
+      },
+      "test_report": {
+        "description": "Path to a pre-generated test report (junit-xml / go-json / vitest-json). Skips test_command and uses this file as the test source.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "module-health-rollup",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "module-health-rollup",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/module-health-update": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Project root used to resolve module-map.yml and the active stack pack. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "module-health-update",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "module-health-update",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/module-map-reconciler": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Project root used to resolve module-map.yml and source_roots. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Override source_roots discovered from the active stack pack. Hard-fails when neither is provided.",
+        "required": false,
+        "type": "string[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "module-map-reconciler",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "documentation-update",
+          "module-map-reconcile",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/performance-regression-estimator": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_file_paths": {
+        "description": "Source files in the current change set; used to scope hazards to actually-changing code.",
+        "required": false,
+        "type": "path[]",
+      },
+      "module_doc_paths": {
+        "description": "Canonical module docs that establish hot-path requirements (latency budgets, throughput targets).",
+        "required": false,
+        "type": "path[]",
+      },
+      "proposed_solution_path": {
+        "description": "Implementation outline that describes the data access, concurrency, caching, and I/O the change introduces.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "performance-regression-estimator",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+      {
+        "workflow": [
+          "feature-development",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/request-classifier": {
+    "cache_key_inputs": [
+      "request_text",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "linked_spec_paths": {
+        "description": "Optional spec or issue files explicitly linked to the request.",
+        "required": false,
+        "type": "path[]",
+      },
+      "request_text": {
+        "description": "Raw user request to classify.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "request-classifier",
+    "on_complete": {
+      "emit": "classification_ready",
+      "triggers": [
+        "router",
+      ],
+    },
+    "output_format": "yaml",
+    "triggers": [
+      {
+        "workflow": [
+          "project-question",
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+          "investigation",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/requirement-enrichment": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "grounding_references": {
+        "description": "Doc/glossary refs the phrasing can cite in each question's grounded_in.",
+        "required": false,
+        "type": "path[]",
+      },
+      "grounding_terms": {
+        "description": "The S0 grounding vocabulary (glossary + module-doc headings), the first-priority wording source.",
+        "required": false,
+        "type": "string[]",
+      },
+      "request_text": {
+        "description": "The user's own request wording (second-priority vocabulary source).",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "requirement-enrichment",
+    "output_format": "json",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rollback-safety-planner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Canonical module docs that establish operational conventions and feature flags.",
+        "required": false,
+        "type": "path[]",
+      },
+      "spec_path": {
+        "description": "Active spec used to validate rollback affects only the documented scope.",
+        "required": false,
+        "type": "path",
+      },
+      "story_plan_path": {
+        "description": "Story plan emitted by the story-designer agent.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rollback-safety-planner",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+      {
+        "workflow": [
+          "feature-development",
+          "migration",
+          "refactor",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rule-analyzer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Project root used to resolve docs/instructions/rules and the map. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "rule-analyzer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "rules-analyze",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rule-editor": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "mode": {
+        "description": "add | edit | remove | downgrade. Inferred from the user's prompt.",
+        "required": false,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root used to resolve rule files and the map. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "rule-editor",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "rules-edit",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rule-script-generator": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "only_rule_id": {
+        "description": "When set, regenerate scripts for just this rule (RL-<hash>).",
+        "required": false,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root used to resolve rule-script-map.yml and write scripts. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rule-script-generator",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "rules-generate",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rule-script-reconciler": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Project root used to resolve rule-script-map.yml and rule files. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "rule-script-reconciler",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "rules-analyze",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rule-script-runner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "mode": {
+        "description": "off | warn | strict. Defaults to the checks.rule_compliance.mode in feature-development.yaml.",
+        "required": false,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root used to resolve rule-script-map.yml and scripts. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "rule-script-runner",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/scope-check": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "Incoming request to validate against the active spec.",
+        "required": true,
+        "type": "string",
+      },
+      "spec_paths": {
+        "description": "Active spec artifacts that define the approved scope.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "scope-check",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/sequence-planner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "acceptance_criteria_path": {
+        "description": "Acceptance criteria to sequence.",
+        "required": true,
+        "type": "path",
+      },
+      "canonical_doc_paths": {
+        "description": "Supporting canonical docs.",
+        "required": false,
+        "type": "path[]",
+      },
+      "requirements_path": {
+        "description": "Accepted requirements artifact.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "sequence-planner",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/session-resume": {
+    "cache_key_inputs": [
+      ".paqad/onboarding-manifest.json",
+      ".paqad/project-profile.yaml",
+      ".paqad/session/handoff.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "handoff_path": {
+        "description": "Session handoff document written before compaction.",
+        "required": true,
+        "type": "path",
+      },
+      "onboarding_manifest_path": {
+        "description": "Canonical onboarding manifest for the active project.",
+        "required": true,
+        "type": "path",
+      },
+      "project_profile_path": {
+        "description": "Canonical project profile for the active project.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "session-resume",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "fast lane",
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/skill-orchestrator": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "name": {
+        "description": "The skill name, lowercase and hyphenated, equal to its folder name.",
+        "required": true,
+        "type": "string",
+      },
+      "task": {
+        "description": "The job the skill is for, taken from the frozen spec and the ticket.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "skill-orchestrator",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/spec-diff": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "Incoming request to compare against the active spec.",
+        "required": true,
+        "type": "string",
+      },
+      "spec_paths": {
+        "description": "Active spec artifacts that define the current approved behavior.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "spec-diff",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+          "migration",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/spec-quality-review": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "spec_file": {
+        "description": "Markdown specification file to review.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "spec-quality-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "doc": [
+          "spec",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/story-and-solution-writer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "canonical_doc_paths": {
+        "description": "Relevant canonical docs.",
+        "required": false,
+        "type": "path[]",
+      },
+      "requirements_path": {
+        "description": "Accepted requirements artifact.",
+        "required": true,
+        "type": "path",
+      },
+      "sequence_plan_path": {
+        "description": "Implementation sequence artifact.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "story-and-solution-writer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/test-execution-feedback-loop": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "acceptance_criteria_path": {
+        "description": "Acceptance criteria artifact for cross-checking each failure's AC id.",
+        "required": false,
+        "type": "path",
+      },
+      "changed_file_paths": {
+        "description": "Files in the current change set so confidence can be calibrated.",
+        "required": false,
+        "type": "path[]",
+      },
+      "verification_evidence_path": {
+        "description": "Path to .paqad/session/verification-evidence.json (schema 1.0.0 or compatible).",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "test-execution-feedback-loop",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+      {
+        "workflow": [
+          "feature-development",
+          "bug-fix",
+          "refactor",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/test-per-ac-planner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "acceptance_criteria_path": {
+        "description": "Acceptance criteria artifact.",
+        "required": true,
+        "type": "path",
+      },
+      "changed_files": {
+        "description": "Implementation files under test.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "test-per-ac-planner",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/test-runner-discovery": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "The project whose test runner is being classified.",
+        "required": true,
+        "type": "path",
+      },
+      "test_command": {
+        "description": "The project's mapped \`commands.test\`; the parallel command must build on it.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "test-runner-discovery",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/workflow-router": {
+    "cache_key_inputs": [
+      "request_text",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "project_profile_path": {
+        "description": "Canonical project profile used to validate routing context.",
+        "required": false,
+        "type": "path",
+      },
+      "request_text": {
+        "description": "Raw user request to route.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "workflow-router",
+    "output_format": "yaml",
+    "request_routing": [
+      {
+        "patterns": [
+          "pentest retest",
+          "pentest-retest",
+          "retest pentest",
+          "retest security findings",
+        ],
+        "priority": 250,
+        "target_workflow": "pentest-retest",
+      },
+      {
+        "patterns": [
+          "run a pentest",
+          "run pentest",
+          "penetration test",
+          "security review",
+          "security test",
+        ],
+        "priority": 240,
+        "target_workflow": "pentest",
+      },
+      {
+        "patterns": [
+          "site map retest",
+          "site-map retest",
+          "retest the site map",
+          "retest site map",
+        ],
+        "priority": 233,
+        "target_workflow": "site-map-retest",
+      },
+      {
+        "patterns": [
+          "site map",
+          "create sitemap",
+          "update sitemap",
+          "generate sitemap",
+          "journey map",
+        ],
+        "priority": 232,
+        "target_workflow": "site-map",
+      },
+      {
+        "patterns": [
+          "root cause analysis",
+          "root-cause-analysis",
+          "postmortem",
+          "post mortem",
+          "incident analysis",
+        ],
+        "priority": 230,
+        "target_workflow": "root-cause-analysis",
+      },
+      {
+        "patterns": [
+          "create module documentation",
+          "generate module docs",
+          "create per-module docs",
+          "now create the module documentation",
+          "generate module documentation",
+          "create module docs",
+        ],
+        "priority": 225,
+        "target_workflow": "module-documentation",
+      },
+      {
+        "patterns": [
+          "create documentation",
+          "created documentation",
+          "create documenation",
+          "created documenation",
+          "generate documentation",
+          "update documentation",
+          "refresh documentation",
+          "build documentation",
+        ],
+        "priority": 220,
+        "target_workflow": "documentation-update",
+      },
+      {
+        "patterns": [
+          "how does",
+          "what is",
+          "why does",
+          "where is",
+          "explain",
+          "walk me through",
+        ],
+        "priority": 210,
+        "target_workflow": "project-question",
+      },
+      {
+        "patterns": [
+          "cleanup",
+        ],
+        "priority": 180,
+        "target_workflow": "cleanup",
+      },
+      {
+        "patterns": [
+          "refactor",
+        ],
+        "priority": 175,
+        "target_workflow": "refactor",
+      },
+      {
+        "patterns": [
+          "data migration",
+          "schema migration",
+          "migration",
+        ],
+        "priority": 170,
+        "target_workflow": "migration",
+      },
+      {
+        "patterns": [
+          "fix",
+          "bug",
+          "repair",
+        ],
+        "priority": 165,
+        "target_workflow": "bug-fix",
+      },
+      {
+        "patterns": [
+          "research",
+        ],
+        "priority": 160,
+        "target_workflow": "research",
+      },
+      {
+        "patterns": [
+          "plan",
+          "brief",
+          "outline",
+          "strategy",
+        ],
+        "priority": 155,
+        "target_workflow": "planning",
+      },
+      {
+        "patterns": [
+          "rewrite",
+          "revise",
+          "polish",
+          "edit",
+        ],
+        "priority": 150,
+        "target_workflow": "editing",
+      },
+      {
+        "patterns": [
+          "write",
+          "content",
+          "copy",
+          "article",
+        ],
+        "priority": 145,
+        "target_workflow": "writing",
+      },
+      {
+        "patterns": [
+          "implement",
+          "build",
+          "add",
+          "feature",
+        ],
+        "priority": 140,
+        "target_workflow": "feature-development",
+      },
+    ],
+    "triggers": [],
+  },
+  "runtime/capabilities/coding/skills/accessibility-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/accessibility.md",
+      "docs/instructions/design-system/tokens.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "accessibility_path": {
+        "description": "Path to the project's accessibility.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+      "axe_results_path": {
+        "description": "Path to axe-core results JSON emitted by runtime-checks.ts (live phase).",
+        "required": false,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Roots to scan for UI source.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "accessibility-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/component-conformance-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/components.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "components_path": {
+        "description": "Path to the project's components.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Roots to scan for component definitions and usages.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "component-conformance-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/copy-and-ia-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/patterns.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "patterns_path": {
+        "description": "Path to patterns.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Roots to scan for user-facing copy.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "copy-and-ia-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/database-design-review": {
+    "cache_key_inputs": [
+      "database/migrations/**",
+      "docs/modules/*/database/schema.md",
+      "docs/modules/*/database/indexes.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "Optional change summary.",
+        "required": false,
+        "type": "string",
+      },
+      "schema_paths": {
+        "description": "Schema or migration artifacts to review.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "database-design-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "database_impact": [
+          "schema-change",
+          "data-migration",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/design-system-coverage": {
+    "cache_key_inputs": [
+      "docs/instructions/design-system/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "contract_paths": {
+        "description": "Files under docs/instructions/design-system/* that make up the project's design-system contract.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "design-system-coverage",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/design-system-sync": {
+    "cache_key_inputs": [
+      "src/design-tokens/**",
+      "src/components/**",
+      "tailwind.config.*",
+      "docs/instructions/design-system/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "diff_paths": {
+        "description": "Changed files in the current diff that may require a design-system contract update.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "design-system-sync",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/guard-inference": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "surfaces": {
+        "description": "The modeled surfaces and transitions whose access controls this skill evidences.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "guard-inference",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/index-optimization": {
+    "cache_key_inputs": [
+      "database/migrations/**",
+      "docs/modules/*/database/indexes.md",
+      "docs/modules/*/database/queries.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "query_paths": {
+        "description": "Queries or explain plans to analyze.",
+        "required": true,
+        "type": "path[]",
+      },
+      "schema_paths": {
+        "description": "Relevant schema docs or migrations.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "index-optimization",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "database_impact": [
+          "schema-change",
+          "query-change",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/journey-synthesis": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "app_map": {
+        "description": "The compiled, verified app-map.yaml whose surfaces and transitions the journeys compose.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "journey-synthesis",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/map-verification": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "claims": {
+        "description": "The machine-built table of inconclusive claims the engine's Tier-A checks could not settle.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "map-verification",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/motion-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/motion.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "motion_path": {
+        "description": "Path to motion.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Roots to scan for animation/transition definitions.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "motion-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/query-pattern-analysis": {
+    "cache_key_inputs": [
+      "docs/modules/*/database/queries.md",
+      "docs/modules/*/database/schema.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Related module docs.",
+        "required": false,
+        "type": "path[]",
+      },
+      "query_paths": {
+        "description": "Queries or logs to inspect.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "query-pattern-analysis",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "database_impact": [
+          "query-change",
+          "schema-change",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/responsive-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/responsive.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "responsive_path": {
+        "description": "Path to responsive.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+      "source_roots": {
+        "description": "Roots to scan for UI source.",
+        "required": true,
+        "type": "path[]",
+      },
+      "surface_walk_results": {
+        "description": "JSON of route screenshots × breakpoints from runtime-checks.ts.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "responsive-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/root-cause-analysis": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "Incident or problem statement to analyze.",
+        "required": true,
+        "type": "string",
+      },
+      "stack_snapshot_path": {
+        "description": "Optional stack snapshot to ground the investigation.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "root-cause-analysis",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "root-cause-analysis",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/site-map-assembly": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_bundle": {
+        "description": "The site-map run bundle whose modeled layers compile into app-map.yaml.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "site-map-assembly",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/site-map-gap-analysis": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_bundle": {
+        "description": "The run bundle whose invariants and verdicts become SM-* findings.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "site-map-gap-analysis",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/site-map-maintainer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "The files a feature-development change touched, checked for flow relevance.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "site-map-maintainer",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "feature-development",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/site-map-readiness": {
+    "cache_key_inputs": [
+      ".paqad/project-profile.yaml",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Repository root whose manifests and profile establish the app kind and frameworks.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "site-map-readiness",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+          "site-map-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/site-map-retest": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "app_map": {
+        "description": "The stored docs/site-map/app-map.yaml the re-run verifies against the code.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "site-map-retest",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/state-coverage-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/components.md",
+      "tests/**",
+      "e2e/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "source_roots": {
+        "description": "Roots to scan for component definitions.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Playwright test files that exercise component states.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "state-coverage-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/surface-extraction": {
+    "cache_key_inputs": [
+      ".paqad/site-map/baseline.json",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "Repository root the extractors scan for surfaces (routes, commands, endpoints).",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "fast",
+    "name": "surface-extraction",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+          "site-map-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/surface-modeling": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "extraction": {
+        "description": "The extraction.json produced by surface-extraction, the raw surfaces to model.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "surface-modeling",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/token-conformance-review": {
+    "cache_key_inputs": [
+      "src/**",
+      "docs/instructions/design-system/tokens.md",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "source_roots": {
+        "description": "Roots to scan for UI source; typically \`src/\`, \`app/\`, or \`graph-ui/src/\`.",
+        "required": true,
+        "type": "path[]",
+      },
+      "tokens_path": {
+        "description": "Path to the project's tokens.md contract clause.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "token-conformance-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/transition-tracing": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "surfaces": {
+        "description": "The modeled surfaces the transitions connect (output of surface-modeling).",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "transition-tracing",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/ui-doc-maintainer": {
+    "cache_key_inputs": [
+      "docs/modules/*/ui/*.md",
+      "src/components/**",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "changed_files": {
+        "description": "UI implementation files that changed.",
+        "required": true,
+        "type": "path[]",
+      },
+      "ui_doc_paths": {
+        "description": "Canonical UI docs to update.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "ui-doc-maintainer",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "ui_impact": [
+          "new-component",
+          "new-screen",
+          "redesign",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/user-flow-generation": {
+    "cache_key_inputs": [
+      "docs/**/*.md",
+      "runtime/templates/user-flow.md.hbs",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Relevant module docs.",
+        "required": false,
+        "type": "path[]",
+      },
+      "story_path": {
+        "description": "Story artifact describing the feature.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "user-flow-generation",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "ui_impact": [
+          "new-component",
+          "new-screen",
+          "redesign",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/ux-design-research": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "current_ui_paths": {
+        "description": "Current UI docs or screenshots.",
+        "required": false,
+        "type": "path[]",
+      },
+      "request_text": {
+        "description": "UX problem to research.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "ux-design-research",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "full lane",
+        ],
+        "ui_impact": [
+          "new-component",
+          "new-screen",
+          "redesign",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/ux-heuristic-evaluation": {
+    "cache_key_inputs": [
+      "docs/modules/*/ui/components.md",
+      "docs/modules/*/ui/screens.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "Optional evaluation scope.",
+        "required": false,
+        "type": "string",
+      },
+      "ui_surface_paths": {
+        "description": "UI surfaces or docs to evaluate.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "ux-heuristic-evaluation",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "ui_impact": [
+          "new-component",
+          "new-screen",
+          "redesign",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/coding/skills/ux-state-machine": {
+    "cache_key_inputs": [
+      "docs/modules/*/ui/states.md",
+      "docs/modules/*/ui/screens.md",
+    ],
+    "cacheable": true,
+    "file": "",
+    "input_schema": {
+      "flow_path": {
+        "description": "Flow or interaction artifact.",
+        "required": true,
+        "type": "path",
+      },
+      "state_doc_paths": {
+        "description": "Existing state docs.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "ux-state-machine",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "ui_impact": [
+          "new-component",
+          "new-screen",
+          "redesign",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/content/skills/content-planner": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/content/skills/content-reviewer": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/content/skills/content-writer": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/content/skills/script-writer": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/content/skills/seo-optimizer": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/content/skills/style-enforcer": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/capabilities/security/skills/auth-mechanism-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing authentication flows, sessions, and token handling.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove authentication mechanism security.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "auth-mechanism-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/business-logic-abuse-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Canonical module docs that describe workflows and state transitions.",
+        "required": true,
+        "type": "path[]",
+      },
+      "runtime_artifact_paths": {
+        "description": "Optional runtime artifacts that help validate the abuse hypotheses.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "business-logic-abuse-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/cryptographic-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing data storage, encryption, token generation, and external communication.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove cryptographic strength or key management.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "cryptographic-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/dependency-advisory-triage": {
+    "cache_key_inputs": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "package-lock.json",
+      "composer.lock",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "advisory_artifact_paths": {
+        "description": "Raw audit and advisory artifacts to normalize.",
+        "required": true,
+        "type": "path[]",
+      },
+      "stack_snapshot_path": {
+        "description": "Optional stack snapshot with installed package versions.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "dependency-advisory-triage",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/input-validation-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing endpoints, data flows, and external integrations.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove input validation and abuse-path coverage.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "input-validation-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/logging-monitoring-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing sensitive operations, financial actions, and authentication flows.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove audit logging or log integrity.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "logging-monitoring-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/permission-boundary-review": {
+    "cache_key_inputs": [
+      "docs/modules/**/business.md",
+      "docs/modules/**/technical.md",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing roles, permissions, or tenant-sensitive actions.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove authorization and boundary behavior.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "permission-boundary-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/rate-limiting-review": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "tests/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing API endpoints, authentication flows, and bulk operations.",
+        "required": true,
+        "type": "path[]",
+      },
+      "test_paths": {
+        "description": "Tests that may prove rate limiting or throttle enforcement.",
+        "required": false,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "rate-limiting-review",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/retest-verification": {
+    "cache_key_inputs": [
+      "docs/pentest/**/*.json",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "fresh_evidence_paths": {
+        "description": "New evidence collected during the retest run.",
+        "required": false,
+        "type": "path[]",
+      },
+      "source_report_path": {
+        "description": "Source pentest sidecar to retest.",
+        "required": true,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "retest-verification",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest-retest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/runtime-surface-probing": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "runtime_artifact_paths": {
+        "description": "Artifacts produced by runtime-check scripts.",
+        "required": false,
+        "type": "path[]",
+      },
+      "target_url": {
+        "description": "Base URL for the locally running application.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "runtime-surface-probing",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/capabilities/security/skills/stride-threat-model": {
+    "cache_key_inputs": [
+      "docs/modules/**",
+      "docs/instructions/**",
+    ],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "module_doc_paths": {
+        "description": "Module docs describing assets, workflows, integrations, and user actions.",
+        "required": true,
+        "type": "path[]",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "stride-threat-model",
+    "output_format": "json",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+        ],
+      },
+    ],
+  },
+  "runtime/claude-plugin/skills/ask": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/check-tickets": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/dashboard": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/decide-together": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/discover": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/get-connected": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/ground-in-project": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/join": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/onboard": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/plan-sprint": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/post-tickets": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/refine-ticket": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/shape-idea": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/size-work": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/start": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/understand-idea": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+  "runtime/claude-plugin/skills/write-tickets": {
+    "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
+  },
+}
+`;

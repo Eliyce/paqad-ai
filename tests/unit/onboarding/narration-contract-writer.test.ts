@@ -288,3 +288,32 @@ describe('narration-contract-writer', () => {
     expect(doc).toBe(`${MANAGED_HEADER}\n\n${buildNarrationContractBody()}`);
   });
 });
+
+describe('the orchestrator protocol for stage returns', () => {
+  const router = readFileSync(join(process.cwd(), 'runtime', 'AGENT-ROUTER.md'), 'utf8');
+
+  it('AC-8: a return with no Status line is checked against the ledger and resumed once', () => {
+    const body = buildNarrationContractBody();
+    for (const text of [body, router]) {
+      expect(text).toContain("read the change's `stage-evidence.jsonl`");
+      expect(text).toContain('end` row with its artifact, treat the return as `completed`');
+      expect(text).toContain('resume the same agent once, naming what is left');
+      expect(text).toContain('second return also has no Status line');
+    }
+  });
+
+  it('AC-9: red checks never advance and plugin agents are named with their namespace', () => {
+    const body = buildNarrationContractBody();
+    for (const text of [body, router]) {
+      expect(text).toContain('is red never advances, whatever its Status line');
+      expect(text).toContain('`paqad:paqad-<stage>` agent the paqad plugin provides');
+      expect(text).toContain('`paqad-<stage>` when the session lists only that name');
+    }
+  });
+
+  it('the specification agent hands the High Table seats back with NEEDS_CONTEXT', () => {
+    expect(router).toContain(
+      'returns after `experts record` with `Status: NEEDS_CONTEXT` naming the seated roles',
+    );
+  });
+});

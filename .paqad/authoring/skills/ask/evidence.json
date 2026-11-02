@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "ask",
+  "version": "1.1.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:175102f4fbc76d604e99d74342577fef9cc8b94c4c97541298ee9b609b0646d7",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/ask",
+    "tests": 21,
+    "passed": 21,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:24:32.296Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:24:33.925Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:24:35.612Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:24:37.081Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:24:38.668Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DJAFQPK9P929T3KM20WRD6",
+    "D-01M6DJAHC5PZXBH27YNPRDSRMR",
+    "D-01M6DJAK05JFN79H1KA6RX5041",
+    "D-01M6DJAMEZT6NW2AM04C10KAN0",
+    "D-01M6DJANYXM43B99QKDRA1P642"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

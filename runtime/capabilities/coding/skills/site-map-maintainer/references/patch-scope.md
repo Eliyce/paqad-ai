@@ -1,5 +1,7 @@
 # Patch scope
 
+verified: 2026-11-02
+
 The maintainer keeps the map alive without turning every code change into a full re-map. Its
 discipline is scope: touch only the surfaces the diff actually drifted, and prove each patch from
 the changed files.
@@ -26,5 +28,5 @@ the maintainer stays out of the way.
 ## Removals are decisions
 
 - When a change removes a surface that a journey still references, that is not a silent deletion.
-  Surface it for a human decision — the journey may need updating, or the removal may be a
+  Surface it for a human decision: the journey may need updating, or the removal may be a
   mistake. The map never quietly loses a surface a journey depends on.

@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: The files a feature-development change touched, checked for flow relevance.

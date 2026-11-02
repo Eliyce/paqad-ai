@@ -1,5 +1,7 @@
 # Sizing guide
 
+verified: 2026-11-02
+
 How to turn finished work into a labelled suggested size. Follow it in order. The rules are EST-1 to
 EST-7.
 

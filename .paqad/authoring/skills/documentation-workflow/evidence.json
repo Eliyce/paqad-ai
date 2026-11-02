@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "skill": "documentation-workflow",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:0145238a409104fe1a54799963024a35e1100f7b32ecd1cf68d591e8e9cf76d5",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 0,
+    "non_model": 0,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/documentation-workflow",
+    "tests": 21,
+    "passed": 21,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:25.510Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:27.049Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:28.613Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:30.179Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T07:10:31.743Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DHGMT84V9FFKXGETREWPX9",
+    "D-01M6DHGPB0KEPEG3XX671AZYSK",
+    "D-01M6DHGQX4M00B5HBDRY0Z5KT7",
+    "D-01M6DHGSDMTNPQKJF8EBD7XAKS",
+    "D-01M6DHGTWE2AKW79WV336H3JH6"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

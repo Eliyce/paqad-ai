@@ -454,30 +454,28 @@ describe('FrameworkUpdater', () => {
       expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
     });
 
-    it('writes only the Claude helpers into the project, for the team', async () => {
+    it('writes the Claude stage agents into the project only while team setup is on', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
-      expect(readdirSync(join(projectRoot, '.claude/agents')).sort()).toEqual(
-        readdirSync(join(userHome, '.claude/agents'))
-          .filter((f) => f.endsWith('.md'))
-          .sort(),
-      );
+      expect(existsSync(join(projectRoot, '.claude/agents/paqad-development.md'))).toBe(true);
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
     });
 
-    it('still writes the Claude helpers into the project when the plugin is installed', async () => {
+    it('writes no Claude home stage agent when the plugin is installed', async () => {
       const pluginsDir = join(userHome, '.claude/plugins');
       mkdirSync(pluginsDir, { recursive: true });
       writeFileSync(
         join(pluginsDir, 'installed_plugins.json'),
-        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+        JSON.stringify({
+          version: 2,
+          plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: userHome }] },
+        }),
       );
 
       await new FrameworkUpdater({
         generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
       }).run(projectRoot);
 
-      expect(readdirSync(join(projectRoot, '.claude/agents'))).toHaveLength(8);
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
     });
 
@@ -486,18 +484,21 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(true);
     });
 
-    it('skips stage-agent generation when the plugin is installed', async () => {
+    it('writes only the Codex home agents when the plugin is installed', async () => {
       const pluginsDir = join(userHome, '.claude/plugins');
       mkdirSync(pluginsDir, { recursive: true });
       writeFileSync(
         join(pluginsDir, 'installed_plugins.json'),
-        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+        JSON.stringify({
+          version: 2,
+          plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: userHome }] },
+        }),
       );
 
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
 
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
-      expect(existsSync(join(userHome, '.codex/agents'))).toBe(false);
+      expect(readdirSync(join(userHome, '.codex/agents'))).toHaveLength(8);
     });
 
     describe('project Claude settings when the plugin is installed', () => {

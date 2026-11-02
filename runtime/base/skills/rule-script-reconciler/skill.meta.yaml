@@ -1,0 +1,10 @@
+triggers:
+  - workflow:
+      - feature-development
+      - rules-analyze
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root used to resolve rule-script-map.yml and rule files. Defaults to cwd.

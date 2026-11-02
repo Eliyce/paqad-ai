@@ -182,6 +182,13 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
     expect(spawns()).toEqual([]);
   });
 
+  it('leaves a project with no .paqad folder untouched, so a removed project is never recreated', () => {
+    rmSync(join(projectRoot, '.paqad'), { recursive: true, force: true });
+    expect(run({ PAQAD_RAG_ENABLED: 'true' }).status).toBe(0);
+    expect(existsSync(join(projectRoot, '.paqad'))).toBe(false);
+    expect(spawns()).toEqual([]);
+  });
+
   it('is a no-op (no marker) when paqad is disabled', () => {
     writeFileSync(join(projectRoot, '.paqad/.config'), 'paqad_enable=false\n');
     expect(run({ PAQAD_RAG_ENABLED: 'true' }).status).toBe(0);

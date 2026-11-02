@@ -1,5 +1,7 @@
 # Allowed parallel-flag tokens
 
+verified: 2026-11-02
+
 A discovered `test_parallel` may start with the project's own runner invocation (the shared leading
 tokens of `commands.test`, including the runner executable), then add ONLY the tokens below. The
 `<processes>` placeholder must appear exactly once and is substituted with the process count at run

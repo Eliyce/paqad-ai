@@ -1,6 +1,6 @@
 ## Findings
 
-### {{module}} — {{abuse-case-tag}}
+### {{module}}: {{abuse-case-tag}}
 
 - **Module:** {{module name / canonical doc path}}
 - **Step:** {{specific workflow step / state transition}}

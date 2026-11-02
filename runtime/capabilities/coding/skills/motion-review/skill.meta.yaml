@@ -1,0 +1,16 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/**
+  - docs/instructions/design-system/motion.md
+input_schema:
+  source_roots:
+    type: path[]
+    required: true
+    description: Roots to scan for animation/transition definitions.
+  motion_path:
+    type: path
+    required: true
+    description: Path to motion.md contract clause.

@@ -16,7 +16,7 @@ import {
   hashText,
   listFolderFiles,
 } from '../hash.js';
-import { lintSkillFolder } from '../lint/skill-lint.js';
+import { contractScriptPaths, lintSkillFolder } from '../lint/skill-lint.js';
 import { enabledAdapters, SKILL_FILE } from '../paths.js';
 import { checkSkillReferences, type BlockRunner } from '../tests/reference-checks.js';
 import {
@@ -292,9 +292,12 @@ export async function runSkillTest(
     runner: options.blockRunner,
   });
   const location = skillTestLocation(projectRoot, workspace.name);
-  const scripts = listFolderFiles(folder)
-    .map((file) => file.rel)
-    .filter((rel) => rel.startsWith('scripts/'));
+  const scripts = contractScriptPaths(
+    listFolderFiles(folder).map((file) => ({
+      rel: file.rel,
+      text: file.bytes.subarray(0, 8000).includes(0) ? null : file.bytes.toString('utf8'),
+    })),
+  );
   const { run, testCommand } = await runProjectTests({
     projectRoot,
     testDir: location.dir,

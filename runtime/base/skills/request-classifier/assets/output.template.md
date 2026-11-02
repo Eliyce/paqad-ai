@@ -11,4 +11,4 @@ db_impact: {{yes | no | schema | data}}
 
 ## Evidence
 
-- {{dimension}}: {{strongest signal — quote or path}}
+- {{dimension}}: {{strongest signal, quote or path}}

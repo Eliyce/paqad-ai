@@ -1,6 +1,6 @@
 # {{title}}
 
-{{audience-aware lede — what the reader gets, in one sentence}}
+{{audience-aware lede: what the reader gets, in one sentence}}
 
 ## {{section-1}}
 

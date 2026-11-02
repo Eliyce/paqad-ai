@@ -11,14 +11,14 @@ Output:  Number of findings on stdout.
 Exits:   0 findings present
          1 clean (zero findings)
          2 reconciler blocked (e.g. source_roots_unknown)
-         3 drift.json missing — reconcile not run yet
+         3 drift.json missing, reconcile not run yet
 USAGE
   exit 0
 fi
 
 root="${1:-$PWD}"
 path="$root/.paqad/module-map/drift.json"
-[ -f "$path" ] || { printf 'drift.json missing — run `paqad-ai module-map reconcile`\n' >&2; exit 3; }
+[ -f "$path" ] || { printf 'drift.json missing; run `paqad-ai module-map reconcile`\n' >&2; exit 3; }
 
 out=$(node -e '
 const fs = require("fs");

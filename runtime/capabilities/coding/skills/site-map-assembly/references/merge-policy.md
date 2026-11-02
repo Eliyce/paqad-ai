@@ -1,5 +1,7 @@
 # Merge policy
 
+verified: 2026-11-02
+
 Assembly folds freshly modeled layers into the committed map. The map is a living document that
 humans curate, so the merge must never silently erase that curation. This reference is the
 conflict-resolution contract.
@@ -11,7 +13,7 @@ conflict-resolution contract.
 - **New, evidenced entries are added.** A surface the extractor newly proved and no committed
   entry covers is added (the `SM-ADD` reconciliation).
 - **A genuine change is surfaced, not applied.** When a fresh layer disagrees with a curated
-  entry — a surface moved, a guard changed — that is a conflict to report for a human decision,
+  entry (a surface moved, a guard changed) that is a conflict to report for a human decision,
   not an overwrite to perform.
 
 ## What assembly never does
@@ -24,7 +26,7 @@ conflict-resolution contract.
 
 ## Reading the reconciliation
 
-- `added` — new evidenced entries the committed map lacked.
-- `preserved` — curated entries kept intact despite a re-derived alternative.
-- `conflicts` — real disagreements between code and curation, each carrying the evidence and the
+- `added`: new evidenced entries the committed map lacked.
+- `preserved`: curated entries kept intact despite a re-derived alternative.
+- `conflicts`: real disagreements between code and curation, each carrying the evidence and the
   curated value, for a human to settle.

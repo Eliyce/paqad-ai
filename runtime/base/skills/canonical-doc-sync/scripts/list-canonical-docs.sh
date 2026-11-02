@@ -18,4 +18,4 @@ root="${1:-docs}"
 
 find "$root" -type f -name '*.md' 2>/dev/null \
   | { grep -E '/(modules|business|registries|maintainers)/' || true; } \
-  | sort -u
+  | LC_ALL=C sort -u

@@ -8,7 +8,7 @@
 
 ### Recommended Pre-Merge Actions
 
-1. `{{file:line}}` — {{remediation summary}}.
+1. `{{file:line}}`: {{remediation summary}}.
 
 ### Open Questions
 

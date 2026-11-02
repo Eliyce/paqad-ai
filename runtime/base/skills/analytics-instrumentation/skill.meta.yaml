@@ -1,0 +1,25 @@
+triggers:
+  - workflow:
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: true
+    description: Project root used to resolve the docs tree and read the analytics decision sidecar.
+  module:
+    type: string
+    required: true
+    description: Module slug the event belongs to (from the module map).
+  feature:
+    type: string
+    required: true
+    description: Feature slug the event belongs to.
+  event:
+    type: string
+    required: true
+    description: The exact event name, in the project's one consistent convention.
+  provider:
+    type: string
+    required: true
+    description: One or more analytics provider ids the event fires to (repeatable).

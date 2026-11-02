@@ -1,0 +1,17 @@
+triggers:
+  - ui_impact:
+      - new-component
+      - new-screen
+      - redesign
+cache_key_inputs:
+  - docs/modules/*/ui/states.md
+  - docs/modules/*/ui/screens.md
+input_schema:
+  flow_path:
+    type: path
+    required: true
+    description: Flow or interaction artifact.
+  state_doc_paths:
+    type: path[]
+    required: false
+    description: Existing state docs.

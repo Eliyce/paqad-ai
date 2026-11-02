@@ -1,0 +1,11 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - docs/instructions/design-system/**
+input_schema:
+  contract_paths:
+    type: path[]
+    required: true
+    description: Files under docs/instructions/design-system/* that make up the project's design-system contract.

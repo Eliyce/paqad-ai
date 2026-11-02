@@ -1,5 +1,7 @@
 # Synthesis checklist
 
+verified: 2026-11-02
+
 This is the chief architect's checklist. The chief reads the request, the grounding docs, every expert note, and the script's merge, then decides what holds together and what is missing. The chief does not do the experts' work again.
 
 ## Gap categories to look for

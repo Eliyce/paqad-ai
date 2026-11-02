@@ -1,5 +1,7 @@
 # Acceptance Criteria Template
 
+verified: 2026-11-02
+
 Use criteria that state:
 
 - starting context

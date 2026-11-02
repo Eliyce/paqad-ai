@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
-Purpose: Extract user-facing strings from UI source — JSX text nodes,
+Purpose: Extract user-facing strings from UI source: JSX text nodes,
          `aria-label`, `placeholder`, `title`. Deterministic extraction so
          the LLM doesn't re-derive what counts as "user-visible copy."
 
@@ -33,6 +33,7 @@ exclude=(
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" \
     'aria-label[[:space:]]*=[[:space:]]*"[^"]+"' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
       if (match(excerpt, /aria-label[[:space:]]*=[[:space:]]*"[^"]+"/)) {
@@ -45,6 +46,7 @@ exclude=(
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" \
     'placeholder[[:space:]]*=[[:space:]]*"[^"]+"' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
       if (match(excerpt, /placeholder[[:space:]]*=[[:space:]]*"[^"]+"/)) {
@@ -57,6 +59,7 @@ exclude=(
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" \
     '[[:space:]]title[[:space:]]*=[[:space:]]*"[^"]+"' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
       if (match(excerpt, /[[:space:]]title[[:space:]]*=[[:space:]]*"[^"]+"/)) {
@@ -69,6 +72,7 @@ exclude=(
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" \
     '>[ABCDEFGHIJKLMNOPQRSTUVWXYZ][A-Za-z0-9 ,.:?!()-]{1,80}<' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
       if (match(excerpt, />[ABCDEFGHIJKLMNOPQRSTUVWXYZ][A-Za-z0-9 ,.:?!()-]+</)) {

@@ -12,7 +12,7 @@ Usage:   bash scripts/scan-animations.sh [search-root]
 
 Output:  TSV rows to stdout:
            <file>:<line>\t<duration-ms>\t<excerpt>
-         A duration of 0 means "duration not parsed from this line" — the
+         A duration of 0 means "duration not parsed from this line": the
          LLM treats that as needing a manual look rather than a finding.
          Diagnostics to stderr.
 
@@ -30,7 +30,7 @@ candidates=$(grep -rEn --binary-files=without-match \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \
   --exclude='*.test.*' --exclude='*.spec.*' --exclude='*.stories.*' \
   -E '(transition|animation)(-duration)?[[:space:]]*:|duration[[:space:]]*:[[:space:]]*[0-9]' \
-  "$root" 2>/dev/null || true)
+  "$root" 2>/dev/null | LC_ALL=C sort || true)
 
 printf '%s' "$candidates" | awk -F: '
   NF >= 3 {
@@ -48,7 +48,7 @@ printf '%s' "$candidates" | awk -F: '
       }
     } else if (match(excerpt, /[0-9]+(\.[0-9]+)?s/)) {
       s = substr(excerpt, RSTART, RLENGTH)
-      # Reject `[0-9]+s` if it is actually `ms` (already handled) — match() above
+      # Reject `[0-9]+s` if it is actually `ms` (already handled): match() above
       # already excluded the `m` prefix because the regex `[0-9]+...s` would
       # accept `300ms` too. Guard against that explicitly.
       if (substr(excerpt, RSTART - 1, 1) != "m") {

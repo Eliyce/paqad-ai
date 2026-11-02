@@ -1,5 +1,7 @@
 # Question bank
 
+verified: 2026-11-02
+
 Grounded questions for the four gaps in the `idea` block: goal, who benefits, success and
 constraints. Ask only about a gap the first message and the documents left open, one at a time
 (CON-2). Each question carries a recommendation and two or three short choices, with the
@@ -24,7 +26,7 @@ Ask when the people served are unclear.
 
 ## Success (what good looks like)
 
-Ask when there is no measure. If the user cannot say, switch to `references/success-prompts.md`.
+Ask when there is no measure. If the user cannot say, switch to `success-prompts.md`.
 
 - "How will we know this worked?"
 - Offer two or three suggested measures, each labelled a suggestion, for example: fewer support

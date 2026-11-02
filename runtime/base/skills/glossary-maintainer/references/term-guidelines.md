@@ -1,5 +1,7 @@
 # Term Guidelines
 
+verified: 2026-11-02
+
 Canonical glossary entries should be:
 
 - short

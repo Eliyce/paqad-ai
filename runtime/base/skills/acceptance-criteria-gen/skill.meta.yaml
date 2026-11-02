@@ -1,0 +1,14 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Scoped request or story to convert into acceptance criteria.
+  constraints_path:
+    type: path
+    required: false
+    description: Optional canonical constraints document.

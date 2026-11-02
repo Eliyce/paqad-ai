@@ -1,0 +1,16 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/**
+  - docs/instructions/design-system/components.md
+input_schema:
+  source_roots:
+    type: path[]
+    required: true
+    description: Roots to scan for component definitions and usages.
+  components_path:
+    type: path
+    required: true
+    description: Path to the project's components.md contract clause.

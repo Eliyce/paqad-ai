@@ -25,6 +25,8 @@ export default defineConfig({
     'delivery/commit-split': 'src/delivery/commit-split.ts',
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
     'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
+    'stage-isolation/agent-availability': 'src/stage-isolation/agent-availability.ts',
+    'stage-isolation/bash-write-guard': 'src/stage-isolation/bash-write-guard.ts',
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
     'hud/refresh': 'src/hud/refresh.ts',
     'background/refresh-context-lock': 'src/background/refresh-context-lock.ts',

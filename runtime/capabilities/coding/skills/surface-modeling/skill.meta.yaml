@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - site-map
+cache_key_inputs: []
+input_schema:
+  extraction:
+    type: path
+    required: true
+    description: The extraction.json produced by surface-extraction, the raw surfaces to model.

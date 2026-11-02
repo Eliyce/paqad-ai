@@ -13,5 +13,5 @@
 
 ## Resume Targets
 
-- `{{path}}` — {{why this should reopen first}}
-- `{{path}}` — {{...}}
+- `{{path}}`: {{why this should reopen first}}
+- `{{path}}`: {{...}}

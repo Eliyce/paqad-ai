@@ -1,5 +1,7 @@
 # The idea journey
 
+verified: 2026-11-02
+
 Six steps, in order. Each step has a purpose, a step skill that does the work, and an exit
 condition: the record block that must be present and not stale before the journey moves on. Show
 each step change as one short line (TALK-12) and move straight into the next step; never pause to ask

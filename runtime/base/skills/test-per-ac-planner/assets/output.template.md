@@ -4,7 +4,7 @@
 
 | Test ID | Layer | File | Case | Notes |
 | --------------- | ------ | ----------- | ---- | -------- | -------------------- | -------------- | ------------------------------------- |
-| T{{fr}}.{{idx}} | {{unit | integration | e2e  | manual}} | `{{tests/.../file}}` | {{short case}} | {{name test "AC-{{fr}}.{{n}} — ..."}} |
+| T{{fr}}.{{idx}} | {{unit | integration | e2e  | manual}} | `{{tests/.../file}}` | {{short case}} | {{name test "AC-{{fr}}.{{n}}, ..."}} |
 
 ### AC-{{...next}} → T{{...}}
 

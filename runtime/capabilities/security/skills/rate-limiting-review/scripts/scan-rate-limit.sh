@@ -14,6 +14,7 @@ root="${1:-src}"
 scan() {
   pat="$1"; sig="$2"
   { grep -rEn --binary-files=without-match "$pat" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -25 \
     | awk -v s="$sig" -F: '{ excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i;
         gsub(/[ \t]+/, " ", excerpt);

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6DCTKYSVETMDHSF7DHT8RR5",
+  "category": "workflow-or-tool",
+  "title": "103 of the 110 changed skills fail S4 lint and tests on their reference checks, and 7 have no script contract tests",
+  "context": "Following D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485 (both draft/release bugs are fixed and pushed). S4 is not in the approved override list. A dry survey of all 110 changed skills: lint has no blocking finding in any of them. 103 fail the S4 reference checks: 152 files under references/ carry no 'verified: YYYY-MM-DD' line (97 skills fail on this alone), and 13 skills cite example paths that do not exist (vendor/, index/summary.md, registries/modules.md, journeys/ and others). 7 skills (expert-notes, check-tickets, discover, plan-sprint, post-tickets, refine-ticket, size-work) have scripts with no tests named '<script> <check>' for the 7 contract checks. Released so far (S4 green, in place, no tracked skill file changed): expert-need-detector, dashboard, join, onboard. skill-orchestrator and agent-orchestrator pass S4 but are held: their references describe draft and release, which this change alters, so documentation sync may edit them. acceptance-criteria-gen and expert-notes already hold S0/S1/S2/S5/S6 overrides and stopped at S4. Adding verified dates in bulk without checking each reference would claim a check that did not happen.",
+  "options": [
+    {
+      "option_key": "override-s4",
+      "label": "Also override S4 per skill where the only S4 failures are reference checks or missing contract tests; lint must still be clean, script tests still run and are recorded, secrets never overridden",
+      "one_line_preview": "Also override S4 per skill where the only S4 failures are reference checks or missing contract tests; lint must still be clean, script tests still run and are recorded, secrets never overridden",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-content",
+      "label": "Fix the skills first: check and date each reference, mark example paths external, write the missing contract tests, then run S4 for real",
+      "one_line_preview": "Fix the skills first: check and date each reference, mark example paths external, write the missing contract tests, then run S4 for real",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ship-red",
+      "label": "Release only the skills that pass S4 and leave the rest red with a follow-up issue",
+      "one_line_preview": "Release only the skills that pass S4 and leave the rest red with a follow-up issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "override-s4",
+  "created_at": "2026-11-02T05:48:29.017Z",
+  "status": "resolved",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "fix-content",
+  "rationale": "Owner: fix the skills first, then run S4 for real",
+  "resolved_at": "2026-11-02T06:50:00.569Z",
+  "decision_id": "D-01M6DCTKYSVETMDHSF7DHT8RR5",
+  "fingerprint": "sha256:6d3367f0d29cc512379686445bdfaf28d72e42a5915f36ced8071ce53783228b",
+  "question": "103 of the 110 changed skills fail S4 lint and tests on their reference checks, and 7 have no script contract tests",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-11-09T05:48:29.017Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix-content",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T06:50:00.569Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: fix the skills first, then run S4 for real"
+  }
+}

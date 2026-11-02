@@ -45,6 +45,7 @@ exclude=(
 emit() {
   category="$1"; pattern="$2"
   { grep -rEn --binary-files=without-match "${exclude[@]}" "$pattern" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | head -200 \
     | awk -v c="$category" -F: '
         { excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
@@ -53,6 +54,7 @@ emit() {
 }
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" '<img[^>]*>' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | head -200 \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
@@ -63,6 +65,7 @@ emit() {
     }'
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" '<button[^>]*/>' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | head -200 \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
@@ -73,6 +76,7 @@ emit() {
     }'
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" '<a [^>]*href=' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | head -200 \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
@@ -83,6 +87,7 @@ emit() {
     }'
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" '<input[^>]*>' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | head -200 \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
@@ -98,6 +103,7 @@ emit outline-zero    'outline[[:space:]]*:[[:space:]]*(0|none)'
 emit positive-tabindex '[Tt]ab[Ii]ndex[[:space:]]*=[[:space:]]*"?[1-9]'
 
 { grep -rEn --binary-files=without-match "${exclude[@]}" '<html\b' "$root" 2>/dev/null || true; } \
+  | LC_ALL=C sort \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
       if (excerpt !~ /lang=/) {

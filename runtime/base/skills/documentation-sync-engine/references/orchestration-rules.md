@@ -1,6 +1,8 @@
 # Documentation Sync Orchestration Rules
 
-This skill is the canonical entry point for "after my code change lands, which docs need updating?". It does not replace the per-domain skills below — it dispatches to them.
+verified: 2026-11-02
+
+This skill is the canonical entry point for "after my code change lands, which docs need updating?". It does not replace the per-domain skills below: it dispatches to them.
 
 ## Per-domain skills
 
@@ -22,7 +24,7 @@ The fast pre-filter `diff-doc-sync` runs first; only canonical doc paths it repo
    - `docs/modules/*/integration/**` → `integration-doc-maintainer`
    - `docs/modules/*/error-catalog.md` → `error-catalog-maintainer`
    - `docs/modules/*/index/**` and `docs/modules/*/features/**` → `canonical-doc-sync`
-   - `.paqad/glossary.md` or any path containing new domain terms → `glossary-maintainer`
+   - `.paqad/glossary.md` (external: the project glossary, created on first use) or any path containing new domain terms → `glossary-maintainer`
 3. Aggregate each delegate's `Updated Docs` and warning sections into a single report.
 
 ## Skipping a domain
@@ -34,8 +36,8 @@ Skip a domain when:
 
 ## What this skill does NOT do
 
-- It does not rewrite the docs itself — every actual edit is made by the delegate skill.
-- It does not invent doc paths — it only routes paths returned by `diff-doc-sync`.
+- It does not rewrite the docs itself: every actual edit is made by the delegate skill.
+- It does not invent doc paths: it only routes paths returned by `diff-doc-sync`.
 - It does not bypass any delegate's own escalation conditions; warnings from delegates surface in the consolidated report.
 
 ## When `target_domains` is provided

@@ -161,7 +161,7 @@ any turn the session-ownership check skips (see below).
   (`kind`, `stage`, `agent`, `tokens_used`, `tokens_not_recarried`, `estimate`) when a
   `paqad-<stage>` agent finishes. When `paqad-ai stage settings` wrote
   `.paqad/session/stage-settings.d/<session id>.json` for the resolved session, the row also
-  carries that stage's `requested_effort` and `requested_model`; with no file it carries neither. They record what the project asked for, not what the helper ran at: paqad cannot see the effort or model the host actually used. The SubagentStart
+  carries that stage's `requested_effort` and `requested_model`; with no file it carries neither. The row also records how the agent returned, read from its transcript: `report_status` (`DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT` or `BLOCKED`, the last status line in its reply, `BLOCKED` when there is none), `report_stated` (whether it gave a status line), `advance` (true only for `DONE` or `DONE_WITH_CONCERNS` with no must-not breach) and, only when it broke a rule, `must_not` (`asked_human`, `bundle_write`, `out_of_stage_edit`), judged from its tool calls by `src/stage-isolation/must-not-judge.ts`. They record what the project asked for, not what the helper ran at: paqad cannot see the effort or model the host actually used. The SubagentStart
   seed hook (`stage-agent-start`) writes no row, so there is still exactly one row per stage agent. The session is resolved by `resolveHookSession` in
   `src/rag-ledger/session.ts`: the payload `session_id`, then `SE_SESSION`, then
   `CLAUDE_SESSION_ID`, then the shared cache, taking the first one whose session control
@@ -1022,9 +1022,11 @@ obvious from its code, grouped by file.
 - **`hud/refresh.ts`.** A verb path refreshes when it equals a listed path or starts with one
   followed by a space, so `spec pipeline experts` covers its subcommands.
 - **`stage-isolation/agent-writer.ts`.** Stage agents are written only at user scope
-  (`~/.claude/agents`, `~/.codex/agents`), never into a project, which is why this does not use the
-  project-scoped `BaseAdapter.generateAgents()` (a test asserts agents are never written into a
-  project). The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
+  (`~/.claude/agents`, `~/.codex/agents`) and does not use the project-scoped
+  `BaseAdapter.generateAgents()`. The one project copy is the Claude team setup: with
+  `team_bootstrap_enabled` on, team setup commits the 8 Claude stage agents to `.claude/agents/`
+  with a managed marker, and the agent completion check skips a project copy that is an exact
+  generated copy. The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
   templates use no custom Handlebars helpers. The plugin build renders its Claude agents through the
   same function, so there is one template path.
 - **`stage-isolation/stage-agents.ts`.** Agent names are hyphenated (`paqad-<stage>`) so the

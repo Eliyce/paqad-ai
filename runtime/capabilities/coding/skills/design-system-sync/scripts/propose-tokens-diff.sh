@@ -20,6 +20,7 @@ fi
 
 input=$(cat)
 if [ -z "$(printf '%s' "$input" | tr -d '[:space:]')" ]; then
+  echo "note: no tokens on stdin, nothing to propose" >&2
   exit 0
 fi
 

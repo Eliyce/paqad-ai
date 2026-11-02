@@ -29,7 +29,7 @@ $findings
 EOF
 
 if grep -qE '"[A-Za-z0-9+/=]{32,}"' <<<"$body"; then
-  say 'finding appears to embed a literal secret value — strip and reference file:line only'
+  say 'finding appears to embed a literal secret value; strip and reference file:line only'
 fi
 
 [ "$issues" -gt 0 ] && exit 1

@@ -1,24 +1,12 @@
 ---
 name: error-catalog-maintainer
-description: Maintains per-module error catalogs
-model_tier: medium
-triggers:
-  - workflow:
-      - feature-development
-      - bug-fix
-max_lines: 200
-cacheable: false
-cache_key_inputs: []
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Implementation files affecting errors.
-  error_catalog_paths:
-    type: path[]
-    required: true
-    description: Canonical error docs to update.
+description: 'Maintains per-module error catalogs. Use when a change adds error codes, changes user-facing messages, or changes the recovery path for an existing failure.'
+metadata:
+  model_tier: medium
+  max_lines: '200'
+  cacheable: 'false'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does
@@ -27,7 +15,7 @@ Maintains per-module error catalogs so new or changed failure paths are document
 
 ## Use This When
 
-Use this when a change introduces new error codes, modifies user-facing messages, or changes the recovery path for existing failures.
+When a change introduces new error codes, modifies user-facing messages, or changes the recovery path for existing failures.
 
 ## Inputs
 

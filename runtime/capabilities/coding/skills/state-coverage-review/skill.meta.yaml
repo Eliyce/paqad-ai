@@ -1,0 +1,18 @@
+triggers:
+  - workflow:
+      - design-test
+      - design-retest
+cache_key_inputs:
+  - src/**
+  - docs/instructions/design-system/components.md
+  - tests/**
+  - e2e/**
+input_schema:
+  source_roots:
+    type: path[]
+    required: true
+    description: Roots to scan for component definitions.
+  test_paths:
+    type: path[]
+    required: false
+    description: Playwright test files that exercise component states.

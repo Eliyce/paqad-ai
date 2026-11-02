@@ -1,4 +1,12 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -16,6 +24,7 @@ import { resolvePendingDecision } from '@/decisions/authoring.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { type BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { syncProjectStageAgents } from '@/onboarding/stage-agent-migration.js';
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
 
 const DIR = '795-add-agent-01JABCDEFGHJKMNPQRSTVWXYZ0';
@@ -298,5 +307,20 @@ describe('the agent completion check, more shapes', () => {
       }),
     );
     expect(gate(root, [FILE]).status).toBe('pass');
+  });
+});
+
+describe('stage agent copies paqad generated', () => {
+  it('needs no record for an exact generated copy in .claude/agents, but does once it is edited', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-generated-agent-'));
+    try {
+      syncProjectStageAgents(root);
+      const file = '.claude/agents/paqad-checks.md';
+      expect(changedAgentFiles(root, [file])).toEqual([]);
+      writeFileSync(join(root, file), `${readFileSync(join(root, file), 'utf8')}my own note\n`);
+      expect(changedAgentFiles(root, [file])).toEqual([{ name: 'paqad-checks', path: file }]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

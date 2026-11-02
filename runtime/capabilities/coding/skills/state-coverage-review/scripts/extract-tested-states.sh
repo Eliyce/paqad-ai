@@ -4,7 +4,7 @@ set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 Purpose: For a set of Playwright test files referring to a given component,
-         emit which states they exercise. Pairs with extract-source-states.sh —
+         emit which states they exercise. Pairs with extract-source-states.sh:
          the LLM cross-references the two outputs.
 
 Usage:   bash scripts/extract-tested-states.sh --component <Name> --tests <dir>

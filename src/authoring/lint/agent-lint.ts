@@ -8,7 +8,7 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 import { readAuthoringConfig, type AuthoringConfig } from '../config.js';
 import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
 import { isMissingPathError, readRegularFile, readTextIfPresent } from '../fs-io.js';
-import { hashAgentFile } from '../hash.js';
+import { hashAgentFile, hashAgentText } from '../hash.js';
 import {
   discoverInstalledAgents,
   discoverInstalledSkills,
@@ -77,9 +77,15 @@ const BODY_HEADINGS = ['Objective', 'Procedure', 'Report', 'Stop when', 'Do not'
 
 export type AgentInvocation = 'auto' | 'dispatched';
 
+export type AgentLintHost = 'claude-code' | 'codex';
+
+const STATED_TURN_LIMIT = /\b(?:at most|no more than|up to)\s+\d+\s+turns\b/iu;
+
 export interface AgentLintOptions {
   projectRoot: string;
   invocation?: AgentInvocation;
+  host?: AgentLintHost;
+  content?: string;
   scope?: ArtifactScope;
   context?: SkillPathContext;
   installedAgents?: readonly InstalledArtifact[];
@@ -526,8 +532,23 @@ function checkReferences(
   }
 }
 
+function checkCodexTurns(ctx: AgentLintContext): void {
+  if (!STATED_TURN_LIMIT.test(ctx.body)) {
+    ctx.sink.block(
+      'AG-007',
+      ctx.rel,
+      ctx.bodyStartLine,
+      'Codex has no maxTurns field, and the body states no turn limit (as in "at most 60 turns").',
+    );
+  }
+}
+
 function checkModel(ctx: AgentLintContext): void {
   const { sink, rel, data } = ctx;
+  if (ctx.options.host === 'codex') {
+    checkCodexTurns(ctx);
+    return;
+  }
   if (data.model !== undefined && (typeof data.model !== 'string' || !isClaudeModel(data.model))) {
     sink.block(
       'AG-006',
@@ -772,8 +793,12 @@ function textFile(projectRoot: string, rel: string): (LintTextFile & { content: 
 
 export function lintAgentFile(file: string, options: AgentLintOptions): AgentLintResult {
   const projectRoot = options.projectRoot;
-  const content = readAgentText(resolve(projectRoot, file));
+  const content = options.content ?? readAgentText(resolve(projectRoot, file));
   const rel = relTo(projectRoot, file);
+  const hashOf = (scripts: readonly string[] = [], root = projectRoot): string =>
+    options.content === undefined
+      ? hashAgentFile(projectRoot, rel, scripts, root)
+      : hashAgentText(options.content, scripts, root);
   const limits = { ...DEFAULT_AGENT_LINT_LIMITS, ...options.limits };
   const sink = new FindingSink();
   const split = splitSkillFrontmatter(content);
@@ -785,7 +810,7 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
       findings,
       ...countFindings(findings),
       powers: [],
-      file_hash: hashAgentFile(projectRoot, rel),
+      file_hash: hashOf(),
       hook_scripts: [],
     };
   }
@@ -851,12 +876,14 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
   }
 
   const scriptRoot = options.hookScriptRoot ?? projectRoot;
-  const fileHash = hashAgentFile(projectRoot, rel, hooks.scripts, scriptRoot);
+  const fileHash = hashOf(hooks.scripts, scriptRoot);
+  const codex = options.host === 'codex';
   const permission = split.data.permissionMode === 'bypassPermissions';
   const toolCount = rawTools?.length ?? 0;
   const toolTokens = toolCount * TOOL_DEFINITION_TOKENS_ESTIMATE;
-  const overTools = toolCount > limits.maxTools || toolTokens > TOOL_DEFINITIONS_MAX_TOKENS;
-  const risky = riskyPowers(tools, hooks);
+  const overTools =
+    !codex && (toolCount > limits.maxTools || toolTokens > TOOL_DEFINITIONS_MAX_TOKENS);
+  const risky = codex ? [] : riskyPowers(tools, hooks);
   const powers = [
     ...(permission ? ['bypassPermissions'] : []),
     ...(overTools ? [TOOL_LIMIT_POWER] : []),

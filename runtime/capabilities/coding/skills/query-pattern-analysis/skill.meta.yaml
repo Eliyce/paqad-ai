@@ -1,0 +1,16 @@
+triggers:
+  - database_impact:
+      - query-change
+      - schema-change
+cache_key_inputs:
+  - docs/modules/*/database/queries.md
+  - docs/modules/*/database/schema.md
+input_schema:
+  query_paths:
+    type: path[]
+    required: true
+    description: Queries or logs to inspect.
+  module_doc_paths:
+    type: path[]
+    required: false
+    description: Related module docs.

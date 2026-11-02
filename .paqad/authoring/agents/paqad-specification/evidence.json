@@ -1,0 +1,108 @@
+{
+  "schema_version": "1",
+  "agent": "paqad-specification",
+  "version": "1.2.0",
+  "file_hash": "sha256:37e0528160fd3214da9725daceb00ec122ed5dec6254e76a853868dd26ea1a08",
+  "released_path": "runtime/claude-plugin/agents/paqad-specification.md",
+  "files": [
+    "runtime/claude-plugin/agents/paqad-specification.md"
+  ],
+  "pattern": "chaining",
+  "class": "specialist",
+  "invocation": "dispatched",
+  "baseline": {
+    "arm": null,
+    "runs": 0,
+    "passed": "unavailable",
+    "verdict": "needed"
+  },
+  "reliability": null,
+  "delegation": null,
+  "memory": "none",
+  "returned_to_main_tokens_median": "unavailable",
+  "host_notes": {
+    "claude-plugin": [
+      "hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
+    ]
+  },
+  "deployable": {
+    "claude-plugin": true
+  },
+  "proposals": [],
+  "sdk": {
+    "path": ".paqad/authoring/agents/paqad-specification/paqad-specification.agent.json",
+    "fields_checked": {
+      "checked": "2026-11-01",
+      "source": "Claude Agent SDK AgentDefinition type (TypeScript reference)"
+    },
+    "run_options": {
+      "maxBudgetUsd": 5
+    },
+    "uncarried_rules": []
+  },
+  "plugin": {
+    "settings_hooks": []
+  },
+  "model_stamp": {
+    "model": "inherit",
+    "proven_on": null,
+    "tier": null
+  },
+  "performance": {
+    "source": "unavailable"
+  },
+  "batch": "unavailable",
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 3
+  },
+  "script_tests": {
+    "command": null,
+    "tests": 0,
+    "passed": 0
+  },
+  "permission_decisions": [
+    "D-01M6EB30SMCCWHFHEM4HZBSBQW"
+  ],
+  "overrides": [
+    {
+      "gate": "S1",
+      "reason": "decision D-01M6EAYFY7YNGK497QQRDXNJJH",
+      "by": "human",
+      "at": "2026-11-02T14:36:23.022Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "decision D-01M6EAYG6H73GBMW4BTGQCHF4J",
+      "by": "human",
+      "at": "2026-11-02T14:36:23.588Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "decision D-01M6EAYGESTWHW7GQGZ9E67V80",
+      "by": "human",
+      "at": "2026-11-02T14:36:24.152Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "decision D-01M6EAYGQ06W4V0DWGABEA65GA",
+      "by": "human",
+      "at": "2026-11-02T14:36:24.719Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6EAYFY7YNGK497QQRDXNJJH",
+    "D-01M6EAYG6H73GBMW4BTGQCHF4J",
+    "D-01M6EAYGESTWHW7GQGZ9E67V80",
+    "D-01M6EAYGQ06W4V0DWGABEA65GA",
+    "D-01M6EB30SMCCWHFHEM4HZBSBQW"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

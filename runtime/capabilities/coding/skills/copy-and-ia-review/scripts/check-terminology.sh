@@ -49,6 +49,7 @@ emit() {
       --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \
       --exclude='*.test.*' --exclude='*.spec.*' --exclude='*.stories.*' --exclude='*.snap' \
       -E "$pattern" "$root" 2>/dev/null || true; } \
+    | LC_ALL=C sort \
     | awk -F: -v pat="$pattern_lower" -v pref="$preferred" '
         {
           excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i

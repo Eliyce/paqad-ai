@@ -1,5 +1,7 @@
 # Posting procedure
 
+verified: 2026-11-02
+
 The ordered procedure for a build hand-off. It is built from REQUIREMENTS section 9 (PUB-1 to
 PUB-8) and ported from the 0.2.0 publication plan. Follow it in order; the order is what keeps a
 lost reply from turning into a duplicate.
