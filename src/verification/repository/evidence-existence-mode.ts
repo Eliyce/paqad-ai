@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type EvidenceExistenceMode = 'off' | 'warn';
@@ -15,7 +15,7 @@ export function resolveEvidenceExistenceMode(
     {
       team: readConfigsDir(projectRoot).merged.get('evidence_existence_gate'),
       local: readDotConfig(projectRoot).get('evidence_existence_gate'),
-      env: env.PAQAD_EVIDENCE_EXISTENCE_GATE,
+      env: envConfigValue(env, 'evidence_existence_gate'),
     },
     EVIDENCE_EXISTENCE_MODES,
     DEFAULT_EVIDENCE_EXISTENCE_MODE,

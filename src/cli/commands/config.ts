@@ -1,7 +1,8 @@
-import { basename } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { Command } from 'commander';
 
+import { PATHS } from '@/core/constants/paths.js';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
@@ -135,7 +136,7 @@ export function resolveEffectiveConfig(
       surface = 'local .paqad/.config';
     } else if (teamMap.has(spec.key)) {
       value = teamMap.get(spec.key) ?? '';
-      surface = `team configs/${basename(team.sources.get(spec.key)!)}`;
+      surface = `team configs/${relative(join(projectRoot, PATHS.PROJECT_CONFIGS_DIR), team.sources.get(spec.key)!)}`;
     } else {
       value = spec.default === undefined ? '(unset)' : String(spec.default);
       surface = 'default';

@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type VisualEvidenceMode = 'warn' | 'strict';
@@ -15,7 +15,7 @@ export function resolveVisualEvidenceMode(
     {
       team: readConfigsDir(projectRoot).merged.get('visual_evidence_mode'),
       local: readDotConfig(projectRoot).get('visual_evidence_mode'),
-      env: env.PAQAD_VISUAL_EVIDENCE_MODE,
+      env: envConfigValue(env, 'visual_evidence_mode'),
     },
     VISUAL_EVIDENCE_MODES,
     DEFAULT_VISUAL_EVIDENCE_MODE,

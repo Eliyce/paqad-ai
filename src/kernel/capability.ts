@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import {
   readConfigsDir,
+  envConfigValue,
   readDotConfig,
   resolveRuleGateConfig,
   type RuleGateConfig,
@@ -101,7 +102,7 @@ export function resolveRuleComplianceMode(
         readProjectRuleComplianceModeOverride(projectRoot),
       ),
       local: readDotConfig(projectRoot).get('rule_compliance'),
-      env: env.PAQAD_RULE_COMPLIANCE,
+      env: envConfigValue(env, 'rule_compliance'),
     },
     RULE_COMPLIANCE_MODES,
     DEFAULT_RULE_COMPLIANCE,
