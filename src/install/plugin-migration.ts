@@ -848,6 +848,12 @@ export const ROLLBACK_NO_CLAUDE_MESSAGE =
 export const ROLLBACK_NOT_TURNED_OFF_MESSAGE =
   'paqad could not turn the plugin off. Run `claude plugin uninstall paqad@eliyce` to remove it.';
 
+export const ROLLBACK_PROJECT_MESSAGE =
+  'paqad now runs from the npm package in Claude Code again. This repo turns the plugin on for everyone, so I turned it off for you only in .claude/settings.local.json (not committed).';
+
+export const ROLLBACK_PROJECT_NOT_TURNED_OFF_MESSAGE =
+  'This repo turns the plugin on for everyone, and paqad could not turn it off for you. Set "paqad@eliyce": false under enabledPlugins in .claude/settings.local.json.';
+
 export type ClaudeUninstallOutcome = ClaudeExecOutcome | 'no-claude';
 
 export interface RollbackDeps {
@@ -861,11 +867,14 @@ export interface RollbackDeps {
 export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): string {
   const home = deps.home ?? homedir();
   const prior = readMigrationState(home);
-  const listed = isPluginInstalledRecord(home);
+  const listed = installedPluginEntries(join(home, '.claude')).some(isUserScopeEntry);
   const outcome = listed && deps.runClaudeUninstall ? deps.runClaudeUninstall(home) : undefined;
   undoViaSettings(home);
   const stillInstalled = listed && outcome !== undefined && outcome !== 'ok';
-  const turnedOff = stillInstalled && disableViaSettings(home);
+  const turnedOff = stillInstalled && disableViaSettings(userClaudeSettingsPath(home));
+  const projectOn = projectTurnsPluginOn(projectRoot);
+  const optedOut =
+    projectOn && disableViaSettings(join(projectRoot, '.claude', 'settings.local.json'));
   clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
@@ -879,12 +888,18 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
     deps.writeInstallModeSettings ??
     ((root: string) => setConfigValue(root, 'claude_install_mode', 'settings'))
   )(projectRoot);
+  if (projectOn) {
+    return optedOut ? ROLLBACK_PROJECT_MESSAGE : ROLLBACK_PROJECT_NOT_TURNED_OFF_MESSAGE;
+  }
   if (!stillInstalled) return ROLLBACK_MESSAGE;
   return turnedOff ? ROLLBACK_NO_CLAUDE_MESSAGE : ROLLBACK_NOT_TURNED_OFF_MESSAGE;
 }
 
-function disableViaSettings(home: string): boolean {
-  const path = userClaudeSettingsPath(home);
+function isUserScopeEntry(entry: Record<string, unknown>): boolean {
+  return entry.scope === undefined || entry.scope === 'user';
+}
+
+function disableViaSettings(path: string): boolean {
   let settings: Record<string, unknown> = {};
   if (existsSync(path)) {
     try {
