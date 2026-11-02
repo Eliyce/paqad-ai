@@ -22,6 +22,9 @@ import { VERSION } from '@/index.js';
 import {
   classifyFrameworkCopy,
   PLUGIN_ID,
+  pluginLoadState,
+  pluginOptedOutLocally,
+  projectTurnsPluginOn,
   readPackageVersion,
   readRuntimeCopyVersion,
 } from '../health/plugin-install.js';
@@ -910,6 +913,12 @@ export const WAITING_FOR_LOAD_DETAIL =
   'npm (moving to the plugin: waiting for the plugin to load in a new session)';
 export const VERSION_MISMATCH_FIX =
   'The plugin and paqad-ai are on different versions. Start a new Claude Code session so the plugin updates, or run `claude plugin update paqad@eliyce`.';
+export const PROJECT_PLUGIN_DETAIL = 'plugin (turned on by this project)';
+export const PROJECT_PLUGIN_WAITING_DETAIL =
+  'npm (this project turns the plugin on; waiting for Claude Code to install it)';
+export const LOCAL_OPT_OUT_DETAIL = 'npm (plugin turned off for you in .claude/settings.local.json)';
+export const USER_SWITCH_OVERRIDDEN_FIX =
+  'This repo turns the plugin on, which wins over your user setting. To turn it off for you only, run `paqad-ai plugin rollback`.';
 
 export function describeClaudeInstall(
   home: string = homedir(),
@@ -924,6 +933,13 @@ export function describeClaudeInstall(
     return { detail: HOOKS_BLOCKED_DETAIL, level: 'warning', remediation: HOOKS_BLOCKED_FIX };
   }
   if (policy === 'plugin-blocked') return { detail: PLUGIN_BLOCKED_DETAIL, level: 'pass' };
+  if (
+    projectRoot !== undefined &&
+    projectTurnsPluginOn(projectRoot) &&
+    !isSyncedRoot(readPluginSeen(home)?.root)
+  ) {
+    return describeProjectPlugin(home, projectRoot, env, options);
+  }
   const record = readMigrationState(home);
   if (doneButDisabled(record, home)) {
     return { detail: `npm (migration declined: ${USER_DISABLED_REASON})`, level: 'pass' };
@@ -960,6 +976,21 @@ export function describeClaudeInstall(
   }
   const reason = record.reason ? `: ${record.reason}` : '';
   return { detail: `npm (migration ${record.state}${reason})`, level: 'pass' };
+}
+
+function describeProjectPlugin(
+  home: string,
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  options: ClaudeInstallLineOptions,
+): ClaudeInstallLine {
+  if (pluginOptedOutLocally(projectRoot)) return { detail: LOCAL_OPT_OUT_DETAIL, level: 'pass' };
+  if (pluginLoadState(projectRoot, { env, home }) !== 'live') {
+    return { detail: PROJECT_PLUGIN_WAITING_DETAIL, level: 'pass' };
+  }
+  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options);
+  if (line.level === 'warning' || !userDisabledPlugin(home)) return line;
+  return { ...line, level: 'warning', remediation: USER_SWITCH_OVERRIDDEN_FIX };
 }
 
 function withSeededInstalledAt(record: MigrationRecord): InstalledRecord {

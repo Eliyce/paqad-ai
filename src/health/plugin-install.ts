@@ -99,6 +99,20 @@ function pluginSwitchedOn(
   return enabled !== false;
 }
 
+function projectPluginSwitch(projectRoot: string, file: string): boolean | undefined {
+  const settings = readJsonFile(join(projectRoot, '.claude', file));
+  const map = isRecord(settings) ? settings.enabledPlugins : undefined;
+  return isRecord(map) && typeof map[PLUGIN_ID] === 'boolean' ? map[PLUGIN_ID] : undefined;
+}
+
+export function projectTurnsPluginOn(projectRoot: string): boolean {
+  return projectPluginSwitch(projectRoot, 'settings.json') === true;
+}
+
+export function pluginOptedOutLocally(projectRoot: string): boolean {
+  return projectPluginSwitch(projectRoot, 'settings.local.json') === false;
+}
+
 export function pluginLoadState(
   projectRoot: string | null,
   options: PluginLoadOptions = {},
