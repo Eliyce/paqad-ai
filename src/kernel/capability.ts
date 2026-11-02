@@ -343,7 +343,8 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
     `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and ${endMarker} ` +
     `each on its own line (parsed before the next edit, so they clear this block in the same turn), ` +
     `or run \`paqad-ai stage start ${stage}\` then ${endCli}. Set ` +
-    `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
+    `stage_tracking: warn or off in .paqad/configs/feature-development/workflow.yaml to adopt ` +
+    `the workflow before ` +
     `enforcing.${tail}`
   );
 }
