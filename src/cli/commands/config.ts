@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { buildConfigShow, renderConfigShow } from './config-show.js';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
@@ -195,6 +196,27 @@ export function createConfigCommand(): Command {
       console.log(
         `\n${knobs.length} knobs · ${placebos} with no consumer (placebo — no running code reads them).`,
       );
+    });
+
+  command
+    .command('show')
+    .description(
+      'Print every setting: its YAML file and path, the value that applies, where it comes ' +
+        'from, and whether it is the default. Read-only.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--json', 'emit machine-readable JSON')
+    .option('--changed', 'hide settings that equal the default')
+    .action((options: { projectRoot: string; json?: boolean; changed?: boolean }) => {
+      const result = buildConfigShow(options.projectRoot);
+      if (options.json) {
+        const settings = options.changed
+          ? result.settings.filter((row) => !row.same_as_default)
+          : result.settings;
+        console.log(JSON.stringify({ settings, invalid: result.invalid }, null, 2));
+        return;
+      }
+      console.log(renderConfigShow(result, options.changed === true));
     });
 
   return command;
