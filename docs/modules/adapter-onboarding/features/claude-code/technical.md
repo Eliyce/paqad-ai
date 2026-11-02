@@ -170,6 +170,11 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   paqad stops there instead of running a stage in the main session.
 - **`.claude/settings.json` is tracked and portable.** It holds only
   `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
+  When the team sets `claude_install_mode=settings` in a tracked `.paqad/configs/.config.*` file,
+  update leaves the two plugin keys out (other plugins and marketplaces stay) and keeps every
+  other key in place, so Claude Code does not offer the plugin to teammates. The same value in
+  the git-ignored `.paqad/.config`, which `paqad-ai plugin rollback` writes, does not change the
+  team file. The team setup then counts as complete without the plugin keys.
   The chain is `buildHostHookChain('claude-code')` with only the command mapped to
   `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]` and a 600 second timeout on the
   two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and

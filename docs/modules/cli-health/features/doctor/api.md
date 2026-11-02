@@ -99,12 +99,15 @@ With RAG off, every `RAG ...` check passes with the detail `RAG is disabled`.
 
 ## `Claude Code install`
 
-The detail comes from `describeClaudeInstall` in `src/install/plugin-migration.ts`, which returns `{ detail, level: 'pass' | 'warning', remediation? }`. The first case that matches wins.
+The detail comes from `describeClaudeInstall` in `src/install/plugin-migration.ts`, which returns `{ detail, level: 'pass' | 'warning', remediation? }`. The first case that matches wins. The three project rows apply when the project's `.claude/settings.json` turns the plugin on and the plugin is not a copy synced from claude.ai. Project settings beat user settings in Claude Code, so there the line reads what loads in this project, whatever the move record says.
 
 | Situation | Status | Detail |
 | --- | --- | --- |
 | A managed policy turns hooks off (`allowManagedHooksOnly` or `disableAllHooks`) | warning | `A managed policy blocks paqad's hooks, so paqad's checks don't run here.` with the fix `Ask IT to deploy the paqad plugin as a managed plugin, or allow its hooks.` |
 | A managed policy blocks the plugin (`enabledPlugins` false, strict or blocked marketplaces) | pass | `plugin blocked by policy; paqad stays on npm` |
+| The project's `.claude/settings.json` turns the plugin on, and this developer turned it off in `.claude/settings.local.json` | pass | `npm (plugin turned off for you in .claude/settings.local.json)` |
+| The project turns the plugin on, and it loads here at user or project scope | pass or warning | `plugin (turned on by this project)`, with the version suffix below. When the user's own settings turn the plugin off, it warns with the fix ``This repo turns the plugin on, which wins over your user setting. To turn it off for you only, run `paqad-ai plugin rollback`.`` |
+| The project turns the plugin on, but Claude Code has not installed it yet | pass | `npm (this project turns the plugin on; waiting for Claude Code to install it)` |
 | The plugin was moved to, but the user turned it off | pass | `npm (migration declined: user-disabled)` |
 | The plugin is installed and on, and there is no npm copy | pass or warning | `plugin`, with the version suffix below |
 | The plugin root is a copy synced from claude.ai | pass | `plugin (synced from claude.ai)` |
