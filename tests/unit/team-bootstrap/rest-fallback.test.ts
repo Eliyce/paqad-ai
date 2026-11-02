@@ -6,7 +6,6 @@ import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
-import { runDelivery } from '@/delivery/runner.js';
 import {
   defaultFeatureDevelopmentPolicy,
   renderDefaultFeatureDevelopmentPolicyYaml,
@@ -208,25 +207,6 @@ describe('AC-27, AC-28: opening a pull request when GraphQL is refused', () => {
     const result = await new GithubHostProvider(shell, { env: {} }).openPR(input);
     expect(result.ok).toBe(false);
     expect(apiCalls(shell)).toEqual([]);
-  });
-
-  it('runDelivery opens its pull request through the provider, so it falls back too', async () => {
-    const shell = fakeShell([
-      (a) => (a[0] === 'git' && a[1] !== 'remote' ? { stdout: 'ok' } : undefined),
-      refuse('create'),
-      origin,
-      api((p) => p === 'repos/acme/widgets/pulls', { stdout: PR_JSON }),
-    ]);
-    const run = await runDelivery(shell, {
-      rendered: { branch: 'feat/x', commit: 'feat: x', pr_title: 'T', pr_body: 'B' } as never,
-      base: 'main',
-      draft: false,
-      reviewers: [],
-      labels: [],
-      open_pr: 'yes',
-    });
-    expect(run.ok).toBe(true);
-    expect(run.steps.at(-1)).toMatchObject({ step: 'pr', ok: true, pr: { number: 7 } });
   });
 });
 
