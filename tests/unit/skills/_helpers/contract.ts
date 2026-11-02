@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -88,10 +89,26 @@ function changedPaths(before: Map<string, string>, after: Map<string, string>): 
   return [...changed].sort();
 }
 
+export function dirForms(dir: string, real: string = realpathSync.native(dir)): string[] {
+  const forms = new Set<string>();
+  for (const base of [dir, real]) {
+    for (const form of [base, base.replaceAll('\\', '/'), base.replaceAll('/', '\\')]) {
+      forms.add(form);
+      const drive = /^([A-Za-z]):[\\/](.*)$/u.exec(form);
+      if (drive) forms.add(`/${drive[1]!.toLowerCase()}/${drive[2]!.replaceAll('\\', '/')}`);
+    }
+  }
+  return [...forms].sort((a, b) => b.length - a.length);
+}
+
+export function maskDir(text: string, dir: string, real?: string): string {
+  return dirForms(dir, real).reduce((current, form) => current.split(form).join('<dir>'), text);
+}
+
 function normalise(text: string, dir: string, volatile: readonly RegExp[] = []): string {
   return volatile.reduce(
     (current, pattern) => current.replace(pattern, '<volatile>'),
-    text.split(dir).join('<dir>'),
+    maskDir(text, dir),
   );
 }
 
