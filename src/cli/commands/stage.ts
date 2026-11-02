@@ -147,8 +147,9 @@ export function createStageCommand(): Command {
     )
     .option(
       '--title <title>',
-      'On a `start`, open a NEW named feature for this change (the "new work" signal); ' +
-        'pauses any active feature and mints a distinct evidence bundle',
+      'On a `start`, name this change. An active change with no title yet is titled in ' +
+        'place; otherwise this opens a NEW named feature (the "new work" signal), pausing ' +
+        'the active one and minting a distinct evidence bundle',
     )
     .option('--issue <ref>', 'Ticket/issue ref for a titled feature (e.g. <number>, PQD-123)')
     .option(

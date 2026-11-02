@@ -1,6 +1,7 @@
 import { isAbsolute, relative } from 'pathe';
 
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { titleActiveFeature } from '@/feature-evidence/rename.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 export { activeChangeKey, peekActiveChangeKey } from '@/feature-evidence/stage-ledger.js';
@@ -252,7 +253,16 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
   const agentId = input.agentId?.trim() ? input.agentId.trim() : undefined;
   try {
     if (input.phase === 'start' && input.title !== undefined) {
-      openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
+      const titled = titleActiveFeature(
+        projectRoot,
+        resolveSessionId(projectRoot, input.sessionId),
+        input.title,
+        input.issue,
+        input.now,
+      );
+      if (!titled) {
+        openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
+      }
     }
     if (input.phase === 'start') {
       closeOpenStagesForMarkedStart(projectRoot, input.stage, { ...ctx, agentId });

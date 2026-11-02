@@ -4,10 +4,11 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
-import { updateFeatureRecord } from './feature-record.js';
+import { featureRecordIsUntitled, readFeatureRecord, updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
+import { currentFeature } from './stage-ledger.js';
 
 export interface SlugBackfillResult {
   dirName: string;
@@ -19,6 +20,7 @@ export function backfillFeatureSlug(
   dirName: string,
   title: string,
   now?: () => Date,
+  issue?: string | null,
 ): SlugBackfillResult {
   const unchanged: SlugBackfillResult = { dirName, renamed: false };
   const parts = parseFeatureDirName(dirName);
@@ -30,7 +32,7 @@ export function backfillFeatureSlug(
   ) {
     return unchanged;
   }
-  const minted = mintFeatureDirName({ title, ulid: parts.ulid });
+  const minted = mintFeatureDirName({ title, issue, ulid: parts.ulid });
   if (minted.slug === UNTITLED_FEATURE_TITLE || minted.dirName === dirName) {
     return unchanged;
   }
@@ -57,6 +59,25 @@ export function backfillFeatureSlug(
     now,
   );
   return { dirName: minted.dirName, renamed: true };
+}
+
+export function titleActiveFeature(
+  projectRoot: string,
+  sessionId: string,
+  title: string,
+  issue?: string | null,
+  now?: () => Date,
+): string | null {
+  const active = currentFeature(projectRoot, sessionId);
+  if (!active) {
+    return null;
+  }
+  const record = readFeatureRecord(projectRoot, active);
+  if (record && !featureRecordIsUntitled(record)) {
+    return null;
+  }
+  const result = backfillFeatureSlug(projectRoot, active, title, now, issue);
+  return result.renamed ? result.dirName : null;
 }
 
 function repointSessionControls(

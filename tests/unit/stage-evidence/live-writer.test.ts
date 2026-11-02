@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -256,7 +256,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(currentFeature(root, SES)).toBeNull();
   });
 
-  it('a titled start opens a fresh named feature', () => {
+  it('a titled start titles the active untitled change instead of opening a second one', () => {
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
     const first = currentFeature(root, SES)!;
     expect(first.startsWith('change-')).toBe(true);
@@ -269,6 +269,35 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
         issue: '339',
       }),
     ).toBe(true);
+    const titled = currentFeature(root, SES)!;
+    expect(titled.startsWith('339-route-first-workflows-')).toBe(true);
+    expect(titled.endsWith(first.slice('change-'.length))).toBe(true);
+    expect(readFeatureRecord(root, titled)?.title).toBe('Route first workflows');
+    expect(
+      readdirSync(join(root, PATHS.FEATURE_EVIDENCE_DIR)).filter((d) => d !== '_session'),
+    ).toEqual([titled]);
+    expect(
+      readFeatureStageUnit(root, titled).filter(
+        (r) => r.kind === 'stage_start' && r.stage === 'planning',
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('a titled start on an already titled change still opens a fresh named feature', () => {
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'planning',
+      phase: 'start',
+      title: 'First change',
+    });
+    const first = currentFeature(root, SES)!;
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'planning',
+      phase: 'start',
+      title: 'Route first workflows',
+      issue: '339',
+    });
     const second = currentFeature(root, SES)!;
     expect(second).not.toBe(first);
     expect(second.startsWith('339-route-first-workflows-')).toBe(true);
