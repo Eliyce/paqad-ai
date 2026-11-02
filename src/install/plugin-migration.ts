@@ -265,11 +265,14 @@ function marketplaceReferenced(list: unknown[]): boolean {
   return list.some((entry) => JSON.stringify(entry).includes(PLUGIN_MARKETPLACE_REPO));
 }
 
+const PROJECT_TURNS_PLUGIN_ON_REASON = 'project-turns-plugin-on';
+
 const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'migration-off',
   'install-mode-settings',
   'no-claude-code-provider',
   'ci-or-headless',
+  PROJECT_TURNS_PLUGIN_ON_REASON,
 ]);
 
 const AUTO_ROLLBACK_REASON = 'plugin-never-loaded';
@@ -491,6 +494,14 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   if (!projectTargetsClaudeCode(projectRoot)) {
     return record(deps, prior, { state: 'skipped', reason: 'no-claude-code-provider' });
   }
+  if (projectTurnsPluginOn(projectRoot)) {
+    if (prior?.reason !== PROJECT_TURNS_PLUGIN_ON_REASON) {
+      deps.log(
+        'this project turns the plugin on in .claude/settings.json; user-scope move not needed',
+      );
+    }
+    return record(deps, prior, { state: 'skipped', reason: PROJECT_TURNS_PLUGIN_ON_REASON });
+  }
   if (isCiOrHeadless(deps.env)) {
     return record(deps, prior, { state: 'skipped', reason: 'ci-or-headless' });
   }
@@ -520,13 +531,18 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
 
 function recordPresentPlugin(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
   if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
+    deps.log('plugin synced from claude.ai; nothing to install');
     return record(deps, prior, { state: 'done', path: 'synced' });
   }
   const attempts = (prior?.attempts ?? 0) + 1;
   const settings = installViaSettings(deps.home);
   if (settings.state !== 'installed') {
+    deps.log(
+      `plugin already present; not turned on (${settings.state}: ${settings.reason ?? 'unknown'})`,
+    );
     return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
   }
+  deps.log('plugin already present; turned it on in the user settings');
   return record(deps, prior, {
     state: 'installed',
     path: 'settings',
