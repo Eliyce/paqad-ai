@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../schemas/feature-development/rules.schema.json
+# How project rules are loaded and enforced.
+# Only settings this team changed live here; everything else uses paqad's default.
+# See every setting, its value and where it comes from: paqad-ai config show
+paqad_version: "1.116.0"
+enforcement: block
