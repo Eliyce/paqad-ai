@@ -43,6 +43,7 @@ import type {
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { SchemaValidator } from '@/validators/validator.js';
 import { gitWorkflowHealth } from './git-workflow-check.js';
+import { teamConfigHealth } from './team-config-check.js';
 import {
   inspectProviderEntryBootstrapPointer,
   inspectProviderEntryFallbackClause,
@@ -106,6 +107,7 @@ export class HealthChecker {
       ...this.checkVisualEvidence(projectRoot),
       ...this.checkAuthoringConfig(projectRoot),
       ...gitWorkflowHealth(projectRoot),
+      ...teamConfigHealth(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
