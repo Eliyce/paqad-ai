@@ -211,15 +211,20 @@ describe('one-copy handshake', () => {
     expect(commands.some((c) => c.includes('dead.paqad.mjs'))).toBe(false);
   });
 
-  it('removeHomeStageAgents deletes the six paqad agent files', () => {
+  it('AC-12: removeHomeStageAgents deletes the eight paqad agent files, High Table included', () => {
     const agentsDir = join(root, 'agents');
     mkdirSync(agentsDir, { recursive: true });
-    for (const name of ['paqad-planning.md', 'paqad-review.md', 'keep-me.md']) {
+    const paqad = [
+      'paqad-planning.md',
+      'paqad-review.md',
+      'paqad-expert.md',
+      'paqad-chief-architect.md',
+    ];
+    for (const name of [...paqad, 'keep-me.md']) {
       writeFileSync(join(agentsDir, name), '');
     }
     removeHomeStageAgents(agentsDir);
-    expect(existsSync(join(agentsDir, 'paqad-planning.md'))).toBe(false);
-    expect(existsSync(join(agentsDir, 'paqad-review.md'))).toBe(false);
+    for (const name of paqad) expect(existsSync(join(agentsDir, name))).toBe(false);
     expect(existsSync(join(agentsDir, 'keep-me.md'))).toBe(true);
   });
 

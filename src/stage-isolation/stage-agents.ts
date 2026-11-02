@@ -306,11 +306,14 @@ export const WORK_QUICKLY_LINE =
 export const SPEC_FOREGROUND_START_LINE =
   'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.';
 
+export const SPEC_HIGH_TABLE_HANDBACK_LINE =
+  'After `spec pipeline experts record` seats experts, return at once with `Status: NEEDS_CONTEXT` naming every seated role: the orchestrator dispatches the seats and resumes you. Do not write the notes or freeze the spec in that turn.';
+
 export const DEVELOPMENT_RESUME_LINE =
   "You may be resumed with a follow-up task for the same change. Keep working from what you already know; don't re-read files you have read unless they changed.";
 
 const STAGE_NOTES: Readonly<Record<string, readonly string[]>> = {
-  specification: [SPEC_FOREGROUND_START_LINE],
+  specification: [SPEC_FOREGROUND_START_LINE, SPEC_HIGH_TABLE_HANDBACK_LINE],
   development: [DEVELOPMENT_RESUME_LINE],
   review: [REVIEW_DIGEST_REFRESH_INSTRUCTION],
 };
@@ -339,7 +342,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
   specification: {
     work: 'Write the spec as the instructions say, then freeze it with `paqad-ai spec freeze`.',
     end: '`paqad-ai stage end specification --artifact <the specification.json path>`.',
-    stop: '`stage end specification` has accepted `specification.json`.',
+    stop: '`stage end specification` has accepted `specification.json`, or `experts record` seated experts and you returned `Status: NEEDS_CONTEXT` naming them.',
     example:
       'Dispatched with `plan.json`, you run the High Table, freeze `specification.json` and end the stage against it. Return its path, the count of acceptance criteria, and `Status: DONE`.',
   },
@@ -362,7 +365,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
     end: '`paqad-ai stage end checks --artifact <the checks.json path>`.',
     stop: '`stage end checks` has accepted `checks.json`.',
     example:
-      'Dispatched after review, you run `paqad-ai checks run` once and end the stage against `checks.json`. Return its path, one line per failing check, and `Status: DONE`.',
+      'Dispatched after review, you run `paqad-ai checks run` once and end the stage against `checks.json`. Return its path, one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them; return `Status: DONE` only when every check is green.',
   },
   documentation_sync: {
     work: 'Update the canonical docs whose described behaviour the diff changed.',

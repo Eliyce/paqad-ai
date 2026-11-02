@@ -15,6 +15,7 @@ import {
   buildStageAgentBody,
   DEVELOPMENT_RESUME_LINE,
   SPEC_FOREGROUND_START_LINE,
+  SPEC_HIGH_TABLE_HANDBACK_LINE,
   STAGE_AGENT_HARD_RULES,
   STAGE_BRIEF_FALLBACK_LINE,
   READ_ONLY_DO_NOT,
@@ -286,5 +287,32 @@ describe('readStageReportStatus (AC-32)', () => {
       decision: null,
       stated: false,
     });
+  });
+});
+
+describe('stage agent returns the orchestrator can act on', () => {
+  function renderedClaude(name: string): string {
+    const file = renderStageAgentFiles('claude-code').find((agent) => agent.name === `${name}.md`);
+    return file!.content;
+  }
+
+  it('AC-10: the checks example returns DONE_WITH_CONCERNS for failing checks', () => {
+    const checks = renderedClaude('paqad-checks');
+    expect(checks).toContain(
+      'one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them',
+    );
+    expect(checks).toContain('return `Status: DONE` only when every check is green');
+    expect(checks).not.toMatch(/one line per failing check, and `Status: DONE`\./u);
+  });
+
+  it('AC-11: the specification agent hands the seated roles back with NEEDS_CONTEXT', () => {
+    const spec = renderedClaude('paqad-specification');
+    expect(spec).toContain(SPEC_HIGH_TABLE_HANDBACK_LINE);
+    expect(SPEC_HIGH_TABLE_HANDBACK_LINE).toContain(
+      'return at once with `Status: NEEDS_CONTEXT` naming every seated role',
+    );
+    expect(spec).toContain(
+      '`experts record` seated experts and you returned `Status: NEEDS_CONTEXT` naming them',
+    );
   });
 });

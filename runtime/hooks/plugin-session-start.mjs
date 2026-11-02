@@ -248,6 +248,8 @@ const HOME_STAGE_AGENTS = [
   'paqad-review.md',
   'paqad-checks.md',
   'paqad-documentation-sync.md',
+  'paqad-expert.md',
+  'paqad-chief-architect.md',
 ];
 
 function claudeAgentsDir(env = process.env) {

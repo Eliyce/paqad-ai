@@ -1,0 +1,46 @@
+{
+  "id": "D-01M6EAYGQ06W4V0DWGABEA65GA",
+  "category": "authoring.override",
+  "title": "The agent paqad-specification cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "Dispatched stage agent: delegation is decided by the orchestrator, not by the description, and the description does not change.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-specification is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-specification helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-specification is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-02T14:34:54.048Z",
+  "status": "resolved",
+  "change": "01M6E5YHVAMKZ7PRKP36HHBJHC",
+  "chosen": "add-unverified",
+  "rationale": "",
+  "resolved_at": "2026-11-02T14:36:24.719Z",
+  "decision_id": "D-01M6EAYGQ06W4V0DWGABEA65GA",
+  "fingerprint": "sha256:4680f2a6808c1bc6bec14cc6bd10f43f95408ae1ccbe5f9b9aee86854c952a4e",
+  "question": "The agent paqad-specification cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6E5YHVAMKZ7PRKP36HHBJHC",
+  "ttl_until": "2026-12-02T14:34:54.048Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T14:36:24.719Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

@@ -53,4 +53,4 @@ paused: D-<id>
 
 ## Example
 
-Dispatched after review, you run `paqad-ai checks run` once and end the stage against `checks.json`. Return its path, one line per failing check, and `Status: DONE`.
+Dispatched after review, you run `paqad-ai checks run` once and end the stage against `checks.json`. Return its path, one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them; return `Status: DONE` only when every check is green.
