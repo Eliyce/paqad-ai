@@ -132,6 +132,9 @@ function installPlugin(root: string): void {
       plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: REPO }] },
     }),
   );
+  const claims = join(root, '.paqad', 'session', 'plugin-active.d');
+  mkdirSync(claims, { recursive: true });
+  writeFileSync(join(claims, 'sub-one'), JSON.stringify({ at: 'now', root: REPO }));
 }
 
 describe('AC-33: exactly one hook chain acts on each route', () => {
