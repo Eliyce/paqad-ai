@@ -80,6 +80,25 @@ Source directories owned by this feature:
   session. When git tracks any file there, doctor warns and gives the fix:
   `git rm -r --cached .paqad/.agent-entry-loaded.d`, then commit.
 
+## Team settings (`team-config`)
+
+- `teamConfigHealth` (`src/health/team-config-check.ts`) runs when `.paqad/configs/` exists and
+  returns one row per problem, or one pass row. Every row is a warning except the old-files row
+  after the read window.
+- A missing team file (only once the project is migrated):
+  `.paqad/configs/<file> is missing. Run paqad-ai update to create it.`
+- Each invalid value and each file that isn't valid YAML, with the same text session start and
+  `config show` print (`readTeamConfig().issues`, legacy lines left out).
+- A key no setting owns, per file (`unknownTeamConfigSettings`), with structured settings such as
+  `stages.<stage>.read` and `commands.extra` treated as known:
+  `<file> has a setting paqad doesn't know: <path>. It may be from a newer paqad or a typo.`
+- An old `.config.*` file that still holds set lines:
+  `Old settings in .paqad/configs/<file> should be moved. Run paqad-ai config migrate.` It warns
+  inside the read window. It fails only when this paqad was released after
+  `LEGACY_TEAM_CONFIG_READ_UNTIL` (`releasedAfterLegacyWindow`), so a machine whose clock passes
+  the date on an older release never starts failing on its own.
+- A generated workflow view whose hash no longer matches the stored one: `docs/instructions/workflows/feature-development.yaml was edited by hand. Changes go in .paqad/configs/feature-development/; it is regenerated on the next session.`
+
 ## Why the `src/health/` code works the way it does
 
 - **Not required on purpose.** `framework-version.txt` is per-machine and git-ignored (the

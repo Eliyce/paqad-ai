@@ -29,7 +29,8 @@ Source directories owned by this feature:
 
 ## State Management
 
-- RAG enablement, provider, and model are written through `setGroupConfigValue` to the tracked `.paqad/configs/.config.rag` group file. The writer activates generated commented defaults in place and preserves file ordering.
+- RAG enablement, provider, and model are written through `setTeamConfigValue` to the tracked `.paqad/configs/retrieval.yaml` (`enabled`, `embeddings.provider`, `embeddings.model`). The writer uses the `yaml` Document API, so comments and key order survive, and creates the file from its header when it is missing.
+- Onboard migrates old `.paqad/configs/.config.*` files and a hand-written `docs/instructions/workflows/feature-development.yaml` with `migrateTeamConfig` (`src/core/team-config-migrate.ts`), creates every missing header-only team file, writes the JSON schemas to the git-ignored `.paqad/configs/schemas/` and regenerates `.paqad/configs/README.md` (`syncTeamConfigFiles`). The workflow file becomes a generated view, rebuilt on every session start.
 - `writeOnboardingManifest` normalizes persisted paths and deterministic collections before serialization. When semantic content is unchanged, it carries forward both `generated_at` and `detected.timestamp` and avoids rewriting byte-identical output.
 - Detection signals and generated artifact paths are repository-relative; ignored repository paths omit `.DS_Store`, `.idea`, and `.vscode` noise and are sorted.
 

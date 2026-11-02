@@ -104,8 +104,14 @@ Source directories owned by this feature:
   the next run reads the list directly.
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
-- Config is reconciled by pruning only keys this version no longer knows; every value the team set
-  is kept, never reset to a default.
+- Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
+  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once, then
+  `syncTeamConfigFiles` creates any missing header-only file, regenerates the schemas in the
+  git-ignored `.paqad/configs/schemas/` and the configs README. `update` never writes a value into
+  a team file, so a new setting's default reaches the team through the code.
+- After the move, `.paqad/configs/.config.app` is a stub holding `minimum_version`, so a teammate
+  or CI job on an older paqad stops and asks to update. The move is roll-forward only: no command
+  restores the old files, so a bad release is fixed by the next release or `PAQAD_DISABLED=1`.
 - The stage agents are written here too, because an upgraded machine goes through
   `paqad-ai update --silent` and never reaches the onboarding path that wrote them. This is
   best-effort, since the agents are inert until dispatched.

@@ -28,7 +28,8 @@ Capture the main journeys for `onboard`. Each flow should call out:
 
 ## Business Rules
 
-- The lead's RAG choice is committed in `.paqad/configs/.config.rag` so teammates inherit it; machine-local and environment overrides remain higher precedence.
+- The lead's RAG choice is committed in `.paqad/configs/retrieval.yaml` so teammates inherit it; machine-local and environment overrides remain higher precedence.
+- Team settings live in readable YAML files under `.paqad/configs/`. Onboarding creates each one with only a header; a team adds a line only for what it changes. If the project still has the old `.paqad/configs/.config.*` files or a hand-written feature-development workflow file, onboarding moves their settings to the YAML files and prints what it moved, so the lead can review and commit it in one go.
 - Re-running onboarding with the same semantic inputs leaves `.paqad/onboarding-manifest.json` byte-identical, including `generated_at` and the detection timestamp.
 - Persisted signal and artifact paths are repository-relative, developer-local ignored noise is excluded, and order-insensitive path collections are sorted.
 - Teammates use `paqad-ai join` after cloning instead of repeating onboarding.

@@ -32,6 +32,14 @@ Capture the main journeys for `update`. Each flow should call out:
 - Note any preconditions enforced upstream (e.g. onboarding must have run, a pack must be installed,
   a capability must be enabled).
 - Spell out idempotency expectations — re-running should converge, not duplicate.
+- Team settings move once from the old `.paqad/configs/.config.*` files and a hand-written
+  feature-development workflow file to the YAML team files. `update` prints each setting it moved
+  and asks the lead to review and commit the change in one go. Running it again changes nothing.
+- Teammates and CI need the release that made the move, or later. The stub left in
+  `.paqad/configs/.config.app` makes an older paqad stop and ask to update instead of quietly
+  running on defaults.
+- The move only goes forward. There is no command to go back to the old files; a bad release is
+  fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
 
 ## Triggers & Side Effects
 
