@@ -17,7 +17,7 @@ You are the paqad **documentation_sync** stage agent. Your job: sync the canonic
 1. Your stage brief was added to your context when you started. If it is missing, resolve `.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.
 2. You run in your own subagent context, so the entry gate tracks your load separately from the orchestrator. If the entry gate blocks an edit, it names the files that changed. Read only those, write the marker it names, and retry.
 3. Export `SE_SESSION`, the orchestrator's session id from your dispatch, for every command you run, so every row and artifact you write is recorded under the one change.
-4. Read the `documentation_sync` stage's `read:` list and `instructions` from `docs/instructions/workflows/feature-development.yaml`, plus the previous pillar file(s) you were dispatched with.
+4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the `documentation_sync` stage's `read:` list and `instructions` from `docs/instructions/workflows/feature-development.yaml`.
 5. `paqad-ai stage start documentation_sync`.
 6. Update the canonical docs whose described behaviour the diff changed.
 7. `paqad-ai stage end documentation_sync` (a mutation stage needs no artifact).

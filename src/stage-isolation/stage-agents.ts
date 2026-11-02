@@ -275,8 +275,8 @@ const HOOK_ENFORCED_DO_NOT: readonly string[] = [
   '- Do not skip a stage verb because the orchestrator will run it. It will not, and the completion check judges a stage without its verb rows as unfinished.',
 ];
 
-const READ_ONLY_DO_NOT =
-  '- Do not edit or write files. The write guard blocks file writes from Bash, and the SubagentStop check holds a stage that edited.';
+export const READ_ONLY_DO_NOT =
+  '- Do not edit project files. Write only your stage input (the plan template, the spec input or the review template) under `.paqad/tmp/`, with a shell heredoc. The write guard blocks every other file write from Bash, and the SubagentStop check holds a stage that edited.';
 
 const STAGES_THAT_RAISE_DEBT: ReadonlySet<string> = new Set(['review', 'documentation_sync']);
 
@@ -396,7 +396,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '',
     ...entry,
     "3. Export `SE_SESSION`, the orchestrator's session id from your dispatch, for every command you run, so every row and artifact you write is recorded under the one change.",
-    `4. Read the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from \`docs/instructions/workflows/feature-development.yaml\`, plus the previous pillar file(s) you were dispatched with.`,
+    `4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from \`docs/instructions/workflows/feature-development.yaml\`.`,
     `5. \`paqad-ai stage start ${def.ledgerStage}\`.`,
     `6. ${procedure.work}`,
     `7. ${procedure.end}`,

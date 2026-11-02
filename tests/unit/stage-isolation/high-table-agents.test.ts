@@ -149,6 +149,17 @@ describe('the High Table agent bodies', () => {
     expect(body).not.toContain('\u2014');
   });
 
+  it('both seats write only their notes or synthesis file under .paqad/tmp/high-table/ with a heredoc', () => {
+    for (const body of [buildExpertAgentBody(), buildChiefArchitectAgentBody()]) {
+      const doNot = body.slice(body.indexOf('## Do not'), body.indexOf('## Example'));
+      expect(doNot).toContain(
+        'write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc',
+      );
+    }
+    expect(buildExpertAgentBody()).toContain('`.paqad/tmp/high-table/<role>-notes.json`');
+    expect(buildChiefArchitectAgentBody()).toContain('`.paqad/tmp/high-table/synthesis.json`');
+  });
+
   it('the chief reads the context, writes the synthesis and records it', () => {
     const body = buildChiefArchitectAgentBody();
     const context = body.indexOf('paqad-ai spec pipeline experts context');

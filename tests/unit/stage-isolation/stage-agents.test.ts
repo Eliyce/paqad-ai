@@ -17,6 +17,7 @@ import {
   SPEC_FOREGROUND_START_LINE,
   STAGE_AGENT_HARD_RULES,
   STAGE_BRIEF_FALLBACK_LINE,
+  READ_ONLY_DO_NOT,
   WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion';
@@ -99,9 +100,7 @@ describe('stage-agent definitions', () => {
       );
       expect(doNot).toContain('Do not write into a feature bundle directory by hand');
       expect(doNot).toContain('Do not skip a stage verb');
-      expect(doNot.includes('The write guard blocks file writes from Bash')).toBe(
-        !def.claudeTools.includes('Edit'),
-      );
+      expect(doNot.includes(READ_ONLY_DO_NOT)).toBe(!def.claudeTools.includes('Edit'));
       const codex = buildStageAgentBody(def, 'codex-cli');
       const codexDoNot = codex.slice(codex.indexOf('## Do not'), codex.indexOf('## Example'));
       for (const line of STAGE_AGENT_HARD_RULES) expect(codexDoNot).toContain(line);
@@ -124,6 +123,23 @@ describe('stage-agent definitions', () => {
       expect(body).toContain('load and follow `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md`');
       expect(body).toContain('.paqad/session/agent-entry/');
       expect(body).not.toContain(STAGE_BRIEF_FALLBACK_LINE);
+    }
+  });
+
+  it('lets a read-only stage write only its stage input under .paqad/tmp/ with a heredoc', () => {
+    expect(READ_ONLY_DO_NOT).toBe(
+      '- Do not edit project files. Write only your stage input (the plan template, the spec input or the review template) under `.paqad/tmp/`, with a shell heredoc. The write guard blocks every other file write from Bash, and the SubagentStop check holds a stage that edited.',
+    );
+    expect(READ_ONLY_DO_NOT).not.toContain('Do not edit or write files');
+  });
+
+  it('says the agent is dispatched with the change ref and the lane', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host)).toContain(
+          '4. You were dispatched with the change ref, the lane and the previous pillar file(s).',
+        );
+      }
     }
   });
 
