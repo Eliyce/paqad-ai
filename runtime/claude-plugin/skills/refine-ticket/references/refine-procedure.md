@@ -1,5 +1,7 @@
 # Refine procedure
 
+verified: 2026-11-02
+
 The ordered procedure for refining an existing ticket, with the EDT rules it enforces. Follow it top
 to bottom for each ticket. Rich-content handling has its own page: `rich-content.md`.
 

@@ -1,5 +1,7 @@
 # User stories and acceptance criteria
 
+verified: 2026-11-02
+
 This is the single source for how a ticket is written as a user story (TKT-6). write-tickets drafts
 by it and check-tickets judges by it. The canonical ticket set does not change: each acceptance
 criterion is one `done_when` item, refs stay E1-T1, and a ticket keeps 2 to 8 criteria.

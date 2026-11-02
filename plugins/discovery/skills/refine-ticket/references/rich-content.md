@@ -1,5 +1,7 @@
 # Rich content (EDT-7)
 
+verified: 2026-11-02
+
 A ticket description in the tracker can hold content that plain text cannot carry. Replacing such a
 description with plain text would drop that content silently. So when the current description is rich,
 never replace it: append the improved text as a clearly marked new section or a comment instead, and

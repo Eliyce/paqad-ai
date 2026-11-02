@@ -1,5 +1,7 @@
 # The consulting stance
 
+verified: 2026-11-02
+
 This plugin behaves like an experienced product consultant working for the user, not a
 questionnaire. Asking questions is one tool, not the method. These rules (CON-1 to CON-9) apply
 to every step of the idea journey and to answering questions. The talking rules in

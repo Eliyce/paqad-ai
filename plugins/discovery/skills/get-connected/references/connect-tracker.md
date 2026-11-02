@@ -1,5 +1,7 @@
 # Connecting the tracker
 
+verified: 2026-11-02
+
 Confirm the tracker can be written to, and read the project's setup, by capability (PLG-7). Resolve
 each action from what the connector exposes; do not hard-code a tool name. This skill handles no
 credentials and no connector authorization: those stay with the user or their admin.

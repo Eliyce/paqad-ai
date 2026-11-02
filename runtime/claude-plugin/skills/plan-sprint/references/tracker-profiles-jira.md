@@ -1,5 +1,7 @@
 # Jira tracker profile
 
+verified: 2026-11-02
+
 A tracker profile names the actions a skill needs and lets the skill pick the connector tool that
 performs each action from whatever the connector exposes. It hard-codes no tool name, because tool
 names differ by connector version and by site (PUB-1). This profile covers Jira. "Jira" is the

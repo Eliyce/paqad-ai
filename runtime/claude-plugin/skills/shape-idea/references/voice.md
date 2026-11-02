@@ -1,5 +1,7 @@
 # How to talk
 
+verified: 2026-11-02
+
 This is the single source for how every skill in this plugin talks. Every SKILL.md opens
 with a short block that points here. These rules apply to every skill and every reply, and
 they win over any other guidance when they pull in different directions.

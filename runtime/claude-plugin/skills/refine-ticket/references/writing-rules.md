@@ -1,5 +1,7 @@
 # Writing rules
 
+verified: 2026-11-02
+
 Every epic and ticket follows these rules. The prose check in check-tickets enforces them where it
 can run; this file is the rule the check is built from, so the drafting follows it from the start.
 

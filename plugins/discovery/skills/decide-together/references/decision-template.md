@@ -1,5 +1,7 @@
 # Decision and assumption templates
 
+verified: 2026-11-02
+
 Step 4 records two kinds of thing: a decision the user made, and an assumption the user accepted
 as a default when they did not know. They are kept apart on purpose, so a guess is never read
 later as a settled call.

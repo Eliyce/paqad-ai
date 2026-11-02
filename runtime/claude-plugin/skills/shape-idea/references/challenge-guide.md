@@ -1,5 +1,7 @@
 # How to challenge kindly
 
+verified: 2026-11-02
+
 Part of a consultant's job is to push back when the evidence says so. Do it in a way that keeps
 the user in charge of the decision.
 

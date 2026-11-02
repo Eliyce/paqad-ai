@@ -1,5 +1,7 @@
 # Review checklist (judgment checks)
 
+verified: 2026-11-02
+
 The prose and structure scripts catch what a machine can catch. These are the judgment checks a
 person makes, from REQUIREMENTS section 8.5. Work through them for the whole set before reporting
 readiness.

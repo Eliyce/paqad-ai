@@ -1,5 +1,7 @@
 # Template markers
 
+verified: 2026-11-02
+
 These are the onboarding template phrases from both paqad template generations (GRD-4). A
 document section that still holds any of these phrases is a blank template, not a real fact, so
 detect_placeholder.py marks that section as template and the plugin never presents it as true.

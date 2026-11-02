@@ -1,5 +1,7 @@
 # Expert lenses
 
+verified: 2026-11-02
+
 In step 3 the idea is looked at through six lenses, so one conversation gets the benefit of
 several specialists without handing off to separate agents. This is ported from the 0.2.0
 consult-expert specialties, applied in one conversation: there are no subagents in web chat, so
