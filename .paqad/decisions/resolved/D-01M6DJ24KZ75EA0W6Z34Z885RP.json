@@ -21,8 +21,11 @@
   ],
   "recommendation": "remove",
   "created_at": "2026-11-02T07:19:58.335Z",
-  "status": "pending",
+  "status": "resolved",
   "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "allow",
+  "rationale": "The rm only cleans the script's own temp file on exit.",
+  "resolved_at": "2026-11-02T10:03:24.263Z",
   "decision_id": "D-01M6DJ24KZ75EA0W6Z34Z885RP",
   "fingerprint": "sha256:b5cf874298ad6dd4246849de8c4db2f954e642e94e02e085f8967c0152f2e041",
   "question": "The script scripts/extract-tested-states.sh in state-coverage-review does file-delete. Allow it?",
@@ -31,5 +34,14 @@
   "requested_by": "paqad-decision-cli",
   "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
   "ttl_until": "2026-12-02T07:19:58.335Z",
-  "invalidation_watch": []
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T10:03:24.263Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "The rm only cleans the script's own temp file on exit."
+  }
 }
