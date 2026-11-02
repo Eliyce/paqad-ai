@@ -1,5 +1,7 @@
 # Heuristic Rubric
 
+verified: 2026-11-02
+
 Evaluate:
 
 - clarity of workflow and status

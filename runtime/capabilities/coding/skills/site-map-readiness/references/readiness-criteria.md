@@ -1,5 +1,7 @@
 # Readiness criteria
 
+verified: 2026-11-02
+
 The readiness verdict decides whether the map is worth building yet. It is graded from what the
 engine can detect, never from optimism about what the code "probably" contains.
 

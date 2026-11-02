@@ -1,5 +1,7 @@
 # Query Risk Guide
 
+verified: 2026-11-02
+
 Check for:
 
 - correctness drift from missing filters or ordering

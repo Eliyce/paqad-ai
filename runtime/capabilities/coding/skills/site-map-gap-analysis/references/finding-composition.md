@@ -1,5 +1,7 @@
 # Finding composition
 
+verified: 2026-11-02
+
 A gap finding is a promise: the map has a problem here, this is the proof, and this is how to fix
 it. A finding that fails any of those three is noise. This reference is the bar.
 

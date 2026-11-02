@@ -1,5 +1,7 @@
 # Journey shape
 
+verified: 2026-11-02
+
 A journey is a claim that a real actor takes a real path to a real goal. Its value comes from
 being _few and important_: a handful of load-bearing journeys a newcomer can follow, not an
 exhaustive enumeration of every click. This reference is the shape and the discipline.

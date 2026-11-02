@@ -1,5 +1,7 @@
 # Extraction evidence
 
+verified: 2026-11-02
+
 Extraction is the deterministic floor of the map: a surface exists only if the code proves it.
 This reference is the bar for accepting, excluding, or flagging a surface.
 

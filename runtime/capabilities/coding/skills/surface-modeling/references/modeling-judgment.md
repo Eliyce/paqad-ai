@@ -1,5 +1,7 @@
 # Modeling judgment
 
+verified: 2026-11-02
+
 Modeling is where the map earns its meaning. A scanner can prove a route exists; only judgment
 can say it is the checkout screen, that it is an entry point, and that it belongs to the payments
 module. That judgment must stay tied to evidence.

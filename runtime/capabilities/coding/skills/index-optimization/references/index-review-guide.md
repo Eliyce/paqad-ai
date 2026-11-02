@@ -1,5 +1,7 @@
 # Index Review Guide
 
+verified: 2026-11-02
+
 Evaluate indexes against:
 
 - filter and sort order

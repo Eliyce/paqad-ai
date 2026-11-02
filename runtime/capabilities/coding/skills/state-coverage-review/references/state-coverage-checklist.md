@@ -1,5 +1,7 @@
 # State Coverage Checklist
 
+verified: 2026-11-02
+
 Default state set (when `components.md` does not declare otherwise): `default / hover / focus / disabled / loading / error / empty`.
 
 ## Static implementation evidence

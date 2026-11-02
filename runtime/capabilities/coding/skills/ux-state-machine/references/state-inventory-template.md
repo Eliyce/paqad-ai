@@ -1,5 +1,7 @@
 # State Inventory Template
 
+verified: 2026-11-02
+
 For each state capture:
 
 - state name

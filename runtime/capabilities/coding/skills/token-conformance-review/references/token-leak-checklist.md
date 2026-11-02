@@ -1,5 +1,7 @@
 # Token Leak Checklist
 
+verified: 2026-11-02
+
 For each hit emitted by `scan-tokens.sh`, decide whether it is a token leak (a hard-coded value where a declared token exists). Every confirmed leak is a `token` finding.
 
 ## Color leaks
@@ -39,11 +41,11 @@ For each hit emitted by `scan-tokens.sh`, decide whether it is a token leak (a h
 
 `scan-tokens.sh` excludes by default:
 
-- `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`
+- `**/*.test.*`, `**/*.spec.*`
 - `**/*.stories.*`, `**/storybook-static/**`
-- `**/node_modules/**`, `**/dist/**`, `**/build/**`
+- `**/node_modules/**`, `**/dist/**`, `**/build/**`, `**/coverage/**`
 - `**/*.snap`
-- `src/design-tokens/**` (token source definitions)
+- `**/design-tokens/**` (token source definitions)
 - `tailwind.config.*` (the declaration file)
 
-If a finding lands inside one of these paths, drop it silently. If a project legitimately needs additional exemptions, that is a `design_test.token_exemptions` change in `project-profile.yaml`, not a scanner tweak.
+If a finding lands inside one of these paths, drop it silently. Treat a hit under `**/__tests__/**` the same way, since the scanner does not exclude that folder. If a project legitimately needs more exemptions, record them in the project's design-system docs and drop those hits during investigation, not by tweaking the scanner.

@@ -1,5 +1,7 @@
 # Refutation discipline
 
+verified: 2026-11-02
+
 Verification is adversarial on purpose. The role that draws the map wants it to be complete; the
 verifier's job is to try to prove each open claim wrong. That tension is what keeps the map
 honest, so the default posture is skepticism, not agreement.

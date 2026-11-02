@@ -1,5 +1,7 @@
 # Component Conformance Checklist
 
+verified: 2026-11-02
+
 For each component in the AST-derived inventory, check the contract in `components.md`. For each override hit emitted by `scan-overrides.sh`, decide whether it points at a missing variant or a code smell.
 
 ## Per-component checks

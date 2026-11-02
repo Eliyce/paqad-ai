@@ -1,5 +1,7 @@
 # Patch scope
 
+verified: 2026-11-02
+
 The maintainer keeps the map alive without turning every code change into a full re-map. Its
 discipline is scope: touch only the surfaces the diff actually drifted, and prove each patch from
 the changed files.

@@ -1,5 +1,7 @@
 # Design-System Contract Clauses
 
+verified: 2026-11-02
+
 What counts as a clause in each contract file. Counts inform the tier decision; the inventory itself is consumed by every downstream design-test skill.
 
 ## tokens.md

@@ -1,5 +1,7 @@
 # Transition evidence
 
+verified: 2026-11-02
+
 A transition is a claim that a user moves from one surface to another. The map is only as
 trustworthy as this claim, so an edge exists only when the code proves the navigation happens,
 not when a link merely appears in the source.

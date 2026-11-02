@@ -1,5 +1,7 @@
 # WCAG 2.2 Mapping
 
+verified: 2026-11-02
+
 The most common audit findings → WCAG 2.2 success criterion ids. Cite the id in every finding (analog of WSTG ids in pentest).
 
 ## Perceivable

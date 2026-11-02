@@ -1,5 +1,7 @@
 # Re-run rules
 
+verified: 2026-11-02
+
 A re-run is a re-check, not a re-audit with moved goalposts. Its whole value is that it answers
 one question honestly (does the stored map still match the code) using the exact verification
 the `site-map` workflow runs. These are the rules that keep it honest.

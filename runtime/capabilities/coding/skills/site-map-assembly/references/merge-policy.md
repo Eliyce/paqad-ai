@@ -1,5 +1,7 @@
 # Merge policy
 
+verified: 2026-11-02
+
 Assembly folds freshly modeled layers into the committed map. The map is a living document that
 humans curate, so the merge must never silently erase that curation. This reference is the
 conflict-resolution contract.

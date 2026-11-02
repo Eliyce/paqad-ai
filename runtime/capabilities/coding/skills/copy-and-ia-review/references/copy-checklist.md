@@ -1,5 +1,7 @@
 # Copy & IA Checklist
 
+verified: 2026-11-02
+
 For each user-facing string:
 
 - **Case style**: sentence case vs title case must match `patterns.md`. Mixed case within a page is a finding.

@@ -1,5 +1,7 @@
 # Responsive Checklist
 
+verified: 2026-11-02
+
 For each route × declared breakpoint:
 
 - **No horizontal scroll.** `document.documentElement.scrollWidth <= window.innerWidth`. Violation → `high`.
