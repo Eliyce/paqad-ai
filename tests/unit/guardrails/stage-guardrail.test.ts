@@ -404,9 +404,9 @@ function flatten(
 }
 
 describe('the stage enforcement guardrails', () => {
-  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes and the appended stale stage agent case', (ctx) => {
+  it('AC-66: the stage enforcement contract test is unchanged from the base branch', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
-    expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT)))).toEqual(
+    expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT), false))).toEqual(
       printedCode(contractWithoutLauncherRoutes(atBase(CONTRACT), false)),
     );
   });
