@@ -104,7 +104,12 @@ describe('AC-25: a paqad subagent whose stage cannot be resolved is denied (fail
         agent_type: 'paqad:paqad-deploy',
         agent_id: 'a1',
       }),
-      env: { PATH: process.env.PATH ?? '', HOME: root, CLAUDE_PROJECT_DIR: root },
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: root,
+        USERPROFILE: root,
+        CLAUDE_PROJECT_DIR: root,
+      },
       extendEnv: false,
       reject: false,
     });

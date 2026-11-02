@@ -106,7 +106,12 @@ describe('stop when a dispatch finds no stage agent', () => {
   it('the session-start hook prints the stop message on Claude Code with no agent source', async () => {
     const root = tempRoot();
     onboard(root);
-    const env = { PATH: process.env.PATH ?? '', HOME: root, CLAUDE_PROJECT_DIR: root };
+    const env = {
+      PATH: process.env.PATH ?? '',
+      HOME: root,
+      USERPROFILE: root,
+      CLAUDE_PROJECT_DIR: root,
+    };
     const missing = await execa('node', [HOOK], {
       input: JSON.stringify({ session_id: 's-1', source: 'startup' }),
       env,
@@ -130,7 +135,12 @@ describe('stop when a dispatch finds no stage agent', () => {
     onboard(root);
     const result = await execa('node', [HOOK], {
       input: JSON.stringify({ session_id: 's-1', source: 'startup' }),
-      env: { PATH: process.env.PATH ?? '', HOME: root, PAQAD_PROJECT_ROOT: root },
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: root,
+        USERPROFILE: root,
+        PAQAD_PROJECT_ROOT: root,
+      },
       extendEnv: false,
       reject: false,
     });
