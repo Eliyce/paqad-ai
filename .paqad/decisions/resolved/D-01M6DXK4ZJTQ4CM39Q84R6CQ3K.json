@@ -21,8 +21,11 @@
   ],
   "recommendation": "remove",
   "created_at": "2026-11-02T10:41:30.099Z",
-  "status": "pending",
+  "status": "resolved",
   "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "chosen": "allow",
+  "rationale": "Owner: the agent needs Bash to run its paqad-ai stage verbs; writes stay confined by the stage write guard.",
+  "resolved_at": "2026-11-02T10:46:20.919Z",
   "decision_id": "D-01M6DXK4ZJTQ4CM39Q84R6CQ3K",
   "fingerprint": "sha256:b672c05403d945e69e72dd531b133d29add72793701dc81c402af79ab93cbcfe",
   "question": "The agent paqad-chief-architect asks for these powers: Bash. Allow these powers?",
@@ -31,5 +34,14 @@
   "requested_by": "paqad-decision-cli",
   "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
   "ttl_until": "2026-12-02T10:41:30.099Z",
-  "invalidation_watch": []
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T10:46:20.919Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: the agent needs Bash to run its paqad-ai stage verbs; writes stay confined by the stage write guard."
+  }
 }
