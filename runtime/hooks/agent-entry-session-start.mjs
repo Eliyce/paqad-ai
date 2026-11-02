@@ -2,6 +2,7 @@
 
 import { rmSync } from 'node:fs';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { clearAgentEntryMarkers, sentinelPath } from './lib/agent-entry-sentinel.mjs';
 import {
@@ -12,6 +13,7 @@ import {
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
+import { maybeSpawnViewRefresh } from './lib/feature-view-refresh.mjs';
 
 function sourceFromStdin(input) {
   const parsed = parseHookPayload(input);
@@ -65,6 +67,13 @@ async function main(input) {
       await captureSessionDirtyBaseline(projectRoot, hostSessionId);
     }
   } catch {}
+
+  if (isProjectOnboarded(projectRoot)) {
+    maybeSpawnViewRefresh({
+      projectRoot,
+      cliPath: fileURLToPath(new URL('../../dist/cli/index.js', import.meta.url)),
+    });
+  }
 
   await announceMissingStageAgents(projectRoot);
 
