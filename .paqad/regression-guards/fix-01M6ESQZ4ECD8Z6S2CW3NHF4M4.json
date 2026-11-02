@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M6ESQZ4ECD8Z6S2CW3NHF4M4",
+  "created_at": "2026-11-02T19:04:30.894Z",
+  "proof": {
+    "test_id": "names the project when the user turned the plugin off but the project turns it on",
+    "test_file": "tests/unit/install/plugin-project-doctor.test.ts",
+    "command": "pnpm exec vitest run tests/unit/install/plugin-project-doctor.test.ts tests/unit/install/plugin-project-move.test.ts tests/unit/install/plugin-project-rollback.test.ts tests/unit/team-bootstrap/install-mode-opt-out.test.ts"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/install/plugin-project-doctor.test.ts",
+    "line": null,
+    "test_id": "names the project when the user turned the plugin off but the project turns it on",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"names the project when the user turned the plugin off but the project turns it on\" fails before the fix.",
+    "stderr_excerpt": "     74|     expect(sharedSettings().enabledPlugins).toEqual({ 'other@team': tr…\n       |                                             ^\n     75|   });\n     76|\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/16]⎯"
+  },
+  "linked_ac_id": null
+}

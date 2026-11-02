@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6ETCXT5X3HKXJA1V04Q7XVF](TD-01M6ETCXT5X3HKXJA1V04Q7XVF.md) (gap, low): Automatic plugin rollback leaves a project-scope plugin loading
 - [TD-01M6EBRBEEAKQSB02PEH75PW3E](TD-01M6EBRBEEAKQSB02PEH75PW3E.md) (debt, low): Team setup on never prunes paqad stage agent copies whose name left the render set
 - [TD-01M6CNDMGJ8MXW9KKC9Y2466CR](TD-01M6CNDMGJ8MXW9KKC9Y2466CR.md) (bug, low): Authoring gate names the Claude stage-agent template as an agent called claude
 - [TD-01M6CNDKRACD0HTQAEH86186FS](TD-01M6CNDKRACD0HTQAEH86186FS.md) (gap, medium): Rule RL-70a6 still teaches top-level paqad skill keys and flags metadata on every paqad skill

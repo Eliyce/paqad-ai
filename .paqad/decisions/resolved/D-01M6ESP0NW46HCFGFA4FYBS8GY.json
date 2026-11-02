@@ -1,0 +1,46 @@
+{
+  "id": "D-01M6ESP0NW46HCFGFA4FYBS8GY",
+  "category": "workflow-or-tool",
+  "title": "819: what turn off and plugin rollback mean in a repo that commits the plugin",
+  "context": "Project settings beat user settings, so a user-scope disable or uninstall does nothing there. settings.local.json is git-ignored and beats project settings.",
+  "options": [
+    {
+      "option_key": "local",
+      "label": "Per-dev opt-out: write paqad@eliyce=false to .claude/settings.local.json and say so",
+      "one_line_preview": "Per-dev opt-out: write paqad@eliyce=false to .claude/settings.local.json and say so",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "refuse",
+      "label": "Not supported there: say the repo turns it on and how to opt out by hand",
+      "one_line_preview": "Not supported there: say the repo turns it on and how to opt out by hand",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "local",
+  "created_at": "2026-11-02T18:52:24.124Z",
+  "status": "resolved",
+  "chosen": "local",
+  "rationale": "Owner: per-dev opt-out in git-ignored .claude/settings.local.json, said plainly",
+  "resolved_at": "2026-11-02T18:53:27.359Z",
+  "decision_id": "D-01M6ESP0NW46HCFGFA4FYBS8GY",
+  "fingerprint": "sha256:6c6840eda37c5ad52b8372fd5f5a4f285d834b2aa73f0c34abe3fc6bb4a1e592",
+  "question": "819: what turn off and plugin rollback mean in a repo that commits the plugin",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2026-11-09T18:52:24.124Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "local",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T18:53:27.359Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: per-dev opt-out in git-ignored .claude/settings.local.json, said plainly"
+  }
+}
