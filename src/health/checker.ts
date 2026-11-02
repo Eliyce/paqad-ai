@@ -1083,8 +1083,10 @@ export class HealthChecker {
     return pass(
       'Spec pipeline settings',
       `${values} It runs on the graduated and full lanes; the fast lane never runs it.${cost} ` +
-        'To switch off: spec_pipeline_enabled=false, spec_pipeline_experts_enabled=false or ' +
-        'spec_pipeline_adoption=warn in .paqad/configs/.config.* or .paqad/.config.',
+        'To switch off for the team, set pipeline.enabled: false, experts.enabled: false or ' +
+        'hand_written_specs: warn in .paqad/configs/feature-development/specification.yaml; ' +
+        'just for you, set spec_pipeline_enabled=false, spec_pipeline_experts_enabled=false or ' +
+        'spec_pipeline_adoption=warn in .paqad/.config.',
     );
   }
 

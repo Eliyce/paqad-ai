@@ -27,9 +27,8 @@ looping inside them).
 
 - **Bounded.** A lane-scaled `max_rounds` cap, enforced by the pipeline runtime
   — not the agent's discretion. Defaults: `fast` 2, `graduated` 3, `full` 5
-  (open decision #1, taking the recommendation). Project-tunable via the
-  `rounds:` block in `docs/instructions/workflows/feature-development.yaml`; raise it for
-  the heaviest work.
+  (open decision #1, taking the recommendation). A caller can pass its own
+  `max_rounds`; the cap is not a team setting.
 - **Futility detection.** No net progress across rounds — the same failing set
   twice in a row — stops early rather than burning the full budget (open
   decision #2: no-progress + same-failing-set; richer oscillation detection can
@@ -71,7 +70,7 @@ never feels the machinery.
 | Wrap the single verification pass as round N's "check" | `src/pipeline/phases/verification-loop.ts` (`VerificationLoopPhase`) |
 | The done condition the loop checks | `src/spec/definition-of-done.ts` (`isDone`) |
 | Persist the internal rounds log | `src/loop/rounds-log.ts` (`.paqad/session/build-check-fix-rounds.json`) |
-| Per-lane round-cap override | `docs/instructions/workflows/feature-development.yaml` › `rounds:` |
+| Per-lane round cap | `resolveMaxRounds` in `src/loop/build-check-fix-loop.ts` (`max_rounds` input) |
 | The stop rule, documented for the human | `runtime/base/checklists/human-escalation.md` |
 
 The loop never prints; it returns its outcome as data. `VerificationLoopPhase`

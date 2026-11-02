@@ -71,8 +71,10 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   framework knobs in the four-surface config layer (strictness, RAG, enterprise,
   escalation, features, model routing, …) — defaults in
   `src/core/framework-config.ts`, tracked team overrides in
-  `.paqad/configs/.config.*` (onboarding writes one self-documenting file per
-  group, every knob commented out at its default), a git-ignored local
+  readable YAML files under `.paqad/configs/` (`paqad.yaml`, `models.yaml`,
+  `retrieval.yaml`, `decisions.yaml`, `authoring.yaml` and `feature-development/*.yaml`;
+  onboarding writes each with only a header, the generated `.paqad/configs/README.md` lists
+  every setting and `paqad-ai config show` prints what is in effect), a git-ignored local
   `.paqad/.config` (local wins), and `PAQAD_*` env — and the onboarding manifest
   ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
@@ -194,9 +196,10 @@ is cooperative ([`session-handoff`](session-handoff/index/summary.md)).
 
 ## 2. The feature-development stages
 
-Customised by
-[`docs/instructions/workflows/feature-development.yaml`](../instructions/workflows/feature-development.yaml);
-the framework owns phase order and the mandatory safety stages.
+Customised in the team files under `.paqad/configs/feature-development/`, and shown in
+the generated view
+[`docs/instructions/workflows/feature-development.yaml`](../instructions/workflows/feature-development.yaml),
+which paqad rebuilds every session and nobody edits by hand; the framework owns phase order and the mandatory safety stages.
 
 | Stage | What happens | Skills / agents that fire |
 | --- | --- | --- |
@@ -557,8 +560,8 @@ This overview is intentionally thin: it is a map, not a copy. It goes stale when
 the *shape* of the system changes, not when an implementation detail does. Update
 it in the same change that:
 
-- adds, removes, or renames a stage in
-  [`feature-development.yaml`](../instructions/workflows/feature-development.yaml);
+- adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts` (shown in
+  the generated [`feature-development.yaml`](../instructions/workflows/feature-development.yaml));
 - adds, removes, or renames a skill under `runtime/**/skills/` or an agent under
   `runtime/**/agents/` (update §3);
 - adds or changes a consciousness engine in §4 (module-map, traceability, impact

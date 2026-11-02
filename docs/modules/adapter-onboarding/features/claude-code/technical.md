@@ -58,12 +58,13 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **HUD settings.** `hud_view` (env `PAQAD_HUD_VIEW`, default on) shows or hides the HUD.
   `hud_chime` (env `PAQAD_HUD_CHIME`, default off) makes the mod play one short chime when a
   verdict lands, once per verdict and never per snapshot rebuild; it is a chime only and the mod
-  never speaks. Both live in the team-owned app config (`.paqad/configs/.config.app`) and resolve
-  like `paqad_enable`: the env variable first, then `.paqad/.config`, then
-  `.paqad/configs/.config.*` with the last file name winning. `config reconcile` and `update` keep
-  a team value; `.paqad/.config.example` lists both with their defaults.
-- **Stage helper effort and model.** Twelve keys in the team-owned models config
-  (`.paqad/configs/.config.models`), section "Stage agents": `stage_effort_<stage>` (env
+  never speaks. For the team they live in `.paqad/configs/paqad.yaml` as `hud.band` and `hud.chime`, and resolve
+  like `paqad_enable`: the env variable first, then `.paqad/.config` (flat names), then
+  `paqad.yaml`, which the mod reads with `readYamlScalar`. `update` never changes a team value;
+  `.paqad/.config.example` lists both with their defaults.
+- **Stage helper effort and model.** Twelve settings in the team-owned
+  `.paqad/configs/feature-development/workflow.yaml` (`stages.<stage>.effort` and
+  `stages.<stage>.model`), flat names `stage_effort_<stage>` (env
   `PAQAD_STAGE_EFFORT_<STAGE>`; one of low, medium, high, xhigh, inherit) and
   `stage_model_<stage>` (env `PAQAD_STAGE_MODEL_<STAGE>`; one of inherit, haiku, sonnet, opus),
   for planning, specification, development, review, checks and documentation_sync. Defaults:
@@ -170,7 +171,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   paqad stops there instead of running a stage in the main session.
 - **`.claude/settings.json` is tracked and portable.** It holds only
   `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
-  When the team sets `claude_install_mode=settings` in a tracked `.paqad/configs/.config.*` file,
+  When the team sets `claude_code:` `install_mode: settings` in the tracked `.paqad/configs/paqad.yaml`,
   update leaves the two plugin keys out (other plugins and marketplaces stay) and keeps every
   other key in place, so Claude Code does not offer the plugin to teammates. The same value in
   the git-ignored `.paqad/.config`, which `paqad-ai plugin rollback` writes, does not change the

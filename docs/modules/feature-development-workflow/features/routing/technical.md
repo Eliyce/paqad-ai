@@ -13,7 +13,7 @@
 | Per-session workflow state (active and paused) | `src/pipeline/workflow-state.ts` |
 | "Did this session edit this turn" | `src/pipeline/session-ownership.ts` |
 | Route override audit log | `src/pipeline/route-override-log.ts` |
-| Lane and stage policy | `docs/instructions/workflows/feature-development.yaml`, `src/workflows` |
+| Lane and stage policy | `src/pipeline/feature-development-policy.ts`, `.paqad/configs/feature-development/`, `src/workflows` (shown in the generated `docs/instructions/workflows/feature-development.yaml`) |
 
 The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only writes the hook's first guess. `paqad-ai route set` makes enforcement follow the agent's pick.
 
