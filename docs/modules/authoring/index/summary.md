@@ -91,7 +91,9 @@ phrases in `docs/instructions/rules/authoring/never-write.yaml` and can never re
 to the absolute path of the draft folder so contract tests can load a script that is not released
 yet; a test falls back to the host path when the variable is unset. Each script needs seven tests
 named `<script> <check>` (help, invalid input, fixture output, idempotency, dry run, output size,
-secrets). Before anything runs, a static scan of each script and of the `hooks` and `shell`
+secrets). S4 asks them of the same scripts SK-010 lints: `scripts/README.md` and a helper listed
+under its `## Not entry points` section are skipped, unless the helper still has a runnable entry
+point. Before anything runs, a static scan of each script and of the `hooks` and `shell`
 frontmatter values raises `authoring.risky_script` for network, package-install or file-delete
 calls; an Allow is bound to the script's content hash. Reference checks need every named path or
 npm, pnpm, yarn, composer, make or just script to exist (or the line to say `external`), every
@@ -107,7 +109,15 @@ other runner keeps the full command. The command that ran is recorded in `script
 
 A draft handed to `skill draft` from a paqad runtime skill folder, or an improve-mode runtime
 source, is linted with the paqad runtime loader fields (`model_tier`, `triggers` and the rest) and
-released back into that folder.
+released back into that folder. Draft keeps each copied file's mode, so an executable script stays
+executable. When the release target is the folder the draft came from, release copies nothing and
+leaves the folder untouched, still writing `evidence.json`, `CHANGELOG.md` and the bundle record;
+it refuses if that folder changed after S3 drafted it, naming the draft to rerun.
+
+With S2 evidence overridden there is no `sources.md`, so S3 lists every untraced instruction block
+under Unsourced as `accepted: S2 evidence was overridden by decision <id>` instead of failing it.
+A block already listed under Unsourced keeps its own reason and still needs one. Without the
+override, draft behaves as before.
 
 ## Evals and trigger tests (S5, S6)
 

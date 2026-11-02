@@ -1,6 +1,6 @@
 # S3 draft
 
-verified: 2026-10-31
+verified: 2026-11-02
 
 Draft the folder outside every skills root; `paqad-ai skill draft` copies it into the workspace and it stays there until release.
 
@@ -24,3 +24,7 @@ Draft the folder outside every skills root; `paqad-ai skill draft` copies it int
 ```
 
 An unmapped block is listed under Unsourced and the gate fails until it carries `accepted: <reason>` or `model-knowledge: <why>`.
+
+When S2 evidence holds an owner override there is no `sources.md` to trace to. Draft then lists each untraced block under Unsourced as `accepted: S2 evidence was overridden by decision <id>` and the gate passes. A block you listed under Unsourced yourself still needs its own reason.
+
+Draft keeps each copied file's mode, so an executable script stays executable in the workspace and after release.
