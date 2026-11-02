@@ -157,7 +157,8 @@ export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport):
   if (!report.enabled) return [];
   const pending = gitPendingPaths(projectRoot, teamTrackedPaths());
   if (pending === null) return [...report.written].sort();
-  return pending.filter(isTeamPath);
+  const handEdited = new Set(report.handEditedAgents ?? []);
+  return pending.filter((path) => isTeamPath(path) && !handEdited.has(path));
 }
 
 export const SHARED_SETTINGS_NOTE =

@@ -85,6 +85,17 @@ describe("the stage agents in the repo's .claude/agents", () => {
     expect(notes.join('\n')).toContain(`.claude/agents/${second!.name}`);
   });
 
+  it('names a pending hand-edited copy only as kept, never as a file to commit', () => {
+    const [first] = renderStageAgentFiles('claude-code');
+    writeAgent(first!.name, `${first!.content}my own note\n`);
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
+    const commitNote = notes.find((note) => note.startsWith('Commit these team setup files'));
+    const keptNote = notes.find((note) => note.includes('do not match what paqad wrote'));
+    expect(commitNote).not.toContain(`.claude/agents/${first!.name}`);
+    expect(keptNote).toContain(`.claude/agents/${first!.name}`);
+  });
+
   it('a team setup with it on rewrites an older paqad copy', () => {
     const [legacy] = legacyCopies();
     writeAgent(legacy!.name, legacy!.content);
