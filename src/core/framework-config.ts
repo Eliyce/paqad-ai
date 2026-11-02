@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from './constants/paths.js';
+import { teamConfigHome, type TeamConfigFile, type YamlValueMap } from './team-config-values.js';
 import { versionAtLeast } from './version-compare.js';
 import { normalizeIntelligenceConfig } from './project-intelligence.js';
 import { LANES, type Lane } from './types/routing.js';
@@ -92,7 +93,7 @@ export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
   policy: '.config.policy',
 };
 
-export interface FrameworkConfigSpec {
+interface BaseConfigSpec {
   key: string;
   env: string;
   type: ConfigValueType;
@@ -104,7 +105,14 @@ export interface FrameworkConfigSpec {
   comment: string;
 }
 
-export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
+export interface FrameworkConfigSpec extends BaseConfigSpec {
+  file: TeamConfigFile;
+  path: readonly string[];
+  yaml?: YamlValueMap;
+  since: string;
+}
+
+const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
   {
     key: 'paqad_enable',
     env: 'PAQAD_ENABLE',
@@ -495,7 +503,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'Cheap/fast model for lightweight steps.',
   },
 
-  ...STAGE_SETTING_STAGES.flatMap((stage): FrameworkConfigSpec[] => [
+  ...STAGE_SETTING_STAGES.flatMap((stage): BaseConfigSpec[] => [
     {
       key: `stage_effort_${stage}`,
       env: `PAQAD_STAGE_EFFORT_${stage.toUpperCase()}`,
@@ -1273,6 +1281,10 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Lint (AG-010) and memory-consolidate: the most lines an agent MEMORY.md may hold. A positive whole number.',
   },
 ] as const;
+
+export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = BASE_CONFIG_SPECS.map(
+  (spec) => ({ ...spec, ...teamConfigHome(spec.key) }),
+);
 
 function stageEffortComment(stage: string): string {
   const base =
