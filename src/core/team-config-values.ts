@@ -1,4 +1,3 @@
-
 export const TEAM_CONFIG_FILES = [
   'paqad.yaml',
   'models.yaml',

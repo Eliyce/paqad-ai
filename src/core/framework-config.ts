@@ -1,11 +1,18 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
 
 import { PATHS } from './constants/paths.js';
-import { teamConfigHome, type TeamConfigFile, type YamlValueMap } from './team-config-values.js';
+import { readTeamConfig, type TeamConfigRead } from './team-config.js';
+import { listConfigsFiles } from './team-config-legacy.js';
+import {
+  personalValue,
+  teamConfigHome,
+  type TeamConfigFile,
+  type YamlValueMap,
+} from './team-config-values.js';
 import { versionAtLeast } from './version-compare.js';
 import { normalizeIntelligenceConfig } from './project-intelligence.js';
 import { LANES, type Lane } from './types/routing.js';
@@ -1357,7 +1364,7 @@ function stripValue(raw: string): string {
   return inlineComment === -1 ? v : v.slice(0, inlineComment).trim();
 }
 
-export function readDotConfig(projectRoot: string): Map<string, string> {
+export function readRawDotConfig(projectRoot: string): Map<string, string> {
   try {
     return parseDotConfig(readFileSync(join(projectRoot, PATHS.PROJECT_CONFIG), 'utf8'));
   } catch {
@@ -1365,53 +1372,29 @@ export function readDotConfig(projectRoot: string): Map<string, string> {
   }
 }
 
-export function listConfigsFiles(projectRoot: string): string[] {
-  const dir = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR);
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return [];
+export function readDotConfig(projectRoot: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, value] of readRawDotConfig(projectRoot)) {
+    out.set(key, personalValue(SPEC_BY_KEY.get(key), value));
   }
-  return entries
-    .filter((name) => /^\.config\..+/u.test(name) && name !== '.config.example')
-    .sort()
-    .map((name) => join(dir, name));
+  return out;
 }
+
+export function envConfigValue(env: NodeJS.ProcessEnv, key: string): string | undefined {
+  const spec = SPEC_BY_KEY.get(key);
+  const raw = spec === undefined ? undefined : env[spec.env];
+  return raw === undefined ? undefined : personalValue(spec, raw);
+}
+
+export { listConfigsFiles };
 
 export interface ConfigsCollision {
   key: string;
   files: string[];
 }
 
-export function readConfigsDir(projectRoot: string): {
-  merged: Map<string, string>;
-  collisions: ConfigsCollision[];
-  sources: Map<string, string>;
-} {
-  const merged = new Map<string, string>();
-  const seenIn = new Map<string, string[]>();
-  for (const file of listConfigsFiles(projectRoot)) {
-    let parsed: Map<string, string>;
-    try {
-      parsed = parseDotConfig(readFileSync(file, 'utf8'));
-    } catch {
-      continue;
-    }
-    for (const [key, value] of parsed) {
-      merged.set(key, value);
-      seenIn.set(key, [...(seenIn.get(key) ?? []), file]);
-    }
-  }
-  const collisions: ConfigsCollision[] = [];
-  const sources = new Map<string, string>();
-  for (const [key, files] of seenIn) {
-    sources.set(key, files[files.length - 1]!);
-    if (files.length > 1) {
-      collisions.push({ key, files });
-    }
-  }
-  return { merged, collisions, sources };
+export function readConfigsDir(projectRoot: string): TeamConfigRead {
+  return readTeamConfig(projectRoot);
 }
 
 export function layeredConfigMap(
@@ -1419,7 +1402,7 @@ export function layeredConfigMap(
   env: NodeJS.ProcessEnv = process.env,
 ): Map<string, string> {
   const merged = new Map<string, string>();
-  for (const [key, value] of readConfigsDir(projectRoot).merged) {
+  for (const [key, value] of readTeamConfig(projectRoot).merged) {
     merged.set(key, value);
   }
   for (const [key, value] of readDotConfig(projectRoot)) {
@@ -1428,7 +1411,7 @@ export function layeredConfigMap(
   for (const spec of FRAMEWORK_CONFIG_SPECS) {
     const raw = env[spec.env];
     if (typeof raw === 'string' && raw.trim() !== '') {
-      merged.set(spec.key, raw);
+      merged.set(spec.key, personalValue(spec, raw));
     }
   }
   return merged;
