@@ -1,26 +1,11 @@
 ---
 name: regression-test-gen
-description: Suggest regression coverage for changed stack behavior.
-model_tier: medium
-triggers:
-  - workflow:
-      - bug-fix
-      - refactor
-      - migration
-cacheable: true
-cache_key_inputs:
-  - tests/**
-  - src/**
-output_format: markdown
-input_schema:
-  changed_files:
-    type: path[]
-    required: true
-    description: Implementation files requiring regression coverage.
-  acceptance_criteria_path:
-    type: path
-    required: false
-    description: Acceptance criteria for traceability.
+description: 'Suggests regression coverage scoped to changed stack behavior, grouped by test layer. Use when a bug fix, refactor or migration is understood and you need to decide which tests prove it stays fixed.'
+metadata:
+  model_tier: medium
+  cacheable: 'true'
+  output_format: markdown
+  paqad-meta: skill.meta.yaml
 ---
 
 ## What It Does

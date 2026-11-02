@@ -1,0 +1,17 @@
+triggers:
+  - workflow:
+      - bug-fix
+      - refactor
+      - migration
+cache_key_inputs:
+  - tests/**
+  - src/**
+input_schema:
+  changed_files:
+    type: path[]
+    required: true
+    description: Implementation files requiring regression coverage.
+  acceptance_criteria_path:
+    type: path
+    required: false
+    description: Acceptance criteria for traceability.

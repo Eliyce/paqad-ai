@@ -47,3 +47,58 @@ describe('skill metadata parse parity (AC-3)', () => {
     expect(parsed).toMatchSnapshot();
   });
 });
+
+describe('AC-13: no shipped skill relies on the old top-level keys', () => {
+  function shippedSkillFiles(dir: string): string[] {
+    const found: string[] = [];
+    for (const entry of readdirSync(join(REPO, dir), { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) found.push(...shippedSkillFiles(rel));
+      else if (entry.name === 'SKILL.md') found.push(rel);
+    }
+    return found;
+  }
+
+  it('parses every SKILL.md under runtime with no deprecation', () => {
+    const parser = new SkillFrontmatterParser();
+    const deprecated = shippedSkillFiles('runtime')
+      .map((file) => {
+        const folder = join(REPO, file, '..');
+        try {
+          const text = readFileSync(join(REPO, file), 'utf8');
+          return { file, line: parser.parse(text, folder).deprecation };
+        } catch {
+          return { file, line: null };
+        }
+      })
+      .filter((entry) => entry.line !== null);
+    expect(deprecated).toEqual([]);
+  });
+
+  it('regression-test-gen parses to the same settings as before the move', () => {
+    const folder = 'runtime/capabilities/coding/stacks/_shared/skills/regression-test-gen';
+    expect(parsedFrontmatter(folder)).toEqual({
+      name: 'regression-test-gen',
+      file: '',
+      model_tier: 'medium',
+      triggers: [{ workflow: ['bug-fix', 'refactor', 'migration'] }],
+      max_lines: 300,
+      cacheable: true,
+      cache_key_inputs: ['tests/**', 'src/**'],
+      output_format: 'markdown',
+      input_schema: {
+        changed_files: {
+          type: 'path[]',
+          required: true,
+          description: 'Implementation files requiring regression coverage.',
+        },
+        acceptance_criteria_path: {
+          type: 'path',
+          required: false,
+          description: 'Acceptance criteria for traceability.',
+        },
+      },
+    });
+  });
+});
