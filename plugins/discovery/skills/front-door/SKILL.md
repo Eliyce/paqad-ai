@@ -2,6 +2,7 @@
 name: front-door
 description: "Chat and Claude Code: One place to start for product work, routing you to the capability that fits. Use it when you want to ask about the product, shape an idea, refine a ticket, size work, or plan a sprint and you want a single place to begin (\"help me with this ticket\", \"I have an idea\", \"what can you do here?\", \"where do I start?\"). It reads what you are after, names the capability that handles it, and hands you straight to it behind the scenes, so you only have to remember one entry. It is a thin router: it does no drafting, keeps no record, and writes nothing to the tracker itself; the capability it hands you to does that work."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
+disable-model-invocation: true
 ---
 
 # front-door

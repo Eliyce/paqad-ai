@@ -40,7 +40,7 @@ are in `references/journey.md`.
 | 6. Post | post-tickets | posted |
 
 Show each step change as one short line (TALK-12), e.g. "Step 3 of 6: shaping the idea.", never a
-summary paragraph, then go straight on. Never ask whether to carry on; stop only for a real decision
+summary paragraph, then go straight into the next step. Never ask whether to carry on; stop only for a real decision
 (a choice, an approval, a missing fact).
 
 ## The record
@@ -49,8 +49,9 @@ The record is the only memory. Create it once from `assets/record-template.md`: 
 plus run, setup, glossary, assumptions, outcome and ticket_set_ref. Update it as each step finishes.
 
 Write the record by capability, not by host (REC-2). Where the host can create files, write it
-silently as a file in the working folder; never offer, name or describe it to the user. Otherwise
-keep it as a chat summary, shown only when the user asks to stop and come back later, or on resume.
+silently as a file in the working folder. Never offer, name or describe the record or its file to
+the user. Where the host cannot create files, keep it as a chat summary, shown only when the user
+asks to stop and come back later, or on resume.
 The refine, size and plan records follow the same rule.
 
 Use the record scripts when they run:

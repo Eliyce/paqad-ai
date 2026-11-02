@@ -32,8 +32,8 @@ candidates.json: {"sprints": [{"id","state":"future"|..., "settable": bool}],
                                   "dependencies": [{"ref","done": bool,"in_sprint": bool}]}]}
 history.json:    {"sprints": [{"id","delivered": <number>} x3]}
 
---tracker-state is optional: it maps a ticket ref to the sprint the host set on it, and lets apply
-read each chosen ticket back. With no tracker-state file the read-back is a clean skip (status
+--tracker-state is optional: it maps a ticket ref to the sprint the host set on it, so apply can
+check each chosen ticket afterwards. With no tracker-state file the read-back is a clean skip (status
 "skipped"), never a spurious mismatch (INV-3); the apply still succeeds.
 
 plan stdout:  {"ok","sprint","capacity":{"value","derived_from":[{"sprint","count"}]},"goal",
@@ -41,6 +41,8 @@ plan stdout:  {"ok","sprint","capacity":{"value","derived_from":[{"sprint","coun
                "not_ready":[{"ref","needs"}],"by_hand": bool,"digest"}
 apply stdout: {"ok","applied":[refs],"read_back":{...}}
 Exit 0 on a clean plan or apply; 1 on no future sprint, a digest mismatch, or an error.
+
+Run with --help to print the usage.
 """
 
 import argparse

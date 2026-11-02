@@ -1,6 +1,6 @@
 ---
 name: shape-idea
-description: "Chat and Claude Code: Step 3 of the discover journey: plays the idea back with options, trade-offs and a recommendation. Use when discover runs step 3, not directly."
+description: "Chat and Claude Code: Step 3 of the discover journey: plays the idea back with options, trade-offs and a recommendation. Use when the journey directs it to step 3, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

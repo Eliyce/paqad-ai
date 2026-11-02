@@ -24,7 +24,7 @@ Ask when the people served are unclear.
 
 ## Success (what good looks like)
 
-Ask when there is no measure. If the user cannot say, switch to `references/success-prompts.md`.
+Ask when there is no measure. If the user cannot say, switch to `success-prompts.md`.
 
 - "How will we know this worked?"
 - Offer two or three suggested measures, each labelled a suggestion, for example: fewer support

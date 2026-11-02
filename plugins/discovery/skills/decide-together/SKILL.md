@@ -1,6 +1,6 @@
 ---
 name: decide-together
-description: "Chat and Claude Code: Step 4 of the product-discovery idea journey, Decide. Settles the open choices one at a time, each with a recommendation and two or three realistic options, and records every decision with who decided and why. When the user does not know, it offers a sensible default, labels it as an assumption, and stores it in the assumptions block. Produces the decisions block of the discovery record. Runs when the product-discovery journey directs it; not started directly."
+description: "Chat and Claude Code: Step 4 of the product-discovery journey: settles the open choices and records each decision and assumption. Use when the journey directs it to step 4, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

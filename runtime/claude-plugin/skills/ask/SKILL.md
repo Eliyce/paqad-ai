@@ -87,10 +87,11 @@ Do the same by hand:
 - For each section you rely on, check it against the template phrases in
   `references/template-markers.md`. A section that still holds any of those phrases is a blank
   template: treat it as unknown, not as fact (the placeholder step).
-- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: report a status line
-  as what the docs say, for the exact thing it names only; never use a requirements document as
-  current behaviour; when the code is reachable, open at most 5 files of that area and say at most
-  one line per area, labelled "the code suggests".
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: say an area the documents
+  do not cover is not documented; never say or imply it is not built; report a document's status
+  line as what the docs say, for the exact thing it names only; never use a requirements document as
+  current behaviour; when the code is reachable, look at that area's names, open at most 5 files,
+  and say at most one line per area, labelled "the code suggests".
 - Then answer first with a single Sources line, as above.
 
 ## Output

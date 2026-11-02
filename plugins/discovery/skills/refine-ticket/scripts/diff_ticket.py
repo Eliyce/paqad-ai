@@ -43,6 +43,8 @@ live.json:     {"last_updated": ISO8601, ...}
 stdout: {"ok", "conflict", "change_set": {"ticket_key", "changes": [{"field","before","after",
          "op"}], "new_children": [...], "digest"}, "issues": [...]}
 Exit 0 on a clean, conflict-free change set; 1 on a conflict or an error.
+
+Run with --help to print the usage.
 """
 
 import argparse

@@ -20,7 +20,7 @@ can run; this file is the rule the check is built from, so the drafting follows 
 - **Short sentences.** Keep sentences short. A sentence above about 30 words is a warning to
   tighten it, not a hard failure.
 - **Nothing invented.** No made-up numbers, dates, names or commitments. Where a success measure
-  has no number, write "To be measured after release" rather than inventing one.
+  has no number, write "To be measured once it ships" rather than inventing one.
 
 ## What the checker skips
 

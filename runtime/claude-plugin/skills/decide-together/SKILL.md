@@ -1,6 +1,6 @@
 ---
 name: decide-together
-description: "Chat and Claude Code: Step 4 of the discover journey: settles the open choices and records each decision and assumption. Use when discover runs step 4, not directly."
+description: "Chat and Claude Code: Step 4 of the discover journey: settles the open choices and records each decision and assumption. Use when the journey directs it to step 4, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
