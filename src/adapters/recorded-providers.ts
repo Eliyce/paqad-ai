@@ -4,6 +4,10 @@ import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import { AdapterFactory } from './factory.js';
 
 export function deriveRecordedProviders(manifest: OnboardingManifest): AdapterType[] {
+  const saved = (manifest.providers ?? []).filter((type) => ADAPTER_TYPES.includes(type));
+  if (saved.length > 0) {
+    return [manifest.adapter, ...saved.filter((type) => type !== manifest.adapter)];
+  }
   const artifactPaths = new Set(
     manifest.generated_artifacts.map((artifact) => artifact.path.replaceAll('\\', '/')),
   );

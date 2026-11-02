@@ -185,6 +185,34 @@ describe('paqad-ai join', () => {
     ).toEqual(['codex-cli', 'claude-code']);
   });
 
+  it('prefers the saved providers over the recorded entry files and keeps the adapter first', () => {
+    expect(
+      deriveRecordedProviders({
+        adapter: 'codex-cli',
+        providers: ['claude-code', 'codex-cli', 'junie', 'not-a-host' as never],
+        project_root: '.',
+        profile: {} as never,
+        detected: null,
+        generated_at: '',
+        generated_artifacts: [{ path: 'CLAUDE.md', auto_update: true }],
+      }),
+    ).toEqual(['codex-cli', 'claude-code', 'junie']);
+  });
+
+  it('falls back to the adapter alone when nothing else is recorded', () => {
+    expect(
+      deriveRecordedProviders({
+        adapter: 'gemini-cli',
+        providers: [],
+        project_root: '.',
+        profile: {} as never,
+        detected: null,
+        generated_at: '',
+        generated_artifacts: [],
+      }),
+    ).toEqual(['gemini-cli']);
+  });
+
   it('recreates ignored local artifacts, preserves tracked entries, and skips RAG when off', async () => {
     seedOnboardedProject(root);
 
