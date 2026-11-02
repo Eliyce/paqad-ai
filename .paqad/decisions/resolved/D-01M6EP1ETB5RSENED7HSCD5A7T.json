@@ -1,0 +1,55 @@
+{
+  "decision_id": "D-01M6EP1ETB5RSENED7HSCD5A7T",
+  "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+  "category": "create-vs-reuse",
+  "question": "Use what exists or make new?",
+  "context": "This looks like a reuse-or-create choice that affects /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/launcher-routes.test.ts. Pick the path before more is built on it.",
+  "options": [
+    {
+      "option_key": "reuse-existing",
+      "label": "Reuse what exists",
+      "one_line_preview": "If you pick this, we will update /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/launcher-routes.test.ts.",
+      "trade_off": "You give up: a blank-slate implementation.",
+      "technical_detail": "Reusing /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/launcher-routes.test.ts keeps behavior aligned with the existing project structure.",
+      "evidence": {
+        "file": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/launcher-routes.test.ts",
+        "callers": 0,
+        "similarity": 0.91,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    },
+    {
+      "option_key": "make-new",
+      "label": "Make a new one",
+      "one_line_preview": "If you pick this, we will create /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/new-launcher-routes.test.ts.",
+      "trade_off": "You give up: the shared path that already exists.",
+      "technical_detail": "Creating /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/new-launcher-routes.test.ts gives isolation but increases maintenance and consistency risk.",
+      "evidence": {
+        "file": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/new-launcher-routes.test.ts",
+        "callers": 0,
+        "similarity": 0.42,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    }
+  ],
+  "confidence": 0.92,
+  "requested_by": "paqad",
+  "task_session_id": "355a32e4-10a6-4c14-9a78-88bd8e71f211",
+  "created_at": "2026-11-02T17:48:44.747Z",
+  "status": "resolved",
+  "ttl_until": "2026-12-02T17:48:44.747Z",
+  "invalidation_watch": [
+    "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/tests/unit/team-bootstrap/launcher-routes.test.ts"
+  ],
+  "human_response": {
+    "chosen_option_key": "reuse-existing",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T17:51:21.851Z",
+    "responded_by": "paqad-decision-cli",
+    "carry_over_scope": "session",
+    "note": "Owner: extend the existing launcher-routes test file"
+  }
+}

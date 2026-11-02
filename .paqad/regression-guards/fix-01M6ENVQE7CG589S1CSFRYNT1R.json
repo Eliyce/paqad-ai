@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M6ENVQE7CG589S1CSFRYNT1R",
+  "created_at": "2026-11-02T17:53:17.780Z",
+  "proof": {
+    "test_id": "an installed plugin that did not load leaves the session to the launcher",
+    "test_file": "tests/unit/team-bootstrap/launcher-routes.test.ts",
+    "command": "pnpm vitest run tests/unit/team-bootstrap/launcher-routes.test.ts -t 'an installed plugin that did not load'"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/team-bootstrap/launcher-routes.test.ts",
+    "line": null,
+    "test_id": "an installed plugin that did not load leaves the session to the launcher",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"an installed plugin that did not load leaves the session to the launcher\" fails before the fix.",
+    "stderr_excerpt": "    307|     expect(captured.spawns).toHaveLength(1);\n       |                             ^\n    308|   });\n    309| });\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯"
+  },
+  "linked_ac_id": null
+}
