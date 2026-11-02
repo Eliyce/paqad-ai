@@ -8,6 +8,7 @@ import { SKILL_FILE } from '../paths.js';
 import {
   AuthoringRefusal,
   readMode,
+  readOverrides,
   renderGateMarkdown,
   requireEarlierGates,
   type AuthoringWorkspace,
@@ -199,6 +200,8 @@ export function checkTrace(
   const unknownIds = new Set<string>();
   const added: InstructionBlock[] = [];
   const unjustified: string[] = [];
+  const evidenceOverride = readOverrides(workspace).find((entry) => entry.gate === 'S2');
+  const coveredByOverride: InstructionBlock[] = [];
 
   for (const block of blocks) {
     const mapping = trace.mappings.find((entry) => entry.heading === block.heading);
@@ -207,20 +210,31 @@ export function checkTrace(
     if (mapped.length > 0) continue;
     const listed = trace.unsourced.find((entry) => entry.heading === block.heading);
     if (listed?.justified) continue;
+    if (evidenceOverride && !listed) {
+      coveredByOverride.push(block);
+      continue;
+    }
     unjustified.push(block.heading);
     if (!listed) added.push(block);
   }
 
   let traceText = rawTrace.replace(/\s*$/u, '\n');
-  if (added.length > 0) {
+  const listedBlocks = [
+    ...added.map((block) => ({ block, note: 'needs a reason' })),
+    ...coveredByOverride.map((block) => ({
+      block,
+      note: `accepted: S2 evidence was overridden by decision ${evidenceOverride!.decision}`,
+    })),
+  ];
+  if (listedBlocks.length > 0) {
     if (
       !traceText.includes(`\n${UNSOURCED_HEADING}\n`) &&
       !traceText.startsWith(`${UNSOURCED_HEADING}\n`)
     ) {
       traceText += `\n${UNSOURCED_HEADING}\n\n`;
     }
-    traceText += added
-      .map((block) => `- ${block.heading} (lines ${block.start}-${block.end}): needs a reason`)
+    traceText += listedBlocks
+      .map(({ block, note }) => `- ${block.heading} (lines ${block.start}-${block.end}): ${note}`)
       .join('\n');
     traceText += '\n';
   }

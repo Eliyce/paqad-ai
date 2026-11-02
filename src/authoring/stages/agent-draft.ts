@@ -8,6 +8,7 @@ import { agentHookScripts, bodyHeadingOrderProblem } from '../lint/agent-lint.js
 import { estimateTokens } from '../tokens.js';
 import {
   AuthoringRefusal,
+  readOverrides,
   renderGateMarkdown,
   requireEarlierGates,
   type AuthoringWorkspace,
@@ -133,12 +134,13 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     throw new AuthoringRefusal('draft needs --file <agent.md> and --trace <trace.md>.', 2);
   }
   const intake = readAgentIntake(workspace);
-  if (intake === null) {
+  const intakeOverridden = readOverrides(workspace).some((entry) => entry.gate === 'S1');
+  if (intake === null && !intakeOverridden) {
     throw new AuthoringRefusal(
       `S3 draft can't start: ${workspace.relPath('intake.yaml')} is missing. Run paqad-ai agent intake ${workspace.name} <intake.yaml> first.`,
     );
   }
-  if (input.memoryText !== undefined && !hasMemoryArm(intake)) {
+  if (input.memoryText !== undefined && intake !== null && !hasMemoryArm(intake)) {
     throw new AuthoringRefusal(
       `S3 draft refused: ${workspace.name} is one-shot (intake memory: none), so it gets no MEMORY.md.`,
       2,
@@ -175,9 +177,14 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     );
   }
   workspace.writeJson(DRAFT_SOURCE_FILE, { file: rel, hook_scripts: hooks.scripts });
-  artifacts.push(workspace.write(BRIEF_TEMPLATE_FILE, renderBriefTemplate(workspace.name, intake)));
+  workspace.remove(BRIEF_TEMPLATE_FILE);
+  if (intake !== null) {
+    artifacts.push(
+      workspace.write(BRIEF_TEMPLATE_FILE, renderBriefTemplate(workspace.name, intake)),
+    );
+  }
   workspace.remove(MEMORY_FILE);
-  if (hasMemoryArm(intake)) {
+  if (intake === null ? input.memoryText !== undefined : hasMemoryArm(intake)) {
     artifacts.push(
       workspace.write(MEMORY_FILE, input.memoryText ?? `# Memory: ${workspace.name}\n`),
     );
