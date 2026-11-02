@@ -5,6 +5,7 @@ import { dirname, join, relative } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
+import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   checkoutIsNewer,
@@ -24,10 +25,14 @@ import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
-import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
+import {
+  writeFrameworkVersionPreservingTimestamp,
+  writeOnboardingManifest,
+} from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
+import type { AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
@@ -90,7 +95,8 @@ export class FrameworkUpdater {
     const artifactPolicy = new Map(
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],
     );
-    const generated = await this.getCandidates(projectRoot);
+    const providers: AdapterType[] = manifest ? deriveRecordedProviders(manifest) : ['claude-code'];
+    const generated = await this.getCandidates(projectRoot, providers);
     const usesClaude = generated.some((candidate) => toPosixPath(candidate.path) === 'CLAUDE.md');
     const claude = new ClaudeCodeAdapter();
     const candidates = usesClaude
@@ -140,6 +146,10 @@ export class FrameworkUpdater {
       }
     }
 
+    if (manifest) {
+      writeOnboardingManifest(projectRoot, { ...manifest, providers });
+    }
+
     cleanupLegacyMcpFiles(projectRoot);
 
     writeConfigsReadme(projectRoot);
@@ -177,7 +187,10 @@ export class FrameworkUpdater {
     };
   }
 
-  private async getCandidates(projectRoot: string): Promise<UpdateCandidate[]> {
+  private async getCandidates(
+    projectRoot: string,
+    providers: AdapterType[],
+  ): Promise<UpdateCandidate[]> {
     if (this.options.generateCandidates) {
       return this.options.generateCandidates(projectRoot);
     }
@@ -192,7 +205,9 @@ export class FrameworkUpdater {
     try {
       const result = await new OnboardingOrchestrator().run({
         projectRoot: tempRoot,
+        interactive: false,
         selections: {
+          providers,
           domain: getProfileDomain(profile),
           stack_profile: profile.stack_profile,
           stack: getPrimaryStack(profile),
