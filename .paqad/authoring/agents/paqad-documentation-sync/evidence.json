@@ -1,0 +1,115 @@
+{
+  "schema_version": "1",
+  "agent": "paqad-documentation-sync",
+  "version": "1.0.0",
+  "file_hash": "sha256:57c1f24fba09b511263d774797ff4ca33ab3187006f54b3ce6f98ee554439e08",
+  "released_path": "runtime/claude-plugin/agents/paqad-documentation-sync.md",
+  "files": [
+    "runtime/claude-plugin/agents/paqad-documentation-sync.md"
+  ],
+  "pattern": null,
+  "class": null,
+  "invocation": null,
+  "baseline": {
+    "arm": null,
+    "runs": 0,
+    "passed": "unavailable",
+    "verdict": "overridden"
+  },
+  "reliability": null,
+  "delegation": null,
+  "memory": "none",
+  "returned_to_main_tokens_median": "unavailable",
+  "host_notes": {
+    "claude-plugin": [
+      "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
+    ]
+  },
+  "deployable": {
+    "claude-plugin": true
+  },
+  "proposals": [],
+  "sdk": {
+    "path": ".paqad/authoring/agents/paqad-documentation-sync/paqad-documentation-sync.agent.json",
+    "fields_checked": {
+      "checked": "2026-11-01",
+      "source": "Claude Agent SDK AgentDefinition type (TypeScript reference)"
+    },
+    "run_options": {
+      "maxBudgetUsd": 5
+    },
+    "uncarried_rules": []
+  },
+  "plugin": {
+    "settings_hooks": []
+  },
+  "model_stamp": {
+    "model": "inherit",
+    "proven_on": null,
+    "tier": null
+  },
+  "performance": {
+    "source": "unavailable"
+  },
+  "batch": "unavailable",
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 4
+  },
+  "script_tests": {
+    "command": null,
+    "tests": 0,
+    "passed": 0
+  },
+  "permission_decisions": [
+    "D-01M6DXJJWC889QD6AQR4TD6F07"
+  ],
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:41:03.009Z"
+    },
+    {
+      "gate": "S1",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:41:04.657Z"
+    },
+    {
+      "gate": "S2",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:41:06.485Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:41:08.132Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "by": "human",
+      "at": "2026-11-02T10:41:09.825Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6DXJA246F27B3G3T9B0E9X5",
+    "D-01M6DXJBQNVZTZZHM3CABR96C4",
+    "D-01M6DXJDDT57V6F4ESSF62PJ7J",
+    "D-01M6DXJF437P76NMBAS8P5Z60V",
+    "D-01M6DXJGSHMTXM5ZKB2H9FH088",
+    "D-01M6DXJJWC889QD6AQR4TD6F07"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}
