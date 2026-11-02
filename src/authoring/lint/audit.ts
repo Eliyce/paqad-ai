@@ -27,6 +27,7 @@ import {
   POWER_RULES,
   readPermissionDecisionIds,
   type AgentLintHost,
+  type AgentLintResult,
 } from './agent-lint.js';
 import {
   compareText,
@@ -376,6 +377,39 @@ function ownerPowerAsWarning(finding: LintFinding): LintFinding {
     : finding;
 }
 
+export interface RenderedLintScope {
+  context: SkillPathContext;
+  installed: readonly InstalledArtifact[];
+  dispatched: ReadonlySet<string>;
+}
+
+export function renderedLintScope(
+  projectRoot: string,
+  dispatched: ReadonlySet<string>,
+): RenderedLintScope {
+  const context = readSkillPathContext(projectRoot);
+  return {
+    context,
+    installed: discoverInstalledAgents(projectRoot, context, { userHome: null }),
+    dispatched,
+  };
+}
+
+export function lintRenderedTemplateAgent(
+  projectRoot: string,
+  rendered: RenderedTemplateAgent,
+  scope: RenderedLintScope,
+): AgentLintResult {
+  return lintAgentInProject(projectRoot, rendered.path, {
+    content: rendered.content,
+    host: rendered.host,
+    permissionDecisions: readPermissionDecisionIds(projectRoot, rendered.name),
+    context: scope.context,
+    installedAgents: scope.installed,
+    ...(scope.dispatched.has(rendered.name) ? { invocation: 'dispatched' as const } : {}),
+  });
+}
+
 export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): AuditReport {
   const report = (findings: LintFinding[]): LintFinding[] =>
     options.ownerPowersAsWarnings === true ? findings.map(ownerPowerAsWarning) : findings;
@@ -408,13 +442,10 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
     }
     if (kind === 'template') {
       for (const rendered of sources.renderTemplate(path)) {
-        const result = lintAgentInProject(projectRoot, rendered.path, {
-          content: rendered.content,
-          host: rendered.host,
-          permissionDecisions: readPermissionDecisionIds(projectRoot, rendered.name),
+        const result = lintRenderedTemplateAgent(projectRoot, rendered, {
           context,
-          installedAgents: installed,
-          ...dispatched(rendered.name),
+          installed,
+          dispatched: sources.dispatched,
         });
         drafts.push({
           name: rendered.name,

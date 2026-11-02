@@ -16,10 +16,13 @@ import {
   lintAgentInProject,
   PERMISSIONS_FILE,
   POWER_RULES,
-  readPermissionDecisionIds,
   type AgentLintResult,
 } from '../lint/agent-lint.js';
-import type { AgentAuditSources } from '../lint/audit.js';
+import {
+  lintRenderedTemplateAgent,
+  renderedLintScope,
+  type AgentAuditSources,
+} from '../lint/audit.js';
 import {
   agentTestLocation,
   HOOK_CONTRACT_CHECKS,
@@ -58,13 +61,10 @@ export function lintTemplateDraft(
   stage: string,
 ): AgentLintResult {
   const file = readAgentDraftSource(workspace)!.file;
-  const results = renderTemplateDraft(file, sources, stage).map((agent) =>
-    lintAgentInProject(workspace.projectRoot, agent.path, {
-      content: agent.content,
-      host: agent.host,
-      permissionDecisions: readPermissionDecisionIds(workspace.projectRoot, agent.name),
-      ...(sources!.dispatched.has(agent.name) ? { invocation: 'dispatched' as const } : {}),
-    }),
+  const rendered = renderTemplateDraft(file, sources, stage);
+  const scope = renderedLintScope(workspace.projectRoot, sources!.dispatched);
+  const results = rendered.map((agent) =>
+    lintRenderedTemplateAgent(workspace.projectRoot, agent, scope),
   );
   return {
     agent: workspace.name,

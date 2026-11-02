@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { agentCompletionFindings } from '@/authoring/completion.js';
 import { hashAgentFile } from '@/authoring/hash.js';
-import type { AgentAuditSources } from '@/authoring/lint/audit.js';
+import {
+  lintRenderedTemplateAgent,
+  renderedLintScope,
+  type AgentAuditSources,
+} from '@/authoring/lint/audit.js';
 import {
   RENDERED_DIR,
   readAgentDraftSource,
@@ -170,6 +174,30 @@ describe('agent test of a stage-agent template', () => {
     });
     expect(result.ok).toBe(true);
     expect(workspace.readJson<{ gate: string }>('lint.json')?.gate).toBe('passed');
+  });
+
+  it('judges the renders with the same scope as agent lint --all, so a user-level agent does not collide', async () => {
+    put(
+      root,
+      'home/.claude/agents/paqad-one.md',
+      agentText({
+        name: 'paqad-one',
+        description: `'Use this agent when the paqad-one stage runs. For example "run paqad-one".'`,
+      }),
+    );
+    const workspace = workspaceFor('claude');
+    draft(workspace);
+    const result = await runAgentTest(workspace, {
+      runTests: TESTS_PASS,
+      agentSources: sources(),
+    });
+    const scope = renderedLintScope(root, new Set());
+    const audit = sources()
+      .renderTemplate(TEMPLATE)
+      .map((agent) => lintRenderedTemplateAgent(root, agent, scope));
+    const lint = workspace.readJson<{ findings: unknown[] }>('lint.json')!;
+    expect(lint.findings).toEqual(audit.flatMap((entry) => entry.findings));
+    expect(result.ok).toBe(true);
   });
 
   it('fails on a rendered agent whose Bash has no permission decision, and raises none for the template', async () => {
