@@ -1,4 +1,4 @@
-import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
+import { EXAMPLE_GITHUB_REF, defaultGitWorkflow } from '@/git-workflow/defaults.js';
 import {
   renderBranchName,
   renderDelivery,
@@ -58,7 +58,7 @@ describe('delivery templates', () => {
     it.each([
       ['feature', 'PROJ-12', 'Add login', 'feature/PROJ-12-add-login'],
       ['feature', '', 'Add login', 'feature/add-login'],
-      ['bugfix', '#123', 'Fix crash', 'bugfix/123-fix-crash'],
+      ['bugfix', EXAMPLE_GITHUB_REF, 'Fix crash', 'bugfix/123-fix-crash'],
     ])('{prefix}/{ticket}-{title_slug} with %s, %s, %s → %s', (prefix, ticket, title, out) => {
       expect(branch(prefix, ticket, title)).toBe(out);
     });
