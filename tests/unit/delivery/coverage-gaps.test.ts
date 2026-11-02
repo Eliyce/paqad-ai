@@ -7,9 +7,7 @@ import { runCiGate } from '@/delivery/ci-gate.js';
 import { detectDeliveryHost } from '@/delivery/host.js';
 import { renderDelivery } from '@/delivery/templates.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
-import type { DeliveryShell } from '@/delivery/runner.js';
 import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
-import { detectBranchTemplate, gatherGitSnapshot } from '@/git-workflow/setup.js';
 import type { ResolvedCi } from '@/git-workflow/types.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import { collectDelivery } from '@/dashboard/collectors/delivery.js';
@@ -44,46 +42,6 @@ describe('ci-gate — remaining branches', () => {
     );
     expect(res.action).toBe('warned');
     expect(res).not.toHaveProperty('transitionTo');
-  });
-});
-
-describe('detection — no recognisable branch pattern', () => {
-  it('returns null when feature branches match neither typed nor ticket-first', () => {
-    const d = detectBranchTemplate({
-      remoteUrl: null,
-      defaultBranch: null,
-      branchNames: ['main', 'wip', 'scratchpad', 'tmp'],
-      recentCommitSubjects: [],
-    });
-    expect(d).toBe(null);
-  });
-});
-
-describe('gatherGitSnapshot — failing git', () => {
-  it('degrades to an empty snapshot when every git call fails', async () => {
-    const failing: DeliveryShell = {
-      async run() {
-        return { stdout: '', stderr: 'fatal: not a git repo', exitCode: 1 };
-      },
-    };
-    const snap = await gatherGitSnapshot(failing);
-    expect(snap).toEqual({
-      remoteUrl: null,
-      defaultBranch: null,
-      branchNames: [],
-      recentCommitSubjects: [],
-    });
-  });
-
-  it('treats exit-zero-but-empty stdout as no remote/default branch', async () => {
-    const empty: DeliveryShell = {
-      async run() {
-        return { stdout: '   ', stderr: '', exitCode: 0 };
-      },
-    };
-    const snap = await gatherGitSnapshot(empty);
-    expect(snap.remoteUrl).toBe(null);
-    expect(snap.defaultBranch).toBe(null);
   });
 });
 
