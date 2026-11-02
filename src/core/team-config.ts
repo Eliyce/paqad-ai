@@ -6,7 +6,12 @@ import YAML from 'yaml';
 import { stampLastApplied } from '@/git-workflow/last-applied.js';
 
 import { PATHS } from './constants/paths.js';
-import { FRAMEWORK_CONFIG_SPECS, type FrameworkConfigSpec } from './framework-config.js';
+import {
+  checkoutIsNewer,
+  FRAMEWORK_CONFIG_SPECS,
+  type FrameworkConfigSpec,
+} from './framework-config.js';
+import { writeTeamConfigSchemas } from './team-config-schema.js';
 import { readLegacyTeamConfig, type LegacyCollision } from './team-config-legacy.js';
 import {
   checkYamlValue,
@@ -171,4 +176,22 @@ export function setTeamConfigValue(projectRoot: string, key: string, legacyValue
     stampLastApplied(projectRoot, ['commits.yaml']);
   }
   return path;
+}
+
+export function ensureTeamConfigFiles(projectRoot: string): string[] {
+  const created: string[] = [];
+  for (const file of TEAM_CONFIG_FILES) {
+    const path = teamConfigPath(projectRoot, file);
+    if (existsSync(path)) continue;
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, teamConfigHeader(file), 'utf8');
+    created.push(path);
+  }
+  return created;
+}
+
+export function syncTeamConfigFiles(projectRoot: string): string[] {
+  if (checkoutIsNewer(projectRoot)) return [];
+  writeTeamConfigSchemas(projectRoot);
+  return ensureTeamConfigFiles(projectRoot);
 }
