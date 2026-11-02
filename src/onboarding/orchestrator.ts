@@ -10,12 +10,12 @@ import {
   detectFlippedFrameworkValues,
   readConfigsDir,
   reconcileConfigOverrides,
-  setGroupConfigValue,
   syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
+import { setTeamConfigValue } from '@/core/team-config.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -378,7 +378,7 @@ export class OnboardingOrchestrator {
         } catch (error) {
           profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
           writeProjectProfile(options.projectRoot, profile);
-          setGroupConfigValue(options.projectRoot, 'rag', 'rag_enabled', 'false');
+          setTeamConfigValue(options.projectRoot, 'rag_enabled', 'false');
           onboardingWarnings.push(
             `RAG was turned off: ${error instanceof Error ? error.message : 'unknown error'}`,
           );
@@ -518,17 +518,12 @@ function mergeProfileOverrides(
 }
 
 function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
-  setGroupConfigValue(projectRoot, 'rag', 'rag_enabled', String(intelligence.rag_enabled));
+  setTeamConfigValue(projectRoot, 'rag_enabled', String(intelligence.rag_enabled));
   if (intelligence.embedding_provider) {
-    setGroupConfigValue(
-      projectRoot,
-      'rag',
-      'rag_embedding_provider',
-      intelligence.embedding_provider,
-    );
+    setTeamConfigValue(projectRoot, 'rag_embedding_provider', intelligence.embedding_provider);
   }
   if (intelligence.embedding_model) {
-    setGroupConfigValue(projectRoot, 'rag', 'rag_embedding_model', intelligence.embedding_model);
+    setTeamConfigValue(projectRoot, 'rag_embedding_model', intelligence.embedding_model);
   }
 }
 

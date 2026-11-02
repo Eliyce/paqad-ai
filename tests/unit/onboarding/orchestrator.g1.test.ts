@@ -242,10 +242,10 @@ describe('OnboardingOrchestrator', () => {
       }),
       expect.any(Function),
     );
-    const teamConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
-    expect(teamConfig).toContain('rag_enabled=true');
-    expect(teamConfig).toContain('rag_embedding_provider=local');
-    expect(teamConfig).toContain('rag_embedding_model=Xenova/all-MiniLM-L6-v2');
+    const teamConfig = readFileSync(join(projectRoot, '.paqad/configs/retrieval.yaml'), 'utf8');
+    expect(teamConfig).toContain('\nenabled: true\n');
+    expect(teamConfig).toContain('  provider: local\n');
+    expect(teamConfig).toContain('  model: Xenova/all-MiniLM-L6-v2\n');
     expect(existsSync(join(projectRoot, '.paqad/.config'))).toBe(false);
     expect(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')).not.toContain(
       'rag_enabled',
@@ -270,8 +270,8 @@ describe('OnboardingOrchestrator', () => {
       },
     });
 
-    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
-    expect(config).toContain('rag_enabled=false');
+    const config = readFileSync(join(projectRoot, '.paqad/configs/retrieval.yaml'), 'utf8');
+    expect(config).toContain('\nenabled: false\n');
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).not.toContain('rag_enabled');
     expect(profile).not.toContain('embedding_provider: local');
@@ -304,9 +304,9 @@ describe('OnboardingOrchestrator', () => {
       { projectRoot },
     );
     expect(configure).not.toHaveBeenCalled();
-    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
-    expect(config).toContain('rag_enabled=true');
-    expect(config).not.toContain('rag_enabled=false');
+    const config = readFileSync(join(projectRoot, '.paqad/configs/retrieval.yaml'), 'utf8');
+    expect(config).toContain('\nenabled: true\n');
+    expect(config).not.toContain('enabled: false');
     const installing = output.warnings.filter((line) =>
       line.includes('installing in the background'),
     );
@@ -337,8 +337,8 @@ describe('OnboardingOrchestrator', () => {
       },
     });
 
-    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
-    expect(config).toContain('rag_enabled=false');
+    const config = readFileSync(join(projectRoot, '.paqad/configs/retrieval.yaml'), 'utf8');
+    expect(config).toContain('\nenabled: false\n');
     expect(output.warnings).toContain(
       'RAG was turned off: Failed to load local model Xenova/all-MiniLM-L6-v2',
     );
