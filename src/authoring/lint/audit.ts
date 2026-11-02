@@ -1,13 +1,13 @@
-import { existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { gitPathList } from '@/pipeline/git-paths.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
-import { ACTIVATIONS_LEDGER, forEachActivation } from '../activations.js';
+import { forEachActivation } from '../activations.js';
 import { readAuthoringConfig } from '../config.js';
-import { DELEGATIONS_LEDGER, forEachDelegation } from '../delegations.js';
-import { readTextIfPresent } from '../fs-io.js';
+import { forEachDelegation } from '../delegations.js';
+import { isMissingPathError, readTextIfPresent } from '../fs-io.js';
 import { discoverInstalledAgents, overlapScore, type InstalledArtifact } from '../overlap.js';
 import {
   classifyAgentPath,
@@ -118,11 +118,16 @@ function normalize(path: string): string {
 
 function walkFiles(projectRoot: string, rel: string, out: string[]): void {
   const abs = join(projectRoot, rel);
-  if (!existsSync(abs)) return;
-  for (const entry of readdirSync(abs).sort(compareText)) {
-    const child = rel === '' ? entry : `${rel}/${entry}`;
-    const stat = lstatSync(join(projectRoot, child));
-    if (stat.isDirectory()) walkFiles(projectRoot, child, out);
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(abs, { withFileTypes: true });
+  } catch (error) {
+    if (isMissingPathError(error)) return;
+    throw error;
+  }
+  for (const entry of entries.sort((a, b) => compareText(a.name, b.name))) {
+    const child = rel === '' ? entry.name : `${rel}/${entry.name}`;
+    if (entry.isDirectory()) walkFiles(projectRoot, child, out);
     else out.push(child);
   }
 }
@@ -186,8 +191,6 @@ function firedCounts(
   kind: AuditKind,
   asOf: string,
 ): Map<string, number> | null {
-  const ledger = kind === 'skill' ? ACTIVATIONS_LEDGER : DELEGATIONS_LEDGER;
-  if (!existsSync(join(projectRoot, ledger))) return null;
   const { start, end } = windowStart(asOf);
   const counts = new Map<string, number>();
   const add = (name: string, at: string): void => {
@@ -195,9 +198,11 @@ function firedCounts(
     if (Number.isNaN(time) || time < start || time > end) return;
     counts.set(name, (counts.get(name) ?? 0) + 1);
   };
-  if (kind === 'skill') forEachActivation(projectRoot, (row) => add(row.skill, row.at));
-  else forEachDelegation(projectRoot, (row) => add(row.agent.replace(/^paqad:/u, ''), row.at));
-  return counts;
+  const found =
+    kind === 'skill'
+      ? forEachActivation(projectRoot, (row) => add(row.skill, row.at))
+      : forEachDelegation(projectRoot, (row) => add(row.agent.replace(/^paqad:/u, ''), row.at));
+  return found ? counts : null;
 }
 
 function rivalsOf(

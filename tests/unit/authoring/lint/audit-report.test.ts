@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -47,6 +47,7 @@ const read = (root: string): string => readFileSync(join(root, AUDIT_DOC), 'utf8
 describe('writeAuditDoc', () => {
   it('writes the Before section first, with the summary and one details block per group', () => {
     const root = fixture();
+    expect(existsSync(join(root, AUDIT_DOC))).toBe(false);
     expect(writeAuditDoc(root, { asOf: '2026-11-01' }).section).toBe('before');
     const doc = read(root);
     expect(doc).toContain('## Before');

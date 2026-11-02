@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { readAuthoringConfig } from '../config.js';
-import { readTextIfPresent } from '../fs-io.js';
+import { isMissingPathError, readTextIfPresent } from '../fs-io.js';
 import { expertCollisions, lensFocus, type ExpertProfile } from '../overlap.js';
 import {
   AuditUsageError,
@@ -67,10 +67,20 @@ function descriptionChars(projectRoot: string, item: AuditItem): number {
   return split.data.description.length;
 }
 
+function readdirIfPresent(path: string): string[] | null {
+  try {
+    return readdirSync(path);
+  } catch (error) {
+    if (isMissingPathError(error)) return null;
+    throw error;
+  }
+}
+
 function scriptTestState(projectRoot: string, item: AuditItem): string {
   if (item.class !== 'skill') return '';
   const scripts = join(projectRoot, item.path, 'scripts');
-  if (!existsSync(scripts) || readdirSync(scripts).length === 0) return 'no scripts';
+  const entries = readdirIfPresent(scripts);
+  if (entries === null || entries.length === 0) return 'no scripts';
   return item.script_test_findings === 0 ? 'tested' : `${item.script_test_findings} SK-010`;
 }
 
@@ -112,8 +122,9 @@ function agentRivals(projectRoot: string, agents: AuditReport): Map<string, stri
     roster.push({ role: item.name, owns: description });
   }
   const lensDir = join(projectRoot, LENS_ROOT);
-  if (existsSync(lensDir)) {
-    for (const file of readdirSync(lensDir).sort(compareText)) {
+  const lensFiles = readdirIfPresent(lensDir);
+  if (lensFiles !== null) {
+    for (const file of lensFiles.sort(compareText)) {
       if (!file.endsWith('.md')) continue;
       const role = `lens:${basename(file, '.md')}`;
       roster.push({ role, owns: lensFocus(readFileSync(join(lensDir, file), 'utf8')) });
@@ -400,7 +411,7 @@ export function writeAuditDoc(
   }
   const out = options.out ?? AUDIT_DOC;
   const abs = resolve(projectRoot, out);
-  const previous = existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+  const previous = readTextIfPresent(abs);
   const skills = lintAllSkills(projectRoot, { asOf: options.asOf });
   const agents = lintAllAgents(projectRoot, {
     asOf: options.asOf,

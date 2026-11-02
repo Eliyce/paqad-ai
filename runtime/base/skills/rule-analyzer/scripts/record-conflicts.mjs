@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 import { recordConflictFindings } from 'paqad-ai/rule-scripts';
 
@@ -12,11 +12,15 @@ if (help || !projectRoot || !conflictsPath) {
   process.exit(help ? 0 : 1);
 }
 
-if (!existsSync(conflictsPath)) {
+let conflictsText;
+try {
+  conflictsText = readFileSync(conflictsPath, 'utf8');
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
   process.stderr.write(`conflicts file not found: ${conflictsPath}\n`);
   process.exit(1);
 }
-const conflicts = JSON.parse(readFileSync(conflictsPath, 'utf8'));
+const conflicts = JSON.parse(conflictsText);
 const report = recordConflictFindings(projectRoot, conflicts);
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 process.exit(report.counts['RS-CONFLICT'] > 0 ? 1 : 0);

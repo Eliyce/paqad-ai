@@ -78,6 +78,14 @@ describe("the stage agents in the repo's .claude/agents", () => {
     );
   });
 
+  it('removes stamped copies and writes no manifest when the project has none', () => {
+    for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
+    const result = migrateProjectStageAgents(root);
+    expect(result.removed).toHaveLength(8);
+    expect(readdirSync(agentsDir())).toEqual([]);
+    expect(existsSync(manifestPath())).toBe(false);
+  });
+
   it('removes a copy whose first body line carries the managed marker', () => {
     const [first] = renderStageAgentFiles('claude-code');
     writeAgent(first!.name, withManagedMarker(`${first!.content}one more line\n`));

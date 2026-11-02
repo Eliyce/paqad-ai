@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, writeFileSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -72,21 +72,24 @@ export function migrateProjectStageAgents(
 ): StageAgentMigration {
   const result: StageAgentMigration = { removed: [], kept: [] };
   const dir = join(projectRoot, PROJECT_AGENTS_DIR);
-  let names: string[];
+  let entries: Dirent[];
   try {
-    names = readdirSync(dir).filter((name) => STAGE_AGENT_FILE.test(name));
+    entries = readdirSync(dir, { withFileTypes: true }).filter((entry) =>
+      STAGE_AGENT_FILE.test(entry.name),
+    );
   } catch {
     return result;
   }
   const removed: RemovedStageAgent[] = [];
-  for (const name of names.sort()) {
+  for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+    const name = entry.name;
     const rel = `${PROJECT_AGENTS_DIR}/${name}`;
+    if (!entry.isFile()) {
+      result.kept.push(rel);
+      continue;
+    }
     let content: string;
     try {
-      if (!lstatSync(join(dir, name)).isFile()) {
-        result.kept.push(rel);
-        continue;
-      }
       content = readFileSync(join(dir, name), 'utf8');
     } catch {
       continue;
@@ -109,7 +112,6 @@ export function recordRemovedStageAgents(
   removed: readonly RemovedStageAgent[],
 ): void {
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
-  if (!existsSync(path)) return;
   let manifest: Record<string, unknown>;
   try {
     manifest = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;

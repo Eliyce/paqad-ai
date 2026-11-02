@@ -1,12 +1,5 @@
 #!/usr/bin/env node
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 import fg from 'fast-glob';
@@ -104,9 +97,15 @@ function deprecationLine(skill, oldKeys, disagreeing) {
 }
 
 function loggedDeprecations() {
-  if (!existsSync(EVENTS_LOG)) return new Set();
+  let text;
+  try {
+    text = readFileSync(EVENTS_LOG, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return new Set();
+    throw error;
+  }
   const seen = new Set();
-  for (const row of readFileSync(EVENTS_LOG, 'utf8').split('\n')) {
+  for (const row of text.split('\n')) {
     try {
       const event = JSON.parse(row);
       if (event.type === 'skill.metadata_deprecated') seen.add(`${event.path}\n${event.message}`);
