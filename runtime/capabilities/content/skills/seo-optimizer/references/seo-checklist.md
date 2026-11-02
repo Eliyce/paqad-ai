@@ -1,5 +1,7 @@
 # SEO Checklist
 
+verified: 2026-11-02
+
 Compare each item against `audit-seo.sh` output before recommending edits.
 
 1. **Single H1**: exactly one; primary keyword present.

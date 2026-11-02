@@ -1,5 +1,7 @@
 # Rate Limit Signals
 
+verified: 2026-11-02
+
 Per-framework patterns that indicate rate limiting is present or absent.
 
 ## Contents

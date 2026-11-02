@@ -1,5 +1,7 @@
 # Advisory Normalization
 
+verified: 2026-11-02
+
 ## Core Rules
 
 - Key advisories by package, ecosystem, installed version, and advisory identifier.

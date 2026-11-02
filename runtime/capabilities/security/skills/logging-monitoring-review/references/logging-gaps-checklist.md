@@ -1,5 +1,7 @@
 # Logging Gaps Checklist
 
+verified: 2026-11-02
+
 ## Repudiation Risk Matrix
 
 For each sensitive operation, verify an audit record exists with all four of: **who** (actor identity), **what** (operation + resource), **when** (timestamp), **from where** (IP address / request ID).

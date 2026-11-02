@@ -1,5 +1,7 @@
 # Input Attack Patterns
 
+verified: 2026-11-02
+
 Concrete bypass examples per category. Use these when checking whether the application's validation would prevent the attack.
 
 ## SSRF Bypass Techniques

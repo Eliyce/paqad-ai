@@ -1,5 +1,7 @@
 # Runtime Surface Checks
 
+verified: 2026-11-02
+
 Always confirm base reachability first. Treat blocked runtime access as a coverage gap, not a clean result.
 
 ## Security Headers (OWASP 2025 A02)
@@ -26,7 +28,7 @@ Always confirm base reachability first. Treat blocked runtime access as a covera
 ## Open Redirect
 
 - Test `?redirect=https://evil.com`, `?next=//@evil.com`, `?return_url=//evil.com%2F..`
-- Protocol-relative bypass: `//evil.com`
+- Protocol-relative bypass to an external host: `//evil.com`
 - URL-encoded bypass: `%2F%2Fevil.com`
 
 ## Sensitive File Exposure
@@ -40,7 +42,7 @@ Always confirm base reachability first. Treat blocked runtime access as a covera
 
 ## Directory Listing
 
-- Check if `/uploads/`, `/storage/`, `/public/`, `/media/`, `/static/` serve directory listings.
+- Check if the target's external URL paths `/uploads/`, `/storage/`, `/public/`, `/media/`, `/static/` serve directory listings.
 
 ## SSRF Surface
 
@@ -49,7 +51,7 @@ Always confirm base reachability first. Treat blocked runtime access as a covera
 
 ## API Documentation Exposure
 
-- `/swagger`, `/api-docs`, `/openapi.json`, `/graphql` (run introspection: `{ __schema { types { name } } }`), `/redoc`
+- External endpoints `/swagger`, `/api-docs`, `/openapi.json`, `/graphql` (run introspection: `{ __schema { types { name } } }`), `/redoc`
 
 ## TLS / Cryptographic Surface (OWASP 2025 A04)
 

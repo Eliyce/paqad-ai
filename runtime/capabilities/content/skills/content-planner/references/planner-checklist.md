@@ -1,5 +1,7 @@
 # Brief Checklist
 
+verified: 2026-11-02
+
 Every brief must contain:
 
 1. **Audience**: a specific reader or role, not "everyone".

@@ -1,5 +1,7 @@
 # Boundary Checklist
 
+verified: 2026-11-02
+
 ## Object-Level Authorization: BOLA (OWASP API #1)
 
 - Are resource IDs sequential integers? If so, can user A read/mutate user B's resource by incrementing the ID by 1?

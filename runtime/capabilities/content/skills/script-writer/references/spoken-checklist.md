@@ -1,5 +1,7 @@
 # Spoken Script Checklist
 
+verified: 2026-11-02
+
 1. Read every VO aloud once before saving.
 2. No syllable-heavy mouthfuls: replace with short Anglo-Saxon equivalents.
 3. No bare "this" / "that": name the antecedent.

@@ -1,5 +1,7 @@
 # Cryptographic Weakness Patterns
 
+verified: 2026-11-02
+
 Concrete code patterns indicating cryptographic failures. Reference these when scanning source code.
 
 ## Contents

@@ -1,5 +1,7 @@
 # Abuse Cases
 
+verified: 2026-11-02
+
 ## Financial Manipulation
 
 - **Negative quantity / amount**: send `quantity: -1` or `amount: -100` in payment/order flows, refund reversal, gift card drain
