@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { removeTempProject } from './temp-project.js';
+import { removeTempProject, removeTempProjectAfterBackgroundWork } from './temp-project.js';
 
 const INJECT_HOOK = resolve(__dirname, '../../../runtime/hooks/context-seam-inject.mjs');
 const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
@@ -294,7 +294,7 @@ describe('prompt gate injects rule sections only for a feature-development promp
   });
 
   afterEach(() => {
-    removeTempProject(projectRoot);
+    removeTempProjectAfterBackgroundWork(projectRoot);
   });
 
   it.each([
