@@ -115,6 +115,13 @@ export function migrateProjectStageAgents(
   return result;
 }
 
+export function isGeneratedProjectStageAgent(path: string, content: string): boolean {
+  const name = path.replaceAll('\\', '/').split('/').pop();
+  return renderStageAgentFiles('claude-code').some(
+    (agent) => agent.name === name && withManagedMarker(agent.content) === content,
+  );
+}
+
 export function syncProjectStageAgents(
   projectRoot: string,
   known: ReadonlySet<string> = knownGeneratedBodies(),
