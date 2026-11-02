@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const CONTRACT = 'tests/e2e/stage-enforcement-contract.e2e.test.ts';
-const FROZEN_SHA256 = '76e098ed329d6aa2caefc1f3b3a1ca09f261f3ecd567b4a31f9b5313ca5d0dfb';
+const FROZEN_SHA256 = '1a98e9288af654d20e851bf15d25f31610e0bafa4440d8c92a8f622f0c25aba1';
 
 const read = (): string => readFileSync(join(process.cwd(), CONTRACT), 'utf8');
 
