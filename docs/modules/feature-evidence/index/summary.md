@@ -1022,9 +1022,11 @@ obvious from its code, grouped by file.
 - **`hud/refresh.ts`.** A verb path refreshes when it equals a listed path or starts with one
   followed by a space, so `spec pipeline experts` covers its subcommands.
 - **`stage-isolation/agent-writer.ts`.** Stage agents are written only at user scope
-  (`~/.claude/agents`, `~/.codex/agents`), never into a project, which is why this does not use the
-  project-scoped `BaseAdapter.generateAgents()` (a test asserts agents are never written into a
-  project). The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
+  (`~/.claude/agents`, `~/.codex/agents`) and does not use the project-scoped
+  `BaseAdapter.generateAgents()`. The one project copy is the Claude team setup: with
+  `team_bootstrap_enabled` on, team setup commits the 8 Claude stage agents to `.claude/agents/`
+  with a managed marker, and the agent completion check skips a project copy that is an exact
+  generated copy. The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
   templates use no custom Handlebars helpers. The plugin build renders its Claude agents through the
   same function, so there is one template path.
 - **`stage-isolation/stage-agents.ts`.** Agent names are hyphenated (`paqad-<stage>`) so the
