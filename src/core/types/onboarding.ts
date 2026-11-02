@@ -6,6 +6,7 @@ import type { RepositoryContext } from './repository.js';
 export interface OnboardingManifest {
   framework_version?: string;
   adapter: AdapterType;
+  providers?: AdapterType[];
   project_root: string;
   profile: ProjectProfile;
   detected: DetectionReport | null;

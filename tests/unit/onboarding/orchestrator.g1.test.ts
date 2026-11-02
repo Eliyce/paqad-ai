@@ -178,6 +178,24 @@ describe('OnboardingOrchestrator', () => {
     assertNoProjectLocalSkillsOrAgents(projectRoot);
   });
 
+  it('saves every selected provider in the manifest, with the first as the adapter', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+        providers: ['codex-cli', 'claude-code', 'gemini-cli', 'junie'],
+      },
+    });
+
+    const manifest = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad/onboarding-manifest.json'), 'utf8'),
+    );
+    expect(manifest.adapter).toBe('codex-cli');
+    expect(manifest.providers).toEqual(['codex-cli', 'claude-code', 'gemini-cli', 'junie']);
+  });
+
   it('writes paqad volatile paths into the nested .paqad/.gitignore during onboarding', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,

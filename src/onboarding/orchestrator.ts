@@ -305,6 +305,7 @@ export class OnboardingOrchestrator {
     }
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       adapter: adapters[0],
+      providers: adapters,
       project_root: toPosixPath(options.projectRoot),
       profile,
       detected: detection,
