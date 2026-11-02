@@ -99,7 +99,7 @@ export function DashboardChrome({
   };
 
   const PARENT_AREA: Partial<Record<Route, Route>> = {
-    'delivery-policy': 'automation',
+    'git-workflow': 'automation',
     instructions: 'knowledge',
     'design-tokens': 'knowledge',
     'module-map': 'build',

@@ -10,7 +10,7 @@ export type Route =
   | 'setup'
   | 'graph'
   | 'dashboard'
-  | 'delivery-policy'
+  | 'git-workflow'
   | 'instructions'
   | 'module-map'
   | 'site-map'
@@ -26,7 +26,7 @@ const ROUTES: ReadonlySet<Route> = new Set<Route>([
   'setup',
   'graph',
   'dashboard',
-  'delivery-policy',
+  'git-workflow',
   'instructions',
   'module-map',
   'site-map',

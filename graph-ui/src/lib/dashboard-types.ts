@@ -193,82 +193,39 @@ export interface SavedView {
   createdAt: string;
 }
 
-export type MaintenanceMode = 'auto' | 'manual';
+export type GitWorkflowFileName =
+  'tickets.yaml' | 'branches.yaml' | 'commits.yaml' | 'pull-requests.yaml' | 'enforcement.yaml';
 
-export interface ResolvedDeliveryTicket {
-  maintained: MaintenanceMode;
-  provider: 'jira' | 'linear' | 'github-issues' | 'generic';
-  server: string;
-  require_ticket: boolean;
-  write_back_refined: 'never' | 'ask' | 'always';
-  comment_decisions: boolean;
+export interface GitWorkflowIssue {
+  file: string;
+  path: string;
+  message: string;
 }
 
-export interface ResolvedDeliveryHost {
-  maintained: MaintenanceMode;
-  provider: 'github' | 'gitlab' | 'bitbucket';
-  server: string;
+export interface GitWorkflowFileInfo {
+  name: GitWorkflowFileName;
+  path: string;
+  exists: boolean;
+  content: string | null;
+  hash: string | null;
 }
 
-export interface ResolvedDeliveryBranch {
-  maintained: MaintenanceMode;
-  template: string;
-  type_map: Record<string, string>;
-  slug_max_length: number;
-  base: string;
+export interface ResolvedGitWorkflow {
+  tickets: Record<string, unknown>;
+  branches: Record<string, unknown>;
+  commits: Record<string, unknown>;
+  pull_requests: Record<string, unknown>;
+  enforcement: { enabled: boolean; agents: 'warn' | 'block'; people: 'warn' | 'block' | 'off' };
 }
 
-export interface ResolvedDeliveryCommit {
-  maintained: MaintenanceMode;
-  template: string;
-  sign_off: boolean;
+export interface GitWorkflowConfigResponse {
+  files: GitWorkflowFileInfo[];
+  resolved: ResolvedGitWorkflow;
+  errors: GitWorkflowIssue[];
+  warnings: GitWorkflowIssue[];
+  changedOutside: GitWorkflowFileName[];
+  schemas: Record<GitWorkflowFileName, Record<string, unknown>>;
 }
-
-export interface ResolvedDeliveryPr {
-  maintained: MaintenanceMode;
-  title_template: string;
-  body_template_path: string;
-  base: string;
-  draft: boolean;
-  reviewers: string[];
-  labels: string[];
-  link_ticket: boolean;
-  transition_on_open: string;
-}
-
-export interface ResolvedDeliveryCi {
-  maintained: MaintenanceMode;
-  gate: 'wait_for_green' | 'warn_only' | 'off';
-  timeout_minutes: number;
-  on_red: 'stop' | 'comment_and_stop';
-  transition_on_green: string;
-}
-
-export interface ResolvedDeliveryIntakeDecisions {
-  maintained: MaintenanceMode;
-  auto_resolve_from_priors: boolean;
-  auto_resolve_from_rules: boolean;
-  confirm_auto_resolutions: 'always' | 'batched' | 'never';
-  max_options_per_packet: number;
-  fingerprint_scope: string[];
-}
-
-export interface ResolvedDeliveryProcess {
-  ticket: ResolvedDeliveryTicket;
-  host: ResolvedDeliveryHost;
-  branch: ResolvedDeliveryBranch;
-  commit: ResolvedDeliveryCommit;
-  pr: ResolvedDeliveryPr;
-  ci: ResolvedDeliveryCi;
-  intake_decisions: ResolvedDeliveryIntakeDecisions;
-}
-
-export interface ResolvedDeliveryPolicy {
-  enabled: boolean;
-  process: ResolvedDeliveryProcess;
-}
-
-export type DeliverySectionKey = keyof ResolvedDeliveryProcess;
 
 export interface ManagedFileInfo {
   path: string;
@@ -277,27 +234,12 @@ export interface ManagedFileInfo {
   hash: string | null;
 }
 
-export interface DeliveryPolicyConfigResponse {
-  resolved: ResolvedDeliveryPolicy;
-  warnings: string[];
-  file: ManagedFileInfo;
-  defaultsYaml: string;
-  schema: Record<string, unknown>;
-}
-
-export interface DeliveryPolicyIssue {
+export interface PutGitWorkflowResult {
   path: string;
-  message: string;
+  hash: string;
+  resolved: ResolvedGitWorkflow;
+  warnings: GitWorkflowIssue[];
 }
-
-export type PutDeliveryPolicyOutcome =
-  | { status: 'ok'; path: string; hash: string; resolved: ResolvedDeliveryPolicy }
-  | { status: 'invalid'; error: string; issues: DeliveryPolicyIssue[] }
-  | {
-      status: 'conflict';
-      error: string;
-      conflict: { content: string | null; hash: string | null };
-    };
 
 export interface ValidationIssue {
   path: string;

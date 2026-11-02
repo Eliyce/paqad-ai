@@ -44,7 +44,7 @@ export const WHY_DRAWER: Record<string, WhyDrawerCopy> = {
     benefit: 'Named procedures the agent follows the same way every time.',
     without: 'The same request produces a different process every run.',
   },
-  'delivery-policy': {
+  'git-workflow': {
     problem: 'How work ships is a decision, not a default.',
     benefit: 'Branches, tickets and merges follow rules you set once.',
     without: 'Every delivery negotiates process from scratch.',

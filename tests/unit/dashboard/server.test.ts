@@ -714,6 +714,52 @@ describe('startDashboardServer', () => {
       expect(put.status).toBe(404);
     });
 
+    it('serves the git-workflow files and saves one at a time', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const get = await fetch(`${server!.url}/api/config/git-workflow`);
+      expect(get.status).toBe(200);
+      const config = (await get.json()) as { files: { name: string; hash: string | null }[] };
+      expect(config.files.map((file) => file.name)).toEqual([
+        'tickets.yaml',
+        'branches.yaml',
+        'commits.yaml',
+        'pull-requests.yaml',
+        'enforcement.yaml',
+      ]);
+
+      const put = await fetch(`${server!.url}/api/config/git-workflow/commits.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'sign_off: true\n', baseHash: config.files[2]!.hash }),
+      });
+      expect(put.status).toBe(200);
+      expect(readFileSync(join(root, '.paqad/configs/git-workflow/commits.yaml'), 'utf8')).toBe(
+        'sign_off: true\n',
+      );
+      expect(readFileSync(join(root, '.paqad/audit.log'), 'utf8')).toContain(
+        'dashboard.config.git-workflow.write',
+      );
+
+      const invalid = await fetch(`${server!.url}/api/config/git-workflow/enforcement.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'agents: sometimes\n', baseHash: null }),
+      });
+      expect(invalid.status).toBe(422);
+
+      const unknown = await fetch(`${server!.url}/api/config/git-workflow/other.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'a: 1\n', baseHash: null }),
+      });
+      expect(unknown.status).toBe(404);
+
+      const old = await fetch(`${server!.url}/api/config/delivery-policy`);
+      expect(old.status).toBe(404);
+    });
+
     it('starts an ops job, reports it, and streams completion to the report', async () => {
       bootstrap(root);
       await startServer();

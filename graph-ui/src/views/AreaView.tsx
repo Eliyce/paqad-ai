@@ -28,7 +28,7 @@ interface EditAction {
 }
 
 const EDIT_ACTIONS: Record<string, EditAction> = {
-  'delivery-policy': { label: 'Edit the policy', route: '#/delivery-policy' },
+  'git-workflow': { label: 'Edit the rules', route: '#/git-workflow' },
   instructions: { label: 'Open the editor', route: '#/instructions' },
   'module-map': { label: 'Edit the map', route: '#/module-map' },
   'design-tokens': { label: 'Open the token editor', route: '#/design-tokens' },
