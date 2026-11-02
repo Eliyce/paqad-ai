@@ -138,8 +138,10 @@ The reasons below are not obvious from the code, grouped by file under `graph-ui
   called. A lower trust tier is never shown or counted as a higher one, and before the map is
   verified the freshness verdict is "not yet checked", not fresh or stale. The progress strip
   renders nothing when there is no progress file or no units, never an empty bar.
-- **`views/DeliveryPolicyView.tsx`.** The builder edits a YAML document in place, so the user's
-  comments and key order survive. Broken YAML on disk opens in raw mode with the parse message.
+- **`views/GitWorkflowView.tsx` and `lib/git-workflow.ts`.** One tab per git-workflow file, each
+  edited as raw YAML so the team's comments and key order survive. A save sends only the open
+  file; the server checks it against the other four. A tab's dot shows an error, a warning or a
+  hand edit outside the git-workflow skill, in that order.
 - **`views/DesignTokensView.tsx`.** The raw JSON text is the source of truth; the swatches and list
   write back through it, so the two can never disagree.
 - **`views/InstructionsView.tsx`.** Untouched frontmatter is kept byte for byte. The Markdown

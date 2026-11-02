@@ -289,15 +289,15 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet — unless process.pr already pins it.',
-          'Deliver only through paqad: paqad-ai deliver commit for each commit, and paqad-ai deliver to push and open the PR. Both follow the team\'s rules in .paqad/configs/git-workflow/. Never run git commit, git push or gh pr create yourself for a change paqad is delivering.',
-          'You supply the meaning: the ticket, the branch type when paqad asks for it, and a summary written for a person who doesn\'t read code. Say what changes for the user or the business, in plain words, with no file names, function names or code symbols. paqad builds the branch name, commit message and PR title from the team\'s templates.',
-          'If the team\'s PR template has no placeholders, fill in each of its sections yourself and pass it with --body-file.',
+          "Deliver only through paqad: paqad-ai deliver commit for each commit, and paqad-ai deliver to push and open the PR. Both follow the team's rules in .paqad/configs/git-workflow/. Never run git commit, git push or gh pr create yourself for a change paqad is delivering.",
+          "You supply the meaning: the ticket, the branch type when paqad asks for it, and a summary written for a person who doesn't read code. Say what changes for the user or the business, in plain words, with no file names, function names or code symbols. paqad builds the branch name, commit message and PR title from the team's templates.",
+          "If the team's PR template has no placeholders, fill in each of its sections yourself and pass it with --body-file.",
           'When paqad prints a ticket move, make it with your tracker tool, then record it with paqad-ai deliver ticket-done <id>, or --failed / --skipped with the reason.',
           'Run the CI gate per process.ci: wait_for_green polls checks until green (timeout_minutes), applies on_red on failure, and queues the ticket move on green. A red build surfaces via a delivery.ci_red Decision Packet when on_red needs a human call.',
           'Graceful degradation: if a required provider (host/tracker MCP) is not connected, do what is possible (branch/commit always run), skip the provider-bound steps, and re-surface the connect nudge — do not hard stop.',
           'MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.',
         ],
-        required_inputs: ['merged change', 'delivery-policy process block'],
+        required_inputs: ['merged change', 'git-workflow files'],
         strictness: {},
         escalation: {
           remote_failure: 'stop',
@@ -766,7 +766,7 @@ stages:
       - MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.
     required_inputs:
       - merged change
-      - delivery-policy process block
+      - git-workflow files
     escalation:
       remote_failure: stop
       ci_red: ask

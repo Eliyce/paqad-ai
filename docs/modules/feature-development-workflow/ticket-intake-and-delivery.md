@@ -52,14 +52,14 @@ Runs **before `planning`**. Triggered when the request references a ticket
      until the user resolves it.
 5. **Confirm auto-resolutions.** When N decisions were auto-resolved,
    surface them per
-   `process.intake_decisions.confirm_auto_resolutions` in
-   [`delivery-policy.yaml`](../../../src/pipeline/delivery-policy.ts)
+   `intake_decisions.confirm_auto_resolutions` in
+   [`.paqad/configs/git-workflow/tickets.yaml`](../../../src/git-workflow/load.ts)
    (default `batched`). The batched-confirm primitive is in
    [`src/planning/batched-confirm.ts`](../../../src/planning/batched-confirm.ts);
    single-packet flow stays the default for every other category.
 6. **(Optional) Write-back** — propose updating the source ticket with
    the refined description + AC + linked decisions, gated by
-   `process.ticket.write_back_refined: never | ask | always`.
+   `tickets.yaml` `write_back_refined: never | ask | always` (not applied yet).
 
 Failure modes:
 
@@ -71,9 +71,9 @@ Failure modes:
 ## `delivery`
 
 Runs **after `documentation_sync`** as the final stage. Asks a
-`delivery.open_pr` Decision Packet (`yes | draft | no`) unless `process.pr`
-already pins it. The branch / commit / PR text is rendered from the
-delivery-policy `process:` block (see below) via
+`delivery.open_pr` Decision Packet (`yes | draft | no`) unless `pull-requests.yaml`
+already pins it. The branch / commit / PR text is rendered from the team's
+git-workflow files (see below) via
 [`src/delivery/templates.ts`](../../../src/delivery/templates.ts), and the host
 operations run through the **`HostProvider`** contract
 ([`src/providers/host-provider.ts`](../../../src/providers/host-provider.ts),
@@ -85,7 +85,7 @@ GitHub adapter at
 3. `push(branch)`
 4. `openPR({ … })` (with `--draft` when applicable)
 5. **CI gate** ([`src/delivery/ci-gate.ts`](../../../src/delivery/ci-gate.ts)) —
-   `process.ci.gate = wait_for_green` polls `getChecksStatus` once a minute until green
+   `pull-requests.yaml` `ci.gate: wait_for_green` polls `getChecksStatus` once a minute until green
    (bounded by `timeout_minutes`), saves each read with its read time, applies `on_red`, and reports
    `transition_on_green`.
 
@@ -99,33 +99,34 @@ Provider resolution (and connection state, which drives degradation + the
 dashboard) lives in
 [`src/providers/registry.ts`](../../../src/providers/registry.ts).
 
-## The delivery-policy `process:` block
+## The git-workflow files
 
-Conventions are configured by
-[`docs/instructions/workflows/delivery-policy.yaml`](../../../src/pipeline/delivery-policy.ts)
-— a workflow-policy peer of `feature-development.yaml` (same location, schema,
-and `merge_mode: append`). `paqad-ai onboard` writes it `enabled: true` with
-every section `maintained: auto`; detection silently fills the `auto` sections
-during `create documentation`.
-[`defaultDeliveryProcess`](../../../src/pipeline/delivery-policy.ts) is the
-runtime source of truth;
-[`delivery-policy.schema.json`](../../../src/validators/schemas/delivery-policy.schema.json)
-is the validation source of truth.
+Conventions are configured by five YAML files in `.paqad/configs/git-workflow/`:
+`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml` and
+`enforcement.yaml`. `paqad-ai onboard` writes them, `paqad-ai update` adds new
+settings, and changes go through the `git-workflow` skill.
+[`loadGitWorkflow`](../../../src/git-workflow/load.ts) reads them and
+[`defaultGitWorkflow`](../../../src/git-workflow/defaults.ts) is the runtime source
+of truth for defaults; the schemas in
+[`src/validators/schemas/git-workflow/`](../../../src/validators/schemas/git-workflow/)
+are the validation source of truth.
 
 ```yaml
-enabled: true
-process:
-  ticket:   { maintained: auto, provider: jira, write_back_refined: ask, comment_decisions: true }
-  host:     { maintained: auto, provider: github }
-  branch:   { maintained: auto, template: "{type}/{ticket}-{title_slug}", base: main }
-  commit:   { maintained: auto, template: "{type}({scope}): {summary}\n\nRefs: {ticket}" }
-  pr:       { maintained: auto, body_template_path: .paqad/templates/pr-body.md, transition_on_open: "In Review" }
-  ci:       { maintained: auto, gate: wait_for_green, timeout_minutes: 30, on_red: stop, transition_on_green: "Done" }
-  intake_decisions: { maintained: auto, confirm_auto_resolutions: batched, fingerprint_scope: [ticket_type, module, category] }
+# tickets.yaml
+sources:
+  github-issues: { tracker: github-issues, pattern: "#\\d+" }
+intake_decisions: { confirm_auto_resolutions: batched, fingerprint_scope: [ticket_type, module, category] }
+# commits.yaml
+template: "{type}({ticket}): {summary}"
+summary: { style: plain }
+# pull-requests.yaml
+link_ticket: true
+ci: { gate: wait_for_green, timeout_minutes: 30, on_red: stop }
 ```
 
-Each section's `maintained: auto | manual` governs whether detection may touch
-it. Schema validation rejects unknown keys at any `process.*` path.
+A setting paqad doesn't know is reported as a warning, and an invalid file is
+reported by `paqad-ai git-workflow check` and `paqad-ai doctor`, never swapped for
+defaults.
 
 ## New Decision categories
 
@@ -149,7 +150,7 @@ machinery. `DECISION_CATEGORY_DEFAULTS` lists their `create_new` flag,
 - [Provider-Agnostic Delivery Workflow](../delivery-workflow/index/summary.md)
 - [Decision Pause Contract managed-doc architecture](../decision-pause-contract/managed-doc-architecture.md)
 - [`src/pipeline/feature-development-policy.ts`](../../../src/pipeline/feature-development-policy.ts)
-- [`src/pipeline/delivery-policy.ts`](../../../src/pipeline/delivery-policy.ts)
+- [`src/git-workflow/`](../../../src/git-workflow/)
 - [`src/providers/`](../../../src/providers/)
 - [`src/planning/intake-prior-resolver.ts`](../../../src/planning/intake-prior-resolver.ts)
 - [`src/planning/batched-confirm.ts`](../../../src/planning/batched-confirm.ts)

@@ -50,7 +50,8 @@ describe('feature-development workflow procedure rule', () => {
   it('points at the project workflow files (never inlines a frozen copy)', () => {
     const doc = readFileSync(CANONICAL, 'utf8');
     expect(doc).toContain('docs/instructions/workflows/feature-development.yaml');
-    expect(doc).toContain('docs/instructions/workflows/delivery-policy.yaml');
+    expect(doc).toContain('.paqad/configs/git-workflow/');
+    expect(doc).not.toContain('delivery-policy.yaml');
   });
 
   it('carries the mandatory, intent-triggered, do-not-improvise framing', () => {

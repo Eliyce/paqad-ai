@@ -18,7 +18,7 @@ Do **not** improvise. Do **not** jump straight to editing code. Always run the s
 
 ## Authoritative source
 
-The canonical, project-customizable definition of these stages lives in `docs/instructions/workflows/feature-development.yaml` (and delivery conventions in `docs/instructions/workflows/delivery-policy.yaml`). Both use `merge_mode: append`, so a project's overrides win. Load those files and follow them. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
+The canonical, project-customizable definition of these stages lives in `docs/instructions/workflows/feature-development.yaml` (delivery conventions live in the team's `.paqad/configs/git-workflow/` files). The workflow YAML uses `merge_mode: append`, so a project's overrides win. Load those files and follow them. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
 
 Honor every stage's escalation flag through the Decision Pause Contract:
 
@@ -136,7 +136,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 ## Delivery
 
-When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) with `paqad-ai delivery-link commit-decision <commit|decline|ignored|user-requested>`, which writes the bundle's `delivery.json.commit_decision`.
+When the change is delivered, follow the team's rules in `.paqad/configs/git-workflow/` (`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml`, `enforcement.yaml`) through `paqad-ai deliver`: branch naming, the commit message template and summary style, PR title/body and ticket linkage, and the CI gate (`ci.gate`, `ci.on_red`). Change those files only through the `git-workflow` skill. When the developer did not say whether to commit and `commits.yaml` `ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) with `paqad-ai delivery-link commit-decision <commit|decline|ignored|user-requested>`, which writes the bundle's `delivery.json.commit_decision`.
 
 ## End-of-change: a complete evidence bundle
 

@@ -177,9 +177,10 @@ The reasons below are not obvious from the code.
   the merged policy injects the framework default and would turn strict on everywhere, and the
   merge keeps `rule_compliance` instead of dropping it. Analytics instructions are added only
   when the flag is on and the classify-time gate said `instrument`.
-- **`delivery-policy.ts`.** Precedence is framework defaults, then the detection overlay (only
-  for `auto` sections), then the project YAML. Lists append uniquely so a project never silently
-  loses a default.
+- **`src/git-workflow/load.ts`.** Delivery rules come only from the team's
+  `.paqad/configs/git-workflow/` files over the built-in defaults, with no detection overlay and
+  no personal override, so every teammate and agent delivers the same way. An invalid file is
+  reported, never replaced by defaults.
 - **`classifier.ts`.** The analytics tag checks the flag first, so with analytics off nothing is
   detected and no file is scanned.
 - **`router.ts`.** A capability gap only justifies the fast lane when the task is not high
