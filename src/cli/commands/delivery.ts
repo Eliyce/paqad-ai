@@ -12,7 +12,26 @@ import {
   type CiGateOptions,
   type CiGateResult,
 } from '@/delivery/ci-gate.js';
-import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
+import { planDelivery, type DeliveryPlan } from '@/delivery/degradation.js';
+import { detectDeliveryHost } from '@/delivery/host.js';
+import {
+  GIT_WORKFLOW_PATH,
+  MISSING_LABEL_HINT,
+  commitStep,
+  currentBranch,
+  linkTicket,
+  matchTicketSource,
+  missingHeadings,
+  pickBranchType,
+  placeholdersIn,
+  planBranch,
+  requireTicket,
+  resolveBase,
+  styleVerdict,
+  uniqueInOrder,
+  type DeliveryShell,
+  type MatchedSource,
+} from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
 import { describeEarlierWork } from '@/delivery/commit-split.js';
@@ -27,12 +46,17 @@ import { featureChangeKey } from '@/feature-evidence/paths.js';
 import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
 import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
+import { DEFAULT_PR_BODY } from '@/git-workflow/onboard.js';
+import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
+import { readProjectProfile } from '@/core/project-profile.js';
+import type { ProjectMcpServer } from '@/core/types/project-profile.js';
+import { resolveTicketProvider } from '@/providers/registry.js';
 import { readGitState } from '@/rag/git-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
 import { raisedTechDebt } from '@/tech-debt/context.js';
 import { renderTechDebtPrSection } from '@/tech-debt/pr-section.js';
-import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
+import type { ChecksStatus, HostProvider, PullRequest } from '@/providers/host-provider.js';
 import {
   readVerificationEvidence,
   renderEvidenceMarkdown,
@@ -45,10 +69,12 @@ export interface DeliverDeps {
   projectRoot: string;
   dryRun: boolean;
   inputs: DeliveryRenderInputs;
-  base: string;
+  type?: string;
+  base?: string | null;
   draft: boolean;
   reviewers: string[];
   labels: string[];
+  bodyFile?: string | null;
   shell: DeliveryShell;
   host: HostProvider;
   resolveOpenPr: () => OpenPrDecision;
@@ -56,6 +82,8 @@ export interface DeliverDeps {
   ci?: CiGateOptions;
   dirName?: string | null;
   now?: () => Date;
+  servers?: ProjectMcpServer[];
+  hostConnected?: boolean;
 }
 
 export interface DeliverResult {
@@ -63,23 +91,129 @@ export interface DeliverResult {
   output: string;
 }
 
-export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
-  const { config } = loadGitWorkflow(deps.projectRoot);
+export const TURNED_OFF_MESSAGE = `Delivery help is turned off in ${GIT_WORKFLOW_PATH}/enforcement.yaml.`;
 
-  const templatePath = join(deps.projectRoot, config.pull_requests.body_template);
-  const prBody = existsSync(templatePath) ? readFileSync(templatePath, 'utf8') : '';
-  const rendered = renderDelivery(config, deps.inputs, prBody);
+export const NO_PLACEHOLDER_MESSAGE =
+  "This team's PR template has no placeholders, so fill it in yourself and pass it with --body-file <path>.";
+
+function stopped(message: string, lines: string[] = []): DeliverResult {
+  return {
+    exitCode: 1,
+    output: [`**▸ paqad** · delivery stopped`, ...lines, `> - 🔴 ${message}`].join('\n'),
+  };
+}
+
+interface Prepared {
+  config: ResolvedGitWorkflow;
+  matched: MatchedSource | null;
+  typeName: string;
+  current: string | null;
+}
+
+async function prepare(
+  projectRoot: string,
+  shell: DeliveryShell,
+  inputs: DeliveryRenderInputs,
+  type: string | undefined,
+): Promise<{ result: DeliverResult } | { prepared: Prepared }> {
+  const loaded = loadGitWorkflow(projectRoot);
+  const config = loaded.config;
+  if (!config.enforcement.enabled) {
+    return { result: { exitCode: 0, output: TURNED_OFF_MESSAGE } };
+  }
+  if (!loaded.valid) {
+    return {
+      result: stopped(
+        `${GIT_WORKFLOW_PATH}/ has errors, so nothing was delivered:`,
+        loaded.errors.map((error) => `> - ${error.message}`),
+      ),
+    };
+  }
+  const required = requireTicket(config, inputs.ticket);
+  if (!required.ok) return { result: stopped(required.message) };
+  const matched = matchTicketSource(config, inputs.ticket);
+  if (!matched.ok) return { result: stopped(matched.message) };
+  const current = await currentBranch(shell);
+  const picked = pickBranchType(config, {
+    type,
+    source: matched.value?.name ?? null,
+    ticketType: inputs.ticket_type,
+    ticketGiven: inputs.ticket.trim() !== '',
+    currentBranch: current,
+  });
+  if (!picked.ok) return { result: stopped(picked.message) };
+  return { prepared: { config, matched: matched.value, typeName: picked.value, current } };
+}
+
+function readBodyTemplate(projectRoot: string, config: ResolvedGitWorkflow): string {
+  const templatePath = join(projectRoot, config.pull_requests.body_template);
+  return existsSync(templatePath) ? readFileSync(templatePath, 'utf8') : DEFAULT_PR_BODY;
+}
+
+function planLines(
+  deps: DeliverDeps,
+  config: ResolvedGitWorkflow,
+): { plan: DeliveryPlan; lines: string[] } {
+  const host = {
+    kind: config.pull_requests.host,
+    connected: deps.hostConnected ?? true,
+  };
+  const tickets = Object.entries(config.tickets.sources).map(([name, source]) => ({
+    source: name,
+    resolution: resolveTicketProvider(deps.servers ?? [], source),
+  }));
+  const plan = planDelivery(config, host, tickets);
+  const lines = plan.skipped.map((step) => `> - 🟡 skipped: ${step}`);
+  if (plan.nudge) lines.push(`> ${plan.nudge}`);
+  return { plan, lines };
+}
+
+export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
+  const ready = await prepare(deps.projectRoot, deps.shell, deps.inputs, deps.type);
+  if ('result' in ready) return ready.result;
+  const { config, matched, typeName, current } = ready.prepared;
+  const branchType = config.branches.types[typeName];
+
+  const base = await resolveBase(
+    deps.shell,
+    deps.base || branchType?.base_branch || config.branches.base_branch,
+  );
+  if (!base.ok) return stopped(base.message);
+
+  const bodyTemplate = readBodyTemplate(deps.projectRoot, config);
+  const rendered = renderDelivery(config, deps.inputs, bodyTemplate, typeName);
+  let body: string;
+  const headingWarnings: string[] = [];
+  if (deps.bodyFile) {
+    body = readFileSync(resolve(deps.projectRoot, deps.bodyFile), 'utf8');
+    for (const heading of missingHeadings(bodyTemplate, body)) {
+      headingWarnings.push(`The PR body is missing the template heading "${heading.trim()}".`);
+    }
+    if (headingWarnings.length > 0 && config.enforcement.agents === 'block') {
+      return stopped(
+        headingWarnings[0],
+        headingWarnings.slice(1).map((w) => `> - 🟡 ${w}`),
+      );
+    }
+  } else if (placeholdersIn(bodyTemplate).length > 0) {
+    body = rendered.pr_body;
+  } else {
+    return stopped(NO_PLACEHOLDER_MESSAGE);
+  }
+  body = linkTicket(body, deps.inputs.ticket, matched, config.pull_requests.link_ticket);
 
   if (deps.dryRun) {
     return {
       exitCode: 0,
       output: [
         `**▸ paqad** · delivery dry run — nothing pushed`,
+        `> type:    ${typeName}`,
+        `> base:    ${base.value}`,
         `> branch:  ${rendered.branch}`,
         `> commit:  ${rendered.commit}`,
         `> PR title: ${rendered.pr_title}`,
         ``,
-        rendered.pr_body,
+        body,
       ].join('\n'),
     };
   }
@@ -89,39 +223,105 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     return { exitCode: 2, output: decision.message };
   }
 
-  const run = await runDelivery(
-    deps.shell,
-    {
-      rendered,
-      base: deps.base,
-      draft: deps.draft,
-      reviewers: deps.reviewers,
-      labels: deps.labels,
-      open_pr: decision.choice,
-    },
-    (input) => deps.host.openPR(input),
-  );
-  followDeliveredBranch(deps, run, rendered.branch);
-  saveShip(deps, shipFromRun(run, rendered.branch, decision.choice === 'draft', headSha(deps)));
+  const { plan, lines: planned } = planLines(deps, config);
+  const stepLines: string[] = [];
 
-  const stepLines = run.steps.map(
-    (s) => `> - ${s.ok ? '🟢' : '🔴'} ${s.step}${s.ok ? '' : ` — ${s.remediation ?? 'failed'}`}`,
-  );
-  if (!run.ok) {
-    return {
-      exitCode: 1,
-      output: [`**▸ paqad** · delivery stopped`, ...stepLines].join('\n'),
-    };
+  if (!current) return stopped("Couldn't read the current branch. Check out a branch and re-run.");
+  const branchPlan = planBranch(config, current, base.value, rendered.branch, typeName);
+  if (!branchPlan.ok) return stopped(branchPlan.message);
+  const branch = branchPlan.value.branch;
+  if (branchPlan.value.create) {
+    const created = await deps.shell.run('git', ['checkout', '-b', branch]);
+    if (created.exitCode !== 0) {
+      return stopped(
+        `Failed to create branch ${branch}. Resolve the conflicting state and re-run delivery.`,
+      );
+    }
+    if (deps.dirName) recordChangeConstants(deps.projectRoot, deps.dirName, { branch }, deps.now);
   }
+  stepLines.push(`> - 🟢 branch ${branch}`);
+
+  const committed = await commitStep(deps.shell, config, rendered.commit, {
+    base: base.value,
+    branch,
+    requireWork: true,
+  });
+  if (!committed.ok) return stopped(committed.message, stepLines);
+  stepLines.push(
+    ...committed.value.warnings.map((warning) => `> - 🟡 ${warning}`),
+    committed.value.committed
+      ? `> - 🟢 commit ${rendered.commit.split('\n')[0]}`
+      : `> - 🟢 commit (already committed on ${branch})`,
+  );
+
   if (decision.choice === 'no') {
     return {
       exitCode: 0,
       output: [`**▸ paqad** · committed (no PR requested)`, ...stepLines].join('\n'),
     };
   }
+  if (!plan.push) {
+    return {
+      exitCode: 0,
+      output: [`**▸ paqad** · committed (push and PR skipped)`, ...stepLines, ...planned].join(
+        '\n',
+      ),
+    };
+  }
+
+  const pushed = await deps.shell.run('git', ['push', '--set-upstream', 'origin', branch]);
+  saveShip(deps, {
+    push: { state: pushed.exitCode === 0 ? 'pushed' : 'failed', branch, sha: headSha(deps) },
+  });
+  if (pushed.exitCode !== 0) {
+    return stopped(
+      'git push failed. Check remote auth and branch protection before retrying.',
+      stepLines,
+    );
+  }
+  stepLines.push(`> - 🟢 push`);
+
+  const titleStyle = styleVerdict(
+    config,
+    rendered.pr_title,
+    config.pull_requests.title_template,
+    'PR title',
+  );
+  if (titleStyle.block) return stopped(titleStyle.messages[0], stepLines);
+  stepLines.push(
+    ...titleStyle.messages.map((message) => `> - 🟡 ${message}`),
+    ...headingWarnings.map((warning) => `> - 🟡 ${warning}`),
+  );
+
+  const draft = deps.draft || config.pull_requests.draft || decision.choice === 'draft';
+  const labels = uniqueInOrder(config.pull_requests.labels, branchType?.labels ?? [], deps.labels);
+  const reviewers = uniqueInOrder(config.pull_requests.reviewers, deps.reviewers);
+  const targets = uniqueInOrder([base.value], config.pull_requests.also_open_against);
+  const opened: PullRequest[] = [];
+  for (const target of targets) {
+    const result = await deps.host.openPR({
+      title: rendered.pr_title,
+      body,
+      base: target,
+      head: branch,
+      draft,
+      reviewers,
+      labels,
+    });
+    if (!result.ok) {
+      saveOpened(deps, opened, draft);
+      return stopped(
+        `${(result.output ?? result.remediation ?? 'gh pr create failed').trim()} ${MISSING_LABEL_HINT}`,
+        stepLines,
+      );
+    }
+    if (result.pr) opened.push(result.pr);
+    stepLines.push(`> - 🟢 PR to ${target}${result.pr?.url ? ` ${result.pr.url}` : ''}`);
+  }
+  saveOpened(deps, opened, draft);
 
   const sha = headSha(deps);
-  const gate = await runCiGate(deps.host, rendered.branch, config.pull_requests.ci, {
+  const gate = await runCiGate(deps.host, branch, config.pull_requests.ci, {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
     onPoll: (status) => saveShip(deps, shipFromStatus(status, sha)),
@@ -137,9 +337,85 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   return {
     exitCode: green ? 0 : 1,
     output:
-      [`**▸ paqad** · delivery — ${verdict}`, ...stepLines, `> - ${glyph} ${gate.message}`].join(
-        '\n',
-      ) + evidenceLine,
+      [
+        `**▸ paqad** · delivery — ${verdict}`,
+        ...stepLines,
+        `> - ${glyph} ${gate.message}`,
+        ...planned,
+      ].join('\n') + evidenceLine,
+  };
+}
+
+function saveOpened(deps: DeliverDeps, opened: PullRequest[], draft: boolean): void {
+  const [first, ...extra] = opened;
+  if (!first) return;
+  const sha = headSha(deps);
+  saveShip(deps, {
+    pr: { number: first.number, url: first.url, draft, state: 'open', head_sha: sha },
+    ...(extra.length > 0
+      ? {
+          extra_prs: extra.map((pr) => ({
+            number: pr.number,
+            url: pr.url,
+            draft,
+            state: 'open' as const,
+            head_sha: sha,
+          })),
+        }
+      : {}),
+  });
+}
+
+export interface DeliverCommitDeps {
+  projectRoot: string;
+  shell: DeliveryShell;
+  summary: string;
+  ticket?: string;
+  type?: string;
+  scope?: string;
+}
+
+export function ticketFromBranch(config: ResolvedGitWorkflow, branch: string): string {
+  for (const source of Object.values(config.tickets.sources)) {
+    const hashed = source.pattern.startsWith('#');
+    const pattern = hashed ? source.pattern.slice(1) : source.pattern;
+    try {
+      const found = new RegExp(`(?<![A-Za-z0-9])(?:${pattern})(?![A-Za-z0-9])`).exec(branch);
+      if (found) return hashed ? `#${found[0]}` : found[0];
+    } catch {
+      continue;
+    }
+  }
+  return '';
+}
+
+export async function runDeliverCommit(deps: DeliverCommitDeps): Promise<DeliverResult> {
+  const current = await currentBranch(deps.shell);
+  const preview = loadGitWorkflow(deps.projectRoot).config;
+  const ticket = deps.ticket ?? (current ? ticketFromBranch(preview, current) : '');
+  const inputs: DeliveryRenderInputs = {
+    ticket,
+    title: '',
+    summary: deps.summary,
+    scope: deps.scope,
+  };
+  const ready = await prepare(deps.projectRoot, deps.shell, inputs, deps.type);
+  if ('result' in ready) return ready.result;
+  const { config, typeName } = ready.prepared;
+  const message = renderDelivery(config, inputs, '', typeName).commit;
+  const committed = await commitStep(deps.shell, config, message, {
+    base: null,
+    branch: current ?? '',
+    requireWork: false,
+  });
+  if (!committed.ok) return stopped(committed.message);
+  return {
+    exitCode: 0,
+    output: [
+      `**▸ paqad** · committed`,
+      ...committed.value.warnings.map((warning) => `> - 🟡 ${warning}`),
+      `> - 🟢 ${message.split('\n')[0]}`,
+    ].join('\n'),
   };
 }
 
@@ -150,28 +426,8 @@ const CI_STATE: Record<CiGateResult['state'], CiState> = {
   unknown: 'unknown',
 };
 
-function followDeliveredBranch(deps: DeliverDeps, run: DeliveryRunResult, branch: string): void {
-  if (!deps.dirName) return;
-  if (!run.steps.some((step) => step.step === 'branch' && step.ok)) return;
-  recordChangeConstants(deps.projectRoot, deps.dirName, { branch }, deps.now);
-}
-
 function headSha(deps: DeliverDeps): string | null {
   return deps.dirName ? (readGitState(deps.projectRoot).head_commit ?? null) : null;
-}
-
-function shipFromRun(
-  run: DeliveryRunResult,
-  branch: string,
-  draft: boolean,
-  sha: string | null,
-): ShipPatch {
-  const patch: ShipPatch = {};
-  const push = run.steps.find((step) => step.step === 'push');
-  if (push) patch.push = { state: push.ok ? 'pushed' : 'failed', branch, sha };
-  const pr = run.steps.find((step) => step.step === 'pr')?.pr;
-  if (pr) patch.pr = { number: pr.number, url: pr.url, draft, state: 'open', head_sha: sha };
-  return patch;
 }
 
 function shipFromStatus(status: ChecksStatus, sha: string | null): ShipPatch {
@@ -343,8 +599,9 @@ function loadEvidenceBody(projectRoot: string): string | null {
 interface DeliverOptions {
   projectRoot: string;
   dryRun: boolean;
-  base: string;
+  base?: string;
   draft: boolean;
+  type?: string;
   ticket?: string;
   ticketType?: string;
   title: string;
@@ -353,62 +610,124 @@ interface DeliverOptions {
   openPr: string;
   reviewer?: string[];
   label?: string[];
+  bodyFile?: string;
   session?: string;
+}
+
+async function hostIsConnected(
+  shell: DeliveryShell,
+  host: ResolvedGitWorkflow['pull_requests']['host'],
+): Promise<boolean> {
+  const remote = await shell.run('git', ['remote', 'get-url', 'origin']);
+  if (remote.exitCode !== 0) return false;
+  const gh = await shell.run('gh', ['--version']);
+  return gh.exitCode === 0 && detectDeliveryHost(remote.stdout.trim()) === host;
+}
+
+function report(result: DeliverResult): void {
+  if (result.exitCode === 0) {
+    console.log(result.output);
+  } else {
+    console.error(result.output);
+    process.exitCode = result.exitCode;
+  }
+}
+
+function createDeliverCommitCommand(): Command {
+  return new Command('commit')
+    .description("Commit the staged changes with the team's commit message template")
+    .requiredOption('--summary <text>', 'What changes, in plain words')
+    .option('--ticket <ref>', 'Ticket ref (defaults to the one in the branch name)')
+    .option('--type <name>', "Branch type from branches.yaml (defaults to the branch's type)")
+    .option('--scope <scope>', 'Scope for templates that use {scope}')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action(
+      async (options: {
+        summary: string;
+        ticket?: string;
+        type?: string;
+        scope?: string;
+        projectRoot: string;
+      }) => {
+        const projectRoot = resolve(options.projectRoot);
+        report(
+          await runDeliverCommit({
+            projectRoot,
+            shell: createDeliveryShell(projectRoot),
+            summary: options.summary,
+            ticket: options.ticket,
+            type: options.type,
+            scope: options.scope,
+          }),
+        );
+      },
+    );
 }
 
 export function createDeliveryCommand(): Command {
   return new Command('deliver')
-    .description('Run the delivery chain: PR (after asking) → wait for CI → evidence on green')
+    .description(
+      "Deliver the change by the team's git workflow: branch, commit, PR (after asking), CI gate",
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--dry-run', 'Render branch/commit/PR text without pushing', false)
-    .option('--base <branch>', 'Base branch for the PR', 'main')
+    .option('--base <branch>', 'Base branch for the PR (a parent branch for a stacked PR)')
     .option('--draft', 'Open the PR as a draft', false)
+    .option('--type <name>', 'Branch type from branches.yaml')
     .option('--title <title>', 'Change title (branch slug + PR title)', '')
-    .option('--summary <summary>', 'One-line summary for the commit/PR body', '')
-    .option('--ticket <ref>', 'Linked ticket ref (e.g. #<number> or PQD-<number>)')
-    .option('--ticket-type <type>', 'Ticket type (Story/Bug/Task) → conventional commit type')
-    .option('--scope <scope>', 'Conventional-commit scope (usually the module)')
+    .option('--summary <summary>', 'What changes, in plain words', '')
+    .option('--ticket <ref>', 'Linked ticket ref')
+    .option(
+      '--ticket-type <type>',
+      "Tracker issue type, matched against a branch type's ticket_types",
+    )
+    .option('--scope <scope>', 'Scope for templates that use {scope}')
     .option('--open-pr <mode>', 'Recommended open_pr choice for the pause (yes|draft|no)', 'yes')
     .option('--reviewer <handle>', 'PR reviewer (repeatable)', collect, [])
     .option('--label <label>', 'PR label (repeatable)', collect, [])
+    .option('--body-file <path>', 'A PR body you filled in from the team template')
     .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
+    .addCommand(createDeliverCommitCommand())
     .action(async (options: DeliverOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
       const host = new GithubHostProvider(shell, { projectRoot });
       const dirName = activeChange(projectRoot, options.session);
-      const result = await runDeliver({
-        projectRoot,
-        dryRun: options.dryRun,
-        inputs: {
-          ticket: options.ticket ?? '',
-          ticket_type: options.ticketType,
-          title: options.title,
-          summary: options.summary,
-          scope: options.scope,
-          tech_debt: renderTechDebtPrSection(
-            raisedTechDebt(
-              projectRoot,
-              options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      const config = loadGitWorkflow(projectRoot).config;
+      report(
+        await runDeliver({
+          projectRoot,
+          dryRun: options.dryRun,
+          inputs: {
+            ticket: options.ticket ?? '',
+            ticket_type: options.ticketType,
+            title: options.title,
+            summary: options.summary,
+            scope: options.scope,
+            tech_debt: renderTechDebtPrSection(
+              raisedTechDebt(
+                projectRoot,
+                options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+              ),
             ),
-          ),
-        },
-        base: options.base,
-        draft: options.draft,
-        reviewers: options.reviewer ?? [],
-        labels: options.label ?? [],
-        shell,
-        host,
-        resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr, dirName),
-        evidenceBody: loadEvidenceBody(projectRoot),
-        dirName,
-      });
-      if (result.exitCode === 0) {
-        console.log(result.output);
-      } else {
-        console.error(result.output);
-        process.exitCode = result.exitCode;
-      }
+          },
+          type: options.type,
+          base: options.base ?? null,
+          draft: options.draft,
+          reviewers: options.reviewer ?? [],
+          labels: options.label ?? [],
+          bodyFile: options.bodyFile ?? null,
+          shell,
+          host,
+          resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr, dirName),
+          evidenceBody: loadEvidenceBody(projectRoot),
+          dirName,
+          servers: readProjectProfile(projectRoot)?.mcp?.servers ?? [],
+          hostConnected: options.dryRun
+            ? true
+            : await hostIsConnected(shell, config.pull_requests.host),
+        }),
+      );
     });
 }
 

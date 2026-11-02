@@ -94,6 +94,7 @@ export interface DeliveryCiRead {
 export interface ShipPatch {
   push?: Omit<DeliveryPush, 'at'>;
   pr?: Partial<Omit<DeliveryPr, 'at'>>;
+  extra_prs?: Array<Partial<Omit<DeliveryPr, 'at'>>>;
   ci?: Omit<DeliveryCi, 'at'>;
   ci_read?: Omit<DeliveryCiRead, 'at'>;
   read_at?: string;
@@ -118,6 +119,7 @@ export interface DeliveryRecord extends Partial<
   commit_split?: CommitSplit | null;
   push?: DeliveryPush | null;
   pr?: DeliveryPr | null;
+  extra_prs?: DeliveryPr[];
   ci?: DeliveryCi | null;
   ci_read?: DeliveryCiRead | null;
 }
@@ -196,6 +198,7 @@ export function writeFeatureDelivery(
       commit_split: record.commit_split ?? null,
       push: record.push ?? null,
       pr: record.pr ?? null,
+      ...(record.extra_prs && record.extra_prs.length > 0 ? { extra_prs: record.extra_prs } : {}),
       ci: record.ci ?? null,
       ...(record.ci_read ? { ci_read: record.ci_read } : {}),
     },
@@ -532,6 +535,15 @@ export function recordShip(
       first_at: record.pr?.first_at ?? record.pr?.at ?? at,
       at,
     };
+  }
+  if (patch.extra_prs) {
+    record.extra_prs = patch.extra_prs.map((pr) => ({
+      number: null,
+      url: null,
+      draft: null,
+      ...definedFields(pr),
+      at,
+    }));
   }
   if (patch.ci && !stale) record.ci = mergeCi(record.ci, { ...patch.ci, at });
   return writeFeatureDelivery(projectRoot, dirName, record, at);

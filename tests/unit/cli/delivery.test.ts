@@ -29,12 +29,20 @@ import type { DeliveryShell } from '@/delivery/runner.js';
 
 function okShell(): { shell: DeliveryShell; calls: string[][] } {
   const calls: string[][] = [];
+  let branch = 'main';
+  let staged = true;
   return {
     calls,
     shell: {
       async run(command, args) {
         calls.push([command, ...args]);
-        return { stdout: '', stderr: '', exitCode: 0 };
+        const out = (stdout: string, exitCode = 0) => ({ stdout, stderr: '', exitCode });
+        if (command !== 'git') return out('');
+        if (args[0] === 'rev-parse' && args.includes('--abbrev-ref')) return out(branch);
+        if (args[0] === 'diff') return out('', staged ? 1 : 0);
+        if (args[0] === 'checkout') branch = args[args.length - 1];
+        if (args[0] === 'commit') staged = false;
+        return out('');
       },
     },
   };
@@ -139,7 +147,8 @@ describe('paqad-ai deliver', () => {
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('dry run');
     expect(result.output).toContain('branch:');
-    expect(calls).toEqual([]);
+    expect(calls.filter((c) => ['checkout', 'commit', 'push'].includes(c[1]))).toEqual([]);
+    expect(calls.some((c) => c[0] === 'gh')).toBe(false);
   });
 
   it('pauses (non-zero) when the open_pr decision is unresolved', async () => {
@@ -185,14 +194,19 @@ describe('paqad-ai deliver', () => {
     writeFileSync(join(root, 'a.txt'), 'a');
     g('add', '-A');
     g('commit', '-q', '-m', 'base');
-    g('checkout', '-q', '-b', 'feat/work');
     const dir = openFeatureChange(root, 'ses-owner', { adapter: 'claude-code', title: 'T' });
+    writeFileSync(join(root, 'b.txt'), 'b');
+    g('add', 'b.txt');
     const calls: string[][] = [];
     const shell: DeliveryShell = {
       async run(command, args) {
         calls.push([command, ...args]);
-        if (command === 'git' && args[0] === 'checkout') g(...args);
-        return { stdout: '', stderr: '', exitCode: 0 };
+        try {
+          const stdout = execFileSync(command, args, { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+          return { stdout, stderr: '', exitCode: 0 };
+        } catch (error) {
+          return { stdout: '', stderr: '', exitCode: (error as { status?: number }).status ?? 1 };
+        }
       },
     };
 
