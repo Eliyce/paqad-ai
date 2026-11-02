@@ -11,12 +11,10 @@ describe('contract path masking', () => {
   });
 
   it('masks Windows backslash, forward slash and Git Bash forms of the temp dir', () => {
-    const dir = 'C:\\Users\\me\\AppData\\Local\\Temp\\paqad-contract-1';
-    const text = [
-      `${dir}\\f`,
-      'C:/Users/me/AppData/Local/Temp/paqad-contract-1/g',
-      '/c/Users/me/AppData/Local/Temp/paqad-contract-1/h',
-    ].join('\n');
+    const dir = 'D:\\a\\tmp\\paqad-contract-1';
+    const text = [`${dir}\\f`, 'D:/a/tmp/paqad-contract-1/g', '/d/a/tmp/paqad-contract-1/h'].join(
+      '\n',
+    );
     expect(maskDir(text, dir, dir)).toBe('<dir>\\f\n<dir>/g\n<dir>/h');
   });
 

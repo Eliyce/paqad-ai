@@ -193,8 +193,8 @@ describe('the write guard is wired on Bash beside the existing hooks', () => {
 describe('the read-only write guard behaves the same on Windows', () => {
   const host: WriteHost = {
     path: win32,
-    tmpdir: 'C:\\Users\\runner\\AppData\\Local\\Temp',
-    home: 'C:\\Users\\runner',
+    tmpdir: 'D:\\a\\_temp',
+    home: 'D:\\home\\dev',
   };
   const project = 'D:\\a\\repo';
   const allowed = (agent: string, target: string, cwd = project) =>
@@ -206,7 +206,7 @@ describe('the read-only write guard behaves the same on Windows', () => {
       'NUL',
       'nul',
       '/tmp/scratch.txt',
-      'C:\\Users\\runner\\AppData\\Local\\Temp\\a.txt',
+      'D:\\a\\_temp\\a.txt',
       '.paqad/tmp/plan.json',
     ]) {
       expect({ target, allowed: allowed('paqad-planning', target) }).toEqual({
