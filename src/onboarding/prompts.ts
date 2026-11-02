@@ -50,11 +50,12 @@ export async function resolveSelections(
   detection: DetectionReport,
   snapshotOrOverrides?: SnapshotContext | Partial<OnboardingSelections>,
   maybeOverrides?: Partial<OnboardingSelections>,
+  options: { interactive?: boolean } = {},
 ): Promise<OnboardingSelections> {
   const snapshot = isSnapshotContext(snapshotOrOverrides) ? snapshotOrOverrides : undefined;
   const overrides = isSnapshotContext(snapshotOrOverrides) ? maybeOverrides : snapshotOrOverrides;
 
-  if (isInteractive() && !hasFullOverrides(overrides)) {
+  if (options.interactive !== false && isInteractive() && !hasFullOverrides(overrides)) {
     return runInteractivePrompts(detection, snapshot, overrides);
   }
 

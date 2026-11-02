@@ -104,6 +104,7 @@ export interface OnboardingOptions {
   };
   onPhase1Complete?: (result: OnboardingOutput) => void;
   forceOverwrite?: boolean;
+  interactive?: boolean;
   workspacePolicy?: {
     project_creation_disabled?: boolean;
   };
@@ -128,7 +129,9 @@ export class OnboardingOrchestrator {
     const introspector = new StackIntrospector();
     const previousSnapshot = await new StackSnapshotCache().read(options.projectRoot);
     const liveSnapshot = await introspector.snapshot(options.projectRoot);
-    const selections = await resolveSelections(detection, liveSnapshot, options.selections);
+    const selections = await resolveSelections(detection, liveSnapshot, options.selections, {
+      interactive: options.interactive,
+    });
     const runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
@@ -347,7 +350,9 @@ export class OnboardingOrchestrator {
 
     options.onPhase1Complete?.(phase1Output);
 
-    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag);
+    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag, {
+      interactive: options.interactive,
+    });
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
@@ -415,7 +420,9 @@ export class OnboardingOrchestrator {
     const detection = await detector.detect(options.projectRoot, { persist: false });
     const introspector = new StackIntrospector();
     const liveSnapshot = await introspector.snapshot(options.projectRoot, { persist: false });
-    const selections = await resolveSelections(detection, liveSnapshot, options.selections);
+    const selections = await resolveSelections(detection, liveSnapshot, options.selections, {
+      interactive: options.interactive,
+    });
     const runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
