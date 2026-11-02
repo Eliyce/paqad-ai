@@ -299,9 +299,14 @@ describe('agent release targets', () => {
     expect(result.lines[0]).toContain('into no host folder');
   });
 
-  it('a stage agent in the paqad repo is released verbatim into its runtime folder', async () => {
+  it('a stage agent in the paqad repo is released in place in its runtime folder', async () => {
     put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
     const workspace = await ready();
+    put(
+      root,
+      `runtime/templates/stage-agents/${AGENT_NAME}.md`,
+      workspace.read(`draft/${AGENT_NAME}.md`)!,
+    );
     workspace.writeJson('draft-source.json', {
       file: `runtime/templates/stage-agents/${AGENT_NAME}.md`,
       hook_scripts: [],

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterFactory } from '@/adapters/factory.js';
 import { AGENT_PERMISSION_ALLOW } from '@/authoring/decisions.js';
+import { hashAgentFile } from '@/authoring/hash.js';
 import { lintAgentInProject } from '@/authoring/lint/agent-lint.js';
 import { parseAgentSource } from '@/authoring/package/agent-render.js';
 import { agentRootPattern, runAgentRelease } from '@/authoring/stages/agent-release.js';
@@ -366,23 +367,20 @@ describe('paqad-ai agent release (S7)', () => {
     expect(() => release(workspace)).toThrow(/the memory need is unmet/);
   });
 
-  it('EC-A04: a plugin agent drops hooks and records them as SubagentStart and SubagentStop settings hooks', async () => {
+  it('EC-A04: a plugin agent is released in place byte for byte and its hooks are recorded as SubagentStart and SubagentStop settings hooks', async () => {
     put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
     put(root, '.claude/hooks/guard.mjs', 'x\n');
     put(root, 'tests/agents/migration-reviewer/guard.test.mjs', 'x\n');
     const hooks =
       '\n  PreToolUse:\n    - matcher: "Edit"\n      hooks:\n        - type: command\n          command: node .claude/hooks/guard.mjs';
-    const workspace = await ready(agentText({ hooks }, PORTABLE_BODY));
-    workspace.writeJson('draft-source.json', {
-      file: `runtime/claude-plugin/agents/${AGENT_NAME}.md`,
-      hook_scripts: [],
-    });
-    release(workspace);
-    const written = readFileSync(
-      join(root, `runtime/claude-plugin/agents/${AGENT_NAME}.md`),
-      'utf8',
-    );
-    expect(written).not.toContain('hooks:');
+    const text = agentText({ hooks }, PORTABLE_BODY);
+    const workspace = await ready(text);
+    const plugin = `runtime/claude-plugin/agents/${AGENT_NAME}.md`;
+    put(root, plugin, text);
+    workspace.writeJson('draft-source.json', { file: plugin, hook_scripts: [] });
+    const result = release(workspace);
+    expect(readFileSync(join(root, plugin), 'utf8')).toBe(text);
+    expect(result.lines.join('\n')).toContain(`The draft came from ${plugin}`);
     expect(existsSync(join(root, `.claude/agents/${AGENT_NAME}.md`))).toBe(false);
     expect(evidence().plugin.settings_hooks).toEqual([
       {
@@ -392,6 +390,36 @@ describe('paqad-ai agent release (S7)', () => {
         replaces: 'PreToolUse (Edit)',
       },
     ]);
+  });
+
+  it('keeps omitClaudeMd and the frontmatter layout of a plugin agent, and its record hash is the file hash', async () => {
+    put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    const text = agentText({ omitClaudeMd: 'true' }, PORTABLE_BODY).replace(
+      'description: ',
+      'description:  ',
+    );
+    const workspace = await ready(text);
+    const plugin = `runtime/claude-plugin/agents/${AGENT_NAME}.md`;
+    put(root, plugin, text);
+    workspace.writeJson('draft-source.json', { file: plugin, hook_scripts: [] });
+    runAgentRelease(workspace, { sessionId, now: NOW });
+    expect(readFileSync(join(root, plugin), 'utf8')).toBe(text);
+    const record = readAgentRecord(root, dir, AGENT_NAME)!;
+    expect(record.released_path).toBe(plugin);
+    expect(record.files).toEqual([{ path: plugin, hash: hashAgentFile(root, plugin) }]);
+  });
+
+  it('refuses an in-place release when the plugin agent changed after the draft', async () => {
+    put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    const text = agentText({}, PORTABLE_BODY);
+    const workspace = await ready(text);
+    const plugin = `runtime/claude-plugin/agents/${AGENT_NAME}.md`;
+    put(root, plugin, `${text}\nedited after the draft\n`);
+    workspace.writeJson('draft-source.json', { file: plugin, hook_scripts: [] });
+    expect(() => release(workspace)).toThrow(
+      new RegExp(`${plugin} changed after S3 drafted it`, 'u'),
+    );
+    expect(readFileSync(join(root, plugin), 'utf8')).toBe(`${text}\nedited after the draft\n`);
   });
 });
 

@@ -20,7 +20,8 @@ import { AGENT_PERMISSION_ALLOW, readAuthoringDecision } from '../decisions.js';
 import { driftLine, listDriftedFacts } from '../drift.js';
 import { readBytesIfPresent, readTextIfPresent, writeFileAtomic } from '../fs-io.js';
 import { hashAgentFile, hashText } from '../hash.js';
-import { lintAgentInProject, PERMISSIONS_FILE, type AgentLintResult } from '../lint/agent-lint.js';
+import { PERMISSIONS_FILE, type AgentLintResult } from '../lint/agent-lint.js';
+import type { AgentAuditSources } from '../lint/audit.js';
 import {
   AGENT_HOST_TARGETS,
   parseAgentSource,
@@ -43,13 +44,14 @@ import {
   type OverrideRecord,
   validateAgentName,
 } from '../workspace.js';
-import { agentDraftFile, readAgentDraftSource } from './agent-draft.js';
+import { agentDraftFile, draftIsTemplate, readAgentDraftSource } from './agent-draft.js';
 import { AGENT_S5_TASK_TYPE, readAgentIntake, type AgentIntake } from './agent-intake.js';
 import {
   agentTestInputsHash,
   draftAgentHash,
   draftAgentHashWithoutDescription,
   draftHookScripts,
+  lintAgentDraft,
 } from './agent-test.js';
 import { DRAFT_DIR } from './draft.js';
 import { DELEGATION_RESULTS_FILE } from './delegation.js';
@@ -66,6 +68,7 @@ export interface AgentReleaseOptions {
   version?: string;
   sessionId: string;
   now?: () => Date;
+  agentSources?: AgentAuditSources;
 }
 
 interface HashedRecord {
@@ -251,16 +254,12 @@ export function planAgentRelease(input: {
         primary: runtime,
       };
     }
-    const stripped: AgentSource = { ...source };
-    delete stripped.hooks;
-    delete stripped.permissionMode;
-    const rendered = renderProducedAgent(stripped, 'claude-code');
     return {
-      files: [{ adapter: 'claude-plugin', path: runtime, content: rendered.content }],
+      files: [{ adapter: 'claude-plugin', path: runtime, content: input.draftText }],
       deployable: { 'claude-plugin': true },
       host_notes: {
         'claude-plugin': [
-          'hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks',
+          'released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks',
         ],
       },
       proposals: [],
@@ -556,9 +555,7 @@ export function runAgentRelease(
   }
   const overrides = readOverrides(workspace);
   const overridden = new Set(overrides.map((entry) => entry.gate));
-  const lint = lintAgentInProject(projectRoot, workspace.path(draft), {
-    hookScriptRoot: workspace.path(DRAFT_DIR),
-  });
+  const lint = lintAgentDraft(workspace, options.agentSources, 'Release');
   if (lint.blocking > 0) {
     throw new AuthoringRefusal(
       `Release refused: the agent has ${lint.blocking} blocking lint finding(s) (${[
@@ -598,7 +595,14 @@ export function runAgentRelease(
   }
 
   const draftText = workspace.read(draft)!;
-  const source = parseAgentSource(draftText);
+  const template = draftIsTemplate(workspace);
+  const source: AgentSource = template
+    ? {
+        name: workspace.name,
+        description: `Stage-agent template rendered for ${(readAgentDraftSource(workspace)?.rendered ?? []).join(', ')}`,
+        body: draftText,
+      }
+    : parseAgentSource(draftText);
   if (source.name !== workspace.name) {
     throw new AuthoringRefusal(
       `Release refused: the draft frontmatter names "${source.name}", but the agent is ${workspace.name}. Set name: ${workspace.name} in ${workspace.relPath(draft)} and rerun paqad-ai agent test ${workspace.name}.`,
@@ -611,6 +615,15 @@ export function runAgentRelease(
     lint,
     adapters: enabledAdapters(projectRoot),
   });
+  const inPlace = runtimeAgentSource(workspace);
+  if (inPlace !== null) {
+    const current = readBytesIfPresent(join(projectRoot, inPlace));
+    if (current === null || !current.equals(Buffer.from(draftText))) {
+      throw new AuthoringRefusal(
+        `Release refused: ${inPlace} changed after S3 drafted it, and the release target is that same file. Rerun paqad-ai agent draft ${workspace.name} --file ${inPlace} and the stages after it.`,
+      );
+    }
+  }
   const trackedDir = `${AGENT_TRACKED_ROOT}/${workspace.name}`;
   const evidencePath = `${trackedDir}/evidence.json`;
   const sdkPath = `${trackedDir}/${workspace.name}${SDK_FORM_SUFFIX}`;
@@ -630,7 +643,7 @@ export function runAgentRelease(
       ? (previous.version ?? '1.0.0')
       : nextVersion(previous?.version ?? null, options.version);
   const labels = overrides.length > 0 ? [UNVERIFIED_LABEL] : [];
-  const evidence = buildAgentEvidence({
+  const built = buildAgentEvidence({
     workspace,
     intake: readAgentIntake(workspace),
     version,
@@ -644,14 +657,20 @@ export function runAgentRelease(
     maxBudgetUsd: sdkRunOptions(config).maxBudgetUsd,
     autoMemoryOff: memoryOff,
   });
+  const evidence: AgentEvidence = template
+    ? { ...built, sdk: null, rendered: readAgentDraftSource(workspace)?.rendered ?? [] }
+    : built;
 
   const lines: string[] = [];
   const changed: string[] = [];
-  for (const file of plan.files) {
-    if (writeIfChanged(projectRoot, file.path, file.content)) changed.push(file.path);
+  if (inPlace === null) {
+    for (const file of plan.files) {
+      if (writeIfChanged(projectRoot, file.path, file.content)) changed.push(file.path);
+    }
   }
   changed.push(...writeHookScripts(workspace));
   if (
+    !template &&
     writeIfChanged(
       projectRoot,
       sdkPath,
@@ -681,8 +700,11 @@ export function runAgentRelease(
       ? `${workspace.name} ${version} is already released with this content; nothing changed.`
       : unchanged && changed.length === 1 && changed[0] === evidencePath
         ? `${workspace.name} ${version} is unchanged; its evidence in ${evidencePath} was rewritten from the recorded gates.`
-        : `Released ${workspace.name} ${version} into ${plan.files.map((file) => file.path).join(', ') || 'no host folder'}; the SDK form is ${sdkPath} and the evidence is ${evidencePath}.`,
+        : `Released ${workspace.name} ${version} into ${plan.files.map((file) => file.path).join(', ') || 'no host folder'}; ${template ? 'a template has no SDK form' : `the SDK form is ${sdkPath}`} and the evidence is ${evidencePath}.`,
   );
+  if (inPlace !== null) {
+    lines.push(`The draft came from ${inPlace}, so it was released in place and left unchanged.`);
+  }
   lines.push(...plan.proposals);
   if (plan.plugin !== null && plan.plugin.settings_hooks.length > 0) {
     lines.push(
@@ -719,11 +741,15 @@ export function runAgentRelease(
     version,
     paths: plan.files.map((file) => file.path),
     evidence: evidencePath,
-    sdk: sdkPath,
+    sdk: template ? null : sdkPath,
   });
   return {
     ok: true,
-    artifacts: [...plan.files.map((file) => file.path), sdkPath, evidencePath],
+    artifacts: [
+      ...plan.files.map((file) => file.path),
+      ...(template ? [] : [sdkPath]),
+      evidencePath,
+    ],
     lines,
   };
 }
