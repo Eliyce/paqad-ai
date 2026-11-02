@@ -68,35 +68,78 @@ describe('stage-agent definitions', () => {
     expect(body).toContain('paused: D-<id>');
   });
 
-  it('the claude-code body leaves the hard rules to the SubagentStart brief, codex keeps them', () => {
+  it('every body uses the authoring headings in order and carries the BLOCKED report shape', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      for (const host of ['claude-code', 'codex-cli']) {
+        const body = buildStageAgentBody(def, host);
+        const headings = body.split('\n').filter((line) => line.startsWith('## '));
+        expect(headings).toEqual([
+          '## Objective',
+          '## Procedure',
+          '## Report',
+          '## Stop when',
+          '## Do not',
+          '## Example',
+        ]);
+        for (const line of ['Status: BLOCKED', 'Decision needed:', 'Options:']) {
+          expect(body).toContain(line);
+        }
+      }
+    }
+  });
+
+  it('the claude-code Do not section states what the hooks enforce, codex keeps the hard rules', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const claude = buildStageAgentBody(def, 'claude-code');
-      expect(claude).toContain('framework-path.txt');
       expect(claude).toContain(`stage start ${def.ledgerStage}`);
-      expect(claude).not.toContain('## Hard rules');
       expect(claude).not.toContain(STAGE_AGENT_HARD_RULES[0]);
+      const doNot = claude.slice(claude.indexOf('## Do not'), claude.indexOf('## Example'));
+      expect(doNot).toContain(
+        'Do not ask the human. The SubagentStop check holds a stage that asked',
+      );
+      expect(doNot).toContain('Do not write into a feature bundle directory by hand');
+      expect(doNot).toContain('Do not skip a stage verb');
+      expect(doNot.includes('The write guard blocks file writes from Bash')).toBe(
+        !def.claudeTools.includes('Edit'),
+      );
       const codex = buildStageAgentBody(def, 'codex-cli');
-      expect(codex).toContain('## Hard rules');
-      for (const line of STAGE_AGENT_HARD_RULES) expect(codex).toContain(line);
+      const codexDoNot = codex.slice(codex.indexOf('## Do not'), codex.indexOf('## Example'));
+      for (const line of STAGE_AGENT_HARD_RULES) expect(codexDoNot).toContain(line);
     }
   });
 
   it('the claude-code body points at the stage brief and keeps the fallback and marker sentence', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'claude-code');
-      expect(body).toContain('## Your stage brief');
       expect(body).toContain(STAGE_BRIEF_FALLBACK_LINE);
-      expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join('\n'));
-      expect(body).not.toContain('## Load the framework first');
+      expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
+      expect(body).not.toContain('.paqad/.agent-entry-loaded');
       expect(buildStageAgentBody(def)).toBe(body);
     }
   });
 
-  it('the codex-cli body keeps the load-the-framework section', () => {
+  it('the codex-cli body loads the framework itself instead of pointing at a stage brief', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'codex-cli');
-      expect(body).toContain('## Load the framework first');
-      expect(body).not.toContain('## Your stage brief');
+      expect(body).toContain('load and follow `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md`');
+      expect(body).toContain('.paqad/session/agent-entry/');
+      expect(body).not.toContain(STAGE_BRIEF_FALLBACK_LINE);
+    }
+  });
+
+  it('names the stage verb and the stage end command of each stage', () => {
+    const verbs: Record<string, string> = {
+      planning: 'paqad-ai plan compile',
+      specification: 'paqad-ai spec freeze',
+      development: 'paqad-ai rules load',
+      review: 'paqad-ai review record',
+      checks: 'paqad-ai checks run',
+      documentation_sync: 'paqad-ai stage end documentation_sync',
+    };
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const body = buildStageAgentBody(def, 'claude-code');
+      expect(body).toContain(verbs[def.ledgerStage]);
+      expect(body).toContain(`paqad-ai stage end ${def.ledgerStage}`);
     }
   });
 
