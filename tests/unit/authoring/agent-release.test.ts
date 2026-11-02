@@ -409,6 +409,17 @@ describe('paqad-ai agent release (S7)', () => {
     expect(record.files).toEqual([{ path: plugin, hash: hashAgentFile(root, plugin) }]);
   });
 
+  it('refuses an in-place release when the plugin agent file is missing', async () => {
+    put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    const workspace = await ready(agentText({}, PORTABLE_BODY));
+    const plugin = `runtime/claude-plugin/agents/${AGENT_NAME}.md`;
+    workspace.writeJson('draft-source.json', { file: plugin, hook_scripts: [] });
+    expect(() => release(workspace)).toThrow(
+      new RegExp(`${plugin} changed after S3 drafted it`, 'u'),
+    );
+    expect(existsSync(join(root, plugin))).toBe(false);
+  });
+
   it('refuses an in-place release when the plugin agent changed after the draft', async () => {
     put(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
     const text = agentText({}, PORTABLE_BODY);

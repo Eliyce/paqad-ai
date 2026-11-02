@@ -59,13 +59,20 @@ export function readAgentDraftSource(workspace: AuthoringWorkspace): AgentDraftS
   };
 }
 
+export function draftedRenderNames(workspace: AuthoringWorkspace): string[] {
+  return readAgentDraftSource(workspace)?.rendered ?? [];
+}
+
 export function draftIsTemplate(workspace: AuthoringWorkspace): boolean {
   const file = readAgentDraftSource(workspace)?.file;
   return file !== undefined && isAgentTemplatePath(file);
 }
 
 export function templateStem(file: string): string {
-  return (file.split('/').at(-1) ?? '').replace(/\.hbs$/u, '').replace(/\.[^.]+$/u, '');
+  return file
+    .slice(file.lastIndexOf('/') + 1)
+    .replace(/\.hbs$/u, '')
+    .replace(/\.[^.]+$/u, '');
 }
 
 export function renderTemplateDraft(
@@ -267,6 +274,21 @@ export function runAgentDraft(workspace: AuthoringWorkspace, input: AgentDraftIn
     ],
     [trace, ...artifacts],
   );
+}
+
+export function changedTemplateRenders(
+  workspace: AuthoringWorkspace,
+  sources: AgentAuditSources | undefined,
+  stage: string,
+): string[] {
+  const source = readAgentDraftSource(workspace)!;
+  const rendered = renderTemplateDraft(source.file, sources, stage);
+  const drafted = draftedRenderNames(workspace);
+  const changed = rendered
+    .filter((agent) => workspace.read(`${RENDERED_DIR}/${agent.name}.md`) !== agent.content)
+    .map((agent) => agent.name);
+  const gone = drafted.filter((name) => !rendered.some((agent) => agent.name === name));
+  return [...new Set([...changed, ...gone])].sort();
 }
 
 function runTemplateDraft(

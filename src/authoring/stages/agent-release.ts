@@ -44,7 +44,13 @@ import {
   type OverrideRecord,
   validateAgentName,
 } from '../workspace.js';
-import { agentDraftFile, draftIsTemplate, readAgentDraftSource } from './agent-draft.js';
+import {
+  agentDraftFile,
+  changedTemplateRenders,
+  draftedRenderNames,
+  draftIsTemplate,
+  readAgentDraftSource,
+} from './agent-draft.js';
 import { AGENT_S5_TASK_TYPE, readAgentIntake, type AgentIntake } from './agent-intake.js';
 import {
   agentTestInputsHash,
@@ -52,6 +58,7 @@ import {
   draftAgentHashWithoutDescription,
   draftHookScripts,
   lintAgentDraft,
+  PLUGIN_AGENT_PATH,
 } from './agent-test.js';
 import { DRAFT_DIR } from './draft.js';
 import { DELEGATION_RESULTS_FILE } from './delegation.js';
@@ -60,7 +67,7 @@ import type { StageResult } from './result.js';
 import { readWorkspaceSources } from './sources.js';
 import { RISKY_FILE } from './test.js';
 
-export const PLUGIN_AGENT_ROOT = 'runtime/claude-plugin/agents/';
+export const PLUGIN_AGENT_ROOT = PLUGIN_AGENT_PATH;
 export const SDK_FORM_SUFFIX = '.agent.json';
 export const AUTO_MEMORY_SETTING = 'autoMemoryEnabled';
 
@@ -599,7 +606,7 @@ export function runAgentRelease(
   const source: AgentSource = template
     ? {
         name: workspace.name,
-        description: `Stage-agent template rendered for ${(readAgentDraftSource(workspace)?.rendered ?? []).join(', ')}`,
+        description: `Stage-agent template rendered for ${draftedRenderNames(workspace).join(', ')}`,
         body: draftText,
       }
     : parseAgentSource(draftText);
@@ -615,6 +622,14 @@ export function runAgentRelease(
     lint,
     adapters: enabledAdapters(projectRoot),
   });
+  if (template) {
+    const changed = changedTemplateRenders(workspace, options.agentSources, 'Release');
+    if (changed.length > 0) {
+      throw new AuthoringRefusal(
+        `Release refused: the template now renders ${changed.join(', ')} differently from what S3 drafted. Rerun paqad-ai agent draft ${workspace.name} --file ${readAgentDraftSource(workspace)!.file} and the stages after it.`,
+      );
+    }
+  }
   const inPlace = runtimeAgentSource(workspace);
   if (inPlace !== null) {
     const current = readBytesIfPresent(join(projectRoot, inPlace));
@@ -658,7 +673,7 @@ export function runAgentRelease(
     autoMemoryOff: memoryOff,
   });
   const evidence: AgentEvidence = template
-    ? { ...built, sdk: null, rendered: readAgentDraftSource(workspace)?.rendered ?? [] }
+    ? { ...built, sdk: null, rendered: draftedRenderNames(workspace) }
     : built;
 
   const lines: string[] = [];

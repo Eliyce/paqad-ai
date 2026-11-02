@@ -13,6 +13,7 @@ import {
 } from '@/authoring/lint/audit.js';
 import {
   RENDERED_DIR,
+  draftedRenderNames,
   readAgentDraftSource,
   runAgentDraft,
 } from '@/authoring/stages/agent-draft.js';
@@ -78,10 +79,13 @@ function sources(contents: string[] = rendered()): AgentAuditSources {
   };
 }
 
-function workspaceFor(name: string): AgentWorkspace {
+function workspaceFor(
+  name: string,
+  intake: Record<string, unknown> = AGENT_INTAKE,
+): AgentWorkspace {
   const workspace = new AgentWorkspace(root, name);
   passGate(workspace, 'justification.md', 'S0');
-  workspace.write('intake.yaml', YAML.stringify(AGENT_INTAKE));
+  workspace.write('intake.yaml', YAML.stringify(intake));
   workspace.write('sources.md', AGENT_SOURCES);
   passGate(workspace, 'overlap.md', 'S2');
   return workspace;
@@ -153,6 +157,41 @@ describe('agent draft of a stage-agent template', () => {
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toContain('paqad-one: the body headings: missing ## Stop when');
     expect(result.lines[0]).toContain('paqad-two: the body headings: missing ## Stop when');
+  });
+
+  it('lists no drafted render for an ordinary agent draft', () => {
+    const workspace = workspaceFor('claude');
+    workspace.writeJson('draft-source.json', {
+      file: '.claude/agents/claude.md',
+      hook_scripts: [],
+    });
+    expect(draftedRenderNames(workspace)).toEqual([]);
+  });
+
+  it('refuses a template that renders no agent', () => {
+    const workspace = workspaceFor('claude');
+    const none: AgentAuditSources = { renderTemplate: () => [], dispatched: new Set() };
+    expect(() => draft(workspace, none)).toThrow(/renders no agent/u);
+  });
+
+  it('refuses a template given a memory file', () => {
+    const workspace = workspaceFor('claude', { ...AGENT_INTAKE, memory: 'candidate' });
+    expect(() =>
+      runAgentDraft(workspace, {
+        file: TEMPLATE,
+        traceText: AGENT_TRACE,
+        memoryText: '# Memory\n',
+        agentSources: sources(),
+      }),
+    ).toThrow(/a stage-agent template gets no MEMORY.md/u);
+  });
+
+  it('fails S3 on a render with no valid frontmatter', () => {
+    const workspace = workspaceFor('claude');
+    const result = draft(workspace, sources(['no frontmatter here\n', rendered()[1]!]));
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toContain('paqad-one: the rendered agent has no valid frontmatter');
+    expect(result.lines[0]).not.toContain('paqad-two:');
   });
 
   it('refuses a template with no renderer, and a template of another agent', () => {
@@ -238,6 +277,28 @@ describe('agent release of a stage-agent template', () => {
       runAgentRelease(workspace, { sessionId, now: NOW, agentSources: sources() }),
     ).toThrow(/changed after S3 drafted it/u);
     expect(readFileSync(join(root, TEMPLATE), 'utf8')).toBe(`${TEMPLATE_TEXT}edited\n`);
+  });
+
+  it('refuses when a render changed after the draft, even with the template bytes unchanged', async () => {
+    const workspace = workspaceFor('claude');
+    await throughS6(workspace);
+    const drifted = sources([rendered()[0]!, `${rendered()[1]!}\nOne more line.\n`]);
+    expect(() =>
+      runAgentRelease(workspace, { sessionId, now: NOW, agentSources: drifted }),
+    ).toThrow(/the template now renders paqad-two differently from what S3 drafted/u);
+    expect(readAgentRecord(root, dir, 'claude')).toBeNull();
+  });
+
+  it('refuses when a drafted render is gone', async () => {
+    const workspace = workspaceFor('claude');
+    await throughS6(workspace);
+    const fewer: AgentAuditSources = {
+      renderTemplate: (path) => sources().renderTemplate(path).slice(0, 1),
+      dispatched: new Set(),
+    };
+    expect(() => runAgentRelease(workspace, { sessionId, now: NOW, agentSources: fewer })).toThrow(
+      /renders paqad-two differently/u,
+    );
   });
 
   it('refuses a template release with no renderer', async () => {
