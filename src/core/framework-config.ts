@@ -362,8 +362,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Claude Code plugin migration',
     comment:
       'auto | plugin | settings — per-project override of the plugin migration. settings never ' +
-      'migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is ' +
-      'off; auto follows plugin_migration.',
+      'migrates (stay on npm hooks); set in a tracked configs file it also keeps the plugin out of ' +
+      'the shared .claude/settings.json. plugin forces the migration even while plugin_migration ' +
+      'is off; auto follows plugin_migration.',
   },
 
   {
@@ -1494,6 +1495,11 @@ export function resolveTeamBootstrapEnabled(
 ): boolean {
   const raw = layeredConfigMap(projectRoot, env).get('team_bootstrap_enabled');
   return raw === undefined || !FALSY.has(raw.trim().toLowerCase());
+}
+
+export function teamSetsInstallModeSettings(projectRoot: string): boolean {
+  const raw = readConfigsDir(projectRoot).merged.get('claude_install_mode');
+  return raw?.trim().toLowerCase() === 'settings';
 }
 
 export interface PluginMigrationConfig {

@@ -1,7 +1,10 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
+import {
+  resolveTeamBootstrapEnabled,
+  teamSetsInstallModeSettings,
+} from '@/core/framework-config.js';
 import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
@@ -128,7 +131,10 @@ function settingsCarryTeamSetup(projectRoot: string): boolean {
     return false;
   }
   const enabled = (parsed as { enabledPlugins?: Record<string, unknown> } | null)?.enabledPlugins;
-  return raw.includes(TEAM_LAUNCHER_MARK) && enabled?.[PLUGIN_ID] !== undefined;
+  return (
+    raw.includes(TEAM_LAUNCHER_MARK) &&
+    (enabled?.[PLUGIN_ID] !== undefined || teamSetsInstallModeSettings(projectRoot))
+  );
 }
 
 export function teamSetupMissing(projectRoot: string): boolean {

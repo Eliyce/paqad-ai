@@ -69,7 +69,7 @@
 # ── Claude Code plugin migration ────────────────────────────
 # on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin automatically in the background. Default off until manual sign-off; Claude Code only, npm is never removed and stays the fallback. (env: PAQAD_PLUGIN_MIGRATION)
 # plugin_migration=off
-# auto | plugin | settings — per-project override of the plugin migration. settings never migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is off; auto follows plugin_migration. (env: PAQAD_CLAUDE_INSTALL_MODE)
+# auto | plugin | settings — per-project override of the plugin migration. settings never migrates (stay on npm hooks); set in a tracked configs file it also keeps the plugin out of the shared .claude/settings.json. plugin forces the migration even while plugin_migration is off; auto follows plugin_migration. (env: PAQAD_CLAUDE_INSTALL_MODE)
 # claude_install_mode=auto
 
 # ── Intelligence / RAG ──────────────────────────────────────
