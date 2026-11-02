@@ -1,5 +1,7 @@
 import { existsSync } from 'node:fs';
 
+import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
+
 import {
   hashAgentFile,
   hashAgentText,
@@ -178,9 +180,36 @@ function permissionGate(
   };
 }
 
+export const PLUGIN_AGENT_PATH = 'runtime/claude-plugin/agents/';
+export const PLUGIN_IGNORED_FIELDS = ['hooks', 'mcpServers', 'permissionMode'] as const;
+
+export function pluginIgnoredFields(workspace: AuthoringWorkspace): string[] {
+  const file = readAgentDraftSource(workspace)?.file;
+  if (file === undefined || !file.startsWith(PLUGIN_AGENT_PATH)) return [];
+  const split = splitSkillFrontmatter(workspace.read(agentDraftFile(workspace)) ?? '');
+  if (!split.ok) return [];
+  return PLUGIN_IGNORED_FIELDS.filter((field) => split.data[field] !== undefined);
+}
+
 export async function runAgentTest(
   workspace: AuthoringWorkspace,
   options: AgentTestOptions = {},
+): Promise<StageResult> {
+  const result = await runAgentTestGate(workspace, options);
+  const ignored = pluginIgnoredFields(workspace);
+  if (ignored.length === 0) return result;
+  return {
+    ...result,
+    lines: [
+      `Warning: ${workspace.name} is a plugin agent and declares ${ignored.join(', ')}, which Claude Code ignores for plugin agents. Move the rule into a SubagentStart or SubagentStop settings hook.`,
+      ...result.lines,
+    ],
+  };
+}
+
+async function runAgentTestGate(
+  workspace: AuthoringWorkspace,
+  options: AgentTestOptions,
 ): Promise<StageResult> {
   requireEarlierGates(workspace, 'S4');
   const projectRoot = workspace.projectRoot;

@@ -10,6 +10,7 @@ import {
   draftAgentHash,
   draftAgentHashWithoutDescription,
   draftHookScripts,
+  pluginIgnoredFields,
   readPermissionIds,
   runAgentTest,
 } from '@/authoring/stages/agent-test.js';
@@ -231,5 +232,52 @@ describe('agent test (S4) draft hashes', () => {
     const workspace = agentThrough('S4');
     expect(draftHookScripts(workspace)).toEqual([]);
     expect(draftAgentHashWithoutDescription(workspace)).toMatch(/^sha256:/u);
+  });
+});
+
+describe('agent test (S4) on a plugin agent', () => {
+  async function tested(file: string, extra: Record<string, string>) {
+    const workspace = agentThrough('S4');
+    put(
+      workspace.projectRoot,
+      '.paqad/project-profile.yaml',
+      YAML.stringify({ commands: { test: 'npm test' } }),
+    );
+    put(workspace.projectRoot, file, agentText(extra));
+    runAgentDraft(workspace, { file, traceText: AGENT_TRACE });
+    const result = await runAgentTest(workspace, {
+      runTests: async () => ({ exitCode: 0, failedTests: null }),
+    });
+    return { workspace, result };
+  }
+
+  it('warns, without blocking, when a plugin agent declares fields Claude Code ignores there', async () => {
+    const extra = { mcpServers: '\n  - github' };
+    const plugin = await tested('runtime/claude-plugin/agents/migration-reviewer.md', extra);
+    const project = await tested(FILE, extra);
+    expect(pluginIgnoredFields(plugin.workspace)).toEqual(['mcpServers']);
+    expect(plugin.result.lines[0]).toBe(
+      'Warning: migration-reviewer is a plugin agent and declares mcpServers, which Claude Code ignores for plugin agents. Move the rule into a SubagentStart or SubagentStop settings hook.',
+    );
+    expect(plugin.result.ok).toBe(project.result.ok);
+    expect(plugin.result.lines.slice(1)).toEqual(project.result.lines);
+    expect(pluginIgnoredFields(project.workspace)).toEqual([]);
+  });
+
+  it('gives no warning for a plugin agent with none of those fields', async () => {
+    const plugin = await tested('runtime/claude-plugin/agents/migration-reviewer.md', {});
+    expect(pluginIgnoredFields(plugin.workspace)).toEqual([]);
+    expect(plugin.result.lines.join('\n')).not.toContain('Warning:');
+  });
+
+  it('reads no ignored field from a plugin draft that is missing or has no valid frontmatter', () => {
+    const workspace = agentThrough('S4');
+    workspace.writeJson('draft-source.json', {
+      file: 'runtime/claude-plugin/agents/migration-reviewer.md',
+      hook_scripts: [],
+    });
+    expect(pluginIgnoredFields(workspace)).toEqual([]);
+    workspace.write('draft/migration-reviewer.md', 'no frontmatter\n');
+    expect(pluginIgnoredFields(workspace)).toEqual([]);
   });
 });
