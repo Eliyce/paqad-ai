@@ -60,7 +60,11 @@ describe('the team opt-out from the plugin', () => {
     expect(before.enabledPlugins).toEqual({ 'paqad@eliyce': true });
     writeConfig('.paqad/configs/.config.app', 'claude_install_mode=settings\n');
     const after = sharedSettings();
-    const { extraKnownMarketplaces: _m, enabledPlugins: _e, ...rest } = before;
+    const rest = Object.fromEntries(
+      Object.entries(before).filter(
+        ([key]) => key !== 'extraKnownMarketplaces' && key !== 'enabledPlugins',
+      ),
+    );
     expect(after).toEqual(rest);
     expect(Object.keys(after)).toEqual(Object.keys(rest));
   });
