@@ -4,7 +4,11 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
-import { featureRecordIsUntitled, readFeatureRecord, updateFeatureRecord } from './feature-record.js';
+import {
+  featureRecordIsUntitled,
+  readFeatureRecord,
+  updateFeatureRecord,
+} from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';

@@ -12,7 +12,9 @@ import {
   splitFrontMatter,
   textHashMatches,
 } from '@/feature-evidence/envelope.js';
+import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
+import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import {
   BUNDLE_MANIFEST,
   FAST_LANE_REFREEZE_HINT,
@@ -47,6 +49,7 @@ import {
 } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
 import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -145,6 +148,7 @@ interface GateState {
   preSwitchSkipped: string[];
   isolationUnverified: boolean;
   skillLines: string[];
+  splitNote: string;
 }
 
 export function bundleCompletenessGate(
@@ -175,6 +179,7 @@ export function bundleCompletenessGate(
     preSwitchSkipped: [],
     isolationUnverified: false,
     skillLines: [],
+    splitNote: '',
   };
 
   try {
@@ -206,6 +211,7 @@ export function bundleCompletenessGate(
     assertStageAgentRows(input, dirName, state);
     assertSkillRecords(input, dirName, state);
     assertAgentRecords(input, dirName, state);
+    assertNotSplit(input, dirName, state);
     /* v8 ignore start -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {}
@@ -223,6 +229,38 @@ export function recheckAfterReceiptSeal(
     return gate;
   }
   return bundleCompletenessGate({ ...input, receiptPending: false });
+}
+
+const THINKING_STAGES: ReadonlySet<string> = new Set(['planning', 'specification', 'review']);
+
+function holdsRecordedWork(rows: readonly SessionLedgerRow[], sessionId?: string): boolean {
+  return rows.some(
+    (row) =>
+      (sessionId === undefined || row.session_id === sessionId) &&
+      (row.stage === 'development' ||
+        (row.kind === 'stage_end' &&
+          typeof row.stage === 'string' &&
+          THINKING_STAGES.has(row.stage) &&
+          typeof row.artifact_digest === 'string')),
+  );
+}
+
+function assertNotSplit(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (holdsRecordedWork(readFeatureStageUnit(input.projectRoot, dirName))) return;
+  const others = listInFlightFeatures(input.projectRoot).filter(
+    (other) =>
+      other !== dirName &&
+      holdsRecordedWork(readFeatureStageUnit(input.projectRoot, other), input.sessionId),
+  );
+  if (others.length === 0) return;
+  state.splitNote =
+    ` This session also has unfinished work in ${others.join(', ')}, which this check did not ` +
+    `judge, so ${dirName} may hold only part of the change. Go back to that work with ` +
+    `\`paqad-ai resume --feature ${others[0]}\`.`;
 }
 
 function assertSkillRecords(
@@ -459,7 +497,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
   if (state.missing.length > 0) {
     const named = state.missing.map((m) => `${m.file} (run: ${m.writer})`).join('; ');
     const skillNote = state.skillLines.length > 0 ? `${state.skillLines.join(' ')} ` : '';
-    const detail = `${skillNote}The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
+    const detail = `${skillNote}The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${state.splitNote}${skipNote}`;
     const remediation = `Produce the missing bundle file(s): ${named}.`;
     if (mode === 'strict') {
       return { name: GATE_NAME, status: 'fail', detail, remediation, failures: [] };
@@ -467,7 +505,12 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     return { name: GATE_NAME, status: 'inconclusive', detail, remediation, failures: [] };
   }
 
-  if (state.backfilled.length > 0 || state.ragMissing || state.isolationUnverified) {
+  if (
+    state.backfilled.length > 0 ||
+    state.ragMissing ||
+    state.isolationUnverified ||
+    state.splitNote
+  ) {
     const ragNote = state.ragMissing
       ? ' rag.jsonl is absent (no bundle or _chat retrieval row); RAG evidence is unrecoverable.'
       : '';
@@ -476,10 +519,13 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
         'could not confirm its stages ran isolated. Set the real lane with `paqad-ai lane set ' +
         '<lane>` (isolation is checked on the lanes in stage_isolation_lanes).'
       : '';
+    const lead = state.splitNote
+      ? 'Bundle present but the change may be split.'
+      : 'Bundle present but not fully live-recorded.';
     return {
       name: GATE_NAME,
       status: 'inconclusive',
-      detail: `Bundle present but not fully live-recorded.${backfillNote}${ragNote}${isolationNote}${skipNote}`,
+      detail: `${lead}${backfillNote}${ragNote}${isolationNote}${state.splitNote}${skipNote}`,
       remediation: null,
       failures: [],
     };
