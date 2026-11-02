@@ -194,6 +194,7 @@ describe('bundleCompletenessGate verdict', () => {
     });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('no title and no ticket');
+    expect(gate!.detail).toContain('paqad-ai feature title');
   });
 
   it('reports flag-off files as skipped, never failed (AC-7)', () => {

@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFeatureCommand } from '@/cli/commands/feature.js';
 import { createProgram } from '@/cli/program.js';
 import { featureDir } from '@/feature-evidence/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('paqad-ai feature command', () => {
   let root: string;
@@ -108,6 +109,37 @@ describe('paqad-ai feature command', () => {
     await run('prune', '--keep', 'lots');
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('--keep must be');
+  });
+
+  it('title names the active untitled change in place and leaves one bundle', async () => {
+    const dir = openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    expect(dir.startsWith('change-')).toBe(true);
+    const lines = await run('title', 'Add subtract to math', '--issue', '77');
+    const titled = '77-add-subtract-to-math-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    expect(lines.some((l) => l.includes(`"feature":"${titled}"`))).toBe(true);
+    expect(currentFeature(root, SES)).toBe(titled);
+    expect(readFeatureRecord(root, titled)?.title).toBe('Add subtract to math');
+    expect(existsSync(join(root, featureDir(dir)))).toBe(false);
+  });
+
+  it('title refuses a change that already has a title', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', title: 'Route first', issue: '339' });
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    await run('title', 'Something else');
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('already has a title');
+  });
+
+  it('title refuses when this session has no active change', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    await run('title', 'Something');
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('no active change');
   });
 
   it('export flags stray files in the bundle on stderr', async () => {

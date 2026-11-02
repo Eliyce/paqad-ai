@@ -300,7 +300,7 @@ function assertRequired(
         state.missing.push({
           file: `${entry.file} (no title and no ticket)`,
           writer:
-            'paqad-ai plan compile (the plan title names the change), or stage start planning --title',
+            'paqad-ai feature title "<what this change builds>" (titles this bundle in place)',
         });
         return;
       }
