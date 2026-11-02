@@ -90,6 +90,18 @@ Source directories owned by this feature:
   later update once that change closed; a failure (a locked file on Windows) is a warning.
 - When the Claude Code plugin is installed it owns the Claude hooks and the stage agents, so the
   npm updater skips them and nothing is wired twice.
+- The candidate build runs onboarding in a temp root with `interactive: false`, so `update` never
+  asks a question, even in a terminal. A field it does not pass falls back to the saved profile
+  and detection, never to a prompt. Before this, a person running `update` by hand got the full
+  onboarding questions, and the answers decided which stack and providers were written.
+- The temp onboarding gets every provider the project was set up for, from
+  `deriveRecordedProviders`: the manifest's saved `providers`, or, for a manifest written before
+  that key existed, every provider whose entry file is among the generated artifacts. A project
+  with no manifest renders Claude Code. Without this, `update` refreshed only Claude Code's files
+  and every other host's files went stale.
+- After writing the files, `update` writes `providers` back into
+  `.paqad/onboarding-manifest.json` and leaves `adapter` and every other field as they were, so
+  the next run reads the list directly.
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
 - Config is reconciled by pruning only keys this version no longer knows; every value the team set

@@ -70,6 +70,7 @@ export interface OnboardingOptions {
   };
   onPhase1Complete?: (result: OnboardingOutput) => void;
   forceOverwrite?: boolean;
+  interactive?: boolean;
   workspacePolicy?: { project_creation_disabled?: boolean };
 }
 
@@ -79,6 +80,10 @@ export class OnboardingOrchestrator {
 ```
 
 `run` throws a `FrameworkError` with code `PROJECT_CREATION_DISABLED` when the workspace policy turns project creation off.
+
+`interactive: false` stops the provider, stack and RAG questions even when stdin and stdout are a terminal; missing selections fall back to the overrides and detection. `paqad-ai update` runs onboarding this way. Left unset, onboarding asks in a terminal as before.
+
+The manifest `run` writes (`OnboardingManifest`, `.paqad/onboarding-manifest.json`) carries `adapter`, the first selected provider, and `providers`, every selected provider in order.
 
 `OnboardingOutput` (`src/core/types/onboarding.ts`) carries `adapter`, `decision_pause_supported_adapters`, `generated_files`, `detected_modules`, `runtime_root`, `manifest_path`, `warnings`, `kept_files`, `drift_review_targets` and `reverted_framework_values`.
 
