@@ -325,11 +325,62 @@ let launcherHome = '';
   ],
 ];
 
+const STALE_AGENT_CASE = `
+describe('contract: a stale project stage agent does not double the dispatch', () => {
+  for (const route of ROUTES.slice(0, 2)) {
+    it(\`[\${route.name}] AC-21: one SubagentStart record and one stage-agent row for the plugin agent\`, async () => {
+      const root = freshRepo();
+      await recordPlanning(root, 'ses11', '567');
+      mkdirSync(join(root, '.claude/agents'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude/agents/paqad-development.md'),
+        '---\\nname: paqad-development\\ndescription: old onboarding copy\\n---\\n\\nOld body.\\n',
+      );
+      const transcript = join(root, 'sub11.jsonl');
+      writeFileSync(
+        transcript,
+        \`\${JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'work' } })}\\n\`,
+      );
+      const base = {
+        session_id: 'ses11',
+        cwd: root,
+        transcript_path: transcript,
+        agent_id: 'agent11',
+        agent_type: 'paqad:paqad-development',
+      };
+      const start = await runHook(
+        join(HOOKS, 'stage-agent-start.mjs'),
+        { ...base, hook_event_name: 'SubagentStart' },
+        route.env(root),
+      );
+      expect(start.exitCode).toBe(0);
+      const stop = await runHook(
+        SUBAGENT_COMPLETION,
+        { ...base, hook_event_name: 'SubagentStop' },
+        route.env(root),
+      );
+      expect(stop.exitCode).toBe(0);
+      const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+        .trim()
+        .split('\\n')
+        .map((line) => JSON.parse(line) as { kind?: string; event_status?: string; stage?: string })
+        .filter((row) => row.kind === 'stage-agent' && row.stage === 'development');
+      expect(rows.filter((row) => row.event_status === 'started')).toHaveLength(1);
+      expect(rows.filter((row) => row.event_status === 'completed')).toHaveLength(1);
+    });
+  }
+});
+`;
+
 function contractWithoutLauncherRoutes(source: string, required = true): string {
   let text = source;
   for (const [added, original] of LAUNCHER_ROUTE_ADDITIONS) {
     if (required) expect(text).toContain(added);
     text = text.replace(added, original);
+  }
+  if (required) {
+    expect(text.endsWith(STALE_AGENT_CASE)).toBe(true);
+    text = text.slice(0, -STALE_AGENT_CASE.length);
   }
   return text;
 }
@@ -353,7 +404,7 @@ function flatten(
 }
 
 describe('the stage enforcement guardrails', () => {
-  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes', (ctx) => {
+  it('AC-66: the stage enforcement contract test is unchanged from the base branch apart from the two launcher routes and the appended stale stage agent case', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     expect(printedCode(contractWithoutLauncherRoutes(working(CONTRACT)))).toEqual(
       printedCode(contractWithoutLauncherRoutes(atBase(CONTRACT), false)),
