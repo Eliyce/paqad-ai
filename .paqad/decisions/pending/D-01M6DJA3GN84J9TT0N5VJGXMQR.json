@@ -1,0 +1,35 @@
+{
+  "id": "D-01M6DJA3GN84J9TT0N5VJGXMQR",
+  "category": "authoring.risky_script",
+  "title": "The script scripts/probe-surfaces.sh in runtime-surface-probing does network. Allow it?",
+  "context": "A static scan found network in scripts/probe-surfaces.sh: line 19 (curl), line 29 (curl). Nothing in it has run yet.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow it",
+      "one_line_preview": "If you pick this, scripts/probe-surfaces.sh keeps that behaviour; any later edit to it asks again.",
+      "trade_off": "You give up: a skill whose scripts cannot touch the network, packages or files.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove that part",
+      "one_line_preview": "If you pick this, the risky part of scripts/probe-surfaces.sh is taken out before its tests run.",
+      "trade_off": "You give up: whatever that part did.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-02T07:24:19.349Z",
+  "status": "pending",
+  "change": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "decision_id": "D-01M6DJA3GN84J9TT0N5VJGXMQR",
+  "fingerprint": "sha256:5c5c184cbc38802e10808fb34e10175260597a54691e12f27b486d75be185e2a",
+  "question": "The script scripts/probe-surfaces.sh in runtime-surface-probing does network. Allow it?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6C9EFA7XZX6DXB3QPRXS7RH",
+  "ttl_until": "2026-12-02T07:24:19.349Z",
+  "invalidation_watch": []
+}
