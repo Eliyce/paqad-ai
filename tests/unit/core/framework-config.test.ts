@@ -491,6 +491,13 @@ describe('generateConfigsReadme — the team-override convention', () => {
       expect(readme).toContain(file);
     }
   });
+  it('explains the git-workflow folder', () => {
+    expect(readme).toContain('## git-workflow/');
+    expect(readme).toContain('No personal override applies');
+    expect(readme).toContain('# Added in paqad-ai <version>');
+    expect(readme).toContain('--no-verify');
+    expect(readme).toContain('make hotfix');
+  });
   it('states the never-reset / prune-only contract', () => {
     expect(readme.toLowerCase()).toContain('prune');
     expect(readme).toContain('never');

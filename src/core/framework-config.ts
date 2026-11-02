@@ -2025,6 +2025,21 @@ export function generateConfigsReadme(): string {
     '  that version leaves the example, these files and this README exactly as they are,',
     '  so a teammate on an older install never rewrites a newer checkout.',
     '',
+    '## git-workflow/',
+    '',
+    "`git-workflow/` holds this team's rules for tickets, branches, commits, pull requests",
+    "and how strictly they're checked, in five YAML files: `tickets.yaml`, `branches.yaml`,",
+    '`commits.yaml`, `pull-requests.yaml` and `enforcement.yaml`.',
+    '',
+    '- These files are YAML, not the `key=value` files above.',
+    "- No personal override applies: `../.config` and `PAQAD_*` env vars don't change them.",
+    '- `paqad-ai update` adds new settings with a `# Added in paqad-ai <version>` line and',
+    '  never changes a value you set.',
+    "- The commit-msg and pre-push hooks check people's commits and pushes;",
+    '  `git commit --no-verify` skips them.',
+    '- Changes go through the `git-workflow` skill. Ask your agent, for example "make hotfix',
+    '  branches start from main".',
+    '',
   ].join('\n');
 }
 
