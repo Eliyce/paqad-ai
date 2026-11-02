@@ -416,9 +416,16 @@ export function readTeamYamlKey(projectRoot, key) {
   return fromYamlWord(key, raw);
 }
 
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
+
+export function legacyTeamConfigReadable(today = new Date().toISOString().slice(0, 10)) {
+  return today <= LEGACY_TEAM_CONFIG_READ_UNTIL;
+}
+
 function readTeamKey(projectRoot, key) {
   const fromYaml = readTeamYamlKey(projectRoot, key);
-  return fromYaml !== undefined ? fromYaml : readKeyFromConfigsDir(projectRoot, key);
+  if (fromYaml !== undefined) return fromYaml;
+  return legacyTeamConfigReadable() ? readKeyFromConfigsDir(projectRoot, key) : undefined;
 }
 
 export function readLayeredKey(projectRoot, key, envName, env = process.env) {

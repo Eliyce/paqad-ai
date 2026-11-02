@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { legacyAfterWindowLines } from '@/core/team-config-report.js';
 import { VERSION } from '@/index.js';
 
 import { createAuditCommand } from './commands/audit.js';
@@ -128,6 +129,11 @@ export function createProgram(): Command {
   program.addCommand(createSkillCommand());
   program.addCommand(createAgentCommand());
 
+  program.hook('preAction', (_program, actionCommand) => {
+    const opts = actionCommand.opts<{ projectRoot?: string }>();
+    warnLegacyTeamConfig(opts.projectRoot ?? process.cwd());
+  });
+
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);
     if (!isHudRefreshVerb(commandPath)) return;
@@ -140,6 +146,12 @@ export function createProgram(): Command {
   });
 
   return program;
+}
+
+export function warnLegacyTeamConfig(projectRoot: string): void {
+  try {
+    for (const line of legacyAfterWindowLines(projectRoot)) process.stderr.write(`${line}\n`);
+  } catch {}
 }
 
 function commandPathOf(command: Command): string {

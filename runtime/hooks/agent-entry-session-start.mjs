@@ -14,6 +14,7 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { maybeSpawnViewRefresh } from './lib/feature-view-refresh.mjs';
+import { mergeSessionStartOutput } from './lib/session-start-output.mjs';
 
 function sourceFromStdin(input) {
   const parsed = parseHookPayload(input);
@@ -75,21 +76,38 @@ async function main(input) {
     });
   }
 
-  await announceMissingStageAgents(projectRoot);
+  const output = mergeSessionStartOutput(
+    await missingStageAgentsOutput(projectRoot),
+    await teamConfigNotice(projectRoot),
+  );
+  if (output) process.stdout.write(output);
 
   return 0;
 }
 
-async function announceMissingStageAgents(projectRoot) {
-  if (!process.env.CLAUDE_PROJECT_DIR || !isProjectOnboarded(projectRoot)) return;
+async function missingStageAgentsOutput(projectRoot) {
+  if (!process.env.CLAUDE_PROJECT_DIR || !isProjectOnboarded(projectRoot)) return null;
   try {
     const url = new URL('../../dist/stage-isolation/agent-availability.js', import.meta.url);
     const { stageDispatchStopHookOutput } = await import(url.href);
-    const output = stageDispatchStopHookOutput(projectRoot);
-    if (output) process.stdout.write(output);
+    return stageDispatchStopHookOutput(projectRoot);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendHooksLog(projectRoot, `session-start: stage agent check skipped: ${message}`);
+    return null;
+  }
+}
+
+async function teamConfigNotice(projectRoot) {
+  if (!isProjectOnboarded(projectRoot)) return null;
+  try {
+    const url = new URL('../../dist/core/team-config-report.js', import.meta.url);
+    const { teamConfigSessionStartText } = await import(url.href);
+    return teamConfigSessionStartText(projectRoot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: team settings check skipped: ${message}`);
+    return null;
   }
 }
 

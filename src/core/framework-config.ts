@@ -38,6 +38,8 @@ import { ESCALATION_MODES, RESEARCH_DEPTHS } from './types/project-profile.js';
 
 declare const __PKG_VERSION__: string;
 
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
+
 const EMBEDDING_PROVIDERS = ['local', 'openai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;

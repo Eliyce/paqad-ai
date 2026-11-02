@@ -17,6 +17,7 @@ export interface StandDownInput {
   localConfig: string | null;
   teamConfigs: ReadonlyArray<{ name: string; text: string }>;
   paqadYaml?: string | null;
+  today?: string;
   engine: { version: string; base?: string } | null;
 }
 
@@ -104,7 +105,13 @@ const PAQAD_YAML_PATHS: Readonly<Record<string, readonly string[]>> = {
 
 const BOOLEAN_WORDS = new Set([...ENV_TRUTHY, ...FALSY]);
 
-type LayeredInput = Pick<StandDownInput, 'localConfig' | 'teamConfigs' | 'paqadYaml'>;
+type LayeredInput = Pick<StandDownInput, 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>;
+
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
+
+function legacyReadable(input: LayeredInput): boolean {
+  return (input.today ?? new Date().toISOString().slice(0, 10)) <= LEGACY_TEAM_CONFIG_READ_UNTIL;
+}
 
 function yamlTeamValue(input: LayeredInput, key: string): string | undefined {
   const path = PAQAD_YAML_PATHS[key];
@@ -131,7 +138,7 @@ function layeredValue(input: LayeredInput, key: string, fromEnv: string | undefi
   const team = input.teamConfigs
     .filter((file) => /^\.config\..+/.test(file.name) && file.name !== '.config.example')
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  if (value === undefined) {
+  if (value === undefined && legacyReadable(input)) {
     for (const file of team) {
       const fromFile = readConfigKey(file.text, key);
       if (fromFile !== undefined) value = fromFile;
@@ -148,7 +155,7 @@ function isFalsy(value: string | undefined): boolean {
 }
 
 export function isPaqadOff(
-  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml'>,
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
 ) {
   const disabled = input.env.PAQAD_DISABLED;
   if (typeof disabled === 'string' && ENV_TRUTHY.has(disabled.trim().toLowerCase())) return true;
@@ -156,13 +163,13 @@ export function isPaqadOff(
 }
 
 export function isHudViewOff(
-  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml'>,
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
 ) {
   return isFalsy(layeredValue(input, 'hud_view', input.env.PAQAD_HUD_VIEW));
 }
 
 export function isChimeOn(
-  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml'>,
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
 ) {
   const value = layeredValue(input, 'hud_chime', input.env.PAQAD_HUD_CHIME);
   return value !== undefined && ENV_TRUTHY.has(value.trim().toLowerCase());

@@ -27,11 +27,22 @@ __paqad_log_unreadable_enabled() {
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${value}" >>"${dir}/hooks.log" 2>/dev/null || true
 }
 
+__paqad_today() {
+  date -u +%Y-%m-%d
+}
+
+__paqad_legacy_readable() {
+  local today
+  today=$(__paqad_today | tr -d '-')
+  [ -n "${today}" ] || return 0
+  [ "${today}" -le 20270201 ]
+}
+
 __paqad_resolve_enable() {
   local root="$1" value="" v dir f team=""
   dir="${root}/.paqad/configs"
   team=$(__paqad_read_yaml_enabled "${dir}/paqad.yaml")
-  if [ -d "${dir}" ] && [ -z "${team}" ]; then
+  if [ -d "${dir}" ] && [ -z "${team}" ] && __paqad_legacy_readable; then
     while IFS= read -r f; do
       [ -e "${f}" ] || continue
       v=$(__paqad_read_key "${f}" 'paqad_enable')

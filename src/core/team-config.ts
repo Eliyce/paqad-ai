@@ -12,7 +12,13 @@ import {
   type FrameworkConfigSpec,
 } from './framework-config.js';
 import { writeTeamConfigSchemas } from './team-config-schema.js';
-import { readLegacyTeamConfig, type LegacyCollision } from './team-config-legacy.js';
+import {
+  legacyBothLine,
+  legacyStillLine,
+  legacyTeamConfigReadable,
+  readLegacyTeamConfig,
+  type LegacyCollision,
+} from './team-config-legacy.js';
 import {
   checkYamlValue,
   fromYamlValue,
@@ -31,7 +37,8 @@ export const TEAM_CONFIG_READ_FILES: readonly TeamConfigFile[] = [
 ];
 
 export interface TeamConfigIssue {
-  file: TeamConfigFile;
+  file: TeamConfigFile | string;
+  kind?: 'invalid' | 'legacy';
   key?: string;
   path?: string;
   message: string;
@@ -149,11 +156,24 @@ export function readTeamConfig(projectRoot: string): TeamConfigRead {
       sources.set(spec.key, teamConfigPath(projectRoot, file));
     }
   }
+  if (!legacyTeamConfigReadable()) return { merged, collisions: [], sources, issues };
   const legacy = readLegacyTeamConfig(projectRoot);
   for (const [key, value] of legacy.merged) {
-    if (claimed.has(key)) continue;
+    const source = legacy.sources.get(key)!;
+    const oldFile = source.split(/[\\/]/u).pop()!;
+    if (claimed.has(key)) {
+      const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
+      issues.push({
+        file: oldFile,
+        key,
+        kind: 'legacy',
+        message: legacyBothLine(key, oldFile, spec.file),
+      });
+      continue;
+    }
     merged.set(key, value);
-    sources.set(key, legacy.sources.get(key)!);
+    sources.set(key, source);
+    issues.push({ file: oldFile, key, kind: 'legacy', message: legacyStillLine(key, oldFile) });
   }
   return { merged, collisions: legacy.collisions, sources, issues };
 }

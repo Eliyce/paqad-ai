@@ -17,6 +17,7 @@ export const WIN32_TEST_EXCLUDES = [
 export default defineConfig({
   define: {
     __PKG_VERSION__: JSON.stringify(pkg.version),
+    __PKG_RELEASE_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
   test: {
     globals: true,

@@ -50,6 +50,7 @@ export const REQUIRED_COPY_SCRIPTS = [
 const ENV_TRUTHY = ['1', 'true', 'yes', 'on'];
 const FALSY = ['false', '0', 'no', 'off'];
 const BOOLEAN_WORDS = ENV_TRUTHY.concat(FALSY);
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
 const SCRIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.mjs$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -200,7 +201,9 @@ function readTeamYamlKey(projectRoot, key) {
 
 export function readLayeredKey(projectRoot, key, envName, env) {
   let value = readTeamYamlKey(projectRoot, key);
-  if (value === undefined) value = readKeyFromConfigsDir(projectRoot, key);
+  if (value === undefined && new Date().toISOString().slice(0, 10) <= LEGACY_TEAM_CONFIG_READ_UNTIL) {
+    value = readKeyFromConfigsDir(projectRoot, key);
+  }
   const local = readKeyFromFile(join(projectRoot, '.paqad', '.config'), key);
   if (local !== undefined) value = local;
   const fromEnv = env[envName];
