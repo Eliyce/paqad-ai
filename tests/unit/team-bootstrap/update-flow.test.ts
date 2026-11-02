@@ -143,7 +143,7 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(SHARED_SETTINGS_NOTE.split('\n')).toHaveLength(1);
     expect(report.team_setup_notes.join('\n')).toContain('.claude/settings.json');
     expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
-    expect(report.team_setup_notes.join('\n')).not.toContain('.claude/agents/paqad-');
+    expect(report.team_setup_notes.join('\n')).toContain('.claude/agents/paqad-');
     expect(git('check-ignore', '-v', '.claude/settings.local.json')).toContain(
       '.claude/.gitignore',
     );
@@ -173,7 +173,7 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
       ],
     }).run(root);
     expect(readJson('.claude/settings.json').enabledPlugins).toEqual({ 'paqad@eliyce': true });
-    expect(existsSync(join(root, '.claude/agents'))).toBe(false);
+    expect(existsSync(join(root, '.claude/agents/paqad-development.md'))).toBe(true);
     expect(existsSync(join(root, '.claude/settings.hooks.json'))).toBe(false);
     expect(existsSync(join(home, '.claude/agents'))).toBe(false);
     expect(report.regenerated).toContain('.claude/settings.json');
@@ -237,10 +237,10 @@ describe('AC-24: no home path reaches a tracked file', () => {
       projectRoot: root,
       selections: { domain: 'coding', stack: 'laravel', providers: ['claude-code'] },
     });
-    expect(tracked()).toHaveLength(3);
+    expect(tracked()).toHaveLength(11);
     assertClean();
     await new FrameworkUpdater().run(root);
-    expect(tracked()).toHaveLength(3);
+    expect(tracked()).toHaveLength(11);
     assertClean();
   }, 120_000);
 });

@@ -6,7 +6,11 @@ import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { versionAtLeast } from '@/core/version-compare.js';
-import { migrateProjectStageAgents } from '@/onboarding/stage-agent-migration.js';
+import {
+  PROJECT_AGENTS_DIR,
+  migrateProjectStageAgents,
+  syncProjectStageAgents,
+} from '@/onboarding/stage-agent-migration.js';
 
 import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
 
@@ -98,6 +102,13 @@ export function syncTeamSetup(
   for (const file of teamOwnedFiles(version)) {
     syncOwnedFile(projectRoot, file, enabled, version, report);
   }
+  if (enabled) {
+    const agents = syncProjectStageAgents(projectRoot);
+    report.written.push(...agents.written);
+    report.kept.push(...agents.kept);
+    report.handEditedAgents = agents.kept;
+    return report;
+  }
   const agents = migrateProjectStageAgents(projectRoot);
   report.removed.push(...agents.removed);
   report.kept.push(...agents.kept);
@@ -128,12 +139,17 @@ export function teamSetupMissing(projectRoot: string): boolean {
 }
 
 export function teamTrackedPaths(): string[] {
-  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH];
+  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH, PROJECT_AGENTS_DIR];
 }
+
+const STAGE_AGENT_PATH = /^\.claude\/agents\/paqad-[a-z0-9-]+\.md$/u;
 
 function isTeamPath(path: string): boolean {
   return (
-    path === CLAUDE_SETTINGS_FILE || path === CLAUDE_GITIGNORE_FILE || path === TEAM_LAUNCHER_PATH
+    path === CLAUDE_SETTINGS_FILE ||
+    path === CLAUDE_GITIGNORE_FILE ||
+    path === TEAM_LAUNCHER_PATH ||
+    STAGE_AGENT_PATH.test(path)
   );
 }
 
@@ -166,7 +182,7 @@ export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): st
   const removedAgents = report.removed.filter((path) => path.startsWith('.claude/agents/'));
   if (removedAgents.length > 0) {
     notes.push(
-      `Removed the old paqad stage agents from .claude/agents, because the paqad plugin now provides them: ${removedAgents.join(', ')}.`,
+      `Removed the old paqad stage agents from .claude/agents, because team setup is off and the paqad plugin provides them; commit the removals: ${removedAgents.join(', ')}.`,
     );
   }
   if (handEdited.size > 0) {

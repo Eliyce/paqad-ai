@@ -454,14 +454,14 @@ describe('FrameworkUpdater', () => {
       expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
     });
 
-    it('writes no stage agent into the project', async () => {
+    it('writes the Claude stage agents into the project only while team setup is on', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
-      expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.claude/agents/paqad-development.md'))).toBe(true);
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
     });
 
-    it('writes no Claude stage agent anywhere when the plugin is installed', async () => {
+    it('writes no Claude home stage agent when the plugin is installed', async () => {
       const pluginsDir = join(userHome, '.claude/plugins');
       mkdirSync(pluginsDir, { recursive: true });
       writeFileSync(
@@ -473,7 +473,6 @@ describe('FrameworkUpdater', () => {
         generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
       }).run(projectRoot);
 
-      expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
     });
 

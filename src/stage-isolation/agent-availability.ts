@@ -6,10 +6,11 @@ import { installedPluginsPath, isPluginInstalled } from '@/health/plugin-install
 
 import { MANDATORY_STAGE_AGENTS } from './stage-agents.js';
 
-export type ClaudeStageAgentSource = 'plugin' | 'home';
+export type ClaudeStageAgentSource = 'plugin' | 'project' | 'home';
 
 export interface StageAgentAvailabilityOptions {
   homeDir?: string;
+  projectRoot?: string;
   pluginInstalled?: boolean;
 }
 
@@ -27,7 +28,8 @@ export function projectOnboardedForClaudeCode(projectRoot: string): boolean {
 export const STAGE_AGENT_MISSING_MESSAGE =
   '**▸ paqad** · stage agents are missing\n' +
   '> 🔴 Needs your attention — Claude Code has neither the paqad plugin agents nor a copy in ' +
-  '`~/.claude/agents/`, so a stage cannot be dispatched to its own agent. Install the paqad ' +
+  "this repo's `.claude/agents/` or in `~/.claude/agents/`, so a stage cannot be dispatched to " +
+  'its own agent. Install the paqad ' +
   'plugin (`/plugin install paqad@eliyce`) and start a new session. paqad stops here instead ' +
   'of running the stage in the main session.';
 
@@ -36,9 +38,9 @@ export const STAGE_AGENT_MISSING_CONTEXT =
   'own agent, stop and show the Developer this message instead of running the stage in the ' +
   `main session:\n\n${STAGE_AGENT_MISSING_MESSAGE}`;
 
-function homeCopyPresent(homeDir: string): boolean {
+function fullCopyPresent(root: string): boolean {
   return MANDATORY_STAGE_AGENTS.every((def) =>
-    existsSync(join(homeDir, '.claude', 'agents', `${def.agentName}.md`)),
+    existsSync(join(root, '.claude', 'agents', `${def.agentName}.md`)),
   );
 }
 
@@ -54,7 +56,8 @@ export function claudeStageAgentSource(
         : join(home, '.claude', 'plugins', 'installed_plugins.json'),
     );
   if (plugin) return 'plugin';
-  return homeCopyPresent(home) ? 'home' : null;
+  if (options.projectRoot !== undefined && fullCopyPresent(options.projectRoot)) return 'project';
+  return fullCopyPresent(home) ? 'home' : null;
 }
 
 export function stageDispatchStopMessage(
@@ -68,7 +71,7 @@ export function stageDispatchStopHookOutput(
   options: StageAgentAvailabilityOptions = {},
 ): string | null {
   if (!projectOnboardedForClaudeCode(projectRoot)) return null;
-  if (stageDispatchStopMessage(options) === null) return null;
+  if (stageDispatchStopMessage({ projectRoot, ...options }) === null) return null;
   return `${JSON.stringify({
     systemMessage: STAGE_AGENT_MISSING_MESSAGE,
     hookSpecificOutput: {

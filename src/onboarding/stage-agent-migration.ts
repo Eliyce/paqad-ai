@@ -1,5 +1,13 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, rmSync, writeFileSync, type Dirent } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  type Dirent,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -104,6 +112,36 @@ export function migrateProjectStageAgents(
     removed.push({ path: rel, reason });
   }
   if (removed.length > 0) recordRemovedStageAgents(projectRoot, removed);
+  return result;
+}
+
+export function syncProjectStageAgents(
+  projectRoot: string,
+  known: ReadonlySet<string> = knownGeneratedBodies(),
+): { written: string[]; kept: string[] } {
+  const result = { written: [] as string[], kept: [] as string[] };
+  const dir = join(projectRoot, PROJECT_AGENTS_DIR);
+  for (const { name, content } of renderStageAgentFiles('claude-code')) {
+    const rel = `${PROJECT_AGENTS_DIR}/${name}`;
+    const target = join(dir, name);
+    const wanted = withManagedMarker(content);
+    let existing: string | null = null;
+    try {
+      if (!lstatSync(target).isFile()) {
+        result.kept.push(rel);
+        continue;
+      }
+      existing = readFileSync(target, 'utf8');
+    } catch {}
+    if (existing === wanted) continue;
+    if (existing !== null && removalReason(existing, known) === null) {
+      result.kept.push(rel);
+      continue;
+    }
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(target, wanted, 'utf8');
+    result.written.push(rel);
+  }
   return result;
 }
 

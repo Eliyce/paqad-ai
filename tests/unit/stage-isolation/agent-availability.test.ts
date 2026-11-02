@@ -64,6 +64,23 @@ describe('Claude Code stage agent source', () => {
     expect(claudeStageAgentSource({ homeDir: home })).toBe('plugin');
   });
 
+  it('AC-5: counts a full copy committed in the project, so a cloud session is not stopped', () => {
+    const home = tempRoot();
+    const project = tempRoot();
+    onboard(project);
+    writeHomeCopies(project);
+    expect(
+      claudeStageAgentSource({ homeDir: home, projectRoot: project, pluginInstalled: false }),
+    ).toBe('project');
+    expect(
+      stageDispatchStopHookOutput(project, { homeDir: home, pluginInstalled: false }),
+    ).toBeNull();
+    rmSync(join(project, '.claude', 'agents', 'paqad-review.md'));
+    expect(
+      stageDispatchStopHookOutput(project, { homeDir: home, pluginInstalled: false }),
+    ).not.toBeNull();
+  });
+
   it('treats a home copy missing one stage agent as no home copy', () => {
     const home = tempRoot();
     writeHomeCopies(home, 'paqad-review');

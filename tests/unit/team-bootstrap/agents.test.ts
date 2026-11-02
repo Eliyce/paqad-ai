@@ -9,6 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,6 +33,7 @@ import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 
 import { writeTeamSetup } from './helpers';
 
+const OFF = { PAQAD_TEAM_BOOTSTRAP_ENABLED: 'false' };
 let root: string;
 const agentsDir = () => join(root, '.claude', 'agents');
 const manifestPath = () => join(root, '.paqad', 'onboarding-manifest.json');
@@ -57,16 +59,50 @@ function legacyCopies(): { name: string; content: string }[] {
 }
 
 describe("the stage agents in the repo's .claude/agents", () => {
-  it('a fresh team setup writes no paqad stage agent into the project', () => {
+  it('AC-1: a team setup with it on writes the 8 stage agents with the managed marker', () => {
     const report = syncTeamSetup(root, {});
+    const rendered = renderStageAgentFiles('claude-code');
+    expect(rendered).toHaveLength(8);
+    for (const { name, content } of rendered) {
+      expect(readFileSync(join(agentsDir(), name), 'utf8')).toBe(withManagedMarker(content));
+      expect(report.written).toContain(`.claude/agents/${name}`);
+    }
+    expect(syncTeamSetup(root, {}).written).toEqual([]);
+  });
+
+  it('AC-2: a team setup with it on keeps a hand-edited copy and a symlink and names them', () => {
+    const [first, second] = renderStageAgentFiles('claude-code');
+    const handEdited = `${first!.content}my own note\n`;
+    writeAgent(first!.name, handEdited);
+    const target = join(root, 'elsewhere.md');
+    writeFileSync(target, 'mine\n');
+    symlinkSync(target, join(agentsDir(), second!.name));
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
+    expect(readFileSync(join(agentsDir(), first!.name), 'utf8')).toBe(handEdited);
+    expect(lstatSync(join(agentsDir(), second!.name)).isSymbolicLink()).toBe(true);
+    expect(readFileSync(target, 'utf8')).toBe('mine\n');
+    expect(notes.join('\n')).toContain(`.claude/agents/${first!.name}`);
+    expect(notes.join('\n')).toContain(`.claude/agents/${second!.name}`);
+  });
+
+  it('a team setup with it on rewrites an older paqad copy', () => {
+    const [legacy] = legacyCopies();
+    writeAgent(legacy!.name, legacy!.content);
+    const report = syncTeamSetup(root, {});
+    expect(report.written).toContain(`.claude/agents/${legacy!.name}`);
+    expect(readFileSync(join(agentsDir(), legacy!.name), 'utf8')).toContain(STAGE_AGENT_MARKER);
+  });
+
+  it('AC-3: a fresh team setup with it off writes no paqad stage agent into the project', () => {
+    const report = syncTeamSetup(root, OFF);
     expect(existsSync(agentsDir())).toBe(false);
-    expect(report.written).toEqual(['.paqad/hook.mjs']);
+    expect(report.written).toEqual([]);
   });
 
   it('removes copies stamped by an earlier paqad and records each removal', () => {
     writeFileSync(manifestPath(), `${JSON.stringify({ adapter: 'claude-code' })}\n`);
     for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
-    const report = syncTeamSetup(root, {});
+    const report = syncTeamSetup(root, OFF);
     expect(readdirSync(agentsDir())).toEqual([]);
     expect(report.removed.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(8);
     const manifest = JSON.parse(readFileSync(manifestPath(), 'utf8')) as {
@@ -105,7 +141,7 @@ describe("the stage agents in the repo's .claude/agents", () => {
     const [first] = renderStageAgentFiles('claude-code');
     writeAgent(first!.name, `${first!.content}my own note\n`);
     writeAgent('my-agent.md', 'mine\n');
-    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, OFF);
     expect(readdirSync(agentsDir()).sort()).toEqual(['my-agent.md', first!.name].sort());
     expect(notes.join('\n')).toContain(`.claude/agents/${first!.name}`);
     expect(notes.join('\n')).toContain('do not match what paqad wrote');
@@ -141,14 +177,28 @@ describe("the stage agents in the repo's .claude/agents", () => {
 
   it('names the removed files in what the lead is told', () => {
     for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
-    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, OFF);
     expect(notes.join('\n')).toContain('.claude/agents/paqad-review.md');
+  });
+
+  it('AC-4: the lead is told to commit the agent files team setup removed', () => {
+    for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync(
+      'git',
+      ['-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-qm', 'agents'],
+      { cwd: root },
+    );
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, OFF);
+    const removedNote = notes.find((note) => note.includes('commit the removals'));
+    expect(removedNote).toContain('.claude/agents/paqad-review.md');
   });
 
   it('a second run removes nothing more and keeps the recorded removals', () => {
     writeFileSync(manifestPath(), `${JSON.stringify({ adapter: 'claude-code' })}\n`);
     for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
-    syncTeamSetup(root, {});
+    syncTeamSetup(root, OFF);
     const before = readFileSync(manifestPath(), 'utf8');
     expect(migrateProjectStageAgents(root)).toEqual({ removed: [], kept: [] });
     expect(readFileSync(manifestPath(), 'utf8')).toBe(before);
@@ -168,7 +218,7 @@ describe("the stage agents in the repo's .claude/agents", () => {
   });
 });
 
-describe('AC-17: re-onboarding a marked project leaves only the plugin agents', () => {
+describe('AC-17: re-onboarding a marked project with team setup off leaves only the plugin agents', () => {
   it('removes every marked paqad copy, keeps the user agent byte for byte, and every stage dispatches', () => {
     writeFileSync(manifestPath(), `${JSON.stringify({ adapter: 'claude-code' })}\n`);
     for (const { name, content } of renderStageAgentFiles('claude-code')) {
@@ -176,7 +226,7 @@ describe('AC-17: re-onboarding a marked project leaves only the plugin agents', 
     }
     const mine = '---\nname: my-reviewer\n---\n\nMy own agent.\n';
     writeAgent('my-reviewer.md', mine);
-    syncTeamSetup(root, {});
+    syncTeamSetup(root, OFF);
     expect(readdirSync(agentsDir()).filter((name) => name.startsWith('paqad-'))).toEqual([]);
     expect(readFileSync(join(agentsDir(), 'my-reviewer.md'), 'utf8')).toBe(mine);
     const pluginAgents = join(process.cwd(), 'runtime', 'claude-plugin', 'agents');
@@ -219,7 +269,7 @@ describe('AC-18: the migration keeps what paqad did not write', () => {
     expect(readFileSync(join(codexDir, 'paqad-development.toml'), 'utf8')).toBe(
       'name = "paqad-development"\n',
     );
-    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
+    const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, OFF);
     expect(notes.join('\n')).toContain('.claude/agents/paqad-deep.md');
     expect(notes.join('\n')).toContain('.claude/agents/paqad-linked.md');
   });
