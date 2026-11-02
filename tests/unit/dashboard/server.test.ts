@@ -863,7 +863,7 @@ describe('startDashboardServer', () => {
       const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
       expect(audit).toContain('dashboard.config.profile.write');
       expect(audit).toContain('dashboard.config.module-map.write');
-      expect(audit).toContain('dashboard.config.rag.write');
+      expect(audit).toContain('dashboard.retrieval-config.write');
     });
 
     it('covers packs listing, ops job lookups, audit paging, and packet formats', async () => {

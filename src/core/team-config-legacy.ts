@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from './constants/paths.js';
@@ -127,4 +127,14 @@ export function readLegacyTeamConfig(projectRoot: string): LegacyTeamConfig {
     if (files.length > 1) collisions.push({ key, files });
   }
   return { merged, collisions, sources };
+}
+
+export function teamConfigMigrated(projectRoot: string): boolean {
+  const app = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES.app);
+  if (!existsSync(app)) return legacyFilesWithSettings(projectRoot).length === 0;
+  try {
+    return isMigratedStub(readFileSync(app, 'utf8'));
+  } catch {
+    return false;
+  }
 }

@@ -1,15 +1,14 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from './constants/paths.js';
 import { FRAMEWORK_CONFIG_SPECS } from './framework-config.js';
 import { readTeamConfig, readTeamYamlFile, teamConfigPath } from './team-config.js';
 import {
-  CONFIG_GROUP_FILES,
-  isMigratedStub,
   legacyFilesWithSettings,
   legacyNoLongerReadLine,
   legacyTeamConfigReadable,
+  teamConfigMigrated,
 } from './team-config-legacy.js';
 import { STRUCTURED_TEAM_SETTINGS } from './team-config-schema.js';
 import { TEAM_CONFIG_FILES, type OwnTeamConfigFile } from './team-config-values.js';
@@ -18,19 +17,9 @@ export function missingTeamFileLine(file: string): string {
   return `.paqad/configs/${file} is missing. Run paqad-ai update to create it.`;
 }
 
-function isMigrated(projectRoot: string): boolean {
-  const app = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES.app);
-  if (!existsSync(app)) return legacyFilesWithSettings(projectRoot).length === 0;
-  try {
-    return isMigratedStub(readFileSync(app, 'utf8'));
-  } catch {
-    return false;
-  }
-}
-
 export function missingTeamConfigFiles(projectRoot: string): string[] {
   if (!existsSync(join(projectRoot, PATHS.PROJECT_CONFIGS_DIR))) return [];
-  if (!isMigrated(projectRoot)) return [];
+  if (!teamConfigMigrated(projectRoot)) return [];
   return TEAM_CONFIG_FILES.filter((file) => !existsSync(teamConfigPath(projectRoot, file)));
 }
 

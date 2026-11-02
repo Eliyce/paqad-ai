@@ -151,7 +151,7 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
 
   const path = writeProjectProfile(projectRoot, updated);
   syncFrameworkConfig(projectRoot, { intelligence });
-  appendDashboardAudit(projectRoot, 'dashboard.config.rag.write', {
+  appendDashboardAudit(projectRoot, 'dashboard.retrieval-config.write', {
     path: PATHS.PROJECT_CONFIG,
   });
   return { path, intelligence };

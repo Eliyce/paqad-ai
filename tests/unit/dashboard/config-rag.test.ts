@@ -127,7 +127,7 @@ describe('rag config endpoint logic', () => {
       expect(reread?.intelligence).toMatchObject({ rag_enabled: true, rag_top_n: 10 });
 
       const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
-      expect(audit).toContain('dashboard.config.rag.write');
+      expect(audit).toContain('dashboard.retrieval-config.write');
       expect(audit).toContain('actor="dashboard"');
     });
 
