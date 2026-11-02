@@ -137,18 +137,27 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
   onboard and update both call, against the real project root: the team keys in
   `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
-  `runtime/templates/team-bootstrap/hook.mjs`. It no longer writes `.claude/agents/paqad-*.md`
-  files and runs whether or not the plugin is installed on the lead's machine.
-- **Stage agents come from the plugin.** paqad's Claude Code stage and High Table agents ship only
-  in `runtime/claude-plugin/agents/*.md`, generated from `src/stage-isolation/stage-agents.ts` by
+  `runtime/templates/team-bootstrap/hook.mjs`, and the 8 stage agents in `.claude/agents/paqad-*.md`
+  with the managed marker. It runs whether or not the plugin is installed on the lead's machine.
+- **Where stage agents come from.** paqad's Claude Code stage and High Table agents ship in
+  `runtime/claude-plugin/agents/*.md`, generated from `src/stage-isolation/stage-agents.ts` by
   `node scripts/build-plugin-manifest.mjs` and checked for drift in CI; never hand-edit them. The
   user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
-  npm-only users keep their stage agents. Codex keeps its written agents.
-- **Migration.** `migrateProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) removes a
+  npm-only users keep their stage agents. Codex keeps its written agents. With team setup on, the
+  repo also commits the 8 agents in `.claude/agents/`, because a Claude Code cloud session loads no
+  plugin but does load committed agent files. A laptop with the plugin then lists both
+  `paqad:paqad-<name>` and `paqad-<name>`; the orchestrator dispatches the first and falls back to
+  the second. The plugin counts as installed only when `pluginLoadState`
+  (`src/health/plugin-install.ts`) reads a version 2 `installed_plugins.json` entry that exists on
+  disk, loads for this repo and is not switched off in settings.
+- **Team setup on.** `syncProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) writes
+  each missing agent, rewrites a copy paqad wrote earlier, and keeps a hand-edited file or a symlink
+  and names it. The written files are listed in the commit note.
+- **Team setup off.** `migrateProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) removes a
   project's old `.claude/agents/paqad-*.md` file, stamped or unmarked, only when its body matches a
   known generated body (the hash list in `src/onboarding/stage-agent-past-bodies.ts`). A marker or
   stamp alone is not enough. Hand-edited files and symlinks are kept and named, and nothing else in
-  the folder is touched.
+  the folder is touched. The lead is told to commit the removals.
 - **Bash write guard.** The PreToolUse hook `runtime/hooks/stage-agent-write-guard.mjs`
   (`src/stage-isolation/bash-write-guard.ts`) checks Bash writes by paqad stage agents, and the
   Edit/Write branch of `src/stage-isolation/capability.ts` applies the same limits. Read-only stage
@@ -156,7 +165,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `.paqad/tmp/high-table/`. A target that cannot be resolved, and any unknown `paqad-*` agent, is
   denied.
 - **Missing agents stop the flow.** At SessionStart in an onboarded project, when neither the plugin
-  agents nor the home copy is present, the hook prints `stage agents are missing` with Needs your
+  agents, a full copy in the repo's `.claude/agents/`, nor the home copy is present, the hook prints `stage agents are missing` with Needs your
   attention, telling the Developer to run `/plugin install paqad@eliyce` and start a new session.
   paqad stops there instead of running a stage in the main session.
 - **`.claude/settings.json` is tracked and portable.** It holds only
