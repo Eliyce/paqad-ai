@@ -69,7 +69,7 @@ describe('RAG onboarding helpers', () => {
     expect(promptSelect).toHaveBeenCalledTimes(1);
   });
 
-  it('asks nothing in a terminal when told not to', async () => {
+  it('asks nothing in a terminal when told not to (AC-6)', async () => {
     setInteractive(true);
 
     const { resolveRagSelection } = await import('@/onboarding/rag-onboarding.js');

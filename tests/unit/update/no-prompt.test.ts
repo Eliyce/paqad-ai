@@ -107,7 +107,7 @@ describe('paqad-ai update in a terminal', () => {
     }
   });
 
-  it('asks nothing and works the providers out from the recorded entry files', async () => {
+  it('asks nothing and works the providers out from the recorded entry files (AC-1, AC-3, AC-5)', async () => {
     writeManifest(projectRoot, {
       adapter: 'claude-code',
       generated_artifacts: [
@@ -131,7 +131,7 @@ describe('paqad-ai update in a terminal', () => {
     });
   }, 60_000);
 
-  it('passes the saved providers through unchanged and keeps the adapter', async () => {
+  it('passes the saved providers through unchanged and keeps the adapter (AC-2, AC-5)', async () => {
     const providers = ['codex-cli', 'claude-code', 'gemini-cli', 'junie'];
     writeManifest(projectRoot, {
       adapter: 'codex-cli',

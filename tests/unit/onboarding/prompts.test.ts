@@ -319,7 +319,7 @@ describe('resolveSelections (interactive)', () => {
     setInteractive(false);
   });
 
-  it('asks nothing in a terminal when told not to, and falls back to the overrides and detection', async () => {
+  it('asks nothing in a terminal when told not to, and falls back to the overrides and detection (AC-6)', async () => {
     const result = await resolveSelections(
       laravelDetection,
       undefined,

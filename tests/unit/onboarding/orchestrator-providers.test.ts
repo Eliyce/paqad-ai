@@ -15,7 +15,7 @@ describe('OnboardingOrchestrator providers in the manifest', () => {
     ({ projectRoot } = sandbox);
   });
 
-  it('saves every selected provider in a valid manifest, with the first as the adapter', async () => {
+  it('saves every selected provider in a valid manifest, with the first as the adapter (AC-4)', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: {
