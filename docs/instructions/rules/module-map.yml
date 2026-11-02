@@ -3216,6 +3216,13 @@ modules:
       - src/core/project-intelligence.ts
       - src/core/runtime-paths.ts
       - src/onboarding/manifest-writer.ts
+      - src/core/team-config.ts
+      - src/core/team-config-legacy.ts
+      - src/core/team-config-migrate.ts
+      - src/core/team-config-report.ts
+      - src/core/team-config-schema.ts
+      - src/core/team-config-values.ts
+      - src/health/team-config-check.ts
     evidence:
       symbols:
         - DEFAULT_ACTION_ROUTING
