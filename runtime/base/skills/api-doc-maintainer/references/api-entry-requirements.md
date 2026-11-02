@@ -1,5 +1,7 @@
 # API Entry Requirements
 
+verified: 2026-11-02
+
 Each endpoint entry should capture:
 
 - method and route

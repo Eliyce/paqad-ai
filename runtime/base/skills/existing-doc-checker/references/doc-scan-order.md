@@ -1,5 +1,7 @@
 # Documentation Scan Order
 
+verified: 2026-11-02
+
 Read in this order when available:
 
 1. global registries and indexes

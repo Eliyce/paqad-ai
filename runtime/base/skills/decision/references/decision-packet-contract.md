@@ -1,10 +1,12 @@
 # Decision packet contract
 
+verified: 2026-11-02
+
 The `decision` skill authors the small, human-facing decision record described by
 the **Decision Pause Contract** (shipped inline in the framework bootstrap,
 `AGENT-BOOTSTRAP.md`). It is deliberately distinct from the rich `DecisionPacket`
-that the automated intake / reuse pipeline (`DecisionStore`,
-`src/planning/decision-packet.ts`) mints and consumes: this one is a readable
+that the automated intake / reuse pipeline (`DecisionStore` in
+`src/planning/decision-store.ts`, packet shape in `src/planning/decision-packet.ts`) mints and consumes: this one is a readable
 trail committed alongside the PR it justifies.
 
 ## Lifecycle

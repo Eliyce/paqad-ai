@@ -1,5 +1,7 @@
 # Cross-Module Impact Classification
 
+verified: 2026-11-02
+
 When a proposed change touches a module's public surface, classify the impact on every consuming module along these dimensions.
 
 ## Surface types

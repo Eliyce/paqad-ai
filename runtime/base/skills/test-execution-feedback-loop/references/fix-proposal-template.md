@@ -1,5 +1,7 @@
 # Fix Proposal Template
 
+verified: 2026-11-02
+
 When the verifier reports a failing test, every proposed fix must include the following fields. The template enforces evidence-anchored proposals: no speculation without anchors.
 
 ## Required fields per failure

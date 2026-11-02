@@ -1,5 +1,7 @@
 # Supported Coverage / Test Report Formats
 
+verified: 2026-11-02
+
 The module-health rollup understands a fixed set of report formats, mirrored
 by the `coverage_format` / `test_report_format` enum on
 `module_health` blocks in stack-pack manifests.

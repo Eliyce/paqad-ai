@@ -1,5 +1,7 @@
 # Extractor Pattern Set
 
+verified: 2026-11-02
+
 The deterministic pattern set lives in `src/module-decisions/extractor.ts`.
 Patterns are applied in order; the first hit per slug wins. The set is
 intentionally small and framework-owned: extending it is a framework PR.

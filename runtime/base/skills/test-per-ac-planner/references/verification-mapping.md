@@ -1,5 +1,7 @@
 # Verification Mapping
 
+verified: 2026-11-02
+
 Choose the narrowest proving layer:
 
 - unit for isolated logic

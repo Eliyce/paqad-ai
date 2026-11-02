@@ -1,5 +1,7 @@
 # Context Budget Heuristics
 
+verified: 2026-11-02
+
 Per-artifact token estimates used by the planner. Numbers are conservative upper bounds: better to recommend compaction earlier than to discover starvation mid-implementation.
 
 ## Per-line token weights

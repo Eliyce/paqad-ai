@@ -1,5 +1,7 @@
 # Documentation Sync Orchestration Rules
 
+verified: 2026-11-02
+
 This skill is the canonical entry point for "after my code change lands, which docs need updating?". It does not replace the per-domain skills below: it dispatches to them.
 
 ## Per-domain skills
@@ -22,7 +24,7 @@ The fast pre-filter `diff-doc-sync` runs first; only canonical doc paths it repo
    - `docs/modules/*/integration/**` → `integration-doc-maintainer`
    - `docs/modules/*/error-catalog.md` → `error-catalog-maintainer`
    - `docs/modules/*/index/**` and `docs/modules/*/features/**` → `canonical-doc-sync`
-   - `.paqad/glossary.md` or any path containing new domain terms → `glossary-maintainer`
+   - `.paqad/glossary.md` (external: the project glossary, created on first use) or any path containing new domain terms → `glossary-maintainer`
 3. Aggregate each delegate's `Updated Docs` and warning sections into a single report.
 
 ## Skipping a domain

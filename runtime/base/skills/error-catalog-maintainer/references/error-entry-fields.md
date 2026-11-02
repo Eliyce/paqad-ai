@@ -1,5 +1,7 @@
 # Error Entry Fields
 
+verified: 2026-11-02
+
 Each error entry should cover:
 
 - code and surface area

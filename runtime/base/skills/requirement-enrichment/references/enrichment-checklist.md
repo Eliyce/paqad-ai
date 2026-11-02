@@ -1,5 +1,7 @@
 # Requirement Enrichment Checklist
 
+verified: 2026-11-02
+
 Confirm these dimensions before planning:
 
 - actors and permissions

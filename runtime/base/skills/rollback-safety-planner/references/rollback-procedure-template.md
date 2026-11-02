@@ -1,5 +1,7 @@
 # Rollback Procedure Template
 
+verified: 2026-11-02
+
 Every story flagged with `reversibility: hard` or `blast-radius: wide` must populate this template before the story is marked ready for implementation.
 
 ## Required fields

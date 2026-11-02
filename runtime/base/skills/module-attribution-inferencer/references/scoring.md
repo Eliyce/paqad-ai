@@ -1,5 +1,7 @@
 # Inferencer Scoring Model
 
+verified: 2026-11-02
+
 The hypothesis former lives in `src/module-decisions/inferencer.ts`.
 
 ## Tokenisation

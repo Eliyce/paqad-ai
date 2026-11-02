@@ -1,5 +1,7 @@
 # Step Classification Guide
 
+verified: 2026-11-02
+
 Use this guide when classifying each step of a proposed solution.
 
 ## ac-satisfying

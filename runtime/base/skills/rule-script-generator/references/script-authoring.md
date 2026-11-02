@@ -1,5 +1,7 @@
 # Rule script authoring contract
 
+verified: 2026-11-02
+
 Every generated rule script is a Node ESM (`.mjs`) file. No `.sh` (cross-machine bash/jq/sed landmines; Node is pinned `>=22` everywhere paqad runs).
 
 ## File layout

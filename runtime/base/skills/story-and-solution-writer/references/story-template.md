@@ -1,5 +1,7 @@
 # Story Template
 
+verified: 2026-11-02
+
 A usable story explains:
 
 - the problem and impacted actor

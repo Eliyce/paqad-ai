@@ -1,5 +1,7 @@
 # Update vs rollup vs sync
 
+verified: 2026-11-02
+
 This skill (`module-health-update`) is the whole-project, on-demand refresh. It is deliberately the union of two narrower paths so a single prompt brings every module current.
 
 | Path                    | Skill / engine                                               | What it computes                                                                                                                     | When it runs on its own                                                                              |

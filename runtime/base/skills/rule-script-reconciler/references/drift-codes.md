@@ -1,5 +1,7 @@
 # RS-\* drift codes
 
+verified: 2026-11-02
+
 The reconciler (`src/rule-scripts/reconciler.ts`) emits these into `.paqad/scripts/rules/.cache/drift.json`. They share the `RS-` prefix registered in the base `finding-normalizer` vocabulary.
 
 | Code               | Trigger                                                                                                                                                                                                         | Resolution prompt                                                                         |

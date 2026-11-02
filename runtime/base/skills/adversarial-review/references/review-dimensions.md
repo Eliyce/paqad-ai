@@ -1,5 +1,7 @@
 # Review Dimensions
 
+verified: 2026-11-02
+
 Prioritize in this order:
 
 1. correctness and safety

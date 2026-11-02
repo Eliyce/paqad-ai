@@ -1,5 +1,7 @@
 # Rule classification guide
 
+verified: 2026-11-02
+
 The rubric the rule-analyzer applies to every rule under `docs/instructions/rules/**`.
 
 ## Step 1: already enforced?

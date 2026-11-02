@@ -1,5 +1,7 @@
 # Integration Contract Fields
 
+verified: 2026-11-02
+
 Document these fields for each integration:
 
 - producer or owner

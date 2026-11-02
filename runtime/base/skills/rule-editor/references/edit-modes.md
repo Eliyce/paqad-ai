@@ -1,5 +1,7 @@
 # Rule-editor sub-modes
 
+verified: 2026-11-02
+
 One skill, four modes, all driven by the user's prompt. Each mutates exactly one rule; nothing else is recomputed (the no-global-rebuild guarantee).
 
 ## add: `add rule "<text>" to <rule-file>`
@@ -16,7 +18,7 @@ One skill, four modes, all driven by the user's prompt. Each mutates exactly one
 
 ## remove: `remove rule RL-<id>`
 
-`edit-rule.mjs remove <root> RL-<id>` deletes the bullet and moves the map entry into `archived:` (delayed delete). The script files stay on disk until the next `generate rule scripts` cycle prunes them, see `rule_compliance.archive_retention`.
+`edit-rule.mjs remove <root> RL-<id>` deletes the bullet and moves the map entry into `archived:` (delayed delete). The script files stay on disk until the next `generate rule scripts` cycle prunes them (the `prune.mjs` step of `rule-script-generator`).
 
 ## downgrade: `mark rule RL-<id> as unverifiable`
 

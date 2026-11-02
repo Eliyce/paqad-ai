@@ -1,5 +1,7 @@
 # Performance Hazards Catalog
 
+verified: 2026-11-02
+
 Common patterns the estimator looks for in proposed solutions and existing code paths affected by the change.
 
 ## Data access
