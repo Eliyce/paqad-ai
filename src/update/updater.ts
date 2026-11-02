@@ -20,6 +20,8 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
+import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
+import { syncGitWorkflow } from '@/git-workflow/sync.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -66,6 +68,7 @@ export interface UpdateReport {
   new_scripts: string[];
   config_keys_pruned: string[];
   team_setup_notes?: string[];
+  git_workflow_notes?: string[];
 }
 
 export interface FrameworkUpdaterOptions {
@@ -96,7 +99,10 @@ export class FrameworkUpdater {
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],
     );
     const providers: AdapterType[] = manifest ? deriveRecordedProviders(manifest) : ['claude-code'];
-    const generated = await this.getCandidates(projectRoot, providers);
+    const gitWorkflowDir = `${PATHS.GIT_WORKFLOW_DIR}/`;
+    const generated = (await this.getCandidates(projectRoot, providers)).filter(
+      (candidate) => !toPosixPath(candidate.path).startsWith(gitWorkflowDir),
+    );
     const usesClaude = generated.some((candidate) => toPosixPath(candidate.path) === 'CLAUDE.md');
     const claude = new ClaudeCodeAdapter();
     const candidates = usesClaude
@@ -155,6 +161,7 @@ export class FrameworkUpdater {
     writeConfigsReadme(projectRoot);
     writeConfigExample(projectRoot);
     syncGroupConfigs(projectRoot);
+    const gitWorkflowNotes = updateGitWorkflow(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
@@ -184,6 +191,7 @@ export class FrameworkUpdater {
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
       team_setup_notes: teamSetupNotes,
+      git_workflow_notes: gitWorkflowNotes,
     };
   }
 
@@ -223,6 +231,14 @@ export class FrameworkUpdater {
       await rm(tempRoot, { recursive: true, force: true });
     }
   }
+}
+
+function updateGitWorkflow(projectRoot: string): string[] {
+  const profile = readProfile(projectRoot);
+  if (profile === null || getProfileDomain(profile) !== 'coding') return [];
+  const migration = migrateDeliveryPolicy(projectRoot);
+  syncGitWorkflow(projectRoot);
+  return migration.lines;
 }
 
 function readManifest(projectRoot: string): OnboardingManifest | null {

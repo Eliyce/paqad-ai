@@ -74,7 +74,11 @@ import {
   writeProjectProfile,
 } from './manifest-writer.js';
 import { migrateLegacyDecisionIds } from './decision-id-migration.js';
+import { stampLastApplied } from '@/git-workflow/last-applied.js';
+import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
 import { generateGitWorkflowFiles } from '@/git-workflow/onboard.js';
+import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
 import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
 import { resolveSelections } from './prompts.js';
 import {
@@ -216,6 +220,9 @@ export class OnboardingOrchestrator {
         `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
       );
     }
+    if (selections.domain === 'coding') {
+      onboardingWarnings.push(...migrateDeliveryPolicy(options.projectRoot).lines);
+    }
     let revertedFrameworkValues: string[];
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
@@ -227,6 +234,9 @@ export class OnboardingOrchestrator {
         writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
       }
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
+      if (selections.domain === 'coding') {
+        settleGitWorkflow(options.projectRoot, writeResult.written);
+      }
       drift = await writeStackArtifacts(
         options.projectRoot,
         { ...liveSnapshot, profile: profile.stack_profile ?? liveSnapshot.profile },
@@ -1018,4 +1028,12 @@ function buildRustCommands(usingCompose: boolean): ProjectProfile['commands'] {
     migrate: 'echo "configure migrate command"',
     build: exec('cargo build'),
   };
+}
+
+function settleGitWorkflow(projectRoot: string, written: readonly string[]): void {
+  syncGitWorkflow(projectRoot);
+  const fresh = GIT_WORKFLOW_FILES.filter((file) =>
+    written.some((path) => toPosixPath(path) === `${PATHS.GIT_WORKFLOW_DIR}/${file}`),
+  );
+  if (fresh.length > 0) stampLastApplied(projectRoot, fresh);
 }

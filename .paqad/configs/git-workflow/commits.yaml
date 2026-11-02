@@ -1,0 +1,20 @@
+# How commit messages are written.
+#
+# template placeholders: {ticket} {summary} {type} {scope} {title}
+# summary.style:
+#   plain  the summary is written for a person who doesn't read code
+#   free   no style check
+paqad_version: "1.116.0"
+
+template: "{type}({ticket}): {summary}"
+
+# true adds a Signed-off-by line (git commit -s).
+sign_off: false
+
+# When the developer didn't say whether to commit, ask once at the end of
+# the change and record the answer.
+ask_when_unspecified: true
+
+summary:
+  style: plain
+  max_length: 72

@@ -1,0 +1,35 @@
+# Where this team's tickets come from and how they move.
+#
+# paqad matches a ticket key (like PROJ-123 or INC0012345) against each
+# source's pattern, top to bottom. The first match wins.
+#
+# Each source has:
+#   tracker:      jira | servicenow | github-issues | linear | generic
+#   pattern:      regular expression for this source's ticket keys
+#                 (each tracker has a default; generic needs one)
+#   server:       MCP server name; "" means the first connected server of that tracker
+#   transitions:  the status to move the ticket to, "" means don't move it
+#     on_pr_open:   when the PR opens
+#     on_ci_green:  when CI passes on the PR
+paqad_version: "1.116.0"
+
+# true means every change needs a ticket, and deliver stops without one.
+require_ticket: false
+
+# No sources means this team works without tickets.
+sources:
+  github-issues:
+    tracker: github-issues
+    pattern: "#\\d+"
+
+# Write refined requirements back to the ticket: never | ask | always.
+# Not applied yet.
+write_back_refined: never
+
+# How ticket-intake decisions are settled automatically.
+intake_decisions:
+  auto_resolve_from_priors: true
+  auto_resolve_from_rules: true
+  confirm_auto_resolutions: batched   # always | batched | never
+  max_options_per_packet: 4
+  fingerprint_scope: [ticket_type, module, category]

@@ -1,0 +1,30 @@
+# How pull requests are opened.
+#
+# title_template placeholders: {ticket} {summary} {type} {scope} {title}
+# body_template: the team's PR template. If it has placeholders like
+#   {summary} paqad fills them. If it has none, the agent fills it in and
+#   passes it with --body-file.
+# labels: added to every PR. Branch type labels are added on top.
+# also_open_against: extra branches to open the same change against,
+#   like a qa branch. Each gets its own PR.
+paqad_version: "1.116.0"
+
+host: github          # only github for now
+host_server: ""
+
+title_template: "{type}({ticket}): {summary}"
+body_template: .paqad/templates/pr-body.md
+draft: false
+reviewers: []
+labels: []
+
+# Add the ticket to the PR body: "Closes #123" for GitHub issues,
+# "Ticket: PROJ-123" for anything else.
+link_ticket: true
+
+also_open_against: []
+
+ci:
+  gate: wait_for_green   # wait_for_green | warn_only | off
+  timeout_minutes: 30
+  on_red: stop           # stop | comment_and_stop

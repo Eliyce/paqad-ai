@@ -576,10 +576,7 @@ function validateRequiredCommands(
   return resolved.warnings;
 }
 
-export const RESERVED_WORKFLOW_POLICY_FILES = [
-  'feature-development.yaml',
-  'delivery-policy.yaml',
-] as const;
+export const RESERVED_WORKFLOW_POLICY_FILES = ['feature-development.yaml'] as const;
 
 export function isReservedWorkflowPolicyFile(fileName: string): boolean {
   return RESERVED_WORKFLOW_POLICY_FILES.includes(
