@@ -9,18 +9,16 @@ export function removeTempProject(root: string): void {
   rmSync(root, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
 }
 
-const SETTLE_ROUNDS = 6;
 const SETTLE_MS = 2_000;
+const SETTLING_CODES = new Set(['ENOTEMPTY', 'EBUSY', 'EPERM']);
 
 export function removeTempProjectAfterBackgroundWork(root: string): void {
-  for (let round = 1; ; round += 1) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      removeTempProject(root);
+      rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       return;
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      const settling = code === 'ENOTEMPTY' || code === 'EBUSY' || code === 'EPERM';
-      if (!settling || round >= SETTLE_ROUNDS) throw error;
+      if (!SETTLING_CODES.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, SETTLE_MS);
     }
   }
