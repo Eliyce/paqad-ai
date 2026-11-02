@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,7 +10,10 @@ import { runCapabilityGate } from '@/kernel/gate.js';
 import {
   bashWrites,
   formatStageAgentWriteSummary,
+  readOnlyAgentScope,
   stageAgentWriteDecision,
+  writeAllowed,
+  type WriteHost,
 } from '@/stage-isolation/bash-write-guard.js';
 
 const GUARD = join(process.cwd(), 'runtime/hooks/stage-agent-write-guard.mjs');
@@ -184,5 +187,48 @@ describe('the write guard is wired on Bash beside the existing hooks', () => {
         hook.command.includes('stage-agent-write-guard.mjs'),
       ),
     ).toBe(false);
+  });
+});
+
+describe('the read-only write guard behaves the same on Windows', () => {
+  const host: WriteHost = {
+    path: win32,
+    tmpdir: 'C:\\Users\\runner\\AppData\\Local\\Temp',
+    home: 'C:\\Users\\runner',
+  };
+  const project = 'D:\\a\\repo';
+  const allowed = (agent: string, target: string, cwd = project) =>
+    writeAllowed(readOnlyAgentScope(agent)!, project, { target, cwd }, host);
+
+  it('allows the null devices, Git Bash /tmp, the Windows temp folder and the scratch root', () => {
+    for (const target of [
+      '/dev/null',
+      'NUL',
+      'nul',
+      '/tmp/scratch.txt',
+      'C:\\Users\\runner\\AppData\\Local\\Temp\\a.txt',
+      '.paqad/tmp/plan.json',
+    ]) {
+      expect({ target, allowed: allowed('paqad-planning', target) }).toEqual({
+        target,
+        allowed: true,
+      });
+    }
+  });
+
+  it('still blocks project files, other folders and a /tmp path that climbs out', () => {
+    for (const target of [
+      'src/index.ts',
+      'D:\\a\\repo\\docs\\x.md',
+      'C:\\Windows\\x.txt',
+      '/tmp/../a/repo/src/x.ts',
+      'NUL.txt',
+    ]) {
+      expect({ target, allowed: allowed('paqad-planning', target) }).toEqual({
+        target,
+        allowed: false,
+      });
+    }
+    expect(allowed('paqad-expert', '/tmp/scratch.txt')).toBe(false);
   });
 });

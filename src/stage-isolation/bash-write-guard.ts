@@ -1,5 +1,6 @@
 import { tmpdir } from 'node:os';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import * as nodePath from 'node:path';
+import { resolve } from 'node:path';
 
 import { unresolvedStageAgent } from './must-not-judge.js';
 import { isHighTableAgent, stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
@@ -340,28 +341,48 @@ export function bashWrites(command: string, cwd: string): BashWrite[] {
 }
 
 const DEVICE_TARGETS = /^\/dev\/(?:null|stdout|stderr|tty|fd\/\d+)$/u;
+const WINDOWS_NULL_DEVICE = /^nul(?::)?$/iu;
+const BASH_TEMP_DIR = /^\/tmp(?:\/|$)/u;
 
-function under(path: string, root: string): boolean {
-  const rel = relative(root, path);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+export interface WriteHost {
+  path: typeof nodePath.posix;
+  tmpdir: string;
+  home?: string;
+}
+
+function defaultHost(): WriteHost {
+  return { path: nodePath, tmpdir: tmpdir(), home: process.env.HOME };
+}
+
+function under(path: typeof nodePath.posix, child: string, root: string): boolean {
+  const rel = path.relative(root, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function isDeviceTarget(target: string): boolean {
+  return DEVICE_TARGETS.test(target) || WINDOWS_NULL_DEVICE.test(target);
 }
 
 export function writeAllowed(
   scope: ReadOnlyAgentScope,
   projectRoot: string,
   write: BashWrite,
+  host: WriteHost = defaultHost(),
 ): boolean {
   if (write.target === null || write.cwd === null || write.target === '') return false;
-  const target = write.target.replace(/^~(?=\/|$)/u, process.env.HOME ?? '~');
-  const abs = resolve(write.cwd, target);
-  if (DEVICE_TARGETS.test(abs)) return true;
-  const root = resolve(projectRoot);
-  if (under(abs, root)) {
-    const rel = relative(root, abs).split(sep).join('/');
+  const target = write.target.replace(/^~(?=\/|$)/u, host.home ?? '~');
+  if (isDeviceTarget(target)) return true;
+  const { path } = host;
+  const abs = path.resolve(write.cwd, target);
+  if (isDeviceTarget(abs)) return true;
+  const root = path.resolve(projectRoot);
+  if (under(path, abs, root)) {
+    const rel = path.relative(root, abs).split(path.sep).join('/');
     return scope.allowedRoots.some((allowed) => `${rel}/`.startsWith(allowed));
   }
   if (!scope.allowTempDir) return false;
-  return [tmpdir(), '/tmp'].some((dir) => under(abs, resolve(dir)));
+  if (BASH_TEMP_DIR.test(target) && !target.split('/').includes('..')) return true;
+  return [host.tmpdir, '/tmp'].some((dir) => under(path, abs, path.resolve(dir)));
 }
 
 export interface StageAgentWriteInput {
