@@ -88,7 +88,7 @@ A few things worth knowing:
 - Onboarding from the plugin writes no paqad hooks into the project's `.claude/settings.json`, because the plugin brings its own. The plugin keeps a copy of itself in its data folder (`~/.claude/plugins/data/paqad-eliyce/runtime`) and points `~/.paqad-ai/current` there, so the framework link keeps working when Claude Code cleans up an old plugin version.
 - The optional RAG engine installs on first use, in the background, only if you turn RAG on. If you turn RAG on during `/paqad:onboard`, RAG stays on, onboarding says "search index is installing in the background; text search until it is ready", and the index is built once the engine is in. Until then search falls back to plain text, and `paqad-ai doctor` shows `not ready: installing`. If the index cannot be built for another reason, onboarding turns RAG off and tells you why. To remove the engine later, delete `~/.paqad/` (the shared model and engine cache).
 - To open the dashboard, run `paqad-ai dashboard` from a terminal in the project. The plugin puts `paqad-ai` on your shell path inside a Claude Code session.
-- The plugin shows where the change stands in a band above the prompt. To hide it, set `hud_view=false` in `.paqad/.config` (just you) or in `.paqad/configs/.config.app` (the team), or set `PAQAD_HUD_VIEW=false`. Its pane has tabs for the High Table, Cost, Trust, Ships and Record, and `/paqad receipt` draws the receipt as a card. For a short chime when the verdict lands, set `hud_chime=true` (or `PAQAD_HUD_CHIME=true`); it is off by default and never speaks.
+- The plugin shows where the change stands in a band above the prompt. To hide it, set `hud_view=false` in `.paqad/.config` (just you) or `band: false` under `hud:` in `.paqad/configs/paqad.yaml` (the team), or set `PAQAD_HUD_VIEW=false`. Its pane has tabs for the High Table, Cost, Trust, Ships and Record, and `/paqad receipt` draws the receipt as a card. For a short chime when the verdict lands, set `hud_chime=true` (or `PAQAD_HUD_CHIME=true`); it is off by default and never speaks.
 - **Already on the npm setup?** paqad can move you to the plugin automatically in the background, with nothing to do on your side. The npm package stays installed as a fallback, so paqad is never off at any point. It is off by default today; `plugin_migration=on` or `claude_install_mode=plugin` turns it on, `paqad-ai plugin rollback` moves a machine back to the npm setup and removes the plugin, and `claude_install_mode=settings` in your team config keeps a project on npm and keeps the plugin out of its shared `.claude/settings.json`.
   - paqad checks your organization's managed policy first. If it blocks the plugin or paqad's hooks, paqad stays on npm and writes nothing.
   - If the Desktop app already synced the plugin from claude.ai, the move is simply marked done. If the plugin is already installed some other way, paqad turns it on in your own Claude settings and then waits for it to run, like any other install.
@@ -122,7 +122,7 @@ Which route should a teammate use? Accepting the plugin offer is best. The launc
 
 **Cloud sessions.** A Claude Code cloud session starts from a fresh machine every time, so the setup line, `Setting up paqad for this cloud session.`, and its short wait repeat on every cloud session. RAG is always off in cloud (`PAQAD_RAG_ENABLED=false`) and search uses plain text. When GitHub refuses `gh` from the cloud session, paqad opens the pull request, comments and reads checks through the GitHub REST API instead. The receipt notes when evidence starts in the cloud session because earlier steps were recorded on another machine.
 
-**Turning it off.** Set `team_bootstrap_enabled=false` in `.paqad/configs/.config.app` (or `PAQAD_TEAM_BOOTSTRAP_ENABLED=false`) and run `paqad-ai update`. That removes the launcher, its settings lines, the plugin keys and the agent files paqad wrote, and keeps your own hooks in `.claude/settings.local.json`. A teammate who has the plugin or npm installed keeps every hook.
+**Turning it off.** Set `enabled: false` under `team_bootstrap:` in `.paqad/configs/paqad.yaml` (or `PAQAD_TEAM_BOOTSTRAP_ENABLED=false`) and run `paqad-ai update`. That removes the launcher, its settings lines, the plugin keys and the agent files paqad wrote, and keeps your own hooks in `.claude/settings.local.json`. A teammate who has the plugin or npm installed keeps every hook.
 
 **A bad plugin release.** Revert the release in `Eliyce/paqad-claude-plugin`; teammates pick the revert up within 6 hours. Meanwhile set `PAQAD_DISABLED=1` on an affected machine, or set `team_bootstrap_enabled=false` for the team. Keep branch protection on the plugin repo so only the release job pushes to it.
 
@@ -580,6 +580,38 @@ paqad-ai rag init --provider local               # free, on-device search
 paqad-ai doctor                                  # exits 1 on failure, 0 on pass
 ```
 
+## Configuration
+
+paqad runs on its own defaults. You only write down what your team changes.
+
+**Team settings** live in readable YAML files under `.paqad/configs/`, committed with the repo:
+
+| File | What it holds |
+|---|---|
+| `paqad.yaml` | paqad on or off, updates, the Claude Code install, the HUD and the Site Map |
+| `models.yaml` | which models paqad uses and how deep research goes |
+| `retrieval.yaml` | the search index: on or off, embeddings, match limits |
+| `decisions.yaml` | when paqad asks you and when it decides on its own |
+| `authoring.yaml` | how paqad writes and tests skills and helper agents, and its eval runs |
+| `git-workflow/` | branches, commits, PRs and tickets (owned by the git-workflow skill) |
+| `feature-development/*.yaml` | the feature-development workflow: stages, specs, rules, reuse, safety, checks, evidence, analytics |
+
+A new file holds only a header. Add a line only for a setting you want to change, for example `enabled: false` in `paqad.yaml`. `.paqad/configs/README.md` lists every setting with its default and allowed values, and `paqad-ai config show` prints what is in effect and where each value comes from (`--changed` hides the defaults). Your editor gets autocompletion from the schemas `paqad-ai update` writes to `.paqad/configs/schemas/`.
+
+**Personal settings** still go in the git-ignored `.paqad/.config`, one `name=value` per line, and an env var still wins for a single run (`hud_view=false` or `PAQAD_HUD_VIEW=false`). `.paqad/.config.example` lists every name, with a comment saying which team file and path it maps to.
+
+**The feature-development workflow.** `docs/instructions/workflows/feature-development.yaml` is now a view paqad generates at the start of every session from its own stages and your `.paqad/configs/feature-development/` files. Don't edit it: change those files instead. If someone edits the view by hand, paqad moves the edit into the right file and rebuilds it.
+
+**Moving from the old files.** Projects set up before this release kept team settings in `.paqad/configs/.config.app`, `.config.rag`, `.config.models` and `.config.policy`. `paqad-ai update` and `paqad-ai onboard` move them to the YAML files once, and `paqad-ai config migrate` (with `--dry-run` to preview) does the same on demand. It prints every setting it moved. Review the changes and commit them together. For a while paqad still reads a setting left in an old file and tells you to run `paqad-ai config migrate`; after that window it stops reading them and `paqad-ai doctor` fails until you do.
+
+**Teammates and CI need this release or later.** After the move, `.config.app` keeps one line, `minimum_version`, so a teammate or a CI job on an older paqad stops and asks to update instead of quietly running on defaults. Auto-update usually handles that on the next session. Pin CI to this release or later before you commit the move.
+
+**Rolling back.** The move only goes forward. An older paqad can't read the YAML files, so going back to it means restoring the old `.config.*` files from git history by hand. If a release causes trouble, update to the next fix instead, or set `PAQAD_DISABLED=1` on the affected machine while you wait.
+
+`paqad-ai doctor` checks all of this in its `team-config` check: a missing file, a value or file paqad can't read, a setting it doesn't know, old settings that still need moving, and a hand-edited workflow view.
+
+---
+
 ## What paqad-ai creates
 
 ```text
@@ -598,7 +630,8 @@ your-project/
 │
 └── .paqad/               framework metadata, machine-managed
     ├── project-profile.yaml   project facts: stack, commands, capabilities
-    ├── .config.example        every framework knob, commented; copy lines into .config (git-ignored) to override
+    ├── configs/          team settings in YAML (paqad.yaml, models.yaml, feature-development/, git-workflow/, ...)
+    ├── .config.example        every setting by its flat name; copy lines into .config (git-ignored) to override just for you
     ├── stack-snapshot.json, stack-drift.json, onboarding-manifest.json
     ├── compliance/        spec obligations
     ├── decisions/         human decision records
