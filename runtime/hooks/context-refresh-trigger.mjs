@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
-import { mkdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,13 +75,15 @@ async function main() {
     if (!ragEnabled && !leanEnabled) {
       return;
     }
+    const paqadDir = join(projectRoot, '.paqad');
+    if (!existsSync(paqadDir)) return;
 
     const markerPath = join(projectRoot, MARKER_REL);
     if (withinDebounce(markerPath)) return;
     touch(markerPath);
 
     const lock = await loadLock(projectRoot);
-    if (!lock) return;
+    if (!lock || !existsSync(paqadDir)) return;
     const outcome = lock.takeRefreshContextLock(projectRoot);
     if (!outcome.acquired) return;
 
