@@ -7,16 +7,14 @@ import {
   runCiGate,
   waitFor,
 } from '@/delivery/ci-gate.js';
-import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
+import type { ResolvedCi } from '@/git-workflow/types.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 
-function ci(overrides: Partial<ResolvedDeliveryCi> = {}): ResolvedDeliveryCi {
+function ci(overrides: Partial<ResolvedCi> = {}): ResolvedCi {
   return {
-    maintained: 'auto',
     gate: 'wait_for_green',
     timeout_minutes: 30,
     on_red: 'stop',
-    transition_on_green: 'Done',
     ...overrides,
   };
 }
@@ -52,13 +50,12 @@ describe('CI gate', () => {
     );
     expect(res.action).toBe('warned');
     expect(res.state).toBe('red');
-    expect(res.transitionTo).toBe(null);
   });
 
-  it('passes on green and carries the transition_on_green', async () => {
+  it('passes on green and no longer carries a ticket status', async () => {
     const res = await runCiGate(hostWith([{ state: 'green', checks: [] }]), 'b', ci());
     expect(res.action).toBe('passed');
-    expect(res.transitionTo).toBe('Done');
+    expect(res).not.toHaveProperty('transitionTo');
   });
 
   it('polls through pending until green (injected clock, no real waiting)', async () => {

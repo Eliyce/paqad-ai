@@ -74,7 +74,7 @@ import {
   writeProjectProfile,
 } from './manifest-writer.js';
 import { migrateLegacyDecisionIds } from './decision-id-migration.js';
-import { generateDeliveryPolicy } from './delivery-policy-generator.js';
+import { generateGitWorkflowFiles } from '@/git-workflow/onboard.js';
 import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
 import { resolveSelections } from './prompts.js';
 import {
@@ -192,7 +192,7 @@ export class OnboardingOrchestrator {
     }
     generatedFiles.push(...(await generateProjectRules(resolved.rules)));
     generatedFiles.push(...generateFeatureDevelopmentPolicy(selections.domain));
-    generatedFiles.push(...generateDeliveryPolicy(selections.domain));
+    generatedFiles.push(...generateGitWorkflowFiles(selections.domain, options.projectRoot));
     generatedFiles.push(
       ...(await generateReferenceGuides(runtimeRoot, {
         domain: selections.domain,

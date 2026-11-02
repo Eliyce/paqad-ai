@@ -1,12 +1,13 @@
-import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
+import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
 import {
   renderDelivery,
   renderTemplate,
-  resolveConventionalType,
+  resolveBranchTypeName,
   slugify,
 } from '@/delivery/templates.js';
 
-const DEFAULT_PROCESS = defaultDeliveryProcess();
+const DEFAULT_PROCESS = defaultGitWorkflow();
+DEFAULT_PROCESS.branches.types.bugfix.ticket_types = ['Bug'];
 
 describe('delivery templates', () => {
   it('slugifies titles and respects the max length', () => {
@@ -15,12 +16,10 @@ describe('delivery templates', () => {
     expect(slugify('PAQ-42 — Fix ticket', 50)).toBe('paq-42-fix-ticket');
   });
 
-  it('resolves the conventional commit type via the type_map with a default fallback', () => {
-    expect(resolveConventionalType('Bug', { Story: 'feat', Bug: 'fix', default: 'chore' })).toBe(
-      'fix',
-    );
-    expect(resolveConventionalType('Unknown', { Story: 'feat', default: 'chore' })).toBe('chore');
-    expect(resolveConventionalType(undefined, { default: 'feat' })).toBe('feat');
+  it('picks the branch type whose ticket_types holds the ticket type, else default_type', () => {
+    expect(resolveBranchTypeName(DEFAULT_PROCESS, 'Bug')).toBe('bugfix');
+    expect(resolveBranchTypeName(DEFAULT_PROCESS, 'Unknown')).toBe('feature');
+    expect(resolveBranchTypeName(DEFAULT_PROCESS, undefined)).toBe('feature');
   });
 
   it('leaves unknown placeholders intact for caller-side detection', () => {
@@ -40,29 +39,15 @@ describe('delivery templates', () => {
       '## Summary\n{summary}\n\n## Ticket\n{ticket}',
     );
 
-    expect(rendered.branch).toBe('feat/PAQ-42-add-csv-export-for-invoices');
+    expect(rendered.branch).toBe('feature/PAQ-42-add-csv-export-for-invoices');
     expect(rendered.commit).toBe(
-      'feat(invoices): Add CSV export endpoint and downloadable file for invoices.\n\nRefs: PAQ-42',
+      'PAQ-42: Add CSV export endpoint and downloadable file for invoices.',
     );
     expect(rendered.pr_title).toBe(
-      'feat(invoices): Add CSV export endpoint and downloadable file for invoices. [PAQ-42]',
+      'PAQ-42: Add CSV export endpoint and downloadable file for invoices.',
     );
     expect(rendered.pr_body).toContain('## Summary');
     expect(rendered.pr_body).toContain('PAQ-42');
-  });
-
-  it('falls back to type as scope when caller omits it', () => {
-    const rendered = renderDelivery(
-      DEFAULT_PROCESS,
-      {
-        ticket: 'PAQ-7',
-        ticket_type: 'Task',
-        title: 'Bump lockfile',
-        summary: 'Bump lockfile.',
-      },
-      '',
-    );
-    expect(rendered.commit.startsWith('chore(chore):')).toBe(true);
   });
 
   const inputs = { ticket: 'PAQ-1', title: 'T', summary: 'S' };

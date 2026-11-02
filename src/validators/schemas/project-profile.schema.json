@@ -231,7 +231,7 @@
               "kind": {
                 "type": "string",
                 "description": "Optional discriminator used by ticket_intake/delivery to find the right server. Existing servers without `kind` continue to validate.",
-                "enum": ["jira", "linear", "github-issues", "generic"]
+                "enum": ["jira", "linear", "servicenow", "github-issues", "generic"]
               },
               "config": { "type": "object" }
             }

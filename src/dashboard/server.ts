@@ -31,11 +31,6 @@ import {
   resolvePauseDecision,
 } from './approvals.js';
 import { readAuditFeed } from './audit-feed.js';
-import {
-  DeliveryPolicyValidationError,
-  getDeliveryPolicyConfig,
-  putDeliveryPolicy,
-} from './config-delivery-policy.js';
 import { getDesignTokensConfig, putDesignTokens } from './config-design-tokens.js';
 import { getModuleMapConfig, putModuleMap } from './config-module-map.js';
 import { getProfileConfig, putProfile, setCapability } from './config-profile.js';
@@ -394,10 +389,7 @@ export async function startDashboardServer(
       writeJson(res, req, { error: err.message }, 409);
       return;
     }
-    if (
-      err instanceof DeliveryPolicyValidationError ||
-      (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues))
-    ) {
+    if (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues)) {
       writeJson(
         res,
         req,
@@ -626,23 +618,6 @@ export async function startDashboardServer(
         return;
       }
       writeText(res, html, 200, 'text/html; charset=utf-8');
-      return;
-    }
-    if (pathname === '/api/config/delivery-policy' && req.method === 'GET') {
-      writeJson(res, req, getDeliveryPolicyConfig(options.projectRoot));
-      return;
-    }
-    if (pathname === '/api/config/delivery-policy' && req.method === 'PUT') {
-      await handleMutation(req, res, async () => {
-        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
-        if (typeof body.content !== 'string') {
-          throw new Error('Body must include the policy `content` as a string.');
-        }
-        return putDeliveryPolicy(options.projectRoot, {
-          content: body.content,
-          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
-        });
-      });
       return;
     }
     if (pathname === '/api/files/instructions' && req.method === 'GET') {

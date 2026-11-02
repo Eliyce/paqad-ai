@@ -1,12 +1,7 @@
-import { detectDeliveryHost, type DeliveryHost } from './host.js';
+import { detectDeliveryHost, type DeliveryHost } from '@/delivery/host.js';
+import type { DeliveryShell } from '@/delivery/runner.js';
 
-import type {
-  DeliverySection,
-  HostProviderKind,
-  ResolvedDeliveryProcess,
-} from '@/core/types/delivery-policy.js';
-
-const FREEFORM_COMMIT_TEMPLATE = '{summary}\n\nRefs: {ticket}';
+import type { HostProviderKind } from './types.js';
 
 export interface GitSnapshot {
   remoteUrl: string | null;
@@ -84,7 +79,7 @@ export function detectBranchTemplate(snapshot: GitSnapshot): DetectedField<strin
 
   if (typed >= ticketFirst && typed > 0) {
     return {
-      value: '{type}/{ticket}-{title_slug}',
+      value: '{prefix}/{ticket}-{title_slug}',
       confidence: typed / feature.length,
       evidence: `typed branch prefix (${typed}/${feature.length} branches)`,
     };
@@ -135,42 +130,6 @@ export function hasDetection(detected: DetectedDelivery): boolean {
   );
 }
 
-export function overlayDetection(
-  process: ResolvedDeliveryProcess,
-  detected: DetectedDelivery,
-  isAuto: (section: DeliverySection) => boolean,
-): ResolvedDeliveryProcess {
-  const next: ResolvedDeliveryProcess = {
-    ticket: { ...process.ticket },
-    host: { ...process.host },
-    branch: { ...process.branch },
-    commit: { ...process.commit },
-    pr: { ...process.pr },
-    ci: { ...process.ci },
-    intake_decisions: { ...process.intake_decisions },
-  };
-
-  if (detected.host && isAuto('host')) {
-    next.host.provider = detected.host.value;
-  }
-  if (detected.base && isAuto('branch')) {
-    next.branch.base = detected.base.value;
-  }
-  if (detected.base && isAuto('pr')) {
-    next.pr.base = detected.base.value;
-  }
-  if (detected.branch_template && isAuto('branch')) {
-    next.branch.template = detected.branch_template.value;
-  }
-  if (detected.commit_conventional && isAuto('commit')) {
-    next.commit.template = detected.commit_conventional.value
-      ? process.commit.template
-      : FREEFORM_COMMIT_TEMPLATE;
-  }
-
-  return next;
-}
-
 export function summarizeDetection(detected: DetectedDelivery): string[] {
   const lines: string[] = [];
   if (detected.host) {
@@ -192,4 +151,30 @@ export function summarizeDetection(detected: DetectedDelivery): string[] {
     lines.push(`base \`${detected.base.value}\` (${detected.base.evidence})`);
   }
   return lines;
+}
+
+export async function gatherGitSnapshot(shell: DeliveryShell): Promise<GitSnapshot> {
+  const remote = await shell.run('git', ['remote', 'get-url', 'origin']);
+  const head = await shell.run('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+  const branches = await shell.run('git', ['branch', '--all', '--format=%(refname:short)']);
+  const commits = await shell.run('git', ['log', '-n', '100', '--format=%s']);
+
+  return {
+    remoteUrl: remote.exitCode === 0 ? remote.stdout.trim() || null : null,
+    defaultBranch: head.exitCode === 0 ? head.stdout.trim() || null : null,
+    branchNames:
+      branches.exitCode === 0
+        ? branches.stdout
+            .split('\n')
+            .map((b) => b.trim())
+            .filter((b) => b !== '' && !b.includes('->'))
+        : [],
+    recentCommitSubjects:
+      commits.exitCode === 0
+        ? commits.stdout
+            .split('\n')
+            .map((s) => s.trim())
+            .filter((s) => s !== '')
+        : [],
+  };
 }

@@ -1,5 +1,4 @@
-import type { ResolvedDeliveryProcess } from '@/core/types/delivery-policy.js';
-
+import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
 import type { HostProviderResolution, TicketProviderResolution } from '@/providers/registry.js';
 
 export interface DeliveryPlan {
@@ -9,40 +8,62 @@ export interface DeliveryPlan {
   open_pr: boolean;
   ci_gate: boolean;
   ticket_transitions: boolean;
-  ticket_comments: boolean;
   skipped: string[];
   nudge: string | null;
 }
 
+export interface SourceResolution {
+  source: string;
+  resolution: TicketProviderResolution;
+}
+
+const TRACKER_NAMES: Readonly<Record<string, string>> = {
+  jira: 'Jira',
+  linear: 'Linear',
+  servicenow: 'ServiceNow',
+  'github-issues': 'GitHub Issues',
+  generic: 'your tracker',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  bitbucket: 'Bitbucket',
+};
+
+export function trackerName(kind: string): string {
+  return TRACKER_NAMES[kind] ?? kind;
+}
+
 export function planDelivery(
-  process: ResolvedDeliveryProcess,
+  config: ResolvedGitWorkflow,
   host: HostProviderResolution,
-  ticket: TicketProviderResolution,
+  tickets: SourceResolution[],
 ): DeliveryPlan {
   const skipped: string[] = [];
 
-  const branch = true;
-  const commit = true;
-
   const push = host.connected;
   const openPr = host.connected;
-  const ciGate = host.connected && process.ci.gate !== 'off';
+  const ciGate = host.connected && config.pull_requests.ci.gate !== 'off';
   if (!host.connected) {
     skipped.push('push', 'open PR', 'CI gate');
   }
 
-  const ticketTransitions = ticket.connected;
-  const ticketComments = ticket.connected && process.ticket.comment_decisions;
-  if (!ticket.connected) {
-    skipped.push('ticket status transitions', 'decision comments');
+  const disconnected = tickets.filter((entry) => !entry.resolution.connected);
+  const ticketTransitions = tickets.length > 0 && disconnected.length === 0;
+  if (disconnected.length > 0) {
+    skipped.push(
+      ...disconnected.map(
+        (entry) =>
+          `ticket status moves for ${entry.source} (${trackerName(entry.resolution.kind)})`,
+      ),
+    );
   }
 
   const missing: string[] = [];
   if (!host.connected) {
-    missing.push(host.kind === 'github' ? 'GitHub' : host.kind);
+    missing.push(trackerName(host.kind));
   }
-  if (!ticket.connected) {
-    missing.push(ticket.kind === 'jira' ? 'Jira' : ticket.kind);
+  for (const entry of disconnected) {
+    const name = trackerName(entry.resolution.kind);
+    if (!missing.includes(name)) missing.push(name);
   }
 
   const nudge =
@@ -51,13 +72,12 @@ export function planDelivery(
       : null;
 
   return {
-    branch,
-    commit,
+    branch: true,
+    commit: true,
     push,
     open_pr: openPr,
     ci_gate: ciGate,
     ticket_transitions: ticketTransitions,
-    ticket_comments: ticketComments,
     skipped,
     nudge,
   };

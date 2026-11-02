@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
 import {
   evaluateDelivery,
   execaCommandRunner,
@@ -17,7 +16,8 @@ import {
   type CommandRun,
   type CommandRunner,
 } from '@/delivery/delivery-check.js';
-import { defaultDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
+import type { BranchType, ResolvedGitWorkflow } from '@/git-workflow/types.js';
 import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
 import { readFeatureDelivery, recordShip } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
@@ -33,20 +33,17 @@ function policy(
     typeMap?: Record<string, string>;
     ciGate?: 'wait_for_green' | 'warn_only' | 'off';
   } = {},
-): ResolvedDeliveryPolicy {
-  const base = defaultDeliveryPolicy();
-  return {
-    enabled: over.enabled ?? true,
-    process: {
-      ...base.process,
-      branch: {
-        ...base.process.branch,
-        base: over.base ?? 'main',
-        type_map: over.typeMap ?? base.process.branch.type_map,
-      },
-      ci: { ...base.process.ci, gate: over.ciGate ?? 'wait_for_green' },
-    },
-  };
+): ResolvedGitWorkflow {
+  const config = defaultGitWorkflow(over.base ?? 'main');
+  const typeMap = over.typeMap ?? { Story: 'feat', Bug: 'fix', Task: 'chore' };
+  const types: Record<string, BranchType> = {};
+  for (const prefix of new Set(Object.values(typeMap))) {
+    types[prefix] = { ...config.branches.types.feature, prefix, commit_type: prefix };
+  }
+  config.branches.types = types;
+  config.enforcement.enabled = over.enabled ?? true;
+  config.pull_requests.ci.gate = over.ciGate ?? 'wait_for_green';
+  return config;
 }
 
 function runner(handlers: {
@@ -274,11 +271,11 @@ describe('runDeliveryCapability — the kernel-wired behaviour', () => {
     const outcome = await runDeliveryCapability(
       root,
       'completion',
-      runner({ branch: ok('feat/x'), commit: ok('sha'), gh }),
+      runner({ branch: ok('feature/x'), commit: ok('sha'), gh }),
     );
     expect(outcome).toEqual({ ran: false, blocking: false, summary: '' });
     const row = readLatestProjectEvent(root, DELIVERY_EVIDENCE_DOC_TYPE, () => true);
-    expect(row?.branch).toBe('feat/x');
+    expect(row?.branch).toBe('feature/x');
     expect(row?.gh_available).toBe(true);
   });
 });

@@ -1,7 +1,6 @@
 import { execa } from 'execa';
 
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
-import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
 import {
   readFeatureDelivery,
   recordShip,
@@ -13,7 +12,8 @@ import {
   type ShipPatch,
 } from '@/feature-evidence/delivery.js';
 import type { CapabilitySeam } from '@/kernel/registry.js';
-import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { loadGitWorkflow } from '@/git-workflow/load.js';
+import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
 import { isOnPath } from '@/rule-scripts/execute.js';
 import { recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
@@ -86,12 +86,14 @@ const NO_OP: DeliveryOutcome = { ran: false, blocking: false, summary: '' };
 
 export interface EvaluateDeliveryInput {
   projectRoot: string;
-  policy: ResolvedDeliveryPolicy;
+  policy: ResolvedGitWorkflow;
   run: CommandRunner;
 }
 
-function allowedBranchTypes(policy: ResolvedDeliveryPolicy): string[] {
-  return Array.from(new Set(Object.values(policy.process.branch.type_map))).filter(Boolean);
+function allowedBranchTypes(policy: ResolvedGitWorkflow): string[] {
+  return Array.from(
+    new Set(Object.values(policy.branches.types).map((type) => type.prefix)),
+  ).filter(Boolean);
 }
 
 async function readLine(
@@ -228,7 +230,7 @@ export function ghFailureReason(result: CommandRun): string {
 
 export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<DeliveryCheckResult> {
   const { projectRoot, policy, run } = input;
-  if (!policy.enabled) {
+  if (!policy.enforcement.enabled) {
     return NO_CHECK;
   }
 
@@ -246,7 +248,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
   const upstream = await readLine(run, 'git', ['-C', projectRoot, 'rev-parse', '@{upstream}']);
 
   const findings: DeliveryFinding[] = [];
-  const base = policy.process.branch.base;
+  const base = policy.branches.base_branch;
 
   if (branch === base) {
     findings.push({
@@ -304,7 +306,10 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         deletions: countOrNull(pr.deletions),
       };
       ciReading = readRollup(pr.statusCheckRollup);
-      if (policy.process.ci.gate === 'wait_for_green' && rollupHasFailure(pr.statusCheckRollup)) {
+      if (
+        policy.pull_requests.ci.gate === 'wait_for_green' &&
+        rollupHasFailure(pr.statusCheckRollup)
+      ) {
         const label = typeof pr.number === 'number' ? ` for PR #${pr.number}` : '';
         findings.push({
           code: 'ci-red',
@@ -441,8 +446,8 @@ export async function refreshDelivery(
     push: null,
     ci: null,
   });
-  const { policy } = loadDeliveryPolicy(projectRoot);
-  if (!policy.enabled) return skip('delivery policy is off');
+  const policy = loadGitWorkflow(projectRoot).config;
+  if (!policy.enforcement.enabled) return skip('delivery policy is off');
   const branch = await readLine(run, 'git', [
     '-C',
     projectRoot,
@@ -485,7 +490,7 @@ export async function runDeliveryCapability(
   if (seam !== 'completion') {
     return NO_OP;
   }
-  const { policy } = loadDeliveryPolicy(projectRoot);
+  const policy = loadGitWorkflow(projectRoot).config;
   const startedAt = new Date().toISOString();
   const result = await evaluateDelivery({ projectRoot, policy, run });
   if (!result.ran) {

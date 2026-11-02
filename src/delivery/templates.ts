@@ -1,5 +1,5 @@
 import { stripTrailingChars } from '@/core/path-utils.js';
-import type { ResolvedDeliveryProcess } from '@/core/types/delivery-policy.js';
+import type { BranchType, ResolvedGitWorkflow } from '@/git-workflow/types.js';
 
 export interface DeliveryRenderInputs {
   ticket: string;
@@ -29,14 +29,17 @@ export function slugify(value: string, maxLength: number): string {
   return slug.slice(0, maxLength).replace(/-+$/, '');
 }
 
-export function resolveConventionalType(
+export function resolveBranchTypeName(
+  config: ResolvedGitWorkflow,
   ticketType: string | undefined,
-  typeMap: Record<string, string>,
 ): string {
-  if (ticketType && typeMap[ticketType]) {
-    return typeMap[ticketType];
+  if (ticketType) {
+    const match = Object.entries(config.branches.types).filter(([, type]) =>
+      type.ticket_types.includes(ticketType),
+    );
+    if (match.length === 1) return match[0][0];
   }
-  return typeMap.default ?? 'feat';
+  return config.branches.default_type;
 }
 
 export function renderTemplate(template: string, vars: Record<string, string>): string {
@@ -54,16 +57,19 @@ function withTechDebt(template: string, body: string, section: string): string {
 }
 
 export function renderDelivery(
-  process: ResolvedDeliveryProcess,
+  config: ResolvedGitWorkflow,
   inputs: DeliveryRenderInputs,
   prBodyTemplate: string,
+  typeName: string = resolveBranchTypeName(config, inputs.ticket_type),
 ): RenderedDelivery {
-  const type = resolveConventionalType(inputs.ticket_type, process.branch.type_map);
-  const title_slug = slugify(inputs.title, process.branch.slug_max_length);
+  const branchType: BranchType | undefined = config.branches.types[typeName];
+  const type = branchType?.commit_type ?? typeName;
+  const title_slug = slugify(inputs.title, config.branches.slug_max_length);
   const ticket = inputs.ticket || '';
   const scope = inputs.scope ?? type;
 
   const vars: Record<string, string> = {
+    prefix: branchType?.prefix ?? typeName,
     type,
     ticket,
     title: inputs.title,
@@ -74,9 +80,9 @@ export function renderDelivery(
   };
 
   return {
-    branch: renderTemplate(process.branch.template, vars),
-    commit: renderTemplate(process.commit.template, vars),
-    pr_title: renderTemplate(process.pr.title_template, vars),
+    branch: renderTemplate(branchType?.template ?? config.branches.template, vars),
+    commit: renderTemplate(config.commits.template, vars),
+    pr_title: renderTemplate(config.pull_requests.title_template, vars),
     pr_body: withTechDebt(prBodyTemplate, renderTemplate(prBodyTemplate, vars), vars.tech_debt),
   };
 }

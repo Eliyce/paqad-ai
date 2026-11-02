@@ -24,7 +24,7 @@ import {
   TIMELINE_COMMITS,
   type RecordEventSources,
 } from '@/hud/snapshot.js';
-import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { buildChangeTraceabilityMap } from '@/traceability/change-map.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
@@ -39,9 +39,9 @@ import {
   runStage,
 } from './scope-fixtures.js';
 
-vi.mock('@/pipeline/delivery-policy.js', async (importOriginal) => {
-  const real = await importOriginal<typeof import('@/pipeline/delivery-policy.js')>();
-  return { ...real, loadDeliveryPolicy: vi.fn(real.loadDeliveryPolicy) };
+vi.mock('@/git-workflow/load.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/git-workflow/load.js')>();
+  return { ...real, loadGitWorkflow: vi.fn(real.loadGitWorkflow) };
 });
 
 vi.mock('@/traceability/change-map.js', async (importOriginal) => {
@@ -78,9 +78,9 @@ function openChange(root: string, session: string, lane: 'fast' | 'graduated' | 
   return dir;
 }
 
-function writePolicy(root: string, yaml: string): void {
-  mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
-  writeFileSync(join(root, PATHS.WORKFLOWS_DIR, 'delivery-policy.yaml'), yaml);
+function writePolicy(root: string, file: string, yaml: string): void {
+  mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+  writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, file), yaml);
 }
 
 function addWorkflow(root: string, name: string): void {
@@ -161,13 +161,13 @@ describe('AC-27: the delivery plan', () => {
       ci: true,
       reason: null,
     });
-    writePolicy(root, 'schema_version: "1"\nprocess:\n  ci:\n    gate: "off"\n');
+    writePolicy(root, 'pull-requests.yaml', 'ci:\n  gate: "off"\n');
     expect(buildHudSnapshot(root, S, { now: NOW }).delivery_plan).toMatchObject({
       pr: true,
       ci: false,
       reason: 'No CI',
     });
-    writePolicy(root, 'schema_version: "1"\nenabled: false\n');
+    writePolicy(root, 'enforcement.yaml', 'enabled: false\n');
     expect(buildHudSnapshot(root, S, { now: NOW }).delivery_plan).toMatchObject({
       commit: true,
       push: false,
@@ -184,7 +184,7 @@ describe('AC-27: the delivery plan', () => {
     const root = onboardedRoot();
     const S = 'ses-plan-broken';
     openChange(root, S, 'full');
-    vi.mocked(loadDeliveryPolicy).mockImplementationOnce(() => {
+    vi.mocked(loadGitWorkflow).mockImplementationOnce(() => {
       throw new Error('policy unreadable');
     });
     const snapshot = buildHudSnapshot(root, S, { now: NOW });

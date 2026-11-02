@@ -1,5 +1,4 @@
-import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
-
+import type { ResolvedCi } from '@/git-workflow/types.js';
 import type { ChecksState, ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 
 export type CiGateAction =
@@ -8,7 +7,6 @@ export type CiGateAction =
 export interface CiGateResult {
   action: CiGateAction;
   state: ChecksState;
-  transitionTo: string | null;
   message: string;
   evidenceCommentPosted?: boolean;
   checks?: CheckCounts;
@@ -62,13 +60,11 @@ async function postEvidence(
 export async function runCiGate(
   host: HostProvider,
   branch: string,
-  ci: ResolvedDeliveryCi,
+  ci: ResolvedCi,
   options: CiGateOptions = {},
 ): Promise<CiGateResult> {
-  const transitionOnGreen = ci.transition_on_green ? ci.transition_on_green : null;
-
   if (ci.gate === 'off') {
-    return { action: 'skipped', state: 'unknown', transitionTo: null, message: 'CI gate is off.' };
+    return { action: 'skipped', state: 'unknown', message: 'CI gate is off.' };
   }
 
   if (ci.gate === 'warn_only') {
@@ -76,7 +72,6 @@ export async function runCiGate(
     return {
       action: 'warned',
       state: status.state,
-      transitionTo: status.state === 'green' ? transitionOnGreen : null,
       message: `CI is ${status.state} (warn-only — not blocking).`,
       checks: countChecks(status),
     };
@@ -99,7 +94,6 @@ export async function runCiGate(
       return {
         action: 'passed',
         state: 'green',
-        transitionTo: transitionOnGreen,
         message: 'CI is green.',
         evidenceCommentPosted,
         checks: countChecks(status),
@@ -115,7 +109,6 @@ export async function runCiGate(
       return {
         action,
         state: 'red',
-        transitionTo: null,
         message: `CI failed (${
           status.checks
             .filter((c) => c.state === 'red')
@@ -131,7 +124,6 @@ export async function runCiGate(
       return {
         action: 'timed_out',
         state: status.state,
-        transitionTo: null,
         message: `CI did not go green within ${ci.timeout_minutes} minute(s). Stopping.`,
         checks: countChecks(status),
       };
@@ -143,7 +135,6 @@ export async function runCiGate(
   return {
     action: 'timed_out',
     state: last.state,
-    transitionTo: null,
     message: `CI gate read the checks ${maxPolls} time(s) without a verdict. Stopping.`,
     checks: countChecks(last),
   };

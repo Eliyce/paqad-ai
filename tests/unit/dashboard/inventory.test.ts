@@ -94,7 +94,7 @@ describe('buildInventory', () => {
 
     expect(byKey(items, 'instructions').state).toMatchObject({ exists: false, count: 0 });
     expect(byKey(items, 'profile').state.exists).toBe(false);
-    expect(byKey(items, 'delivery-policy').state.detail).toBe('Using framework defaults');
+    expect(byKey(items, 'git-workflow').state.detail).toBe('Using framework defaults');
     expect(byKey(items, 'rag').state.detail).toBe('Disabled');
     expect(byKey(items, 'approvals').state.detail).toBe('Nothing needs you');
     expect(byKey(items, 'module-map-drift').state.detail).toBe('No reconcile run yet');
@@ -105,7 +105,7 @@ describe('buildInventory', () => {
     write(root, 'docs/instructions/rules/a.md', '# a');
     write(root, 'docs/instructions/stack/b.yml', 'x: 1');
     write(root, 'docs/instructions/workflows/development.yaml', 'name: development');
-    write(root, 'docs/instructions/workflows/delivery-policy.yaml', 'enabled: true');
+    write(root, '.paqad/configs/git-workflow/enforcement.yaml', 'enabled: true');
     write(
       root,
       'docs/instructions/rules/module-map.yml',
@@ -129,9 +129,9 @@ describe('buildInventory', () => {
 
     const { items } = buildInventory(root, { paqadHome: home });
 
-    expect(byKey(items, 'instructions').state.count).toBe(5);
-    expect(byKey(items, 'workflows').state.count).toBe(2);
-    expect(byKey(items, 'delivery-policy').state.detail).toBe('Policy file present');
+    expect(byKey(items, 'instructions').state.count).toBe(4);
+    expect(byKey(items, 'workflows').state.count).toBe(1);
+    expect(byKey(items, 'git-workflow').state.detail).toBe('Rules present');
     expect(byKey(items, 'module-map').state).toMatchObject({ exists: true, count: 2 });
     expect(byKey(items, 'profile').state.exists).toBe(true);
     expect(byKey(items, 'capabilities').state.count).toBe(2);

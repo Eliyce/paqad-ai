@@ -21,8 +21,6 @@ import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
 import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
 import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
-import { createDeliveryShell } from '@/delivery/shell.js';
-import { runDeliveryDetection } from '@/delivery/detect-run.js';
 import { Detector } from '@/detection/detector.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -241,10 +239,6 @@ async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
     if (validateCodeKnowledgeIndex(index).valid) {
       writeCodeKnowledgeIndex(projectRoot, index);
     }
-  } catch {}
-
-  try {
-    await runDeliveryDetection(projectRoot, createDeliveryShell(projectRoot));
   } catch {}
 
   try {

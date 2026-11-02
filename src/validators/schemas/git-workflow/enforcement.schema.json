@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "git-workflow-enforcement",
+  "title": "enforcement.yaml",
+  "description": "How strictly paqad holds everyone to these rules.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "paqad_version": { "type": "string" },
+    "enabled": { "type": "boolean" },
+    "agents": { "type": "string", "enum": ["warn", "block"] },
+    "people": { "type": "string", "enum": ["warn", "block", "off"] }
+  }
+}

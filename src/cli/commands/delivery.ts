@@ -26,7 +26,7 @@ import {
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
 import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
-import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { readGitState } from '@/rag/git-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
@@ -64,12 +64,11 @@ export interface DeliverResult {
 }
 
 export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
-  const { policy } = loadDeliveryPolicy(deps.projectRoot);
-  const process = policy.process;
+  const { config } = loadGitWorkflow(deps.projectRoot);
 
-  const templatePath = join(deps.projectRoot, process.pr.body_template_path);
+  const templatePath = join(deps.projectRoot, config.pull_requests.body_template);
   const prBody = existsSync(templatePath) ? readFileSync(templatePath, 'utf8') : '';
-  const rendered = renderDelivery(process, deps.inputs, prBody);
+  const rendered = renderDelivery(config, deps.inputs, prBody);
 
   if (deps.dryRun) {
     return {
@@ -122,7 +121,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   }
 
   const sha = headSha(deps);
-  const gate = await runCiGate(deps.host, rendered.branch, process.ci, {
+  const gate = await runCiGate(deps.host, rendered.branch, config.pull_requests.ci, {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
     onPoll: (status) => saveShip(deps, shipFromStatus(status, sha)),

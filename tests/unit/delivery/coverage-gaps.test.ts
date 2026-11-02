@@ -4,27 +4,21 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { runCiGate } from '@/delivery/ci-gate.js';
-import { planDelivery } from '@/delivery/degradation.js';
-import { detectBranchTemplate } from '@/delivery/detection.js';
-import { readDetection } from '@/delivery/detection-store.js';
-import { buildConnectNudge, gatherGitSnapshot } from '@/delivery/detect-run.js';
-import { detectDelivery } from '@/delivery/detection.js';
 import { detectDeliveryHost } from '@/delivery/host.js';
-import { renderDelivery, resolveConventionalType } from '@/delivery/templates.js';
+import { renderDelivery } from '@/delivery/templates.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
-import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
+import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
+import { detectBranchTemplate, gatherGitSnapshot } from '@/git-workflow/setup.js';
+import type { ResolvedCi } from '@/git-workflow/types.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
-import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
 import { collectDelivery } from '@/dashboard/collectors/delivery.js';
 
-function ci(overrides: Partial<ResolvedDeliveryCi> = {}): ResolvedDeliveryCi {
+function ci(overrides: Partial<ResolvedCi> = {}): ResolvedCi {
   return {
-    maintained: 'auto',
     gate: 'wait_for_green',
     timeout_minutes: 30,
     on_red: 'stop',
-    transition_on_green: 'Done',
     ...overrides,
   };
 }
@@ -42,36 +36,14 @@ function hostWith(status: ChecksStatus): HostProvider {
 }
 
 describe('ci-gate — remaining branches', () => {
-  it('warn_only on green carries the transition', async () => {
+  it('warn_only on green warns without blocking', async () => {
     const res = await runCiGate(
       hostWith({ state: 'green', checks: [] }),
       'b',
       ci({ gate: 'warn_only' }),
     );
     expect(res.action).toBe('warned');
-    expect(res.transitionTo).toBe('Done');
-  });
-
-  it('an empty transition_on_green resolves to null on a pass', async () => {
-    const res = await runCiGate(
-      hostWith({ state: 'green', checks: [] }),
-      'b',
-      ci({ transition_on_green: '' }),
-    );
-    expect(res.action).toBe('passed');
-    expect(res.transitionTo).toBe(null);
-  });
-});
-
-describe('degradation — non-default provider kinds', () => {
-  it('labels a non-github host and non-jira tracker by kind in the nudge', () => {
-    const plan = planDelivery(
-      defaultDeliveryProcess(),
-      { kind: 'gitlab', connected: false },
-      { kind: 'linear', server: null, connected: false },
-    );
-    expect(plan.nudge).toContain('gitlab');
-    expect(plan.nudge).toContain('linear');
+    expect(res).not.toHaveProperty('transitionTo');
   });
 });
 
@@ -84,19 +56,6 @@ describe('detection — no recognisable branch pattern', () => {
       recentCommitSubjects: [],
     });
     expect(d).toBe(null);
-  });
-});
-
-describe('detection-store — corrupt artifact', () => {
-  it('returns null when the artifact is unparseable', () => {
-    const root = mkdtempSync(join(tmpdir(), 'detect-store-'));
-    try {
-      mkdirSync(join(root, '.paqad'), { recursive: true });
-      writeFileSync(join(root, PATHS.DELIVERY_DETECTION), '{ not json', 'utf8');
-      expect(readDetection(root)).toBe(null);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
   });
 });
 
@@ -133,31 +92,13 @@ describe('host + template fallthrough branches', () => {
     expect(detectDeliveryHost('garbage-no-scheme-or-host')).toBe('unknown');
   });
 
-  it('resolveConventionalType falls back to feat when type_map has no default', () => {
-    expect(resolveConventionalType('Spike', { Story: 'feat' })).toBe('feat');
-  });
-
   it('renderDelivery tolerates a missing ticket', () => {
     const out = renderDelivery(
-      defaultDeliveryProcess(),
+      defaultGitWorkflow(),
       { ticket: '', title: 'No ticket here', summary: 's' },
       '{ticket}',
     );
     expect(out.pr_body).toBe('');
-  });
-});
-
-describe('buildConnectNudge — non-github host', () => {
-  it('names the detected host kind verbatim when it is not github', () => {
-    const nudge = buildConnectNudge(
-      detectDelivery({
-        remoteUrl: 'https://gitlab.com/o/r.git',
-        defaultBranch: null,
-        branchNames: [],
-        recentCommitSubjects: [],
-      }),
-    );
-    expect(nudge).toContain('gitlab');
   });
 });
 
@@ -177,19 +118,15 @@ describe('createDeliveryShell — production shell', () => {
 });
 
 describe('delivery dashboard — disabled policy', () => {
-  it('reports unknown band when delivery-policy disables the feature', () => {
+  it('reports unknown band when enforcement.yaml turns delivery help off', () => {
     const root = mkdtempSync(join(tmpdir(), 'delivery-disabled-'));
     try {
-      const dir = join(root, PATHS.WORKFLOWS_DIR);
+      const dir = join(root, PATHS.GIT_WORKFLOW_DIR);
       mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, 'delivery-policy.yaml'),
-        'schema_version: "1"\nenabled: false\n',
-        'utf8',
-      );
+      writeFileSync(join(dir, 'enforcement.yaml'), 'enabled: false\n', 'utf8');
       const { section, attention } = collectDelivery(root);
       expect(section.band).toBe('unknown');
-      expect(section.summary).toContain('Disabled');
+      expect(section.summary).toContain('Turned off');
       expect(attention).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });

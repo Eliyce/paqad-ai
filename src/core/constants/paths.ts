@@ -12,7 +12,7 @@ export const PATHS = {
   RAG_IGNORE_CONFIG: '.paqad/rag.ignore.yaml',
   STACK_DRIFT: '.paqad/stack-drift.json',
   STACK_SNAPSHOT: '.paqad/stack-snapshot.json',
-  DELIVERY_DETECTION: '.paqad/delivery-detection.json',
+  GIT_WORKFLOW_DIR: '.paqad/configs/git-workflow',
   DELIVERY_PR_BODY_TEMPLATE: '.paqad/templates/pr-body.md',
   FRAMEWORK_VERSION: '.paqad/framework-version.txt',
   FRAMEWORK_PATH: '.paqad/framework-path.txt',
