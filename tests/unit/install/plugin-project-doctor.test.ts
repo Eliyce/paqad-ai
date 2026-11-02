@@ -23,11 +23,16 @@ beforeEach(() => {
 afterEach(() => world.cleanup());
 
 function doctor(version = '1.116.0') {
-  return describeClaudeInstall(world.home, world.projectRoot, {}, {
-    managedSettingsPaths: [],
-    cliEntry: NPM_CLI,
-    version,
-  });
+  return describeClaudeInstall(
+    world.home,
+    world.projectRoot,
+    {},
+    {
+      managedSettingsPaths: [],
+      cliEntry: NPM_CLI,
+      version,
+    },
+  );
 }
 
 describe('which layer turns the plugin on for a project', () => {

@@ -947,7 +947,8 @@ export const VERSION_MISMATCH_FIX =
 export const PROJECT_PLUGIN_DETAIL = 'plugin (turned on by this project)';
 export const PROJECT_PLUGIN_WAITING_DETAIL =
   'npm (this project turns the plugin on; waiting for Claude Code to install it)';
-export const LOCAL_OPT_OUT_DETAIL = 'npm (plugin turned off for you in .claude/settings.local.json)';
+export const LOCAL_OPT_OUT_DETAIL =
+  'npm (plugin turned off for you in .claude/settings.local.json)';
 export const USER_SWITCH_OVERRIDDEN_FIX =
   'This repo turns the plugin on, which wins over your user setting. To turn it off for you only, run `paqad-ai plugin rollback`.';
 
