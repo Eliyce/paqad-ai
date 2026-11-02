@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
@@ -289,4 +289,30 @@ function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
   return normalized.filter((path) =>
     trackedEntries.some((entry) => entry === path || entry.startsWith(`${path}/`)),
   );
+}
+
+const LOCAL_EXCLUDE_MARKER = '# paqad-ai: generated on each machine';
+
+export function excludeLocally(projectRoot: string, relativePath: string): boolean {
+  let excludePath: string;
+  try {
+    excludePath = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return false;
+  }
+  const path = isAbsolute(excludePath) ? excludePath : join(projectRoot, excludePath);
+  const line = `/${relativePath.replace(/^\//u, '')}`;
+  let existing = '';
+  try {
+    existing = readFileSync(path, 'utf8');
+  } catch {}
+  if (existing.split(/\r?\n/u).includes(line)) return false;
+  mkdirSync(dirname(path), { recursive: true });
+  const prefix = existing === '' || existing.endsWith('\n') ? existing : `${existing}\n`;
+  writeFileSync(path, `${prefix}${LOCAL_EXCLUDE_MARKER}\n${line}\n`, 'utf8');
+  return true;
 }

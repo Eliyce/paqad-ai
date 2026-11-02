@@ -9,7 +9,6 @@ import {
   type RuleGateConfig,
 } from '@/core/framework-config.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
-import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
@@ -97,27 +96,13 @@ export function resolveRuleComplianceMode(
 ): RuleComplianceMode {
   return resolveFlooredMode(
     {
-      team: stricterTeamFloor(
-        readConfigsDir(projectRoot).merged.get('rule_compliance'),
-        readProjectRuleComplianceModeOverride(projectRoot),
-      ),
+      team: readConfigsDir(projectRoot).merged.get('rule_compliance'),
       local: readDotConfig(projectRoot).get('rule_compliance'),
       env: envConfigValue(env, 'rule_compliance'),
     },
     RULE_COMPLIANCE_MODES,
     DEFAULT_RULE_COMPLIANCE,
   );
-}
-
-function stricterTeamFloor(a: string | undefined, b: string | undefined): string | undefined {
-  const rank = (raw: string | undefined): number =>
-    raw === undefined
-      ? -1
-      : RULE_COMPLIANCE_MODES.indexOf(raw.trim().toLowerCase() as RuleComplianceMode);
-  const rankA = rank(a);
-  const rankB = rank(b);
-  const winner = Math.max(rankA, rankB);
-  return winner < 0 ? undefined : RULE_COMPLIANCE_MODES[winner];
 }
 
 type IntegrityStatus = 'ok' | 'tampered' | 'unverified';

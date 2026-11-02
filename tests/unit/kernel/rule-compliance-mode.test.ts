@@ -18,7 +18,7 @@ vi.mock('@/rule-scripts/enforce.js', async (importOriginal) => ({
   },
 }));
 
-describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
+describe('resolveRuleComplianceMode — rules.yaml enforcement is the one team floor', () => {
   let root: string;
 
   beforeEach(() => {
@@ -30,14 +30,13 @@ describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  function writeWorkflow(mode: string): void {
+  function writeOldWorkflowFile(mode: string): void {
     const dir = join(root, 'docs/instructions/workflows');
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, 'feature-development.yaml'),
       [
         'schema_version: "1"',
-        'merge_mode: append',
         'stages:',
         '  checks:',
         '    rule_compliance:',
@@ -46,34 +45,34 @@ describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
     );
   }
 
-  function writeConfig(mode: string): void {
-    const dir = join(root, '.paqad/configs');
+  function writeRules(enforcement: string): void {
+    const dir = join(root, '.paqad/configs/feature-development');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, '.config.policy'), `rule_compliance=${mode}\n`);
+    writeFileSync(join(dir, 'rules.yaml'), `enforcement: ${enforcement}\n`);
   }
 
   it('defaults to warn when nothing sets it', () => {
     expect(resolveRuleComplianceMode(root, {})).toBe('warn');
   });
 
-  it('binds strict from the workflow yaml even when .config is unset (the fixed placebo)', () => {
-    writeWorkflow('strict');
+  it('AC-57: binds strict from rules.yaml enforcement: block', () => {
+    writeRules('block');
     expect(resolveRuleComplianceMode(root, {})).toBe('strict');
   });
 
-  it('takes the stricter of the yaml and .config team surfaces', () => {
-    writeWorkflow('strict');
-    writeConfig('warn');
-    expect(resolveRuleComplianceMode(root, {})).toBe('strict');
+  it('AC-57: never reads the old workflow file override', () => {
+    writeOldWorkflowFile('strict');
+    expect(resolveRuleComplianceMode(root, {})).toBe('warn');
   });
 
   it('lets the env escape hatch raise above the floor', () => {
-    writeWorkflow('warn');
+    writeRules('warn');
     expect(resolveRuleComplianceMode(root, { PAQAD_RULE_COMPLIANCE: 'strict' })).toBe('strict');
+    expect(resolveRuleComplianceMode(root, { PAQAD_RULE_COMPLIANCE: 'block' })).toBe('strict');
   });
 
-  it('does not let a local/env value lower below the tracked yaml floor', () => {
-    writeWorkflow('strict');
+  it('does not let a local/env value lower below the rules.yaml floor', () => {
+    writeRules('block');
     expect(resolveRuleComplianceMode(root, { PAQAD_RULE_COMPLIANCE: 'warn' })).toBe('strict');
   });
 });

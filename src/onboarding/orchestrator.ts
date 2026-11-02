@@ -15,6 +15,7 @@ import {
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
+import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -78,7 +79,6 @@ import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
 import { generateGitWorkflowFiles } from '@/git-workflow/onboard.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
 import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
-import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
 import { resolveSelections } from './prompts.js';
 import {
   applyRagSelection,
@@ -194,7 +194,6 @@ export class OnboardingOrchestrator {
       generatedFiles.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
     }
     generatedFiles.push(...(await generateProjectRules(resolved.rules)));
-    generatedFiles.push(...generateFeatureDevelopmentPolicy(selections.domain));
     generatedFiles.push(...generateGitWorkflowFiles(selections.domain, options.projectRoot));
     generatedFiles.push(
       ...(await generateReferenceGuides(runtimeRoot, {
@@ -245,6 +244,7 @@ export class OnboardingOrchestrator {
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
       syncTeamConfigFiles(options.projectRoot);
+      onboardingWarnings.push(...rebuildFeatureDevelopmentView(options.projectRoot));
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {
@@ -483,7 +483,6 @@ export class OnboardingOrchestrator {
       files.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
     }
     files.push(...(await generateProjectRules(resolved.rules)));
-    files.push(...generateFeatureDevelopmentPolicy(selections.domain));
     files.push(
       ...(await generateReferenceGuides(runtimeRoot, {
         domain: selections.domain,

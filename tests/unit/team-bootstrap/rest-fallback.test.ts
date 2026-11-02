@@ -6,10 +6,8 @@ import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
-import {
-  defaultFeatureDevelopmentPolicy,
-  renderDefaultFeatureDevelopmentPolicyYaml,
-} from '@/pipeline/feature-development-policy.js';
+import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { GithubHostProvider, resetGraphqlRefusal } from '@/providers/github-host-provider.js';
 import {
   GRAPHQL_REFUSED_MESSAGE,
@@ -537,7 +535,9 @@ describe('the manual delivery instruction', () => {
     const text = JSON.stringify(policy);
     expect(text).toContain('gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=');
     expect(YAML.stringify(policy)).toContain('cloud session');
-    const rendered = JSON.stringify(YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()));
+    const rendered = JSON.stringify(
+      YAML.parse(renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy())),
+    );
     expect(rendered).toContain(
       'gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=\\"$(cat /tmp/paqad-evidence.md)\\"',
     );

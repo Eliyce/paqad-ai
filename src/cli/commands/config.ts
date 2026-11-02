@@ -3,6 +3,8 @@ import { join, relative } from 'node:path';
 import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { appendPlanningAudit } from '@/planning/audit.js';
+import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { buildConfigShow, renderConfigShow } from './config-show.js';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
@@ -217,6 +219,23 @@ export function createConfigCommand(): Command {
         return;
       }
       console.log(renderConfigShow(result, options.changed === true));
+    });
+
+  command
+    .command('view')
+    .description(
+      'Rebuild the generated, git-ignored feature-development workflow view when its sources ' +
+        'changed. A hand edit to the view is moved into .paqad/configs/feature-development/ first.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { projectRoot: string }) => {
+      const lines = rebuildFeatureDevelopmentView(options.projectRoot);
+      if (lines.length > 0) {
+        appendPlanningAudit(options.projectRoot, 'WARN', 'feature-development-view.moved', {
+          lines: lines.join(' | '),
+        });
+      }
+      for (const line of lines) console.log(line);
     });
 
   return command;

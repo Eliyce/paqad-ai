@@ -1,32 +1,20 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-import YAML from 'yaml';
 
 import { readAnalyticsDecision } from '@/analytics/gate.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { invalidFileMessage, readTeamYamlFile } from '@/core/team-config.js';
+import { WORKFLOW_POLICY_STAGES } from '@/core/team-config-schema.js';
 import type {
   FeatureDevelopmentChecksPolicy,
   FeatureDevelopmentLogicalCommand,
   FeatureDevelopmentPolicy,
   FeatureDevelopmentPolicyLoadResult,
-  FeatureDevelopmentRoundsPolicy,
-  FeatureDevelopmentRuleCompliancePolicy,
   FeatureDevelopmentStageName,
   FeatureDevelopmentStagePolicy,
   ResolvedFeatureDevelopmentCheckCommand,
 } from '@/core/types/feature-development-policy.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
-import { SchemaValidator } from '@/validators/validator.js';
-
-type RawStagePolicy = Partial<FeatureDevelopmentPolicy['stages'][FeatureDevelopmentStageName]>;
-type RawFeatureDevelopmentPolicy = {
-  schema_version?: string;
-  merge_mode?: 'append';
-  stages?: Partial<Record<FeatureDevelopmentStageName, RawStagePolicy>>;
-  rounds?: FeatureDevelopmentRoundsPolicy;
-};
 
 export const STAGE_ORDER: FeatureDevelopmentStageName[] = [
   'ticket_intake',
@@ -38,14 +26,6 @@ export const STAGE_ORDER: FeatureDevelopmentStageName[] = [
   'documentation_sync',
   'delivery',
 ];
-
-const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Record<string, true>>> =
-  {
-    specification: { require_spec: true, require_spec_signoff: true },
-    review: { require_review: true },
-    checks: { block_on_failure: true },
-    documentation_sync: { require_canonical_sync: true },
-  };
 
 const SPEC_REVIEW_ENFORCEMENT_INSTRUCTION =
   'Spec-review enforcement: SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the ' +
@@ -122,18 +102,6 @@ export function reusePlanningInstructions(
 
 export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
-}
-
-export function readProjectRuleComplianceModeOverride(projectRoot: string): string | undefined {
-  const path = featureDevelopmentPolicyPath(projectRoot);
-  if (!existsSync(path)) return undefined;
-  try {
-    const parsed = YAML.parse(readFileSync(path, 'utf8')) as RawFeatureDevelopmentPolicy | null;
-    const mode = parsed?.stages?.checks?.rule_compliance?.mode;
-    return typeof mode === 'string' ? mode : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
@@ -310,49 +278,104 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
   };
 }
 
+const WORKFLOW_FILE = 'feature-development/workflow.yaml';
+const CHECKS_FILE = 'feature-development/checks.yaml';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+}
+
+function readTeamPolicyFile(
+  projectRoot: string,
+  file: typeof WORKFLOW_FILE | typeof CHECKS_FILE,
+  warnings: string[],
+): Record<string, unknown> {
+  const { document, error } = readTeamYamlFile(projectRoot, file);
+  if (error !== undefined) {
+    warnings.push(invalidFileMessage(file, error));
+    return {};
+  }
+  const data: unknown = document?.toJS();
+  return isRecord(data) ? data : {};
+}
+
+function applyTeamChecks(
+  base: FeatureDevelopmentChecksPolicy,
+  raw: Record<string, unknown>,
+  warnings: string[],
+): FeatureDevelopmentChecksPolicy {
+  const next: FeatureDevelopmentChecksPolicy = { ...base };
+  const commands = isRecord(raw.commands) ? raw.commands : {};
+  if (commands.from_project_profile !== undefined) {
+    const names = stringList(commands.from_project_profile) as FeatureDevelopmentLogicalCommand[];
+    next.commands = names;
+    next.use_project_profile_commands = names.length > 0;
+  }
+  if (isRecord(commands.extra)) {
+    next.shell_commands = appendUnique(
+      base.shell_commands,
+      stringList(Object.values(commands.extra)),
+    );
+  }
+  if (raw.on_failure === 'warn' || raw.on_failure === 'block') {
+    next.block_on_failure = raw.on_failure === 'block';
+  } else if (raw.on_failure !== undefined) {
+    warnings.push(
+      `${CHECKS_FILE}: on_failure has an invalid value ${String(raw.on_failure)}, so paqad uses the default block. It must be one of: block, warn.`,
+    );
+  }
+  return next;
+}
+
 export function loadFeatureDevelopmentPolicy(
   projectRoot: string,
   profile: Pick<ProjectProfile, 'commands'> | null = null,
 ): FeatureDevelopmentPolicyLoadResult {
-  const defaults = defaultFeatureDevelopmentPolicy();
-  const path = featureDevelopmentPolicyPath(projectRoot);
-  if (!existsSync(path)) {
-    return { policy: injectAnalyticsStageInstructions(defaults, projectRoot), warnings: [] };
+  const warnings: string[] = [];
+  const policy = defaultFeatureDevelopmentPolicy();
+  const workflow = readTeamPolicyFile(projectRoot, WORKFLOW_FILE, warnings);
+  const teamStages = isRecord(workflow.stages) ? workflow.stages : {};
+  for (const stageName of WORKFLOW_POLICY_STAGES) {
+    const team = isRecord(teamStages[stageName]) ? teamStages[stageName] : {};
+    const stage = policy.stages[stageName];
+    stage.read = appendUnique(stage.read, stringList(team.read));
+    stage.instructions = appendUnique(stage.instructions, stringList(team.instructions));
   }
-
-  let parsed: RawFeatureDevelopmentPolicy;
-  try {
-    parsed = (YAML.parse(readFileSync(path, 'utf8')) as RawFeatureDevelopmentPolicy) ?? {};
-  } catch (error) {
-    return {
-      policy: defaults,
-      warnings: [
-        `Feature development policy at ${PATHS.WORKFLOWS_DIR}/feature-development.yaml could not be parsed. Using framework defaults.`,
-        error instanceof Error ? error.message : 'YAML parse failed',
-      ],
-    };
+  const planning = isRecord(teamStages.planning) ? teamStages.planning : {};
+  const attribution = planning.module_attribution;
+  if (attribution === 'defer' || attribution === 'stop') {
+    policy.stages.planning.escalation.attribution_pending = attribution;
+  } else if (attribution !== undefined) {
+    warnings.push(
+      `${WORKFLOW_FILE}: stages.planning.module_attribution has an invalid value ${String(attribution)}, so paqad uses the default defer. It must be one of: defer, stop.`,
+    );
   }
-
-  const validator = new SchemaValidator();
-  const validation = validator.validate('feature-development-policy', parsed);
-  if (!validation.valid) {
-    return {
-      policy: defaults,
-      warnings: [
-        `Feature development policy at ${PATHS.WORKFLOWS_DIR}/feature-development.yaml is invalid. Using framework defaults.`,
-        ...validation.errors.map((error) => `${error.path} ${error.message}`),
-      ],
-    };
+  const checks = policy.stages.checks.checks;
+  if (checks !== null) {
+    policy.stages.checks.checks = applyTeamChecks(
+      checks,
+      readTeamPolicyFile(projectRoot, CHECKS_FILE, warnings),
+      warnings,
+    );
   }
-
-  const merged = mergeFeatureDevelopmentPolicy(defaults, parsed);
   const commandWarnings =
-    profile === null ? [] : validateRequiredCommands(merged.stages.checks.checks, profile);
-
+    profile === null ? [] : validateRequiredCommands(policy.stages.checks.checks, profile);
   return {
-    policy: injectAnalyticsStageInstructions(merged, projectRoot),
-    warnings: commandWarnings,
+    policy: injectAnalyticsStageInstructions(policy, projectRoot),
+    warnings: [...warnings, ...commandWarnings],
   };
+}
+
+export function moduleAttributionMode(policy: FeatureDevelopmentPolicy): string {
+  return policy.stages.planning.escalation.attribution_pending ?? 'defer';
 }
 
 function injectAnalyticsStageInstructions(
@@ -455,119 +478,8 @@ export function resolveFeatureDevelopmentCheckCommands(
   return { commands, warnings };
 }
 
-function mergeFeatureDevelopmentPolicy(
-  defaults: FeatureDevelopmentPolicy,
-  raw: RawFeatureDevelopmentPolicy,
-): FeatureDevelopmentPolicy {
-  const stages = {} as FeatureDevelopmentPolicy['stages'];
-
-  for (const stageName of STAGE_ORDER) {
-    const defaultStage = defaults.stages[stageName];
-    const rawStage = raw.stages?.[stageName] ?? {};
-    const defaultChecks = defaultStage.checks;
-    const rawChecks = rawStage.checks;
-
-    stages[stageName] = {
-      read: appendUnique(defaultStage.read, rawStage.read),
-      instructions: appendUnique(defaultStage.instructions, rawStage.instructions),
-      required_inputs: appendUnique(defaultStage.required_inputs, rawStage.required_inputs),
-      strictness: mergeStrictness(stageName, defaultStage.strictness, rawStage.strictness),
-      escalation: {
-        ...defaultStage.escalation,
-        ...(rawStage.escalation ?? {}),
-      },
-      artifacts: appendUnique(defaultStage.artifacts, rawStage.artifacts),
-      checks:
-        defaultChecks === null && rawChecks === undefined
-          ? null
-          : {
-              use_project_profile_commands:
-                rawChecks?.use_project_profile_commands ??
-                defaultChecks?.use_project_profile_commands ??
-                true,
-              commands: appendUniqueLogicalCommands(
-                defaultChecks?.commands ?? [],
-                rawChecks?.commands,
-              ),
-              shell_commands: appendUnique(
-                defaultChecks?.shell_commands ?? [],
-                rawChecks?.shell_commands,
-              ),
-              block_on_failure:
-                rawChecks?.block_on_failure === true ||
-                defaultChecks?.block_on_failure === true ||
-                defaultStage.strictness.block_on_failure === true,
-            },
-      ...(defaultStage.rule_compliance || rawStage.rule_compliance
-        ? {
-            rule_compliance: {
-              ...defaultStage.rule_compliance,
-              ...(rawStage.rule_compliance ?? {}),
-            } as FeatureDevelopmentRuleCompliancePolicy,
-          }
-        : {}),
-    };
-  }
-
-  const merged: FeatureDevelopmentPolicy = {
-    schema_version: '1',
-    merge_mode: 'append',
-    stages,
-  };
-
-  const rounds = sanitizeRounds(raw.rounds);
-  if (rounds) {
-    merged.rounds = rounds;
-  }
-
-  return merged;
-}
-
-function sanitizeRounds(
-  raw: FeatureDevelopmentRoundsPolicy | undefined,
-): FeatureDevelopmentRoundsPolicy | undefined {
-  if (!raw) {
-    return undefined;
-  }
-  const sanitized: FeatureDevelopmentRoundsPolicy = {};
-  for (const lane of ['fast', 'graduated', 'full'] as const) {
-    const value = raw[lane];
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
-      sanitized[lane] = Math.floor(value);
-    }
-  }
-  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
-}
-
 function appendUnique(base: string[], additions: string[] | undefined): string[] {
   return Array.from(new Set([...base, ...(additions ?? [])]));
-}
-
-function appendUniqueLogicalCommands(
-  base: FeatureDevelopmentLogicalCommand[],
-  additions: FeatureDevelopmentLogicalCommand[] | undefined,
-): FeatureDevelopmentLogicalCommand[] {
-  return Array.from(new Set([...base, ...(additions ?? [])]));
-}
-
-function mergeStrictness(
-  stageName: FeatureDevelopmentStageName,
-  base: Record<string, boolean>,
-  additions: Record<string, boolean> | undefined,
-): Record<string, boolean> {
-  const merged: Record<string, boolean> = { ...base };
-
-  for (const [key, value] of Object.entries(additions ?? {})) {
-    merged[key] = merged[key] === true ? true : value;
-  }
-
-  for (const [key, value] of Object.entries(REQUIRED_TRUE_STRICTNESS[stageName] ?? {})) {
-    if (value === true) {
-      merged[key] = true;
-    }
-  }
-
-  return merged;
 }
 
 function validateRequiredCommands(
@@ -576,206 +488,6 @@ function validateRequiredCommands(
 ): string[] {
   const resolved = resolveFeatureDevelopmentCheckCommands(checks, profile);
   return resolved.warnings;
-}
-
-export const RESERVED_WORKFLOW_POLICY_FILES = ['feature-development.yaml'] as const;
-
-export function isReservedWorkflowPolicyFile(fileName: string): boolean {
-  return RESERVED_WORKFLOW_POLICY_FILES.includes(
-    fileName as (typeof RESERVED_WORKFLOW_POLICY_FILES)[number],
-  );
-}
-
-export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
-  return `# Feature Development Stage Policy
-# This file customizes how the built-in feature-development workflow behaves in this project.
-# The framework still owns routing, phase order, and mandatory safety stages.
-#
-# Enforcement tiers — an escalation is honoured on one of two tiers, and
-# this contract never claims script enforcement it does not have:
-#   - SCRIPT-ENFORCED (deterministic): checks.block_on_failure and the mandatory-stage
-#     completeness gate. \`paqad-ai checks run\` exits non-zero on any red command and the
-#     completion backstop reads its report; a feature-dev change with no report reads
-#     Inconclusive, never a vacuous pass.
-#   - AGENT-RAISED -> DECISION-PAUSE-ENFORCED: review.escalation.review_findings and
-#     documentation_sync.escalation.stale_docs need model judgment to raise, so no script
-#     detects them; once raised as a \`stop\`, the Decision-Pause gate holds edits until the
-#     packet resolves. Not a false "a script proves this" promise.
-schema_version: "1"
-merge_mode: append
-
-# Bounded build-check-fix loop round caps, per lane. Each value is
-# the most build-check-fix rounds the loop runs before stopping with one honest
-# "I couldn't get this fully clean" report. Omit a lane to use the framework
-# default (fast 2, graduated 3, full 5). Raise for the heaviest work.
-# rounds:
-#   fast: 2
-#   graduated: 3
-#   full: 5
-
-stages:
-  ticket_intake:
-    read:
-      - docs/instructions/**
-      - .paqad/decisions/resolved/**
-    instructions:
-      - When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.
-      - Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.
-      - Auto-resolved decisions must be surfaced for confirmation per process.intake_decisions.confirm_auto_resolutions; never bypass the user silently.
-    required_inputs:
-      - ticket ref or natural-language request
-    escalation:
-      missing_ticket: warn
-      unresolved_decisions: stop
-    artifacts:
-      - refined ticket
-      - resolved decision packets
-
-  planning:
-    # Extra context to load before planning starts.
-    read:
-      - docs/instructions/stack/**
-      - docs/instructions/design-system/**
-      - docs/instructions/workflows/**
-    instructions:
-      - Review the canonical module and instruction docs before planning the change.
-      - Keep planning scoped to the requested feature and the current repository state.
-      - "Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
-      - "${REUSE_PLANNING_INSTRUCTION}"
-      - "${DIFF_MINIMIZER_PLANNING_INSTRUCTION}"
-      - "${CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION}"
-    required_inputs:
-      - active request
-      - canonical docs
-    strictness:
-      require_docs_context: true
-      require_rule_scripts_synced: true
-    escalation:
-      missing_docs_context: warn
-      rule_scripts_stale: ask
-      rule_scripts_missing: warn
-    artifacts:
-      - implementation sequence
-
-  specification:
-    instructions:
-      - Write or refine the feature specification before implementation when the lane includes specification.
-      - "Spec sign-off: on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
-      - "${SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}"
-      - "${SPEC_PIPELINE_INSTRUCTION}"
-      - "Freeze the spec before writing code on graduated/full lanes: run \`paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants\` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (\`specification.json\`) that development builds against and the spec-change guard checks for drift."
-    required_inputs:
-      - approved spec boundary
-    strictness:
-      require_spec: true
-      require_spec_signoff: true
-    escalation:
-      missing_spec: stop
-      missing_spec_signoff: stop
-    artifacts:
-      - specification
-      - frozen feature-spec
-
-  development:
-    instructions:
-      - Implement only the requested feature behavior and avoid unrelated refactors.
-      - "${FULL_SUITE_INSTRUCTION}"
-    required_inputs:
-      - approved spec
-      - implementation sequence
-    strictness:
-      avoid_unrelated_refactors: true
-    escalation:
-      scope_expansion: ask
-    artifacts:
-      - code changes
-
-  review:
-    instructions:
-      - Review the change against correctness, regressions, and rollback risk before treating it as complete.
-      - "${REVIEW_DIGEST_INSTRUCTION}"
-      - "${REVIEW_DIGEST_REFRESH_INSTRUCTION}"
-      - "${OUT_OF_SCOPE_FINDINGS_INSTRUCTION}"
-    required_inputs:
-      - code diff
-      - verification summary
-    strictness:
-      require_review: true
-    escalation:
-      review_findings: stop
-    artifacts:
-      - review summary
-
-  checks:
-    instructions:
-      - Run the project command checks after implementation and before finalizing the feature.
-      - "Run them deterministically with \`paqad-ai checks run\`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is \`Needs your attention\` — fix it before finalizing."
-      - "Before \`paqad-ai checks run\`, run \`paqad-ai checks plan\`. If it prints \`test: sequential (unknown)\`, run the test-runner-discovery skill and record its result with \`paqad-ai checks record-runner <file>\` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used."
-    required_inputs:
-      - working tree diff
-    strictness:
-      block_on_failure: true
-    escalation:
-      missing_command_mapping: stop
-    artifacts:
-      - verification summary
-    checks:
-      use_project_profile_commands: true
-      commands:
-        - format
-        - test
-        - build
-      shell_commands: []
-      block_on_failure: true
-      # Add project-specific commands here when needed.
-      # shell_commands:
-      #   - pnpm typecheck
-    # Rules-as-scripts gate. Runs registered rule scripts diff-scoped
-    # after the command checks. deterministic findings block under mode:strict;
-    # heuristic findings route to review and never block.
-    rule_compliance:
-      enabled: true
-      mode: strict
-      scope: changed-files
-      diff_scope: true
-      cache_path: .paqad/scripts/rules/.cache/report.json
-      escalation: stop
-
-  documentation_sync:
-    instructions:
-      - Sync canonical docs affected by the feature diff after verification passes.
-      - "${OUT_OF_SCOPE_FINDINGS_INSTRUCTION}"
-    required_inputs:
-      - changed files
-    strictness:
-      require_canonical_sync: true
-    escalation:
-      stale_docs: stop
-    artifacts:
-      - stale doc targets
-
-  delivery:
-    instructions:
-      - After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet — unless process.pr already pins it.
-      - "Deliver only through paqad: paqad-ai deliver commit for each commit, and paqad-ai deliver to push and open the PR. Both follow the team's rules in .paqad/configs/git-workflow/. Never run git commit, git push or gh pr create yourself for a change paqad is delivering."
-      - "You supply the meaning: the ticket, the branch type when paqad asks for it, and a summary written for a person who doesn't read code. Say what changes for the user or the business, in plain words, with no file names, function names or code symbols. paqad builds the branch name, commit message and PR title from the team's templates."
-      - "If the team's PR template has no placeholders, fill in each of its sections yourself and pass it with --body-file."
-      - "When paqad prints a ticket move, make it with your tracker tool, then record it with paqad-ai deliver ticket-done <id>, or --failed / --skipped with the reason."
-      - "Run the CI gate per process.ci: wait_for_green polls checks until green (timeout_minutes), applies on_red on failure, and queues the ticket move on green. A red build surfaces via a delivery.ci_red Decision Packet when on_red needs a human call."
-      - "Graceful degradation: if a required provider (host/tracker MCP) is not connected, do what is possible (branch/commit always run), skip the provider-bound steps, and re-surface the connect nudge — do not hard stop."
-      - MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.
-    required_inputs:
-      - merged change
-      - git-workflow files
-    escalation:
-      remote_failure: stop
-      ci_red: ask
-    artifacts:
-      - branch
-      - commit
-      - pull request
-      - CI gate result
-`;
 }
 
 export function summarizeFeatureDevelopmentStage(

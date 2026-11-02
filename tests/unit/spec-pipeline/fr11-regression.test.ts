@@ -7,9 +7,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 import {
+  defaultFeatureDevelopmentPolicy,
   loadFeatureDevelopmentPolicy,
-  renderDefaultFeatureDevelopmentPolicyYaml,
 } from '@/pipeline/feature-development-policy.js';
+import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 
 describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', () => {
   const roots: string[] = [];
@@ -49,7 +50,7 @@ describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', ()
   });
 
   it('the rendered YAML carries the spec-pipeline instruction verbatim (AC-3)', () => {
-    const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
+    const yaml = renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
     expect(yaml).toContain(
       'Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through',
     );

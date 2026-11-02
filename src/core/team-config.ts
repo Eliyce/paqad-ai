@@ -158,24 +158,33 @@ export function readTeamConfig(projectRoot: string): TeamConfigRead {
   return { merged, collisions: legacy.collisions, sources, issues };
 }
 
+export function writeTeamYamlValue(
+  projectRoot: string,
+  file: TeamConfigFile,
+  path: readonly string[],
+  value: unknown,
+): string {
+  const target = teamConfigPath(projectRoot, file);
+  const existing = existsSync(target) ? readFileSync(target, 'utf8') : teamConfigHeader(file);
+  const document = YAML.parseDocument(existing);
+  if (document.errors.length > 0) {
+    throw new Error(invalidFileMessage(file, document.errors[0]!.message));
+  }
+  document.setIn([...path], value);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, document.toString({ lineWidth: 0 }), 'utf8');
+  if (file === GIT_WORKFLOW_COMMITS_FILE) {
+    stampLastApplied(projectRoot, ['commits.yaml']);
+  }
+  return target;
+}
+
 export function setTeamConfigValue(projectRoot: string, key: string, legacyValue: string): string {
   const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key);
   if (spec === undefined) {
     throw new Error(`${key} isn't a paqad setting.`);
   }
-  const path = teamConfigPath(projectRoot, spec.file);
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : teamConfigHeader(spec.file);
-  const document = YAML.parseDocument(existing);
-  if (document.errors.length > 0) {
-    throw new Error(invalidFileMessage(spec.file, document.errors[0]!.message));
-  }
-  document.setIn([...spec.path], toYamlValue(spec, legacyValue));
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, document.toString({ lineWidth: 0 }), 'utf8');
-  if (spec.file === GIT_WORKFLOW_COMMITS_FILE) {
-    stampLastApplied(projectRoot, ['commits.yaml']);
-  }
-  return path;
+  return writeTeamYamlValue(projectRoot, spec.file, spec.path, toYamlValue(spec, legacyValue));
 }
 
 export function ensureTeamConfigFiles(projectRoot: string): string[] {

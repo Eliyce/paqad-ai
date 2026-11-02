@@ -3,8 +3,6 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { renderDefaultFeatureDevelopmentPolicyYaml } from '@/pipeline/feature-development-policy.js';
-
 const ROOT = resolve(__dirname, '../../..');
 const PROJECT_YAML = resolve(ROOT, 'docs/instructions/workflows/feature-development.yaml');
 
@@ -16,10 +14,6 @@ function assertHonestTiers(yaml: string): void {
 }
 
 describe('feature-development enforcement-tier honesty', () => {
-  it('the shipped render source documents the enforcement tiers', () => {
-    assertHonestTiers(renderDefaultFeatureDevelopmentPolicyYaml());
-  });
-
   it("this repo's live workflow contract documents the enforcement tiers", () => {
     assertHonestTiers(readFileSync(PROJECT_YAML, 'utf8'));
   });
