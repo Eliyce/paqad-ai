@@ -1434,6 +1434,11 @@ describe('stand-downs: the mod registers nothing', () => {
       'the team config turns paqad off',
       { extra: { '.paqad/configs/.config.app': 'paqad_enable=false\n' } },
     ],
+    ['paqad.yaml turns paqad off', { extra: { '.paqad/configs/paqad.yaml': 'enabled: false\n' } }],
+    [
+      'paqad.yaml turns the HUD band off',
+      { extra: { '.paqad/configs/paqad.yaml': 'hud:\n  band: false\n' } },
+    ],
     ['Claude Code is 2.1.300', { version: { version: '2.1.300', base: '2.1.300' } }],
   ] as const;
   for (const [name, setup] of cases) {
