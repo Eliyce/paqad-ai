@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -593,14 +593,6 @@ function assertFiveOutputGroups(projectRoot: string): void {
 
 function assertNoProjectLocalSkillsOrAgents(projectRoot: string): void {
   for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
-    if (relativePath === '.claude/agents' && existsSync(join(projectRoot, 'CLAUDE.md'))) {
-      expect(
-        readdirSync(join(projectRoot, relativePath)).every((name) =>
-          /^paqad-[a-z-]+\.md$/.test(name),
-        ),
-      ).toBe(true);
-      continue;
-    }
     expect(existsSync(join(projectRoot, relativePath))).toBe(false);
   }
 }
