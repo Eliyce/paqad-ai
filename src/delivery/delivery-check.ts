@@ -2,6 +2,7 @@ import { execa } from 'execa';
 
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import {
+  pendingTicketActions,
   readFeatureDelivery,
   recordShip,
   resolveDeliveryFeatureByBranch,
@@ -53,7 +54,7 @@ export interface DeliveryPrReading {
 export type CommandRunner = (command: string, args: string[]) => Promise<CommandRun>;
 
 export interface DeliveryFinding {
-  code: 'on-base-branch' | 'branch-shape' | 'ci-red' | 'ai-attribution';
+  code: 'on-base-branch' | 'branch-shape' | 'ci-red' | 'ai-attribution' | 'ticket-move-pending';
   message: string;
 }
 
@@ -335,6 +336,8 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     findings.push(...attributionFindings(commitMessages, prBody));
   }
 
+  findings.push(...pendingMoveFindings(projectRoot, branch));
+
   return {
     ran: true,
     branch,
@@ -345,6 +348,19 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     ci: ciReading,
     upstream,
   };
+}
+
+export function pendingMoveFindings(projectRoot: string, branch: string): DeliveryFinding[] {
+  try {
+    const dirName = resolveDeliveryFeatureByBranch(projectRoot, branch);
+    if (!dirName) return [];
+    return pendingTicketActions(readFeatureDelivery(projectRoot, dirName)).map((action) => ({
+      code: 'ticket-move-pending' as const,
+      message: `ticket move to "${action.to}" not confirmed`,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 function pushedHead(result: DeliveryCheckResult): string | null {

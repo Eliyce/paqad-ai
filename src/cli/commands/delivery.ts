@@ -12,7 +12,7 @@ import {
   type CiGateOptions,
   type CiGateResult,
 } from '@/delivery/ci-gate.js';
-import { planDelivery, type DeliveryPlan } from '@/delivery/degradation.js';
+import { planDelivery, trackerName, type DeliveryPlan } from '@/delivery/degradation.js';
 import { detectDeliveryHost } from '@/delivery/host.js';
 import {
   GIT_WORKFLOW_PATH,
@@ -36,11 +36,16 @@ import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
 import { describeEarlierWork } from '@/delivery/commit-split.js';
 import {
+  TICKET_ACTION_IDS,
+  queueTicketAction,
   readFeatureDelivery,
   recordShip,
   refreshCommitSplit,
+  settleTicketAction,
   type CiState,
+  type DeliveryTicketAction,
   type ShipPatch,
+  type TicketActionId,
 } from '@/feature-evidence/delivery.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
@@ -319,6 +324,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     stepLines.push(`> - 🟢 PR to ${target}${result.pr?.url ? ` ${result.pr.url}` : ''}`);
   }
   saveOpened(deps, opened, draft);
+  stepLines.push(...queueMove(deps, matched, 'on_pr_open'));
 
   const sha = headSha(deps);
   const gate = await runCiGate(deps.host, branch, config.pull_requests.ci, {
@@ -328,6 +334,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   });
   saveShip(deps, shipFromGate(gate, sha));
   const green = gate.action === 'passed' || gate.action === 'warned' || gate.action === 'skipped';
+  const moves = gate.state === 'green' ? queueMove(deps, matched, 'on_ci_green') : [];
   const glyph = green ? '🟢' : '🔴';
   const verdict = green ? 'Safe to merge' : 'Needs your attention';
   const evidenceLine =
@@ -341,6 +348,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
         `**▸ paqad** · delivery — ${verdict}`,
         ...stepLines,
         `> - ${glyph} ${gate.message}`,
+        ...moves,
         ...planned,
       ].join('\n') + evidenceLine,
   };
@@ -364,6 +372,80 @@ function saveOpened(deps: DeliverDeps, opened: PullRequest[], draft: boolean): v
         }
       : {}),
   });
+}
+
+export function ticketMoveLine(action: DeliveryTicketAction): string {
+  return `> - 🟡 ticket: move ${action.ticket} to "${action.to}" with your tracker tool, then run paqad-ai deliver ticket-done ${action.id}`;
+}
+
+function queueMove(deps: DeliverDeps, matched: MatchedSource | null, id: TicketActionId): string[] {
+  const ticket = deps.inputs.ticket.trim();
+  if (!matched || ticket === '') return [];
+  const to = matched.source.transitions[id];
+  if (!to) return [];
+  const resolution = resolveTicketProvider(deps.servers ?? [], matched.source);
+  const at = (deps.now ?? (() => new Date()))().toISOString();
+  const action: DeliveryTicketAction = resolution.connected
+    ? { id, ticket, source: matched.name, to, state: 'pending', reason: null, at: null }
+    : {
+        id,
+        ticket,
+        source: matched.name,
+        to,
+        state: 'skipped',
+        reason: `no ${trackerName(resolution.kind)} connection`,
+        at,
+      };
+  if (deps.dirName) {
+    try {
+      queueTicketAction(deps.projectRoot, deps.dirName, action, at);
+    } catch (error) {
+      appendHooksLog(
+        deps.projectRoot,
+        `deliver: ticket move not recorded: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  if (action.state === 'skipped') {
+    return [`> - 🟡 skipped: ticket move to "${to}" (${action.reason})`];
+  }
+  return [ticketMoveLine(action)];
+}
+
+export interface TicketDoneDeps {
+  projectRoot: string;
+  dirName: string | null;
+  id: string;
+  failed?: string;
+  skipped?: string;
+  now?: () => Date;
+}
+
+export function runTicketDone(deps: TicketDoneDeps): DeliverResult {
+  if (!(TICKET_ACTION_IDS as readonly string[]).includes(deps.id)) {
+    return stopped(`${deps.id} isn't a ticket move. Use one of: ${TICKET_ACTION_IDS.join(', ')}.`);
+  }
+  if (deps.failed !== undefined && deps.skipped !== undefined) {
+    return stopped('Pass --failed or --skipped, not both.');
+  }
+  if (!deps.dirName) {
+    return stopped('No active change in this session, so there is no ticket move to record.');
+  }
+  const state =
+    deps.failed !== undefined ? 'failed' : deps.skipped !== undefined ? 'skipped' : 'done';
+  const reason = deps.failed ?? deps.skipped ?? null;
+  const at = (deps.now ?? (() => new Date()))().toISOString();
+  const settled = settleTicketAction(deps.projectRoot, deps.dirName, deps.id, state, reason, at);
+  if (!settled.ok) return stopped(settled.message);
+  const glyph = state === 'done' ? '🟢' : '🟡';
+  const tail = reason ? ` (${reason})` : '';
+  return {
+    exitCode: 0,
+    output: [
+      `**▸ paqad** · ticket move recorded`,
+      `> - ${glyph} ${settled.action.ticket} to "${settled.action.to}": ${state}${tail}`,
+    ].join('\n'),
+  };
 }
 
 export interface DeliverCommitDeps {
@@ -664,6 +746,33 @@ function createDeliverCommitCommand(): Command {
     );
 }
 
+function createTicketDoneCommand(): Command {
+  return new Command('ticket-done')
+    .description('Record a ticket move you made with your tracker tool')
+    .argument('<id>', `The ticket move (${TICKET_ACTION_IDS.join(' or ')})`)
+    .option('--failed <reason>', 'The move failed, and why')
+    .option('--skipped <reason>', 'The move was skipped, and why')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
+    .action(
+      (
+        id: string,
+        options: { failed?: string; skipped?: string; projectRoot: string; session?: string },
+      ) => {
+        const projectRoot = resolve(options.projectRoot);
+        report(
+          runTicketDone({
+            projectRoot,
+            dirName: activeChange(projectRoot, options.session),
+            id,
+            failed: options.failed,
+            skipped: options.skipped,
+          }),
+        );
+      },
+    );
+}
+
 export function createDeliveryCommand(): Command {
   return new Command('deliver')
     .description(
@@ -688,6 +797,7 @@ export function createDeliveryCommand(): Command {
     .option('--body-file <path>', 'A PR body you filled in from the team template')
     .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
     .addCommand(createDeliverCommitCommand())
+    .addCommand(createTicketDoneCommand())
     .action(async (options: DeliverOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
