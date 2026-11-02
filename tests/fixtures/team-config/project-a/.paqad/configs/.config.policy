@@ -1,0 +1,10 @@
+# ── Stage enforcement ───────────────────────────────────────
+# How strictly stages are tracked. (env: PAQAD_STAGES_MODE)
+stages_mode=strict
+# Rule compliance mode. (env: PAQAD_RULE_COMPLIANCE)
+rule_compliance=strict
+# Keep the old existence check. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+evidence_existence_gate=strict
+# Spec pipeline token ceiling. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
+spec_pipeline_token_ceiling=60000
+# spec_pipeline_adoption=warn

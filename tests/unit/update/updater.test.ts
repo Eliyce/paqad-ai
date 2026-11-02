@@ -165,7 +165,8 @@ describe('FrameworkUpdater', () => {
       generateConfigExample(),
     );
     const app = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
-    expect(app).not.toContain('future_knob');
+    expect(app.startsWith('# paqad-migrated-stub\n')).toBe(true);
+    expect(app).toContain('# Not carried over (not paqad settings):\n# future_knob=on\n');
     expect(existsSync(join(projectRoot, '.paqad/configs/paqad.yaml'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/configs/schemas/paqad.schema.json'))).toBe(true);
   });

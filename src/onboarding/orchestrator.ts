@@ -15,6 +15,7 @@ import {
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
+import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
@@ -221,6 +222,8 @@ export class OnboardingOrchestrator {
     if (selections.domain === 'coding') {
       onboardingWarnings.push(...migrateDeliveryPolicy(options.projectRoot).lines);
     }
+    const teamConfigMigration = migrateTeamConfig(options.projectRoot);
+    if (teamConfigMigration.ran) onboardingWarnings.push(...teamConfigMigration.lines);
     let revertedFrameworkValues: string[];
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;

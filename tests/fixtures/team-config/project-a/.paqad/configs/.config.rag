@@ -1,0 +1,3 @@
+# Retrieval
+rag_enabled=true
+rag_embedding_provider=local

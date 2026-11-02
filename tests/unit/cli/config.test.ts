@@ -112,3 +112,45 @@ describe('paqad-ai config effective', () => {
     expect(parsed.knobs.length).toBeGreaterThan(30);
   });
 });
+
+describe('paqad-ai config migrate', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-cli-migrate-'));
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'stages_mode=warn\n');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  async function run(args: string[]): Promise<string[]> {
+    const out: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: string) => void out.push(String(line)));
+    await createConfigCommand().parseAsync(['migrate', '--project-root', root, ...args], {
+      from: 'user',
+    });
+    vi.restoreAllMocks();
+    return out;
+  }
+
+  it('--dry-run prints the move and writes nothing; the real run moves it', async () => {
+    const dry = await run(['--dry-run']);
+    expect(dry).toContain('stages_mode → feature-development/workflow.yaml: stage_tracking = warn');
+    expect(dry.at(-1)).toBe(
+      'This was a dry run, so nothing was written. Run paqad-ai config migrate to apply it.',
+    );
+    expect(existsSync(join(root, '.paqad/configs/feature-development/workflow.yaml'))).toBe(false);
+    const real = await run([]);
+    expect(real).toContain(
+      'stages_mode → feature-development/workflow.yaml: stage_tracking = warn',
+    );
+    expect(existsSync(join(root, '.paqad/configs/.config.policy'))).toBe(false);
+    expect(await run([])).toEqual([
+      'Nothing to move: your team settings are already in the YAML files in .paqad/configs/.',
+    ]);
+  });
+});

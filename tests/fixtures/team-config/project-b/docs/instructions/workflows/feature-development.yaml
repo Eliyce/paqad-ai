@@ -1,0 +1,26 @@
+# Feature Development Stage Policy
+schema_version: "1"
+merge_mode: append
+stages:
+  planning:
+    read:
+      - docs/architecture/**
+    instructions:
+      - Check the payments module owner before changing invoices.
+    escalation:
+      attribution_pending: stop
+  development:
+    instructions:
+      - Implement only the requested feature behavior and avoid unrelated refactors.
+      - Run the payments contract tests before review.
+    escalation:
+      scope_expansion: stop
+  checks:
+    checks:
+      use_project_profile_commands: true
+      commands: [format, test]
+      shell_commands:
+        - npm --prefix frontend run lint:js
+      block_on_failure: false
+    rule_compliance:
+      mode: strict

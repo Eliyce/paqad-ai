@@ -1,0 +1,3 @@
+# The payments team wants a hard gate on rules.
+rule_compliance=warn
+duplication_mode=strict

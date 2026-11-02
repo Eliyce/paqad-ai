@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { PATHS } from '@/core/constants/paths.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
+import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { buildConfigShow, renderConfigShow } from './config-show.js';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
@@ -219,6 +220,20 @@ export function createConfigCommand(): Command {
         return;
       }
       console.log(renderConfigShow(result, options.changed === true));
+    });
+
+  command
+    .command('migrate')
+    .description(
+      'Move the team settings from the old .paqad/configs/.config.* files and the old ' +
+        'feature-development workflow file into the YAML files in .paqad/configs/.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--dry-run', 'print what would move without writing anything')
+    .action((options: { projectRoot: string; dryRun?: boolean }) => {
+      const migration = migrateTeamConfig(options.projectRoot, { dryRun: options.dryRun === true });
+      for (const line of migration.lines) console.log(line);
+      if (migration.error !== undefined) process.exitCode = 1;
     });
 
   command
