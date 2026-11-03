@@ -114,6 +114,22 @@ describe('migrating an old feature-development workflow file', () => {
     expect(result.replaced).toContain('docs/instructions/workflows/feature-development.yaml');
   });
 
+  it('moves a rule-compliance mode set only in the workflow file and names nested keys paqad never read', () => {
+    oldWorkflow(
+      'stages:\n  checks:\n    rule_compliance:\n      mode: warn\nextras:\n  team:\n    owner: alice\n',
+    );
+    const result = migrateTeamConfig(root, { version: VERSION });
+    expect(
+      result.lines.some((line) => line.startsWith('stages.checks.rule_compliance.mode → ')),
+    ).toBe(true);
+    expect(result.lines.some((line) => line.startsWith('rule_compliance was also set'))).toBe(
+      false,
+    );
+    expect(result.lines).toContain(
+      "extras.team.owner was set in the old workflow file but paqad never used it, so it wasn't carried over.",
+    );
+  });
+
   it('keeps a workflow file it cannot read and says so', () => {
     oldWorkflow('stages: [unclosed\n');
     const result = migrateTeamConfig(root, { version: VERSION });
