@@ -369,6 +369,24 @@ describe('renderTeamConfigFile: lines paqad does not own', () => {
     expect(rerender(PAQAD, text)).toBe(fresh(PAQAD));
   });
 
+  it('FR-8: a team note directly above a commented group moves to the notes, it is not dropped', () => {
+    const paqad = rerender(
+      PAQAD,
+      edit(fresh(PAQAD), '\n# updates:\n', '\n# why we keep updates on\n# updates:\n'),
+    );
+    expect(paqad).toContain('\n# updates:\n');
+    expect(paqad.trimEnd().endsWith(`${TEAM_NOTES_LINE}\n# why we keep updates on`)).toBe(true);
+    expect(rerender(PAQAD, paqad)).toBe(paqad);
+    const workflow = rerender(
+      WORKFLOW,
+      edit(fresh(WORKFLOW), '\n# stages:\n', '\n# stage notes from the team\n# stages:\n'),
+    );
+    expect(workflow.trimEnd().endsWith(`${TEAM_NOTES_LINE}\n# stage notes from the team`)).toBe(
+      true,
+    );
+    expect(rerender(WORKFLOW, workflow)).toBe(workflow);
+  });
+
   it('AC-13: loose team notes move to the end in order and stay there', () => {
     const team = edit(
       fresh(PAQAD),

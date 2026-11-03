@@ -443,7 +443,7 @@ function liveValueLines(key: string, node: unknown, indent: string): string[] {
 
 const KEY_LINE = /^(\s*)(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_][A-Za-z0-9_.-]*))\s*:(?:\s|$)/u;
 const BLOCK_SCALAR = /:\s*[|>][-+0-9]*\s*(?:#.*)?$|^\s*-\s+[|>][-+0-9]*\s*(?:#.*)?$/u;
-const SETTING_SHAPE = /^([a-z0-9_]+):(?:\s.*)?$/u;
+const SETTING_SHAPE = /^([a-z0-9_]+):(\s.*)?$/u;
 const SEQUENCE_MARK = '\u0000seq';
 
 function indentOf(line: string): number {
@@ -529,6 +529,8 @@ interface RenderContext {
   ownLines: Set<string>;
   notes: Set<string>;
   keys: Set<string>;
+  groupKeys: Set<string>;
+  leafKeys: Set<string>;
   used: Set<string>;
   anchors: Map<string, Array<readonly string[]>>;
 }
@@ -554,7 +556,11 @@ function teamLines(context: RenderContext, bodies: string[], noteFor?: string): 
     const shape = SETTING_SHAPE.exec(text);
     if (shape !== null && (context.keys.has(shape[1]!) || context.scanned.rendered)) {
       own[index] = true;
-      settingLine[index] = true;
+      const groupLine =
+        (shape[2] ?? '').trim() === '' &&
+        context.groupKeys.has(shape[1]!) &&
+        !context.leafKeys.has(shape[1]!);
+      settingLine[index] = !groupLine;
       return;
     }
     if (
@@ -706,9 +712,12 @@ export function renderTeamConfigFile(
   const data: unknown = live === null ? null : live.toJS();
   const notes = new Set<string>();
   const keys = new Set<string>();
+  const groupKeys = new Set<string>();
+  const leafKeys = new Set<string>();
   const walk = (node: SettingNode): void => {
     for (const child of node.children.values()) {
       keys.add(child.key);
+      (child.setting === undefined ? groupKeys : leafKeys).add(child.key);
       if (child.setting !== undefined) {
         notes.add(child.setting.note);
         notes.add(settingNote(child.setting));
@@ -735,6 +744,8 @@ export function renderTeamConfigFile(
     ]),
     notes,
     keys,
+    groupKeys,
+    leafKeys,
     used: new Set(),
     anchors: new Map(),
   };
