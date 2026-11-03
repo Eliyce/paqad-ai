@@ -20,4 +20,4 @@ closed_reason: null
 
 ## What
 
-collapseSameRole in src/spec-pipeline/experts/merge.ts:64-90 keeps only one finding per role inside a target group (the one with the longest claim), so when one expert seat reports two different findings on the same target, the other findings' claims are dropped (only their ids survive in merged_from). Fix: collapse only findings whose normalized claims match, and keep distinct claims from the same seat as separate findings. Found during the #830 review; not touched by #830.
+collapseSameRole in src/spec-pipeline/experts/merge.ts:64-90 keeps only one finding per role inside a target group (the one with the longest claim), so when one expert seat reports two different findings on the same target, the other findings' claims are dropped (only their ids survive in merged_from). Fix: collapse only findings whose normalized claims match, and keep distinct claims from the same seat as separate findings. Found while reviewing the change that lists every team setting commented out; that change does not touch it.
