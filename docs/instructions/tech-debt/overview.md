@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6HTHEMMS1NK85TF0HHPXYHM](TD-01M6HTHEMMS1NK85TF0HHPXYHM.md) (bug, medium): Onboarding an existing project again silently drops the script bindings of edited rules
+- [TD-01M6HTHDZBG7NVDQV4PDDRNAZP](TD-01M6HTHDZBG7NVDQV4PDDRNAZP.md) (debt, low): The writeOldLeftovers test helper is copied in updater.test.ts and join.test.ts
 - [TD-01M6HR5EEX39JGN0G2AW9ZJ5WT](TD-01M6HR5EEX39JGN0G2AW9ZJ5WT.md) (bug, low): The unanchored pentest/ and site-map/ lines in .paqad/.gitignore also ignore a skill's authoring records
 - [TD-01M6GPKYZHYM52PF26KBSRG461](TD-01M6GPKYZHYM52PF26KBSRG461.md) (bug, medium): collapseSameRole drops a seat's distinct findings that share a target
 - [TD-01M6GPKY771751JVEQMN2DM8TA](TD-01M6GPKY771751JVEQMN2DM8TA.md) (bug, medium): deliver commit subcommand always fails: parent deliver command owns required --summary/--ticket
