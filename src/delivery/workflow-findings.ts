@@ -14,6 +14,9 @@ import {
   typeOfBranch,
 } from './runner.js';
 
+const FIELD_SEPARATOR = String.fromCharCode(0x1f);
+const RECORD_SEPARATOR = String.fromCharCode(0x1e);
+
 export type WorkflowFindingCode =
   | 'git-workflow-invalid'
   | 'on-base-branch'
@@ -191,11 +194,11 @@ export const SUBJECT_FORMAT = '%s%x1f%P%x1e';
 
 export function parseSubjects(stdout: string): CommitSubject[] {
   return stdout
-    .split('\x1e')
+    .split(RECORD_SEPARATOR)
     .map((record) => record.replace(/^\n/, ''))
-    .filter((record) => record.includes('\x1f'))
+    .filter((record) => record.includes(FIELD_SEPARATOR))
     .map((record) => {
-      const [subject, parents = ''] = record.split('\x1f');
+      const [subject, parents = ''] = record.split(FIELD_SEPARATOR);
       return { subject, merge: parents.trim().split(/\s+/).length > 1 };
     });
 }

@@ -15,6 +15,9 @@ import { applyEdits, type GitWorkflowEdit } from './change.js';
 import type { GitWorkflowContents } from './load.js';
 import { GIT_WORKFLOW_FILES, type GitWorkflowFile } from './types.js';
 
+const FIELD_SEPARATOR = String.fromCharCode(0x1f);
+const RECORD_SEPARATOR = String.fromCharCode(0x1e);
+
 export class GitReadError extends Error {}
 
 export interface PrRecord {
@@ -200,11 +203,11 @@ export async function gatherSignals(
   const mainline =
     log.exitCode === 0
       ? log.stdout
-          .split('\x1e')
+          .split(RECORD_SEPARATOR)
           .map((record) => record.replace(/^\n/, ''))
-          .filter((record) => record.includes('\x1f'))
+          .filter((record) => record.includes(FIELD_SEPARATOR))
           .map((record) => {
-            const [subject, body = ''] = record.split('\x1f');
+            const [subject, body = ''] = record.split(FIELD_SEPARATOR);
             return { subject: subject.trim(), body };
           })
       : [];
