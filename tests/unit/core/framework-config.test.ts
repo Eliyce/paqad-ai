@@ -1206,7 +1206,7 @@ describe('lane lists', () => {
       default: 'full',
       group: 'policy',
     });
-    expect(spec?.comment).toContain('graduated,full');
+    expect(spec?.comment).toContain('full is always included');
   });
 
   it('AC-4: parses a list, always keeping full', () => {
@@ -1252,7 +1252,7 @@ describe('lane lists', () => {
       group: 'policy',
       section: 'Spec pipeline',
     });
-    expect(spec?.comment).toContain('graduated,full');
+    expect(spec?.comment).toContain('full is always included');
     expect(generateConfigExample()).toContain('PAQAD_SPEC_PIPELINE_EXPERTS_LANES');
     expect(generateConfigExample()).toMatch(/^# spec_pipeline_experts_lanes=full$/m);
   });

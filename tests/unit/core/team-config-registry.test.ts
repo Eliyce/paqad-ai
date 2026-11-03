@@ -136,3 +136,31 @@ describe('team config registry', () => {
     expect(checkYamlValue(spec('stage_isolation_lanes'), [{ a: 1 }])).toMatch(/list/u);
   });
 });
+
+describe('setting notes (AC-9)', () => {
+  const CODE = /\b[A-Z]{1,3}\d*-\d+\b|\bS\d\b|\bR\d\b|\bA\d\b/u;
+
+  it('gives every setting one plain sentence as its note', () => {
+    for (const row of FRAMEWORK_CONFIG_SPECS) {
+      const note = row.comment;
+      expect(note.trim(), row.key).not.toBe('');
+      expect(note, row.key).not.toMatch(/\n/u);
+      expect(note, row.key).not.toMatch(/[–—]/u);
+      expect(note, row.key).not.toMatch(CODE);
+      expect(note, row.key).not.toContain(' | ');
+      expect(note, row.key).not.toMatch(/\.\s+[A-Z]/u);
+      expect(note, row.key).toMatch(/^[A-Z].*\.$/u);
+    }
+  });
+
+  it('flags a note with a code, a dash, a value list or two sentences', () => {
+    for (const bad of ['S6 trigger test.', 'Lint (AG-003) cap.', 'a — b.', 'on | off.', 'One. Two.']) {
+      const plain =
+        !CODE.test(bad) &&
+        !/[–—]/u.test(bad) &&
+        !bad.includes(' | ') &&
+        !/\.\s+[A-Z]/u.test(bad);
+      expect(plain, bad).toBe(false);
+    }
+  });
+});
