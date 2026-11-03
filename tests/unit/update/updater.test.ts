@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
+  cpSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -18,6 +19,13 @@ import { VERSION } from '@/index.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
 import { generateConfigExample } from '@/core/framework-config.js';
 import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
+import { isMigratedStub } from '@/core/team-config-legacy.js';
+import {
+  MIGRATE_ONCE_LINE,
+  MIGRATION_DONE_LINE,
+  migrateTeamConfig,
+} from '@/core/team-config-migrate.js';
+import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import { FrameworkUpdater } from '@/update/index.js';
 
 describe('FrameworkUpdater', () => {
@@ -619,5 +627,80 @@ describe('FrameworkUpdater', () => {
       await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
       expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(false);
     });
+  });
+  describe('the team-config migration on update', () => {
+    const FIXTURES = join(__dirname, '../../fixtures/team-config');
+    const OLD_FILES = ['.config.rag', '.config.models', '.config.policy'];
+    const KEPT_COMMENTS: Record<string, Array<[string, string]>> = {
+      'project-a': [['retrieval.yaml', '# Retrieval\nenabled: true']],
+      'project-b': [],
+      'project-c': [
+        ['paqad.yaml', '  # Pinned because CI images lag behind.\n  minimum_version: 9.9.0'],
+      ],
+      'project-d': [],
+    };
+    const teamFiles = (root: string): Record<string, string> =>
+      Object.fromEntries(
+        TEAM_CONFIG_FILES.map((file) => [
+          file,
+          readFileSync(join(root, '.paqad/configs', file), 'utf8'),
+        ]),
+      );
+
+    for (const name of Object.keys(KEPT_COMMENTS)) {
+      it(`AC-60: ${name}: update writes sparse YAML with every set value and kept comment, the stub, deletes the other old files and prints the lines`, async () => {
+        cpSync(join(FIXTURES, name), projectRoot, { recursive: true });
+        const direct = mkdtempSync(join(tmpdir(), 'paqad-ai-update-direct-'));
+        try {
+          cpSync(projectRoot, direct, { recursive: true });
+          const expected = migrateTeamConfig(direct, { version: VERSION });
+          expect(expected.ran).toBe(true);
+
+          const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
+            projectRoot,
+          );
+
+          const written = teamFiles(projectRoot);
+          expect(written).toEqual(teamFiles(direct));
+          for (const [file, text] of KEPT_COMMENTS[name]!) {
+            expect(written[file]).toContain(text);
+          }
+          for (const [file, text] of Object.entries(written)) {
+            expect([file, text.includes('(env:') || text.includes('──')]).toEqual([file, false]);
+          }
+          const app = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
+          expect(isMigratedStub(app)).toBe(true);
+          for (const old of OLD_FILES) {
+            expect(existsSync(join(projectRoot, '.paqad/configs', old))).toBe(false);
+          }
+          const notes = report.git_workflow_notes;
+          const start = notes.indexOf(expected.lines[0]!);
+          expect(start).toBeGreaterThanOrEqual(0);
+          const printed = notes.slice(start, start + expected.lines.length);
+          // update syncs git-workflow/commits.yaml first, so the migration may replace it
+          // rather than create it; the file list and every other line must match.
+          const fileLine = /^(?:Created|Replaced|Deleted) /u;
+          const path = (line: string): string => line.replace(fileLine, '');
+          expect(printed.filter((line) => !fileLine.test(line))).toEqual(
+            expected.lines.filter((line) => !fileLine.test(line)),
+          );
+          expect(
+            printed
+              .filter((line) => fileLine.test(line))
+              .map(path)
+              .sort(),
+          ).toEqual(
+            expected.lines
+              .filter((line) => fileLine.test(line))
+              .map(path)
+              .sort(),
+          );
+          expect(expected.lines.at(-2)).toBe(MIGRATE_ONCE_LINE);
+          expect(expected.lines.at(-1)).toBe(MIGRATION_DONE_LINE);
+        } finally {
+          rmSync(direct, { recursive: true, force: true });
+        }
+      });
+    }
   });
 });
