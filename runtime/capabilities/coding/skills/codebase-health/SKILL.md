@@ -1,6 +1,6 @@
 ---
 name: codebase-health
-description: 'Runs the codebase health audit through the paqad-ai health verbs, then triages and narrates the findings on dead code, packages, secrets, stale docs and copy-paste, and retests an earlier report. Use when the workflow is codebase-health or health-retest.'
+description: Runs the codebase health audit through the paqad-ai health verbs, then triages and narrates the findings on dead code, packages, secrets, stale docs and copy-paste, and retests an earlier report. Use when the user asks to check project or code health, audit the codebase, find dead code or unused code or packages, run a cleanup audit, or retest health findings; the workflow is codebase-health or health-retest.
 metadata:
   model_tier: reasoning
   cacheable: 'false'
