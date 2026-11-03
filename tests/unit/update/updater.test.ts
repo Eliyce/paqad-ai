@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
+import { compileRuleScripts } from '@/rule-scripts/compile.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
 import { generateConfigExample } from '@/core/framework-config.js';
 import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
@@ -232,7 +233,7 @@ describe('FrameworkUpdater', () => {
     expect(second).toEqual([]);
   });
 
-  it('removes an unchanged workflow rule copy from the real project and prints its line', async () => {
+  it('AC-8: removes an unchanged workflow rule copy from the real project, prints its line and leaves the rule-script map clean', async () => {
     const shipped = readFileSync(
       join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/codebase-health.md'),
       'utf8',
@@ -240,11 +241,52 @@ describe('FrameworkUpdater', () => {
     const path = join(projectRoot, 'docs/instructions/rules/coding/codebase-health.md');
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, shipped);
+    writeFileSync(
+      join(projectRoot, 'docs/instructions/rules/coding/my-own-rule.md'),
+      '- Validate all input.\n',
+    );
+    compileRuleScripts(projectRoot);
     const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
     const report = await updater.run(projectRoot);
     expect(existsSync(path)).toBe(false);
     expect(report.git_workflow_notes).toContain(
       'Removed docs/instructions/rules/coding/codebase-health.md; paqad now runs codebase health checks from its own codebase-health skill.',
+    );
+    const mapPath = join(projectRoot, 'docs/instructions/rules/rule-script-map.yml');
+    const map = YAML.parse(readFileSync(mapPath, 'utf8')) as { rules: { source: string }[] };
+    expect(map.rules.map((rule) => rule.source)).toContain(
+      'docs/instructions/rules/coding/my-own-rule.md',
+    );
+    expect(map.rules.map((rule) => rule.source)).not.toContain(
+      'docs/instructions/rules/coding/codebase-health.md',
+    );
+    const report2 = JSON.parse(
+      execFileSync(
+        'node',
+        [
+          join(
+            __dirname,
+            '../../../runtime/base/skills/rule-script-reconciler/scripts/reconcile.mjs',
+          ),
+          projectRoot,
+        ],
+        { encoding: 'utf8' },
+      ),
+    ) as { findings: unknown[]; blocked: boolean };
+    expect(report2.findings).toEqual([]);
+    expect(report2.blocked).toBe(false);
+  });
+
+  it('turns a failed rule-script map recompile into an update note', async () => {
+    mkdirSync(join(projectRoot, 'docs/instructions/rules/rule-script-map.yml'), {
+      recursive: true,
+    });
+    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
+    const report = await updater.run(projectRoot);
+    expect(report.git_workflow_notes).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Rule-script map compilation failed during update:'),
+      ]),
     );
   });
 
@@ -258,7 +300,7 @@ describe('FrameworkUpdater', () => {
     writeFileSync(path, edited);
     const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
     const report = await updater.run(projectRoot);
-    expect(readFileSync(path, 'utf8')).toBe(edited);
+    expect(readFileSync(path, 'utf8')).toContain('My own step.');
     expect(report.git_workflow_notes).toContain(
       'Kept docs/instructions/rules/coding/site-map.md because it was edited. paqad now runs site maps from its own skill, so you can delete this file.',
     );
