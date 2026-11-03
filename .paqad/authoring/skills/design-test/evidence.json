@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "skill": "design-test",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:b3a003c06e84b32ae4f97f2785d8e134b0839eb6723e897967a95dbe019d0a59",
+  "baseline": {
+    "runs": 3,
+    "passed": 0,
+    "verdict": "needed"
+  },
+  "sources": {
+    "count": 4,
+    "non_model": 4,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap",
+    "tests": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "benchmark": {
+    "iterations": 2,
+    "pass_rate_with": 0.5111,
+    "pass_rate_without": 0.2963,
+    "delta_points": 21.48,
+    "token_multiple": null,
+    "models": [
+      "haiku",
+      "sonnet"
+    ],
+    "claude_version": "2.1.302",
+    "checks_not_measured": [
+      {
+        "check": "token-multiple",
+        "reason": "tokens: unavailable on claude-plugin-eval"
+      },
+      {
+        "check": "cache-hit",
+        "reason": "tokens: unavailable on claude-plugin-eval"
+      }
+    ],
+    "source": "claude-plugin-eval"
+  },
+  "trigger": {
+    "validation_score": 1,
+    "description_chars": 240,
+    "batch": "not-offered"
+  },
+  "performance": {
+    "tokens": "unavailable",
+    "source": "claude-plugin-eval"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": 2.0109,
+    "source": "host-usage"
+  },
+  "overrides": [],
+  "decisions": [],
+  "labels": []
+}
