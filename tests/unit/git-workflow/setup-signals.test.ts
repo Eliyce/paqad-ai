@@ -459,6 +459,20 @@ describe('git-workflow setup: proposing from PRs and repository settings', () =>
     ]);
   });
 
+  it('decides ticket-first branch names, ignores rare prefixes and keys seen fewer than five times', () => {
+    const built = proposeFromSignals(
+      signals({
+        branches: ['main', ...repeat(25, (i) => `PROJ-${i}-x`), 'spike/one', 'OPS-1-y'],
+        mainline: repeat(25, (i) => ({ subject: `PROJ-${i}: show it`, body: '' })),
+      }),
+    );
+    const branches = YAML.parse(built.proposal.files['branches.yaml']);
+    expect(branches.template).toBe('{ticket}-{title_slug}');
+    expect(Object.keys(branches.types)).not.toContain('spike');
+    const tickets = YAML.parse(built.proposal.files['tickets.yaml']);
+    expect(Object.keys(tickets.sources)).toEqual(['proj']);
+  });
+
   it('proposes nothing about commits when every main-line subject is a merge or revert', () => {
     const built = proposeFromSignals(
       history({
