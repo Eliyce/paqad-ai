@@ -1,6 +1,6 @@
 ---
 name: finding-normalizer
-description: 'Turns mixed security evidence into stable pentest finding entries. Use when raw security evidence is collected and must become report-ready findings or retest statuses.'
+description: Turns mixed raw evidence from docs, tests, runtime checks and advisory feeds into stable finding entries with ids, severity, effort and status, deduplicating records of the same risk. Use when raw security or audit evidence must become report-ready findings JSON, or when findings or retest statuses need normalizing, validating or stable ids.
 metadata:
   model_tier: medium
   cacheable: 'false'
