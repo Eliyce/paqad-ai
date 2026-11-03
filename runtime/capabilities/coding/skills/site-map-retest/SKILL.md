@@ -18,7 +18,7 @@ proof in the map itself.
 
 ## Use This When
 
-For the `site-map-retest` workflow: the user wants to know whether the map still
+When the `site-map` skill runs its Retest mode for the `site-map-retest` workflow, and calls this skill as a helper: the user wants to know whether the map still
 matches the code or prior gaps got fixed, not a fresh map.
 
 ## Inputs

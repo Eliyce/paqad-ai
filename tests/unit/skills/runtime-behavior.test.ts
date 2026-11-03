@@ -5,6 +5,8 @@ import type { ResolvedArtifact } from '@/core/types/resolution.js';
 import { SkillLoader } from '@/skills/loader.js';
 import { SkillTriggerEvaluator } from '@/skills/trigger-evaluator.js';
 
+import { PARENT_CALLED_HELPERS } from './_helpers/parent-called-helpers.js';
+
 describe('runtime skill behavior', () => {
   it('loads every runtime skill and has at least one matching trigger case', async () => {
     const files = await fg(
@@ -33,6 +35,13 @@ describe('runtime skill behavior', () => {
       expect(skill.body.trim().length).toBeGreaterThan(0);
       if (skill.triggers.length > 0) {
         expect(evaluator.shouldLoad(skill, matchingClassification(skill.triggers[0]))).toBe(true);
+        continue;
+      }
+
+      if (PARENT_CALLED_HELPERS.includes(skill.name)) {
+        expect(
+          evaluator.shouldLoad(skill, matchingClassification({ workflow: ['pentest-retest'] })),
+        ).toBe(false);
         continue;
       }
 

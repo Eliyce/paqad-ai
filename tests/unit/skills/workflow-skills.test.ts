@@ -84,8 +84,11 @@ describe('pentest skill', () => {
     expect(text.slice(text.indexOf('### Retest mode'))).toContain('retest-verification');
   });
 
-  it('triggers on pentest and pentest-retest', () => {
+  it('is the one entry point for pentest-retest; retest-verification is a called helper', () => {
     expect(workflowTriggers(folder)).toEqual(['pentest', 'pentest-retest']);
+    expect(workflowTriggers('runtime/capabilities/security/skills/retest-verification')).toEqual(
+      [],
+    );
   });
 });
 
@@ -106,8 +109,9 @@ describe('site-map skill', () => {
     ]);
   });
 
-  it('triggers on site-map and site-map-retest', () => {
+  it('is the one entry point for site-map-retest; the helper of that name is called', () => {
     expect(workflowTriggers(folder)).toEqual(['site-map', 'site-map-retest']);
+    expect(workflowTriggers('runtime/capabilities/coding/skills/site-map-retest')).toEqual([]);
   });
 });
 

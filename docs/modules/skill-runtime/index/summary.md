@@ -27,6 +27,7 @@ _This module has no enumerated features in the map; the module itself is the uni
   shared in-process buffer that drops the oldest when full, because loaders are short-lived. A
   flush writes the buffer first so order is kept, and an event whose write throws goes back into
   the buffer.
+- **`triggers: []`.** A helper only its parent skill calls declares an explicit empty trigger list, so it never loads on a classification by itself. A missing `triggers` key with no `request_routing` still fails to parse. `retest-verification` and `site-map-retest` are the two such helpers: the `pentest` and `site-map` skills are the entry points for their retest workflows.
 - **`loader.ts`.** A SKILL.md with bad frontmatter is left out and recorded; it no longer fails the
   whole batch. Other errors, such as an unreadable file, still propagate.
 - **`runtime-registry.ts`.** Runtime skills live in memory only and are lost on restart. A name

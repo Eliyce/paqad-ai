@@ -1,6 +1,4 @@
-triggers:
-  - workflow:
-      - pentest-retest
+triggers: []
 cache_key_inputs:
   - docs/pentest/**/*.json
 input_schema:

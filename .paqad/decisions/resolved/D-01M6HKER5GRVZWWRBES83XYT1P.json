@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6HKER5GRVZWWRBES83XYT1P",
+  "category": "spec.contradiction",
+  "title": "Two helper skills can't lose their only trigger: how should FR-3 be met?",
+  "context": "FR-3 and AC-3 say retest-verification stops triggering on pentest-retest and site-map-retest stops triggering on site-map-retest. That workflow is the only trigger each has. The skill parser (src/skills/frontmatter-parser.ts) rejects a skill with no triggers unless it has request_routing, and tests/unit/content/skills-structure.test.ts requires the same, so removing it makes the skill fail to parse. The spec's non-goals also say routing and helper procedures stay unchanged.",
+  "options": [
+    {
+      "option_key": "allow-empty",
+      "label": "Allow an explicit 'triggers: []' for a helper only its parent calls. Small change to the parser and the structure test, which the frozen spec does not list; a missing triggers key still fails. AC-3 is met as written.",
+      "one_line_preview": "Allow an explicit 'triggers: []' for a helper only its parent calls. Small change to the parser and the structure test, which the frozen spec does not list; a missing triggers key still fails. AC-3 is met as written.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-triggers",
+      "label": "Keep the trigger on both helpers and change FR-3 and AC-3. No code change, but a retest request loads the parent and the helper together, the risk the skill-orchestrator expert raised.",
+      "one_line_preview": "Keep the trigger on both helpers and change FR-3 and AC-3. No code change, but a retest request loads the parent and the helper together, the risk the skill-orchestrator expert raised.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "inert-trigger",
+      "label": "Give each helper a trigger on another dimension that never matches. It passes the parser with no code change, but the metadata then says something untrue.",
+      "one_line_preview": "Give each helper a trigger on another dimension that never matches. It passes the parser with no code change, but the metadata then says something untrue.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow-empty",
+  "created_at": "2026-11-03T21:01:17.872Z",
+  "status": "resolved",
+  "change": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "chosen": "allow-empty",
+  "rationale": "Owner chose: allow an explicit empty trigger list for a helper only its parent calls. A missing triggers key still fails.",
+  "resolved_at": "2026-11-03T21:03:50.279Z",
+  "decision_id": "D-01M6HKER5GRVZWWRBES83XYT1P",
+  "fingerprint": "sha256:bc815728bdd1216fafe5659a2457a2475fe1ebc2705bb12faac5cd61555a8a6d",
+  "question": "Two helper skills can't lose their only trigger: how should FR-3 be met?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "ttl_until": "2026-11-10T21:01:17.872Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow-empty",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T21:03:50.279Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: allow an explicit empty trigger list for a helper only its parent calls. A missing triggers key still fails."
+  }
+}

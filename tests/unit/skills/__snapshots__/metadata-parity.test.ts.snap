@@ -2368,13 +2368,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
     "model_tier": "reasoning",
     "name": "site-map-retest",
     "output_format": "json",
-    "triggers": [
-      {
-        "workflow": [
-          "site-map-retest",
-        ],
-      },
-    ],
+    "triggers": [],
   },
   "runtime/capabilities/coding/skills/state-coverage-review": {
     "cache_key_inputs": [
@@ -2999,13 +2993,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
     "model_tier": "reasoning",
     "name": "retest-verification",
     "output_format": "markdown",
-    "triggers": [
-      {
-        "workflow": [
-          "pentest-retest",
-        ],
-      },
-    ],
+    "triggers": [],
   },
   "runtime/capabilities/security/skills/runtime-surface-probing": {
     "cache_key_inputs": [],
