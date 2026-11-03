@@ -277,12 +277,12 @@ describe('dry run, idempotence and failure', () => {
     useFixture('project-b');
     writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.rag'), 'rag_top_n=9\n');
     writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
-    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), { recursive: true });
-    chmodSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), 0o500);
+    const blocker = join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/checks.yaml');
+    mkdirSync(blocker, { recursive: true });
     const oldWorkflow = readFileSync(featureDevelopmentViewPath(root), 'utf8');
     const before = configs('.config.policy');
     const result = migrateTeamConfig(root, { version: VERSION });
-    chmodSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), 0o755);
+    rmSync(blocker, { recursive: true, force: true });
     expect(result.error).toMatch(
       /^Couldn't write the new settings files, so the old ones were kept/u,
     );
@@ -299,14 +299,13 @@ describe('dry run, idempotence and failure', () => {
   it('a workflow view that cannot be replaced leaves .config.app as it was, not the stub (AC-64)', () => {
     useFixture('project-b');
     writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
-    const workflows = join(root, PATHS.WORKFLOWS_DIR);
-    chmodSync(workflows, 0o500);
-    let result;
-    try {
-      result = migrateTeamConfig(root, { version: VERSION });
-    } finally {
-      chmodSync(workflows, 0o755);
-    }
+    const state = join(root, '.paqad/state');
+    writeFileSync(state, 'not a folder\n');
+    const result = migrateTeamConfig(root, { version: VERSION });
+    rmSync(state, { force: true });
+    expect(
+      existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/workflow.yaml')),
+    ).toBe(true);
     expect(result.error).toMatch(
       /^Couldn't write the new settings files, so the old ones were kept/u,
     );
