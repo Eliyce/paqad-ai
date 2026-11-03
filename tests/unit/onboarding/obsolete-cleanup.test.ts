@@ -147,7 +147,7 @@ describe('removeObsoleteWorkflowRules', () => {
   });
 });
 
-describe('the shipped hash list', () => {
+describe('AC-9: the shipped hash list', () => {
   it('names the seven paths with the number of versions that shipped', () => {
     expect(
       OBSOLETE_WORKFLOW_RULES.map((rule) => [rule.path, new Set(rule.shippedHashes).size]),
@@ -162,7 +162,7 @@ describe('the shipped hash list', () => {
     ]);
   });
 
-  it.skipIf(!historyAvailable())('AC-9: holds every git version of each source file', () => {
+  it.skipIf(!historyAvailable())('holds every git version of each source file', () => {
     for (const rule of OBSOLETE_WORKFLOW_RULES) {
       const versions = everyGitVersion(runtimePath(rule.path));
       expect(versions.length, rule.path).toBeGreaterThan(0);
