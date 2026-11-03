@@ -42,12 +42,7 @@ import {
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
-import {
-  readTeamConfig,
-  renderTeamConfigFile,
-  syncTeamConfigFiles,
-  teamConfigSchemaRef,
-} from '@/core/team-config.js';
+import { readTeamConfig, renderTeamConfigFile, syncTeamConfigFiles } from '@/core/team-config.js';
 import { TEAM_CONFIG_FILE_DESCRIPTIONS, TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
@@ -90,6 +85,17 @@ function baseProfile(overrides: Partial<ProjectProfile> = {}): ProjectProfile {
     },
     ...overrides,
   } as ProjectProfile;
+}
+
+function oldSchemaLine(file: string): string {
+  const name = file
+    .split('/')
+    .pop()!
+    .replace(/\.yaml$/u, '');
+  const ref = file.includes('/')
+    ? `../schemas/${file.split('/')[0]}/${name}.schema.json`
+    : `./schemas/${name}.schema.json`;
+  return `# yaml-language-server: $schema=${ref}`;
 }
 
 describe('parseDotConfig', () => {
@@ -879,7 +885,7 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
       writeFileSync(
         teamPath(file),
         [
-          `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
+          oldSchemaLine(file),
           `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
           "# Only settings this team changed live here; everything else uses paqad's default.",
           '# See every setting, its value and where it comes from: paqad-ai config show',

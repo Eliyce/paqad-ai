@@ -62,7 +62,6 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'ledger/',
   'compliance/',
   'tmp/',
-  'configs/schemas/',
 ];
 
 const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];

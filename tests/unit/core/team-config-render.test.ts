@@ -14,7 +14,6 @@ import {
   TEAM_CONFIG_HEADER_LINES,
   TEAM_NOTES_LINE,
   teamConfigPath,
-  teamConfigSchemaRef,
 } from '@/core/team-config.js';
 import { STRUCTURED_TEAM_SETTINGS } from '@/core/team-config-schema.js';
 import {
@@ -113,12 +112,22 @@ function withDefault<T>(key: string, value: FrameworkConfigSpec['default'], run:
   }
 }
 
+function oldSchemaLine(file: string): string {
+  const name = file
+    .split('/')
+    .pop()!
+    .replace(/\.yaml$/u, '');
+  const ref = file.includes('/')
+    ? `../schemas/${file.split('/')[0]}/${name}.schema.json`
+    : `./schemas/${name}.schema.json`;
+  return `# yaml-language-server: $schema=${ref}`;
+}
+
 describe('renderTeamConfigFile: a fresh file', () => {
-  it('writes the header lines in order, with the schema line first', () => {
+  it('writes the header lines in order, with the description first and no schema line', () => {
     for (const file of TEAM_CONFIG_FILES) {
       const lines = fresh(file).split('\n');
-      expect(lines.slice(0, 6)).toEqual([
-        `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
+      expect(lines.slice(0, 5)).toEqual([
         `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
         ...TEAM_CONFIG_HEADER_LINES,
         `paqad_version: "${VERSION}"`,
@@ -152,7 +161,7 @@ describe('renderTeamConfigFile: a fresh file', () => {
       const keyShaped = (line: string): boolean => /^[a-z_]+:/u.test(unwrap(line));
       const notes = lines.filter(
         (line, index) =>
-          index > 6 &&
+          index > 5 &&
           line.startsWith('#') &&
           !keyShaped(line) &&
           keyShaped(lines[index + 1] ?? ''),
@@ -412,7 +421,7 @@ describe('renderTeamConfigFile: lines paqad does not own', () => {
 
   it("FR-7: in a header-only 1.117.0 file every comment above a live setting is the team's", () => {
     const old = [
-      `# yaml-language-server: $schema=${teamConfigSchemaRef(PAQAD)}`,
+      oldSchemaLine(PAQAD),
       `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[PAQAD]}`,
       "# Only settings this team changed live here; everything else uses paqad's default.",
       '# See every setting, its value and where it comes from: paqad-ai config show',

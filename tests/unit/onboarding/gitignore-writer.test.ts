@@ -164,10 +164,10 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('tmp/');
   });
 
-  it('ignores the generated schemas and no longer the feature-development view hash', () => {
+  it('no longer ignores the schemas or the feature-development view hash', () => {
     writeGitignore(projectRoot);
     const lines = read(projectRoot, '.paqad/.gitignore').split('\n');
-    expect(lines).toContain('configs/schemas/');
+    expect(lines).not.toContain('configs/schemas/');
     expect(lines).not.toContain('state/feature-development-view.sha256');
   });
 

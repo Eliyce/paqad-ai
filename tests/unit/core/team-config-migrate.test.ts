@@ -93,7 +93,7 @@ describe('the rendered team files after migration (FR-14, AC-30)', () => {
       for (const file of TEAM_CONFIG_FILES) {
         const text = configs(file);
         expect(text, file).toBe(renderTeamConfigFile(file, YAML.parseDocument(text), VERSION));
-        expect(text.split('\n')[0], file).toMatch(/^# yaml-language-server: /u);
+        expect(text.split('\n')[0], file).not.toMatch(/yaml-language-server/u);
       }
     });
   }

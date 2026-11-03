@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { stampLastApplied } from '@/git-workflow/last-applied.js';
+import { LEGACY_SCHEMA_LINE_PREFIX } from '@/update/generated-files-cleanup.js';
 
 import { PATHS } from './constants/paths.js';
 import {
@@ -13,7 +14,7 @@ import {
 } from './framework-config.js';
 import { readTextIfExistsSync } from './fs/read-if-exists.js';
 import { versionAtLeast } from './version-compare.js';
-import { STRUCTURED_TEAM_SETTINGS, writeTeamConfigSchemas } from './team-config-schema.js';
+import { STRUCTURED_TEAM_SETTINGS } from './team-config-schema.js';
 import {
   legacyBothLine,
   legacyStillLine,
@@ -57,16 +58,6 @@ export interface TeamConfigRead {
 
 export function teamConfigPath(projectRoot: string, file: TeamConfigFile): string {
   return join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, file);
-}
-
-export function teamConfigSchemaRef(file: TeamConfigFile): string {
-  const name = file
-    .split('/')
-    .pop()!
-    .replace(/\.yaml$/u, '');
-  return file.includes('/')
-    ? `../schemas/${file.split('/')[0]}/${name}.schema.json`
-    : `./schemas/${name}.schema.json`;
 }
 
 function renderValue(value: unknown): string {
@@ -292,7 +283,6 @@ export function syncTeamConfigFiles(
   version: string = __PKG_VERSION__,
 ): string[] {
   if (checkoutIsNewer(projectRoot, version)) return [];
-  writeTeamConfigSchemas(projectRoot);
   const written = ensureTeamConfigFiles(projectRoot);
   for (const file of TEAM_CONFIG_FILES) {
     const path = teamConfigPath(projectRoot, file);
@@ -551,7 +541,7 @@ function teamLines(context: RenderContext, bodies: string[], noteFor?: string): 
   const settingLine = bodies.map(() => false);
   bodies.forEach((body, index) => {
     const line = `#${body}`.trim();
-    if (context.ownLines.has(line) || line.startsWith('# yaml-language-server:')) {
+    if (context.ownLines.has(line) || line.startsWith(LEGACY_SCHEMA_LINE_PREFIX)) {
       own[index] = true;
       return;
     }
@@ -766,7 +756,6 @@ export function renderTeamConfigFile(
   }
 
   const out: string[] = [
-    `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
     `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
     ...TEAM_CONFIG_HEADER_LINES,
     `paqad_version: "${version}"`,

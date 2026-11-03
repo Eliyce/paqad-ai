@@ -50,9 +50,7 @@ describe('setTeamConfigValue', () => {
         YAML.parseDocument('stage_tracking: block\n'),
       ),
     );
-    expect(text).toContain(
-      '# yaml-language-server: $schema=../schemas/feature-development/workflow.schema.json',
-    );
+    expect(text).not.toContain('yaml-language-server');
     expect(text).toContain('\nstage_tracking: block\n');
     expect(text).not.toContain('# stage_tracking:');
   });

@@ -176,7 +176,7 @@ describe('FrameworkUpdater', () => {
     expect(app.startsWith('# paqad-migrated-stub\n')).toBe(true);
     expect(app).toContain('# Not carried over (not paqad settings):\n# future_knob=on\n');
     expect(existsSync(join(projectRoot, '.paqad/configs/paqad.yaml'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.paqad/configs/schemas/paqad.schema.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas'))).toBe(false);
   });
 
   it('AC-6: adds a missing managed ignore line and keeps every line outside the managed block', async () => {

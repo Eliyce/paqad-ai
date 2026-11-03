@@ -1,5 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { posix } from 'node:path';
+
+import fg from 'fast-glob';
 
 const { join } = posix;
 
@@ -74,6 +77,27 @@ describe('OnboardingOrchestrator', () => {
     );
   });
 
+  it('writes no workflow copy, no schemas, no schema line and no exclude line on a new project', async () => {
+    execFileSync('git', ['init', '-q'], { cwd: projectRoot });
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    expect(existsSync(join(projectRoot, 'docs/instructions/workflows'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas'))).toBe(false);
+    const yamlFiles = fg.sync('**/*.yaml', { cwd: join(projectRoot, '.paqad/configs') });
+    expect(yamlFiles.length).toBeGreaterThan(5);
+    for (const file of yamlFiles) {
+      expect(readFileSync(join(projectRoot, '.paqad/configs', file), 'utf8'), file).not.toContain(
+        '# yaml-language-server',
+      );
+    }
+    const exclude = join(projectRoot, '.git/info/exclude');
+    const excluded = existsSync(exclude) ? readFileSync(exclude, 'utf8') : '';
+    expect(excluded).not.toContain('docs/instructions/workflows/feature-development.yaml');
+  });
+
   it('documents the enterprise switches in the team config files and keeps the profile lean', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
@@ -88,11 +112,8 @@ describe('OnboardingOrchestrator', () => {
       'utf8',
     );
     expect(evidence).not.toMatch(/^enterprise:/m);
-    expect(
-      existsSync(
-        join(projectRoot, '.paqad/configs/schemas/feature-development/evidence.schema.json'),
-      ),
-    ).toBe(true);
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas'))).toBe(false);
+    expect(evidence).not.toContain('yaml-language-server');
 
     const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
     expect(example).toMatch(/^# enterprise=false$/m);
