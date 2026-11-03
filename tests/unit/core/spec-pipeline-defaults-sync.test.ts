@@ -37,7 +37,8 @@ describe('the spec-pipeline-on defaults never reach a config file (AC-22)', () =
   }
 
   it('keeps explicit values byte for byte in the team and local files', () => {
-    const team = '# team policy\nspec_pipeline_enabled=false\nspec_pipeline_experts_enabled=false\n';
+    const team =
+      '# team policy\nspec_pipeline_enabled=false\nspec_pipeline_experts_enabled=false\n';
     writeFileSync(policy(), team);
     writeFileSync(local(), 'spec_pipeline_adoption=warn\n');
 

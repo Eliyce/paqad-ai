@@ -202,7 +202,11 @@ describe('paqad-ai deliver', () => {
       async run(command, args) {
         calls.push([command, ...args]);
         try {
-          const stdout = execFileSync(command, args, { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+          const stdout = execFileSync(command, args, {
+            cwd: root,
+            encoding: 'utf8',
+            stdio: 'pipe',
+          });
           return { stdout, stderr: '', exitCode: 0 };
         } catch (error) {
           return { stdout: '', stderr: '', exitCode: (error as { status?: number }).status ?? 1 };

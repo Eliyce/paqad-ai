@@ -27,7 +27,8 @@ function otherValue(spec: FrameworkConfigSpec): string {
     return spec.enumValues.find((value) => value !== spec.default) ?? spec.enumValues[0]!;
   }
   if (spec.type === 'boolean') return spec.default === true ? 'false' : 'true';
-  if (spec.type === 'number') return spec.default === 0 ? '0' : String(Number(spec.default ?? 0) + 3);
+  if (spec.type === 'number')
+    return spec.default === 0 ? '0' : String(Number(spec.default ?? 0) + 3);
   if (spec.key.endsWith('_lanes') || spec.key.endsWith('_experts')) return 'full,standard';
   return 'team-value';
 }
