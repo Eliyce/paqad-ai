@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -8,6 +7,7 @@ import { parse } from 'yaml';
 import { hashFolder } from '@/authoring/hash.js';
 import { lintSkillFolder } from '@/authoring/lint/skill-lint.js';
 import type { ClassificationResult } from '@/core/types/classification.js';
+import { reconcileRuleScripts } from '@/rule-scripts/reconciler.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 import { SkillTriggerEvaluator } from '@/skills/trigger-evaluator.js';
 
@@ -275,13 +275,7 @@ describe('the rule-script map after the seven files left', () => {
   });
 
   it('AC-10: the reconciler reports no drift', () => {
-    const report = JSON.parse(
-      execFileSync(
-        'node',
-        [join(REPO, 'runtime/base/skills/rule-script-reconciler/scripts/reconcile.mjs'), REPO],
-        { encoding: 'utf8' },
-      ),
-    ) as { counts: Record<string, number>; blocked: boolean };
+    const report = reconcileRuleScripts(REPO);
     expect(report.blocked).toBe(false);
     expect(report.counts).toMatchObject({
       'RS-RULE-ADDED': 0,
