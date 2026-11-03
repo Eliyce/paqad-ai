@@ -586,14 +586,14 @@ paqad runs on its own defaults. You only write down what your team changes.
 
 **Team settings** live in readable YAML files under `.paqad/configs/`, committed with the repo:
 
-| File | What it holds |
-|---|---|
-| `paqad.yaml` | paqad on or off, updates, the Claude Code install, the HUD and the Site Map |
-| `models.yaml` | which models paqad uses and how deep research goes |
-| `retrieval.yaml` | the search index: on or off, embeddings, match limits |
-| `decisions.yaml` | when paqad asks you and when it decides on its own |
-| `authoring.yaml` | how paqad writes and tests skills and helper agents, and its eval runs |
-| `git-workflow/` | branches, commits, PRs and tickets (owned by the git-workflow skill) |
+| File                         | What it holds                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `paqad.yaml`                 | paqad on or off, updates, the Claude Code install, the HUD and the Site Map                        |
+| `models.yaml`                | which models paqad uses and how deep research goes                                                 |
+| `retrieval.yaml`             | the search index: on or off, embeddings, match limits                                              |
+| `decisions.yaml`             | when paqad asks you and when it decides on its own                                                 |
+| `authoring.yaml`             | how paqad writes and tests skills and helper agents, and its eval runs                             |
+| `git-workflow/`              | branches, commits, PRs and tickets (owned by the git-workflow skill)                               |
 | `feature-development/*.yaml` | the feature-development workflow: stages, specs, rules, reuse, safety, checks, evidence, analytics |
 
 A new file holds only a header. Add a line only for a setting you want to change, for example `enabled: false` in `paqad.yaml`. `.paqad/configs/README.md` lists every setting with its default and allowed values, and `paqad-ai config show` prints what is in effect and where each value comes from (`--changed` hides the defaults). Your editor gets autocompletion from the schemas `paqad-ai update` writes to `.paqad/configs/schemas/`.
