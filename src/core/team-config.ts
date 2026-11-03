@@ -42,7 +42,7 @@ export const TEAM_CONFIG_READ_FILES: readonly TeamConfigFile[] = [
 
 export interface TeamConfigIssue {
   file: TeamConfigFile | string;
-  kind?: 'invalid' | 'legacy';
+  kind?: 'invalid' | 'legacy' | 'repaired';
   key?: string;
   path?: string;
   message: string;
@@ -123,19 +123,15 @@ export function parseTeamConfigText(
 export function readTeamYamlFile(
   projectRoot: string,
   file: TeamConfigFile,
-): { document: YAML.Document | null; error?: string } {
+): { document: YAML.Document | null; error?: string; repairs: TeamConfigRepair[] } {
   const path = teamConfigPath(projectRoot, file);
   let text: string;
   try {
     text = readFileSync(path, 'utf8');
   } catch {
-    return { document: null };
+    return { document: null, repairs: [] };
   }
-  const document = YAML.parseDocument(text);
-  if (document.errors.length > 0) {
-    return { document: null, error: document.errors[0]!.message.split('\n')[0]! };
-  }
-  return { document };
+  return parseTeamConfigText(file, text);
 }
 
 export function valueAt(data: unknown, path: readonly string[]): unknown {
@@ -153,12 +149,17 @@ export function readTeamConfig(projectRoot: string): TeamConfigRead {
   const issues: TeamConfigIssue[] = [];
   const claimed = new Set<string>();
   for (const file of TEAM_CONFIG_READ_FILES) {
-    const { document, error } = readTeamYamlFile(projectRoot, file);
+    const { document, error, repairs } = readTeamYamlFile(projectRoot, file);
     if (error !== undefined) {
-      issues.push({ file, message: invalidFileMessage(file, error) });
+      issues.push({ file, kind: 'invalid', message: invalidFileMessage(file, error) });
       continue;
     }
     if (document === null) continue;
+    if (!holdsSettings(document)) {
+      issues.push({ file, kind: 'invalid', message: notSettingsMapMessage(file) });
+      continue;
+    }
+    for (const repair of repairs) issues.push({ file, kind: 'repaired', message: repair.message });
     const data: unknown = document.toJS();
     for (const spec of FRAMEWORK_CONFIG_SPECS) {
       if (spec.file !== file) continue;

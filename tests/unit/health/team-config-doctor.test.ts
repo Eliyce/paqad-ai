@@ -1,4 +1,12 @@
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -78,6 +86,24 @@ describe('doctor: team-config', () => {
     expect(details[1]![1]).toMatch(
       /^feature-development\/workflow\.yaml: stage_tracking has an invalid value sometimes, so paqad uses the default /u,
     );
+  });
+
+  it('AC-21 and AC-29: names a file that holds a list, and a setting under a commented group', () => {
+    migrated();
+    write('decisions.yaml', '- ask\n');
+    const paqad = join(root, PATHS.PROJECT_CONFIGS_DIR, 'paqad.yaml');
+    const text = readFileSync(paqad, 'utf8').replace(
+      '#   minimum_version: latest',
+      '  minimum_version: 1.117.0',
+    );
+    writeFileSync(paqad, text, 'utf8');
+    const details = rows().map(([, detail]) => detail);
+    expect(details).toContain(
+      'decisions.yaml holds a list or a single value instead of settings, so none of its settings are used.',
+    );
+    expect(
+      details.some((detail) => /^paqad\.yaml line \d+: minimum_version is set/u.test(detail)),
+    ).toBe(true);
   });
 
   it('warns about a setting paqad does not know, but not about structured settings (AC-70)', () => {
