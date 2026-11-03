@@ -677,8 +677,6 @@ describe('FrameworkUpdater', () => {
           const start = notes.indexOf(expected.lines[0]!);
           expect(start).toBeGreaterThanOrEqual(0);
           const printed = notes.slice(start, start + expected.lines.length);
-          // update syncs git-workflow/commits.yaml first, so the migration may replace it
-          // rather than create it; the file list and every other line must match.
           const fileLine = /^(?:Created|Replaced|Deleted) /u;
           const path = (line: string): string => line.replace(fileLine, '');
           expect(printed.filter((line) => !fileLine.test(line))).toEqual(
