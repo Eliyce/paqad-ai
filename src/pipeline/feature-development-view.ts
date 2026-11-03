@@ -6,6 +6,7 @@ import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { FRAMEWORK_CONFIG_SPECS } from '@/core/framework-config.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { readTeamYamlFile, setTeamConfigValue, writeTeamYamlValue } from '@/core/team-config.js';
 import { WORKFLOW_POLICY_STAGES } from '@/core/team-config-schema.js';
@@ -215,7 +216,7 @@ export function refreshFeatureDevelopmentView(projectRoot: string): ViewRefreshR
   };
   if (!isCodingProject(projectRoot)) return { ...result, status: 'skipped' };
   const path = featureDevelopmentViewPath(projectRoot);
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  const existing = readTextIfExistsSync(path);
   if (existing !== null && !isGeneratedView(existing)) return { ...result, status: 'legacy' };
   const stored = readStoredViewHash(projectRoot);
   if (existing !== null && stored !== null && viewHash(existing) !== stored) {
@@ -249,8 +250,9 @@ export function refreshFeatureDevelopmentView(projectRoot: string): ViewRefreshR
 export function viewEditedByHand(projectRoot: string): boolean {
   const path = featureDevelopmentViewPath(projectRoot);
   const stored = readStoredViewHash(projectRoot);
-  if (!existsSync(path) || stored === null) return false;
-  const text = readFileSync(path, 'utf8');
+  if (stored === null) return false;
+  const text = readTextIfExistsSync(path);
+  if (text === null) return false;
   return isGeneratedView(text) && viewHash(text) !== stored;
 }
 
