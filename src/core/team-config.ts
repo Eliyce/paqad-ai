@@ -246,7 +246,13 @@ export function writeTeamYamlValue(
   }
   if (!holdsSettings(document)) throw new Error(notSettingsMapMessage(file));
   setLiveValue(document, path, value);
-  writeFileSync(target, renderTeamConfigFile(file, document), 'utf8');
+  const stamped = writtenVersion(document);
+  const newer = stamped !== undefined && !versionAtLeast(__PKG_VERSION__, stamped);
+  writeFileSync(
+    target,
+    newer ? document.toString({ lineWidth: 0 }) : renderTeamConfigFile(file, document),
+    'utf8',
+  );
   return target;
 }
 

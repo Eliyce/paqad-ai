@@ -95,6 +95,21 @@ describe('setTeamConfigValue', () => {
     expect(readFileSync(path, 'utf8')).toBe('enabled: [\n');
   });
 
+  it('INV-5: sets one value in a file a newer paqad wrote without re-rendering or restamping it', () => {
+    const path = join(root, '.paqad/configs/paqad.yaml');
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    const newer =
+      '# written by a newer paqad\npaqad_version: "99.0.0"\n\n# A setting this paqad does not know.\n# future_setting: 1\n';
+    writeFileSync(path, newer, 'utf8');
+    setTeamConfigValue(root, 'paqad_enable', 'false');
+    const text = readFileSync(path, 'utf8');
+    expect(text).toContain('paqad_version: "99.0.0"');
+    expect(text).toContain('# future_setting: 1');
+    expect(text).toContain('# written by a newer paqad');
+    expect(text).not.toContain("# Every setting is listed with paqad's default.");
+    expect(YAML.parse(text)).toEqual({ paqad_version: '99.0.0', enabled: false });
+  });
+
   it('AC-25 and INV-6: restamps .last-applied.json and never renders git-workflow/commits.yaml', () => {
     setTeamConfigValue(root, 'ai_attribution', 'keep');
     const text = readFileSync(join(root, '.paqad/configs/git-workflow/commits.yaml'), 'utf8');
