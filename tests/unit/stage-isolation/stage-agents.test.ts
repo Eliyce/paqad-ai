@@ -17,7 +17,7 @@ import {
   SPEC_FOREGROUND_START_LINE,
   SPEC_HIGH_TABLE_HANDBACK_LINE,
   STAGE_AGENT_HARD_RULES,
-  STAGE_BRIEF_FALLBACK_LINE,
+  stageBriefFallbackLine,
   READ_ONLY_DO_NOT,
   WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
@@ -111,7 +111,12 @@ describe('stage-agent definitions', () => {
   it('the claude-code body points at the stage brief and keeps the fallback and marker sentence', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'claude-code');
-      expect(body).toContain(STAGE_BRIEF_FALLBACK_LINE);
+      expect(body).toContain(stageBriefFallbackLine(def.ledgerStage));
+      expect(body).toContain(`run \`paqad-ai stage brief ${def.ledgerStage} --full\` to print it`);
+      expect(body).toContain(
+        '4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the `read:` list and instructions in your brief.',
+      );
+      expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
       expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
       expect(body).not.toContain('.paqad/.agent-entry-loaded');
       expect(buildStageAgentBody(def)).toBe(body);
@@ -123,7 +128,8 @@ describe('stage-agent definitions', () => {
       const body = buildStageAgentBody(def, 'codex-cli');
       expect(body).toContain('load and follow `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md`');
       expect(body).toContain('.paqad/session/agent-entry/');
-      expect(body).not.toContain(STAGE_BRIEF_FALLBACK_LINE);
+      expect(body).not.toContain(stageBriefFallbackLine(def.ledgerStage));
+      expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
     }
   });
 
