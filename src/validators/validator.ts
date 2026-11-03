@@ -4,7 +4,6 @@ import adversarialReviewReportSchema from './schemas/adversarial-review-report.s
 import apiEndpointDocSchema from './schemas/api-endpoint-doc.schema.json';
 import compliancePackSchema from './schemas/compliance-pack.schema.json';
 import contextHitLogSchema from './schemas/context-hit-log.schema.json';
-import deliveryPolicySchema from './schemas/delivery-policy.schema.json';
 import detectionReportSchema from './schemas/detection-report.schema.json';
 import designTokensSchema from './schemas/design-tokens.schema.json';
 import docProgressSchema from './schemas/doc-progress.schema.json';
@@ -12,6 +11,11 @@ import errorCatalogSchema from './schemas/error-catalog.schema.json';
 import featureDevelopmentPolicySchema from './schemas/feature-development-policy.schema.json';
 import featureSpecSchema from './schemas/feature-spec.schema.json';
 import gateResultSchema from './schemas/gate-result.schema.json';
+import gitWorkflowBranchesSchema from './schemas/git-workflow/branches.schema.json';
+import gitWorkflowCommitsSchema from './schemas/git-workflow/commits.schema.json';
+import gitWorkflowEnforcementSchema from './schemas/git-workflow/enforcement.schema.json';
+import gitWorkflowPullRequestsSchema from './schemas/git-workflow/pull-requests.schema.json';
+import gitWorkflowTicketsSchema from './schemas/git-workflow/tickets.schema.json';
 import handoffArtifactSchema from './schemas/handoff-artifact.schema.json';
 import integrationDocSchema from './schemas/integration-doc.schema.json';
 import onboardingManifestSchema from './schemas/onboarding-manifest.schema.json';
@@ -50,7 +54,11 @@ const SCHEMAS = [
   integrationDocSchema,
   errorCatalogSchema,
   featureDevelopmentPolicySchema,
-  deliveryPolicySchema,
+  gitWorkflowTicketsSchema,
+  gitWorkflowBranchesSchema,
+  gitWorkflowCommitsSchema,
+  gitWorkflowPullRequestsSchema,
+  gitWorkflowEnforcementSchema,
   featureSpecSchema,
   skillFrontmatterSchema,
   gateResultSchema,

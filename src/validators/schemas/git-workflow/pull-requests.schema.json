@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "git-workflow-pull-requests",
+  "title": "pull-requests.yaml",
+  "description": "How pull requests are opened.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "paqad_version": { "type": "string" },
+    "host": { "type": "string", "enum": ["github"] },
+    "host_server": { "type": "string" },
+    "title_template": { "type": "string", "minLength": 1 },
+    "body_template": { "type": "string", "minLength": 1 },
+    "draft": { "type": "boolean" },
+    "reviewers": { "type": "array", "items": { "type": "string" } },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "link_ticket": { "type": "boolean" },
+    "also_open_against": { "type": "array", "items": { "type": "string" } },
+    "ci": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "gate": { "type": "string", "enum": ["wait_for_green", "warn_only", "off"] },
+        "timeout_minutes": { "type": "integer", "minimum": 1 },
+        "on_red": { "type": "string", "enum": ["stop", "comment_and_stop"] }
+      }
+    }
+  }
+}

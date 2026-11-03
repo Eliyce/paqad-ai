@@ -47,6 +47,7 @@ function printRagProgress(message: string): void {
 export async function resolveRagSelection(
   domain: 'coding' | 'content',
   preset?: RagSelection,
+  options: { interactive?: boolean } = {},
 ): Promise<RagSelection | undefined> {
   if (preset) {
     return preset.enabled
@@ -58,7 +59,7 @@ export async function resolveRagSelection(
       : { enabled: false };
   }
 
-  if (domain !== 'coding' || !isInteractive()) {
+  if (domain !== 'coding' || options.interactive === false || !isInteractive()) {
     return undefined;
   }
 

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 import { analyticsEventDocPath } from './doc-tree.js';
@@ -20,7 +20,7 @@ export function resolveAnalyticsStrictness(
     {
       team: readConfigsDir(projectRoot).merged.get('analytics_strictness'),
       local: readDotConfig(projectRoot).get('analytics_strictness'),
-      env: env.PAQAD_ANALYTICS_STRICTNESS,
+      env: envConfigValue(env, 'analytics_strictness'),
     },
     ANALYTICS_STRICTNESS_MODES,
     DEFAULT_ANALYTICS_STRICTNESS,

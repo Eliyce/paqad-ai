@@ -11,7 +11,7 @@ and verification. Conditional and parallel steps supported.
 
 ## Source Footprint
 
-- `docs/instructions/workflows/feature-development.yaml`
+- `docs/instructions/workflows/feature-development.yaml` (a generated view) and the team files in `.paqad/configs/feature-development/`
 - `src/workflows`
 - `src/stage-evidence`
 - `src/stage-isolation`

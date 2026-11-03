@@ -91,9 +91,24 @@ export interface DeliveryCiRead {
   at: string;
 }
 
+export type TicketActionId = 'on_pr_open' | 'on_ci_green';
+export type TicketActionState = 'pending' | 'done' | 'failed' | 'skipped';
+export const TICKET_ACTION_IDS: readonly TicketActionId[] = ['on_pr_open', 'on_ci_green'];
+
+export interface DeliveryTicketAction {
+  id: TicketActionId;
+  ticket: string;
+  source: string;
+  to: string;
+  state: TicketActionState;
+  reason: string | null;
+  at: string | null;
+}
+
 export interface ShipPatch {
   push?: Omit<DeliveryPush, 'at'>;
   pr?: Partial<Omit<DeliveryPr, 'at'>>;
+  extra_prs?: Array<Partial<Omit<DeliveryPr, 'at'>>>;
   ci?: Omit<DeliveryCi, 'at'>;
   ci_read?: Omit<DeliveryCiRead, 'at'>;
   read_at?: string;
@@ -118,8 +133,10 @@ export interface DeliveryRecord extends Partial<
   commit_split?: CommitSplit | null;
   push?: DeliveryPush | null;
   pr?: DeliveryPr | null;
+  extra_prs?: DeliveryPr[];
   ci?: DeliveryCi | null;
   ci_read?: DeliveryCiRead | null;
+  ticket_actions?: DeliveryTicketAction[];
 }
 
 export function emptyCommitDecision(): CommitDecision {
@@ -196,8 +213,12 @@ export function writeFeatureDelivery(
       commit_split: record.commit_split ?? null,
       push: record.push ?? null,
       pr: record.pr ?? null,
+      ...(record.extra_prs && record.extra_prs.length > 0 ? { extra_prs: record.extra_prs } : {}),
       ci: record.ci ?? null,
       ...(record.ci_read ? { ci_read: record.ci_read } : {}),
+      ...(record.ticket_actions && record.ticket_actions.length > 0
+        ? { ticket_actions: record.ticket_actions }
+        : {}),
     },
   }) as DeliveryRecord;
   atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'delivery')), stamped);
@@ -533,6 +554,58 @@ export function recordShip(
       at,
     };
   }
+  if (patch.extra_prs) {
+    record.extra_prs = patch.extra_prs.map((pr) => ({
+      number: null,
+      url: null,
+      draft: null,
+      ...definedFields(pr),
+      at,
+    }));
+  }
   if (patch.ci && !stale) record.ci = mergeCi(record.ci, { ...patch.ci, at });
   return writeFeatureDelivery(projectRoot, dirName, record, at);
+}
+
+export function queueTicketAction(
+  projectRoot: string,
+  dirName: string,
+  action: DeliveryTicketAction,
+  at: string,
+): DeliveryRecord {
+  const record = readFeatureDelivery(projectRoot, dirName);
+  const others = (record.ticket_actions ?? []).filter((entry) => entry.id !== action.id);
+  record.ticket_actions = [...others, action];
+  return writeFeatureDelivery(projectRoot, dirName, record, at);
+}
+
+export type SettleTicketActionResult =
+  { ok: true; action: DeliveryTicketAction } | { ok: false; message: string };
+
+export function settleTicketAction(
+  projectRoot: string,
+  dirName: string,
+  id: string,
+  state: Exclude<TicketActionState, 'pending'>,
+  reason: string | null,
+  at: string,
+): SettleTicketActionResult {
+  const record = readFeatureDelivery(projectRoot, dirName);
+  const actions = record.ticket_actions ?? [];
+  const found = actions.find((entry) => entry.id === id);
+  if (!found) {
+    const known = actions.map((entry) => entry.id).join(', ') || 'none';
+    return {
+      ok: false,
+      message: `No ticket move ${id} is queued for this change (queued: ${known}).`,
+    };
+  }
+  const settled: DeliveryTicketAction = { ...found, state, reason, at };
+  record.ticket_actions = actions.map((entry) => (entry.id === id ? settled : entry));
+  writeFeatureDelivery(projectRoot, dirName, record, at);
+  return { ok: true, action: settled };
+}
+
+export function pendingTicketActions(record: DeliveryRecord): DeliveryTicketAction[] {
+  return (record.ticket_actions ?? []).filter((entry) => entry.state === 'pending');
 }

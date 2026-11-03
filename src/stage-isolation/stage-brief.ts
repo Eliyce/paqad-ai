@@ -9,7 +9,10 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
 import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
 import { extractCandidates } from '@/module-decisions/extractor.js';
-import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import {
+  loadFeatureDevelopmentPolicy,
+  moduleAttributionMode,
+} from '@/pipeline/feature-development-policy.js';
 import {
   keepingLedgerSessionCache,
   resolveHookSession,
@@ -245,9 +248,12 @@ export function buildStageBrief(
     throw new Error('unsafe session id');
   }
   const agentId = safeAgentId(options.agentId);
-  const policy =
-    loadFeatureDevelopmentPolicy(projectRoot).policy.stages[stage as FeatureDevelopmentStageName];
-  const notes = stageNoteLines(stage);
+  const fullPolicy = loadFeatureDevelopmentPolicy(projectRoot).policy;
+  const policy = fullPolicy.stages[stage as FeatureDevelopmentStageName];
+  const notes = [
+    ...stageNoteLines(stage),
+    ...(stage === 'planning' ? [`Module attribution: ${moduleAttributionMode(fullPolicy)}`] : []),
+  ];
   const head = [
     ...introLines(stage, def.role, options.resumed === true),
     '',

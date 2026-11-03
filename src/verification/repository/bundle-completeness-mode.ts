@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type BundleCompletenessMode = 'off' | 'warn' | 'strict';
@@ -15,7 +15,7 @@ export function resolveBundleCompletenessMode(
     {
       team: readConfigsDir(projectRoot).merged.get('bundle_completeness'),
       local: readDotConfig(projectRoot).get('bundle_completeness'),
-      env: env.PAQAD_BUNDLE_COMPLETENESS,
+      env: envConfigValue(env, 'bundle_completeness'),
     },
     BUNDLE_COMPLETENESS_MODES,
     DEFAULT_BUNDLE_COMPLETENESS_MODE,

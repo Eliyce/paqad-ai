@@ -1,0 +1,15 @@
+triggers:
+  - workflow:
+      - documentation-update
+      - project-question
+      - feature-development
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: Project root. Defaults to cwd.
+  flow:
+    type: string
+    required: false
+    description: 'first-setup, new-project or change. Picked from the request when not given.'

@@ -12,13 +12,25 @@ import {
   FULL_SUITE_INSTRUCTION,
   loadFeatureDevelopmentPolicy,
   OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
-  renderDefaultFeatureDevelopmentPolicyYaml,
   resolveFeatureDevelopmentCheckCommands,
   REVIEW_DIGEST_REFRESH_INSTRUCTION,
   reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
+import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
+
+const repoView = (): string =>
+  renderFeatureDevelopmentView(loadFeatureDevelopmentPolicy(resolve(__dirname, '../../..')).policy);
+
+const renderDefaultFeatureDevelopmentPolicyYaml = (): string =>
+  renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
+
+function teamFile(root: string, name: string, value: unknown): void {
+  const path = join(root, '.paqad/configs/feature-development', name);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, typeof value === 'string' ? value : YAML.stringify(value));
+}
 
 describe('feature development policy', () => {
   it('returns framework defaults when the project policy file is missing', () => {
@@ -41,9 +53,9 @@ describe('feature development policy', () => {
       stages: { development: { instructions: string[] } };
     };
     expect(rendered.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
-    const workflow = YAML.parse(
-      readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
-    ) as { stages: { development: { instructions: string[] } } };
+    const workflow = YAML.parse(repoView()) as {
+      stages: { development: { instructions: string[] } };
+    };
     expect(workflow.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
   });
 
@@ -61,127 +73,96 @@ describe('feature development policy', () => {
     expect(policy.stages.delivery.escalation.remote_failure).toBe('stop');
   });
 
-  it('merges project overrides into the new ticket_intake and delivery stages', () => {
+  it('adds team read and instructions after paqad own, without duplicates', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
-    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
-    writeFileSync(
-      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-      YAML.stringify({
-        schema_version: '1',
-        stages: {
-          ticket_intake: {
-            instructions: ['Always pull the ticket via the Linear MCP.'],
-          },
-          delivery: {
-            instructions: ['Require a draft PR for changes touching migrations.'],
-          },
+    const own = defaultFeatureDevelopmentPolicy().stages.planning.instructions[0]!;
+    teamFile(root, 'workflow.yaml', {
+      stages: {
+        planning: {
+          read: ['docs/custom/**', 'docs/instructions/stack/**'],
+          instructions: [own, 'Check the payments module owner before changing invoices.'],
         },
-      }),
-    );
+        delivery: { instructions: ['Require a draft PR for changes touching migrations.'] },
+      },
+    });
 
     const result = loadFeatureDevelopmentPolicy(root);
 
-    expect(result.policy.stages.ticket_intake.instructions).toEqual(
-      expect.arrayContaining(['Always pull the ticket via the Linear MCP.']),
+    const defaults = defaultFeatureDevelopmentPolicy().stages.planning;
+    expect(result.policy.stages.planning.read).toEqual([...defaults.read, 'docs/custom/**']);
+    expect(result.policy.stages.planning.instructions).toEqual([
+      ...defaults.instructions,
+      'Check the payments module owner before changing invoices.',
+    ]);
+    expect(result.policy.stages.delivery.instructions.at(-1)).toBe(
+      'Require a draft PR for changes touching migrations.',
     );
-    expect(result.policy.stages.delivery.instructions).toEqual(
-      expect.arrayContaining(['Require a draft PR for changes touching migrations.']),
-    );
-  });
-
-  it('merges project reads and checks with framework defaults', () => {
-    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
-    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
-    writeFileSync(
-      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-      YAML.stringify({
-        schema_version: '1',
-        stages: {
-          planning: {
-            read: ['docs/custom/**'],
-          },
-          checks: {
-            checks: {
-              commands: ['lint'],
-              shell_commands: ['pnpm typecheck'],
-            },
-          },
-          review: {
-            strictness: {
-              require_review: false,
-            },
-          },
-        },
-      }),
-    );
-
-    const result = loadFeatureDevelopmentPolicy(root);
-
-    expect(result.policy.stages.planning.read).toEqual(
-      expect.arrayContaining([
-        'docs/instructions/stack/**',
-        'docs/instructions/design-system/**',
-        'docs/instructions/workflows/**',
-        'docs/custom/**',
-      ]),
-    );
-    expect(result.policy.stages.checks.checks?.commands).toEqual(
-      expect.arrayContaining(['format', 'test', 'build', 'lint']),
-    );
-    expect(result.policy.stages.checks.checks?.shell_commands).toContain('pnpm typecheck');
-    expect(result.policy.stages.review.strictness.require_review).toBe(true);
-  });
-
-  it('merges per-lane build-check-fix round caps', () => {
-    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
-    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
-    writeFileSync(
-      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-      YAML.stringify({
-        schema_version: '1',
-        stages: {},
-        rounds: { full: 8, graduated: 4 },
-      }),
-    );
-
-    const result = loadFeatureDevelopmentPolicy(root);
-
-    expect(result.policy.rounds).toEqual({ full: 8, graduated: 4 });
     expect(result.warnings).toEqual([]);
   });
 
-  it('rejects an out-of-range round cap via the schema and falls back to defaults', () => {
+  it('ignores team required_inputs, artifacts, strictness and escalation', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
-    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
-    writeFileSync(
-      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-      YAML.stringify({
-        schema_version: '1',
-        stages: {},
-        rounds: { full: 0 },
-      }),
-    );
-
-    const result = loadFeatureDevelopmentPolicy(root);
-
-    expect(result.policy).toEqual(defaultFeatureDevelopmentPolicy());
-    expect(result.warnings[0]).toContain('is invalid');
+    teamFile(root, 'workflow.yaml', {
+      stages: {
+        review: {
+          required_inputs: ['x'],
+          artifacts: ['y'],
+          strictness: { require_review: false },
+          escalation: { review_findings: 'warn' },
+        },
+      },
+    });
+    expect(loadFeatureDevelopmentPolicy(root).policy).toEqual(defaultFeatureDevelopmentPolicy());
   });
 
-  it('falls back to defaults with warnings when the project policy is invalid', () => {
+  it('takes the checks from checks.yaml (AC-56)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    teamFile(root, 'checks.yaml', {
+      commands: { from_project_profile: ['test', 'lint'], extra: { 'lint-js': 'pnpm lint:js' } },
+      on_failure: 'warn',
+    });
+
+    const checks = loadFeatureDevelopmentPolicy(root).policy.stages.checks.checks;
+
+    expect(checks).toEqual({
+      use_project_profile_commands: true,
+      commands: ['test', 'lint'],
+      shell_commands: ['pnpm lint:js'],
+      block_on_failure: false,
+    });
+  });
+
+  it('runs no profile command when from_project_profile is empty', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    teamFile(root, 'checks.yaml', { commands: { from_project_profile: [] } });
+    const checks = loadFeatureDevelopmentPolicy(root).policy.stages.checks.checks;
+    expect(checks?.use_project_profile_commands).toBe(false);
+    expect(
+      resolveFeatureDevelopmentCheckCommands(checks!, { commands: { test: 'pnpm test' } } as never)
+        .commands,
+    ).toEqual([]);
+  });
+
+  it('never reads the old workflow file', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
     mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
     writeFileSync(
       join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-      YAML.stringify({
-        schema_version: '2',
-      }),
+      YAML.stringify({ schema_version: '1', stages: { planning: { read: ['docs/old/**'] } } }),
     );
+    expect(loadFeatureDevelopmentPolicy(root).policy).toEqual(defaultFeatureDevelopmentPolicy());
+  });
+
+  it('uses the defaults and reports a team file that is not valid YAML', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    teamFile(root, 'workflow.yaml', 'stages: [unclosed\n');
 
     const result = loadFeatureDevelopmentPolicy(root);
 
     expect(result.policy).toEqual(defaultFeatureDevelopmentPolicy());
-    expect(result.warnings[0]).toContain('is invalid');
+    expect(result.warnings[0]).toMatch(
+      /^feature-development\/workflow\.yaml isn't valid YAML, so none of its settings are used: /u,
+    );
   });
 
   it('resolves logical check commands from the project profile and appends shell commands', () => {
@@ -447,10 +428,7 @@ describe('feature development policy', () => {
     });
 
     it('AC-4: this repo’s live contract and the shipped rule pack carry it too', () => {
-      const liveYaml = readFileSync(
-        resolve(__dirname, '../../..', 'docs/instructions/workflows/feature-development.yaml'),
-        'utf8',
-      );
+      const liveYaml = repoView();
       const rulePack = readFileSync(
         resolve(__dirname, '../../..', 'runtime/capabilities/coding/rules/feature-development.md'),
         'utf8',
@@ -473,11 +451,11 @@ describe('feature development policy', () => {
       expect(stages.documentation_sync.instructions).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
     });
 
-    it('the rendered yaml, the live contract, the rule pack and its mirror carry it verbatim', () => {
+    it('the rendered yaml, the live contract, the rule pack and its mirror carry it verbatim (AC-42)', () => {
       const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
         stages: Record<string, { instructions: string[] }>;
       };
-      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+      const live = YAML.parse(repoView()) as {
         stages: Record<string, { instructions: string[] }>;
       };
       for (const doc of [parsed, live]) {
@@ -522,7 +500,7 @@ describe('feature development policy', () => {
       const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
         stages: Record<string, { instructions: string[] }>;
       };
-      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+      const live = YAML.parse(repoView()) as {
         stages: Record<string, { instructions: string[] }>;
       };
       for (const doc of [parsed, live]) {
@@ -552,17 +530,10 @@ describe('feature development policy', () => {
       expect(FEATURE_DEVELOPMENT_ESCALATION_ACTIONS).toContain('defer');
     });
 
-    it('AC-11: the schema accepts defer and a project that sets stop keeps stop', () => {
+    it('AC-11: module_attribution accepts defer and a project that sets stop keeps stop', () => {
       const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
-      mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
       const write = (value: string) =>
-        writeFileSync(
-          join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
-          YAML.stringify({
-            schema_version: '1',
-            stages: { planning: { escalation: { attribution_pending: value } } },
-          }),
-        );
+        teamFile(root, 'workflow.yaml', { stages: { planning: { module_attribution: value } } });
 
       write('defer');
       const deferred = loadFeatureDevelopmentPolicy(root);
@@ -573,24 +544,20 @@ describe('feature development policy', () => {
       const stopped = loadFeatureDevelopmentPolicy(root);
       expect(stopped.warnings).toEqual([]);
       expect(stopped.policy.stages.planning.escalation.attribution_pending).toBe('stop');
+
+      write('later');
+      const invalid = loadFeatureDevelopmentPolicy(root);
+      expect(invalid.policy.stages.planning.escalation.attribution_pending).toBe('defer');
+      expect(invalid.warnings[0]).toContain(
+        'stages.planning.module_attribution has an invalid value later',
+      );
     });
 
-    it('AC-11: the shipped workflow yaml defers attribution and the inferencer step', () => {
-      const raw = YAML.parse(
-        readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
-      ) as {
-        stages: {
-          planning: {
-            escalation: Record<string, string>;
-            attribution_gate: { pipeline: Array<Record<string, string>> };
-          };
-        };
+    it('AC-11: the generated workflow view defers attribution by default', () => {
+      const raw = YAML.parse(repoView()) as {
+        stages: { planning: { escalation: Record<string, string> } };
       };
       expect(raw.stages.planning.escalation.attribution_pending).toBe('defer');
-      const inferencer = raw.stages.planning.attribution_gate.pipeline.find(
-        (step) => step.skill === 'module-attribution-inferencer',
-      );
-      expect(inferencer?.on_not_confident).toBe('defer');
     });
   });
 });

@@ -58,12 +58,13 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **HUD settings.** `hud_view` (env `PAQAD_HUD_VIEW`, default on) shows or hides the HUD.
   `hud_chime` (env `PAQAD_HUD_CHIME`, default off) makes the mod play one short chime when a
   verdict lands, once per verdict and never per snapshot rebuild; it is a chime only and the mod
-  never speaks. Both live in the team-owned app config (`.paqad/configs/.config.app`) and resolve
-  like `paqad_enable`: the env variable first, then `.paqad/.config`, then
-  `.paqad/configs/.config.*` with the last file name winning. `config reconcile` and `update` keep
-  a team value; `.paqad/.config.example` lists both with their defaults.
-- **Stage helper effort and model.** Twelve keys in the team-owned models config
-  (`.paqad/configs/.config.models`), section "Stage agents": `stage_effort_<stage>` (env
+  never speaks. For the team they live in `.paqad/configs/paqad.yaml` as `hud.band` and `hud.chime`, and resolve
+  like `paqad_enable`: the env variable first, then `.paqad/.config` (flat names), then
+  `paqad.yaml`, which the mod reads with `readYamlScalar`. `update` never changes a team value;
+  `.paqad/.config.example` lists both with their defaults.
+- **Stage helper effort and model.** Twelve settings in the team-owned
+  `.paqad/configs/feature-development/workflow.yaml` (`stages.<stage>.effort` and
+  `stages.<stage>.model`), flat names `stage_effort_<stage>` (env
   `PAQAD_STAGE_EFFORT_<STAGE>`; one of low, medium, high, xhigh, inherit) and
   `stage_model_<stage>` (env `PAQAD_STAGE_MODEL_<STAGE>`; one of inherit, haiku, sonnet, opus),
   for planning, specification, development, review, checks and documentation_sync. Defaults:
@@ -170,6 +171,11 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   paqad stops there instead of running a stage in the main session.
 - **`.claude/settings.json` is tracked and portable.** It holds only
   `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
+  When the team sets `claude_code:` `install_mode: settings` in the tracked `.paqad/configs/paqad.yaml`,
+  update leaves the two plugin keys out (other plugins and marketplaces stay) and keeps every
+  other key in place, so Claude Code does not offer the plugin to teammates. The same value in
+  the git-ignored `.paqad/.config`, which `paqad-ai plugin rollback` writes, does not change the
+  team file. The team setup then counts as complete without the plugin keys.
   The chain is `buildHostHookChain('claude-code')` with only the command mapped to
   `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]` and a 600 second timeout on the
   two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and
@@ -180,9 +186,15 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
   launcher file whose bytes match what paqad wrote, and writes the npm chain to
   `.claude/settings.local.json`.
-- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (installed
+- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (the
   plugin, npm install, its own copy in `~/.paqad-ai/team-plugin`, or none), records it under
-  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. The copy is a `git clone --depth 1`
+  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. It takes the plugin route only when
+  the plugin claimed this session: its SessionStart wrote `.paqad/session/plugin-active.d/<session
+  id>` naming a root on disk that is not the launcher's copy. Being listed in
+  `installed_plugins.json` is not enough, since a plugin installed during startup loads only in the
+  next session. When the plugin is installed and enabled for this repo but has not claimed yet, the
+  launcher waits up to 2 seconds for the claim, because both SessionStart hooks run side by side.
+  A plugin route recorded with no claim is decided again on the next event. The copy is a `git clone --depth 1`
   of `Eliyce/paqad-claude-plugin` under the lock `~/.paqad-ai/locks/team-plugin.lock`, refreshed
   after 6 hours. In a cloud session (`CLAUDE_CODE_REMOTE=true`) it sets `PAQAD_RAG_ENABLED=false`.
   `paqadHookScriptPath()` ignores launcher lines and `claimedRootIsLive` counts the copy as a live

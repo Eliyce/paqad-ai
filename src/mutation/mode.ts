@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type MutationMode = 'off' | 'warn' | 'strict';
@@ -15,7 +15,7 @@ export function resolveMutationMode(
     {
       team: readConfigsDir(projectRoot).merged.get('mutation_mode'),
       local: readDotConfig(projectRoot).get('mutation_mode'),
-      env: env.PAQAD_MUTATION_MODE,
+      env: envConfigValue(env, 'mutation_mode'),
     },
     MUTATION_MODES,
     DEFAULT_MUTATION_MODE,

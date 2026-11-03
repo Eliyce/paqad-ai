@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type StagesMode = 'off' | 'warn' | 'strict';
@@ -15,7 +15,7 @@ export function resolveStagesMode(
     {
       team: readConfigsDir(projectRoot).merged.get('stages_mode'),
       local: readDotConfig(projectRoot).get('stages_mode'),
-      env: env.PAQAD_STAGES_MODE,
+      env: envConfigValue(env, 'stages_mode'),
     },
     STAGES_MODES,
     DEFAULT_STAGES_MODE,

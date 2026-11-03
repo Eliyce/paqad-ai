@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=./schemas/authoring.schema.json
+# How paqad writes and tests skills and helper agents, and its eval runs.
+# Only settings this team changed live here; everything else uses paqad's default.
+# See every setting, its value and where it comes from: paqad-ai config show
+paqad_version: "1.116.0"

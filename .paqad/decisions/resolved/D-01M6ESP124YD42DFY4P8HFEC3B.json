@@ -1,0 +1,53 @@
+{
+  "id": "D-01M6ESP124YD42DFY4P8HFEC3B",
+  "category": "workflow-or-tool",
+  "title": "819: does claude_install_mode=settings stop update committing the plugin keys",
+  "context": "update writes enabledPlugins and the eliyce marketplace into the tracked .claude/settings.json even when the team set claude_install_mode=settings. plugin rollback writes the same key to the git-ignored .paqad/.config.",
+  "options": [
+    {
+      "option_key": "tracked",
+      "label": "Yes, but only when set in the tracked .config.app; a personal rollback never changes the team file",
+      "one_line_preview": "Yes, but only when set in the tracked .config.app; a personal rollback never changes the team file",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "any",
+      "label": "Yes, from any layer",
+      "one_line_preview": "Yes, from any layer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no",
+      "label": "No; team_bootstrap_enabled=false stays the team opt-out",
+      "one_line_preview": "No; team_bootstrap_enabled=false stays the team opt-out",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "tracked",
+  "created_at": "2026-11-02T18:52:24.516Z",
+  "status": "resolved",
+  "chosen": "tracked",
+  "rationale": "Owner: honour only the tracked .config.app value; a personal rollback never rewrites the team file",
+  "resolved_at": "2026-11-02T18:53:27.748Z",
+  "decision_id": "D-01M6ESP124YD42DFY4P8HFEC3B",
+  "fingerprint": "sha256:c5ced5a6d5efe17fe3f3202e62ae7d11f88c949b4e5531b4599107ce455f768a",
+  "question": "819: does claude_install_mode=settings stop update committing the plugin keys",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2026-11-09T18:52:24.516Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "tracked",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T18:53:27.748Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: honour only the tracked .config.app value; a personal rollback never rewrites the team file"
+  }
+}

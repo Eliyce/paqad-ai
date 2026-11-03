@@ -597,8 +597,10 @@ async function readStatus(
   }
   const teamConfigs: Array<{ name: string; text: string }> = [];
   let localConfig: string | null = null;
+  let paqadYaml: string | null = null;
   if (root) {
     localConfig = await readText($, joinPath(root, '.paqad/.config'));
+    paqadYaml = await readText($, joinPath(root, '.paqad/configs/paqad.yaml'));
     const dir = joinPath(root, '.paqad/configs');
     try {
       for (const entry of await $.fs.list(dir)) {
@@ -619,8 +621,15 @@ async function readStatus(
     PAQAD_HUD_VIEW: await $.env.get('PAQAD_HUD_VIEW'),
     PAQAD_HUD_CHIME: await $.env.get('PAQAD_HUD_CHIME'),
   };
-  const status = decideStatus({ onboarded: root !== null, env, localConfig, teamConfigs, engine });
-  return { ...status, root, chime: isChimeOn({ env, localConfig, teamConfigs }) };
+  const status = decideStatus({
+    onboarded: root !== null,
+    env,
+    localConfig,
+    teamConfigs,
+    paqadYaml,
+    engine,
+  });
+  return { ...status, root, chime: isChimeOn({ env, localConfig, teamConfigs, paqadYaml }) };
 }
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {

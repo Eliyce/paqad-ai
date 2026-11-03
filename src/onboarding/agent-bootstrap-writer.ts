@@ -4,8 +4,7 @@ import { buildNarrationContractBody } from './narration-contract-writer.js';
 export const LOADED_INSTRUCTION_DIRS: readonly string[] = ['stack', 'design-system', 'workflows'];
 
 const LOADED_DIR_NOTES: Readonly<Record<string, string>> = {
-  workflows:
-    'the feature-development and delivery-policy workflows that govern how a change is built and shipped',
+  workflows: 'the feature-development workflow that governs how a change is built',
 };
 
 function alwaysLoadList(): string {
@@ -32,7 +31,7 @@ Decide whether paqad is enabled for this project BEFORE loading anything else. I
 1. **\`PAQAD_DISABLED\` environment variable** — if set to \`1\`, \`true\`, \`yes\`, or \`on\` (case-insensitive), paqad is **OFF**, full stop. (Most hosts do not expose environment variables to you. If you cannot read it, move to the next surface.)
 2. **\`PAQAD_ENABLE\` environment variable** — if set, it wins over the files below.
 3. **\`.paqad/.config\`** (your git-ignored, dev-local file) — a \`paqad_enable=<value>\` line.
-4. **\`.paqad/configs/.config.app\`** (the tracked, team-shared file; if your team split knobs across several \`.config.*\` files, the one whose filename sorts last wins) — a \`paqad_enable=<value>\` line.
+4. **\`.paqad/configs/paqad.yaml\`** (the tracked, team-shared file): its top-level \`enabled: <value>\` line.
 5. **Nothing set anywhere ⇒ ON** (the default).
 
 A value of \`false\`, \`0\`, \`no\`, or \`off\` (case-insensitive) means **OFF**. \`true\`/\`1\`/\`yes\`/\`on\`, or any unrecognized value, means **ON**.
@@ -105,6 +104,7 @@ When you routed to **site-map**, load the app's authored map from \`docs/site-ma
 - Interpret short Paqad workflow prompts such as \`create documentation\` as workflow invocations.
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.
 - Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
+- A request to set up or change how this team names branches, writes commits, opens PRs, links tickets, or how strictly that is checked, is handled by the git-workflow skill, whatever workflow it routed to. Never edit .paqad/configs/git-workflow/ yourself.
 
 ## 3. Confirm the load (sentinel)
 

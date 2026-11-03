@@ -155,7 +155,6 @@ describe('paqad-ai join — cloned project', () => {
     expect(existsSync(join(clone, '.paqad/stack-snapshot.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/stack-drift.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/indexes/code-knowledge.json'))).toBe(true);
-    expect(existsSync(join(clone, '.paqad/delivery-detection.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/quality-baseline.json'))).toBe(true);
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: clone, encoding: 'utf8' })).toBe(
       '',

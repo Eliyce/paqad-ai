@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
 
-import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
+import {
+  resolveTeamBootstrapEnabled,
+  teamSetsInstallModeSettings,
+} from '@/core/framework-config.js';
 import { isGitTracked } from '@/core/fs/git-tracked.js';
 import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { PLUGIN_MARKETPLACE_KEY, pluginSettingsKeys } from '@/install/plugin-settings-keys.js';
@@ -261,14 +264,15 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   }
 
   const chain = buildTeamHookChain(env);
+  const pluginKeys = teamSetsInstallModeSettings(projectRoot) ? withoutTeamKeys : addTeamKeys;
   let shared: Json;
   let personal: Json = {};
   if (tracked) {
-    shared = transform(addTeamKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)));
+    shared = transform(pluginKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)));
   } else {
     const split = splitPersonal(withoutPaqadLines(existing, options));
     personal = split.personal;
-    shared = transform({ ...addTeamKeys(mergeNativeHooks({}, chain)), ...split.team });
+    shared = transform({ ...pluginKeys(mergeNativeHooks({}, chain)), ...split.team });
   }
   files.push(fileFor(CLAUDE_SETTINGS_FILE, shared));
 

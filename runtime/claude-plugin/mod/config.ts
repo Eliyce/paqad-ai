@@ -16,6 +16,8 @@ export interface StandDownInput {
   };
   localConfig: string | null;
   teamConfigs: ReadonlyArray<{ name: string; text: string }>;
+  paqadYaml?: string | null;
+  today?: string;
   engine: { version: string; base?: string } | null;
 }
 
@@ -37,16 +39,111 @@ export function readConfigKey(text: string | null, key: string): string | undefi
   return v;
 }
 
-type LayeredInput = Pick<StandDownInput, 'localConfig' | 'teamConfigs'>;
+function indentOf(line: string): number {
+  return /^[ \t]*/.exec(line)?.[0].length ?? 0;
+}
+
+function isContent(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed !== '' && !trimmed.startsWith('#');
+}
+
+function keyValue(line: string, key: string): string | null {
+  const body = line.replace(/^[ \t]+/, '');
+  if (!body.startsWith(`${key}:`)) return null;
+  const rest = body.slice(key.length + 1);
+  if (rest !== '' && !/^[ \t]/.test(rest)) return null;
+  return rest;
+}
+
+function cleanScalar(rest: string): string | undefined {
+  let value = ` ${rest}`;
+  const hash = value.search(/[ \t]#/);
+  if (hash !== -1) value = value.slice(0, hash);
+  value = value.trim();
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value === '' ? undefined : value;
+}
+
+export function readYamlScalar(text: string | null | undefined, path: readonly string[]) {
+  if (typeof text !== 'string' || path.length < 1 || path.length > 2) return undefined;
+  const lines = text.split(/\r?\n/);
+  const [top, child] = path as [string, string | undefined];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    if (!isContent(line) || indentOf(line) !== 0) continue;
+    const rest = keyValue(line, top);
+    if (rest === null) continue;
+    if (child === undefined) return cleanScalar(rest);
+    let childIndent = -1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const inner = lines[j]!;
+      if (!isContent(inner)) continue;
+      const indent = indentOf(inner);
+      if (indent === 0) return undefined;
+      if (childIndent === -1) childIndent = indent;
+      if (indent !== childIndent) continue;
+      const value = keyValue(inner, child);
+      if (value !== null) return cleanScalar(value);
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+const PAQAD_YAML_PATHS: Readonly<Record<string, readonly string[]>> = {
+  paqad_enable: ['enabled'],
+  hud_view: ['hud', 'band'],
+  hud_chime: ['hud', 'chime'],
+};
+
+const BOOLEAN_WORDS = new Set([...ENV_TRUTHY, ...FALSY]);
+
+type LayeredInput = Pick<StandDownInput, 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>;
+
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
+
+function legacyReadable(input: LayeredInput): boolean {
+  return (input.today ?? new Date().toISOString().slice(0, 10)) <= LEGACY_TEAM_CONFIG_READ_UNTIL;
+}
+
+function yamlTeamValue(input: LayeredInput, key: string): string | undefined {
+  const path = PAQAD_YAML_PATHS[key];
+  if (path === undefined) return undefined;
+  const raw = readYamlScalar(input.paqadYaml, path);
+  return raw !== undefined && BOOLEAN_WORDS.has(raw.trim().toLowerCase()) ? raw : undefined;
+}
+
+export function teamSwitchProblems(input: LayeredInput): string[] {
+  const problems: string[] = [];
+  for (const path of Object.values(PAQAD_YAML_PATHS)) {
+    const raw = readYamlScalar(input.paqadYaml, path);
+    if (raw !== undefined && !BOOLEAN_WORDS.has(raw.trim().toLowerCase())) {
+      problems.push(
+        `.paqad/configs/paqad.yaml: ${path.join('.')} has a value paqad cannot read (${raw}), so paqad uses its default.`,
+      );
+    }
+  }
+  return problems;
+}
 
 function layeredValue(input: LayeredInput, key: string, fromEnv: string | undefined) {
-  let value: string | undefined;
+  let value: string | undefined = yamlTeamValue(input, key);
   const team = input.teamConfigs
     .filter((file) => /^\.config\..+/.test(file.name) && file.name !== '.config.example')
+    .filter((file) => file.text.split(/\r?\n/, 1)[0]?.trim() !== '# paqad-migrated-stub')
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  for (const file of team) {
-    const fromFile = readConfigKey(file.text, key);
-    if (fromFile !== undefined) value = fromFile;
+  if (value === undefined && legacyReadable(input)) {
+    for (const file of team) {
+      const fromFile = readConfigKey(file.text, key);
+      if (fromFile !== undefined) value = fromFile;
+    }
   }
   const local = readConfigKey(input.localConfig, key);
   if (local !== undefined) value = local;
@@ -58,17 +155,23 @@ function isFalsy(value: string | undefined): boolean {
   return value !== undefined && FALSY.has(value.trim().toLowerCase());
 }
 
-export function isPaqadOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+export function isPaqadOff(
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
+) {
   const disabled = input.env.PAQAD_DISABLED;
   if (typeof disabled === 'string' && ENV_TRUTHY.has(disabled.trim().toLowerCase())) return true;
   return isFalsy(layeredValue(input, 'paqad_enable', input.env.PAQAD_ENABLE));
 }
 
-export function isHudViewOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+export function isHudViewOff(
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
+) {
   return isFalsy(layeredValue(input, 'hud_view', input.env.PAQAD_HUD_VIEW));
 }
 
-export function isChimeOn(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+export function isChimeOn(
+  input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs' | 'paqadYaml' | 'today'>,
+) {
   const value = layeredValue(input, 'hud_chime', input.env.PAQAD_HUD_CHIME);
   return value !== undefined && ENV_TRUTHY.has(value.trim().toLowerCase());
 }

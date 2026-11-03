@@ -14,7 +14,8 @@ import {
 } from '@/cli/commands/hook.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 
-const REAL_LIB = resolve(process.cwd(), 'runtime/hooks/lib/paqad-disabled.mjs');
+const REAL_LIB_DIR = resolve(process.cwd(), 'runtime/hooks/lib');
+const REAL_LIB_FILES = ['paqad-disabled.mjs', 'yaml-scalar.mjs'];
 
 const dirs: string[] = [];
 function tempDir(prefix: string): string {
@@ -31,7 +32,9 @@ afterEach(() => {
 function fakeRuntime(script?: string): string {
   const root = tempDir('paqad-hook-runtime-');
   mkdirSync(join(root, 'hooks', 'lib'), { recursive: true });
-  copyFileSync(REAL_LIB, join(root, 'hooks', 'lib', 'paqad-disabled.mjs'));
+  for (const file of REAL_LIB_FILES) {
+    copyFileSync(join(REAL_LIB_DIR, file), join(root, 'hooks', 'lib', file));
+  }
   if (script !== undefined) {
     writeFileSync(join(root, 'hooks', 'capability-gate.mjs'), script);
   }

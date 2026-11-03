@@ -12,7 +12,15 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as lib from '../../../runtime/hooks/lib/paqad-disabled.mjs';
-import { type Sandbox, fakeDeps, loadLauncher, makeSandbox, payload, writeCopy } from './helpers';
+import {
+  type FakeDeps,
+  type Sandbox,
+  fakeDeps,
+  loadLauncher,
+  makeSandbox,
+  payload,
+  writeCopy,
+} from './helpers';
 
 let sandbox: Sandbox;
 let claudeConfig: string;
@@ -45,14 +53,24 @@ function writeSettings(path: string, enabled: boolean): void {
   writeFileSync(path, JSON.stringify({ enabledPlugins: { 'paqad@eliyce': enabled } }));
 }
 
+function writeClaim(sessionId = 'ses-route', root: string | null = installPath): void {
+  const dir = join(sandbox.project, '.paqad', 'session', 'plugin-active.d');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, sessionId), JSON.stringify({ at: 'now', ...(root ? { root } : {}) }));
+}
+
 async function runEvent(
   env: NodeJS.ProcessEnv,
   event = 'PreToolUse',
   script = 'agent-entry-gate.mjs',
   sessionId = 'ses-route',
+  overrides: Partial<FakeDeps> = {},
 ) {
   const launcher = await loadLauncher();
-  const { deps, captured } = fakeDeps(sandbox, { readStdin: () => payload(event, sessionId) });
+  const { deps, captured } = fakeDeps(sandbox, {
+    readStdin: () => payload(event, sessionId),
+    ...overrides,
+  });
   const code = launcher.runLauncher([script], env, deps);
   return { code, captured };
 }
@@ -105,9 +123,10 @@ const FALL_THROUGH: PluginCase[] = [
   },
 ];
 
-describe('AC-2: the plugin route steps aside only for a plugin that loads here', () => {
-  it('a user-scope install that loads here exits 0 and starts no child', async () => {
+describe('AC-2: the plugin route steps aside only for a plugin that claimed the session', () => {
+  it('a session the plugin claimed exits 0 and starts no child', async () => {
     writeInstalled(entry());
+    writeClaim();
     for (const event of ['SessionStart', 'PreToolUse', 'Stop']) {
       const { code, captured } = await runEvent({}, event);
       expect(code).toBe(0);
@@ -116,17 +135,10 @@ describe('AC-2: the plugin route steps aside only for a plugin that loads here',
     }
   });
 
-  it('a project-scope install for this repo and a bare entry also count', async () => {
-    writeInstalled(entry({ scope: 'local', projectPath: sandbox.project }));
-    expect((await runEvent({})).captured.spawns).toEqual([]);
-    writeInstalled({ version: 2, plugins: { 'paqad@eliyce': { installPath } } });
-    expect((await runEvent({})).captured.spawns).toEqual([]);
-  });
-
-  it('a user false is overridden by a project true', async () => {
-    writeInstalled(entry());
-    writeSettings(join(claudeConfig, 'settings.json'), false);
-    writeSettings(join(sandbox.project, '.claude', 'settings.json'), true);
+  it('a claim counts whatever installed_plugins.json says, so a synced copy counts too', async () => {
+    const synced = join(sandbox.home, 'plugins', 'synced', 'paqad');
+    mkdirSync(synced, { recursive: true });
+    writeClaim('ses-route', synced);
     expect((await runEvent({})).captured.spawns).toEqual([]);
   });
 
@@ -201,6 +213,101 @@ describe('the launcher and the hook libs agree on the plugin', () => {
     expect(launcher.pluginEnabledInSettings(sandbox.project, env, sandbox.home)).toBe(
       lib.pluginEnabledInSettings(sandbox.project, env),
     );
+  });
+});
+
+describe('an installed plugin that did not load leaves the session to the launcher', () => {
+  const copyRoot = () => join(sandbox.home, '.paqad-ai', 'team-plugin');
+  const blockingSpawn = { spawnSync: () => ({ status: 2 }) };
+
+  function recordedRoute(sessionId: string): { route: string; reason: string } {
+    const path = join(sandbox.project, '.paqad', 'session', 'team-route.d', sessionId);
+    return JSON.parse(readFileSync(path, 'utf8')) as { route: string; reason: string };
+  }
+
+  it('an edit with the plugin installed and enabled but unclaimed runs the gate and blocks', async () => {
+    writeInstalled(entry({ scope: 'project', projectPath: sandbox.project }));
+    writeSettings(join(sandbox.project, '.claude', 'settings.json'), true);
+    const roots: Array<string | undefined> = [];
+    const { code } = await runEvent({}, 'PreToolUse', 'agent-entry-gate.mjs', 'ses-route', {
+      spawnSync: (_command, _args, options) => {
+        roots.push(options.env?.CLAUDE_PLUGIN_ROOT);
+        return { status: 2 };
+      },
+    });
+    expect(code).toBe(2);
+    expect(roots).toEqual([copyRoot()]);
+  });
+
+  it('the install record present before SessionStart waits for a claim, then serves the copy', async () => {
+    writeInstalled(entry());
+    const sleeps: number[] = [];
+    const start = await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-t', {
+      sleep: (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+    expect(sleeps.length).toBeGreaterThan(0);
+    expect(sleeps.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(2000);
+    expect(start.captured.spawns.map((c) => c.args[0]!.split(/[\\/]/).pop())).toEqual([
+      'plugin-session-start.mjs',
+      'agent-entry-session-start.mjs',
+    ]);
+    expect(recordedRoute('ses-t').route).toBe('copy');
+    const edit = await runEvent({}, 'PreToolUse', 'agent-entry-gate.mjs', 'ses-t', blockingSpawn);
+    expect(edit.code).toBe(2);
+  });
+
+  it('a claim that lands during the SessionStart wait hands the session to the plugin', async () => {
+    writeInstalled(entry());
+    const start = await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-w', {
+      sleep: () => writeClaim('ses-w'),
+    });
+    expect(start.captured.spawns).toEqual([]);
+    expect(recordedRoute('ses-w')).toEqual({ route: 'plugin', reason: 'plugin-claimed' });
+  });
+
+  it('with no plugin installed SessionStart does not wait', async () => {
+    const sleeps: number[] = [];
+    await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-n', {
+      sleep: (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+    expect(sleeps).toEqual([]);
+  });
+
+  it('an install record written mid-session does not stand the running session down', async () => {
+    await runEvent({}, 'SessionStart', 'agent-entry-session-start.mjs', 'ses-m');
+    writeInstalled(entry());
+    for (const event of ['PreToolUse', 'Stop']) {
+      const { captured } = await runEvent({}, event, 'agent-entry-gate.mjs', 'ses-m');
+      expect(captured.spawns).toHaveLength(1);
+    }
+  });
+
+  it('a plugin route recorded by an older launcher with no claim is decided again', async () => {
+    writeInstalled(entry());
+    const dir = join(sandbox.project, '.paqad', 'session', 'team-route.d');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'ses-old'),
+      JSON.stringify({ route: 'plugin', reason: 'plugin-installed' }),
+    );
+    const { captured } = await runEvent({}, 'PreToolUse', 'agent-entry-gate.mjs', 'ses-old');
+    expect(captured.spawns).toHaveLength(1);
+  });
+
+  it.each([
+    ['the launcher copy itself', () => writeClaim('ses-route', copyRoot())],
+    ['a root that is gone', () => writeClaim('ses-route', join(sandbox.home, 'gone'))],
+    ['no root', () => writeClaim('ses-route', null)],
+    ['another session', () => writeClaim('ses-other')],
+  ])('a claim naming %s is not a plugin claim', async (_name, setup) => {
+    writeInstalled(entry());
+    setup();
+    const { captured } = await runEvent({});
+    expect(captured.spawns).toHaveLength(1);
   });
 });
 
@@ -294,6 +401,7 @@ describe('AC-16: the route is decided once per session', () => {
     writeInstalled(entry());
     const later = await runEvent({}, 'PreToolUse', 'agent-entry-gate.mjs', 'ses-a');
     expect(later.captured.spawns).toHaveLength(1);
+    writeClaim('ses-b');
     const next = await runEvent({}, 'PreToolUse', 'agent-entry-gate.mjs', 'ses-b');
     expect(next.captured.spawns).toEqual([]);
   });

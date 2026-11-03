@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import {
   readConfigsDir,
+  envConfigValue,
   readDotConfig,
   resolveRuleGateConfig,
   type RuleGateConfig,
 } from '@/core/framework-config.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
-import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
@@ -96,27 +96,13 @@ export function resolveRuleComplianceMode(
 ): RuleComplianceMode {
   return resolveFlooredMode(
     {
-      team: stricterTeamFloor(
-        readConfigsDir(projectRoot).merged.get('rule_compliance'),
-        readProjectRuleComplianceModeOverride(projectRoot),
-      ),
+      team: readConfigsDir(projectRoot).merged.get('rule_compliance'),
       local: readDotConfig(projectRoot).get('rule_compliance'),
-      env: env.PAQAD_RULE_COMPLIANCE,
+      env: envConfigValue(env, 'rule_compliance'),
     },
     RULE_COMPLIANCE_MODES,
     DEFAULT_RULE_COMPLIANCE,
   );
-}
-
-function stricterTeamFloor(a: string | undefined, b: string | undefined): string | undefined {
-  const rank = (raw: string | undefined): number =>
-    raw === undefined
-      ? -1
-      : RULE_COMPLIANCE_MODES.indexOf(raw.trim().toLowerCase() as RuleComplianceMode);
-  const rankA = rank(a);
-  const rankB = rank(b);
-  const winner = Math.max(rankA, rankB);
-  return winner < 0 ? undefined : RULE_COMPLIANCE_MODES[winner];
 }
 
 type IntegrityStatus = 'ok' | 'tampered' | 'unverified';
@@ -342,7 +328,8 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
     `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and ${endMarker} ` +
     `each on its own line (parsed before the next edit, so they clear this block in the same turn), ` +
     `or run \`paqad-ai stage start ${stage}\` then ${endCli}. Set ` +
-    `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
+    `stage_tracking: warn or off in .paqad/configs/feature-development/workflow.yaml to adopt ` +
+    `the workflow before ` +
     `enforcing.${tail}`
   );
 }
@@ -428,11 +415,31 @@ function formatChecksRecordWriteSummary(relPath: string): string {
   );
 }
 
+export const GIT_WORKFLOW_FILES_GUARD = 'git-workflow-files';
+
+function firstGitWorkflowTarget(targets: string[]): string | null {
+  const dir = PATHS.GIT_WORKFLOW_DIR;
+  return targets.find((rel) => rel === dir || rel.startsWith(`${dir}/`)) ?? null;
+}
+
+export function formatGitWorkflowWriteSummary(relPath: string): string {
+  return (
+    `**▸ paqad** · the git workflow rules are changed by the git-workflow skill\n` +
+    `> 🔴 Needs your attention: \`${relPath}\` holds this team's git workflow rules. Only the ` +
+    `git-workflow skill changes them, so every change is checked, explained and recorded. Use ` +
+    `the git-workflow skill instead.`
+  );
+}
+
 const stagesCapability: Capability = {
   id: 'stages',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
     const targets = normalizedPayloadTargets(payload, projectRoot);
+    const workflowTarget = firstGitWorkflowTarget(targets);
+    if (workflowTarget) {
+      return { ran: true, blocking: true, summary: formatGitWorkflowWriteSummary(workflowTarget) };
+    }
     const checksTarget = firstChecksRecordTarget(targets);
     if (checksTarget) {
       return { ran: true, blocking: true, summary: formatChecksRecordWriteSummary(checksTarget) };

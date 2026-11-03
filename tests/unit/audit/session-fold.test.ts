@@ -8,8 +8,7 @@ import { aggregateSiemEvents } from '@/audit/aggregate';
 import type { SiemEvent } from '@/audit/types';
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger';
 import { buildEvidenceRow } from '@/evidence/ledger';
-import { recordDeliveryEvidence } from '@/delivery/delivery-ledger';
-import { detectDelivery } from '@/delivery/detection';
+import { recordProjectEvent } from '@/session-ledger/project-ledger';
 import { recordDecisionOpened } from '@/planning/decision-ledger';
 import { recordDisabledSession } from '@/session-ledger/disabled-audit';
 import { recordHealthRun } from '@/codebase-health/ledger';
@@ -29,13 +28,6 @@ function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
 }
-
-const GITHUB = detectDelivery({
-  remoteUrl: 'git@github.com:o/r.git',
-  defaultBranch: 'origin/main',
-  branchNames: ['feat/a'],
-  recentCommitSubjects: ['feat: a'],
-});
 
 function bySource(events: SiemEvent[], docType: string): SiemEvent[] {
   return events.filter((e) => e.kind === 'session' && e.doc_type === docType);
@@ -72,7 +64,12 @@ describe('aggregateSiemEvents — session-ledger fold', () => {
   });
 
   it('folds delivery detection with the host in detail', () => {
-    recordDeliveryEvidence(root, GITHUB);
+    recordProjectEvent(
+      root,
+      'delivery-evidence',
+      { kind: 'detected', detected: { host: { value: 'github' } } },
+      1,
+    );
     const event = withVerdict(aggregateSiemEvents(root), 'delivery-evidence', 'detected');
     expect(event.detail).toBe('detected host=github');
   });

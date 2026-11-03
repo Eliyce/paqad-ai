@@ -10,24 +10,6 @@ import { HOOK_COVERAGE_MATRIX } from '@/adapters/shared/paqad-hooks.js';
 const REPO = resolve(__dirname, '../../..');
 const read = (rel: string): string => readFileSync(join(REPO, rel), 'utf8');
 
-interface Packet {
-  category: string;
-  status: string;
-  chosen: string;
-}
-
-describe('mutation wiring decisions', () => {
-  it.each([
-    ['D-01M5AKZP6RVHCMBJ6T1QR1M0H2', 'wire'],
-    ['D-01M5AM6S3Z36HR2NRKN2XYNZWW', 'both-run-suite'],
-  ])('AC-16: %s is resolved in workflow-or-tool with %s chosen', (id, chosen) => {
-    const packet = JSON.parse(read(`.paqad/decisions/resolved/${id}.json`)) as Packet;
-    expect(packet.category).toBe('workflow-or-tool');
-    expect(packet.status).toBe('resolved');
-    expect(packet.chosen).toBe(chosen);
-  });
-});
-
 describe('mutation wiring host tiers', () => {
   it('AC-24: both completion hooks run the backstop on hook-completion only', () => {
     for (const hook of ['verification-record.mjs', 'verification-completion.mjs']) {

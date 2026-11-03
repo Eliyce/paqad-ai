@@ -319,6 +319,20 @@ describe('resolveSelections (interactive)', () => {
     setInteractive(false);
   });
 
+  it('asks nothing in a terminal when told not to, and falls back to the overrides and detection (AC-6)', async () => {
+    const result = await resolveSelections(
+      laravelDetection,
+      undefined,
+      { stack: 'laravel', capabilities: [] },
+      { interactive: false },
+    );
+
+    expect(mockCheckbox).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(result.providers).toEqual(['claude-code']);
+    expect(result.stack).toBe('laravel');
+  });
+
   it('requires confirmation even for confident detected stacks', async () => {
     mockCheckbox.mockResolvedValueOnce(['codex-cli']);
     mockSelect.mockResolvedValueOnce('continue');

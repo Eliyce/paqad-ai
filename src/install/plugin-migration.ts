@@ -22,6 +22,9 @@ import { VERSION } from '@/index.js';
 import {
   classifyFrameworkCopy,
   PLUGIN_ID,
+  pluginLoadState,
+  pluginOptedOutLocally,
+  projectTurnsPluginOn,
   readPackageVersion,
   readRuntimeCopyVersion,
 } from '../health/plugin-install.js';
@@ -262,11 +265,14 @@ function marketplaceReferenced(list: unknown[]): boolean {
   return list.some((entry) => JSON.stringify(entry).includes(PLUGIN_MARKETPLACE_REPO));
 }
 
+const PROJECT_TURNS_PLUGIN_ON_REASON = 'project-turns-plugin-on';
+
 const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'migration-off',
   'install-mode-settings',
   'no-claude-code-provider',
   'ci-or-headless',
+  PROJECT_TURNS_PLUGIN_ON_REASON,
 ]);
 
 const AUTO_ROLLBACK_REASON = 'plugin-never-loaded';
@@ -488,6 +494,14 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   if (!projectTargetsClaudeCode(projectRoot)) {
     return record(deps, prior, { state: 'skipped', reason: 'no-claude-code-provider' });
   }
+  if (projectTurnsPluginOn(projectRoot)) {
+    if (prior?.reason !== PROJECT_TURNS_PLUGIN_ON_REASON) {
+      deps.log(
+        'this project turns the plugin on in .claude/settings.json; user-scope move not needed',
+      );
+    }
+    return record(deps, prior, { state: 'skipped', reason: PROJECT_TURNS_PLUGIN_ON_REASON });
+  }
   if (isCiOrHeadless(deps.env)) {
     return record(deps, prior, { state: 'skipped', reason: 'ci-or-headless' });
   }
@@ -517,13 +531,18 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
 
 function recordPresentPlugin(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
   if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
+    deps.log('plugin synced from claude.ai; nothing to install');
     return record(deps, prior, { state: 'done', path: 'synced' });
   }
   const attempts = (prior?.attempts ?? 0) + 1;
   const settings = installViaSettings(deps.home);
   if (settings.state !== 'installed') {
+    deps.log(
+      `plugin already present; not turned on (${settings.state}: ${settings.reason ?? 'unknown'})`,
+    );
     return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
   }
+  deps.log('plugin already present; turned it on in the user settings');
   return record(deps, prior, {
     state: 'installed',
     path: 'settings',
@@ -829,6 +848,12 @@ export const ROLLBACK_NO_CLAUDE_MESSAGE =
 export const ROLLBACK_NOT_TURNED_OFF_MESSAGE =
   'paqad could not turn the plugin off. Run `claude plugin uninstall paqad@eliyce` to remove it.';
 
+export const ROLLBACK_PROJECT_MESSAGE =
+  'paqad now runs from the npm package in Claude Code again. This repo turns the plugin on for everyone, so I turned it off for you only in .claude/settings.local.json (not committed).';
+
+export const ROLLBACK_PROJECT_NOT_TURNED_OFF_MESSAGE =
+  'This repo turns the plugin on for everyone, and paqad could not turn it off for you. Set "paqad@eliyce": false under enabledPlugins in .claude/settings.local.json.';
+
 export type ClaudeUninstallOutcome = ClaudeExecOutcome | 'no-claude';
 
 export interface RollbackDeps {
@@ -842,11 +867,14 @@ export interface RollbackDeps {
 export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): string {
   const home = deps.home ?? homedir();
   const prior = readMigrationState(home);
-  const listed = isPluginInstalledRecord(home);
+  const listed = installedPluginEntries(join(home, '.claude')).some(isUserScopeEntry);
   const outcome = listed && deps.runClaudeUninstall ? deps.runClaudeUninstall(home) : undefined;
   undoViaSettings(home);
   const stillInstalled = listed && outcome !== undefined && outcome !== 'ok';
-  const turnedOff = stillInstalled && disableViaSettings(home);
+  const turnedOff = stillInstalled && disableViaSettings(userClaudeSettingsPath(home));
+  const projectOn = projectTurnsPluginOn(projectRoot);
+  const optedOut =
+    projectOn && disableViaSettings(join(projectRoot, '.claude', 'settings.local.json'));
   clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
@@ -860,12 +888,18 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
     deps.writeInstallModeSettings ??
     ((root: string) => setConfigValue(root, 'claude_install_mode', 'settings'))
   )(projectRoot);
+  if (projectOn) {
+    return optedOut ? ROLLBACK_PROJECT_MESSAGE : ROLLBACK_PROJECT_NOT_TURNED_OFF_MESSAGE;
+  }
   if (!stillInstalled) return ROLLBACK_MESSAGE;
   return turnedOff ? ROLLBACK_NO_CLAUDE_MESSAGE : ROLLBACK_NOT_TURNED_OFF_MESSAGE;
 }
 
-function disableViaSettings(home: string): boolean {
-  const path = userClaudeSettingsPath(home);
+function isUserScopeEntry(entry: Record<string, unknown>): boolean {
+  return entry.scope === undefined || entry.scope === 'user';
+}
+
+function disableViaSettings(path: string): boolean {
   let settings: Record<string, unknown> = {};
   if (existsSync(path)) {
     try {
@@ -910,6 +944,13 @@ export const WAITING_FOR_LOAD_DETAIL =
   'npm (moving to the plugin: waiting for the plugin to load in a new session)';
 export const VERSION_MISMATCH_FIX =
   'The plugin and paqad-ai are on different versions. Start a new Claude Code session so the plugin updates, or run `claude plugin update paqad@eliyce`.';
+export const PROJECT_PLUGIN_DETAIL = 'plugin (turned on by this project)';
+export const PROJECT_PLUGIN_WAITING_DETAIL =
+  'npm (this project turns the plugin on; waiting for Claude Code to install it)';
+export const LOCAL_OPT_OUT_DETAIL =
+  'npm (plugin turned off for you in .claude/settings.local.json)';
+export const USER_SWITCH_OVERRIDDEN_FIX =
+  'This repo turns the plugin on, which wins over your user setting. To turn it off for you only, run `paqad-ai plugin rollback`.';
 
 export function describeClaudeInstall(
   home: string = homedir(),
@@ -924,6 +965,13 @@ export function describeClaudeInstall(
     return { detail: HOOKS_BLOCKED_DETAIL, level: 'warning', remediation: HOOKS_BLOCKED_FIX };
   }
   if (policy === 'plugin-blocked') return { detail: PLUGIN_BLOCKED_DETAIL, level: 'pass' };
+  if (
+    projectRoot !== undefined &&
+    projectTurnsPluginOn(projectRoot) &&
+    !isSyncedRoot(readPluginSeen(home)?.root)
+  ) {
+    return describeProjectPlugin(home, projectRoot, env, options);
+  }
   const record = readMigrationState(home);
   if (doneButDisabled(record, home)) {
     return { detail: `npm (migration declined: ${USER_DISABLED_REASON})`, level: 'pass' };
@@ -960,6 +1008,21 @@ export function describeClaudeInstall(
   }
   const reason = record.reason ? `: ${record.reason}` : '';
   return { detail: `npm (migration ${record.state}${reason})`, level: 'pass' };
+}
+
+function describeProjectPlugin(
+  home: string,
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  options: ClaudeInstallLineOptions,
+): ClaudeInstallLine {
+  if (pluginOptedOutLocally(projectRoot)) return { detail: LOCAL_OPT_OUT_DETAIL, level: 'pass' };
+  if (pluginLoadState(projectRoot, { env, home }) !== 'live') {
+    return { detail: PROJECT_PLUGIN_WAITING_DETAIL, level: 'pass' };
+  }
+  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options);
+  if (line.level === 'warning' || !userDisabledPlugin(home)) return line;
+  return { ...line, level: 'warning', remediation: USER_SWITCH_OVERRIDDEN_FIX };
 }
 
 function withSeededInstalledAt(record: MigrationRecord): InstalledRecord {

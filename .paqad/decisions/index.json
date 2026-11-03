@@ -1,6 +1,6 @@
 {
   "fingerprints": {
-    "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d": "D-01M5ER46TG4V66PTAHS7DJV7RB"
+    "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d": "D-01M6EQXSB7HNH2T28N6S7B1P5G"
   },
   "decisions": {
     "D-01M5ER46TG4V66PTAHS7DJV7RB": {
@@ -9,6 +9,30 @@
       "category": "create-vs-reuse",
       "chosen_option_key": "reuse-existing",
       "responded_at": "2026-10-21T08:10:19.756Z",
+      "status": "resolved",
+      "option_keys": [
+        "make-new",
+        "reuse-existing"
+      ]
+    },
+    "D-01M6EP1ETB5RSENED7HSCD5A7T": {
+      "decision_id": "D-01M6EP1ETB5RSENED7HSCD5A7T",
+      "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+      "category": "create-vs-reuse",
+      "chosen_option_key": "reuse-existing",
+      "responded_at": "2026-11-02T17:51:21.851Z",
+      "status": "resolved",
+      "option_keys": [
+        "make-new",
+        "reuse-existing"
+      ]
+    },
+    "D-01M6EQXSB7HNH2T28N6S7B1P5G": {
+      "decision_id": "D-01M6EQXSB7HNH2T28N6S7B1P5G",
+      "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+      "category": "create-vs-reuse",
+      "chosen_option_key": "reuse-existing",
+      "responded_at": "2026-11-02T18:30:22.232Z",
       "status": "resolved",
       "option_keys": [
         "make-new",

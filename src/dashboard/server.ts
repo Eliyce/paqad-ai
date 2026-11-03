@@ -31,12 +31,12 @@ import {
   resolvePauseDecision,
 } from './approvals.js';
 import { readAuditFeed } from './audit-feed.js';
-import {
-  DeliveryPolicyValidationError,
-  getDeliveryPolicyConfig,
-  putDeliveryPolicy,
-} from './config-delivery-policy.js';
 import { getDesignTokensConfig, putDesignTokens } from './config-design-tokens.js';
+import {
+  getGitWorkflowConfig,
+  putGitWorkflowFile,
+  UnknownGitWorkflowFileError,
+} from './config-git-workflow.js';
 import { getModuleMapConfig, putModuleMap } from './config-module-map.js';
 import { getProfileConfig, putProfile, setCapability } from './config-profile.js';
 import { getRagConfig, putRagConfig } from './config-rag.js';
@@ -386,6 +386,10 @@ export async function startDashboardServer(
       writeJson(res, req, { error: SCHEMA_VERSION_UPDATE_HINT }, 409);
       return;
     }
+    if (err instanceof UnknownGitWorkflowFileError) {
+      writeJson(res, req, { error: err.message }, 404);
+      return;
+    }
     if (err instanceof PathNotAllowedError) {
       writeJson(res, req, { error: err.message }, 403);
       return;
@@ -394,10 +398,7 @@ export async function startDashboardServer(
       writeJson(res, req, { error: err.message }, 409);
       return;
     }
-    if (
-      err instanceof DeliveryPolicyValidationError ||
-      (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues))
-    ) {
+    if (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues)) {
       writeJson(
         res,
         req,
@@ -628,23 +629,6 @@ export async function startDashboardServer(
       writeText(res, html, 200, 'text/html; charset=utf-8');
       return;
     }
-    if (pathname === '/api/config/delivery-policy' && req.method === 'GET') {
-      writeJson(res, req, getDeliveryPolicyConfig(options.projectRoot));
-      return;
-    }
-    if (pathname === '/api/config/delivery-policy' && req.method === 'PUT') {
-      await handleMutation(req, res, async () => {
-        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
-        if (typeof body.content !== 'string') {
-          throw new Error('Body must include the policy `content` as a string.');
-        }
-        return putDeliveryPolicy(options.projectRoot, {
-          content: body.content,
-          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
-        });
-      });
-      return;
-    }
     if (pathname === '/api/files/instructions' && req.method === 'GET') {
       writeJson(res, req, listInstructionsTree(options.projectRoot));
       return;
@@ -725,6 +709,28 @@ export async function startDashboardServer(
       await handleMutation(req, res, async () => {
         const body = (await readJsonBody(req)) as { intelligence?: unknown };
         return putRagConfig(options.projectRoot, body.intelligence);
+      });
+      return;
+    }
+    if (pathname === '/api/config/git-workflow' && req.method === 'GET') {
+      writeJson(res, req, getGitWorkflowConfig(options.projectRoot));
+      return;
+    }
+    const gitWorkflowFileMatch = /^\/api\/config\/git-workflow\/([^/]+)$/.exec(pathname);
+    if (gitWorkflowFileMatch && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the file `content` as a string.');
+        }
+        return putGitWorkflowFile(
+          options.projectRoot,
+          decodeURIComponent(gitWorkflowFileMatch[1]!),
+          {
+            content: body.content,
+            baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+          },
+        );
       });
       return;
     }

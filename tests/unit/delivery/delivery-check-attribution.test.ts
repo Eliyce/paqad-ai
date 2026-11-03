@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
 import {
   evaluateDelivery,
   formatDeliverySummary,
@@ -12,7 +11,8 @@ import {
   type CommandRun,
   type CommandRunner,
 } from '@/delivery/delivery-check.js';
-import { defaultDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { defaultGitWorkflow } from '@/git-workflow/defaults.js';
+import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
 
 const CLAUDE_TRAILER = 'Co-Authored-By: Claude <noreply@anthropic.com>';
 const CURSOR_TRAILER = 'Co-authored-by: Cursor <cursoragent@cursor.com>';
@@ -27,18 +27,14 @@ function makeProject(files: Record<string, string> = {}): string {
   return root;
 }
 
-function policy(): ResolvedDeliveryPolicy {
-  const base = defaultDeliveryPolicy();
-  return {
-    enabled: true,
-    process: { ...base.process, branch: { ...base.process.branch, base: 'main' } },
-  };
+function policy(): ResolvedGitWorkflow {
+  return defaultGitWorkflow('main');
 }
 
 function runner(over: { branch?: string; log?: string; prBody?: string | null }): CommandRunner {
   return async (command, args): Promise<CommandRun> => {
     if (command === 'git' && args.includes('--abbrev-ref')) {
-      return { stdout: over.branch ?? 'feat/thing', exitCode: 0 };
+      return { stdout: over.branch ?? 'feature/thing', exitCode: 0 };
     }
     if (command === 'git' && args.includes('log')) {
       return { stdout: over.log ?? '', exitCode: 0 };

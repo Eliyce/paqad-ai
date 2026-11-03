@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "git-workflow-tickets",
+  "title": "tickets.yaml",
+  "description": "Where this team's tickets come from and how they move.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "paqad_version": { "type": "string" },
+    "require_ticket": { "type": "boolean" },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["tracker"],
+        "properties": {
+          "tracker": {
+            "type": "string",
+            "enum": ["jira", "servicenow", "github-issues", "linear", "generic"]
+          },
+          "pattern": { "type": "string", "minLength": 1 },
+          "server": { "type": "string" },
+          "transitions": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "on_pr_open": { "type": "string" },
+              "on_ci_green": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "write_back_refined": { "type": "string", "enum": ["never", "ask", "always"] },
+    "intake_decisions": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "auto_resolve_from_priors": { "type": "boolean" },
+        "auto_resolve_from_rules": { "type": "boolean" },
+        "confirm_auto_resolutions": { "type": "string", "enum": ["always", "batched", "never"] },
+        "max_options_per_packet": { "type": "integer", "minimum": 1 },
+        "fingerprint_scope": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

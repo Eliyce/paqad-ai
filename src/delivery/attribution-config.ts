@@ -1,4 +1,4 @@
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, envConfigValue, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type AiAttributionMode = 'keep' | 'strip';
@@ -15,7 +15,7 @@ export function resolveAiAttributionMode(
     {
       team: readConfigsDir(projectRoot).merged.get('ai_attribution'),
       local: readDotConfig(projectRoot).get('ai_attribution'),
-      env: env.PAQAD_AI_ATTRIBUTION,
+      env: envConfigValue(env, 'ai_attribution'),
     },
     AI_ATTRIBUTION_MODES,
     DEFAULT_AI_ATTRIBUTION_MODE,

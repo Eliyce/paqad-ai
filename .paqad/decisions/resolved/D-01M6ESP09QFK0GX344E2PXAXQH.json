@@ -1,0 +1,46 @@
+{
+  "id": "D-01M6ESP09QFK0GX344E2PXAXQH",
+  "category": "architecture-path",
+  "title": "819: user-scope plugin move in a repo that commits the plugin",
+  "context": "Since #802 onboarded repos commit enabledPlugins paqad@eliyce=true, so Claude Code installs the plugin at project scope. The #621 move installs at user scope.",
+  "options": [
+    {
+      "option_key": "skip",
+      "label": "Skip the move there; doctor and state say the project turns the plugin on",
+      "one_line_preview": "Skip the move there; doctor and state say the project turns the plugin on",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep the user-scope move everywhere",
+      "one_line_preview": "Keep the user-scope move everywhere",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "skip",
+  "created_at": "2026-11-02T18:52:23.735Z",
+  "status": "resolved",
+  "chosen": "skip",
+  "rationale": "Owner: the project already turns the plugin on; record it as done via the project and log it",
+  "resolved_at": "2026-11-02T18:53:26.962Z",
+  "decision_id": "D-01M6ESP09QFK0GX344E2PXAXQH",
+  "fingerprint": "sha256:03754065c82ebc073f768cbaba79f86c55348aec6dc329ee76dc1699124a8fef",
+  "question": "819: user-scope plugin move in a repo that commits the plugin",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2027-01-31T18:52:23.735Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "skip",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-02T18:53:26.962Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: the project already turns the plugin on; record it as done via the project and log it"
+  }
+}

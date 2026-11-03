@@ -49,11 +49,11 @@ import {
 import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { workflowCostSince } from '@/cost/session-cost.js';
 import { toPosixPath } from '@/core/path-utils.js';
-import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
+import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
 import { LANES } from '@/core/types/routing.js';
 import { buildChangeTraceabilityMap } from '@/traceability/change-map.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
-import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
 import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
@@ -490,9 +490,9 @@ function repoHasCi(projectRoot: string): boolean {
   }
 }
 
-function readPolicy(projectRoot: string): ResolvedDeliveryPolicy | null {
+function readPolicy(projectRoot: string): ResolvedGitWorkflow | null {
   try {
-    return loadDeliveryPolicy(projectRoot).policy;
+    return loadGitWorkflow(projectRoot).config;
   } catch (error) {
     logHudWriteError(projectRoot, 'delivery policy', error);
     return null;
@@ -501,14 +501,14 @@ function readPolicy(projectRoot: string): ResolvedDeliveryPolicy | null {
 
 function buildDeliveryPlan(
   projectRoot: string,
-  policy: ResolvedDeliveryPolicy | null,
+  policy: ResolvedGitWorkflow | null,
   delivery: DeliveryRecord | null,
 ): HudDeliveryPlan | null {
   if (!policy) return null;
   return computeDeliveryPlan({
-    enabled: policy.enabled,
+    enabled: policy.enforcement.enabled,
     commitDeclined: delivery?.commit_decision?.answer === 'decline',
-    ciGate: policy.process.ci.gate,
+    ciGate: policy.pull_requests.ci.gate,
     hasCi: repoHasCi(projectRoot),
   });
 }
@@ -1625,10 +1625,12 @@ export function buildHudSnapshot(
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const policy = readPolicy(projectRoot);
-  const startPoint = readChangeStartPoint(projectRoot, dirName, policy?.process.pr.base ?? null);
+  const base =
+    policy && !policy.branches.base_branch.includes('*') ? policy.branches.base_branch : null;
+  const startPoint = readChangeStartPoint(projectRoot, dirName, base);
   const changeGit = readChangeGit(
     projectRoot,
-    policy?.process.pr.base ?? null,
+    base,
     (error) => logHudWriteError(projectRoot, 'changed files', error),
     startPoint,
   );

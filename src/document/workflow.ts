@@ -20,8 +20,6 @@ import type { StackSnapshot } from '@/core/types/introspection.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { RepositoryContext } from '@/core/types/repository.js';
-import { runDeliveryDetection } from '@/delivery/detect-run.js';
-import { createDeliveryShell } from '@/delivery/shell.js';
 import { Detector } from '@/detection/detector.js';
 import { DesignTokenService, DesignTokensPlaceholderError } from '@/design-tokens/service.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
@@ -77,11 +75,6 @@ export interface DocumentationWorkflowResult {
   };
   profile_updated: boolean;
   steps: DocumentationWorkflowStep[];
-  delivery_detection?: {
-    summary: string[];
-    connect_nudge: string | null;
-    filled: boolean;
-  };
 }
 
 interface EffectiveRouting {
@@ -651,34 +644,6 @@ export class DocumentationWorkflow {
     progress.moduleDocStage = 'pending_map_review';
     await this.tracker.save(options.projectRoot, progress);
 
-    let deliveryDetection: DocumentationWorkflowResult['delivery_detection'];
-    if (routing.domain === 'coding') {
-      try {
-        const result = await runDeliveryDetection(
-          options.projectRoot,
-          createDeliveryShell(options.projectRoot),
-        );
-        deliveryDetection = {
-          summary: result.summary,
-          connect_nudge: result.connectNudge,
-          filled: result.filled,
-        };
-        const summaryText =
-          result.summary.length > 0
-            ? `Delivery workflow configured from your repo: ${result.summary.join(', ')}`
-            : 'Delivery workflow configured (no git history to detect from yet)';
-        steps.push({
-          id: 'delivery-detection',
-          summary: result.connectNudge ? `${summaryText}. ${result.connectNudge}` : summaryText,
-          generated: result.filled ? [toPosixPath(PATHS.DELIVERY_DETECTION)] : [],
-          skipped: [],
-        });
-        if (result.filled) {
-          generated.push(PATHS.DELIVERY_DETECTION);
-        }
-      } catch {}
-    }
-
     return {
       generated: generated.map(toPosixPath),
       skipped: skipped.map(toPosixPath),
@@ -692,7 +657,6 @@ export class DocumentationWorkflow {
       effective_routing: routing,
       profile_updated: profileUpdated,
       steps,
-      delivery_detection: deliveryDetection,
     };
   }
 }

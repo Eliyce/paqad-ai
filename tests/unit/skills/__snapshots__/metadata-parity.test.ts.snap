@@ -700,6 +700,36 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/git-workflow": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "flow": {
+        "description": "first-setup, new-project or change. Picked from the request when not given.",
+        "required": false,
+        "type": "string",
+      },
+      "project_root": {
+        "description": "Project root. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "git-workflow",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "documentation-update",
+          "project-question",
+          "feature-development",
+        ],
+      },
+    ],
+  },
   "runtime/base/skills/glossary-maintainer": {
     "cache_key_inputs": [
       ".paqad/glossary.md",

@@ -272,7 +272,16 @@ any turn the session-ownership check skips (see below).
   `stage-evidence.jsonl` with the row `content_hash` re-stamped by the script.
   Fail-safe: an already-descriptive dir, an empty/generic-deriving title, an
   existing target, or a rename error each leave the generic name in place with the
-  compile still succeeding.
+  compile still succeeding. `titleActiveFeature` runs the same rename on the session's
+  active bundle when it is still untitled (placeholder title, no ticket), with an
+  optional `--issue`. Two callers use it: `paqad-ai feature title "<title>"`, which only
+  names the change and records no stage row, and `stage start <stage> --title`, which
+  titles an untitled active bundle in place instead of opening a second one. A titled
+  start on a bundle that already has a title still opens a new named bundle and pauses
+  the active one, so deliberate new work keeps its own bundle. The bundle-completeness
+  gate's missing-title advice names `paqad-ai feature title`, because opening a second
+  bundle split the change: the plan, spec and review stayed in the paused one while the
+  end-of-turn check judged the empty one.
 - **Feature-scoped stage ledger** (`stage-ledger.ts`, Phase 2 — additive) —
   `resolveActiveFeature` (mints/sets-active a feature so a stage call never lands on
   nothing), `appendFeatureStageRow` / `readFeatureStageUnit` / `foldFeature` write,

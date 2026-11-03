@@ -76,6 +76,11 @@ describe('buildReport', () => {
         }),
       );
     }
+    mkdirSync(join(root, '.paqad/configs/git-workflow'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/configs/git-workflow/tickets.yaml'),
+      'sources:\n  proj: { tracker: jira }\n  inc: { tracker: servicenow }\n',
+    );
     const decDir = join(root, '.paqad/decisions/pending');
     mkdirSync(decDir, { recursive: true });
     for (let i = 0; i < 3; i++) {

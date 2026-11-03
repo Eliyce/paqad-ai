@@ -1,165 +1,50 @@
-import { runDelivery, type DeliveryShell } from '@/delivery/runner.js';
+import {
+  compareVersions,
+  highestVersionBranch,
+  linkTicket,
+  missingHeadings,
+  resolveBase,
+  type DeliveryShell,
+} from '@/delivery/runner.js';
 
-function makeShell(responses: Array<{ exitCode: number; stdout?: string; stderr?: string }>): {
-  shell: DeliveryShell;
-  calls: Array<{ command: string; args: string[] }>;
-} {
-  const calls: Array<{ command: string; args: string[] }> = [];
-  let index = 0;
-  return {
-    calls,
-    shell: {
-      async run(command, args) {
-        calls.push({ command, args });
-        const response = responses[index];
-        index += 1;
-        return {
-          stdout: response?.stdout ?? '',
-          stderr: response?.stderr ?? '',
-          exitCode: response?.exitCode ?? 0,
-        };
-      },
-    },
-  };
-}
-
-const RENDERED = {
-  branch: 'feat/PAQ-1-thing',
-  commit: 'feat(scope): thing\n\nRefs: PAQ-1',
-  pr_title: 'feat(scope): thing [PAQ-1]',
-  pr_body: '## Summary\nthing',
-};
-
-describe('delivery runner', () => {
-  it('completes the happy path through branch / commit / push / pr', async () => {
-    const { shell, calls } = makeShell([
-      { exitCode: 0 },
-      { exitCode: 0 },
-      { exitCode: 0 },
-      { exitCode: 0, stdout: 'https://github.com/org/repo/pull/1' },
-    ]);
-
-    const result = await runDelivery(shell, {
-      rendered: RENDERED,
-      base: 'main',
-      draft: false,
-      reviewers: ['alice'],
-      labels: ['feat'],
-      open_pr: 'yes',
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.steps.map((step) => step.step)).toEqual(['branch', 'commit', 'push', 'pr']);
-    expect(calls[0]).toEqual({ command: 'git', args: ['checkout', '-b', RENDERED.branch] });
-    expect(calls[3].command).toBe('gh');
-    expect(calls[3].args).toEqual(
-      expect.arrayContaining(['pr', 'create', '--reviewer', 'alice', '--label', 'feat']),
+describe('delivery runner helpers', () => {
+  it('compares versions part by part as numbers', () => {
+    expect(compareVersions('1.10', '1.9')).toBeGreaterThan(0);
+    expect(compareVersions('1.10.1', '1.10')).toBeGreaterThan(0);
+    expect(highestVersionBranch(['release/1.9', 'release/1.10', 'release/1.10.1'])).toBe(
+      'release/1.10.1',
     );
+    expect(highestVersionBranch([])).toBe(null);
   });
 
-  it('passes --draft when open_pr is draft', async () => {
-    const { shell, calls } = makeShell([
-      { exitCode: 0 },
-      { exitCode: 0 },
-      { exitCode: 0 },
-      { exitCode: 0 },
+  it('passes a plain base through without asking git', async () => {
+    const shell: DeliveryShell = {
+      async run() {
+        throw new Error('no git expected');
+      },
+    };
+    expect(await resolveBase(shell, 'develop')).toEqual({ ok: true, value: 'develop' });
+  });
+
+  it('lists the template headings a filled body dropped', () => {
+    expect(missingHeadings('## What\n\n## Why\n### Notes\n', '## What\nx\n### Notes\n')).toEqual([
+      '## Why',
     ]);
-    await runDelivery(shell, {
-      rendered: RENDERED,
-      base: 'main',
-      draft: true,
-      reviewers: [],
-      labels: [],
-      open_pr: 'draft',
-    });
-    expect(calls[3].args).toContain('--draft');
   });
 
-  it('stops after commit when open_pr is no', async () => {
-    const { shell, calls } = makeShell([{ exitCode: 0 }, { exitCode: 0 }]);
-    const result = await runDelivery(shell, {
-      rendered: RENDERED,
-      base: 'main',
-      draft: false,
-      reviewers: [],
-      labels: [],
-      open_pr: 'no',
-    });
-    expect(result.ok).toBe(true);
-    expect(result.steps.map((step) => step.step)).toEqual(['branch', 'commit']);
-    expect(calls).toHaveLength(2);
-  });
-
-  it('short-circuits and reports remediation when push fails', async () => {
-    const { shell } = makeShell([
-      { exitCode: 0 },
-      { exitCode: 0 },
-      { exitCode: 1, stderr: 'rejected: branch protection' },
-    ]);
-    const result = await runDelivery(shell, {
-      rendered: RENDERED,
-      base: 'main',
-      draft: false,
-      reviewers: [],
-      labels: [],
-      open_pr: 'yes',
-    });
-    expect(result.ok).toBe(false);
-    expect(result.steps.at(-1)?.step).toBe('push');
-    expect(result.steps.at(-1)?.remediation).toContain('branch protection');
-    expect(result.steps.find((step) => step.step === 'pr')).toBeUndefined();
-  });
-
-  it('short-circuits when branch creation fails', async () => {
-    const { shell } = makeShell([{ exitCode: 1, stderr: 'branch already exists' }]);
-    const result = await runDelivery(shell, {
-      rendered: RENDERED,
-      base: 'main',
-      draft: false,
-      reviewers: [],
-      labels: [],
-      open_pr: 'yes',
-    });
-    expect(result.ok).toBe(false);
-    expect(result.steps).toHaveLength(1);
-    expect(result.steps[0].remediation).toContain(RENDERED.branch);
-  });
-});
-
-describe('delivery runner with a host provider', () => {
-  const inputs = {
-    rendered: RENDERED,
-    base: 'main',
-    draft: false,
-    reviewers: ['alice'],
-    labels: ['feat'],
-    open_pr: 'draft' as const,
-  };
-
-  it('opens the PR through the host and keeps the PR it returns', async () => {
-    const { shell, calls } = makeShell([{ exitCode: 0 }, { exitCode: 0 }, { exitCode: 0 }]);
-    const seen: unknown[] = [];
-    const result = await runDelivery(shell, inputs, async (input) => {
-      seen.push(input);
-      return { ok: true, output: 'opened', pr: { number: 3, url: 'https://example.test/pull/3' } };
-    });
-    expect(result.ok).toBe(true);
-    expect(calls.some((call) => call.command === 'gh')).toBe(false);
-    expect(seen[0]).toMatchObject({ head: RENDERED.branch, draft: true, reviewers: ['alice'] });
-    expect(result.steps.at(-1)).toMatchObject({ step: 'pr', ok: true, pr: { number: 3 } });
-  });
-
-  it('reports the host remediation when the PR does not open', async () => {
-    const { shell } = makeShell([{ exitCode: 0 }, { exitCode: 0 }, { exitCode: 0 }]);
-    const result = await runDelivery(shell, inputs, async () => ({
-      ok: false,
-      remediation: 'sign in to gh',
-    }));
-    expect(result.ok).toBe(false);
-    expect(result.steps.at(-1)).toMatchObject({
-      step: 'pr',
-      ok: false,
-      remediation: 'sign in to gh',
-    });
+  it('adds the ticket link once and only when it is not in the body already', () => {
+    const source = {
+      name: 'proj',
+      source: {
+        tracker: 'jira' as const,
+        pattern: 'PROJ-\\d+',
+        server: '',
+        transitions: { on_pr_open: '', on_ci_green: '' },
+      },
+    };
+    expect(linkTicket('Body', 'PROJ-1', source, true)).toBe('Body\n\nTicket: PROJ-1\n');
+    expect(linkTicket('Body PROJ-1', 'PROJ-1', source, true)).toBe('Body PROJ-1');
+    expect(linkTicket('Body', 'PROJ-1', source, false)).toBe('Body');
+    expect(linkTicket('Body', '', source, true)).toBe('Body');
   });
 });

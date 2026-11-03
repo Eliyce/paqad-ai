@@ -1,5 +1,4 @@
 export * from './file-writer.js';
-export * from './feature-policy-generator.js';
 export * from './manifest-writer.js';
 export * from './orchestrator.js';
 export * from './prompts.js';

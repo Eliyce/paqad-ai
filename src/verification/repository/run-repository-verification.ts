@@ -823,8 +823,8 @@ export function stageEvidenceGate(
         (orderingOnly
           ? 'Re-mark the stages so each one ends before the next begins, or resolve the redo via ' +
             'the Decision Pause Contract.'
-          : 'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
-            '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
+          : 'Record each missing stage (open → start → end per stage), or set stage_tracking: warn or ' +
+            'off in .paqad/configs/feature-development/workflow.yaml to adopt the workflow before enforcing, or resolve the redo ' +
             'via the Decision Pause Contract.'),
       failures: [],
     };

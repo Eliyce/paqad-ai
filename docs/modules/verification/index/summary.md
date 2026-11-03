@@ -329,7 +329,13 @@ change whose spec was frozen before the pipeline default turned on is not asked 
 evidence-existence gate as a recovery step: a recoverable file is minted from the engine caches
 but reported `backfilled`, never a clean pass, so the recorder defect stays visible. RAG cannot be
 reconstructed, so a RAG gap is Inconclusive. A `feature.json` with the placeholder title and no
-ticket counts as missing. Content hashes are checked only on files that carry the envelope header,
+ticket counts as missing, and the advice is `paqad-ai feature title`, which names that bundle in
+place. A change can still end up split across two bundles (an older install, or a titled start on
+work that already had a title). So when the judged bundle holds no recorded work (no planning,
+specification or review end with an artifact, no development row) while the same session owns
+another unfinished bundle that does, the gate reads Inconclusive, names both bundles and gives the
+`paqad-ai resume --feature` command for the other one. It never reads Safe to merge for the empty
+half, and it never fails on this alone. Content hashes are checked only on files that carry the envelope header,
 because a hook cannot see a Bash write into the bundle; derived files (`report.html`, the
 receipt, the AI-BOM) keep their header where this check never reads it. A pipeline file owed only
 because the lane was raised after a fast-lane freeze cannot be written on its own, so the message

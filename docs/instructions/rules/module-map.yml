@@ -116,7 +116,6 @@ modules:
         - discoverBusinessModules
         - discoverModules
         - enableRagDuringOnboarding
-        - generateDeliveryPolicy
         - generateDocumentationScaffold
         - generateFeatureDevelopmentPolicy
         - generateInitialRegistries
@@ -248,10 +247,9 @@ modules:
         - DashboardArea
         - DashboardPack
         - DashboardReport
-        - DeliveryPolicyConfigResponse
-        - DeliveryPolicyIssue
-        - DeliveryPolicyView
-        - DeliverySectionKey
+        - GitWorkflowConfigResponse
+        - GitWorkflowIssue
+        - GitWorkflowView
         - DesignTokensConfigResponse
         - DesignTokensView
         - DisclosureMode
@@ -312,7 +310,7 @@ modules:
         - OverlayMetrics
         - PackSource
         - ProfileConfigResponse
-        - PutDeliveryPolicyOutcome
+        - PutGitWorkflowResult
         - PutDesignTokensResult
         - PutManagedFileResult
         - PutModuleMapResult
@@ -329,7 +327,7 @@ modules:
         - ResolvedDeliveryCommit
         - ResolvedDeliveryHost
         - ResolvedDeliveryIntakeDecisions
-        - ResolvedDeliveryPolicy
+        - ResolvedGitWorkflow
         - ResolvedDeliveryPr
         - ResolvedDeliveryProcess
         - ResolvedDeliveryTicket
@@ -370,7 +368,7 @@ modules:
         - fetchAudit
         - fetchChunkContent
         - fetchDashboard
-        - fetchDeliveryPolicyConfig
+        - fetchGitWorkflowConfig
         - fetchDesignTokensConfig
         - fetchEvidence
         - fetchEvidencePacketMarkdown
@@ -396,7 +394,7 @@ modules:
         - isRecent
         - legendForOverlay
         - openBrowser
-        - putDeliveryPolicy
+        - putGitWorkflowFile
         - putDesignTokens
         - putInstructionsFile
         - putModuleMap
@@ -479,8 +477,8 @@ modules:
         name: Audited Write Pipeline (allowlist, hash guard, atomic write, audit)
         sources: [src/dashboard/write-pipeline.ts]
       - slug: dashboard-config-editors
-        name: Config Editors (delivery policy first; instructions file store)
-        sources: [src/dashboard/config-delivery-policy.ts, src/dashboard/instructions-files.ts]
+        name: Config Editors (git workflow files; instructions file store)
+        sources: [src/dashboard/config-git-workflow.ts, src/dashboard/instructions-files.ts, graph-ui/src/views/GitWorkflowView.tsx, graph-ui/src/lib/git-workflow.ts]
     evidence:
       symbols:
         - ApprovalConflictError
@@ -515,8 +513,8 @@ modules:
         - DashboardView
         - DecisionsResult
         - DeleteSavedViewResult
-        - DeliveryPolicyConfig
-        - DeliveryPolicyValidationError
+        - GitWorkflowConfig
+        - GitWorkflowValidationError
         - DesignTokensConfig
         - DesignTokensValidationError
         - DetailPanel
@@ -578,8 +576,8 @@ modules:
         - ProfileValidationError
         - ProjectProfileSection
         - PulseView
-        - PutDeliveryPolicyInput
-        - PutDeliveryPolicyResult
+        - PutGitWorkflowInput
+        - PutGitWorkflowResult
         - PutDesignTokensInput
         - PutDesignTokensResult
         - PutModuleMapInput
@@ -669,7 +667,7 @@ modules:
         - deleteSavedView
         - driftSignalsTrip
         - fileMtime
-        - getDeliveryPolicyConfig
+        - getGitWorkflowConfig
         - getDesignTokensConfig
         - getModuleMapConfig
         - getProfileConfig
@@ -680,7 +678,7 @@ modules:
         - listInstructionsTree
         - listPacks
         - listSavedViews
-        - putDeliveryPolicy
+        - putGitWorkflowFile
         - putDesignTokens
         - putModuleMap
         - putProfile
@@ -3061,19 +3059,26 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      On-by-default delivery automation whose branch, CI, and
-      ticket conventions are detected from the team's real git history rather
-      than authored. The capability is two provider-neutral contracts —
+      On-by-default delivery automation that follows the team's git workflow
+      rules in .paqad/configs/git-workflow/ (tickets, branches, commits, pull
+      requests, enforcement), owned by the git-workflow skill and checked for
+      agents at turn end and for people in git hooks. The capability is two
+      provider-neutral contracts —
       `TicketProvider` (tracker-neutral; Jira first) and `HostProvider` (VCS +
       code-host-neutral; GitHub first) — with vendors as adapters resolved by
-      `src/providers/registry.ts`. A delivery-policy.yaml carries the detected
-      conventions; a CI gate enforces them; graceful degradation kicks in when
-      a provider is not connected.
+      `src/providers/registry.ts`. A CI gate enforces the rules; graceful
+      degradation kicks in when a provider is not connected.
     sources:
       - src/delivery
       - src/providers
       - src/cli/commands/delivery-link.ts
-      - docs/instructions/workflows/delivery-policy.yaml
+      - src/cli/commands/delivery.ts
+      - src/cli/commands/git-workflow.ts
+      - src/git-workflow
+      - src/health/git-workflow-check.ts
+      - src/validators/schemas/git-workflow
+      - runtime/base/skills/git-workflow
+      - .paqad/configs/git-workflow
     features:
       - slug: ticket-provider
         name: TicketProvider Contract (Jira adapter)
@@ -3081,9 +3086,9 @@ modules:
       - slug: host-provider
         name: HostProvider Contract (GitHub adapter)
         sources: [src/providers/host-provider.ts, src/providers/github-host-provider.ts]
-      - slug: delivery-detection
-        name: Convention Detection from Git History
-        sources: [src/delivery/detection.ts, src/delivery/detect-run.ts]
+      - slug: git-workflow-config
+        name: Git Workflow Rules (five files, setup, change, check, doctor)
+        sources: [src/git-workflow, src/cli/commands/git-workflow.ts, src/health/git-workflow-check.ts, runtime/base/skills/git-workflow]
       - slug: delivery-ci-gate
         name: Delivery CI Gate + Graceful Degradation
         sources: [src/delivery/ci-gate.ts, src/delivery/degradation.ts]
@@ -3103,7 +3108,6 @@ modules:
         - DELIVERY_EVIDENCE_DOC_TYPE
         - DELIVERY_EVIDENCE_SCHEMA_VERSION
         - DeliveryCheckResult
-        - DeliveryDetectionResult
         - DeliveryFinding
         - DeliveryHost
         - DeliveryPlan
@@ -3112,12 +3116,9 @@ modules:
         - DeliveryRunResult
         - DeliveryShell
         - DeliveryStepResult
-        - DetectedDelivery
-        - DetectedField
         - EvaluateDeliveryInput
         - GITHUB_ISSUE_JSON_FIELDS
         - GhInvoke
-        - GitSnapshot
         - GithubHostProvider
         - GithubIssuesTicketProvider
         - HostEnvironment
@@ -3215,6 +3216,13 @@ modules:
       - src/core/project-intelligence.ts
       - src/core/runtime-paths.ts
       - src/onboarding/manifest-writer.ts
+      - src/core/team-config.ts
+      - src/core/team-config-legacy.ts
+      - src/core/team-config-migrate.ts
+      - src/core/team-config-report.ts
+      - src/core/team-config-schema.ts
+      - src/core/team-config-values.ts
+      - src/health/team-config-check.ts
     evidence:
       symbols:
         - DEFAULT_ACTION_ROUTING

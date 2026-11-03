@@ -4,10 +4,10 @@ import type {
   AuditFeedPage,
   DashboardPack,
   DashboardReport,
-  DeliveryPolicyConfigResponse,
-  DeliveryPolicyIssue,
   DesignTokensConfigResponse,
   EvidenceFeed,
+  GitWorkflowConfigResponse,
+  GitWorkflowFileName,
   InstallPackResult,
   InstructionsFileResponse,
   InstructionsTreeResponse,
@@ -18,8 +18,8 @@ import type {
   OpsAction,
   OpsJob,
   ProfileConfigResponse,
-  PutDeliveryPolicyOutcome,
   PutDesignTokensResult,
+  PutGitWorkflowResult,
   PutManagedFileResult,
   PutModuleMapResult,
   PutProfileResult,
@@ -27,7 +27,6 @@ import type {
   RagConfigResponse,
   ReceiptFeed,
   RemovePackResult,
-  ResolvedDeliveryPolicy,
   SavedView,
   SavedViewArea,
   SetCapabilityResult,
@@ -129,50 +128,17 @@ export async function actOnModuleProposal(id: string, action: 'accept' | 'reject
   if (!res.ok) throw new Error(await errorMessage(res));
 }
 
-export async function fetchDeliveryPolicyConfig(): Promise<DeliveryPolicyConfigResponse> {
-  const res = await fetch('/api/config/delivery-policy');
+export async function fetchGitWorkflowConfig(): Promise<GitWorkflowConfigResponse> {
+  const res = await fetch('/api/config/git-workflow');
   if (!res.ok) throw new Error(await errorMessage(res));
-  return (await res.json()) as DeliveryPolicyConfigResponse;
+  return (await res.json()) as GitWorkflowConfigResponse;
 }
 
-export async function putDeliveryPolicy(input: {
-  content: string;
-  baseHash: string | null;
-}): Promise<PutDeliveryPolicyOutcome> {
-  const res = await fetch('/api/config/delivery-policy', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (res.ok) {
-    const body = (await res.json()) as {
-      result: { path: string; hash: string; resolved: ResolvedDeliveryPolicy };
-    };
-    return { status: 'ok', ...body.result };
-  }
-  if (res.status === 422) {
-    const body = (await res.json()) as { error?: string; issues?: DeliveryPolicyIssue[] };
-    return {
-      status: 'invalid',
-      error: body.error ?? 'The policy does not match the schema.',
-      issues: body.issues ?? [],
-    };
-  }
-  if (res.status === 409) {
-    const body = (await res.json()) as {
-      error?: string;
-      conflict?: { content: string | null; hash: string | null };
-    };
-    if (body.conflict) {
-      return {
-        status: 'conflict',
-        error: body.error ?? 'The file changed since you loaded it.',
-        conflict: body.conflict,
-      };
-    }
-    throw new Error(body.error ?? 'Request failed with status 409');
-  }
-  throw new Error(await errorMessage(res));
+export async function putGitWorkflowFile(
+  name: GitWorkflowFileName,
+  input: { content: string; baseHash: string | null },
+): Promise<MutationOutcome<PutGitWorkflowResult>> {
+  return mutate('/api/config/git-workflow/' + encodeURIComponent(name), 'PUT', input);
 }
 
 async function mutate<T>(

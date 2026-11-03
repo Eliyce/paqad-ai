@@ -11,6 +11,8 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
+import { readYamlScalar } from './yaml-scalar.mjs';
+
 const ENV_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['false', '0', 'no', 'off']);
 
@@ -349,15 +351,92 @@ function resolvePaqadEnable(projectRoot, env) {
   return raw === undefined ? undefined : raw.trim().toLowerCase();
 }
 
+const BLOCK_TO_STRICT = { block: 'strict' };
+const BOOLEAN_WORDS = new Set([...ENV_TRUTHY, ...FALSY]);
+
+export const HOOK_TEAM_HOMES = {
+  paqad_enable: { file: 'paqad.yaml', path: ['enabled'], boolean: true },
+  auto_update: { file: 'paqad.yaml', path: ['updates', 'automatic'], boolean: true },
+  minimum_version: { file: 'paqad.yaml', path: ['updates', 'minimum_version'] },
+  version_check_interval_hours: { file: 'paqad.yaml', path: ['updates', 'check_every_hours'] },
+  rag_enabled: { file: 'retrieval.yaml', path: ['enabled'], boolean: true },
+  lean_rules: {
+    file: 'feature-development/rules.yaml',
+    path: ['loading'],
+    from: { lean: 'true', full: 'false' },
+  },
+  rule_compliance: {
+    file: 'feature-development/rules.yaml',
+    path: ['enforcement'],
+    from: BLOCK_TO_STRICT,
+  },
+  stages_mode: {
+    file: 'feature-development/workflow.yaml',
+    path: ['stage_tracking'],
+    from: BLOCK_TO_STRICT,
+  },
+  skill_orchestrator_enabled: {
+    file: 'authoring.yaml',
+    path: ['skills', 'enabled'],
+    boolean: true,
+  },
+  agent_orchestrator_enabled: {
+    file: 'authoring.yaml',
+    path: ['agents', 'enabled'],
+    boolean: true,
+  },
+  authoring_dark_window_days: { file: 'authoring.yaml', path: ['skills', 'dark_window_days'] },
+};
+
+function fromYamlWord(key, raw) {
+  if (raw === undefined) return undefined;
+  const map = HOOK_TEAM_HOMES[key]?.from;
+  if (map === undefined) return raw;
+  return map[raw.trim().toLowerCase()] ?? raw;
+}
+
+export function readTeamYamlKey(projectRoot, key) {
+  const home = HOOK_TEAM_HOMES[key];
+  if (home === undefined) return undefined;
+  let text;
+  try {
+    text = readFileSync(join(projectRoot, '.paqad', 'configs', ...home.file.split('/')), 'utf8');
+  } catch {
+    return undefined;
+  }
+  const raw = readYamlScalar(text, home.path);
+  if (raw === undefined) return undefined;
+  if (home.boolean && !BOOLEAN_WORDS.has(raw.trim().toLowerCase())) {
+    appendHooksLog(
+      projectRoot,
+      `.paqad/configs/${home.file}: ${home.path.join('.')} has a value paqad cannot read (${raw}), so paqad uses its default.`,
+    );
+    return undefined;
+  }
+  return fromYamlWord(key, raw);
+}
+
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
+
+export function legacyTeamConfigReadable(today = new Date().toISOString().slice(0, 10)) {
+  return today <= LEGACY_TEAM_CONFIG_READ_UNTIL;
+}
+
+function readTeamKey(projectRoot, key) {
+  const fromYaml = readTeamYamlKey(projectRoot, key);
+  if (fromYaml !== undefined) return fromYaml;
+  return legacyTeamConfigReadable() ? readKeyFromConfigsDir(projectRoot, key) : undefined;
+}
+
 export function readLayeredKey(projectRoot, key, envName, env = process.env) {
-  let value = readKeyFromConfigsDir(projectRoot, key);
-  const local = readKeyFromFile(join(projectRoot, '.paqad', '.config'), key);
+  let value = readTeamKey(projectRoot, key);
+  const local = fromYamlWord(key, readKeyFromFile(join(projectRoot, '.paqad', '.config'), key));
   if (local !== undefined) {
     value = local;
   }
   const fromEnv = env[envName];
   if (typeof fromEnv === 'string' && fromEnv.trim() !== '') {
-    value = fromEnv.trim();
+    value = fromYamlWord(key, fromEnv.trim());
   }
   return value;
 }
@@ -368,9 +447,11 @@ export function readFlooredMode(projectRoot, key, envName, order, def, env = pro
     const v = String(raw).trim().toLowerCase();
     return order.includes(v) ? v : undefined;
   };
-  const team = norm(readKeyFromConfigsDir(projectRoot, key));
-  const local = norm(readKeyFromFile(join(projectRoot, '.paqad', '.config'), key));
-  const fromEnv = norm(env[envName]);
+  const team = norm(readTeamKey(projectRoot, key));
+  const local = norm(
+    fromYamlWord(key, readKeyFromFile(join(projectRoot, '.paqad', '.config'), key)),
+  );
+  const fromEnv = norm(fromYamlWord(key, env[envName]));
   let rank = order.indexOf(team ?? def);
   for (const raising of [local, fromEnv]) {
     if (raising !== undefined) {
@@ -380,11 +461,20 @@ export function readFlooredMode(projectRoot, key, envName, order, def, env = pro
   return order[rank];
 }
 
-function readKeyFromFile(path, key) {
+export const MIGRATED_STUB_MARKER = '# paqad-migrated-stub';
+
+export function isMigratedStubText(text) {
+  return typeof text === 'string' && text.split(/\r?\n/, 1)[0].trim() === MIGRATED_STUB_MARKER;
+}
+
+function readKeyFromFile(path, key, skipStub = false) {
   let raw;
   try {
     raw = readFileSync(path, 'utf8');
   } catch {
+    return undefined;
+  }
+  if (skipStub && isMigratedStubText(raw)) {
     return undefined;
   }
   let value;
@@ -422,7 +512,7 @@ function readKeyFromConfigsDir(projectRoot, key) {
   for (const name of names
     .filter((n) => /^\.config\..+/.test(n) && n !== '.config.example')
     .sort()) {
-    const fromFile = readKeyFromFile(join(dir, name), key);
+    const fromFile = readKeyFromFile(join(dir, name), key, true);
     if (fromFile !== undefined) {
       value = fromFile;
     }

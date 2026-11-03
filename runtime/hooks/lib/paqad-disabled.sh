@@ -9,15 +9,58 @@ __paqad_read_key() {
     | tr '[:upper:]' '[:lower:]'
 }
 
+__paqad_read_yaml_enabled() {
+  local file="$1"
+  [ -f "${file}" ] || return 0
+  tr -d '\r' <"${file}" 2>/dev/null \
+    | grep -E '^enabled:([[:space:]]|$)' 2>/dev/null \
+    | head -n1 \
+    | sed -E 's/^enabled://; s/^/ /; s/[[:space:]]#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' \
+    | tr '[:upper:]' '[:lower:]' || true
+}
+
+__paqad_log_unreadable_enabled() {
+  local root="$1" value="$2" dir
+  dir="${root}/.paqad/logs"
+  mkdir -p "${dir}" 2>/dev/null || return 0
+  printf '%s .paqad/configs/paqad.yaml: enabled has a value paqad cannot read (%s), so paqad stays on.\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${value}" >>"${dir}/hooks.log" 2>/dev/null || true
+}
+
+__paqad_is_migrated_stub() {
+  local first
+  first=$(head -n1 "$1" 2>/dev/null | tr -d '\r' | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//')
+  [ "${first}" = '# paqad-migrated-stub' ]
+}
+
+__paqad_today() {
+  date -u +%Y-%m-%d
+}
+
+__paqad_legacy_readable() {
+  local today
+  today=$(__paqad_today | tr -d '-')
+  [ -n "${today}" ] || return 0
+  [ "${today}" -le 20270201 ]
+}
+
 __paqad_resolve_enable() {
-  local root="$1" value="" v dir f
+  local root="$1" value="" v dir f team=""
   dir="${root}/.paqad/configs"
-  if [ -d "${dir}" ]; then
+  team=$(__paqad_read_yaml_enabled "${dir}/paqad.yaml")
+  if [ -d "${dir}" ] && [ -z "${team}" ] && __paqad_legacy_readable; then
     while IFS= read -r f; do
       [ -e "${f}" ] || continue
+      __paqad_is_migrated_stub "${f}" && continue
       v=$(__paqad_read_key "${f}" 'paqad_enable')
       [ -n "${v}" ] && value="${v}"
     done < <(LC_ALL=C find "${dir}" -maxdepth 1 -name '.config.*' ! -name '.config.example' -type f 2>/dev/null | LC_ALL=C sort)
+  fi
+  if [ -n "${team}" ]; then
+    case "${team}" in
+      true | false | 1 | 0 | yes | no | on | off) value="${team}" ;;
+      *) __paqad_log_unreadable_enabled "${root}" "${team}" ;;
+    esac
   fi
   v=$(__paqad_read_key "${root}/.paqad/.config" 'paqad_enable')
   [ -n "${v}" ] && value="${v}"

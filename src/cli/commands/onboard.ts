@@ -166,8 +166,8 @@ export function createOnboardCommand(): Command {
         console.warn(
           `\n⚠ Framework settings now live in the .config layer. These non-default values in ` +
             `project-profile.yaml were not migrated and now use code defaults until you set them ` +
-            `in .paqad/configs/.config.* or .paqad/.config:\n    ${reverted.join('\n    ')}\n` +
-            `  See the .paqad/configs/ files (every option is listed there, commented out).`,
+            `in the YAML files in .paqad/configs/ or in .paqad/.config:\n    ${reverted.join('\n    ')}\n` +
+            `  .paqad/configs/README.md lists every setting, and paqad-ai config show prints what is in effect.`,
         );
       }
 

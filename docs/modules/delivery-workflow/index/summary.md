@@ -23,50 +23,36 @@ The capability *is* the contract; vendors are adapters behind it.
 
 `NormalizedTicket` is the seam Linear / GitHub-Issues map onto later; GitLab /
 Bitbucket are additive `HostProviderKind` values. A provider is resolved from the
-delivery-policy + the MCP `kind` discriminator by `src/providers/registry.ts`,
+team's git-workflow files + the MCP `kind` discriminator by `src/providers/registry.ts`,
 which also reports whether the provider is **connected** — the input to graceful
 degradation and the dashboard.
 
-## Config — a workflow-policy peer
+## Config — `.paqad/configs/git-workflow/`
 
-`docs/instructions/workflows/delivery-policy.yaml` is authored exactly like
-`feature-development.yaml`: same location, same JSON-Schema validation
-(`src/validators/schemas/delivery-policy.schema.json`), same `merge_mode: append`
-precedence. `paqad-ai onboard` writes it `enabled: true` with every section
-`maintained: auto`.
+The team's delivery rules live in five YAML files under `.paqad/configs/git-workflow/`,
+each with its own JSON Schema in `src/validators/schemas/git-workflow/`:
 
-| Section | Owns |
-| ------- | ---- |
-| `ticket` | provider/server, require_ticket, write_back_refined, comment_decisions |
-| `host` | provider/server |
-| `branch` | template, type_map, slug_max_length, base |
-| `commit` | template, sign_off |
-| `pr` | title/body templates, base, draft, reviewers, labels, link_ticket, transition_on_open |
-| `ci` | gate (wait_for_green/warn_only/off), timeout_minutes, on_red, transition_on_green |
-| `intake_decisions` | priors/rules auto-resolution, confirm mode, fingerprint scope |
+| File | Owns |
+| ---- | ---- |
+| `tickets.yaml` | ticket sources (tracker, key pattern, MCP server, status moves), require_ticket, write_back_refined, intake_decisions |
+| `branches.yaml` | base_branch, branch name template, slug_max_length, branch types, default_type |
+| `commits.yaml` | commit message template, summary style, sign_off, ask_when_unspecified |
+| `pull-requests.yaml` | host, title/body templates, draft, reviewers, labels, link_ticket, also_open_against, the CI gate |
+| `enforcement.yaml` | enabled, and how strictly agents and people are checked |
 
-Each section carries `maintained: auto | manual`. `auto` lets detection keep it
-in sync; `manual` is team-owned and **never** auto-touched.
+`loadGitWorkflow` (`src/git-workflow/load.ts`) reads them. A missing file means that
+file's defaults; a missing folder means all defaults plus a `doctor` warning. Each file
+is checked against its schema and then against the cross-file rules, and a setting
+paqad doesn't know is a warning, never an error. An invalid config is reported, never
+swapped for defaults. There is no personal override and no detection overlay.
 
-## Detection rides `create documentation`
-
-`src/delivery/detection.ts` is a pure resolver: given a `GitSnapshot` (remote,
-default branch, branch names, recent commit subjects) it infers host / base /
-branch-template / commit-convention, each with a confidence and evidence string.
-`create documentation` (the post-onboard repo scan) piggybacks it via
-`src/delivery/detect-run.ts` and **silently fills the `auto` sections**, showing
-what it set in the end-of-docs summary plus one combined "connect GitHub + Jira"
-nudge.
-
-Precedence at load time (`loadDeliveryPolicy`):
-**framework defaults < detection overlay (auto sections only) < project YAML.**
-`writeDetection` persists each run to TWO sinks together (so they never drift): the
-side artifact (`.paqad/delivery-detection.json`) the loader overlays + the
-documentation workflow reports, and a `delivery-evidence` row on the session-ledger
-(`src/delivery/delivery-ledger.ts`, a project-scoped doc). Buildout F6 (decision D1
-hard cutover): the **dashboard** reads the current detection from the ledger
-exclusively — a file present without a ledger row is invisible to it — while the
-loader keeps reading the file (operational).
+`paqad-ai onboard` writes the files, and an existing
+`docs/instructions/workflows/delivery-policy.yaml` is migrated into them once and
+deleted (`src/git-workflow/migrate.ts`). `paqad-ai update` adds new settings with a
+`# Added in paqad-ai <version>` line (`src/git-workflow/sync.ts`). Changes go through
+the `git-workflow` skill, which uses `paqad-ai git-workflow setup`, `change` and
+`check`; every write stamps `.last-applied.json`, so a hand edit shows in `check` and
+`doctor`.
 
 ## Stages — `ticket_intake` and `delivery`
 
@@ -140,7 +126,7 @@ finding per vendor detected, carrying that vendor's exact remediation. It is
 
 The reasons below are not obvious from the code in `src/delivery/` and are not stated above.
 
-- **`delivery-check.ts`.** The delivery policy had a loader, schema and detection but nothing read it
+- **`delivery-check.ts`.** The delivery rules had a loader and schema but nothing read them
   at runtime, so a commit straight to `main` went unnoticed; this is that reader, at the completion
   seam, one turn late rather than never. Every subprocess goes through an injected runner so each
   branch is testable without real git or `gh`, and the kernel wrapper is a one-line delegate. The
@@ -161,7 +147,7 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
   so the HUD's refresh and the Stop check cannot overwrite a newer reading. `ci_read` records
   whether the last gh read worked and, if not, its fixed reason.
 - **`refreshDelivery` and `paqad-ai delivery-link refresh`.** CI on the rail froze once the
-  turn ended. The verb loads the delivery policy, finds the change by branch and runs the same
+  turn ended. The verb loads the git workflow, finds the change by branch and runs the same
   evaluate-and-save as the Stop check. It never seeds, commits, merges or reconciles. A gh failure
   (timed out, rate-limited, signed out, missing, unreadable, no PR) keeps the stored `pr` and `ci`
   untouched and writes only `ci_read`, so a known pass, fail or pending is never downgraded.
@@ -182,10 +168,8 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
   `{placeholder}` tokens are left in place so tests can see them.
 - **`host.ts`.** GitLab and Bitbucket are recognised but not automated yet, so they take the
   manual-PR path, as does a remote whose host or owner and repo cannot be parsed.
-- **`delivery-ledger.ts`.** Detection is a project snapshot rebuilt from git history, not a
-  conversation event, so its rows go under a project sentinel session. Rows are appended so the
-  history is kept; the latest is current. A missed ledger write only affects the dashboard, never
-  the loader.
+- **`delivery-ledger.ts`.** Only the `delivery-evidence` doc type and its schema version are
+  left, so the delivery check and the audit fold name the same ledger rows.
 - **`degradation.ts`.** A CI gate set to `off` is a choice, not a missing provider, so it is not
   listed as skipped.
 
@@ -193,15 +177,17 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
 
 | Path | What |
 | ---- | ---- |
-| `docs/instructions/workflows/delivery-policy.yaml` | the policy (project-owned, onboard-written) |
-| `.paqad/delivery-detection.json` | detected conventions + evidence (operational overlay source, loader-read) |
-| `.paqad/ledger/delivery-evidence/_project/` | session-ledger doc the dashboard/SIEM read (F6) |
-| `.paqad/templates/pr-body.md` | PR body template referenced by `pr.body_template_path` |
+| `.paqad/configs/git-workflow/*.yaml` | the team's rules (tracked, onboard-written, changed through the `git-workflow` skill) |
+| `.paqad/configs/git-workflow/.last-applied.json` | hash of each file as last applied, so a hand edit is flagged |
 
 The **Delivery Workflow** dashboard section (`src/dashboard/collectors/delivery.ts`)
 shows configured/active state and the resolved provider connections
-(GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`. It reads the current
-detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
+(GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`. The **Git workflow** page
+(`#/git-workflow`) edits one file per tab through `GET /api/config/git-workflow` and
+`PUT /api/config/git-workflow/<file>` (`src/dashboard/config-git-workflow.ts`). A save
+is checked against its schema and the other four files, is refused when it adds an
+error, and stamps `.last-applied.json`. `paqad-ai doctor` runs a `git-workflow` check
+(`src/health/git-workflow-check.ts`).
 
 ## Why the `src/providers/` code works the way it does
 
@@ -231,8 +217,8 @@ detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
 
 ## Boundaries
 
-- **Owns:** the provider contracts + Jira/GitHub adapters, the delivery-policy
-  schema/loader/onboard writer, convention detection + overlay, the CI gate, the
+- **Owns:** the provider contracts + Jira/GitHub adapters, the git-workflow
+  schemas/loader/onboard writer and migration, the CI gate, the
   degradation planner, the dashboard section, and the AI-attribution policy (the
   `ai_attribution` knob, the vendor marker table, and the delivery backstop).
 - **Does not own:** the Decision Pause runtime (reused, not extended — no new

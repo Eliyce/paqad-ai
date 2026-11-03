@@ -1,0 +1,8 @@
+checks_max_processes=0
+checks_flaky_under_parallel=fail
+spec_pipeline_standing_experts=product-owner, ,qa-engineer
+decisions_ask_threshold=permissive
+lean_rules=false
+escalate_risky_migrations=require_approval
+skill_body_max_tokens=4000
+ai_attribution=keep

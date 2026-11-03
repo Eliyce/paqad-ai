@@ -12,7 +12,7 @@ import type { CommandRun, CommandRunner } from '@/delivery/delivery-check.js';
 import { readFeatureDelivery, recordShip } from '@/feature-evidence/delivery.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
-import { deliveryPolicyPath } from '@/pipeline/delivery-policy.js';
+import { gitWorkflowFilePath } from '@/git-workflow/load.js';
 import { featureReportPath } from '@/feature-evidence/paths.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
@@ -281,8 +281,8 @@ describe('paqad-ai delivery-link refresh', () => {
     const { run: detached, calls } = runner(prView([]), ok('HEAD'));
     expect(await refresh(detached)).toMatchObject({ refreshed: false, reason: 'no branch' });
     expect(calls.some(([command]) => command === 'gh')).toBe(false);
-    mkdirSync(join(deliveryPolicyPath(root), '..'), { recursive: true });
-    writeFileSync(deliveryPolicyPath(root), 'schema_version: "1"\nenabled: false\n');
+    mkdirSync(join(gitWorkflowFilePath(root, 'enforcement.yaml'), '..'), { recursive: true });
+    writeFileSync(gitWorkflowFilePath(root, 'enforcement.yaml'), 'enabled: false\n');
     const before = deliveryText(dir);
     expect(await refresh(runner(prView([])).run)).toMatchObject({
       refreshed: false,

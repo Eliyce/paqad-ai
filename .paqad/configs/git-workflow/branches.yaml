@@ -1,0 +1,50 @@
+# How branches are named and where changes start.
+#
+# base_branch: the branch a change starts from and its PR goes back to.
+#   A glob like "release/*" means the newest matching branch on the remote.
+# template: how a branch name is built. Placeholders:
+#   {prefix}      the branch type's prefix, like feature
+#   {ticket}      the ticket key, like PROJ-123 (a leading # is dropped)
+#   {title_slug}  the change title in lower-case words joined by -
+#
+# types: the kinds of change this team makes. Each type can set:
+#   prefix:        branch prefix (default: the type's name)
+#   commit_type:   value of {type} in commit and PR templates (default: the type's name)
+#   tickets:       which ticket sources this type uses (default: any)
+#   ticket_types:  tracker issue types that mean this type, like Bug (default: none)
+#   base_branch:   overrides the base_branch above for this type
+#   labels:        PR labels added for this type
+#   template:      overrides the template above for this type
+paqad_version: "1.116.0"
+
+base_branch: main
+template: "{prefix}/{title_slug}"
+slug_max_length: 50
+
+types:
+  feat:
+    prefix: feat
+    commit_type: feat
+    ticket_types:
+      - Story
+      - enhancement
+  fix:
+    prefix: fix
+    commit_type: fix
+    ticket_types:
+      - Bug
+      - bug
+  chore:
+    prefix: chore
+    commit_type: chore
+    ticket_types:
+      - Task
+      - chore
+  docs:
+    prefix: docs
+    commit_type: docs
+    ticket_types:
+      - docs
+
+# The type used when nothing else decides it.
+default_type: feat

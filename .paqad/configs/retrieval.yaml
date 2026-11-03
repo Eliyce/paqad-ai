@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=./schemas/retrieval.schema.json
+# How paqad finds relevant code and docs (RAG).
+# Only settings this team changed live here; everything else uses paqad's default.
+# See every setting, its value and where it comes from: paqad-ai config show
+paqad_version: "1.116.0"
+enabled: true
+embeddings:
+  provider: local
+  model: Xenova/all-MiniLM-L6-v2

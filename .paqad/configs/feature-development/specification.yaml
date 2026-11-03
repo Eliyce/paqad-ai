@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../schemas/feature-development/specification.schema.json
+# The spec pipeline, its questions, the final review and the experts.
+# Only settings this team changed live here; everything else uses paqad's default.
+# See every setting, its value and where it comes from: paqad-ai config show
+paqad_version: "1.116.0"
+pipeline:
+  enabled: true
+  max_tokens: 60000
+questions: block
+experts:
+  enabled: true
+# issue #547 — this repo runs the spec pipeline in strict adoption, with a higher ceiling.
+hand_written_specs: block

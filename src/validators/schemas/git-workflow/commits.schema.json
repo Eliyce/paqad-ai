@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "git-workflow-commits",
+  "title": "commits.yaml",
+  "description": "How commit messages are written.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "paqad_version": { "type": "string" },
+    "template": { "type": "string", "minLength": 1 },
+    "sign_off": { "type": "boolean" },
+    "ask_when_unspecified": { "type": "boolean" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "style": { "type": "string", "enum": ["plain", "free"] },
+        "max_length": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

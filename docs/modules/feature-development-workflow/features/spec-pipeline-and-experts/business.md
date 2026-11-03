@@ -38,7 +38,7 @@ Both flags are on by default, on the graduated and full lanes. A quick fast-lane
 
 What it costs: the four standing experts carry about 24k tokens of budget per spec, under a 40k ceiling by default. `paqad-ai doctor` shows each setting and where it came from.
 
-To switch something off, set it in `.paqad/configs/.config.*` (for the team) or `.paqad/.config` (just for you): `spec_pipeline_enabled=false` turns the whole pipeline off, `spec_pipeline_experts_enabled=false` keeps the pipeline but drops the experts, and `spec_pipeline_adoption=warn` lets a hand-written spec freeze again. A `PAQAD_*` environment variable with the same name works too.
+To switch something off, set it for the team in `.paqad/configs/feature-development/specification.yaml`: `pipeline.enabled: false` turns the whole pipeline off, `experts.enabled: false` keeps the pipeline but drops the experts, and `hand_written_specs: warn` lets a hand-written spec freeze again. Just for you, put `spec_pipeline_enabled=false`, `spec_pipeline_experts_enabled=false` or `spec_pipeline_adoption=warn` in `.paqad/.config`. A `PAQAD_*` environment variable with the same name works too.
 
 ## How the experts talk
 

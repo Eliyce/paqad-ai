@@ -14,6 +14,7 @@ export default defineConfig({
     'stage-evidence/narration': 'src/stage-evidence/narration.ts',
     'stage-evidence/marker-parse': 'src/stage-evidence/marker-parse.ts',
     'rag-ledger/session': 'src/rag-ledger/session.ts',
+    'core/team-config-report': 'src/core/team-config-report.ts',
     'feature-evidence/adoption': 'src/feature-evidence/adoption.ts',
     'feature-evidence/abandon': 'src/feature-evidence/abandon.ts',
     'session-ledger/disabled-audit': 'src/session-ledger/disabled-audit.ts',
@@ -61,5 +62,6 @@ export default defineConfig({
   outDir: 'dist',
   define: {
     __PKG_VERSION__: JSON.stringify(pkg.version),
+    __PKG_RELEASE_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
 });

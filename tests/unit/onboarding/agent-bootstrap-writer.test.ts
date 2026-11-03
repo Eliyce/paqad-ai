@@ -24,7 +24,10 @@ describe('agent bootstrap gate document', () => {
     expect(doc).toContain('PAQAD_DISABLED');
     expect(doc).toContain('PAQAD_ENABLE');
     expect(doc).toContain('`.paqad/.config`');
-    expect(doc).toContain('`.paqad/configs/.config.app`');
+    expect(doc).toContain(
+      '4. **`.paqad/configs/paqad.yaml`** (the tracked, team-shared file): its top-level `enabled: <value>` line.',
+    );
+    expect(doc).not.toContain('.config.app');
     expect(doc).toContain('⇒ ON');
     expect(doc).toContain('`false`, `0`, `no`, or `off`');
   });

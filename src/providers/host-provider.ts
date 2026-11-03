@@ -1,4 +1,4 @@
-import type { HostProviderKind } from '@/core/types/delivery-policy.js';
+import type { HostProviderKind } from '@/git-workflow/types.js';
 
 export interface OpenPrInput {
   title: string;

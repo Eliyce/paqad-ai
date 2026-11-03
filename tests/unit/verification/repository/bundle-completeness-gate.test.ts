@@ -28,6 +28,7 @@ import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
+import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -194,6 +195,7 @@ describe('bundleCompletenessGate verdict', () => {
     });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('no title and no ticket');
+    expect(gate!.detail).toContain('paqad-ai feature title');
   });
 
   it('reports flag-off files as skipped, never failed (AC-7)', () => {
@@ -1337,5 +1339,72 @@ describe('bundleCompletenessGate content_hash backstop', () => {
     const header = buildTextHeader({ ...identity, docType: 'paqad.report', body: '<p>x</p>' });
     write(root, featureReportPath(DIR), renderFrontMatter(header, '<p>edited</p>'));
     expect(run(root, { ...ONLY_ALWAYS, featureReport: true })!.status).toBe('pass');
+  });
+});
+
+describe('bundleCompletenessGate with the change split across two bundles', () => {
+  const ctx = { sessionId: 'ses_1', adapter: 'claude-code' } as const;
+
+  function bundleWithPlanningWork(root: string, sessionId: string): string {
+    const other = openStageEvidence(root, { ...ctx, sessionId }).dirName;
+    write(root, 'notes/plan-input.json', '{"steps":["one"]}');
+    startStage(root, 'planning', { ...ctx, sessionId, dirName: other });
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: ['notes/plan-input.json'] },
+      { ...ctx, sessionId, dirName: other },
+    );
+    return other;
+  }
+
+  it('reads Inconclusive and names both bundles when the judged one is empty and this session owns another with work', () => {
+    const root = tempRoot();
+    const other = bundleWithPlanningWork(root, 'ses_1');
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
+    expect(gate!.status).toBe('inconclusive');
+    expect(gate!.detail).toContain(DIR);
+    expect(gate!.detail).toContain(other);
+    expect(gate!.detail).toContain(`paqad-ai resume --feature ${other}`);
+  });
+
+  it('passes when the other unfinished bundle belongs to another session', () => {
+    const root = tempRoot();
+    bundleWithPlanningWork(root, 'ses_other');
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('passes when the judged bundle holds recorded work of its own', () => {
+    const root = tempRoot();
+    bundleWithPlanningWork(root, 'ses_1');
+    writeAlwaysFiles(root, DIR);
+    write(root, 'notes/own-plan.json', '{"steps":["two"]}');
+    startStage(root, 'planning', { ...ctx, dirName: DIR });
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: ['notes/own-plan.json'] },
+      { ...ctx, dirName: DIR },
+    );
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
+    expect(gate!.status).toBe('pass');
   });
 });

@@ -5,29 +5,39 @@ import { dirname, join, relative } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
+import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
   resolveTeamBootstrapEnabled,
-  syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
+import { syncTeamConfigFiles } from '@/core/team-config.js';
+import { migrateTeamConfig } from '@/core/team-config-migrate.js';
+import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
+import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
+import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
-import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
+import {
+  writeFrameworkVersionPreservingTimestamp,
+  writeOnboardingManifest,
+} from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
+import type { AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
@@ -61,6 +71,7 @@ export interface UpdateReport {
   new_scripts: string[];
   config_keys_pruned: string[];
   team_setup_notes?: string[];
+  git_workflow_notes?: string[];
 }
 
 export interface FrameworkUpdaterOptions {
@@ -90,7 +101,11 @@ export class FrameworkUpdater {
     const artifactPolicy = new Map(
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],
     );
-    const generated = await this.getCandidates(projectRoot);
+    const providers: AdapterType[] = manifest ? deriveRecordedProviders(manifest) : ['claude-code'];
+    const gitWorkflowDir = `${PATHS.GIT_WORKFLOW_DIR}/`;
+    const generated = (await this.getCandidates(projectRoot, providers)).filter(
+      (candidate) => !toPosixPath(candidate.path).startsWith(gitWorkflowDir),
+    );
     const usesClaude = generated.some((candidate) => toPosixPath(candidate.path) === 'CLAUDE.md');
     const claude = new ClaudeCodeAdapter();
     const candidates = usesClaude
@@ -140,11 +155,19 @@ export class FrameworkUpdater {
       }
     }
 
+    if (manifest) {
+      writeOnboardingManifest(projectRoot, { ...manifest, providers });
+    }
+
     cleanupLegacyMcpFiles(projectRoot);
 
     writeConfigsReadme(projectRoot);
     writeConfigExample(projectRoot);
-    syncGroupConfigs(projectRoot);
+    const gitWorkflowNotes = updateGitWorkflow(projectRoot);
+    const teamConfigMigration = migrateTeamConfig(projectRoot);
+    if (teamConfigMigration.ran) gitWorkflowNotes.push(...teamConfigMigration.lines);
+    syncTeamConfigFiles(projectRoot);
+    gitWorkflowNotes.push(...rebuildFeatureDevelopmentView(projectRoot));
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
@@ -174,10 +197,14 @@ export class FrameworkUpdater {
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
       team_setup_notes: teamSetupNotes,
+      git_workflow_notes: gitWorkflowNotes,
     };
   }
 
-  private async getCandidates(projectRoot: string): Promise<UpdateCandidate[]> {
+  private async getCandidates(
+    projectRoot: string,
+    providers: AdapterType[],
+  ): Promise<UpdateCandidate[]> {
     if (this.options.generateCandidates) {
       return this.options.generateCandidates(projectRoot);
     }
@@ -192,7 +219,9 @@ export class FrameworkUpdater {
     try {
       const result = await new OnboardingOrchestrator().run({
         projectRoot: tempRoot,
+        interactive: false,
         selections: {
+          providers,
           domain: getProfileDomain(profile),
           stack_profile: profile.stack_profile,
           stack: getPrimaryStack(profile),
@@ -208,6 +237,17 @@ export class FrameworkUpdater {
       await rm(tempRoot, { recursive: true, force: true });
     }
   }
+}
+
+function updateGitWorkflow(projectRoot: string): string[] {
+  const profile = readProfile(projectRoot);
+  if (profile === null || getProfileDomain(profile) !== 'coding') return [];
+  const migration = migrateDeliveryPolicy(projectRoot);
+  syncGitWorkflow(projectRoot);
+  try {
+    installGitHooks(projectRoot);
+  } catch {}
+  return migration.lines;
 }
 
 function readManifest(projectRoot: string): OnboardingManifest | null {

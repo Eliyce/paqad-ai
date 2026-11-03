@@ -1,0 +1,13 @@
+**▸ paqad** · git workflow rules set up
+
+Files written:
+- <file>
+
+Choices:
+- <question>: <answer>
+
+Not confirmed:
+- <question> (used the recommended option: <option>)
+
+Unknown:
+- <unknown line>

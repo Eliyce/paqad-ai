@@ -607,96 +607,6 @@ describe('startDashboardServer', () => {
   });
 
   describe('config and file endpoints', () => {
-    const VALID_POLICY = [
-      'schema_version: "1"',
-      'merge_mode: append',
-      'enabled: true',
-      'process:',
-      '  branch:',
-      '    maintained: manual',
-      '    base: develop',
-      '',
-    ].join('\n');
-
-    it('serves the delivery-policy config on GET and accepts a valid PUT', async () => {
-      bootstrap(root);
-      await startServer();
-
-      const before = await fetch(`${server!.url}/api/config/delivery-policy`);
-      expect(before.status).toBe(200);
-      const beforeBody = (await before.json()) as {
-        resolved: { process: { branch: { base: string } } };
-        file: { exists: boolean };
-        schema: { $id: string };
-      };
-      expect(beforeBody.resolved.process.branch.base).toBe('main');
-      expect(beforeBody.file.exists).toBe(false);
-      expect(beforeBody.schema.$id).toBe('delivery-policy');
-
-      const put = await fetch(`${server!.url}/api/config/delivery-policy`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: VALID_POLICY, baseHash: null }),
-      });
-      expect(put.status).toBe(200);
-      const putBody = (await put.json()) as {
-        ok: boolean;
-        result: { resolved: { process: { branch: { base: string } } } };
-      };
-      expect(putBody.ok).toBe(true);
-      expect(putBody.result.resolved.process.branch.base).toBe('develop');
-
-      const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
-      expect(audit).toContain('dashboard.config.delivery-policy.write');
-    });
-
-    it('returns 422 with field issues for a schema violation', async () => {
-      bootstrap(root);
-      await startServer();
-      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: 'schema_version: "1"\nprocess:\n  ci:\n    gate: yolo\n',
-          baseHash: null,
-        }),
-      });
-      expect(res.status).toBe(422);
-      const body = (await res.json()) as { issues: { path: string }[] };
-      expect(body.issues.length).toBeGreaterThan(0);
-    });
-
-    it('returns 409 with the current content on a stale baseHash', async () => {
-      bootstrap(root);
-      mkdirSync(join(root, 'docs/instructions/workflows'), { recursive: true });
-      writeFileSync(join(root, 'docs/instructions/workflows/delivery-policy.yaml'), VALID_POLICY);
-      await startServer();
-
-      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: VALID_POLICY.replace('develop', 'trunk'),
-          baseHash: 'sha256:stale',
-        }),
-      });
-      expect(res.status).toBe(409);
-      const body = (await res.json()) as { conflict: { content: string; hash: string } };
-      expect(body.conflict.content).toBe(VALID_POLICY);
-      expect(body.conflict.hash).toMatch(/^sha256:/);
-    });
-
-    it('refuses the delivery-policy PUT in read-only mode', async () => {
-      bootstrap(root);
-      await startServer({ readOnly: true });
-      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: VALID_POLICY, baseHash: null }),
-      });
-      expect(res.status).toBe(403);
-    });
-
     it('lists, reads, and writes instructions files through the pipeline', async () => {
       bootstrap(root);
       mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
@@ -804,6 +714,52 @@ describe('startDashboardServer', () => {
       expect(put.status).toBe(404);
     });
 
+    it('serves the git-workflow files and saves one at a time', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const get = await fetch(`${server!.url}/api/config/git-workflow`);
+      expect(get.status).toBe(200);
+      const config = (await get.json()) as { files: { name: string; hash: string | null }[] };
+      expect(config.files.map((file) => file.name)).toEqual([
+        'tickets.yaml',
+        'branches.yaml',
+        'commits.yaml',
+        'pull-requests.yaml',
+        'enforcement.yaml',
+      ]);
+
+      const put = await fetch(`${server!.url}/api/config/git-workflow/commits.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'sign_off: true\n', baseHash: config.files[2]!.hash }),
+      });
+      expect(put.status).toBe(200);
+      expect(readFileSync(join(root, '.paqad/configs/git-workflow/commits.yaml'), 'utf8')).toBe(
+        'sign_off: true\n',
+      );
+      expect(readFileSync(join(root, '.paqad/audit.log'), 'utf8')).toContain(
+        'dashboard.config.git-workflow.write',
+      );
+
+      const invalid = await fetch(`${server!.url}/api/config/git-workflow/enforcement.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'agents: sometimes\n', baseHash: null }),
+      });
+      expect(invalid.status).toBe(422);
+
+      const unknown = await fetch(`${server!.url}/api/config/git-workflow/other.yaml`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'a: 1\n', baseHash: null }),
+      });
+      expect(unknown.status).toBe(404);
+
+      const old = await fetch(`${server!.url}/api/config/delivery-policy`);
+      expect(old.status).toBe(404);
+    });
+
     it('starts an ops job, reports it, and streams completion to the report', async () => {
       bootstrap(root);
       await startServer();
@@ -907,7 +863,7 @@ describe('startDashboardServer', () => {
       const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
       expect(audit).toContain('dashboard.config.profile.write');
       expect(audit).toContain('dashboard.config.module-map.write');
-      expect(audit).toContain('dashboard.config.rag.write');
+      expect(audit).toContain('dashboard.retrieval-config.write');
     });
 
     it('covers packs listing, ops job lookups, audit paging, and packet formats', async () => {

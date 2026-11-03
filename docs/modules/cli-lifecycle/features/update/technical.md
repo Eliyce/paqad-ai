@@ -90,10 +90,32 @@ Source directories owned by this feature:
   later update once that change closed; a failure (a locked file on Windows) is a warning.
 - When the Claude Code plugin is installed it owns the Claude hooks and the stage agents, so the
   npm updater skips them and nothing is wired twice.
+- The candidate build runs onboarding in a temp root with `interactive: false`, so `update` never
+  asks a question, even in a terminal. A field it does not pass falls back to the saved profile
+  and detection, never to a prompt. Before this, a person running `update` by hand got the full
+  onboarding questions, and the answers decided which stack and providers were written.
+- The temp onboarding gets every provider the project was set up for, from
+  `deriveRecordedProviders`: the manifest's saved `providers`, or, for a manifest written before
+  that key existed, every provider whose entry file is among the generated artifacts. A project
+  with no manifest renders Claude Code. Without this, `update` refreshed only Claude Code's files
+  and every other host's files went stale.
+- After writing the files, `update` writes `providers` back into
+  `.paqad/onboarding-manifest.json` and leaves `adapter` and every other field as they were, so
+  the next run reads the list directly.
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
-- Config is reconciled by pruning only keys this version no longer knows; every value the team set
-  is kept, never reset to a default.
+- Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
+  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once, then
+  `syncTeamConfigFiles` creates any missing header-only file, regenerates the schemas in the
+  git-ignored `.paqad/configs/schemas/` and the configs README. `update` never writes a value into
+  a team file, so a new setting's default reaches the team through the code.
+- After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
+  It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
+  instead of running on defaults and updates on its next check. Every current reader (the CLI, the
+  shell and Node hooks, the plugin mod and the team launcher) skips a file with that first line,
+  so a current paqad stays on. The stub is written last, after the YAML files and the workflow
+  view, so a failed write leaves the old `.config.app` in place. The move is roll-forward only: no command
+  restores the old files, so a bad release is fixed by the next release or `PAQAD_DISABLED=1`.
 - The stage agents are written here too, because an upgraded machine goes through
   `paqad-ai update --silent` and never reaches the onboarding path that wrote them. This is
   best-effort, since the agents are inert until dispatched.

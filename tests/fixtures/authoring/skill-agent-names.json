@@ -167,6 +167,11 @@
       "name": "finding-normalizer"
     },
     {
+      "path": "runtime/base/skills/git-workflow/SKILL.md",
+      "folder": "git-workflow",
+      "name": "git-workflow"
+    },
+    {
       "path": "runtime/base/skills/glossary-maintainer/SKILL.md",
       "folder": "glossary-maintainer",
       "name": "glossary-maintainer"

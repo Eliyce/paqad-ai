@@ -6,11 +6,8 @@ import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
-import { runDelivery } from '@/delivery/runner.js';
-import {
-  defaultFeatureDevelopmentPolicy,
-  renderDefaultFeatureDevelopmentPolicyYaml,
-} from '@/pipeline/feature-development-policy.js';
+import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { GithubHostProvider, resetGraphqlRefusal } from '@/providers/github-host-provider.js';
 import {
   GRAPHQL_REFUSED_MESSAGE,
@@ -208,25 +205,6 @@ describe('AC-27, AC-28: opening a pull request when GraphQL is refused', () => {
     const result = await new GithubHostProvider(shell, { env: {} }).openPR(input);
     expect(result.ok).toBe(false);
     expect(apiCalls(shell)).toEqual([]);
-  });
-
-  it('runDelivery opens its pull request through the provider, so it falls back too', async () => {
-    const shell = fakeShell([
-      (a) => (a[0] === 'git' && a[1] !== 'remote' ? { stdout: 'ok' } : undefined),
-      refuse('create'),
-      origin,
-      api((p) => p === 'repos/acme/widgets/pulls', { stdout: PR_JSON }),
-    ]);
-    const run = await runDelivery(shell, {
-      rendered: { branch: 'feat/x', commit: 'feat: x', pr_title: 'T', pr_body: 'B' } as never,
-      base: 'main',
-      draft: false,
-      reviewers: [],
-      labels: [],
-      open_pr: 'yes',
-    });
-    expect(run.ok).toBe(true);
-    expect(run.steps.at(-1)).toMatchObject({ step: 'pr', ok: true, pr: { number: 7 } });
   });
 });
 
@@ -551,15 +529,15 @@ describe('the origin parser', () => {
   });
 });
 
-describe('the manual delivery instruction', () => {
-  it('names the gh api fallback for cloud sessions in both rendered forms', () => {
+describe('the delivery instruction', () => {
+  it('routes cloud sessions through paqad-ai deliver, which carries the REST fallback, in both rendered forms', () => {
     const policy = defaultFeatureDevelopmentPolicy();
-    const text = JSON.stringify(policy);
-    expect(text).toContain('gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=');
-    expect(YAML.stringify(policy)).toContain('cloud session');
-    const rendered = JSON.stringify(YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()));
-    expect(rendered).toContain(
-      'gh api repos/<owner>/<repo>/issues/<pr-number>/comments -f body=\\"$(cat /tmp/paqad-evidence.md)\\"',
-    );
+    const rendered = YAML.parse(renderFeatureDevelopmentView(policy)) as typeof policy;
+    for (const form of [policy, rendered]) {
+      const text = form.stages.delivery!.instructions.join('\n');
+      expect(text).toContain('Deliver only through paqad');
+      expect(text).toContain('Never run git commit, git push or gh pr create yourself');
+      expect(text).not.toContain('gh api repos/<owner>/<repo>/issues/<pr-number>/comments');
+    }
   });
 });

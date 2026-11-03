@@ -83,7 +83,6 @@ describe('dashboard server request handling', () => {
   }
 
   it.each([
-    ['PUT', '/api/config/delivery-policy', 'Body must include the policy `content` as a string.'],
     ['PUT', '/api/files/instructions/a.md', 'Body must include the file `content` as a string.'],
     ['PUT', '/api/config/module-map', 'Body must include the module map `content` as a string.'],
     ['PUT', '/api/config/design-tokens', 'Body must include the tokens `content` as a string.'],

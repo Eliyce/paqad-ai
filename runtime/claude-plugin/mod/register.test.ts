@@ -1430,9 +1430,10 @@ describe('stand-downs: the mod registers nothing', () => {
     ['Claude Code runs in the cloud', { env: { CLAUDE_CODE_REMOTE: 'true' } }],
     ['PAQAD_DISABLED is set', { env: { PAQAD_DISABLED: '1' } }],
     ['the local config turns paqad off', { extra: { '.paqad/.config': 'paqad_enable=off\n' } }],
+    ['paqad.yaml turns paqad off', { extra: { '.paqad/configs/paqad.yaml': 'enabled: false\n' } }],
     [
-      'the team config turns paqad off',
-      { extra: { '.paqad/configs/.config.app': 'paqad_enable=false\n' } },
+      'paqad.yaml turns the HUD band off',
+      { extra: { '.paqad/configs/paqad.yaml': 'hud:\n  band: false\n' } },
     ],
     ['Claude Code is 2.1.300', { version: { version: '2.1.300', base: '2.1.300' } }],
   ] as const;
@@ -3277,7 +3278,7 @@ describe('the heartbeat and the chime', () => {
 
   for (const [name, options] of [
     ['the env variable', { env: { PAQAD_HUD_CHIME: 'true' } }],
-    ['the team app config', { files: { '.paqad/configs/.config.app': 'hud_chime=true\n' } }],
+    ['paqad.yaml', { files: { '.paqad/configs/paqad.yaml': 'hud:\n  chime: true\n' } }],
   ] as const) {
     test(`hud_chime on through ${name} plays once per verdict and never speaks`, async ($, on) => {
       const world = worldOf(on, {

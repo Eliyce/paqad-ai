@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-git-workflow-first-setup
+description: 'A first setup from history goes to the git-workflow skill.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'set up our branch and commit rules from our history'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: llm
+    name: git-workflow-skill-propose
+    focus: last_message
+    criteria: 'The agent hands the request to the git-workflow skill and plans to run its scripts/propose.mjs script. It does not edit .paqad/configs/git-workflow/ itself.'

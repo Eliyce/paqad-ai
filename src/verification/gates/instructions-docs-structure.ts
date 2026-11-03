@@ -4,7 +4,7 @@ import { extname, join } from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
-import { isReservedWorkflowPolicyFile } from '@/pipeline/feature-development-policy.js';
+import { isFeatureDevelopmentViewFile } from '@/pipeline/feature-development-view.js';
 import { SchemaValidator } from '@/validators/validator.js';
 import { WorkflowTemplateValidator } from '@/workflows/template-validator.js';
 import type { TemplateStep, WorkflowTemplate } from '@/workflows/types.js';
@@ -434,7 +434,7 @@ function validateWorkflowYaml(value: unknown, relativePath: string): ContentErro
   /* v8 ignore start -- split('/').at(-1) always returns a string for a relative path */
   const filename = relativePath.split('/').at(-1) ?? relativePath;
   /* v8 ignore stop */
-  if (isReservedWorkflowPolicyFile(filename)) {
+  if (isFeatureDevelopmentViewFile(filename)) {
     const validation = new SchemaValidator().validate('feature-development-policy', value);
     if (!validation.valid) {
       return {

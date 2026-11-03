@@ -33,11 +33,12 @@ Reads `docs/instructions/rules/module-map.yml` as the sole authority for module 
 1. Validate the effective stack and capabilities against current manifests.
 2. Recover any interrupted tracker entries still marked in-progress.
 3. Generate or update `docs/instructions/stack/**`, `docs/instructions/architecture/**`, `docs/instructions/design-system/**`, `docs/instructions/registries/**`, `docs/instructions/benchmarks/**`, and `docs/instructions/tech-debt/**`.
-4. Discover business modules from the codebase using the precedence order defined in the spec (user-provided → locked map entries → codebase-native containers → deterministic inference → LLM fallback).
-5. Write or update `docs/instructions/rules/module-map.yml`.
-6. Record `.paqad/doc-progress.json` with `moduleDocStage: pending_map_review`.
-7. **Do not create or regenerate `docs/modules/**`.\*\*
-8. End with the required message:
+4. Set up this team's git workflow rules with the git-workflow skill (first setup). Ship the files and their resolved decisions with this documentation change.
+5. Discover business modules from the codebase using the precedence order defined in the spec (user-provided → locked map entries → codebase-native containers → deterministic inference → LLM fallback).
+6. Write or update `docs/instructions/rules/module-map.yml`.
+7. Record `.paqad/doc-progress.json` with `moduleDocStage: pending_map_review`.
+8. **Do not create or regenerate `docs/modules/**`.\*\*
+9. End with the required message:
 
 ```
 Module map written to docs/instructions/rules/module-map.yml.

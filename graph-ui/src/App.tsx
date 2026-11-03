@@ -2,7 +2,7 @@ import { useHashRoute } from './lib/router';
 import { ApprovalsView } from './views/ApprovalsView';
 import { AreaView } from './views/AreaView';
 import { DashboardView } from './views/DashboardView';
-import { DeliveryPolicyView } from './views/DeliveryPolicyView';
+import { GitWorkflowView } from './views/GitWorkflowView';
 import { DesignTokensView } from './views/DesignTokensView';
 import { GraphView } from './views/GraphView';
 import { InstructionsView } from './views/InstructionsView';
@@ -22,7 +22,7 @@ export function App() {
   if (route === 'build') return <AreaView key="build" area="build" title="Build" />;
   if (route === 'automation')
     return <AreaView key="automation" area="automation" title="Automation" />;
-  if (route === 'delivery-policy') return <DeliveryPolicyView />;
+  if (route === 'git-workflow') return <GitWorkflowView />;
   if (route === 'instructions') return <InstructionsView />;
   if (route === 'module-map') return <ModuleMapView />;
   if (route === 'site-map') return <SiteMapView />;

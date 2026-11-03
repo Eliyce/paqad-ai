@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
+import { titleActiveFeature } from '@/feature-evidence/rename.js';
 import { resolveReportFeatureRef, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { currentFeature, resolveFeatureRef } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -103,6 +104,36 @@ export function createFeatureCommand(): Command {
         console.log(JSON.stringify({ rendered: true, feature: dirName, path: result.path }));
       },
     );
+
+  command
+    .command('title')
+    .description("Name this session's active change when it has no title yet, keeping its bundle")
+    .argument('<title>', 'What the change builds or fixes')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--session <id>', 'Session whose active change is titled')
+    .option('--issue <ref>', 'Ticket/issue ref for the change (e.g. <number>, PQD-123)')
+    .action((title: string, options: { projectRoot: string; session?: string; issue?: string }) => {
+      const sessionId = resolveSessionId(
+        options.projectRoot,
+        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      );
+      const active = currentFeature(options.projectRoot, sessionId);
+      if (!active) {
+        console.error('no active change in this session to title');
+        process.exitCode = 1;
+        return;
+      }
+      const titled = titleActiveFeature(options.projectRoot, sessionId, title, options.issue);
+      if (!titled) {
+        console.error(
+          `could not title ${active}: it already has a title, or "${title}" gives no usable name`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`**▸ paqad** · titled this change: ${titled}`);
+      console.log(JSON.stringify({ titled: true, feature: titled }));
+    });
 
   command
     .command('prune')

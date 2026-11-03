@@ -44,7 +44,7 @@ type Case = {
 };
 
 const EVALS = 'evals';
-const SUITES = { routing: 20, firewall: 15, receipt: 5 } as const;
+const SUITES = { routing: 23, firewall: 16, receipt: 5 } as const;
 type Suite = keyof typeof SUITES;
 const ROUTE_FILE = '.paqad/context/.session-route.json';
 const NO_DB_IMPORT = `['"][^'"]*\\bdb/`;

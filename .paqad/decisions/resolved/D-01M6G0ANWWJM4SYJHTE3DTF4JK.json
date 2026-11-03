@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6G0ANWWJM4SYJHTE3DTF4JK",
+  "category": "spec.change",
+  "title": "How the migrated stub stops an older paqad",
+  "context": "paqad 1.116.0 never refuses to run on the stub's minimum_version; it updates in the background and runs on defaults meanwhile (forever with auto_update off). Review finding, TD-01M6G05D9RNEEW8HPG7ZY3J07E.",
+  "options": [
+    {
+      "option_key": "disable",
+      "label": "Stub also carries paqad_enable=false so an older paqad turns itself off",
+      "one_line_preview": "Stub also carries paqad_enable=false so an older paqad turns itself off",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-session",
+      "label": "Accept one session on defaults",
+      "one_line_preview": "Accept one session on defaults",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "test-only",
+      "label": "Add a pinned-release integration test only",
+      "one_line_preview": "Add a pinned-release integration test only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "disable",
+  "created_at": "2026-11-03T06:07:47.101Z",
+  "status": "resolved",
+  "change": "01M6EX814WG84WBN1YCW034G48",
+  "chosen": "disable",
+  "rationale": "Owner: add paqad_enable=false to the stub",
+  "resolved_at": "2026-11-03T06:07:47.823Z",
+  "decision_id": "D-01M6G0ANWWJM4SYJHTE3DTF4JK",
+  "fingerprint": "sha256:3733fbdbbaeb815787997bc761d902a0f220f24f6c9e049d13b427077babd52b",
+  "question": "How the migrated stub stops an older paqad",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6EX814WG84WBN1YCW034G48",
+  "ttl_until": "2026-12-03T06:07:47.101Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "disable",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T06:07:47.823Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: add paqad_enable=false to the stub"
+  }
+}

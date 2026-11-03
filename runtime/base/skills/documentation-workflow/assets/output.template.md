@@ -7,6 +7,8 @@ Tracker: `.paqad/doc-progress.json`
 
 - {{stage-name}}: {{summary of files written}}
 
+Git workflow: {{what the git-workflow skill set up: the files written, each choice and its answer, anything not confirmed}}
+
 ## Blocked Stages
 
 - {{stage-name}}: {{reason; "none" allowed}}

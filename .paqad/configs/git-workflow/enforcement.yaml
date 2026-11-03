@@ -1,0 +1,17 @@
+# How strictly paqad holds everyone to these rules.
+#
+# enabled: false turns off paqad's delivery help and checks completely.
+#
+# agents: work done through a coding agent
+#   block  a turn, commit or PR that doesn't match is refused until the agent fixes it
+#   warn   paqad points it out and the agent should fix it
+#
+# people: commits and pushes made by people, checked by git hooks
+#   block  the commit or push is refused (git commit --no-verify still skips it)
+#   warn   the hook prints what doesn't match and lets it through
+#   off    no git hooks for people
+paqad_version: "1.116.0"
+
+enabled: true
+agents: block
+people: warn

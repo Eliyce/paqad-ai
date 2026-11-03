@@ -53,7 +53,13 @@ export interface ProjectFeatureFlags {
   checks_max_processes: number;
 }
 
-export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
+export const TICKET_PROVIDER_KINDS = [
+  'jira',
+  'linear',
+  'servicenow',
+  'github-issues',
+  'generic',
+] as const;
 export type TicketProviderKind = (typeof TICKET_PROVIDER_KINDS)[number];
 
 export interface ProjectMcpServer {

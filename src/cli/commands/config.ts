@@ -1,7 +1,12 @@
-import { basename } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { Command } from 'commander';
 
+import { PATHS } from '@/core/constants/paths.js';
+import { appendPlanningAudit } from '@/planning/audit.js';
+import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
+import { migrateTeamConfig } from '@/core/team-config-migrate.js';
+import { buildConfigShow, renderConfigShow } from './config-show.js';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
@@ -135,7 +140,7 @@ export function resolveEffectiveConfig(
       surface = 'local .paqad/.config';
     } else if (teamMap.has(spec.key)) {
       value = teamMap.get(spec.key) ?? '';
-      surface = `team configs/${basename(team.sources.get(spec.key)!)}`;
+      surface = `team configs/${relative(join(projectRoot, PATHS.PROJECT_CONFIGS_DIR), team.sources.get(spec.key)!)}`;
     } else {
       value = spec.default === undefined ? '(unset)' : String(spec.default);
       surface = 'default';
@@ -194,6 +199,58 @@ export function createConfigCommand(): Command {
       console.log(
         `\n${knobs.length} knobs · ${placebos} with no consumer (placebo — no running code reads them).`,
       );
+    });
+
+  command
+    .command('show')
+    .description(
+      'Print every setting: its YAML file and path, the value that applies, where it comes ' +
+        'from, and whether it is the default. Read-only.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--json', 'emit machine-readable JSON')
+    .option('--changed', 'hide settings that equal the default')
+    .action((options: { projectRoot: string; json?: boolean; changed?: boolean }) => {
+      const result = buildConfigShow(options.projectRoot);
+      if (options.json) {
+        const settings = options.changed
+          ? result.settings.filter((row) => !row.same_as_default)
+          : result.settings;
+        console.log(JSON.stringify({ settings, invalid: result.invalid }, null, 2));
+        return;
+      }
+      console.log(renderConfigShow(result, options.changed === true));
+    });
+
+  command
+    .command('migrate')
+    .description(
+      'Move the team settings from the old .paqad/configs/.config.* files and the old ' +
+        'feature-development workflow file into the YAML files in .paqad/configs/.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--dry-run', 'print what would move without writing anything')
+    .action((options: { projectRoot: string; dryRun?: boolean }) => {
+      const migration = migrateTeamConfig(options.projectRoot, { dryRun: options.dryRun === true });
+      for (const line of migration.lines) console.log(line);
+      if (migration.error !== undefined) process.exitCode = 1;
+    });
+
+  command
+    .command('view')
+    .description(
+      'Rebuild the generated, git-ignored feature-development workflow view when its sources ' +
+        'changed. A hand edit to the view is moved into .paqad/configs/feature-development/ first.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { projectRoot: string }) => {
+      const lines = rebuildFeatureDevelopmentView(options.projectRoot);
+      if (lines.length > 0) {
+        appendPlanningAudit(options.projectRoot, 'WARN', 'feature-development-view.moved', {
+          lines: lines.join(' | '),
+        });
+      }
+      for (const line of lines) console.log(line);
     });
 
   return command;

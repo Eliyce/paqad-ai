@@ -1,5 +1,10 @@
 import { resolveFlooredMode } from '@/core/floored-mode.js';
-import { readConfigsDir, readDotConfig, resolveNumericConfig } from '@/core/framework-config.js';
+import {
+  readConfigsDir,
+  envConfigValue,
+  readDotConfig,
+  resolveNumericConfig,
+} from '@/core/framework-config.js';
 
 export type DecisionArmMode = 'off' | 'warn' | 'strict';
 
@@ -48,7 +53,7 @@ export function resolveDecisionArmMode(
     {
       team: readConfigsDir(projectRoot).merged.get('decision_arm_mode'),
       local: readDotConfig(projectRoot).get('decision_arm_mode'),
-      env: env.PAQAD_DECISION_ARM_MODE,
+      env: envConfigValue(env, 'decision_arm_mode'),
     },
     DECISION_ARM_MODES,
     DEFAULT_DECISION_ARM_MODE,

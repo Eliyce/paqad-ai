@@ -10,12 +10,13 @@ import {
   detectFlippedFrameworkValues,
   readConfigsDir,
   reconcileConfigOverrides,
-  setGroupConfigValue,
-  syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
+import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
+import { migrateTeamConfig } from '@/core/team-config-migrate.js';
+import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -74,8 +75,11 @@ import {
   writeProjectProfile,
 } from './manifest-writer.js';
 import { migrateLegacyDecisionIds } from './decision-id-migration.js';
-import { generateDeliveryPolicy } from './delivery-policy-generator.js';
-import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
+import { stampLastApplied } from '@/git-workflow/last-applied.js';
+import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
+import { generateGitWorkflowFiles } from '@/git-workflow/onboard.js';
+import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
 import { resolveSelections } from './prompts.js';
 import {
   applyRagSelection,
@@ -104,6 +108,7 @@ export interface OnboardingOptions {
   };
   onPhase1Complete?: (result: OnboardingOutput) => void;
   forceOverwrite?: boolean;
+  interactive?: boolean;
   workspacePolicy?: {
     project_creation_disabled?: boolean;
   };
@@ -128,7 +133,9 @@ export class OnboardingOrchestrator {
     const introspector = new StackIntrospector();
     const previousSnapshot = await new StackSnapshotCache().read(options.projectRoot);
     const liveSnapshot = await introspector.snapshot(options.projectRoot);
-    const selections = await resolveSelections(detection, liveSnapshot, options.selections);
+    const selections = await resolveSelections(detection, liveSnapshot, options.selections, {
+      interactive: options.interactive,
+    });
     const runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
@@ -188,8 +195,7 @@ export class OnboardingOrchestrator {
       generatedFiles.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
     }
     generatedFiles.push(...(await generateProjectRules(resolved.rules)));
-    generatedFiles.push(...generateFeatureDevelopmentPolicy(selections.domain));
-    generatedFiles.push(...generateDeliveryPolicy(selections.domain));
+    generatedFiles.push(...generateGitWorkflowFiles(selections.domain, options.projectRoot));
     generatedFiles.push(
       ...(await generateReferenceGuides(runtimeRoot, {
         domain: selections.domain,
@@ -213,6 +219,11 @@ export class OnboardingOrchestrator {
         `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
       );
     }
+    if (selections.domain === 'coding') {
+      onboardingWarnings.push(...migrateDeliveryPolicy(options.projectRoot).lines);
+    }
+    const teamConfigMigration = migrateTeamConfig(options.projectRoot);
+    if (teamConfigMigration.ran) onboardingWarnings.push(...teamConfigMigration.lines);
     let revertedFrameworkValues: string[];
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
@@ -224,6 +235,9 @@ export class OnboardingOrchestrator {
         writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
       }
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
+      if (selections.domain === 'coding') {
+        settleGitWorkflow(options.projectRoot, writeResult.written);
+      }
       drift = await writeStackArtifacts(
         options.projectRoot,
         { ...liveSnapshot, profile: profile.stack_profile ?? liveSnapshot.profile },
@@ -232,7 +246,8 @@ export class OnboardingOrchestrator {
       );
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
-      syncGroupConfigs(options.projectRoot);
+      syncTeamConfigFiles(options.projectRoot);
+      onboardingWarnings.push(...rebuildFeatureDevelopmentView(options.projectRoot));
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {
@@ -305,6 +320,7 @@ export class OnboardingOrchestrator {
     }
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       adapter: adapters[0],
+      providers: adapters,
       project_root: toPosixPath(options.projectRoot),
       profile,
       detected: detection,
@@ -346,7 +362,9 @@ export class OnboardingOrchestrator {
 
     options.onPhase1Complete?.(phase1Output);
 
-    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag);
+    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag, {
+      interactive: options.interactive,
+    });
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
@@ -362,7 +380,7 @@ export class OnboardingOrchestrator {
         } catch (error) {
           profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
           writeProjectProfile(options.projectRoot, profile);
-          setGroupConfigValue(options.projectRoot, 'rag', 'rag_enabled', 'false');
+          setTeamConfigValue(options.projectRoot, 'rag_enabled', 'false');
           onboardingWarnings.push(
             `RAG was turned off: ${error instanceof Error ? error.message : 'unknown error'}`,
           );
@@ -414,7 +432,9 @@ export class OnboardingOrchestrator {
     const detection = await detector.detect(options.projectRoot, { persist: false });
     const introspector = new StackIntrospector();
     const liveSnapshot = await introspector.snapshot(options.projectRoot, { persist: false });
-    const selections = await resolveSelections(detection, liveSnapshot, options.selections);
+    const selections = await resolveSelections(detection, liveSnapshot, options.selections, {
+      interactive: options.interactive,
+    });
     const runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
@@ -466,7 +486,6 @@ export class OnboardingOrchestrator {
       files.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
     }
     files.push(...(await generateProjectRules(resolved.rules)));
-    files.push(...generateFeatureDevelopmentPolicy(selections.domain));
     files.push(
       ...(await generateReferenceGuides(runtimeRoot, {
         domain: selections.domain,
@@ -500,17 +519,12 @@ function mergeProfileOverrides(
 }
 
 function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
-  setGroupConfigValue(projectRoot, 'rag', 'rag_enabled', String(intelligence.rag_enabled));
+  setTeamConfigValue(projectRoot, 'rag_enabled', String(intelligence.rag_enabled));
   if (intelligence.embedding_provider) {
-    setGroupConfigValue(
-      projectRoot,
-      'rag',
-      'rag_embedding_provider',
-      intelligence.embedding_provider,
-    );
+    setTeamConfigValue(projectRoot, 'rag_embedding_provider', intelligence.embedding_provider);
   }
   if (intelligence.embedding_model) {
-    setGroupConfigValue(projectRoot, 'rag', 'rag_embedding_model', intelligence.embedding_model);
+    setTeamConfigValue(projectRoot, 'rag_embedding_model', intelligence.embedding_model);
   }
 }
 
@@ -1010,4 +1024,12 @@ function buildRustCommands(usingCompose: boolean): ProjectProfile['commands'] {
     migrate: 'echo "configure migrate command"',
     build: exec('cargo build'),
   };
+}
+
+function settleGitWorkflow(projectRoot: string, written: readonly string[]): void {
+  syncGitWorkflow(projectRoot);
+  const fresh = GIT_WORKFLOW_FILES.filter((file) =>
+    written.some((path) => toPosixPath(path) === `${PATHS.GIT_WORKFLOW_DIR}/${file}`),
+  );
+  if (fresh.length > 0) stampLastApplied(projectRoot, fresh);
 }

@@ -1,11 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { collectDelivery } from '@/dashboard/collectors/delivery.js';
-import { detectionPath, writeDetection } from '@/delivery/detection-store.js';
-import { detectDelivery } from '@/delivery/detection.js';
 
 function repo(): string {
   return mkdtempSync(join(tmpdir(), 'delivery-dash-'));
@@ -34,93 +32,52 @@ function writeProfile(root: string, servers: string): void {
   );
 }
 
+function writeRules(root: string, file: string, text: string): void {
+  mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+  writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, file), text, 'utf8');
+}
+
 describe('delivery dashboard collector', () => {
-  it('reports dormant providers and nudges when nothing is connected', () => {
-    const root = repo();
-    try {
-      writeProfile(root, '[]');
-      const { section, attention } = collectDelivery(root);
-      expect(section.id).toBe('delivery');
-      expect(section.summary).toContain('Configured');
-      expect(section.summary).toContain('dormant');
-      expect(attention.length).toBe(2);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  let root: string;
+  beforeEach(() => {
+    root = repo();
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('describes the git-workflow folder and needs no tracker when the team has no sources', () => {
+    writeProfile(root, '[]');
+    const { section, attention } = collectDelivery(root);
+    expect(section.helper?.what).toContain('.paqad/configs/git-workflow/');
+    expect(section.summary).toContain('no ticket sources');
+    expect(section.band).toBe('green');
+    expect(attention).toEqual([]);
   });
 
-  it('goes green when both host detected and tracker MCP connected', () => {
-    const root = repo();
-    try {
-      writeProfile(root, '[{ name: atlassian, enabled: true, kind: jira }]');
-      writeDetection(
-        root,
-        detectDelivery({
-          remoteUrl: 'git@github.com:o/r.git',
-          defaultBranch: 'origin/main',
-          branchNames: ['feat/a'],
-          recentCommitSubjects: ['feat: a'],
-        }),
-      );
-      const { section, attention } = collectDelivery(root);
-      expect(section.band).toBe('green');
-      expect(section.summary).toContain('GitHub ✓');
-      expect(section.summary).toContain('Jira ✓');
-      expect(attention).toEqual([]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  it('nudges for each ticket source whose tracker is not connected', () => {
+    writeProfile(root, '[{ name: atlassian, enabled: true, kind: jira }]');
+    writeRules(
+      root,
+      'tickets.yaml',
+      'sources:\n  proj: { tracker: jira }\n  inc: { tracker: servicenow }\n',
+    );
+    const { section, attention } = collectDelivery(root);
+    expect(section.summary).toContain('proj ✓');
+    expect(section.summary).toContain('inc ✗ (dormant)');
+    expect(attention).toHaveLength(1);
+    expect(attention[0].message).toContain('ServiceNow');
   });
 
-  it('reads detection from the ledger, not the legacy file (F6 hard cutover)', () => {
-    const root = repo();
-    try {
-      writeProfile(root, '[{ name: atlassian, enabled: true, kind: jira }]');
-      const path = detectionPath(root);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(
-        path,
-        `${JSON.stringify(
-          detectDelivery({
-            remoteUrl: 'git@github.com:o/r.git',
-            defaultBranch: 'origin/main',
-            branchNames: ['feat/a'],
-            recentCommitSubjects: ['feat: a'],
-          }),
-          null,
-          2,
-        )}\n`,
-        'utf8',
-      );
-      const { section } = collectDelivery(root);
-      expect(section.summary).toContain('✗');
-      expect((section.details as { host: { detected: boolean } }).host.detected).toBe(false);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  it('reports the turned-off state from enforcement.yaml', () => {
+    writeProfile(root, '[]');
+    writeRules(root, 'enforcement.yaml', 'enabled: false\n');
+    expect(collectDelivery(root).section.summary).toContain('enforcement.yaml');
   });
 
-  it('host detected but tracker dormant → one connection, nudge for the tracker only', () => {
-    const root = repo();
-    try {
-      writeProfile(root, '[]');
-      writeDetection(
-        root,
-        detectDelivery({
-          remoteUrl: 'git@github.com:o/r.git',
-          defaultBranch: 'origin/main',
-          branchNames: ['feat/a'],
-          recentCommitSubjects: ['feat: a'],
-        }),
-      );
-      const { section, attention } = collectDelivery(root);
-      expect(section.score).toBe(70);
-      expect(section.summary).toContain('github ✓');
-      expect(section.summary).toContain('dormant');
-      expect(attention).toHaveLength(1);
-      expect(attention[0].message).toContain('jira');
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  it('flags an invalid config instead of using defaults', () => {
+    writeProfile(root, '[]');
+    writeRules(root, 'branches.yaml', 'default_type: nope\n');
+    const { section, attention } = collectDelivery(root);
+    expect(section.summary).toBe('The git workflow rules have errors');
+    expect(attention[0].message).toContain('default_type');
   });
 });

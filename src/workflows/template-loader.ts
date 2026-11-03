@@ -2,7 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import type { WorkflowTemplate } from './types.js';
-import { isReservedWorkflowPolicyFile } from '@/pipeline/feature-development-policy.js';
+import { isFeatureDevelopmentViewFile } from '@/pipeline/feature-development-view.js';
 
 export class WorkflowTemplateLoader {
   constructor(private readonly projectRoot: string) {}
@@ -22,7 +22,7 @@ export class WorkflowTemplateLoader {
       const files = await readdir(this.workflowsDir);
       return files
         .filter(
-          (f) => (f.endsWith('.yaml') || f.endsWith('.yml')) && !isReservedWorkflowPolicyFile(f),
+          (f) => (f.endsWith('.yaml') || f.endsWith('.yml')) && !isFeatureDevelopmentViewFile(f),
         )
         .map((f) => f.replace(/\.(yaml|yml)$/, ''));
     } catch {

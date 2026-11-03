@@ -47,6 +47,7 @@ function commitAll(message: string): void {
     '-c',
     'commit.gpgsign=false',
     'commit',
+    '--no-verify',
     '-qm',
     message,
   );

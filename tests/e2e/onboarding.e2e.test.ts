@@ -149,9 +149,15 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/vectors'))).toBe(false);
-    const appConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
-    expect(appConfig).toContain('# lean_rules=true');
-    expect(appConfig).toContain('PAQAD_LEAN_RULES');
+    const rulesConfig = readFileSync(
+      join(projectRoot, '.paqad/configs/feature-development/rules.yaml'),
+      'utf8',
+    );
+    expect(rulesConfig).toContain('$schema=../schemas/feature-development/rules.schema.json');
+    expect(existsSync(join(projectRoot, '.paqad/configs/.config.app'))).toBe(false);
+    const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
+    expect(example).toContain('# lean_rules=true');
+    expect(example).toContain('PAQAD_LEAN_RULES');
     assertNoProjectLocalSkillsOrAgents(projectRoot);
     expect(existsSync(join(projectRoot, 'scripts/health-check.sh'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6FZ4VTVTWR6D4G49CK2SFQN",
+  "category": "spec.contradiction",
+  "title": "How the migration carries an old workflow file's checks.commands list",
+  "context": "The old loader appended the team's stages.checks.checks.commands to the defaults (format, test, build), so [format, test] still ran build. The migration copies the list as written into checks.yaml commands.from_project_profile, which replaces the defaults, so build stops running. #791's table says copy; AC-56 says exactly as the old fields did.",
+  "options": [
+    {
+      "option_key": "union",
+      "label": "Carry the union of defaults and the team list (behaviour unchanged)",
+      "one_line_preview": "Carry the union of defaults and the team list (behaviour unchanged)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "as-written",
+      "label": "Copy the list as written (follows the issue table; build may stop running)",
+      "one_line_preview": "Copy the list as written (follows the issue table; build may stop running)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "union",
+  "created_at": "2026-11-03T05:47:07.995Z",
+  "status": "resolved",
+  "change": "01M6EX814WG84WBN1YCW034G48",
+  "chosen": "union",
+  "rationale": "Owner: keep behaviour; migration carries defaults plus the team list",
+  "resolved_at": "2026-11-03T05:58:16.457Z",
+  "decision_id": "D-01M6FZ4VTVTWR6D4G49CK2SFQN",
+  "fingerprint": "sha256:a63de7b638ae3bdd59c2cbca5de58a59be2a25fd874d5d5d6f63f6c535851d84",
+  "question": "How the migration carries an old workflow file's checks.commands list",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6EX814WG84WBN1YCW034G48",
+  "ttl_until": "2026-11-10T05:47:07.995Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "union",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T05:58:16.457Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep behaviour; migration carries defaults plus the team list"
+  }
+}

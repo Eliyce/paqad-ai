@@ -1,9 +1,5 @@
 import type { DeliveryHost } from '@/delivery/host.js';
-import type {
-  ResolvedDeliveryHost,
-  ResolvedDeliveryTicket,
-  HostProviderKind,
-} from '@/core/types/delivery-policy.js';
+import type { HostProviderKind } from '@/git-workflow/types.js';
 import type { ProjectMcpServer, TicketProviderKind } from '@/core/types/project-profile.js';
 
 export interface TicketProviderResolution {
@@ -17,24 +13,29 @@ export interface HostProviderResolution {
   connected: boolean;
 }
 
+export interface TicketSourceRef {
+  tracker: TicketProviderKind;
+  server: string;
+}
+
 export function resolveTicketProvider(
   servers: ProjectMcpServer[],
-  ticket: ResolvedDeliveryTicket,
+  source: TicketSourceRef,
 ): TicketProviderResolution {
   const enabled = servers.filter((s) => s.enabled);
 
-  if (ticket.server) {
-    const named = enabled.find((s) => s.name === ticket.server);
+  if (source.server) {
+    const named = enabled.find((s) => s.name === source.server);
     return {
-      kind: ticket.provider,
+      kind: source.tracker,
       server: named ? named.name : null,
       connected: named !== undefined,
     };
   }
 
-  const byKind = enabled.find((s) => s.kind === ticket.provider);
+  const byKind = enabled.find((s) => s.kind === source.tracker);
   return {
-    kind: ticket.provider,
+    kind: source.tracker,
     server: byKind ? byKind.name : null,
     connected: byKind !== undefined,
   };
@@ -46,12 +47,12 @@ export interface HostEnvironment {
 }
 
 export function resolveHostProvider(
-  host: ResolvedDeliveryHost,
+  host: HostProviderKind,
   env: HostEnvironment,
 ): HostProviderResolution {
-  const remoteMatches = env.remoteHost === null ? false : env.remoteHost === host.provider;
+  const remoteMatches = env.remoteHost === null ? false : env.remoteHost === host;
   return {
-    kind: host.provider,
+    kind: host,
     connected: env.cliAvailable && remoteMatches,
   };
 }

@@ -8,7 +8,7 @@
 
 ## Inputs and State
 
-- Reads `.paqad/onboarding-manifest.json` to recover the primary adapter and every provider represented by generated artifacts.
+- Reads `.paqad/onboarding-manifest.json` to recover the primary adapter and every provider through `deriveRecordedProviders`: the saved `providers` list when the manifest has one, otherwise every provider whose entry file is among the generated artifacts. The adapter always comes first.
 - Reads `.paqad/project-profile.yaml` with migration persistence disabled.
 - Resolves current rules, MCP, cache, and memory artifacts from the recorded profile.
 - Reads effective RAG configuration through the normal precedence chain: environment, `.paqad/.config`, tracked group configuration, profile, defaults.

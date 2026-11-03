@@ -15,13 +15,15 @@ paqad-ai plugin rollback [--project-root <path>]
 { "framework_home": "<path>", "project_root": "<path>", "version": "<paqad-ai version>" }
 ```
 
-`plugin rollback` moves this machine back to the npm setup in Claude Code. It uninstalls the plugin with `claude` on the path, then with the `claude` the Desktop app bundles, records the move as `rolled-back` with reason `manual`, sets `claude_install_mode=settings` for the project, and prints one line:
+`plugin rollback` moves this machine back to the npm setup in Claude Code. It uninstalls the plugin with `claude` on the path, then with the `claude` the Desktop app bundles, records the move as `rolled-back` with reason `manual`, sets `claude_install_mode=settings` in the project's git-ignored `.paqad/.config`, and prints one line. It runs the uninstall only when Claude Code lists a user-scope install. When the project's `.claude/settings.json` turns the plugin on, uninstalling cannot stop it loading, so rollback also writes `"paqad@eliyce": false` under `enabledPlugins` in the git-ignored `.claude/settings.local.json`, which beats the project settings for this developer only. The tracked settings file is never changed.
 
 | Outcome | Line |
 | --- | --- |
 | Plugin removed, or not installed | `paqad now runs from the npm package in Claude Code again. The plugin was removed.` |
 | No `claude` could remove it, plugin turned off in user settings | ``The plugin is turned off. Run `claude plugin uninstall paqad@eliyce` to remove it.`` |
 | No `claude` could remove it, and turning it off failed | ``paqad could not turn the plugin off. Run `claude plugin uninstall paqad@eliyce` to remove it.`` |
+| The project turns the plugin on, turned off in `.claude/settings.local.json` | `paqad now runs from the npm package in Claude Code again. This repo turns the plugin on for everyone, so I turned it off for you only in .claude/settings.local.json (not committed).` |
+| The project turns the plugin on, and `.claude/settings.local.json` could not be written | `This repo turns the plugin on for everyone, and paqad could not turn it off for you. Set "paqad@eliyce": false under enabledPlugins in .claude/settings.local.json.` |
 
 `plugin tick --source <npm|plugin> [--session <id>]` is hidden. Hooks call it to count one Claude Code session against the move.
 
@@ -77,13 +79,14 @@ export function readInstalledPluginVersion(home: string, env?: NodeJS.ProcessEnv
 
 `MigrationResult` is `{ state, path?, reason? }`. `maybeMigrateToPlugin` never throws: an error comes back as `skipped` with reason `error:<message>`. `describeClaudeInstall` feeds the doctor `Claude Code install` line; its cases are listed in the doctor API view.
 
-The move records its state in `~/.paqad-ai/plugin-migration.json`, the plugin's first session in `~/.paqad-ai/plugin-seen.json`, and its log in `~/.paqad-ai/logs/plugin-migration.log`.
+The move records its state in `~/.paqad-ai/plugin-migration.json`, the plugin's first session in `~/.paqad-ai/plugin-seen.json`, and its log in `~/.paqad-ai/logs/plugin-migration.log`. Every install path writes a line to that log: the `claude` install, the bundled `claude` install, a plugin that is already present (turned on in the user settings, or not turned on with the state and reason), a copy synced from claude.ai, and the first run that finds the project turning the plugin on.
 
 Reasons a record can carry:
 
 | Reason | State | Meaning |
 | --- | --- | --- |
 | `managed-policy` | skipped | A managed policy blocks the plugin or its hooks; nothing was written |
+| `project-turns-plugin-on` | skipped | The project's `.claude/settings.json` turns the plugin on, so Claude Code loads it at project scope and the user-scope move is not needed. Checked again on every run, so a project that stops committing the plugin still gets the move |
 | `no-claude-cli` | skipped | No `claude` on the path and no Desktop app `claude` |
 | `claude-too-old:<version>` | skipped | `claude` is older than the minimum version and no Desktop app `claude` was found |
 | `bundled-cli-failed:<reason>` | skipped | The Desktop app `claude` could not install the plugin |

@@ -19,7 +19,6 @@ import {
   normalizeIssueNumber,
 } from '@/providers/github-issues-ticket-provider.js';
 import { resolveTicketProvider, resolveHostProvider } from '@/providers/registry.js';
-import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
 import type { ProjectMcpServer } from '@/core/types/project-profile.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
@@ -190,8 +189,8 @@ describe('JiraTicketProvider', () => {
 });
 
 describe('provider registry', () => {
-  const ticket = defaultDeliveryProcess().ticket;
-  const host = defaultDeliveryProcess().host;
+  const ticket = { tracker: 'jira' as const, server: '' };
+  const host = 'github' as const;
 
   it('finds the first enabled MCP server of the configured kind', () => {
     const servers: ProjectMcpServer[] = [

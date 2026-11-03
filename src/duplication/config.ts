@@ -1,4 +1,9 @@
-import { readConfigsDir, readDotConfig, resolveNumericConfig } from '@/core/framework-config.js';
+import {
+  readConfigsDir,
+  envConfigValue,
+  readDotConfig,
+  resolveNumericConfig,
+} from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type DuplicationMode = 'off' | 'warn' | 'strict';
@@ -50,7 +55,7 @@ export function resolveDuplicationMode(
     {
       team: readConfigsDir(projectRoot).merged.get('duplication_mode'),
       local: readDotConfig(projectRoot).get('duplication_mode'),
-      env: env.PAQAD_DUPLICATION_MODE,
+      env: envConfigValue(env, 'duplication_mode'),
     },
     DUPLICATION_MODES,
     DEFAULT_DUPLICATION_MODE,

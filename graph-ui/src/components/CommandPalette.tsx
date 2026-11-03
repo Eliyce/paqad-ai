@@ -27,7 +27,7 @@ export function CommandPalette() {
       { label: 'Setup', kind: 'page', run: go('setup') },
       { label: 'Graph', kind: 'page', run: go('graph') },
       { label: 'Legacy health view', kind: 'page', run: go('dashboard') },
-      { label: 'Delivery policy', kind: 'page', run: go('delivery-policy') },
+      { label: 'Git workflow', kind: 'page', run: go('git-workflow') },
       { label: 'Instructions', kind: 'page', run: go('instructions') },
       { label: 'Module map', kind: 'page', run: go('module-map') },
       { label: 'Design tokens', kind: 'page', run: go('design-tokens') },

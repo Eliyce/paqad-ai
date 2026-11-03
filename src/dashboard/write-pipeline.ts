@@ -12,6 +12,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
+import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
 
 import { appendDashboardAudit } from './approvals.js';
 
@@ -36,7 +37,11 @@ export class PathNotAllowedError extends Error {
   }
 }
 
-const ALLOWED_FILES: readonly string[] = [PATHS.PROJECT_PROFILE, PATHS.RAG_IGNORE_CONFIG];
+const ALLOWED_FILES: readonly string[] = [
+  PATHS.PROJECT_PROFILE,
+  PATHS.RAG_IGNORE_CONFIG,
+  ...GIT_WORKFLOW_FILES.map((file) => `${PATHS.GIT_WORKFLOW_DIR}/${file}`),
+];
 
 const ALLOWED_EXTENSIONS = ['.md', '.yml', '.yaml', '.json'];
 

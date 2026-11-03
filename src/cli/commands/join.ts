@@ -12,6 +12,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { isGitIgnored } from '@/core/fs/git-tracked.js';
 import { resolveFrameworkConfig, resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
+import { writeTeamConfigSchemas } from '@/core/team-config-schema.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
@@ -21,8 +22,6 @@ import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
 import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
 import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
-import { createDeliveryShell } from '@/delivery/shell.js';
-import { runDeliveryDetection } from '@/delivery/detect-run.js';
 import { Detector } from '@/detection/detector.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -117,6 +116,7 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   await regenerateMachineArtifacts(projectRoot);
 
   writeWorktreeInclude(projectRoot);
+  writeTeamConfigSchemas(projectRoot);
 
   if (
     providers.includes('claude-code') &&
@@ -241,10 +241,6 @@ async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
     if (validateCodeKnowledgeIndex(index).valid) {
       writeCodeKnowledgeIndex(projectRoot, index);
     }
-  } catch {}
-
-  try {
-    await runDeliveryDetection(projectRoot, createDeliveryShell(projectRoot));
   } catch {}
 
   try {

@@ -52,7 +52,7 @@ How a freeze is decided:
 
 ## Config keys
 
-Each key can be set in the usual layers. The first one found wins: the `PAQAD_*` env variable, then `.paqad/.config`, then `.paqad/configs/.config.*`. An unset key, or a value paqad does not recognise, falls back to the default.
+Each key can be set in the usual layers. The first one found wins: the `PAQAD_*` env variable, then `.paqad/.config`, then the team file `.paqad/configs/feature-development/specification.yaml`. An unset key, or a value paqad does not recognise, falls back to the default.
 
 | Key | Env | Default | Meaning |
 |---|---|---|---|
@@ -70,7 +70,17 @@ The first three defaults were turned on later: the pipeline, the experts and str
 
 ### Switching it off
 
-Set any of these in `.paqad/configs/.config.*` (whole team) or `.paqad/.config` (just you):
+For the whole team, set them in `.paqad/configs/feature-development/specification.yaml`:
+
+```yaml
+pipeline:
+  enabled: false         # no pipeline: specs are written by hand, as before
+experts:
+  enabled: false         # keep the pipeline, skip the experts
+hand_written_specs: warn # keep the pipeline, but let a hand-written spec freeze
+```
+
+Just for you, set the flat names in `.paqad/.config`:
 
 ```ini
 spec_pipeline_enabled=false          # no pipeline: specs are written by hand, as before
@@ -78,14 +88,14 @@ spec_pipeline_experts_enabled=false  # keep the pipeline, skip the experts
 spec_pipeline_adoption=warn          # keep the pipeline, but let a hand-written spec freeze
 ```
 
-`paqad-ai update` never writes a default into a config file, so an unset key keeps following the code default.
+`paqad-ai update` never writes a default into a team file, so an unset key keeps following the code default.
 
 ## `paqad-ai doctor`
 
 The `Spec pipeline settings` check is always a pass. It is information, not a problem. It shows each of the three switches, its value and where the value came from (`default`, the env variable's name, or the config file). With nothing set, it reads like this:
 
 ```
-spec pipeline on (default), experts on (default), adoption strict (default). It runs on the graduated and full lanes; the fast lane never runs it. The 4 standing experts carry about 24k tokens of budget per spec (ceiling 40k). To switch off: spec_pipeline_enabled=false, spec_pipeline_experts_enabled=false or spec_pipeline_adoption=warn in .paqad/configs/.config.* or .paqad/.config.
+spec pipeline on (default), experts on (default), adoption strict (default). It runs on the graduated and full lanes; the fast lane never runs it. The 4 standing experts carry about 24k tokens of budget per spec (ceiling 40k). To switch off for the team, set pipeline.enabled: false, experts.enabled: false or hand_written_specs: warn in .paqad/configs/feature-development/specification.yaml; just for you, set spec_pipeline_enabled=false, spec_pipeline_experts_enabled=false or spec_pipeline_adoption=warn in .paqad/.config.
 ```
 
 With the pipeline off it says so instead: specs are written by hand and no experts run. Separate doctor warnings flag a mix that cannot work, such as experts on with the pipeline off.

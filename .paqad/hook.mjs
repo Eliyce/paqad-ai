@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const PAQAD_LAUNCHER_VERSION = '1.115.0';
+export const PAQAD_LAUNCHER_VERSION = '1.116.0';
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
@@ -35,6 +35,8 @@ export const LOCK_POLL_MS = 500;
 export const CLONE_TIMEOUT_MS = 540 * 1000;
 export const EDIT_WAIT_MS = 5 * 1000;
 export const REFRESH_AGE_MS = 6 * 60 * 60 * 1000;
+export const PLUGIN_CLAIM_WAIT_MS = 2 * 1000;
+export const PLUGIN_CLAIM_POLL_MS = 100;
 export const MIN_NODE_MAJOR = 22;
 
 export const REQUIRED_COPY_SCRIPTS = [
@@ -287,6 +289,29 @@ export function routeRecordPath(projectRoot, sid) {
 
 export function noticePath(projectRoot, sid) {
   return join(sessionDir(projectRoot, 'team-bootstrap-notice.d'), sid);
+}
+
+export function pluginClaimPath(projectRoot, sid) {
+  return join(sessionDir(projectRoot, 'plugin-active.d'), sid);
+}
+
+export function pluginClaimsSession(projectRoot, sid, home) {
+  if (!sid) return false;
+  const parsed = readJson(pluginClaimPath(projectRoot, sid));
+  const root = parsed && typeof parsed.root === 'string' ? parsed.root.trim() : '';
+  if (root === '' || !existsSync(root)) return false;
+  return !isUnder(canonicalRoot(root), canonicalRoot(teamPluginRoot(home)));
+}
+
+function claimedByPlugin(ctx) {
+  if (pluginClaimsSession(ctx.projectRoot, ctx.sid, ctx.home)) return true;
+  if (ctx.event !== 'SessionStart' || !ctx.sid) return false;
+  if (pluginLoadState(ctx.projectRoot, ctx.env, ctx.home) !== 'live') return false;
+  for (let waited = 0; waited < PLUGIN_CLAIM_WAIT_MS; waited += PLUGIN_CLAIM_POLL_MS) {
+    ctx.deps.sleep(PLUGIN_CLAIM_POLL_MS);
+    if (pluginClaimsSession(ctx.projectRoot, ctx.sid, ctx.home)) return true;
+  }
+  return false;
 }
 
 function readRoute(projectRoot, sid) {
@@ -704,9 +729,7 @@ function installAtSessionStart(ctx) {
 export function decideRoute(ctx) {
   const off = offSwitch(ctx.projectRoot, ctx.env);
   if (off) return { route: 'off', reason: off };
-  if (pluginLoadState(ctx.projectRoot, ctx.env, ctx.home) === 'live') {
-    return { route: 'plugin', reason: 'plugin-installed' };
-  }
+  if (claimedByPlugin(ctx)) return { route: 'plugin', reason: 'plugin-claimed' };
   const target = npmRuntimeTarget(ctx.env, ctx.home);
   if (target) return { route: 'npm', reason: 'npm-installed', target };
   if (keyIsOff(ctx.projectRoot, 'team_bootstrap_enabled', 'PAQAD_TEAM_BOOTSTRAP_ENABLED', ctx.env)) {
@@ -740,7 +763,9 @@ function sessionStart(ctx) {
 
 function laterEvent(ctx) {
   const recorded = readRoute(ctx.projectRoot, ctx.sid);
-  if (recorded) {
+  const stale =
+    recorded && recorded.route === 'plugin' && !pluginClaimsSession(ctx.projectRoot, ctx.sid, ctx.home);
+  if (recorded && !stale) {
     if (ENV_TRUTHY.indexOf(lower(ctx.env.PAQAD_DISABLED)) !== -1) return 0;
     return follow(recorded, ctx);
   }
