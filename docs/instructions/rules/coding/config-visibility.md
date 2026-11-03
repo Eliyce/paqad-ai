@@ -29,8 +29,9 @@ Resolution precedence, lowest to highest, local wins over team:
 
 `.paqad/configs/` holds readable YAML team files: `paqad.yaml`, `models.yaml`, `retrieval.yaml`, `decisions.yaml`,
 `authoring.yaml`, `git-workflow/commits.yaml` and one file per concern under `feature-development/`. Each registry setting
-has exactly one home (a file and a nested path), so two files never set the same key. The files are sparse: a fresh
-file holds only a header, and a team writes only what it changes. `paqad-ai update` writes a JSON schema per file to
+has exactly one home (a file and a nested path), so two files never set the same key. Every team file lists every
+setting it can hold, commented out with its default and a one-line note. A team removes the `#` to change a setting,
+and a setting left commented out uses paqad's default. `paqad-ai update` writes a JSON schema per file to
 the git-ignored `.paqad/configs/schemas/` and regenerates `.paqad/configs/README.md`, which lists every setting with
 its default, allowed values, flat name and env var. `paqad-ai config show` prints the live value and source of every
 setting. `.paqad/.config` and `PAQAD_*` keep the flat names (`hud_view=false`); `.paqad/.config.example` lists them,
@@ -40,7 +41,8 @@ with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` f
 ## Rules
 
 - Keep every knob discoverable: give it a registry row with a YAML home, so it shows in its file's schema, the generated <!-- @rule RL-0a01 -->
-  README and `paqad-ai config show` with its default and `PAQAD_*` equivalent. MUST NOT add a knob that is invisible and
+  README and `paqad-ai config show` with its default and `PAQAD_*` equivalent, and a plain one-line `comment`, because
+  that comment is the note people read above the setting in its team file. MUST NOT add a knob that is invisible and
   undiscoverable.
 - Resolve in the fixed precedence: defaults, then the YAML team files in `configs/`, then `.config` (local), then <!-- @rule RL-5163 -->
   `PAQAD_*` env, then programmatic overrides. A local file beats a team file; an env var beats both files.
@@ -50,9 +52,10 @@ with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` f
   re-introduce one into the profile schema. A leftover knob there is ignored on read and stripped on write.
 - Refresh the detection-derived fields (`active_capabilities`, `stack_profile`) from repository reality on every run; <!-- @rule RL-0203 -->
   they are framework-owned outputs, not team config.
-- Reconcile on re-onboard and update, never reset: create a missing team file from its header, regenerate the schemas <!-- @rule RL-6a6f -->
-  and README, and never write a new setting's default into a team file. `doctor` reports a setting this version
-  doesn't know instead of deleting it. MUST NOT rewrite a team's value or reset a file to defaults.
+- Reconcile on re-onboard and update, never reset: re-render each team file from its live values, so new settings <!-- @rule RL-6a6f -->
+  appear commented out and removed ones disappear, keep the team's values and comments, regenerate the schemas and
+  README, and never write a default as a live value. `doctor` reports a setting this version doesn't know instead of
+  deleting it. MUST NOT rewrite a team's value or reset a file to defaults.
 
 ## Evolving the config surface is a decision pause
 
@@ -63,10 +66,11 @@ edit. Before you change the registry:
 1. Pause and confirm with the user (in Claude Code, via AskUserQuestion). This is a repo rule,
    intentionally NOT a distributed DECISION_CATEGORY, so the pause never ships into onboarded projects.
 2. Edit the one FRAMEWORK_CONFIG_SPECS entry (key, PAQAD_* env, type, default, group, comment).
+   The comment is one plain sentence: it is the note people read in the team file.
    Give it a YAML home in TEAM_CONFIG_HOMES (file, path, value translation) and set `since`.
    The resolver, parser, schemas, README, `config show`, validation, and dashboard fields all derive from it.
 3. A test asserts every flat value round-trips through its YAML value.
-4. Nothing is written into team files: the new key shows up in the schema, README and config show.
+4. The new key shows up commented out in its team file, the schema, README and config show.
 ```
 
 ## How this is enforced

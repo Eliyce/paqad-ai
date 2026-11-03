@@ -12,7 +12,7 @@ derivation: agent
 steps:
   - surface: node-cli-onboard
     action: Run `paqad-ai onboard` in the target repository.
-    expect: Framework installed; entry files, config layers and instructions written.
+    expect: Framework installed; entry files and instructions written, and every team file under .paqad/configs/ lists each setting commented out with its default.
   - surface: node-cli-index
     action: Run `paqad-ai index build` to build the code-knowledge index.
     expect: Symbol and import-reachability index ready for reuse and retrieval.

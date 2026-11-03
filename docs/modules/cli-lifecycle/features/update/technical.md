@@ -106,9 +106,12 @@ Source directories owned by this feature:
   temp root that the orchestrator's own cleanup never reaches.
 - Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
   `docs/instructions/workflows/feature-development.yaml` to the YAML team files once, then
-  `syncTeamConfigFiles` creates any missing header-only file, regenerates the schemas in the
-  git-ignored `.paqad/configs/schemas/` and the configs README. `update` never writes a value into
-  a team file, so a new setting's default reaches the team through the code.
+  `syncTeamConfigFiles` creates any missing team file, regenerates the schemas in the
+  git-ignored `.paqad/configs/schemas/` and the configs README, and re-renders every existing team
+  file from its live values, so it lists every setting commented out with its default. It writes a
+  file only when its text changes, names each rewritten file in the update output, and names (and
+  leaves untouched) a file that isn't valid YAML or isn't a map. `update` never writes a default as
+  a live value, so a new setting's default reaches the team through the code.
 - After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
   It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
   instead of running on defaults and updates on its next check. Every current reader (the CLI, the
