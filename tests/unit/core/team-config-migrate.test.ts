@@ -32,6 +32,7 @@ import {
   readSetLines,
   teamConfigMigrationNeeded,
 } from '@/core/team-config-migrate.js';
+import { renderTeamConfigFile } from '@/core/team-config.js';
 import { isMigratedStub } from '@/core/team-config-legacy.js';
 import {
   checkYamlValue,
@@ -87,6 +88,20 @@ function settingLines(lines: string[]): string[] {
   return lines.filter((line) => line.includes(' → '));
 }
 
+describe('the rendered team files after migration (FR-14, AC-30)', () => {
+  for (const name of PROJECTS) {
+    it(`${name}: every own team file is the render of its live values`, () => {
+      useFixture(name);
+      expect(migrateTeamConfig(root, { version: VERSION }).error).toBeUndefined();
+      for (const file of TEAM_CONFIG_FILES) {
+        const text = configs(file);
+        expect(text, file).toBe(renderTeamConfigFile(file, YAML.parseDocument(text), VERSION));
+        expect(text.split('\n')[0], file).toMatch(/^# yaml-language-server: /u);
+      }
+    });
+  }
+});
+
 describe('the four fixture projects', () => {
   for (const name of PROJECTS) {
     it(`${name}: moves every set value and resolves to the same flat values (AC-47, AC-72)`, () => {
@@ -134,7 +149,9 @@ describe('the four fixture projects', () => {
     });
     expect(evidence).not.toContain('(env:');
     expect(evidence).not.toContain('──');
-    expect(configs('retrieval.yaml')).toContain('# Retrieval\nenabled: true');
+    expect(configs('retrieval.yaml')).toContain(
+      '# Retrieval\n# Loads relevant code and docs into context through search.\nenabled: true',
+    );
     expect(settingLines(result.lines)).toEqual([
       'enterprise → feature-development/evidence.yaml: enterprise.enabled = true',
       'enterprise_evidence_ledger → feature-development/evidence.yaml: enterprise.ledger = true',
@@ -226,7 +243,7 @@ describe('the four fixture projects', () => {
       ].join('\n'),
     );
     expect(configs('paqad.yaml')).toContain(
-      'updates:\n  # Pinned because CI images lag behind.\n  minimum_version: 9.9.0',
+      '\nupdates:\n  # Pulls newer paqad versions in the background when a session starts.\n  # automatic: true\n  # Pinned because CI images lag behind.\n  # The lowest paqad version this project runs on, where latest always tracks the newest version.\n  minimum_version: 9.9.0',
     );
     expect(YAML.parse(configs('feature-development/checks.yaml')).mutation_testing).toBe('off');
     expect(configs('feature-development/checks.yaml')).not.toContain('too noisy');

@@ -12,6 +12,7 @@ import {
   type FrameworkConfigSpec,
 } from './framework-config.js';
 import { readTextIfExistsSync } from './fs/read-if-exists.js';
+import { versionAtLeast } from './version-compare.js';
 import { STRUCTURED_TEAM_SETTINGS, writeTeamConfigSchemas } from './team-config-schema.js';
 import {
   legacyBothLine,
@@ -68,17 +69,6 @@ export function teamConfigSchemaRef(file: TeamConfigFile): string {
     : `./schemas/${name}.schema.json`;
 }
 
-export function teamConfigHeader(file: TeamConfigFile, version: string = __PKG_VERSION__): string {
-  return [
-    `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
-    `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
-    "# Only settings this team changed live here; everything else uses paqad's default.",
-    '# See every setting, its value and where it comes from: paqad-ai config show',
-    `paqad_version: "${version}"`,
-    '',
-  ].join('\n');
-}
-
 function renderValue(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
@@ -98,6 +88,36 @@ export function invalidValueMessage(
 
 export function invalidFileMessage(file: TeamConfigFile, parserMessage: string): string {
   return `${file} isn't valid YAML, so none of its settings are used: ${parserMessage}`;
+}
+
+export function notSettingsMapMessage(file: TeamConfigFile): string {
+  return `${file} holds a list or a single value instead of settings, so none of its settings are used.`;
+}
+
+function isOwnTeamConfigFile(file: TeamConfigFile): file is OwnTeamConfigFile {
+  return (TEAM_CONFIG_FILES as readonly string[]).includes(file);
+}
+
+function holdsSettings(document: YAML.Document): boolean {
+  return document.contents === null || YAML.isMap(document.contents);
+}
+
+export function parseTeamConfigText(
+  file: TeamConfigFile,
+  text: string,
+): { document: YAML.Document | null; error?: string; repairs: TeamConfigRepair[] } {
+  const repaired = isOwnTeamConfigFile(file)
+    ? repairTeamConfigText(file, text)
+    : { text, repairs: [] };
+  const document = YAML.parseDocument(repaired.text);
+  if (document.errors.length > 0) {
+    return {
+      document: null,
+      error: document.errors[0]!.message.split('\n')[0]!,
+      repairs: repaired.repairs,
+    };
+  }
+  return { document, repairs: repaired.repairs };
 }
 
 export function readTeamYamlFile(
@@ -181,6 +201,22 @@ export function readTeamConfig(projectRoot: string): TeamConfigRead {
   return { merged, collisions: legacy.collisions, sources, issues };
 }
 
+function setLiveValue(document: YAML.Document, path: readonly string[], value: unknown): void {
+  if (!YAML.isMap(document.contents)) document.contents = new YAML.YAMLMap();
+  let map = document.contents as YAML.YAMLMap;
+  for (const segment of path.slice(0, -1)) {
+    const next: unknown = map.get(segment, true);
+    if (YAML.isMap(next)) {
+      map = next;
+      continue;
+    }
+    const created = new YAML.YAMLMap();
+    map.set(segment, created);
+    map = created;
+  }
+  map.set(path[path.length - 1], document.createNode(value));
+}
+
 export function writeTeamYamlValue(
   projectRoot: string,
   file: TeamConfigFile,
@@ -188,17 +224,28 @@ export function writeTeamYamlValue(
   value: unknown,
 ): string {
   const target = teamConfigPath(projectRoot, file);
-  const existing = readTextIfExistsSync(target) ?? teamConfigHeader(file);
-  const document = YAML.parseDocument(existing);
-  if (document.errors.length > 0) {
-    throw new Error(invalidFileMessage(file, document.errors[0]!.message));
-  }
-  document.setIn([...path], value);
+  const existing = readTextIfExistsSync(target);
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, document.toString({ lineWidth: 0 }), 'utf8');
-  if (file === GIT_WORKFLOW_COMMITS_FILE) {
+  if (!isOwnTeamConfigFile(file)) {
+    const document = YAML.parseDocument(existing ?? '');
+    if (document.errors.length > 0) {
+      throw new Error(invalidFileMessage(file, document.errors[0]!.message));
+    }
+    document.setIn([...path], value);
+    writeFileSync(target, document.toString({ lineWidth: 0 }), 'utf8');
     stampLastApplied(projectRoot, ['commits.yaml']);
+    return target;
   }
+  const { document, error } =
+    existing === null
+      ? { document: new YAML.Document(), error: undefined }
+      : parseTeamConfigText(file, existing);
+  if (error !== undefined || document === null) {
+    throw new Error(invalidFileMessage(file, error ?? ''));
+  }
+  if (!holdsSettings(document)) throw new Error(notSettingsMapMessage(file));
+  setLiveValue(document, path, value);
+  writeFileSync(target, renderTeamConfigFile(file, document), 'utf8');
   return target;
 }
 
@@ -216,7 +263,7 @@ export function ensureTeamConfigFiles(projectRoot: string): string[] {
     const path = teamConfigPath(projectRoot, file);
     mkdirSync(dirname(path), { recursive: true });
     try {
-      writeFileSync(path, teamConfigHeader(file), { encoding: 'utf8', flag: 'wx' });
+      writeFileSync(path, renderTeamConfigFile(file, null), { encoding: 'utf8', flag: 'wx' });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
       throw error;
@@ -226,10 +273,41 @@ export function ensureTeamConfigFiles(projectRoot: string): string[] {
   return created;
 }
 
-export function syncTeamConfigFiles(projectRoot: string): string[] {
-  if (checkoutIsNewer(projectRoot)) return [];
+function writtenVersion(document: YAML.Document): string | undefined {
+  if (!YAML.isMap(document.contents)) return undefined;
+  const version: unknown = document.get('paqad_version');
+  return typeof version === 'string' && /^\d+\.\d+\.\d+/u.test(version) ? version : undefined;
+}
+
+export function syncTeamConfigFiles(
+  projectRoot: string,
+  problems: string[] = [],
+  version: string = __PKG_VERSION__,
+): string[] {
+  if (checkoutIsNewer(projectRoot, version)) return [];
   writeTeamConfigSchemas(projectRoot);
-  return ensureTeamConfigFiles(projectRoot);
+  const written = ensureTeamConfigFiles(projectRoot);
+  for (const file of TEAM_CONFIG_FILES) {
+    const path = teamConfigPath(projectRoot, file);
+    if (written.includes(path)) continue;
+    const text = readTextIfExistsSync(path);
+    if (text === null) continue;
+    const { document, error } = parseTeamConfigText(file, text);
+    if (error !== undefined || document === null) {
+      problems.push(invalidFileMessage(file, error ?? ''));
+      continue;
+    }
+    if (!holdsSettings(document)) {
+      problems.push(notSettingsMapMessage(file));
+      continue;
+    }
+    const stamped = writtenVersion(document);
+    if (stamped !== undefined && !versionAtLeast(version, stamped)) continue;
+    if (renderTeamConfigFile(file, document, stamped ?? version) === text) continue;
+    writeFileSync(path, renderTeamConfigFile(file, document, version), 'utf8');
+    written.push(path);
+  }
+  return written;
 }
 
 export const TEAM_CONFIG_HEADER_LINES = [

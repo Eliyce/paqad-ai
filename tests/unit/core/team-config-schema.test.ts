@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { FRAMEWORK_CONFIG_SPECS } from '@/core/framework-config.js';
-import { teamConfigHeader, teamConfigSchemaRef } from '@/core/team-config.js';
+import { renderTeamConfigFile, teamConfigSchemaRef } from '@/core/team-config.js';
 import {
   generateTeamConfigSchema,
   STRUCTURED_TEAM_SETTINGS,
@@ -83,7 +83,9 @@ describe('team config schemas', () => {
         expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(generateTeamConfigSchema(file));
         const fromFile = join(root, '.paqad/configs', file, '..', teamConfigSchemaRef(file));
         expect(fromFile).toBe(path);
-        expect(teamConfigHeader(file)).toContain(teamConfigSchemaRef(file));
+        expect(renderTeamConfigFile(file, null).split('\n')[0]).toBe(
+          `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
+        );
       }
     } finally {
       rmSync(root, { recursive: true, force: true });

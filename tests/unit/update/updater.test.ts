@@ -628,14 +628,51 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(false);
     });
   });
+  describe('re-rendering the team files on update', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    it('AC-18, AC-8 and AC-10: names each rewritten file and each broken one, and rewrites nothing on a rerun', async () => {
+      await run();
+      const configs = join(projectRoot, '.paqad/configs');
+      const paqad = join(configs, 'paqad.yaml');
+      writeFileSync(paqad, 'paqad_version: "1.117.0"\nenabled: false\n');
+      const broken = 'enabled: [true\n';
+      writeFileSync(join(configs, 'models.yaml'), broken);
+      const report = await run();
+      const notes = report.git_workflow_notes ?? [];
+      expect(notes).toContain(
+        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your values and notes are kept.',
+      );
+      expect(notes.filter((line) => line.startsWith('Rewrote '))).toHaveLength(1);
+      expect(notes.some((line) => line.startsWith("models.yaml isn't valid YAML"))).toBe(true);
+      expect(readFileSync(join(configs, 'models.yaml'), 'utf8')).toBe(broken);
+      expect(YAML.parse(readFileSync(paqad, 'utf8'))).toEqual({
+        paqad_version: VERSION,
+        enabled: false,
+      });
+      const again = await run();
+      expect(
+        (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
+      ).toEqual([]);
+    });
+  });
+
   describe('the team-config migration on update', () => {
     const FIXTURES = join(__dirname, '../../fixtures/team-config');
     const OLD_FILES = ['.config.rag', '.config.models', '.config.policy'];
     const KEPT_COMMENTS: Record<string, Array<[string, string]>> = {
-      'project-a': [['retrieval.yaml', '# Retrieval\nenabled: true']],
+      'project-a': [
+        [
+          'retrieval.yaml',
+          '# Retrieval\n# Loads relevant code and docs into context through search.\nenabled: true',
+        ],
+      ],
       'project-b': [],
       'project-c': [
-        ['paqad.yaml', '  # Pinned because CI images lag behind.\n  minimum_version: 9.9.0'],
+        [
+          'paqad.yaml',
+          '  # Pinned because CI images lag behind.\n  # The lowest paqad version this project runs on, where latest always tracks the newest version.\n  minimum_version: 9.9.0',
+        ],
       ],
       'project-d': [],
     };

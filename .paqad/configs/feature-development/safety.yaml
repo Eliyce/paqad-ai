@@ -1,5 +1,21 @@
 # yaml-language-server: $schema=../schemas/feature-development/safety.schema.json
 # Destructive operations, risky migrations, security findings and database review.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# Requires a database review when a change includes migrations.
+# database_review_for_migrations: required
+
+# Whether paqad blocks, asks you about or warns on a destructive operation.
+# destructive_operations: block
+
+# Whether paqad blocks, asks you about or warns on a risky migration.
+# risky_migrations: warn
+
+# Whether paqad blocks, asks you about or warns on a security finding.
+# security_findings: block
+
+# A data change that touches more rows than this is treated as risky.
+# large_data_change_rows: 10000

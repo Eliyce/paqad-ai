@@ -166,7 +166,13 @@ export class FrameworkUpdater {
     const gitWorkflowNotes = updateGitWorkflow(projectRoot);
     const teamConfigMigration = migrateTeamConfig(projectRoot);
     if (teamConfigMigration.ran) gitWorkflowNotes.push(...teamConfigMigration.lines);
-    syncTeamConfigFiles(projectRoot);
+    const teamConfigProblems: string[] = [];
+    for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {
+      gitWorkflowNotes.push(
+        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your values and notes are kept.`,
+      );
+    }
+    gitWorkflowNotes.push(...teamConfigProblems);
     gitWorkflowNotes.push(...rebuildFeatureDevelopmentView(projectRoot));
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 

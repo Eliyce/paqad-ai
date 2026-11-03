@@ -154,12 +154,15 @@ describe('setting notes (AC-9)', () => {
   });
 
   it('flags a note with a code, a dash, a value list or two sentences', () => {
-    for (const bad of ['S6 trigger test.', 'Lint (AG-003) cap.', 'a — b.', 'on | off.', 'One. Two.']) {
+    for (const bad of [
+      'S6 trigger test.',
+      'Lint (AG-003) cap.',
+      'a — b.',
+      'on | off.',
+      'One. Two.',
+    ]) {
       const plain =
-        !CODE.test(bad) &&
-        !/[–—]/u.test(bad) &&
-        !bad.includes(' | ') &&
-        !/\.\s+[A-Z]/u.test(bad);
+        !CODE.test(bad) && !/[–—]/u.test(bad) && !bad.includes(' | ') && !/\.\s+[A-Z]/u.test(bad);
       expect(plain, bad).toBe(false);
     }
   });

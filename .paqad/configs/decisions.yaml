@@ -1,5 +1,15 @@
 # yaml-language-server: $schema=./schemas/decisions.schema.json
 # When paqad stops to ask you, in any workflow.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# How often paqad stops to ask you instead of making a choice itself.
+# ask: often
+
+# The most decision screens paqad shows for one change.
+# max_screens_per_change: 3
+
+# Minutes a pending decision waits for an answer before paqad settles it itself.
+# auto_resolve_after_minutes: 30

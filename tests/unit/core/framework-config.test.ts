@@ -42,8 +42,13 @@ import {
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
-import { syncTeamConfigFiles, teamConfigHeader } from '@/core/team-config.js';
-import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
+import {
+  readTeamConfig,
+  renderTeamConfigFile,
+  syncTeamConfigFiles,
+  teamConfigSchemaRef,
+} from '@/core/team-config.js';
+import { TEAM_CONFIG_FILE_DESCRIPTIONS, TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
 declare const __PKG_VERSION__: string;
@@ -832,12 +837,12 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('onboard writes every team file with only its header; everything resolves to defaults', () => {
+  it('AC-1: onboard writes every team file with every setting commented out; everything resolves to defaults', () => {
     const written = syncTeamConfigFiles(root);
     expect(written).toHaveLength(TEAM_CONFIG_FILES.length);
     for (const file of TEAM_CONFIG_FILES) {
       expect(readFileSync(join(root, '.paqad', 'configs', file), 'utf8')).toBe(
-        teamConfigHeader(file),
+        renderTeamConfigFile(file, null),
       );
     }
     expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
@@ -848,14 +853,111 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     expect(syncTeamConfigFiles(root)).toEqual([]);
   });
 
-  it('never writes a new setting into an existing team file (AC-67)', () => {
+  it('never writes a default as a live value into an existing team file (AC-67)', () => {
     const text = '# our team header\nenterprise:\n  enabled: true\n';
+    const path = join(root, '.paqad/configs/feature-development/evidence.yaml');
     mkdirSync(join(root, '.paqad', 'configs', 'feature-development'), { recursive: true });
-    writeFileSync(join(root, '.paqad/configs/feature-development/evidence.yaml'), text);
+    writeFileSync(path, text);
     syncTeamConfigFiles(root);
-    expect(
-      readFileSync(join(root, '.paqad/configs/feature-development/evidence.yaml'), 'utf8'),
-    ).toBe(text);
+    const after = readFileSync(path, 'utf8');
+    expect(after).toBe(
+      renderTeamConfigFile('feature-development/evidence.yaml', YAML.parseDocument(text)),
+    );
+    expect(after).toContain('\n# our team header\n');
+    const live = YAML.parse(after) as Record<string, unknown>;
+    delete live.paqad_version;
+    expect(live).toEqual({ enterprise: { enabled: true } });
+  });
+
+  function teamPath(file: string): string {
+    return join(root, '.paqad', 'configs', file);
+  }
+
+  function writeHeaderOnly(version = '1.117.0'): void {
+    for (const file of TEAM_CONFIG_FILES) {
+      mkdirSync(join(teamPath(file), '..'), { recursive: true });
+      writeFileSync(
+        teamPath(file),
+        [
+          `# yaml-language-server: $schema=${teamConfigSchemaRef(file)}`,
+          `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
+          "# Only settings this team changed live here; everything else uses paqad's default.",
+          '# See every setting, its value and where it comes from: paqad-ai config show',
+          `paqad_version: "${version}"`,
+          '',
+        ].join('\n'),
+      );
+    }
+  }
+
+  it('AC-2 and AC-18: re-renders header-only 1.117.0 files and keeps the live values', () => {
+    writeHeaderOnly();
+    writeFileSync(
+      teamPath('retrieval.yaml'),
+      `${readFileSync(teamPath('retrieval.yaml'), 'utf8')}enabled: true\nembeddings:\n  provider: openai\n  model: text-embedding-3-small\n`,
+    );
+    const before = readTeamConfig(root).merged;
+    const written = syncTeamConfigFiles(root, [], '1.118.0');
+    expect(written.sort()).toEqual(TEAM_CONFIG_FILES.map((file) => teamPath(file)).sort());
+    const retrieval = readFileSync(teamPath('retrieval.yaml'), 'utf8');
+    expect(retrieval).toContain('\nenabled: true\n');
+    expect(retrieval).toContain('\nembeddings:\n');
+    expect(retrieval).toContain('\n  provider: openai\n');
+    expect(retrieval).toContain('\n  model: text-embedding-3-small\n');
+    expect(retrieval).toContain('\n# match:\n');
+    expect(retrieval).toContain('\n# index:\n');
+    expect([...readTeamConfig(root).merged]).toEqual([...before]);
+    for (const file of TEAM_CONFIG_FILES) {
+      expect(readFileSync(teamPath(file), 'utf8')).toContain('paqad_version: "1.118.0"');
+    }
+  });
+
+  it('AC-10 and NFR-1: a second sync writes nothing and leaves the files byte-identical', () => {
+    writeHeaderOnly();
+    syncTeamConfigFiles(root, [], '1.118.0');
+    const first = TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'));
+    expect(syncTeamConfigFiles(root, [], '1.118.0')).toEqual([]);
+    expect(syncTeamConfigFiles(root, [], '1.119.0')).toEqual([]);
+    expect(TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'))).toEqual(first);
+  });
+
+  it('AC-23 and INV-5: never rewrites a file stamped by a newer paqad', () => {
+    writeHeaderOnly('9.0.0');
+    const before = TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'));
+    expect(syncTeamConfigFiles(root, [], '1.118.0')).toEqual([]);
+    expect(TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'))).toEqual(before);
+  });
+
+  it('AC-4: a setting the team set that paqad no longer knows moves under the Not a paqad setting line', () => {
+    syncTeamConfigFiles(root);
+    const path = teamPath('models.yaml');
+    writeFileSync(path, `${readFileSync(path, 'utf8')}\nmodels:\n  retired_model: old\n`);
+    syncTeamConfigFiles(root);
+    const after = readFileSync(path, 'utf8');
+    expect(after).toContain(
+      '\n# Not a paqad setting, so paqad ignores it (kept as written):\nmodels:\n  retired_model: old\n',
+    );
+    expect(after).toContain('\n# models:\n');
+  });
+
+  it('AC-8, AC-21 and INV-7: leaves an invalid or non-map file byte-identical and names it', () => {
+    syncTeamConfigFiles(root);
+    const broken = 'enabled: [true\n';
+    const list = '- one\n- two\n';
+    writeFileSync(teamPath('paqad.yaml'), broken);
+    writeFileSync(teamPath('models.yaml'), list);
+    writeFileSync(teamPath('decisions.yaml'), '');
+    const problems: string[] = [];
+    const written = syncTeamConfigFiles(root, problems);
+    expect(readFileSync(teamPath('paqad.yaml'), 'utf8')).toBe(broken);
+    expect(readFileSync(teamPath('models.yaml'), 'utf8')).toBe(list);
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toMatch(/^paqad\.yaml isn't valid YAML/u);
+    expect(problems[1]).toMatch(/^models\.yaml holds a list or a single value/u);
+    expect(written).toEqual([teamPath('decisions.yaml')]);
+    expect(readFileSync(teamPath('decisions.yaml'), 'utf8')).toBe(
+      renderTeamConfigFile('decisions.yaml', null),
+    );
   });
 
   it('writes .paqad/configs/README.md matching generateConfigsReadme() (AC-67)', () => {

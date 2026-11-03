@@ -1,11 +1,34 @@
 # yaml-language-server: $schema=../schemas/feature-development/evidence.schema.json
 # The proof a change leaves: bundle, report, metrics, screenshots and enterprise outputs.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
 enterprise:
+  # Turns on the enterprise and governance outputs as a group.
   enabled: true
+  # Writes the receipt and evidence ledger for each change under .paqad/ledger/.
   ledger: true
+  # Writes an AI bill of materials (ai-bom.json, in CycloneDX format) for each change.
   ai_bom: true
+  # Adds compliance framework citations to the receipt, which spends extra tokens.
   compliance_citations: true
+
+# screenshots:
+#   # Captures screenshots of documented flows as proof for frontend changes in coding projects.
+#   enabled: false
+#   # How firmly the screenshot check holds a frontend change with missing screenshots, and a personal setting may only make it stricter.
+#   gate: warn
+
+# Writes a local evidence report page for each change when it finishes, at no model cost.
 report: true
+
+# Measures duplication and reuse in the new code of each change and shows them on the receipt and dashboard.
+# change_metrics: true
+
+# How firmly paqad checks at the end of a change that its evidence bundle holds every required file.
+# bundle: block
+
+# An older evidence check that runs only while the bundle check is off and never blocks a change.
+# legacy_existence_check: warn

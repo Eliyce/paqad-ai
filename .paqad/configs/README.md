@@ -1,7 +1,8 @@
 # paqad team configuration (`.paqad/configs/`)
 
-Tracked, team-shared settings, in small YAML files that hold only what this team
-changed. A setting that isn't in a file uses paqad's default.
+Tracked, team-shared settings, in YAML files that list every setting they can hold,
+commented out with paqad's default and a note. A setting left commented out uses
+paqad's default.
 
 - `paqad.yaml` — The package itself: on/off, updates, Claude Code install, HUD and Site Map.
 - `models.yaml` — Which models paqad uses and how deep research goes.
@@ -25,13 +26,15 @@ Run `paqad-ai config show` to see every setting, its value and where it comes fr
 
 ## How to use
 
-- Add a setting at its path to change it; delete the line to go back to the default.
+- Remove the `#` in front of a setting (and in front of its group name) to change it;
+  put the `#` back to go back to the default.
 - Each file starts with a `# yaml-language-server` line, so VS Code (with the Red Hat
   YAML extension) and JetBrains IDEs offer every setting with its description,
   default and allowed values.
 - Gates use one vocabulary: `off | warn | block`.
 - `paqad-ai update` never changes a value you set. It regenerates the schemas and this
-  README, and creates any missing file with only its header.
+  README, and rewrites each team file so new settings show up commented out and
+  removed ones disappear, keeping your values and notes.
 
 ## Personal overrides
 
