@@ -265,6 +265,26 @@ describe('one-copy handshake', () => {
     ]);
   });
 
+  it('spawns no config view and writes nothing under docs/instructions/workflows/', () => {
+    const env = pluginEnv();
+    const projectRoot = env.CLAUDE_PROJECT_DIR as string;
+    writeFileSync(
+      join(projectRoot, '.paqad', 'project-profile.yaml'),
+      'active_capabilities:\n  - coding\n',
+    );
+    const calls: unknown[] = [];
+    runPluginSessionStart(
+      env,
+      { session_id: 's-no-view', cwd: projectRoot },
+      { tick: () => {}, viewRefresh: (args: unknown) => calls.push(args) },
+    );
+    expect(calls).toEqual([]);
+    expect(
+      readFileSync(join(__dirname, '../../../runtime/hooks/plugin-session-start.mjs'), 'utf8'),
+    ).not.toMatch(/'config',\s*'view'|view-refresh/);
+    expect(existsSync(join(projectRoot, 'docs', 'instructions', 'workflows'))).toBe(false);
+  });
+
   it('ticks even in a project that was never onboarded (a plugin-only machine still confirms)', () => {
     const env = pluginEnv({ CLAUDE_PROJECT_DIR: join(root, 'not-onboarded') });
     mkdirSync(env.CLAUDE_PROJECT_DIR as string, { recursive: true });

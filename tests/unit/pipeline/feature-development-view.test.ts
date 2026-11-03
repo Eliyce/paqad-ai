@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,10 +16,6 @@ import {
   viewEditedByHand,
 } from '@/pipeline/feature-development-view.js';
 import { SchemaValidator } from '@/validators/validator.js';
-import {
-  maybeSpawnViewRefresh,
-  viewRefreshDue,
-} from '../../../runtime/hooks/lib/feature-view-refresh.mjs';
 
 let root: string;
 
@@ -130,42 +118,5 @@ describe('the generated feature-development view', () => {
     write(PATHS.PROJECT_PROFILE, 'active_capabilities:\n  - content\n');
     expect(refreshFeatureDevelopmentView(root).status).toBe('skipped');
     expect(existsSync(featureDevelopmentViewPath(root))).toBe(false);
-  });
-});
-
-describe('the SessionStart refresh', () => {
-  it('spawns the CLI rebuild off the hook path when a source is newer than the view', () => {
-    expect(viewRefreshDue(root)).toBe(true);
-    refreshFeatureDevelopmentView(root);
-    expect(viewRefreshDue(root)).toBe(false);
-    write('.paqad/configs/feature-development/checks.yaml', 'on_failure: warn\n');
-    const later = new Date(Date.now() + 5000);
-    utimesSync(join(root, '.paqad/configs/feature-development/checks.yaml'), later, later);
-    expect(viewRefreshDue(root)).toBe(true);
-    const calls: unknown[][] = [];
-    const spawned = maybeSpawnViewRefresh({
-      projectRoot: root,
-      cliPath: '/cli/index.js',
-      env: {},
-      spawn: (...args: unknown[]) => {
-        calls.push(args);
-        return { unref: () => {}, on: () => {} };
-      },
-    });
-    expect(spawned).toBe(true);
-    expect(calls[0]![1]).toEqual(['/cli/index.js', 'config', 'view', '--project-root', root]);
-    expect(calls[0]![2]).toMatchObject({ detached: true, stdio: 'ignore' });
-  });
-
-  it('never throws when the spawn fails', () => {
-    expect(
-      maybeSpawnViewRefresh({
-        projectRoot: root,
-        cliPath: '/cli/index.js',
-        spawn: () => {
-          throw new Error('boom');
-        },
-      }),
-    ).toBe(false);
   });
 });

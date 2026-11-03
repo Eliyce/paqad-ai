@@ -770,6 +770,29 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       removeTempProject(projectRoot);
     }
   });
+
+  it('spawns no config view and writes nothing under docs/instructions/workflows/', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-no-view-'));
+    try {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+      writeFileSync(
+        join(projectRoot, '.paqad/project-profile.yaml'),
+        'active_capabilities:\n  - coding\n',
+      );
+      execFileSync('node', [RESET_SCRIPT], {
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
+        input: JSON.stringify({ session_id: 'no-view-1' }),
+      });
+      expect(readFileSync(RESET_SCRIPT, 'utf8')).not.toMatch(/'config',\s*'view'|view-refresh/);
+      expect(existsSync(join(projectRoot, 'docs/instructions/workflows'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/state/feature-development-view.sha256'))).toBe(
+        false,
+      );
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
 });
 
 describe('per-session entry sentinel', () => {
