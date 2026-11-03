@@ -38,8 +38,9 @@ export const STAGE_BRIEF_ENTRY_LINE =
 export const STAGE_BRIEF_NO_CHANGE_LINE =
   'No active change was found; ask nothing, use the change ref the orchestrator gave you.';
 
-export const STAGE_BRIEF_MORE_LINE =
-  'More instructions for this stage are in docs/instructions/workflows/feature-development.yaml.';
+export function stageBriefMoreLine(stage: string): string {
+  return `This brief was shortened. Run \`paqad-ai stage brief ${stage} --full\` to see every instruction for this stage.`;
+}
 
 const PREVIOUS_PILLARS: Readonly<Record<string, readonly FeatureBundleFile[]>> = {
   planning: [],
@@ -138,6 +139,7 @@ function bulletList(items: readonly string[], empty: string): string[] {
 export interface StageBriefOptions {
   agentId?: unknown;
   resumed?: boolean;
+  full?: boolean;
 }
 
 export function safeAgentId(agentId: unknown): string | null {
@@ -166,6 +168,7 @@ function commandsSection(stage: string, sessionId: string, agentId: string | nul
 }
 
 interface BriefParts {
+  stage: string;
   head: string[];
   read: string[];
   instructions: string[];
@@ -182,7 +185,7 @@ function render(parts: BriefParts, truncated: boolean): string {
     '## Stage instructions',
     '',
     ...bulletList(parts.instructions, 'No extra instructions for this stage.'),
-    ...(truncated ? ['', STAGE_BRIEF_MORE_LINE] : []),
+    ...(truncated ? ['', stageBriefMoreLine(parts.stage)] : []),
     '',
     ...parts.tail,
   ].join('\n');
@@ -268,12 +271,14 @@ export function buildStageBrief(
     '',
     ...commandsSection(stage, sessionId, agentId),
   ];
-  return fitToBudget({
+  const parts: BriefParts = {
+    stage,
     head,
     read: stageReads(stage, projectRoot, sessionId, policy.read),
     instructions: policy.instructions,
     tail,
-  });
+  };
+  return options.full === true ? render(parts, false) : fitToBudget(parts);
 }
 
 export function stageBriefHookOutput(brief: string): string {

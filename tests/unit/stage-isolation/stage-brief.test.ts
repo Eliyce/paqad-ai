@@ -19,9 +19,9 @@ import {
   seedStageAgent,
   STAGE_BRIEF_ENTRY_LINE,
   STAGE_BRIEF_MAX_CHARS,
-  STAGE_BRIEF_MORE_LINE,
   STAGE_BRIEF_NO_CHANGE_LINE,
   stageBriefHookOutput,
+  stageBriefMoreLine,
   stageHelperStage,
 } from '@/stage-isolation/stage-brief.js';
 import {
@@ -99,13 +99,12 @@ describe('buildStageBrief', () => {
         expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end ${stage} --artifact`);
         expect(brief).toContain(STAGE_BRIEF_ENTRY_LINE);
         expect(brief).not.toMatch(/already recorded/i);
-        expect(brief).not.toContain(STAGE_BRIEF_MORE_LINE);
+        expect(brief).not.toContain('This brief was shortened.');
       }
     },
   );
 
-  it('drops instruction lines from the end and points at the workflow file when it overflows', () => {
-    const root = tempRoot();
+  function overflowingDevelopment(root: string): void {
     const lines = Array.from(
       { length: 40 },
       (_, index) => `      - "Overflow instruction ${index} ${'x'.repeat(400)}"`,
@@ -115,12 +114,59 @@ describe('buildStageBrief', () => {
       ['stages:', '  development:', '    instructions:', ...lines, ''].join('\n'),
       'utf8',
     );
+  }
+
+  it('drops instruction lines from the end and ends with the --full line when it overflows', () => {
+    const root = tempRoot();
+    overflowingDevelopment(root);
     const brief = buildStageBrief('development', root, SESSION);
     expect(brief.length).toBeLessThanOrEqual(STAGE_BRIEF_MAX_CHARS);
-    expect(brief).toContain(STAGE_BRIEF_MORE_LINE);
+    expect(brief).toContain(
+      'This brief was shortened. Run `paqad-ai stage brief development --full` to see every instruction for this stage.',
+    );
+    expect(brief).not.toContain('docs/instructions/workflows/feature-development.yaml');
     expect(brief).toContain('Overflow instruction 0 ');
     expect(brief).not.toContain('Overflow instruction 39 ');
     expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --artifact`);
+  });
+
+  it('prints every instruction and no shortened line with full', () => {
+    const root = tempRoot();
+    overflowingDevelopment(root);
+    const brief = buildStageBrief('development', root, SESSION, { full: true });
+    expect(brief.length).toBeGreaterThan(STAGE_BRIEF_MAX_CHARS);
+    expect(brief).toContain('Overflow instruction 0 ');
+    expect(brief).toContain('Overflow instruction 39 ');
+    expect(brief).not.toContain('This brief was shortened.');
+    expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --artifact`);
+  });
+
+  it('prints the same short brief with or without full', () => {
+    const root = tempRoot();
+    expect(buildStageBrief('review', root, SESSION, { full: true })).toBe(
+      buildStageBrief('review', root, SESSION),
+    );
+  });
+
+  it('shows no shortened line on a brief of exactly the cap', () => {
+    const root = tempRoot();
+    const base = buildStageBrief('review', root, SESSION);
+    const extra = '- Pad '.length;
+    const pad = 'p'.repeat(STAGE_BRIEF_MAX_CHARS - base.length - extra - 1);
+    writeFileSync(
+      join(teamDir(root), 'workflow.yaml'),
+      `stages:\n  review:\n    instructions:\n      - "Pad ${pad}"\n`,
+      'utf8',
+    );
+    const brief = buildStageBrief('review', root, SESSION);
+    expect(brief.length).toBe(STAGE_BRIEF_MAX_CHARS);
+    expect(brief).not.toContain('This brief was shortened.');
+  });
+
+  it('names the real stage in the shortened line', () => {
+    expect(stageBriefMoreLine('review')).toBe(
+      'This brief was shortened. Run `paqad-ai stage brief review --full` to see every instruction for this stage.',
+    );
   });
 
   it('drops read entries once no instruction line is left to drop', () => {
@@ -136,7 +182,7 @@ describe('buildStageBrief', () => {
     );
     const brief = buildStageBrief('review', root, SESSION);
     expect(brief.length).toBeLessThanOrEqual(STAGE_BRIEF_MAX_CHARS);
-    expect(brief).toContain(STAGE_BRIEF_MORE_LINE);
+    expect(brief).toContain(stageBriefMoreLine('review'));
     expect(brief).toContain('No extra instructions for this stage.');
   });
 
