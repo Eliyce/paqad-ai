@@ -1,5 +1,3 @@
-import { join } from 'node:path';
-
 import { readAnalyticsDecision } from '@/analytics/gate.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
@@ -98,10 +96,6 @@ export function reusePlanningInstructions(
     }
   }
   return instructions;
-}
-
-export function featureDevelopmentPolicyPath(projectRoot: string): string {
-  return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
 }
 
 export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {

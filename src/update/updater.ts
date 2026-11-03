@@ -16,7 +16,6 @@ import {
 } from '@/core/framework-config.js';
 import { syncTeamConfigFiles } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
-import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
@@ -173,7 +172,6 @@ export class FrameworkUpdater {
       );
     }
     gitWorkflowNotes.push(...teamConfigProblems);
-    gitWorkflowNotes.push(...rebuildFeatureDevelopmentView(projectRoot));
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {

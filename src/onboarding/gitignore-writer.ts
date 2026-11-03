@@ -63,7 +63,6 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'compliance/',
   'tmp/',
   'configs/schemas/',
-  'state/feature-development-view.sha256',
 ];
 
 const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];

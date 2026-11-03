@@ -10,7 +10,6 @@ import {
   FEATURE_DEVELOPMENT_VIEW_RELATIVE,
   featureDevelopmentViewPath,
   isGeneratedView,
-  refreshFeatureDevelopmentView,
 } from '@/pipeline/feature-development-view.js';
 
 import { PATHS } from './constants/paths.js';
@@ -561,12 +560,12 @@ export function migrateTeamConfig(
   for (const write of [...writes, stubWrite]) {
     (write.existed ? result.replaced : result.created).push(rel(write.path));
   }
-  const replaceView = legacyWorkflow !== null && workflowReadable;
-  if (replaceView) result.replaced.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
+  const deleteView = legacyWorkflow !== null && workflowReadable;
   const toDelete = legacy
     .filter((file) => file.name !== CONFIG_GROUP_FILES.app)
     .map((file) => file.path);
   result.deleted.push(...toDelete.map(rel));
+  if (deleteView) result.deleted.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
 
   if (!dryRun) {
     try {
@@ -574,10 +573,9 @@ export function migrateTeamConfig(
         mkdirSync(dirname(write.path), { recursive: true });
         writeFileSync(write.path, write.text, 'utf8');
       }
-      if (replaceView) {
+      if (deleteView) {
         const tracked = isTracked(projectRoot, FEATURE_DEVELOPMENT_VIEW_RELATIVE);
         rmSync(viewPath, { force: true });
-        refreshFeatureDevelopmentView(projectRoot);
         if (tracked) untrack(projectRoot, FEATURE_DEVELOPMENT_VIEW_RELATIVE);
       }
       writeFileSync(stubWrite.path, stubWrite.text, 'utf8');

@@ -164,11 +164,11 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('tmp/');
   });
 
-  it('ignores the generated schemas and the feature-development view hash', () => {
+  it('ignores the generated schemas and no longer the feature-development view hash', () => {
     writeGitignore(projectRoot);
     const lines = read(projectRoot, '.paqad/.gitignore').split('\n');
     expect(lines).toContain('configs/schemas/');
-    expect(lines).toContain('state/feature-development-view.sha256');
+    expect(lines).not.toContain('state/feature-development-view.sha256');
   });
 
   it('keeps the old spec folder line while that folder still exists, and drops it after', () => {

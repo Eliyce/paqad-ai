@@ -16,7 +16,6 @@ import {
 } from '@/core/framework-config.js';
 import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
-import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -247,7 +246,6 @@ export class OnboardingOrchestrator {
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
       syncTeamConfigFiles(options.projectRoot);
-      onboardingWarnings.push(...rebuildFeatureDevelopmentView(options.projectRoot));
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {

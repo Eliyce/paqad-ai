@@ -15,18 +15,10 @@ import {
   unknownSettingLine,
   unknownTeamConfigSettings,
 } from '@/core/team-config-report.js';
-import {
-  FEATURE_DEVELOPMENT_VIEW_RELATIVE,
-  viewEditedByHand,
-} from '@/pipeline/feature-development-view.js';
 
 export const TEAM_CONFIG_CHECK = 'team-config';
 
 const MIGRATE = 'Run paqad-ai config migrate.';
-
-export function viewEditedByHandLine(): string {
-  return `${FEATURE_DEVELOPMENT_VIEW_RELATIVE} was edited by hand. Changes go in .paqad/configs/feature-development/; it is regenerated on the next session.`;
-}
 
 function result(
   status: 'warning' | 'fail',
@@ -60,15 +52,6 @@ export function teamConfigHealth(projectRoot: string): HealthCheckResult[] {
   const legacyStatus = releasedAfterLegacyWindow() ? 'fail' : 'warning';
   for (const file of legacyFilesWithSettings(projectRoot)) {
     results.push(result(legacyStatus, legacyShouldMoveLine(file), MIGRATE));
-  }
-  if (viewEditedByHand(projectRoot)) {
-    results.push(
-      result(
-        'warning',
-        viewEditedByHandLine(),
-        'Move the edit to .paqad/configs/feature-development/ and start a new session.',
-      ),
-    );
   }
   if (results.length > 0) return results;
   return [

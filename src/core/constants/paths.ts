@@ -8,7 +8,6 @@ export const PATHS = {
   PROJECT_CONFIGS_DIR: '.paqad/configs',
   PROJECT_CONFIGS_README: '.paqad/configs/README.md',
   PROJECT_CONFIG_SCHEMAS_DIR: '.paqad/configs/schemas',
-  FEATURE_DEVELOPMENT_VIEW_HASH: '.paqad/state/feature-development-view.sha256',
   DETECTION_REPORT: '.paqad/detection-report.json',
   ONBOARDING_MANIFEST: '.paqad/onboarding-manifest.json',
   RAG_IGNORE_CONFIG: '.paqad/rag.ignore.yaml',

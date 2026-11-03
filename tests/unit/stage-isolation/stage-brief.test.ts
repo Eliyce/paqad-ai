@@ -24,11 +24,7 @@ import {
   stageBriefMoreLine,
   stageHelperStage,
 } from '@/stage-isolation/stage-brief.js';
-import {
-  defaultFeatureDevelopmentPolicy,
-  loadFeatureDevelopmentPolicy,
-} from '@/pipeline/feature-development-policy.js';
-import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
+import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 
@@ -45,12 +41,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-function policyDir(root: string): string {
-  const dir = join(root, 'docs/instructions/workflows');
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
 function teamDir(root: string): string {
   const dir = join(root, '.paqad/configs/feature-development');
   mkdirSync(dir, { recursive: true });
@@ -59,10 +49,6 @@ function teamDir(root: string): string {
 
 function withRepoPolicy(root: string): string {
   cpSync(REPO_TEAM_DIR, teamDir(root), { recursive: true });
-  writeFileSync(
-    join(policyDir(root), 'feature-development.yaml'),
-    renderFeatureDevelopmentView(loadFeatureDevelopmentPolicy(process.cwd()).policy),
-  );
   return root;
 }
 
