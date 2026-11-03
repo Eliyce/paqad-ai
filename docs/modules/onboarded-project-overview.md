@@ -314,6 +314,8 @@ Expert personas: the two new pickable experts [QA Engineer](../../runtime/capabi
 - [`rule-script-runner`](../../runtime/base/skills/rule-script-runner/SKILL.md) — execute registered scripts diff-scoped in checks. Knows: instructions, source.
 
 ### Security (pentest workflow + review)
+Entry skill: [`pentest`](../../runtime/capabilities/security/skills/pentest/SKILL.md), which runs the
+helpers below in order and `pentest-retest` as its Retest mode through `retest-verification`. Helpers:
 [`stride-threat-model`](../../runtime/capabilities/security/skills/stride-threat-model/SKILL.md),
 [`business-logic-abuse-review`](../../runtime/capabilities/security/skills/business-logic-abuse-review/SKILL.md),
 [`auth-mechanism-review`](../../runtime/capabilities/security/skills/auth-mechanism-review/SKILL.md),
@@ -330,6 +332,8 @@ and the [security-auditor](../../runtime/capabilities/security/agents/security-a
 Backed by [`pentest-engine`](pentest-engine/index/summary.md). Knows: docs/modules, source, tests.
 
 ### UI / design (design-test workflow)
+Entry skill: [`design-test`](../../runtime/capabilities/coding/skills/design-test/SKILL.md), which runs
+the review helpers below in order and `design-retest` as its Retest mode. Helpers and related skills:
 [`design-system-coverage`](../../runtime/capabilities/coding/skills/design-system-coverage/SKILL.md),
 [`token-conformance-review`](../../runtime/capabilities/coding/skills/token-conformance-review/SKILL.md),
 [`component-conformance-review`](../../runtime/capabilities/coding/skills/component-conformance-review/SKILL.md),
