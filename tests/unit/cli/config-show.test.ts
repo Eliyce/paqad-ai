@@ -80,7 +80,7 @@ describe('config show', () => {
   });
 });
 
-describe('config show on rendered team files (#830)', () => {
+describe('config show on rendered team files', () => {
   function files(): void {
     syncTeamConfigFiles(root);
   }
