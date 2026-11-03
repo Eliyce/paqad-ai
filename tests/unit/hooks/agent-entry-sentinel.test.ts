@@ -39,7 +39,6 @@ describe('agent-entry sentinel staleness walk', () => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-sentinel-'));
     write('CLAUDE.md', OLDER);
     write('.paqad/framework-path.txt', OLDER);
-    write('docs/instructions/workflows/feature-development.yaml', OLDER);
     write('docs/instructions/stack/overview.md', OLDER);
     const sentinel = sentinelPath(projectRoot, SESSION);
     mkdirSync(join(sentinel, '..'), { recursive: true });
@@ -74,12 +73,19 @@ describe('agent-entry sentinel staleness walk', () => {
     expect(sentinelState(projectRoot, {}, undefined, SESSION)).toBe('fresh');
   });
 
-  it('AC-45: goes stale on a workflow change and names only that file', () => {
+  it('stays fresh when a file under docs/instructions/workflows/ changes', () => {
     write('docs/instructions/workflows/feature-development.yaml');
+    write('docs/instructions/workflows/rca.yaml');
+
+    expect(sentinelState(projectRoot, {}, undefined, SESSION)).toBe('fresh');
+  });
+
+  it('goes stale on a stack change and names only that file', () => {
+    write('docs/instructions/stack/overview.md');
 
     expect(sentinelDetail(projectRoot, {}, undefined, SESSION)).toEqual({
       state: 'stale:docs-instructions',
-      files: ['docs/instructions/workflows/feature-development.yaml'],
+      files: ['docs/instructions/stack/overview.md'],
     });
   });
 
@@ -94,7 +100,7 @@ describe('agent-entry sentinel staleness walk', () => {
   });
 
   it('AC-50: keeps a docs-stale marker so a retry sees the same files', () => {
-    write('docs/instructions/workflows/feature-development.yaml');
+    write('docs/instructions/design-system/tokens.md');
 
     const first = sentinelDetail(projectRoot, {}, undefined, SESSION);
     const second = sentinelDetail(projectRoot, {}, undefined, SESSION);
@@ -105,7 +111,7 @@ describe('agent-entry sentinel staleness walk', () => {
 
   it('AC-46: a changed entry file stays stale:entry-file and drops the marker', () => {
     write('CLAUDE.md');
-    write('docs/instructions/workflows/feature-development.yaml');
+    write('docs/instructions/design-system/tokens.md');
 
     expect(sentinelDetail(projectRoot, {}, undefined, SESSION)).toEqual({
       state: 'stale:entry-file',

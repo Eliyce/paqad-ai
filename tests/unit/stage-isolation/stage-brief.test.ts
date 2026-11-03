@@ -283,11 +283,7 @@ describe('buildStageBrief', () => {
   });
 
   describe('the planning read list', () => {
-    const SHARED = [
-      'docs/instructions/stack/**',
-      'docs/instructions/design-system/**',
-      'docs/instructions/workflows/**',
-    ];
+    const SHARED = ['docs/instructions/stack/**', 'docs/instructions/design-system/**'];
 
     function readSection(brief: string): string[] {
       const start = brief.indexOf('## Read first');

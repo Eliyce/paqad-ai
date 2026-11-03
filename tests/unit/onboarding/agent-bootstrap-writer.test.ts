@@ -125,7 +125,7 @@ describe('agent router document', () => {
     expect(route).toContain('New work is not a resume');
   });
 
-  it('always-loads stack/design-system/workflows but gates rules to feature-development', () => {
+  it('always-loads stack/design-system, not workflows, and gates rules to feature-development', () => {
     const doc = buildAgentRouterDocument();
     const loadSection = doc.slice(
       doc.indexOf('## 2. Load only what the routed workflow needs'),
@@ -133,7 +133,7 @@ describe('agent router document', () => {
     );
     expect(loadSection).toContain('`docs/instructions/stack`');
     expect(loadSection).toContain('`docs/instructions/design-system`');
-    expect(loadSection).toContain('`docs/instructions/workflows`');
+    expect(loadSection).not.toContain('docs/instructions/workflows');
     expect(loadSection).toContain('Rules load only for `feature-development`');
     expect(loadSection).toContain('`docs/instructions/rules`');
     expect(loadSection).toContain('run **no** rule-scripts');

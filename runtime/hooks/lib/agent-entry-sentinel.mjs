@@ -3,7 +3,7 @@ import { dirname, join, relative, sep } from 'node:path';
 
 import { resolveProjectRoot } from './paqad-disabled.mjs';
 
-export const LOADED_INSTRUCTION_DIRS = Object.freeze(['stack', 'design-system', 'workflows']);
+export const LOADED_INSTRUCTION_DIRS = Object.freeze(['stack', 'design-system']);
 
 export function entryFile(env = process.env) {
   return env.PAQAD_ENTRY_FILE || 'CLAUDE.md';

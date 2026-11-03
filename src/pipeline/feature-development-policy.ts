@@ -120,11 +120,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         checks: null,
       },
       planning: {
-        read: [
-          'docs/instructions/stack/**',
-          'docs/instructions/design-system/**',
-          'docs/instructions/workflows/**',
-        ],
+        read: ['docs/instructions/stack/**', 'docs/instructions/design-system/**'],
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',

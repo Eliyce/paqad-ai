@@ -43,6 +43,13 @@ describe('feature development policy', () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it('keeps docs/instructions/workflows/** out of the planning read list', () => {
+    expect(defaultFeatureDevelopmentPolicy().stages.planning.read).toEqual([
+      'docs/instructions/stack/**',
+      'docs/instructions/design-system/**',
+    ]);
+  });
+
   it('AC-19: tells development to run the full suite through paqad-ai checks run in the default policy, its YAML and the workflow file', () => {
     expect(FULL_SUITE_INSTRUCTION).toBe(
       "For a full-suite run, use `paqad-ai checks run`, not the project's full test command, so the green result is recorded and reused. For the inner loop, run only the tests for the files you changed (for vitest: `vitest related <files>` or the file paths).",
