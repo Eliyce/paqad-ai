@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6F7GN866VCC3PD1M8WMQP7E",
+  "category": "workflow-or-tool",
+  "title": "How to clear the skill authoring gates for git-workflow and documentation-workflow",
+  "context": "This change (#786 + #791) adds the git-workflow skill and edits documentation-workflow. paqad-ai skill status says neither has run any authoring gate (S0 justify to S7 release), and the end-of-change check fails a new or edited skill without a passing or overridden release record. The full pipeline needs three no-skill baseline runs, evals against a baseline (and the old version for documentation-workflow) and a trigger test per skill, which is far more than the development agent can run in its remaining turns. Overriding needs one owner-approved authoring.override decision per gate (S0 to S6, 7 per skill, 14 in total), after which skill release records them.",
+  "options": [
+    {
+      "option_key": "pipeline",
+      "label": "Run the full authoring pipeline for both skills in a separate dispatch",
+      "one_line_preview": "Run the full authoring pipeline for both skills in a separate dispatch",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "override",
+      "label": "Approve overrides for S0 to S6 on both skills (the agent then raises the 14 authoring.override asks, records them and runs skill release)",
+      "one_line_preview": "Approve overrides for S0 to S6 on both skills (the agent then raises the 14 authoring.override asks, records them and runs skill release)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "mixed",
+      "label": "Override for documentation-workflow (small edit), full pipeline for the new git-workflow skill",
+      "one_line_preview": "Override for documentation-workflow (small edit), full pipeline for the new git-workflow skill",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "mixed",
+  "created_at": "2026-11-02T22:54:08.646Z",
+  "status": "resolved",
+  "change": "01M6EX814WG84WBN1YCW034G48",
+  "chosen": "pipeline",
+  "rationale": "Owner chose the full authoring pipeline for both skills",
+  "resolved_at": "2026-11-03T05:19:13.546Z",
+  "decision_id": "D-01M6F7GN866VCC3PD1M8WMQP7E",
+  "fingerprint": "sha256:c2d1a0c570c6db308a80c09119ce103a458f986dbf4e422828088a3aafd742ef",
+  "question": "How to clear the skill authoring gates for git-workflow and documentation-workflow",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6EX814WG84WBN1YCW034G48",
+  "ttl_until": "2026-11-09T22:54:08.646Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pipeline",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T05:19:13.546Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the full authoring pipeline for both skills"
+  }
+}
