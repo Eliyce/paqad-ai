@@ -1,6 +1,6 @@
 ---
 name: site-map-retest
-description: 'Re-checks the stored site map against the current code by running the same verification again, never inventing or softening a finding and never calling missing proof a fix. Use when the user asks whether the map still matches the code or prior gaps are fixed.'
+description: Re-checks the stored site map against the current code by running the same verification again, never inventing or softening a finding and never calling missing proof a fix. Use when the user asks whether the site map still matches the code or its prior gaps are fixed. Only for the stored site map.
 metadata:
   model_tier: reasoning
   cacheable: 'false'
