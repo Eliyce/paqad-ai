@@ -47,9 +47,12 @@ describe('feature-development workflow procedure rule', () => {
     }
   });
 
-  it('points at the project workflow files (never inlines a frozen copy)', () => {
+  it("points at paqad's defaults, the team files and the stage brief (never a frozen copy)", () => {
     const doc = readFileSync(CANONICAL, 'utf8');
-    expect(doc).toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(doc).toContain('src/pipeline/feature-development-policy.ts');
+    expect(doc).toContain('.paqad/configs/feature-development/');
+    expect(doc).toContain('paqad-ai stage brief <stage> --full');
+    expect(doc).not.toContain('docs/instructions/workflows/feature-development.yaml');
     expect(doc).toContain('.paqad/configs/git-workflow/');
     expect(doc).not.toContain('delivery-policy.yaml');
   });
