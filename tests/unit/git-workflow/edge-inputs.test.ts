@@ -27,6 +27,17 @@ describe('git-workflow: files that are not settings', () => {
     });
   });
 
+  it('treats an empty file as no settings and rejects a ticket pattern that does not compile', () => {
+    expect(resolveGitWorkflow({ 'commits.yaml': '' }).valid).toBe(true);
+    const result = resolveGitWorkflow({
+      'tickets.yaml': 'sources:\n  proj:\n    tracker: jira\n    pattern: "("\n',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]?.message).toMatch(
+      /^tickets\.yaml sources\.proj\.pattern isn't a valid regular expression: /,
+    );
+  });
+
   it('leaves a broken file alone when syncing and still fills in the missing ones', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-wf-sync-edge-'));
     try {
