@@ -8,7 +8,6 @@ const REQUIRED_RULES = [
   'runtime/base/rules/security.md',
   'runtime/base/rules/design-system.md',
   'runtime/base/rules/testing.md',
-  'runtime/capabilities/security/rules/pentest.md',
   'runtime/base/rules/documentation.md',
   'runtime/base/rules/observability.md',
   'runtime/base/rules/performance.md',

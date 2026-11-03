@@ -508,54 +508,22 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/design-system'))).toBe(false);
   });
 
-  it('installs the pentest workflow rule so AI knows the 5-step process', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-rule');
-
-    await runOnboard(projectRoot, {
-      stack: 'laravel',
-      capabilities: [],
-    });
-
-    const pentestRulePath = join(projectRoot, 'docs/instructions/rules/security/pentest.md');
-    expect(existsSync(pentestRulePath)).toBe(true);
-    const content = readFileSync(pentestRulePath, 'utf8');
-    expect(content).toContain('collect-context');
-    expect(content).toContain('run-project-scripts');
-    expect(content).toContain('synthesize-findings');
-    expect(content).toContain('write-report');
-  });
-
-  it('installs pentest rule with 6 security skills including STRIDE first', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-skills');
+  it('writes none of the seven workflow recipe files on a fresh onboard', async () => {
+    const projectRoot = join(root, 'new-laravel-workflow-skills');
 
     await runOnboard(projectRoot, { stack: 'laravel' });
 
-    const content = readFileSync(
-      join(projectRoot, 'docs/instructions/rules/security/pentest.md'),
-      'utf8',
-    );
-    expect(content).toContain('stride-threat-model');
-    expect(content).toContain('input-validation-review');
-    expect(content).toContain('auth-mechanism-review');
-    expect(content).toContain('cryptographic-review');
-    expect(content).toContain('logging-monitoring-review');
-    expect(content).toContain('rate-limiting-review');
-    expect(content.indexOf('stride-threat-model')).toBeLessThan(
-      content.indexOf('input-validation-review'),
-    );
-  });
-
-  it('installs pentest rule with local attack playbook step', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-playbook');
-
-    await runOnboard(projectRoot, { stack: 'laravel' });
-
-    const content = readFileSync(
-      join(projectRoot, 'docs/instructions/rules/security/pentest.md'),
-      'utf8',
-    );
-    expect(content).toContain('generate-local-attack-playbook');
-    expect(content).toContain('local-playbook.md');
+    for (const path of [
+      'security/pentest.md',
+      'coding/site-map.md',
+      'coding/site-map-retest.md',
+      'coding/design-test.md',
+      'coding/design-retest.md',
+      'coding/codebase-health.md',
+      'coding/health-retest.md',
+    ]) {
+      expect(existsSync(join(projectRoot, 'docs/instructions/rules', path)), path).toBe(false);
+    }
   });
 });
 
