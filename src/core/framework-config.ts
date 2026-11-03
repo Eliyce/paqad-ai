@@ -1928,7 +1928,7 @@ function readmeRow(spec: FrameworkConfigSpec): string {
           : spec.type === 'number'
             ? 'a number'
             : 'text'));
-  const description = spec.comment.replace(/\|/gu, '\\|');
+  const description = spec.comment.replace(/\\/gu, '\\\\').replace(/\|/gu, '\\|');
   return `| \`${spec.path.join('.')}\` | \`${yamlText(yamlDefault(spec))}\` | ${allowed} | ${description} | \`${spec.key}\` | \`${spec.env}\` |`;
 }
 
