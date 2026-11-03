@@ -62,7 +62,7 @@ describe('resolveMutationMode', () => {
       group: 'policy',
       section: 'Enforcement (capability modes — team value is a floor)',
     });
-    expect(specs[0]!.comment).toContain('verify-backstop.mjs');
+    expect(specs[0]!.comment).toContain('CI or pre-push hook');
     expect(specs[0]!.comment).not.toContain('—');
   });
 });
