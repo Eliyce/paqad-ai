@@ -1787,6 +1787,35 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/capabilities/coding/skills/codebase-health": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The health audit or retest request.",
+        "required": true,
+        "type": "string",
+      },
+      "source_report_path": {
+        "description": "Source docs/health sidecar to retest, for the Retest mode.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "codebase-health",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "codebase-health",
+          "health-retest",
+        ],
+      },
+    ],
+  },
   "runtime/capabilities/coding/skills/component-conformance-review": {
     "cache_key_inputs": [
       "src/**",

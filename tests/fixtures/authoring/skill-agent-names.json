@@ -382,6 +382,11 @@
       "name": "accessibility-review"
     },
     {
+      "path": "runtime/capabilities/coding/skills/codebase-health/SKILL.md",
+      "folder": "codebase-health",
+      "name": "codebase-health"
+    },
+    {
       "path": "runtime/capabilities/coding/skills/component-conformance-review/SKILL.md",
       "folder": "component-conformance-review",
       "name": "component-conformance-review"

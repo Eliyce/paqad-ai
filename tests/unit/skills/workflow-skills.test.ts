@@ -155,3 +155,31 @@ describe('design-test skill', () => {
     expect(workflowTriggers(folder)).toEqual(['design-test', 'design-retest']);
   });
 });
+
+describe('codebase-health skill', () => {
+  const folder = 'runtime/capabilities/coding/skills/codebase-health';
+
+  it('has the seven sections in order and a Retest mode under Procedure', () => {
+    expectSkillShape(folder);
+  });
+
+  it('runs the health verb, reads the findings, triages and narrates in order', () => {
+    expectInOrder(body(folder), [
+      'paqad-ai health run',
+      'read the findings JSON',
+      'triage',
+      'narrate the report',
+    ]);
+  });
+
+  it('retests through the health retest verb by stable HL- id', () => {
+    const text = body(folder);
+    const retest = text.slice(text.indexOf('### Retest mode'), text.indexOf('## Output Contract'));
+    expect(retest).toContain('paqad-ai health retest');
+    expect(retest).toContain('HL-');
+  });
+
+  it('triggers on codebase-health and health-retest', () => {
+    expect(workflowTriggers(folder)).toEqual(['codebase-health', 'health-retest']);
+  });
+});
