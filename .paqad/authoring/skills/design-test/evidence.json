@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "design-test",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:b3a003c06e84b32ae4f97f2785d8e134b0839eb6723e897967a95dbe019d0a59",
+  "folder_hash": "sha256:a9d9000898de9ecf566d23964509cc943e0793d76689894ec902eaa4f1524523",
   "baseline": {
     "runs": 3,
     "passed": 0,
@@ -25,10 +25,10 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 2,
-    "pass_rate_with": 0.5111,
-    "pass_rate_without": 0.2963,
-    "delta_points": 21.48,
+    "iterations": 3,
+    "pass_rate_with": 0.5481,
+    "pass_rate_without": 0.3407,
+    "delta_points": 20.74,
     "token_multiple": null,
     "models": [
       "haiku",

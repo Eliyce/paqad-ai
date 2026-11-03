@@ -267,7 +267,7 @@ Retest mode rules:
 - Project-side scripts the workflow shells out to
 - Project-overridable thresholds outside the declared schema
 - Swapping a framework skill for a project-custom one
-- Editing this workflow rule in the project
+- Editing this skill in the project
 
 ## Escalate / Stop Conditions
 
