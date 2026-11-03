@@ -451,6 +451,7 @@ const KEY_LINE = /^(\s*)(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_][A-Za-z0-9_.-]*))\s*
 const BLOCK_SCALAR = /:\s*[|>][-+0-9]*\s*(?:#.*)?$|^\s*-\s+[|>][-+0-9]*\s*(?:#.*)?$/u;
 const SETTING_SHAPE = /^([a-z0-9_]+):(\s.*)?$/u;
 const SEQUENCE_MARK = '\u0000seq';
+const PATH_SEPARATOR = '\n';
 
 function indentOf(line: string): number {
   return line.length - line.trimStart().length;
@@ -519,7 +520,7 @@ function scanComments(text: string): ScannedComments {
     }
     const key = match[2] ?? match[3] ?? match[4]!;
     stack.push({ column, key });
-    flush(stack.map((frame) => frame.key).join('\u0001'));
+    flush(stack.map((frame) => frame.key).join(PATH_SEPARATOR));
     if (BLOCK_SCALAR.test(line)) blockColumn = column;
   }
   flush();
@@ -542,7 +543,7 @@ interface RenderContext {
 }
 
 function pathKey(path: readonly string[]): string {
-  return path.join('\u0001');
+  return path.join(PATH_SEPARATOR);
 }
 
 function teamLines(context: RenderContext, bodies: string[], noteFor?: string): string[] {
