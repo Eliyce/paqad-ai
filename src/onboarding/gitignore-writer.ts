@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
@@ -292,7 +292,7 @@ function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
 
 const LOCAL_EXCLUDE_MARKER = '# paqad-ai: generated on each machine';
 
-export function excludeLocally(projectRoot: string, relativePath: string): boolean {
+function localExcludePath(projectRoot: string): string | null {
   let excludePath: string;
   try {
     excludePath = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], {
@@ -301,10 +301,19 @@ export function excludeLocally(projectRoot: string, relativePath: string): boole
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch {
-    return false;
+    return null;
   }
-  const path = isAbsolute(excludePath) ? excludePath : join(projectRoot, excludePath);
-  const line = `/${relativePath.replace(/^\//u, '')}`;
+  return isAbsolute(excludePath) ? excludePath : join(projectRoot, excludePath);
+}
+
+function excludeLine(relativePath: string): string {
+  return `/${relativePath.replace(/^\//u, '')}`;
+}
+
+export function excludeLocally(projectRoot: string, relativePath: string): boolean {
+  const path = localExcludePath(projectRoot);
+  if (path === null) return false;
+  const line = excludeLine(relativePath);
   let existing = '';
   try {
     existing = readFileSync(path, 'utf8');
@@ -313,5 +322,25 @@ export function excludeLocally(projectRoot: string, relativePath: string): boole
   mkdirSync(dirname(path), { recursive: true });
   const prefix = existing === '' || existing.endsWith('\n') ? existing : `${existing}\n`;
   writeFileSync(path, `${prefix}${LOCAL_EXCLUDE_MARKER}\n${line}\n`, 'utf8');
+  return true;
+}
+
+export function unexcludeLocally(projectRoot: string, relativePath: string): boolean {
+  const path = localExcludePath(projectRoot);
+  if (path === null || !existsSync(path)) return false;
+  const line = excludeLine(relativePath);
+  const lines = readFileSync(path, 'utf8').split('\n');
+  const kept: string[] = [];
+  let removed = false;
+  for (const entry of lines) {
+    if (entry.replace(/\r$/u, '') !== line) {
+      kept.push(entry);
+      continue;
+    }
+    removed = true;
+    if (kept.at(-1)?.replace(/\r$/u, '') === LOCAL_EXCLUDE_MARKER) kept.pop();
+  }
+  if (!removed) return false;
+  writeFileSync(path, kept.join('\n'), 'utf8');
   return true;
 }

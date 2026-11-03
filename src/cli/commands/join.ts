@@ -48,6 +48,7 @@ import { assertEmbeddingProviderAvailable } from '@/rag/removed-provider.js';
 import { RagService } from '@/rag/service.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeRuleContext } from '@/context/rule-context.js';
+import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 
 import { initializeRagIndex } from './rag.js';
 
@@ -189,6 +190,7 @@ async function recreateLocalArtifacts(
   );
 
   cleanupLegacyMcpFiles(projectRoot, { canDelete: (path) => isGitIgnored(projectRoot, path) });
+  for (const line of removeGeneratedFiles(projectRoot)) process.stdout.write(`${line}\n`);
 
   if (isGitIgnored(projectRoot, PATHS.COMPILED_RULES)) {
     const compiled = await compileRules(projectRoot);

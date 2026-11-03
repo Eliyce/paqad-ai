@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
-import { writeGitignore } from '@/onboarding/gitignore-writer';
+import { excludeLocally, unexcludeLocally, writeGitignore } from '@/onboarding/gitignore-writer';
 
 const BEGIN = '# >>> paqad-ai managed (do not edit between markers) >>>';
 const END = '# <<< paqad-ai managed <<<';
@@ -387,5 +387,37 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
     expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe('');
     expect(existsSync(join(projectRoot, '.paqad', 'logs', 'auto-update.log'))).toBe(true);
+  });
+});
+
+describe('unexcludeLocally', () => {
+  let repo: string;
+
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), 'paqad-unexclude-'));
+  });
+
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it('removes a path excludeLocally added with its marker and keeps the other marked paths', () => {
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    expect(excludeLocally(repo, 'keep/me.json')).toBe(true);
+    expect(excludeLocally(repo, 'docs/x.yaml')).toBe(true);
+    const exclude = join(repo, '.git/info/exclude');
+    const before = readFileSync(exclude, 'utf8');
+    expect(unexcludeLocally(repo, 'docs/x.yaml')).toBe(true);
+    expect(readFileSync(exclude, 'utf8')).toBe(
+      before.replace('# paqad-ai: generated on each machine\n/docs/x.yaml\n', ''),
+    );
+    expect(readFileSync(exclude, 'utf8')).toContain(
+      '# paqad-ai: generated on each machine\n/keep/me.json\n',
+    );
+    expect(unexcludeLocally(repo, 'docs/x.yaml')).toBe(false);
+  });
+
+  it('does nothing outside a git repository', () => {
+    expect(unexcludeLocally(repo, 'docs/x.yaml')).toBe(false);
   });
 });

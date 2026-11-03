@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { stampLastApplied } from '@/git-workflow/last-applied.js';
-import { LEGACY_SCHEMA_LINE_PREFIX } from '@/update/generated-files-cleanup.js';
+import { LEGACY_SCHEMA_LINE_PREFIX } from '@/update/legacy-schema-line.js';
 
 import { PATHS } from './constants/paths.js';
 import {

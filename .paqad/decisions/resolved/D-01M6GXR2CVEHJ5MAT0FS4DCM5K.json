@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6GXR2CVEHJ5MAT0FS4DCM5K",
+  "category": "intake.requirement",
+  "title": "Also remove the old workflow copy and schema files when a teammate runs join?",
+  "context": "The old workflow copy, its hash file, the .git/info/exclude line and the schemas folder live separately on each machine and are not shared through git. If only paqad-ai update cleans them up, every teammate who only runs join keeps them until they run update themselves. join already runs the old MCP-file cleanup, so adding this cleanup there is cheap. Grounded in docs/modules/cli-lifecycle/features/join/business.md.",
+  "options": [
+    {
+      "option_key": "join",
+      "label": "Also clean up when a teammate runs join (recommended)",
+      "one_line_preview": "Also clean up when a teammate runs join (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "update-only",
+      "label": "Clean up on update only; teammates clean up when they next run update",
+      "one_line_preview": "Clean up on update only; teammates clean up when they next run update",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "join",
+  "created_at": "2026-11-03T14:41:54.587Z",
+  "status": "resolved",
+  "change": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "chosen": "join",
+  "rationale": "Owner chose: also clean up on join, so teammates lose the leftover per-machine files too; join already runs the MCP-file cleanup.",
+  "resolved_at": "2026-11-03T14:42:37.495Z",
+  "decision_id": "D-01M6GXR2CVEHJ5MAT0FS4DCM5K",
+  "fingerprint": "sha256:d05a7431ec7f8305756f3e6f07446a88603ac93e7b2afefea1a0327f52d51c22",
+  "question": "Also remove the old workflow copy and schema files when a teammate runs join?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "ttl_until": "2026-11-17T14:41:54.587Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "join",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T14:42:37.495Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: also clean up on join, so teammates lose the leftover per-machine files too; join already runs the MCP-file cleanup."
+  }
+}

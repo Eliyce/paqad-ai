@@ -27,6 +27,7 @@ import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
+import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
@@ -165,6 +166,7 @@ export class FrameworkUpdater {
     const gitWorkflowNotes = updateGitWorkflow(projectRoot);
     const teamConfigMigration = migrateTeamConfig(projectRoot);
     if (teamConfigMigration.ran) gitWorkflowNotes.push(...teamConfigMigration.lines);
+    gitWorkflowNotes.push(...removeGeneratedFiles(projectRoot));
     const teamConfigProblems: string[] = [];
     for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {
       gitWorkflowNotes.push(
