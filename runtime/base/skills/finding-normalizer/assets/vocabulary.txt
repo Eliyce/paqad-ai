@@ -38,7 +38,7 @@ SM-       # site-map findings (site-map workflow; docs/site-map/<ts>.json). id i
 
 # design-test category
 # Categories used by DT-* findings. Each maps to one of the design-test skills
-# or the documentation-drift cross-cut. See runtime/capabilities/coding/rules/design-test.md.
+# or the documentation-drift cross-cut. See runtime/capabilities/coding/skills/design-test/SKILL.md.
 token
 component
 state
@@ -50,7 +50,7 @@ performance
 documentation-drift
 
 # codebase-health category
-# Categories used by HL-* findings. See runtime/capabilities/coding/rules/codebase-health.md.
+# Categories used by HL-* findings. See runtime/capabilities/coding/skills/codebase-health/SKILL.md.
 unused-dependency
 vulnerable-dependency
 deprecated-dependency
@@ -62,7 +62,7 @@ ai-slop
 
 # site-map category
 # Categories used by SM-* findings (the finding id is a content-addressed SM-<hash8>;
-# these are the `category` field values). See runtime/capabilities/coding/rules/site-map.md.
+# these are the `category` field values). See runtime/capabilities/coding/skills/site-map/SKILL.md.
 # The SM-I18N-* and SM-FLAG-* families (addendum §2/§3) are deferred to a later phase.
 SM-ADD
 SM-REMOVE

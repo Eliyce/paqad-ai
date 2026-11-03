@@ -224,8 +224,8 @@ without parallel subagents and the fast lane keep review, then documentation_syn
 
 ## 3. Full catalog: every skill and agent, by lifecycle phase
 
-This is the complete roster the framework ships into an onboarded repo: **45 base
-skills, 30 coding skills, 11 security skills, 6 content skills, 22 agents.** Each
+This is the complete roster the framework ships into an onboarded repo: **48 base
+skills, 32 coding skills, 12 security skills, 6 content skills, 22 agents.** Each
 links to its definition; "knows" lists the existing-codebase signals it actually
 consults. The authority for what exists remains
 [`module-map.yml`](../instructions/rules/module-map.yml) and the runtime
@@ -358,9 +358,9 @@ Bash 3.2, the macOS default.
 The deterministic `paqad-ai health run` verb finds dead code, unused/risky/deprecated
 packages, leaked secrets, duplication, stale docs, and AI slop — every finding with proof,
 a plain-words reason, and a suggested action, split honestly into Proven vs Needs-judgment.
-`paqad-ai health retest` reclassifies prior findings by their stable `HL-` id. Rules:
-[`codebase-health`](../../runtime/capabilities/coding/rules/codebase-health.md),
-[`health-retest`](../../runtime/capabilities/coding/rules/health-retest.md).
+`paqad-ai health retest` reclassifies prior findings by their stable `HL-` id. Skill:
+[`codebase-health`](../../runtime/capabilities/coding/skills/codebase-health/SKILL.md), which
+runs `health-retest` as its Retest mode.
 Backed by [`codebase-health`](codebase-health/index/summary.md). Knows: code-knowledge index,
 dependency inventory, docs/modules, source.
 
@@ -389,9 +389,9 @@ drifted from the code (inert when the flag is off). Skills:
 [`site-map-gap-analysis`](../../runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md),
 [`journey-synthesis`](../../runtime/capabilities/coding/skills/journey-synthesis/SKILL.md),
 [`site-map-maintainer`](../../runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md),
-[`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Rules:
-[`site-map`](../../runtime/capabilities/coding/rules/site-map.md),
-[`site-map-retest`](../../runtime/capabilities/coding/rules/site-map-retest.md). Roles:
+[`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Entry skill:
+[`site-map`](../../runtime/capabilities/coding/skills/site-map/SKILL.md), which runs
+`site-map-retest` as its Retest mode. Roles:
 [app-cartographer](../../runtime/capabilities/coding/agents/app-cartographer.md) (draws + verifies
 the map),
 [journey-designer](../../runtime/capabilities/coding/agents/journey-designer.md) (proposes

@@ -156,7 +156,7 @@ If anything here disagrees with the map, the **map wins**.
 
 ## Related
 
-- Workflow rules: `runtime/capabilities/coding/rules/codebase-health.md` + `health-retest.md`.
+- Workflow skill: `runtime/capabilities/coding/skills/codebase-health/SKILL.md`, with `health-retest` as its Retest mode.
 - Code-knowledge index: `src/code-knowledge`.
 - Pentest (the sibling audit workflow): `src/pentest`, `docs/modules/...`.
 - Code-knowledge index (dead code + unused deps source): `src/code-knowledge`.
