@@ -103,6 +103,14 @@ export function readKeyFromFile(path, key) {
   return v;
 }
 
+function isMigratedStubFile(path) {
+  try {
+    return readFileSync(path, 'utf8').split(/\r?\n/, 1)[0].trim() === '# paqad-migrated-stub';
+  } catch {
+    return false;
+  }
+}
+
 function readKeyFromConfigsDir(projectRoot, key) {
   const dir = join(projectRoot, '.paqad', 'configs');
   let names;
@@ -114,7 +122,9 @@ function readKeyFromConfigsDir(projectRoot, key) {
   let value;
   const sorted = names.filter((n) => /^\.config\..+/.test(n) && n !== '.config.example').sort();
   for (let i = 0; i < sorted.length; i += 1) {
-    const fromFile = readKeyFromFile(join(dir, sorted[i]), key);
+    const path = join(dir, sorted[i]);
+    if (isMigratedStubFile(path)) continue;
+    const fromFile = readKeyFromFile(path, key);
     if (fromFile !== undefined) value = fromFile;
   }
   return value;

@@ -216,7 +216,9 @@ describe('the four fixture projects', () => {
       [
         '# paqad-migrated-stub',
         "# This project's paqad settings moved to the YAML files in this folder.",
-        "# The line below makes an older paqad, which can't read them, stop and ask to update.",
+        "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off",
+        '# instead of running on its defaults, and asks to update. A current paqad ignores this file.',
+        'paqad_enable=false',
         'minimum_version=9.9.0',
         '# Not carried over (not paqad settings):',
         '# legacy_flag=yes',
@@ -360,8 +362,9 @@ describe('the stub', () => {
     migrateTeamConfig(root, { version: VERSION });
     const stub = configs('.config.app');
     expect(parseDotConfig(stub).get('minimum_version')).toBe('9.9.0');
-    expect([...parseDotConfig(stub).keys()]).toEqual(['minimum_version']);
-    expect(readSetLines(stub).map((line) => line.key)).toEqual(['minimum_version']);
+    expect([...parseDotConfig(stub).keys()]).toEqual(['paqad_enable', 'minimum_version']);
+    expect(parseDotConfig(stub).get('paqad_enable')).toBe('false');
+    expect(readSetLines(stub).map((line) => line.key)).toEqual(['paqad_enable', 'minimum_version']);
     expect(teamConfigMigrationNeeded(root)).toBe(false);
   });
 });

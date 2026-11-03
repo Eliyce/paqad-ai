@@ -27,6 +27,12 @@ __paqad_log_unreadable_enabled() {
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${value}" >>"${dir}/hooks.log" 2>/dev/null || true
 }
 
+__paqad_is_migrated_stub() {
+  local first
+  first=$(head -n1 "$1" 2>/dev/null | tr -d '\r' | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//')
+  [ "${first}" = '# paqad-migrated-stub' ]
+}
+
 __paqad_today() {
   date -u +%Y-%m-%d
 }
@@ -45,6 +51,7 @@ __paqad_resolve_enable() {
   if [ -d "${dir}" ] && [ -z "${team}" ] && __paqad_legacy_readable; then
     while IFS= read -r f; do
       [ -e "${f}" ] || continue
+      __paqad_is_migrated_stub "${f}" && continue
       v=$(__paqad_read_key "${f}" 'paqad_enable')
       [ -n "${v}" ] && value="${v}"
     done < <(LC_ALL=C find "${dir}" -maxdepth 1 -name '.config.*' ! -name '.config.example' -type f 2>/dev/null | LC_ALL=C sort)

@@ -137,6 +137,7 @@ function layeredValue(input: LayeredInput, key: string, fromEnv: string | undefi
   let value: string | undefined = yamlTeamValue(input, key);
   const team = input.teamConfigs
     .filter((file) => /^\.config\..+/.test(file.name) && file.name !== '.config.example')
+    .filter((file) => file.text.split(/\r?\n/, 1)[0]?.trim() !== '# paqad-migrated-stub')
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   if (value === undefined && legacyReadable(input)) {
     for (const file of team) {

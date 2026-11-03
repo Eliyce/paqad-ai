@@ -461,11 +461,20 @@ export function readFlooredMode(projectRoot, key, envName, order, def, env = pro
   return order[rank];
 }
 
-function readKeyFromFile(path, key) {
+export const MIGRATED_STUB_MARKER = '# paqad-migrated-stub';
+
+export function isMigratedStubText(text) {
+  return typeof text === 'string' && text.split(/\r?\n/, 1)[0].trim() === MIGRATED_STUB_MARKER;
+}
+
+function readKeyFromFile(path, key, skipStub = false) {
   let raw;
   try {
     raw = readFileSync(path, 'utf8');
   } catch {
+    return undefined;
+  }
+  if (skipStub && isMigratedStubText(raw)) {
     return undefined;
   }
   let value;
@@ -503,7 +512,7 @@ function readKeyFromConfigsDir(projectRoot, key) {
   for (const name of names
     .filter((n) => /^\.config\..+/.test(n) && n !== '.config.example')
     .sort()) {
-    const fromFile = readKeyFromFile(join(dir, name), key);
+    const fromFile = readKeyFromFile(join(dir, name), key, true);
     if (fromFile !== undefined) {
       value = fromFile;
     }

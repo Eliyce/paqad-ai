@@ -327,7 +327,9 @@ function stubText(version: string, teamMinimum: string | undefined, unknown: Set
   return [
     MIGRATED_STUB_MARKER,
     "# This project's paqad settings moved to the YAML files in this folder.",
-    "# The line below makes an older paqad, which can't read them, stop and ask to update.",
+    "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off",
+    '# instead of running on its defaults, and asks to update. A current paqad ignores this file.',
+    'paqad_enable=false',
     `minimum_version=${minimum}`,
     '# Not carried over (not paqad settings):',
     ...unknown.map((line) => `# ${line.key}=${line.value}`),

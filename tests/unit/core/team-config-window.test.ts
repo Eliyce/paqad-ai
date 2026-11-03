@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { warnLegacyTeamConfig } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { LEGACY_TEAM_CONFIG_READ_UNTIL, layeredConfigMap } from '@/core/framework-config.js';
+import {
+  LEGACY_TEAM_CONFIG_READ_UNTIL,
+  layeredConfigMap,
+  parseDotConfig,
+} from '@/core/framework-config.js';
+import { isFrameworkEnabledForRoot } from '@/core/framework-enabled.js';
 import { readTeamConfig } from '@/core/team-config.js';
 import {
   legacyTeamConfigReadable,
@@ -27,10 +32,14 @@ import {
 } from '../../../runtime/claude-plugin/mod/config';
 import {
   LEGACY_TEAM_CONFIG_READ_UNTIL as HOOK_UNTIL,
+  isPaqadDisabled as hookIsPaqadDisabled,
   legacyTeamConfigReadable as hookLegacyReadable,
 } from '../../../runtime/hooks/lib/paqad-disabled.mjs';
 import { mergeSessionStartOutput } from '../../../runtime/hooks/lib/session-start-output.mjs';
-import { LEGACY_TEAM_CONFIG_READ_UNTIL as LAUNCHER_UNTIL } from '../../../runtime/templates/team-bootstrap/hook.mjs';
+import {
+  LEGACY_TEAM_CONFIG_READ_UNTIL as LAUNCHER_UNTIL,
+  offSwitch as launcherOffSwitch,
+} from '../../../runtime/templates/team-bootstrap/hook.mjs';
 
 const SH = resolve(__dirname, '../../../runtime/hooks/lib/paqad-disabled.sh');
 const itPosix = process.platform === 'win32' ? it.skip : it;
@@ -147,6 +156,65 @@ describe('the readers outside TypeScript use the same date', () => {
     expect(run(INSIDE)).toBe('off');
     expect(run(AFTER)).toBe('on');
   });
+});
+
+describe('the migrated stub turns an older paqad off and is ignored by a current one', () => {
+  beforeEach(() => setTeamConfigClock({ today: () => INSIDE }));
+
+  function migrated(): string {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    write(PATHS.PROJECT_PROFILE, 'active_capabilities:\n  - coding\n');
+    write('.paqad/configs/.config.app', 'enterprise=true\n');
+    migrateTeamConfig(root, { version: '1.117.0', activeChange: null });
+    return readFileSync(join(root, '.paqad/configs/.config.app'), 'utf8');
+  }
+
+  function shell(today: string): string {
+    return execFileSync(
+      'bash',
+      [
+        '-c',
+        `. "${SH}"; __paqad_today() { printf '%s' '${today}'; }; if paqad_is_disabled; then echo off; else echo on; fi`,
+      ],
+      {
+        env: { ...process.env, PAQAD_DISABLED: '', PAQAD_ENABLE: '', CLAUDE_PROJECT_DIR: root },
+        encoding: 'utf8',
+      },
+    ).trim();
+  }
+
+  it('AC-63, AC-73: an old-style reader of .config.app sees paqad_enable=false and the minimum version', () => {
+    const stub = migrated();
+    expect(parseDotConfig(stub).get('paqad_enable')).toBe('false');
+    expect(parseDotConfig(stub).get('minimum_version')).toBe('1.117.0');
+  });
+
+  it('AC-73: the CLI, the hook, the mod and the team launcher stay on with the stub present', () => {
+    const stub = migrated();
+    expect(isFrameworkEnabledForRoot(root, {})).toBe(true);
+    expect(layeredConfigMap(root, {}).get('paqad_enable')).toBeUndefined();
+    expect(hookIsPaqadDisabled(root, {})).toBe(false);
+    expect(launcherOffSwitch(root, {})).toBeNull();
+    const mod = { env: {}, localConfig: null, today: INSIDE };
+    expect(isPaqadOff({ ...mod, teamConfigs: [{ name: '.config.app', text: stub }] })).toBe(false);
+    expect(
+      isPaqadOff({ ...mod, teamConfigs: [{ name: '.config.app', text: 'paqad_enable=false\n' }] }),
+    ).toBe(true);
+  });
+
+  itPosix(
+    'AC-73: the shell hook stays on with the stub present, and still reads a real old file',
+    () => {
+      migrated();
+      expect(shell(INSIDE)).toBe('on');
+      write('.paqad/configs/.config.app', 'paqad_enable=false\n');
+      expect(shell(INSIDE)).toBe('off');
+      if (hookLegacyReadable()) {
+        expect(hookIsPaqadDisabled(root, {})).toBe(true);
+        expect(launcherOffSwitch(root, {})).toBe('paqad_enable');
+      }
+    },
+  );
 });
 
 describe('session start reporting', () => {

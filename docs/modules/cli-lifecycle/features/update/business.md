@@ -36,8 +36,9 @@ Capture the main journeys for `update`. Each flow should call out:
   feature-development workflow file to the YAML team files. `update` prints each setting it moved
   and asks the lead to review and commit the change in one go. Running it again changes nothing.
 - Teammates and CI need the release that made the move, or later. The stub left in
-  `.paqad/configs/.config.app` makes an older paqad stop and ask to update instead of quietly
-  running on defaults.
+  `.paqad/configs/.config.app` sets `paqad_enable=false` and `minimum_version` for an older
+  paqad, so it turns itself off and updates instead of quietly running on defaults. A current
+  paqad ignores the stub.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
   fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
 

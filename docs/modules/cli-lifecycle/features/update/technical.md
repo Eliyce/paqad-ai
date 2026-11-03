@@ -109,8 +109,12 @@ Source directories owned by this feature:
   `syncTeamConfigFiles` creates any missing header-only file, regenerates the schemas in the
   git-ignored `.paqad/configs/schemas/` and the configs README. `update` never writes a value into
   a team file, so a new setting's default reaches the team through the code.
-- After the move, `.paqad/configs/.config.app` is a stub holding `minimum_version`, so a teammate
-  or CI job on an older paqad stops and asks to update. The move is roll-forward only: no command
+- After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
+  It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
+  instead of running on defaults and updates on its next check. Every current reader (the CLI, the
+  shell and Node hooks, the plugin mod and the team launcher) skips a file with that first line,
+  so a current paqad stays on. The stub is written last, after the YAML files and the workflow
+  view, so a failed write leaves the old `.config.app` in place. The move is roll-forward only: no command
   restores the old files, so a bad release is fixed by the next release or `PAQAD_DISABLED=1`.
 - The stage agents are written here too, because an upgraded machine goes through
   `paqad-ai update --silent` and never reaches the onboarding path that wrote them. This is
