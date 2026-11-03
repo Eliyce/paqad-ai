@@ -105,13 +105,17 @@ Source directories owned by this feature:
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
 - Workflow rules that became skills are cleaned up on the real project root for the same reason.
-  `removeObsoleteWorkflowRules` (`src/onboarding/obsolete-cleanup.ts`) deletes each of the seven
+  `cleanObsoleteWorkflowRules` (`src/onboarding/obsolete-cleanup.ts`) deletes each of the seven
   files only when its hash, ignoring `@rule` markers, matches a version paqad shipped, and adds one
   line to the update summary per file. An edited copy stays in place and the summary says it can
   be deleted. A copy that can't be removed gets a "Couldn't remove" line that says the next update
   tries again. A project without the files prints nothing.
-- Right after that cleanup, `update` recompiles the rule-script map when it is stale, and a failure
-  becomes a note in the update summary. The recompile adds rule markers to a kept edited copy.
+- After that cleanup, `update` does not recompile the rule-script map. Only when the cleanup removed
+  a file does `dropRuleScriptMapSources` (`src/rule-scripts/compile.ts`) drop that file's entries.
+  Every other entry, its scripts and kept copies are untouched, so edited rules still report drift.
+  A valid digest is rewritten and an already invalid one is left as it is. `rule_files_hash` is
+  refreshed only if the map was current. A failure becomes a note in the update summary, and a
+  project with no map does not get one from `update`.
 - Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
   `docs/instructions/workflows/feature-development.yaml` to the YAML team files once and deletes
   that file, then `removeGeneratedFiles` (`src/update/generated-files-cleanup.ts`) removes what
