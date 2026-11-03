@@ -16,7 +16,13 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
-import { compileRuleScripts } from '@/rule-scripts/compile.js';
+import { readCapabilityDigest } from '@/kernel/capability-lock.js';
+import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
+import { compileRuleScripts, isRuleScriptMapStale } from '@/rule-scripts/compile.js';
+import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
+import { loadRuleScriptMap } from '@/rule-scripts/map.js';
+import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
+import { reconcileRuleScripts } from '@/rule-scripts/reconciler.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
 import { generateConfigExample } from '@/core/framework-config.js';
 import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
@@ -260,34 +266,167 @@ describe('FrameworkUpdater', () => {
     expect(map.rules.map((rule) => rule.source)).not.toContain(
       'docs/instructions/rules/coding/codebase-health.md',
     );
-    const report2 = JSON.parse(
-      execFileSync(
-        'node',
-        [
-          join(
-            __dirname,
-            '../../../runtime/base/skills/rule-script-reconciler/scripts/reconcile.mjs',
-          ),
-          projectRoot,
-        ],
-        { encoding: 'utf8' },
-      ),
-    ) as { findings: unknown[]; blocked: boolean };
+    const report2 = reconcileRuleScripts(projectRoot);
     expect(report2.findings).toEqual([]);
     expect(report2.blocked).toBe(false);
+    expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(
+      computeRuleScriptsDigest(projectRoot),
+    );
+    expect(isRuleScriptMapStale(projectRoot)).toBe(false);
   });
 
-  it('turns a failed rule-script map recompile into an update note', async () => {
-    mkdirSync(join(projectRoot, 'docs/instructions/rules/rule-script-map.yml'), {
-      recursive: true,
+  describe('the rule-script map during update', () => {
+    const ownRule = 'docs/instructions/rules/coding/my-own-rule.md';
+    const obsolete = 'docs/instructions/rules/coding/codebase-health.md';
+    const mapRel = 'docs/instructions/rules/rule-script-map.yml';
+
+    function placeObsoleteCopy(): void {
+      const shipped = readFileSync(
+        join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/codebase-health.md'),
+        'utf8',
+      );
+      mkdirSync(dirname(join(projectRoot, obsolete)), { recursive: true });
+      writeFileSync(join(projectRoot, obsolete), shipped);
+    }
+
+    function bindScriptToOwnRule(): string {
+      mkdirSync(dirname(join(projectRoot, ownRule)), { recursive: true });
+      writeFileSync(join(projectRoot, ownRule), '- Validate all input.\n');
+      compileRuleScripts(projectRoot);
+      const map = loadRuleScriptMap(projectRoot)!;
+      const id = map.rules.find((rule) => rule.source === ownRule)!.id;
+      const script = '.paqad/scripts/rules/coding/my-own-rule/001-check.mjs';
+      mkdirSync(dirname(join(projectRoot, script)), { recursive: true });
+      writeFileSync(join(projectRoot, script), `// rule_id: ${id}\n`);
+      applyRuleScriptMap({
+        projectRoot,
+        map: upsertScriptEntry(map, id, {
+          path: script,
+          kind: 'deterministic',
+          runtime: 'node',
+          scope: 'changed-files',
+          last_validated_at: '2026-11-03T00:00:00Z',
+          fixtures_passed: true,
+        }),
+        via: 'test',
+        event: { action: 'generate', rule_ids: [id] },
+      });
+      return id;
+    }
+
+    function editOwnRule(): void {
+      const path = join(projectRoot, ownRule);
+      writeFileSync(
+        path,
+        readFileSync(path, 'utf8').replace('Validate all input', 'Validate some input'),
+      );
+    }
+
+    function codesFor(id: string): string[] {
+      return reconcileRuleScripts(projectRoot)
+        .findings.filter((finding) => finding.rule_id === id)
+        .map((finding) => finding.code);
+    }
+
+    const updater = () => new FrameworkUpdater({ generateCandidates: async () => [] });
+
+    it('leaves the map and digest untouched when a rule was edited and nothing was removed', async () => {
+      const id = bindScriptToOwnRule();
+      editOwnRule();
+      const mapBefore = readFileSync(join(projectRoot, mapRel), 'utf8');
+      const ruleBefore = readFileSync(join(projectRoot, ownRule), 'utf8');
+      const digestBefore = readCapabilityDigest(projectRoot, 'rule-scripts');
+
+      await updater().run(projectRoot);
+
+      expect(readFileSync(join(projectRoot, mapRel), 'utf8')).toBe(mapBefore);
+      expect(readFileSync(join(projectRoot, ownRule), 'utf8')).toBe(ruleBefore);
+      expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(digestBefore);
+      expect(loadRuleScriptMap(projectRoot)!.rules.find((r) => r.id === id)!.scripts).toHaveLength(
+        1,
+      );
+      expect(codesFor(id)).toEqual(expect.arrayContaining(['RS-RULE-EDITED', 'RS-SCRIPT-STALE']));
     });
-    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
-    const report = await updater.run(projectRoot);
-    expect(report.git_workflow_notes).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('Rule-script map compilation failed during update:'),
-      ]),
-    );
+
+    it('keeps an edited rule, its scripts and its drift when the cleanup removed another file', async () => {
+      placeObsoleteCopy();
+      const id = bindScriptToOwnRule();
+      editOwnRule();
+      const entriesBefore = loadRuleScriptMap(projectRoot)!.rules.filter(
+        (rule) => rule.source !== obsolete,
+      );
+      const hashBefore = loadRuleScriptMap(projectRoot)!.rule_files_hash;
+
+      await updater().run(projectRoot);
+
+      const map = loadRuleScriptMap(projectRoot)!;
+      expect(map.rules).toEqual(entriesBefore);
+      expect(map.rule_files_hash).toBe(hashBefore);
+      expect(isRuleScriptMapStale(projectRoot)).toBe(true);
+      expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(
+        computeRuleScriptsDigest(projectRoot),
+      );
+      expect(codesFor(id)).toEqual(expect.arrayContaining(['RS-RULE-EDITED', 'RS-SCRIPT-STALE']));
+      const report = reconcileRuleScripts(projectRoot);
+      expect(report.findings.filter((finding) => finding.source === obsolete)).toEqual([]);
+    });
+
+    it('does not bless bindings that were already changed outside paqad', async () => {
+      placeObsoleteCopy();
+      bindScriptToOwnRule();
+      const script = loadRuleScriptMap(projectRoot)!.rules.find((r) => r.source === ownRule)!
+        .scripts[0]!.path;
+      writeFileSync(join(projectRoot, script), '// weakened\n');
+      const digestBefore = readCapabilityDigest(projectRoot, 'rule-scripts');
+
+      await updater().run(projectRoot);
+
+      expect(existsSync(join(projectRoot, obsolete))).toBe(false);
+      expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(digestBefore);
+      expect(computeRuleScriptsDigest(projectRoot)).not.toBe(digestBefore);
+    });
+
+    it('still reports an entry whose file the cleanup did not remove', async () => {
+      bindScriptToOwnRule();
+      const map = loadRuleScriptMap(projectRoot)!;
+      const entry = {
+        ...map.rules[0]!,
+        id: 'RL-dead',
+        source: 'docs/instructions/rules/coding/design-test.md',
+        scripts: [],
+      };
+      applyRuleScriptMap({
+        projectRoot,
+        map: { ...map, rules: [...map.rules, entry] },
+        via: 'test',
+        event: { action: 'generate', rule_ids: ['RL-dead'] },
+      });
+
+      await updater().run(projectRoot);
+
+      expect(loadRuleScriptMap(projectRoot)!.rules.map((rule) => rule.id)).toContain('RL-dead');
+      expect(codesFor('RL-dead')).toEqual(['RS-RULE-REMOVED']);
+    });
+
+    it('turns a failed map drop into an update note', async () => {
+      placeObsoleteCopy();
+      mkdirSync(join(projectRoot, mapRel), { recursive: true });
+      const report = await updater().run(projectRoot);
+      expect(existsSync(join(projectRoot, obsolete))).toBe(false);
+      expect(report.git_workflow_notes).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Couldn't drop the removed rule files from the rule-script map:"),
+        ]),
+      );
+    });
+
+    it('says nothing about an unreadable map when the cleanup removed nothing', async () => {
+      mkdirSync(join(projectRoot, mapRel), { recursive: true });
+      const report = await updater().run(projectRoot);
+      expect(report.git_workflow_notes ?? []).not.toEqual(
+        expect.arrayContaining([expect.stringContaining('rule-script map')]),
+      );
+    });
   });
 
   it('keeps an edited workflow rule copy on update and prints the Kept line', async () => {
@@ -300,7 +439,7 @@ describe('FrameworkUpdater', () => {
     writeFileSync(path, edited);
     const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
     const report = await updater.run(projectRoot);
-    expect(readFileSync(path, 'utf8')).toContain('My own step.');
+    expect(readFileSync(path, 'utf8')).toBe(edited);
     expect(report.git_workflow_notes).toContain(
       'Kept docs/instructions/rules/coding/site-map.md because it was edited. paqad now runs site maps from its own skill, so you can delete this file.',
     );

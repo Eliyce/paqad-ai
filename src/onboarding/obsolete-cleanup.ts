@@ -99,25 +99,54 @@ export function removeObsoleteContractDocs(projectRoot: string): string[] {
   return removed;
 }
 
-function cleanObsoleteWorkflowRule(projectRoot: string, rule: ObsoleteWorkflowRule): string | null {
+interface ObsoleteRuleOutcome {
+  line: string | null;
+  removed: string | null;
+}
+
+function cleanObsoleteWorkflowRule(
+  projectRoot: string,
+  rule: ObsoleteWorkflowRule,
+): ObsoleteRuleOutcome {
   const shown = `${PATHS.RULES_DIR}/${rule.path}`;
   const path = join(projectRoot, PATHS.RULES_DIR, rule.path);
   try {
     if (!rule.shippedHashes.includes(normalizedRuleHash(readFileSync(path, 'utf8')))) {
-      return `Kept ${shown} because it was edited. paqad now runs ${rule.job} from its own skill, so you can delete this file.`;
+      return {
+        line: `Kept ${shown} because it was edited. paqad now runs ${rule.job} from its own skill, so you can delete this file.`,
+        removed: null,
+      };
     }
     rmSync(path);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') return null;
-    return `Couldn't remove ${shown} (${code ?? 'unknown error'}); the next update tries again. paqad now runs ${rule.job} from its own skill.`;
+    if (code === 'ENOENT') return { line: null, removed: null };
+    return {
+      line: `Couldn't remove ${shown} (${code ?? 'unknown error'}); the next update tries again. paqad now runs ${rule.job} from its own skill.`,
+      removed: null,
+    };
   }
-  return `Removed ${shown}; paqad now runs ${rule.job} from its own ${rule.skill} skill.`;
+  return {
+    line: `Removed ${shown}; paqad now runs ${rule.job} from its own ${rule.skill} skill.`,
+    removed: shown,
+  };
+}
+
+export interface ObsoleteWorkflowCleanup {
+  lines: string[];
+  removed: string[];
+}
+
+export function cleanObsoleteWorkflowRules(projectRoot: string): ObsoleteWorkflowCleanup {
+  const outcomes = OBSOLETE_WORKFLOW_RULES.map((rule) =>
+    cleanObsoleteWorkflowRule(projectRoot, rule),
+  );
+  return {
+    lines: outcomes.flatMap((outcome) => (outcome.line === null ? [] : [outcome.line])),
+    removed: outcomes.flatMap((outcome) => (outcome.removed === null ? [] : [outcome.removed])),
+  };
 }
 
 export function removeObsoleteWorkflowRules(projectRoot: string): string[] {
-  return OBSOLETE_WORKFLOW_RULES.flatMap((rule) => {
-    const line = cleanObsoleteWorkflowRule(projectRoot, rule);
-    return line === null ? [] : [line];
-  });
+  return cleanObsoleteWorkflowRules(projectRoot).lines;
 }

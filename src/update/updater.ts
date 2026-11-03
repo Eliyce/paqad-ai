@@ -27,8 +27,8 @@ import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
-import { removeObsoleteWorkflowRules } from '@/onboarding/obsolete-cleanup.js';
-import { compileRuleScripts, isRuleScriptMapStale } from '@/rule-scripts/compile.js';
+import { cleanObsoleteWorkflowRules } from '@/onboarding/obsolete-cleanup.js';
+import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
 import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
@@ -169,15 +169,17 @@ export class FrameworkUpdater {
     const teamConfigMigration = migrateTeamConfig(projectRoot);
     if (teamConfigMigration.ran) gitWorkflowNotes.push(...teamConfigMigration.lines);
     gitWorkflowNotes.push(...removeGeneratedFiles(projectRoot));
-    gitWorkflowNotes.push(...removeObsoleteWorkflowRules(projectRoot));
-    try {
-      if (isRuleScriptMapStale(projectRoot)) {
-        compileRuleScripts(projectRoot);
+    const mapWasCurrent = isRuleScriptMapCurrent(projectRoot);
+    const ruleCleanup = cleanObsoleteWorkflowRules(projectRoot);
+    gitWorkflowNotes.push(...ruleCleanup.lines);
+    if (ruleCleanup.removed.length > 0) {
+      try {
+        dropRuleScriptMapSources(projectRoot, ruleCleanup.removed, mapWasCurrent);
+      } catch (error) {
+        gitWorkflowNotes.push(
+          `Couldn't drop the removed rule files from the rule-script map: ${error instanceof Error ? error.message : 'unknown error'}.`,
+        );
       }
-    } catch (error) {
-      gitWorkflowNotes.push(
-        `Rule-script map compilation failed during update: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
     }
     const teamConfigProblems: string[] = [];
     for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {

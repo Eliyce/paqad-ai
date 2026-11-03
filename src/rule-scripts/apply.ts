@@ -29,6 +29,7 @@ export interface ApplyRuleScriptMapOptions {
   map: RuleScriptMap;
   via: string;
   event: Omit<RuleScriptMapEvent, 'ts' | 'via'>;
+  keepDigest?: boolean;
 }
 
 export interface ApplyRuleScriptMapResult {
@@ -92,7 +93,7 @@ export function applyRuleScriptMap(opts: ApplyRuleScriptMapOptions): ApplyRuleSc
     via: opts.via,
     ...opts.event,
   });
-  const digest = computeRuleScriptsDigest(opts.projectRoot);
+  const digest = opts.keepDigest === true ? null : computeRuleScriptsDigest(opts.projectRoot);
   if (digest !== null) {
     writeCapabilityDigest(opts.projectRoot, 'rule-scripts', digest, now);
   }
