@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,12 +24,16 @@ import {
   stageBriefHookOutput,
   stageHelperStage,
 } from '@/stage-isolation/stage-brief.js';
-import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import {
+  defaultFeatureDevelopmentPolicy,
+  loadFeatureDevelopmentPolicy,
+} from '@/pipeline/feature-development-policy.js';
+import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 
 const SESSION = 'ses_orch';
-const REPO_POLICY = join(process.cwd(), 'docs/instructions/workflows/feature-development.yaml');
+const REPO_TEAM_DIR = join(process.cwd(), '.paqad/configs/feature-development');
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -54,7 +58,11 @@ function teamDir(root: string): string {
 }
 
 function withRepoPolicy(root: string): string {
-  copyFileSync(REPO_POLICY, join(policyDir(root), 'feature-development.yaml'));
+  cpSync(REPO_TEAM_DIR, teamDir(root), { recursive: true });
+  writeFileSync(
+    join(policyDir(root), 'feature-development.yaml'),
+    renderFeatureDevelopmentView(loadFeatureDevelopmentPolicy(process.cwd()).policy),
+  );
   return root;
 }
 

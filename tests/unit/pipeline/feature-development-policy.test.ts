@@ -20,6 +20,9 @@ import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-vie
 import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
+const repoView = (): string =>
+  renderFeatureDevelopmentView(loadFeatureDevelopmentPolicy(resolve(__dirname, '../../..')).policy);
+
 const renderDefaultFeatureDevelopmentPolicyYaml = (): string =>
   renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
 
@@ -50,9 +53,9 @@ describe('feature development policy', () => {
       stages: { development: { instructions: string[] } };
     };
     expect(rendered.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
-    const workflow = YAML.parse(
-      readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
-    ) as { stages: { development: { instructions: string[] } } };
+    const workflow = YAML.parse(repoView()) as {
+      stages: { development: { instructions: string[] } };
+    };
     expect(workflow.stages.development.instructions).toContain(FULL_SUITE_INSTRUCTION);
   });
 
@@ -425,10 +428,7 @@ describe('feature development policy', () => {
     });
 
     it('AC-4: this repo’s live contract and the shipped rule pack carry it too', () => {
-      const liveYaml = readFileSync(
-        resolve(__dirname, '../../..', 'docs/instructions/workflows/feature-development.yaml'),
-        'utf8',
-      );
+      const liveYaml = repoView();
       const rulePack = readFileSync(
         resolve(__dirname, '../../..', 'runtime/capabilities/coding/rules/feature-development.md'),
         'utf8',
@@ -455,7 +455,7 @@ describe('feature development policy', () => {
       const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
         stages: Record<string, { instructions: string[] }>;
       };
-      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+      const live = YAML.parse(repoView()) as {
         stages: Record<string, { instructions: string[] }>;
       };
       for (const doc of [parsed, live]) {
@@ -500,7 +500,7 @@ describe('feature development policy', () => {
       const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
         stages: Record<string, { instructions: string[] }>;
       };
-      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+      const live = YAML.parse(repoView()) as {
         stages: Record<string, { instructions: string[] }>;
       };
       for (const doc of [parsed, live]) {
@@ -554,9 +554,9 @@ describe('feature development policy', () => {
     });
 
     it('AC-11: the generated workflow view defers attribution by default', () => {
-      const raw = YAML.parse(
-        readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
-      ) as { stages: { planning: { escalation: Record<string, string> } } };
+      const raw = YAML.parse(repoView()) as {
+        stages: { planning: { escalation: Record<string, string> } };
+      };
       expect(raw.stages.planning.escalation.attribution_pending).toBe('defer');
     });
   });
