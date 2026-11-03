@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
@@ -11,6 +11,7 @@ import {
   FRAMEWORK_CONFIG_SPECS,
   type FrameworkConfigSpec,
 } from './framework-config.js';
+import { readTextIfExistsSync } from './fs/read-if-exists.js';
 import { writeTeamConfigSchemas } from './team-config-schema.js';
 import {
   legacyBothLine,
@@ -185,7 +186,7 @@ export function writeTeamYamlValue(
   value: unknown,
 ): string {
   const target = teamConfigPath(projectRoot, file);
-  const existing = existsSync(target) ? readFileSync(target, 'utf8') : teamConfigHeader(file);
+  const existing = readTextIfExistsSync(target) ?? teamConfigHeader(file);
   const document = YAML.parseDocument(existing);
   if (document.errors.length > 0) {
     throw new Error(invalidFileMessage(file, document.errors[0]!.message));
@@ -211,9 +212,13 @@ export function ensureTeamConfigFiles(projectRoot: string): string[] {
   const created: string[] = [];
   for (const file of TEAM_CONFIG_FILES) {
     const path = teamConfigPath(projectRoot, file);
-    if (existsSync(path)) continue;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, teamConfigHeader(file), 'utf8');
+    try {
+      writeFileSync(path, teamConfigHeader(file), { encoding: 'utf8', flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
     created.push(path);
   }
   return created;
