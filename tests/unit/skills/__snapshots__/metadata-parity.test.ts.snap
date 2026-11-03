@@ -2798,6 +2798,35 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/capabilities/security/skills/pentest": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The pentest or retest request.",
+        "required": true,
+        "type": "string",
+      },
+      "source_report_path": {
+        "description": "Source pentest report or sidecar to retest, for the Retest mode.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "pentest",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "pentest",
+          "pentest-retest",
+        ],
+      },
+    ],
+  },
   "runtime/capabilities/security/skills/permission-boundary-review": {
     "cache_key_inputs": [
       "docs/modules/**/business.md",

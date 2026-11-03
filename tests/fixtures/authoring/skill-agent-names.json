@@ -587,6 +587,11 @@
       "name": "logging-monitoring-review"
     },
     {
+      "path": "runtime/capabilities/security/skills/pentest/SKILL.md",
+      "folder": "pentest",
+      "name": "pentest"
+    },
+    {
       "path": "runtime/capabilities/security/skills/permission-boundary-review/SKILL.md",
       "folder": "permission-boundary-review",
       "name": "permission-boundary-review"
