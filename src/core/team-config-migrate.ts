@@ -243,7 +243,10 @@ function planWorkflowCarry(edited: unknown, oldFile: string): WorkflowCarry {
   const checks = isRecord(checksStage.checks) ? checksStage.checks : {};
   const base = defaults.stages.checks.checks!;
   if (checks.use_project_profile_commands !== undefined || checks.commands !== undefined) {
-    const names = checks.use_project_profile_commands === false ? [] : strings(checks.commands);
+    const names =
+      checks.use_project_profile_commands === false
+        ? []
+        : [...new Set([...base.commands, ...strings(checks.commands)])];
     if (names.join(',') !== base.commands.join(',')) {
       carry(
         checks.use_project_profile_commands === false

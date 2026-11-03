@@ -182,13 +182,12 @@ describe('the four fixture projects', () => {
         development: { instructions: ['Run the payments contract tests before review.'] },
       },
     });
-    expect(YAML.parse(configs('feature-development/checks.yaml'))).toMatchObject({
-      commands: {
-        from_project_profile: ['format', 'test'],
-        extra: { 'command-1': 'npm --prefix frontend run lint:js' },
-      },
+    const checksYaml = YAML.parse(configs('feature-development/checks.yaml'));
+    expect(checksYaml).toMatchObject({
+      commands: { extra: { 'command-1': 'npm --prefix frontend run lint:js' } },
       on_failure: 'warn',
     });
+    expect(checksYaml.commands.from_project_profile).toBeUndefined();
     expect(YAML.parse(configs('feature-development/rules.yaml')).enforcement).toBe('block');
     expect(layeredConfigMap(root, {}).get('rule_compliance')).toBe('strict');
     const viewText = readFileSync(featureDevelopmentViewPath(root), 'utf8');
@@ -197,6 +196,7 @@ describe('the four fixture projects', () => {
     expect(policy.stages.development.instructions.at(-1)).toBe(
       'Run the payments contract tests before review.',
     );
+    expect(policy.stages.checks.checks?.commands).toEqual(['format', 'test', 'build']);
     expect(policy.stages.checks.checks?.block_on_failure).toBe(false);
     expect(policy.stages.checks.checks?.shell_commands).toEqual([
       'npm --prefix frontend run lint:js',
@@ -372,10 +372,6 @@ describe('the size of the team settings (AC-72)', () => {
   const NOISE = join(FIXTURES, 'generated-noise', PATHS.PROJECT_CONFIGS_DIR);
   const OLD_FILES = ['.config.app', '.config.rag', '.config.models', '.config.policy'];
 
-  // The anonymised fixtures hold only the lines each team set. Real projects carried
-  // those lines inside the full generated files: commented-out defaults, section
-  // banners and "Added in a newer paqad version" blocks. This puts each fixture back
-  // inside paqad's own generated files from before the move.
   function useFullSizeFixture(name: string): number {
     useFixture(name);
     let lines = 0;

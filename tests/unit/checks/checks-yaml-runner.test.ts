@@ -34,8 +34,6 @@ interface OldChecksFields {
   block_on_failure?: boolean;
 }
 
-// How the old workflow file's stages.checks.checks fields were merged over the
-// defaults before #791 (mergeFeatureDevelopmentPolicy, removed in 4b878593).
 function oldChecks(raw: OldChecksFields): FeatureDevelopmentChecksPolicy {
   const base = defaultFeatureDevelopmentPolicy().stages.checks.checks!;
   return {
@@ -147,6 +145,25 @@ describe('checks.yaml drives the checks runner as the old workflow fields did (A
     expect(checks).toEqual(oldChecks(fields));
     expect((await run()).ran).toEqual(expectedCommands(oldChecks(fields)));
   });
+
+  for (const commands of [['format', 'test'], ['lint'], ['test', 'lint', 'build']]) {
+    it(`AC-56: an old commands list [${commands.join(', ')}] still runs every default as well after the move`, async () => {
+      const fields: OldChecksFields = { commands, shell_commands: ['pnpm lint:js'] };
+      write(join(PATHS.WORKFLOWS_DIR, 'feature-development.yaml'), {
+        schema_version: '1',
+        stages: { checks: { checks: fields } },
+      });
+      migrateTeamConfig(root, { version: '1.117.0' });
+
+      const checks = loadFeatureDevelopmentPolicy(root).policy.stages.checks.checks!;
+      expect(checks).toEqual(oldChecks(fields));
+      const ran = (await run()).ran;
+      expect(ran).toEqual(expectedCommands(oldChecks(fields)));
+      for (const command of ['pnpm format', 'pnpm test', 'pnpm build']) {
+        expect(ran).toContain(command);
+      }
+    });
+  }
 
   it('AC-56: an old workflow file that turned the profile commands off still runs only its shell commands', async () => {
     const fields: OldChecksFields = {
