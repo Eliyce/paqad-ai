@@ -129,7 +129,11 @@ The reasons below are not obvious from the code, grouped by file in `src/onboard
   than being overwritten. A rewrite equal except for the timestamp keeps the old file. Relative
   inputs are returned as is, because `path.relative` resolves both sides against the cwd.
 - **`obsolete-cleanup.ts`.** Old project copies of the two contracts are removed only when they
-  start with paqad's managed header.
+  start with paqad's managed header. The seven workflow rule files that became skills (`pentest`,
+  `site-map`, `site-map-retest`, `design-test`, `design-retest`, `codebase-health`,
+  `health-retest`) are no longer shipped, and `removeObsoleteWorkflowRules` removes a project copy
+  only when its hash, ignoring `@rule` markers, matches a version paqad shipped. An edited copy is
+  kept, with a warning that says it can be deleted.
 - **`orchestrator.ts`.** Onboarding is two phases: every core file is written first with no
   prompt, then the optional RAG step runs, so a hanging RAG prompt cannot leave a half-onboarded
   project. A re-onboard is a refresh: user-set sections are carried forward and only

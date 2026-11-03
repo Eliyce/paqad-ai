@@ -104,6 +104,11 @@ Source directories owned by this feature:
   the next run reads the list directly.
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
+- Workflow rules that became skills are cleaned up on the real project root for the same reason.
+  `removeObsoleteWorkflowRules` (`src/onboarding/obsolete-cleanup.ts`) deletes each of the seven
+  files only when its hash, ignoring `@rule` markers, matches a version paqad shipped, and adds one
+  line to the update summary per file. A copy that was edited, or that can't be cleaned up, stays
+  in place and the summary says it can be deleted. A project without the files prints nothing.
 - Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
   `docs/instructions/workflows/feature-development.yaml` to the YAML team files once and deletes
   that file, then `removeGeneratedFiles` (`src/update/generated-files-cleanup.ts`) removes what
