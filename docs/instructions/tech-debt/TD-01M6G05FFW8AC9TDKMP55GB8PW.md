@@ -1,6 +1,6 @@
 ---
 id: "TD-01M6G05FFW8AC9TDKMP55GB8PW"
-title: "Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58 (predates #791)"
+title: "Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58"
 kind: "debt"
 severity: "low"
 status: "open"

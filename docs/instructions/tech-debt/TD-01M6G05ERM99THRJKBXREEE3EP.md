@@ -1,6 +1,6 @@
 ---
 id: "TD-01M6G05ERM99THRJKBXREEE3EP"
-title: "Skill description catalog (~30,063 chars) is over the 8,000-char authoring budget, which predates #791"
+title: "Skill description catalog (~30,063 chars) is over the 8,000-char authoring budget"
 kind: "debt"
 severity: "low"
 status: "open"
