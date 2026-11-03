@@ -19,7 +19,6 @@ paqad's default.
 - `feature-development/analytics.yaml` — Analytics instrumentation (opt-in).
 - `git-workflow/` — the team rules for tickets, branches, commits, pull requests and
   enforcement (see below).
-- `schemas/` — JSON schemas for your editor, written by paqad and git-ignored.
 
 Run `paqad-ai config show` to see every setting, its value and where it comes from
 (`--changed` lists only the ones that differ from the default).
@@ -28,13 +27,10 @@ Run `paqad-ai config show` to see every setting, its value and where it comes fr
 
 - Remove the `#` in front of a setting (and in front of its group name) to change it;
   put the `#` back to go back to the default.
-- Each file starts with a `# yaml-language-server` line, so VS Code (with the Red Hat
-  YAML extension) and JetBrains IDEs offer every setting with its description,
-  default and allowed values.
 - Gates use one vocabulary: `off | warn | block`.
-- `paqad-ai update` never changes a value you set. It regenerates the schemas and this
-  README, and rewrites each team file so new settings show up commented out and
-  removed ones disappear, keeping your values and notes.
+- `paqad-ai update` never changes a value you set. It regenerates this README and
+  rewrites each team file so new settings show up commented out and removed ones
+  disappear, keeping your values and notes.
 
 ## Personal overrides
 

@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=../schemas/feature-development/analytics.schema.json
 # Analytics instrumentation (opt-in).
 # Every setting is listed with paqad's default. To change one, remove the # in front of it.
 # A setting left commented out uses paqad's default, which can improve in a later version.

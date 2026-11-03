@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=./schemas/authoring.schema.json
 # How paqad writes and tests skills and helper agents, and its eval runs.
 # Every setting is listed with paqad's default. To change one, remove the # in front of it.
 # A setting left commented out uses paqad's default, which can improve in a later version.
