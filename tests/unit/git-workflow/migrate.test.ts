@@ -186,4 +186,29 @@ describe('migrateDeliveryPolicy', () => {
     expect(migrateDeliveryPolicy(root).ran).toBe(false);
     expect(existsSync(join(root, OLD_DELIVERY_POLICY))).toBe(true);
   });
+
+  it('treats broken YAML, a non-boolean enabled and a section that is not a map as unreadable', () => {
+    for (const text of ['process: [unclosed\n', 'enabled: "yes"\n', 'process:\n  ticket: [a]\n']) {
+      rmSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true, force: true });
+      writeOld(text);
+      const result = migrateDeliveryPolicy(root, { version: '2.0.0', baseBranch: 'main' });
+      expect(result).toMatchObject({ ran: true, lines: [UNREADABLE_MESSAGE], deleted: false });
+    }
+  });
+
+  it('converts an empty old file to the defaults and deletes it', () => {
+    writeOld('');
+    const result = migrateDeliveryPolicy(root, { version: '2.0.0', baseBranch: 'main' });
+    expect(result.deleted).toBe(true);
+    expect(readNew('branches.yaml')).toMatchObject({ default_type: 'feat' });
+  });
+
+  it('counts an unreadable new file as present, and a file holding a list as empty', () => {
+    writeOld(OLD);
+    mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+    writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'tickets.yaml'), 'sources: [unclosed\n');
+    expect(migrateDeliveryPolicy(root).ran).toBe(false);
+    writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'tickets.yaml'), '- a\n');
+    expect(migrateDeliveryPolicy(root, { version: '2.0.0', baseBranch: 'main' }).ran).toBe(true);
+  });
 });
