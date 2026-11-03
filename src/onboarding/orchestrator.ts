@@ -61,7 +61,7 @@ import {
 } from './checkpoint.js';
 import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
-import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
+import { removeObsoleteContractDocs, removeObsoleteWorkflowRules } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
 import { writeWorktreeInclude } from './worktree-include-writer.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
@@ -289,6 +289,7 @@ export class OnboardingOrchestrator {
       );
     }
     removeObsoleteContractDocs(options.projectRoot);
+    onboardingWarnings.push(...removeObsoleteWorkflowRules(options.projectRoot));
     try {
       if (isRuleScriptMapStale(options.projectRoot)) {
         compileRuleScripts(options.projectRoot);

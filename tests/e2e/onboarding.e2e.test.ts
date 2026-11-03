@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -524,6 +532,25 @@ describe('framework end-to-end onboarding', () => {
     ]) {
       expect(existsSync(join(projectRoot, 'docs/instructions/rules', path)), path).toBe(false);
     }
+  });
+
+  it('cleans the old workflow rule files out when an existing project is onboarded again', async () => {
+    const projectRoot = join(root, 'existing-laravel-old-rules');
+    const fixtures = join(process.cwd(), 'tests/fixtures/obsolete-workflow-rules');
+    const rules = join(projectRoot, 'docs/instructions/rules');
+    mkdirSync(join(rules, 'security'), { recursive: true });
+    mkdirSync(join(rules, 'coding'), { recursive: true });
+    const edited = `${readFileSync(join(fixtures, 'coding/site-map.md'), 'utf8')}My own step.\n`;
+    writeFileSync(
+      join(rules, 'security/pentest.md'),
+      readFileSync(join(fixtures, 'security/pentest.md'), 'utf8'),
+    );
+    writeFileSync(join(rules, 'coding/site-map.md'), edited);
+
+    await runOnboard(projectRoot, { stack: 'laravel' });
+
+    expect(existsSync(join(rules, 'security/pentest.md'))).toBe(false);
+    expect(readFileSync(join(rules, 'coding/site-map.md'), 'utf8')).toContain('My own step.');
   });
 });
 

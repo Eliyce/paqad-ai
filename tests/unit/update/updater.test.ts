@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
 
@@ -230,6 +230,38 @@ describe('FrameworkUpdater', () => {
     );
     const second = removalLines((await updater.run(projectRoot)).git_workflow_notes ?? []);
     expect(second).toEqual([]);
+  });
+
+  it('removes an unchanged workflow rule copy from the real project and prints its line', async () => {
+    const shipped = readFileSync(
+      join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/codebase-health.md'),
+      'utf8',
+    );
+    const path = join(projectRoot, 'docs/instructions/rules/coding/codebase-health.md');
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, shipped);
+    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
+    const report = await updater.run(projectRoot);
+    expect(existsSync(path)).toBe(false);
+    expect(report.git_workflow_notes).toContain(
+      'Removed docs/instructions/rules/coding/codebase-health.md; paqad now runs codebase health checks from its own codebase-health skill.',
+    );
+  });
+
+  it('keeps an edited workflow rule copy on update and prints the Kept line', async () => {
+    const edited = `${readFileSync(
+      join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/site-map.md'),
+      'utf8',
+    )}My own step.\n`;
+    const path = join(projectRoot, 'docs/instructions/rules/coding/site-map.md');
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, edited);
+    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
+    const report = await updater.run(projectRoot);
+    expect(readFileSync(path, 'utf8')).toBe(edited);
+    expect(report.git_workflow_notes).toContain(
+      'Kept docs/instructions/rules/coding/site-map.md because it was edited. paqad now runs site maps from its own skill, so you can delete this file.',
+    );
   });
 
   it('AC-6: adds a missing managed ignore line and keeps every line outside the managed block', async () => {
