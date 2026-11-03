@@ -85,7 +85,7 @@ describe('removeObsoleteWorkflowRules', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  it('deletes an unchanged shipped copy and returns one Removed line', () => {
+  it('AC-5: deletes an unchanged shipped copy and returns one Removed line', () => {
     const path = place('security/pentest.md', fixture('security/pentest.md'));
     expect(removeObsoleteWorkflowRules(projectRoot)).toEqual([
       `Removed ${RULES}/security/pentest.md; paqad now runs pentests from its own pentest skill.`,
@@ -93,7 +93,7 @@ describe('removeObsoleteWorkflowRules', () => {
     expect(existsSync(path)).toBe(false);
   });
 
-  it('treats a shipped copy carrying @rule markers as unchanged', () => {
+  it('AC-5: treats a shipped copy carrying @rule markers as unchanged', () => {
     const marked = fixture('security/pentest.marked.md');
     expect(marked).toContain('<!-- @rule RL-');
     const path = place('security/pentest.md', marked);
@@ -110,7 +110,7 @@ describe('removeObsoleteWorkflowRules', () => {
     expect(existsSync(path)).toBe(false);
   });
 
-  it('keeps an edited copy and says why', () => {
+  it('AC-6: keeps an edited copy and says why', () => {
     const edited = `${fixture('coding/site-map.md')}My own step.\n`;
     const path = place('coding/site-map.md', edited);
     expect(removeObsoleteWorkflowRules(projectRoot)).toEqual([
@@ -119,7 +119,7 @@ describe('removeObsoleteWorkflowRules', () => {
     expect(readFileSync(path, 'utf8')).toBe(edited);
   });
 
-  it('does nothing and says nothing when none of the files exist', () => {
+  it('AC-7: does nothing and says nothing when none of the files exist', () => {
     expect(removeObsoleteWorkflowRules(projectRoot)).toEqual([]);
     expect(existsSync(join(projectRoot, RULES))).toBe(false);
   });
@@ -128,9 +128,7 @@ describe('removeObsoleteWorkflowRules', () => {
     const path = join(projectRoot, RULES, 'security/pentest.md');
     mkdirSync(path, { recursive: true });
     expect(removeObsoleteWorkflowRules(projectRoot)).toEqual([
-      expect.stringContaining(
-        `Kept ${RULES}/security/pentest.md because paqad could not clean it up (EISDIR)`,
-      ),
+      expect.stringContaining(`Kept ${RULES}/security/pentest.md because paqad could not clean it up (EISDIR)`),
     ]);
     expect(existsSync(path)).toBe(true);
   });
@@ -164,7 +162,7 @@ describe('the shipped hash list', () => {
     ]);
   });
 
-  it.skipIf(!historyAvailable())('holds every git version of each source file', () => {
+  it.skipIf(!historyAvailable())('AC-9: holds every git version of each source file', () => {
     for (const rule of OBSOLETE_WORKFLOW_RULES) {
       const versions = everyGitVersion(runtimePath(rule.path));
       expect(versions.length, rule.path).toBeGreaterThan(0);

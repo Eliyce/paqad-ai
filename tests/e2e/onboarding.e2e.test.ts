@@ -516,7 +516,7 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/design-system'))).toBe(false);
   });
 
-  it('writes none of the seven workflow recipe files on a fresh onboard', async () => {
+  it('AC-4: writes none of the seven workflow recipe files on a fresh onboard', async () => {
     const projectRoot = join(root, 'new-laravel-workflow-skills');
 
     await runOnboard(projectRoot, { stack: 'laravel' });
