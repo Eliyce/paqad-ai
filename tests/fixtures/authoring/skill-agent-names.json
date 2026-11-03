@@ -472,6 +472,11 @@
       "name": "site-map-retest"
     },
     {
+      "path": "runtime/capabilities/coding/skills/site-map/SKILL.md",
+      "folder": "site-map",
+      "name": "site-map"
+    },
+    {
       "path": "runtime/capabilities/coding/skills/state-coverage-review/SKILL.md",
       "folder": "state-coverage-review",
       "name": "state-coverage-review"

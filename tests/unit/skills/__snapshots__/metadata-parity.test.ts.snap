@@ -2171,6 +2171,35 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/capabilities/coding/skills/site-map": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "app_map": {
+        "description": "The stored docs/site-map/app-map.yaml, when a map already exists.",
+        "required": false,
+        "type": "path",
+      },
+      "request_text": {
+        "description": "The site map request.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "site-map",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "site-map",
+          "site-map-retest",
+        ],
+      },
+    ],
+  },
   "runtime/capabilities/coding/skills/site-map-assembly": {
     "cache_key_inputs": [],
     "cacheable": false,

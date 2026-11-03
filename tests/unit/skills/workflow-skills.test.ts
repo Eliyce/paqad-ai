@@ -88,3 +88,25 @@ describe('pentest skill', () => {
     expect(workflowTriggers(folder)).toEqual(['pentest', 'pentest-retest']);
   });
 });
+
+describe('site-map skill', () => {
+  const folder = 'runtime/capabilities/coding/skills/site-map';
+
+  it('has the seven sections in order and a Retest mode under Procedure', () => {
+    expectSkillShape(folder);
+  });
+
+  it('walks the sitemap verbs in order', () => {
+    expectInOrder(body(folder), [
+      'sitemap status',
+      'preflight site-map',
+      'sitemap inventory',
+      'sitemap draft',
+      'sitemap run',
+    ]);
+  });
+
+  it('triggers on site-map and site-map-retest', () => {
+    expect(workflowTriggers(folder)).toEqual(['site-map', 'site-map-retest']);
+  });
+});
