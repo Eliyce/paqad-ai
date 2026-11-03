@@ -54,8 +54,8 @@ findings live in its evidence bundle under `.paqad/site-map/runs/` and in what y
 | Source                                                    | Role                                              |
 | --------------------------------------------------------- | ------------------------------------------------- |
 | `docs/site-map/app-map.yaml` + `journeys/*.journey.yaml`  | **the map of record**: engine-drafted, you curate |
-| `paqad-ai sitemap draft` skeleton + resolved links        | **the proof-backed draft**: machine-written      |
-| `paqad-ai sitemap run` findings + stamped trust/freshness | **the proof**: machine-generated, zero tokens    |
+| `paqad-ai sitemap draft` skeleton + resolved links        | **the proof-backed draft**: machine-written       |
+| `paqad-ai sitemap run` findings + stamped trust/freshness | **the proof**: machine-generated, zero tokens     |
 | The code-knowledge index, route/command scan, module map  | **primary evidence** the engine cites             |
 | The dashboard's Site map area (static render of the map)  | **the deliverable** humans read                   |
 
@@ -239,4 +239,5 @@ where the last one stopped instead of starting over.
 ## Resources
 
 - Helper skills: `site-map-readiness`, `surface-extraction`, `surface-modeling`, `transition-tracing`, `guard-inference`, `journey-synthesis`, `site-map-assembly`, `map-verification`, `site-map-gap-analysis`, `finding-normalizer` and, for the Retest mode, `site-map-retest`.
+- `references/helper-map.md`: read it when you need to see which helper a step calls.
 - `agents/openai.yaml`

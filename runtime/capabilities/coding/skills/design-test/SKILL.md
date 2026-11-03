@@ -28,10 +28,10 @@ Use the Retest mode below when the workflow is `design-retest`.
 
 ### Source-of-Truth Model
 
-| Source                              | Role                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------- |
-| Playwright walk of the running app  | **primary evidence**                                                               |
-| UI source AST + CSS scan            | **primary evidence**                                                               |
+| Source                              | Role                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| Playwright walk of the running app  | **primary evidence**                                                              |
+| UI source AST + CSS scan            | **primary evidence**                                                              |
 | `docs/instructions/design-system/*` | **contract**: what reality is graded against                                      |
 | `docs/modules/*/ui/**`              | **subject under audit**: never trusted as evidence; cross-checked against reality |
 | Playwright test files               | **coverage evidence**: what's tested ≠ what exists; gap = finding                 |
@@ -51,7 +51,7 @@ Grade `docs/instructions/design-system/` before any other step runs. The `design
 | **Missing**  | Directory absent, or all six contract files empty                           | **Stop.** Decision-pause packet via `AskUserQuestion`: "Run `create documentation` for the design system first?" Offers inline invocation of `documentation-update` workflow, then resume. |
 | **Bare**     | Tokens partial; no component inventory; no a11y matrix                      | Warn + prompt. Run in exploratory mode, findings flagged `confidence: low`. Also emit `DT-DS-XXXX` findings listing gaps in the contract itself.                                           |
 | **Adequate** | Tokens + components + a11y + at least one of {patterns, motion, responsive} | Proceed with normal scoring.                                                                                                                                                               |
-| **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages: explicit opt-in only.                 |
+| **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages: explicit opt-in only.                  |
 
 ### Step 1: collect-context
 
@@ -64,7 +64,7 @@ Grade `docs/instructions/design-system/` before any other step runs. The `design
 Skills run **in this order** (`design-system-coverage` gates everything else, like STRIDE):
 
 1. `design-system-coverage`: already ran in Step 0; readiness inventory reused as input to every downstream skill
-2. `token-conformance-review`, scan UI source for hard-coded values that should reference tokens. **High severity by default**, hex literals, raw `px`/`rem`/`em`, font stacks not in `tokens.md`, color names not registered as tokens. The presence of a `primary` token while a component inlines `#1a73e8` is a finding, not a stylistic preference.
+2. `token-conformance-review`: scan UI source for hard-coded values that should reference tokens. **High severity by default**, hex literals, raw `px`/`rem`/`em`, font stacks not in `tokens.md`, color names not registered as tokens. The presence of a `primary` token while a component inlines `#1a73e8` is a finding, not a stylistic preference.
 3. `component-conformance-review`: every used component must be in `components.md`; `!important`, inline `style=`, shadcn primitives wrapped without spec, undocumented Tailwind utility combinations → findings
 4. `state-coverage-review`: every component in the AST-derived inventory must implement its declared states (default/hover/focus/disabled/loading/error/empty) AND be exercised by Playwright
 5. `accessibility-review`: WCAG 2.2 A/AA: contrast, focus visibility, keyboard order, ARIA, target size, prefers-reduced-motion. Findings tagged `WCAG-2.2.x.x.x` (analog of WSTG)
@@ -243,7 +243,7 @@ Retest mode rules:
 
 **Framework-owned, not project-editable:**
 
-- This workflow rule and `design-retest.md`
+- This skill, including its Retest mode
 - All 9 skills (the 8 review skills + `design-system-sync`)
 - Runners under `runtime/scripts/design/`
 - Routing rules
@@ -281,4 +281,5 @@ Retest mode rules:
 ## Resources
 
 - Helper skills, in the order the Procedure calls them: `design-system-coverage`, `token-conformance-review`, `component-conformance-review`, `state-coverage-review`, `accessibility-review`, `responsive-review`, `motion-review`, `copy-and-ia-review`, `finding-normalizer`.
+- `references/helper-map.md`: read it when you need to see which helper a step calls.
 - `agents/openai.yaml`

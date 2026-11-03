@@ -39,11 +39,11 @@ There is one source of truth: the deterministic `paqad-ai health run` verb. It d
 detection and writes the findings JSON. You never re-derive or invent a finding: you run
 the verb, read its output, triage it, and write the prose the report needs.
 
-| Source                                                      | Role                                          |
-| ----------------------------------------------------------- | --------------------------------------------- |
+| Source                                                      | Role                                         |
+| ----------------------------------------------------------- | -------------------------------------------- |
 | `paqad-ai health run` output (`docs/health/<ts>.json`)      | **the findings**: proof is machine-generated |
-| The code-knowledge index, dependency inventory, tool output | **primary evidence** the verb cites           |
-| The human report `docs/health/<ts>.md`                      | **the deliverable** you narrate               |
+| The code-knowledge index, dependency inventory, tool output | **primary evidence** the verb cites          |
+| The human report `docs/health/<ts>.md`                      | **the deliverable** you narrate              |
 
 ## Procedure
 
@@ -146,4 +146,5 @@ Retest mode rules:
 ## Resources
 
 - Helper skill: `finding-normalizer`.
+- `references/health-verbs.md`: read it when you need to see which verb a mode runs.
 - `agents/openai.yaml`
