@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6GPKYZHYM52PF26KBSRG461](TD-01M6GPKYZHYM52PF26KBSRG461.md) (bug, medium): collapseSameRole drops a seat's distinct findings that share a target
+- [TD-01M6GPKY771751JVEQMN2DM8TA](TD-01M6GPKY771751JVEQMN2DM8TA.md) (bug, medium): deliver commit subcommand always fails: parent deliver command owns required --summary/--ticket
 - [TD-01M6G05FFW8AC9TDKMP55GB8PW](TD-01M6G05FFW8AC9TDKMP55GB8PW.md) (debt, low): Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58 (predates #791)
 - [TD-01M6G05ERM99THRJKBXREEE3EP](TD-01M6G05ERM99THRJKBXREEE3EP.md) (debt, low): Skill description catalog (~30,063 chars) is over the 8,000-char authoring budget, which predates #791
 - [TD-01M6G05E1J1XM79XQYFQPEG20C](TD-01M6G05E1J1XM79XQYFQPEG20C.md) (follow-up, medium): Release PR must set LEGACY_TEAM_CONFIG_READ_UNTIL to release date + 90 days in all five copies
