@@ -367,3 +367,80 @@ describe('readSetLines', () => {
     ]);
   });
 });
+
+describe('the size of the team settings (AC-72)', () => {
+  const NOISE = join(FIXTURES, 'generated-noise', PATHS.PROJECT_CONFIGS_DIR);
+  const OLD_FILES = ['.config.app', '.config.rag', '.config.models', '.config.policy'];
+
+  // The anonymised fixtures hold only the lines each team set. Real projects carried
+  // those lines inside the full generated files: commented-out defaults, section
+  // banners and "Added in a newer paqad version" blocks. This puts each fixture back
+  // inside paqad's own generated files from before the move.
+  function useFullSizeFixture(name: string): number {
+    useFixture(name);
+    let lines = 0;
+    for (const file of OLD_FILES) {
+      const path = join(root, PATHS.PROJECT_CONFIGS_DIR, file);
+      const team = existsSync(path) ? readFileSync(path, 'utf8') : '';
+      const text = `${readFileSync(join(NOISE, file), 'utf8')}\n${team}`;
+      writeFileSync(path, text);
+      lines += text.trimEnd().split('\n').length;
+    }
+    return lines;
+  }
+
+  function teamFiles(at: string): Record<string, string> {
+    return Object.fromEntries(
+      TEAM_CONFIG_FILES.map((file) => [
+        file,
+        readFileSync(join(at, PATHS.PROJECT_CONFIGS_DIR, file), 'utf8'),
+      ]),
+    );
+  }
+
+  function settingLineCount(files: Record<string, string>): number {
+    return Object.values(files)
+      .flatMap((text) => text.split('\n'))
+      .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
+      .filter((line) => !line.startsWith('paqad_version:')).length;
+  }
+
+  for (const name of PROJECTS) {
+    it(`${name}: shrinks the full generated files to only the lines the team set, with every value carried (AC-72)`, () => {
+      const before = useFullSizeFixture(name);
+      expect(before).toBeGreaterThanOrEqual(207);
+      const flatBefore = layeredConfigMap(root, {});
+
+      const result = migrateTeamConfig(root, { version: VERSION });
+      expect(result.error).toBeUndefined();
+
+      const plain = mkdtempSync(join(tmpdir(), 'team-config-plain-'));
+      try {
+        cpSync(join(FIXTURES, name), plain, { recursive: true });
+        writeFileSync(join(plain, PATHS.PROJECT_PROFILE), 'active_capabilities:\n  - coding\n');
+        migrateTeamConfig(plain, { version: VERSION });
+        expect(teamFiles(root)).toEqual(teamFiles(plain));
+      } finally {
+        rmSync(plain, { recursive: true, force: true });
+      }
+
+      const after = teamFiles(root);
+      const set = settingLineCount(after);
+      expect(set).toBeGreaterThanOrEqual(7);
+      expect(set).toBeLessThanOrEqual(24);
+      for (const text of Object.values(after)) {
+        expect(text).not.toContain('(env:');
+        expect(text).not.toContain('──');
+        expect(text).not.toContain('Added in a newer paqad version');
+      }
+      const flatAfter = layeredConfigMap(root, {});
+      for (const [key, value] of flatBefore) {
+        if (key === 'legacy_flag' || (key === 'rule_compliance' && name === 'project-b')) continue;
+        const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
+        if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) continue;
+        const flat = spec.yaml?.list ? fromYamlValue(spec, toYamlValue(spec, value)) : value;
+        expect([key, flatAfter.get(key)]).toEqual([key, flat]);
+      }
+    });
+  }
+});

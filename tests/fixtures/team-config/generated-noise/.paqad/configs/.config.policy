@@ -1,0 +1,183 @@
+# .paqad/configs/.config.policy — Quality, escalation, and decision policy
+#
+# Strictness gates (adversarial review, stale-doc blocking, DB-migration review),
+# escalation modes for risky operations, and decision-pause tuning.
+#
+# Every key below is COMMENTED OUT, so paqad uses its built-in default until you
+# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >
+# your local ../.config > these tracked team files > code default. This file is
+# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.
+
+# ── Strictness / quality gates ──────────────────────────────
+# Route every task through the full (heaviest) lane by default. (env: PAQAD_FULL_LANE_DEFAULT)
+# full_lane_default=false
+# Require an adversarial review pass before delivery. (env: PAQAD_REQUIRE_ADVERSARIAL_REVIEW)
+# require_adversarial_review=true
+# Block delivery when canonical docs are out of date. (env: PAQAD_BLOCK_ON_STALE_DOCS)
+# block_on_stale_docs=true
+# Require a database review when a change includes migrations. (env: PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS)
+# require_db_review_for_migrations=true
+
+# ── Escalation policy ───────────────────────────────────────
+# block | require_approval | warn — for destructive operations. (env: PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS)
+# escalate_destructive_operations=block
+# block | require_approval | warn — for risky migrations. (env: PAQAD_ESCALATE_RISKY_MIGRATIONS)
+# escalate_risky_migrations=warn
+# block | require_approval | warn — for security findings. (env: PAQAD_ESCALATE_SECURITY_FINDINGS)
+# escalate_security_findings=block
+# Row count above which a data operation escalates. (env: PAQAD_ESCALATE_DB_ROW_THRESHOLD)
+# escalate_db_row_threshold=10000
+
+# ── Decisions (pause-contract tuning) ───────────────────────
+# strict | balanced | permissive — how eagerly to pause and ask. (env: PAQAD_DECISIONS_ASK_THRESHOLD)
+# decisions_ask_threshold=strict
+# Max decision screens surfaced per task. (env: PAQAD_DECISIONS_MAX_SCREENS_PER_TASK)
+# decisions_max_screens_per_task=3
+# Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
+# decisions_idle_timeout_minutes=30
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — feature-development stage-completeness gate (default strict). (env: PAQAD_STAGES_MODE)
+# stages_mode=strict
+# off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
+# rule_compliance=strict
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — analytics instrumentation completeness (issue #279). warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
+# analytics_strictness=warn
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)
+# duplication_mode=warn
+# Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks. (env: PAQAD_DUPLICATION_SIMILARITY_THRESHOLD)
+# duplication_similarity_threshold=0.9
+# Minimum meaningful-line span a new code block must have to be scored for duplication (issue #358). Default 8 — shorter snippets are never flagged. (env: PAQAD_DUPLICATION_MIN_LINES)
+# duplication_min_lines=8
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — arm the create-vs-reuse decision pause from evidence (issue #361). warn (default) reports the fork; strict opens a pause that blocks edits until answered. (env: PAQAD_DECISION_ARM_MODE)
+# decision_arm_mode=warn
+# Minimum name similarity (0..1) between a planned new construct and an existing symbol before it counts as a reuse fork (issue #361). Default 0.85. (env: PAQAD_DECISION_ARM_PLAN_THRESHOLD)
+# decision_arm_plan_threshold=0.85
+# How many evidence-armed decision pauses one change may open (issue #361). Default 1 — only the strongest fork is asked; the rest are reported as warnings. (env: PAQAD_DECISION_ARM_MAX_PER_CHANGE)
+# decision_arm_max_per_change=1
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
+# bundle_completeness=strict
+# DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# evidence_existence_gate=strict
+
+# ── Added in a newer paqad version ────────────────────────────
+# Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
+# spec_pipeline_enabled=true
+# off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask and hold until answered or explicitly deferred. off: never ask. The fixed spine (grounding, no-invented-requirements, traceability) is never switchable. (env: PAQAD_SPEC_PIPELINE_CLARIFICATION)
+# spec_pipeline_clarification=strict
+# off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
+# spec_pipeline_final_review=off
+# Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
+# spec_pipeline_token_ceiling=20000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
+# spec_pipeline_experts_enabled=true
+
+# issue #547 — this repo runs the spec pipeline in strict adoption, with a higher ceiling.
+# spec_pipeline_adoption=strict
+# spec_pipeline_token_ceiling=60000
+
+# ── Added in a newer paqad version ────────────────────────────
+# pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn (default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team value is the floor; local/env may only raise it. (env: PAQAD_CHECKS_FLAKY_UNDER_PARALLEL)
+# checks_flaky_under_parallel=warn
+# warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on and a change is frontend-triggering (issue #551). warn (default): an environmental miss (browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) reads Inconclusive without blocking. strict: the same misses FAIL the change. Documented skips (no documented flow, no capture script) never fail in either mode. Team value is the floor; local/env may only raise warn to strict. (env: PAQAD_VISUAL_EVIDENCE_MODE)
+# visual_evidence_mode=warn
+# keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
+# ai_attribution=strip
+
+# ── Added in a newer paqad version ────────────────────────────
+# Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
+# spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its own CI or pre-push hook, never at the end of an agent turn, and the project supplies the mutation tool for its stack. The project test command runs first; a red suite reads did not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check. (env: PAQAD_MUTATION_MODE)
+# mutation_mode=off
+
+# ── Added in a newer paqad version ────────────────────────────
+# blocking-only | all — rule scripts run before an edit. blocking-only runs only the deterministic changed-files scripts and the rest at turn end; all runs every script. (env: PAQAD_RULE_GATE_PRE_EDIT)
+# rule_gate_pre_edit=blocking-only
+# auto | 1-8 — rule scripts run at once. auto = CPU cores minus one, at most 8; 1 runs them one after another. (env: PAQAD_RULE_GATE_CONCURRENCY)
+# rule_gate_concurrency=auto
+# Time in ms (500-9000) the pre-edit rule check may take from the hook start, under both rule_gate_pre_edit values. Past it the edit goes ahead and the checks block at turn end. (env: PAQAD_RULE_GATE_BUDGET_MS)
+# rule_gate_budget_ms=6000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Milliseconds `spec pipeline start` gives retrieval to ground the request. Past it, or with an empty index or no embedding key, start grounds on the docs alone and records grounding.mode=lexical-fallback with the reason. (env: PAQAD_SPEC_GROUNDING_BUDGET_MS)
+# spec_grounding_budget_ms=15000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Comma-separated lanes (fast, graduated, full) on which each feature-development stage runs in its own stage helper on a host that can dispatch subagents (Claude Code, Codex). On other lanes the main agent runs every stage itself, with the same stages, artifacts and gates. Default: full. Set graduated,full to restore the old behaviour. full is always included; an empty or unreadable value gives the default. (env: PAQAD_STAGE_ISOLATION_LANES)
+# stage_isolation_lanes=full
+
+# ── Added in a newer paqad version ────────────────────────────
+# Comma-separated lanes (graduated, full) on which the standing experts sit at every spec. On other pipeline lanes only the on-call experts the detector names are seated, plus security-auditor when a planned path is sensitive, and the High Table is skipped when nobody is named. Default: full. Set graduated,full to restore the old behaviour. full is always included. Review is unaffected. (env: PAQAD_SPEC_PIPELINE_EXPERTS_LANES)
+# spec_pipeline_experts_lanes=full
+
+# ── Added in a newer paqad version ────────────────────────────
+# Turn the Skill Orchestrator on or off. Off means no High Table seat on skill paths, no skill pipeline, no lane raise for skills and no skill completion check, so a skill edit is judged as before. (env: PAQAD_SKILL_ORCHESTRATOR_ENABLED)
+# skill_orchestrator_enabled=true
+# S6 trigger test: the validation pass rate a skill description needs, from 0 to 1. (env: PAQAD_AUTHORING_TRIGGER_THRESHOLD)
+# authoring_trigger_threshold=0.9
+# S6 trigger test: how many of the 3 runs of each query must fire the skill. A positive whole number. (env: PAQAD_AUTHORING_TRIGGER_MIN_RUNS)
+# authoring_trigger_min_runs=2
+# S5 evals: the pass-rate gain over the no-skill baseline a skill needs, in percentage points. A positive whole number. (env: PAQAD_SKILL_EVAL_MIN_GAIN_POINTS)
+# skill_eval_min_gain_points=10
+# S5 evals: the most median tokens a skill run may use, as a multiple of the baseline. 1 or more. (env: PAQAD_SKILL_EVAL_MAX_TOKEN_MULTIPLE)
+# skill_eval_max_token_multiple=2
+# S5 evals: runs per arm (with and without the skill) for each case. A positive whole number. (env: PAQAD_AUTHORING_RUNS_PER_ARM)
+# authoring_runs_per_arm=3
+# S5 evals: the most revision rounds before the loop stops. A positive whole number. (env: PAQAD_AUTHORING_MAX_ITERATIONS)
+# authoring_max_iterations=3
+# Days an externally verified fact in sources.md stays fresh. Older facts block release until rechecked. A positive whole number. (env: PAQAD_AUTHORING_FACT_MAX_AGE_DAYS)
+# authoring_fact_max_age_days=60
+# Overlap check: the word-set similarity (Jaccard, 0 to 1) at which a new skill collides with an installed one. (env: PAQAD_AUTHORING_COLLISION_JACCARD)
+# authoring_collision_jaccard=0.4
+# Overlap check: the total characters of every installed skill description before a release warns that some may be dropped. A positive whole number. (env: PAQAD_AUTHORING_DESCRIPTION_BUDGET_CHARS)
+# authoring_description_budget_chars=8000
+# Lint (SK-008): the most tokens a SKILL.md body may hold. A positive whole number. (env: PAQAD_SKILL_BODY_MAX_TOKENS)
+# skill_body_max_tokens=5000
+# S5 analyst: a tool result above this many tokens is flagged as oversize. A positive whole number. (env: PAQAD_AUTHORING_TOOL_RESULT_MAX_TOKENS)
+# authoring_tool_result_max_tokens=10000
+# S5 analyst: the steady-state cache-hit share (0 to 1) below which a run is recorded as a performance defect. (env: PAQAD_AUTHORING_CACHE_HIT_MIN)
+# authoring_cache_hit_min=0.7
+# S5 in improve mode and S8: how far (0 to 1) the pass rate of an edited or re-evaluated skill may fall below the old version before it fails. (env: PAQAD_AUTHORING_REGRESSION_TOLERANCE)
+# authoring_regression_tolerance=0.2
+# S8 catalog: days without a firing before a skill is reported as dark. A positive whole number. (env: PAQAD_AUTHORING_DARK_WINDOW_DAYS)
+# authoring_dark_window_days=30
+# auto | off. auto lets S6 send its trigger queries as one batch when the host offers it; off always runs them one by one. (env: PAQAD_AUTHORING_BATCH_MODE)
+# authoring_batch_mode=auto
+# Spend cap in US dollars for one eval or trigger sweep, passed as --max-cost-usd. A capped run counts as a failure and is recorded as partial. Above 0. (env: PAQAD_AUTHORING_RUN_MAX_COST_USD)
+# authoring_run_max_cost_usd=5
+# Empty reads usage numbers from the host only. An http(s) URL also reads them from that OpenTelemetry endpoint. paqad never sends transcripts to it. (env: PAQAD_AUTHORING_OTEL_ENDPOINT)
+# authoring_otel_endpoint=
+# Turn the Agent Orchestrator on or off. Off means no High Table seat on agent paths, no agent pipeline, no lane raise for agents and no agent completion check, so an agent edit is judged as before. (env: PAQAD_AGENT_ORCHESTRATOR_ENABLED)
+# agent_orchestrator_enabled=true
+# S5 agent evals: the pass^3 score (0 to 1) an agent needs on its task cases. (env: PAQAD_AGENT_PASS_K_THRESHOLD)
+# agent_pass_k_threshold=0.9
+# S5 agent evals: the pass^3 score (0 to 1) an unattended stage agent needs on its task cases. (env: PAQAD_AGENT_STAGE_PASS_K_THRESHOLD)
+# agent_stage_pass_k_threshold=0.95
+# S6 delegation test: the validation pass rate (0 to 1) an agent description needs. (env: PAQAD_AGENT_DELEGATION_THRESHOLD)
+# agent_delegation_threshold=0.9
+# Lint (AG-003): the most tokens an agent description may hold. A positive whole number. (env: PAQAD_AGENT_DESCRIPTION_MAX_TOKENS)
+# agent_description_max_tokens=300
+# The most tokens an agent report may hold when its Report section names no smaller maximum. A positive whole number. (env: PAQAD_AGENT_REPORT_MAX_TOKENS)
+# agent_report_max_tokens=2000
+# Lint (AG-014): the most tokens an agent body (its system prompt) may hold. A positive whole number. (env: PAQAD_AGENT_PROMPT_MAX_TOKENS)
+# agent_prompt_max_tokens=3000
+# Lint (AG-018): the most tools an agent may list before it needs an approval packet. A positive whole number. (env: PAQAD_AGENT_MAX_TOOLS)
+# agent_max_tools=10
+# S5 agent evals: the most median cost an agent run may use, as a multiple of the main-thread baseline, unless it shows a parallel wall-time gain. 1 or more. (env: PAQAD_AGENT_MAX_COST_MULTIPLE)
+# agent_max_cost_multiple=4
+# Lint (AG-004): the most tokens all installed agent descriptions may hold together. A positive whole number. (env: PAQAD_AGENT_CATALOG_DESCRIPTION_MAX_TOKENS)
+# agent_catalog_description_max_tokens=15000
+# Lint (AG-010) and memory-consolidate: the most lines an agent MEMORY.md may hold. A positive whole number. (env: PAQAD_AGENT_MEMORY_MAX_LINES)
+# agent_memory_max_lines=200
