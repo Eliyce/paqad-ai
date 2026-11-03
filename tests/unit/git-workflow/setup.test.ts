@@ -115,7 +115,7 @@ describe('git-workflow setup: proposing from history', () => {
     expect(YAML.parse(proposal.files['commits.yaml']).template).toBe('{ticket}: {summary}');
   });
 
-  it('gives new-project mode with the starter questions when there is no remote or little history', () => {
+  it('gives new-project mode with the starter questions when there is no remote or little history (AC-37)', () => {
     for (const s of [signals({ remote: null }), signals({ branches: ['main', 'feature/x'] })]) {
       const { proposal } = proposeFromSignals(s);
       expect(proposal.mode).toBe('new-project');
@@ -198,7 +198,7 @@ describe('git-workflow setup: reading signals', () => {
     return null;
   };
 
-  it('reads commit style from the main line only and says gh signals are unknown without gh', async () => {
+  it('reads commit style from the main line only and says gh signals are unknown without gh (AC-37)', async () => {
     const { shell, calls } = fakeShell([gitOnly]);
     const read = await gatherSignals(shell, root);
     expect(calls).toContainEqual([
@@ -219,7 +219,7 @@ describe('git-workflow setup: reading signals', () => {
     expect(read.unknown.join(' ')).not.toContain('no rules');
   });
 
-  it('says branch protection is unknown on a 403 or 404 from the rules API', async () => {
+  it('says branch protection is unknown on a 403 or 404 from the rules API (AC-37)', async () => {
     const { shell } = fakeShell([
       gitOnly,
       (command, args) =>

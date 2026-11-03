@@ -98,7 +98,7 @@ function deps(over: Partial<DeliverDeps> = {}): DeliverDeps {
 }
 
 describe('deliver step 1: config', () => {
-  it('exits 0 with the turned-off message and runs nothing when enabled is false', async () => {
+  it('exits 0 with the turned-off message and runs nothing when enabled is false (AC-36)', async () => {
     rules('enforcement.yaml', 'enabled: false\n');
     const { shell, calls } = fakeShell();
     const result = await runDeliver(deps({ shell }));

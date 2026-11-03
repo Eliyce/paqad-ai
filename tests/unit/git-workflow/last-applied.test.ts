@@ -21,7 +21,7 @@ const put = (file: string, text: string) =>
   writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, file), text);
 
 describe('.last-applied.json', () => {
-  it('stamps the time, the version and a sha256 per present file', () => {
+  it('stamps the time, the version and a sha256 per present file (AC-39)', () => {
     put('commits.yaml', 'template: "{summary}"\n');
     stampLastApplied(root, undefined, {
       now: () => new Date('2026-11-02T00:00:00Z'),
@@ -34,7 +34,7 @@ describe('.last-applied.json', () => {
     });
   });
 
-  it('lists a file changed after the stamp, and a file never stamped, as changed outside', () => {
+  it('lists a file changed after the stamp, and a file never stamped, as changed outside (AC-39)', () => {
     put('commits.yaml', 'a: 1\n');
     stampLastApplied(root, ['commits.yaml']);
     expect(changedOutside(root)).toEqual([]);

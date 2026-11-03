@@ -39,7 +39,7 @@ describe('doctor: git-workflow', () => {
     expect(results[0]).toMatchObject({ name: 'git-workflow', status: 'pass' });
   });
 
-  it('warns when the folder is missing', () => {
+  it('warns when the folder is missing (AC-44)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-git-workflow-doctor-'));
     roots.push(root);
     expect(details(root)).toEqual([
@@ -47,7 +47,7 @@ describe('doctor: git-workflow', () => {
     ]);
   });
 
-  it('prefixes each config error and reports unknown keys', () => {
+  it('prefixes each config error and reports unknown keys (AC-44)', () => {
     const root = project({ 'enforcement.yaml': 'agents: sometimes\ncolour: blue\n' });
     const found = details(root);
     expect(found.some((detail) => detail.startsWith('git-workflow: enforcement.yaml'))).toBe(true);
@@ -56,7 +56,7 @@ describe('doctor: git-workflow', () => {
     );
   });
 
-  it('warns when the old delivery policy is still there', () => {
+  it('warns when the old delivery policy is still there (AC-44)', () => {
     const root = project();
     mkdirSync(join(root, 'docs/instructions/workflows'), { recursive: true });
     writeFileSync(
@@ -68,12 +68,12 @@ describe('doctor: git-workflow', () => {
     ]);
   });
 
-  it('warns when write_back_refined is not ask', () => {
+  it('warns when write_back_refined is not ask (AC-44)', () => {
     const root = project({ 'tickets.yaml': 'write_back_refined: always\n' });
     expect(details(root)).toEqual(['git-workflow: write_back_refined is set but not applied yet.']);
   });
 
-  it('warns when people are checked but the hooks are missing', () => {
+  it('warns when people are checked but the hooks are missing (AC-44)', () => {
     const root = project({ 'enforcement.yaml': 'people: block\n' }, { git: true });
     expect(details(root, () => false)).toEqual([
       "git-workflow: people is set to block but the commit-msg and pre-push hooks aren't installed. Run paqad-ai update.",
@@ -94,7 +94,7 @@ describe('doctor: git-workflow', () => {
     ).toBe('pass');
   });
 
-  it('warns about a file changed outside the skill', () => {
+  it('warns about a file changed outside the skill (AC-39, AC-44)', () => {
     const root = project({ 'branches.yaml': 'base_branch: main\n' });
     writeFileSync(join(root, DIR, 'branches.yaml'), 'base_branch: develop\n');
     expect(details(root)).toEqual([

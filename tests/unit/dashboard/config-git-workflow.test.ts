@@ -67,7 +67,7 @@ describe('dashboard git-workflow config', () => {
     expect(config.warnings.some((issue) => issue.path === 'colour')).toBe(true);
   });
 
-  it('writes only the saved file, audits it and stamps .last-applied.json', () => {
+  it('writes only the saved file, audits it and stamps .last-applied.json (AC-43)', () => {
     write('tickets.yaml', TICKETS);
     write('commits.yaml', 'sign_off: false\n');
     stampLastApplied(root);
@@ -93,7 +93,7 @@ describe('dashboard git-workflow config', () => {
     expect(read('branches.yaml')).toBe('base_branch: main\n');
   });
 
-  it('rejects a cross-file error and writes nothing', () => {
+  it('rejects a cross-file error and writes nothing (AC-43)', () => {
     write('tickets.yaml', TICKETS);
     const content = 'types:\n  feature:\n    tickets: [jira]\n';
 

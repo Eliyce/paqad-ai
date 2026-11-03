@@ -52,11 +52,11 @@ function leafPaths(value: unknown, prefix: string[] = []): string[] {
 }
 
 describe('the git-workflow skill', () => {
-  it('has every file the layout names', () => {
+  it('has every file the layout names (AC-40)', () => {
     for (const file of FILES) expect(existsSync(join(DIR, file)), file).toBe(true);
   });
 
-  it('has frontmatter that passes skill-frontmatter.schema.json and stays under 300 lines', () => {
+  it('has frontmatter that passes skill-frontmatter.schema.json and stays under 300 lines (AC-40)', () => {
     const content = read('SKILL.md');
     const split = splitSkillFrontmatter(content);
     if (!split.ok) throw new Error(split.message);
@@ -68,7 +68,7 @@ describe('the git-workflow skill', () => {
     expect(content.split('\n').length).toBeLessThan(300);
   });
 
-  it('carries the three rules and the procedure steps word for word', () => {
+  it('carries the three rules and the procedure steps word for word (AC-40)', () => {
     const content = read('SKILL.md');
     for (const rule of RULES) expect(content).toContain(`- ${rule}`);
     for (const step of STEPS) expect(content).toContain(step);
@@ -77,7 +77,7 @@ describe('the git-workflow skill', () => {
     expect(content).toContain('### Change');
   });
 
-  it('lists every default setting in references/settings.md', () => {
+  it('lists every default setting in references/settings.md (AC-40)', () => {
     const settings = read('references/settings.md');
     const config = defaultGitWorkflow();
     const sections = {
