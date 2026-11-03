@@ -537,9 +537,9 @@ export function migrateTeamConfig(
     if (documents.has(file) || existsSync(path)) continue;
     writes.push({ path, text: teamConfigHeader(file, version), existed: false });
   }
-  writes.push({ path: stubPath, text: stub, existed: existsSync(stubPath) });
+  const stubWrite = { path: stubPath, text: stub, existed: existsSync(stubPath) };
 
-  for (const write of writes) {
+  for (const write of [...writes, stubWrite]) {
     (write.existed ? result.replaced : result.created).push(rel(write.path));
   }
   const replaceView = legacyWorkflow !== null && workflowReadable;
@@ -561,6 +561,7 @@ export function migrateTeamConfig(
         refreshFeatureDevelopmentView(projectRoot);
         if (tracked) untrack(projectRoot, FEATURE_DEVELOPMENT_VIEW_RELATIVE);
       }
+      writeFileSync(stubWrite.path, stubWrite.text, 'utf8');
     } catch (error) {
       result.error = `Couldn't write the new settings files, so the old ones were kept: ${error instanceof Error ? error.message : String(error)}`;
       result.lines.push(result.error);

@@ -274,6 +274,7 @@ describe('dry run, idempotence and failure', () => {
   it('a write that fails leaves the old files and the old workflow file untouched (AC-64)', () => {
     useFixture('project-b');
     writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.rag'), 'rag_top_n=9\n');
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
     mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), { recursive: true });
     chmodSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), 0o500);
     const oldWorkflow = readFileSync(featureDevelopmentViewPath(root), 'utf8');
@@ -286,10 +287,32 @@ describe('dry run, idempotence and failure', () => {
     expect(result.lines.at(-1)).toBe(result.error);
     expect(configs('.config.policy')).toBe(before);
     expect(configs('.config.rag')).toBe('rag_top_n=9\n');
+    expect(configs('.config.app')).toBe('enterprise=true\n');
     expect(readFileSync(featureDevelopmentViewPath(root), 'utf8')).toBe(oldWorkflow);
     const retry = migrateTeamConfig(root, { version: VERSION });
     expect(retry.error).toBeUndefined();
     expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(false);
+  });
+
+  it('a workflow view that cannot be replaced leaves .config.app as it was, not the stub (AC-64)', () => {
+    useFixture('project-b');
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
+    const workflows = join(root, PATHS.WORKFLOWS_DIR);
+    chmodSync(workflows, 0o500);
+    let result;
+    try {
+      result = migrateTeamConfig(root, { version: VERSION });
+    } finally {
+      chmodSync(workflows, 0o755);
+    }
+    expect(result.error).toMatch(
+      /^Couldn't write the new settings files, so the old ones were kept/u,
+    );
+    expect(configs('.config.app')).toBe('enterprise=true\n');
+    expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(true);
+    const retry = migrateTeamConfig(root, { version: VERSION });
+    expect(retry.error).toBeUndefined();
+    expect(isMigratedStub(configs('.config.app'))).toBe(true);
   });
 
   it('an old file that comes back after a merge is migrated again and YAML wins', () => {
