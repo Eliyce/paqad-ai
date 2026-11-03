@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "skill": "git-workflow",
+  "version": "1.0.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:4cca7119b967a014d228a9ba8996776cfff0a169a8060ad7ac83db7c9f098fd3",
+  "baseline": {
+    "runs": 3,
+    "passed": 0,
+    "verdict": "needed"
+  },
+  "sources": {
+    "count": 15,
+    "non_model": 15,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/git-workflow",
+    "tests": 28,
+    "passed": 28,
+    "skipped": 0
+  },
+  "benchmark": {
+    "iterations": 2,
+    "pass_rate_with": 0.2315,
+    "pass_rate_without": 0.125,
+    "delta_points": 10.65,
+    "token_multiple": null,
+    "models": [
+      "haiku",
+      "sonnet"
+    ],
+    "claude_version": "2.1.302",
+    "checks_not_measured": [
+      {
+        "check": "token-multiple",
+        "reason": "tokens: unavailable on claude-plugin-eval"
+      },
+      {
+        "check": "cache-hit",
+        "reason": "tokens: unavailable on claude-plugin-eval"
+      }
+    ],
+    "source": "claude-plugin-eval"
+  },
+  "trigger": {
+    "validation_score": 1,
+    "description_chars": 678,
+    "batch": "not-offered"
+  },
+  "performance": {
+    "tokens": "unavailable",
+    "source": "claude-plugin-eval"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": 3.501,
+    "source": "host-usage"
+  },
+  "overrides": [],
+  "decisions": [],
+  "labels": []
+}
