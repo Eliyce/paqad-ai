@@ -31,8 +31,7 @@ Resolution precedence, lowest to highest, local wins over team:
 `authoring.yaml`, `git-workflow/commits.yaml` and one file per concern under `feature-development/`. Each registry setting
 has exactly one home (a file and a nested path), so two files never set the same key. Every team file lists every
 setting it can hold, commented out with its default and a one-line note. A team removes the `#` to change a setting,
-and a setting left commented out uses paqad's default. `paqad-ai update` writes a JSON schema per file to
-the git-ignored `.paqad/configs/schemas/` and regenerates `.paqad/configs/README.md`, which lists every setting with
+and a setting left commented out uses paqad's default. `paqad-ai update` regenerates `.paqad/configs/README.md`, which lists every setting with
 its default, allowed values, flat name and env var. `paqad-ai config show` prints the live value and source of every
 setting. `.paqad/.config` and `PAQAD_*` keep the flat names (`hud_view=false`); `.paqad/.config.example` lists them,
 with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` files are migrated by `update`,
@@ -81,4 +80,4 @@ cannot drift. Three independent parsers resolve the disabled signal, the TS pred
 `.mjs` hook, and the `.sh` kill switch, pinned to one precedence and coercion by
 `tests/unit/core/config-parser-parity.test.ts`. `paqad-ai enable`/`disable` and the dashboard config surface read and
 write the config layer (`.paqad/.config` and the team YAML files), not the profile. `doctor` runs a `team-config` check
-for missing files, invalid values, unknown settings, old `.config.*` files and a hand-edited workflow view.
+for missing files, invalid values, unknown settings and old `.config.*` files.

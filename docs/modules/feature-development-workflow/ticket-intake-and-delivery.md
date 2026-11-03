@@ -13,11 +13,10 @@ review and documentation_sync side by side, then runs checks once on the final t
 
 Both new stages are framework-owned (defined in
 [`src/pipeline/feature-development-policy.ts`](../../../src/pipeline/feature-development-policy.ts))
-and shown in the generated view
-`docs/instructions/workflows/feature-development.yaml`, like every other stage.
+like every other stage.
 A team adds reads and instructions to a stage in
 `.paqad/configs/feature-development/workflow.yaml` (`stages.<stage>.read` and
-`stages.<stage>.instructions`); it never edits the view. The JSON schema
+`stages.<stage>.instructions`). The JSON schema
 ([`feature-development-policy.schema.json`](../../../src/validators/schemas/feature-development-policy.schema.json))
 rejects unknown stage names with `additionalProperties: false`.
 

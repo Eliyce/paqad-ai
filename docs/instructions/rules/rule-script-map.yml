@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-03T12:31:34.575Z
-rule_files_hash: sha256-714a470cd19e0b52b506432a85f24ae29e7b3b0d4089dfa0f3697ed7377db9c7
+generated_at: 2026-11-03T15:08:33.665Z
+rule_files_hash: sha256-782c9939121c0e5b6832df605e8575cf459e1b42a7aca5a934756f4a407a16f5
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -205,8 +205,8 @@ rules:
     scripts: []
   - id: RL-7f9d
     source: docs/instructions/rules/_shared/onboarded-overview-maintenance.md
-    text: Update it in the same change that adds, removes, or renames a stage in `docs/instructions/workflows/feature-development.yaml`; adds, removes, or renames a skill under `runtime/**/skills/` or an agent under `runtime/**/agents/`; changes which capability gates a skill or agent; or adds or changes a whole-codebase engine (module-map, traceability, cross-module-impact-scanner, RAG/context, verification gates, decision-pause, evidence ledger).
-    text_hash: c2fec283fc0d0d958f186776c5b98db21315628b68cbaac013cd03a5730ca300
+    text: Update it in the same change that adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts`; adds, removes, or renames a skill under `runtime/**/skills/` or an agent under `runtime/**/agents/`; changes which capability gates a skill or agent; or adds or changes a whole-codebase engine (module-map, traceability, cross-module-impact-scanner, RAG/context, verification gates, decision-pause, evidence ledger).
+    text_hash: 34f5c98275929ef4b75f0c8d02106946b69c62fcb651c81c33e70ee4269c5b2e
     verifiability:
       kind: unverifiable
       reason: Reminder-on-change only; a script flags the workflow file unconditionally.

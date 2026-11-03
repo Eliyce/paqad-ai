@@ -6,7 +6,7 @@
 
 Source directories owned by this feature:
 
-- `docs/instructions/workflows/feature-development.yaml` (a generated view) and the team files in `.paqad/configs/feature-development/`
+- `src/pipeline/feature-development-policy.ts` (paqad's own stages) and the team files in `.paqad/configs/feature-development/`
 - `src/workflows`
 
 

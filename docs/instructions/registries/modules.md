@@ -32,7 +32,7 @@ paqad-ai's modules live in three layers:
 | ------------------------------- | ------------------------------------- | ---- | ------------------------ |
 | documentation-workflow          | Documentation Workflow                | [↗](../../modules/documentation-workflow/index/summary.md) | "create documentation" / "create module documentation" |
 | pentest-workflow                | Security Pentest Workflow             | [↗](../../modules/pentest-workflow/index/summary.md) | "run pentest" / "retest pentest" |
-| feature-development-workflow    | Feature Development Workflow          | [↗](../../modules/feature-development-workflow/index/summary.md) | `docs/instructions/workflows/feature-development.yaml` |
+| feature-development-workflow    | Feature Development Workflow          | [↗](../../modules/feature-development-workflow/index/summary.md) | `src/pipeline/feature-development-policy.ts` |
 | root-cause-analysis-workflow    | Root Cause Analysis Workflow          | [↗](../../modules/root-cause-analysis-workflow/index/summary.md) | RCA-triggered |
 | agent-routing                   | Agent Routing & Capability Lanes      | [↗](../../modules/agent-routing/index/summary.md) | router agent + capabilities |
 

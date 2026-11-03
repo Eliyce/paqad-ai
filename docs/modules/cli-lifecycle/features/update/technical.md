@@ -105,9 +105,15 @@ Source directories owned by this feature:
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
 - Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
-  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once, then
-  `syncTeamConfigFiles` creates any missing team file, regenerates the schemas in the
-  git-ignored `.paqad/configs/schemas/` and the configs README, and re-renders every existing team
+  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once and deletes
+  that file, then `removeGeneratedFiles` (`src/update/generated-files-cleanup.ts`) removes what
+  older paqad versions wrote: the generated workflow copy (only when it carries the generated
+  header), `.paqad/state/feature-development-view.sha256`, its `.git/info/exclude` line and the
+  marker above it, `docs/instructions/workflows/` and then `docs/instructions/` when empty,
+  `.paqad/configs/schemas/`, and the schema line at the top of each team YAML file. It adds one
+  line to the update summary per item removed, names an item it couldn't remove and tries again
+  next run, and prints nothing on a clean project. Then
+  `syncTeamConfigFiles` creates any missing team file, regenerates the configs README, and re-renders every existing team
   file from its live values, so it lists every setting commented out with its default. It writes a
   file only when its text changes, names each rewritten file in the update output, and names (and
   leaves untouched) a file that isn't valid YAML or isn't a map. `update` never writes a default as

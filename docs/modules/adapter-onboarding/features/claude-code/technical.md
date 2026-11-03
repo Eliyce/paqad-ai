@@ -95,6 +95,10 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   SubagentStart brief, so `paqad-ai stage brief <stage>` (beside `stage settings` in
   `src/cli/commands/stage.ts`) prints the same `buildStageBrief` text for the given stage and the
   calling session's active change, with a head that says the agent was resumed instead of started.
+  A brief over 9000 characters drops instructions from the end and ends with a line that names
+  `paqad-ai stage brief <stage> --full`; that flag prints every read entry and instruction with no
+  length cut and records nothing. The stage agent's procedure points at its brief, and its first
+  step runs the same `--full` command when the brief is missing.
   The SubagentStart brief writes the hook's `agent_id` on its command lines as
   `SE_AGENT_ID=<id>`, because a subagent cannot learn its own id; the verb takes `--agent-id`, then
   `SE_AGENT_ID`, then the session's open `started` stage-agent row. An unknown stage or a session

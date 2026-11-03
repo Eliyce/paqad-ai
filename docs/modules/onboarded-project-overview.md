@@ -196,10 +196,10 @@ is cooperative ([`session-handoff`](session-handoff/index/summary.md)).
 
 ## 2. The feature-development stages
 
-Customised in the team files under `.paqad/configs/feature-development/`, and shown in
-the generated view
-[`docs/instructions/workflows/feature-development.yaml`](../instructions/workflows/feature-development.yaml),
-which paqad rebuilds every session and nobody edits by hand; the framework owns phase order and the mandatory safety stages.
+Defined in [`src/pipeline/feature-development-policy.ts`](../../src/pipeline/feature-development-policy.ts)
+and customised in the team files under `.paqad/configs/feature-development/`, which paqad
+reads directly; the framework owns phase order and the mandatory safety stages. Each stage
+agent gets its stage's reads and instructions in its brief (`paqad-ai stage brief <stage> --full`).
 
 | Stage | What happens | Skills / agents that fire |
 | --- | --- | --- |
@@ -560,8 +560,7 @@ This overview is intentionally thin: it is a map, not a copy. It goes stale when
 the *shape* of the system changes, not when an implementation detail does. Update
 it in the same change that:
 
-- adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts` (shown in
-  the generated [`feature-development.yaml`](../instructions/workflows/feature-development.yaml));
+- adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts`;
 - adds, removes, or renames a skill under `runtime/**/skills/` or an agent under
   `runtime/**/agents/` (update §3);
 - adds or changes a consciousness engine in §4 (module-map, traceability, impact

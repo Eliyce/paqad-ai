@@ -100,7 +100,6 @@ Source directories owned by this feature:
   inside the read window. It fails only when this paqad was released after
   `LEGACY_TEAM_CONFIG_READ_UNTIL` (`releasedAfterLegacyWindow`), so a machine whose clock passes
   the date on an older release never starts failing on its own.
-- A generated workflow view whose hash no longer matches the stored one: `docs/instructions/workflows/feature-development.yaml was edited by hand. Changes go in .paqad/configs/feature-development/; it is regenerated on the next session.`
 
 ## Why the `src/health/` code works the way it does
 
