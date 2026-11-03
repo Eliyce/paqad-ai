@@ -51,11 +51,9 @@ describe('paqad-ai deliver: the real command', () => {
     expect(process.exitCode).toBe(2);
   });
 
-  it('ticket-done stops when no ticket move is queued', async () => {
+  it('ticket-done stops when there is no ticket move to record', async () => {
     await deliver('ticket-done', 'on_pr_open', '--session', 'no-such-session');
     expect(process.exitCode).toBe(1);
-    expect(errors.join('\n')).toContain(
-      'No ticket move on_pr_open is queued for this change (queued: none).',
-    );
+    expect(errors.join('\n')).toContain('**▸ paqad** · delivery stopped');
   });
 });

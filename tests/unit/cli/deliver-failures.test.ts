@@ -218,6 +218,27 @@ describe('deliver ticket-done: bad input', () => {
   });
 });
 
+describe('deliver ticket-done: stops', () => {
+  it('says there is no active change when no change is given', () => {
+    expect(runTicketDone({ projectRoot: root, dirName: null, id: 'on_pr_open' })).toEqual({
+      exitCode: 1,
+      output: expect.stringContaining(
+        'No active change in this session, so there is no ticket move to record.',
+      ),
+    });
+  });
+
+  it('says nothing is queued for a change with no ticket moves', () => {
+    const dir = openFeatureChange(root, 'ses-none-queued', { adapter: 'claude-code', title: 'T' });
+    expect(runTicketDone({ projectRoot: root, dirName: dir, id: 'on_pr_open' })).toEqual({
+      exitCode: 1,
+      output: expect.stringContaining(
+        'No ticket move on_pr_open is queued for this change (queued: none).',
+      ),
+    });
+  });
+});
+
 describe('deliver commit: no branch', () => {
   it('commits with no ticket when the branch cannot be read', async () => {
     rules('commits.yaml', 'template: "{summary}"\n');
