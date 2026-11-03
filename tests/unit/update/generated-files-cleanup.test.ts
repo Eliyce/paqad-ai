@@ -118,6 +118,29 @@ describe('removeGeneratedFiles', () => {
     expect(read('.git/info/exclude')).toBe(`${MARKER}\n/.paqad/other.json\n/tail-entry\n`);
   });
 
+  it('removes a schema line after a byte order mark, and the mark with it', () => {
+    write(
+      '.paqad/configs/paqad.yaml',
+      `\uFEFF# yaml-language-server: $schema=./schemas/paqad.schema.json\n${PAQAD_YAML_BODY}`,
+    );
+    expect(removeGeneratedFiles(root)).toEqual([
+      'Removed the schema line at the top of .paqad/configs/paqad.yaml.',
+    ]);
+    expect(read('.paqad/configs/paqad.yaml')).toBe(PAQAD_YAML_BODY);
+  });
+
+  it('removes a schema line ending in CRLF and keeps the CRLF lines after it', () => {
+    const body = '# Turns paqad on.\r\npaqad_version: "1.117.0"\r\nenabled: true\r\n';
+    write(
+      '.paqad/configs/paqad.yaml',
+      `# yaml-language-server: $schema=./schemas/paqad.schema.json\r\n${body}`,
+    );
+    expect(removeGeneratedFiles(root)).toEqual([
+      'Removed the schema line at the top of .paqad/configs/paqad.yaml.',
+    ]);
+    expect(read('.paqad/configs/paqad.yaml')).toBe(body);
+  });
+
   it('changes nothing outside a git repository and leaves a file without the schema line alone', () => {
     write('.paqad/configs/paqad.yaml', PAQAD_YAML_BODY);
     expect(removeGeneratedFiles(root)).toEqual([]);

@@ -74,7 +74,8 @@ function removeSchemaLine(projectRoot: string, file: OwnTeamConfigFile): Step {
   return () => {
     const path = teamConfigPath(projectRoot, file);
     if (!existsSync(path)) return null;
-    const text = readFileSync(path, 'utf8');
+    const raw = readFileSync(path, 'utf8');
+    const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw;
     if (!text.startsWith(LEGACY_SCHEMA_LINE_PREFIX)) return null;
     const end = text.indexOf('\n');
     writeFileSync(path, end === -1 ? '' : text.slice(end + 1), 'utf8');
