@@ -1,5 +1,7 @@
 # Site-map helper skills
 
+verified: 2026-11-03
+
 The helper skills that carry the `site-map` workflow's detail, in the order they run. Each keeps its own procedure; the verbs in the Procedure stay the source of proof.
 
 | Helper                  | Job                                                                                 |

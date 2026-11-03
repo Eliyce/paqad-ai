@@ -1,5 +1,7 @@
 # Codebase-health verbs
 
+verified: 2026-11-03
+
 The CLI verbs this skill runs. Detection comes only from them.
 
 | Verb                     | Mode        | Writes                                            |

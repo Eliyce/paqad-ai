@@ -207,7 +207,7 @@ For each finding, gather only the evidence needed to re-classify it:
 
 #### Step 3: classify-status
 
-For each finding, pick a status from `assets/status-vocabulary.txt` (shared with `retest-verification`):
+For each finding, pick a status from the `assets/status-vocabulary.txt` of the `retest-verification` skill:
 
 - `fixed`: the offending evidence is gone AND the contract clause is now satisfied.
 - `still-open`: the offending evidence remains.

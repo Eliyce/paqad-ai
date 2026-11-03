@@ -1,5 +1,7 @@
 # Design-test helper skills by step
 
+verified: 2026-11-03
+
 Which helper skill runs at which step of the Procedure. Each helper keeps its own checks and procedure; this skill gathers the output.
 
 | Step                  | Helper skills                                                                                                                                                                          |
