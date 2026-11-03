@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { teamConfigPath } from '@/core/team-config.js';
 import { TEAM_CONFIG_FILES, type OwnTeamConfigFile } from '@/core/team-config-values.js';
 import { unexcludeLocally } from '@/onboarding/gitignore-writer.js';
@@ -30,7 +31,8 @@ function stayedLine(item: string, error: unknown): string {
 function removeGeneratedCopy(projectRoot: string): Step {
   return () => {
     const path = featureDevelopmentViewPath(projectRoot);
-    if (!existsSync(path) || !isGeneratedView(readFileSync(path, 'utf8'))) return null;
+    const text = readTextIfExistsSync(path);
+    if (text === null || !isGeneratedView(text)) return null;
     rmSync(path);
     return `Removed the generated workflow copy ${FEATURE_DEVELOPMENT_VIEW_RELATIVE}; paqad reads .paqad/configs/ directly.`;
   };
@@ -73,8 +75,8 @@ function removeSchemas(projectRoot: string): Step {
 function removeSchemaLine(projectRoot: string, file: OwnTeamConfigFile): Step {
   return () => {
     const path = teamConfigPath(projectRoot, file);
-    if (!existsSync(path)) return null;
-    const raw = readFileSync(path, 'utf8');
+    const raw = readTextIfExistsSync(path);
+    if (raw === null) return null;
     const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw;
     if (!text.startsWith(LEGACY_SCHEMA_LINE_PREFIX)) return null;
     const end = text.indexOf('\n');

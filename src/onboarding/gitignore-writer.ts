@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
@@ -327,9 +328,11 @@ export function excludeLocally(projectRoot: string, relativePath: string): boole
 
 export function unexcludeLocally(projectRoot: string, relativePath: string): boolean {
   const path = localExcludePath(projectRoot);
-  if (path === null || !existsSync(path)) return false;
+  if (path === null) return false;
+  const text = readTextIfExistsSync(path);
+  if (text === null) return false;
   const line = excludeLine(relativePath);
-  const lines = readFileSync(path, 'utf8').split('\n');
+  const lines = text.split('\n');
   const kept: string[] = [];
   let removed = false;
   for (const entry of lines) {
