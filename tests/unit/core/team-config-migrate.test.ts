@@ -312,25 +312,32 @@ describe('dry run, idempotence and failure', () => {
     expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(false);
   });
 
-  it('an old workflow file that cannot be deleted leaves .config.app as it was, not the stub (AC-64)', () => {
-    useFixture('project-b');
-    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
-    const workflows = join(root, 'docs/instructions/workflows');
-    chmodSync(workflows, 0o555);
-    const result = migrateTeamConfig(root, { version: VERSION });
-    chmodSync(workflows, 0o755);
-    expect(
-      existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/workflow.yaml')),
-    ).toBe(true);
-    expect(result.error).toMatch(
-      /^Couldn't write the new settings files, so the old ones were kept/u,
-    );
-    expect(configs('.config.app')).toBe('enterprise=true\n');
-    expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(true);
-    const retry = migrateTeamConfig(root, { version: VERSION });
-    expect(retry.error).toBeUndefined();
-    expect(isMigratedStub(configs('.config.app'))).toBe(true);
-  });
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'an old workflow file that cannot be deleted leaves .config.app as it was, not the stub (AC-64)',
+    () => {
+      useFixture('project-b');
+      writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
+      const workflows = join(root, 'docs/instructions/workflows');
+      chmodSync(workflows, 0o555);
+      let result: ReturnType<typeof migrateTeamConfig>;
+      try {
+        result = migrateTeamConfig(root, { version: VERSION });
+      } finally {
+        chmodSync(workflows, 0o755);
+      }
+      expect(
+        existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/workflow.yaml')),
+      ).toBe(true);
+      expect(result.error).toMatch(
+        /^Couldn't write the new settings files, so the old ones were kept/u,
+      );
+      expect(configs('.config.app')).toBe('enterprise=true\n');
+      expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(true);
+      const retry = migrateTeamConfig(root, { version: VERSION });
+      expect(retry.error).toBeUndefined();
+      expect(isMigratedStub(configs('.config.app'))).toBe(true);
+    },
+  );
 
   it('an old file that comes back after a merge is migrated again and YAML wins', () => {
     useFixture('project-a');

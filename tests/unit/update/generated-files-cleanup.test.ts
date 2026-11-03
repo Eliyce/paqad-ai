@@ -147,28 +147,31 @@ describe('removeGeneratedFiles', () => {
     expect(read('.paqad/configs/paqad.yaml')).toBe(PAQAD_YAML_BODY);
   });
 
-  it('names an item it could not remove, carries on, and removes it on the next run', () => {
-    oldProject();
-    const configs = join(root, '.paqad/configs');
-    chmodSync(configs, 0o555);
-    let lines: string[];
-    try {
-      lines = removeGeneratedFiles(root);
-    } finally {
-      chmodSync(configs, 0o755);
-    }
-    expect(lines).toContain(COPY_LINE);
-    expect(
-      lines.some((line) =>
-        line.startsWith("Couldn't remove .paqad/configs/schemas/, so it stayed: "),
-      ),
-    ).toBe(true);
-    expect(lines.at(-1)).toBe(
-      'Removed the schema line at the top of .paqad/configs/feature-development/checks.yaml.',
-    );
-    expect(existsSync(join(configs, 'schemas'))).toBe(true);
-    expect(removeGeneratedFiles(root)).toEqual([
-      'Removed .paqad/configs/schemas/; paqad no longer writes editor schemas.',
-    ]);
-  });
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'names an item it could not remove, carries on, and removes it on the next run',
+    () => {
+      oldProject();
+      const configs = join(root, '.paqad/configs');
+      chmodSync(configs, 0o555);
+      let lines: string[];
+      try {
+        lines = removeGeneratedFiles(root);
+      } finally {
+        chmodSync(configs, 0o755);
+      }
+      expect(lines).toContain(COPY_LINE);
+      expect(
+        lines.some((line) =>
+          line.startsWith("Couldn't remove .paqad/configs/schemas/, so it stayed: "),
+        ),
+      ).toBe(true);
+      expect(lines.at(-1)).toBe(
+        'Removed the schema line at the top of .paqad/configs/feature-development/checks.yaml.',
+      );
+      expect(existsSync(join(configs, 'schemas'))).toBe(true);
+      expect(removeGeneratedFiles(root)).toEqual([
+        'Removed .paqad/configs/schemas/; paqad no longer writes editor schemas.',
+      ]);
+    },
+  );
 });
