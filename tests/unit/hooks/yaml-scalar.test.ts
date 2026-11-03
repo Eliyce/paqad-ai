@@ -60,13 +60,13 @@ function shReadEnabled(text: string): string {
 
 describe('readYamlScalar', () => {
   for (const [name, text, expected] of ENABLED_CASES) {
-    it(`reads enabled with ${name}`, () => {
+    it(`reads enabled with ${name} (AC-54)`, () => {
       expect(readYamlScalar(text, ['enabled'])).toBe(expected);
       expect(modReadYamlScalar(text, ['enabled'])).toBe(expected);
       expect(launcherReadYamlScalar(text, ['enabled'])).toBe(expected);
     });
 
-    itPosix(`the shell reader agrees on ${name}`, () => {
+    itPosix(`the shell reader agrees on ${name} (AC-54)`, () => {
       expect(shReadEnabled(text).replace(/\n$/u, '')).toBe((expected ?? '').toLowerCase());
     });
   }
@@ -194,7 +194,7 @@ describe('hooks and the mod read the team switch from paqad.yaml', () => {
   }
 
   for (const c of CASES) {
-    it(`.mjs and the mod agree: ${c.name}`, () => {
+    it(`.mjs and the mod agree: ${c.name} (AC-53)`, () => {
       arrange(c);
       const env = { ...(c.env ?? {}) };
       expect(isPaqadDisabled(root, env)).toBe(c.off);
@@ -210,7 +210,7 @@ describe('hooks and the mod read the team switch from paqad.yaml', () => {
     });
   }
 
-  it('reports an unreadable switch in the hooks log and in the mod', () => {
+  it('reports an unreadable switch in the hooks log and in the mod (AC-53)', () => {
     const text = 'enabled: maybe\nhud:\n  band: sometimes\n';
     team('paqad.yaml', text);
     expect(isPaqadDisabled(root, {})).toBe(false);
@@ -231,7 +231,7 @@ describe('hooks and the mod read the team switch from paqad.yaml', () => {
     expect(log).toContain('enabled has a value paqad cannot read (maybe), so paqad stays on.');
   });
 
-  it('the mod reads hud.band from paqad.yaml, below personal and env', () => {
+  it('the mod reads hud.band from paqad.yaml, below personal and env (AC-53)', () => {
     const off = { env: {}, localConfig: null, teamConfigs: [], paqadYaml: 'hud:\n  band: false\n' };
     expect(isHudViewOff(off)).toBe(true);
     expect(isHudViewOff({ ...off, localConfig: 'hud_view=true\n' })).toBe(false);

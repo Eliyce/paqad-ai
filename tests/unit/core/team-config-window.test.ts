@@ -59,7 +59,7 @@ afterEach(() => {
 describe('inside the window', () => {
   beforeEach(() => setTeamConfigClock({ today: () => INSIDE }));
 
-  it('uses an old-file value with its warning, and YAML wins on conflict', () => {
+  it('uses an old-file value with its warning, and YAML wins on conflict (AC-66)', () => {
     write('.paqad/configs/.config.policy', 'stages_mode=warn\nrag_top_n=3\n');
     write('.paqad/configs/feature-development/workflow.yaml', 'stage_tracking: off\n');
     const map = layeredConfigMap(root, {});
@@ -82,7 +82,7 @@ describe('inside the window', () => {
 describe('after the window', () => {
   beforeEach(() => setTeamConfigClock({ today: () => AFTER }));
 
-  it('stops reading old files and names each one on every command and session start', () => {
+  it('stops reading old files and names each one on every command and session start (AC-66)', () => {
     write('.paqad/configs/.config.policy', 'stages_mode=warn\n');
     expect(legacyTeamConfigReadable()).toBe(false);
     expect(layeredConfigMap(root, {}).get('stages_mode')).toBeUndefined();
@@ -99,7 +99,7 @@ describe('after the window', () => {
     expect(teamConfigSessionStartText(root)).toBe(`paqad team settings:\n- ${line}`);
   });
 
-  it('knows whether this release was published after the window', () => {
+  it('knows whether this release was published after the window (AC-66)', () => {
     setTeamConfigClock({ today: () => AFTER, releaseDate: () => '2027-01-15' });
     expect(releasedAfterLegacyWindow()).toBe(false);
     setTeamConfigClock({ today: () => AFTER, releaseDate: () => '2027-02-02' });

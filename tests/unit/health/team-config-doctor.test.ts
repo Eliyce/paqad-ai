@@ -57,7 +57,7 @@ describe('doctor: team-config', () => {
     ]);
   });
 
-  it('warns about a missing file', () => {
+  it('warns about a missing file (AC-70)', () => {
     migrated();
     unlinkSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'models.yaml'));
     expect(rows()).toEqual([
@@ -65,7 +65,7 @@ describe('doctor: team-config', () => {
     ]);
   });
 
-  it('warns about an invalid value and an invalid file', () => {
+  it('warns about an invalid value and an invalid file (AC-70)', () => {
     migrated();
     write('feature-development/workflow.yaml', 'stage_tracking: sometimes\n');
     write('models.yaml', 'a: [\n');
@@ -80,7 +80,7 @@ describe('doctor: team-config', () => {
     );
   });
 
-  it('warns about a setting paqad does not know, but not about structured settings', () => {
+  it('warns about a setting paqad does not know, but not about structured settings (AC-70)', () => {
     migrated();
     write(
       'feature-development/workflow.yaml',
@@ -98,7 +98,7 @@ describe('doctor: team-config', () => {
     ]);
   });
 
-  it('warns about old settings inside the window', () => {
+  it('warns about old settings inside the window (AC-66, AC-70)', () => {
     write('.config.policy', 'stages_mode=warn\n');
     expect(rows()).toContainEqual([
       'warning',
@@ -106,7 +106,7 @@ describe('doctor: team-config', () => {
     ]);
   });
 
-  it('fails about old settings only when this paqad was released after the window', () => {
+  it('fails about old settings only when this paqad was released after the window (AC-66, AC-70)', () => {
     write('.config.policy', 'stages_mode=warn\n');
     setTeamConfigClock({ today: () => AFTER, releaseDate: () => LEGACY_TEAM_CONFIG_READ_UNTIL });
     expect(rows()).toContainEqual([
@@ -120,7 +120,7 @@ describe('doctor: team-config', () => {
     ]);
   });
 
-  it('warns when the feature-development view was edited by hand', () => {
+  it('warns when the feature-development view was edited by hand (AC-70)', () => {
     migrated();
     const view = featureDevelopmentViewPath(root);
     const text = `${FEATURE_DEVELOPMENT_VIEW_HEADER}stages: {}\n`;

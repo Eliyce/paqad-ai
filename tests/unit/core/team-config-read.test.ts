@@ -91,7 +91,7 @@ describe('readTeamConfig', () => {
 });
 
 describe('personal and env values', () => {
-  it('resolves stages_mode=block and stages_mode=strict to strict', () => {
+  it('resolves stages_mode=block and stages_mode=strict to strict (AC-49)', () => {
     write('.paqad/.config', 'stages_mode=block\n');
     expect(resolveStagesMode(root, {})).toBe('strict');
     expect(layeredConfigMap(root, {}).get('stages_mode')).toBe('strict');
@@ -100,18 +100,18 @@ describe('personal and env values', () => {
     expect(resolveStagesMode(root, { PAQAD_STAGES_MODE: 'block' })).toBe('strict');
   });
 
-  it('keeps the env comma list working', () => {
+  it('keeps the env comma list working (AC-49)', () => {
     const map = layeredConfigMap(root, { PAQAD_SPEC_PIPELINE_STANDING_EXPERTS: 'a,b' });
     expect(map.get('spec_pipeline_standing_experts')).toBe('a,b');
   });
 
-  it('keeps the team floor over a weaker personal value', () => {
+  it('keeps the team floor over a weaker personal value (AC-50)', () => {
     write('.paqad/configs/feature-development/workflow.yaml', 'stage_tracking: block\n');
     write('.paqad/.config', 'stages_mode=off\n');
     expect(resolveStagesMode(root, { PAQAD_STAGES_MODE: 'warn' })).toBe('strict');
   });
 
-  it('falls back to the default for an invalid personal value', () => {
+  it('falls back to the default for an invalid personal value (AC-52)', () => {
     write('.paqad/.config', 'stages_mode=blocky\n');
     expect(resolveStagesMode(root, {})).toBe('strict');
   });

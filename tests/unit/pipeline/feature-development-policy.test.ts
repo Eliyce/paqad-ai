@@ -112,7 +112,7 @@ describe('feature development policy', () => {
     expect(loadFeatureDevelopmentPolicy(root).policy).toEqual(defaultFeatureDevelopmentPolicy());
   });
 
-  it('takes the checks from checks.yaml', () => {
+  it('takes the checks from checks.yaml (AC-56)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
     teamFile(root, 'checks.yaml', {
       commands: { from_project_profile: ['test', 'lint'], extra: { 'lint-js': 'pnpm lint:js' } },
@@ -451,7 +451,7 @@ describe('feature development policy', () => {
       expect(stages.documentation_sync.instructions).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
     });
 
-    it('the rendered yaml, the live contract, the rule pack and its mirror carry it verbatim', () => {
+    it('the rendered yaml, the live contract, the rule pack and its mirror carry it verbatim (AC-42)', () => {
       const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
         stages: Record<string, { instructions: string[] }>;
       };

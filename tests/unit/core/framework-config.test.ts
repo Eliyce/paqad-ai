@@ -848,7 +848,7 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     expect(syncTeamConfigFiles(root)).toEqual([]);
   });
 
-  it('never writes a new setting into an existing team file', () => {
+  it('never writes a new setting into an existing team file (AC-67)', () => {
     const text = '# our team header\nenterprise:\n  enabled: true\n';
     mkdirSync(join(root, '.paqad', 'configs', 'feature-development'), { recursive: true });
     writeFileSync(join(root, '.paqad/configs/feature-development/evidence.yaml'), text);
@@ -858,7 +858,7 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     ).toBe(text);
   });
 
-  it('writes .paqad/configs/README.md matching generateConfigsReadme()', () => {
+  it('writes .paqad/configs/README.md matching generateConfigsReadme() (AC-67)', () => {
     const path = writeConfigsReadme(root);
     expect(readFileSync(path, 'utf8')).toBe(generateConfigsReadme());
   });

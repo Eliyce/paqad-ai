@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('config show', () => {
-  it('prints one row per setting with its value, source and default note', () => {
+  it('prints one row per setting with its value, source and default note (AC-69)', () => {
     write(
       '.paqad/configs/feature-development/specification.yaml',
       'experts:\n  standing: [a, b]\n',
@@ -59,7 +59,7 @@ describe('config show', () => {
     );
   });
 
-  it('hides rows equal to the default with --changed', () => {
+  it('hides rows equal to the default with --changed (AC-69)', () => {
     write('.paqad/configs/paqad.yaml', 'hud:\n  chime: true\nupdates:\n  automatic: true\n');
     const text = renderConfigShow(buildConfigShow(root, {}), true);
     expect(text.split('\n')).toHaveLength(1);

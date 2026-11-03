@@ -29,7 +29,7 @@ function leaf(schema: Node, path: readonly string[]): Node | undefined {
 }
 
 describe('team config schemas', () => {
-  it('puts every registry row in its file schema with its description, default and enum', () => {
+  it('puts every registry row in its file schema with its description, default and enum (AC-67)', () => {
     for (const spec of FRAMEWORK_CONFIG_SPECS) {
       if (spec.file === 'git-workflow/commits.yaml') continue;
       const node = leaf(generateTeamConfigSchema(spec.file as OwnTeamConfigFile), spec.path);

@@ -89,7 +89,7 @@ function settingLines(lines: string[]): string[] {
 
 describe('the four fixture projects', () => {
   for (const name of PROJECTS) {
-    it(`${name}: moves every set value and resolves to the same flat values`, () => {
+    it(`${name}: moves every set value and resolves to the same flat values (AC-47, AC-72)`, () => {
       useFixture(name);
       const before = layeredConfigMap(root, {});
       const resolvedBefore = JSON.stringify(resolveFrameworkConfig(root, {}));
@@ -123,7 +123,7 @@ describe('the four fixture projects', () => {
     });
   }
 
-  it('project-a: writes sparse YAML with only the set lines, and drops generated comments', () => {
+  it('project-a: writes sparse YAML with only the set lines, and drops generated comments (AC-60, AC-72)', () => {
     useFixture('project-a');
     const result = migrateTeamConfig(root, { version: VERSION });
     const evidence = configs('feature-development/evidence.yaml');
@@ -154,7 +154,7 @@ describe('the four fixture projects', () => {
     expect(kept.length).toBeLessThanOrEqual(24);
   });
 
-  it('project-b: carries the workflow file per section 4.2 and prints each line', () => {
+  it('project-b: carries the workflow file per section 4.2 and prints each line (AC-48, AC-60, AC-62)', () => {
     useFixture('project-b');
     const result = migrateTeamConfig(root, { version: VERSION });
     expect(result.lines).toContain(
@@ -203,7 +203,7 @@ describe('the four fixture projects', () => {
     ]);
   });
 
-  it('project-c: prints the duplicate and unknown key lines and writes them into the stub', () => {
+  it('project-c: prints the duplicate and unknown key lines and writes them into the stub (AC-48, AC-62)', () => {
     useFixture('project-c');
     const result = migrateTeamConfig(root, { version: VERSION });
     expect(result.lines).toContain(
@@ -249,7 +249,7 @@ describe('the four fixture projects', () => {
 });
 
 describe('dry run, idempotence and failure', () => {
-  it('a dry run writes nothing and prints the same setting lines in the same order', () => {
+  it('a dry run writes nothing and prints the same setting lines in the same order (AC-61)', () => {
     useFixture('project-b');
     const before = snapshot();
     const dry = migrateTeamConfig(root, { version: VERSION, dryRun: true });
@@ -260,7 +260,7 @@ describe('dry run, idempotence and failure', () => {
     expect(real.lines.slice(0, -1)).toEqual(dry.lines.slice(0, -1));
   });
 
-  it('a second run changes nothing and says there is nothing to move', () => {
+  it('a second run changes nothing and says there is nothing to move (AC-65)', () => {
     useFixture('project-a');
     migrateTeamConfig(root, { version: VERSION });
     expect(teamConfigMigrationNeeded(root)).toBe(false);
@@ -271,7 +271,7 @@ describe('dry run, idempotence and failure', () => {
     expect(snapshot()).toEqual(before);
   });
 
-  it('a write that fails leaves the old files and the old workflow file untouched', () => {
+  it('a write that fails leaves the old files and the old workflow file untouched (AC-64)', () => {
     useFixture('project-b');
     writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.rag'), 'rag_top_n=9\n');
     mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development'), { recursive: true });
@@ -332,7 +332,7 @@ describe('dry run, idempotence and failure', () => {
 });
 
 describe('the stub', () => {
-  it('an older paqad reads minimum_version from it, and a new paqad ignores it', () => {
+  it('an older paqad reads minimum_version from it, and a new paqad ignores it (AC-63, AC-73)', () => {
     useFixture('project-c');
     migrateTeamConfig(root, { version: VERSION });
     const stub = configs('.config.app');
@@ -344,7 +344,7 @@ describe('the stub', () => {
 });
 
 describe('readSetLines', () => {
-  it('keeps team comments directly above a line and drops generated ones', () => {
+  it('keeps team comments directly above a line and drops generated ones (AC-48)', () => {
     expect(
       readSetLines(
         [
