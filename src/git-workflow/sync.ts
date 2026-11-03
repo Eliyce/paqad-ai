@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 import YAML from 'yaml';
 
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 
 import { renderDefaultGitWorkflowFile } from './defaults.js';
@@ -76,6 +77,16 @@ export function syncGitWorkflowFile(
   return setValue(next, ['paqad_version'], options.version);
 }
 
+function createFile(path: string, text: string): boolean {
+  try {
+    writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
 export function syncGitWorkflow(projectRoot: string, options: SyncOptions = {}): string[] {
   const version = options.version ?? __PKG_VERSION__;
   const written: GitWorkflowFile[] = [];
@@ -83,13 +94,15 @@ export function syncGitWorkflow(projectRoot: string, options: SyncOptions = {}):
   mkdirSync(gitWorkflowDir(projectRoot), { recursive: true });
   for (const file of GIT_WORKFLOW_FILES) {
     const path = gitWorkflowFilePath(projectRoot, file);
-    if (!existsSync(path)) {
+    let text = readTextIfExistsSync(path);
+    if (text === null) {
       baseBranch ??= remoteDefaultBranch(projectRoot);
-      writeFileSync(path, renderDefaultGitWorkflowFile(file, { version, baseBranch }), 'utf8');
-      written.push(file);
-      continue;
+      if (createFile(path, renderDefaultGitWorkflowFile(file, { version, baseBranch }))) {
+        written.push(file);
+        continue;
+      }
+      text = readFileSync(path, 'utf8');
     }
-    const text = readFileSync(path, 'utf8');
     let next: string;
     try {
       next = syncGitWorkflowFile(text, file, { version, baseBranch: baseBranch ?? 'main' });
