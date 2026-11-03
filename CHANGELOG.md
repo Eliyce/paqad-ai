@@ -1,5 +1,22 @@
 # paqad-ai
 
+## 1.117.0
+
+### Minor Changes
+
+- 30bdc06: Move delivery rules to .paqad/configs/git-workflow/, add the git-workflow skill that owns them, and make paqad follow and check them for agents and people.
+
+  The five files (`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml` and `enforcement.yaml`) replace `docs/instructions/workflows/delivery-policy.yaml`, which `paqad-ai update` migrates once and deletes. `paqad-ai deliver` follows every setting, the end-of-turn check and the commit-msg and pre-push hooks check the rules, the dashboard's Git workflow page edits one file per tab, and `paqad-ai doctor` reports problems in a new `git-workflow` check. Ask your agent to change the rules through the git-workflow skill.
+
+- 30bdc06: Move team settings from .paqad/configs/.config.* and the feature-development workflow file to readable YAML files under .paqad/configs/, with automatic migration.
+
+### Patch Changes
+
+- 30bdc06: The committed team launcher (`.paqad/hook.mjs`) now stands down only when the paqad plugin has claimed the session, not when it is merely installed. Before, the first Claude Code session after the plugin was installed ran with no paqad checks at all, because the plugin only loads in the next session. Run `paqad-ai update` and commit the refreshed launcher.
+- 30bdc06: In a repo that commits the paqad plugin in `.claude/settings.json`, the plugin move's off-switches now work and `paqad-ai doctor` tells the truth. Doctor says `plugin (turned on by this project)` when the plugin loads there, instead of `npm`. `paqad-ai plugin rollback` turns the plugin off for you only, in the git-ignored `.claude/settings.local.json`, instead of saying the plugin was removed while it still loads. The background move skips the user-scope install where the project already turns the plugin on, and every install path now writes a line to `plugin-migration.log`. A team that sets `claude_install_mode=settings` in its tracked `.paqad/configs` file no longer gets the plugin keys written back into the shared settings on `update`.
+- 30bdc06: Fixing a missing feature title no longer splits a change in two. The end-of-turn check used to advise `stage start planning --title`, which opened a second, near-empty bundle and paused the one holding the plan, spec and review, and the HUD then said Safe to merge for the empty one. Now `stage start --title` names an untitled active change in place, a new `paqad-ai feature title "<title>"` names it without touching the stages (and is what the check now suggests), and a turn that judges an empty bundle while the same session has unfinished work in another one reads Inconclusive and names both.
+- 30bdc06: `paqad-ai update` no longer asks the onboarding questions when you run it in a terminal. It used to ask for your providers, stack and RAG choice as if the project were new, and the answers decided which files it wrote, so a wrong pick could write another stack's rules or change the adapter. It now reads the providers the project was set up with and asks nothing. Onboarding saves every provider in `.paqad/onboarding-manifest.json` under `providers`, and `update` works them out from your entry files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and the rest) when an older manifest has no list. `update` also refreshes every provider's files now, not only Claude Code's. `paqad-ai onboard` still asks in a terminal.
+
 ## 1.116.0
 
 ### Minor Changes
