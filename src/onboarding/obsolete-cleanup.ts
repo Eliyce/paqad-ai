@@ -110,7 +110,7 @@ function cleanObsoleteWorkflowRule(projectRoot: string, rule: ObsoleteWorkflowRu
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return null;
-    return `Kept ${shown} because paqad could not clean it up (${code ?? 'unknown error'}). paqad now runs ${rule.job} from its own skill, so you can delete this file.`;
+    return `Couldn't remove ${shown} (${code ?? 'unknown error'}); the next update tries again. paqad now runs ${rule.job} from its own skill.`;
   }
   return `Removed ${shown}; paqad now runs ${rule.job} from its own ${rule.skill} skill.`;
 }

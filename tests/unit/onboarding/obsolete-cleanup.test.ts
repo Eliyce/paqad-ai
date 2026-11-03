@@ -128,7 +128,7 @@ describe('removeObsoleteWorkflowRules', () => {
     const path = join(projectRoot, RULES, 'security/pentest.md');
     mkdirSync(path, { recursive: true });
     expect(removeObsoleteWorkflowRules(projectRoot)).toEqual([
-      expect.stringContaining(`Kept ${RULES}/security/pentest.md because paqad could not clean it up (EISDIR)`),
+      expect.stringContaining(`Couldn't remove ${RULES}/security/pentest.md (EISDIR)`),
     ]);
     expect(existsSync(path)).toBe(true);
   });
