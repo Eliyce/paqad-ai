@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { join, relative } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import {
   envConfigValue,
   FRAMEWORK_CONFIG_SPECS,
@@ -73,7 +74,7 @@ export function buildConfigShow(
       const issue = personalIssue(spec, PATHS.PROJECT_CONFIG, personal.get(spec.key)!);
       if (issue !== null) invalid.push(issue);
     } else if (team.merged.has(spec.key)) {
-      source = `team: ${relative(configsDir, team.sources.get(spec.key)!)}`;
+      source = `team: ${toPosixPath(relative(configsDir, team.sources.get(spec.key)!))}`;
     }
     const floored = FLOORED[spec.key];
     const legacy =
