@@ -1,5 +1,7 @@
 # Git workflow settings
 
+verified: 2026-11-03
+
 Every setting in `.paqad/configs/git-workflow/`. A team-named entry is a branch type or a
 ticket source: its name is the team's own (`<name>` below), and `value: null` removes it.
 Every other key can be changed but never removed. No personal override applies to these

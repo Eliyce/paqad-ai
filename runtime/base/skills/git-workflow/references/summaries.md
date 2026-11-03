@@ -1,12 +1,14 @@
 # Writing a plain-language summary
 
+verified: 2026-11-03
+
 The summary in a commit subject or PR title is read by people who don't read code. Say
 what changes for the user or the business, in plain words.
 
 With `summary.style: plain`, paqad flags a summary that:
 
 - contains code formatting (a backtick)
-- names a file, like `cart/list.ts` or `seasons.json`
+- names a file, like `cart/list.ts` or `seasons.json` (external example paths)
 - uses code symbols: `::`, `->`, `=>` or `()`
 - names a function or variable, like `loadSeasons` or `load_seasons`
 - is longer than `summary.max_length`

@@ -1,5 +1,7 @@
 # History signals
 
+verified: 2026-11-03
+
 `propose.mjs` reads these. A signal the account can't see goes into `unknown` and is never
 reported as "none".
 

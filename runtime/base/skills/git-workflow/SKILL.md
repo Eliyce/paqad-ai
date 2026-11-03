@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Sets up and changes this team's git workflow rules in .paqad/configs/git-workflow/ (ticket sources and key patterns, branch types and naming, base branches, commit message format, PR title, body, labels and reviewers, ticket status moves, and how strictly agents and people are held to them). Use it during create documentation to write the rules from the repo's history, on a new project to ask the starter questions, and whenever someone asks to change how branches, commits, PRs or tickets work, even if they don't mention the config. It is the only way these files change. Its scripts read git and gh, propose with evidence, validate and write, and every answer is recorded as a decision.
+description: Sets up and changes this team's git workflow rules in .paqad/configs/git-workflow/ (ticket sources and key patterns, branch types and naming, base branches, commit message format, PR title, body, labels and reviewers, ticket status moves, and how strictly agents and people are held to them) through scripts that read git and gh, propose with evidence, validate and write, and it records every answer as a decision. Use when create documentation reaches its git workflow step, when a new project needs its starter rules, and whenever someone asks to change how branches, commits, PRs or tickets work, even if they don't mention the config. It is the only way these files change.
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -93,6 +93,13 @@ for any other key, because settings are never removed.
 - the result is invalid
 - the team declines
 - a script exits 2 (git or `gh` failed): report the error and stop, don't guess
+
+## Gotchas
+
+- The scripts are thin wrappers around `paqad-ai git-workflow`. When `paqad-ai` isn't on the PATH they try `npx --no-install paqad-ai`, and they exit 2 if neither starts. Report that; don't fall back to editing the files.
+- `check` reports a file someone edited by hand in `changed_outside`. Never accept it with `--accept` on your own; ask the team first, because accepting makes that edit the new baseline.
+- `apply.mjs` refuses to replace existing files without `--overwrite`. Always look at the `--dry-run` diff first.
+- A `null` value in `change.json` only removes a branch type or a ticket source. Any other key can't be removed, so change it to the value the team wants instead.
 
 ## Resources
 

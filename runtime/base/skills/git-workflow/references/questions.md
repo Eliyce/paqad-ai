@@ -1,5 +1,7 @@
 # Starter questions for a new project
 
+verified: 2026-11-03
+
 Each row is one `choice` in the `setup` output. The first option is recommended.
 
 | Id                           | Question                                                                             | Options (first is recommended)                            | Sets                                                                                      |
