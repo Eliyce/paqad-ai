@@ -153,7 +153,8 @@ describe('framework end-to-end onboarding', () => {
       join(projectRoot, '.paqad/configs/feature-development/rules.yaml'),
       'utf8',
     );
-    expect(rulesConfig).toContain('$schema=../schemas/feature-development/rules.schema.json');
+    expect(rulesConfig).not.toContain('yaml-language-server');
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad/configs/.config.app'))).toBe(false);
     const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
     expect(example).toContain('# lean_rules=true');
