@@ -47,7 +47,7 @@ const RECORDS = [
 
 describe('RESIDENT_AREAS', () => {
   it('names exactly the bootstrap session-start areas', () => {
-    expect(RESIDENT_AREAS).toEqual(['rules', 'stack', 'design-system', 'workflows']);
+    expect(RESIDENT_AREAS).toEqual(['rules', 'stack', 'design-system']);
   });
 });
 
