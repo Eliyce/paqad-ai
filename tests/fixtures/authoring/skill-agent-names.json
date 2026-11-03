@@ -407,6 +407,11 @@
       "name": "design-system-sync"
     },
     {
+      "path": "runtime/capabilities/coding/skills/design-test/SKILL.md",
+      "folder": "design-test",
+      "name": "design-test"
+    },
+    {
       "path": "runtime/capabilities/coding/skills/guard-inference/SKILL.md",
       "folder": "guard-inference",
       "name": "guard-inference"

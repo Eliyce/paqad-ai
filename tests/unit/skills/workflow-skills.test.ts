@@ -110,3 +110,48 @@ describe('site-map skill', () => {
     expect(workflowTriggers(folder)).toEqual(['site-map', 'site-map-retest']);
   });
 });
+
+describe('design-test skill', () => {
+  const folder = 'runtime/capabilities/coding/skills/design-test';
+
+  it('has the seven sections in order and a Retest mode under Procedure', () => {
+    expectSkillShape(folder);
+  });
+
+  it('keeps the design-test steps in order', () => {
+    expectInOrder(body(folder), [
+      'readiness-gate',
+      'collect-context',
+      'run-project-scripts',
+      'generate-local-design-playbook',
+      'live-validation',
+      'synthesize-findings',
+      'write-report',
+    ]);
+  });
+
+  it('runs design-system-coverage first, then the review helpers in the source order', () => {
+    expectInOrder(body(folder), [
+      'design-system-coverage',
+      'token-conformance-review',
+      'component-conformance-review',
+      'state-coverage-review',
+      'accessibility-review',
+      'responsive-review',
+      'motion-review',
+      'copy-and-ia-review',
+    ]);
+  });
+
+  it('retests the earlier sidecar and keeps its finding IDs', () => {
+    const text = body(folder);
+    const retest = text.slice(text.indexOf('### Retest mode'), text.indexOf('## Output Contract'));
+    expect(retest).toContain('load-source-findings');
+    expect(retest).toContain('write-retest-report');
+    expect(retest).toContain('docs/design-test/');
+  });
+
+  it('triggers on design-test and design-retest', () => {
+    expect(workflowTriggers(folder)).toEqual(['design-test', 'design-retest']);
+  });
+});

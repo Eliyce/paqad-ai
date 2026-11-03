@@ -1940,6 +1940,35 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/capabilities/coding/skills/design-test": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The design test or retest request.",
+        "required": true,
+        "type": "string",
+      },
+      "source_report_path": {
+        "description": "Source design-test sidecar to retest, for the Retest mode.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "design-test",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "design-test",
+          "design-retest",
+        ],
+      },
+    ],
+  },
   "runtime/capabilities/coding/skills/guard-inference": {
     "cache_key_inputs": [],
     "cacheable": false,
