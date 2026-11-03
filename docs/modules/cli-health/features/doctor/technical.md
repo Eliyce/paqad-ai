@@ -89,6 +89,9 @@ Source directories owned by this feature:
   `.paqad/configs/<file> is missing. Run paqad-ai update to create it.`
 - Each invalid value and each file that isn't valid YAML, with the same text session start and
   `config show` print (`readTeamConfig().issues`, legacy lines left out).
+- A setting set under a group line that is still commented out (`kind: 'repaired'`). paqad reads
+  the value anyway and names both lines:
+  `<file> line <n>: <key> is set, but the # is still in front of <group>: on line <m>. paqad reads <key> anyway; remove the # in front of <group>: (paqad-ai update does this for you).`
 - A key no setting owns, per file (`unknownTeamConfigSettings`), with structured settings such as
   `stages.<stage>.read` and `commands.extra` treated as known:
   `<file> has a setting paqad doesn't know: <path>. It may be from a newer paqad or a typo.`
