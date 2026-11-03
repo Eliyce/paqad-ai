@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6H0263561FR9TFNRX53ESS1",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-planning asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:12ea7f2186aafa90b78cbff91289d58f7030342d94e70c83d2c1fb744f3b90ec.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-planning keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-planning before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-03T15:22:23.205Z",
+  "status": "resolved",
+  "change": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "chosen": "allow",
+  "rationale": "Owner approved in chat (2026-11-03): allow Bash for all four stage helpers; they need it for paqad-ai stage start/end, plan compile and tests.",
+  "resolved_at": "2026-11-03T15:23:57.534Z",
+  "decision_id": "D-01M6H0263561FR9TFNRX53ESS1",
+  "fingerprint": "sha256:d1f0cc695b6b00d0882f5b5dc23126f52e9c06b02b6e4cc700fde4a17ae8cafc",
+  "question": "The agent paqad-planning asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "ttl_until": "2026-12-03T15:22:23.205Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T15:23:57.534Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved in chat (2026-11-03): allow Bash for all four stage helpers; they need it for paqad-ai stage start/end, plan compile and tests."
+  }
+}

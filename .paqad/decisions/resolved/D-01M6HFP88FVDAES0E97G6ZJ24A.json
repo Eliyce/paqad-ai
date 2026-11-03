@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6HFP88FVDAES0E97G6ZJ24A",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-specification asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:2d795338fa974f977a462cd0897181af4a99c0203c69496c0138605005190df2.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-specification keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-specification before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-03T19:55:29.423Z",
+  "status": "resolved",
+  "change": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "chosen": "allow",
+  "rationale": "Owner approved in chat (2026-11-03): allow Bash for paqad-checks and paqad-specification and re-release them (re-asked after redraft of the same file).",
+  "resolved_at": "2026-11-03T19:55:37.876Z",
+  "decision_id": "D-01M6HFP88FVDAES0E97G6ZJ24A",
+  "fingerprint": "sha256:7de67d7c50615b9a0bb465dce45403b8ca2811ee76d85f8139f5100a3ca9e8dc",
+  "question": "The agent paqad-specification asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "ttl_until": "2026-12-03T19:55:29.423Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T19:55:37.876Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved in chat (2026-11-03): allow Bash for paqad-checks and paqad-specification and re-release them (re-asked after redraft of the same file)."
+  }
+}
