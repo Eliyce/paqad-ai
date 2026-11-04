@@ -12,6 +12,7 @@ import { isNewerTeamFile, newerTeamFileLine, swapTeamFileStamp } from './team-fi
 
 export const RETIRED_SAFETY_FILE = 'feature-development/safety.yaml';
 const WORKFLOW_FILE = 'feature-development/workflow.yaml';
+const GROUP_LINE = /^\s*#?\s*([A-Za-z0-9_][A-Za-z0-9_.-]*):\s*(?:#.*)?$/u;
 const STAMP_LINE = /^(?:schema_version|paqad_version)[ \t]*:/u;
 
 export interface RetiredTeamSetting {
@@ -143,6 +144,24 @@ function commentColumn(line: string): number | null {
   return match === null ? null : match[1]!.length + 1 + match[2]!.length;
 }
 
+function keyColumn(line: string): number {
+  return commentColumn(line) ?? bodyOf(line).search(/\S/u);
+}
+
+function enclosingGroups(lines: readonly string[], at: number): string[] {
+  const groups: string[] = [];
+  let column = keyColumn(lines[at]!);
+  for (let index = at - 1; index >= 0; index -= 1) {
+    const body = bodyOf(lines[index]!);
+    if (body.trim() === '') break;
+    const key = GROUP_LINE.exec(body)?.[1];
+    if (key === undefined || keyColumn(lines[index]!) >= column) continue;
+    groups.unshift(key);
+    column = keyColumn(lines[index]!);
+  }
+  return groups;
+}
+
 function isEmptyCommentedGroup(lines: readonly string[], index: number, key: string): boolean {
   const header = new RegExp(`^\\s*#\\s*${escapeRegExp(key)}:\\s*$`, 'u');
   if (!header.test(bodyOf(lines[index] ?? ''))) return false;
@@ -162,7 +181,10 @@ function withoutCommentedCopy(text: string, setting: RetiredTeamSetting): string
   );
   const note = new RegExp(`^\\s*#\\s*(?:#\\s*)?${escapeRegExp(setting.note)}\\s*$`, 'u');
   const lines = text.split(/(?<=\n)/u);
-  const at = lines.findIndex((line) => copy.test(bodyOf(line)));
+  const parents = setting.path.slice(0, -1).join('.');
+  const at = lines.findIndex(
+    (line, index) => copy.test(bodyOf(line)) && enclosingGroups(lines, index).join('.') === parents,
+  );
   if (at < 0) return text;
   lines.splice(at, 1);
   let above = at - 1;

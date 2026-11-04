@@ -196,6 +196,28 @@ describe('the removed settings', () => {
     expect(read(MODELS)).toBe('schema_version: 1\n# research:\n#   # Our reasoning.\n');
   });
 
+  it.each([
+    ['in another group', 'schema_version: 1\n# stage_helpers:\n#   default: auto\n'],
+    ['at the top level', 'schema_version: 1\n# default: auto\n'],
+    [
+      'under a live group of another name',
+      'schema_version: 1\nother:\n  # default: auto\n  a: 1\n',
+    ],
+  ])('AC-34: leaves a team comment that looks like a copy %s', (_name, text) => {
+    put(WORKFLOW, text);
+    sync();
+    expect(read(WORKFLOW)).toBe(text);
+  });
+
+  it('AC-34: removes a copy under its own group when the group is live', () => {
+    put(
+      WORKFLOW,
+      'schema_version: 1\nstages:\n  review:\n    effort: high\n    # Requires an adversarial review pass before a change is delivered.\n    # adversarial_pass: required\n',
+    );
+    sync();
+    expect(read(WORKFLOW)).toBe('schema_version: 1\nstages:\n  review:\n    effort: high\n');
+  });
+
   it('NFR-3: keeps CRLF line ends through the removal', () => {
     put(
       DECISIONS,
