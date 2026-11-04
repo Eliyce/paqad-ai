@@ -1,3 +1,5 @@
+import { PATHS } from '@/core/constants/paths.js';
+import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { renderDefaultGitWorkflowFile } from './defaults.js';
@@ -57,8 +59,10 @@ export function parseEdits(raw: unknown): GitWorkflowEdit[] {
       throw new GitWorkflowInputError(`${where}.path must be a non-empty list of keys.`);
     }
     if (!('value' in edit)) throw new GitWorkflowInputError(`${where}.value is missing.`);
-    if (edit.path[0] === 'paqad_version') {
-      throw new GitWorkflowInputError(`${where}: paqad_version is set by paqad, not by a change.`);
+    if (edit.path[0] === 'schema_version' || edit.path[0] === 'paqad_version') {
+      throw new GitWorkflowInputError(
+        `${where}: ${edit.path[0]} is set by paqad, not by a change.`,
+      );
     }
     if (edit.value === null && !isTeamNamedEntry(edit.file as GitWorkflowFile, edit.path)) {
       throw new GitWorkflowInputError(
@@ -159,6 +163,22 @@ export function applyChange(
   const written = GIT_WORKFLOW_FILES.filter(
     (file) => present[file] === undefined || before[file] !== after[file],
   );
+  const newer = written.filter((file) => isNewerTeamFile(present[file] ?? ''));
+  if (newer.length > 0) {
+    return {
+      ...outcome,
+      valid: false,
+      errors: [
+        ...outcome.errors,
+        ...newer.map((file) => ({
+          file,
+          path: '',
+          message: newerTeamFileLine(`${PATHS.GIT_WORKFLOW_DIR}/${file}`),
+        })),
+      ],
+      written: [],
+    };
+  }
   writeContents(projectRoot, after, written);
   return { ...outcome, written };
 }

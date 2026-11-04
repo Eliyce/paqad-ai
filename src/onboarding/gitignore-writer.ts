@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
+import { isHigherStamp } from '@/core/team-file-schema.js';
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
@@ -15,7 +16,11 @@ const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
 
 const LEGACY_MARKER = '# paqad-ai';
 
+export const MANAGED_BLOCK_VERSION = 1;
+const MANAGED_BLOCK_VERSION_LINE = /^# managed_block_version:[ \t]*(\S+)[ \t]*\r?$/mu;
+
 const MANAGED_GITIGNORE_ENTRIES = [
+  `# managed_block_version: ${MANAGED_BLOCK_VERSION}`,
   '.agent-entry-loaded',
   '.agent-entry-loaded.d/',
   'framework-version.txt',
@@ -80,6 +85,13 @@ function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENT
   return entries
     .filter((entry) => !entry.startsWith('#'))
     .map((entry) => `.paqad/${entry.replace(/^\//u, '')}`);
+}
+
+export function managedBlockIsNewer(projectRoot: string): boolean {
+  const found = MANAGED_BLOCK_VERSION_LINE.exec(
+    readTextOrEmpty(join(projectRoot, '.paqad', '.gitignore')),
+  )?.[1];
+  return isHigherStamp(found, MANAGED_BLOCK_VERSION);
 }
 
 function managedGitignoreEntries(projectRoot: string): string[] {

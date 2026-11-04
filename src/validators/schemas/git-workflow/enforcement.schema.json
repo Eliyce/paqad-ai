@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "paqad_version": { "type": "string" },
     "enabled": { "type": "boolean" },
     "agents": { "type": "string", "enum": ["warn", "block"] },

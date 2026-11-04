@@ -1,8 +1,7 @@
+import { TEAM_FILE_SCHEMA_VERSION } from '@/core/team-file-schema.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
 import type { GitWorkflowFile, ResolvedGitWorkflow } from './types.js';
-
-declare const __PKG_VERSION__: string;
 
 export const DEFAULT_BASE_BRANCH = 'main';
 
@@ -88,7 +87,7 @@ const TICKETS_YAML = `# Where this team's tickets come from and how they move.
 #   transitions:  the status to move the ticket to, "" means don't move it
 #     on_pr_open:   when the PR opens
 #     on_ci_green:  when CI passes on the PR
-paqad_version: "<version>"
+schema_version: <schema>
 
 # true means every change needs a ticket, and deliver stops without one.
 require_ticket: false
@@ -126,7 +125,7 @@ const BRANCHES_YAML = `# How branches are named and where changes start.
 #   base_branch:   overrides the base_branch above for this type
 #   labels:        PR labels added for this type
 #   template:      overrides the template above for this type
-paqad_version: "<version>"
+schema_version: <schema>
 
 base_branch: <base>
 template: "{prefix}/{ticket}-{title_slug}"
@@ -169,7 +168,7 @@ const COMMITS_YAML = `# How commit messages are written.
 # summary.style:
 #   plain  the summary is written for a person who doesn't read code
 #   free   no style check
-paqad_version: "<version>"
+schema_version: <schema>
 
 template: "{ticket}: {summary}"
 
@@ -196,7 +195,7 @@ const PULL_REQUESTS_YAML = `# How pull requests are opened.
 # labels: added to every PR. Branch type labels are added on top.
 # also_open_against: extra branches to open the same change against,
 #   like a qa branch. Each gets its own PR.
-paqad_version: "<version>"
+schema_version: <schema>
 
 host: github          # only github for now
 host_server: ""
@@ -231,7 +230,7 @@ const ENFORCEMENT_YAML = `# How strictly paqad holds everyone to these rules.
 #   block  the commit or push is refused (git commit --no-verify still skips it)
 #   warn   the hook prints what doesn't match and lets it through
 #   off    no git hooks for people
-paqad_version: "<version>"
+schema_version: <schema>
 
 enabled: true
 agents: block
@@ -247,7 +246,6 @@ const FILE_TEMPLATES: Readonly<Record<GitWorkflowFile, string>> = {
 };
 
 export interface RenderDefaultsOptions {
-  version?: string;
   baseBranch?: string;
 }
 
@@ -255,9 +253,10 @@ export function renderDefaultGitWorkflowFile(
   file: GitWorkflowFile,
   options: RenderDefaultsOptions = {},
 ): string {
-  const version = options.version ?? __PKG_VERSION__;
   const base = options.baseBranch ?? DEFAULT_BASE_BRANCH;
-  return FILE_TEMPLATES[file].replace('<version>', version).replace('<base>', yamlScalar(base));
+  return FILE_TEMPLATES[file]
+    .replace('<schema>', String(TEAM_FILE_SCHEMA_VERSION))
+    .replace('<base>', yamlScalar(base));
 }
 
 function yamlScalar(value: string): string {

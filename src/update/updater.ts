@@ -15,20 +15,14 @@ import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { compileFailureReason, ensureCompiledRulesCurrent } from '@/context/rule-context.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import {
-  checkoutIsNewer,
   reconcileConfigOverrides,
   resolveTeamBootstrapEnabled,
   writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
-import {
-  isRemovedWorkflowEntryNote,
-  syncTeamConfigFiles,
-  teamConfigPath,
-  WORKFLOW_TEAM_FILE,
-} from '@/core/team-config.js';
+import { syncTeamConfigFiles, teamConfigPath } from '@/core/team-config.js';
+import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
@@ -37,7 +31,9 @@ import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js'
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
 import { gitWorkflowFilePath } from '@/git-workflow/load.js';
-import { hasAiAttributionLine, syncGitWorkflow } from '@/git-workflow/sync.js';
+import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
+import { lastAppliedPath } from '@/git-workflow/last-applied.js';
 import { installGitHooks, trackedWorkflowHookAdvice } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
@@ -53,7 +49,7 @@ import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-developmen
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
 import { LEGACY_VIEW_HASH, removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
-import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
+import { managedBlockIsNewer, writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
   writeFrameworkVersionPreservingTimestamp,
   writeOnboardingManifest,
@@ -305,20 +301,10 @@ export class FrameworkUpdater {
       }
     }
     const teamConfigProblems: string[] = [];
-    const rewritten = syncTeamConfigFiles(projectRoot, teamConfigProblems);
+    syncTeamConfigFiles(projectRoot, teamConfigProblems);
     gitWorkflowNotes.push(...teamConfigProblems);
-    for (const path of rewritten) {
-      gitWorkflowNotes.push(
-        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your own values and notes are kept.`,
-      );
-    }
-    if (teamConfigProblems.some(isRemovedWorkflowEntryNote)) {
-      gitWorkflowNotes.push(
-        commitFileNote(
-          toPosixPath(relative(projectRoot, teamConfigPath(projectRoot, WORKFLOW_TEAM_FILE))),
-        ),
-      );
-    }
+    const changedTeam = changedTeamFiles(projectRoot, filesBefore);
+    if (changedTeam.length > 0) gitWorkflowNotes.push(commitLine(projectRoot, changedTeam));
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
@@ -333,7 +319,7 @@ export class FrameworkUpdater {
       VERSION,
       new Date().toISOString(),
     );
-    if (!checkoutIsNewer(projectRoot)) {
+    if (!managedBlockIsNewer(projectRoot)) {
       writeManagedGitignoreBlock(projectRoot);
     }
     writeWorktreeInclude(projectRoot);
@@ -419,26 +405,34 @@ function refreshSkippedEntries(
   }
 }
 
-function commitFileNote(path: string): string {
-  return `Commit ${path} so your teammates don't repeat this change locally.`;
+function changedTeamFiles(projectRoot: string, before: Map<string, string | null>): string[] {
+  const teamFiles = [
+    ...TEAM_CONFIG_FILES.map((file) =>
+      toTeamRelative(projectRoot, teamConfigPath(projectRoot, file)),
+    ),
+    ...GIT_WORKFLOW_FILES.map((file) =>
+      toTeamRelative(projectRoot, gitWorkflowFilePath(projectRoot, file)),
+    ),
+  ];
+  return teamFiles.filter(
+    (path) => (before.get(path) ?? null) !== snapshotText(join(projectRoot, path)),
+  );
+}
+
+function toTeamRelative(projectRoot: string, path: string): string {
+  return toPosixPath(relative(projectRoot, path));
+}
+
+function commitLine(projectRoot: string, files: readonly string[]): string {
+  const record = toTeamRelative(projectRoot, lastAppliedPath(projectRoot));
+  return `Commit ${[...files, record].join(', ')} together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.`;
 }
 
 function updateGitWorkflow(projectRoot: string): string[] {
   const profile = readProfile(projectRoot);
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
-  const commitsPath = gitWorkflowFilePath(projectRoot, 'commits.yaml');
-  const commitsBefore = readTextIfExistsSync(commitsPath);
-  syncGitWorkflow(projectRoot);
-  const commitsAfter = readTextIfExistsSync(commitsPath);
-  if (
-    commitsBefore !== null &&
-    commitsAfter !== null &&
-    !hasAiAttributionLine(commitsBefore) &&
-    hasAiAttributionLine(commitsAfter)
-  ) {
-    migration.lines.push(commitFileNote(toPosixPath(relative(projectRoot, commitsPath))));
-  }
+  syncGitWorkflow(projectRoot, { notes: migration.lines });
   try {
     installGitHooks(projectRoot);
     const advice = trackedWorkflowHookAdvice(projectRoot);

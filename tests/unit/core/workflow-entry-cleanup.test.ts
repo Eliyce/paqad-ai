@@ -172,11 +172,10 @@ describe('removing listed entries from the live workflow file', () => {
     expect(notes[0]!.split(': ').at(-1)).toBe(short.slice(0, 60));
   });
 
-  it('AC-7: a stage left empty renders the commented default', () => {
+  it('AC-7: a stage left empty holds no list', () => {
     writeWorkflow(planningFile(['    instructions:', `      - ${LISTED}`]));
     sync();
     const text = readWorkflow();
-    expect(text).toMatch(/^# +instructions: \[\]$/mu);
     expect(YAML.parse(text).stages).toBeUndefined();
   });
 
@@ -186,9 +185,9 @@ describe('removing listed entries from the live workflow file', () => {
     expect(YAML.parse(readWorkflow()).stages.planning.instructions).toEqual([42]);
   });
 
-  it('AC-7, INV-3: a file stamped newer than the package changes nothing and prints nothing', () => {
+  it('AC-7, INV-3: a file with a higher schema_version changes nothing', () => {
     const text = [
-      'paqad_version: "99.0.0"',
+      'schema_version: 2',
       'stages:',
       '  planning:',
       '    instructions:',
@@ -196,7 +195,9 @@ describe('removing listed entries from the live workflow file', () => {
       '',
     ].join('\n');
     writeWorkflow(text);
-    expect(sync()).toEqual([]);
+    expect(sync()).toEqual([
+      ".paqad/configs/feature-development/workflow.yaml was written by a newer paqad, so it wasn't changed. Update paqad-ai.",
+    ]);
     expect(readWorkflow()).toBe(text);
   });
 

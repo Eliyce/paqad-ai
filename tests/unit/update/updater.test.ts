@@ -38,6 +38,8 @@ import {
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import { workflowHookBlock } from '@/feature-evidence/git-hooks.js';
 import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
+import { createUpdateCommand, formatUpdateReportLines } from '@/cli/commands/update.js';
+import { writeLastUpdateRecord } from '@/update/last-update.js';
 import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
 function writeOldLeftovers(projectRoot: string): void {
@@ -182,7 +184,10 @@ describe('FrameworkUpdater', () => {
   });
 
   it('leaves the tracked config of a newer checkout byte-identical on update', async () => {
-    const newerExample = generateConfigExample('999.0.0');
+    const newerExample = generateConfigExample().replace(
+      /^# catalog_version: .*$/mu,
+      '# catalog_version: 999',
+    );
     const app = '# team header\nenterprise=true\nfuture_knob=on\n';
     mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad/.config.example'), newerExample);
@@ -504,10 +509,9 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toContain('session/');
   });
 
-  it('leaves the managed ignore file alone when the checkout is newer', async () => {
-    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample('999.0.0'));
+  it('leaves the managed ignore file alone when its own integer is higher', async () => {
     const ignore =
-      '# >>> paqad-ai managed (do not edit between markers) >>>\nfuture/\n# <<< paqad-ai managed <<<\n';
+      '# >>> paqad-ai managed (do not edit between markers) >>>\n# managed_block_version: 999\nfuture/\n# <<< paqad-ai managed <<<\n';
     writeFileSync(join(projectRoot, '.paqad/.gitignore'), ignore);
 
     await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
@@ -947,6 +951,129 @@ describe('FrameworkUpdater', () => {
     });
   });
 
+  describe('freezing the team files', () => {
+    const OLD_TEAM = '.paqad/configs/models.yaml';
+    const RECORD = '.paqad/configs/git-workflow/.last-applied.json';
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const read = (rel: string) => readFileSync(join(projectRoot, rel), 'utf8');
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' });
+    const commitAll = () => {
+      git('add', '-A');
+      git('commit', '-q', '-m', 'state', '--no-verify');
+    };
+    const initRepo = () => {
+      git('init', '-q');
+      git('config', 'user.email', 'f@example.test');
+      git('config', 'user.name', 'Freeze');
+    };
+    const allToOldStamp = () => {
+      for (const file of [...TEAM_CONFIG_FILES.map((name) => `.paqad/configs/${name}`), COMMITS]) {
+        const path = join(projectRoot, file);
+        writeFileSync(path, read(file).replace('schema_version: 1', 'paqad_version: "1.119.0"'));
+      }
+      stampLastApplied(projectRoot, ['commits.yaml']);
+    };
+
+    it('AC-27: a second update shows the version line and no commit line, and git stays clean', async () => {
+      initRepo();
+      await run();
+      commitAll();
+      const report = await run();
+      expect(report.changed_files).toEqual([]);
+      expect(formatUpdateReportLines(report)).toEqual([
+        `paqad is already on ${VERSION}.`,
+        'No files needed changing.',
+      ]);
+      expect(git('status', '--porcelain')).toBe('');
+    });
+
+    it('AC-22: the swap names each changed file in one commit line, and a committed swap settles', async () => {
+      initRepo();
+      await run();
+      allToOldStamp();
+      commitAll();
+      const report = await run();
+      const line = (report.git_workflow_notes ?? []).filter((note) => note.startsWith('Commit '));
+      expect(line).toHaveLength(1);
+      expect(line[0]).toContain(OLD_TEAM);
+      expect(line[0]).toContain(COMMITS);
+      expect(line[0]).toContain(RECORD);
+      expect(line[0]).toContain(
+        "together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.",
+      );
+      expect(read(OLD_TEAM)).toContain('schema_version: 1');
+      expect(read(OLD_TEAM)).not.toContain('paqad_version');
+      expect(changedOutside(projectRoot)).toEqual([]);
+      commitAll();
+      expect((await run()).changed_files).toEqual([]);
+      expect(git('status', '--porcelain')).toBe('');
+    });
+
+    it('NFR-3: a CRLF copy keeps its line ends through the swap, and the second run writes nothing', async () => {
+      await run();
+      const path = join(projectRoot, OLD_TEAM);
+      const crlf = read(OLD_TEAM)
+        .replace('schema_version: 1', 'paqad_version: "1.119.0"')
+        .replace(/\n/gu, '\r\n');
+      writeFileSync(path, crlf);
+      await run();
+      expect(read(OLD_TEAM)).toBe(crlf.replace('paqad_version: "1.119.0"', 'schema_version: 1'));
+      const settled = read(OLD_TEAM);
+      await run();
+      expect(read(OLD_TEAM)).toBe(settled);
+    });
+
+    it('FR-36: puts schema_version back in its place after a re-render moved it, and settles', async () => {
+      await run();
+      const path = join(projectRoot, OLD_TEAM);
+      const text = read(OLD_TEAM);
+      writeFileSync(
+        path,
+        `${text.replace('schema_version: 1', 'paqad_version: "1.119.0"')}\n# Not a paqad setting, so paqad ignores it (kept as written):\nschema_version: 1\n`,
+      );
+      await run();
+      expect(read(OLD_TEAM)).toBe(text);
+    });
+
+    it('AC-26: update --last shows the commit line, the hooks advice, the rule note and the compile line word for word, twice', async () => {
+      await run();
+      allToOldStamp();
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, 'docs/instructions/rules/coding/own.md'),
+        '- Read `docs/instructions/workflows/delivery-policy.yaml` first.\n',
+      );
+      rmSync(join(projectRoot, '.paqad/compiled-rules.json'), { force: true });
+      mkdirSync(join(projectRoot, '.paqad/compiled-rules.json'));
+      const report = await run();
+      const expected = (report.git_workflow_notes ?? []).filter(
+        (note) =>
+          note.startsWith('Commit ') ||
+          note.includes('still mentions') ||
+          note.startsWith("Couldn't refresh"),
+      );
+      expect(expected).toHaveLength(3);
+      writeLastUpdateRecord(projectRoot, report);
+      const printed: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((line: string) => {
+        printed.push(line);
+      });
+      try {
+        for (let round = 0; round < 2; round += 1) {
+          printed.length = 0;
+          await createUpdateCommand().parseAsync(['--last', '--project-root', projectRoot], {
+            from: 'user',
+          });
+          for (const note of expected) expect(printed).toContain(note);
+        }
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
   describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
@@ -1179,7 +1306,8 @@ describe('FrameworkUpdater', () => {
       );
       const launcher = join(projectRoot, '.paqad/hook.mjs');
       const bytes = readFileSync(launcher, 'utf8');
-      expect(bytes).toContain(`PAQAD_LAUNCHER_VERSION = '${VERSION}'`);
+      expect(bytes).toMatch(/LAUNCHER_REVISION = \d+;/u);
+      expect(bytes).not.toContain(VERSION);
       expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
       await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
       expect(readFileSync(launcher, 'utf8')).toBe(bytes);
@@ -1207,7 +1335,7 @@ describe('FrameworkUpdater', () => {
   describe('re-rendering the team files on update', () => {
     const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
 
-    it('AC-18, AC-8 and AC-10: names each rewritten file and each broken one, and rewrites nothing on a rerun', async () => {
+    it('AC-18, AC-8 and AC-10: swaps only the stamp, names each broken file, and writes nothing on a rerun', async () => {
       await run();
       const configs = join(projectRoot, '.paqad/configs');
       const paqad = join(configs, 'paqad.yaml');
@@ -1217,19 +1345,15 @@ describe('FrameworkUpdater', () => {
       const report = await run();
       const notes = report.git_workflow_notes ?? [];
       expect(notes).toContain(
-        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your own values and notes are kept.',
+        "Commit .paqad/configs/paqad.yaml, .paqad/configs/git-workflow/.last-applied.json together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.",
       );
-      expect(notes.filter((line) => line.startsWith('Rewrote '))).toHaveLength(1);
       expect(notes.some((line) => line.startsWith("models.yaml isn't valid YAML"))).toBe(true);
       expect(readFileSync(join(configs, 'models.yaml'), 'utf8')).toBe(broken);
-      expect(YAML.parse(readFileSync(paqad, 'utf8'))).toEqual({
-        paqad_version: VERSION,
-        enabled: false,
-      });
+      expect(readFileSync(paqad, 'utf8')).toBe('schema_version: 1\nenabled: false\n');
       const again = await run();
-      expect(
-        (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
-      ).toEqual([]);
+      expect((again.git_workflow_notes ?? []).some((line) => line.startsWith('Commit '))).toBe(
+        false,
+      );
     });
   });
 
@@ -1321,19 +1445,15 @@ describe('FrameworkUpdater', () => {
     const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
     const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
 
-    it('FR-9: says to commit the file on the run that adds the lines, and only then', async () => {
+    it('INV-3: an update adds the lines to no existing file', async () => {
       await run();
       const path = join(projectRoot, COMMITS);
       const fresh = readFileSync(path, 'utf8');
       expect(fresh).toContain('# ai_attribution: strip');
-      writeFileSync(path, fresh.replace(/\n# Whether the attribution[^]*$/u, ''));
-      const notes = (await run()).git_workflow_notes ?? [];
-      expect(notes).toContain(
-        `Commit ${COMMITS} so your teammates don't repeat this change locally.`,
-      );
-      expect(readFileSync(path, 'utf8')).toContain('# ai_attribution: strip');
-      const again = (await run()).git_workflow_notes ?? [];
-      expect(again.some((line) => line.startsWith('Commit '))).toBe(false);
+      const without = fresh.replace(/\n# Whether the attribution[^]*$/u, '');
+      writeFileSync(path, without);
+      await run();
+      expect(readFileSync(path, 'utf8')).toBe(without);
     });
   });
 
@@ -1445,7 +1565,7 @@ describe('FrameworkUpdater', () => {
       writeFileSync(
         join(projectRoot, FILE),
         [
-          `paqad_version: "${VERSION}"`,
+          'schema_version: 1',
           'stages:',
           '  planning:',
           '    read:',
@@ -1460,12 +1580,9 @@ describe('FrameworkUpdater', () => {
       const removed = notes.findIndex((line) =>
         line.startsWith("Removed an old copy of paqad's planning read path"),
       );
-      const rewrote = notes.indexOf(
-        `Rewrote ${FILE}: it lists every setting, and your own values and notes are kept.`,
-      );
+      const commit = notes.findIndex((line) => line.startsWith(`Commit ${FILE}`));
       expect(removed).toBeGreaterThanOrEqual(0);
-      expect(rewrote).toBeGreaterThan(removed);
-      expect(notes).toContain(`Commit ${FILE} so your teammates don't repeat this change locally.`);
+      expect(commit).toBeGreaterThan(removed);
       const after = readFileSync(join(projectRoot, FILE), 'utf8');
       expect(YAML.parse(after).stages.planning.instructions).toEqual([
         'Verify test coverage is 100%',

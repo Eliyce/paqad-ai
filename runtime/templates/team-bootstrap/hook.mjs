@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const PAQAD_LAUNCHER_VERSION = '__PAQAD_VERSION__';
+export const LAUNCHER_REVISION = 1;
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
@@ -848,7 +848,7 @@ function sessionStart(ctx) {
   if (ctx.script === 'agent-entry-session-start.mjs' || !ctx.sid) {
     logLine(
       ctx.projectRoot,
-      'v' + PAQAD_LAUNCHER_VERSION + ' route=' + decided.route + ' reason=' + decided.reason,
+      'revision=' + LAUNCHER_REVISION + ' route=' + decided.route + ' reason=' + decided.reason,
       ctx,
     );
   }

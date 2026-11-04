@@ -18,6 +18,11 @@ import { PATHS } from './constants/paths.js';
 import { checkoutIsNewer, FRAMEWORK_CONFIG_SPECS, parseDotConfig } from './framework-config.js';
 import { parseTeamConfigText, renderTeamConfigFile, teamConfigPath } from './team-config.js';
 import { isShippedWorkflowEntry } from './shipped-workflow-entries.js';
+import {
+  isNewerTeamFile,
+  newerTeamFileLine,
+  TEAM_FILE_SCHEMA_VERSION,
+} from './team-file-schema.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
 import { WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
@@ -501,7 +506,10 @@ export function migrateTeamConfig(
     const existing = readText(teamConfigPath(projectRoot, file));
     const parsed =
       existing === null
-        ? { document: YAML.parseDocument(`paqad_version: "${version}"\n`), error: undefined }
+        ? {
+            document: YAML.parseDocument(`schema_version: ${TEAM_FILE_SCHEMA_VERSION}\n`),
+            error: undefined,
+          }
         : parseTeamConfigText(file, existing);
     const document = parsed.document;
     if (document === null || parsed.error !== undefined) {
@@ -552,6 +560,18 @@ export function migrateTeamConfig(
     );
   }
 
+  const newerFiles = [...documents.keys()].filter((file) =>
+    isNewerTeamFile(readText(teamConfigPath(projectRoot, file)) ?? ''),
+  );
+  if (newerFiles.length > 0) {
+    const lines = newerFiles.map((file) =>
+      newerTeamFileLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`),
+    );
+    result.lines = lines;
+    result.error = lines.join(' ');
+    return result;
+  }
+
   const teamMinimum = winners.get('minimum_version')?.line.value;
   const stub = stubText(version, teamMinimum, unknown);
   const stubPath = legacyPath(projectRoot, CONFIG_GROUP_FILES.app);
@@ -563,14 +583,14 @@ export function migrateTeamConfig(
       text:
         file === GIT_WORKFLOW_COMMITS_FILE
           ? commitsText(document)
-          : renderTeamConfigFile(file, document, version),
+          : renderTeamConfigFile(file, document),
       existed,
     });
   }
   for (const file of TEAM_CONFIG_FILES) {
     const path = teamConfigPath(projectRoot, file);
     if (documents.has(file) || existsSync(path)) continue;
-    writes.push({ path, text: renderTeamConfigFile(file, null, version), existed: false });
+    writes.push({ path, text: renderTeamConfigFile(file, null), existed: false });
   }
   const stubWrite = { path: stubPath, text: stub, existed: existsSync(stubPath) };
 

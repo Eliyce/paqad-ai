@@ -101,19 +101,21 @@ describe('config show on rendered team files', () => {
     expect(result.invalid).toHaveLength(1);
     expect(result.invalid[0]).toMatch(/^paqad\.yaml line \d+: minimum_version is set/u);
     expect(result.invalid[0]).toContain('remove the # in front of updates:');
+    const before = readFileSync(join(root, '.paqad/configs/paqad.yaml'), 'utf8');
     syncTeamConfigFiles(root);
-    expect(readFileSync(join(root, '.paqad/configs/paqad.yaml'), 'utf8')).toContain('\nupdates:\n');
+    expect(readFileSync(join(root, '.paqad/configs/paqad.yaml'), 'utf8')).toBe(before);
+    edit('paqad.yaml', '# updates:', 'updates:');
     expect(buildConfigShow(root, {}).invalid).toEqual([]);
   });
 
-  it('AC-20: reads a setting where only the # was removed, and update writes it at column 0', () => {
+  it('AC-20: reads a setting where only the # was removed, and update leaves the line', () => {
     files();
     edit('paqad.yaml', '# enabled: true', ' enabled: false');
     const row = buildConfigShow(root, {}).settings.find((entry) => entry.key === 'paqad_enable')!;
     expect(row.value).toBe(false);
     syncTeamConfigFiles(root);
     expect(readFileSync(join(root, '.paqad/configs/paqad.yaml'), 'utf8')).toContain(
-      '\nenabled: false\n',
+      '\n enabled: false\n',
     );
   });
 

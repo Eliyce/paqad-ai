@@ -8,7 +8,7 @@ import {
 import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
-import { versionAtLeast } from '@/core/version-compare.js';
+import { isHigherStamp, parseStampInteger } from '@/core/team-file-schema.js';
 import {
   PROJECT_AGENTS_DIR,
   migrateProjectStageAgents,
@@ -17,12 +17,8 @@ import {
 
 import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
 
-declare const __PKG_VERSION__: string;
-
 export const TEAM_LAUNCHER_PATH = '.paqad/hook.mjs';
-export const LAUNCHER_VERSION_TOKEN = '__PAQAD_VERSION__';
-
-const LAUNCHER_STAMP = /PAQAD_LAUNCHER_VERSION = '([^']+)'/;
+const LAUNCHER_STAMP = /LAUNCHER_REVISION = (\S+?);/u;
 
 export interface TeamSetupReport {
   enabled: boolean;
@@ -38,18 +34,12 @@ interface OwnedFile {
   stamp: RegExp;
 }
 
-export function renderTeamLauncher(version: string = __PKG_VERSION__): string {
-  const template = readFileSync(
-    join(getRuntimeTemplatesRoot(), 'team-bootstrap', 'hook.mjs'),
-    'utf8',
-  );
-  return template.replace(LAUNCHER_VERSION_TOKEN, version);
+export function renderTeamLauncher(): string {
+  return readFileSync(join(getRuntimeTemplatesRoot(), 'team-bootstrap', 'hook.mjs'), 'utf8');
 }
 
-export function teamOwnedFiles(version: string = __PKG_VERSION__): OwnedFile[] {
-  return [
-    { path: TEAM_LAUNCHER_PATH, content: renderTeamLauncher(version), stamp: LAUNCHER_STAMP },
-  ];
+export function teamOwnedFiles(): OwnedFile[] {
+  return [{ path: TEAM_LAUNCHER_PATH, content: renderTeamLauncher(), stamp: LAUNCHER_STAMP }];
 }
 
 function readIfPresent(path: string): string | null {
@@ -61,23 +51,32 @@ function readIfPresent(path: string): string | null {
   }
 }
 
-function isNewerStamp(existing: string, stamp: RegExp, version: string): boolean {
-  const found = stamp.exec(existing)?.[1];
-  return found !== undefined && !versionAtLeast(version, found);
+function revisionOf(text: string, stamp: RegExp): string | undefined {
+  return stamp.exec(text)?.[1];
+}
+
+function isNewerStamp(existing: string, file: OwnedFile): boolean {
+  return isHigherStamp(
+    revisionOf(existing, file.stamp),
+    parseStampInteger(revisionOf(file.content, file.stamp)) ?? 0,
+  );
+}
+
+function sameContent(existing: string, content: string): boolean {
+  return existing.replace(/\r\n/gu, '\n') === content.replace(/\r\n/gu, '\n');
 }
 
 function syncOwnedFile(
   projectRoot: string,
   file: OwnedFile,
   enabled: boolean,
-  version: string,
   report: TeamSetupReport,
 ): void {
   const target = join(projectRoot, file.path);
   const existing = readIfPresent(target);
   if (!enabled) {
     if (existing === null) return;
-    if (existing === file.content) {
+    if (sameContent(existing, file.content)) {
       rmSync(target, { force: true });
       report.removed.push(file.path);
     } else {
@@ -85,8 +84,8 @@ function syncOwnedFile(
     }
     return;
   }
-  if (existing === file.content) return;
-  if (existing !== null && isNewerStamp(existing, file.stamp, version)) {
+  if (existing !== null && sameContent(existing, file.content)) return;
+  if (existing !== null && isNewerStamp(existing, file)) {
     report.kept.push(file.path);
     return;
   }
@@ -98,12 +97,11 @@ function syncOwnedFile(
 export function syncTeamSetup(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
-  version: string = __PKG_VERSION__,
 ): TeamSetupReport {
   const enabled = resolveTeamBootstrapEnabled(projectRoot, env);
   const report: TeamSetupReport = { enabled, written: [], removed: [], kept: [] };
-  for (const file of teamOwnedFiles(version)) {
-    syncOwnedFile(projectRoot, file, enabled, version, report);
+  for (const file of teamOwnedFiles()) {
+    syncOwnedFile(projectRoot, file, enabled, report);
   }
   if (enabled) {
     const agents = syncProjectStageAgents(projectRoot);

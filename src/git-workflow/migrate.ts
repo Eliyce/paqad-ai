@@ -113,10 +113,7 @@ export interface ConvertedFiles {
   lines: string[];
 }
 
-export function convertDeliveryPolicy(
-  raw: Plain,
-  options: { version: string; baseBranch: string },
-): ConvertedFiles {
+export function convertDeliveryPolicy(raw: Plain, options: { baseBranch: string }): ConvertedFiles {
   const lines: string[] = [];
   const ticket = section(raw, 'ticket');
   const host = section(raw, 'host');
@@ -129,7 +126,6 @@ export function convertDeliveryPolicy(
 
   const render = (file: GitWorkflowFile) =>
     renderDefaultGitWorkflowFile(file, {
-      version: options.version,
       baseBranch: options.baseBranch,
     });
 
@@ -242,7 +238,7 @@ export function convertDeliveryPolicy(
   };
 }
 
-const NOT_GIT_WORKFLOW_KEYS = new Set(['paqad_version', 'ai_attribution']);
+const NOT_GIT_WORKFLOW_KEYS = new Set(['paqad_version', 'schema_version', 'ai_attribution']);
 
 function readSettings(path: string): Plain | null {
   if (!existsSync(path)) return null;
@@ -298,14 +294,14 @@ export function migrateDeliveryPolicy(
   if (!oldFileReadable(raw)) {
     for (const file of GIT_WORKFLOW_FILES) {
       const path = gitWorkflowFilePath(projectRoot, file);
-      writeFileSync(path, renderDefaultGitWorkflowFile(file, { version, baseBranch }), 'utf8');
+      writeFileSync(path, renderDefaultGitWorkflowFile(file, { baseBranch }), 'utf8');
       written.push(path);
     }
     stampLastApplied(projectRoot, GIT_WORKFLOW_FILES, { version, now: options.now });
     return { ran: true, lines: [UNREADABLE_MESSAGE], written, deleted: false };
   }
 
-  const converted = convertDeliveryPolicy(raw, { version, baseBranch });
+  const converted = convertDeliveryPolicy(raw, { baseBranch });
   keepAiAttribution(projectRoot, converted.files);
   const lines: string[] = [];
   for (const file of GIT_WORKFLOW_FILES) {

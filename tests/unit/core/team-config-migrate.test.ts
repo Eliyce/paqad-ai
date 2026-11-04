@@ -143,7 +143,7 @@ describe('the four fixture projects', () => {
     const result = migrateTeamConfig(root, { version: VERSION });
     const evidence = configs('feature-development/evidence.yaml');
     expect(YAML.parse(evidence)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       enterprise: { enabled: true, ledger: true },
       legacy_existence_check: 'warn',
     });
@@ -475,7 +475,7 @@ describe('the size of the team settings (AC-72)', () => {
     return Object.values(files)
       .flatMap((text) => text.split('\n'))
       .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
-      .filter((line) => !line.startsWith('paqad_version:')).length;
+      .filter((line) => !/^(paqad|schema)_version:/u.test(line)).length;
   }
 
   for (const name of PROJECTS) {

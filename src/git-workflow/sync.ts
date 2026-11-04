@@ -2,90 +2,29 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 import YAML from 'yaml';
 
+import { PATHS } from '@/core/constants/paths.js';
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
-import { versionAtLeast } from '@/core/version-compare.js';
+import { isNewerTeamFile, newerTeamFileLine, swapTeamFileStamp } from '@/core/team-file-schema.js';
 
-import { AI_ATTRIBUTION_COMMENT_LINES, renderDefaultGitWorkflowFile } from './defaults.js';
-import { stampLastApplied } from './last-applied.js';
+import { renderDefaultGitWorkflowFile } from './defaults.js';
+import { changedOutside, refreshLastAppliedHashes, stampLastApplied } from './last-applied.js';
 import { gitWorkflowDir, gitWorkflowFilePath } from './load.js';
 import { remoteDefaultBranch } from './onboard.js';
 import { GIT_WORKFLOW_FILES, type GitWorkflowFile } from './types.js';
-import { hasPath, insertKey, readPath, setValue } from './yaml-edit.js';
 
 declare const __PKG_VERSION__: string;
-
-const TEAM_NAMED = new Set(['sources', 'types']);
 
 export interface SyncOptions {
   version?: string;
   baseBranch?: string;
   now?: () => Date;
+  notes?: string[];
 }
 
-type Plain = Record<string, unknown>;
-
-function isPlain(value: unknown): value is Plain {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function missingKeys(text: string, defaults: Plain, path: string[]): Array<[string[], unknown]> {
-  const missing: Array<[string[], unknown]> = [];
-  for (const [key, value] of Object.entries(defaults)) {
-    if (key === 'paqad_version') continue;
-    const here = [...path, key];
-    if (!hasPath(text, here)) {
-      missing.push([here, value]);
-      continue;
-    }
-    if (isPlain(value) && !TEAM_NAMED.has(key) && isPlain(readPath(text, here))) {
-      missing.push(...missingKeys(text, value, here));
-    }
-  }
-  return missing;
-}
-
-export function isNewerThanPackage(fileVersion: unknown, running: string): boolean {
-  return typeof fileVersion === 'string' && !versionAtLeast(running, fileVersion);
-}
-
-export function hasAiAttributionLine(text: string): boolean {
-  return /^#?\s*ai_attribution\s*:/mu.test(text);
-}
-
-function withAiAttributionComment(text: string): string {
-  if (hasPath(text, ['ai_attribution']) || hasAiAttributionLine(text)) return text;
-  const eol = text.includes('\r\n') ? '\r\n' : '\n';
-  const base = text.endsWith('\n') ? text : `${text}${eol}`;
-  return `${base}${eol}${AI_ATTRIBUTION_COMMENT_LINES.join(eol)}${eol}`;
-}
-
-export function syncGitWorkflowFile(
-  text: string,
-  file: GitWorkflowFile,
-  options: { version: string; baseBranch: string },
-): string {
+export function syncGitWorkflowFile(text: string): string {
   const doc = YAML.parseDocument(text);
   if (doc.errors.length > 0 || !YAML.isMap(doc.contents)) return text;
-  if (isNewerThanPackage(doc.get('paqad_version'), options.version)) return text;
-  const defaults = YAML.parse(
-    renderDefaultGitWorkflowFile(file, {
-      version: options.version,
-      baseBranch: options.baseBranch,
-    }),
-  ) as Plain;
-  let next = file === 'commits.yaml' ? withAiAttributionComment(text) : text;
-  const missing = missingKeys(text, defaults, []);
-  if (missing.length === 0 && next === text) return text;
-  for (const [path, value] of missing) {
-    next = insertKey(
-      next,
-      path.slice(0, -1),
-      path[path.length - 1],
-      value,
-      `Added in paqad-ai ${options.version}`,
-    );
-  }
-  return setValue(next, ['paqad_version'], options.version);
+  return swapTeamFileStamp(text);
 }
 
 function createFile(path: string, text: string): boolean {
@@ -100,7 +39,9 @@ function createFile(path: string, text: string): boolean {
 
 export function syncGitWorkflow(projectRoot: string, options: SyncOptions = {}): string[] {
   const version = options.version ?? __PKG_VERSION__;
-  const written: GitWorkflowFile[] = [];
+  const created: GitWorkflowFile[] = [];
+  const swapped: GitWorkflowFile[] = [];
+  const outside = changedOutside(projectRoot);
   let baseBranch = options.baseBranch;
   mkdirSync(gitWorkflowDir(projectRoot), { recursive: true });
   for (const file of GIT_WORKFLOW_FILES) {
@@ -108,23 +49,31 @@ export function syncGitWorkflow(projectRoot: string, options: SyncOptions = {}):
     let text = readTextIfExistsSync(path);
     if (text === null) {
       baseBranch ??= remoteDefaultBranch(projectRoot);
-      if (createFile(path, renderDefaultGitWorkflowFile(file, { version, baseBranch }))) {
-        written.push(file);
+      if (createFile(path, renderDefaultGitWorkflowFile(file, { baseBranch }))) {
+        created.push(file);
         continue;
       }
       text = readFileSync(path, 'utf8');
     }
-    let next: string;
-    try {
-      next = syncGitWorkflowFile(text, file, { version, baseBranch: baseBranch ?? 'main' });
-    } catch {
+    if (isNewerTeamFile(text)) {
+      options.notes?.push(newerTeamFileLine(`${PATHS.GIT_WORKFLOW_DIR}/${file}`));
       continue;
     }
-    if (next !== text) {
+    const next = syncGitWorkflowFile(text);
+    if (next === text) continue;
+    try {
       writeFileSync(path, next, 'utf8');
-      written.push(file);
+      swapped.push(file);
+    } catch (error) {
+      options.notes?.push(
+        `Couldn't write ${PATHS.GIT_WORKFLOW_DIR}/${file}: ${error instanceof Error ? error.message : 'unknown error'}. The next update tries again.`,
+      );
     }
   }
-  if (written.length > 0) stampLastApplied(projectRoot, written, { version, now: options.now });
-  return written.map((file) => gitWorkflowFilePath(projectRoot, file));
+  if (created.length > 0) stampLastApplied(projectRoot, created, { version, now: options.now });
+  refreshLastAppliedHashes(
+    projectRoot,
+    swapped.filter((file) => !outside.includes(file)),
+  );
+  return [...created, ...swapped].map((file) => gitWorkflowFilePath(projectRoot, file));
 }

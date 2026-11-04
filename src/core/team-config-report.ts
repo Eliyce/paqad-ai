@@ -53,7 +53,7 @@ export function unknownSettingLine(file: string, path: string): string {
 }
 
 function knownPaths(file: OwnTeamConfigFile): { leaves: Set<string>; branches: Set<string> } {
-  const leaves = new Set<string>(['paqad_version']);
+  const leaves = new Set<string>(['paqad_version', 'schema_version']);
   for (const spec of FRAMEWORK_CONFIG_SPECS) {
     if (spec.file === file) leaves.add(spec.path.join('.'));
   }

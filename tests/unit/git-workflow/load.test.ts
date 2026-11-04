@@ -189,7 +189,7 @@ describe('the git-workflow folder and the .config.* reader', () => {
 
 describe('default files', () => {
   it('writes enforcement.yaml exactly as the default content', () => {
-    expect(renderDefaultGitWorkflowFile('enforcement.yaml', { version: '1.2.3' })).toBe(
+    expect(renderDefaultGitWorkflowFile('enforcement.yaml')).toBe(
       [
         '# How strictly paqad holds everyone to these rules.',
         '#',
@@ -203,7 +203,7 @@ describe('default files', () => {
         '#   block  the commit or push is refused (git commit --no-verify still skips it)',
         "#   warn   the hook prints what doesn't match and lets it through",
         '#   off    no git hooks for people',
-        'paqad_version: "1.2.3"',
+        'schema_version: 1',
         '',
         'enabled: true',
         'agents: block',
