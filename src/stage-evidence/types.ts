@@ -1,6 +1,8 @@
 export const STAGE_EVIDENCE_DOC_TYPE = 'paqad.stage-evidence';
 
-export const STAGE_EVIDENCE_SCHEMA_VERSION = 2;
+export const STAGE_EVIDENCE_SCHEMA_VERSION = 3;
+
+export const STAGE_EVIDENCE_SCHEMA_V2 = 2;
 
 export type StageEvidenceKind =
   | 'open'
@@ -12,7 +14,10 @@ export type StageEvidenceKind =
   | 'spec-step'
   | 'spec-correction'
   | 'completion-deferred'
-  | 'record-repair';
+  | 'record-repair'
+  | 'stage-handback'
+  | 'recipe-injected'
+  | 'skill-used';
 
 export const STAGE_AGENT_KIND = 'stage-agent';
 
@@ -23,6 +28,15 @@ export const SPEC_CORRECTION_KIND = 'spec-correction';
 export const COMPLETION_DEFERRED_KIND = 'completion-deferred';
 
 export const RECORD_REPAIR_KIND = 'record-repair';
+
+export const STAGE_HANDBACK_KIND = 'stage-handback';
+
+export const RECIPE_INJECTED_KIND = 'recipe-injected';
+
+export const SKILL_USED_KIND = 'skill-used';
+
+export const REPORT_SOURCES = ['handback', 'text', 'rollout', 'none'] as const;
+export type ReportSource = (typeof REPORT_SOURCES)[number];
 
 export const SPEC_STEP_OUTCOMES = ['complete', 'skipped', 'redone'] as const;
 export type SpecStepOutcome = (typeof SPEC_STEP_OUTCOMES)[number];
@@ -37,7 +51,7 @@ export const STAGE_FAMILY_KIND_LIST = [
 export const STAGE_FAMILY_KINDS: ReadonlySet<string> = new Set(STAGE_FAMILY_KIND_LIST);
 
 export type StageEventStatus =
-  'started' | 'completed' | 'skipped' | 'failed' | 'redone' | 'inferred';
+  'started' | 'completed' | 'skipped' | 'failed' | 'redone' | 'inferred' | 'denied';
 
 export type StageEvidenceSource =
   'live-mark' | 'inferred-artifact' | 'inferred-git' | 'redo' | null;

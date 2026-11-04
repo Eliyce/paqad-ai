@@ -113,7 +113,7 @@ describe('feature stage ledger append / read / fold', () => {
       'content_hash',
     ]);
     expect(rows[0]).toMatchObject({
-      schema_version: 2,
+      schema_version: 3,
       doc_type: 'paqad.stage-evidence',
       change: dir.slice(-26),
       session_id: 'ses_1',
