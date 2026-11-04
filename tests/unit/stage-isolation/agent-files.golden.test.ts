@@ -5,14 +5,11 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { renderClaudePluginStageAgents, writeStageAgents } from '@/stage-isolation/agent-writer';
-import { MANDATORY_STAGE_AGENTS } from '@/stage-isolation/stage-agents';
+import { AGENT_ENTRY_MARKER_FALLBACK, MANDATORY_STAGE_AGENTS } from '@/stage-isolation/stage-agents';
 
 const home = mkdtempSync(join(tmpdir(), 'paqad-agent-golden-'));
 writeStageAgents({ homeDir: home });
 afterAll(() => rmSync(home, { recursive: true, force: true }));
-
-const CHANGED_FILES_SENTENCE =
-  'If the entry gate blocks an edit, it names the files that changed. Read only those, write the marker it names, and retry.';
 
 function filesIn(subdir: string): string[] {
   return readdirSync(join(home, subdir)).sort();
@@ -40,7 +37,7 @@ describe('rendered agent files', () => {
   it('AC-53: all six stage helpers carry the changed-files entry gate text', () => {
     expect(pluginStageAgents).toHaveLength(6);
     for (const agent of pluginStageAgents) {
-      expect(agent.content.replace(/\s+/g, ' ')).toContain(CHANGED_FILES_SENTENCE);
+      expect(agent.content.replace(/\s+/g, ' ')).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
       expect(agent.content).not.toContain('per-agent marker under');
     }
   });

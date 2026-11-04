@@ -1,3 +1,4 @@
+import { resolveRecipe } from '@/stage-isolation/recipes.js';
 import { describe, expect, it } from 'vitest';
 
 import { overlapScore } from '@/authoring/overlap';
@@ -17,6 +18,7 @@ import {
   SPEC_FOREGROUND_START_LINE,
   SPEC_HIGH_TABLE_HANDBACK_LINE,
   STAGE_AGENT_HARD_RULES,
+  stageNoteLines,
   stageBriefFallbackLine,
   READ_ONLY_DO_NOT,
   WORK_QUICKLY_LINE,
@@ -65,8 +67,8 @@ describe('stage-agent definitions', () => {
     const body = buildStageAgentBody(MANDATORY_STAGE_AGENTS[0]!, 'codex-cli');
     expect(body).toContain('framework-path.txt');
     expect(body).toContain('SE_SESSION');
-    expect(body).toContain('stage start planning');
-    expect(body).toContain('Never ask the human');
+    expect(body).toContain('stage begin planning');
+    expect(body).toContain('Do not ask the human');
     expect(body).toContain('paused: D-<id>');
   });
 
@@ -90,21 +92,19 @@ describe('stage-agent definitions', () => {
     }
   });
 
-  it('the claude-code Do not section states what the hooks enforce, codex keeps the hard rules', () => {
+  it('the claude-code Do not section names what enforces each line, codex keeps the hard rules', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const claude = buildStageAgentBody(def, 'claude-code');
-      expect(claude).toContain(`stage start ${def.ledgerStage}`);
-      expect(claude).not.toContain(STAGE_AGENT_HARD_RULES[0]);
+      expect(claude).toContain(`stage begin ${def.ledgerStage}`);
       const doNot = claude.slice(claude.indexOf('## Do not'), claude.indexOf('## Example'));
-      expect(doNot).toContain(
-        'Do not ask the human. The SubagentStop check holds a stage that asked',
-      );
-      expect(doNot).toContain('Do not write into a feature bundle directory by hand');
-      expect(doNot).toContain('Do not skip a stage verb');
-      expect(doNot.includes(READ_ONLY_DO_NOT)).toBe(!def.claudeTools.includes('Edit'));
+      expect(doNot).toContain('the AskUserQuestion tool is not available to you');
+      expect(doNot).toContain('the capability gate blocks it');
+      expect(doNot).toContain('`stage-agent-handback.mjs` refuses it');
+      expect(doNot).not.toContain('holds a stage');
       const codex = buildStageAgentBody(def, 'codex-cli');
-      const codexDoNot = codex.slice(codex.indexOf('## Do not'), codex.indexOf('## Example'));
-      for (const line of STAGE_AGENT_HARD_RULES) expect(codexDoNot).toContain(line);
+      for (const line of STAGE_AGENT_HARD_RULES) expect(codex).toContain(line);
+      expect(codex).not.toContain('AskUserQuestion');
+      expect(codex).not.toContain('.mjs');
     }
   });
 
@@ -112,21 +112,17 @@ describe('stage-agent definitions', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'claude-code');
       expect(body).toContain(stageBriefFallbackLine(def.ledgerStage));
-      expect(body).toContain(`run \`paqad-ai stage brief ${def.ledgerStage} --full\` to print it`);
-      expect(body).toContain(
-        '4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the `read:` list and instructions in your brief.',
-      );
+      expect(body).toContain(`run \`paqad-ai stage brief ${def.ledgerStage} --full\``);
       expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
       expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
-      expect(body).not.toContain('.paqad/.agent-entry-loaded');
-      expect(buildStageAgentBody(def)).toBe(body);
+      expect(body).toContain('no `## Your recipe` heading');
     }
   });
 
   it('the codex-cli body loads the framework itself instead of pointing at a stage brief', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       const body = buildStageAgentBody(def, 'codex-cli');
-      expect(body).toContain('load and follow `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md`');
+      expect(body).toContain('Load `AGENT-ROUTER.md`');
       expect(body).toContain('.paqad/session/agent-entry/');
       expect(body).not.toContain(stageBriefFallbackLine(def.ledgerStage));
       expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
@@ -134,17 +130,16 @@ describe('stage-agent definitions', () => {
   });
 
   it('lets a read-only stage write only its stage input under .paqad/tmp/ with a heredoc', () => {
-    expect(READ_ONLY_DO_NOT).toBe(
-      '- Do not edit project files. Write only your stage input (the plan template, the spec input or the review template) under `.paqad/tmp/`, with a shell heredoc. The write guard blocks every other file write from Bash, and the SubagentStop check holds a stage that edited.',
-    );
+    expect(READ_ONLY_DO_NOT).toContain('`stage-agent-write-guard.mjs` blocks it');
+    expect(READ_ONLY_DO_NOT).toContain('`.paqad/tmp/`, written with a shell heredoc');
     expect(READ_ONLY_DO_NOT).not.toContain('Do not edit or write files');
   });
 
-  it('says the agent is dispatched with the change ref and the lane', () => {
+  it('starts each stage through one command, on both hosts', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
       for (const host of ['claude-code', 'codex-cli']) {
         expect(buildStageAgentBody(def, host)).toContain(
-          '4. You were dispatched with the change ref, the lane and the previous pillar file(s).',
+          `4. \`paqad-ai stage begin ${def.ledgerStage} --agent ${def.agentName}\`.`,
         );
       }
     }
@@ -154,7 +149,7 @@ describe('stage-agent definitions', () => {
     const verbs: Record<string, string> = {
       planning: 'paqad-ai plan compile',
       specification: 'paqad-ai spec freeze',
-      development: 'paqad-ai rules load',
+      development: 'paqad-ai stage begin development',
       review: 'paqad-ai review record',
       checks: 'paqad-ai checks run',
       documentation_sync: 'paqad-ai stage end documentation_sync',
@@ -166,45 +161,38 @@ describe('stage-agent definitions', () => {
     }
   });
 
-  it('only checks and documentation_sync carry the work-quickly line, on both hosts', () => {
+  it('moved the work-quickly line into the two recipes that need it', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
-      const quick = def.ledgerStage === 'checks' || def.ledgerStage === 'documentation_sync';
       for (const host of ['claude-code', 'codex-cli']) {
-        expect(buildStageAgentBody(def, host).includes(WORK_QUICKLY_LINE)).toBe(quick);
+        expect(buildStageAgentBody(def, host)).not.toContain(WORK_QUICKLY_LINE);
       }
+    }
+    for (const stage of ['checks', 'documentation_sync']) {
+      expect(resolveRecipe(stage).body).toContain(WORK_QUICKLY_LINE.replace("doesn't", "doesn't"));
     }
   });
 
-  it('only the development body says it may be resumed with a follow-up task', () => {
-    expect(DEVELOPMENT_RESUME_LINE).toBe(
-      "You may be resumed with a follow-up task for the same change. Keep working from what you already know; don't re-read files you have read unless they changed.",
-    );
+  it('moved the resume line into the development recipe', () => {
     for (const def of MANDATORY_STAGE_AGENTS) {
-      for (const host of ['claude-code', 'codex-cli']) {
-        expect(buildStageAgentBody(def, host).includes(DEVELOPMENT_RESUME_LINE)).toBe(
-          def.ledgerStage === 'development',
-        );
-      }
+      expect(buildStageAgentBody(def, 'claude-code')).not.toContain(DEVELOPMENT_RESUME_LINE);
     }
+    expect(resolveRecipe('development').body).toContain('You may be resumed');
   });
 
   it('says the orchestrator resumes a paused stage agent with the answer', () => {
     const rules = STAGE_AGENT_HARD_RULES.join('\n');
-    expect(rules).toContain('orchestrator asks the human and then resumes you with the answer.');
+    expect(rules).toContain('orchestrator asks and resumes you');
     expect(rules).not.toContain('re-dispatches you');
   });
 
-  it('AC-45: only the specification body says to run spec pipeline start in the foreground', () => {
+  it('AC-45: the foreground line is in the specification brief, the body leaves it to the brief', () => {
     expect(SPEC_FOREGROUND_START_LINE).toBe(
       'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.',
     );
     for (const def of MANDATORY_STAGE_AGENTS) {
-      for (const host of ['claude-code', 'codex-cli']) {
-        expect(buildStageAgentBody(def, host).includes(SPEC_FOREGROUND_START_LINE)).toBe(
-          def.ledgerStage === 'specification',
-        );
-      }
+      expect(buildStageAgentBody(def, 'claude-code')).not.toContain(SPEC_FOREGROUND_START_LINE);
     }
+    expect(stageNoteLines('specification')).toContain(SPEC_FOREGROUND_START_LINE);
   });
 
   it.each([
@@ -250,8 +238,8 @@ describe('stage-agent turn limits and Report sections', () => {
   it('AC-33: the Codex render keeps the must-not rules and states the turn limit in the Report', () => {
     for (const agent of renderStageAgentFiles('codex-cli')) {
       const name = agent.name.replace(/\.toml$/u, '');
-      expect(agent.content).toContain('Never ask the human');
-      expect(agent.content).toContain('Never write into a feature bundle directory');
+      expect(agent.content).toMatch(/(Do not|Never) ask the human/u);
+      expect(agent.content).toMatch(/(Do not|Never) write into a feature bundle directory/u);
       expect(agent.content).toContain(`finish in at most ${TURNS[name]} turns`);
       expect(agent.content).toContain('## Report');
       expect(agent.content).not.toContain('—');
@@ -304,21 +292,17 @@ describe('stage agent returns the orchestrator can act on', () => {
 
   it('AC-10: the checks example returns DONE_WITH_CONCERNS for failing checks', () => {
     const checks = renderedClaude('paqad-checks');
-    expect(checks).toContain(
-      'one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them',
-    );
+    expect(checks).toContain('one line per failing check and `Status: DONE_WITH_CONCERNS`');
     expect(checks).toContain('return `Status: DONE` only when every check is green');
     expect(checks).not.toMatch(/one line per failing check, and `Status: DONE`\./u);
   });
 
   it('AC-11: the specification agent hands the seated roles back with NEEDS_CONTEXT', () => {
     const spec = renderedClaude('paqad-specification');
-    expect(spec).toContain(SPEC_HIGH_TABLE_HANDBACK_LINE);
+    expect(stageNoteLines('specification')).toContain(SPEC_HIGH_TABLE_HANDBACK_LINE);
     expect(SPEC_HIGH_TABLE_HANDBACK_LINE).toContain(
       'return at once with `Status: NEEDS_CONTEXT` naming every seated role',
     );
-    expect(spec).toContain(
-      '`experts record` seated experts and you returned `Status: NEEDS_CONTEXT` naming them',
-    );
+    expect(spec).toContain('or you returned the seated experts');
   });
 });

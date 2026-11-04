@@ -24,11 +24,12 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 
 1. Restate the request and its acceptance criteria in two lines at the top of your return.
 2. Implement only the requested feature behavior and avoid unrelated refactors.
-3. Check scope before each area: compare what you are about to change with the frozen spec only. Outside it, stop and open a decision.
-4. For each criterion, pick the smallest test layer that proves it, reuse existing test files first, and name the criterion id in the test name or its describe block, so `scripts/check-ac-map.mjs` can find it. A criterion with `proof: manual` or `proof: visual` needs no test.
-5. Inner loop: run only the tests for the files you changed (for vitest, `vitest related <files>`).
-6. On a business choice, run `paqad-ai decision create`, return `paused: D-<id>` at once, and wait to be resumed with the answer.
-7. End with `paqad-ai stage end development --agent paqad-development`. It runs `scripts/check-ac-map.mjs` and refuses when a criterion has no test, printing which.
+3. You may be resumed with a follow-up task for the same change. Keep working from what you already know; do not re-read files you have read unless they changed.
+4. Check scope before each area: compare what you are about to change with the frozen spec only. Outside it, stop and open a decision.
+5. For each criterion, pick the smallest test layer that proves it, reuse existing test files first, and name the criterion id in the test name or its describe block, so `scripts/check-ac-map.mjs` can find it. A criterion with `proof: manual` or `proof: visual` needs no test.
+6. Inner loop: run only the tests for the files you changed (for vitest, `vitest related <files>`).
+7. On a business choice, run `paqad-ai decision create`, return `paused: D-<id>` at once, and wait to be resumed with the answer.
+8. End with `paqad-ai stage end development --agent paqad-development`. It runs `scripts/check-ac-map.mjs` and refuses when a criterion has no test, printing which.
 
 ## Read This Path
 

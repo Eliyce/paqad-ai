@@ -12,7 +12,7 @@ Write the request-time notes for one paqad **High Table** seat on one feature-de
 
 ## Procedure
 
-1. Export the `SE_SESSION` you were given for every `paqad-ai` command.
+1. Export the `SE_SESSION` you were given for every `paqad-ai` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Print your brief: `paqad-ai spec pipeline experts brief <role>` (this records your start).
 3. Follow the `expert-notes` skill for your role: the host skill, or `runtime/base/skills/expert-notes/SKILL.md` under the install directory that `.paqad/framework-path.txt` names, with your lens in its `references/lenses/`.
 4. Write one note for your role in the skill format: one `notes` entry (role, `findings`, `questions`) and your spent tokens under `tokens.<role>`, saved as `.paqad/tmp/high-table/<role>-notes.json`.
@@ -40,8 +40,7 @@ paused: D-<id>
 ## Do not
 
 - Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only the verb writes there.
-- Never ask the human. A question only a person can answer goes into your artifact; the orchestrator asks it.
-- Do not load the paqad router or rules; your brief has what a seat needs.
+- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact; the orchestrator asks it.
 
 ## Example
 

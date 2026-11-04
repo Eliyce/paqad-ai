@@ -23,11 +23,12 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 ## Procedure
 
 1. Restate the request and its acceptance criteria in two lines at the top of your return.
-2. Run the project command checks after implementation and before finalizing the feature.
-3. Read the plan `paqad-ai stage begin checks` printed.
-4. Run `paqad-ai checks run` once. Do not repeat a green run, and do not edit anything to make a check pass.
-5. End with `paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>`.
-6. Return `Status: DONE` only when every check is green. Otherwise return `Status: DONE_WITH_CONCERNS`, one line per failing check.
+2. Work quickly: skip anything this stage doesn't need, and return as soon as the result is correct.
+3. Run the project command checks after implementation and before finalizing the feature.
+4. Read the plan `paqad-ai stage begin checks` printed.
+5. Run `paqad-ai checks run` once. Do not repeat a green run, and do not edit anything to make a check pass.
+6. End with `paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>`.
+7. Return `Status: DONE` only when every check is green. Otherwise return `Status: DONE_WITH_CONCERNS`, one line per failing check.
 
 ## Read This Path
 

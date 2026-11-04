@@ -52,10 +52,10 @@ describe('buildPluginHookChain', () => {
     expect(chain.some((h) => h.command.includes('silent-update'))).toBe(false);
   });
 
-  it('fails open — no onFailure on any entry, and only the stage seed hook carries a timeout', () => {
+  it('fails open — no onFailure on any entry, and only the stage seed and handback hooks carry a timeout', () => {
     for (const hook of chain) {
       expect(hook.onFailure).toBeUndefined();
-      if (hook.nativeEvent === 'SubagentStart') {
+      if (hook.nativeEvent === 'SubagentStart' || hook.matcher === 'SubagentHandback') {
         expect(hook.timeout).toBe(10);
       } else {
         expect(hook.timeout).toBeUndefined();

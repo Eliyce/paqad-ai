@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { hashFolder } from '@/authoring/hash.js';
+import { isGeneratedRecipeFolder } from '@/authoring/generated-recipes.js';
 import { OPEN_STANDARD_SKILLS_ROOT, enabledAdapters } from '@/authoring/paths.js';
 
 import { RECIPE_NAMES, recipeRoot } from './recipes.js';
@@ -46,19 +46,4 @@ export function writeCodexRecipes(projectRoot: string): string[] {
   return written;
 }
 
-export function isGeneratedRecipeFolder(
-  projectRoot: string,
-  folder: string,
-  name: string,
-): boolean {
-  if (!RECIPE_NAMES.includes(name) || folder !== `${OPEN_STANDARD_SKILLS_ROOT}/${name}`) {
-    return false;
-  }
-  const source = recipeRoot();
-  if (source === null) return false;
-  try {
-    return hashFolder(join(projectRoot, folder)) === hashFolder(join(source, name));
-  } catch {
-    return false;
-  }
-}
+export { isGeneratedRecipeFolder };

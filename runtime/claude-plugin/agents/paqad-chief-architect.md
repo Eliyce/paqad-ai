@@ -12,7 +12,7 @@ Chair the paqad **High Table** for one feature-development change as its **chief
 
 ## Procedure
 
-1. Export the `SE_SESSION` you were given for every `paqad-ai` command.
+1. Export the `SE_SESSION` you were given for every `paqad-ai` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Read the table: `paqad-ai spec pipeline experts context` (request, grounding, notes, voice warnings and merge; it records your start).
 3. Follow the `expert-synthesis` skill: the host skill, or `runtime/base/skills/expert-synthesis/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 4. Write the synthesis in the skill format as `.paqad/tmp/high-table/synthesis.json`.
@@ -40,8 +40,7 @@ paused: D-<id>
 ## Do not
 
 - Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only the verb writes there.
-- Never ask the human. A question only a person can answer goes into your artifact; the orchestrator asks it.
-- Do not load the paqad router or rules; your brief has what a seat needs.
+- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact; the orchestrator asks it.
 
 ## Example
 

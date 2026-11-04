@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
+import { RECIPE_FOLDER_NAMES, recipeRoot } from '@/authoring/generated-recipes.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 
@@ -24,18 +24,9 @@ const RECIPE_SCRIPT: Readonly<Record<string, string>> = {
   'documentation-sync-recipe': 'stale-docs.mjs',
 };
 
-export const RECIPE_NAMES: readonly string[] = Object.values(RECIPE_BY_STAGE);
+export const RECIPE_NAMES = RECIPE_FOLDER_NAMES;
 
-const SKILLS_RELATIVE = join('runtime', 'base', 'skills');
-
-export function recipeRoot(from: string = fileURLToPath(import.meta.url)): string | null {
-  let dir = dirname(from);
-  for (let depth = 0; depth < 6; depth += 1) {
-    if (existsSync(join(dir, SKILLS_RELATIVE))) return join(dir, SKILLS_RELATIVE);
-    dir = dirname(dir);
-  }
-  return null;
-}
+export { recipeRoot };
 
 export function recipeNameForStage(stage: string): string | null {
   return RECIPE_BY_STAGE[stage] ?? null;

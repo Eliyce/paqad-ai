@@ -7,8 +7,7 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { agentOrchestratorEnabled, skillOrchestratorEnabled } from './config.js';
 import { readTextIfPresent } from './fs-io.js';
-import { isGeneratedRecipeFolder } from '@/stage-isolation/recipe-install.js';
-
+import { isGeneratedRecipeFolder } from './generated-recipes.js';
 import { hashAgentFile, hashFolder, listFolderFiles } from './hash.js';
 import { agentHookScripts, lintAgentInProject, POWER_RULES } from './lint/agent-lint.js';
 import { discoverInstalledAgents } from './overlap.js';

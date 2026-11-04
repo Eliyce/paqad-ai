@@ -1,6 +1,5 @@
 import { isSubagentCapableAdapter } from '@/authoring/package/agent-render.js';
 import {
-  OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
   REVIEW_DIGEST_REFRESH_INSTRUCTION,
   STAGE_ORDER,
 } from '@/pipeline/feature-development-policy.js';
@@ -43,35 +42,35 @@ const STAGE_META: Record<string, StageMeta> = {
     tools: READ_ONLY_TOOLS,
     role: 'plan the change and record the reuse-checked plan',
     summary: 'maps reuse candidates and compiles plan.json',
-    artifact: '`plan.json`, written by `paqad-ai plan compile`',
+    artifact: '`plan.json`',
     maxTurns: 100,
   },
   specification: {
     tools: READ_ONLY_TOOLS,
     role: 'write and freeze the feature spec before any code',
     summary: 'drafts acceptance criteria, seats the High Table and freezes specification.json',
-    artifact: '`specification.json`, written by `paqad-ai spec freeze`',
+    artifact: '`specification.json`',
     maxTurns: 60,
   },
   development: {
     tools: DEVELOPMENT_TOOLS,
     role: 'implement the frozen spec',
     summary: 'implements the frozen spec in source and tests after rules load',
-    artifact: 'the source and test edits, plus `rules-loaded.json` from `paqad-ai rules load`',
+    artifact: 'the source and test edits and `rules-loaded.json`',
     maxTurns: 170,
   },
   review: {
     tools: READ_ONLY_TOOLS,
     role: 'review the change and record the review',
     summary: 'reads the diff against the spec and records review.json findings',
-    artifact: '`review.json`, written by `paqad-ai review record`',
+    artifact: '`review.json`',
     maxTurns: 70,
   },
   checks: {
     tools: READ_ONLY_TOOLS,
     role: 'run the project checks and record the result',
     summary: 'runs lint, typecheck and the test suite once into checks.json',
-    artifact: '`checks.json`, written by `paqad-ai checks run`',
+    artifact: '`checks.json`',
     maxTurns: 20,
   },
   documentation_sync: {
@@ -179,11 +178,11 @@ const SEAT_DO_NOT: readonly string[] = [
   '## Do not',
   '',
   '- Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only the verb writes there.',
-  '- Never ask the human. A question only a person can answer goes into your artifact; the orchestrator asks it.',
-  '- Do not load the paqad router or rules; your brief has what a seat needs.',
+  '- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact; the orchestrator asks it.',
 ];
 
-const SEAT_SESSION_STEP = '1. Export the `SE_SESSION` you were given for every `paqad-ai` command.';
+const SEAT_SESSION_STEP =
+  '1. Export the `SE_SESSION` you were given for every `paqad-ai` command. Your brief has what a seat needs, so skip the paqad router and rules.';
 
 const EXPERT_DEF = (): HighTableAgentDef =>
   HIGH_TABLE_AGENTS.find((def) => def.agentName === EXPERT_AGENT_NAME)!;
@@ -263,40 +262,34 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 }
 
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
-  '- Never ask the human. On a decision pause, run `paqad-ai decision create …` and return',
-  '  `paused: D-<id>` at once; the orchestrator asks the human and then resumes you with the answer.',
-  '- Never write into a feature bundle directory by hand; only the stage verbs write there.',
-  '- Never skip a CLI verb because "the orchestrator will do it". It will not.',
+  '- Do not ask the human. On a decision pause, run `paqad-ai decision create …` and return',
+  '  `paused: D-<id>` at once; the orchestrator asks and resumes you.',
+  '- Do not write into a feature bundle directory: the capability gate blocks an edit there. Only',
+  '  the stage commands write there.',
+  '- Do not skip a stage command because the orchestrator will run it: it will not, the next',
+  '  `paqad-ai stage start` refuses past an unfinished stage, and the completeness gate reads the end row.',
 ];
 
 const HOOK_ENFORCED_DO_NOT: readonly string[] = [
-  '- Do not ask the human. The SubagentStop check holds a stage that asked; on a decision pause run `paqad-ai decision create …` and return `paused: D-<id>` at once, and the orchestrator asks and resumes you with the answer.',
-  '- Do not write into a feature bundle directory by hand. The SubagentStop check holds a stage that did; only the stage verbs write there.',
-  '- Do not skip a stage verb because the orchestrator will run it. It will not, and the completion check judges a stage without its verb rows as unfinished.',
+  '- Do not ask the human: the AskUserQuestion tool is not available to you. Run `paqad-ai decision create …` and return `paused: D-<id>`.',
+  '- Do not write into a feature bundle directory: the capability gate blocks it.',
+  '- Do not return a finished report without the `paqad-ai stage end` row: `stage-agent-handback.mjs` refuses it.',
 ];
 
 export const READ_ONLY_DO_NOT =
-  '- Do not edit project files. Write only your stage input (the plan template, the spec input or the review template) under `.paqad/tmp/`, with a shell heredoc. The write guard blocks every other file write from Bash, and the SubagentStop check holds a stage that edited.';
-
-const STAGES_THAT_RAISE_DEBT: ReadonlySet<string> = new Set(['review', 'documentation_sync']);
+  '- Do not edit project files: `stage-agent-write-guard.mjs` blocks it, except your stage input under `.paqad/tmp/`, written with a shell heredoc.';
 
 const LOAD_FRAMEWORK_STEPS = (step: number): string[] => [
-  `${step}. Resolve \`.paqad/framework-path.txt\` to the paqad install directory, load and follow \`AGENT-BOOTSTRAP.md\` then \`AGENT-ROUTER.md\` from there, write the \`.paqad/.agent-entry-loaded\` sentinel, and run \`paqad-ai rules load\`.`,
-  `${step + 1}. If the entry gate blocks your first edit, create the per-agent marker it names under \`.paqad/session/agent-entry/\` (or write \`.paqad/.agent-entry-loaded\`) and retry.`,
+  `${step}. Load \`AGENT-ROUTER.md\` from the install in \`.paqad/framework-path.txt\` and write the \`.paqad/.agent-entry-loaded\` sentinel.`,
+  `${step + 1}. If the entry gate blocks an edit, write the marker under \`.paqad/session/agent-entry/\` and retry.`,
 ];
 
 export function stageBriefFallbackLine(stage: string): string {
-  return (
-    'Your stage brief was added to your context when you started. If it is missing, run ' +
-    `\`paqad-ai stage brief ${stage} --full\` to print it; if that fails, resolve ` +
-    '`.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.'
-  );
+  return `If your stage brief is missing, run \`paqad-ai stage brief ${stage} --full\`.`;
 }
 
 export const AGENT_ENTRY_MARKER_FALLBACK: readonly string[] = [
-  'You run in your own subagent context, so the entry gate tracks your load separately from',
-  'the orchestrator. If the entry gate blocks an edit, it names the files that changed. Read only',
-  'those, write the marker it names, and retry.',
+  'If the entry gate blocks an edit, write the marker it names and retry.',
 ];
 
 const STAGE_BRIEF_STEPS = (step: number, stage: string): string[] => [
@@ -326,8 +319,6 @@ export function stageNoteLines(ledgerStage: string): string[] {
   return [...(STAGE_NOTES[ledgerStage] ?? [])];
 }
 
-const QUICK_STAGES: ReadonlySet<string> = new Set(['checks', 'documentation_sync']);
-
 interface StageProcedure {
   work: string;
   end: string;
@@ -337,48 +328,54 @@ interface StageProcedure {
 
 const STAGE_PROCEDURE: Record<string, StageProcedure> = {
   planning: {
-    work: 'Plan the change as the instructions say, then compile it with `paqad-ai plan compile <plan-template.json>`.',
-    end: '`paqad-ai stage end planning --artifact <the plan.json path that plan compile printed>`.',
+    work: 'Follow your recipe, then compile with `paqad-ai plan compile <plan-template.json>`.',
+    end: '`paqad-ai stage end planning --agent paqad-planning --artifact <the plan.json path that plan compile printed>`.',
     stop: '`stage end planning` has accepted `plan.json`.',
     example:
-      'Dispatched with the change ref and the request, you compile `plan.json` with its reuse section and end the stage against it. Return the `plan.json` path, two lines on what you reuse and what you add, and `Status: DONE`.',
+      'Compile `plan.json` and end the stage. Return its path, what you reuse and add, and `Status: DONE`.',
   },
   specification: {
-    work: 'Write the spec as the instructions say, then freeze it with `paqad-ai spec freeze`.',
-    end: '`paqad-ai stage end specification --artifact <the specification.json path>`.',
-    stop: '`stage end specification` has accepted `specification.json`, or `experts record` seated experts and you returned `Status: NEEDS_CONTEXT` naming them.',
-    example:
-      'Dispatched with `plan.json`, you run the High Table, freeze `specification.json` and end the stage against it. Return its path, the count of acceptance criteria, and `Status: DONE`.',
+    work: 'Follow your recipe, then freeze with `paqad-ai spec freeze`.',
+    end: '`paqad-ai stage end specification --agent paqad-specification --artifact <the specification.json path>`.',
+    stop: '`stage end specification` has accepted `specification.json`, or you returned the seated experts.',
+    example: 'Freeze `specification.json` and end the stage. Return its path and `Status: DONE`.',
   },
   development: {
-    work: 'Run `paqad-ai rules load` before your first source edit, then make the source and test edits the frozen spec asks for.',
-    end: '`paqad-ai stage end development` (a mutation stage needs no artifact).',
-    stop: '`stage end development` has succeeded with every acceptance criterion implemented and tested.',
-    example:
-      'Dispatched with `specification.json`, you load the rules, edit the source and its tests, and end the stage. Return the changed files in at most five lines and `Status: DONE`.',
+    work: 'Follow your recipe to make the source and test edits the frozen spec asks for.',
+    end: '`paqad-ai stage end development --agent paqad-development`.',
+    stop: '`stage end development` has succeeded with every criterion tested.',
+    example: 'Edit, test and end the stage. Return the changed files and `Status: DONE`.',
   },
   review: {
-    work: 'Review the diff against the spec, then record it with `paqad-ai review record <review-template.json>`.',
-    end: '`paqad-ai stage end review --artifact <the review.json path>`.',
+    work: 'Follow your recipe, then record with `paqad-ai review record <review-template.json>`.',
+    end: '`paqad-ai stage end review --agent paqad-review --artifact <the review.json path>`.',
     stop: '`stage end review` has accepted `review.json`.',
     example:
-      'Dispatched after development, you read the digest, re-run it before recording, record `review.json` with one deferred finding that names its TD id, and end the stage. Return the path, the verdict, and `Status: DONE_WITH_CONCERNS` naming the deferred finding.',
+      'Record `review.json` with one deferred finding. Return its path and `Status: DONE_WITH_CONCERNS`.',
   },
   checks: {
-    work: 'Run the project checks once with `paqad-ai checks run`.',
-    end: '`paqad-ai stage end checks --artifact <the checks.json path>`.',
+    work: 'Follow your recipe: run the project checks once with `paqad-ai checks run`.',
+    end: '`paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>`.',
     stop: '`stage end checks` has accepted `checks.json`.',
     example:
-      'Dispatched after review, you run `paqad-ai checks run` once and end the stage against `checks.json`. Return its path, one line per failing check, and `Status: DONE_WITH_CONCERNS` naming them; return `Status: DONE` only when every check is green.',
+      'Run the checks and end the stage. Return one line per failing check and `Status: DONE_WITH_CONCERNS`; return `Status: DONE` only when every check is green.',
   },
   documentation_sync: {
-    work: 'Update the canonical docs whose described behaviour the diff changed.',
-    end: '`paqad-ai stage end documentation_sync` (a mutation stage needs no artifact).',
-    stop: '`stage end documentation_sync` has succeeded with every affected canonical doc updated.',
-    example:
-      'Dispatched with the diff, you update the one canonical doc whose described behaviour changed and end the stage. Return the doc path, one summary line, and `Status: DONE`.',
+    work: 'Follow your recipe to update the canonical docs whose described behaviour the diff changed.',
+    end: '`paqad-ai stage end documentation_sync --agent paqad-documentation-sync`.',
+    stop: '`stage end documentation_sync` has succeeded.',
+    example: 'Update the stale doc and end the stage. Return its path and `Status: DONE`.',
   },
 };
+
+function recipeLines(host: string): string[] {
+  return host === 'claude-code'
+    ? [
+        'With no `## Your recipe` heading in your context, return `Status: NEEDS_CONTEXT` naming it.',
+        '',
+      ]
+    : [];
+}
 
 function stageDoNot(def: StageAgentDef, host: string): string[] {
   if (host !== 'claude-code') return ['## Do not', '', ...STAGE_AGENT_HARD_RULES];
@@ -390,37 +387,30 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
   const procedure = STAGE_PROCEDURE[def.ledgerStage]!;
   const entry =
     host === 'claude-code' ? STAGE_BRIEF_STEPS(1, def.ledgerStage) : LOAD_FRAMEWORK_STEPS(1);
-  const notes = [
-    ...(QUICK_STAGES.has(def.ledgerStage) ? [WORK_QUICKLY_LINE] : []),
-    ...stageNoteLines(def.ledgerStage),
-    ...(STAGES_THAT_RAISE_DEBT.has(def.ledgerStage) ? [OUT_OF_SCOPE_FINDINGS_INSTRUCTION] : []),
-  ];
   return [
     '## Objective',
     '',
-    `You are the paqad **${def.ledgerStage}** stage agent. Your job: ${def.role}, for one feature-development change, in your own context, then return.`,
+    `You are the paqad **${def.ledgerStage}** stage agent. Your job: ${def.role}, for one change, then return.`,
     '',
     '## Procedure',
     '',
     ...entry,
-    "3. Export `SE_SESSION`, the orchestrator's session id from your dispatch, for every command you run, so every row and artifact you write is recorded under the one change.",
-    '4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the `read:` list and instructions in your brief.',
-    `5. \`paqad-ai stage start ${def.ledgerStage}\`.`,
-    `6. ${procedure.work}`,
-    `7. ${procedure.end}`,
+    '3. Export `SE_SESSION` from your dispatch for every command you run.',
+    `4. \`paqad-ai stage begin ${def.ledgerStage} --agent ${def.agentName}\`.`,
+    `5. ${procedure.work}`,
+    `6. ${procedure.end}`,
     '',
-    ...notes.flatMap((line) => [line, '']),
-    ...reportSection(
-      def.artifact,
-      def.maxTurns,
-      'Return the pillar file path and at most five lines of summary.',
-    ),
+    ...recipeLines(host),
+    '## Report',
+    '',
+    `Keep it under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens and finish in at most ${def.maxTurns} turns. Leave ${def.artifact}. Return its path and at most five lines.`,
+    'End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`, with `Decision needed:`, `Options:` and, after a decision pause, `paused: D-<id>`.',
     '',
     '## Stop when',
     '',
     `- ${procedure.stop}`,
-    '- You opened a decision packet: return the BLOCKED report at once.',
-    '- An input you were dispatched with is missing: return `Status: NEEDS_CONTEXT` naming it.',
+    '- You opened a decision packet: return `Status: BLOCKED` at once.',
+    '- An input is missing: return `Status: NEEDS_CONTEXT` naming it.',
     '',
     ...stageDoNot(def, host),
     '',
@@ -439,7 +429,8 @@ export interface StageReportReading {
   stated: boolean;
 }
 
-const STATUS_LINE = /^[\s*_`#-]*Status:\s*[*_`]*(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gmu;
+const STATUS_LINE =
+  /^[\s*_`#-]*Status:\s*[*_`]*(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gmu;
 const PAUSED_DECISION = /^[\s*_`#-]*paused:\s*`?(D-[A-Za-z0-9]+)/gmu;
 
 export function readStageReportStatus(text: string): StageReportReading {
