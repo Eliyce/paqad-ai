@@ -261,8 +261,11 @@ describe('a default husky layout, with the runner folder ignored', () => {
       "Your git hooks are in .husky, which husky runs, so paqad didn't change them.",
     );
     expect(advice).not.toContain('which your repo tracks');
-    expect(advice).toContain(".husky/commit-msg doesn't exist yet.");
-    expect(advice).toContain(".husky/pre-push doesn't exist yet.");
+    expect(advice).toContain(`.husky/commit-msg:\n${workflowHookBlock('commit-msg')}`);
+    expect(advice).toContain(`.husky/pre-push:\n${workflowHookBlock('pre-push')}`);
+    expect(advice).not.toContain("doesn't exist yet");
+    expect(advice).not.toContain('chmod');
+    expect(advice).not.toContain('#!/bin/sh');
     expect(advice).not.toContain('.husky/_');
     expect(gitWorkflowHealth(root)[0]!.detail).toBe(advice);
     expect(gitWorkflowHealth(root)[0]!.remediation).not.toContain('Run paqad-ai update');

@@ -267,6 +267,7 @@ function hookAdvice(
   const path = join(files.dir, hook.name);
   const shown = toPosixPath(relative(projectRoot, path));
   const block = workflowHookBlock(hook.name);
+  if (files.huskyRuns && !hookRunsCheck(readHook(path), hook)) return [`${shown}:`, block];
   if (!existsSync(path)) {
     return [
       `${shown} doesn't exist yet. Create it with these lines, then run ${executableStep(shown)}:`,
