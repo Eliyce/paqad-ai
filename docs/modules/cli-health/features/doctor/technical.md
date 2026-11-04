@@ -111,7 +111,8 @@ Source directories owned by this feature:
 - Git ignores that file, so the check knows only about updates run on this machine. If a teammate committed
   an update and you never updated here, you get no warning.
 - The `git-workflow` check treats a tracked hooks folder and any `.husky/_` holding the runner `h`, tracked or
-  not, as hand-edited, and gives the lines to add. For husky it names `.husky/commit-msg` and `.husky/pre-push`.
+  not, as hand-edited, and gives the lines to add. On a husky runner folder the advice reads "which husky runs"
+  instead of "which your repo tracks", and names `.husky/commit-msg` and `.husky/pre-push`.
   Lines an older paqad appended to `.husky/_` don't count as installed, because they never run.
 - Doctor checks entry files only for the providers the project uses.
 - A project already on 1.119.0 keeps the changed-outside warning for its git-workflow files. The way out,

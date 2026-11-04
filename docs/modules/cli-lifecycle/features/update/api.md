@@ -69,12 +69,13 @@ Couldn't make <file> executable: <reason>. Run chmod +x <file>, or git won't run
 <file> still mentions <path>, which paqad removed. Update that line by hand.
 Commit <files> together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.
 Your git hooks are in <dir>, which your repo tracks, so paqad didn't change them.
+Your git hooks are in <dir>, which husky runs, so paqad didn't change them.
 Add these lines to commit-msg and pre-push so people get the workflow check:
 <the lines for each file>
 The check is skipped in a terminal where paqad-ai is not on the PATH.
 ```
 
-The `Commit` line prints on the run that swaps `paqad_version` for `schema_version` and names the files, plus `.last-applied.json` when it exists. `config set` and the settings migration print the can't-read line; `git-workflow setup --overwrite` and a dashboard save print the newer-file line for a git-workflow file. The executable line is a note here, and goes to stderr in `join`. Neither fails the update.
+The `Commit` line prints on the run that swaps `paqad_version` for `schema_version` and names the files, plus `.last-applied.json` when it exists. `config set` and the settings migration print the can't-read line; `git-workflow setup --overwrite` and a dashboard save print the newer-file line for a git-workflow file. The executable line is a note here, an onboarding warning in `onboard`, and goes to stderr in `join` and `delivery-link install`. Neither line fails the update. Any of the 5 git-workflow files with a malformed stamp stops the move too, and is named on each update until it is fixed. The old policy file stays.
 
 An update on a project already on 1.119.0 doesn't remove the duplicate comment or the changed-outside warning. `paqad-ai git-workflow check --accept` clears the warning, once the team agrees. `paqad-ai config set` still re-renders the file it writes.
 

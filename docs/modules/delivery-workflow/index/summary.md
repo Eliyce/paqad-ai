@@ -49,7 +49,8 @@ swapped for defaults. There is no personal override and no detection overlay.
 `paqad-ai onboard` writes the files, and an existing
 `docs/instructions/workflows/delivery-policy.yaml` is migrated into them once and
 deleted (`src/git-workflow/migrate.ts`). If a git-workflow file has a higher
-`schema_version`, the migration refuses it and the old policy file stays. `paqad-ai update`
+`schema_version`, the migration refuses it and the old policy file stays. A malformed stamp in any of the 5 files
+also stops the move, and update names that file on each run until it is fixed. `paqad-ai update`
 adds no settings to these files and changes one only for a migration (`src/git-workflow/sync.ts`). Changes go through
 the `git-workflow` skill, which uses `paqad-ai git-workflow setup`, `change` and
 `check`; every write stamps `.last-applied.json`, so a hand edit shows in `check` and
