@@ -115,6 +115,9 @@ describe('coverage cli wrappers', () => {
     mockUpdaterRun.mockResolvedValue({
       previous_version: '0.1.0',
       target_version: '0.2.2',
+      regenerated: [],
+      skipped: [],
+      config_keys_pruned: [],
     });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue('codex-cli');
@@ -247,17 +250,19 @@ describe('coverage cli wrappers', () => {
     const command = createUpdateCommand();
 
     await command.parseAsync(['node', 'update', '--project-root', '/repo']);
-    expect(logSpy).toHaveBeenLastCalledWith(
-      '{\n  "previous_version": "0.1.0",\n  "target_version": "0.2.2"\n}',
-    );
+    expect(logSpy).toHaveBeenLastCalledWith('No files needed changing.');
     expect(mockAppendAuditLog).toHaveBeenCalledWith('/repo', '0.1.0', '0.2.2');
+    logSpy.mockClear();
 
     await command.parseAsync(['node', 'update', '--project-root', '/repo', '--silent']);
-    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logSpy).not.toHaveBeenCalled();
 
     mockUpdaterRun.mockResolvedValueOnce({
       previous_version: '0.1.0',
       target_version: '0.2.2',
+      regenerated: [],
+      skipped: [],
+      config_keys_pruned: [],
       team_setup_notes: ['Commit these team setup files together.'],
     });
     await command.parseAsync(['node', 'update', '--project-root', '/repo']);

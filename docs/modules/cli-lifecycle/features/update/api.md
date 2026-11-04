@@ -5,12 +5,12 @@
 ## CLI
 
 ```
-paqad-ai update [--project-root <path>] [--silent]
+paqad-ai update [--project-root <path>] [--silent] [--json]
 ```
 
-`update` migrates the `.paqad/` layout forward, regenerates the framework-managed files, refreshes the tracked config files, writes the framework version, refreshes the managed blocks of `.paqad/.gitignore` and `.paqad/.gitattributes` and the `.paqad/.config` line of `.worktreeinclude`, and prints the report below as JSON.
+`update` migrates the `.paqad/` layout forward, regenerates the framework-managed files, refreshes the tracked config files, writes the framework version, refreshes the managed blocks of `.paqad/.gitignore` and `.paqad/.gitattributes` and the `.paqad/.config` line of `.worktreeinclude`, and prints a short summary: the versions, each file it changed, how many files it kept, any personal settings it removed, then the team setup and migration notes. The summary never holds file text, because a report with every kept file's text ran past 100 KB on a real project.
 
-With `--silent` it prints nothing. A successful run appends the `INFO` line to `.paqad/audit.log`; a failed silent run appends the `WARN` line:
+With `--json` it prints only the report below as JSON, and the notes are inside that report. With `--silent` it prints nothing, and `--silent` wins over `--json`. A successful run appends the `INFO` line to `.paqad/audit.log`; a failed silent run appends the `WARN` line:
 
 ```
 [<ISO time>] INFO silent-update previous=<version or unknown> updated=<version>
@@ -47,7 +47,7 @@ export class FrameworkUpdater {
 }
 ```
 
-`skipped` lists a file whose manifest entry says `auto_update: false`, with the bytes on disk and the bytes paqad would have written. `new_scripts` lists files under `scripts/` that did not exist before. `config_keys_pruned` lists the keys removed from `.paqad/configs/.config.*` because this version no longer knows them. `deprecated` and `new_mcp_servers` are always empty.
+A file whose bytes already match what paqad would write is not written and appears in neither `regenerated` nor `skipped`, so a run changes no modified time and doesn't invalidate a running session's entry check. An executable file still gets its mode. `skipped` lists a file whose manifest entry says `auto_update: false` and whose bytes differ, with the bytes on disk and the bytes paqad would have written. `new_scripts` lists files under `scripts/` that did not exist before. `config_keys_pruned` lists the keys removed from `.paqad/configs/.config.*` because this version no longer knows them. `deprecated` and `new_mcp_servers` are always empty.
 
 When the Claude Code plugin is installed, the Claude hook files the plugin owns are left out of `regenerated`. When the checkout was stamped by a newer paqad, the config files and the ignore blocks are left byte-identical.
 
