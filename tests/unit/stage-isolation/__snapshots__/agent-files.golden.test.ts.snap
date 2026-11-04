@@ -472,6 +472,8 @@ exports[`rendered agent files > codex-cli paqad-checks.toml 1`] = `
 name = "paqad-checks"
 description = "paqad checks stage: runs lint, typecheck and the test suite once into checks.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/checks-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **checks** stage agent. Your job: run the project checks and record the result, for one feature-development change, in your own context, then return.
@@ -576,6 +578,8 @@ exports[`rendered agent files > codex-cli paqad-development.toml 1`] = `
 name = "paqad-development"
 description = "paqad development stage: implements the frozen spec in source and tests after rules load. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/development-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **development** stage agent. Your job: implement the frozen spec, for one feature-development change, in your own context, then return.
@@ -631,6 +635,8 @@ exports[`rendered agent files > codex-cli paqad-documentation-sync.toml 1`] = `
 name = "paqad-documentation-sync"
 description = "paqad documentation sync stage: updates the canonical docs whose described behaviour the diff changed. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/documentation-sync-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **documentation_sync** stage agent. Your job: sync the canonical docs the change affects, for one feature-development change, in your own context, then return.
@@ -737,6 +743,8 @@ exports[`rendered agent files > codex-cli paqad-planning.toml 1`] = `
 name = "paqad-planning"
 description = "paqad planning stage: maps reuse candidates and compiles plan.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/planning-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **planning** stage agent. Your job: plan the change and record the reuse-checked plan, for one feature-development change, in your own context, then return.
@@ -790,6 +798,8 @@ exports[`rendered agent files > codex-cli paqad-review.toml 1`] = `
 name = "paqad-review"
 description = "paqad review stage: reads the diff against the spec and records review.json findings. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/review-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **review** stage agent. Your job: review the change and record the review, for one feature-development change, in your own context, then return.
@@ -847,6 +857,8 @@ exports[`rendered agent files > codex-cli paqad-specification.toml 1`] = `
 name = "paqad-specification"
 description = "paqad specification stage: drafts acceptance criteria, seats the High Table and freezes specification.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
+Read \`.agents/skills/specification-recipe/SKILL.md\` first and follow it.
+
 ## Objective
 
 You are the paqad **specification** stage agent. Your job: write and freeze the feature spec before any code, for one feature-development change, in your own context, then return.

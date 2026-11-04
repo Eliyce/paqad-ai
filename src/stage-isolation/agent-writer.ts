@@ -18,6 +18,7 @@ import {
   type HighTableAgentDef,
   type StageAgentDef,
 } from './stage-agents.js';
+import { recipeNameForStage } from './recipes.js';
 
 type HostTarget = AgentHostTarget;
 
@@ -54,6 +55,7 @@ function agentContext(
     effort: setting.effort === 'inherit' ? undefined : setting.effort,
     omitClaudeMd: adapter === CLAUDE_CODE_ADAPTER,
     body: buildStageAgentBody(def, adapter),
+    recipe: recipeNameForStage(def.ledgerStage),
   };
 }
 

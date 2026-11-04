@@ -60,6 +60,7 @@ import {
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
+import { writeCodexRecipes } from '@/stage-isolation/recipe-install.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
@@ -312,6 +313,9 @@ export class FrameworkUpdater {
 
     try {
       writeStageAgents({ pluginInstalled: pluginLoadState(null) === 'live' });
+    } catch {}
+    try {
+      writeCodexRecipes(projectRoot);
     } catch {}
 
     const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;

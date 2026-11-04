@@ -7,6 +7,8 @@ import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import { agentOrchestratorEnabled, skillOrchestratorEnabled } from './config.js';
 import { readTextIfPresent } from './fs-io.js';
+import { isGeneratedRecipeFolder } from '@/stage-isolation/recipe-install.js';
+
 import { hashAgentFile, hashFolder, listFolderFiles } from './hash.js';
 import { agentHookScripts, lintAgentInProject, POWER_RULES } from './lint/agent-lint.js';
 import { discoverInstalledAgents } from './overlap.js';
@@ -51,6 +53,7 @@ export function skillCompletionFindings(input: {
   const findings: SkillCompletionFinding[] = [];
   for (const { name, folder } of changedSkillFolders(input.projectRoot, input.changedFiles)) {
     if (folderRemoved(input.projectRoot, folder)) continue;
+    if (isGeneratedRecipeFolder(input.projectRoot, folder, name)) continue;
     const record = readSkillRecord(input.projectRoot, input.dirName, name);
     const statusOk = record?.status === 'passed' || record?.status === 'overridden';
     const abs = join(input.projectRoot, folder);
