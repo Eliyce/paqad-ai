@@ -57,6 +57,7 @@ export interface InstallGitHooksResult {
   removed?: string[];
   notAGitRepo: boolean;
   trackedHooksDir?: boolean;
+  huskyRuns?: boolean;
   snippet?: string;
   problems?: string[];
 }
@@ -291,8 +292,9 @@ export function trackedWorkflowHookAdvice(
   const files = hookFilesFor(dir);
   const missing = WORKFLOW_HOOKS.flatMap((hook) => hookAdvice(projectRoot, files, hook, platform));
   if (missing.length === 0) return null;
+  const reason = files.huskyRuns ? 'which husky runs' : 'which your repo tracks';
   return [
-    `Your git hooks are in ${toPosixPath(relative(projectRoot, files.dir))}, which your repo tracks, so paqad didn't change them.`,
+    `Your git hooks are in ${toPosixPath(relative(projectRoot, files.dir))}, ${reason}, so paqad didn't change them.`,
     'Add these lines to commit-msg and pre-push so people get the workflow check:',
     ...missing,
     PATH_LIMIT_LINE,
@@ -316,9 +318,12 @@ export function installGitHooks(projectRoot: string, io: GitHookIo = {}): Instal
       skipped: [],
       notAGitRepo: false,
       trackedHooksDir: true,
+      huskyRuns: isHuskyRunnerDir(dir),
       snippet: [
         ...(advice === null ? [] : [advice]),
-        'Add these lines to post-commit and post-merge in your tracked hooks dir:',
+        isHuskyRunnerDir(dir)
+          ? `Add these lines to post-commit and post-merge in ${toPosixPath(relative(projectRoot, dirname(dir)))}:`
+          : 'Add these lines to post-commit and post-merge in your tracked hooks dir:',
         ...deliveryLinkSnippet(),
       ].join('\n'),
     };

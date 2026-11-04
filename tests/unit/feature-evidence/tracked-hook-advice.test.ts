@@ -88,6 +88,7 @@ describe('advice for a tracked hooks folder', () => {
   it('never writes to the tracked folder', () => {
     const root = trackedRepo('.githooks', { '.githooks/commit-msg': '#!/bin/sh\n' });
     const result = installGitHooks(root);
+    expect(result.huskyRuns).toBe(false);
     expect(result.trackedHooksDir).toBe(true);
     expect(result.installed).toEqual([]);
     expect(git(root, 'status', '--porcelain', '.githooks')).toBe('');
@@ -205,7 +206,9 @@ describe('a tracked husky runner folder', () => {
     });
     write(root, '.husky/_/pre-push', `#!/usr/bin/env sh\n. h\n${PUSH_LINE}\n`);
     const advice = trackedWorkflowHookAdvice(root)!;
-    expect(advice).toContain('Your git hooks are in .husky, which your repo tracks');
+    expect(advice).toContain(
+      "Your git hooks are in .husky, which husky runs, so paqad didn't change them.",
+    );
     expect(advice).toContain('.husky/commit-msg:');
     expect(advice).toContain('.husky/pre-push');
     expect(advice).not.toContain('.husky/_');
@@ -249,9 +252,15 @@ describe('a default husky layout, with the runner folder ignored', () => {
     const result = installGitHooks(root);
     expect(result.installed).toEqual([]);
     expect(result.trackedHooksDir).toBe(true);
+    expect(result.huskyRuns).toBe(true);
+    expect(result.snippet).toContain('Add these lines to post-commit and post-merge in .husky:');
+    expect(result.snippet).not.toContain('tracked hooks dir');
     expect(readFileSync(join(root, '.husky/_/commit-msg'), 'utf8')).toBe(before);
     const advice = trackedWorkflowHookAdvice(root)!;
-    expect(advice).toContain('Your git hooks are in .husky,');
+    expect(advice).toContain(
+      "Your git hooks are in .husky, which husky runs, so paqad didn't change them.",
+    );
+    expect(advice).not.toContain('which your repo tracks');
     expect(advice).toContain(".husky/commit-msg doesn't exist yet.");
     expect(advice).toContain(".husky/pre-push doesn't exist yet.");
     expect(advice).not.toContain('.husky/_');

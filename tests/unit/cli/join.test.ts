@@ -236,6 +236,21 @@ describe('paqad-ai join', () => {
     ).toEqual(['gemini-cli']);
   });
 
+  it('says husky runs the hooks, and never that a default husky folder is tracked', async () => {
+    seedOnboardedProject(root);
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'core.hooksPath', '.husky/_'], { cwd: root });
+    write(join(root, '.husky/_/.gitignore'), '*');
+    write(join(root, '.husky/_/h'), '#!/usr/bin/env sh\n');
+
+    await joinProject({ projectRoot: root });
+
+    const text = output.join('');
+    expect(text).toContain('Husky runs your git hooks, so paqad did not modify it.');
+    expect(text).not.toContain('directory is tracked');
+    expect(existsSync(join(root, '.husky/_/commit-msg'))).toBe(false);
+  });
+
   it('recreates ignored local artifacts, preserves tracked entries, and skips RAG when off', async () => {
     seedOnboardedProject(root);
 

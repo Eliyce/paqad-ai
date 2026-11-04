@@ -3,7 +3,7 @@ id: "TD-01M6KHDHEFXCHZBK416J6BTHNC"
 title: "Hook advice says tracked for a husky folder that may not be tracked"
 kind: "bug"
 severity: "low"
-status: "open"
+status: "closed"
 files:
   - "src/feature-evidence/git-hooks.ts"
 found_in:
@@ -15,7 +15,7 @@ session: "67df04a3-0df1-4746-b345-79c93986dc2e"
 created_at: "2026-11-04T15:04:09.909Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "The advice and join now say husky runs the hooks when the husky runner folder is in use, and plain tracked folders keep the original sentence."
 ---
 
 ## What
