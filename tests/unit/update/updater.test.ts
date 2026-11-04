@@ -687,7 +687,9 @@ describe('FrameworkUpdater', () => {
     expect(report.regenerated).toEqual([]);
     expect(report.skipped).toEqual([]);
     expect(statSync(refreshed).mtime.getTime()).toBe(past.getTime());
-    expect(statSync(script).mode & 0o111).not.toBe(0);
+    if (process.platform !== 'win32') {
+      expect(statSync(script).mode & 0o111).not.toBe(0);
+    }
   });
 
   describe('legacy MCP files on update', () => {
