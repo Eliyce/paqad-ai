@@ -51,6 +51,11 @@ this audit row is the only thing a disabled Stop writes, with no `completion-def
   one row per producer run, and the latest matching row is the current state. Writes are
   best-effort so recording never breaks the producer.
 
+## Reading a unit with a cut line
+
+`readUnitFile` skips any line that does not parse. `readUnitFileHealth` returns the same rows plus
+`torn_tail` (the last line was cut) and `torn_lines`, for a caller that reports health.
+
 ## Source Footprint
 
 - `src/session-ledger`

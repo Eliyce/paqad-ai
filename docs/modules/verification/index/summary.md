@@ -474,6 +474,14 @@ recall because the gate can block:
   paqad already computed, and make an unaddressed deterministic finding a review
   failure rather than a silent omission.
 
+## Ledger chain and recipe proof in the completeness gate
+
+`bundleCompletenessGate` also walks the stage ledger's hash chain and, on the full lane, asks each
+stage for its recipe proof. Both are described in the feature-evidence and
+feature-development-workflow module pages. A declared gap and a stage from before the update are notes;
+an undeclared break and a new stage with no proof are failures that name the row or the stage.
+
+
 ## Source Footprint
 
 - `src/verification/gate-runner.ts` — runs the bank, aggregates verdicts.

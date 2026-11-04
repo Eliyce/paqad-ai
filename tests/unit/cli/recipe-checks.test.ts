@@ -67,7 +67,13 @@ function template(root: string, name: string, value: unknown): string {
   return path;
 }
 
-const REVIEW = { summary: 's', verdict: 'safe-to-merge', rollback: 'revert', findings: [], checked: [] };
+const REVIEW = {
+  summary: 's',
+  verdict: 'safe-to-merge',
+  rollback: 'revert',
+  findings: [],
+  checked: [],
+};
 const REUSE = {
   consulted: [{ source: 'grep', query: 'x', hits: 0 }],
   reusing: [],
@@ -215,6 +221,22 @@ describe('stage end checks development and documentation sync', () => {
       script: 'stale-docs.mjs',
       stale_ok: ['docs/modules/x/index/summary.md'],
     });
+  });
+});
+
+describe('spec freeze checks the spec', () => {
+  it('refuses a spec with no edge cases, printing why', async () => {
+    const root = tempRoot();
+    await opened(root, 'specification');
+    const spec = join(root, 'spec.md');
+    writeFileSync(
+      spec,
+      '# Spec\n\n## Acceptance criteria\n\n- AC-1: Given a, when b, then c (proof: automated).\n',
+    );
+    const run = await cli(root, ['spec', 'freeze', spec, '--confirm-invariants']);
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr).toContain('no "## Edge cases" section');
+    expect(existsSync(join(bundleDir(root), 'specification.json'))).toBe(false);
   });
 });
 

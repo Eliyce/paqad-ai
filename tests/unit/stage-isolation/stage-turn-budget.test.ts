@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MANDATORY_STAGE_AGENTS } from '@/stage-isolation/stage-agents.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
+import { resolveRecipe } from '@/stage-isolation/recipes.js';
 import { buildStageBrief } from '@/stage-isolation/stage-brief.js';
 
 const BUDGETS: Readonly<Record<string, number>> = {
@@ -27,8 +28,9 @@ describe('stage turn budgets', () => {
   });
 
   it('asks the review stage for at most 25 commands', () => {
-    const brief = buildStageBrief('review', REPO, 'ses_budget');
-    expect(requiredCommands(brief).length).toBeLessThanOrEqual(25);
+    const brief = buildStageBrief('review', REPO, 'ses_budget', { full: true });
+    const recipe = resolveRecipe('review').body;
+    expect(requiredCommands(`${brief}\n${recipe}`).length).toBeLessThanOrEqual(25);
   });
 
   it('names one way in on every stage', () => {

@@ -73,6 +73,19 @@ async function openPlanning(root: string): Promise<void> {
 const row = (fields: Record<string, unknown>): SessionLedgerRow =>
   ({ agent_id: AGENT, stage: 'planning', content_hash: 'h', ...fields }) as SessionLedgerRow;
 
+describe('a stage agent running the brief command line', () => {
+  it('writes its own name on the end row', async () => {
+    const root = tempRoot();
+    await cli(root, ['stage', 'start', 'review', '--title', 'agent', '--issue', '1']);
+    await cli(root, ['stage', 'end', 'review', '--agent', 'paqad-review']);
+    const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(rows.find((row) => row.kind === 'stage_end')?.agent).toBe('paqad-review');
+  });
+});
+
 describe('paqad-ai stage report', () => {
   it('prints the JSON object for a finished agent', async () => {
     const root = tempRoot();

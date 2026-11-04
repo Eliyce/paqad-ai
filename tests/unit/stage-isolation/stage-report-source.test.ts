@@ -198,6 +198,34 @@ describe('where the completed row reads its report from', () => {
     });
   });
 
+  it('names the rollout on Codex, and asks for no handback there', async () => {
+    const root = tempRoot();
+    await openAndEndPlanning(root);
+    const path = agentTranscript(root, [assistant('finished\nStatus: DONE')]);
+    await hook(COMPLETION, root, fixture('subagent-stop.json', { agent_transcript_path: path }), [
+      'codex-cli',
+    ]);
+    expect(completedRow(root)).toMatchObject({ report_status: 'DONE', report_source: 'rollout' });
+  });
+
+  it('names the turn limit when a run ends with no report at its limit', async () => {
+    const root = tempRoot();
+    await cli(root, ['stage', 'start', 'checks', '--title', 'limit', '--issue', '1']);
+    const usage = { input_tokens: 1, output_tokens: 1 };
+    const turns = Array.from({ length: 20 }, (_, index) => ({
+      type: 'assistant',
+      message: { id: `m${index}`, role: 'assistant', model: 'm', usage, content: 'working' },
+    }));
+    const path = agentTranscript(root, turns);
+    await hook(
+      COMPLETION,
+      root,
+      fixture('subagent-stop.json', { agent_type: 'paqad-checks', agent_transcript_path: path }),
+    );
+    expect(completedRow(root)).toMatchObject({ report_source: 'none', api_turns: 20 });
+    expect(String(completedRow(root).reason)).toContain('turn limit of 20');
+  });
+
   it('records the API turns from the agent transcript', async () => {
     const root = tempRoot();
     await openAndEndPlanning(root);

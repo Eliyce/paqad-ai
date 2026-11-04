@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6M6WQSM3YKAVYM4EA18N6CA](TD-01M6M6WQSM3YKAVYM4EA18N6CA.md) (follow-up, low): Finish the stage recipe measurement and retire what nothing uses
 - [TD-01M6M1ZTFHDE37D76MW9Q59PP1](TD-01M6M1ZTFHDE37D76MW9Q59PP1.md) (bug, low): End-of-turn check judges a change while expert seats are still running
 - [TD-01M6M1ZSVBMTGYRPDHXEGE1E06](TD-01M6M1ZSVBMTGYRPDHXEGE1E06.md) (debt, medium): Remove the code that lets changes started before stage recipes close without recipe proof, after 4 December 2026
 - [TD-01M6KK0MVMVSXGA9Q59CZ7G2E0](TD-01M6KK0MVMVSXGA9Q59CZ7G2E0.md) (gap, low): Doctor says to delete an old delivery file that sits beside hand-written settings and may hold unmoved rules
