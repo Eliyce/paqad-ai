@@ -44,7 +44,7 @@ const STAGE_META: Record<string, StageMeta> = {
     role: 'plan the change and record the reuse-checked plan',
     summary: 'maps reuse candidates and compiles plan.json',
     artifact: '`plan.json`, written by `paqad-ai plan compile`',
-    maxTurns: 60,
+    maxTurns: 100,
   },
   specification: {
     tools: READ_ONLY_TOOLS,
@@ -58,28 +58,28 @@ const STAGE_META: Record<string, StageMeta> = {
     role: 'implement the frozen spec',
     summary: 'implements the frozen spec in source and tests after rules load',
     artifact: 'the source and test edits, plus `rules-loaded.json` from `paqad-ai rules load`',
-    maxTurns: 150,
+    maxTurns: 170,
   },
   review: {
     tools: READ_ONLY_TOOLS,
     role: 'review the change and record the review',
     summary: 'reads the diff against the spec and records review.json findings',
     artifact: '`review.json`, written by `paqad-ai review record`',
-    maxTurns: 60,
+    maxTurns: 70,
   },
   checks: {
     tools: READ_ONLY_TOOLS,
     role: 'run the project checks and record the result',
     summary: 'runs lint, typecheck and the test suite once into checks.json',
     artifact: '`checks.json`, written by `paqad-ai checks run`',
-    maxTurns: 60,
+    maxTurns: 20,
   },
   documentation_sync: {
     tools: DOC_SYNC_TOOLS,
     role: 'sync the canonical docs the change affects',
     summary: 'updates the canonical docs whose described behaviour the diff changed',
     artifact: 'the synced canonical docs',
-    maxTurns: 60,
+    maxTurns: 30,
   },
 };
 

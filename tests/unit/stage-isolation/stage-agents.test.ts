@@ -220,12 +220,12 @@ describe('stage-agent definitions', () => {
 
 describe('stage-agent turn limits and Report sections', () => {
   const TURNS: Record<string, number> = {
-    'paqad-planning': 60,
+    'paqad-planning': 100,
     'paqad-specification': 60,
-    'paqad-development': 150,
-    'paqad-review': 60,
-    'paqad-checks': 60,
-    'paqad-documentation-sync': 60,
+    'paqad-development': 170,
+    'paqad-review': 70,
+    'paqad-checks': 20,
+    'paqad-documentation-sync': 30,
     'paqad-expert': 20,
     'paqad-chief-architect': 30,
   };

@@ -114,7 +114,7 @@ model: inherit
 effort: low
 omitClaudeMd: true
 tools: Read, Grep, Glob, Bash
-maxTurns: 60
+maxTurns: 20
 ---
 
 ## Objective
@@ -135,7 +135,7 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`checks.json\`, written by \`paqad-ai checks run\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 20 turns. Leave \`checks.json\`, written by \`paqad-ai checks run\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -173,7 +173,7 @@ description: 'paqad development stage: implements the frozen spec in source and 
 model: inherit
 omitClaudeMd: true
 tools: Read, Edit, Write, NotebookEdit, Grep, Glob, Bash
-maxTurns: 150
+maxTurns: 170
 ---
 
 ## Objective
@@ -194,7 +194,7 @@ You may be resumed with a follow-up task for the same change. Keep working from 
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 150 turns. Leave the source and test edits, plus \`rules-loaded.json\` from \`paqad-ai rules load\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits, plus \`rules-loaded.json\` from \`paqad-ai rules load\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -232,7 +232,7 @@ model: inherit
 effort: low
 omitClaudeMd: true
 tools: Read, Edit, Write, Grep, Glob, Bash
-maxTurns: 60
+maxTurns: 30
 ---
 
 ## Objective
@@ -255,7 +255,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 30 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -293,7 +293,7 @@ model: inherit
 effort: high
 omitClaudeMd: true
 tools: Read, Grep, Glob, Bash
-maxTurns: 60
+maxTurns: 100
 ---
 
 ## Objective
@@ -312,7 +312,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`plan.json\`, written by \`paqad-ai plan compile\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 100 turns. Leave \`plan.json\`, written by \`paqad-ai plan compile\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -351,7 +351,7 @@ model: inherit
 effort: high
 omitClaudeMd: true
 tools: Read, Grep, Glob, Bash
-maxTurns: 60
+maxTurns: 70
 ---
 
 ## Objective
@@ -374,7 +374,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`review.json\`, written by \`paqad-ai review record\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 70 turns. Leave \`review.json\`, written by \`paqad-ai review record\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -490,7 +490,7 @@ Work quickly: skip anything this stage doesn't need, and return as soon as the r
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`checks.json\`, written by \`paqad-ai checks run\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 20 turns. Leave \`checks.json\`, written by \`paqad-ai checks run\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -594,7 +594,7 @@ You may be resumed with a follow-up task for the same change. Keep working from 
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 150 turns. Leave the source and test edits, plus \`rules-loaded.json\` from \`paqad-ai rules load\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits, plus \`rules-loaded.json\` from \`paqad-ai rules load\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -651,7 +651,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 30 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -753,7 +753,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`plan.json\`, written by \`paqad-ai plan compile\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 100 turns. Leave \`plan.json\`, written by \`paqad-ai plan compile\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:
@@ -810,7 +810,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`review.json\`, written by \`paqad-ai review record\`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 70 turns. Leave \`review.json\`, written by \`paqad-ai review record\`. Return the pillar file path and at most five lines of summary.
 End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns),
 \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`. For \`Status: BLOCKED\`,
 end with this block instead, keeping the \`paused: D-<id>\` line only after a decision pause:

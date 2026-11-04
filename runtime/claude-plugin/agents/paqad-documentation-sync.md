@@ -5,7 +5,7 @@ model: inherit
 effort: low
 omitClaudeMd: true
 tools: Read, Edit, Write, Grep, Glob, Bash
-maxTurns: 60
+maxTurns: 30
 ---
 
 ## Objective
@@ -28,7 +28,7 @@ Out-of-scope findings: when you find a real problem the change will not fix (a b
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 60 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 30 turns. Leave the synced canonical docs. Return the pillar file path and at most five lines of summary.
 End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns),
 `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`. For `Status: BLOCKED`,
 end with this block instead, keeping the `paused: D-<id>` line only after a decision pause:

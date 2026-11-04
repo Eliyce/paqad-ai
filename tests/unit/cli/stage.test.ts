@@ -372,7 +372,7 @@ describe('paqad-ai stage command', () => {
         ).toBe(true);
         expect(printed).toContain('## Request');
         expect(printed).toContain(
-          `SE_SESSION=${SES} SE_AGENT_ID=agent-plan-1 paqad-ai stage start ${stage}`,
+          `SE_SESSION=${SES} SE_AGENT_ID=agent-plan-1 paqad-ai stage begin ${stage}`,
         );
         expect(printed).toContain('resumed for the same feature-development change');
         expect(printed).not.toContain('added this stage brief to your context when you started');

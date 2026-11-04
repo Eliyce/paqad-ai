@@ -4,7 +4,7 @@ description: 'paqad development stage: implements the frozen spec in source and 
 model: inherit
 omitClaudeMd: true
 tools: Read, Edit, Write, NotebookEdit, Grep, Glob, Bash
-maxTurns: 150
+maxTurns: 170
 ---
 
 ## Objective
@@ -25,7 +25,7 @@ You may be resumed with a follow-up task for the same change. Keep working from 
 
 ## Report
 
-Keep it under 2,000 tokens and finish in at most 150 turns. Leave the source and test edits, plus `rules-loaded.json` from `paqad-ai rules load`. Return the pillar file path and at most five lines of summary.
+Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits, plus `rules-loaded.json` from `paqad-ai rules load`. Return the pillar file path and at most five lines of summary.
 End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns),
 `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`. For `Status: BLOCKED`,
 end with this block instead, keeping the `paused: D-<id>` line only after a decision pause:
