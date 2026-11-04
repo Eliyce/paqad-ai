@@ -3,7 +3,7 @@ id: "TD-01M6K1JWM70BNV30N1TTWVTQG2"
 title: "The migrated stub says an older paqad asks to update, but 1.116.0 only turns itself off"
 kind: "bug"
 severity: "low"
-status: "open"
+status: "closed"
 files:
   - ".paqad/configs/.config.app"
   - "src/core/team-config-migrate.ts"
@@ -16,7 +16,7 @@ session: "f5433cfe-6124-45e1-b2f9-d7cda76f2141"
 created_at: "2026-11-04T10:27:27.978Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "The stub now says an older paqad turns itself off, and writes the heading only with leftovers. A stub already on disk keeps the old text."
 ---
 
 ## What

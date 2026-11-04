@@ -236,7 +236,7 @@ describe('the four fixture projects', () => {
         '# paqad-migrated-stub',
         "# This project's paqad settings moved to the YAML files in this folder.",
         "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off",
-        '# instead of running on its defaults, and asks to update. A current paqad ignores this file.',
+        '# instead of running on its defaults. A current paqad ignores this file.',
         'paqad_enable=false',
         'minimum_version=9.9.0',
         '# Not carried over (not paqad settings):',
@@ -266,6 +266,31 @@ describe('the four fixture projects', () => {
     });
     expect(YAML.parse(configs('decisions.yaml'))).toMatchObject({ ask: 'rarely' });
     expect(configs('.config.app')).toContain(`minimum_version=${VERSION}`);
+  });
+});
+
+describe('the stub left in .config.app', () => {
+  it('AC-15: has no heading and the new text when nothing is left over', () => {
+    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR), { recursive: true });
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'rag_top_n=9\n');
+    migrateTeamConfig(root, { version: VERSION });
+    const stub = readFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'utf8');
+    expect(stub).not.toContain('Not carried over');
+    expect(stub).not.toContain('asks to update');
+    expect(stub).toContain(
+      "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off\n# instead of running on its defaults. A current paqad ignores this file.\n",
+    );
+    expect(isMigratedStub(stub)).toBe(true);
+    expect(teamConfigMigrationNeeded(root)).toBe(false);
+  });
+
+  it('keeps the heading and the lines when something is left over', () => {
+    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR), { recursive: true });
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'future_knob=on\n');
+    migrateTeamConfig(root, { version: VERSION });
+    const stub = readFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'utf8');
+    expect(stub).toContain('# Not carried over (not paqad settings):\n# future_knob=on\n');
+    expect(isMigratedStub(stub)).toBe(true);
   });
 });
 
