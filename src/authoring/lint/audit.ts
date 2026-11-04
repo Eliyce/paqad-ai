@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
+import { carriesManagedMarker, PROJECT_AGENTS_DIR } from '@/onboarding/stage-agent-migration.js';
 import { gitPathList } from '@/pipeline/git-paths.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
@@ -428,6 +429,7 @@ export function lintAllAgents(projectRoot: string, options: AuditOptions = {}): 
     if (path.endsWith('.toml')) continue;
     const text = readTextIfPresent(join(projectRoot, path));
     if (text === null) continue;
+    if (path.startsWith(`${PROJECT_AGENTS_DIR}/`) && carriesManagedMarker(text)) continue;
     const split = splitSkillFrontmatter(text);
     const kind = classifyAgentPath(path, split.ok);
     const group = auditGroupOf(dirname(path));
