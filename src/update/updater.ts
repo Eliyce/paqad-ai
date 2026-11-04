@@ -102,6 +102,16 @@ const RETIRED_FILES: readonly string[] = [
   OLD_DELIVERY_POLICY,
   FEATURE_DEVELOPMENT_VIEW_RELATIVE,
 ];
+
+export function withoutRemovedRetiredFiles<T extends { path: string }>(
+  artifacts: readonly T[],
+  fileExists: (path: string) => boolean,
+): T[] {
+  return artifacts.filter(
+    (artifact) => !RETIRED_FILES.includes(toPosixPath(artifact.path)) || fileExists(artifact.path),
+  );
+}
+
 const TRACKED_UPDATE_FILES: readonly string[] = [
   PATHS.ONBOARDING_MANIFEST,
   PATHS.PROJECT_CONFIG_EXAMPLE,
@@ -256,6 +266,18 @@ export class FrameworkUpdater {
         gitWorkflowNotes.push(
           `Couldn't drop the removed rule files from the rule-script map: ${error instanceof Error ? error.message : 'unknown error'}.`,
         );
+      }
+    }
+    if (manifest) {
+      const artifacts = withoutRemovedRetiredFiles(manifest.generated_artifacts, (path) =>
+        existsSync(join(projectRoot, path)),
+      );
+      if (artifacts.length !== manifest.generated_artifacts.length) {
+        writeOnboardingManifest(projectRoot, {
+          ...manifest,
+          providers,
+          generated_artifacts: artifacts,
+        });
       }
     }
     const teamConfigProblems: string[] = [];

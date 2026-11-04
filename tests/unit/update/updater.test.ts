@@ -35,7 +35,7 @@ import {
   migrateTeamConfig,
 } from '@/core/team-config-migrate.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
-import { FrameworkUpdater } from '@/update/index.js';
+import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
 function writeOldLeftovers(projectRoot: string): void {
   const put = (rel: string, text: string) => {
@@ -975,6 +975,90 @@ describe('FrameworkUpdater', () => {
       expect(
         (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
       ).toEqual([]);
+    });
+  });
+
+  describe('dropping deleted files from the manifest', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const MANIFEST = '.paqad/onboarding-manifest.json';
+    const RETIRED_PATHS = [
+      'docs/instructions/rules/coding/codebase-health.md',
+      'docs/instructions/rules/coding/design-retest.md',
+      'docs/instructions/rules/coding/design-test.md',
+      'docs/instructions/rules/coding/health-retest.md',
+      'docs/instructions/rules/coding/site-map-retest.md',
+      'docs/instructions/rules/coding/site-map.md',
+      'docs/instructions/rules/security/pentest.md',
+      'docs/instructions/workflows/delivery-policy.yaml',
+      'docs/instructions/workflows/feature-development.yaml',
+    ];
+
+    function writeManifest(paths: string[]): void {
+      writeFileSync(
+        join(projectRoot, MANIFEST),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          adapter: 'codex-cli',
+          providers: ['codex-cli'],
+          generated_artifacts: paths.map((path) => ({
+            path,
+            owner: 'framework',
+            auto_update: true,
+          })),
+          detected: null,
+        }),
+      );
+    }
+
+    function listed(): string[] {
+      const manifest = JSON.parse(readFileSync(join(projectRoot, MANIFEST), 'utf8')) as {
+        generated_artifacts: Array<{ path: string }>;
+      };
+      return manifest.generated_artifacts.map((artifact) => artifact.path);
+    }
+
+    it('AC-24: lists none of the nine deleted files after an update, and keeps the providers', async () => {
+      writeManifest([...RETIRED_PATHS, 'CLAUDE.md']);
+      await run();
+      expect(listed()).toEqual(['CLAUDE.md']);
+      const manifest = JSON.parse(readFileSync(join(projectRoot, MANIFEST), 'utf8')) as {
+        providers: string[];
+      };
+      expect(manifest.providers).toEqual(['codex-cli']);
+    });
+
+    it('AC-25: keeps an edited copy that stayed and an unrelated missing file, and a second run changes nothing', async () => {
+      const edited = 'docs/instructions/rules/coding/design-test.md';
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(join(projectRoot, edited), 'our edited copy\n');
+      writeManifest([edited, 'docs/unrelated-missing.md']);
+      await run();
+      expect(listed()).toEqual([edited, 'docs/unrelated-missing.md']);
+      expect(readFileSync(join(projectRoot, edited), 'utf8')).toBe('our edited copy\n');
+      const first = readFileSync(join(projectRoot, MANIFEST), 'utf8');
+      await run();
+      expect(readFileSync(join(projectRoot, MANIFEST), 'utf8')).toBe(first);
+    });
+
+    it('AC-25: keeps the entry for a file a cleanup could not remove', () => {
+      const artifacts = RETIRED_PATHS.map((path) => ({ path }));
+      expect(
+        withoutRemovedRetiredFiles(artifacts, (path) => path.endsWith('site-map.md')).map(
+          (artifact) => artifact.path,
+        ),
+      ).toEqual(['docs/instructions/rules/coding/site-map.md']);
+    });
+
+    it('AC-25: runs with no manifest at all', async () => {
+      await expect(run()).resolves.toBeDefined();
+      expect(existsSync(join(projectRoot, MANIFEST))).toBe(false);
+    });
+
+    it('INV-7: holds full paths, so a bare rule path is not treated as retired', () => {
+      const bare = [{ path: 'coding/site-map.md' }];
+      expect(withoutRemovedRetiredFiles(bare, () => false)).toEqual(bare);
     });
   });
 
