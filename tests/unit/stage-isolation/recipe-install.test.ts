@@ -9,7 +9,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import { skillCompletionFindings } from '@/authoring/completion.js';
 import { renderStageAgentFiles } from '@/stage-isolation/agent-writer.js';
 import { RECIPE_NAMES } from '@/stage-isolation/recipes.js';
-import { CODEX_RECIPE_LINE } from '@/stage-isolation/recipe-receipt.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { CODEX_RECIPE_LINE, stageTurnsLine } from '@/stage-isolation/recipe-receipt.js';
 import { isGeneratedRecipeFolder, writeCodexRecipes } from '@/stage-isolation/recipe-install.js';
 
 const roots: string[] = [];
@@ -23,7 +24,10 @@ function project(adapters: string[]): string {
   roots.push(root);
   const manifest = join(root, PATHS.ONBOARDING_MANIFEST);
   mkdirSync(join(manifest, '..'), { recursive: true });
-  writeFileSync(manifest, JSON.stringify({ adapter: adapters[0], providers: adapters, generated_artifacts: [] }));
+  writeFileSync(
+    manifest,
+    JSON.stringify({ adapter: adapters[0], providers: adapters, generated_artifacts: [] }),
+  );
   return root;
 }
 
@@ -89,5 +93,25 @@ describe('the recipes on a Codex project', () => {
       expect(agent.content).not.toContain('.agents/skills');
     }
     expect(CODEX_RECIPE_LINE).toContain('recipe read, not injected');
+  });
+});
+
+describe('the turns line in the receipt', () => {
+  const row = (stage: string, turns: number) =>
+    ({
+      kind: 'stage-agent',
+      event_status: 'completed',
+      stage,
+      api_turns: turns,
+    }) as unknown as SessionLedgerRow;
+
+  it('states turns against the budget and the baseline, summed across agents', () => {
+    expect(stageTurnsLine([row('review', 20), row('review', 5), row('checks', 3)])).toBe(
+      'Turns per stage: review 25 of 70 (was 44), checks 3 of 20 (was 10).',
+    );
+  });
+
+  it('says nothing with no turns on record', () => {
+    expect(stageTurnsLine([])).toBeNull();
   });
 });

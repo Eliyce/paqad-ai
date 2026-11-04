@@ -1,0 +1,520 @@
+{
+  "workflows_read": [
+    "feature-development",
+    "bug-fix",
+    "refactor",
+    "migration",
+    "cleanup",
+    "architecture-change",
+    "test-improvement",
+    "schema-change",
+    "query-optimization",
+    "project-question",
+    "investigation",
+    "ticket-refinement",
+    "documentation-update",
+    "module-documentation",
+    "pentest",
+    "pentest-retest",
+    "codebase-health",
+    "health-retest",
+    "site-map",
+    "site-map-retest",
+    "design-test",
+    "design-retest",
+    "rules-analyze",
+    "rules-generate",
+    "root-cause-analysis",
+    "discovery"
+  ],
+  "workflow_count": 26,
+  "skills": [
+    {
+      "skill": "acceptance-criteria-gen",
+      "consumers": [
+        "runtime/base/skills/diff-minimizer/SKILL.md",
+        "runtime/base/skills/diff-minimizer/skill.meta.yaml",
+        "runtime/base/skills/specification-recipe/SKILL.md",
+        "runtime/base/skills/story-and-solution-writer/SKILL.md"
+      ],
+      "copied_into": [
+        "specification-recipe"
+      ]
+    },
+    {
+      "skill": "adversarial-review",
+      "consumers": [
+        "runtime/base/skills/review-recipe/SKILL.md",
+        "runtime/base/skills/review-recipe/scripts/lint-findings.mjs",
+        "runtime/base/skills/rule-script-runner/SKILL.md",
+        "runtime/base/skills/rule-script-runner/references/run-contract.md",
+        "runtime/capabilities/coding/agents/chief-architect.md"
+      ],
+      "copied_into": [
+        "review-recipe"
+      ]
+    },
+    {
+      "skill": "agent-orchestrator",
+      "consumers": [
+        "runtime/base/agents/agent-orchestrator.md",
+        "runtime/base/skills/expert-need-detector/references/roster.md",
+        "runtime/base/skills/expert-notes/SKILL.md"
+      ]
+    },
+    {
+      "skill": "analytics-instrumentation",
+      "consumers": "none"
+    },
+    {
+      "skill": "api-doc-maintainer",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md"
+      ]
+    },
+    {
+      "skill": "canonical-doc-sync",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md",
+        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/capabilities/coding/skills/design-system-sync/SKILL.md"
+      ],
+      "copied_into": [
+        "documentation-sync-recipe"
+      ]
+    },
+    {
+      "skill": "checks-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "test-runner-discovery"
+      ]
+    },
+    {
+      "skill": "context-budget-planner",
+      "consumers": "none"
+    },
+    {
+      "skill": "cross-module-impact-scanner",
+      "consumers": [
+        "runtime/base/skills/expert-notes/references/lenses/solution-architect.md",
+        "runtime/base/skills/planning-recipe/SKILL.md",
+        "src/pipeline/feature-development-policy.ts"
+      ]
+    },
+    {
+      "skill": "decision",
+      "consumers": [
+        "docs/instructions/workflows/discovery.yaml",
+        "runtime/base/agents/adversarial-reviewer.md",
+        "runtime/base/agents/gap-detector.md",
+        "runtime/base/skills/agent-orchestrator/SKILL.md",
+        "runtime/base/skills/analytics-instrumentation/SKILL.md",
+        "runtime/base/skills/analytics-instrumentation/skill.meta.yaml",
+        "runtime/base/skills/canonical-doc-sync/SKILL.md",
+        "runtime/base/skills/context-budget-planner/SKILL.md",
+        "runtime/base/skills/development-recipe/SKILL.md",
+        "runtime/base/skills/diff-minimizer/SKILL.md",
+        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/base/skills/expert-need-detector/references/roster.md",
+        "runtime/base/skills/expert-synthesis/SKILL.md",
+        "runtime/base/skills/expert-synthesis/references/synthesis-checklist.md",
+        "runtime/base/skills/git-workflow/SKILL.md",
+        "runtime/base/skills/git-workflow/references/settings.md",
+        "runtime/base/skills/module-attribution-extractor/SKILL.md",
+        "runtime/base/skills/module-attribution-extractor/references/pattern-set.md",
+        "runtime/base/skills/module-attribution-extractor/scripts/extract.sh",
+        "runtime/base/skills/module-attribution-extractor/scripts/needs-decision.sh",
+        "runtime/base/skills/planning-recipe/SKILL.md",
+        "runtime/base/skills/rule-analyzer/SKILL.md",
+        "runtime/base/skills/scope-check/SKILL.md",
+        "runtime/base/skills/scope-check/assets/output.template.md",
+        "runtime/base/skills/skill-orchestrator/SKILL.md",
+        "runtime/base/skills/skill-orchestrator/references/s2-evidence.md",
+        "runtime/base/skills/skill-orchestrator/references/s3-draft.md",
+        "runtime/base/skills/skill-orchestrator/references/s7-release.md",
+        "runtime/base/skills/spec-diff/SKILL.md",
+        "runtime/base/skills/spec-diff/assets/decision-vocabulary.txt",
+        "runtime/base/skills/spec-diff/assets/output.template.md",
+        "runtime/base/skills/story-and-solution-writer/SKILL.md",
+        "runtime/base/skills/story-and-solution-writer/assets/output.template.md",
+        "runtime/base/skills/test-runner-discovery/SKILL.md",
+        "runtime/base/skills/workflow-router/SKILL.md",
+        "runtime/base/skills/workflow-router/scripts/route-request.sh",
+        "runtime/capabilities/coding/agents/journey-designer.md",
+        "runtime/capabilities/coding/agents/solution-architect.md",
+        "runtime/capabilities/coding/rules/analytics-instrumentation.md",
+        "runtime/capabilities/coding/rules/feature-development.md",
+        "runtime/capabilities/coding/skills/codebase-health/SKILL.md",
+        "runtime/capabilities/coding/skills/design-system-coverage/SKILL.md",
+        "runtime/capabilities/coding/skills/design-system-coverage/references/contract-clauses.md",
+        "runtime/capabilities/coding/skills/journey-synthesis/SKILL.md",
+        "runtime/capabilities/coding/skills/site-map-assembly/SKILL.md",
+        "runtime/capabilities/coding/skills/site-map-assembly/references/merge-policy.md",
+        "runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md",
+        "runtime/capabilities/coding/skills/site-map-maintainer/references/patch-scope.md",
+        "runtime/capabilities/coding/skills/site-map/SKILL.md",
+        "runtime/claude-plugin/agents/paqad-checks.md",
+        "runtime/claude-plugin/agents/paqad-chief-architect.md",
+        "runtime/claude-plugin/agents/paqad-development.md",
+        "runtime/claude-plugin/agents/paqad-documentation-sync.md",
+        "runtime/claude-plugin/agents/paqad-expert.md",
+        "runtime/claude-plugin/agents/paqad-planning.md",
+        "runtime/claude-plugin/agents/paqad-review.md",
+        "runtime/claude-plugin/agents/paqad-specification.md",
+        "src/pipeline/feature-development-policy.ts",
+        "src/pipeline/pre-classifier.ts",
+        "src/stage-isolation/bash-write-guard.ts",
+        "src/stage-isolation/stage-agents.ts",
+        "src/stage-isolation/stage-handback.ts",
+        "src/stage-isolation/subagent-completion.ts"
+      ]
+    },
+    {
+      "skill": "development-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "scope-check",
+        "test-per-ac-planner"
+      ]
+    },
+    {
+      "skill": "diff-doc-sync",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/SKILL.md",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md",
+        "runtime/base/skills/documentation-sync-engine/skill.meta.yaml",
+        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/capabilities/coding/agents/doc-maintainer.md"
+      ],
+      "copied_into": [
+        "documentation-sync-recipe"
+      ]
+    },
+    {
+      "skill": "diff-minimizer",
+      "consumers": [
+        "src/pipeline/feature-development-policy.ts"
+      ],
+      "copied_into": [
+        "planning-recipe"
+      ]
+    },
+    {
+      "skill": "documentation-sync-engine",
+      "consumers": "none"
+    },
+    {
+      "skill": "documentation-sync-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "diff-doc-sync",
+        "canonical-doc-sync"
+      ]
+    },
+    {
+      "skill": "documentation-workflow",
+      "consumers": [
+        "runtime/base/skills/module-map-reconciler/SKILL.md"
+      ]
+    },
+    {
+      "skill": "edge-case-detection",
+      "consumers": [
+        "runtime/base/skills/acceptance-criteria-gen/SKILL.md",
+        "runtime/base/skills/expert-notes/references/lenses/qa-engineer.md",
+        "runtime/base/skills/specification-recipe/SKILL.md",
+        "runtime/capabilities/coding/agents/qa-engineer.md"
+      ],
+      "copied_into": [
+        "specification-recipe"
+      ]
+    },
+    {
+      "skill": "error-catalog-maintainer",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md"
+      ]
+    },
+    {
+      "skill": "existing-doc-checker",
+      "consumers": [
+        "runtime/base/skills/expert-notes/references/lenses/solution-architect.md",
+        "runtime/base/skills/request-classifier/SKILL.md",
+        "src/pipeline/feature-development-policy.ts"
+      ]
+    },
+    {
+      "skill": "expert-need-detector",
+      "consumers": [
+        "runtime/base/skills/expert-notes/SKILL.md"
+      ]
+    },
+    {
+      "skill": "expert-notes",
+      "consumers": [
+        "runtime/base/agents/agent-orchestrator.md",
+        "runtime/base/agents/product-owner.md",
+        "runtime/base/agents/skill-orchestrator.md",
+        "runtime/base/skills/expert-need-detector/SKILL.md",
+        "runtime/capabilities/coding/agents/application-architect.md",
+        "runtime/capabilities/coding/agents/qa-engineer.md",
+        "runtime/capabilities/coding/agents/user-flow-writer.md",
+        "runtime/claude-plugin/agents/paqad-expert.md",
+        "src/stage-isolation/stage-agents.ts"
+      ]
+    },
+    {
+      "skill": "expert-synthesis",
+      "consumers": [
+        "runtime/capabilities/coding/agents/chief-architect.md",
+        "runtime/claude-plugin/agents/paqad-chief-architect.md",
+        "src/stage-isolation/stage-agents.ts"
+      ]
+    },
+    {
+      "skill": "finding-normalizer",
+      "consumers": [
+        "runtime/base/skills/module-map-reconciler/SKILL.md",
+        "runtime/base/skills/rule-script-reconciler/references/drift-codes.md",
+        "runtime/capabilities/coding/skills/codebase-health/SKILL.md",
+        "runtime/capabilities/coding/skills/codebase-health/references/health-verbs.md",
+        "runtime/capabilities/coding/skills/design-test/SKILL.md",
+        "runtime/capabilities/coding/skills/design-test/references/helper-map.md",
+        "runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md",
+        "runtime/capabilities/coding/skills/site-map-gap-analysis/references/finding-composition.md",
+        "runtime/capabilities/coding/skills/site-map/SKILL.md",
+        "runtime/capabilities/coding/skills/site-map/references/helper-map.md",
+        "runtime/capabilities/security/skills/pentest/SKILL.md",
+        "runtime/capabilities/security/skills/pentest/references/helper-map.md",
+        "runtime/capabilities/security/skills/retest-verification/scripts/load-source-findings.sh",
+        "runtime/capabilities/security/skills/stride-threat-model/SKILL.md"
+      ]
+    },
+    {
+      "skill": "git-workflow",
+      "consumers": [
+        "runtime/base/skills/documentation-workflow/SKILL.md",
+        "runtime/base/skills/documentation-workflow/assets/output.template.md",
+        "runtime/capabilities/coding/rules/feature-development.md",
+        "src/pipeline/feature-development-policy.ts"
+      ]
+    },
+    {
+      "skill": "glossary-maintainer",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md"
+      ]
+    },
+    {
+      "skill": "integration-doc-maintainer",
+      "consumers": [
+        "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
+        "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md"
+      ]
+    },
+    {
+      "skill": "module-attribution-extractor",
+      "consumers": [
+        "runtime/base/skills/module-attribution-inferencer/SKILL.md",
+        "runtime/base/skills/module-attribution-inferencer/assets/templates/packet-inferencer.md",
+        "runtime/capabilities/coding/rules/feature-development.md"
+      ]
+    },
+    {
+      "skill": "module-attribution-inferencer",
+      "consumers": [
+        "runtime/base/skills/module-attribution-extractor/SKILL.md",
+        "runtime/capabilities/coding/rules/feature-development.md"
+      ]
+    },
+    {
+      "skill": "module-health-rollup",
+      "consumers": [
+        "runtime/base/skills/module-health-update/SKILL.md",
+        "runtime/base/skills/module-health-update/references/update-vs-rollup.md"
+      ]
+    },
+    {
+      "skill": "module-health-update",
+      "consumers": [
+        "runtime/base/skills/workflow-router/assets/routing-rules.txt"
+      ]
+    },
+    {
+      "skill": "module-map-reconciler",
+      "consumers": [
+        "runtime/base/skills/module-health-rollup/SKILL.md",
+        "runtime/base/skills/module-health-update/SKILL.md"
+      ]
+    },
+    {
+      "skill": "performance-regression-estimator",
+      "consumers": [
+        "runtime/base/skills/expert-notes/references/lenses/performance-analyst.md"
+      ]
+    },
+    {
+      "skill": "planning-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "diff-minimizer"
+      ]
+    },
+    {
+      "skill": "request-classifier",
+      "consumers": [
+        "runtime/base/agents/router.md"
+      ]
+    },
+    {
+      "skill": "requirement-enrichment",
+      "consumers": [
+        "runtime/base/skills/scope-check/assets/output.template.md"
+      ]
+    },
+    {
+      "skill": "review-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "adversarial-review"
+      ]
+    },
+    {
+      "skill": "rollback-safety-planner",
+      "consumers": [
+        "runtime/base/skills/expert-notes/references/lenses/devops-engineer.md"
+      ]
+    },
+    {
+      "skill": "rule-analyzer",
+      "consumers": [
+        "runtime/base/skills/rule-editor/SKILL.md",
+        "runtime/base/skills/rule-script-reconciler/references/drift-codes.md"
+      ]
+    },
+    {
+      "skill": "rule-editor",
+      "consumers": [
+        "runtime/base/skills/rule-script-reconciler/SKILL.md",
+        "runtime/base/skills/rule-script-reconciler/references/drift-codes.md"
+      ]
+    },
+    {
+      "skill": "rule-script-generator",
+      "consumers": [
+        "runtime/base/skills/rule-editor/references/edit-modes.md",
+        "runtime/base/skills/rule-script-reconciler/SKILL.md",
+        "runtime/base/skills/rule-script-reconciler/references/drift-codes.md"
+      ]
+    },
+    {
+      "skill": "rule-script-reconciler",
+      "consumers": [
+        "src/pipeline/feature-development-policy.ts"
+      ]
+    },
+    {
+      "skill": "rule-script-runner",
+      "consumers": "none"
+    },
+    {
+      "skill": "scope-check",
+      "consumers": [
+        "runtime/base/skills/development-recipe/SKILL.md"
+      ],
+      "copied_into": [
+        "development-recipe"
+      ]
+    },
+    {
+      "skill": "sequence-planner",
+      "consumers": "none"
+    },
+    {
+      "skill": "session-resume",
+      "consumers": "none"
+    },
+    {
+      "skill": "skill-orchestrator",
+      "consumers": [
+        "runtime/base/skills/agent-orchestrator/SKILL.md",
+        "runtime/base/skills/expert-need-detector/references/roster.md",
+        "runtime/base/skills/expert-notes/SKILL.md"
+      ]
+    },
+    {
+      "skill": "spec-diff",
+      "consumers": "none"
+    },
+    {
+      "skill": "spec-quality-review",
+      "consumers": [
+        "runtime/capabilities/coding/agents/chief-architect.md"
+      ]
+    },
+    {
+      "skill": "specification-recipe",
+      "consumers": [
+        "src/stage-isolation/recipes.ts"
+      ],
+      "copies": [
+        "acceptance-criteria-gen",
+        "edge-case-detection"
+      ]
+    },
+    {
+      "skill": "story-and-solution-writer",
+      "consumers": "none"
+    },
+    {
+      "skill": "test-execution-feedback-loop",
+      "consumers": "none"
+    },
+    {
+      "skill": "test-per-ac-planner",
+      "consumers": [
+        "runtime/base/skills/development-recipe/SKILL.md",
+        "runtime/base/skills/expert-notes/references/lenses/qa-engineer.md",
+        "runtime/capabilities/coding/agents/qa-engineer.md"
+      ],
+      "copied_into": [
+        "development-recipe"
+      ]
+    },
+    {
+      "skill": "test-runner-discovery",
+      "consumers": [
+        "runtime/base/skills/checks-recipe/SKILL.md",
+        "runtime/capabilities/coding/rules/feature-development.md",
+        "src/pipeline/feature-development-policy.ts"
+      ],
+      "copied_into": [
+        "checks-recipe"
+      ]
+    },
+    {
+      "skill": "workflow-router",
+      "consumers": [
+        "src/pipeline/index.ts",
+        "src/pipeline/workflow-router.ts"
+      ]
+    }
+  ],
+  "retired": [],
+  "note": "Nothing is retired here. A skill with no consumer is only a candidate for a later review."
+}
