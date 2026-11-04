@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6KK0MVMVSXGA9Q59CZ7G2E0](TD-01M6KK0MVMVSXGA9Q59CZ7G2E0.md) (gap, low): Doctor says to delete an old delivery file that sits beside hand-written settings and may hold unmoved rules
 - [TD-01M6KJMZY5DX3D3YCQYD2JSAGJ](TD-01M6KJMZY5DX3D3YCQYD2JSAGJ.md) (gap, low): The forceOverwrite onboarding option can overwrite a file written by a newer paqad
 - [TD-01M6KJ5DY1SZAHER0ZGTT2KA04](TD-01M6KJ5DY1SZAHER0ZGTT2KA04.md) (bug, low): delivery-link install says the hooks are ready when it left a tracked or husky folder alone
 - [TD-01M6KEX3ZKK6DDNBXK32YGZAGA](TD-01M6KEX3ZKK6DDNBXK32YGZAGA.md) (debt, low): The same regular expression escape helper is copied across six source files
