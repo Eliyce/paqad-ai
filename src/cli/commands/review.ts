@@ -9,6 +9,10 @@ import {
 } from '@/feature-evidence/artifacts.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeReviewDigest } from '@/review-digest/index.js';
+import { collectMachineFindings } from '@/review-digest/sources.js';
+import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
+import { checkRecipe } from '@/stage-isolation/recipe-check.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 interface ReviewRecordOptions {
   projectRoot: string;
@@ -22,6 +26,31 @@ interface ReviewDigestOptions {
 }
 
 const VERDICTS = ['safe-to-merge', 'needs-attention', 'inconclusive'] as const;
+
+function judgmentOnlyRefusal(
+  root: string,
+  sessionId: string,
+  template: ReviewRecordInput,
+): string | null {
+  const findings = Array.isArray(template.findings) ? template.findings : [];
+  if (findings.length === 0) return null;
+  const dirName = currentFeature(root, sessionId);
+  if (dirName === null) return null;
+  if (stageLedgerEra(readFeatureStageUnit(root, dirName), 'review') !== 'v3') return null;
+  const rows = collectMachineFindings(root).filter((row) => row.tier === 'deterministic');
+  if (rows.length === 0) return null;
+  const cited = findings.some((finding) =>
+    rows.some(
+      (row) =>
+        (row.file !== null &&
+          (finding.file === row.file || finding.description?.includes(row.file))) ||
+        finding.description?.includes(row.source),
+    ),
+  );
+  return cited
+    ? null
+    : '**▸ paqad** · every finding is judgment, but the digest has machine rows. Confirm or contest them: cite a row by its file or source.';
+}
 
 export function createReviewCommand(): Command {
   const command = new Command('review').description(
@@ -94,6 +123,23 @@ export function createReviewCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
+      const recipeCheck = checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage: 'review',
+        args: [inputFile],
+      });
+      for (const line of recipeCheck.lines) console.error(line);
+      if (recipeCheck.verdict === 'refuse') {
+        process.exitCode = 1;
+        return;
+      }
+      const judgment = judgmentOnlyRefusal(root, sessionId, template);
+      if (judgment !== null) {
+        console.error(judgment);
+        process.exitCode = 1;
+        return;
+      }
       let result;
       try {
         result = writeFeatureReview(root, sessionId, template);
@@ -111,6 +157,7 @@ export function createReviewCommand(): Command {
           rmSync(inputFile, { force: true });
         } catch {}
       }
+      recipeCheck.record();
       console.log(`**▸ paqad** · recorded ${result.path}`);
       console.log(JSON.stringify({ recorded: true, path: result.path }));
     });

@@ -2,6 +2,7 @@ import { readFileSync, rmSync } from 'node:fs';
 
 import { Command } from 'commander';
 
+import { checkRecipe } from '@/stage-isolation/recipe-check.js';
 import {
   NoActiveFeatureError,
   ReuseDeclarationError,
@@ -89,6 +90,17 @@ export function createPlanCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
+      const recipeCheck = checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage: 'planning',
+        args: [inputFile],
+      });
+      for (const line of recipeCheck.lines) console.error(line);
+      if (recipeCheck.verdict === 'refuse') {
+        process.exitCode = 1;
+        return;
+      }
       const activeDir = currentFeature(root, sessionId);
       const changedFiles = (
         await loadChangeEvidence(root, {
@@ -116,6 +128,7 @@ export function createPlanCommand(): Command {
         process.exitCode = 1;
         return;
       }
+      recipeCheck.record();
       for (const warning of result.warnings ?? []) {
         console.warn(`**▸ paqad** · ${warning}`);
       }

@@ -26,7 +26,7 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 1. Restate the request and its acceptance criteria in two lines at the top of your return.
 2. Keep planning scoped to the requested feature and the current repository state.
 3. Search before you add: run `paqad-ai index query "<what you need>"` for each new thing the plan would add, grep when the index has nothing, and record every search under `reuse.consulted` with its source, query and hit count.
-4. Under `reuse.reusing`, name each symbol you build on, with its file and how. Under `reuse.adding`, justify each new thing by what you searched for.
+4. Under `reuse.reusing`, name each symbol you build on, with its file and how. Under `reuse.new_constructs`, justify each new thing by what you searched for.
 5. Break the work into steps of one file, function or significant edit each, listing the files of each step.
 6. Give every step a `classification`: `ac-satisfying` or `necessary-setup` keeps it, `scaffolding` or `over-build` means drop it or name a leaner form. Delete what you would drop before you compile.
 7. Attribute each step to its module with `docs/instructions/rules/module-map.yml` when the project has one.

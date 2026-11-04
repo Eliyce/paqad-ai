@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Command } from 'commander';
 
 import { sha256Hex } from '@/compliance/markdown.js';
@@ -11,6 +14,7 @@ import {
   raiseLaneIfGrown,
 } from '@/feature-evidence/lane-resize.js';
 import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evidence/types.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
@@ -27,6 +31,7 @@ import {
   stageContentMarkdown,
   STAGE_CONTENT_MAX_CHARS,
 } from '@/stage-isolation/stage-begin.js';
+import { checkRecipe, type RecipeCheck } from '@/stage-isolation/recipe-check.js';
 import { RECIPE_HEADING, resolveRecipe } from '@/stage-isolation/recipes.js';
 import {
   buildStageBrief,
@@ -55,6 +60,7 @@ interface StageOptions {
   agent?: string;
   agentId?: string;
   full?: boolean;
+  staleOk?: string[];
 }
 
 function runStageSettings(options: StageOptions): void {
@@ -192,6 +198,40 @@ function startRefusalMessage(root: string, sessionId: string, stage: string): st
   }
 }
 
+async function stageEndRecipeCheck(
+  root: string,
+  sessionId: string,
+  stage: string,
+  options: StageOptions,
+): Promise<RecipeCheck | null> {
+  try {
+    const dirName = currentFeature(root, sessionId);
+    if (dirName === null) return null;
+    if (stage === 'development') {
+      const spec = join(root, featureFilePath(dirName, 'specification'));
+      if (!existsSync(spec)) return null;
+      return checkRecipe({ projectRoot: root, sessionId, stage, args: [spec, root] });
+    }
+    if (stage === 'documentation_sync') {
+      const staleOk = options.staleOk ?? [];
+      const { files } = await loadChangeEvidence(root, {
+        since: readChangeStartPoint(root, dirName),
+      });
+      return checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage,
+        args: [root, ...staleOk.flatMap((path) => ['--ok', path])],
+        input: files.join('\n'),
+        staleOk,
+      });
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function runStageBeginPhase(stage: string | undefined, options: StageOptions): void {
   const root = options.projectRoot;
   const name = stage ?? '';
@@ -288,6 +328,11 @@ export function createStageCommand(): Command {
         "then the session's open stage-agent row)",
     )
     .option('--full', 'On a `brief`, print every read entry and instruction, with no length cut')
+    .option(
+      '--stale-ok <path>',
+      'On `end documentation_sync`, a doc that needs no change although the diff touches its module (repeatable)',
+      collectArtifact,
+    )
     .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
       if (phase === 'settings') {
         runStageSettings(options);
@@ -361,6 +406,13 @@ export function createStageCommand(): Command {
         phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
           ? await raiseLaneOnStageStart(root, sessionId)
           : NO_RAISES;
+      const recipeCheck =
+        phase === 'end' ? await stageEndRecipeCheck(root, sessionId, stage, options) : null;
+      for (const line of recipeCheck?.lines ?? []) console.error(line);
+      if (recipeCheck?.verdict === 'refuse') {
+        process.exitCode = 1;
+        return;
+      }
       const recorded = recordMarkedStage(root, {
         sessionId,
         sessionSource,
@@ -380,6 +432,7 @@ export function createStageCommand(): Command {
         process.exitCode = 1;
         return;
       }
+      recipeCheck?.record();
       if (raised.authoring) console.log(laneRaisedLine(raised.authoring));
       if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);

@@ -39,8 +39,9 @@ function check(spec, root) {
   );
   const text = testFiles(root).map((file) => readFileSync(file, 'utf8')).join('\n');
   return criteria
-    .filter((criterion) => !new RegExp(`\\b${criterion.id}(?![\\d.])`, 'u').test(text))
-    .map((criterion) => `${criterion.id} has no test that names it`);
+    .map((criterion) => criterion.criterion_id ?? criterion.id)
+    .filter((id) => !new RegExp(`\\b${id}(?![\\d.])`, 'u').test(text))
+    .map((id) => `${id} has no test that names it`);
 }
 
 const [file, root] = process.argv.slice(2);
