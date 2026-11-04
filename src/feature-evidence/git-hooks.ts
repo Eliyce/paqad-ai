@@ -198,12 +198,16 @@ interface HookFiles {
   huskyRuns: boolean;
 }
 
-function hookFilesFor(projectRoot: string, dir: string): HookFiles {
-  const huskyRuns =
-    basename(dir) === HUSKY_RUNNER_DIR &&
-    existsSync(join(dir, HUSKY_RUNNER_FILE)) &&
-    hooksDirIsTracked(projectRoot, dir);
-  return huskyRuns ? { dir: dirname(dir), huskyRuns } : { dir, huskyRuns };
+function isHuskyRunnerDir(dir: string): boolean {
+  return basename(dir) === HUSKY_RUNNER_DIR && existsSync(join(dir, HUSKY_RUNNER_FILE));
+}
+
+function isHandEditedHooksDir(projectRoot: string, dir: string): boolean {
+  return isHuskyRunnerDir(dir) || hooksDirIsTracked(projectRoot, dir);
+}
+
+function hookFilesFor(dir: string): HookFiles {
+  return isHuskyRunnerDir(dir) ? { dir: dirname(dir), huskyRuns: true } : { dir, huskyRuns: false };
 }
 
 function needsExecutableBit(files: HookFiles, platform: NodeJS.Platform): boolean {
@@ -216,7 +220,7 @@ export function workflowHooksInstalled(
 ): boolean {
   const dir = resolveHooksDir(projectRoot);
   if (!dir) return false;
-  const files = hookFilesFor(projectRoot, dir);
+  const files = hookFilesFor(dir);
   return WORKFLOW_HOOKS.every((hook) => {
     const path = join(files.dir, hook.name);
     return (
@@ -258,10 +262,10 @@ export function trackedWorkflowHookAdvice(
   platform: NodeJS.Platform = process.platform,
 ): string | null {
   const dir = resolveHooksDir(projectRoot);
-  if (!dir || !hooksDirIsTracked(projectRoot, dir) || peopleSetting(projectRoot) === 'off') {
+  if (!dir || !isHandEditedHooksDir(projectRoot, dir) || peopleSetting(projectRoot) === 'off') {
     return null;
   }
-  const files = hookFilesFor(projectRoot, dir);
+  const files = hookFilesFor(dir);
   const missing = WORKFLOW_HOOKS.flatMap((hook) => hookAdvice(projectRoot, files, hook, platform));
   if (missing.length === 0) return null;
   return [
@@ -281,7 +285,7 @@ export function installGitHooks(projectRoot: string): InstallGitHooksResult {
   if (!dir) {
     return { installed: [], skipped: [], notAGitRepo: true };
   }
-  if (hooksDirIsTracked(projectRoot, dir)) {
+  if (isHandEditedHooksDir(projectRoot, dir)) {
     const advice = trackedWorkflowHookAdvice(projectRoot);
     return {
       installed: [],

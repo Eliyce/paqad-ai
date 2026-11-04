@@ -229,6 +229,66 @@ describe('a tracked husky runner folder', () => {
   });
 });
 
+describe('a default husky layout, with the runner folder ignored', () => {
+  function defaultHusky(): string {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));
+    roots.push(root);
+    git(root, 'init', '-q');
+    git(root, 'config', 'core.hooksPath', '.husky/_');
+    write(root, '.husky/_/.gitignore', '*');
+    for (const [rel, text] of Object.entries(husky())) write(root, rel, text);
+    write(root, '.paqad/configs/git-workflow/enforcement.yaml', 'people: warn\n');
+    stampLastApplied(root);
+    expect(git(root, 'ls-files', '.husky/_')).toBe('');
+    return root;
+  }
+
+  it('writes nothing to the runner folder, and update and doctor name the files husky runs', () => {
+    const root = defaultHusky();
+    const before = readFileSync(join(root, '.husky/_/commit-msg'), 'utf8');
+    const result = installGitHooks(root);
+    expect(result.installed).toEqual([]);
+    expect(result.trackedHooksDir).toBe(true);
+    expect(readFileSync(join(root, '.husky/_/commit-msg'), 'utf8')).toBe(before);
+    const advice = trackedWorkflowHookAdvice(root)!;
+    expect(advice).toContain('Your git hooks are in .husky,');
+    expect(advice).toContain(".husky/commit-msg doesn't exist yet.");
+    expect(advice).toContain(".husky/pre-push doesn't exist yet.");
+    expect(advice).not.toContain('.husky/_');
+    expect(gitWorkflowHealth(root)[0]!.detail).toBe(advice);
+    expect(gitWorkflowHealth(root)[0]!.remediation).not.toContain('Run paqad-ai update');
+  });
+
+  it('does not count lines an older paqad left in the runner folder, and leaves them there', () => {
+    const root = defaultHusky();
+    const old = `#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n${workflowHookBlock('commit-msg')}\n`;
+    write(root, '.husky/_/commit-msg', old);
+    write(root, '.husky/_/pre-push', `#!/usr/bin/env sh\n${workflowHookBlock('pre-push')}\n`);
+    expect(workflowHooksInstalled(root)).toBe(false);
+    installGitHooks(root);
+    expect(readFileSync(join(root, '.husky/_/commit-msg'), 'utf8')).toBe(old);
+    expect(gitWorkflowWarnings(root)[0]).toContain('.husky/commit-msg');
+  });
+
+  it('AC-14: clears once the lines are in the files husky runs', () => {
+    const root = defaultHusky();
+    write(root, '.husky/commit-msg', `${workflowHookBlock('commit-msg')}\n`);
+    write(root, '.husky/pre-push', `${workflowHookBlock('pre-push')}\n`);
+    expect(workflowHooksInstalled(root, 'linux')).toBe(true);
+    expect(gitWorkflowWarnings(root)).toEqual([]);
+  });
+
+  it('gives no lines when people is off, and still writes nothing to the runner folder', () => {
+    const root = defaultHusky();
+    write(root, '.paqad/configs/git-workflow/enforcement.yaml', 'people: off\n');
+    stampLastApplied(root);
+    const before = readFileSync(join(root, '.husky/_/commit-msg'), 'utf8');
+    expect(trackedWorkflowHookAdvice(root)).toBeNull();
+    installGitHooks(root);
+    expect(readFileSync(join(root, '.husky/_/commit-msg'), 'utf8')).toBe(before);
+  });
+});
+
 describe('an untracked hooks folder on update', () => {
   it('restores the bit and a commented-out line, so running update clears the warning', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));

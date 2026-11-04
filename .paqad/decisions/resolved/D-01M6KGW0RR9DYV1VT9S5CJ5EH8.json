@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6KGW0RR9DYV1VT9S5CJ5EH8",
+  "category": "spec.change",
+  "title": "Treat an untracked husky runner folder like a tracked hooks folder",
+  "context": "The frozen spec says paqad does not write to a tracked hooks folder and names the husky files only for that case. Review reproduced a false green on default husky 9, where .husky/_ is git-ignored: paqad appended lines to the runner folder, they never run, and doctor stayed green. The owner decided to fix this in this PR.",
+  "options": [
+    {
+      "option_key": "fix-now",
+      "label": "Fix in this PR: any husky runner folder is treated like a tracked one",
+      "one_line_preview": "Fix in this PR: any husky runner folder is treated like a tracked one",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "defer",
+      "label": "File a follow-up and leave it",
+      "one_line_preview": "File a follow-up and leave it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fix-now",
+  "created_at": "2026-11-04T14:54:35.800Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "fix-now",
+  "rationale": "Owner: Fix in this PR",
+  "resolved_at": "2026-11-04T14:54:43.438Z",
+  "decision_id": "D-01M6KGW0RR9DYV1VT9S5CJ5EH8",
+  "fingerprint": "sha256:d26fabc5f5040cd06d1fbefb2cebba05af5287d0be2518ff510a2017bd84f84a",
+  "question": "Treat an untracked husky runner folder like a tracked hooks folder",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2026-12-04T14:54:35.800Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix-now",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T14:54:43.438Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: Fix in this PR"
+  }
+}
