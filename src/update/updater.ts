@@ -37,7 +37,7 @@ import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
 import { gitWorkflowFilePath } from '@/git-workflow/load.js';
 import { hasAiAttributionLine, syncGitWorkflow } from '@/git-workflow/sync.js';
-import { installGitHooks } from '@/feature-evidence/git-hooks.js';
+import { installGitHooks, trackedWorkflowHookAdvice } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -434,7 +434,13 @@ function updateGitWorkflow(projectRoot: string): string[] {
   }
   try {
     installGitHooks(projectRoot);
-  } catch {}
+    const advice = trackedWorkflowHookAdvice(projectRoot);
+    if (advice !== null) migration.lines.push(advice);
+  } catch (error) {
+    migration.lines.push(
+      `Couldn't check the git hooks: ${error instanceof Error ? error.message : 'unknown error'}.`,
+    );
+  }
   return migration.lines;
 }
 

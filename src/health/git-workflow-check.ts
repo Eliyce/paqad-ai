@@ -3,7 +3,11 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { HealthCheckResult } from '@/core/types/health.js';
-import { resolveHooksDir, workflowHooksInstalled } from '@/feature-evidence/git-hooks.js';
+import {
+  resolveHooksDir,
+  trackedWorkflowHookAdvice,
+  workflowHooksInstalled,
+} from '@/feature-evidence/git-hooks.js';
 import { changedOutside } from '@/git-workflow/last-applied.js';
 import { gitWorkflowDir, loadGitWorkflow } from '@/git-workflow/load.js';
 import { OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
@@ -63,11 +67,14 @@ export function gitWorkflowHealth(
     resolveHooksDir(projectRoot) !== null &&
     !hooksInstalled(projectRoot)
   ) {
+    const advice = trackedWorkflowHookAdvice(projectRoot);
     results.push(
-      warning(
-        `git-workflow: people is set to ${enforcement.people} but the commit-msg and pre-push hooks aren't installed. Run paqad-ai update.`,
-        'Run paqad-ai update.',
-      ),
+      advice === null
+        ? warning(
+            `git-workflow: people is set to ${enforcement.people} but the commit-msg and pre-push hooks aren't installed. Run paqad-ai update.`,
+            'Run paqad-ai update.',
+          )
+        : warning(advice, 'Add the lines above by hand, then run paqad-ai doctor again.'),
     );
   }
 

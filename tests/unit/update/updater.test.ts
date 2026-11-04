@@ -35,6 +35,7 @@ import {
   migrateTeamConfig,
 } from '@/core/team-config-migrate.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
+import { workflowHookBlock } from '@/feature-evidence/git-hooks.js';
 import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
 import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
@@ -888,6 +889,45 @@ describe('FrameworkUpdater', () => {
       put('.paqad/configs/.config.policy', 'ai_attribution=keep\n');
       migrateTeamConfig(projectRoot, { version: VERSION, dryRun: true });
       expect(read('.paqad/configs/git-workflow/.last-applied.json')).toBe(record);
+    });
+  });
+
+  describe('a tracked hooks folder on update', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const advice = 'Add these lines to commit-msg and pre-push so people get the workflow check:';
+    const count = (notes: string[] | undefined) =>
+      (notes ?? []).filter((line) => line.includes(advice)).length;
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+
+    function setUp(): void {
+      git('init', '-q');
+      git('config', 'user.email', 'h@example.test');
+      git('config', 'user.name', 'Hooks');
+      git('config', 'core.hooksPath', '.githooks');
+      mkdirSync(join(projectRoot, '.githooks'), { recursive: true });
+      writeFileSync(join(projectRoot, '.githooks/commit-msg'), '#!/bin/sh\n');
+      writeFileSync(join(projectRoot, '.githooks/pre-push'), '#!/bin/sh\n');
+      git('add', '.githooks');
+      git('commit', '-q', '-m', 'hooks', '--no-verify');
+    }
+
+    it('AC-12: prints the advice once per run while lines are missing, and writes nothing there', async () => {
+      setUp();
+      expect(count((await run()).git_workflow_notes)).toBe(1);
+      expect(count((await run()).git_workflow_notes)).toBe(1);
+      expect(readFileSync(join(projectRoot, '.githooks/commit-msg'), 'utf8')).toBe('#!/bin/sh\n');
+    });
+
+    it('stops once the lines are in place', async () => {
+      setUp();
+      await run();
+      for (const hook of ['commit-msg', 'pre-push']) {
+        const path = join(projectRoot, '.githooks', hook);
+        writeFileSync(path, `#!/bin/sh\n${workflowHookBlock(hook)}\n`);
+        chmodSync(path, 0o755);
+      }
+      expect(count((await run()).git_workflow_notes)).toBe(0);
     });
   });
 
