@@ -562,12 +562,6 @@ function buildProjectProfile(
       : derivedTesting.testing && !overrides?.commands
         ? { testing: derivedTesting.testing }
         : {}),
-    strictness: overrides?.strictness ?? {
-      full_lane_default: false,
-      require_adversarial_review: true,
-      block_on_stale_docs: true,
-      require_db_review_for_migrations: true,
-    },
     compliance_packs: overrides?.compliance_packs ?? [],
     features: overrides?.features ?? {
       spec_only_mode: false,
@@ -596,23 +590,14 @@ function buildProjectProfile(
       reasoning_model: 'gpt-5',
       fast_model: 'gpt-5-mini',
     },
-    research: overrides?.research ?? { depth: 'standard' },
     intelligence: overrides?.intelligence ?? defaultIntelligenceConfig(),
     efficiency: overrides?.efficiency ?? DEFAULT_FRAMEWORK_CONFIG.efficiency,
-    escalation: overrides?.escalation ?? {
-      destructive_operations: 'block',
-      risky_migrations: 'warn',
-      security_findings: 'block',
-      db_row_threshold: 10000,
-    },
     custom: overrides?.custom ?? {
       classification_dimensions: [],
       verification_plugins: [],
       escalation_rules: [],
       decisions: {
         ask_threshold: 'strict',
-        max_screens_per_task: 3,
-        idle_timeout_minutes: 30,
       },
     },
   };

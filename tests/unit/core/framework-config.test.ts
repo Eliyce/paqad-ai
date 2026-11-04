@@ -152,11 +152,7 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
     expect(c.enterprise.enabled).toBe(false);
     expect(c.intelligence.rag_enabled).toBe(false);
     expect(c.intelligence.rag_top_n).toBe(20);
-    expect(c.strictness.require_adversarial_review).toBe(true);
-    expect(c.escalation.destructive_operations).toBe('block');
-    expect(c.escalation.risky_migrations).toBe('warn');
     expect(c.features.team_agents).toBe(true);
-    expect(c.research.depth).toBe('standard');
     expect(c.model_routing.default_model).toBe('gpt-5');
     expect(c.decisions.ask_threshold).toBe('strict');
     expect(c.efficiency.auto_update).toBe(true);
@@ -166,14 +162,12 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('overrides defaults from the config map (precedence)', () => {
     const c = resolveFrameworkConfigFromMap(
-      parseDotConfig(
-        'paqad_enable=false\nrag_enabled=true\nrag_top_n=5\nresearch_depth=cutting-edge',
-      ),
+      parseDotConfig('paqad_enable=false\nrag_enabled=true\nrag_top_n=5\nmodel_default=my-model'),
     );
     expect(c.paqad.enabled).toBe(false);
     expect(c.intelligence.rag_enabled).toBe(true);
     expect(c.intelligence.rag_top_n).toBe(5);
-    expect(c.research.depth).toBe('cutting-edge');
+    expect(c.model_routing.default_model).toBe('my-model');
   });
 
   it('F10: rag_base_branch is unset by default (auto-detect main->master)', () => {
@@ -205,9 +199,9 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('falls back to the default for an invalid boolean', () => {
     expect(
-      resolveFrameworkConfigFromMap(parseDotConfig('require_adversarial_review=maybe')).strictness
-        .require_adversarial_review,
-    ).toBe(true);
+      resolveFrameworkConfigFromMap(parseDotConfig('metrics_enabled=maybe')).features
+        .metrics_enabled,
+    ).toBe(DEFAULT_FRAMEWORK_CONFIG.features.metrics_enabled);
   });
 
   it('falls back to the default for a non-numeric number', () => {
@@ -218,8 +212,9 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('falls back to the default for an out-of-enum value', () => {
     expect(
-      resolveFrameworkConfigFromMap(parseDotConfig('research_depth=ludicrous')).research.depth,
-    ).toBe('standard');
+      resolveFrameworkConfigFromMap(parseDotConfig('decisions_ask_threshold=ludicrous')).decisions
+        .ask_threshold,
+    ).toBe('strict');
   });
 
   it('leaves the optional embedding provider/model unset by default', () => {
@@ -284,15 +279,14 @@ describe('layeredConfigMap — four surfaces, LOCAL WINS', () => {
     expect(c.enterprise.enabled).toBe(true);
     expect(c.intelligence.rag_top_n).toBe(20);
     expect(c.model_routing.default_model).toBe('gpt-5');
-    expect(c.research.depth).toBe('standard');
   });
 
   it('resolveFrameworkConfig threads env through the full precedence', () => {
-    writeConfigsFile(root, '.config.policy', 'research_depth=conservative\n');
-    expect(resolveFrameworkConfig(root, {}).research.depth).toBe('conservative');
+    writeConfigsFile(root, '.config.models', 'model_default=from-team\n');
+    expect(resolveFrameworkConfig(root, {}).model_routing.default_model).toBe('from-team');
     expect(
-      resolveFrameworkConfig(root, { PAQAD_RESEARCH_DEPTH: 'cutting-edge' }).research.depth,
-    ).toBe('cutting-edge');
+      resolveFrameworkConfig(root, { PAQAD_MODEL_DEFAULT: 'from-env' }).model_routing.default_model,
+    ).toBe('from-env');
   });
 });
 
@@ -343,7 +337,6 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
     );
     expect(profile.intelligence.rag_enabled).toBe(true);
     expect(profile.enterprise?.enabled).toBe(true);
-    expect(profile.strictness.block_on_stale_docs).toBe(true);
     expect(profile.custom.decisions?.ask_threshold).toBe('strict');
   });
 
@@ -518,7 +511,7 @@ describe('integration — readProjectProfile / writeProjectProfile', () => {
     const profile = readProjectProfile(root)!;
     expect(profile.intelligence.rag_enabled).toBe(false);
     expect(profile.intelligence.rag_top_n).toBe(20);
-    expect(profile.strictness.require_adversarial_review).toBe(true);
+    expect((profile as unknown as Record<string, unknown>).strictness).toBeUndefined();
   });
 
   it('a .config override is reflected in the in-memory profile', () => {
@@ -633,9 +626,9 @@ describe('frameworkOverridesToFlat — only non-default, only present sections',
 
   it('ignores sections not present on the override', () => {
     const flat = frameworkOverridesToFlat({
-      research: { depth: 'cutting-edge' },
+      model_routing: { default_model: 'x', reasoning_model: 'gpt-5', fast_model: 'gpt-5-mini' },
     } as Partial<ProjectProfile>);
-    expect([...flat.keys()]).toEqual(['research_depth']);
+    expect([...flat.keys()]).toEqual(['model_default']);
   });
 });
 
@@ -769,10 +762,7 @@ describe('detectFlippedFrameworkValues — the no-migration safety net', () => {
       research: { depth: 'cutting-edge' },
     };
     writeFileSync(join(root, '.paqad', 'project-profile.yaml'), YAML.stringify(fat), 'utf8');
-    expect(detectFlippedFrameworkValues(root).sort()).toEqual([
-      'enterprise=true',
-      'research_depth=cutting-edge',
-    ]);
+    expect(detectFlippedFrameworkValues(root).sort()).toEqual(['enterprise=true']);
   });
 });
 

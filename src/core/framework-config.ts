@@ -26,16 +26,11 @@ import type {
   DecisionProfileConfig,
   EfficiencyConfig,
   EnterpriseConfig,
-  EscalationConfig,
-  EscalationMode,
   IntelligenceConfig,
   ModelRoutingConfig,
   ProjectFeatureFlags,
   ProjectProfile,
-  ResearchDepth,
-  StrictnessConfig,
 } from './types/project-profile.js';
-import { ESCALATION_MODES, RESEARCH_DEPTHS } from './types/project-profile.js';
 
 declare const __PKG_VERSION__: string;
 
@@ -454,16 +449,6 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
   },
 
   {
-    key: 'research_depth',
-    env: 'PAQAD_RESEARCH_DEPTH',
-    type: 'enum',
-    enumValues: RESEARCH_DEPTHS,
-    default: 'standard',
-    group: 'models',
-    section: 'Research & model routing',
-    comment: 'How far planning research looks, from the newest options to proven ones.',
-  },
-  {
     key: 'model_default',
     env: 'PAQAD_MODEL_DEFAULT',
     type: 'string',
@@ -517,81 +502,6 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
   ]),
 
   {
-    key: 'full_lane_default',
-    env: 'PAQAD_FULL_LANE_DEFAULT',
-    type: 'boolean',
-    default: false,
-    group: 'policy',
-    section: 'Strictness / quality gates',
-    comment: 'Sends every change through the full lane, the most thorough one.',
-  },
-  {
-    key: 'require_adversarial_review',
-    env: 'PAQAD_REQUIRE_ADVERSARIAL_REVIEW',
-    type: 'boolean',
-    default: true,
-    group: 'policy',
-    section: 'Strictness / quality gates',
-    comment: 'Requires an adversarial review pass before a change is delivered.',
-  },
-  {
-    key: 'block_on_stale_docs',
-    env: 'PAQAD_BLOCK_ON_STALE_DOCS',
-    type: 'boolean',
-    default: true,
-    group: 'policy',
-    section: 'Strictness / quality gates',
-    comment: 'Blocks delivery while the project docs are out of date.',
-  },
-  {
-    key: 'require_db_review_for_migrations',
-    env: 'PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS',
-    type: 'boolean',
-    default: true,
-    group: 'policy',
-    section: 'Strictness / quality gates',
-    comment: 'Requires a database review when a change includes migrations.',
-  },
-  {
-    key: 'escalate_destructive_operations',
-    env: 'PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS',
-    type: 'enum',
-    enumValues: ESCALATION_MODES,
-    default: 'block',
-    group: 'policy',
-    section: 'Escalation policy',
-    comment: 'Whether paqad blocks, asks you about or warns on a destructive operation.',
-  },
-  {
-    key: 'escalate_risky_migrations',
-    env: 'PAQAD_ESCALATE_RISKY_MIGRATIONS',
-    type: 'enum',
-    enumValues: ESCALATION_MODES,
-    default: 'warn',
-    group: 'policy',
-    section: 'Escalation policy',
-    comment: 'Whether paqad blocks, asks you about or warns on a risky migration.',
-  },
-  {
-    key: 'escalate_security_findings',
-    env: 'PAQAD_ESCALATE_SECURITY_FINDINGS',
-    type: 'enum',
-    enumValues: ESCALATION_MODES,
-    default: 'block',
-    group: 'policy',
-    section: 'Escalation policy',
-    comment: 'Whether paqad blocks, asks you about or warns on a security finding.',
-  },
-  {
-    key: 'escalate_db_row_threshold',
-    env: 'PAQAD_ESCALATE_DB_ROW_THRESHOLD',
-    type: 'number',
-    default: 10000,
-    group: 'policy',
-    section: 'Escalation policy',
-    comment: 'A data change that touches more rows than this is treated as risky.',
-  },
-  {
     key: 'decisions_ask_threshold',
     env: 'PAQAD_DECISIONS_ASK_THRESHOLD',
     type: 'enum',
@@ -600,24 +510,6 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
     comment: 'How often paqad stops to ask you instead of making a choice itself.',
-  },
-  {
-    key: 'decisions_max_screens_per_task',
-    env: 'PAQAD_DECISIONS_MAX_SCREENS_PER_TASK',
-    type: 'number',
-    default: 3,
-    group: 'policy',
-    section: 'Decisions (pause-contract tuning)',
-    comment: 'The most decision screens paqad shows for one change.',
-  },
-  {
-    key: 'decisions_idle_timeout_minutes',
-    env: 'PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES',
-    type: 'number',
-    default: 30,
-    group: 'policy',
-    section: 'Decisions (pause-contract tuning)',
-    comment: 'Minutes a pending decision waits for an answer before paqad settles it itself.',
   },
   {
     key: 'stages_mode',
@@ -1211,10 +1103,7 @@ export interface ResolvedFrameworkConfig {
   paqad: { enabled: boolean };
   enterprise: EnterpriseConfig;
   intelligence: IntelligenceConfig;
-  strictness: StrictnessConfig;
-  escalation: EscalationConfig;
   features: ProjectFeatureFlags;
-  research: { depth: ResearchDepth };
   model_routing: ModelRoutingConfig;
   decisions: DecisionProfileConfig;
   efficiency: EfficiencyConfig;
@@ -1588,30 +1477,6 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       compliance_citations: rb('enterprise_compliance_citations'),
     },
     intelligence,
-    strictness: {
-      full_lane_default: rb('full_lane_default'),
-      require_adversarial_review: rb('require_adversarial_review'),
-      block_on_stale_docs: rb('block_on_stale_docs'),
-      require_db_review_for_migrations: rb('require_db_review_for_migrations'),
-    },
-    escalation: {
-      destructive_operations: asEnum(
-        raw.get('escalate_destructive_operations'),
-        ESCALATION_MODES,
-        defOf('escalate_destructive_operations') as EscalationMode,
-      ),
-      risky_migrations: asEnum(
-        raw.get('escalate_risky_migrations'),
-        ESCALATION_MODES,
-        defOf('escalate_risky_migrations') as EscalationMode,
-      ),
-      security_findings: asEnum(
-        raw.get('escalate_security_findings'),
-        ESCALATION_MODES,
-        defOf('escalate_security_findings') as EscalationMode,
-      ),
-      db_row_threshold: rn('escalate_db_row_threshold'),
-    },
     features: {
       spec_only_mode: rb('spec_only_mode'),
       market_research: rb('market_research'),
@@ -1626,13 +1491,6 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       checks_parallel: rb('checks_parallel'),
       checks_max_processes: rn('checks_max_processes'),
     },
-    research: {
-      depth: asEnum(
-        raw.get('research_depth'),
-        RESEARCH_DEPTHS,
-        defOf('research_depth') as ResearchDepth,
-      ),
-    },
     model_routing: {
       default_model: rs('model_default'),
       reasoning_model: rs('model_reasoning'),
@@ -1644,8 +1502,6 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
         ASK_THRESHOLDS,
         defOf('decisions_ask_threshold') as DecisionProfileConfig['ask_threshold'] & string,
       ),
-      max_screens_per_task: rn('decisions_max_screens_per_task'),
-      idle_timeout_minutes: rn('decisions_idle_timeout_minutes'),
     },
     efficiency: {
       ...DEFAULT_EFFICIENCY_TUNING,
@@ -1673,31 +1529,34 @@ const DECISION_CONFIG_KEYS = [
   'idle_timeout_minutes',
 ] as const;
 
+const REMOVED_PROFILE_SECTIONS = ['strictness', 'escalation', 'research'] as const;
+
 export const FRAMEWORK_CONFIG_SECTIONS = [
   'paqad',
   'enterprise',
   'intelligence',
-  'strictness',
-  'escalation',
+  ...REMOVED_PROFILE_SECTIONS,
   'features',
-  'research',
   'model_routing',
   'efficiency',
 ] as const;
+
+function withoutRemovedSections(base: ProjectProfile): ProjectProfile {
+  const clone: Record<string, unknown> = { ...base };
+  for (const section of REMOVED_PROFILE_SECTIONS) delete clone[section];
+  return clone as unknown as ProjectProfile;
+}
 
 export function applyFrameworkConfigToProfile(
   base: ProjectProfile,
   resolved: ResolvedFrameworkConfig = DEFAULT_FRAMEWORK_CONFIG,
 ): ProjectProfile {
   return {
-    ...base,
+    ...withoutRemovedSections(base),
     paqad: resolved.paqad,
     enterprise: resolved.enterprise,
     intelligence: resolved.intelligence,
-    strictness: resolved.strictness,
-    escalation: resolved.escalation,
     features: resolved.features,
-    research: resolved.research,
     model_routing: resolved.model_routing,
     efficiency: resolved.efficiency,
     custom: {
@@ -2010,32 +1869,6 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
       d.intelligence.existing_surface_tokens,
     );
   }
-  if (overrides.strictness) {
-    const s = overrides.strictness;
-    put('full_lane_default', s.full_lane_default, d.strictness.full_lane_default);
-    put(
-      'require_adversarial_review',
-      s.require_adversarial_review,
-      d.strictness.require_adversarial_review,
-    );
-    put('block_on_stale_docs', s.block_on_stale_docs, d.strictness.block_on_stale_docs);
-    put(
-      'require_db_review_for_migrations',
-      s.require_db_review_for_migrations,
-      d.strictness.require_db_review_for_migrations,
-    );
-  }
-  if (overrides.escalation) {
-    const e = overrides.escalation;
-    put(
-      'escalate_destructive_operations',
-      e.destructive_operations,
-      d.escalation.destructive_operations,
-    );
-    put('escalate_risky_migrations', e.risky_migrations, d.escalation.risky_migrations);
-    put('escalate_security_findings', e.security_findings, d.escalation.security_findings);
-    put('escalate_db_row_threshold', e.db_row_threshold, d.escalation.db_row_threshold);
-  }
   if (overrides.features) {
     const f = overrides.features;
     put('spec_only_mode', f.spec_only_mode, d.features.spec_only_mode);
@@ -2053,9 +1886,6 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     put('checks_parallel', f.checks_parallel, d.features.checks_parallel);
     put('checks_max_processes', f.checks_max_processes, d.features.checks_max_processes);
   }
-  if (overrides.research) {
-    put('research_depth', overrides.research.depth, d.research.depth);
-  }
   if (overrides.model_routing) {
     const m = overrides.model_routing;
     put('model_default', m.default_model, d.model_routing.default_model);
@@ -2065,16 +1895,6 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
   if (overrides.custom?.decisions) {
     const dec = overrides.custom.decisions;
     put('decisions_ask_threshold', dec.ask_threshold, d.decisions.ask_threshold);
-    put(
-      'decisions_max_screens_per_task',
-      dec.max_screens_per_task,
-      d.decisions.max_screens_per_task,
-    );
-    put(
-      'decisions_idle_timeout_minutes',
-      dec.idle_timeout_minutes,
-      d.decisions.idle_timeout_minutes,
-    );
   }
   if (overrides.efficiency) {
     const ef = overrides.efficiency;
@@ -2145,24 +1965,6 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
     ],
   },
   {
-    present: (p) => p.strictness !== undefined,
-    keys: [
-      'full_lane_default',
-      'require_adversarial_review',
-      'block_on_stale_docs',
-      'require_db_review_for_migrations',
-    ],
-  },
-  {
-    present: (p) => p.escalation !== undefined,
-    keys: [
-      'escalate_destructive_operations',
-      'escalate_risky_migrations',
-      'escalate_security_findings',
-      'escalate_db_row_threshold',
-    ],
-  },
-  {
     present: (p) => p.features !== undefined,
     keys: [
       'spec_only_mode',
@@ -2179,18 +1981,13 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'checks_max_processes',
     ],
   },
-  { present: (p) => p.research !== undefined, keys: ['research_depth'] },
   {
     present: (p) => p.model_routing !== undefined,
     keys: ['model_default', 'model_reasoning', 'model_fast'],
   },
   {
     present: (p) => p.custom?.decisions !== undefined,
-    keys: [
-      'decisions_ask_threshold',
-      'decisions_max_screens_per_task',
-      'decisions_idle_timeout_minutes',
-    ],
+    keys: ['decisions_ask_threshold'],
   },
   {
     present: (p) => p.efficiency !== undefined,

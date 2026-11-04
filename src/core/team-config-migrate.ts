@@ -24,6 +24,7 @@ import {
   TEAM_FILE_SCHEMA_VERSION,
 } from './team-file-schema.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
+import { isRetiredSettingKey, retiredSettingLine } from './team-config-retired.js';
 import { WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
   GIT_WORKFLOW_COMMITS_FILE,
@@ -245,14 +246,7 @@ function planWorkflowCarry(edited: unknown, oldFile: string): WorkflowCarry {
   const staleEscalation = at(docs, ['escalation', 'stale_docs']);
   const requireSync = at(docs, ['strictness', 'require_canonical_sync']);
   if (requireSync === false || staleEscalation === 'warn') {
-    carry(
-      requireSync === false
-        ? 'stages.documentation_sync.strictness.require_canonical_sync'
-        : 'stages.documentation_sync.escalation.stale_docs',
-      WORKFLOW_FILE,
-      ['stages', 'documentation_sync', 'stale_docs'],
-      'warn',
-    );
+    result.lines.push(retiredSettingLine(oldFile, 'stages.documentation_sync.stale_docs'));
   }
   const checksStage = isRecord(stages.checks) ? stages.checks : {};
   const checks = isRecord(checksStage.checks) ? checksStage.checks : {};
@@ -438,6 +432,10 @@ export function migrateTeamConfig(
   const unknown: SetLine[] = [];
   for (const [key, { line, file }] of winners) {
     const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key);
+    if (isRetiredSettingKey(key)) {
+      result.lines.push(retiredSettingLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`, key));
+      continue;
+    }
     if (spec === undefined) {
       unknown.push(line);
       result.lines.push(

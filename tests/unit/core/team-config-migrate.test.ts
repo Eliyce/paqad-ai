@@ -34,6 +34,7 @@ import {
 } from '@/core/team-config-migrate.js';
 import { renderTeamConfigFile } from '@/core/team-config.js';
 import { isMigratedStub } from '@/core/team-config-legacy.js';
+import { isRetiredSettingKey } from '@/core/team-config-retired.js';
 import {
   checkYamlValue,
   fromYamlValue,
@@ -111,7 +112,7 @@ describe('the four fixture projects', () => {
       const after = layeredConfigMap(root, {});
       for (const [key, value] of before) {
         if (key === 'rule_compliance' && name === 'project-b') continue;
-        if (key === 'legacy_flag') continue;
+        if (key === 'legacy_flag' || isRetiredSettingKey(key)) continue;
         const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
         if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) {
           expect([key, after.get(key)]).toEqual([key, undefined]);
@@ -508,6 +509,7 @@ describe('the size of the team settings (AC-72)', () => {
       }
       const flatAfter = layeredConfigMap(root, {});
       for (const [key, value] of flatBefore) {
+        if (isRetiredSettingKey(key)) continue;
         if (key === 'legacy_flag' || (key === 'rule_compliance' && name === 'project-b')) continue;
         const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
         if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) continue;

@@ -69,15 +69,13 @@ describe('migrating an old feature-development workflow file', () => {
     );
     const result = migrateTeamConfig(root, { version: VERSION });
     expect(result.error).toBeUndefined();
-    expect(configs('feature-development/workflow.yaml')).toMatchObject({
-      stages: { documentation_sync: { stale_docs: 'warn' } },
-    });
+    expect(configs('feature-development/workflow.yaml')).not.toHaveProperty('stages');
     expect(configs('feature-development/checks.yaml')).toMatchObject({
       commands: { from_project_profile: ['format', 'test', 'build', 'lint'] },
       on_failure: 'warn',
     });
     expect(result.lines).toContain(
-      'stages.documentation_sync.strictness.require_canonical_sync → feature-development/workflow.yaml: stages.documentation_sync.stale_docs = warn',
+      "docs/instructions/workflows/feature-development.yaml: removed stages.documentation_sync.stale_docs, which paqad doesn't read any more.",
     );
     expect(result.lines.some((line) => line.includes('module_attribution'))).toBe(false);
   });
@@ -97,7 +95,7 @@ describe('migrating an old feature-development workflow file', () => {
     );
     const result = migrateTeamConfig(root, { version: VERSION });
     expect(result.lines).toContain(
-      'stages.documentation_sync.escalation.stale_docs → feature-development/workflow.yaml: stages.documentation_sync.stale_docs = warn',
+      "docs/instructions/workflows/feature-development.yaml: removed stages.documentation_sync.stale_docs, which paqad doesn't read any more.",
     );
     expect(configs('feature-development/checks.yaml')).toMatchObject({
       commands: { from_project_profile: [] },

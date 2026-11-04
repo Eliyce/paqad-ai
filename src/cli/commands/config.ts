@@ -5,7 +5,12 @@ import { Command } from 'commander';
 import { PATHS } from '@/core/constants/paths.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { buildConfigShow, renderConfigShow } from './config-show.js';
-import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import {
+  FRAMEWORK_CONFIG_SPECS,
+  readConfigsDir,
+  readDotConfig,
+  STAGE_SETTING_STAGES,
+} from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
 import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
@@ -15,7 +20,7 @@ import { resolveMutationMode } from '@/mutation/mode.js';
 
 const NOTHING = 'NOTHING';
 
-const KNOB_CONSUMERS: Record<string, string> = {
+export const KNOB_CONSUMERS: Record<string, string> = {
   paqad_enable: 'enablement gate (bootstrap + every hook)',
   auto_update: 'silent background update',
   minimum_version: 'silent update (version floor)',
@@ -41,21 +46,10 @@ const KNOB_CONSUMERS: Record<string, string> = {
   rag_max_file_size: 'RAG index build',
   rag_base_branch: 'branch-aware RAG index',
   existing_surface_tokens: 'existing-surface planning digest',
-  research_depth: NOTHING,
   model_default: 'model selection (skills/model-selector)',
   model_reasoning: 'model routing (budget optimizer)',
   model_fast: 'model routing (budget optimizer)',
-  full_lane_default: NOTHING,
-  require_adversarial_review: NOTHING,
-  block_on_stale_docs: NOTHING,
-  require_db_review_for_migrations: NOTHING,
-  escalate_destructive_operations: NOTHING,
-  escalate_risky_migrations: NOTHING,
-  escalate_security_findings: NOTHING,
-  escalate_db_row_threshold: NOTHING,
-  decisions_ask_threshold: NOTHING,
-  decisions_max_screens_per_task: NOTHING,
-  decisions_idle_timeout_minutes: NOTHING,
+  decisions_ask_threshold: 'askThresholdForProject (decision resolver)',
   stages_mode: 'stages capability gate (pre-code block)',
   rule_compliance: 'rule-scripts capability gate',
   rule_gate_pre_edit: 'rule-scripts capability gate (scripts run before an edit)',
@@ -109,7 +103,35 @@ const KNOB_CONSUMERS: Record<string, string> = {
   agent_max_cost_multiple: 'agent pipeline S5 eval gate (cost budget)',
   agent_catalog_description_max_tokens: 'agent lint AG-004 (catalog description budget)',
   agent_memory_max_lines: 'agent lint AG-010 + agent memory-consolidate (memory size)',
+  team_bootstrap_enabled: 'resolveTeamBootstrapEnabled (team setup) + team launcher',
+  feature_report: 'featureReportEnabled (feature report)',
+  metrics_enabled: 'runRepositoryVerification (change metrics)',
+  hud_view: 'isHudViewOff (plugin HUD band)',
+  hud_chime: 'isChimeOn (plugin HUD chime)',
+  plugin_migration: 'resolvePluginMigrationConfig (background move to the plugin)',
+  claude_install_mode: 'resolvePluginMigrationConfig (how Claude Code installs paqad)',
+  rag_relief_floor: 'RagService (RAG relief floor)',
+  ...Object.fromEntries(
+    STAGE_SETTING_STAGES.flatMap((stage) => [
+      [`stage_effort_${stage}`, 'resolveStageAgentSettings (stage agent effort)'],
+      [`stage_model_${stage}`, 'resolveStageAgentSettings (stage agent model)'],
+    ]),
+  ),
+  duplication_mode: 'resolveDuplicationMode (duplication gate)',
+  duplication_similarity_threshold: 'resolveDuplicationConfig (duplication gate)',
+  duplication_min_lines: 'resolveDuplicationConfig (duplication gate)',
+  decision_arm_mode: 'resolveDecisionArmMode (create-vs-reuse pause)',
+  decision_arm_plan_threshold: 'resolveDecisionArmConfig (create-vs-reuse pause)',
+  decision_arm_max_per_change: 'resolveDecisionArmConfig (create-vs-reuse pause)',
+  ai_attribution: 'resolveAiAttributionMode (delivery attribution)',
+  spec_grounding_budget_ms: 'readPipelineConfig (spec pipeline grounding budget)',
 };
+
+export function settingsWithoutConsumer(
+  specs: ReadonlyArray<{ key: string }> = FRAMEWORK_CONFIG_SPECS,
+): string[] {
+  return specs.map((spec) => spec.key).filter((key) => KNOB_CONSUMERS[key] === undefined);
+}
 
 interface EffectiveKnob {
   key: string;

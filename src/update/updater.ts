@@ -22,6 +22,7 @@ import {
   writeConfigsReadme,
 } from '@/core/framework-config.js';
 import { syncTeamConfigFiles, teamConfigPath } from '@/core/team-config.js';
+import { RETIRED_SAFETY_FILE } from '@/core/team-config-retired.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -412,6 +413,7 @@ function changedTeamFiles(projectRoot: string, before: Map<string, string | null
     ...TEAM_CONFIG_FILES.map((file) =>
       toTeamRelative(projectRoot, teamConfigPath(projectRoot, file)),
     ),
+    `${PATHS.PROJECT_CONFIGS_DIR}/${RETIRED_SAFETY_FILE}`,
     ...GIT_WORKFLOW_FILES.map((file) =>
       toTeamRelative(projectRoot, gitWorkflowFilePath(projectRoot, file)),
     ),

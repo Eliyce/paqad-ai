@@ -18,6 +18,7 @@ import {
   isShippedWorkflowEntry,
   type ShippedWorkflowEntryKind,
 } from './shipped-workflow-entries.js';
+import { removeRetiredSettings, settleRetiredSafetyFile } from './team-config-retired.js';
 import {
   isNewerTeamFile,
   newerTeamFileLine,
@@ -384,6 +385,7 @@ function settledTeamFileText(
 ): string {
   const malformed = readTeamFileStamp(text).kind === 'malformed';
   let next = malformed ? text : swapOwnHeader(swapTeamFileStamp(text));
+  next = removeRetiredSettings(file, next, `${PATHS.PROJECT_CONFIGS_DIR}/${file}`, notes);
   next = replaceRetiredValues(file, next, document, notes);
   if (file === WORKFLOW_TEAM_FILE) next = withoutShippedWorkflowEntries(next, notes);
   return next;
@@ -426,7 +428,16 @@ export function syncTeamConfigFiles(
     }
     written.push(path);
   }
+  settleRetiredSafetyFile(projectRoot, retiredSafetyOwnLines(), problems);
   return written;
+}
+
+const RETIRED_SAFETY_DESCRIPTION =
+  '# Destructive operations, risky migrations, security findings and database review.';
+const OLD_MODELS_DESCRIPTION = '# Which models paqad uses and how deep research goes.';
+
+function retiredSafetyOwnLines(): ReadonlySet<string> {
+  return new Set([RETIRED_SAFETY_DESCRIPTION, ...TEAM_CONFIG_HEADER_LINES, ...OLD_HEADER_LINES]);
 }
 
 export const TEAM_CONFIG_HEADER_LINES = [
@@ -866,6 +877,7 @@ export function renderTeamConfigFile(file: OwnTeamConfigFile, live: YAML.Documen
       `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
       ...TEAM_CONFIG_HEADER_LINES,
       ...OLD_HEADER_LINES,
+      OLD_MODELS_DESCRIPTION,
       NOT_A_SETTING_LINE,
       TEAM_NOTES_LINE,
     ]),

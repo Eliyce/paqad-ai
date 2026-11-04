@@ -39,7 +39,6 @@ describe('readTeamConfig', () => {
     const team = readTeamConfig(root);
     expect(team.merged.get('stages_mode')).toBe('strict');
     expect(team.merged.get('stage_isolation_lanes')).toBe('full,standard');
-    expect(team.merged.get('full_lane_default')).toBe('true');
     expect(team.merged.get('checks_max_processes')).toBe('0');
     expect(team.merged.get('checks_flaky_under_parallel')).toBe('fail');
     expect(team.merged.get('paqad_enable')).toBe('false');
@@ -63,10 +62,10 @@ describe('readTeamConfig', () => {
 
   it('skips a file that is not valid YAML and reports it', () => {
     write('.paqad/configs/retrieval.yaml', 'enabled: true\nmatch: [unclosed\n');
-    write('.paqad/configs/models.yaml', 'research:\n  depth: conservative\n');
+    write('.paqad/configs/models.yaml', 'models:\n  default: from-team\n');
     const team = readTeamConfig(root);
     expect(team.merged.has('rag_enabled')).toBe(false);
-    expect(team.merged.get('research_depth')).toBe('conservative');
+    expect(team.merged.get('model_default')).toBe('from-team');
     expect(team.issues).toHaveLength(1);
     expect(team.issues[0]!.message).toMatch(
       /^retrieval\.yaml isn't valid YAML, so none of its settings are used: /u,

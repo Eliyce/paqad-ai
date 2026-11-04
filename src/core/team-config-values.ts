@@ -8,7 +8,6 @@ export const TEAM_CONFIG_FILES = [
   'feature-development/specification.yaml',
   'feature-development/rules.yaml',
   'feature-development/reuse.yaml',
-  'feature-development/safety.yaml',
   'feature-development/checks.yaml',
   'feature-development/evidence.yaml',
   'feature-development/analytics.yaml',
@@ -20,7 +19,7 @@ export type TeamConfigFile = OwnTeamConfigFile | typeof GIT_WORKFLOW_COMMITS_FIL
 
 export const TEAM_CONFIG_FILE_DESCRIPTIONS: Readonly<Record<TeamConfigFile, string>> = {
   'paqad.yaml': 'The package itself: on/off, updates, Claude Code install, HUD and Site Map.',
-  'models.yaml': 'Which models paqad uses and how deep research goes.',
+  'models.yaml': 'Which models paqad uses.',
   'retrieval.yaml': 'How paqad finds relevant code and docs (RAG).',
   'decisions.yaml': 'When paqad stops to ask you, in any workflow.',
   'authoring.yaml': 'How paqad writes and tests skills and helper agents, and its eval runs.',
@@ -31,8 +30,6 @@ export const TEAM_CONFIG_FILE_DESCRIPTIONS: Readonly<Record<TeamConfigFile, stri
   'feature-development/rules.yaml': 'How project rules are loaded and enforced.',
   'feature-development/reuse.yaml':
     'The existing-code digest, the duplication gate and the create-vs-reuse pause.',
-  'feature-development/safety.yaml':
-    'Destructive operations, risky migrations, security findings and database review.',
   'feature-development/checks.yaml':
     'What the checks stage runs and how: commands, parallel runs, flaky tests, mutation testing.',
   'feature-development/evidence.yaml':
@@ -130,7 +127,6 @@ export const COMMA_LIST: YamlValueMap = {
 
 const STRICT_TO_BLOCK = renameMap({ strict: 'block' });
 const FAIL_TO_BLOCK = renameMap({ fail: 'block' });
-const APPROVAL_TO_ASK = renameMap({ require_approval: 'ask' });
 const BLOCKING_ONLY = renameMap({ 'blocking-only': 'blocking_only' });
 const ASK_OFTEN = renameMap({ strict: 'often', balanced: 'balanced', permissive: 'rarely' });
 
@@ -153,7 +149,6 @@ const WF = 'feature-development/workflow.yaml';
 const SPEC = 'feature-development/specification.yaml';
 const RULES = 'feature-development/rules.yaml';
 const REUSE = 'feature-development/reuse.yaml';
-const SAFETY = 'feature-development/safety.yaml';
 const CHECKS = 'feature-development/checks.yaml';
 const EVIDENCE = 'feature-development/evidence.yaml';
 const ANALYTICS = 'feature-development/analytics.yaml';
@@ -179,7 +174,6 @@ export const TEAM_CONFIG_HOMES: Readonly<Record<string, TeamConfigHome>> = {
   hud_chime: home('paqad.yaml', 'hud.chime'),
   plugin_migration: home('paqad.yaml', 'claude_code.plugin_migration'),
   claude_install_mode: home('paqad.yaml', 'claude_code.install_mode'),
-  research_depth: home('models.yaml', 'research.depth'),
   model_default: home('models.yaml', 'models.default'),
   model_reasoning: home('models.yaml', 'models.reasoning'),
   model_fast: home('models.yaml', 'models.fast'),
@@ -195,25 +189,12 @@ export const TEAM_CONFIG_HOMES: Readonly<Record<string, TeamConfigHome>> = {
     ...ASK_OFTEN,
     yamlEnum: ['often', 'balanced', 'rarely'],
   }),
-  decisions_max_screens_per_task: home('decisions.yaml', 'max_screens_per_change'),
-  decisions_idle_timeout_minutes: home('decisions.yaml', 'auto_resolve_after_minutes'),
   ai_attribution: home(GIT_WORKFLOW_COMMITS_FILE, 'ai_attribution'),
   spec_only_mode: home(WF, 'stop_after', booleanEnumMap('specification', 'none')),
   market_research: home(WF, 'stages.planning.research.market'),
   design_research: home(WF, 'stages.planning.research.design'),
   team_agents: home(WF, 'stage_helpers.team_agents'),
   ...STAGE_HOMES,
-  full_lane_default: home(WF, 'lanes.default', booleanEnumMap('full', 'auto')),
-  require_adversarial_review: home(
-    WF,
-    'stages.review.adversarial_pass',
-    booleanEnumMap('required', 'optional'),
-  ),
-  block_on_stale_docs: home(
-    WF,
-    'stages.documentation_sync.stale_docs',
-    booleanEnumMap('block', 'warn'),
-  ),
   stages_mode: home(WF, 'stage_tracking', STRICT_TO_BLOCK),
   stage_isolation_lanes: home(WF, 'stage_helpers.on_lanes', COMMA_LIST),
   spec_pipeline_enabled: home(SPEC, 'pipeline.enabled'),
@@ -237,15 +218,6 @@ export const TEAM_CONFIG_HOMES: Readonly<Record<string, TeamConfigHome>> = {
   decision_arm_mode: home(REUSE, 'create_vs_reuse.pause', STRICT_TO_BLOCK),
   decision_arm_plan_threshold: home(REUSE, 'create_vs_reuse.min_similarity'),
   decision_arm_max_per_change: home(REUSE, 'create_vs_reuse.max_pauses_per_change'),
-  require_db_review_for_migrations: home(
-    SAFETY,
-    'database_review_for_migrations',
-    booleanEnumMap('required', 'optional'),
-  ),
-  escalate_destructive_operations: home(SAFETY, 'destructive_operations', APPROVAL_TO_ASK),
-  escalate_risky_migrations: home(SAFETY, 'risky_migrations', APPROVAL_TO_ASK),
-  escalate_security_findings: home(SAFETY, 'security_findings', APPROVAL_TO_ASK),
-  escalate_db_row_threshold: home(SAFETY, 'large_data_change_rows'),
   checks_parallel: home(CHECKS, 'parallel'),
   checks_max_processes: home(CHECKS, 'max_processes', ZERO_IS_AUTO),
   mutation_mode: home(CHECKS, 'mutation_testing', STRICT_TO_BLOCK),

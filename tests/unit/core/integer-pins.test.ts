@@ -23,8 +23,8 @@ function managedEntries(source: string): string {
 }
 
 const PINS = {
-  catalog: { version: 1, hash: '9a1396e5ef9ee1e69c258333711c3f807409db30f2feba1275f7c5d5e5d1c62a' },
-  readme: { version: 1, hash: 'ea5e05c7fce75ae44677a439118710286372b68f0bca1f1b6ce1da81d726cd82' },
+  catalog: { version: 1, hash: 'e3e0a8c3ae299ac17dd0d9750b682a2874d11cdf60ad61406f7e31b901c4cb8f' },
+  readme: { version: 1, hash: '0c67754edfc3207cd0697d8c68d11ef18381aad809eed5eef222160ea9cb5a97' },
   launcher: {
     version: 1,
     hash: 'c85bc81248d747c461b81f18784fa5e06fff08a8b1ba1721dcb61f189f745ab9',
