@@ -9,6 +9,19 @@ Generic feature-delivery pipeline assembled from YAML in
 story design, parallel implementation + tests, adversarial review,
 and verification. Conditional and parallel steps supported.
 
+## How a stage's report is read
+
+A stage agent reports through the `SubagentHandback` tool in `auto` permission mode and in plain
+text everywhere else, and the ledger records whichever arrived. The rule for what a report means
+sits in one function, `judgeStageReport` in `src/stage-isolation/stage-handback.ts`, called by
+the handback hook, the stop check and the completion record. A `DONE` or `DONE_WITH_CONCERNS`
+with no stage end row, or with no artifact on planning, specification, review or checks, is refused
+at handback (exit 2) and sent back at SubagentStop (`decision: block`). Both paths share one count
+per agent and stage: three refusals, then the report is let through as `BLOCKED` with the reason.
+Refusal rows use the `stage-handback` kind, so they release no running-agent hold. The main chat
+reads the result with `paqad-ai stage report <agent_id>` and follows its `next_action` and
+`resume_advice`. A crash in the check always lets the report through.
+
 ## Source Footprint
 
 - `src/pipeline/feature-development-policy.ts` (paqad's own stages) and the team files in `.paqad/configs/feature-development/`
