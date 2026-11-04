@@ -37,7 +37,9 @@ function check(spec, root) {
   const criteria = (spec.acceptance_criteria ?? []).filter(
     (criterion) => (criterion.proof_type ?? 'automated') === 'automated',
   );
-  const text = testFiles(root).map((file) => readFileSync(file, 'utf8')).join('\n');
+  const text = testFiles(root)
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n');
   return criteria
     .map((criterion) => criterion.criterion_id ?? criterion.id)
     .filter((id) => !new RegExp(`\\b${id}(?![\\d.])`, 'u').test(text))
@@ -46,7 +48,9 @@ function check(spec, root) {
 
 const [file, root] = process.argv.slice(2);
 if (!file || file === '--help') {
-  process.stdout.write('usage: check-ac-map.mjs <specification.json> [project-root]\nprints { ok, errors, hash }\n');
+  process.stdout.write(
+    'usage: check-ac-map.mjs <specification.json> [project-root]\nprints { ok, errors, hash }\n',
+  );
   process.exitCode = file ? 0 : 2;
 } else {
   const text = readFileSync(file, 'utf8');

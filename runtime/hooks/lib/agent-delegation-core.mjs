@@ -61,9 +61,7 @@ export function delegationFromPayload(payload, now = new Date()) {
 
 export function isSameDelegation(entry) {
   return (row) =>
-    row.agent === entry.agent &&
-    row.request_id === entry.request_id &&
-    row.status === entry.status;
+    row.agent === entry.agent && row.request_id === entry.request_id && row.status === entry.status;
 }
 
 export function delegationLine(entry) {

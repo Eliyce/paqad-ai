@@ -13,7 +13,9 @@ function finish(input, errors, extra = {}) {
 
 import { fileURLToPath } from 'node:url';
 
-const RANKS_FILE = fileURLToPath(new URL('../../adversarial-review/assets/severity-ranks.txt', import.meta.url));
+const RANKS_FILE = fileURLToPath(
+  new URL('../../adversarial-review/assets/severity-ranks.txt', import.meta.url),
+);
 const RANKS = new Map(
   readFileSync(RANKS_FILE, 'utf8')
     .split('\n')
@@ -21,7 +23,11 @@ const RANKS = new Map(
     .map((line) => line.split(' '))
     .map(([name, rank]) => [name, Number(rank)]),
 );
-const JSON_RANKS = new Map([['blocker', 1], ['major', 2], ['minor', 3]]);
+const JSON_RANKS = new Map([
+  ['blocker', 1],
+  ['major', 2],
+  ['minor', 3],
+]);
 
 function lintMarkdown(body) {
   const errors = [];
@@ -71,7 +77,9 @@ function lintTemplate(template) {
 
 const file = process.argv[2];
 if (!file || file === '--help') {
-  process.stdout.write('usage: lint-findings.mjs <review-template.json | findings.md>\nprints { ok, errors, hash }\n');
+  process.stdout.write(
+    'usage: lint-findings.mjs <review-template.json | findings.md>\nprints { ok, errors, hash }\n',
+  );
   process.exitCode = file ? 0 : 2;
 } else {
   const text = readFileSync(file, 'utf8');

@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { renderClaudePluginStageAgents, writeStageAgents } from '@/stage-isolation/agent-writer';
-import { AGENT_ENTRY_MARKER_FALLBACK, MANDATORY_STAGE_AGENTS } from '@/stage-isolation/stage-agents';
+import {
+  AGENT_ENTRY_MARKER_FALLBACK,
+  MANDATORY_STAGE_AGENTS,
+} from '@/stage-isolation/stage-agents';
 
 const home = mkdtempSync(join(tmpdir(), 'paqad-agent-golden-'));
 writeStageAgents({ homeDir: home });

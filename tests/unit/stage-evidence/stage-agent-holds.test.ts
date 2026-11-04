@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
-import { runningStageOfOtherSession, startedByAnotherAgent } from '@/stage-evidence/stage-agent-holds.js';
+import {
+  runningStageOfOtherSession,
+  startedByAnotherAgent,
+} from '@/stage-evidence/stage-agent-holds.js';
 
 const T0 = Date.parse('2026-07-19T00:00:00.000Z');
 const minutes = (n: number) => T0 + n * 60_000;

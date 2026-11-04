@@ -162,9 +162,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       },
       development: {
         read: [],
-        instructions: [
-          FULL_SUITE_INSTRUCTION,
-        ],
+        instructions: [FULL_SUITE_INSTRUCTION],
         required_inputs: ['approved spec', 'implementation sequence'],
         strictness: {
           avoid_unrelated_refactors: true,
@@ -224,9 +222,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       },
       documentation_sync: {
         read: [],
-        instructions: [
-          OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
-        ],
+        instructions: [OUT_OF_SCOPE_FINDINGS_INSTRUCTION],
         required_inputs: ['changed files'],
         strictness: {
           require_canonical_sync: true,

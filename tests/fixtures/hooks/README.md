@@ -39,11 +39,11 @@ throwaway project, installs one logging hook and one stage agent, runs `claude -
 and once in `default` permission mode, and replaces the throwaway paths with `/capture/...`.
 Re-run it on each host version bump, because the fields below decide where the report comes from.
 
-| Fixture | Permission mode | Where the report is |
-| --- | --- | --- |
-| `subagent-handback.json` | `auto` | `tool_input.message` of the `SubagentHandback` PreToolUse |
-| `subagent-stop.json` | `auto` | nowhere: `last_assistant_message` is undefined |
-| `subagent-stop-text.json` | `default` | `last_assistant_message` |
+| Fixture                   | Permission mode | Where the report is                                       |
+| ------------------------- | --------------- | --------------------------------------------------------- |
+| `subagent-handback.json`  | `auto`          | `tool_input.message` of the `SubagentHandback` PreToolUse |
+| `subagent-stop.json`      | `auto`          | nowhere: `last_assistant_message` is undefined            |
+| `subagent-stop-text.json` | `default`       | `last_assistant_message`                                  |
 
 `SubagentHandback` exists only in `auto` permission mode on 2.1.302. In every other mode a stage
 agent ends in plain text and the SubagentStop payload carries the report.
@@ -60,12 +60,12 @@ call. A cold `capability-gate.mjs pre-mutation` run took about 0.2 seconds, well
 Measured live on 2.1.302 on 4 November 2026 with `node scripts/capture-hook-fixtures.mjs --probe`,
 which sends a tail canary and asks the agent what arrived:
 
-| Channel | Size | What arrived |
-| --- | --- | --- |
-| SubagentStart `additionalContext` | 9,700 characters | the whole text |
-| SubagentStart `additionalContext` | 10,001 characters | a preview, the tail lost |
-| Bash output | 27,000 and 29,000 characters | the whole text |
-| Bash output | 31,000 and 40,000 characters | a 2 KB preview and a saved file path |
+| Channel                           | Size                         | What arrived                         |
+| --------------------------------- | ---------------------------- | ------------------------------------ |
+| SubagentStart `additionalContext` | 9,700 characters             | the whole text                       |
+| SubagentStart `additionalContext` | 10,001 characters            | a preview, the tail lost             |
+| Bash output                       | 27,000 and 29,000 characters | the whole text                       |
+| Bash output                       | 31,000 and 40,000 characters | a 2 KB preview and a saved file path |
 
 So the start hook carries the brief and the recipe, kept at or under 9,700 characters, and the rest
 comes from `paqad-ai stage begin`. Its whole output stays at or under 27,000 characters, the

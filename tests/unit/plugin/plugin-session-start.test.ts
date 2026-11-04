@@ -696,7 +696,9 @@ describe('the plugin and runtime version line', () => {
     makeRuntime(plugin, '1.2.0');
     const install = join(root, 'install');
     const runtime =
-      runtimeVersion === null ? join(root, 'gone', 'runtime') : makeRuntime(install, runtimeVersion);
+      runtimeVersion === null
+        ? join(root, 'gone', 'runtime')
+        : makeRuntime(install, runtimeVersion);
     writeFileSync(join(project, '.paqad/framework-path.txt'), `${runtime}\n`);
     return { project, plugin };
   }

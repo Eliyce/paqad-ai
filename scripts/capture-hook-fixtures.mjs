@@ -110,7 +110,10 @@ function scrub(payload, root) {
     .join('/capture/project')
     .split(homedir())
     .join('/capture/home')
-    .replace(/\/capture\/home\/\.claude\/projects\/[^/"]+/gu, '/capture/home/.claude/projects/capture-project')
+    .replace(
+      /\/capture\/home\/\.claude\/projects\/[^/"]+/gu,
+      '/capture/home/.claude/projects/capture-project',
+    )
     .replaceAll('"/private/capture/project', '"/capture/project');
   return `${text}\n`;
 }

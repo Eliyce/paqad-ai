@@ -26,7 +26,9 @@ function check(plan) {
   plan.steps.forEach((step, index) => {
     const name = step?.id ?? `step ${index + 1}`;
     if (!VERDICTS.has(step?.classification)) {
-      errors.push(`${name} has no keep-or-drop verdict: set classification to one of ${[...VERDICTS].join(', ')}`);
+      errors.push(
+        `${name} has no keep-or-drop verdict: set classification to one of ${[...VERDICTS].join(', ')}`,
+      );
     }
   });
   return errors;
