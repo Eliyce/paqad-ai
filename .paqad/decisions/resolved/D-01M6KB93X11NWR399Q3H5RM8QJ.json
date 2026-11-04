@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6KB93X11NWR399Q3H5RM8QJ",
+  "category": "architecture-path",
+  "title": "Item 7: frozen 1.120.0 stamp or no version at all",
+  "context": "The issue says take the version out of .config.example and hook.mjs. Released paqad treats a missing stamp as not newer and would overwrite those files. The plan proposed one frozen 1.120.0 value in each.",
+  "options": [
+    {
+      "option_key": "frozen",
+      "label": "Keep the one frozen 1.120.0 value",
+      "one_line_preview": "Keep the one frozen 1.120.0 value",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove-fully",
+      "label": "Take the version out completely and accept that 1.119.0 and older overwrite these files",
+      "one_line_preview": "Take the version out completely and accept that 1.119.0 and older overwrite these files",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "frozen",
+  "created_at": "2026-11-04T13:16:53.537Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "remove-fully",
+  "rationale": "Owner, relayed by the orchestrator: \"No body is using this now or updated so we can remove it fully, I do not want to pollute the file\". Overrules the plan and the chief recommendation. No frozen literal in .config.example or hook.mjs. Protection against released versions is knowingly dropped; new code uses catalog_version, the launcher revision and schema_version.",
+  "resolved_at": "2026-11-04T13:17:18.604Z",
+  "decision_id": "D-01M6KB93X11NWR399Q3H5RM8QJ",
+  "fingerprint": "sha256:b25c5bd45a4b792d71d65c69bdd3bf2dc8beb5a6fb4b4f60c2116a0db5bcbefe",
+  "question": "Item 7: frozen 1.120.0 stamp or no version at all",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2027-02-02T13:16:53.537Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "remove-fully",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:18.604Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"No body is using this now or updated so we can remove it fully, I do not want to pollute the file\". Overrules the plan and the chief recommendation. No frozen literal in .config.example or hook.mjs. Protection against released versions is knowingly dropped; new code uses catalog_version, the launcher revision and schema_version."
+  }
+}

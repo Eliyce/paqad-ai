@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6KB95WWR9H5GY0N7CFXSX0W",
+  "category": "intake.requirement",
+  "title": "Plugin-only teammates committing from a plain terminal",
+  "context": "Both hook lines run only when paqad-ai is on the PATH, so on a plugin-only install a bad commit from a plain terminal passes silently after doctor has gone green.",
+  "options": [
+    {
+      "option_key": "accept-document",
+      "label": "Accept for now, state the limit in the advice and docs, and file a follow-up",
+      "one_line_preview": "Accept for now, state the limit in the advice and docs, and file a follow-up",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-now",
+      "label": "Fix it in this PR",
+      "one_line_preview": "Fix it in this PR",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "accept-silent",
+      "label": "Accept it and say nothing",
+      "one_line_preview": "Accept it and say nothing",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "accept-document",
+  "created_at": "2026-11-04T13:16:55.580Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "accept-document",
+  "rationale": "Owner, relayed by the orchestrator: \"Accept and document\". State the limit in the advice and docs; the orchestrator files the follow-up issue.",
+  "resolved_at": "2026-11-04T13:17:20.645Z",
+  "decision_id": "D-01M6KB95WWR9H5GY0N7CFXSX0W",
+  "fingerprint": "sha256:07c03253b9f7cb456197bce05352a1b5e129344ab544002183eac897be7f7351",
+  "question": "Plugin-only teammates committing from a plain terminal",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2026-11-18T13:16:55.580Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "accept-document",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:20.645Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"Accept and document\". State the limit in the advice and docs; the orchestrator files the follow-up issue."
+  }
+}

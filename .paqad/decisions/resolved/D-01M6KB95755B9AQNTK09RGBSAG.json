@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6KB95755B9AQNTK09RGBSAG",
+  "category": "intake.requirement",
+  "title": "What finished means for item 7",
+  "context": "A real next release does not exist before merge, and a packed build does not prove the plugin install or the session PATH of item 9.",
+  "options": [
+    {
+      "option_key": "simulated-then-recheck",
+      "label": "Merge on the simulated release and keep named checks open for the first real release",
+      "one_line_preview": "Merge on the simulated release and keep named checks open for the first real release",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold-open",
+      "label": "Hold the issue open until a real release run",
+      "one_line_preview": "Hold the issue open until a real release run",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "simulated-only",
+      "label": "The simulated release is enough, with no later check",
+      "one_line_preview": "The simulated release is enough, with no later check",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "simulated-then-recheck",
+  "created_at": "2026-11-04T13:16:54.886Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "simulated-then-recheck",
+  "rationale": "Owner, relayed by the orchestrator: \"Simulated, then recheck\". Merge on a packed-build simulation; named checks stay open for the owner on the first real release.",
+  "resolved_at": "2026-11-04T13:17:19.965Z",
+  "decision_id": "D-01M6KB95755B9AQNTK09RGBSAG",
+  "fingerprint": "sha256:fc402706a3915fb68ca576d656f43f54291edbed27d1f676c530007d85706d1f",
+  "question": "What finished means for item 7",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2026-11-18T13:16:54.886Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "simulated-then-recheck",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:19.965Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"Simulated, then recheck\". Merge on a packed-build simulation; named checks stay open for the owner on the first real release."
+  }
+}

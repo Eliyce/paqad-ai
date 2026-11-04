@@ -44,7 +44,9 @@ import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { LEGACY_MCP_OUTPUT_PATHS } from '@/mcp/config-manager.js';
 import {
   cleanObsoleteWorkflowRules,
+  KEPT_RULE_WITH_SHIPPED_LINES,
   OBSOLETE_WORKFLOW_RULES,
+  repairKeptRuleLines,
 } from '@/onboarding/obsolete-cleanup.js';
 import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-development-view.js';
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
@@ -114,6 +116,11 @@ export function withoutRemovedRetiredFiles<T extends { path: string }>(
     (artifact) => !RETIRED_FILES.includes(toPosixPath(artifact.path)) || fileExists(artifact.path),
   );
 }
+
+const REMOVED_WORKFLOW_FILES: readonly string[] = [
+  OLD_DELIVERY_POLICY,
+  FEATURE_DEVELOPMENT_VIEW_RELATIVE,
+];
 
 const TRACKED_UPDATE_FILES: readonly string[] = [
   PATHS.ONBOARDING_MANIFEST,
@@ -267,9 +274,17 @@ export class FrameworkUpdater {
     const mapWasCurrent = isRuleScriptMapCurrent(projectRoot);
     const ruleCleanup = cleanObsoleteWorkflowRules(projectRoot);
     gitWorkflowNotes.push(...ruleCleanup.lines);
-    if (ruleCleanup.removed.length > 0) {
+    const ruleRepair = repairKeptRuleLines(
+      projectRoot,
+      candidates.find((candidate) => toPosixPath(candidate.path) === KEPT_RULE_WITH_SHIPPED_LINES)
+        ?.content ?? null,
+      REMOVED_WORKFLOW_FILES.filter((path) => !existsSync(join(projectRoot, path))),
+    );
+    gitWorkflowNotes.push(...ruleRepair.lines);
+    refreshSkippedEntries(projectRoot, skipped, ruleRepair.repaired);
+    if (ruleCleanup.removed.length > 0 || ruleRepair.repaired.length > 0) {
       try {
-        dropRuleScriptMapSources(projectRoot, ruleCleanup.removed, mapWasCurrent);
+        dropRuleScriptMapSources(projectRoot, ruleCleanup.removed, mapWasCurrent, ruleRepair.texts);
       } catch (error) {
         gitWorkflowNotes.push(
           `Couldn't drop the removed rule files from the rule-script map: ${error instanceof Error ? error.message : 'unknown error'}.`,
@@ -329,6 +344,7 @@ export class FrameworkUpdater {
       changed_files: [
         ...new Set([
           ...filesChangedSince(projectRoot, filesBefore),
+          ...ruleRepair.repaired,
           ...(teamSetup?.report.written ?? []),
           ...(teamSetup?.report.removed ?? []),
         ]),
@@ -378,6 +394,21 @@ export class FrameworkUpdater {
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  }
+}
+
+function refreshSkippedEntries(
+  projectRoot: string,
+  skipped: UpdateDiff[],
+  repaired: readonly string[],
+): void {
+  for (const path of repaired) {
+    const index = skipped.findIndex((entry) => entry.path === path);
+    if (index < 0) continue;
+    const entry = skipped[index]!;
+    const before = readFileSync(join(projectRoot, path), 'utf8');
+    if (before === entry.after) skipped.splice(index, 1);
+    else skipped[index] = { ...entry, before };
   }
 }
 

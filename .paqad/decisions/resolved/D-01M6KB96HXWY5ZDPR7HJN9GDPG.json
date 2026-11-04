@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6KB96HXWY5ZDPR7HJN9GDPG",
+  "category": "intake.requirement",
+  "title": "Item 4: wording of the tracked hooks advice",
+  "context": "The issue gives one place for the lines, but commit-msg and pre-push need different lines. .husky/_ files may also be overwritten by husky; no seat ran husky.",
+  "options": [
+    {
+      "option_key": "keep-words-one-per-hook",
+      "label": "Keep the issue's words, list each hook with its own line, name the lasting file only if a real husky run proves it",
+      "one_line_preview": "Keep the issue's words, list each hook with its own line, name the lasting file only if a real husky run proves it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "always-tracked-folder",
+      "label": "List each hook with its own line but always name the file in the tracked folder",
+      "one_line_preview": "List each hook with its own line but always name the file in the tracked folder",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "exact",
+      "label": "Use the issue's wording exactly",
+      "one_line_preview": "Use the issue's wording exactly",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep-words-one-per-hook",
+  "created_at": "2026-11-04T13:16:56.253Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "keep-words-one-per-hook",
+  "rationale": "Owner, relayed by the orchestrator: \"Keep words, one per hook\". Keep the issue sentences, list only the missing lines, one per hook. Name .husky/commit-msg and .husky/pre-push only if a real husky run proves them; that run happens in development before item 4 is coded.",
+  "resolved_at": "2026-11-04T13:17:21.324Z",
+  "decision_id": "D-01M6KB96HXWY5ZDPR7HJN9GDPG",
+  "fingerprint": "sha256:6a15f9b92b224c09dd20bf2ba177ede8d7c3e245d43ecc4318539a567673ece1",
+  "question": "Item 4: wording of the tracked hooks advice",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2026-11-18T13:16:56.253Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "keep-words-one-per-hook",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:21.324Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"Keep words, one per hook\". Keep the issue sentences, list only the missing lines, one per hook. Name .husky/commit-msg and .husky/pre-push only if a real husky run proves them; that run happens in development before item 4 is coded."
+  }
+}

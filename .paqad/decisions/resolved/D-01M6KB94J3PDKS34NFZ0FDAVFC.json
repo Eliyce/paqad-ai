@@ -1,0 +1,61 @@
+{
+  "id": "D-01M6KB94J3PDKS34NFZ0FDAVFC",
+  "category": "intake.requirement",
+  "title": "Projects already on 1.119.0: repair or not",
+  "context": "Projects already on 1.119.0 keep the false changed-outside warning, the duplicate ai_attribution line and the old stub text after items 3 and 5.",
+  "options": [
+    {
+      "option_key": "prove-then-repair",
+      "label": "Repair only when the file provably holds only paqad's change, otherwise give the command",
+      "one_line_preview": "Repair only when the file provably holds only paqad's change, otherwise give the command",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-repair-command",
+      "label": "Do not repair; give the exact command",
+      "one_line_preview": "Do not repair; give the exact command",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "release-note",
+      "label": "Leave them and mention it in the release note",
+      "one_line_preview": "Leave them and mention it in the release note",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "No repair code for 1.119.0 projects; the owner re-runs update from a clean start",
+      "one_line_preview": "No repair code for 1.119.0 projects; the owner re-runs update from a clean start",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "prove-then-repair",
+  "created_at": "2026-11-04T13:16:54.211Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "other",
+  "rationale": "Owner, relayed by the orchestrator: \"i'll run update newly way with commit so everything will be from start\". Repair path dropped.",
+  "resolved_at": "2026-11-04T13:17:19.292Z",
+  "decision_id": "D-01M6KB94J3PDKS34NFZ0FDAVFC",
+  "fingerprint": "sha256:86366a1f26a17897f45da146d86254fee3271d767d8e1af185f228472cf92e70",
+  "question": "Projects already on 1.119.0: repair or not",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2026-11-18T13:16:54.211Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:19.292Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"i'll run update newly way with commit so everything will be from start\". Repair path dropped."
+  }
+}

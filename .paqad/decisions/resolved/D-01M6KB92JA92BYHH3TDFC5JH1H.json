@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6KB92JA92BYHH3TDFC5JH1H",
+  "category": "architecture-path",
+  "title": "Item 10: what happens to the 11 settings nothing reads",
+  "context": "Item 10: 11 registry settings have no reader. Removing a registry setting is a decision pause under config-visibility. Settings: research_depth, full_lane_default, require_adversarial_review, block_on_stale_docs, require_db_review_for_migrations, escalate_destructive_operations, escalate_risky_migrations, escalate_security_findings, escalate_db_row_threshold, decisions_max_screens_per_task, decisions_idle_timeout_minutes.",
+  "options": [
+    {
+      "option_key": "keep",
+      "label": "Keep them flagged as unused and decide each in a follow-up",
+      "one_line_preview": "Keep them flagged as unused and decide each in a follow-up",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove-all",
+      "label": "Remove them all in this PR",
+      "one_line_preview": "Remove them all in this PR",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "wire-some",
+      "label": "Make some of them work",
+      "one_line_preview": "Make some of them work",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep",
+  "created_at": "2026-11-04T13:16:52.170Z",
+  "status": "resolved",
+  "change": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "chosen": "remove-all",
+  "rationale": "Owner, relayed by the orchestrator: \"I want to remove all, but I want to make sure code is ready the yaml\". Follow-up: \"Remove line, say so\". Remove all 11 from the registry, TEAM_CONFIG_HOMES, schemas, defaults, README and KNOB_CONSUMERS. Update deletes a live line once, names it, and doctor stays quiet afterwards. YAML already holding them keeps loading with no error.",
+  "resolved_at": "2026-11-04T13:17:17.177Z",
+  "decision_id": "D-01M6KB92JA92BYHH3TDFC5JH1H",
+  "fingerprint": "sha256:ee9db8864b87197d6e6148f6372a5771a765732a6de8b51a92b517c659cf3976",
+  "question": "Item 10: what happens to the 11 settings nothing reads",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6K92PZ1DDTQ0Y221RS8QRK3",
+  "ttl_until": "2027-02-02T13:16:52.170Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "remove-all",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T13:17:17.177Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, relayed by the orchestrator: \"I want to remove all, but I want to make sure code is ready the yaml\". Follow-up: \"Remove line, say so\". Remove all 11 from the registry, TEAM_CONFIG_HOMES, schemas, defaults, README and KNOB_CONSUMERS. Update deletes a live line once, names it, and doctor stays quiet afterwards. YAML already holding them keeps loading with no error."
+  }
+}

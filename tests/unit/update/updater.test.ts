@@ -692,6 +692,103 @@ describe('FrameworkUpdater', () => {
     }
   });
 
+  describe('repairing kept rule lines on update', () => {
+    const RULE = 'docs/instructions/rules/coding/feature-development.md';
+    const OLD_DELIVERY =
+      'When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`).';
+    const NEW_DELIVERY = 'When the change is delivered, follow the team files.';
+    const candidate = {
+      path: RULE,
+      content: `# Shipped\n\n${NEW_DELIVERY}\n`,
+      autoUpdate: false,
+    };
+    const run = () =>
+      new FrameworkUpdater({ generateCandidates: async () => [candidate] }).run(projectRoot);
+    const events = (): { action: string; rule_ids: string[] }[] =>
+      readFileSync(join(projectRoot, '.paqad/scripts/rules/.history/events.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as { action: string; rule_ids: string[] });
+
+    function place(content: string): void {
+      mkdirSync(dirname(join(projectRoot, RULE)), { recursive: true });
+      writeFileSync(join(projectRoot, RULE), content);
+    }
+
+    it('AC-1: lists a repair-only change, refreshes the kept entry and settles', async () => {
+      place(`# Rule\n\n${OLD_DELIVERY}\n`);
+      const first = await run();
+      expect(first.changed_files).toContain(RULE);
+      expect(first.skipped.find((entry) => entry.path === RULE)?.before).toBe(
+        `# Rule\n\n${NEW_DELIVERY}\n`,
+      );
+      expect(readFileSync(join(projectRoot, RULE), 'utf8')).not.toContain(
+        'docs/instructions/workflows',
+      );
+      const second = await run();
+      expect(second.changed_files).toEqual([]);
+    });
+
+    it('AC-4: a team line keeps the rule file hash and is named on the second run too', async () => {
+      place(`# Rule\n\n- Read \`docs/instructions/workflows/delivery-policy.yaml\` first.\n`);
+      compileRuleScripts(projectRoot);
+      const hash = loadRuleScriptMap(projectRoot)!.rule_files_hash;
+      const note = `${RULE} still mentions docs/instructions/workflows/delivery-policy.yaml, which paqad removed. Update that line by hand.`;
+      expect((await run()).git_workflow_notes).toContain(note);
+      const second = await run();
+      expect(second.git_workflow_notes).toContain(note);
+      expect(second.changed_files).toEqual([]);
+      expect(loadRuleScriptMap(projectRoot)!.rule_files_hash).toBe(hash);
+    });
+
+    it('updates the map entry of a marked line, so it reconciles and the map stays current', async () => {
+      place(`# Rule\n\n- Keep me.\n`);
+      compileRuleScripts(projectRoot);
+      const map = loadRuleScriptMap(projectRoot)!;
+      const id = 'RL-ab12';
+      applyRuleScriptMap({
+        projectRoot,
+        map: {
+          ...map,
+          rules: [
+            ...map.rules,
+            {
+              id,
+              source: RULE,
+              text: `${OLD_DELIVERY}`,
+              text_hash: 'stale',
+              verifiability: { kind: 'heuristic' },
+              enforced_by: [],
+              scripts: [],
+            },
+          ],
+        },
+        via: 'test',
+        event: { action: 'generate', rule_ids: [id] },
+      });
+      const body = readFileSync(join(projectRoot, RULE), 'utf8');
+      place(`${body}\n- ${OLD_DELIVERY} <!-- @rule ${id} -->\n`);
+      compileRuleScripts(projectRoot);
+      await new FrameworkUpdater({
+        generateCandidates: async () => [{ ...candidate, content: `- ${NEW_DELIVERY}\n` }],
+      }).run(projectRoot);
+      expect(reconcileRuleScripts(projectRoot).findings.filter((f) => f.rule_id === id)).toEqual(
+        [],
+      );
+      expect(isRuleScriptMapStale(projectRoot)).toBe(false);
+    });
+
+    it('writes no empty remove event when a repair is the only change', async () => {
+      place(`# Rule\n\n- Keep me.\n\n${OLD_DELIVERY}\n`);
+      compileRuleScripts(projectRoot);
+      await run();
+      expect(isRuleScriptMapStale(projectRoot)).toBe(false);
+      expect(
+        events().filter((event) => event.action === 'remove' && event.rule_ids.length === 0),
+      ).toEqual([]);
+    });
+  });
+
   describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };

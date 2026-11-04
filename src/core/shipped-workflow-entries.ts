@@ -1,4 +1,4 @@
-import { sha256 } from '@/rule-scripts/rule-id.js';
+import { sha256, stripRuleMarker } from '@/rule-scripts/rule-id.js';
 
 export type ShippedWorkflowEntryKind = 'instructions' | 'read';
 
@@ -105,6 +105,21 @@ export const SHIPPED_WORKFLOW_ENTRIES: ShippedWorkflowEntries = {
     read: [],
   },
 };
+
+const STAGE_DEFINITION_LINE_START = 'The definition of these stages is ';
+const DELIVERY_LINE_START = 'When the change is delivered, follow ';
+
+export const SHIPPED_RULE_LINES: Readonly<Record<string, string>> = {
+  cc6bf55c079e2de3d681f74f20db927d587a666635fc68a7b4bf6a8535005a5a: STAGE_DEFINITION_LINE_START,
+  '203fd3ff0d91a615cbf338f0e9f94d149e5e317d07522cb9366853d6cd822ec8': STAGE_DEFINITION_LINE_START,
+  '793fe5a5d156fd52ccf77c7c5433b1d48925e5a229806f9ff043f4e34835c4ba': DELIVERY_LINE_START,
+  '5e389792ed0469b8edcb2e07a5a6a61cd498dd5398607183f86faf0568094331': DELIVERY_LINE_START,
+  '9485b127af47e5a2aa88686f49686465a7935d4a02dd19e5e0d191eb6a5ca3d4': DELIVERY_LINE_START,
+};
+
+export function shippedRuleLineStart(line: string): string | null {
+  return SHIPPED_RULE_LINES[shippedWorkflowEntryHash(stripRuleMarker(line).text)] ?? null;
+}
 
 export function shippedWorkflowEntryHash(text: string): string {
   return sha256(text.replace(/\s+/gu, ' ').trim());
