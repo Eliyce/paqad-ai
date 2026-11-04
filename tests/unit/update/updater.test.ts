@@ -1011,6 +1011,22 @@ describe('FrameworkUpdater', () => {
       expect(git('status', '--porcelain')).toBe('');
     });
 
+    it('FR-47: names the record only when it exists, so git add does not fail on it', async () => {
+      await run();
+      rmSync(join(projectRoot, RECORD));
+      const path = join(projectRoot, OLD_TEAM);
+      writeFileSync(path, read(OLD_TEAM).replace('schema_version: 1', 'paqad_version: "1.119.0"'));
+      writeFileSync(
+        join(projectRoot, '.paqad/project-profile.yaml'),
+        read('.paqad/project-profile.yaml').replace('domain: coding', 'domain: content'),
+      );
+      const line = ((await run()).git_workflow_notes ?? []).find((note) =>
+        note.startsWith('Commit '),
+      );
+      expect(line).toContain(OLD_TEAM);
+      expect(line).not.toContain('.last-applied.json');
+    });
+
     it('NFR-3: a CRLF copy keeps its line ends through the swap, and the second run writes nothing', async () => {
       await run();
       const path = join(projectRoot, OLD_TEAM);

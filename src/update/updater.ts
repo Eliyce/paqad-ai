@@ -428,8 +428,9 @@ function toTeamRelative(projectRoot: string, path: string): string {
 }
 
 function commitLine(projectRoot: string, files: readonly string[]): string {
-  const record = toTeamRelative(projectRoot, lastAppliedPath(projectRoot));
-  return `Commit ${[...files, record].join(', ')} together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.`;
+  const record = lastAppliedPath(projectRoot);
+  const named = existsSync(record) ? [...files, toTeamRelative(projectRoot, record)] : files;
+  return `Commit ${named.join(', ')} together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.`;
 }
 
 function updateGitWorkflow(projectRoot: string): string[] {
