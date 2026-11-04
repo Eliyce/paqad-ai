@@ -35,6 +35,7 @@ import {
   migrateTeamConfig,
 } from '@/core/team-config-migrate.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
+import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
 import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
 function writeOldLeftovers(projectRoot: string): void {
@@ -786,6 +787,107 @@ describe('FrameworkUpdater', () => {
       expect(
         events().filter((event) => event.action === 'remove' && event.rule_ids.length === 0),
       ).toEqual([]);
+    });
+  });
+
+  describe('the attribution setting moved by the first update', () => {
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+    const POLICY = 'docs/instructions/workflows/delivery-policy.yaml';
+    const COMMENT = '# ai_attribution: strip';
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const read = (rel: string) => readFileSync(join(projectRoot, rel), 'utf8');
+    const put = (rel: string, text: string) => {
+      mkdirSync(dirname(join(projectRoot, rel)), { recursive: true });
+      writeFileSync(join(projectRoot, rel), text);
+    };
+    const oldProject = (value: string, policy = true) => {
+      put('.paqad/configs/.config.policy', `ai_attribution=${value}\n`);
+      if (policy) put(POLICY, 'branch:\n  base: main\n');
+    };
+    const liveLines = () =>
+      read(COMMITS)
+        .split(/\r?\n/u)
+        .filter((line) => /^ai_attribution\s*:/u.test(line));
+
+    it.each([['strip'], ['keep']])(
+      'AC-9: %s with a delivery-policy file gives one live line, no comment and no outside change',
+      async (value) => {
+        oldProject(value);
+        await run();
+        expect(liveLines()).toEqual([`ai_attribution: ${value}`]);
+        expect(read(COMMITS)).not.toContain(COMMENT);
+        expect(changedOutside(projectRoot)).toEqual([]);
+      },
+    );
+
+    it('AC-10: without a delivery-policy file it gives the same result', async () => {
+      oldProject('strip', false);
+      await run();
+      expect(liveLines()).toEqual(['ai_attribution: strip']);
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('AC-10: with no record at the start the file stays unstamped and warns', async () => {
+      oldProject('strip', false);
+      const dir = '.paqad/configs/git-workflow';
+      put(`${dir}/commits.yaml`, 'template: "{ticket}: {summary}"\n');
+      expect(existsSync(join(projectRoot, dir, '.last-applied.json'))).toBe(false);
+      const out = migrateTeamConfig(projectRoot, { version: VERSION });
+      expect(out.ran).toBe(true);
+      expect(existsSync(join(projectRoot, dir, '.last-applied.json'))).toBe(false);
+      expect(changedOutside(projectRoot)).toContain('commits.yaml');
+    });
+
+    it('AC-10: a hand edit before the update keeps its warning', async () => {
+      await run();
+      put(COMMITS, `${read(COMMITS)}# edited by hand\n`);
+      put('.paqad/configs/.config.policy', 'ai_attribution=strip\n');
+      await run();
+      expect(changedOutside(projectRoot)).toEqual(['commits.yaml']);
+      expect(read(COMMITS)).toContain('# edited by hand');
+    });
+
+    it('AC-10: a team comment beside the block survives', async () => {
+      await run();
+      const team = read(COMMITS).replace(COMMENT, `${COMMENT}\n# our note about this`);
+      put(COMMITS, team);
+      stampLastApplied(projectRoot, ['commits.yaml']);
+      put('.paqad/configs/.config.policy', 'ai_attribution=keep\n');
+      await run();
+      expect(read(COMMITS)).toContain('# our note about this');
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(liveLines()).toEqual(['ai_attribution: keep']);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('AC-9: holds with CRLF in the committed file', async () => {
+      await run();
+      put(COMMITS, read(COMMITS).replace(/\n/gu, '\r\n'));
+      stampLastApplied(projectRoot, ['commits.yaml']);
+      put('.paqad/configs/.config.policy', 'ai_attribution=strip\n');
+      await run();
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(liveLines()).toEqual(['ai_attribution: strip']);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('keeps the block when the migration has no live value', async () => {
+      await run();
+      const before = read(COMMITS);
+      put('.paqad/configs/.config.policy', 'rag_top_n=9\n');
+      const out = migrateTeamConfig(projectRoot, { version: VERSION });
+      expect(out.ran).toBe(true);
+      expect(read(COMMITS)).toBe(before);
+    });
+
+    it('stamps nothing on a dry run', async () => {
+      oldProject('strip', false);
+      await run();
+      const record = read('.paqad/configs/git-workflow/.last-applied.json');
+      put('.paqad/configs/.config.policy', 'ai_attribution=keep\n');
+      migrateTeamConfig(projectRoot, { version: VERSION, dryRun: true });
+      expect(read('.paqad/configs/git-workflow/.last-applied.json')).toBe(record);
     });
   });
 

@@ -152,6 +152,17 @@ export const AI_ATTRIBUTION_COMMENT_LINES = [
   '# ai_attribution: strip',
 ] as const;
 
+const AI_ATTRIBUTION_COMMENT_BLOCK = new RegExp(
+  `(?<=^|\\n)(?:\\r?\\n)?${AI_ATTRIBUTION_COMMENT_LINES.map((line) =>
+    line.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'),
+  ).join('\\r?\\n')}(?:\\r?\\n|$)`,
+  'u',
+);
+
+export function removeAiAttributionComment(text: string): string {
+  return text.replace(AI_ATTRIBUTION_COMMENT_BLOCK, '');
+}
+
 const COMMITS_YAML = `# How commit messages are written.
 #
 # template placeholders: {ticket} {summary} {type} {scope} {title}

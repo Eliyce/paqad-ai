@@ -7,8 +7,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
 import {
-  AI_ATTRIBUTION_COMMENT_LINES,
   DEFAULT_TRACKER_PATTERNS,
+  removeAiAttributionComment,
   renderDefaultGitWorkflowFile,
 } from './defaults.js';
 import { stampLastApplied } from './last-applied.js';
@@ -266,11 +266,12 @@ export function gitWorkflowFilesAbsent(projectRoot: string): boolean {
 function keepAiAttribution(projectRoot: string, files: Record<GitWorkflowFile, string>): void {
   const kept = readSettings(gitWorkflowFilePath(projectRoot, 'commits.yaml'))?.ai_attribution;
   if (kept !== undefined) {
-    const withoutComment = files['commits.yaml'].replace(
-      `\n${AI_ATTRIBUTION_COMMENT_LINES.join('\n')}\n`,
-      '',
+    files['commits.yaml'] = insertKey(
+      removeAiAttributionComment(files['commits.yaml']),
+      [],
+      'ai_attribution',
+      kept,
     );
-    files['commits.yaml'] = insertKey(withoutComment, [], 'ai_attribution', kept);
   }
 }
 

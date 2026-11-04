@@ -5,6 +5,8 @@ import { dirname, join, relative } from 'node:path';
 import YAML from 'yaml';
 
 import { peekActiveChangeKey } from '@/feature-evidence/stage-ledger.js';
+import { removeAiAttributionComment } from '@/git-workflow/defaults.js';
+import { changedOutside, readLastApplied, stampLastApplied } from '@/git-workflow/last-applied.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import {
   FEATURE_DEVELOPMENT_VIEW_RELATIVE,
@@ -345,6 +347,17 @@ function stubText(version: string, teamMinimum: string | undefined, unknown: Set
   ].join('\n');
 }
 
+function commitsText(document: YAML.Document): string {
+  const text = document.toString({ lineWidth: 0 });
+  return document.has('ai_attribution') ? removeAiAttributionComment(text) : text;
+}
+
+function commitsStampIsTrusted(projectRoot: string): boolean {
+  return (
+    readLastApplied(projectRoot) !== null && !changedOutside(projectRoot).includes('commits.yaml')
+  );
+}
+
 function isTracked(projectRoot: string, relativePath: string): boolean {
   try {
     execFileSync('git', ['ls-files', '--error-unmatch', relativePath], {
@@ -549,7 +562,7 @@ export function migrateTeamConfig(
       path: teamConfigPath(projectRoot, file),
       text:
         file === GIT_WORKFLOW_COMMITS_FILE
-          ? document.toString({ lineWidth: 0 })
+          ? commitsText(document)
           : renderTeamConfigFile(file, document, version),
       existed,
     });
@@ -572,6 +585,8 @@ export function migrateTeamConfig(
   if (deleteView) result.deleted.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
 
   if (!dryRun) {
+    const stampCommits =
+      documents.has(GIT_WORKFLOW_COMMITS_FILE) && commitsStampIsTrusted(projectRoot);
     try {
       for (const write of writes) {
         mkdirSync(dirname(write.path), { recursive: true });
@@ -589,6 +604,7 @@ export function migrateTeamConfig(
       return result;
     }
     for (const path of toDelete) rmSync(path, { force: true });
+    if (stampCommits) stampLastApplied(projectRoot, ['commits.yaml'], { version });
   }
 
   for (const path of result.created) result.lines.push(`Created ${path}`);
