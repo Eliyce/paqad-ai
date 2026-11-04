@@ -277,6 +277,24 @@ function writtenVersion(document: YAML.Document): string | undefined {
   return typeof version === 'string' && /^\d+\.\d+\.\d+/u.test(version) ? version : undefined;
 }
 
+function replaceRetiredValues(
+  file: OwnTeamConfigFile,
+  document: YAML.Document,
+  notes: string[],
+): void {
+  for (const spec of FRAMEWORK_CONFIG_SPECS) {
+    if (spec.file !== file) continue;
+    const value: unknown = document.getIn([...spec.path]);
+    if (typeof value !== 'string') continue;
+    const replacement = spec.yaml?.retiredValues?.get(value.trim());
+    if (replacement === undefined) continue;
+    document.setIn([...spec.path], replacement);
+    notes.push(
+      `${PATHS.PROJECT_CONFIGS_DIR}/${file}: ${spec.path.join('.')} was ${value.trim()}, which this check doesn't have any more, so it is now ${replacement}.`,
+    );
+  }
+}
+
 export function syncTeamConfigFiles(
   projectRoot: string,
   problems: string[] = [],
@@ -300,6 +318,7 @@ export function syncTeamConfigFiles(
     }
     const stamped = writtenVersion(document);
     if (stamped !== undefined && !versionAtLeast(version, stamped)) continue;
+    replaceRetiredValues(file, document, problems);
     if (renderTeamConfigFile(file, document, stamped ?? version) === text) continue;
     writeFileSync(path, renderTeamConfigFile(file, document, version), 'utf8');
     written.push(path);

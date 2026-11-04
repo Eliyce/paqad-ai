@@ -129,7 +129,11 @@ Source directories owned by this feature:
   file from its live values, so it lists every setting commented out with its default. It writes a
   file only when its text changes, names each rewritten file in the update output, and names (and
   leaves untouched) a file that isn't valid YAML or isn't a map. `update` never writes a default as
-  a live value, so a new setting's default reaches the team through the code.
+  a live value, so a new setting's default reaches the team through the code. The one exception is
+  a value paqad retired (`retiredValueMap` in `src/core/team-config-values.ts`): the sync replaces
+  it with its current value and adds one line to the update output. Until then paqad reads it as
+  the current value and doesn't report it as invalid. `legacy_existence_check: strict` is the only
+  one so far and becomes `warn`, because that check never blocks a change.
 - After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
   It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
   instead of running on defaults and updates on its next check. Every current reader (the CLI, the
