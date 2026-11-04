@@ -5,6 +5,9 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
+import { runSetup } from '@/cli/commands/git-workflow.js';
+import { putGitWorkflowFile } from '@/dashboard/config-git-workflow.js';
+import { applyChange } from '@/git-workflow/change.js';
 import { gitWorkflowHealth } from '@/health/git-workflow-check.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { FrameworkUpdater } from '@/update/index.js';
@@ -96,6 +99,90 @@ describe('a delivery move held back by a commit settings file', () => {
     expect(read(COMMITS)).toBe(text);
     expect(existsSync(join(root, DIR, 'tickets.yaml'))).toBe(true);
     expect(read(POLICY)).toBe(POLICY_TEXT);
+  });
+
+  const REFUSAL = `${POLICY} hasn't moved yet, so this wasn't changed. Run paqad-ai update first.`;
+  const shell = { run: async () => ({ stdout: '', stderr: '', exitCode: 0 }) };
+
+  describe.each([
+    ['a higher stamp alone', 'schema_version: 2\n', 'was written by a newer paqad'],
+    ['an unreadable old stamp', 'paqad_version: banana\n', "can't read"],
+    ['no stamp problem', null, null],
+  ])('while a move is pending, with %s', (_name, text, blockWords) => {
+    function arrange(): void {
+      if (text !== null) put(COMMITS, text);
+    }
+
+    async function expectNothingWrittenThenMoved(): Promise<void> {
+      if (text === null) expect(existsSync(join(root, COMMITS))).toBe(false);
+      else expect(read(COMMITS)).toBe(text);
+      for (const file of OTHERS) expect(existsSync(join(root, DIR, file))).toBe(false);
+      expect(read(POLICY)).toBe(POLICY_TEXT);
+      if (text !== null) put(COMMITS, 'schema_version: 1\n');
+      await update();
+      expect(existsSync(join(root, POLICY))).toBe(false);
+      expect(YAML.parse(read(`${DIR}/pull-requests.yaml`))).toMatchObject({ draft: true });
+    }
+
+    function expectNamed(message: string): void {
+      expect(message).toContain(REFUSAL);
+      if (blockWords !== null) {
+        expect(message).toContain(blockWords);
+        expect(message.indexOf(blockWords)).toBeLessThan(message.indexOf(REFUSAL));
+      }
+    }
+
+    it('AC-18: a git workflow change refuses, and the rules move on the next update', async () => {
+      arrange();
+      const outcome = applyChange(root, [
+        { file: 'enforcement.yaml', path: ['agents'], value: 'warn' },
+      ]);
+      expect(outcome.valid).toBe(false);
+      expect(outcome.written).toEqual([]);
+      expectNamed(outcome.errors.map((error) => error.message).join(' '));
+      await expectNothingWrittenThenMoved();
+    });
+
+    it('AC-18: setup refuses even with overwrite, and the rules move on the next update', async () => {
+      arrange();
+      put('answers.json', '{"choices":{}}');
+      const result = await runSetup({
+        projectRoot: root,
+        shell,
+        answersFile: 'answers.json',
+        overwrite: true,
+      });
+      expect(result.exitCode).toBe(1);
+      const out = JSON.parse(result.stdout) as { error: string; written: string[] };
+      expect(out.written).toEqual([]);
+      expectNamed(out.error);
+      await expectNothingWrittenThenMoved();
+    });
+
+    it('AC-18: a dashboard save refuses, and the rules move on the next update', async () => {
+      arrange();
+      let message = '';
+      try {
+        putGitWorkflowFile(root, 'enforcement.yaml', {
+          content: 'enabled: false\n',
+          baseHash: null,
+        });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expectNamed(message);
+      await expectNothingWrittenThenMoved();
+    });
+  });
+
+  it('a change still works once no move is pending', () => {
+    put(`${DIR}/enforcement.yaml`, 'schema_version: 1\nenabled: true\nagents: block\n');
+    rmSync(join(root, POLICY));
+    const outcome = applyChange(root, [
+      { file: 'enforcement.yaml', path: ['agents'], value: 'warn' },
+    ]);
+    expect(outcome.valid).toBe(true);
+    expect(YAML.parse(read(`${DIR}/enforcement.yaml`))).toMatchObject({ agents: 'warn' });
   });
 
   it('with no block, doctor still says to delete a file the team has already moved past', () => {

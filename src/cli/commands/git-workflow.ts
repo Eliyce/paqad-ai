@@ -26,6 +26,7 @@ import { unifiedDiff } from '@/git-workflow/diff.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
+import { pendingMoveRefusal } from '@/git-workflow/migrate.js';
 import { loadGitWorkflow, readGitWorkflowContents } from '@/git-workflow/load.js';
 import {
   GitReadError,
@@ -207,6 +208,8 @@ export async function runSetup(input: SetupInput): Promise<JsonResult> {
       written: [] as string[],
     };
     if (input.dryRun || !checked.valid) return json(result, checked.valid ? 0 : 1);
+    const refusal = pendingMoveRefusal(input.projectRoot);
+    if (refusal.length > 0) return json({ ...result, error: refusal.join(' ') }, 1);
     const exists = GIT_WORKFLOW_FILES.some((file) => present[file] !== undefined);
     if (exists && !input.overwrite) {
       return json(

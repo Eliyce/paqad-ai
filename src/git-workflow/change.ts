@@ -3,6 +3,7 @@ import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { renderDefaultGitWorkflowFile } from './defaults.js';
+import { pendingMoveRefusal } from './migrate.js';
 import { unifiedDiff } from './diff.js';
 import { stampLastApplied } from './last-applied.js';
 import {
@@ -159,6 +160,22 @@ export function applyChange(
   const before = currentContents(projectRoot);
   const after = applyEdits(before, edits);
   const outcome = { diff: diffContents(before, after, present), ...validate(after) };
+  const refusal = pendingMoveRefusal(projectRoot);
+  if (refusal.length > 0) {
+    return {
+      ...outcome,
+      valid: false,
+      errors: [
+        ...outcome.errors,
+        ...refusal.map((message) => ({
+          file: edits[0]?.file ?? ('commits.yaml' as const),
+          path: '',
+          message,
+        })),
+      ],
+      written: [],
+    };
+  }
   if (!outcome.valid) return { ...outcome, written: [] };
   const written = GIT_WORKFLOW_FILES.filter(
     (file) => present[file] === undefined || before[file] !== after[file],

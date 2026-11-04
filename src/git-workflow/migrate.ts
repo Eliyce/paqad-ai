@@ -288,6 +288,14 @@ export function deliveryMoveBlocks(projectRoot: string): string[] {
   });
 }
 
+export function pendingMoveRefusal(projectRoot: string): string[] {
+  if (!deliveryMovePending(projectRoot)) return [];
+  return [
+    ...deliveryMoveBlocks(projectRoot),
+    `${OLD_DELIVERY_POLICY} hasn't moved yet, so this wasn't changed. Run paqad-ai update first.`,
+  ];
+}
+
 export function migrateDeliveryPolicy(
   projectRoot: string,
   options: MigrateOptions = {},
