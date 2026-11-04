@@ -1,7 +1,36 @@
-# yaml-language-server: $schema=./schemas/paqad.schema.json
 # The package itself: on/off, updates, Claude Code install, HUD and Site Map.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# Turns paqad on or off for this project, and false lets you work without paqad.
+# enabled: true
+
+# team_bootstrap:
+#   # Lets teammates and Claude Code cloud sessions set paqad up from this repo on their own.
+#   enabled: true
+
+# updates:
+#   # Pulls newer paqad versions in the background when a session starts.
+#   automatic: true
+#   # The lowest paqad version this project runs on, where latest always tracks the newest version.
+#   minimum_version: latest
+#   # How many hours pass between background checks for a newer paqad version.
+#   check_every_hours: 12
+
 site_map:
+  # Keeps a checked map of the app's screens and user journeys under docs/site-map/ for coding projects.
   enabled: true
+
+# hud:
+#   # Shows the paqad status band above the prompt in the Claude Code plugin, along with the /paqad command.
+#   band: true
+#   # Plays a short chime in the Claude Code plugin once each verdict lands.
+#   chime: false
+
+# claude_code:
+#   # Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback.
+#   plugin_migration: off
+#   # How this project installs paqad into Claude Code, where auto follows the plugin migration switch, plugin forces the plugin and settings keeps the npm hooks.
+#   install_mode: auto

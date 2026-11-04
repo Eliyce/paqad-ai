@@ -26,8 +26,14 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
-- [TD-01M6G05FFW8AC9TDKMP55GB8PW](TD-01M6G05FFW8AC9TDKMP55GB8PW.md) (debt, low): Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58 (predates #791)
-- [TD-01M6G05ERM99THRJKBXREEE3EP](TD-01M6G05ERM99THRJKBXREEE3EP.md) (debt, low): Skill description catalog (~30,063 chars) is over the 8,000-char authoring budget, which predates #791
+- [TD-01M6HVAANTK0X4AJW2Z5FWEEE6](TD-01M6HVAANTK0X4AJW2Z5FWEEE6.md) (gap, low): A failed rule-script map drop during update is not retried and its note names no recovery
+- [TD-01M6HTHEMMS1NK85TF0HHPXYHM](TD-01M6HTHEMMS1NK85TF0HHPXYHM.md) (bug, medium): Onboarding an existing project again silently drops the script bindings of edited rules
+- [TD-01M6HTHDZBG7NVDQV4PDDRNAZP](TD-01M6HTHDZBG7NVDQV4PDDRNAZP.md) (debt, low): The writeOldLeftovers test helper is copied in updater.test.ts and join.test.ts
+- [TD-01M6HR5EEX39JGN0G2AW9ZJ5WT](TD-01M6HR5EEX39JGN0G2AW9ZJ5WT.md) (bug, low): The unanchored pentest/ and site-map/ lines in .paqad/.gitignore also ignore a skill's authoring records
+- [TD-01M6GPKYZHYM52PF26KBSRG461](TD-01M6GPKYZHYM52PF26KBSRG461.md) (bug, medium): collapseSameRole drops a seat's distinct findings that share a target
+- [TD-01M6GPKY771751JVEQMN2DM8TA](TD-01M6GPKY771751JVEQMN2DM8TA.md) (bug, medium): deliver commit subcommand always fails: parent deliver command owns required --summary/--ticket
+- [TD-01M6G05FFW8AC9TDKMP55GB8PW](TD-01M6G05FFW8AC9TDKMP55GB8PW.md) (debt, low): Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58
+- [TD-01M6G05ERM99THRJKBXREEE3EP](TD-01M6G05ERM99THRJKBXREEE3EP.md) (debt, low): Skill description catalog (~30,063 chars) is over the 8,000-char authoring budget
 - [TD-01M6G05E1J1XM79XQYFQPEG20C](TD-01M6G05E1J1XM79XQYFQPEG20C.md) (follow-up, medium): Release PR must set LEGACY_TEAM_CONFIG_READ_UNTIL to release date + 90 days in all five copies
 - [TD-01M6G05D9RNEEW8HPG7ZY3J07E](TD-01M6G05D9RNEEW8HPG7ZY3J07E.md) (gap, high): Released paqad 1.116.0 does not stop on the migrated stub's minimum_version, so INV-6/AC-73 are not met and AC-63 has no pinned-release proof
 - [TD-01M6ETCXT5X3HKXJA1V04Q7XVF](TD-01M6ETCXT5X3HKXJA1V04Q7XVF.md) (gap, low): Automatic plugin rollback leaves a project-scope plugin loading

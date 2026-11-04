@@ -4,7 +4,7 @@ import type { SectionData } from '../types.js';
 import { collectDocsArea } from './docs-area.js';
 
 const HELPER = {
-  what: 'docs/instructions/workflows/** holds the YAML workflow definitions the workflow engine runs (feature-development, pentest, RCA, …).',
+  what: "docs/instructions/workflows/** holds a team's own workflow YAML files, if any, which the workflow engine runs.",
   goodLooksLike:
     'At least one workflow per active capability, regenerated when packs change, recently edited.',
 } as const;

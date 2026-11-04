@@ -35,7 +35,6 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { isDirectEntry } from './lib/direct-entry.mjs';
 import { maybeSpawnMigrationTick } from './lib/plugin-migration-tick.mjs';
-import { maybeSpawnViewRefresh } from './lib/feature-view-refresh.mjs';
 
 function frameworkHome(env = process.env) {
   return env.PAQAD_FRAMEWORK_HOME || join(homedir(), '.paqad-ai', 'current');
@@ -402,11 +401,6 @@ export function runPluginSessionStart(env = process.env, payload = undefined, de
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));
   maybeRefreshVersion(pluginRoot, projectRoot);
-  (deps.viewRefresh ?? maybeSpawnViewRefresh)({
-    projectRoot,
-    cliPath: join(pluginRoot, 'dist', 'cli', 'index.js'),
-    env,
-  });
 }
 
 export const __test = {

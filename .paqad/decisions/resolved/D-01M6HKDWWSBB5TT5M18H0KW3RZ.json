@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6HKDWWSBB5TT5M18H0KW3RZ",
+  "category": "authoring.override",
+  "title": "The skill retest-verification cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "S6 needs a model-run trigger test. The edit to retest-verification does not rely on the description to decide when it runs; routing tests stay unchanged.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, retest-verification is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that retest-verification helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, retest-verification is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Run the real check",
+      "one_line_preview": "Run the real check",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-03T21:00:49.945Z",
+  "status": "resolved",
+  "change": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "chosen": "other",
+  "rationale": "Owner chose to run the real check instead of skipping it, so no override is recorded.",
+  "resolved_at": "2026-11-03T21:04:38.381Z",
+  "decision_id": "D-01M6HKDWWSBB5TT5M18H0KW3RZ",
+  "fingerprint": "sha256:0fcc4795133e977260fa4604bec39961ca74506260a76a42ead4a519a4cd3511",
+  "question": "The skill retest-verification cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "ttl_until": "2026-12-03T21:00:49.945Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T21:04:38.381Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose to run the real check instead of skipping it, so no override is recorded."
+  }
+}

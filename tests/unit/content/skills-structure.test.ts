@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { toPosixPath } from '@/core/path-utils.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
+import { PARENT_CALLED_HELPERS } from '../skills/_helpers/parent-called-helpers.js';
+
 describe('runtime skills', () => {
   it('all shipped runtime skills have valid frontmatter, bundled metadata, and required sections', async () => {
     const files = (
@@ -46,7 +48,8 @@ describe('runtime skills', () => {
       expect(parsed.line_count).toBeLessThanOrEqual(300);
       expect(
         parsed.frontmatter.triggers.length > 0 ||
-          (parsed.frontmatter.request_routing?.length ?? 0) > 0,
+          (parsed.frontmatter.request_routing?.length ?? 0) > 0 ||
+          PARENT_CALLED_HELPERS.includes(parsed.frontmatter.name),
       ).toBe(true);
       expect(parsed.frontmatter.output_format).toBeTruthy();
       expect(Object.keys(parsed.frontmatter.input_schema)).not.toHaveLength(0);

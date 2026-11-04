@@ -1,6 +1,6 @@
 ---
 id: "TD-01M6G05FFW8AC9TDKMP55GB8PW"
-title: "Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58 (predates #791)"
+title: "Duplicated approvals setup between dashboard server.test.ts:186-220 and approvals.test.ts:24-58"
 kind: "debt"
 severity: "low"
 status: "open"
@@ -21,4 +21,4 @@ closed_reason: null
 
 ## What
 
-The duplication detector flags tests/unit/dashboard/server.test.ts:186-220 as 99% similar to tests/unit/dashboard/approvals.test.ts:24-58. git blame shows 34 of the 35 lines come from f38179b8 (#146/#147) and one from 9467f477 (#391). Both are ancestors of 6210b445, and this change edits server.test.ts only from line 607 onward. A shared approvals test fixture would remove the copy. The gate demanding a citation for a row outside the diff is TD-01M5CW8DEWNY2P12TPR53RH4ZQ.
+The duplication detector flags tests/unit/dashboard/server.test.ts:186-220 as 99% similar to tests/unit/dashboard/approvals.test.ts:24-58. git blame shows 34 of the 35 lines come from f38179b8 and one from 9467f477. Both are ancestors of 6210b445, and this change edits server.test.ts only from line 607 onward. A shared approvals test fixture would remove the copy. The gate demanding a citation for a row outside the diff is TD-01M5CW8DEWNY2P12TPR53RH4ZQ.

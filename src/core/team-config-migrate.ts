@@ -10,15 +10,19 @@ import {
   FEATURE_DEVELOPMENT_VIEW_RELATIVE,
   featureDevelopmentViewPath,
   isGeneratedView,
-  refreshFeatureDevelopmentView,
 } from '@/pipeline/feature-development-view.js';
 
 import { PATHS } from './constants/paths.js';
 import { checkoutIsNewer, FRAMEWORK_CONFIG_SPECS, parseDotConfig } from './framework-config.js';
-import { teamConfigHeader, teamConfigPath } from './team-config.js';
+import { parseTeamConfigText, renderTeamConfigFile, teamConfigPath } from './team-config.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
 import { WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
-import { TEAM_CONFIG_FILES, toYamlValue, type TeamConfigFile } from './team-config-values.js';
+import {
+  GIT_WORKFLOW_COMMITS_FILE,
+  TEAM_CONFIG_FILES,
+  toYamlValue,
+  type TeamConfigFile,
+} from './team-config-values.js';
 import { versionAtLeast } from './version-compare.js';
 
 declare const __PKG_VERSION__: string;
@@ -478,10 +482,19 @@ export function migrateTeamConfig(
     const known = documents.get(file);
     if (known !== undefined) return known.document;
     const existing = readText(teamConfigPath(projectRoot, file));
-    const document = YAML.parseDocument(existing ?? teamConfigHeader(file, version));
-    if (document.errors.length > 0) {
+    const parsed =
+      existing === null
+        ? { document: YAML.parseDocument(`paqad_version: "${version}"\n`), error: undefined }
+        : parseTeamConfigText(file, existing);
+    const document = parsed.document;
+    if (document === null || parsed.error !== undefined) {
       throw new Error(
-        `${file} isn't valid YAML, so the settings for it weren't moved: ${document.errors[0]!.message.split('\n')[0]}`,
+        `${file} isn't valid YAML, so the settings for it weren't moved: ${parsed.error}`,
+      );
+    }
+    if (document.contents !== null && !YAML.isMap(document.contents)) {
+      throw new Error(
+        `${file} holds a list or a single value instead of settings, so the settings for it weren't moved.`,
       );
     }
     documents.set(file, { document, existed: existing !== null });
@@ -530,26 +543,29 @@ export function migrateTeamConfig(
   for (const [file, { document, existed }] of documents) {
     writes.push({
       path: teamConfigPath(projectRoot, file),
-      text: document.toString({ lineWidth: 0 }),
+      text:
+        file === GIT_WORKFLOW_COMMITS_FILE
+          ? document.toString({ lineWidth: 0 })
+          : renderTeamConfigFile(file, document, version),
       existed,
     });
   }
   for (const file of TEAM_CONFIG_FILES) {
     const path = teamConfigPath(projectRoot, file);
     if (documents.has(file) || existsSync(path)) continue;
-    writes.push({ path, text: teamConfigHeader(file, version), existed: false });
+    writes.push({ path, text: renderTeamConfigFile(file, null, version), existed: false });
   }
   const stubWrite = { path: stubPath, text: stub, existed: existsSync(stubPath) };
 
   for (const write of [...writes, stubWrite]) {
     (write.existed ? result.replaced : result.created).push(rel(write.path));
   }
-  const replaceView = legacyWorkflow !== null && workflowReadable;
-  if (replaceView) result.replaced.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
+  const deleteView = legacyWorkflow !== null && workflowReadable;
   const toDelete = legacy
     .filter((file) => file.name !== CONFIG_GROUP_FILES.app)
     .map((file) => file.path);
   result.deleted.push(...toDelete.map(rel));
+  if (deleteView) result.deleted.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
 
   if (!dryRun) {
     try {
@@ -557,10 +573,9 @@ export function migrateTeamConfig(
         mkdirSync(dirname(write.path), { recursive: true });
         writeFileSync(write.path, write.text, 'utf8');
       }
-      if (replaceView) {
+      if (deleteView) {
         const tracked = isTracked(projectRoot, FEATURE_DEVELOPMENT_VIEW_RELATIVE);
         rmSync(viewPath, { force: true });
-        refreshFeatureDevelopmentView(projectRoot);
         if (tracked) untrack(projectRoot, FEATURE_DEVELOPMENT_VIEW_RELATIVE);
       }
       writeFileSync(stubWrite.path, stubWrite.text, 'utf8');

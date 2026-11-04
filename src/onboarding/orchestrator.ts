@@ -16,7 +16,6 @@ import {
 } from '@/core/framework-config.js';
 import { setTeamConfigValue, syncTeamConfigFiles } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
-import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -62,7 +61,7 @@ import {
 } from './checkpoint.js';
 import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
-import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
+import { removeObsoleteContractDocs, removeObsoleteWorkflowRules } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
 import { writeWorktreeInclude } from './worktree-include-writer.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
@@ -247,7 +246,6 @@ export class OnboardingOrchestrator {
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
       syncTeamConfigFiles(options.projectRoot);
-      onboardingWarnings.push(...rebuildFeatureDevelopmentView(options.projectRoot));
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {
@@ -291,6 +289,7 @@ export class OnboardingOrchestrator {
       );
     }
     removeObsoleteContractDocs(options.projectRoot);
+    onboardingWarnings.push(...removeObsoleteWorkflowRules(options.projectRoot));
     try {
       if (isRuleScriptMapStale(options.projectRoot)) {
         compileRuleScripts(options.projectRoot);

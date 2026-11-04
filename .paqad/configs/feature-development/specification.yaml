@@ -1,13 +1,31 @@
-# yaml-language-server: $schema=../schemas/feature-development/specification.schema.json
 # The spec pipeline, its questions, the final review and the experts.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
 pipeline:
+  # Writes the spec through the grounded spec pipeline on the graduated and full lanes.
   enabled: true
+  # The model tokens one spec pipeline run may use before paqad records a warning.
   max_tokens: 60000
+  # Milliseconds the spec pipeline gives search to ground a request before it grounds on the docs alone.
+  # grounding_timeout_ms: 15000
+
+# How firmly the spec pipeline asks about an unclear request, from never asking to holding until you answer.
 questions: block
+
+# Whether a person must read and approve the spec before it is frozen.
+# final_review: off
+
 experts:
+  # Seats the experts a request needs, such as database or security, and adds their notes to the spec.
   enabled: true
+  # The lanes on which the standing experts join every spec, and full is always included.
+  # standing_on_lanes: [ full ]
+  # The expert roles that join every spec run, whatever the request needs.
+  # standing: [ product-owner, application-architect, user-flow-writer, qa-engineer ]
+
 # issue #547 — this repo runs the spec pipeline in strict adoption, with a higher ceiling.
+# Whether the specification stage refuses a hand-written spec or only records that the pipeline did not write it.
 hand_written_specs: block

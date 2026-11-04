@@ -41,6 +41,9 @@ Capture the main journeys for `update`. Each flow should call out:
   paqad ignores the stub.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
   fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
+- The pentest, site-map, design-test and codebase-health workflows now run from skills, so `update`
+  removes their seven old rule files from a project when nobody edited them and says so. An edited
+  file is never deleted: `update` keeps it and tells the team it can be deleted.
 
 ## Triggers & Side Effects
 

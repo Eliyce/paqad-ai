@@ -10,12 +10,12 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSpecCommand } from '@/cli/commands/spec.js';
 import { createProgram } from '@/cli/program.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
-import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { readFeatureSpecification, writeFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 
@@ -294,7 +294,7 @@ describe('paqad-ai spec command', () => {
   it('both contract surfaces describe the review freeze actually runs (AC-7)', () => {
     const fromPolicy =
       defaultFeatureDevelopmentPolicy().stages.specification.instructions.join('\n');
-    const fromYaml = renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
+    const fromYaml = YAML.stringify(defaultFeatureDevelopmentPolicy(), { lineWidth: 0 });
 
     for (const surface of [fromPolicy, fromYaml]) {
       expect(surface).toContain('spec freeze` runs the spec-quality review itself');

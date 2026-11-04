@@ -1,0 +1,3 @@
+interface:
+  display_name: Design Test
+  short_description: Audit the running UI against the design-system contract, or retest an earlier design report.

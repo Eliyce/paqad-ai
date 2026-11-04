@@ -16,7 +16,6 @@ import {
 } from '@/core/framework-config.js';
 import { syncTeamConfigFiles } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
-import { rebuildFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
@@ -28,6 +27,9 @@ import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
+import { cleanObsoleteWorkflowRules } from '@/onboarding/obsolete-cleanup.js';
+import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
+import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
@@ -166,8 +168,26 @@ export class FrameworkUpdater {
     const gitWorkflowNotes = updateGitWorkflow(projectRoot);
     const teamConfigMigration = migrateTeamConfig(projectRoot);
     if (teamConfigMigration.ran) gitWorkflowNotes.push(...teamConfigMigration.lines);
-    syncTeamConfigFiles(projectRoot);
-    gitWorkflowNotes.push(...rebuildFeatureDevelopmentView(projectRoot));
+    gitWorkflowNotes.push(...removeGeneratedFiles(projectRoot));
+    const mapWasCurrent = isRuleScriptMapCurrent(projectRoot);
+    const ruleCleanup = cleanObsoleteWorkflowRules(projectRoot);
+    gitWorkflowNotes.push(...ruleCleanup.lines);
+    if (ruleCleanup.removed.length > 0) {
+      try {
+        dropRuleScriptMapSources(projectRoot, ruleCleanup.removed, mapWasCurrent);
+      } catch (error) {
+        gitWorkflowNotes.push(
+          `Couldn't drop the removed rule files from the rule-script map: ${error instanceof Error ? error.message : 'unknown error'}.`,
+        );
+      }
+    }
+    const teamConfigProblems: string[] = [];
+    for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {
+      gitWorkflowNotes.push(
+        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your values and notes are kept.`,
+      );
+    }
+    gitWorkflowNotes.push(...teamConfigProblems);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {

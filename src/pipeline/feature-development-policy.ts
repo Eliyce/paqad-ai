@@ -1,5 +1,3 @@
-import { join } from 'node:path';
-
 import { readAnalyticsDecision } from '@/analytics/gate.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
@@ -100,10 +98,6 @@ export function reusePlanningInstructions(
   return instructions;
 }
 
-export function featureDevelopmentPolicyPath(projectRoot: string): string {
-  return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
-}
-
 export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
   return {
     schema_version: '1',
@@ -126,11 +120,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         checks: null,
       },
       planning: {
-        read: [
-          'docs/instructions/stack/**',
-          'docs/instructions/design-system/**',
-          'docs/instructions/workflows/**',
-        ],
+        read: ['docs/instructions/stack/**', 'docs/instructions/design-system/**'],
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',

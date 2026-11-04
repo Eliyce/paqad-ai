@@ -1,25 +1,153 @@
 {
   "schema_version": "1",
   "agent": "paqad-planning",
-  "version": "1.1.0",
-  "file_hash": "sha256:fbdb26ac077399b150f721294014f15418fa07653b4ffd7b068134715a9573f0",
+  "version": "1.2.0",
+  "file_hash": "sha256:12ea7f2186aafa90b78cbff91289d58f7030342d94e70c83d2c1fb744f3b90ec",
   "released_path": "runtime/claude-plugin/agents/paqad-planning.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-planning.md"
   ],
-  "pattern": null,
-  "class": null,
-  "invocation": null,
+  "pattern": "chaining",
+  "class": "specialist",
+  "invocation": "dispatched",
   "baseline": {
-    "arm": null,
+    "arm": "old_agent",
     "runs": 0,
     "passed": "unavailable",
-    "verdict": "overridden"
+    "verdict": "needed"
   },
-  "reliability": null,
-  "delegation": null,
+  "reliability": {
+    "pass_hat_k": 0.3333,
+    "threshold": 0.95,
+    "registered_tier": null,
+    "table": [
+      {
+        "arm": "old_agent",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0,
+        "pass_at_k": 0.3333,
+        "cases": [
+          {
+            "case": "brief-carries-read-list",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "missing-change-ref",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "shortened-brief-full",
+            "trials": 3,
+            "passed": 1,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          }
+        ]
+      },
+      {
+        "arm": "old_agent",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0.3333,
+        "pass_at_k": 0.3333,
+        "cases": [
+          {
+            "case": "brief-carries-read-list",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "missing-change-ref",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "shortened-brief-full",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0.3333,
+        "pass_at_k": 0.6667,
+        "cases": [
+          {
+            "case": "brief-carries-read-list",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "missing-change-ref",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "shortened-brief-full",
+            "trials": 3,
+            "passed": 2,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0.3333,
+        "pass_at_k": 0.3333,
+        "cases": [
+          {
+            "case": "brief-carries-read-list",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "missing-change-ref",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "shortened-brief-full",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      }
+    ]
+  },
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
-  "returned_to_main_tokens_median": "unavailable",
+  "returned_to_main_tokens_median": 112,
   "host_notes": {
     "claude-plugin": [
       "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
@@ -49,12 +177,59 @@
     "tier": null
   },
   "performance": {
-    "source": "unavailable"
+    "task_type": "questions it must answer from the project's facts",
+    "tier": "reasoning",
+    "tokens_per_task": {
+      "value": 31495,
+      "source": "subagent-dispatch"
+    },
+    "cost_usd": {
+      "value": 0.0240409,
+      "source": "subagent-dispatch"
+    },
+    "latency_p50_ms": {
+      "value": 15611,
+      "source": "subagent-dispatch"
+    },
+    "latency_p95_ms": {
+      "value": 15611,
+      "measure": "median",
+      "samples": 9,
+      "source": "subagent-dispatch"
+    },
+    "queue_ms_median": {
+      "value": 0,
+      "source": "subagent-dispatch"
+    },
+    "cache_hit_share": {
+      "value": 0.9997,
+      "source": "subagent-dispatch"
+    },
+    "tool_calls": {
+      "value": 5,
+      "source": "subagent-dispatch"
+    },
+    "tool_use_blocks_per_message": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    },
+    "turns": {
+      "value": 6,
+      "source": "subagent-dispatch"
+    },
+    "returned_to_main_tokens": {
+      "value": 112,
+      "source": "subagent-dispatch"
+    },
+    "context_utilisation": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    }
   },
   "batch": "unavailable",
   "creation_cost": {
-    "S5": "unavailable",
-    "S6": "unavailable",
+    "S5": 0.490241,
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
@@ -67,49 +242,26 @@
     "passed": 0
   },
   "permission_decisions": [
-    "D-01M6DXHEF4XSEFKTC607Y4XPDQ",
-    "D-01M6DZVP6WMB109MXAFPC28DE9"
+    "D-01M6H0263561FR9TFNRX53ESS1"
   ],
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:40:25.710Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:40:27.397Z"
-    },
-    {
       "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved in chat (2026-11-03): skip S2 for all four helpers; name shadowing only matches paqad's own generated Codex form of the same agent.",
       "by": "human",
-      "at": "2026-11-02T10:40:29.205Z"
+      "at": "2026-11-03T15:21:55.016Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt.",
       "by": "human",
-      "at": "2026-11-02T10:40:30.832Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:40:32.594Z"
+      "at": "2026-11-03T19:54:21.128Z"
     }
   ],
   "decisions": [
-    "D-01M6DXG23QDN55TN5AQ92418SP",
-    "D-01M6DXH7A6J5N5VW27NZ76X68F",
-    "D-01M6DXH93W2E0PF30Z0B60TM5Z",
-    "D-01M6DXHAQK5NQT1CEZ5ZPAHZW3",
-    "D-01M6DXHCD24X89EG95507HKFSK",
-    "D-01M6DXHEF4XSEFKTC607Y4XPDQ",
-    "D-01M6DZVP6WMB109MXAFPC28DE9"
+    "D-01M6H00FVZQ37SYQ88SDCM7HSV",
+    "D-01M6H0263561FR9TFNRX53ESS1",
+    "D-01M6HFKX9R1E21K286TWQ5Z5CP"
   ],
   "labels": [
     "unverified"

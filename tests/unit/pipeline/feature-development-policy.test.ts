@@ -16,15 +16,16 @@ import {
   REVIEW_DIGEST_REFRESH_INSTRUCTION,
   reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
-import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
 const repoView = (): string =>
-  renderFeatureDevelopmentView(loadFeatureDevelopmentPolicy(resolve(__dirname, '../../..')).policy);
+  YAML.stringify(loadFeatureDevelopmentPolicy(resolve(__dirname, '../../..')).policy, {
+    lineWidth: 0,
+  });
 
 const renderDefaultFeatureDevelopmentPolicyYaml = (): string =>
-  renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
+  YAML.stringify(defaultFeatureDevelopmentPolicy(), { lineWidth: 0 });
 
 function teamFile(root: string, name: string, value: unknown): void {
   const path = join(root, '.paqad/configs/feature-development', name);
@@ -40,6 +41,13 @@ describe('feature development policy', () => {
 
     expect(result.policy).toEqual(defaultFeatureDevelopmentPolicy());
     expect(result.warnings).toEqual([]);
+  });
+
+  it('keeps docs/instructions/workflows/** out of the planning read list', () => {
+    expect(defaultFeatureDevelopmentPolicy().stages.planning.read).toEqual([
+      'docs/instructions/stack/**',
+      'docs/instructions/design-system/**',
+    ]);
   });
 
   it('AC-19: tells development to run the full suite through paqad-ai checks run in the default policy, its YAML and the workflow file', () => {

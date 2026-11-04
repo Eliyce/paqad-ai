@@ -196,10 +196,10 @@ is cooperative ([`session-handoff`](session-handoff/index/summary.md)).
 
 ## 2. The feature-development stages
 
-Customised in the team files under `.paqad/configs/feature-development/`, and shown in
-the generated view
-[`docs/instructions/workflows/feature-development.yaml`](../instructions/workflows/feature-development.yaml),
-which paqad rebuilds every session and nobody edits by hand; the framework owns phase order and the mandatory safety stages.
+Defined in [`src/pipeline/feature-development-policy.ts`](../../src/pipeline/feature-development-policy.ts)
+and customised in the team files under `.paqad/configs/feature-development/`, which paqad
+reads directly; the framework owns phase order and the mandatory safety stages. Each stage
+agent gets its stage's reads and instructions in its brief (`paqad-ai stage brief <stage> --full`).
 
 | Stage | What happens | Skills / agents that fire |
 | --- | --- | --- |
@@ -224,8 +224,8 @@ without parallel subagents and the fast lane keep review, then documentation_syn
 
 ## 3. Full catalog: every skill and agent, by lifecycle phase
 
-This is the complete roster the framework ships into an onboarded repo: **45 base
-skills, 30 coding skills, 11 security skills, 6 content skills, 22 agents.** Each
+This is the complete roster the framework ships into an onboarded repo: **48 base
+skills, 32 coding skills, 12 security skills, 6 content skills, 22 agents.** Each
 links to its definition; "knows" lists the existing-codebase signals it actually
 consults. The authority for what exists remains
 [`module-map.yml`](../instructions/rules/module-map.yml) and the runtime
@@ -314,6 +314,8 @@ Expert personas: the two new pickable experts [QA Engineer](../../runtime/capabi
 - [`rule-script-runner`](../../runtime/base/skills/rule-script-runner/SKILL.md) — execute registered scripts diff-scoped in checks. Knows: instructions, source.
 
 ### Security (pentest workflow + review)
+Entry skill: [`pentest`](../../runtime/capabilities/security/skills/pentest/SKILL.md), which runs the
+helpers below in order and `pentest-retest` as its Retest mode through `retest-verification`. Helpers:
 [`stride-threat-model`](../../runtime/capabilities/security/skills/stride-threat-model/SKILL.md),
 [`business-logic-abuse-review`](../../runtime/capabilities/security/skills/business-logic-abuse-review/SKILL.md),
 [`auth-mechanism-review`](../../runtime/capabilities/security/skills/auth-mechanism-review/SKILL.md),
@@ -330,6 +332,8 @@ and the [security-auditor](../../runtime/capabilities/security/agents/security-a
 Backed by [`pentest-engine`](pentest-engine/index/summary.md). Knows: docs/modules, source, tests.
 
 ### UI / design (design-test workflow)
+Entry skill: [`design-test`](../../runtime/capabilities/coding/skills/design-test/SKILL.md), which runs
+the review helpers below in order and `design-retest` as its Retest mode. Helpers and related skills:
 [`design-system-coverage`](../../runtime/capabilities/coding/skills/design-system-coverage/SKILL.md),
 [`token-conformance-review`](../../runtime/capabilities/coding/skills/token-conformance-review/SKILL.md),
 [`component-conformance-review`](../../runtime/capabilities/coding/skills/component-conformance-review/SKILL.md),
@@ -358,9 +362,9 @@ Bash 3.2, the macOS default.
 The deterministic `paqad-ai health run` verb finds dead code, unused/risky/deprecated
 packages, leaked secrets, duplication, stale docs, and AI slop — every finding with proof,
 a plain-words reason, and a suggested action, split honestly into Proven vs Needs-judgment.
-`paqad-ai health retest` reclassifies prior findings by their stable `HL-` id. Rules:
-[`codebase-health`](../../runtime/capabilities/coding/rules/codebase-health.md),
-[`health-retest`](../../runtime/capabilities/coding/rules/health-retest.md).
+`paqad-ai health retest` reclassifies prior findings by their stable `HL-` id. Skill:
+[`codebase-health`](../../runtime/capabilities/coding/skills/codebase-health/SKILL.md), which
+runs `health-retest` as its Retest mode.
 Backed by [`codebase-health`](codebase-health/index/summary.md). Knows: code-knowledge index,
 dependency inventory, docs/modules, source.
 
@@ -389,9 +393,9 @@ drifted from the code (inert when the flag is off). Skills:
 [`site-map-gap-analysis`](../../runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md),
 [`journey-synthesis`](../../runtime/capabilities/coding/skills/journey-synthesis/SKILL.md),
 [`site-map-maintainer`](../../runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md),
-[`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Rules:
-[`site-map`](../../runtime/capabilities/coding/rules/site-map.md),
-[`site-map-retest`](../../runtime/capabilities/coding/rules/site-map-retest.md). Roles:
+[`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Entry skill:
+[`site-map`](../../runtime/capabilities/coding/skills/site-map/SKILL.md), which runs
+`site-map-retest` as its Retest mode. Roles:
 [app-cartographer](../../runtime/capabilities/coding/agents/app-cartographer.md) (draws + verifies
 the map),
 [journey-designer](../../runtime/capabilities/coding/agents/journey-designer.md) (proposes
@@ -560,8 +564,7 @@ This overview is intentionally thin: it is a map, not a copy. It goes stale when
 the *shape* of the system changes, not when an implementation detail does. Update
 it in the same change that:
 
-- adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts` (shown in
-  the generated [`feature-development.yaml`](../instructions/workflows/feature-development.yaml));
+- adds, removes, or renames a stage in `src/pipeline/feature-development-policy.ts`;
 - adds, removes, or renames a skill under `runtime/**/skills/` or an agent under
   `runtime/**/agents/` (update §3);
 - adds or changes a consciousness engine in §4 (module-map, traceability, impact

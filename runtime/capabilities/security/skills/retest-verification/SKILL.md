@@ -1,6 +1,6 @@
 ---
 name: retest-verification
-description: 'Re-evaluates prior pentest findings against fresh local evidence. Use when the pentest-retest workflow runs on a report that already lists findings.'
+description: Classifies each finding of an earlier pentest report as fixed, still-open or needs-manual-verification from fresh local evidence. Use when the pentest skill runs its Retest mode, or when asked which findings or PT ids in a pentest report are fixed or still open. Only for pentest reports.
 metadata:
   model_tier: reasoning
   cacheable: 'false'
@@ -14,7 +14,7 @@ Replays prior pentest findings against fresh project evidence so retest reports 
 
 ## Use This When
 
-Only for the `pentest-retest` workflow when a prior pentest report has already identified findings to verify.
+Only when the `pentest` skill runs its Retest mode for the `pentest-retest` workflow and a prior pentest report has already identified findings to verify. The `pentest` skill is the entry point and calls this skill as a helper.
 
 ## Inputs
 

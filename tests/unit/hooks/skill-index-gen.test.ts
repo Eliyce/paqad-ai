@@ -48,6 +48,14 @@ describe('skill-index-gen.mjs resolves skill metadata like the parser', () => {
     expect(stderr).toBe('');
   });
 
+  it('indexes a helper with an explicit empty trigger list', async () => {
+    write('.claude/skills/helper/SKILL.md', skill('helper', 'skill.meta.yaml'));
+    write('.claude/skills/helper/skill.meta.yaml', 'triggers: []\n');
+    const { index, stderr } = await run();
+    expect(index).toEqual([expect.objectContaining({ name: 'helper', triggers: [] })]);
+    expect(stderr).toBe('');
+  });
+
   it('leaves out a skill whose skill.meta.yaml is missing or malformed, naming the skill and file', async () => {
     write('.claude/skills/missing/SKILL.md', skill('missing', 'skill.meta.yaml'));
     write('.claude/skills/broken/SKILL.md', skill('broken', 'skill.meta.yaml'));

@@ -1,0 +1,3 @@
+interface:
+  display_name: Site Map
+  short_description: Build and verify the app's site map, or re-check a stored map against the code.

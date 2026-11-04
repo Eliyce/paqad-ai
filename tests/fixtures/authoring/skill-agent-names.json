@@ -382,6 +382,11 @@
       "name": "accessibility-review"
     },
     {
+      "path": "runtime/capabilities/coding/skills/codebase-health/SKILL.md",
+      "folder": "codebase-health",
+      "name": "codebase-health"
+    },
+    {
       "path": "runtime/capabilities/coding/skills/component-conformance-review/SKILL.md",
       "folder": "component-conformance-review",
       "name": "component-conformance-review"
@@ -405,6 +410,11 @@
       "path": "runtime/capabilities/coding/skills/design-system-sync/SKILL.md",
       "folder": "design-system-sync",
       "name": "design-system-sync"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/design-test/SKILL.md",
+      "folder": "design-test",
+      "name": "design-test"
     },
     {
       "path": "runtime/capabilities/coding/skills/guard-inference/SKILL.md",
@@ -470,6 +480,11 @@
       "path": "runtime/capabilities/coding/skills/site-map-retest/SKILL.md",
       "folder": "site-map-retest",
       "name": "site-map-retest"
+    },
+    {
+      "path": "runtime/capabilities/coding/skills/site-map/SKILL.md",
+      "folder": "site-map",
+      "name": "site-map"
     },
     {
       "path": "runtime/capabilities/coding/skills/state-coverage-review/SKILL.md",
@@ -585,6 +600,11 @@
       "path": "runtime/capabilities/security/skills/logging-monitoring-review/SKILL.md",
       "folder": "logging-monitoring-review",
       "name": "logging-monitoring-review"
+    },
+    {
+      "path": "runtime/capabilities/security/skills/pentest/SKILL.md",
+      "folder": "pentest",
+      "name": "pentest"
     },
     {
       "path": "runtime/capabilities/security/skills/permission-boundary-review/SKILL.md",

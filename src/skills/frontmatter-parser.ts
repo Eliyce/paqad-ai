@@ -420,9 +420,9 @@ function asTriggers(value: unknown, allowEmpty = false): SkillDefinition['trigge
     return [];
   }
 
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!Array.isArray(value)) {
     throw new ValidationError(
-      'SKILL.md frontmatter field "triggers" must be a non-empty array unless "request_routing" is provided',
+      'SKILL.md frontmatter field "triggers" must be an array, with [] for a helper only its parent calls, unless "request_routing" is provided',
       undefined,
       fieldInvalidCode('triggers'),
     );

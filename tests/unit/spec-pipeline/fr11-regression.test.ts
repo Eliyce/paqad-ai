@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
 import fg from 'fast-glob';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,7 +11,6 @@ import {
   defaultFeatureDevelopmentPolicy,
   loadFeatureDevelopmentPolicy,
 } from '@/pipeline/feature-development-policy.js';
-import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 
 describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', () => {
   const roots: string[] = [];
@@ -50,7 +50,7 @@ describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', ()
   });
 
   it('the rendered YAML carries the spec-pipeline instruction verbatim (AC-3)', () => {
-    const yaml = renderFeatureDevelopmentView(defaultFeatureDevelopmentPolicy());
+    const yaml = YAML.stringify(defaultFeatureDevelopmentPolicy(), { lineWidth: 0 });
     expect(yaml).toContain(
       'Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through',
     );

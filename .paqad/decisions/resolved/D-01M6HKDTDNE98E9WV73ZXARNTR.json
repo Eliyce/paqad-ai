@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6HKDTDNE98E9WV73ZXARNTR",
+  "category": "authoring.override",
+  "title": "The skill pentest cannot run its S5 check. Add it unverified, kept in this project?",
+  "context": "S5 needs model-run evals with a real end-to-end pentest run against a target project, which this development stage cannot do. The body is the old recipe moved unchanged, and its anchors are held by tests/unit/skills/workflow-skills.test.ts.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, pentest is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that pentest helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, pentest is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Run the real check",
+      "one_line_preview": "Run the real check",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-03T21:00:47.413Z",
+  "status": "resolved",
+  "change": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "chosen": "other",
+  "rationale": "Owner chose to run the real check instead of skipping it, so no override is recorded.",
+  "resolved_at": "2026-11-03T21:04:31.836Z",
+  "decision_id": "D-01M6HKDTDNE98E9WV73ZXARNTR",
+  "fingerprint": "sha256:7f671d1bc28dcc8ef2313456b0f287436bd1ada2e8bbd73be6ed3d717d582148",
+  "question": "The skill pentest cannot run its S5 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "ttl_until": "2026-12-03T21:00:47.413Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T21:04:31.836Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose to run the real check instead of skipping it, so no override is recorded."
+  }
+}

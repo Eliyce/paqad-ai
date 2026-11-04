@@ -40,7 +40,7 @@
   "keeps every core artifact on disk even when the RAG phase throws",
   "leaves a non-managed file at the contract path untouched on re-onboard",
   "leaves user-owned MCP files byte-identical and deletes paqad-written ones (AC-5, AC-6)",
-  "moves an existing feature development workflow file into the team YAML and writes the view",
+  "moves an existing feature development workflow file into the team YAML and writes no copy",
   "persists repository discovery metadata into onboarding outputs",
   "prunes a pre-existing managed decision-pause contract doc on re-onboard",
   "refuses cleanly without touching disk when project creation is disabled",
@@ -66,6 +66,7 @@
   "writes laravel sail-aware commands when sail is detected",
   "writes maven-aware commands for detected spring boot projects",
   "writes no recommendations file when no selected host speaks MCP",
+  "writes no workflow copy, no schemas, no schema line and no exclude line on a new project",
   "writes one recommendations file with only suggestion fields (AC-9)",
   "writes paqad volatile paths into the nested .paqad/.gitignore during onboarding",
   "writes stack-specific bare commands for %s"

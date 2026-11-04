@@ -1,6 +1,4 @@
-triggers:
-  - workflow:
-      - site-map-retest
+triggers: []
 cache_key_inputs: []
 input_schema:
   app_map:

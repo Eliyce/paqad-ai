@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -111,7 +111,9 @@ describe('migrating an old feature-development workflow file', () => {
     expect(result.lines).toContain(
       " was set in the old workflow file but paqad never used it, so it wasn't carried over.",
     );
-    expect(result.replaced).toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(result.deleted).toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(result.replaced).not.toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(existsSync(featureDevelopmentViewPath(root))).toBe(false);
   });
 
   it('moves a rule-compliance mode set only in the workflow file and names nested keys paqad never read', () => {
@@ -136,7 +138,7 @@ describe('migrating an old feature-development workflow file', () => {
     expect(result.lines[0]).toMatch(
       /^Couldn't read docs\/instructions\/workflows\/feature-development\.yaml, so it was kept and none of its settings were carried over: /,
     );
-    expect(result.replaced).not.toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(result.deleted).not.toContain('docs/instructions/workflows/feature-development.yaml');
     expect(readFileSync(featureDevelopmentViewPath(root), 'utf8')).toBe('stages: [unclosed\n');
   });
 

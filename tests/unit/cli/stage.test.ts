@@ -422,6 +422,44 @@ describe('paqad-ai stage command', () => {
       expect(printed).not.toContain('SE_AGENT_ID');
     });
 
+    it('prints every instruction with --full and records no stage row', async () => {
+      vi.stubEnv('SE_AGENT_ID', undefined);
+      const dir = openChange();
+      const teamDir = join(root, '.paqad/configs/feature-development');
+      mkdirSync(teamDir, { recursive: true });
+      const lines = Array.from(
+        { length: 40 },
+        (_, index) => `      - "Long instruction ${index} ${'x'.repeat(400)}"`,
+      );
+      writeFileSync(
+        join(teamDir, 'workflow.yaml'),
+        ['stages:', '  development:', '    instructions:', ...lines, ''].join('\n'),
+        'utf8',
+      );
+      const before = readFeatureStageUnit(root, dir).length;
+      const short = (await run('brief', 'development')).join('\n');
+      expect(short).toContain(
+        'This brief was shortened. Run `paqad-ai stage brief development --full` to see every instruction for this stage.',
+      );
+      vi.restoreAllMocks();
+      const printed = (await run('brief', 'development', '--full')).join('\n');
+      expect(printed).toBe(
+        buildStageBrief('development', root, SES, { resumed: true, full: true }),
+      );
+      expect(printed).toContain('Long instruction 39 ');
+      expect(printed).not.toContain('This brief was shortened.');
+      expect(readFeatureStageUnit(root, dir)).toHaveLength(before);
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('fails an unknown stage with --full with the unknown-stage error', async () => {
+      openChange();
+      const errors = captureErrors();
+      expect(await run('brief', 'bogus', '--full')).toEqual([]);
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('name the stage to brief');
+    });
+
     it('exits non-zero with a plain message and no brief for an unknown or missing stage', async () => {
       openChange();
       const errors = captureErrors();

@@ -127,7 +127,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'app',
     section: 'Framework master switch',
-    comment: 'Turn paqad off entirely (vanilla mode). Absent/true = on.',
+    comment: 'Turns paqad on or off for this project, and false lets you work without paqad.',
   },
   {
     key: 'team_bootstrap_enabled',
@@ -137,8 +137,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Team and cloud setup',
     comment:
-      'Let teammates and Claude Code cloud sessions set paqad up from this repo on their own. ' +
-      'false = onboarding writes no team setup and the launcher does nothing.',
+      'Lets teammates and Claude Code cloud sessions set paqad up from this repo on their own.',
   },
   {
     key: 'auto_update',
@@ -147,7 +146,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'app',
     section: 'Version & updates',
-    comment: 'Pull newer framework versions in the background on session start.',
+    comment: 'Pulls newer paqad versions in the background when a session starts.',
   },
   {
     key: 'minimum_version',
@@ -157,7 +156,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Version & updates',
     comment:
-      'Refuse to run below this version. "latest" = no fixed floor, track newest. Or pin e.g. 1.28.1.',
+      'The lowest paqad version this project runs on, where latest always tracks the newest version.',
   },
   {
     key: 'version_check_interval_hours',
@@ -166,7 +165,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 12,
     group: 'app',
     section: 'Version & updates',
-    comment: 'How often the background version check runs.',
+    comment: 'How many hours pass between background checks for a newer paqad version.',
   },
   {
     key: 'enterprise',
@@ -175,7 +174,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Enterprise / governance (licensed, off by default)',
-    comment: 'Master switch for the enterprise/governance capabilities.',
+    comment: 'Turns on the enterprise and governance outputs as a group.',
   },
   {
     key: 'enterprise_evidence_ledger',
@@ -184,7 +183,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Enterprise / governance (licensed, off by default)',
-    comment: 'Write the receipt + evidence ledger set under .paqad/ledger/.',
+    comment: 'Writes the receipt and evidence ledger for each change under .paqad/ledger/.',
   },
   {
     key: 'enterprise_ai_bom',
@@ -193,7 +192,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Enterprise / governance (licensed, off by default)',
-    comment: 'Write the CycloneDX ai-bom.json view.',
+    comment: 'Writes an AI bill of materials (ai-bom.json, in CycloneDX format) for each change.',
   },
   {
     key: 'enterprise_compliance_citations',
@@ -202,7 +201,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Enterprise / governance (licensed, off by default)',
-    comment: 'Resolve framework citations into the receipt (token-spending path).',
+    comment: 'Adds compliance framework citations to the receipt, which spends extra tokens.',
   },
   {
     key: 'spec_only_mode',
@@ -211,7 +210,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Feature flags',
-    comment: 'Stop after the spec phase; do not implement.',
+    comment: 'Stops a change once the spec is written, so nothing is implemented.',
   },
   {
     key: 'market_research',
@@ -220,7 +219,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Feature flags',
-    comment: 'Enable the market-research agent in planning.',
+    comment: 'Runs the market research helper during planning.',
   },
   {
     key: 'design_research',
@@ -229,7 +228,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Feature flags',
-    comment: 'Enable the design-research agent in planning.',
+    comment: 'Runs the design research helper during planning.',
   },
   {
     key: 'team_agents',
@@ -238,7 +237,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'app',
     section: 'Feature flags',
-    comment: 'Use the multi-agent team for full-lane work.',
+    comment: 'Uses a team of helper agents for work on the full lane.',
   },
   {
     key: 'analytics_instrumentation',
@@ -248,8 +247,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to complementary analytics instrumentation. ' +
-      'OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc.',
+      'Lets paqad wire analytics tracking into the app and keep a tracking plan doc for each event.',
   },
   {
     key: 'site_map',
@@ -259,9 +257,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to the Site Map & Journeys capability — a verified behavioural map of the ' +
-      'app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). ' +
-      'OFF (default) is completely inert; ON also requires the coding capability at its consumers.',
+      "Keeps a checked map of the app's screens and user journeys under docs/site-map/ for coding projects.",
   },
   {
     key: 'visual_evidence',
@@ -271,8 +267,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Capture screenshots of documented flows for frontend changes as feature-bundle ' +
-      'evidence. ON also requires the coding capability at its consumers.',
+      'Captures screenshots of documented flows as proof for frontend changes in coding projects.',
   },
   {
     key: 'lean_rules',
@@ -282,9 +277,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Token-neutral rule loading. ON (default) delivers the lean rule contract ' +
-      '(manifest + only the rule text that applies to the files in play) and lifts the full-load ' +
-      'mandate. OFF restores loading docs/instructions/rules in full every session.',
+      'Loads only the rule text that applies to the files in play, instead of every rule in full each session.',
   },
   {
     key: 'feature_report',
@@ -294,8 +287,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Render a per-feature evidence report.html from the bundle at end-of-change. ' +
-      'ON (default) is local, free, and zero-LLM. OFF stops writing the page.',
+      'Writes a local evidence report page for each change when it finishes, at no model cost.',
   },
   {
     key: 'metrics_enabled',
@@ -305,10 +297,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) ' +
-      'and surface them on the receipt, ledger, and dashboard. ON (default) is ' +
-      'local, deterministic, and zero-LLM — it folds over caches the gates already produced. ' +
-      'OFF stops computing and recording them.',
+      'Measures duplication and reuse in the new code of each change and shows them on the receipt and dashboard.',
   },
   {
     key: 'checks_parallel',
@@ -318,8 +307,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      "Run the checks stage concurrently and use the test runner's own parallel mode when the " +
-      'project has it. OFF restores the one-after-another run.',
+      "Runs the checks at the same time, using the test runner's own parallel mode when it has one.",
   },
   {
     key: 'checks_max_processes',
@@ -329,8 +317,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container ' +
-      'limits).',
+      'The most test processes that run at once, where auto uses the CPU cores minus one within memory limits.',
   },
   {
     key: 'hud_view',
@@ -340,8 +327,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band ' +
-      'and registers no /paqad command.',
+      'Shows the paqad status band above the prompt in the Claude Code plugin, along with the /paqad command.',
   },
   {
     key: 'hud_chime',
@@ -350,9 +336,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'app',
     section: 'Feature flags',
-    comment:
-      'Play a short chime in the Claude Code plugin when the verdict lands, once per verdict. ' +
-      'A chime only, never speech.',
+    comment: 'Plays a short chime in the Claude Code plugin once each verdict lands.',
   },
   {
     key: 'plugin_migration',
@@ -363,9 +347,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Claude Code plugin migration',
     comment:
-      'on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin ' +
-      'automatically in the background. Default off until manual sign-off; Claude Code only, npm ' +
-      'is never removed and stays the fallback.',
+      'Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback.',
   },
   {
     key: 'claude_install_mode',
@@ -376,10 +358,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Claude Code plugin migration',
     comment:
-      'auto | plugin | settings — per-project override of the plugin migration. settings never ' +
-      'migrates (stay on npm hooks); set in a tracked configs file it also keeps the plugin out of ' +
-      'the shared .claude/settings.json. plugin forces the migration even while plugin_migration ' +
-      'is off; auto follows plugin_migration.',
+      'How this project installs paqad into Claude Code, where auto follows the plugin migration switch, plugin forces the plugin and settings keeps the npm hooks.',
   },
 
   {
@@ -389,7 +368,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Enable retrieval-augmented context loading.',
+    comment: 'Loads relevant code and docs into context through search.',
   },
   {
     key: 'rag_embedding_provider',
@@ -400,7 +379,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     optional: true,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'local | openai. Unset uses the local model.',
+    comment:
+      'Which embedding service builds the search index, and the local model is used when it is left unset.',
   },
   {
     key: 'rag_embedding_model',
@@ -410,7 +390,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     optional: true,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Override the embedding model id. Unset = provider default.',
+    comment: 'The embedding model to use instead of the default model of the provider.',
   },
   {
     key: 'rag_similarity_threshold',
@@ -419,7 +399,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 0.75,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Minimum cosine similarity for a chunk to be retrieved.',
+    comment:
+      'How similar (0 to 1) a piece of code or docs must be to the request before it is loaded.',
   },
   {
     key: 'rag_relief_floor',
@@ -429,8 +410,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'rag',
     section: 'Intelligence / RAG',
     comment:
-      'Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, ' +
-      'the top slices at or above this lower score are delivered tagged low-confidence.',
+      'A lower similarity score used when nothing reaches the main one, and the pieces it lets through are marked low confidence.',
   },
   {
     key: 'rag_top_n',
@@ -439,7 +419,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 20,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Max chunks retrieved per query.',
+    comment: 'The most pieces of code or docs loaded for one search.',
   },
   {
     key: 'rag_max_file_size',
@@ -448,7 +428,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 153600,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Skip indexing files larger than this many bytes.',
+    comment: 'Files larger than this many bytes are left out of the search index.',
   },
   {
     key: 'rag_base_branch',
@@ -458,7 +438,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     optional: true,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'Base branch for branch-aware RAG. Unset auto-detects main->master.',
+    comment:
+      'The base branch the search index compares against, found on its own (main, then master) when left unset.',
   },
   {
     key: 'existing_surface_tokens',
@@ -468,8 +449,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'rag',
     section: 'Intelligence / RAG',
     comment:
-      'Token budget for the feature-development "Existing surface" planning digest ' +
-      '(existing symbols the model should reuse). Cards drop by rank past this budget.',
+      'The token budget for the list of existing code that planning asks the model to reuse.',
   },
 
   {
@@ -480,7 +460,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'standard',
     group: 'models',
     section: 'Research & model routing',
-    comment: 'cutting-edge | standard | conservative.',
+    comment: 'How far planning research looks, from the newest options to proven ones.',
   },
   {
     key: 'model_default',
@@ -489,7 +469,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'gpt-5',
     group: 'models',
     section: 'Research & model routing',
-    comment: 'Default model for routine work.',
+    comment: 'The model used for routine work.',
   },
   {
     key: 'model_reasoning',
@@ -498,7 +478,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'gpt-5',
     group: 'models',
     section: 'Research & model routing',
-    comment: 'Model for heavy reasoning / planning.',
+    comment: 'The model used for heavy reasoning and planning.',
   },
   {
     key: 'model_fast',
@@ -507,7 +487,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'gpt-5-mini',
     group: 'models',
     section: 'Research & model routing',
-    comment: 'Cheap/fast model for lightweight steps.',
+    comment: 'The cheap, fast model used for light steps.',
   },
 
   ...STAGE_SETTING_STAGES.flatMap((stage): BaseConfigSpec[] => [
@@ -530,9 +510,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
       group: 'models',
       section: 'Stage agents',
       comment:
-        `inherit | haiku | sonnet | opus. The model the ${stage} stage helper runs on. inherit ` +
-        'uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next ' +
-        'dispatch; the helper files keep the defaults.',
+        `The model the ${stage} stage helper runs on, where inherit uses the model of the main ` +
+        'session and `paqad-ai stage settings` applies a change.',
     },
   ]),
 
@@ -543,7 +522,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: false,
     group: 'policy',
     section: 'Strictness / quality gates',
-    comment: 'Route every task through the full (heaviest) lane by default.',
+    comment: 'Sends every change through the full lane, the most thorough one.',
   },
   {
     key: 'require_adversarial_review',
@@ -552,7 +531,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'policy',
     section: 'Strictness / quality gates',
-    comment: 'Require an adversarial review pass before delivery.',
+    comment: 'Requires an adversarial review pass before a change is delivered.',
   },
   {
     key: 'block_on_stale_docs',
@@ -561,7 +540,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'policy',
     section: 'Strictness / quality gates',
-    comment: 'Block delivery when canonical docs are out of date.',
+    comment: 'Blocks delivery while the project docs are out of date.',
   },
   {
     key: 'require_db_review_for_migrations',
@@ -570,7 +549,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'policy',
     section: 'Strictness / quality gates',
-    comment: 'Require a database review when a change includes migrations.',
+    comment: 'Requires a database review when a change includes migrations.',
   },
   {
     key: 'escalate_destructive_operations',
@@ -580,7 +559,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'block',
     group: 'policy',
     section: 'Escalation policy',
-    comment: 'block | require_approval | warn — for destructive operations.',
+    comment: 'Whether paqad blocks, asks you about or warns on a destructive operation.',
   },
   {
     key: 'escalate_risky_migrations',
@@ -590,7 +569,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'warn',
     group: 'policy',
     section: 'Escalation policy',
-    comment: 'block | require_approval | warn — for risky migrations.',
+    comment: 'Whether paqad blocks, asks you about or warns on a risky migration.',
   },
   {
     key: 'escalate_security_findings',
@@ -600,7 +579,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'block',
     group: 'policy',
     section: 'Escalation policy',
-    comment: 'block | require_approval | warn — for security findings.',
+    comment: 'Whether paqad blocks, asks you about or warns on a security finding.',
   },
   {
     key: 'escalate_db_row_threshold',
@@ -609,7 +588,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 10000,
     group: 'policy',
     section: 'Escalation policy',
-    comment: 'Row count above which a data operation escalates.',
+    comment: 'A data change that touches more rows than this is treated as risky.',
   },
   {
     key: 'decisions_ask_threshold',
@@ -619,7 +598,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'strict',
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
-    comment: 'strict | balanced | permissive — how eagerly to pause and ask.',
+    comment: 'How often paqad stops to ask you instead of making a choice itself.',
   },
   {
     key: 'decisions_max_screens_per_task',
@@ -628,7 +607,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 3,
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
-    comment: 'Max decision screens surfaced per task.',
+    comment: 'The most decision screens paqad shows for one change.',
   },
   {
     key: 'decisions_idle_timeout_minutes',
@@ -637,7 +616,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 30,
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
-    comment: 'Auto-resolve a pending decision after this idle window.',
+    comment: 'Minutes a pending decision waits for an answer before paqad settles it itself.',
   },
   {
     key: 'stages_mode',
@@ -647,7 +626,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'strict',
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
-    comment: 'off | warn | strict — feature-development stage-completeness gate (default strict).',
+    comment: 'How firmly paqad checks that every feature-development stage was run and recorded.',
   },
   {
     key: 'rule_compliance',
@@ -657,7 +636,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'warn',
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
-    comment: 'off | warn | strict — scripted-rule enforcement from the working tree.',
+    comment: 'How firmly the scripted project rules are enforced on the working tree.',
   },
   {
     key: 'rule_gate_pre_edit',
@@ -668,8 +647,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'blocking-only | all — rule scripts run before an edit. blocking-only runs only the ' +
-      'deterministic changed-files scripts and the rest at turn end; all runs every script.',
+      'Which rule scripts run before an edit, either only the fast blocking ones or all of them.',
   },
   {
     key: 'rule_gate_concurrency',
@@ -679,8 +657,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'auto | 1-8 — rule scripts run at once. auto = CPU cores minus one, at most 8; 1 runs ' +
-      'them one after another.',
+      'How many rule scripts run at once, from 1 to 8, where auto uses the CPU cores minus one.',
   },
   {
     key: 'rule_gate_budget_ms',
@@ -690,8 +667,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Time in ms (500-9000) the pre-edit rule check may take from the hook start, under both ' +
-      'rule_gate_pre_edit values. Past it the edit goes ahead and the checks block at turn end.',
+      'Milliseconds (500 to 9000) the rule check before an edit may take, after which the edit goes ahead and the checks run at turn end.',
   },
   {
     key: 'analytics_strictness',
@@ -701,9 +677,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'warn',
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
-    comment:
-      'off | warn | strict — analytics instrumentation completeness. ' +
-      'warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated.',
+    comment: 'How firmly paqad checks that each analytics event has its tracking plan doc.',
   },
   {
     key: 'duplication_mode',
@@ -714,8 +688,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — new-code duplication gate. warn (default) flags a ' +
-      'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
+      'How paqad treats new code that nearly copies existing code, from a warning to a block.',
   },
   {
     key: 'mutation_mode',
@@ -726,11 +699,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict: mutation testing on changed code. Opt-in: off by ' +
-      'default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its ' +
-      'own CI or pre-push hook, never at the end of an agent turn, and the project supplies the ' +
-      'mutation tool for its stack. The project test command runs first; a red suite reads did ' +
-      'not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check.',
+      'Mutation testing on changed code, which runs only from the CI or pre-push hook of the project with its own mutation tool.',
   },
   {
     key: 'bundle_completeness',
@@ -741,12 +710,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — end-of-change check that a feature-development bundle carries every ' +
-      'required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the ' +
-      'flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ' +
-      'ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, ' +
-      'naming the file and its writer; warn surfaces it as Inconclusive without blocking; off ' +
-      'falls back to the deprecated evidence_existence_gate.',
+      'How firmly paqad checks at the end of a change that its evidence bundle holds every required file.',
   },
   {
     key: 'checks_flaky_under_parallel',
@@ -757,9 +721,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn ' +
-      '(default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team ' +
-      'value is the floor; local/env may only raise it.',
+      'What happens to a test that fails in the parallel run but passes alone, and a personal setting may only make it stricter.',
   },
   {
     key: 'visual_evidence_mode',
@@ -770,15 +732,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on ' +
-      'and a change is frontend-triggering. warn (default): an environmental miss ' +
-      '(browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) ' +
-      'reads Inconclusive without blocking. strict: the same misses FAIL the change, and so does ' +
-      'a frontend change with nothing captured because no documented flow or capture script ' +
-      'exists, unless you attach screenshots (paqad-ai visual-evidence attach) or ' +
-      'record a waiver decision (the gate prints the exact decision command). Under warn those ' +
-      'skips stay skipped and show a skip line. Team value is the floor; local/env may only raise ' +
-      'warn to strict.',
+      'How firmly the screenshot check holds a frontend change with missing screenshots, and a personal setting may only make it stricter.',
   },
   {
     key: 'evidence_existence_gate',
@@ -789,10 +743,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'DEPRECATED: superseded by bundle_completeness, which covers every bundle file ' +
-      'and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ' +
-      'ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the ' +
-      'caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it.',
+      'An older evidence check that runs only while the bundle check is off and never blocks a change.',
   },
   {
     key: 'duplication_similarity_threshold',
@@ -802,8 +753,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Minimum similarity (0..1) for a blocking duplication finding. Default 0.90 — ' +
-      'conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks.',
+      'How similar (0 to 1) new code must be to existing code before the duplication check blocks it.',
   },
   {
     key: 'duplication_min_lines',
@@ -813,8 +763,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Minimum meaningful-line span a new code block must have to be scored for duplication. ' +
-      'Default 8 — shorter snippets are never flagged.',
+      'The fewest meaningful lines a new block of code needs before it is checked for duplication.',
   },
   {
     key: 'decision_arm_mode',
@@ -825,8 +774,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — arm the create-vs-reuse decision pause from evidence. ' +
-      'warn (default) reports the fork; strict opens a pause that blocks edits until answered.',
+      'How paqad handles a planned new piece of code that looks like existing code, from a report to a pause that waits for your answer.',
   },
   {
     key: 'decision_arm_plan_threshold',
@@ -836,8 +784,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Minimum name similarity (0..1) between a planned new construct and an existing symbol ' +
-      'before it counts as a reuse fork. Default 0.85.',
+      'How similar (0 to 1) a planned new name must be to an existing one before paqad asks whether to reuse it.',
   },
   {
     key: 'decision_arm_max_per_change',
@@ -846,9 +793,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 1,
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
-    comment:
-      'How many evidence-armed decision pauses one change may open. Default 1 — ' +
-      'only the strongest fork is asked; the rest are reported as warnings.',
+    comment: 'The most reuse pauses one change may open, with the rest reported as warnings.',
   },
   {
     key: 'ai_attribution',
@@ -859,10 +804,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs. ' +
-      'strip (default) suppresses it where the provider exposes a project-level knob ' +
-      '(Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level ' +
-      "only). paqad's own delivery footer is never touched by this knob.",
+      'Whether the attribution of the coding agent stays on your commits and pull requests, while the paqad delivery footer is never changed.',
   },
   {
     key: 'stage_isolation_lanes',
@@ -872,11 +814,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Stage isolation',
     comment:
-      'Comma-separated lanes (fast, graduated, full) on which each feature-development stage runs ' +
-      'in its own stage helper on a host that can dispatch subagents (Claude Code, Codex). On ' +
-      'other lanes the main agent runs every stage itself, with the same stages, artifacts and ' +
-      'gates. Default: full. Set graduated,full to restore the old behaviour. full is always ' +
-      'included; an empty or unreadable value gives the default.',
+      'The lanes on which each feature-development stage runs in its own helper agent, and full is always included.',
   },
   {
     key: 'spec_pipeline_enabled',
@@ -885,11 +823,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_enabled,
     group: 'policy',
     section: 'Spec pipeline',
-    comment:
-      'The grounded prompt->spec pipeline (`paqad-ai spec pipeline`). On by default on the ' +
-      'graduated and full lanes; the fast lane never runs it. Set it to false to ' +
-      'switch it off: feature-development then works as it did before the pipeline (FR-11). It ' +
-      'sits upstream of the edit lock and feeds `spec freeze`.',
+    comment: 'Writes the spec through the grounded spec pipeline on the graduated and full lanes.',
   },
   {
     key: 'spec_pipeline_clarification',
@@ -900,10 +834,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Spec pipeline',
     comment:
-      'off | warn | strict — the switchable clarification (question-round) gate. ' +
-      'warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask ' +
-      'and hold until answered or explicitly deferred. off: never ask. The fixed spine ' +
-      '(grounding, no-invented-requirements, traceability) is never switchable.',
+      'How firmly the spec pipeline asks about an unclear request, from never asking to holding until you answer.',
   },
   {
     key: 'spec_pipeline_final_review',
@@ -913,10 +844,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'off',
     group: 'policy',
     section: 'Spec pipeline',
-    comment:
-      'off | warn | strict — the switchable final-review gate before freeze. ' +
-      'off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): ' +
-      'a human must approve before freeze, recording a named human. Independent of the A5 gate.',
+    comment: 'Whether a person must read and approve the spec before it is frozen.',
   },
   {
     key: 'spec_pipeline_token_ceiling',
@@ -925,9 +853,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 40000,
     group: 'policy',
     section: 'Spec pipeline',
-    comment:
-      'Per-run model-token ceiling for the spec pipeline. Exceeding it raises a ' +
-      'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
+    comment: 'The model tokens one spec pipeline run may use before paqad records a warning.',
   },
   {
     key: 'spec_grounding_budget_ms',
@@ -937,9 +863,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Spec pipeline',
     comment:
-      'Milliseconds `spec pipeline start` gives retrieval to ground the request. Past it, or ' +
-      'with an empty index or no embedding key, start grounds on the docs alone and records ' +
-      'grounding.mode=lexical-fallback with the reason.',
+      'Milliseconds the spec pipeline gives search to ground a request before it grounds on the docs alone.',
   },
   {
     key: 'spec_pipeline_experts_enabled',
@@ -949,11 +873,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Spec pipeline',
     comment:
-      'The expert roster: a fast-tier skill decides which experts ' +
-      '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. On by ' +
-      'default on the graduated and full lanes. Set it to false to switch it off: ' +
-      'then zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs ' +
-      'spec_pipeline_enabled on to have any effect.',
+      'Seats the experts a request needs, such as database or security, and adds their notes to the spec.',
   },
   {
     key: 'spec_pipeline_adoption',
@@ -964,13 +884,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Spec pipeline',
     comment:
-      'warn | strict: how firmly the specification stage adopts the pipeline once ' +
-      'spec_pipeline_enabled is on. strict (the default): `spec freeze` refuses a ' +
-      'spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
-      'recorded on the frozen spec. Set it to warn to soften this: the stage still tells the ' +
-      'agent to produce the spec through `paqad-ai spec pipeline`, but a hand-written spec ' +
-      'freezes, recorded as pipeline.produced=false and shown in the receipt. No effect while ' +
-      'spec_pipeline_enabled is off.',
+      'Whether the specification stage refuses a hand-written spec or only records that the pipeline did not write it.',
   },
   {
     key: 'spec_pipeline_experts_lanes',
@@ -980,11 +894,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: 'Spec pipeline',
     comment:
-      'Comma-separated lanes (graduated, full) on which the standing experts sit at every spec. ' +
-      'On other pipeline lanes only the on-call experts the detector names are seated, plus ' +
-      'security-auditor when a planned path is sensitive, and the High Table is skipped when ' +
-      'nobody is named. Default: full. Set graduated,full to restore the old behaviour. full is ' +
-      'always included. Review is unaffected.',
+      'The lanes on which the standing experts join every spec, and full is always included.',
   },
   {
     key: 'spec_pipeline_standing_experts',
@@ -993,13 +903,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'product-owner,application-architect,user-flow-writer,qa-engineer',
     group: 'policy',
     section: 'Spec pipeline',
-    comment:
-      'Comma-separated expert roles that sit at the table on EVERY spec run once ' +
-      'spec_pipeline_experts_enabled is on, whatever the detector picked. Default: ' +
-      'product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay ' +
-      'on call and are picked per request. Empty means no standing experts (the detector alone ' +
-      'decides, as before). A role outside the expert roster is ignored with a doctor warning. ' +
-      'No effect while the pipeline or the experts are off.',
+    comment: 'The expert roles that join every spec run, whatever the request needs.',
   },
   {
     key: 'skill_orchestrator_enabled',
@@ -1008,8 +912,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: true,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Turn the Skill Orchestrator on or off. Off means no High Table seat on skill paths, no skill pipeline, no lane raise for skills and no skill completion check, so a skill edit is judged as before.',
+    comment: 'Turns on the checks and pipeline paqad runs when a skill is written or changed.',
   },
   {
     key: 'authoring_trigger_threshold',
@@ -1018,7 +921,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 0.9,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment: 'S6 trigger test: the validation pass rate a skill description needs, from 0 to 1.',
+    comment:
+      'The share of test queries (0 to 1) a skill description must handle correctly to pass its trigger test.',
   },
   {
     key: 'authoring_trigger_min_runs',
@@ -1027,8 +931,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 2,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S6 trigger test: how many of the 3 runs of each query must fire the skill. A positive whole number.',
+    comment: 'How many of the three runs of each test query must fire the skill.',
   },
   {
     key: 'skill_eval_min_gain_points',
@@ -1037,8 +940,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 10,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S5 evals: the pass-rate gain over the no-skill baseline a skill needs, in percentage points. A positive whole number.',
+    comment: 'How many percentage points a skill must raise the pass rate over running without it.',
   },
   {
     key: 'skill_eval_max_token_multiple',
@@ -1047,8 +949,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 2,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S5 evals: the most median tokens a skill run may use, as a multiple of the baseline. 1 or more.',
+    comment: 'The most tokens a skill run may use, as a multiple of a run without the skill.',
   },
   {
     key: 'authoring_runs_per_arm',
@@ -1057,8 +958,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 3,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S5 evals: runs per arm (with and without the skill) for each case. A positive whole number.',
+    comment: 'How many times each eval case runs with the skill and without it.',
   },
   {
     key: 'authoring_max_iterations',
@@ -1067,7 +967,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 3,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment: 'S5 evals: the most revision rounds before the loop stops. A positive whole number.',
+    comment: 'The most revision rounds an eval loop runs before it stops.',
   },
   {
     key: 'authoring_fact_max_age_days',
@@ -1077,7 +977,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Days an externally verified fact in sources.md stays fresh. Older facts block release until rechecked. A positive whole number.',
+      'Days a checked outside fact in the sources of a skill stays fresh before release asks for a recheck.',
   },
   {
     key: 'authoring_collision_jaccard',
@@ -1087,7 +987,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Overlap check: the word-set similarity (Jaccard, 0 to 1) at which a new skill collides with an installed one.',
+      'How much word overlap (0 to 1) a new skill may have with an installed one before it counts as a clash.',
   },
   {
     key: 'authoring_description_budget_chars',
@@ -1097,7 +997,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Overlap check: the total characters of every installed skill description before a release warns that some may be dropped. A positive whole number.',
+      'The total characters of all installed skill descriptions before release warns that some may be dropped.',
   },
   {
     key: 'skill_body_max_tokens',
@@ -1106,7 +1006,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 5000,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment: 'Lint (SK-008): the most tokens a SKILL.md body may hold. A positive whole number.',
+    comment: 'The most tokens the body of a skill file may hold.',
   },
   {
     key: 'authoring_tool_result_max_tokens',
@@ -1115,8 +1015,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 10000,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S5 analyst: a tool result above this many tokens is flagged as oversize. A positive whole number.',
+    comment: 'A tool result larger than this many tokens is flagged as too large in an eval run.',
   },
   {
     key: 'authoring_cache_hit_min',
@@ -1125,8 +1024,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 0.7,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S5 analyst: the steady-state cache-hit share (0 to 1) below which a run is recorded as a performance defect.',
+    comment: 'The share of cache hits (0 to 1) below which an eval run is recorded as slow.',
   },
   {
     key: 'authoring_regression_tolerance',
@@ -1136,7 +1034,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'S5 in improve mode and S8: how far (0 to 1) the pass rate of an edited or re-evaluated skill may fall below the old version before it fails.',
+      'How far (0 to 1) the pass rate of a changed skill may fall below the old version before it fails.',
   },
   {
     key: 'authoring_dark_window_days',
@@ -1145,8 +1043,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 30,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'S8 catalog: days without a firing before a skill is reported as dark. A positive whole number.',
+    comment: 'Days without a firing before a skill is reported as unused.',
   },
   {
     key: 'authoring_batch_mode',
@@ -1156,8 +1053,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 'auto',
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'auto | off. auto lets S6 send its trigger queries as one batch when the host offers it; off always runs them one by one.',
+    comment: 'Whether trigger test queries are sent as one batch when the host offers it.',
   },
   {
     key: 'authoring_run_max_cost_usd',
@@ -1167,7 +1063,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Spend cap in US dollars for one eval or trigger sweep, passed as --max-cost-usd. A capped run counts as a failure and is recorded as partial. Above 0.',
+      'The most US dollars one eval or trigger run may spend before it stops and counts as failed.',
   },
   {
     key: 'authoring_otel_endpoint',
@@ -1177,7 +1073,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Empty reads usage numbers from the host only. An http(s) URL also reads them from that OpenTelemetry endpoint. paqad never sends transcripts to it.',
+      'An OpenTelemetry address to also read usage numbers from, where empty reads them from the host only and paqad never sends transcripts there.',
   },
   {
     key: 'agent_orchestrator_enabled',
@@ -1187,7 +1083,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'Turn the Agent Orchestrator on or off. Off means no High Table seat on agent paths, no agent pipeline, no lane raise for agents and no agent completion check, so an agent edit is judged as before.',
+      'Turns on the checks and pipeline paqad runs when a helper agent is written or changed.',
   },
   {
     key: 'agent_pass_k_threshold',
@@ -1196,7 +1092,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 0.9,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment: 'S5 agent evals: the pass^3 score (0 to 1) an agent needs on its task cases.',
+    comment: 'The score (0 to 1) an agent must reach when each of its eval cases runs three times.',
   },
   {
     key: 'agent_stage_pass_k_threshold',
@@ -1206,7 +1102,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'S5 agent evals: the pass^3 score (0 to 1) an unattended stage agent needs on its task cases.',
+      'The score (0 to 1) an unattended stage agent must reach when each of its eval cases runs three times.',
   },
   {
     key: 'agent_delegation_threshold',
@@ -1215,7 +1111,8 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 0.9,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment: 'S6 delegation test: the validation pass rate (0 to 1) an agent description needs.',
+    comment:
+      'The share of test requests (0 to 1) an agent description must route to the agent correctly.',
   },
   {
     key: 'agent_description_max_tokens',
@@ -1224,8 +1121,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 300,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Lint (AG-003): the most tokens an agent description may hold. A positive whole number.',
+    comment: 'The most tokens an agent description may hold.',
   },
   {
     key: 'agent_report_max_tokens',
@@ -1234,8 +1130,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 2000,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'The most tokens an agent report may hold when its Report section names no smaller maximum. A positive whole number.',
+    comment: 'The most tokens an agent report may hold when the agent names no smaller limit.',
   },
   {
     key: 'agent_prompt_max_tokens',
@@ -1244,8 +1139,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 3000,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Lint (AG-014): the most tokens an agent body (its system prompt) may hold. A positive whole number.',
+    comment: 'The most tokens the instructions of an agent may hold.',
   },
   {
     key: 'agent_max_tools',
@@ -1254,8 +1148,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 10,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Lint (AG-018): the most tools an agent may list before it needs an approval packet. A positive whole number.',
+    comment: 'The most tools an agent may list before it needs an approval.',
   },
   {
     key: 'agent_max_cost_multiple',
@@ -1265,7 +1158,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'policy',
     section: AUTHORING_SECTION,
     comment:
-      'S5 agent evals: the most median cost an agent run may use, as a multiple of the main-thread baseline, unless it shows a parallel wall-time gain. 1 or more.',
+      'The most an agent run may cost, as a multiple of doing the work in the main session, unless it saves time by running in parallel.',
   },
   {
     key: 'agent_catalog_description_max_tokens',
@@ -1274,8 +1167,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 15000,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Lint (AG-004): the most tokens all installed agent descriptions may hold together. A positive whole number.',
+    comment: 'The most tokens all installed agent descriptions may hold together.',
   },
   {
     key: 'agent_memory_max_lines',
@@ -1284,8 +1176,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     default: 200,
     group: 'policy',
     section: AUTHORING_SECTION,
-    comment:
-      'Lint (AG-010) and memory-consolidate: the most lines an agent MEMORY.md may hold. A positive whole number.',
+    comment: 'The most lines the memory file of an agent may hold.',
   },
 ] as const;
 
@@ -1295,10 +1186,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = BASE_CONFI
 
 function stageEffortComment(stage: string): string {
   const base =
-    `low | medium | high | xhigh | inherit. How hard the ${stage} stage helper thinks. inherit ` +
-    'uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next ' +
-    'dispatch; the helper files keep the defaults.';
-  return stage === 'review' ? `${base} You may lower it, but a lighter review catches less.` : base;
+    `How hard the ${stage} stage helper thinks, where inherit uses the effort of the main ` +
+    'session and `paqad-ai stage settings` applies a change';
+  return stage === 'review' ? `${base}, and a lighter review catches less.` : `${base}.`;
 }
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -1861,26 +1751,25 @@ export function generateConfigsReadme(): string {
   return [
     '# paqad team configuration (`.paqad/configs/`)',
     '',
-    'Tracked, team-shared settings, in small YAML files that hold only what this team',
-    "changed. A setting that isn't in a file uses paqad's default.",
+    'Tracked, team-shared settings, in YAML files that list every setting they can hold,',
+    "commented out with paqad's default and a note. A setting left commented out uses",
+    "paqad's default.",
     '',
     ...fileLines,
     '- `git-workflow/` — the team rules for tickets, branches, commits, pull requests and',
     '  enforcement (see below).',
-    '- `schemas/` — JSON schemas for your editor, written by paqad and git-ignored.',
     '',
     'Run `paqad-ai config show` to see every setting, its value and where it comes from',
     '(`--changed` lists only the ones that differ from the default).',
     '',
     '## How to use',
     '',
-    '- Add a setting at its path to change it; delete the line to go back to the default.',
-    '- Each file starts with a `# yaml-language-server` line, so VS Code (with the Red Hat',
-    '  YAML extension) and JetBrains IDEs offer every setting with its description,',
-    '  default and allowed values.',
+    '- Remove the `#` in front of a setting (and in front of its group name) to change it;',
+    '  put the `#` back to go back to the default.',
     '- Gates use one vocabulary: `off | warn | block`.',
-    '- `paqad-ai update` never changes a value you set. It regenerates the schemas and this',
-    '  README, and creates any missing file with only its header.',
+    '- `paqad-ai update` never changes a value you set. It regenerates this README and',
+    '  rewrites each team file so new settings show up commented out and removed ones',
+    '  disappear, keeping your values and notes.',
     '',
     '## Personal overrides',
     '',

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6HKDXZEZK2M9H3DV1NPJMFZ",
+  "category": "authoring.override",
+  "title": "The skill finding-normalizer cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "S6 needs a model-run trigger test. The edit to finding-normalizer does not rely on the description to decide when it runs; routing tests stay unchanged.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, finding-normalizer is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that finding-normalizer helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, finding-normalizer is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Run the real check",
+      "one_line_preview": "Run the real check",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-03T21:00:51.054Z",
+  "status": "resolved",
+  "change": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "chosen": "other",
+  "rationale": "Owner chose to run the real check instead of skipping it, so no override is recorded.",
+  "resolved_at": "2026-11-03T21:04:41.281Z",
+  "decision_id": "D-01M6HKDXZEZK2M9H3DV1NPJMFZ",
+  "fingerprint": "sha256:64ed0894bdbe1a8afa995bfa44c5ed8a8564d45dcf30aa95bd3c1f50231eb3be",
+  "question": "The skill finding-normalizer cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6HHDVSS4MZFF3KZBTEPN2KV",
+  "ttl_until": "2026-12-03T21:00:51.054Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T21:04:41.281Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose to run the real check instead of skipping it, so no override is recorded."
+  }
+}

@@ -42,7 +42,6 @@ Always load these and treat them as the canonical contract for documentation and
 
 - `docs/instructions/stack`
 - `docs/instructions/design-system`
-- `docs/instructions/workflows` (the feature-development workflow that governs how a change is built)
 
 **Rules load only for `feature-development`.** When (and only when) you routed to feature-development, load the rules — artifact-first: when `.paqad/context/session-context.md` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load `docs/instructions/rules` in full ONLY when that artifact is missing. The other 11 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
 

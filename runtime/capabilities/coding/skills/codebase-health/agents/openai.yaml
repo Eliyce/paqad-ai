@@ -1,0 +1,3 @@
+interface:
+  display_name: Codebase Health
+  short_description: Run the codebase health audit, or retest an earlier health report.

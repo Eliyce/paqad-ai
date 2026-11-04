@@ -32,6 +32,7 @@ import {
   readSetLines,
   teamConfigMigrationNeeded,
 } from '@/core/team-config-migrate.js';
+import { renderTeamConfigFile } from '@/core/team-config.js';
 import { isMigratedStub } from '@/core/team-config-legacy.js';
 import {
   checkYamlValue,
@@ -40,10 +41,7 @@ import {
   toYamlValue,
 } from '@/core/team-config-values.js';
 import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
-import {
-  featureDevelopmentViewPath,
-  isGeneratedView,
-} from '@/pipeline/feature-development-view.js';
+import { featureDevelopmentViewPath } from '@/pipeline/feature-development-view.js';
 
 const FIXTURES = join(__dirname, '../../fixtures/team-config');
 const PROJECTS = ['project-a', 'project-b', 'project-c', 'project-d'] as const;
@@ -86,6 +84,20 @@ function snapshot(): Record<string, string> {
 function settingLines(lines: string[]): string[] {
   return lines.filter((line) => line.includes(' → '));
 }
+
+describe('the rendered team files after migration (FR-14, AC-30)', () => {
+  for (const name of PROJECTS) {
+    it(`${name}: every own team file is the render of its live values`, () => {
+      useFixture(name);
+      expect(migrateTeamConfig(root, { version: VERSION }).error).toBeUndefined();
+      for (const file of TEAM_CONFIG_FILES) {
+        const text = configs(file);
+        expect(text, file).toBe(renderTeamConfigFile(file, YAML.parseDocument(text), VERSION));
+        expect(text.split('\n')[0], file).not.toMatch(/yaml-language-server/u);
+      }
+    });
+  }
+});
 
 describe('the four fixture projects', () => {
   for (const name of PROJECTS) {
@@ -134,7 +146,9 @@ describe('the four fixture projects', () => {
     });
     expect(evidence).not.toContain('(env:');
     expect(evidence).not.toContain('──');
-    expect(configs('retrieval.yaml')).toContain('# Retrieval\nenabled: true');
+    expect(configs('retrieval.yaml')).toContain(
+      '# Retrieval\n# Loads relevant code and docs into context through search.\nenabled: true',
+    );
     expect(settingLines(result.lines)).toEqual([
       'enterprise → feature-development/evidence.yaml: enterprise.enabled = true',
       'enterprise_evidence_ledger → feature-development/evidence.yaml: enterprise.ledger = true',
@@ -190,8 +204,10 @@ describe('the four fixture projects', () => {
     expect(checksYaml.commands.from_project_profile).toBeUndefined();
     expect(YAML.parse(configs('feature-development/rules.yaml')).enforcement).toBe('block');
     expect(layeredConfigMap(root, {}).get('rule_compliance')).toBe('strict');
-    const viewText = readFileSync(featureDevelopmentViewPath(root), 'utf8');
-    expect(isGeneratedView(viewText)).toBe(true);
+    expect(existsSync(featureDevelopmentViewPath(root))).toBe(false);
+    expect(result.deleted).toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(result.replaced).not.toContain('docs/instructions/workflows/feature-development.yaml');
+    expect(result.lines).toContain('Deleted docs/instructions/workflows/feature-development.yaml');
     const policy = loadFeatureDevelopmentPolicy(root).policy;
     expect(policy.stages.development.instructions.at(-1)).toBe(
       'Run the payments contract tests before review.',
@@ -226,7 +242,7 @@ describe('the four fixture projects', () => {
       ].join('\n'),
     );
     expect(configs('paqad.yaml')).toContain(
-      'updates:\n  # Pinned because CI images lag behind.\n  minimum_version: 9.9.0',
+      '\nupdates:\n  # Pulls newer paqad versions in the background when a session starts.\n  # automatic: true\n  # Pinned because CI images lag behind.\n  # The lowest paqad version this project runs on, where latest always tracks the newest version.\n  minimum_version: 9.9.0',
     );
     expect(YAML.parse(configs('feature-development/checks.yaml')).mutation_testing).toBe('off');
     expect(configs('feature-development/checks.yaml')).not.toContain('too noisy');
@@ -296,25 +312,32 @@ describe('dry run, idempotence and failure', () => {
     expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(false);
   });
 
-  it('a workflow view that cannot be replaced leaves .config.app as it was, not the stub (AC-64)', () => {
-    useFixture('project-b');
-    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
-    const state = join(root, '.paqad/state');
-    writeFileSync(state, 'not a folder\n');
-    const result = migrateTeamConfig(root, { version: VERSION });
-    rmSync(state, { force: true });
-    expect(
-      existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/workflow.yaml')),
-    ).toBe(true);
-    expect(result.error).toMatch(
-      /^Couldn't write the new settings files, so the old ones were kept/u,
-    );
-    expect(configs('.config.app')).toBe('enterprise=true\n');
-    expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(true);
-    const retry = migrateTeamConfig(root, { version: VERSION });
-    expect(retry.error).toBeUndefined();
-    expect(isMigratedStub(configs('.config.app'))).toBe(true);
-  });
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'an old workflow file that cannot be deleted leaves .config.app as it was, not the stub (AC-64)',
+    () => {
+      useFixture('project-b');
+      writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'enterprise=true\n');
+      const workflows = join(root, 'docs/instructions/workflows');
+      chmodSync(workflows, 0o555);
+      let result: ReturnType<typeof migrateTeamConfig>;
+      try {
+        result = migrateTeamConfig(root, { version: VERSION });
+      } finally {
+        chmodSync(workflows, 0o755);
+      }
+      expect(
+        existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, 'feature-development/workflow.yaml')),
+      ).toBe(true);
+      expect(result.error).toMatch(
+        /^Couldn't write the new settings files, so the old ones were kept/u,
+      );
+      expect(configs('.config.app')).toBe('enterprise=true\n');
+      expect(existsSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'))).toBe(true);
+      const retry = migrateTeamConfig(root, { version: VERSION });
+      expect(retry.error).toBeUndefined();
+      expect(isMigratedStub(configs('.config.app'))).toBe(true);
+    },
+  );
 
   it('an old file that comes back after a merge is migrated again and YAML wins', () => {
     useFixture('project-a');
@@ -344,14 +367,15 @@ describe('dry run, idempotence and failure', () => {
     expect(quiet.lines.some((line) => line.startsWith('The change '))).toBe(false);
   });
 
-  it('removes a tracked workflow file from git so the view stays git-ignored', () => {
+  it('removes a tracked old workflow file from git and writes no new copy', () => {
     useFixture('project-b');
     execFileSync('git', ['init', '-q'], { cwd: root });
     execFileSync('git', ['add', 'docs'], { cwd: root });
     migrateTeamConfig(root, { version: VERSION });
     const tracked = execFileSync('git', ['ls-files', 'docs'], { cwd: root, encoding: 'utf8' });
     expect(tracked).toBe('');
-    expect(isGeneratedView(readFileSync(featureDevelopmentViewPath(root), 'utf8'))).toBe(true);
+    expect(existsSync(featureDevelopmentViewPath(root))).toBe(false);
+    expect(existsSync(join(root, '.paqad/state/feature-development-view.sha256'))).toBe(false);
   });
 });
 

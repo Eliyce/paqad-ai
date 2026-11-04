@@ -1,5 +1,17 @@
-# yaml-language-server: $schema=./schemas/models.schema.json
 # Which models paqad uses and how deep research goes.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# research:
+#   # How far planning research looks, from the newest options to proven ones.
+#   depth: standard
+
+# models:
+#   # The model used for routine work.
+#   default: gpt-5
+#   # The model used for heavy reasoning and planning.
+#   reasoning: gpt-5
+#   # The cheap, fast model used for light steps.
+#   fast: gpt-5-mini

@@ -104,11 +104,32 @@ Source directories owned by this feature:
   the next run reads the list directly.
 - Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
   temp root that the orchestrator's own cleanup never reaches.
+- Workflow rules that became skills are cleaned up on the real project root for the same reason.
+  `cleanObsoleteWorkflowRules` (`src/onboarding/obsolete-cleanup.ts`) deletes each of the seven
+  files only when its hash, ignoring `@rule` markers, matches a version paqad shipped, and adds one
+  line to the update summary per file. An edited copy stays in place and the summary says it can
+  be deleted. A copy that can't be removed gets a "Couldn't remove" line that says the next update
+  tries again. A project without the files prints nothing.
+- After that cleanup, `update` does not recompile the rule-script map. Only when the cleanup removed
+  a file does `dropRuleScriptMapSources` (`src/rule-scripts/compile.ts`) drop that file's entries.
+  Every other entry, its scripts and kept copies are untouched, so edited rules still report drift.
+  A valid digest is rewritten and an already invalid one is left as it is. `rule_files_hash` is
+  refreshed only if the map was current. A failure becomes a note in the update summary, and a
+  project with no map does not get one from `update`.
 - Team settings: `migrateTeamConfig` moves old `.paqad/configs/.config.*` files and a hand-written
-  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once, then
-  `syncTeamConfigFiles` creates any missing header-only file, regenerates the schemas in the
-  git-ignored `.paqad/configs/schemas/` and the configs README. `update` never writes a value into
-  a team file, so a new setting's default reaches the team through the code.
+  `docs/instructions/workflows/feature-development.yaml` to the YAML team files once and deletes
+  that file, then `removeGeneratedFiles` (`src/update/generated-files-cleanup.ts`) removes what
+  older paqad versions wrote: the generated workflow copy (only when it carries the generated
+  header), `.paqad/state/feature-development-view.sha256`, its `.git/info/exclude` line and the
+  marker above it, `docs/instructions/workflows/` and then `docs/instructions/` when empty,
+  `.paqad/configs/schemas/`, and the schema line at the top of each team YAML file. It adds one
+  line to the update summary per item removed, names an item it couldn't remove and tries again
+  next run, and prints nothing on a clean project. Then
+  `syncTeamConfigFiles` creates any missing team file, regenerates the configs README, and re-renders every existing team
+  file from its live values, so it lists every setting commented out with its default. It writes a
+  file only when its text changes, names each rewritten file in the update output, and names (and
+  leaves untouched) a file that isn't valid YAML or isn't a map. `update` never writes a default as
+  a live value, so a new setting's default reaches the team through the code.
 - After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
   It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
   instead of running on defaults and updates on its next check. Every current reader (the CLI, the

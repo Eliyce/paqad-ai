@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -153,7 +161,8 @@ describe('framework end-to-end onboarding', () => {
       join(projectRoot, '.paqad/configs/feature-development/rules.yaml'),
       'utf8',
     );
-    expect(rulesConfig).toContain('$schema=../schemas/feature-development/rules.schema.json');
+    expect(rulesConfig).not.toContain('yaml-language-server');
+    expect(existsSync(join(projectRoot, '.paqad/configs/schemas'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad/configs/.config.app'))).toBe(false);
     const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
     expect(example).toContain('# lean_rules=true');
@@ -507,54 +516,41 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/design-system'))).toBe(false);
   });
 
-  it('installs the pentest workflow rule so AI knows the 5-step process', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-rule');
-
-    await runOnboard(projectRoot, {
-      stack: 'laravel',
-      capabilities: [],
-    });
-
-    const pentestRulePath = join(projectRoot, 'docs/instructions/rules/security/pentest.md');
-    expect(existsSync(pentestRulePath)).toBe(true);
-    const content = readFileSync(pentestRulePath, 'utf8');
-    expect(content).toContain('collect-context');
-    expect(content).toContain('run-project-scripts');
-    expect(content).toContain('synthesize-findings');
-    expect(content).toContain('write-report');
-  });
-
-  it('installs pentest rule with 6 security skills including STRIDE first', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-skills');
+  it('AC-4: writes none of the seven workflow recipe files on a fresh onboard', async () => {
+    const projectRoot = join(root, 'new-laravel-workflow-skills');
 
     await runOnboard(projectRoot, { stack: 'laravel' });
 
-    const content = readFileSync(
-      join(projectRoot, 'docs/instructions/rules/security/pentest.md'),
-      'utf8',
-    );
-    expect(content).toContain('stride-threat-model');
-    expect(content).toContain('input-validation-review');
-    expect(content).toContain('auth-mechanism-review');
-    expect(content).toContain('cryptographic-review');
-    expect(content).toContain('logging-monitoring-review');
-    expect(content).toContain('rate-limiting-review');
-    expect(content.indexOf('stride-threat-model')).toBeLessThan(
-      content.indexOf('input-validation-review'),
-    );
+    for (const path of [
+      'security/pentest.md',
+      'coding/site-map.md',
+      'coding/site-map-retest.md',
+      'coding/design-test.md',
+      'coding/design-retest.md',
+      'coding/codebase-health.md',
+      'coding/health-retest.md',
+    ]) {
+      expect(existsSync(join(projectRoot, 'docs/instructions/rules', path)), path).toBe(false);
+    }
   });
 
-  it('installs pentest rule with local attack playbook step', async () => {
-    const projectRoot = join(root, 'new-laravel-pentest-playbook');
+  it('cleans the old workflow rule files out when an existing project is onboarded again', async () => {
+    const projectRoot = join(root, 'existing-laravel-old-rules');
+    const fixtures = join(process.cwd(), 'tests/fixtures/obsolete-workflow-rules');
+    const rules = join(projectRoot, 'docs/instructions/rules');
+    mkdirSync(join(rules, 'security'), { recursive: true });
+    mkdirSync(join(rules, 'coding'), { recursive: true });
+    const edited = `${readFileSync(join(fixtures, 'coding/site-map.md'), 'utf8')}My own step.\n`;
+    writeFileSync(
+      join(rules, 'security/pentest.md'),
+      readFileSync(join(fixtures, 'security/pentest.md'), 'utf8'),
+    );
+    writeFileSync(join(rules, 'coding/site-map.md'), edited);
 
     await runOnboard(projectRoot, { stack: 'laravel' });
 
-    const content = readFileSync(
-      join(projectRoot, 'docs/instructions/rules/security/pentest.md'),
-      'utf8',
-    );
-    expect(content).toContain('generate-local-attack-playbook');
-    expect(content).toContain('local-playbook.md');
+    expect(existsSync(join(rules, 'security/pentest.md'))).toBe(false);
+    expect(readFileSync(join(rules, 'coding/site-map.md'), 'utf8')).toContain('My own step.');
   });
 });
 

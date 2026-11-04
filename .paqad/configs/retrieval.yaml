@@ -1,9 +1,28 @@
-# yaml-language-server: $schema=./schemas/retrieval.schema.json
 # How paqad finds relevant code and docs (RAG).
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# Loads relevant code and docs into context through search.
 enabled: true
+
 embeddings:
+  # Which embedding service builds the search index, and the local model is used when it is left unset. Not set by default.
   provider: local
+  # The embedding model to use instead of the default model of the provider. Not set by default.
   model: Xenova/all-MiniLM-L6-v2
+
+# match:
+#   # How similar (0 to 1) a piece of code or docs must be to the request before it is loaded.
+#   min_similarity: 0.75
+#   # A lower similarity score used when nothing reaches the main one, and the pieces it lets through are marked low confidence.
+#   fallback_min_similarity: 0.35
+#   # The most pieces of code or docs loaded for one search.
+#   max_results: 20
+
+# index:
+#   # Files larger than this many bytes are left out of the search index.
+#   max_file_size_bytes: 153600
+#   # The base branch the search index compares against, found on its own (main, then master) when left unset. Not set by default.
+#   base_branch:

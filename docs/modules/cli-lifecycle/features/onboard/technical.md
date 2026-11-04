@@ -29,8 +29,8 @@ Source directories owned by this feature:
 
 ## State Management
 
-- RAG enablement, provider, and model are written through `setTeamConfigValue` to the tracked `.paqad/configs/retrieval.yaml` (`enabled`, `embeddings.provider`, `embeddings.model`). The writer uses the `yaml` Document API, so comments and key order survive, and creates the file from its header when it is missing.
-- Onboard migrates old `.paqad/configs/.config.*` files and a hand-written `docs/instructions/workflows/feature-development.yaml` with `migrateTeamConfig` (`src/core/team-config-migrate.ts`), creates every missing header-only team file, writes the JSON schemas to the git-ignored `.paqad/configs/schemas/` and regenerates `.paqad/configs/README.md` (`syncTeamConfigFiles`). The workflow file becomes a generated view, rebuilt on every session start.
+- RAG enablement, provider, and model are written through `setTeamConfigValue` to the tracked `.paqad/configs/retrieval.yaml` (`enabled`, `embeddings.provider`, `embeddings.model`). The writer sets the value on the live `yaml` Document and re-renders the whole file, so the value is live, the team's comments survive and no commented copy of the setting is left.
+- Onboard migrates old `.paqad/configs/.config.*` files and an old hand-written feature-development workflow file with `migrateTeamConfig` (`src/core/team-config-migrate.ts`), which deletes that file once its settings are carried. It creates every missing team file and re-renders the existing ones with every setting commented out at its default, and regenerates `.paqad/configs/README.md` (`syncTeamConfigFiles`). Onboard writes nothing under `docs/instructions/workflows/` and no editor schemas.
 - `writeOnboardingManifest` normalizes persisted paths and deterministic collections before serialization. When semantic content is unchanged, it carries forward both `generated_at` and `detected.timestamp` and avoids rewriting byte-identical output.
 - Detection signals and generated artifact paths are repository-relative; ignored repository paths omit `.DS_Store`, `.idea`, and `.vscode` noise and are sorted.
 
@@ -129,7 +129,11 @@ The reasons below are not obvious from the code, grouped by file in `src/onboard
   than being overwritten. A rewrite equal except for the timestamp keeps the old file. Relative
   inputs are returned as is, because `path.relative` resolves both sides against the cwd.
 - **`obsolete-cleanup.ts`.** Old project copies of the two contracts are removed only when they
-  start with paqad's managed header.
+  start with paqad's managed header. The seven workflow rule files that became skills (`pentest`,
+  `site-map`, `site-map-retest`, `design-test`, `design-retest`, `codebase-health`,
+  `health-retest`) are no longer shipped, and `removeObsoleteWorkflowRules` removes a project copy
+  only when its hash, ignoring `@rule` markers, matches a version paqad shipped. An edited copy is
+  kept, with a warning that says it can be deleted.
 - **`orchestrator.ts`.** Onboarding is two phases: every core file is written first with no
   prompt, then the optional RAG step runs, so a hanging RAG prompt cannot leave a half-onboarded
   project. A re-onboard is a refresh: user-set sections are carried forward and only

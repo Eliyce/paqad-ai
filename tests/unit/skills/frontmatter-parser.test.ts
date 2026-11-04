@@ -11,6 +11,8 @@ import {
   skillDeclaresRequestRouting,
   skillMetadataDeprecations,
 } from '@/skills/frontmatter-parser.js';
+import { SkillTriggerEvaluator } from '@/skills/trigger-evaluator.js';
+import type { ClassificationResult } from '@/core/types/classification.js';
 
 describe('SkillFrontmatterParser', () => {
   const parser = new SkillFrontmatterParser();
@@ -123,6 +125,38 @@ Body.
     expect(parsed.frontmatter.name).toBe('trimmed-skill');
     expect(parsed.frontmatter.description).toBe('Trimmed description');
     expect(parsed.frontmatter.input_schema.request_text?.description).toBeUndefined();
+  });
+
+  const HELPER = (triggers: string): string => `---
+name: called-helper
+description: A helper only its parent calls
+model_tier: fast
+${triggers}cacheable: false
+cache_key_inputs: []
+output_format: markdown
+input_schema:
+  request_text:
+    type: string
+    required: true
+---
+Body.
+`;
+
+  it('accepts an explicit empty trigger list for a helper only its parent calls', () => {
+    expect(parser.parse(HELPER('triggers: []\n')).frontmatter.triggers).toEqual([]);
+  });
+
+  it('still rejects a skill with no triggers key and no request_routing', () => {
+    expect(() => parser.parse(HELPER(''))).toThrowError(/triggers/);
+  });
+
+  it('never loads a skill with an empty trigger list, whatever the classification', () => {
+    const skill = parser.parse(HELPER('triggers: []\n')).frontmatter;
+    expect(
+      new SkillTriggerEvaluator().shouldLoad(skill, {
+        workflow: 'pentest-retest',
+      } as unknown as ClassificationResult),
+    ).toBe(false);
   });
 
   it('accepts request_routing without triggers for pre-routing skills', () => {

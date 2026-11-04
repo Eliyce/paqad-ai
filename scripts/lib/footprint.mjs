@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-export const RESIDENT_AREAS = ['rules', 'stack', 'design-system', 'workflows'];
+export const RESIDENT_AREAS = ['rules', 'stack', 'design-system'];
 
 export const RULE_SLICE_PATH = join('.paqad', 'context', 'session-context.md');
 

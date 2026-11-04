@@ -2,7 +2,7 @@
 
 > Module: **Feature Development Workflow** (`feature-development-workflow`) · Layer: `agent-workflows` · Feature slug: `resumable-runs`
 
-Resumable runs have no HTTP surface. A paused feature-development change is picked up again with one CLI verb. The stages it resumes into are read from paqad's policy plus the team files in `.paqad/configs/feature-development/`, shown in the generated view at `docs/instructions/workflows/feature-development.yaml` (see the conditional-steps API view for how that view is rebuilt).
+Resumable runs have no HTTP surface. A paused feature-development change is picked up again with one CLI verb. The stages it resumes into are read from paqad's policy plus the team files in `.paqad/configs/feature-development/`. `paqad-ai stage brief <stage> --full` prints a stage's full instructions.
 
 ## CLI: `paqad-ai resume --feature <ref>`
 

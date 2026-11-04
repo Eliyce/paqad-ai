@@ -1,8 +1,6 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-import YAML from 'yaml';
 
 import { createConfigCommand } from '@/cli/commands/config.js';
 import { PATHS } from '@/core/constants/paths.js';
@@ -11,11 +9,6 @@ import {
   setTeamConfigValue,
   writeTeamYamlValue,
 } from '@/core/team-config.js';
-import {
-  FEATURE_DEVELOPMENT_VIEW_HEADER,
-  featureDevelopmentViewPath,
-  refreshFeatureDevelopmentView,
-} from '@/pipeline/feature-development-view.js';
 
 let root: string;
 
@@ -75,20 +68,8 @@ describe('paqad-ai config migrate: a failed move', () => {
 });
 
 describe('paqad-ai config view', () => {
-  it('prints nothing when the view is current, and the moved lines after a hand edit', async () => {
-    writeFileSync(join(root, '.gitignore'), '');
-    mkdirSync(join(root, '.paqad'), { recursive: true });
-    writeFileSync(join(root, PATHS.PROJECT_PROFILE), 'active_capabilities:\n  - coding\n');
-    refreshFeatureDevelopmentView(root);
-    expect(await run(['view'])).toEqual([]);
-    const parsed = YAML.parse(readFileSync(featureDevelopmentViewPath(root), 'utf8'));
-    parsed.stages.review.instructions.push('Hand rule.');
-    writeFileSync(
-      featureDevelopmentViewPath(root),
-      `${FEATURE_DEVELOPMENT_VIEW_HEADER}${YAML.stringify(parsed)}`,
-    );
-    const lines = await run(['view']);
-    expect(lines[0]).toContain('was edited by hand; paqad moved the edit and rebuilt it.');
+  it('is gone, so nothing rebuilds a workflow copy', () => {
+    expect(createConfigCommand().commands.map((command) => command.name())).not.toContain('view');
   });
 });
 

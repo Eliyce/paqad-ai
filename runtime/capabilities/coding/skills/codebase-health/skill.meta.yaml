@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - codebase-health
+      - health-retest
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: The health audit or retest request.
+  source_report_path:
+    type: path
+    required: false
+    description: Source docs/health sidecar to retest, for the Retest mode.

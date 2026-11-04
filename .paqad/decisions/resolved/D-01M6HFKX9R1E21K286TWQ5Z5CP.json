@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6HFKX9R1E21K286TWQ5Z5CP",
+  "category": "authoring.override",
+  "title": "The agent paqad-planning cannot run its S5 check. Add it unverified, kept in this project?",
+  "context": "S5 pass^3 0.33 equals the old pre-#828 agent (0.33): no regression from #828. Weaknesses (missing-change-ref, shortened brief on sonnet) predate this change; filed as tech debt.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-planning is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-planning helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-planning is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-03T19:54:12.664Z",
+  "status": "resolved",
+  "change": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "chosen": "add-unverified",
+  "rationale": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt.",
+  "resolved_at": "2026-11-03T19:54:21.128Z",
+  "decision_id": "D-01M6HFKX9R1E21K286TWQ5Z5CP",
+  "fingerprint": "sha256:d06f958293b84881d5cffc24fe843bd26d02ef49f2bb93340a75d52e1e363479",
+  "question": "The agent paqad-planning cannot run its S5 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "ttl_until": "2026-12-03T19:54:12.664Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T19:54:21.128Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt."
+  }
+}

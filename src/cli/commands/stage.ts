@@ -38,6 +38,7 @@ interface StageOptions {
   issue?: string;
   agent?: string;
   agentId?: string;
+  full?: boolean;
 }
 
 function runStageSettings(options: StageOptions): void {
@@ -112,7 +113,11 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
       }
       const agentId =
         options.agentId ?? process.env.SE_AGENT_ID ?? openStageAgentId(root, sessionId, dirName);
-      return buildStageBrief(stage, root, sessionId, { agentId, resumed: true });
+      return buildStageBrief(stage, root, sessionId, {
+        agentId,
+        resumed: true,
+        full: options.full === true,
+      });
     });
   } catch (error) {
     console.error(`could not build the ${stage} stage brief: ${(error as Error).message}`);
@@ -163,6 +168,7 @@ export function createStageCommand(): Command {
       'On a `brief`, the host agent id to print on the command lines (defaults to SE_AGENT_ID, ' +
         "then the session's open stage-agent row)",
     )
+    .option('--full', 'On a `brief`, print every read entry and instruction, with no length cut')
     .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
       if (phase === 'settings') {
         runStageSettings(options);

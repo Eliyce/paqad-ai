@@ -36,11 +36,11 @@ describe('onboarding orchestrator partition', () => {
     }
   });
 
-  it('AC-1 AC-2: keeps exactly the 70 original test titles across the groups, none in two places', () => {
+  it('AC-1 AC-2: keeps exactly the 71 test titles across the groups, none in two places', () => {
     const titles = sources.flatMap(titlesOf);
-    expect(ORIGINAL_TITLES).toHaveLength(70);
+    expect(ORIGINAL_TITLES).toHaveLength(71);
     expect([...titles].sort()).toEqual(ORIGINAL_TITLES);
-    expect(titles).toHaveLength(70);
+    expect(titles).toHaveLength(71);
     expect(new Set(titles).size).toBe(titles.length);
     for (const source of sources) expect(titlesOf(source).length).toBeGreaterThan(0);
   });

@@ -18,7 +18,7 @@ Do **not** improvise. Do **not** jump straight to editing code. Always run the s
 
 ## Authoritative source
 
-The definition of these stages lives in `docs/instructions/workflows/feature-development.yaml`, a view paqad generates from its own defaults and the team's `.paqad/configs/feature-development/` files on every session (delivery conventions live in the team's `.paqad/configs/git-workflow/` files). A team changes the workflow in `.paqad/configs/feature-development/`, never in the view: a hand edit is moved there and the view is rebuilt. Load those files and follow them. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
+The definition of these stages is paqad's own policy in `src/pipeline/feature-development-policy.ts` plus the team's additions in `.paqad/configs/feature-development/` (delivery conventions live in the team's `.paqad/configs/git-workflow/` files). A team changes the workflow in `.paqad/configs/feature-development/`. A stage agent gets its stage's `read:` list and instructions in its brief; `paqad-ai stage brief <stage> --full` prints every one of them, and `paqad-ai config show` prints every setting. The stages below are the mandatory sequence; the YAML carries the authoritative per-stage `strictness`, `escalation`, and gate flags. Where the YAML and this rule differ, the YAML wins.
 
 Honor every stage's escalation flag through the Decision Pause Contract:
 

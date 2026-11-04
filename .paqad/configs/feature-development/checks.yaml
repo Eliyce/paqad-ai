@@ -1,5 +1,26 @@
-# yaml-language-server: $schema=../schemas/feature-development/checks.schema.json
 # What the checks stage runs and how: commands, parallel runs, flaky tests, mutation testing.
-# Only settings this team changed live here; everything else uses paqad's default.
-# See every setting, its value and where it comes from: paqad-ai config show
-paqad_version: "1.116.0"
+# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# A setting left commented out uses paqad's default, which can improve in a later version.
+# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
+paqad_version: "1.117.0"
+
+# Runs the checks at the same time, using the test runner's own parallel mode when it has one.
+# parallel: true
+
+# The most test processes that run at once, where auto uses the CPU cores minus one within memory limits.
+# max_processes: auto
+
+# Mutation testing on changed code, which runs only from the CI or pre-push hook of the project with its own mutation tool.
+# mutation_testing: off
+
+# What happens to a test that fails in the parallel run but passes alone, and a personal setting may only make it stricter.
+# flaky_tests: warn
+
+# commands:
+#   # Command names from the project profile that the checks stage runs; [] runs none.
+#   from_project_profile: []
+#   # Extra shell commands the checks stage runs, by name. Not set by default.
+#   extra:
+
+# block stops the change when a check fails; warn records it and carries on.
+# on_failure: block

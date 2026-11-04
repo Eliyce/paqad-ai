@@ -25,9 +25,10 @@ A rule is a **constraint on the code or artifact**, phrased as a how-to, that:
 - **Not a workflow.** No `## Trigger`, no `### Step N`, no `run_id`, no skill
   ordering, no coverage matrices. Those are framework workflows; they live in
   the runtime and are loaded at agent-entry, not copied into the project.
-  (Legacy exceptions — `coding/rules/design-test.md`, `design-retest.md`,
-  `security/rules/pentest.md` — predate this rule and are allowlisted in the
-  guard pending relocation.)
+  (Legacy exception: `coding/rules/feature-development.md` predates this rule
+  and is allowlisted in the guard. The design-test, design-retest, pentest,
+  site-map, site-map-retest, codebase-health and health-retest workflows now
+  live in the `pentest`, `site-map`, `design-test` and `codebase-health` skills.)
 - **Not framework plumbing.** No references to `.paqad/`, phases, lanes, handoff
   artifacts, cache/context-hit metrics, or skill caching. A project must be able
   to delete `.paqad/` with no dangling rule references.

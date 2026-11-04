@@ -14,8 +14,9 @@ the project's own `commands`, `mcp.servers`, the detection-derived
 Framework knobs (paqad on/off, enterprise, RAG, strictness, escalation, features,
 research depth, model routing, decision tuning, version/update) no longer live
 here. They come from code defaults in `src/core/framework-config.ts`, overridable
-through the config layer — tracked team `.paqad/configs/.config.*` (one
-self-documenting file per group, every knob commented out at its default),
+through the config layer: the tracked YAML team files under `.paqad/configs/`
+(each lists every setting it can hold, commented out with its default and a
+one-line note, written by `renderTeamConfigFile` in `src/core/team-config.ts`),
 git-ignored local `.paqad/.config` (local wins), and `PAQAD_*` env. See
 [`config-visibility`](../../../instructions/rules/coding/config-visibility.md).
 
@@ -128,9 +129,12 @@ parsing, the layered resolver, the env mapping, the generated group files and th
 Framework knobs come only from the config layers; any still in `project-profile.yaml` are ignored
 on read and stripped on write, and `detectFlippedFrameworkValues` turns that revert into a visible
 notice. The `custom.decisions` sub-keys that are project values (`preferred_option_keys`,
-`ttl_overrides_days`, `max_pending`) stay in the profile. Group files are written commented out,
-so a fresh project runs on code defaults; an existing file only gains new keys, and reconcile only
-prunes keys this version no longer knows, never resetting a value. Unchanged files are never
+`ttl_overrides_days`, `max_pending`) stay in the profile. Team files are written commented out,
+so a fresh project runs on code defaults. Onboard, update, a single-value write and migration all
+re-render a team file in full from its live values: new settings appear commented out, removed
+ones disappear, the team's values and comments are kept, a live key paqad does not know moves
+under a "Not a paqad setting" line, and other team comments move to a notes section at the end.
+A file that isn't valid YAML, or isn't a map of settings, is never rewritten. Unchanged files are never
 rewritten. `.config.example` is tracked but never read at runtime. The flaky mode order is kept
 local to avoid an import cycle with `src/checks/flaky-mode.ts`. The evidence existence gate has no
 `strict` tier on purpose: it warns, never blocks. `SPEC_PIPELINE_DEFAULTS` is mirrored in

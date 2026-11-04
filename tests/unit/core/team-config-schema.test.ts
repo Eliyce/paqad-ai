@@ -1,63 +1,28 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 import { FRAMEWORK_CONFIG_SPECS } from '@/core/framework-config.js';
-import { teamConfigHeader, teamConfigSchemaRef } from '@/core/team-config.js';
-import {
-  generateTeamConfigSchema,
-  STRUCTURED_TEAM_SETTINGS,
-  teamConfigSchemaPath,
-  writeTeamConfigSchemas,
-} from '@/core/team-config-schema.js';
-import {
-  TEAM_CONFIG_FILES,
-  yamlDefault,
-  type OwnTeamConfigFile,
-} from '@/core/team-config-values.js';
+import { renderTeamConfigFile } from '@/core/team-config.js';
+import { STRUCTURED_TEAM_SETTINGS } from '@/core/team-config-schema.js';
+import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
 
-type Node = Record<string, unknown>;
-
-function leaf(schema: Node, path: readonly string[]): Node | undefined {
-  let node: Node | undefined = schema;
-  for (const segment of path) {
-    node = (node?.properties as Record<string, Node> | undefined)?.[segment];
-  }
-  return node;
-}
-
-describe('team config schemas', () => {
-  it('puts every registry row in its file schema with its description, default and enum (AC-67)', () => {
-    for (const spec of FRAMEWORK_CONFIG_SPECS) {
-      if (spec.file === 'git-workflow/commits.yaml') continue;
-      const node = leaf(generateTeamConfigSchema(spec.file as OwnTeamConfigFile), spec.path);
-      expect(node, spec.key).toBeDefined();
-      expect(node!.description).toBe(spec.comment);
-      expect(node!.default).toEqual(yamlDefault(spec));
-    }
-    const stageTracking = leaf(generateTeamConfigSchema('feature-development/workflow.yaml'), [
-      'stage_tracking',
-    ]);
-    expect(stageTracking).toMatchObject({ enum: ['off', 'warn', 'block'], default: 'block' });
-  });
-
-  it('allows keys from a newer paqad', () => {
-    for (const file of TEAM_CONFIG_FILES) {
-      expect(generateTeamConfigSchema(file).additionalProperties).toBe(true);
-    }
-  });
-
-  it('includes the structured settings of workflow.yaml and checks.yaml', () => {
-    const workflow = generateTeamConfigSchema('feature-development/workflow.yaml');
-    expect(leaf(workflow, ['stages', 'planning', 'read'])).toMatchObject({ type: 'array' });
-    expect(leaf(workflow, ['stages', 'planning', 'module_attribution'])).toMatchObject({
-      enum: ['defer', 'stop'],
+describe('team config structured settings', () => {
+  it('describe the structured settings of workflow.yaml and checks.yaml', () => {
+    const at = (file: string, path: string) =>
+      STRUCTURED_TEAM_SETTINGS.find(
+        (setting) => setting.file === file && setting.path.join('.') === path,
+      )?.schema;
+    expect(at('feature-development/workflow.yaml', 'stages.planning.read')).toMatchObject({
+      type: 'array',
     });
-    const checks = generateTeamConfigSchema('feature-development/checks.yaml');
-    expect(leaf(checks, ['commands', 'extra'])).toMatchObject({ type: 'object' });
-    expect(leaf(checks, ['on_failure'])).toMatchObject({ enum: ['block', 'warn'] });
+    expect(
+      at('feature-development/workflow.yaml', 'stages.planning.module_attribution'),
+    ).toMatchObject({ enum: ['defer', 'stop'] });
+    expect(at('feature-development/checks.yaml', 'commands.extra')).toMatchObject({
+      type: 'object',
+    });
+    expect(at('feature-development/checks.yaml', 'on_failure')).toMatchObject({
+      enum: ['block', 'warn'],
+    });
   });
 
   it('never lets a structured setting and a registry row claim the same path', () => {
@@ -73,20 +38,12 @@ describe('team config schemas', () => {
     }
   });
 
-  it('writes one schema per file where the file header points', () => {
-    const root = mkdtempSync(join(tmpdir(), 'team-config-schema-'));
-    try {
-      writeTeamConfigSchemas(root);
-      for (const file of TEAM_CONFIG_FILES) {
-        const path = teamConfigSchemaPath(root, file);
-        expect(existsSync(path)).toBe(true);
-        expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(generateTeamConfigSchema(file));
-        const fromFile = join(root, '.paqad/configs', file, '..', teamConfigSchemaRef(file));
-        expect(fromFile).toBe(path);
-        expect(teamConfigHeader(file)).toContain(teamConfigSchemaRef(file));
-      }
-    } finally {
-      rmSync(root, { recursive: true, force: true });
+  it('renders every team file with its description first and no schema line', () => {
+    for (const file of TEAM_CONFIG_FILES) {
+      const text = renderTeamConfigFile(file, null);
+      expect(text.split('\n')[0], file).toMatch(/^# [A-Z]/u);
+      expect(text, file).not.toContain('yaml-language-server');
+      expect(text, file).not.toContain('.schema.json');
     }
   });
 });

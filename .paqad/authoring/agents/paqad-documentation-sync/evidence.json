@@ -1,25 +1,125 @@
 {
   "schema_version": "1",
   "agent": "paqad-documentation-sync",
-  "version": "1.1.0",
-  "file_hash": "sha256:1c2f5a1fd7fce37bfd5868b86bf5c03f97d5e13920b3e37b7bf8eb46184a6c84",
+  "version": "1.2.0",
+  "file_hash": "sha256:636b4b4c94681bf2e85ef491de139d54274670fe7e5fb4ff1dbfaf87786dd95a",
   "released_path": "runtime/claude-plugin/agents/paqad-documentation-sync.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-documentation-sync.md"
   ],
-  "pattern": null,
-  "class": null,
-  "invocation": null,
+  "pattern": "chaining",
+  "class": "builder",
+  "invocation": "dispatched",
   "baseline": {
-    "arm": null,
+    "arm": "old_agent",
     "runs": 0,
     "passed": "unavailable",
-    "verdict": "overridden"
+    "verdict": "needed"
   },
-  "reliability": null,
-  "delegation": null,
+  "reliability": {
+    "pass_hat_k": 0.5,
+    "threshold": 0.95,
+    "registered_tier": null,
+    "table": [
+      {
+        "arm": "old_agent",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0,
+        "pass_at_k": 0,
+        "cases": [
+          {
+            "case": "clean-no-stale-doc",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "stale-doc-from-brief",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      },
+      {
+        "arm": "old_agent",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0.5,
+        "pass_at_k": 0.5,
+        "cases": [
+          {
+            "case": "clean-no-stale-doc",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "stale-doc-from-brief",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "fast",
+        "k": 3,
+        "pass_hat_k": 0.5,
+        "pass_at_k": 0.5,
+        "cases": [
+          {
+            "case": "clean-no-stale-doc",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "stale-doc-from-brief",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          }
+        ]
+      },
+      {
+        "arm": "with_agent",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0.5,
+        "pass_at_k": 0.5,
+        "cases": [
+          {
+            "case": "clean-no-stale-doc",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "stale-doc-from-brief",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          }
+        ]
+      }
+    ]
+  },
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
-  "returned_to_main_tokens_median": "unavailable",
+  "returned_to_main_tokens_median": 97.5,
   "host_notes": {
     "claude-plugin": [
       "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
@@ -49,12 +149,59 @@
     "tier": null
   },
   "performance": {
-    "source": "unavailable"
+    "task_type": "cases that must leave the project's tests green",
+    "tier": "reasoning",
+    "tokens_per_task": {
+      "value": 28125.5,
+      "source": "subagent-dispatch"
+    },
+    "cost_usd": {
+      "value": 0.0155236,
+      "source": "subagent-dispatch"
+    },
+    "latency_p50_ms": {
+      "value": 14345.5,
+      "source": "subagent-dispatch"
+    },
+    "latency_p95_ms": {
+      "value": 14345.5,
+      "measure": "median",
+      "samples": 6,
+      "source": "subagent-dispatch"
+    },
+    "queue_ms_median": {
+      "value": 0,
+      "source": "subagent-dispatch"
+    },
+    "cache_hit_share": {
+      "value": 0.9997,
+      "source": "subagent-dispatch"
+    },
+    "tool_calls": {
+      "value": 3,
+      "source": "subagent-dispatch"
+    },
+    "tool_use_blocks_per_message": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    },
+    "turns": {
+      "value": 4,
+      "source": "subagent-dispatch"
+    },
+    "returned_to_main_tokens": {
+      "value": 97.5,
+      "source": "subagent-dispatch"
+    },
+    "context_utilisation": {
+      "value": "unavailable",
+      "source": "subagent-dispatch"
+    }
   },
   "batch": "unavailable",
   "creation_cost": {
-    "S5": "unavailable",
-    "S6": "unavailable",
+    "S5": 0.211579,
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
@@ -67,49 +214,26 @@
     "passed": 0
   },
   "permission_decisions": [
-    "D-01M6DXJJWC889QD6AQR4TD6F07",
-    "D-01M6DZW7H9VHMMR297Z5PTP1AM"
+    "D-01M6H026RWJXX8BV05W6P4HMS5"
   ],
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:03.009Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:04.657Z"
-    },
-    {
       "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved in chat (2026-11-03): S2 fails only on name shadowing against paqad's own generated Codex form ~/.codex/agents/<name>.toml of the same agent; overlap score is clean.",
       "by": "human",
-      "at": "2026-11-02T10:41:06.485Z"
+      "at": "2026-11-03T15:21:26.617Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt.",
       "by": "human",
-      "at": "2026-11-02T10:41:08.132Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:09.825Z"
+      "at": "2026-11-03T19:54:21.441Z"
     }
   ],
   "decisions": [
-    "D-01M6DXJA246F27B3G3T9B0E9X5",
-    "D-01M6DXJBQNVZTZZHM3CABR96C4",
-    "D-01M6DXJDDT57V6F4ESSF62PJ7J",
-    "D-01M6DXJF437P76NMBAS8P5Z60V",
-    "D-01M6DXJGSHMTXM5ZKB2H9FH088",
-    "D-01M6DXJJWC889QD6AQR4TD6F07",
-    "D-01M6DZW7H9VHMMR297Z5PTP1AM"
+    "D-01M6GZW9DH9KAM2E0B8GM7EW35",
+    "D-01M6H026RWJXX8BV05W6P4HMS5",
+    "D-01M6HFKXMCP9FW3GFYBFYSTYJ6"
   ],
   "labels": [
     "unverified"

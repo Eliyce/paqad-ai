@@ -1,0 +1,14 @@
+triggers:
+  - workflow:
+      - site-map
+      - site-map-retest
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: The site map request.
+  app_map:
+    type: path
+    required: false
+    description: The stored docs/site-map/app-map.yaml, when a map already exists.

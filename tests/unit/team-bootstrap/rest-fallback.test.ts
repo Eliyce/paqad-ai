@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
-import { renderFeatureDevelopmentView } from '@/pipeline/feature-development-view.js';
 import { GithubHostProvider, resetGraphqlRefusal } from '@/providers/github-host-provider.js';
 import {
   GRAPHQL_REFUSED_MESSAGE,
@@ -532,7 +531,7 @@ describe('the origin parser', () => {
 describe('the delivery instruction', () => {
   it('routes cloud sessions through paqad-ai deliver, which carries the REST fallback, in both rendered forms', () => {
     const policy = defaultFeatureDevelopmentPolicy();
-    const rendered = YAML.parse(renderFeatureDevelopmentView(policy)) as typeof policy;
+    const rendered = YAML.parse(YAML.stringify(policy, { lineWidth: 0 })) as typeof policy;
     for (const form of [policy, rendered]) {
       const text = form.stages.delivery!.instructions.join('\n');
       expect(text).toContain('Deliver only through paqad');

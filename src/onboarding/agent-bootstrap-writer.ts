@@ -1,17 +1,10 @@
 import { buildDecisionPauseContractBody } from './decision-pause-contract-writer.js';
 import { buildNarrationContractBody } from './narration-contract-writer.js';
 
-export const LOADED_INSTRUCTION_DIRS: readonly string[] = ['stack', 'design-system', 'workflows'];
-
-const LOADED_DIR_NOTES: Readonly<Record<string, string>> = {
-  workflows: 'the feature-development workflow that governs how a change is built',
-};
+export const LOADED_INSTRUCTION_DIRS: readonly string[] = ['stack', 'design-system'];
 
 function alwaysLoadList(): string {
-  return LOADED_INSTRUCTION_DIRS.map((dir) => {
-    const note = LOADED_DIR_NOTES[dir];
-    return `- \`docs/instructions/${dir}\`${note ? ` (${note})` : ''}`;
-  }).join('\n');
+  return LOADED_INSTRUCTION_DIRS.map((dir) => `- \`docs/instructions/${dir}\``).join('\n');
 }
 
 const BOOTSTRAP_HEADER =

@@ -285,9 +285,13 @@ const LOAD_FRAMEWORK_STEPS = (step: number): string[] => [
   `${step + 1}. If the entry gate blocks your first edit, create the per-agent marker it names under \`.paqad/session/agent-entry/\` (or write \`.paqad/.agent-entry-loaded\`) and retry.`,
 ];
 
-export const STAGE_BRIEF_FALLBACK_LINE =
-  'Your stage brief was added to your context when you started. If it is missing, resolve ' +
-  '`.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.';
+export function stageBriefFallbackLine(stage: string): string {
+  return (
+    'Your stage brief was added to your context when you started. If it is missing, run ' +
+    `\`paqad-ai stage brief ${stage} --full\` to print it; if that fails, resolve ` +
+    '`.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.'
+  );
+}
 
 export const AGENT_ENTRY_MARKER_FALLBACK: readonly string[] = [
   'You run in your own subagent context, so the entry gate tracks your load separately from',
@@ -295,8 +299,8 @@ export const AGENT_ENTRY_MARKER_FALLBACK: readonly string[] = [
   'those, write the marker it names, and retry.',
 ];
 
-const STAGE_BRIEF_STEPS = (step: number): string[] => [
-  `${step}. ${STAGE_BRIEF_FALLBACK_LINE}`,
+const STAGE_BRIEF_STEPS = (step: number, stage: string): string[] => [
+  `${step}. ${stageBriefFallbackLine(stage)}`,
   `${step + 1}. ${AGENT_ENTRY_MARKER_FALLBACK.join(' ')}`,
 ];
 
@@ -384,7 +388,8 @@ function stageDoNot(def: StageAgentDef, host: string): string[] {
 
 export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): string {
   const procedure = STAGE_PROCEDURE[def.ledgerStage]!;
-  const entry = host === 'claude-code' ? STAGE_BRIEF_STEPS(1) : LOAD_FRAMEWORK_STEPS(1);
+  const entry =
+    host === 'claude-code' ? STAGE_BRIEF_STEPS(1, def.ledgerStage) : LOAD_FRAMEWORK_STEPS(1);
   const notes = [
     ...(QUICK_STAGES.has(def.ledgerStage) ? [WORK_QUICKLY_LINE] : []),
     ...stageNoteLines(def.ledgerStage),
@@ -399,7 +404,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '',
     ...entry,
     "3. Export `SE_SESSION`, the orchestrator's session id from your dispatch, for every command you run, so every row and artifact you write is recorded under the one change.",
-    `4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from \`docs/instructions/workflows/feature-development.yaml\`.`,
+    '4. You were dispatched with the change ref, the lane and the previous pillar file(s). Read those files and the `read:` list and instructions in your brief.',
     `5. \`paqad-ai stage start ${def.ledgerStage}\`.`,
     `6. ${procedure.work}`,
     `7. ${procedure.end}`,

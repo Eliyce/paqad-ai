@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6H00GDWR4W1ECH8TAED5S0V",
+  "category": "authoring.override",
+  "title": "The agent paqad-development cannot run its S2 check. Add it unverified, kept in this project?",
+  "context": "Name shadowing false positive: the only match is paqad's own generated Codex form ~/.codex/agents/paqad-development.toml of this same agent; the overlap score is clean.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-development is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-development helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-development is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-03T15:21:28.252Z",
+  "status": "resolved",
+  "change": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "chosen": "add-unverified",
+  "rationale": "Owner approved in chat (2026-11-03): skip S2 for all four helpers; name shadowing only matches paqad's own generated Codex form of the same agent.",
+  "resolved_at": "2026-11-03T15:21:56.512Z",
+  "decision_id": "D-01M6H00GDWR4W1ECH8TAED5S0V",
+  "fingerprint": "sha256:01c41e6500f8b882b1ceb30bade4e449fa0ed53389ce86b3c090343e8f4acbdc",
+  "question": "The agent paqad-development cannot run its S2 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6GX2T0X4KVPAA3EEMAAHDMW",
+  "ttl_until": "2026-12-03T15:21:28.252Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-03T15:21:56.512Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved in chat (2026-11-03): skip S2 for all four helpers; name shadowing only matches paqad's own generated Codex form of the same agent."
+  }
+}
