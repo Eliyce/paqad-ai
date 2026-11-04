@@ -93,7 +93,7 @@ function main() {
       logPath,
       `[${nowIso}] INFO silent-update ${decision} self-update ${current} -> ${latest} (npm install -g paqad-ai@latest)`,
     );
-    spawnBackgroundUpdate(logPath);
+    spawnBackgroundUpdate(logPath, projectRoot);
   } finally {
     releaseLock(lockDir);
   }
@@ -274,12 +274,13 @@ function appendLine(logPath, line) {
   } catch {}
 }
 
-function spawnBackgroundUpdate(logPath) {
+function spawnBackgroundUpdate(logPath, projectRoot) {
   try {
     const out = openSync(logPath, 'a');
     const child = spawn('npm install -g paqad-ai@latest && paqad-ai update --silent', {
       shell: true,
       detached: true,
+      cwd: projectRoot,
       stdio: ['ignore', out, out],
     });
     child.unref();

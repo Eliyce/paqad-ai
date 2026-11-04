@@ -1,4 +1,11 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -26,13 +33,17 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
-import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
+import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
-import { cleanObsoleteWorkflowRules } from '@/onboarding/obsolete-cleanup.js';
+import {
+  cleanObsoleteWorkflowRules,
+  OBSOLETE_WORKFLOW_RULES,
+} from '@/onboarding/obsolete-cleanup.js';
+import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-development-view.js';
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
 import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
@@ -72,6 +83,7 @@ export interface UpdateReport {
   previous_version: string | null;
   target_version: string;
   regenerated: string[];
+  changed_files?: string[];
   skipped: UpdateDiff[];
   deprecated: string[];
   new_mcp_servers: string[];
@@ -83,6 +95,58 @@ export interface UpdateReport {
 
 export interface FrameworkUpdaterOptions {
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
+}
+
+const RETIRED_FILES: readonly string[] = [
+  ...OBSOLETE_WORKFLOW_RULES.map((rule) => `${PATHS.RULES_DIR}/${rule.path}`),
+  OLD_DELIVERY_POLICY,
+  FEATURE_DEVELOPMENT_VIEW_RELATIVE,
+];
+const TRACKED_UPDATE_FILES: readonly string[] = [
+  PATHS.ONBOARDING_MANIFEST,
+  PATHS.PROJECT_CONFIG_EXAMPLE,
+  '.paqad/.gitignore',
+  '.paqad/.gitattributes',
+  '.worktreeinclude',
+  ...RETIRED_FILES,
+];
+
+function snapshotText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function filesUnder(projectRoot: string, relativeDir: string): string[] {
+  let entries;
+  try {
+    entries = readdirSync(join(projectRoot, relativeDir), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries.flatMap((entry) => {
+    const path = `${relativeDir}/${entry.name}`;
+    return entry.isDirectory() ? filesUnder(projectRoot, path) : [path];
+  });
+}
+
+function trackedUpdatePaths(projectRoot: string): string[] {
+  return [...TRACKED_UPDATE_FILES, ...filesUnder(projectRoot, PATHS.PROJECT_CONFIGS_DIR)];
+}
+
+function snapshotFiles(projectRoot: string): Map<string, string | null> {
+  return new Map(
+    trackedUpdatePaths(projectRoot).map((path) => [path, snapshotText(join(projectRoot, path))]),
+  );
+}
+
+function filesChangedSince(projectRoot: string, before: Map<string, string | null>): string[] {
+  const paths = new Set([...before.keys(), ...trackedUpdatePaths(projectRoot)]);
+  return [...paths]
+    .filter((path) => (before.get(path) ?? null) !== snapshotText(join(projectRoot, path)))
+    .sort();
 }
 
 function readExistingText(path: string): string | null {
@@ -104,6 +168,7 @@ export class FrameworkUpdater {
     runPendingEvidenceMigration(projectRoot);
 
     const previousVersion = readText(join(projectRoot, PATHS.FRAMEWORK_VERSION));
+    const filesBefore = snapshotFiles(projectRoot);
     const manifest = readManifest(projectRoot);
     const artifactPolicy = new Map(
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],
@@ -214,7 +279,7 @@ export class FrameworkUpdater {
       writeStageAgents({ pluginInstalled: pluginLoadState(null) === 'live' });
     } catch {}
 
-    const teamSetupNotes = usesClaude ? claude.syncTeamSetup(projectRoot).notes : [];
+    const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     writeFrameworkVersionPreservingTimestamp(
@@ -231,12 +296,19 @@ export class FrameworkUpdater {
       previous_version: previousVersion,
       target_version: VERSION,
       regenerated,
+      changed_files: [
+        ...new Set([
+          ...filesChangedSince(projectRoot, filesBefore),
+          ...(teamSetup?.report.written ?? []),
+          ...(teamSetup?.report.removed ?? []),
+        ]),
+      ],
       skipped,
       deprecated: [],
       new_mcp_servers: [],
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
-      team_setup_notes: teamSetupNotes,
+      team_setup_notes: teamSetup?.notes ?? [],
       git_workflow_notes: gitWorkflowNotes,
     };
   }

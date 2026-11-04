@@ -35,6 +35,8 @@ const MANAGED_GITIGNORE_ENTRIES = [
   '.config',
   '# per-machine runtime state (regenerated locally)',
   'logs/',
+  'state/last-update.json',
+  'state/last-update.seen.json',
   'audit.log',
   'decisions/audit.jsonl',
   'decisions/events.jsonl',
