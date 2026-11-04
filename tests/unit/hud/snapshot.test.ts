@@ -1618,7 +1618,7 @@ describe('AC-11: decisions belong to a change only when the packet names it', ()
 });
 
 describe('the snapshot carries the run of each stage', () => {
-  it('adds the run and a note when the last ledger line was cut, and keeps every stage', () => {
+  it('AC-78: adds the run and a note when the last ledger line was cut, and keeps every stage', () => {
     const session = 'ses_run';
     const root = onboardedRoot();
     const dir = openChange(root, session, 'full', '12 run line');

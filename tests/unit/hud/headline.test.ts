@@ -586,6 +586,30 @@ describe('AC-15: flags fire only once their stage has ended', () => {
     );
   });
 
+  it('AC-76: the per-stage isolation flag waits for a stage to end without its agent row', () => {
+    const named = (stages: HudStage[], stageAgentStages: string[]) =>
+      computeHudFlags({
+        stages,
+        gates: [],
+        rulesRecorded: true,
+        tableSkipped: false,
+        isolationStatus: 'expected',
+        isolatedStages: stageAgentStages.length,
+        stageAgentsSeen: stageAgentStages.length,
+        stageAgentStages,
+      }).filter((flag) => flag.id === 'isolation-missing');
+    const early = [
+      ran('planning', 'complete'),
+      ran('review', 'running'),
+      stage('checks', 'missing'),
+    ];
+    expect(named(early, ['planning'])).toEqual([]);
+    const ended = [ran('planning', 'complete'), ran('review', 'complete')];
+    expect(named(ended, ['planning'])).toEqual([
+      { id: 'isolation-missing', text: 'isolation missing: review' },
+    ]);
+  });
+
   it('the rules flag waits for Build to end, and an inferred Build end never raises it', () => {
     expect(ids([ran('development', 'running')])).not.toContain('rules-not-loaded');
     expect(ids([stage('development', 'complete')])).not.toContain('rules-not-loaded');

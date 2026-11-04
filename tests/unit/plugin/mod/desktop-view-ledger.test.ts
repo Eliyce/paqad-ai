@@ -994,6 +994,19 @@ describe('the Ledger frame', () => {
   });
 });
 
+describe('AC-78: a cut last ledger line in the Trust tab', () => {
+  it('adds one note beside the gaps, raises no flag and does not fail the latest stage', () => {
+    const line = 'The last line of this ledger was cut, so paqad read every line before it.';
+    const plain = trustView(open());
+    const cut = trustView(open({ ledger_note: line }));
+    expect(plain.ledgerNote).toBeNull();
+    expect(cut.ledgerNote).toBe(line);
+    expect(cut.flags).toEqual(plain.flags);
+    expect(cut.gaps).toEqual(plain.gaps);
+    expect(cut.stages).toEqual(plain.stages);
+  });
+});
+
 describe('the run line in the Trust tab', () => {
   const stage = (run: Record<string, unknown> | undefined, state = 'complete') =>
     trustStage({
@@ -1016,7 +1029,7 @@ describe('the run line in the Trust tab', () => {
     ...fields,
   });
 
-  it('splits the line around the report word, for the colour', () => {
+  it('AC-75: splits the line around the report word, for the colour', () => {
     expect(stage(run()).run).toMatchObject({
       before: 'review · proven · ',
       report: 'DONE',

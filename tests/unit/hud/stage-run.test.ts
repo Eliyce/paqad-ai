@@ -61,7 +61,7 @@ describe('a stage run line', () => {
     expect(run.short_line.length).toBeLessThanOrEqual(DOCKED_LINE_MAX);
   });
 
-  it('reads a running stage as not yet known and counting, even after a refused handback', () => {
+  it('AC-72: reads a running stage as not yet known and counting, even after a refused handback', () => {
     const denied = row({
       kind: 'stage-handback',
       stage: 'review',
@@ -75,7 +75,7 @@ describe('a stage run line', () => {
     expect(run.tone).toBe('dim');
   });
 
-  it('reads older rows as not recorded, and no report as no report found', () => {
+  it('AC-73: reads older rows as not recorded, and no report as no report found', () => {
     const old = row({
       schema_version: 2,
       kind: 'stage-agent',
@@ -95,7 +95,7 @@ describe('a stage run line', () => {
     expect(none).toMatchObject({ report: 'no report found', tone: 'dim', needs_look: false });
   });
 
-  it('draws nothing on a lane never meant to run a stage agent, or with nothing recorded', () => {
+  it('AC-74: draws nothing on a lane never meant to run a stage agent, or with nothing recorded', () => {
     const rows = [start, injected, completed()];
     expect(buildStageRun(rows, 'review', 'fast')).toBeNull();
     expect(buildStageRun(rows, 'review', 'graduated')).toBeNull();
@@ -137,12 +137,16 @@ describe('a stage run line', () => {
     expect(paused.footnote).toBe('D-01ABC');
   });
 
-  it('colours the caution words amber and the plain words neutral', () => {
+  it('AC-75: colours BLOCKED red, the caution words amber and the plain words neutral', () => {
     const tone = (status: string) =>
       buildStageRun([start, completed({ report_status: status })], 'review', 'full')!.tone;
+    expect(tone('BLOCKED')).toBe('fail');
     expect(tone('DONE_WITH_CONCERNS')).toBe('cau');
     expect(tone('NEEDS_CONTEXT')).toBe('cau');
     expect(tone('DONE')).toBe('dim');
+    expect(
+      buildStageRun([start, completed({ report_status: 'BLOCKED' })], 'review', 'full')!.line,
+    ).toContain('BLOCKED');
   });
 });
 
@@ -161,14 +165,14 @@ describe('the isolation flag per stage', () => {
       stageAgentStages: agents,
     }).filter((flag) => flag.id === 'isolation-missing');
 
-  it('names the one stage that ended without its agent row', () => {
+  it('AC-70: names the one stage that ended without its agent row', () => {
     const rows = [stage('planning', 'complete'), stage('development', 'complete')];
     expect(flags(rows, ['planning'])).toEqual([
       { id: 'isolation-missing', text: 'isolation missing: development' },
     ]);
   });
 
-  it('shares one row for several stages', () => {
+  it('AC-77: shares one row for several stages, under one flag id', () => {
     const rows = [
       stage('planning', 'complete'),
       stage('development', 'complete'),
@@ -179,7 +183,7 @@ describe('the isolation flag per stage', () => {
     ]);
   });
 
-  it('does not fire for a stage running or not yet reached', () => {
+  it('AC-76: does not fire for a stage running or not yet reached', () => {
     const rows = [
       stage('planning', 'complete'),
       stage('review', 'running'),
