@@ -48,6 +48,13 @@ Re-run it on each host version bump, because the fields below decide where the r
 `SubagentHandback` exists only in `auto` permission mode on 2.1.302. In every other mode a stage
 agent ends in plain text and the SubagentStop payload carries the report.
 
+## Failure policy on the plugin route
+
+Measured live on 2.1.302 on 4 November 2026 with a throwaway plugin (`--plugin-dir`) whose
+`hooks.json` carries `onFailure: "block"` and `timeout: 10`. Claude Code loads the file with the
+extra keys and runs both hooks, and it honours `onFailure`: a hook that exits 1 blocked the tool
+call. A cold `capability-gate.mjs pre-mutation` run took about 0.2 seconds, well inside 10 seconds.
+
 ## How much text reaches an agent
 
 Measured live on 2.1.302 on 4 November 2026 with `node scripts/capture-hook-fixtures.mjs --probe`,

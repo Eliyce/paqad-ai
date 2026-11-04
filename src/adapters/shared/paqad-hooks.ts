@@ -388,9 +388,8 @@ export function buildPluginHookChain(env: NodeJS.ProcessEnv = process.env): Rend
         nativeEvent,
         matcher: matcherForEvent(event, host),
         command: renderHookCommand(spec, DEFAULT_HOOK_ADAPTER, env, PLUGIN_RUNTIME_ROOT),
-        ...(spec.failClosed !== true && spec.timeoutSec !== undefined
-          ? { timeout: spec.timeoutSec }
-          : {}),
+        ...(spec.failClosed === true ? { onFailure: 'block' as const } : {}),
+        ...(spec.timeoutSec !== undefined ? { timeout: spec.timeoutSec } : {}),
       });
     }
   }

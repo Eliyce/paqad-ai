@@ -147,6 +147,29 @@ function notSeed(line: RenderedHook): boolean {
   return line.nativeEvent !== SEED_EVENT && !isActivationLine(line);
 }
 
+function withoutGroupPolicy(hooks: HookGroups): HookGroups {
+  return Object.fromEntries(
+    Object.entries(hooks).map(([event, groups]) => [
+      event,
+      groups.map((group) => ({
+        ...group,
+        hooks: group.hooks.map((entry) => {
+          const { onFailure: _onFailure, timeout: _timeout, ...rest } = entry as Record<
+            string,
+            unknown
+          >;
+          return rest as { command: string };
+        }),
+      })),
+    ]),
+  );
+}
+
+function withoutFailurePolicy(line: RenderedHook): RenderedHook {
+  const { onFailure: _onFailure, timeout: _timeout, ...rest } = line;
+  return rest;
+}
+
 function seedLine(hooksDir: string): RenderedHook {
   return {
     nativeEvent: SEED_EVENT,
@@ -437,7 +460,7 @@ describe('the stage enforcement guardrails', () => {
     expect(Object.keys(withoutSeedHook(workHooks))).toEqual(
       Object.keys(withoutSeedHook(baseHooks)),
     );
-    expect(withoutSeedHook(workHooks)).toEqual(withoutSeedHook(baseHooks));
+    expect(withoutGroupPolicy(withoutSeedHook(workHooks))).toEqual(withoutSeedHook(baseHooks));
     expect(flatten({ [SEED_EVENT]: workHooks[SEED_EVENT] ?? [] })).toEqual([
       { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
     ]);
@@ -495,7 +518,9 @@ describe('the stage enforcement guardrails', () => {
     expect(buildHostHookChain('claude-code', env).filter(notSeed)).toEqual(
       PINNED.chains['claude-code'],
     );
-    expect(buildPluginHookChain(env).filter(notSeed)).toEqual(PINNED.plugin);
+    expect(buildPluginHookChain(env).filter(notSeed).map(withoutFailurePolicy)).toEqual(
+      PINNED.plugin,
+    );
     expect(
       buildHostHookChain('claude-code', env).filter((line) => line.nativeEvent === SEED_EVENT),
     ).toEqual([seedLine(`${PINNED.frameworkHome}/hooks`)]);
@@ -554,6 +579,9 @@ describe('the stage enforcement guardrails', () => {
     ]);
     expect(guarded(buildHostHookChain('codex-cli', env))).toEqual([]);
     expect(guarded(buildPluginHookChain(env))).toEqual([
+      { hook: 'agent-entry-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'decision-pause-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'capability-gate.mjs pre-mutation', timeout: 10, onFailure: 'block' },
       { hook: 'stage-agent-handback.mjs', timeout: 10, onFailure: undefined },
       { hook: 'stage-agent-start.mjs', timeout: 10, onFailure: undefined },
     ]);
