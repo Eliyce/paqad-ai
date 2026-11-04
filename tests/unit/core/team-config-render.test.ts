@@ -23,7 +23,6 @@ import {
   type OwnTeamConfigFile,
 } from '@/core/team-config-values.js';
 
-const VERSION = '9.9.9';
 const PAQAD: OwnTeamConfigFile = 'paqad.yaml';
 const WORKFLOW: OwnTeamConfigFile = 'feature-development/workflow.yaml';
 

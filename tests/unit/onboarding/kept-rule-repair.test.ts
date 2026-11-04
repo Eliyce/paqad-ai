@@ -102,7 +102,7 @@ describe('repairing the shipped lines in a kept rule', () => {
     ['no final newline', `a\n${OLD_DELIVERY}`, `a\n${NEW_DELIVERY}`],
     ['trailing spaces elsewhere', `a  \n${OLD_DELIVERY}\n  b  \n`, `a  \n${NEW_DELIVERY}\n  b  \n`],
     ['trailing spaces on the line', `a\n${OLD_DELIVERY}   \nb\n`, `a\n${NEW_DELIVERY}\nb\n`],
-    ['a BOM on the first line', `﻿${OLD_DELIVERY}\nb\n`, `﻿${NEW_DELIVERY}\nb\n`],
+    ['a BOM on the first line', `\uFEFF${OLD_DELIVERY}\nb\n`, `\uFEFF${NEW_DELIVERY}\nb\n`],
   ])('AC-3: keeps every other byte with %s', (_name, before, after) => {
     place(before);
     repairKeptRuleLines(root, SHIPPED, DELETED);
