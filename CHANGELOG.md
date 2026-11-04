@@ -1,5 +1,21 @@
 # paqad-ai
 
+## 1.118.0
+
+### Minor Changes
+
+- c59a28c: paqad no longer writes a copy of the feature-development workflow to `docs/instructions/workflows/feature-development.yaml`, and no longer writes editor schemas to `.paqad/configs/schemas/` or a `# yaml-language-server` line at the top of each team file. paqad reads your settings straight from `.paqad/configs/`.
+
+  Your first `paqad-ai update` (or `paqad-ai join` on a teammate's machine) removes what older versions left behind and prints one line for each thing it removed: the workflow copy, its hash file, its line in `.git/info/exclude`, the `docs/instructions/workflows/` folder when nothing else is in it, the schemas folder, and the first schema line of each team file. Nothing else in your team files changes, and your own workflow files in that folder stay.
+
+  `paqad-ai config view` is gone. To see every setting and its value, run `paqad-ai config show`, or read the table in `.paqad/configs/README.md`. Stage agents now get their instructions in their brief; `paqad-ai stage brief <stage> --full` prints all of them when a brief was shortened.
+
+- c59a28c: Every team file under .paqad/configs/ now lists every setting it can hold, commented out with paqad's default and a one-line note. Remove the `#` in front of a setting (and its group name) to change it; a setting left commented out keeps paqad's default, so a better default in a later version still reaches you.
+
+  Expect a one-time change in all 13 files on your first `paqad-ai update`: it rewrites each file in this layout and names every file it rewrote. Your values and your comments are kept, a setting paqad doesn't know moves under a "Not a paqad setting" line, and other notes move to a notes section at the end. The setting notes were also rewritten in plain language.
+
+- c59a28c: The pentest, site-map, design-test and codebase-health workflows now ship as skills, each with a Retest mode, instead of seven rule files copied into your project. `paqad-ai update` removes the old copies you never changed and tells you about any you edited, which it keeps.
+
 ## 1.117.0
 
 ### Minor Changes
