@@ -803,5 +803,11 @@
   "planning_artifacts": {
     "compiled_rules_path": ".paqad/compiled-rules.json",
     "module_health_initialized": []
-  }
+  },
+  "providers": [
+    "claude-code",
+    "codex-cli",
+    "gemini-cli",
+    "junie"
+  ]
 }
