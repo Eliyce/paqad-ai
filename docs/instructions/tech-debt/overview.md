@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6KJ5DY1SZAHER0ZGTT2KA04](TD-01M6KJ5DY1SZAHER0ZGTT2KA04.md) (bug, low): delivery-link install says the hooks are ready when it left a tracked or husky folder alone
 - [TD-01M6KEX3ZKK6DDNBXK32YGZAGA](TD-01M6KEX3ZKK6DDNBXK32YGZAGA.md) (debt, low): The same regular expression escape helper is copied across six source files
 - [TD-01M6KE5W2Y1ERT99AEMEMV09YC](TD-01M6KE5W2Y1ERT99AEMEMV09YC.md) (follow-up, low): No plan yet for an older paqad reading a higher schema_version
 - [TD-01M6KE5VATB5Q6QQZCDK46X80G](TD-01M6KE5VATB5Q6QQZCDK46X80G.md) (bug, medium): Team file hashes differ between Windows and Mac line endings
