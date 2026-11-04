@@ -11,6 +11,7 @@ import {
 
 const MANIFEST = '.paqad/onboarding-manifest.json';
 const COPILOT = '.github/copilot-instructions.md';
+const COPILOT_SHOWN = join('.github', 'copilot-instructions.md');
 
 describe('the entry-file checks and the recorded providers', () => {
   let root: string;
@@ -36,8 +37,8 @@ describe('the entry-file checks and the recorded providers', () => {
 
   it('AC-28: a Claude Code only project with its own Copilot file passes both checks when its entry is sound', () => {
     put(MANIFEST, manifest(['claude-code']));
-    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT);
-    expect(inspectProviderEntryFallbackClause(root).detail).not.toContain(COPILOT);
+    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT_SHOWN);
+    expect(inspectProviderEntryFallbackClause(root).detail).not.toContain(COPILOT_SHOWN);
   });
 
   it('AC-29: a recorded provider with a broken entry file still fails', () => {
@@ -45,7 +46,7 @@ describe('the entry-file checks and the recorded providers', () => {
     put('CLAUDE.md', 'no pointer here\n');
     expect(statuses()).toEqual(['fail', 'fail']);
     expect(inspectProviderEntryBootstrapPointer(root).detail).toContain('CLAUDE.md');
-    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT);
+    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT_SHOWN);
   });
 
   it.each([
@@ -54,16 +55,16 @@ describe('the entry-file checks and the recorded providers', () => {
   ])('AC-29: a %s manifest keeps checking every file that exists', (_name, text) => {
     if (text !== null) put(MANIFEST, text);
     expect(statuses()).toEqual(['fail', 'fail']);
-    expect(inspectProviderEntryBootstrapPointer(root).detail).toContain(COPILOT);
+    expect(inspectProviderEntryBootstrapPointer(root).detail).toContain(COPILOT_SHOWN);
   });
 
   it('AC-29: a manifest with empty providers uses the adapter it records', () => {
     put(MANIFEST, manifest([]));
-    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT);
+    expect(inspectProviderEntryBootstrapPointer(root).detail).not.toContain(COPILOT_SHOWN);
   });
 
   it('AC-29: a manifest with no usable provider keeps checking every file that exists', () => {
     put(MANIFEST, JSON.stringify({ providers: [], generated_artifacts: [] }));
-    expect(inspectProviderEntryBootstrapPointer(root).detail).toContain(COPILOT);
+    expect(inspectProviderEntryBootstrapPointer(root).detail).toContain(COPILOT_SHOWN);
   });
 });
