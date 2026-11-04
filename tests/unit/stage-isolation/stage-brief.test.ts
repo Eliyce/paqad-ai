@@ -469,9 +469,11 @@ describe('resolveBriefSession and seedStageAgent', () => {
     const output = JSON.parse(
       seedStageAgent('planning', root, { session_id: SESSION, agent_id: 'agent-p1' }, {}),
     );
-    expect(output.hookSpecificOutput.additionalContext).toBe(
-      buildStageBrief('planning', root, SESSION, { agentId: 'agent-p1' }),
-    );
+    expect(
+      output.hookSpecificOutput.additionalContext.startsWith(
+        buildStageBrief('planning', root, SESSION, { agentId: 'agent-p1', full: true }),
+      ),
+    ).toBe(true);
     expect(output.hookSpecificOutput.additionalContext).toContain(
       `SE_SESSION=${SESSION} SE_AGENT_ID=agent-p1 paqad-ai stage begin planning`,
     );

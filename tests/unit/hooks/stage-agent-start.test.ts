@@ -99,10 +99,10 @@ describe('stage-agent-start.mjs', () => {
     expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     const brief: string = output.hookSpecificOutput.additionalContext;
     expect(brief).toContain(
-      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage start development',
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage begin development',
     );
     expect(brief).toContain(
-      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage end development --artifact',
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage end development --agent paqad-development --artifact',
     );
     expect(markers(root)).toEqual(['agent_dev_1']);
     expect(hookLog(root)).toHaveLength(1);
@@ -136,7 +136,7 @@ describe('stage-agent-start.mjs', () => {
     const start = await runHook(root, payload, { SE_SESSION: 'ses_env_other' });
     const brief: string = JSON.parse(start.stdout).hookSpecificOutput.additionalContext;
     const session = brief.match(
-      /SE_SESSION=(\S+) SE_AGENT_ID=agent_dev_1 paqad-ai stage start/,
+      /SE_SESSION=(\S+) SE_AGENT_ID=agent_dev_1 paqad-ai stage begin/,
     )?.[1];
 
     await runHook(

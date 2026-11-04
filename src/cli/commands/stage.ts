@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { sha256Hex } from '@/compliance/markdown.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
@@ -26,7 +27,12 @@ import {
   stageContentMarkdown,
   STAGE_CONTENT_MAX_CHARS,
 } from '@/stage-isolation/stage-begin.js';
-import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
+import { RECIPE_HEADING, resolveRecipe } from '@/stage-isolation/recipes.js';
+import {
+  buildStageBrief,
+  recordRecipeInjected,
+  resolveBriefSession,
+} from '@/stage-isolation/stage-brief.js';
 import {
   buildStageReport,
   stageStartRefusal,
@@ -104,6 +110,39 @@ function openStageAgentId(root: string, sessionId: string, dirName: string): str
   return open.at(-1)?.agentId ?? null;
 }
 
+function briefRecipeSection(
+  root: string,
+  sessionId: string,
+  stage: string,
+  agentId: string | null,
+): string | null {
+  let recipe;
+  try {
+    recipe = resolveRecipe(stage);
+  } catch {
+    return null;
+  }
+  const text = `${RECIPE_HEADING}\n\n${recipe.body}`;
+  if (typeof process.env.SE_AGENT_ID === 'string' && agentId !== null) {
+    const dirName = currentFeature(root, sessionId);
+    const codex = dirName !== null && readFeatureRecord(root, dirName)?.adapter === 'codex-cli';
+    if (!codex) {
+      recordRecipeInjected(
+        root,
+        stage,
+        { session_id: sessionId, agent_id: agentId },
+        {
+          recipe: recipe.name,
+          recipe_hash: sha256Hex(text),
+          recipe_root: recipe.root,
+          truncated: false,
+        },
+      );
+    }
+  }
+  return text;
+}
+
 function runStageBrief(stage: string | undefined, options: StageOptions): void {
   if (!stage || !STAGE_AGENT_STAGES.includes(stage)) {
     console.error(
@@ -128,8 +167,10 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
         resumed: true,
         full: options.full === true,
       });
-      const room = STAGE_CONTENT_MAX_CHARS - text.length - 2;
-      return `${text}\n\n${stageContentMarkdown(root, dirName, stage, room)}`;
+      const recipe = briefRecipeSection(root, sessionId, stage, agentId);
+      const head = recipe === null ? text : `${text}\n\n${recipe}`;
+      const room = STAGE_CONTENT_MAX_CHARS - head.length - 2;
+      return `${head}\n\n${stageContentMarkdown(root, dirName, stage, room)}`;
     });
   } catch (error) {
     console.error(`could not build the ${stage} stage brief: ${(error as Error).message}`);
