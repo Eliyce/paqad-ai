@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+
+const MAX_ERRORS = 100;
 
 function finish(input, errors, extra = {}) {
   const hash = createHash('sha256')
     .update(JSON.stringify({ input, errors, ...extra }))
     .digest('hex');
-  process.stdout.write(`${JSON.stringify({ ok: errors.length === 0, errors, hash, ...extra })}\n`);
+  const shown =
+    errors.length > MAX_ERRORS
+      ? [...errors.slice(0, MAX_ERRORS), `and ${errors.length - MAX_ERRORS} more`]
+      : errors;
+  process.stdout.write(
+    `${JSON.stringify({ ok: errors.length === 0, errors: shown, hash, ...extra })}\n`,
+  );
   process.exitCode = errors.length === 0 ? 0 : 1;
 }
 
-import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const CANONICAL = new Set([
@@ -73,12 +80,21 @@ if (args[0] === '--help') {
     if (args[index] === '--ok') acknowledged.add(args[(index += 1)]);
     else positional.push(args[index]);
   }
+  const root = positional[0] ?? process.cwd();
+  if (acknowledged.has(undefined) || positional.length > 1 || root.startsWith('--')) {
+    process.stderr.write('stale-docs.mjs: expected [project-root] [--ok <doc>]...\n');
+    process.exit(2);
+  }
+  if (!existsSync(root)) {
+    process.stderr.write(`stale-docs.mjs: project root not found: ${root}\n`);
+    process.exit(2);
+  }
   const input = readFileSync(0, 'utf8');
   const changed = input
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
-  const stale = staleDocs(positional[0] ?? process.cwd(), changed, acknowledged);
+  const stale = staleDocs(root, changed, acknowledged);
   finish(
     input,
     stale.map((doc) => `${doc} may be stale: update it or name it with --stale-ok`),

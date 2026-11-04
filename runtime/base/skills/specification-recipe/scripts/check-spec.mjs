@@ -3,11 +3,33 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+const MAX_ERRORS = 100;
+
+function stopWith(code, message) {
+  process.stderr.write(`check-spec.mjs: ${message}\n`);
+  process.exitCode = code;
+}
+
+function readInput(file, expected) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    stopWith(2, `file not found: ${file}. Expected ${expected}.`);
+    return null;
+  }
+}
+
 function finish(input, errors, extra = {}) {
   const hash = createHash('sha256')
     .update(JSON.stringify({ input, errors, ...extra }))
     .digest('hex');
-  process.stdout.write(`${JSON.stringify({ ok: errors.length === 0, errors, hash, ...extra })}\n`);
+  const shown =
+    errors.length > MAX_ERRORS
+      ? [...errors.slice(0, MAX_ERRORS), `and ${errors.length - MAX_ERRORS} more`]
+      : errors;
+  process.stdout.write(
+    `${JSON.stringify({ ok: errors.length === 0, errors: shown, hash, ...extra })}\n`,
+  );
   process.exitCode = errors.length === 0 ? 0 : 1;
 }
 
@@ -53,6 +75,6 @@ if (!file || file === '--help') {
   process.stdout.write('usage: check-spec.mjs <spec.md>\nprints { ok, errors, hash }\n');
   process.exitCode = file ? 0 : 2;
 } else {
-  const text = readFileSync(file, 'utf8');
-  finish(text, check(text));
+  const text = readInput(file, 'a spec Markdown file');
+  if (text !== null) finish(text, check(text));
 }
