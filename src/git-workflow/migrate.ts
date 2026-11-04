@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
+import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
 import {
@@ -276,7 +278,19 @@ export function migrateDeliveryPolicy(
   options: MigrateOptions = {},
 ): MigrationResult {
   const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
-  if (!existsSync(oldPath) || !gitWorkflowFilesAbsent(projectRoot)) {
+  if (!existsSync(oldPath)) return { ran: false, lines: [], written: [], deleted: false };
+  const newer = GIT_WORKFLOW_FILES.filter((file) =>
+    isNewerTeamFile(readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? ''),
+  );
+  if (newer.length > 0) {
+    return {
+      ran: false,
+      lines: newer.map((file) => newerTeamFileLine(`${PATHS.GIT_WORKFLOW_DIR}/${file}`)),
+      written: [],
+      deleted: false,
+    };
+  }
+  if (!gitWorkflowFilesAbsent(projectRoot)) {
     return { ran: false, lines: [], written: [], deleted: false };
   }
   const version = options.version ?? __PKG_VERSION__;

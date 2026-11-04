@@ -20,7 +20,11 @@ import {
   writeTeamYamlValue,
 } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
+import { runSetup } from '@/cli/commands/git-workflow.js';
+import { putGitWorkflowFile } from '@/dashboard/config-git-workflow.js';
 import { applyChange } from '@/git-workflow/change.js';
+import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import { FrameworkUpdater } from '@/update/index.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
 
 const MODELS = '.paqad/configs/models.yaml';
@@ -95,6 +99,61 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     expect(outcome.written).toEqual([]);
     expect(outcome.errors.map((error) => error.message)).toContain(NEWER_LINE(file));
     expect(read(file)).toBe(text);
+  });
+
+  it('migrateDeliveryPolicy stops and names a newer file that holds only known keys', () => {
+    const commits = '.paqad/configs/git-workflow/commits.yaml';
+    const text = 'schema_version: 2\nai_attribution: keep\n';
+    put(commits, text);
+    put(OLD_DELIVERY_POLICY, 'branch:\n  base: main\n');
+    const result = migrateDeliveryPolicy(root, { baseBranch: 'main', version: '1.120.0' });
+    expect(result).toEqual({
+      ran: false,
+      lines: [NEWER_LINE(commits)],
+      written: [],
+      deleted: false,
+    });
+    expect(read(commits)).toBe(text);
+    expect(read(OLD_DELIVERY_POLICY)).toBe('branch:\n  base: main\n');
+  });
+
+  it('an update names that file once', async () => {
+    const commits = '.paqad/configs/git-workflow/commits.yaml';
+    put(commits, 'schema_version: 2\nai_attribution: keep\n');
+    put(OLD_DELIVERY_POLICY, 'branch:\n  base: main\n');
+    put(
+      '.paqad/project-profile.yaml',
+      'project: { name: D, id: d, description: D }\nrouting: { domain: coding, stack: laravel, capabilities: [] }\ncommands: {}\ncompliance_packs: []\nactive_capabilities: [coding]\nmcp: { servers: [] }\ncustom: { classification_dimensions: [], verification_plugins: [], escalation_rules: [] }\n',
+    );
+    const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(root);
+    expect(read(commits)).toBe('schema_version: 2\nai_attribution: keep\n');
+    expect(
+      (report.git_workflow_notes ?? []).filter((note) => note === NEWER_LINE(commits)),
+    ).toHaveLength(1);
+  });
+
+  it('the git workflow setup refuses to overwrite it', async () => {
+    const file = '.paqad/configs/git-workflow/enforcement.yaml';
+    put(file, 'schema_version: 2\nenabled: true\n');
+    put('answers.json', '{"choices":{}}');
+    const result = await runSetup({
+      projectRoot: root,
+      answersFile: 'answers.json',
+      overwrite: true,
+      shell: { run: async () => ({ stdout: '', stderr: '', exitCode: 0 }) },
+    } as never);
+    expect(result.exitCode).toBe(1);
+    expect(read(file)).toBe('schema_version: 2\nenabled: true\n');
+    expect(result.stdout).toContain(NEWER_LINE(file));
+  });
+
+  it('the dashboard refuses to save it', () => {
+    const file = '.paqad/configs/git-workflow/enforcement.yaml';
+    put(file, 'schema_version: 2\nenabled: true\n');
+    expect(() =>
+      putGitWorkflowFile(root, 'enforcement.yaml', { content: 'enabled: false\n' } as never),
+    ).toThrow(NEWER_LINE(file));
+    expect(read(file)).toBe('schema_version: 2\nenabled: true\n');
   });
 
   it('catalog_version keeps the catalog and README, and no equal build writes a different byte', () => {

@@ -23,6 +23,8 @@ import {
   writeContents,
 } from '@/git-workflow/change.js';
 import { unifiedDiff } from '@/git-workflow/diff.js';
+import { PATHS } from '@/core/constants/paths.js';
+import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
 import { loadGitWorkflow, readGitWorkflowContents } from '@/git-workflow/load.js';
 import {
@@ -211,6 +213,18 @@ export async function runSetup(input: SetupInput): Promise<JsonResult> {
         {
           ...result,
           error: 'The git workflow files already exist. Re-run with --overwrite to replace them.',
+        },
+        1,
+      );
+    }
+    const newer = GIT_WORKFLOW_FILES.filter((file) => isNewerTeamFile(present[file] ?? ''));
+    if (newer.length > 0) {
+      return json(
+        {
+          ...result,
+          error: newer
+            .map((file) => newerTeamFileLine(`${PATHS.GIT_WORKFLOW_DIR}/${file}`))
+            .join(' '),
         },
         1,
       );
