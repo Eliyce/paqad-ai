@@ -33,12 +33,20 @@ async function main(input) {
 
     const transcriptText = resolveCompletionTranscriptText(input, ADAPTER) || '';
 
+    if (await sendBack(projectRoot, payload, transcriptText)) return 0;
+
     const recorderUrl = new URL(
       '../../dist/stage-isolation/subagent-completion.js',
       import.meta.url,
     );
     const { recordStageAgentCompletion, recordHighTableUsage } = await import(recorderUrl.href);
-    recordStageAgentCompletion({ projectRoot, payload, transcriptText, adapter: ADAPTER });
+    recordStageAgentCompletion({
+      projectRoot,
+      payload,
+      transcriptText,
+      adapter: ADAPTER,
+      log: (line) => appendHooksLog(projectRoot, line),
+    });
 
     try {
       recordHighTableUsage({ projectRoot, payload });
@@ -70,6 +78,21 @@ async function main(input) {
   } catch {
     /* v8 ignore next */
     return 0;
+  }
+}
+
+async function sendBack(projectRoot, payload, transcriptText) {
+  try {
+    const url = new URL('../../dist/stage-isolation/stage-handback.js', import.meta.url);
+    const { decideStageStop } = await import(url.href);
+    const decision = decideStageStop({ projectRoot, payload, transcriptText, adapter: ADAPTER });
+    if (!decision.block) return false;
+    process.stdout.write(JSON.stringify({ decision: 'block', reason: decision.reason }));
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `stage-agent-completion: send-back check failed: ${message}`);
+    return false;
   }
 }
 
