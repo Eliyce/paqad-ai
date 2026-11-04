@@ -24,6 +24,7 @@ import {
   newerTeamFileLine,
   NOT_A_SETTING_LINE,
   readTeamFileStamp,
+  renderWriteBlock,
   swapTeamFileStamp,
   TEAM_FILE_SCHEMA_VERSION,
 } from './team-file-schema.js';
@@ -244,6 +245,9 @@ export function writeTeamYamlValue(
     stampLastApplied(projectRoot, ['commits.yaml']);
     return target;
   }
+  const blocked =
+    existing === null ? null : renderWriteBlock(existing, `${PATHS.PROJECT_CONFIGS_DIR}/${file}`);
+  if (blocked !== null) throw new Error(blocked);
   const { document, error } =
     existing === null
       ? { document: new YAML.Document(), error: undefined }

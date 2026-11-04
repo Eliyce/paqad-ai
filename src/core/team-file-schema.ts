@@ -121,3 +121,12 @@ export function swapTeamFileStamp(text: string): string {
   }
   return lines.map((line) => `${line.body}${line.end}`).join('');
 }
+
+export function unreadableStampLine(file: string): string {
+  return `${file} has a schema_version or paqad_version line paqad can't read, so it wasn't changed. Fix that line, then try again.`;
+}
+
+export function renderWriteBlock(text: string, file: string): string | null {
+  if (isNewerTeamFile(text)) return newerTeamFileLine(file);
+  return readTeamFileStamp(text).kind === 'malformed' ? unreadableStampLine(file) : null;
+}

@@ -16,6 +16,7 @@ import {
 } from '@/core/framework-config.js';
 import {
   renderTeamConfigFile,
+  setTeamConfigValue,
   syncTeamConfigFiles,
   writeTeamYamlValue,
 } from '@/core/team-config.js';
@@ -178,6 +179,56 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     put('.paqad/hook.mjs', 'export const LAUNCHER_REVISION = 99;\n');
     expect(syncTeamSetup(root, {}).kept).toContain('.paqad/hook.mjs');
     expect(read('.paqad/hook.mjs')).toBe('export const LAUNCHER_REVISION = 99;\n');
+  });
+});
+
+describe('AC-21: a malformed stamp through the writers', () => {
+  let root: string;
+  const put = (rel: string, text: string) => {
+    mkdirSync(dirname(join(root, rel)), { recursive: true });
+    writeFileSync(join(root, rel), text);
+  };
+  const read = (rel: string) => readFileSync(join(root, rel), 'utf8');
+  const unreadable = (file: string) =>
+    `${file} has a schema_version or paqad_version line paqad can't read, so it wasn't changed. Fix that line, then try again.`;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-team-writers-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['a quoted number', 'schema_version: "2"\n'],
+    ['text', 'schema_version: abc\n'],
+    ['zero', 'schema_version: 0\n'],
+    ['a text old stamp', 'paqad_version: banana\n'],
+  ])('AC-21: config set refuses %s and names the file', (_name, text) => {
+    put(MODELS, text);
+    expect(() => setTeamConfigValue(root, 'model_default', 'x')).toThrow(unreadable(MODELS));
+    expect(read(MODELS)).toBe(text);
+  });
+
+  it('AC-21: the migration stops and names the file, and keeps the old settings', () => {
+    const retrieval = '.paqad/configs/retrieval.yaml';
+    put(retrieval, 'schema_version: abc\n');
+    put('.paqad/configs/.config.rag', 'rag_top_n=9\n');
+    const result = migrateTeamConfig(root, { version: '1.120.0' });
+    expect(result.lines).toEqual([unreadable(retrieval)]);
+    expect(read(retrieval)).toBe('schema_version: abc\n');
+    expect(read('.paqad/configs/.config.rag')).toBe('rag_top_n=9\n');
+  });
+
+  it('AC-21: update leaves the line, and a value in the commit settings keeps it too', () => {
+    put(MODELS, 'schema_version: abc\n');
+    syncTeamConfigFiles(root);
+    expect(read(MODELS)).toBe('schema_version: abc\n');
+    const commits = '.paqad/configs/git-workflow/commits.yaml';
+    put(commits, 'schema_version: abc\nai_attribution: keep\n');
+    writeTeamYamlValue(root, 'git-workflow/commits.yaml', ['ai_attribution'], 'strip');
+    expect(read(commits)).toBe('schema_version: abc\nai_attribution: strip\n');
   });
 });
 

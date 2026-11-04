@@ -21,6 +21,7 @@ import { isShippedWorkflowEntry } from './shipped-workflow-entries.js';
 import {
   isNewerTeamFile,
   newerTeamFileLine,
+  renderWriteBlock,
   TEAM_FILE_SCHEMA_VERSION,
 } from './team-file-schema.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
@@ -558,13 +559,17 @@ export function migrateTeamConfig(
     );
   }
 
-  const newerFiles = [...documents.keys()].filter((file) =>
-    isNewerTeamFile(readText(teamConfigPath(projectRoot, file)) ?? ''),
-  );
-  if (newerFiles.length > 0) {
-    const lines = newerFiles.map((file) =>
-      newerTeamFileLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`),
-    );
+  const blockedLines = [...documents.keys()].flatMap((file) => {
+    const text = readText(teamConfigPath(projectRoot, file)) ?? '';
+    const shown = `${PATHS.PROJECT_CONFIGS_DIR}/${file}`;
+    if (file === GIT_WORKFLOW_COMMITS_FILE) {
+      return isNewerTeamFile(text) ? [newerTeamFileLine(shown)] : [];
+    }
+    const blocked = renderWriteBlock(text, shown);
+    return blocked === null ? [] : [blocked];
+  });
+  if (blockedLines.length > 0) {
+    const lines = blockedLines;
     result.lines = lines;
     result.error = lines.join(' ');
     return result;
