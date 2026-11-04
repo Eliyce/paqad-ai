@@ -24,7 +24,7 @@ function managedEntries(source: string): string {
 
 const PINS = {
   catalog: { version: 1, hash: 'e3e0a8c3ae299ac17dd0d9750b682a2874d11cdf60ad61406f7e31b901c4cb8f' },
-  readme: { version: 1, hash: '0c67754edfc3207cd0697d8c68d11ef18381aad809eed5eef222160ea9cb5a97' },
+  readme: { version: 1, hash: '2984afd6715b2671ec8c105de29d95dfc77a15bb4b1d6dfffbf549ee084630ca' },
   launcher: {
     version: 1,
     hash: 'c85bc81248d747c461b81f18784fa5e06fff08a8b1ba1721dcb61f189f745ab9',

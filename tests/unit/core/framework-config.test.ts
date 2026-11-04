@@ -465,12 +465,12 @@ describe('generateConfigsReadme — the team-override convention', () => {
   it('explains the git-workflow folder', () => {
     expect(readme).toContain('## git-workflow/');
     expect(readme).toContain('No personal override applies');
-    expect(readme).toContain('# Added in paqad-ai <version>');
+    expect(readme).toContain('adds no settings to these files');
     expect(readme).toContain('--no-verify');
     expect(readme).toContain('make hotfix');
   });
-  it('states that update never changes a team value', () => {
-    expect(readme).toContain('never changes a value you set');
+  it('states when update rewrites a team file', () => {
+    expect(readme.replace(/\s+/gu, ' ')).toContain('It rewrites a team file only for a migration');
   });
 });
 

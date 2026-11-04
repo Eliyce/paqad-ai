@@ -57,6 +57,16 @@ describe('the removed settings', () => {
     expect(renderTeamConfigFile('models.yaml', null)).not.toContain('research');
   });
 
+  it('FR-45: the generated README says what update really does', () => {
+    const readme = generateConfigsReadme();
+    expect(readme).not.toContain('Added in paqad-ai');
+    expect(readme).not.toContain('never changes a value');
+    expect(readme).not.toContain('list every setting');
+    expect(readme.replace(/\s+/gu, ' ')).toContain(
+      'only for a migration, a retired value or setting, or a stale workflow entry',
+    );
+  });
+
   it('FR-63: a legacy fat profile still validates, and its sections are stripped on write', () => {
     const profile = {
       strictness: { full_lane_default: false },
