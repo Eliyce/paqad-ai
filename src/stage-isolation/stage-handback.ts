@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { sha256Hex } from '@/compliance/markdown.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   currentFeature,
@@ -8,7 +11,12 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { resolveHookSession } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
-import { STAGE_AGENT_KIND, STAGE_HANDBACK_KIND } from '@/stage-evidence/types.js';
+import { extractAssistantText } from '@/stage-evidence/marker-parse.js';
+import {
+  STAGE_AGENT_KIND,
+  STAGE_HANDBACK_KIND,
+  type ReportSource,
+} from '@/stage-evidence/types.js';
 
 import {
   agentNameForStage,
@@ -18,6 +26,7 @@ import {
   type StageReportReading,
   type StageReportStatus,
 } from './stage-agents.js';
+import { transcriptToolUses } from './must-not-judge.js';
 
 export const REFUSAL_CEILING = 3;
 
@@ -29,6 +38,13 @@ const RIGID_ARTIFACT: Readonly<Record<string, string>> = {
 };
 
 type Row = SessionLedgerRow;
+
+function lastIndexWhere(rows: readonly Row[], match: (row: Row) => boolean): number {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (match(rows[index]!)) return index;
+  }
+  return -1;
+}
 
 function stringField(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
@@ -61,7 +77,7 @@ export function currentStageOfAgent(
 }
 
 function requirementAnchor(rows: readonly Row[], stage: string, agentId: string | null): number {
-  const findLast = (match: (row: Row) => boolean): number => rows.findLastIndex(match);
+  const findLast = (match: (row: Row) => boolean): number => lastIndexWhere(rows, match);
   const own = agentId
     ? findLast(
         (row) => row.kind === 'stage_start' && row.stage === stage && row.agent_id === agentId,
@@ -105,7 +121,7 @@ export function refusalsSinceLastPass(
   stage: string,
 ): Row[] {
   if (agentId === null) return [];
-  const anchor = rows.findLastIndex((row) => isOwnNonDenied(row, agentId, stage));
+  const anchor = lastIndexWhere(rows, (row) => isOwnNonDenied(row, agentId, stage));
   const denied = rows
     .slice(anchor + 1)
     .filter(
@@ -259,6 +275,200 @@ export function decideHandback(input: DecideHandbackInput): HandbackDecision {
     : { exit: 0, wrote: true };
 }
 
-export function isChecksRed(_projectRoot: string, _dirName: string, _stage: string): boolean {
-  return false;
+export function isChecksRed(projectRoot: string, dirName: string, stage: string): boolean {
+  if (stage !== 'checks') return false;
+  try {
+    const report = JSON.parse(
+      readFileSync(join(projectRoot, featureFilePath(dirName, 'checks')), 'utf8'),
+    ) as { passed?: unknown };
+    return report.passed === false;
+  } catch {
+    return false;
+  }
+}
+
+export const SUBAGENT_HANDBACK_TOOL = 'SubagentHandback';
+
+export interface StopPayload extends HandbackPayload {
+  agent_transcript_path?: unknown;
+  last_assistant_message?: unknown;
+}
+
+export interface ResolvedReport {
+  source: ReportSource;
+  reading: StageReportReading;
+  message: string | null;
+  handbackRow: Row | null;
+  gateChecked: boolean;
+}
+
+const NO_REPORT: StageReportReading = {
+  status: 'BLOCKED',
+  advance: false,
+  decision: null,
+  stated: false,
+};
+
+function isCompletedRowOf(row: Row, agentId: string): boolean {
+  return (
+    row.kind === STAGE_AGENT_KIND && row.event_status === 'completed' && row.agent_id === agentId
+  );
+}
+
+function freshHandbackRow(rows: readonly Row[], agentId: string): Row | null {
+  const previous = lastIndexWhere(rows, (row) => isCompletedRowOf(row, agentId));
+  const newer = rows.slice(previous + 1);
+  const index = lastIndexWhere(
+    newer,
+    (candidate) =>
+      candidate.kind === STAGE_HANDBACK_KIND &&
+      candidate.event_status === 'completed' &&
+      candidate.agent_id === agentId,
+  );
+  return index === -1 ? null : newer[index]!;
+}
+
+function transcriptHandbackMessage(
+  rows: readonly Row[],
+  agentId: string,
+  transcript: string,
+): string | null {
+  const known = new Set(
+    rows
+      .filter((row) => row.kind === STAGE_HANDBACK_KIND && row.agent_id === agentId)
+      .map((row) => stringField(row.tool_use_id))
+      .filter((id) => id !== null),
+  );
+  const finished = new Set(
+    rows
+      .filter((row) => isCompletedRowOf(row, agentId))
+      .map((row) => stringField(row.report_hash))
+      .filter((hash) => hash !== null),
+  );
+  const use = transcriptToolUses(transcript)
+    .filter((entry) => entry.name === SUBAGENT_HANDBACK_TOOL)
+    .at(-1);
+  if (!use || (use.id !== undefined && known.has(use.id))) return null;
+  const message = use.input.message;
+  if (typeof message !== 'string' || finished.has(sha256Hex(message))) return null;
+  return message;
+}
+
+function readTranscript(path: unknown): string {
+  if (typeof path !== 'string' || path.trim() === '') return '';
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+export interface ResolveReportInput {
+  rows: readonly Row[];
+  agentId: string | null;
+  payload: StopPayload;
+  adapter: string;
+  fallbackTranscript?: string;
+}
+
+function resolved(source: ReportSource, message: string, gateChecked = true): ResolvedReport {
+  const reading = readStageReportStatus(message);
+  return reading.stated
+    ? { source, reading, message, handbackRow: null, gateChecked }
+    : { source: 'none', reading, message, handbackRow: null, gateChecked };
+}
+
+export function resolveStageReport(input: ResolveReportInput): ResolvedReport {
+  const { rows, agentId, payload, adapter } = input;
+  const row = agentId ? freshHandbackRow(rows, agentId) : null;
+  if (row) {
+    const reading: StageReportReading = {
+      status: row.report_status as StageReportStatus,
+      advance: row.advance === true,
+      decision: stringField(row.decision),
+      stated: row.report_stated === true,
+    };
+    return { source: 'handback', reading, message: null, handbackRow: row, gateChecked: true };
+  }
+  const transcript = readTranscript(payload.agent_transcript_path);
+  const handed = agentId ? transcriptHandbackMessage(rows, agentId, transcript) : null;
+  if (handed !== null) return resolved('handback', handed, false);
+  const finalText = payload.last_assistant_message;
+  if (typeof finalText === 'string' && finalText.trim() !== '') return resolved('text', finalText);
+  const codex = adapter === 'codex-cli';
+  const raw = transcript !== '' ? transcript : codex ? (input.fallbackTranscript ?? '') : '';
+  if (raw === '') {
+    return {
+      source: 'none',
+      reading: NO_REPORT,
+      message: null,
+      handbackRow: null,
+      gateChecked: true,
+    };
+  }
+  return resolved(codex ? 'rollout' : 'text', extractAssistantText(raw));
+}
+
+export interface StopDecision {
+  block: boolean;
+  reason?: string;
+}
+
+export interface StageStopInput {
+  projectRoot: string;
+  payload: StopPayload;
+  adapter: string;
+  transcriptText?: string;
+  now?: () => Date;
+}
+
+const LET_STOP: StopDecision = { block: false };
+
+export function decideStageStop(input: StageStopInput): StopDecision {
+  const { payload, projectRoot, adapter, now } = input;
+  if (adapter === 'codex-cli') return LET_STOP;
+  const agentType = stringField(payload.agent_type);
+  const agentId = stringField(payload.agent_id);
+  if (!agentType || !agentId) return LET_STOP;
+  if (!stageForAgentName(stripPluginAgentNamespace(agentType))) return LET_STOP;
+  const sessionId = resolveHookSession(projectRoot, payload);
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) return LET_STOP;
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  if (!agentKnownToLedger(rows, agentId)) return LET_STOP;
+  const stage = currentStageOfAgent(rows, agentId, agentType);
+  if (!stage) return LET_STOP;
+  const report = resolveStageReport({
+    rows,
+    agentId,
+    payload,
+    adapter,
+    fallbackTranscript: input.transcriptText,
+  });
+  if (report.handbackRow) return LET_STOP;
+  const judged = judgeStageReport({ stage, agentId, reading: report.reading, rows });
+  if (judged.outcome !== 'refuse') return LET_STOP;
+  appendFeatureStageRow(
+    projectRoot,
+    sessionId,
+    dirName,
+    {
+      kind: STAGE_HANDBACK_KIND,
+      stage,
+      agent: agentNameForStage(stage),
+      agent_id: agentId,
+      event_status: 'denied',
+      report_status: judged.report_status,
+      report_stated: judged.report_stated,
+      advance: false,
+      decision: judged.decision,
+      report_source: report.source,
+      report_hash: sha256Hex(report.message ?? ''),
+      refusal_id: randomUUID(),
+      ...(judged.stated_status ? { stated_status: judged.stated_status } : {}),
+      reason: judged.reason!,
+    },
+    now,
+  );
+  return { block: true, reason: judged.reason! };
 }
