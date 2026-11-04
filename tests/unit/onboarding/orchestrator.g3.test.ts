@@ -38,12 +38,7 @@ describe('OnboardingOrchestrator', () => {
           capabilities: [],
         },
         profileOverrides: {
-          escalation: {
-            destructive_operations: 'block',
-            risky_migrations: 'warn',
-            security_findings: 'block',
-            db_row_threshold: 'bad-threshold' as never,
-          },
+          compliance_packs: 'bad-packs' as never,
         },
       }),
     ).rejects.toThrow();

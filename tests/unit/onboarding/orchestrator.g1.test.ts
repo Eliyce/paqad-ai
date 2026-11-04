@@ -140,10 +140,7 @@ describe('OnboardingOrchestrator', () => {
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
 
-    expect(result.reverted_framework_values.sort()).toEqual([
-      'enterprise=true',
-      'research_depth=cutting-edge',
-    ]);
+    expect(result.reverted_framework_values.sort()).toEqual(['enterprise=true']);
     expect(readFileSync(profilePath, 'utf8')).not.toContain('enterprise:');
     expect(existsSync(join(projectRoot, '.paqad/.config'))).toBe(false);
   });

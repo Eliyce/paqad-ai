@@ -31,7 +31,9 @@ describe('the launcher template is self-contained', () => {
     expect(source).not.toContain(homedir());
   });
 
-  it('carries a version stamp placeholder that the writer fills in', () => {
-    expect(source).toContain("export const PAQAD_LAUNCHER_VERSION = '__PAQAD_VERSION__';");
+  it('carries an integer revision and no version', () => {
+    expect(source).toMatch(/^export const LAUNCHER_REVISION = [1-9]\d*;$/mu);
+    expect(source).not.toContain('PAQAD_LAUNCHER_VERSION');
+    expect(source).not.toContain('__PAQAD_VERSION__');
   });
 });

@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
+import { refreshRuleContext } from '@/context/rule-context.js';
 import { readCapabilityDigest } from '@/kernel/capability-lock.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { compileRuleScripts, isRuleScriptMapStale } from '@/rule-scripts/compile.js';
@@ -35,6 +36,10 @@ import {
   migrateTeamConfig,
 } from '@/core/team-config-migrate.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
+import { workflowHookBlock } from '@/feature-evidence/git-hooks.js';
+import { changedOutside, stampLastApplied } from '@/git-workflow/last-applied.js';
+import { createUpdateCommand, formatUpdateReportLines } from '@/cli/commands/update.js';
+import { writeLastUpdateRecord } from '@/update/last-update.js';
 import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
 function writeOldLeftovers(projectRoot: string): void {
@@ -179,7 +184,10 @@ describe('FrameworkUpdater', () => {
   });
 
   it('leaves the tracked config of a newer checkout byte-identical on update', async () => {
-    const newerExample = generateConfigExample('999.0.0');
+    const newerExample = generateConfigExample().replace(
+      /^# catalog_version: .*$/mu,
+      '# catalog_version: 999',
+    );
     const app = '# team header\nenterprise=true\nfuture_knob=on\n';
     mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad/.config.example'), newerExample);
@@ -501,10 +509,9 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toContain('session/');
   });
 
-  it('leaves the managed ignore file alone when the checkout is newer', async () => {
-    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample('999.0.0'));
+  it('leaves the managed ignore file alone when its own integer is higher', async () => {
     const ignore =
-      '# >>> paqad-ai managed (do not edit between markers) >>>\nfuture/\n# <<< paqad-ai managed <<<\n';
+      '# >>> paqad-ai managed (do not edit between markers) >>>\n# managed_block_version: 999\nfuture/\n# <<< paqad-ai managed <<<\n';
     writeFileSync(join(projectRoot, '.paqad/.gitignore'), ignore);
 
     await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
@@ -690,6 +697,397 @@ describe('FrameworkUpdater', () => {
     if (process.platform !== 'win32') {
       expect(statSync(script).mode & 0o111).not.toBe(0);
     }
+  });
+
+  describe('repairing kept rule lines on update', () => {
+    const RULE = 'docs/instructions/rules/coding/feature-development.md';
+    const OLD_DELIVERY =
+      'When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`).';
+    const NEW_DELIVERY = 'When the change is delivered, follow the team files.';
+    const candidate = {
+      path: RULE,
+      content: `# Shipped\n\n${NEW_DELIVERY}\n`,
+      autoUpdate: false,
+    };
+    const run = () =>
+      new FrameworkUpdater({ generateCandidates: async () => [candidate] }).run(projectRoot);
+    const events = (): { action: string; rule_ids: string[] }[] =>
+      readFileSync(join(projectRoot, '.paqad/scripts/rules/.history/events.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as { action: string; rule_ids: string[] });
+
+    function place(content: string): void {
+      mkdirSync(dirname(join(projectRoot, RULE)), { recursive: true });
+      writeFileSync(join(projectRoot, RULE), content);
+    }
+
+    it('AC-1: lists a repair-only change, refreshes the kept entry and settles', async () => {
+      place(`# Rule\n\n${OLD_DELIVERY}\n`);
+      const first = await run();
+      expect(first.changed_files).toContain(RULE);
+      expect(first.skipped.find((entry) => entry.path === RULE)?.before).toBe(
+        `# Rule\n\n${NEW_DELIVERY}\n`,
+      );
+      expect(readFileSync(join(projectRoot, RULE), 'utf8')).not.toContain(
+        'docs/instructions/workflows',
+      );
+      const second = await run();
+      expect(second.changed_files).toEqual([]);
+    });
+
+    it('AC-4: a team line keeps the rule file hash and is named on the second run too', async () => {
+      place(`# Rule\n\n- Read \`docs/instructions/workflows/delivery-policy.yaml\` first.\n`);
+      compileRuleScripts(projectRoot);
+      const hash = loadRuleScriptMap(projectRoot)!.rule_files_hash;
+      const note = `${RULE} still mentions docs/instructions/workflows/delivery-policy.yaml, which paqad removed. Update that line by hand.`;
+      expect((await run()).git_workflow_notes).toContain(note);
+      const second = await run();
+      expect(second.git_workflow_notes).toContain(note);
+      expect(second.changed_files).toEqual([]);
+      expect(loadRuleScriptMap(projectRoot)!.rule_files_hash).toBe(hash);
+    });
+
+    it('updates the map entry of a marked line, so it reconciles and the map stays current', async () => {
+      place(`# Rule\n\n- Keep me.\n`);
+      compileRuleScripts(projectRoot);
+      const map = loadRuleScriptMap(projectRoot)!;
+      const id = 'RL-ab12';
+      applyRuleScriptMap({
+        projectRoot,
+        map: {
+          ...map,
+          rules: [
+            ...map.rules,
+            {
+              id,
+              source: RULE,
+              text: `${OLD_DELIVERY}`,
+              text_hash: 'stale',
+              verifiability: { kind: 'heuristic' },
+              enforced_by: [],
+              scripts: [],
+            },
+          ],
+        },
+        via: 'test',
+        event: { action: 'generate', rule_ids: [id] },
+      });
+      const body = readFileSync(join(projectRoot, RULE), 'utf8');
+      place(`${body}\n- ${OLD_DELIVERY} <!-- @rule ${id} -->\n`);
+      compileRuleScripts(projectRoot);
+      await new FrameworkUpdater({
+        generateCandidates: async () => [{ ...candidate, content: `- ${NEW_DELIVERY}\n` }],
+      }).run(projectRoot);
+      expect(reconcileRuleScripts(projectRoot).findings.filter((f) => f.rule_id === id)).toEqual(
+        [],
+      );
+      expect(isRuleScriptMapStale(projectRoot)).toBe(false);
+    });
+
+    it('AC-6: neither the compiled rules nor the session manifest lists a deleted path after the next refresh', async () => {
+      place(`# Rule\n\n- Keep me.\n\n${OLD_DELIVERY}\n`);
+      compileRuleScripts(projectRoot);
+      await run();
+      await refreshRuleContext(projectRoot);
+      for (const rel of ['.paqad/compiled-rules.json', '.paqad/context/session-context.md']) {
+        expect(readFileSync(join(projectRoot, rel), 'utf8')).not.toContain(
+          'docs/instructions/workflows',
+        );
+      }
+      expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(
+        computeRuleScriptsDigest(projectRoot),
+      );
+    });
+
+    it('writes no empty remove event when a repair is the only change', async () => {
+      place(`# Rule\n\n- Keep me.\n\n${OLD_DELIVERY}\n`);
+      compileRuleScripts(projectRoot);
+      await run();
+      expect(isRuleScriptMapStale(projectRoot)).toBe(false);
+      expect(
+        events().filter((event) => event.action === 'remove' && event.rule_ids.length === 0),
+      ).toEqual([]);
+    });
+  });
+
+  describe('the attribution setting moved by the first update', () => {
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+    const POLICY = 'docs/instructions/workflows/delivery-policy.yaml';
+    const COMMENT = '# ai_attribution: strip';
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const read = (rel: string) => readFileSync(join(projectRoot, rel), 'utf8');
+    const put = (rel: string, text: string) => {
+      mkdirSync(dirname(join(projectRoot, rel)), { recursive: true });
+      writeFileSync(join(projectRoot, rel), text);
+    };
+    const oldProject = (value: string, policy = true) => {
+      put('.paqad/configs/.config.policy', `ai_attribution=${value}\n`);
+      if (policy) put(POLICY, 'branch:\n  base: main\n');
+    };
+    const liveLines = () =>
+      read(COMMITS)
+        .split(/\r?\n/u)
+        .filter((line) => /^ai_attribution\s*:/u.test(line));
+
+    it.each([['strip'], ['keep']])(
+      'AC-9: %s with a delivery-policy file gives one live line, no comment and no outside change',
+      async (value) => {
+        oldProject(value);
+        await run();
+        expect(liveLines()).toEqual([`ai_attribution: ${value}`]);
+        expect(read(COMMITS)).not.toContain(COMMENT);
+        expect(changedOutside(projectRoot)).toEqual([]);
+      },
+    );
+
+    it('AC-10: without a delivery-policy file it gives the same result', async () => {
+      oldProject('strip', false);
+      await run();
+      expect(liveLines()).toEqual(['ai_attribution: strip']);
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('AC-10: with no record at the start the file stays unstamped and warns', async () => {
+      oldProject('strip', false);
+      const dir = '.paqad/configs/git-workflow';
+      put(`${dir}/commits.yaml`, 'template: "{ticket}: {summary}"\n');
+      expect(existsSync(join(projectRoot, dir, '.last-applied.json'))).toBe(false);
+      const out = migrateTeamConfig(projectRoot, { version: VERSION });
+      expect(out.ran).toBe(true);
+      expect(existsSync(join(projectRoot, dir, '.last-applied.json'))).toBe(false);
+      expect(changedOutside(projectRoot)).toContain('commits.yaml');
+    });
+
+    it('AC-10: a hand edit before the update keeps its warning', async () => {
+      await run();
+      put(COMMITS, `${read(COMMITS)}# edited by hand\n`);
+      put('.paqad/configs/.config.policy', 'ai_attribution=strip\n');
+      await run();
+      expect(changedOutside(projectRoot)).toEqual(['commits.yaml']);
+      expect(read(COMMITS)).toContain('# edited by hand');
+    });
+
+    it('AC-10: a team comment beside the block survives', async () => {
+      await run();
+      const team = read(COMMITS).replace(COMMENT, `${COMMENT}\n# our note about this`);
+      put(COMMITS, team);
+      stampLastApplied(projectRoot, ['commits.yaml']);
+      put('.paqad/configs/.config.policy', 'ai_attribution=keep\n');
+      await run();
+      expect(read(COMMITS)).toContain('# our note about this');
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(liveLines()).toEqual(['ai_attribution: keep']);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('AC-9: holds with CRLF in the committed file', async () => {
+      await run();
+      put(COMMITS, read(COMMITS).replace(/\n/gu, '\r\n'));
+      stampLastApplied(projectRoot, ['commits.yaml']);
+      put('.paqad/configs/.config.policy', 'ai_attribution=strip\n');
+      await run();
+      expect(read(COMMITS)).not.toContain(COMMENT);
+      expect(liveLines()).toEqual(['ai_attribution: strip']);
+      expect(changedOutside(projectRoot)).toEqual([]);
+    });
+
+    it('keeps the block when the migration has no live value', async () => {
+      await run();
+      const before = read(COMMITS);
+      put('.paqad/configs/.config.policy', 'rag_top_n=9\n');
+      const out = migrateTeamConfig(projectRoot, { version: VERSION });
+      expect(out.ran).toBe(true);
+      expect(read(COMMITS)).toBe(before);
+    });
+
+    it('stamps nothing on a dry run', async () => {
+      oldProject('strip', false);
+      await run();
+      const record = read('.paqad/configs/git-workflow/.last-applied.json');
+      put('.paqad/configs/.config.policy', 'ai_attribution=keep\n');
+      migrateTeamConfig(projectRoot, { version: VERSION, dryRun: true });
+      expect(read('.paqad/configs/git-workflow/.last-applied.json')).toBe(record);
+    });
+  });
+
+  describe('a tracked hooks folder on update', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const advice = 'Add these lines to commit-msg and pre-push so people get the workflow check:';
+    const count = (notes: string[] | undefined) =>
+      (notes ?? []).filter((line) => line.includes(advice)).length;
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+
+    function setUp(): void {
+      git('init', '-q');
+      git('config', 'user.email', 'h@example.test');
+      git('config', 'user.name', 'Hooks');
+      git('config', 'core.hooksPath', '.githooks');
+      mkdirSync(join(projectRoot, '.githooks'), { recursive: true });
+      writeFileSync(join(projectRoot, '.githooks/commit-msg'), '#!/bin/sh\n');
+      writeFileSync(join(projectRoot, '.githooks/pre-push'), '#!/bin/sh\n');
+      git('add', '.githooks');
+      git('commit', '-q', '-m', 'hooks', '--no-verify');
+    }
+
+    it('AC-12: prints the advice once per run while lines are missing, and writes nothing there', async () => {
+      setUp();
+      expect(count((await run()).git_workflow_notes)).toBe(1);
+      expect(count((await run()).git_workflow_notes)).toBe(1);
+      expect(readFileSync(join(projectRoot, '.githooks/commit-msg'), 'utf8')).toBe('#!/bin/sh\n');
+    });
+
+    it('stops once the lines are in place', async () => {
+      setUp();
+      await run();
+      for (const hook of ['commit-msg', 'pre-push']) {
+        const path = join(projectRoot, '.githooks', hook);
+        writeFileSync(path, `#!/bin/sh\n${workflowHookBlock(hook)}\n`);
+        chmodSync(path, 0o755);
+      }
+      expect(count((await run()).git_workflow_notes)).toBe(0);
+    });
+  });
+
+  describe('freezing the team files', () => {
+    const OLD_TEAM = '.paqad/configs/models.yaml';
+    const RECORD = '.paqad/configs/git-workflow/.last-applied.json';
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const read = (rel: string) => readFileSync(join(projectRoot, rel), 'utf8');
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' });
+    const commitAll = () => {
+      git('add', '-A');
+      git('commit', '-q', '-m', 'state', '--no-verify');
+    };
+    const initRepo = () => {
+      git('init', '-q');
+      git('config', 'user.email', 'f@example.test');
+      git('config', 'user.name', 'Freeze');
+    };
+    const allToOldStamp = () => {
+      for (const file of [...TEAM_CONFIG_FILES.map((name) => `.paqad/configs/${name}`), COMMITS]) {
+        const path = join(projectRoot, file);
+        writeFileSync(path, read(file).replace('schema_version: 1', 'paqad_version: "1.119.0"'));
+      }
+      stampLastApplied(projectRoot, ['commits.yaml']);
+    };
+
+    it('AC-27: a second update shows the version line and no commit line, and git stays clean', async () => {
+      initRepo();
+      await run();
+      commitAll();
+      const report = await run();
+      expect(report.changed_files).toEqual([]);
+      expect(formatUpdateReportLines(report)).toEqual([
+        `paqad is already on ${VERSION}.`,
+        'No files needed changing.',
+      ]);
+      expect(git('status', '--porcelain')).toBe('');
+    });
+
+    it('AC-22: the swap names each changed file in one commit line, and a committed swap settles', async () => {
+      initRepo();
+      await run();
+      allToOldStamp();
+      commitAll();
+      const report = await run();
+      const line = (report.git_workflow_notes ?? []).filter((note) => note.startsWith('Commit '));
+      expect(line).toHaveLength(1);
+      expect(line[0]).toContain(OLD_TEAM);
+      expect(line[0]).toContain(COMMITS);
+      expect(line[0]).toContain(RECORD);
+      expect(line[0]).toContain(
+        "together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.",
+      );
+      expect(read(OLD_TEAM)).toContain('schema_version: 1');
+      expect(read(OLD_TEAM)).not.toContain('paqad_version');
+      expect(changedOutside(projectRoot)).toEqual([]);
+      commitAll();
+      expect((await run()).changed_files).toEqual([]);
+      expect(git('status', '--porcelain')).toBe('');
+    });
+
+    it('FR-47: names the record only when it exists, so git add does not fail on it', async () => {
+      await run();
+      rmSync(join(projectRoot, RECORD));
+      const path = join(projectRoot, OLD_TEAM);
+      writeFileSync(path, read(OLD_TEAM).replace('schema_version: 1', 'paqad_version: "1.119.0"'));
+      writeFileSync(
+        join(projectRoot, '.paqad/project-profile.yaml'),
+        read('.paqad/project-profile.yaml').replace('domain: coding', 'domain: content'),
+      );
+      const line = ((await run()).git_workflow_notes ?? []).find((note) =>
+        note.startsWith('Commit '),
+      );
+      expect(line).toContain(OLD_TEAM);
+      expect(line).not.toContain('.last-applied.json');
+    });
+
+    it('NFR-3: a CRLF copy keeps its line ends through the swap, and the second run writes nothing', async () => {
+      await run();
+      const path = join(projectRoot, OLD_TEAM);
+      const crlf = read(OLD_TEAM)
+        .replace('schema_version: 1', 'paqad_version: "1.119.0"')
+        .replace(/\n/gu, '\r\n');
+      writeFileSync(path, crlf);
+      await run();
+      expect(read(OLD_TEAM)).toBe(crlf.replace('paqad_version: "1.119.0"', 'schema_version: 1'));
+      const settled = read(OLD_TEAM);
+      await run();
+      expect(read(OLD_TEAM)).toBe(settled);
+    });
+
+    it('FR-36: puts schema_version back in its place after a re-render moved it, and settles', async () => {
+      await run();
+      const path = join(projectRoot, OLD_TEAM);
+      const text = read(OLD_TEAM);
+      writeFileSync(
+        path,
+        `${text.replace('schema_version: 1', 'paqad_version: "1.119.0"')}\n# Not a paqad setting, so paqad ignores it (kept as written):\nschema_version: 1\n`,
+      );
+      await run();
+      expect(read(OLD_TEAM)).toBe(text);
+    });
+
+    it('AC-26: update --last shows the commit line, the hooks advice, the rule note and the compile line word for word, twice', async () => {
+      await run();
+      allToOldStamp();
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, 'docs/instructions/rules/coding/own.md'),
+        '- Read `docs/instructions/workflows/delivery-policy.yaml` first.\n',
+      );
+      rmSync(join(projectRoot, '.paqad/compiled-rules.json'), { force: true });
+      mkdirSync(join(projectRoot, '.paqad/compiled-rules.json'));
+      const report = await run();
+      const expected = (report.git_workflow_notes ?? []).filter(
+        (note) =>
+          note.startsWith('Commit ') ||
+          note.includes('still mentions') ||
+          note.startsWith("Couldn't refresh"),
+      );
+      expect(expected).toHaveLength(3);
+      writeLastUpdateRecord(projectRoot, report);
+      const printed: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((line: string) => {
+        printed.push(line);
+      });
+      try {
+        for (let round = 0; round < 2; round += 1) {
+          printed.length = 0;
+          await createUpdateCommand().parseAsync(['--last', '--project-root', projectRoot], {
+            from: 'user',
+          });
+          for (const note of expected) expect(printed).toContain(note);
+        }
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe('legacy MCP files on update', () => {
@@ -924,7 +1322,8 @@ describe('FrameworkUpdater', () => {
       );
       const launcher = join(projectRoot, '.paqad/hook.mjs');
       const bytes = readFileSync(launcher, 'utf8');
-      expect(bytes).toContain(`PAQAD_LAUNCHER_VERSION = '${VERSION}'`);
+      expect(bytes).toMatch(/LAUNCHER_REVISION = \d+;/u);
+      expect(bytes).not.toContain(VERSION);
       expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
       await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
       expect(readFileSync(launcher, 'utf8')).toBe(bytes);
@@ -952,7 +1351,7 @@ describe('FrameworkUpdater', () => {
   describe('re-rendering the team files on update', () => {
     const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
 
-    it('AC-18, AC-8 and AC-10: names each rewritten file and each broken one, and rewrites nothing on a rerun', async () => {
+    it('AC-18, AC-8 and AC-10: swaps only the stamp, names each broken file, and writes nothing on a rerun', async () => {
       await run();
       const configs = join(projectRoot, '.paqad/configs');
       const paqad = join(configs, 'paqad.yaml');
@@ -962,19 +1361,15 @@ describe('FrameworkUpdater', () => {
       const report = await run();
       const notes = report.git_workflow_notes ?? [];
       expect(notes).toContain(
-        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your own values and notes are kept.',
+        "Commit .paqad/configs/paqad.yaml, .paqad/configs/git-workflow/.last-applied.json together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.",
       );
-      expect(notes.filter((line) => line.startsWith('Rewrote '))).toHaveLength(1);
       expect(notes.some((line) => line.startsWith("models.yaml isn't valid YAML"))).toBe(true);
       expect(readFileSync(join(configs, 'models.yaml'), 'utf8')).toBe(broken);
-      expect(YAML.parse(readFileSync(paqad, 'utf8'))).toEqual({
-        paqad_version: VERSION,
-        enabled: false,
-      });
+      expect(readFileSync(paqad, 'utf8')).toBe('schema_version: 1\nenabled: false\n');
       const again = await run();
-      expect(
-        (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
-      ).toEqual([]);
+      expect((again.git_workflow_notes ?? []).some((line) => line.startsWith('Commit '))).toBe(
+        false,
+      );
     });
   });
 
@@ -1066,19 +1461,15 @@ describe('FrameworkUpdater', () => {
     const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
     const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
 
-    it('FR-9: says to commit the file on the run that adds the lines, and only then', async () => {
+    it('INV-3: an update adds the lines to no existing file', async () => {
       await run();
       const path = join(projectRoot, COMMITS);
       const fresh = readFileSync(path, 'utf8');
       expect(fresh).toContain('# ai_attribution: strip');
-      writeFileSync(path, fresh.replace(/\n# Whether the attribution[^]*$/u, ''));
-      const notes = (await run()).git_workflow_notes ?? [];
-      expect(notes).toContain(
-        `Commit ${COMMITS} so your teammates don't repeat this change locally.`,
-      );
-      expect(readFileSync(path, 'utf8')).toContain('# ai_attribution: strip');
-      const again = (await run()).git_workflow_notes ?? [];
-      expect(again.some((line) => line.startsWith('Commit '))).toBe(false);
+      const without = fresh.replace(/\n# Whether the attribution[^]*$/u, '');
+      writeFileSync(path, without);
+      await run();
+      expect(readFileSync(path, 'utf8')).toBe(without);
     });
   });
 
@@ -1190,7 +1581,7 @@ describe('FrameworkUpdater', () => {
       writeFileSync(
         join(projectRoot, FILE),
         [
-          `paqad_version: "${VERSION}"`,
+          'schema_version: 1',
           'stages:',
           '  planning:',
           '    read:',
@@ -1205,12 +1596,9 @@ describe('FrameworkUpdater', () => {
       const removed = notes.findIndex((line) =>
         line.startsWith("Removed an old copy of paqad's planning read path"),
       );
-      const rewrote = notes.indexOf(
-        `Rewrote ${FILE}: it lists every setting, and your own values and notes are kept.`,
-      );
+      const commit = notes.findIndex((line) => line.startsWith(`Commit ${FILE}`));
       expect(removed).toBeGreaterThanOrEqual(0);
-      expect(rewrote).toBeGreaterThan(removed);
-      expect(notes).toContain(`Commit ${FILE} so your teammates don't repeat this change locally.`);
+      expect(commit).toBeGreaterThan(removed);
       const after = readFileSync(join(projectRoot, FILE), 'utf8');
       expect(YAML.parse(after).stages.planning.instructions).toEqual([
         'Verify test coverage is 100%',

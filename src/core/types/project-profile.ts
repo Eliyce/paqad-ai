@@ -2,9 +2,6 @@ import type { ActiveCapability, Domain } from './domain.js';
 import type { DetectedStackProfile } from './introspection.js';
 import type { DecisionCategory } from '@/planning/decision-packet.js';
 
-export const RESEARCH_DEPTHS = ['cutting-edge', 'standard', 'conservative'] as const;
-export type ResearchDepth = (typeof RESEARCH_DEPTHS)[number];
-
 export const ESCALATION_MODES = ['block', 'require_approval', 'warn'] as const;
 export type EscalationMode = (typeof ESCALATION_MODES)[number];
 
@@ -24,13 +21,6 @@ export interface ProjectCommands {
   migrate: string;
   build: string;
   test_parallel?: string;
-}
-
-export interface StrictnessConfig {
-  full_lane_default: boolean;
-  require_adversarial_review: boolean;
-  block_on_stale_docs: boolean;
-  require_db_review_for_migrations: boolean;
 }
 
 export interface CompliancePackConfig {
@@ -151,13 +141,6 @@ export interface EfficiencyConfig {
   version_check_interval_hours?: number;
 }
 
-export interface EscalationConfig {
-  destructive_operations: EscalationMode;
-  risky_migrations: EscalationMode;
-  security_findings: EscalationMode;
-  db_row_threshold: number;
-}
-
 export interface CustomClassificationDimension {
   name: string;
   values?: string[];
@@ -181,9 +164,7 @@ export type DecisionAskThreshold = (typeof DECISION_ASK_THRESHOLDS)[number];
 
 export interface DecisionProfileConfig {
   ask_threshold?: DecisionAskThreshold;
-  max_screens_per_task?: number;
   max_pending?: number;
-  idle_timeout_minutes?: number;
   ttl_overrides_days?: Partial<Record<string, number>>;
   preferred_option_keys?: Partial<Record<DecisionCategory, string>>;
 }
@@ -233,7 +214,6 @@ export interface ProjectProfile {
   commands: ProjectCommands;
   testing?: ProjectTesting;
   app_preview?: AppPreviewConfig;
-  strictness: StrictnessConfig;
   compliance_packs: CompliancePackConfig[];
   features: ProjectFeatureFlags;
   enterprise?: EnterpriseConfig;
@@ -241,12 +221,8 @@ export interface ProjectProfile {
     servers: ProjectMcpServer[];
   };
   model_routing: ModelRoutingConfig;
-  research: {
-    depth: ResearchDepth;
-  };
   intelligence: IntelligenceConfig;
   efficiency: EfficiencyConfig;
-  escalation: EscalationConfig;
   custom: {
     classification_dimensions: CustomClassificationDimension[];
     verification_plugins: VerificationPluginConfig[];

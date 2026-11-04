@@ -1,6 +1,14 @@
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { toPosixPath } from '@/core/path-utils.js';
 import { getPackageRoot } from '@/core/runtime-paths.js';
@@ -10,16 +18,22 @@ import type { PeopleEnforcement } from '@/git-workflow/types.js';
 export const GIT_HOOK_MARKER = '# paqad-ai delivery-link';
 export const GIT_WORKFLOW_HOOK_MARKER = '# paqad-ai git-workflow';
 
-const WORKFLOW_HOOKS: ReadonlyArray<{ name: string; line: string }> = [
+const WORKFLOW_HOOKS: ReadonlyArray<{ name: string; line: string; runs: RegExp }> = [
   {
     name: 'commit-msg',
     line: 'if command -v paqad-ai >/dev/null 2>&1; then paqad-ai git-workflow check-commit "$1" || exit 1; fi',
+    runs: /paqad-ai git-workflow check-commit\s+"?\$1"?/u,
   },
   {
     name: 'pre-push',
     line: 'if command -v paqad-ai >/dev/null 2>&1; then paqad-ai git-workflow check-push || exit 1; fi',
+    runs: /paqad-ai git-workflow check-push/u,
   },
 ];
+
+const HUSKY_RUNNER_DIR = '_';
+const HUSKY_RUNNER_FILE = 'h';
+const PATH_LIMIT_LINE = 'The check is skipped in a terminal where paqad-ai is not on the PATH.';
 
 export const WORKFLOW_HOOK_NAMES: readonly string[] = WORKFLOW_HOOKS.map((hook) => hook.name);
 
@@ -43,7 +57,9 @@ export interface InstallGitHooksResult {
   removed?: string[];
   notAGitRepo: boolean;
   trackedHooksDir?: boolean;
+  huskyRuns?: boolean;
   snippet?: string;
+  problems?: string[];
 }
 
 function hooksDirIsTracked(projectRoot: string, dir: string): boolean {
@@ -98,16 +114,41 @@ function readHook(path: string): string {
   }
 }
 
-function appendBlock(path: string, existing: string, block: string): void {
+export interface GitHookIo {
+  chmod?: (path: string, mode: number) => void;
+}
+
+interface HookWriteContext {
+  projectRoot: string;
+  chmod: (path: string, mode: number) => void;
+  problems: string[];
+}
+
+function makeExecutable(path: string, context: HookWriteContext): void {
+  try {
+    context.chmod(path, 0o755);
+  } catch (error) {
+    const shown = toPosixPath(relative(context.projectRoot, path));
+    const reason = error instanceof Error ? error.message : 'unknown error';
+    context.problems.push(
+      `Couldn't make ${shown} executable: ${reason}. Run chmod +x ${shown}, or git won't run it.`,
+    );
+  }
+}
+
+function appendBlock(
+  path: string,
+  existing: string,
+  block: string,
+  context: HookWriteContext,
+): void {
   if (existing.trim() === '') {
     writeFileSync(path, `#!/bin/sh\n${block}\n`, 'utf8');
   } else {
     const prefix = existing.endsWith('\n') ? existing : `${existing}\n`;
     writeFileSync(path, `${prefix}${block}\n`, 'utf8');
   }
-  try {
-    chmodSync(path, 0o755);
-  } catch {}
+  makeExecutable(path, context);
 }
 
 export function stripWorkflowBlock(text: string): string {
@@ -136,8 +177,10 @@ function syncWorkflowHooks(
   dir: string,
   people: PeopleEnforcement,
   result: { installed: string[]; skipped: string[]; removed: string[] },
+  context: HookWriteContext,
 ): void {
-  for (const { name } of WORKFLOW_HOOKS) {
+  for (const hook of WORKFLOW_HOOKS) {
+    const { name } = hook;
     const path = join(dir, name);
     const existing = readHook(path);
     const present = existing.includes(GIT_WORKFLOW_HOOK_MARKER);
@@ -149,38 +192,141 @@ function syncWorkflowHooks(
       result.removed.push(name);
       continue;
     }
-    if (present) {
+    if (hookRunsCheck(existing, hook)) {
+      if (!isExecutable(path)) makeExecutable(path, context);
       result.skipped.push(name);
       continue;
     }
-    appendBlock(path, existing, workflowHookBlock(name));
+    appendBlock(path, existing, workflowHookBlock(name), context);
     result.installed.push(name);
   }
 }
 
-export function workflowHooksInstalled(projectRoot: string): boolean {
-  const dir = resolveHooksDir(projectRoot);
-  if (!dir) return false;
-  return WORKFLOW_HOOKS.every(({ name }) =>
-    readHook(join(dir, name)).includes(GIT_WORKFLOW_HOOK_MARKER),
-  );
+function hookRunsCheck(text: string, hook: { runs: RegExp }): boolean {
+  return text.split(/\r?\n/u).some((line) => {
+    const trimmed = line.trim();
+    return !trimmed.startsWith('#') && hook.runs.test(trimmed);
+  });
 }
 
-export function installGitHooks(projectRoot: string): InstallGitHooksResult {
+function isExecutable(path: string): boolean {
+  try {
+    return (statSync(path).mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+interface HookFiles {
+  dir: string;
+  huskyRuns: boolean;
+}
+
+function isHuskyRunnerDir(dir: string): boolean {
+  return basename(dir) === HUSKY_RUNNER_DIR && existsSync(join(dir, HUSKY_RUNNER_FILE));
+}
+
+function isHandEditedHooksDir(projectRoot: string, dir: string): boolean {
+  return isHuskyRunnerDir(dir) || hooksDirIsTracked(projectRoot, dir);
+}
+
+function hookFilesFor(dir: string): HookFiles {
+  return isHuskyRunnerDir(dir) ? { dir: dirname(dir), huskyRuns: true } : { dir, huskyRuns: false };
+}
+
+function needsExecutableBit(files: HookFiles, platform: NodeJS.Platform): boolean {
+  return !files.huskyRuns && platform !== 'win32';
+}
+
+export function workflowHooksInstalled(
+  projectRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const dir = resolveHooksDir(projectRoot);
+  if (!dir) return false;
+  const files = hookFilesFor(dir);
+  return WORKFLOW_HOOKS.every((hook) => {
+    const path = join(files.dir, hook.name);
+    return (
+      hookRunsCheck(readHook(path), hook) &&
+      (!needsExecutableBit(files, platform) || isExecutable(path))
+    );
+  });
+}
+
+function executableStep(shown: string): string {
+  return `chmod +x ${shown}, or git update-index --chmod=+x ${shown} from Windows`;
+}
+
+function hookAdvice(
+  projectRoot: string,
+  files: HookFiles,
+  hook: (typeof WORKFLOW_HOOKS)[number],
+  platform: NodeJS.Platform,
+): string[] {
+  const path = join(files.dir, hook.name);
+  const shown = toPosixPath(relative(projectRoot, path));
+  const block = workflowHookBlock(hook.name);
+  if (files.huskyRuns && !hookRunsCheck(readHook(path), hook)) return [`${shown}:`, block];
+  if (!existsSync(path)) {
+    return [
+      `${shown} doesn't exist yet. Create it with these lines, then run ${executableStep(shown)}:`,
+      '#!/bin/sh',
+      block,
+    ];
+  }
+  if (!hookRunsCheck(readHook(path), hook)) return [`${shown}:`, block];
+  if (needsExecutableBit(files, platform) && !isExecutable(path)) {
+    return [`${shown} has the line but git can't run it. Run ${executableStep(shown)}.`];
+  }
+  return [];
+}
+
+export function trackedWorkflowHookAdvice(
+  projectRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  const dir = resolveHooksDir(projectRoot);
+  if (!dir || !isHandEditedHooksDir(projectRoot, dir) || peopleSetting(projectRoot) === 'off') {
+    return null;
+  }
+  const files = hookFilesFor(dir);
+  const missing = WORKFLOW_HOOKS.flatMap((hook) => hookAdvice(projectRoot, files, hook, platform));
+  if (missing.length === 0) return null;
+  const reason = files.huskyRuns ? 'which husky runs' : 'which your repo tracks';
+  return [
+    `Your git hooks are in ${toPosixPath(relative(projectRoot, files.dir))}, ${reason}, so paqad didn't change them.`,
+    'Add these lines to commit-msg and pre-push so people get the workflow check:',
+    ...missing,
+    PATH_LIMIT_LINE,
+  ].join('\n');
+}
+
+function deliveryLinkSnippet(): string[] {
+  return HOOKS.flatMap(({ name, verb }) => [`${name}:`, hookBlock(verb)]);
+}
+
+export function installGitHooks(projectRoot: string, io: GitHookIo = {}): InstallGitHooksResult {
+  const context: HookWriteContext = { projectRoot, chmod: io.chmod ?? chmodSync, problems: [] };
   const dir = resolveHooksDir(projectRoot);
   if (!dir) {
     return { installed: [], skipped: [], notAGitRepo: true };
   }
-  if (hooksDirIsTracked(projectRoot, dir)) {
+  if (isHandEditedHooksDir(projectRoot, dir)) {
+    const advice = trackedWorkflowHookAdvice(projectRoot);
     return {
       installed: [],
       skipped: [],
       notAGitRepo: false,
       trackedHooksDir: true,
-      snippet:
-        `${GIT_HOOK_MARKER}\n` +
-        `add to post-commit and post-merge in your tracked hooks dir:\n` +
-        `  ${hookBlock('commit').split('\n')[1]}`,
+      huskyRuns: isHuskyRunnerDir(dir),
+      snippet: [
+        ...(advice === null ? [] : [advice]),
+        isHuskyRunnerDir(dir)
+          ? `Add these lines to post-commit and post-merge in ${toPosixPath(relative(projectRoot, dirname(dir)))}:`
+          : 'Add these lines to post-commit and post-merge in your tracked hooks dir:',
+        ...deliveryLinkSnippet(),
+      ].join('\n'),
     };
   }
   mkdirSync(dir, { recursive: true });
@@ -197,9 +343,9 @@ export function installGitHooks(projectRoot: string): InstallGitHooksResult {
       skipped.push(name);
       continue;
     }
-    appendBlock(path, existing, hookBlock(verb));
+    appendBlock(path, existing, hookBlock(verb), context);
     installed.push(name);
   }
-  syncWorkflowHooks(dir, peopleSetting(projectRoot), { installed, skipped, removed });
-  return { installed, skipped, removed, notAGitRepo: false };
+  syncWorkflowHooks(dir, peopleSetting(projectRoot), { installed, skipped, removed }, context);
+  return { installed, skipped, removed, notAGitRepo: false, problems: context.problems };
 }

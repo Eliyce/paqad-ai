@@ -3,10 +3,18 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { HealthCheckResult } from '@/core/types/health.js';
-import { resolveHooksDir, workflowHooksInstalled } from '@/feature-evidence/git-hooks.js';
+import {
+  resolveHooksDir,
+  trackedWorkflowHookAdvice,
+  workflowHooksInstalled,
+} from '@/feature-evidence/git-hooks.js';
 import { changedOutside } from '@/git-workflow/last-applied.js';
 import { gitWorkflowDir, loadGitWorkflow } from '@/git-workflow/load.js';
-import { OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import {
+  deliveryMoveBlocks,
+  deliveryMovePending,
+  OLD_DELIVERY_POLICY,
+} from '@/git-workflow/migrate.js';
 
 export const GIT_WORKFLOW_CHECK = 'git-workflow';
 
@@ -14,6 +22,27 @@ const SKILL_REVIEW = 'Ask your agent to review it with the git-workflow skill.';
 
 function warning(detail: string, remediation: string): HealthCheckResult {
   return { name: GIT_WORKFLOW_CHECK, status: 'warning', detail, remediation };
+}
+
+function oldPolicyWarning(projectRoot: string): HealthCheckResult {
+  const blocks = deliveryMoveBlocks(projectRoot);
+  if (!deliveryMovePending(projectRoot)) {
+    const remedy = `Delete ${OLD_DELIVERY_POLICY}.`;
+    return warning(
+      [`${OLD_DELIVERY_POLICY} is no longer read. Delete it.`, ...blocks].join(' '),
+      [remedy, ...blocks].join(' '),
+    );
+  }
+  if (blocks.length === 0) {
+    return warning(
+      `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. It holds your only copy of these rules. Run paqad-ai update to move them.`,
+      'Run paqad-ai update.',
+    );
+  }
+  return warning(
+    `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. ${blocks.join(' ')} The move runs on the next paqad-ai update.`,
+    blocks.join(' '),
+  );
 }
 
 export function gitWorkflowHealth(
@@ -39,12 +68,7 @@ export function gitWorkflowHealth(
   }
 
   if (existsSync(join(projectRoot, OLD_DELIVERY_POLICY))) {
-    results.push(
-      warning(
-        `${OLD_DELIVERY_POLICY} is no longer read. Delete it.`,
-        `Delete ${OLD_DELIVERY_POLICY}.`,
-      ),
-    );
+    results.push(oldPolicyWarning(projectRoot));
   }
 
   const { tickets, enforcement } = loaded.config;
@@ -63,11 +87,14 @@ export function gitWorkflowHealth(
     resolveHooksDir(projectRoot) !== null &&
     !hooksInstalled(projectRoot)
   ) {
+    const advice = trackedWorkflowHookAdvice(projectRoot);
     results.push(
-      warning(
-        `git-workflow: people is set to ${enforcement.people} but the commit-msg and pre-push hooks aren't installed. Run paqad-ai update.`,
-        'Run paqad-ai update.',
-      ),
+      advice === null
+        ? warning(
+            `git-workflow: people is set to ${enforcement.people} but the commit-msg and pre-push hooks aren't installed. Run paqad-ai update.`,
+            'Run paqad-ai update.',
+          )
+        : warning(advice, 'Add the lines above by hand, then run paqad-ai doctor again.'),
     );
   }
 

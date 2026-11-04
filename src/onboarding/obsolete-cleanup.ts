@@ -1,8 +1,15 @@
-import { readFileSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { sha256, stripRuleMarker } from '@/rule-scripts/rule-id.js';
+import { shippedRuleLineStart } from '@/core/shipped-workflow-entries.js';
+import {
+  embedRuleMarker,
+  parseRuleMarker,
+  sha256,
+  stripRuleMarker,
+} from '@/rule-scripts/rule-id.js';
+import type { RepairedRuleText } from '@/rule-scripts/compile.js';
 
 import { MANAGED_HEADER } from './decision-pause-contract-writer.js';
 
@@ -149,4 +156,143 @@ export function cleanObsoleteWorkflowRules(projectRoot: string): ObsoleteWorkflo
 
 export function removeObsoleteWorkflowRules(projectRoot: string): string[] {
   return cleanObsoleteWorkflowRules(projectRoot).lines;
+}
+
+export const KEPT_RULE_WITH_SHIPPED_LINES = `${PATHS.RULES_DIR}/coding/feature-development.md`;
+
+const FENCE = /^\s*(```|~~~)/u;
+const BULLET = /^\s*[-*]\s+/u;
+const LINE_END = /(\r?\n|\r)$/u;
+const BOM_BYTES = '\u00EF\u00BB\u00BF';
+
+export interface KeptRuleRepair {
+  lines: string[];
+  repaired: string[];
+  texts: RepairedRuleText[];
+}
+
+function rawLines(raw: string): string[] {
+  return raw.split(/(?<=\n)/u);
+}
+
+function decode(rawText: string): string {
+  return Buffer.from(rawText, 'latin1').toString('utf8');
+}
+
+function encode(text: string): string {
+  return Buffer.from(text, 'utf8').toString('latin1');
+}
+
+function splitRawLine(rawLine: string): { bom: string; body: string; end: string } {
+  const bom = rawLine.startsWith(BOM_BYTES) ? BOM_BYTES : '';
+  const rest = rawLine.slice(bom.length);
+  const end = LINE_END.exec(rest)?.[0] ?? '';
+  return { bom, body: rest.slice(0, rest.length - end.length), end };
+}
+
+function currentShippedLine(shippedContent: string | null, start: string): string | null {
+  if (shippedContent === null) return null;
+  const matches = shippedContent
+    .split(/\r?\n/u)
+    .map((line) => stripRuleMarker(line).text)
+    .filter((line) => line.startsWith(start));
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function bodyOfRule(text: string): string {
+  return text.replace(BULLET, '');
+}
+
+function repairKeptRuleFile(
+  projectRoot: string,
+  shippedContent: string | null,
+): { repaired: boolean; texts: RepairedRuleText[]; problem: string | null } {
+  const path = join(projectRoot, KEPT_RULE_WITH_SHIPPED_LINES);
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(path);
+  } catch {
+    return { repaired: false, texts: [], problem: null };
+  }
+  const texts: RepairedRuleText[] = [];
+  let inFence = false;
+  let repaired = false;
+  const output = rawLines(bytes.toString('latin1')).map((rawLine) => {
+    const { bom, body, end } = splitRawLine(rawLine);
+    const line = decode(body);
+    if (FENCE.test(line)) {
+      inFence = !inFence;
+      return rawLine;
+    }
+    if (inFence) return rawLine;
+    const start = shippedRuleLineStart(line);
+    if (start === null) return rawLine;
+    const next = currentShippedLine(shippedContent, start);
+    if (next === null) return rawLine;
+    const id = parseRuleMarker(line);
+    repaired = true;
+    if (id !== null) texts.push({ id, text: bodyOfRule(next) });
+    return `${bom}${encode(id === null ? next : embedRuleMarker(next, id))}${end}`;
+  });
+  if (!repaired) return { repaired: false, texts: [], problem: null };
+  try {
+    writeFileSync(path, Buffer.from(output.join(''), 'latin1'));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'unknown error';
+    return {
+      repaired: false,
+      texts: [],
+      problem: `Couldn't repair ${KEPT_RULE_WITH_SHIPPED_LINES}: ${reason}. The next update tries again.`,
+    };
+  }
+  return { repaired: true, texts, problem: null };
+}
+
+function filesInRulesFolder(projectRoot: string, relativeDir: string): string[] {
+  let entries;
+  try {
+    entries = readdirSync(join(projectRoot, relativeDir), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .flatMap((entry) => {
+      const path = `${relativeDir}/${entry.name}`;
+      return entry.isDirectory() ? filesInRulesFolder(projectRoot, path) : [path];
+    })
+    .filter((path) => path !== PATHS.RULE_SCRIPT_MAP)
+    .sort();
+}
+
+function stillMentionsLines(projectRoot: string, deletedPaths: readonly string[]): string[] {
+  return filesInRulesFolder(projectRoot, PATHS.RULES_DIR).flatMap((file) => {
+    let content: string;
+    try {
+      content = readFileSync(join(projectRoot, file), 'utf8');
+    } catch {
+      return [];
+    }
+    return deletedPaths
+      .filter((deleted) => content.includes(deleted))
+      .map(
+        (deleted) =>
+          `${file} still mentions ${deleted}, which paqad removed. Update that line by hand.`,
+      );
+  });
+}
+
+export function repairKeptRuleLines(
+  projectRoot: string,
+  shippedContent: string | null,
+  deletedPaths: readonly string[],
+): KeptRuleRepair {
+  const repair = repairKeptRuleFile(projectRoot, shippedContent);
+  return {
+    lines: [
+      ...(repair.problem === null ? [] : [repair.problem]),
+      ...stillMentionsLines(projectRoot, deletedPaths),
+    ],
+    repaired: repair.repaired ? [KEPT_RULE_WITH_SHIPPED_LINES] : [],
+    texts: repair.texts,
+  };
 }

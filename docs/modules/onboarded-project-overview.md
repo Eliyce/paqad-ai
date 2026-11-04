@@ -69,7 +69,7 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   `~/.paqad-ai/current` install), `project-profile.yaml` (project facts only:
   stack + the project's own test/build/lint commands + active capabilities), the
   framework knobs in the four-surface config layer (strictness, RAG, enterprise,
-  escalation, features, model routing, …) — defaults in
+  features, model routing, …) — defaults in
   `src/core/framework-config.ts`, tracked team overrides in
   readable YAML files under `.paqad/configs/` (`paqad.yaml`, `models.yaml`,
   `retrieval.yaml`, `decisions.yaml`, `authoring.yaml` and `feature-development/*.yaml`;

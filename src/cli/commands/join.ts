@@ -212,9 +212,10 @@ async function recreateLocalArtifacts(
     }
   }
   const hookResult = installGitHooks(projectRoot);
+  for (const problem of hookResult.problems ?? []) process.stderr.write(`${problem}\n`);
   if (hookResult.trackedHooksDir && hookResult.snippet) {
     process.stdout.write(
-      `Your git hooks directory is tracked, so paqad did not modify it. Add this yourself:\n${hookResult.snippet}\n`,
+      `${hookResult.huskyRuns ? 'Husky runs your git hooks, so paqad did not modify them' : 'Your git hooks directory is tracked, so paqad did not modify it'}. Add this yourself:\n${hookResult.snippet}\n`,
     );
   }
   if (isGitIgnored(projectRoot, PATHS.FRAMEWORK_VERSION)) {

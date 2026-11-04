@@ -6,10 +6,12 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "paqad_version": { "type": "string" },
     "template": { "type": "string", "minLength": 1 },
     "sign_off": { "type": "boolean" },
     "ask_when_unspecified": { "type": "boolean" },
+    "ai_attribution": { "type": "string", "enum": ["keep", "strip"] },
     "summary": {
       "type": "object",
       "additionalProperties": true,

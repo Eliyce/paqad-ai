@@ -14,6 +14,7 @@ import {
   configSaysPaqadDisabled,
   detectFlippedFrameworkValues,
   frameworkOverridesToFlat,
+  CATALOG_VERSION,
   generateConfigExample,
   generateConfigsReadme,
   layeredConfigMap,
@@ -151,11 +152,7 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
     expect(c.enterprise.enabled).toBe(false);
     expect(c.intelligence.rag_enabled).toBe(false);
     expect(c.intelligence.rag_top_n).toBe(20);
-    expect(c.strictness.require_adversarial_review).toBe(true);
-    expect(c.escalation.destructive_operations).toBe('block');
-    expect(c.escalation.risky_migrations).toBe('warn');
     expect(c.features.team_agents).toBe(true);
-    expect(c.research.depth).toBe('standard');
     expect(c.model_routing.default_model).toBe('gpt-5');
     expect(c.decisions.ask_threshold).toBe('strict');
     expect(c.efficiency.auto_update).toBe(true);
@@ -165,14 +162,12 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('overrides defaults from the config map (precedence)', () => {
     const c = resolveFrameworkConfigFromMap(
-      parseDotConfig(
-        'paqad_enable=false\nrag_enabled=true\nrag_top_n=5\nresearch_depth=cutting-edge',
-      ),
+      parseDotConfig('paqad_enable=false\nrag_enabled=true\nrag_top_n=5\nmodel_default=my-model'),
     );
     expect(c.paqad.enabled).toBe(false);
     expect(c.intelligence.rag_enabled).toBe(true);
     expect(c.intelligence.rag_top_n).toBe(5);
-    expect(c.research.depth).toBe('cutting-edge');
+    expect(c.model_routing.default_model).toBe('my-model');
   });
 
   it('F10: rag_base_branch is unset by default (auto-detect main->master)', () => {
@@ -204,9 +199,9 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('falls back to the default for an invalid boolean', () => {
     expect(
-      resolveFrameworkConfigFromMap(parseDotConfig('require_adversarial_review=maybe')).strictness
-        .require_adversarial_review,
-    ).toBe(true);
+      resolveFrameworkConfigFromMap(parseDotConfig('metrics_enabled=maybe')).features
+        .metrics_enabled,
+    ).toBe(DEFAULT_FRAMEWORK_CONFIG.features.metrics_enabled);
   });
 
   it('falls back to the default for a non-numeric number', () => {
@@ -217,8 +212,9 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
 
   it('falls back to the default for an out-of-enum value', () => {
     expect(
-      resolveFrameworkConfigFromMap(parseDotConfig('research_depth=ludicrous')).research.depth,
-    ).toBe('standard');
+      resolveFrameworkConfigFromMap(parseDotConfig('decisions_ask_threshold=ludicrous')).decisions
+        .ask_threshold,
+    ).toBe('strict');
   });
 
   it('leaves the optional embedding provider/model unset by default', () => {
@@ -283,15 +279,14 @@ describe('layeredConfigMap — four surfaces, LOCAL WINS', () => {
     expect(c.enterprise.enabled).toBe(true);
     expect(c.intelligence.rag_top_n).toBe(20);
     expect(c.model_routing.default_model).toBe('gpt-5');
-    expect(c.research.depth).toBe('standard');
   });
 
   it('resolveFrameworkConfig threads env through the full precedence', () => {
-    writeConfigsFile(root, '.config.policy', 'research_depth=conservative\n');
-    expect(resolveFrameworkConfig(root, {}).research.depth).toBe('conservative');
+    writeConfigsFile(root, '.config.models', 'model_default=from-team\n');
+    expect(resolveFrameworkConfig(root, {}).model_routing.default_model).toBe('from-team');
     expect(
-      resolveFrameworkConfig(root, { PAQAD_RESEARCH_DEPTH: 'cutting-edge' }).research.depth,
-    ).toBe('cutting-edge');
+      resolveFrameworkConfig(root, { PAQAD_MODEL_DEFAULT: 'from-env' }).model_routing.default_model,
+    ).toBe('from-env');
   });
 });
 
@@ -342,7 +337,6 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
     );
     expect(profile.intelligence.rag_enabled).toBe(true);
     expect(profile.enterprise?.enabled).toBe(true);
-    expect(profile.strictness.block_on_stale_docs).toBe(true);
     expect(profile.custom.decisions?.ask_threshold).toBe('strict');
   });
 
@@ -471,12 +465,12 @@ describe('generateConfigsReadme — the team-override convention', () => {
   it('explains the git-workflow folder', () => {
     expect(readme).toContain('## git-workflow/');
     expect(readme).toContain('No personal override applies');
-    expect(readme).toContain('# Added in paqad-ai <version>');
+    expect(readme).toContain('adds no settings to these files');
     expect(readme).toContain('--no-verify');
     expect(readme).toContain('make hotfix');
   });
-  it('states that update never changes a team value', () => {
-    expect(readme).toContain('never changes a value you set');
+  it('states when update rewrites a team file', () => {
+    expect(readme.replace(/\s+/gu, ' ')).toContain('It rewrites a team file only for a migration');
   });
 });
 
@@ -517,7 +511,7 @@ describe('integration — readProjectProfile / writeProjectProfile', () => {
     const profile = readProjectProfile(root)!;
     expect(profile.intelligence.rag_enabled).toBe(false);
     expect(profile.intelligence.rag_top_n).toBe(20);
-    expect(profile.strictness.require_adversarial_review).toBe(true);
+    expect((profile as unknown as Record<string, unknown>).strictness).toBeUndefined();
   });
 
   it('a .config override is reflected in the in-memory profile', () => {
@@ -632,9 +626,9 @@ describe('frameworkOverridesToFlat — only non-default, only present sections',
 
   it('ignores sections not present on the override', () => {
     const flat = frameworkOverridesToFlat({
-      research: { depth: 'cutting-edge' },
+      model_routing: { default_model: 'x', reasoning_model: 'gpt-5', fast_model: 'gpt-5-mini' },
     } as Partial<ProjectProfile>);
-    expect([...flat.keys()]).toEqual(['research_depth']);
+    expect([...flat.keys()]).toEqual(['model_default']);
   });
 });
 
@@ -768,10 +762,7 @@ describe('detectFlippedFrameworkValues — the no-migration safety net', () => {
       research: { depth: 'cutting-edge' },
     };
     writeFileSync(join(root, '.paqad', 'project-profile.yaml'), YAML.stringify(fat), 'utf8');
-    expect(detectFlippedFrameworkValues(root).sort()).toEqual([
-      'enterprise=true',
-      'research_depth=cutting-edge',
-    ]);
+    expect(detectFlippedFrameworkValues(root).sort()).toEqual(['enterprise=true']);
   });
 });
 
@@ -866,13 +857,7 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     writeFileSync(path, text);
     syncTeamConfigFiles(root);
     const after = readFileSync(path, 'utf8');
-    expect(after).toBe(
-      renderTeamConfigFile('feature-development/evidence.yaml', YAML.parseDocument(text)),
-    );
-    expect(after).toContain('\n# our team header\n');
-    const live = YAML.parse(after) as Record<string, unknown>;
-    delete live.paqad_version;
-    expect(live).toEqual({ enterprise: { enabled: true } });
+    expect(after).toBe(text);
   });
 
   function teamPath(file: string): string {
@@ -896,26 +881,20 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     }
   }
 
-  it('AC-2 and AC-18: re-renders header-only 1.117.0 files and keeps the live values', () => {
+  it('AC-2 and AC-18: swaps the stamp in header-only 1.117.0 files and keeps everything else', () => {
     writeHeaderOnly();
     writeFileSync(
       teamPath('retrieval.yaml'),
       `${readFileSync(teamPath('retrieval.yaml'), 'utf8')}enabled: true\nembeddings:\n  provider: openai\n  model: text-embedding-3-small\n`,
     );
     const before = readTeamConfig(root).merged;
+    const beforeText = readFileSync(teamPath('retrieval.yaml'), 'utf8');
     const written = syncTeamConfigFiles(root, [], '1.118.0');
     expect(written.sort()).toEqual(TEAM_CONFIG_FILES.map((file) => teamPath(file)).sort());
-    const retrieval = readFileSync(teamPath('retrieval.yaml'), 'utf8');
-    expect(retrieval).toContain('\nenabled: true\n');
-    expect(retrieval).toContain('\nembeddings:\n');
-    expect(retrieval).toContain('\n  provider: openai\n');
-    expect(retrieval).toContain('\n  model: text-embedding-3-small\n');
-    expect(retrieval).toContain('\n# match:\n');
-    expect(retrieval).toContain('\n# index:\n');
+    expect(readFileSync(teamPath('retrieval.yaml'), 'utf8')).toBe(
+      beforeText.replace('paqad_version: "1.117.0"', 'schema_version: 1'),
+    );
     expect([...readTeamConfig(root).merged]).toEqual([...before]);
-    for (const file of TEAM_CONFIG_FILES) {
-      expect(readFileSync(teamPath(file), 'utf8')).toContain('paqad_version: "1.118.0"');
-    }
   });
 
   it('AC-10 and NFR-1: a second sync writes nothing and leaves the files byte-identical', () => {
@@ -927,23 +906,34 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     expect(TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'))).toEqual(first);
   });
 
-  it('AC-23 and INV-5: never rewrites a file stamped by a newer paqad', () => {
-    writeHeaderOnly('9.0.0');
+  it('AC-18 and INV-4: never rewrites a file with a higher schema_version, and names it', () => {
+    writeHeaderOnly();
+    for (const file of TEAM_CONFIG_FILES) {
+      writeFileSync(
+        teamPath(file),
+        readFileSync(teamPath(file), 'utf8').replace(
+          'paqad_version: "1.117.0"',
+          'schema_version: 2',
+        ),
+      );
+    }
     const before = TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'));
-    expect(syncTeamConfigFiles(root, [], '1.118.0')).toEqual([]);
+    const problems: string[] = [];
+    expect(syncTeamConfigFiles(root, problems)).toEqual([]);
     expect(TEAM_CONFIG_FILES.map((file) => readFileSync(teamPath(file), 'utf8'))).toEqual(before);
+    expect(problems).toContain(
+      ".paqad/configs/models.yaml was written by a newer paqad, so it wasn't changed. Update paqad-ai.",
+    );
+    expect(problems).toHaveLength(TEAM_CONFIG_FILES.length);
   });
 
-  it('AC-4: a setting the team set that paqad no longer knows moves under the Not a paqad setting line', () => {
+  it('INV-3: a setting paqad no longer knows stays where the team put it, and a release that adds settings changes nothing', () => {
     syncTeamConfigFiles(root);
     const path = teamPath('models.yaml');
-    writeFileSync(path, `${readFileSync(path, 'utf8')}\nmodels:\n  retired_model: old\n`);
-    syncTeamConfigFiles(root);
-    const after = readFileSync(path, 'utf8');
-    expect(after).toContain(
-      '\n# Not a paqad setting, so paqad ignores it (kept as written):\nmodels:\n  retired_model: old\n',
-    );
-    expect(after).toContain('\n# models:\n');
+    const text = `${readFileSync(path, 'utf8')}\nmodels:\n  retired_model: old\n`;
+    writeFileSync(path, text);
+    expect(syncTeamConfigFiles(root)).toEqual([]);
+    expect(readFileSync(path, 'utf8')).toBe(text);
   });
 
   it('AC-8, AC-21 and INV-7: leaves an invalid or non-map file byte-identical and names it', () => {
@@ -960,10 +950,8 @@ describe('syncTeamConfigFiles / writeConfigsReadme — the tracked team files', 
     expect(problems).toHaveLength(2);
     expect(problems[0]).toMatch(/^paqad\.yaml isn't valid YAML/u);
     expect(problems[1]).toMatch(/^models\.yaml holds a list or a single value/u);
-    expect(written).toEqual([teamPath('decisions.yaml')]);
-    expect(readFileSync(teamPath('decisions.yaml'), 'utf8')).toBe(
-      renderTeamConfigFile('decisions.yaml', null),
-    );
+    expect(written).toEqual([]);
+    expect(readFileSync(teamPath('decisions.yaml'), 'utf8')).toBe('');
   });
 
   it('writes .paqad/configs/README.md matching generateConfigsReadme() (AC-67)', () => {
@@ -1049,22 +1037,57 @@ describe('an older paqad leaves a newer checkout untouched', () => {
     return { app, local };
   }
 
-  it('stamps the catalog with the version that generated it', () => {
-    expect(generateConfigExample('1.2.3').split('\n')[1]).toBe('# generated by paqad-ai 1.2.3');
-    expect(generateConfigExample()).toContain(`# generated by paqad-ai ${__PKG_VERSION__}\n`);
+  const higherCatalog = () =>
+    generateConfigExample().replace(
+      `# catalog_version: ${CATALOG_VERSION}`,
+      `# catalog_version: ${CATALOG_VERSION + 1}`,
+    );
+
+  it('stamps the catalog with its integer and no version', () => {
+    const example = generateConfigExample();
+    expect(example.split('\n')[1]).toBe(`# catalog_version: ${CATALOG_VERSION}`);
+    expect(example).not.toContain(__PKG_VERSION__);
+    expect(example).not.toContain('generated by paqad-ai');
   });
 
-  it('reads a newer stamp as a newer checkout and the same or older stamp as not', () => {
-    writeFileSync(examplePath(), generateConfigExample('999.0.0'));
+  it.each([
+    ['higher', (text: string) => text, true],
+    ['equal', () => generateConfigExample(), false],
+    [
+      'lower',
+      () => generateConfigExample().replace(/^# catalog_version: .*$/mu, '# catalog_version: 0'),
+      false,
+    ],
+    [
+      'malformed',
+      () => generateConfigExample().replace(/^# catalog_version: .*$/mu, '# catalog_version: 1.5'),
+      false,
+    ],
+    [
+      'empty',
+      () => generateConfigExample().replace(/^# catalog_version: .*$/mu, '# catalog_version:'),
+      false,
+    ],
+  ])('AC-25: a catalog_version that is %s reads as expected', (_name, make, newer) => {
+    writeFileSync(examplePath(), make(higherCatalog()));
+    expect(checkoutIsNewer(root)).toBe(newer);
+    expect(checkoutIsNewer(root, '999.0.0')).toBe(newer);
+  });
+
+  it('AC-25: falls back to the old stamp only for a file without the integer', () => {
+    const old = generateConfigExample().replace(
+      /^# catalog_version: .*$/mu,
+      '# generated by paqad-ai 999.0.0',
+    );
+    writeFileSync(examplePath(), old);
     expect(checkoutIsNewer(root)).toBe(true);
     expect(checkoutIsNewer(root, '999.0.0')).toBe(false);
-    expect(checkoutIsNewer(root, '999.0.1')).toBe(false);
-    writeFileSync(examplePath(), generateConfigExample());
+    writeFileSync(examplePath(), `${old}# catalog_version: ${CATALOG_VERSION}\n`);
     expect(checkoutIsNewer(root)).toBe(false);
   });
 
   it('never reads an unstamped catalog as a newer checkout, even with a key it does not know', () => {
-    const unstamped = generateConfigExample().replace(/^# generated by paqad-ai .*\n/m, '');
+    const unstamped = generateConfigExample().replace(/^# catalog_version: .*\n/m, '');
     writeFileSync(examplePath(), unstamped);
     expect(checkoutIsNewer(root)).toBe(false);
     writeFileSync(
@@ -1076,7 +1099,7 @@ describe('an older paqad leaves a newer checkout untouched', () => {
 
   it('refreshes and stamps an old unstamped catalog and keeps pruning removed keys', () => {
     const unstamped = generateConfigExample()
-      .replace(/^# generated by paqad-ai .*\n/m, '')
+      .replace(/^# catalog_version: .*\n/m, '')
       .concat('# A knob from earlier (env: PAQAD_EARLIER)\n# earlier_knob=true\n');
     seedNewerCheckout(unstamped);
 
@@ -1094,7 +1117,7 @@ describe('an older paqad leaves a newer checkout untouched', () => {
   });
 
   it('leaves every tracked file byte-identical and prunes nothing under a newer stamp', () => {
-    const newer = generateConfigExample('999.0.0');
+    const newer = higherCatalog();
     const { app, local } = seedNewerCheckout(newer);
 
     writeConfigExample(root);

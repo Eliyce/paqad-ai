@@ -223,20 +223,31 @@ export async function writeRuleContext(
   return target;
 }
 
-async function ensureCompiledRulesCurrent(projectRoot: string): Promise<void> {
+export async function ensureCompiledRulesCurrent(projectRoot: string): Promise<Error | null> {
   if (!existsSync(join(projectRoot, PATHS.RULES_DIR))) {
-    return;
+    return null;
   }
   try {
     if (await isCompiledRulesStale(projectRoot)) {
       await writeCompiledRules(projectRoot, await compileRules(projectRoot));
     }
-  } catch {}
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+}
+
+export function compileFailureReason(error: Error): string {
+  return error.message.replace(/\.+$/u, '');
+}
+
+export interface RefreshRuleContextOptions extends WriteRuleContextOptions {
+  onCompileFailure?: (error: Error) => void;
 }
 
 export async function refreshRuleContext(
   projectRoot: string,
-  options: WriteRuleContextOptions = {},
+  options: RefreshRuleContextOptions = {},
 ): Promise<string | null> {
   const lockDir = join(projectRoot, PATHS.LOCKS_DIR, 'rule-context.lock');
   const lock = tryAcquireLock(lockDir, { staleLockMs: STALE_LOCK_MS });
@@ -244,9 +255,8 @@ export async function refreshRuleContext(
     return null;
   }
   try {
-    if (options.loadRules ?? true) {
-      await ensureCompiledRulesCurrent(projectRoot);
-    }
+    const failure = await ensureCompiledRulesCurrent(projectRoot);
+    if (failure !== null) options.onCompileFailure?.(failure);
     return await writeRuleContext(projectRoot, options);
   } finally {
     releaseLock(lockDir);

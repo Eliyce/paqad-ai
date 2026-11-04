@@ -5,6 +5,8 @@ import { dirname, join, relative } from 'node:path';
 import YAML from 'yaml';
 
 import { peekActiveChangeKey } from '@/feature-evidence/stage-ledger.js';
+import { removeAiAttributionComment } from '@/git-workflow/defaults.js';
+import { changedOutside, readLastApplied, stampLastApplied } from '@/git-workflow/last-applied.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import {
   FEATURE_DEVELOPMENT_VIEW_RELATIVE,
@@ -16,7 +18,14 @@ import { PATHS } from './constants/paths.js';
 import { checkoutIsNewer, FRAMEWORK_CONFIG_SPECS, parseDotConfig } from './framework-config.js';
 import { parseTeamConfigText, renderTeamConfigFile, teamConfigPath } from './team-config.js';
 import { isShippedWorkflowEntry } from './shipped-workflow-entries.js';
+import {
+  isNewerTeamFile,
+  newerTeamFileLine,
+  renderWriteBlock,
+  TEAM_FILE_SCHEMA_VERSION,
+} from './team-file-schema.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
+import { isRetiredSettingKey, retiredSettingLine } from './team-config-retired.js';
 import { WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
   GIT_WORKFLOW_COMMITS_FILE,
@@ -238,14 +247,7 @@ function planWorkflowCarry(edited: unknown, oldFile: string): WorkflowCarry {
   const staleEscalation = at(docs, ['escalation', 'stale_docs']);
   const requireSync = at(docs, ['strictness', 'require_canonical_sync']);
   if (requireSync === false || staleEscalation === 'warn') {
-    carry(
-      requireSync === false
-        ? 'stages.documentation_sync.strictness.require_canonical_sync'
-        : 'stages.documentation_sync.escalation.stale_docs',
-      WORKFLOW_FILE,
-      ['stages', 'documentation_sync', 'stale_docs'],
-      'warn',
-    );
+    result.lines.push(retiredSettingLine(oldFile, 'stages.documentation_sync.stale_docs'));
   }
   const checksStage = isRecord(stages.checks) ? stages.checks : {};
   const checks = isRecord(checksStage.checks) ? checksStage.checks : {};
@@ -336,13 +338,24 @@ function stubText(version: string, teamMinimum: string | undefined, unknown: Set
     MIGRATED_STUB_MARKER,
     "# This project's paqad settings moved to the YAML files in this folder.",
     "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off",
-    '# instead of running on its defaults, and asks to update. A current paqad ignores this file.',
+    '# instead of running on its defaults. A current paqad ignores this file.',
     'paqad_enable=false',
     `minimum_version=${minimum}`,
-    '# Not carried over (not paqad settings):',
+    ...(unknown.length === 0 ? [] : ['# Not carried over (not paqad settings):']),
     ...unknown.map((line) => `# ${line.key}=${line.value}`),
     '',
   ].join('\n');
+}
+
+function commitsText(document: YAML.Document): string {
+  const text = document.toString({ lineWidth: 0 });
+  return document.has('ai_attribution') ? removeAiAttributionComment(text) : text;
+}
+
+function commitsStampIsTrusted(projectRoot: string): boolean {
+  return (
+    readLastApplied(projectRoot) !== null && !changedOutside(projectRoot).includes('commits.yaml')
+  );
 }
 
 function isTracked(projectRoot: string, relativePath: string): boolean {
@@ -420,6 +433,10 @@ export function migrateTeamConfig(
   const unknown: SetLine[] = [];
   for (const [key, { line, file }] of winners) {
     const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key);
+    if (isRetiredSettingKey(key)) {
+      result.lines.push(retiredSettingLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`, key));
+      continue;
+    }
     if (spec === undefined) {
       unknown.push(line);
       result.lines.push(
@@ -488,7 +505,10 @@ export function migrateTeamConfig(
     const existing = readText(teamConfigPath(projectRoot, file));
     const parsed =
       existing === null
-        ? { document: YAML.parseDocument(`paqad_version: "${version}"\n`), error: undefined }
+        ? {
+            document: YAML.parseDocument(`schema_version: ${TEAM_FILE_SCHEMA_VERSION}\n`),
+            error: undefined,
+          }
         : parseTeamConfigText(file, existing);
     const document = parsed.document;
     if (document === null || parsed.error !== undefined) {
@@ -539,6 +559,22 @@ export function migrateTeamConfig(
     );
   }
 
+  const blockedLines = [...documents.keys()].flatMap((file) => {
+    const text = readText(teamConfigPath(projectRoot, file)) ?? '';
+    const shown = `${PATHS.PROJECT_CONFIGS_DIR}/${file}`;
+    if (file === GIT_WORKFLOW_COMMITS_FILE) {
+      return isNewerTeamFile(text) ? [newerTeamFileLine(shown)] : [];
+    }
+    const blocked = renderWriteBlock(text, shown);
+    return blocked === null ? [] : [blocked];
+  });
+  if (blockedLines.length > 0) {
+    const lines = blockedLines;
+    result.lines = lines;
+    result.error = lines.join(' ');
+    return result;
+  }
+
   const teamMinimum = winners.get('minimum_version')?.line.value;
   const stub = stubText(version, teamMinimum, unknown);
   const stubPath = legacyPath(projectRoot, CONFIG_GROUP_FILES.app);
@@ -549,15 +585,15 @@ export function migrateTeamConfig(
       path: teamConfigPath(projectRoot, file),
       text:
         file === GIT_WORKFLOW_COMMITS_FILE
-          ? document.toString({ lineWidth: 0 })
-          : renderTeamConfigFile(file, document, version),
+          ? commitsText(document)
+          : renderTeamConfigFile(file, document),
       existed,
     });
   }
   for (const file of TEAM_CONFIG_FILES) {
     const path = teamConfigPath(projectRoot, file);
     if (documents.has(file) || existsSync(path)) continue;
-    writes.push({ path, text: renderTeamConfigFile(file, null, version), existed: false });
+    writes.push({ path, text: renderTeamConfigFile(file, null), existed: false });
   }
   const stubWrite = { path: stubPath, text: stub, existed: existsSync(stubPath) };
 
@@ -572,6 +608,8 @@ export function migrateTeamConfig(
   if (deleteView) result.deleted.push(FEATURE_DEVELOPMENT_VIEW_RELATIVE);
 
   if (!dryRun) {
+    const stampCommits =
+      documents.has(GIT_WORKFLOW_COMMITS_FILE) && commitsStampIsTrusted(projectRoot);
     try {
       for (const write of writes) {
         mkdirSync(dirname(write.path), { recursive: true });
@@ -589,6 +627,7 @@ export function migrateTeamConfig(
       return result;
     }
     for (const path of toDelete) rmSync(path, { force: true });
+    if (stampCommits) stampLastApplied(projectRoot, ['commits.yaml'], { version });
   }
 
   for (const path of result.created) result.lines.push(`Created ${path}`);

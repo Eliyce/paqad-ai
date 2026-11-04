@@ -23,12 +23,11 @@ import {
   type OwnTeamConfigFile,
 } from '@/core/team-config-values.js';
 
-const VERSION = '9.9.9';
 const PAQAD: OwnTeamConfigFile = 'paqad.yaml';
 const WORKFLOW: OwnTeamConfigFile = 'feature-development/workflow.yaml';
 
 function render(file: OwnTeamConfigFile, text: string | null = null): string {
-  return renderTeamConfigFile(file, text === null ? null : YAML.parseDocument(text), VERSION);
+  return renderTeamConfigFile(file, text === null ? null : YAML.parseDocument(text));
 }
 
 function rerender(file: OwnTeamConfigFile, text: string): string {
@@ -130,7 +129,7 @@ describe('renderTeamConfigFile: a fresh file', () => {
       expect(lines.slice(0, 5)).toEqual([
         `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
         ...TEAM_CONFIG_HEADER_LINES,
-        `paqad_version: "${VERSION}"`,
+        'schema_version: 1',
       ]);
     }
   });
@@ -170,9 +169,9 @@ describe('renderTeamConfigFile: a fresh file', () => {
     }
   });
 
-  it('AC-6 and INV-1: a file with nothing uncommented parses to only paqad_version', () => {
+  it('AC-6 and INV-1: a file with nothing uncommented parses to only schema_version', () => {
     for (const file of TEAM_CONFIG_FILES) {
-      expect(parsed(fresh(file))).toEqual({ paqad_version: VERSION });
+      expect(parsed(fresh(file))).toEqual({ schema_version: 1 });
     }
   });
 
@@ -184,7 +183,7 @@ describe('renderTeamConfigFile: a fresh file', () => {
       let value: unknown = data;
       for (const segment of entry.path) value = (value as Record<string, unknown>)[segment];
       expect(value, entry.path.join('.')).toEqual(expected);
-      expect(Object.keys(data)).toEqual(['paqad_version', entry.path[0]]);
+      expect(Object.keys(data)).toEqual(['schema_version', entry.path[0]]);
     }
   });
 
@@ -235,7 +234,7 @@ describe('renderTeamConfigFile: live values', () => {
     );
     expect(text).not.toContain('minimum_version: latest');
     expect(parsed(text)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       updates: { minimum_version: '1.117.0' },
     });
   });
@@ -243,7 +242,7 @@ describe('renderTeamConfigFile: live values', () => {
   it('AC-7: a value set on a fresh document leaves one live copy and no commented copy', () => {
     const document = YAML.parseDocument(fresh('retrieval.yaml'));
     document.setIn(['enabled'], true);
-    const text = renderTeamConfigFile('retrieval.yaml', document, VERSION);
+    const text = renderTeamConfigFile('retrieval.yaml', document);
     expect(text).toContain('\nenabled: true\n');
     expect(text).not.toContain('# enabled: false');
   });
@@ -276,7 +275,7 @@ describe('renderTeamConfigFile: live values', () => {
       'paqad_version: "1.0.0"\ncommands:\n  extra: {lint: pnpm lint}\n  from_project_profile: [test]\n',
     );
     expect(parsed(text)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       commands: { extra: { lint: 'pnpm lint' }, from_project_profile: ['test'] },
     });
   });
@@ -293,7 +292,7 @@ describe('renderTeamConfigFile: live values', () => {
     expect(liveParents).toEqual(['stages:', 'review:', 'instructions:']);
     expect(text).toContain('\n  # planning:\n');
     expect(parsed(text)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       stages: { review: { instructions: ['Read the docs first'] } },
     });
   });
@@ -357,7 +356,7 @@ describe('renderTeamConfigFile: lines paqad does not own', () => {
       ),
     );
     expect(parsed(text)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       updates: { minimum_version: '1.117.0', automatc: false },
     });
     expect(rerender(PAQAD, text)).toBe(text);
@@ -505,7 +504,7 @@ describe('AC-1, AC-24 and AC-27: the values read back are the same', () => {
     for (const file of TEAM_CONFIG_FILES) {
       const plain = YAML.parse(rendered[file]!) as Record<string, unknown>;
       const original = YAML.parse(sparse[file] ?? 'paqad_version: x\n') as Record<string, unknown>;
-      delete plain.paqad_version;
+      delete plain.schema_version;
       delete original.paqad_version;
       expect(plain, file).toEqual(original);
     }
@@ -517,7 +516,7 @@ describe('repairTeamConfigText (FR-11)', () => {
     const text = edit(fresh(PAQAD), '#   minimum_version: latest', '  minimum_version: 1.117.0');
     const { text: repaired, repairs } = repairTeamConfigText(PAQAD, text);
     expect(parsed(repaired)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       updates: { minimum_version: '1.117.0' },
     });
     expect(repairs).toHaveLength(1);
@@ -531,7 +530,7 @@ describe('repairTeamConfigText (FR-11)', () => {
   it('AC-20: reads a setting where only the # was removed at its own column', () => {
     const text = edit(fresh(PAQAD), '# enabled: true', ' enabled: false');
     const { text: repaired, repairs } = repairTeamConfigText(PAQAD, text);
-    expect(parsed(repaired)).toEqual({ paqad_version: VERSION, enabled: false });
+    expect(parsed(repaired)).toEqual({ schema_version: 1, enabled: false });
     expect(repairs).toHaveLength(1);
     expect(rerender(PAQAD, repaired)).toContain('\nenabled: false\n');
   });
@@ -539,7 +538,7 @@ describe('repairTeamConfigText (FR-11)', () => {
   it('repairs both at once inside a commented group, and nested groups', () => {
     const text = edit(fresh(PAQAD), '#   minimum_version: latest', '   minimum_version: 1.117.0');
     expect(parsed(repairTeamConfigText(PAQAD, text).text)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       updates: { minimum_version: '1.117.0' },
     });
     const live = rerender(

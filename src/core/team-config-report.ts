@@ -11,6 +11,7 @@ import {
   teamConfigMigrated,
 } from './team-config-legacy.js';
 import { STRUCTURED_TEAM_SETTINGS } from './team-config-schema.js';
+import { retiredPathsFor } from './team-config-retired.js';
 import { TEAM_CONFIG_FILES, type OwnTeamConfigFile } from './team-config-values.js';
 
 export function missingTeamFileLine(file: string): string {
@@ -53,7 +54,7 @@ export function unknownSettingLine(file: string, path: string): string {
 }
 
 function knownPaths(file: OwnTeamConfigFile): { leaves: Set<string>; branches: Set<string> } {
-  const leaves = new Set<string>(['paqad_version']);
+  const leaves = new Set<string>(['paqad_version', 'schema_version', ...retiredPathsFor(file)]);
   for (const spec of FRAMEWORK_CONFIG_SPECS) {
     if (spec.file === file) leaves.add(spec.path.join('.'));
   }

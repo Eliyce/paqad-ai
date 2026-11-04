@@ -11,8 +11,8 @@ The shape, defaults, and writers for `.paqad/project-profile.yaml`,
 The profile is now **lean — project facts only**: project name / id / description,
 the project's own `commands`, `mcp.servers`, the detection-derived
 `active_capabilities` and `stack_profile`, and the project-owned `custom` arrays.
-Framework knobs (paqad on/off, enterprise, RAG, strictness, escalation, features,
-research depth, model routing, decision tuning, version/update) no longer live
+Framework knobs (paqad on/off, enterprise, RAG, strictness, features,
+model routing, decision tuning, version/update) no longer live
 here. They come from code defaults in `src/core/framework-config.ts`, overridable
 through the config layer: the tracked YAML team files under `.paqad/configs/`
 (each lists every setting it can hold, commented out with its default and a
@@ -130,12 +130,14 @@ Framework knobs come only from the config layers; any still in `project-profile.
 on read and stripped on write, and `detectFlippedFrameworkValues` turns that revert into a visible
 notice. The `custom.decisions` sub-keys that are project values (`preferred_option_keys`,
 `ttl_overrides_days`, `max_pending`) stay in the profile. Team files are written commented out,
-so a fresh project runs on code defaults. Onboard, update, a single-value write and migration all
-re-render a team file in full from its live values: new settings appear commented out, removed
-ones disappear, the team's values and comments are kept, a live key paqad does not know moves
+so a fresh project runs on code defaults. A single-value write and a migration re-render a team file in full from its live values: the
+team's values and comments are kept, a live key paqad does not know moves
 under a "Not a paqad setting" line, and other team comments move to a notes section at the end.
-A file that isn't valid YAML, or isn't a map of settings, is never rewritten. Unchanged files are never
-rewritten. `.config.example` is tracked but never read at runtime. The flaky mode order is kept
+Onboard and update don't re-render. They write an existing file only for a migration, a retired
+value, a removed setting or a stale workflow entry, so a new setting doesn't appear in existing
+files. People find it in `.paqad/.config.example` and `paqad-ai config show`. There are 17 team
+files, each with `schema_version` instead of a paqad version. A file that isn't valid YAML, or
+isn't a map of settings, is never rewritten. Unchanged files are never rewritten. `.config.example` is tracked but never read at runtime. The flaky mode order is kept
 local to avoid an import cycle with `src/checks/flaky-mode.ts`. The evidence existence gate has no
 `strict` tier on purpose: it warns, never blocks. `SPEC_PIPELINE_DEFAULTS` is mirrored in
 `runtime/hooks/lib/agent-entry-directive.mjs` and a unit test fails if they drift. Numeric knobs

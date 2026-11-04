@@ -3,7 +3,7 @@ id: "TD-01M6K2SRCHM1CVJ4W805HGJ0XM"
 title: "The config preservation rule doesn't name the shipped-line removal"
 kind: "gap"
 severity: "low"
-status: "open"
+status: "closed"
 files:
   - "docs/instructions/rules/coding/config-visibility.md"
 found_in:
@@ -15,7 +15,7 @@ session: "f5433cfe-6124-45e1-b2f9-d7cda76f2141"
 created_at: "2026-11-04T10:48:41.590Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "The rule now names when update may rewrite a team file, including the stale workflow entries in src/core/shipped-workflow-entries.ts."
 ---
 
 ## What

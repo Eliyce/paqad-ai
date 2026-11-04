@@ -79,6 +79,7 @@ The checks run in this order. Each row lists the statuses that check can return.
 | `Framework install` | pass, warning |
 | `Claude Code install` | pass, warning |
 | `Schema version` | pass, warning |
+| `paqad-ai version` (only when the running paqad is older than this repo was last updated with on this machine) | warning |
 | `No broken scaffold state` | pass, fail |
 | `UI docs present`, `API docs present`, `Integration docs present`, `Error catalog present` | pass, fail |
 | `MCP servers (recommended)` | info |

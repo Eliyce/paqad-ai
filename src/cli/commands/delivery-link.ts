@@ -205,6 +205,7 @@ export function createDeliveryLinkCommand(deps: DeliveryLinkDeps = {}): Command 
     .option('--session <id>', 'Ignored (accepted for a uniform hook-caller interface)')
     .action((options: { projectRoot: string }) => {
       const result = installGitHooks(options.projectRoot);
+      for (const problem of result.problems ?? []) process.stderr.write(`${problem}\n`);
       if (result.notAGitRepo) {
         console.log(JSON.stringify({ installed: [], reason: 'not a git repository' }));
         return;

@@ -13,11 +13,21 @@ import {
   type FrameworkConfigSpec,
 } from './framework-config.js';
 import { readTextIfExistsSync } from './fs/read-if-exists.js';
+import { setValue } from '@/git-workflow/yaml-edit.js';
 import {
   isShippedWorkflowEntry,
   type ShippedWorkflowEntryKind,
 } from './shipped-workflow-entries.js';
-import { versionAtLeast } from './version-compare.js';
+import { removeRetiredSettings, settleRetiredSafetyFile } from './team-config-retired.js';
+import {
+  isNewerTeamFile,
+  newerTeamFileLine,
+  NOT_A_SETTING_LINE,
+  readTeamFileStamp,
+  renderWriteBlock,
+  swapTeamFileStamp,
+  TEAM_FILE_SCHEMA_VERSION,
+} from './team-file-schema.js';
 import { STRUCTURED_TEAM_SETTINGS, WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
   legacyBothLine,
@@ -222,6 +232,9 @@ export function writeTeamYamlValue(
   const target = teamConfigPath(projectRoot, file);
   const existing = readTextIfExistsSync(target);
   mkdirSync(dirname(target), { recursive: true });
+  if (existing !== null && isNewerTeamFile(existing)) {
+    throw new Error(newerTeamFileLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`));
+  }
   if (!isOwnTeamConfigFile(file)) {
     const document = YAML.parseDocument(existing ?? '');
     if (document.errors.length > 0) {
@@ -232,6 +245,9 @@ export function writeTeamYamlValue(
     stampLastApplied(projectRoot, ['commits.yaml']);
     return target;
   }
+  const blocked =
+    existing === null ? null : renderWriteBlock(existing, `${PATHS.PROJECT_CONFIGS_DIR}/${file}`);
+  if (blocked !== null) throw new Error(blocked);
   const { document, error } =
     existing === null
       ? { document: new YAML.Document(), error: undefined }
@@ -241,13 +257,7 @@ export function writeTeamYamlValue(
   }
   if (!holdsSettings(document)) throw new Error(notSettingsMapMessage(file));
   setLiveValue(document, path, value);
-  const stamped = writtenVersion(document);
-  const newer = stamped !== undefined && !versionAtLeast(__PKG_VERSION__, stamped);
-  writeFileSync(
-    target,
-    newer ? document.toString({ lineWidth: 0 }) : renderTeamConfigFile(file, document),
-    'utf8',
-  );
+  writeFileSync(target, renderTeamConfigFile(file, document), 'utf8');
   return target;
 }
 
@@ -275,28 +285,25 @@ export function ensureTeamConfigFiles(projectRoot: string): string[] {
   return created;
 }
 
-function writtenVersion(document: YAML.Document): string | undefined {
-  if (!YAML.isMap(document.contents)) return undefined;
-  const version: unknown = document.get('paqad_version');
-  return typeof version === 'string' && /^\d+\.\d+\.\d+/u.test(version) ? version : undefined;
-}
-
 function replaceRetiredValues(
   file: OwnTeamConfigFile,
+  text: string,
   document: YAML.Document,
   notes: string[],
-): void {
+): string {
+  let next = text;
   for (const spec of FRAMEWORK_CONFIG_SPECS) {
     if (spec.file !== file) continue;
     const value: unknown = document.getIn([...spec.path]);
     if (typeof value !== 'string') continue;
     const replacement = spec.yaml?.retiredValues?.get(value.trim());
     if (replacement === undefined) continue;
-    document.setIn([...spec.path], replacement);
+    next = setValue(repairTeamConfigText(file, next).text, spec.path, replacement);
     notes.push(
       `${PATHS.PROJECT_CONFIGS_DIR}/${file}: ${spec.path.join('.')} was ${value.trim()}, which this check doesn't have any more, so it is now ${replacement}.`,
     );
   }
+  return next;
 }
 
 const SHIPPED_ENTRY_LABELS: ReadonlyArray<[ShippedWorkflowEntryKind, string]> = [
@@ -320,7 +327,13 @@ function keepComments(document: YAML.Document, node: unknown): void {
   document.comment = [document.comment, ...kept].filter(Boolean).join('\n');
 }
 
-function removeShippedWorkflowEntries(document: YAML.Document, notes: string[]): void {
+function pruneEmptyMap(document: YAML.Document, path: readonly string[]): void {
+  const node: unknown = document.getIn(path, true);
+  if (YAML.isMap(node) && node.items.length === 0) document.deleteIn(path);
+}
+
+function removeShippedWorkflowEntries(document: YAML.Document, notes: string[]): boolean {
+  const before = notes.length;
   for (const stage of WORKFLOW_POLICY_STAGES) {
     for (const [kind, label] of SHIPPED_ENTRY_LABELS) {
       const path = ['stages', stage, kind];
@@ -347,7 +360,39 @@ function removeShippedWorkflowEntries(document: YAML.Document, notes: string[]):
       keepComments(document, list);
       document.deleteIn(path);
     }
+    pruneEmptyMap(document, ['stages', stage]);
   }
+  pruneEmptyMap(document, ['stages']);
+  return notes.length > before;
+}
+
+function withoutShippedWorkflowEntries(text: string, notes: string[]): string {
+  const crlf = text.includes('\r\n');
+  const document = YAML.parseDocument(crlf ? text.replace(/\r\n/gu, '\n') : text);
+  if (!removeShippedWorkflowEntries(document, notes)) return text;
+  const next = document.toString({ lineWidth: 0 });
+  return crlf ? next.replace(/\n/gu, '\r\n') : next;
+}
+
+function swapOwnHeader(text: string): string {
+  return OLD_RENDERED_LINES.reduce(
+    (current, [oldLine, newLine]) => current.replace(oldLine, () => newLine),
+    text,
+  );
+}
+
+function settledTeamFileText(
+  file: OwnTeamConfigFile,
+  text: string,
+  document: YAML.Document,
+  notes: string[],
+): string {
+  const malformed = readTeamFileStamp(text).kind === 'malformed';
+  let next = malformed ? text : swapOwnHeader(swapTeamFileStamp(text));
+  next = removeRetiredSettings(file, next, `${PATHS.PROJECT_CONFIGS_DIR}/${file}`, notes);
+  next = replaceRetiredValues(file, next, document, notes);
+  if (file === WORKFLOW_TEAM_FILE) next = withoutShippedWorkflowEntries(next, notes);
+  return next;
 }
 
 export function syncTeamConfigFiles(
@@ -362,6 +407,10 @@ export function syncTeamConfigFiles(
     if (written.includes(path)) continue;
     const text = readTextIfExistsSync(path);
     if (text === null) continue;
+    if (isNewerTeamFile(text)) {
+      problems.push(newerTeamFileLine(`${PATHS.PROJECT_CONFIGS_DIR}/${file}`));
+      continue;
+    }
     const { document, error } = parseTeamConfigText(file, text);
     if (error !== undefined || document === null) {
       problems.push(invalidFileMessage(file, error ?? ''));
@@ -371,27 +420,50 @@ export function syncTeamConfigFiles(
       problems.push(notSettingsMapMessage(file));
       continue;
     }
-    const stamped = writtenVersion(document);
-    if (stamped !== undefined && !versionAtLeast(version, stamped)) continue;
-    replaceRetiredValues(file, document, problems);
-    if (file === WORKFLOW_TEAM_FILE) removeShippedWorkflowEntries(document, problems);
-    if (renderTeamConfigFile(file, document, stamped ?? version) === text) continue;
-    writeFileSync(path, renderTeamConfigFile(file, document, version), 'utf8');
+    const next = settledTeamFileText(file, text, document, problems);
+    if (next === text) continue;
+    try {
+      writeFileSync(path, next, 'utf8');
+    } catch (error) {
+      problems.push(
+        `Couldn't write ${PATHS.PROJECT_CONFIGS_DIR}/${file}: ${error instanceof Error ? error.message : 'unknown error'}. The next update tries again.`,
+      );
+      continue;
+    }
     written.push(path);
   }
+  settleRetiredSafetyFile(projectRoot, retiredSafetyOwnLines(), problems);
   return written;
 }
 
+const RETIRED_SAFETY_DESCRIPTION =
+  '# Destructive operations, risky migrations, security findings and database review.';
+const OLD_MODELS_DESCRIPTION = '# Which models paqad uses and how deep research goes.';
+
+function retiredSafetyOwnLines(): ReadonlySet<string> {
+  return new Set([RETIRED_SAFETY_DESCRIPTION, ...TEAM_CONFIG_HEADER_LINES, ...OLD_HEADER_LINES]);
+}
+
 export const TEAM_CONFIG_HEADER_LINES = [
-  "# Every setting is listed with paqad's default. To change one, remove the # in front of it.",
+  "# To change a setting, remove the # in front of it. Settings added later aren't listed here. See .paqad/.config.example or run paqad-ai config show.",
   "# A setting left commented out uses paqad's default, which can improve in a later version.",
-  '# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.',
+  '# Inside a group, also remove the # in front of the group name, such as updates:.',
 ] as const;
+const OLD_RENDERED_FIRST_LINE =
+  "# Every setting is listed with paqad's default. To change one, remove the # in front of it.";
+const OLD_RENDERED_GROUP_LINE =
+  '# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.';
+const OLD_RENDERED_LINES: ReadonlyArray<readonly [string, string]> = [
+  [OLD_RENDERED_FIRST_LINE, TEAM_CONFIG_HEADER_LINES[0]],
+  [OLD_RENDERED_GROUP_LINE, TEAM_CONFIG_HEADER_LINES[2]],
+];
 const OLD_HEADER_LINES = [
   "# Only settings this team changed live here; everything else uses paqad's default.",
   '# See every setting, its value and where it comes from: paqad-ai config show',
+  OLD_RENDERED_FIRST_LINE,
+  OLD_RENDERED_GROUP_LINE,
 ];
-export const NOT_A_SETTING_LINE = '# Not a paqad setting, so paqad ignores it (kept as written):';
+export { NOT_A_SETTING_LINE };
 export const TEAM_NOTES_LINE = '# Notes the team wrote, kept as written:';
 const NOT_SET_BY_DEFAULT = ' Not set by default.';
 
@@ -563,7 +635,9 @@ function scanComments(text: string): ScannedComments {
       continue;
     }
     if (trimmed.startsWith('#')) {
-      if (trimmed === TEAM_CONFIG_HEADER_LINES[0]) rendered = true;
+      if (trimmed === TEAM_CONFIG_HEADER_LINES[0] || trimmed === OLD_RENDERED_FIRST_LINE) {
+        rendered = true;
+      }
       if (trimmed === TEAM_NOTES_LINE) {
         flush();
         inNotes = true;
@@ -691,7 +765,7 @@ function collectUnknownPaths(
   out: Array<readonly string[]>,
 ): void {
   for (const [key, child] of Object.entries(value)) {
-    if (node.path.length === 0 && key === 'paqad_version') continue;
+    if (node.path.length === 0 && (key === 'paqad_version' || key === 'schema_version')) continue;
     const known = node.children.get(key);
     if (known === undefined) {
       out.push([...node.path, key]);
@@ -775,11 +849,7 @@ function renderSettingNode(
     renderSettingNode(context, child, depth + 1, own, out);
 }
 
-export function renderTeamConfigFile(
-  file: OwnTeamConfigFile,
-  live: YAML.Document | null,
-  version: string = __PKG_VERSION__,
-): string {
+export function renderTeamConfigFile(file: OwnTeamConfigFile, live: YAML.Document | null): string {
   const tree = settingsTree(file);
   const data: unknown = live === null ? null : live.toJS();
   const notes = new Set<string>();
@@ -811,6 +881,7 @@ export function renderTeamConfigFile(
       `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
       ...TEAM_CONFIG_HEADER_LINES,
       ...OLD_HEADER_LINES,
+      OLD_MODELS_DESCRIPTION,
       NOT_A_SETTING_LINE,
       TEAM_NOTES_LINE,
     ]),
@@ -833,7 +904,7 @@ export function renderTeamConfigFile(
   const out: string[] = [
     `# ${TEAM_CONFIG_FILE_DESCRIPTIONS[file]}`,
     ...TEAM_CONFIG_HEADER_LINES,
-    `paqad_version: "${version}"`,
+    `schema_version: ${TEAM_FILE_SCHEMA_VERSION}`,
   ];
   for (const node of tree.children.values()) {
     out.push('');
@@ -934,7 +1005,7 @@ export function repairTeamConfigText(
           message:
             `${file} line ${index + 1}: ${key} is set, but the # is still in front of ` +
             `${group.key}: on line ${group.index + 1}. paqad reads ${key} anyway; remove the # ` +
-            `in front of ${group.key}: (paqad-ai update does this for you).`,
+            `in front of ${group.key}:.`,
         });
         repaired = true;
         if (column === group.column + 3) {
@@ -961,7 +1032,7 @@ export function repairTeamConfigText(
         line: index + 1,
         message:
           `${file} line ${index + 1}: ${key} is one column deeper than paqad's layout. ` +
-          'paqad reads it at its own column; remove the extra space (paqad-ai update does this for you).',
+          'paqad reads it at its own column; remove the extra space.',
       });
       column -= 1;
     }

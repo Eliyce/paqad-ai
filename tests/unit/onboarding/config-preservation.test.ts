@@ -72,7 +72,10 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
     await onboard();
     const examplePath = join(projectRoot, '.paqad', '.config.example');
     const appPath = join(projectRoot, '.paqad', 'configs', '.config.app');
-    const newerExample = generateConfigExample('999.0.0');
+    const newerExample = generateConfigExample().replace(
+      /^# catalog_version: .*$/mu,
+      '# catalog_version: 999',
+    );
     const app = '# team header\nfuture_knob=on\n';
     writeFileSync(examplePath, newerExample);
     writeFileSync(appPath, app);

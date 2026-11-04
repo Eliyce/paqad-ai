@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "paqad_version": { "type": "string" },
     "require_ticket": { "type": "boolean" },
     "sources": {

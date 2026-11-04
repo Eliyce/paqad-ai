@@ -78,3 +78,21 @@ export function changedOutside(projectRoot: string): GitWorkflowFile[] {
     return record?.files[file] !== hash;
   });
 }
+
+export function refreshLastAppliedHashes(
+  projectRoot: string,
+  files: readonly GitWorkflowFile[],
+): void {
+  const record = readLastApplied(projectRoot);
+  if (record === null || files.length === 0) return;
+  const hashes = { ...record.files };
+  for (const file of files) {
+    const hash = currentHash(projectRoot, file);
+    if (hash !== null) hashes[file] = hash;
+  }
+  writeFileSync(
+    lastAppliedPath(projectRoot),
+    `${JSON.stringify({ ...record, files: hashes }, null, 2)}\n`,
+    'utf8',
+  );
+}

@@ -1,5 +1,7 @@
+import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { stampLastApplied, changedOutside } from '@/git-workflow/last-applied.js';
+import { pendingMoveRefusal } from '@/git-workflow/migrate.js';
 import {
   GIT_WORKFLOW_SCHEMAS,
   loadGitWorkflow,
@@ -103,6 +105,17 @@ export function putGitWorkflowFile(
   if (!isGitWorkflowFile(name)) throw new UnknownGitWorkflowFileError(name);
 
   const current = readGitWorkflowContents(projectRoot);
+  if (isNewerTeamFile(current[name] ?? '')) {
+    const message = newerTeamFileLine(gitWorkflowRelativePath(name));
+    throw new GitWorkflowValidationError(message, [{ file: name, path: '', message }]);
+  }
+  const refusal = pendingMoveRefusal(projectRoot);
+  if (refusal.length > 0) {
+    throw new GitWorkflowValidationError(
+      refusal.join(' '),
+      refusal.map((message) => ({ file: name, path: '', message })),
+    );
+  }
   const before = new Set(resolveGitWorkflow(current).errors.map(issueKey));
   const after = resolveGitWorkflow({ ...current, [name]: input.content });
   const blocking = after.errors.filter(

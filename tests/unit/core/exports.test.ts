@@ -31,7 +31,6 @@ import {
   REQUIREMENT_TYPES,
   PIPELINE_PHASES,
   PROCESS_DEPTHS,
-  RESEARCH_DEPTHS,
   REVIEW_MODES,
   REVIEW_TIERS,
   REVERSIBILITY_LEVELS,
@@ -230,8 +229,7 @@ describe('core export surface', () => {
     expect(PROCESS_DEPTHS).toEqual(['fast lane', 'graduated lane', 'full lane']);
   });
 
-  it('re-exports research, escalation, agent, docs, and health enums', () => {
-    expect(RESEARCH_DEPTHS).toEqual(['cutting-edge', 'standard', 'conservative']);
+  it('re-exports escalation, agent, docs, and health enums', () => {
     expect(ESCALATION_MODES).toEqual(['block', 'require_approval', 'warn']);
     expect(AGENT_ROLES).toContain('reviewer');
     expect(DOC_TYPES).toContain('error-catalog');

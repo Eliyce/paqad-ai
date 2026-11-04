@@ -43,6 +43,7 @@ import type {
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { SchemaValidator, type SchemaValidationIssue } from '@/validators/validator.js';
 import { gitWorkflowHealth } from './git-workflow-check.js';
+import { runningVersionHealth } from './running-version-check.js';
 import { teamConfigHealth } from './team-config-check.js';
 import {
   inspectProviderEntryBootstrapPointer,
@@ -107,6 +108,7 @@ export class HealthChecker {
       ...this.checkVisualEvidence(projectRoot),
       ...this.checkAuthoringConfig(projectRoot),
       ...gitWorkflowHealth(projectRoot),
+      ...runningVersionHealth(projectRoot),
       ...teamConfigHealth(projectRoot),
     ];
 

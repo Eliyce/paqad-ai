@@ -36,11 +36,11 @@ function optOut(): void {
 }
 
 describe('the launcher file', () => {
-  it('renders the shipped template with this version stamped in', () => {
+  it('renders the shipped template as it is, with no version in it', () => {
     const rendered = renderTeamLauncher();
     expect(rendered.length).toBeGreaterThan(1000);
-    expect(rendered).toContain(`export const PAQAD_LAUNCHER_VERSION = '${VERSION}';`);
-    expect(rendered).not.toContain('__PAQAD_VERSION__');
+    expect(rendered).toMatch(/^export const LAUNCHER_REVISION = [1-9]\d*;$/mu);
+    expect(rendered).not.toContain(VERSION);
     expect(rendered.startsWith('#!/usr/bin/env node\n')).toBe(true);
   });
 
@@ -54,21 +54,37 @@ describe('the launcher file', () => {
     expect(readFileSync(launcherPath(), 'utf8')).toBe(bytes);
   });
 
-  it('refreshes a stale or edited launcher from the same or an older version', () => {
+  const withRevision = (value: string) =>
+    renderTeamLauncher().replace(/LAUNCHER_REVISION = \d+;/u, `LAUNCHER_REVISION = ${value};`);
+
+  it.each([
+    ['lower', () => withRevision('0')],
+    ['malformed', () => withRevision('1.5')],
+    ['missing', () => renderTeamLauncher().replace(/^export const LAUNCHER_REVISION.*\n/mu, '')],
+    ['an old version stamp', () => "export const PAQAD_LAUNCHER_VERSION = '1.119.0';\n"],
+    ['equal with other content', () => `${renderTeamLauncher()}// edited\n`],
+  ])('AC-25: rewrites a launcher whose revision is %s', (_name, make) => {
     mkdirSync(join(root, '.paqad'), { recursive: true });
-    writeFileSync(launcherPath(), renderTeamLauncher('0.0.1'));
-    expect(syncTeamSetup(root, {}).written).toContain(TEAM_LAUNCHER_PATH);
-    writeFileSync(launcherPath(), `${renderTeamLauncher()}// edited\n`);
+    writeFileSync(launcherPath(), make());
     expect(syncTeamSetup(root, {}).written).toContain(TEAM_LAUNCHER_PATH);
     expect(readFileSync(launcherPath(), 'utf8')).toBe(renderTeamLauncher());
   });
 
-  it('AC-23: an older paqad leaves a launcher written by a newer one alone', () => {
-    const newer = renderTeamLauncher('999.0.0');
+  it('AC-24: a launcher with a higher revision stays, even with other content', () => {
+    const newer = `${withRevision('999')}// a newer launcher\n`;
+    mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(launcherPath(), newer);
-    const report = syncTeamSetup(root, {}, '1.0.0');
+    const report = syncTeamSetup(root, {});
     expect(report.kept).toEqual([TEAM_LAUNCHER_PATH]);
     expect(readFileSync(launcherPath(), 'utf8')).toBe(newer);
+  });
+
+  it('NFR-3: a CRLF copy at the current revision counts as unchanged', () => {
+    const crlf = renderTeamLauncher().replace(/\n/gu, '\r\n');
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(launcherPath(), crlf);
+    expect(syncTeamSetup(root, {}).written).not.toContain(TEAM_LAUNCHER_PATH);
+    expect(readFileSync(launcherPath(), 'utf8')).toBe(crlf);
   });
 
   it('the opt-out removes an unchanged launcher and keeps an edited one', () => {

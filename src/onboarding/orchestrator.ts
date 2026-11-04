@@ -218,8 +218,11 @@ export class OnboardingOrchestrator {
         `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
       );
     }
+    let deliveryMoveBlocked = false;
     if (selections.domain === 'coding') {
-      onboardingWarnings.push(...migrateDeliveryPolicy(options.projectRoot).lines);
+      const deliveryMove = migrateDeliveryPolicy(options.projectRoot);
+      onboardingWarnings.push(...deliveryMove.lines);
+      deliveryMoveBlocked = deliveryMove.blocked === true;
     }
     const teamConfigMigration = migrateTeamConfig(options.projectRoot);
     if (teamConfigMigration.ran) onboardingWarnings.push(...teamConfigMigration.lines);
@@ -227,15 +230,20 @@ export class OnboardingOrchestrator {
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
     try {
-      writeResult = writeGeneratedFiles(options.projectRoot, filesToWrite, {
-        forceOverwrite: options.forceOverwrite,
-      });
+      const gitWorkflowPrefix = `${PATHS.GIT_WORKFLOW_DIR}/`;
+      writeResult = writeGeneratedFiles(
+        options.projectRoot,
+        deliveryMoveBlocked
+          ? filesToWrite.filter((file) => !toPosixPath(file.path).startsWith(gitWorkflowPrefix))
+          : filesToWrite,
+        { forceOverwrite: options.forceOverwrite },
+      );
       if (!options.forceOverwrite && isFrameworkEnabled(profile)) {
         writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
       }
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
       if (selections.domain === 'coding') {
-        settleGitWorkflow(options.projectRoot, writeResult.written);
+        settleGitWorkflow(options.projectRoot, writeResult.written, !deliveryMoveBlocked);
       }
       drift = await writeStackArtifacts(
         options.projectRoot,
@@ -268,7 +276,7 @@ export class OnboardingOrchestrator {
       }
       writeGitignore(options.projectRoot);
       writeWorktreeInclude(options.projectRoot);
-      installGitHooks(options.projectRoot);
+      onboardingWarnings.push(...(installGitHooks(options.projectRoot).problems ?? []));
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
     } catch (error) {
@@ -562,12 +570,6 @@ function buildProjectProfile(
       : derivedTesting.testing && !overrides?.commands
         ? { testing: derivedTesting.testing }
         : {}),
-    strictness: overrides?.strictness ?? {
-      full_lane_default: false,
-      require_adversarial_review: true,
-      block_on_stale_docs: true,
-      require_db_review_for_migrations: true,
-    },
     compliance_packs: overrides?.compliance_packs ?? [],
     features: overrides?.features ?? {
       spec_only_mode: false,
@@ -596,23 +598,14 @@ function buildProjectProfile(
       reasoning_model: 'gpt-5',
       fast_model: 'gpt-5-mini',
     },
-    research: overrides?.research ?? { depth: 'standard' },
     intelligence: overrides?.intelligence ?? defaultIntelligenceConfig(),
     efficiency: overrides?.efficiency ?? DEFAULT_FRAMEWORK_CONFIG.efficiency,
-    escalation: overrides?.escalation ?? {
-      destructive_operations: 'block',
-      risky_migrations: 'warn',
-      security_findings: 'block',
-      db_row_threshold: 10000,
-    },
     custom: overrides?.custom ?? {
       classification_dimensions: [],
       verification_plugins: [],
       escalation_rules: [],
       decisions: {
         ask_threshold: 'strict',
-        max_screens_per_task: 3,
-        idle_timeout_minutes: 30,
       },
     },
   };
@@ -1025,8 +1018,12 @@ function buildRustCommands(usingCompose: boolean): ProjectProfile['commands'] {
   };
 }
 
-function settleGitWorkflow(projectRoot: string, written: readonly string[]): void {
-  syncGitWorkflow(projectRoot);
+function settleGitWorkflow(
+  projectRoot: string,
+  written: readonly string[],
+  createMissing: boolean,
+): void {
+  syncGitWorkflow(projectRoot, { createMissing });
   const fresh = GIT_WORKFLOW_FILES.filter((file) =>
     written.some((path) => toPosixPath(path) === `${PATHS.GIT_WORKFLOW_DIR}/${file}`),
   );

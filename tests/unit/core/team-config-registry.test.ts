@@ -52,10 +52,10 @@ describe('team config registry', () => {
     }
   });
 
-  it('uses 13 team files plus git-workflow/commits.yaml for ai_attribution', () => {
-    expect(TEAM_CONFIG_FILES).toHaveLength(13);
+  it('uses 12 team files plus git-workflow/commits.yaml for ai_attribution', () => {
+    expect(TEAM_CONFIG_FILES).toHaveLength(12);
     const files = new Set(FRAMEWORK_CONFIG_SPECS.map((row) => row.file));
-    expect(files.size).toBe(14);
+    expect(files.size).toBe(13);
     expect(spec('ai_attribution').file).toBe('git-workflow/commits.yaml');
     expect(spec('ai_attribution').path).toEqual(['ai_attribution']);
   });
@@ -105,11 +105,9 @@ describe('team config registry', () => {
   it('translates the special values', () => {
     expect(toYamlValue(spec('stages_mode'), 'strict')).toBe('block');
     expect(toYamlValue(spec('checks_flaky_under_parallel'), 'fail')).toBe('block');
-    expect(toYamlValue(spec('escalate_risky_migrations'), 'require_approval')).toBe('ask');
     expect(toYamlValue(spec('rule_gate_pre_edit'), 'blocking-only')).toBe('blocking_only');
     expect(toYamlValue(spec('decisions_ask_threshold'), 'permissive')).toBe('rarely');
     expect(toYamlValue(spec('lean_rules'), 'false')).toBe('full');
-    expect(toYamlValue(spec('full_lane_default'), 'false')).toBe('auto');
     expect(toYamlValue(spec('spec_only_mode'), 'true')).toBe('specification');
     expect(toYamlValue(spec('checks_max_processes'), '0')).toBe('auto');
     expect(toYamlValue(spec('checks_max_processes'), '4')).toBe(4);

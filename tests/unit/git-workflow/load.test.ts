@@ -12,6 +12,7 @@ import {
 } from '@/git-workflow/defaults.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { generateGitWorkflowFiles } from '@/git-workflow/onboard.js';
+import { runCheckCommit } from '@/cli/commands/git-workflow.js';
 import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
 
 let root: string;
@@ -131,6 +132,52 @@ describe('loadGitWorkflow', () => {
   });
 });
 
+describe('ai_attribution in commits.yaml', () => {
+  it('AC-7: a known value gives no warning and an unknown value is a validation error', () => {
+    write('commits.yaml', 'ai_attribution: strip\n');
+    const strip = loadGitWorkflow(root);
+    expect(strip.warnings).toEqual([]);
+    expect(strip.errors).toEqual([]);
+    write('commits.yaml', 'ai_attribution: keep\n');
+    expect(loadGitWorkflow(root).errors).toEqual([]);
+    write('commits.yaml', 'ai_attribution: maybe\n');
+    const maybe = loadGitWorkflow(root);
+    expect(maybe.valid).toBe(false);
+    expect(maybe.warnings).toEqual([]);
+    expect(maybe.errors.map((error) => error.path)).toEqual(['ai_attribution']);
+  });
+
+  it.each([
+    ['maybe', 'ai_attribution: maybe'],
+    ['empty', 'ai_attribution:'],
+    ['upper case', 'ai_attribution: STRIP'],
+    ['a boolean', 'ai_attribution: true'],
+  ])('AC-8: %s falls back to defaults, and the commit check stays silent', (_name, line) => {
+    write(
+      'commits.yaml',
+      `template: "custom {summary}"\nsummary:\n  style: free\n  max_length: 500\n${line}\n`,
+    );
+    const loaded = loadGitWorkflow(root);
+    expect(loaded.valid).toBe(false);
+    expect(loaded.config.commits.template).toBe(defaultGitWorkflow().commits.template);
+    expect(resolveAiAttributionMode(root, {})).toBe('strip');
+    const message = join(root, 'message.txt');
+    writeFileSync(message, 'custom text\n');
+    expect(
+      runCheckCommit({ projectRoot: root, messageFile: message, env: {}, merging: false }),
+    ).toEqual({ exitCode: 0, stderr: '', findings: [] });
+  });
+
+  it('AC-8: a bad value carried from .config.policy resolves to the default mode', () => {
+    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.policy'),
+      'ai_attribution=maybe\n',
+    );
+    expect(resolveAiAttributionMode(root, {})).toBe('strip');
+  });
+});
+
 describe('the git-workflow folder and the .config.* reader', () => {
   it('listConfigsFiles lists none of the git-workflow files', () => {
     writeAllDefaults();
@@ -142,7 +189,7 @@ describe('the git-workflow folder and the .config.* reader', () => {
 
 describe('default files', () => {
   it('writes enforcement.yaml exactly as the default content', () => {
-    expect(renderDefaultGitWorkflowFile('enforcement.yaml', { version: '1.2.3' })).toBe(
+    expect(renderDefaultGitWorkflowFile('enforcement.yaml')).toBe(
       [
         '# How strictly paqad holds everyone to these rules.',
         '#',
@@ -156,7 +203,7 @@ describe('default files', () => {
         '#   block  the commit or push is refused (git commit --no-verify still skips it)',
         "#   warn   the hook prints what doesn't match and lets it through",
         '#   off    no git hooks for people',
-        'paqad_version: "1.2.3"',
+        'schema_version: 1',
         '',
         'enabled: true',
         'agents: block',

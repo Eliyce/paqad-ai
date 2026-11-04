@@ -70,10 +70,10 @@ describe('paqad-ai config effective', () => {
     expect(k?.consumed_by).toContain('mutation-testing gate');
   });
 
-  it('flags a verified placebo knob as consumed by NOTHING', () => {
-    expect(knob('escalate_security_findings')?.consumed_by).toBe('NOTHING');
-    expect(knob('full_lane_default')?.consumed_by).toBe('NOTHING');
-    expect(knob('research_depth')?.consumed_by).toBe('NOTHING');
+  it('prints no row for a removed setting', () => {
+    expect(knob('escalate_security_findings')).toBeUndefined();
+    expect(knob('full_lane_default')).toBeUndefined();
+    expect(knob('research_depth')).toBeUndefined();
   });
 
   it('maps a genuinely-consumed knob to its consumer', () => {
@@ -98,8 +98,8 @@ describe('paqad-ai config effective', () => {
     await createConfigCommand().parseAsync(['effective', '--project-root', root], { from: 'user' });
     const text = out.join('\n');
     expect(text).toContain('paqad_enable');
-    expect(text).toContain('consumed by: NOTHING');
-    expect(text).toMatch(/with no consumer \(placebo/);
+    expect(text).not.toContain('consumed by: NOTHING');
+    expect(text).toMatch(/0 .*with no consumer \(placebo/);
   });
 
   it('emits machine-readable JSON with --json', async () => {

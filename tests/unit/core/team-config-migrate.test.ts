@@ -34,6 +34,7 @@ import {
 } from '@/core/team-config-migrate.js';
 import { renderTeamConfigFile } from '@/core/team-config.js';
 import { isMigratedStub } from '@/core/team-config-legacy.js';
+import { isRetiredSettingKey } from '@/core/team-config-retired.js';
 import {
   checkYamlValue,
   fromYamlValue,
@@ -111,7 +112,7 @@ describe('the four fixture projects', () => {
       const after = layeredConfigMap(root, {});
       for (const [key, value] of before) {
         if (key === 'rule_compliance' && name === 'project-b') continue;
-        if (key === 'legacy_flag') continue;
+        if (key === 'legacy_flag' || isRetiredSettingKey(key)) continue;
         const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
         if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) {
           expect([key, after.get(key)]).toEqual([key, undefined]);
@@ -143,7 +144,7 @@ describe('the four fixture projects', () => {
     const result = migrateTeamConfig(root, { version: VERSION });
     const evidence = configs('feature-development/evidence.yaml');
     expect(YAML.parse(evidence)).toEqual({
-      paqad_version: VERSION,
+      schema_version: 1,
       enterprise: { enabled: true, ledger: true },
       legacy_existence_check: 'warn',
     });
@@ -236,7 +237,7 @@ describe('the four fixture projects', () => {
         '# paqad-migrated-stub',
         "# This project's paqad settings moved to the YAML files in this folder.",
         "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off",
-        '# instead of running on its defaults, and asks to update. A current paqad ignores this file.',
+        '# instead of running on its defaults. A current paqad ignores this file.',
         'paqad_enable=false',
         'minimum_version=9.9.0',
         '# Not carried over (not paqad settings):',
@@ -266,6 +267,31 @@ describe('the four fixture projects', () => {
     });
     expect(YAML.parse(configs('decisions.yaml'))).toMatchObject({ ask: 'rarely' });
     expect(configs('.config.app')).toContain(`minimum_version=${VERSION}`);
+  });
+});
+
+describe('the stub left in .config.app', () => {
+  it('AC-15: has no heading and the new text when nothing is left over', () => {
+    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR), { recursive: true });
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'rag_top_n=9\n');
+    migrateTeamConfig(root, { version: VERSION });
+    const stub = readFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'utf8');
+    expect(stub).not.toContain('Not carried over');
+    expect(stub).not.toContain('asks to update');
+    expect(stub).toContain(
+      "# The lines below are for an older paqad, which can't read the YAML files: it turns itself off\n# instead of running on its defaults. A current paqad ignores this file.\n",
+    );
+    expect(isMigratedStub(stub)).toBe(true);
+    expect(teamConfigMigrationNeeded(root)).toBe(false);
+  });
+
+  it('keeps the heading and the lines when something is left over', () => {
+    mkdirSync(join(root, PATHS.PROJECT_CONFIGS_DIR), { recursive: true });
+    writeFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'future_knob=on\n');
+    migrateTeamConfig(root, { version: VERSION });
+    const stub = readFileSync(join(root, PATHS.PROJECT_CONFIGS_DIR, '.config.app'), 'utf8');
+    expect(stub).toContain('# Not carried over (not paqad settings):\n# future_knob=on\n');
+    expect(isMigratedStub(stub)).toBe(true);
   });
 });
 
@@ -450,7 +476,7 @@ describe('the size of the team settings (AC-72)', () => {
     return Object.values(files)
       .flatMap((text) => text.split('\n'))
       .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
-      .filter((line) => !line.startsWith('paqad_version:')).length;
+      .filter((line) => !/^(paqad|schema)_version:/u.test(line)).length;
   }
 
   for (const name of PROJECTS) {
@@ -483,6 +509,7 @@ describe('the size of the team settings (AC-72)', () => {
       }
       const flatAfter = layeredConfigMap(root, {});
       for (const [key, value] of flatBefore) {
+        if (isRetiredSettingKey(key)) continue;
         if (key === 'legacy_flag' || (key === 'rule_compliance' && name === 'project-b')) continue;
         const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
         if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) continue;

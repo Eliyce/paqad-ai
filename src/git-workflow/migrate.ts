@@ -4,11 +4,13 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
+import { renderWriteBlock } from '@/core/team-file-schema.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
 import {
-  AI_ATTRIBUTION_COMMENT_LINES,
   DEFAULT_TRACKER_PATTERNS,
+  removeAiAttributionComment,
   renderDefaultGitWorkflowFile,
 } from './defaults.js';
 import { stampLastApplied } from './last-applied.js';
@@ -76,6 +78,7 @@ const OLD_DEFAULTS = {
 
 export interface MigrationResult {
   ran: boolean;
+  blocked?: boolean;
   lines: string[];
   written: string[];
   deleted: boolean;
@@ -113,10 +116,7 @@ export interface ConvertedFiles {
   lines: string[];
 }
 
-export function convertDeliveryPolicy(
-  raw: Plain,
-  options: { version: string; baseBranch: string },
-): ConvertedFiles {
+export function convertDeliveryPolicy(raw: Plain, options: { baseBranch: string }): ConvertedFiles {
   const lines: string[] = [];
   const ticket = section(raw, 'ticket');
   const host = section(raw, 'host');
@@ -129,7 +129,6 @@ export function convertDeliveryPolicy(
 
   const render = (file: GitWorkflowFile) =>
     renderDefaultGitWorkflowFile(file, {
-      version: options.version,
       baseBranch: options.baseBranch,
     });
 
@@ -242,7 +241,7 @@ export function convertDeliveryPolicy(
   };
 }
 
-const NOT_GIT_WORKFLOW_KEYS = new Set(['paqad_version', 'ai_attribution']);
+const NOT_GIT_WORKFLOW_KEYS = new Set(['paqad_version', 'schema_version', 'ai_attribution']);
 
 function readSettings(path: string): Plain | null {
   if (!existsSync(path)) return null;
@@ -266,12 +265,35 @@ export function gitWorkflowFilesAbsent(projectRoot: string): boolean {
 function keepAiAttribution(projectRoot: string, files: Record<GitWorkflowFile, string>): void {
   const kept = readSettings(gitWorkflowFilePath(projectRoot, 'commits.yaml'))?.ai_attribution;
   if (kept !== undefined) {
-    const withoutComment = files['commits.yaml'].replace(
-      `\n${AI_ATTRIBUTION_COMMENT_LINES.join('\n')}\n`,
-      '',
+    files['commits.yaml'] = insertKey(
+      removeAiAttributionComment(files['commits.yaml']),
+      [],
+      'ai_attribution',
+      kept,
     );
-    files['commits.yaml'] = insertKey(withoutComment, [], 'ai_attribution', kept);
   }
+}
+
+export function deliveryMovePending(projectRoot: string): boolean {
+  return existsSync(join(projectRoot, OLD_DELIVERY_POLICY)) && gitWorkflowFilesAbsent(projectRoot);
+}
+
+export function deliveryMoveBlocks(projectRoot: string): string[] {
+  return GIT_WORKFLOW_FILES.flatMap((file) => {
+    const line = renderWriteBlock(
+      readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? '',
+      `${PATHS.GIT_WORKFLOW_DIR}/${file}`,
+    );
+    return line === null ? [] : [line];
+  });
+}
+
+export function pendingMoveRefusal(projectRoot: string): string[] {
+  if (!deliveryMovePending(projectRoot)) return [];
+  return [
+    ...deliveryMoveBlocks(projectRoot),
+    `${OLD_DELIVERY_POLICY} hasn't moved yet, so this wasn't changed. Run paqad-ai update first.`,
+  ];
 }
 
 export function migrateDeliveryPolicy(
@@ -279,8 +301,12 @@ export function migrateDeliveryPolicy(
   options: MigrateOptions = {},
 ): MigrationResult {
   const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
-  if (!existsSync(oldPath) || !gitWorkflowFilesAbsent(projectRoot)) {
+  if (!deliveryMovePending(projectRoot)) {
     return { ran: false, lines: [], written: [], deleted: false };
+  }
+  const blocked = deliveryMoveBlocks(projectRoot);
+  if (blocked.length > 0) {
+    return { ran: false, blocked: true, lines: blocked, written: [], deleted: false };
   }
   const version = options.version ?? __PKG_VERSION__;
   const baseBranch = options.baseBranch ?? remoteDefaultBranch(projectRoot);
@@ -297,14 +323,14 @@ export function migrateDeliveryPolicy(
   if (!oldFileReadable(raw)) {
     for (const file of GIT_WORKFLOW_FILES) {
       const path = gitWorkflowFilePath(projectRoot, file);
-      writeFileSync(path, renderDefaultGitWorkflowFile(file, { version, baseBranch }), 'utf8');
+      writeFileSync(path, renderDefaultGitWorkflowFile(file, { baseBranch }), 'utf8');
       written.push(path);
     }
     stampLastApplied(projectRoot, GIT_WORKFLOW_FILES, { version, now: options.now });
     return { ran: true, lines: [UNREADABLE_MESSAGE], written, deleted: false };
   }
 
-  const converted = convertDeliveryPolicy(raw, { version, baseBranch });
+  const converted = convertDeliveryPolicy(raw, { baseBranch });
   keepAiAttribution(projectRoot, converted.files);
   const lines: string[] = [];
   for (const file of GIT_WORKFLOW_FILES) {

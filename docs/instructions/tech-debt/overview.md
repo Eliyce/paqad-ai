@@ -26,12 +26,16 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
-- [TD-01M6K2SRCHM1CVJ4W805HGJ0XM](TD-01M6K2SRCHM1CVJ4W805HGJ0XM.md) (gap, low): The config preservation rule doesn't name the shipped-line removal
+- [TD-01M6KK0MVMVSXGA9Q59CZ7G2E0](TD-01M6KK0MVMVSXGA9Q59CZ7G2E0.md) (gap, low): Doctor says to delete an old delivery file that sits beside hand-written settings and may hold unmoved rules
+- [TD-01M6KJMZY5DX3D3YCQYD2JSAGJ](TD-01M6KJMZY5DX3D3YCQYD2JSAGJ.md) (gap, low): The forceOverwrite onboarding option can overwrite a file written by a newer paqad
+- [TD-01M6KJ5DY1SZAHER0ZGTT2KA04](TD-01M6KJ5DY1SZAHER0ZGTT2KA04.md) (bug, low): delivery-link install says the hooks are ready when it left a tracked or husky folder alone
+- [TD-01M6KEX3ZKK6DDNBXK32YGZAGA](TD-01M6KEX3ZKK6DDNBXK32YGZAGA.md) (debt, low): The same regular expression escape helper is copied across six source files
+- [TD-01M6KE5W2Y1ERT99AEMEMV09YC](TD-01M6KE5W2Y1ERT99AEMEMV09YC.md) (follow-up, low): No plan yet for an older paqad reading a higher schema_version
+- [TD-01M6KE5VATB5Q6QQZCDK46X80G](TD-01M6KE5VATB5Q6QQZCDK46X80G.md) (bug, medium): Team file hashes differ between Windows and Mac line endings
 - [TD-01M6K2SR17Q2AW6C9D5FSVFQDH](TD-01M6K2SR17Q2AW6C9D5FSVFQDH.md) (debt, low): The old leftovers test helper is copied in two test files
 - [TD-01M6K2SQNZH1PSX1ZTSNPAHKEF](TD-01M6K2SQNZH1PSX1ZTSNPAHKEF.md) (bug, low): Tracked Gemini settings hold one developer's home path
 - [TD-01M6K2SQ8YXSY6T3FT9K3KX7BJ](TD-01M6K2SQ8YXSY6T3FT9K3KX7BJ.md) (gap, low): Session line proofs skip silently if the build entry is dropped
 - [TD-01M6K2SPJKV0ZSX0S5XH28AW32](TD-01M6K2SPJKV0ZSX0S5XH28AW32.md) (bug, medium): Update stops on a YAML alias in a team config file
-- [TD-01M6K1JWM70BNV30N1TTWVTQG2](TD-01M6K1JWM70BNV30N1TTWVTQG2.md) (bug, low): The migrated stub says an older paqad asks to update, but 1.116.0 only turns itself off
 - [TD-01M6JZJB72CEMMT64C49C4KFN9](TD-01M6JZJB72CEMMT64C49C4KFN9.md) (gap, low): Interactive setup can't offer the three Node project types
 - [TD-01M6HVAANTK0X4AJW2Z5FWEEE6](TD-01M6HVAANTK0X4AJW2Z5FWEEE6.md) (gap, low): A failed rule-script map drop during update is not retried and its note names no recovery
 - [TD-01M6HTHEMMS1NK85TF0HHPXYHM](TD-01M6HTHEMMS1NK85TF0HHPXYHM.md) (bug, medium): Onboarding an existing project again silently drops the script bindings of edited rules
