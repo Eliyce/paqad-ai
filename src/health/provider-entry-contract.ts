@@ -2,9 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { AdapterFactory } from '@/adapters/factory.js';
+import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { buildFrameworkFallbackClause } from '@/adapters/shared/framework-fallback-clause.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { ADAPTER_TYPES } from '@/core/types/adapter.js';
+import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
+import { readExistingOnboardingManifest } from '@/onboarding/manifest-writer.js';
 
 export interface ProviderEntryContractCheckResult {
   status: 'pass' | 'warning' | 'fail';
@@ -26,8 +28,22 @@ interface PresentEntryFile {
   content: string;
 }
 
+function entryFileProviders(projectRoot: string): readonly AdapterType[] {
+  try {
+    const manifest = readExistingOnboardingManifest(projectRoot);
+    if (manifest === null) return ADAPTER_TYPES;
+    const recorded = deriveRecordedProviders(manifest).filter((type) =>
+      ADAPTER_TYPES.includes(type),
+    );
+    return recorded.length > 0 ? recorded : ADAPTER_TYPES;
+  } catch {
+    return ADAPTER_TYPES;
+  }
+}
+
 function presentEntryFiles(projectRoot: string): PresentEntryFile[] {
-  return ADAPTER_TYPES.map((type) => join(projectRoot, AdapterFactory.create(type).getConfigPath()))
+  return entryFileProviders(projectRoot)
+    .map((type) => join(projectRoot, AdapterFactory.create(type).getConfigPath()))
     .filter((path) => existsSync(path))
     .map((path) => ({
       relativePath: relative(projectRoot, path),
