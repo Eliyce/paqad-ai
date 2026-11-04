@@ -1,0 +1,7 @@
+triggers: []
+cache_key_inputs: []
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: The request this stage serves.

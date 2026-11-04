@@ -1,0 +1,5 @@
+interface:
+  display_name: Review Recipe
+  short_description: Read the digest, judge the diff and record ordered findings.
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+function finish(input, errors, extra = {}) {
+  const hash = createHash('sha256')
+    .update(JSON.stringify({ input, errors, ...extra }))
+    .digest('hex');
+  process.stdout.write(`${JSON.stringify({ ok: errors.length === 0, errors, hash, ...extra })}\n`);
+  process.exitCode = errors.length === 0 ? 0 : 1;
+}
+
+import { readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const CANONICAL = new Set([
+  'README.md', 'endpoints.md', 'schemas.md', 'error-codes.md', 'events.md', 'contracts.md', 'state.md', 'workflows.md', 'summary.md',
+]);
+
+function docsUnder(dir, found = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) docsUnder(path, found);
+    else if (CANONICAL.has(entry.name)) found.push(path);
+  }
+  return found;
+}
+
+function staleDocs(root, changed, acknowledged) {
+  const base = join(root, 'docs/modules');
+  const changedSet = new Set(changed);
+  const stale = new Set();
+  for (const doc of docsUnder(base).map((path) => relative(root, path).replaceAll('\\', '/'))) {
+    const module = doc.split('/')[2];
+    if (changedSet.has(doc) || acknowledged.has(doc)) continue;
+    if (changed.some((file) => !file.startsWith('docs/') && (file.includes(`/${module}/`) || file.includes(`/${module}.`)))) {
+      stale.add(doc);
+    }
+  }
+  return [...stale].sort();
+}
+
+const args = process.argv.slice(2);
+if (args[0] === '--help') {
+  process.stdout.write('usage: stale-docs.mjs [project-root] [--ok <doc>]... < changed-files\nprints { ok, errors, hash, stale }\n');
+} else {
+  const acknowledged = new Set();
+  const positional = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === '--ok') acknowledged.add(args[(index += 1)]);
+    else positional.push(args[index]);
+  }
+  const input = readFileSync(0, 'utf8');
+  const changed = input.split('\n').map((line) => line.trim()).filter(Boolean);
+  const stale = staleDocs(positional[0] ?? process.cwd(), changed, acknowledged);
+  finish(input, stale.map((doc) => `${doc} may be stale: update it or name it with --stale-ok`), { stale });
+}

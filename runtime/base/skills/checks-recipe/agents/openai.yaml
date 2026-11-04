@@ -1,0 +1,5 @@
+interface:
+  display_name: Checks Recipe
+  short_description: Read the plan, run the project checks once and report each failure.
+policy:
+  allow_implicit_invocation: false

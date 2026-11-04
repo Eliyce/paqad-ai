@@ -1,0 +1,5 @@
+interface:
+  display_name: Development Recipe
+  short_description: Stay in scope, map each criterion to a test and run the inner loop.
+policy:
+  allow_implicit_invocation: false
