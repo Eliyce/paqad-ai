@@ -26,7 +26,7 @@ import {
 } from '@/stage-isolation/stage-brief.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
-import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
+import { STAGE_AGENT_STAGES, agentNameForStage } from '@/stage-isolation/stage-agents.js';
 
 const SESSION = 'ses_orch';
 const REPO_TEAM_DIR = join(process.cwd(), '.paqad/configs/feature-development');
@@ -82,7 +82,9 @@ describe('buildStageBrief', () => {
         expect(brief.length).toBeLessThanOrEqual(STAGE_BRIEF_MAX_CHARS);
         expect(brief).toContain(`You are the paqad **${stage}** stage agent`);
         expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage start ${stage}`);
-        expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end ${stage} --artifact`);
+        expect(brief).toContain(
+          `SE_SESSION=${SESSION} paqad-ai stage end ${stage} --agent ${agentNameForStage(stage)} --artifact`,
+        );
         expect(brief).toContain(STAGE_BRIEF_ENTRY_LINE);
         expect(brief).not.toMatch(/already recorded/i);
         expect(brief).not.toContain('This brief was shortened.');
@@ -113,7 +115,7 @@ describe('buildStageBrief', () => {
     expect(brief).not.toContain('docs/instructions/workflows/feature-development.yaml');
     expect(brief).toContain('Overflow instruction 0 ');
     expect(brief).not.toContain('Overflow instruction 39 ');
-    expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --artifact`);
+    expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --agent paqad-development --artifact`);
   });
 
   it('prints every instruction and no shortened line with full', () => {
@@ -124,7 +126,7 @@ describe('buildStageBrief', () => {
     expect(brief).toContain('Overflow instruction 0 ');
     expect(brief).toContain('Overflow instruction 39 ');
     expect(brief).not.toContain('This brief was shortened.');
-    expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --artifact`);
+    expect(brief).toContain(`SE_SESSION=${SESSION} paqad-ai stage end development --agent paqad-development --artifact`);
   });
 
   it('prints the same short brief with or without full', () => {
@@ -250,8 +252,8 @@ describe('buildStageBrief', () => {
     activeChange(root);
     const brief = buildStageBrief('planning', root, SESSION, { agentId: 'agent-a1' });
     const prefix = `SE_SESSION=${SESSION} SE_AGENT_ID=agent-a1 paqad-ai`;
-    expect(brief).toContain(`\`${prefix} stage start planning\``);
-    expect(brief).toContain(`\`${prefix} stage end planning --artifact`);
+    expect(brief).toContain(`\`${prefix} stage start planning --agent paqad-planning\``);
+    expect(brief).toContain(`\`${prefix} stage end planning --agent paqad-planning --artifact`);
     expect(brief).toContain('**Export `SE_AGENT_ID=agent-a1`**');
     expect(brief.match(/SE_SESSION=\S+ paqad-ai/g)).toBeNull();
   });

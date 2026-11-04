@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
-import { runningStageOfOtherSession } from '@/stage-evidence/stage-agent-holds.js';
+import { runningStageOfOtherSession, startedByAnotherAgent } from '@/stage-evidence/stage-agent-holds.js';
 
 const T0 = Date.parse('2026-07-19T00:00:00.000Z');
 const minutes = (n: number) => T0 + n * 60_000;
@@ -82,5 +82,28 @@ describe('runningStageOfOtherSession', () => {
   it('is null for a quiet bundle', () => {
     const rows = [start('ses_a', 0, 'planning'), end('ses_a', 1, 'planning')];
     expect(runningStageOfOtherSession(rows, 'ses_b', minutes(2))).toBeNull();
+  });
+});
+
+describe('a stage agent that names itself on a stage it carries on to', () => {
+  it('is the same agent when the id matches, whatever name it passes', () => {
+    expect(
+      startedByAnotherAgent(
+        { agent: 'paqad-specification', agentId: 'a1' },
+        { agent: 'paqad-planning', agentId: 'a1' },
+      ),
+    ).toBe(false);
+    expect(
+      startedByAnotherAgent(
+        { agent: 'paqad-specification', agentId: 'a2' },
+        { agent: 'paqad-planning', agentId: 'a1' },
+      ),
+    ).toBe(true);
+    expect(
+      startedByAnotherAgent(
+        { agent: 'paqad-specification', agentId: null },
+        { agent: 'paqad-planning', agentId: 'a1' },
+      ),
+    ).toBe(true);
   });
 });

@@ -24,6 +24,7 @@ import {
   STAGE_AGENT_HARD_RULES,
   stageNoteLines,
   type StageAgentDef,
+  agentNameForStage,
 } from './stage-agents.js';
 import { isSafeSessionId } from './stage-settings.js';
 import { stageFromAgentType } from './subagent-completion.js';
@@ -153,17 +154,18 @@ function commandsSection(stage: string, sessionId: string, agentId: string | nul
     agentId === null
       ? `SE_SESSION=${sessionId} paqad-ai`
       : `SE_SESSION=${sessionId} SE_AGENT_ID=${agentId} paqad-ai`;
+  const agent = agentNameForStage(stage);
   const rulesLoad = CODE_EDITING_STAGES.has(stage)
     ? [`- \`${prefix} rules load\` before your first source edit.`]
     : [];
   return [
     '## Commands',
     '',
-    `- \`${prefix} stage start ${stage}\``,
+    `- \`${prefix} stage start ${stage} --agent ${agent}\``,
     ...rulesLoad,
     '- Do the stage work, then write its rigid artifact with the stage verb, or make the edits',
     '  for a mutation stage.',
-    `- \`${prefix} stage end ${stage} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
+    `- \`${prefix} stage end ${stage} --agent ${agent} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
   ];
 }
 
