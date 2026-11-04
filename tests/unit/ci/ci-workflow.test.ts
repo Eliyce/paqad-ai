@@ -256,6 +256,18 @@ describe('.github/workflows/ci.yml', () => {
       });
     });
 
+    it('replaces the shard report on a rerun, so the merge job reads the newest one (AC-29)', () => {
+      const uploads = Object.values(jobs).flatMap((job) =>
+        job.steps.filter((step) => step.name === 'Upload the shard report'),
+      );
+      expect(uploads).toHaveLength(1);
+      expect(uploads[0]?.with?.overwrite).toBe(true);
+    });
+
+    it('adds no permission to read artifacts through the API', () => {
+      expect(jobs.merge?.permissions?.actions).toBeUndefined();
+    });
+
     it('fails when a shard report is missing', () => {
       expect(runs(job)).toContain('test "${#blobs[@]}" -eq "${{ matrix.total }}"');
     });

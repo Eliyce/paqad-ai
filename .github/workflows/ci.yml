@@ -204,6 +204,7 @@ jobs:
             .vitest-durations
           include-hidden-files: true
           retention-days: 1
+          overwrite: true
 
   merge:
     name: Merge, Node ${{ matrix.node }} / ${{ matrix.os }}
