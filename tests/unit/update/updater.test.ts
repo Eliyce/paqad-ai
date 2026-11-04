@@ -8,6 +8,8 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -637,6 +639,57 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
+
+  it('leaves a file alone and unreported when its bytes already match', async () => {
+    writeFileSync(
+      join(projectRoot, '.paqad/onboarding-manifest.json'),
+      JSON.stringify(
+        {
+          framework_version: '0.0.0',
+          adapter: 'claude-code',
+          project_root: projectRoot,
+          profile: {},
+          detected: null,
+          generated_at: new Date().toISOString(),
+          generated_artifacts: [{ path: 'docs/rules/kept.md', auto_update: false }],
+        },
+        null,
+        2,
+      ),
+    );
+    mkdirSync(join(projectRoot, 'docs/rules'), { recursive: true });
+    mkdirSync(join(projectRoot, 'scripts'), { recursive: true });
+    const refreshed = join(projectRoot, 'docs/rules/refreshed.md');
+    const kept = join(projectRoot, 'docs/rules/kept.md');
+    const script = join(projectRoot, 'scripts/same.sh');
+    writeFileSync(refreshed, 'same');
+    writeFileSync(kept, 'same');
+    writeFileSync(script, '#!/usr/bin/env bash\n');
+    chmodSync(script, 0o644);
+    const past = new Date('2020-01-01T00:00:00Z');
+    utimesSync(refreshed, past, past);
+
+    const updater = new FrameworkUpdater({
+      generateCandidates: async () => [
+        { path: 'docs/rules/refreshed.md', content: 'same', autoUpdate: true },
+        { path: 'docs/rules/kept.md', content: 'same', autoUpdate: true },
+        {
+          path: 'scripts/same.sh',
+          content: '#!/usr/bin/env bash\n',
+          autoUpdate: true,
+          executable: true,
+        },
+      ],
+    });
+
+    const report = await updater.run(projectRoot);
+
+    expect(report.regenerated).toEqual([]);
+    expect(report.skipped).toEqual([]);
+    expect(statSync(refreshed).mtime.getTime()).toBe(past.getTime());
+    expect(statSync(script).mode & 0o111).not.toBe(0);
+  });
+
   describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };

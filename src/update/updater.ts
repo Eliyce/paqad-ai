@@ -136,6 +136,13 @@ export class FrameworkUpdater {
       const existed = existing !== null;
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;
 
+      if (existing === candidate.content) {
+        if (candidate.executable === true && autoUpdate !== false) {
+          chmodSync(target, 0o755);
+        }
+        continue;
+      }
+
       if (existing !== null && autoUpdate === false) {
         skipped.push({
           path: reportedPath,
