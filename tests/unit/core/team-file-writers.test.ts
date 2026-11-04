@@ -213,6 +213,21 @@ describe('AC-21: a malformed stamp through the writers', () => {
     expect(read(MODELS)).toBe(text);
   });
 
+  it('AC-21: the delivery move leaves a commit file with an unreadable stamp and names it', () => {
+    const commits = '.paqad/configs/git-workflow/commits.yaml';
+    put(commits, 'schema_version: abc\n');
+    put(OLD_DELIVERY_POLICY, 'branch:\n  base: main\n');
+    const result = migrateDeliveryPolicy(root, { baseBranch: 'main', version: '1.120.0' });
+    expect(result).toEqual({
+      ran: false,
+      lines: [unreadable(commits)],
+      written: [],
+      deleted: false,
+    });
+    expect(read(commits)).toBe('schema_version: abc\n');
+    expect(read(OLD_DELIVERY_POLICY)).toBe('branch:\n  base: main\n');
+  });
+
   it('AC-21: the migration stops and names the file, and keeps the old settings', () => {
     const retrieval = '.paqad/configs/retrieval.yaml';
     put(retrieval, 'schema_version: abc\n');

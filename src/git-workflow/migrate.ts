@@ -5,7 +5,7 @@ import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
-import { isNewerTeamFile, newerTeamFileLine } from '@/core/team-file-schema.js';
+import { renderWriteBlock } from '@/core/team-file-schema.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
 import {
@@ -279,17 +279,14 @@ export function migrateDeliveryPolicy(
 ): MigrationResult {
   const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
   if (!existsSync(oldPath)) return { ran: false, lines: [], written: [], deleted: false };
-  const newer = GIT_WORKFLOW_FILES.filter((file) =>
-    isNewerTeamFile(readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? ''),
-  );
-  if (newer.length > 0) {
-    return {
-      ran: false,
-      lines: newer.map((file) => newerTeamFileLine(`${PATHS.GIT_WORKFLOW_DIR}/${file}`)),
-      written: [],
-      deleted: false,
-    };
-  }
+  const blocked = GIT_WORKFLOW_FILES.flatMap((file) => {
+    const line = renderWriteBlock(
+      readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? '',
+      `${PATHS.GIT_WORKFLOW_DIR}/${file}`,
+    );
+    return line === null ? [] : [line];
+  });
+  if (blocked.length > 0) return { ran: false, lines: blocked, written: [], deleted: false };
   if (!gitWorkflowFilesAbsent(projectRoot)) {
     return { ran: false, lines: [], written: [], deleted: false };
   }
