@@ -40,6 +40,7 @@ import {
   featureFilePath,
   parseFeatureDirName,
 } from '@/feature-evidence/paths.js';
+import { readUnitFileHealth } from '@/session-ledger/ledger.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
@@ -63,7 +64,11 @@ import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
 import { RECORD_REPAIR_KIND, STAGE_AGENT_KIND, type FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
-import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
+import {
+  STAGE_AGENT_STAGES,
+  stageForAgentName,
+  stripPluginAgentNamespace,
+} from '@/stage-isolation/stage-agents.js';
 import {
   buildBundleCompletenessConfig,
   stageIsolationStatus,
@@ -97,6 +102,7 @@ import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './hi
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
+import { buildStageRun, stagesWithAgentRows } from './stage-run.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
@@ -607,6 +613,7 @@ export interface HudSnapshot {
   verdict_stale?: true;
   start_point?: HudStartPoint | null;
   proof?: HudStageProof[];
+  ledger_note?: string;
 }
 
 function readJsonFile(path: string): unknown {
@@ -1253,6 +1260,7 @@ export function computeHudFlags(input: {
   isolationStatus: string;
   isolatedStages: number;
   stageAgentsSeen?: number;
+  stageAgentStages?: readonly string[];
   findings?: HudFindings | null;
   commitSplit?: CommitSplit | null;
 }): HudFlag[] {
@@ -1288,6 +1296,20 @@ export function computeHudFlags(input: {
     laneStageEnded
   ) {
     flags.push({ id: 'isolation-missing', text: 'No stage ran in its own agent on this lane.' });
+  } else if (input.isolationStatus === 'expected' && input.stageAgentStages) {
+    const seen = new Set(input.stageAgentStages);
+    const missing = input.stages
+      .filter(
+        (stage) =>
+          stage.mandatory &&
+          LANE_STAGE_ENDED_STATES.has(stage.state) &&
+          STAGE_AGENT_STAGES.includes(stage.stage) &&
+          !seen.has(stage.stage),
+      )
+      .map((stage) => stage.stage);
+    if (missing.length > 0 && seen.size > 0) {
+      flags.push({ id: 'isolation-missing', text: `isolation missing: ${missing.join(', ')}` });
+    }
   }
   if (input.isolationStatus === 'unresolved') {
     flags.push({
@@ -1659,6 +1681,8 @@ export function buildHudSnapshot(
   const gatesExpected = expectedGateCodes(lane);
   const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
   const questions = buildQuestions(projectRoot, dirName);
+  const stageRows = readFeatureStageUnit(projectRoot, dirName);
+  const ledgerHealth = readUnitFileHealth(projectRoot, featureFilePath(dirName, 'stageEvidence'));
   const proof = buildStageProof({
     ...readStageProofEvidence(projectRoot, dirName),
     lane,
@@ -1678,9 +1702,8 @@ export function buildHudSnapshot(
     tableLate: table?.met_after_freeze ?? false,
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
-    stageAgentsSeen: readFeatureStageUnit(projectRoot, dirName).filter(
-      (row) => row.kind === STAGE_AGENT_KIND,
-    ).length,
+    stageAgentsSeen: stageRows.filter((row) => row.kind === STAGE_AGENT_KIND).length,
+    stageAgentStages: stagesWithAgentRows(stageRows),
     findings,
     commitSplit: delivery.commit_split ?? null,
   });
@@ -1801,7 +1824,10 @@ export function buildHudSnapshot(
           files_known: startPoint.worktree !== null,
         }
       : null,
-    proof,
+    proof: proof.map((entry) => ({ ...entry, run: buildStageRun(stageRows, entry.stage, lane) })),
+    ...(ledgerHealth.torn_tail
+      ? { ledger_note: 'The last line of this ledger was cut, so paqad read every line before it.' }
+      : {}),
   };
 }
 

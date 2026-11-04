@@ -19,6 +19,7 @@ import type {
   PaqadProofStep,
   PaqadRepair,
   PaqadStageProof,
+  PaqadStageRun,
   PaqadRung,
   PaqadHeadline,
   PaqadHighTable,
@@ -567,7 +568,31 @@ function readProof(value: unknown): PaqadStageProof[] {
       words: str(row.words) ?? '',
       state: str(row.state) ?? 'not-judged',
     })).filter((row) => row.words !== ''),
+    ...readRun(entry.run),
   })).filter((entry) => entry.stage !== '');
+}
+
+function readRun(value: unknown): { run?: PaqadStageRun } {
+  const run = rec(value);
+  if (!run) return {};
+  const line = str(run.line);
+  const short = str(run.short_line);
+  const report = str(run.report);
+  const recipe = str(run.recipe);
+  if (!line || !short || !report || !recipe) return {};
+  const tone = run.tone === 'fail' || run.tone === 'cau' ? run.tone : 'dim';
+  return {
+    run: {
+      line,
+      short_line: short,
+      report,
+      recipe,
+      tone,
+      runs: typeof run.runs === 'number' ? run.runs : 1,
+      needs_look: run.needs_look === true,
+      footnote: str(run.footnote),
+    },
+  };
 }
 
 function readRepairs(value: unknown): PaqadRepair[] {
@@ -840,6 +865,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     ...(snap.verdict_stale === true ? { verdict_stale: true as const } : {}),
     ...readStartPoint(snap.start_point),
     ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
+    ...(typeof snap.ledger_note === 'string' ? { ledger_note: snap.ledger_note } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }

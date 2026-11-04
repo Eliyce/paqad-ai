@@ -223,11 +223,25 @@ function stepLine(ui: D, step: TrustStage['steps'][number]) {
   );
 }
 
+function runLine(ui: D, key: string, run: NonNullable<TrustStage['run']>) {
+  const { Text } = ui;
+  const color = toneColor(run.tone);
+  return (
+    <Text key={`paqad-run-${key}`} size="footnote">
+      <Text dimColor>{run.before}</Text>
+      {color ? <Text color={color}>{run.report}</Text> : <Text dimColor>{run.report}</Text>}
+      <Text dimColor>{run.after}</Text>
+    </Text>
+  );
+}
+
 function stagePart(ui: D, stage: TrustStage) {
   const { Box } = ui;
   return (
     <Box key={`paqad-proof-${stage.key}`} flexDirection="column" rowGap="xs">
       {stageHeading(ui, stage)}
+      {stage.run ? runLine(ui, stage.key, stage.run) : null}
+      {stage.run?.footnote ? note(ui, stage.run.footnote, `paqad-run-note-${stage.key}`) : null}
       {stage.steps.map((step) => stepLine(ui, step))}
       {stage.gates.map((gate) =>
         row(ui, `paqad-gate-${gate.key}`, gate.words, word(ui, gate.word, gate.tone)),
@@ -248,7 +262,7 @@ function trustTab(ui: D, view: TrustView) {
       {view.gates.map((gate) =>
         row(ui, `paqad-gate-${gate.key}`, gate.words, word(ui, gate.word, gate.tone)),
       )}
-      {view.gaps.length > 0 || view.repairs ? (
+      {view.gaps.length > 0 || view.repairs || view.ledgerNote ? (
         <Box key="paqad-record" flexDirection="column" marginTop={1}>
           {view.gaps.map((gap) => (
             <Text key={`paqad-gap-${gap}`} size="footnote">
@@ -256,6 +270,7 @@ function trustTab(ui: D, view: TrustView) {
             </Text>
           ))}
           {view.repairs ? note(ui, view.repairs, 'paqad-repairs') : null}
+          {view.ledgerNote ? note(ui, view.ledgerNote, 'paqad-ledger-note') : null}
         </Box>
       ) : null}
       {view.claims.rows.length > 0 ? heading(ui, 'CLAIMS AND THE TESTS THAT PROVE THEM') : null}

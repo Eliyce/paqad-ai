@@ -327,6 +327,32 @@ The Trust tab shows the proof of the work, stage by stage.
 - **Done stage**: a finished stage shows a green `✓` beside the word `Done`. The check carries the
   green and the word stays in the text colour so it reads at full contrast, and done is never told
   by colour alone.
+- **Run line**: under a stage heading on the full lane, one footnote line with the stage's report:
+  `review · proven · DONE · 44 turns`. The order is stage, recipe, report, turns. On a line over 46
+  characters, the docked width, the stage name is left to the heading, so the turns are never cut.
+  The line wraps and never uses truncate-end. A stage with several agents shows one line: the latest
+  agent and report, turns summed, and a dim `· N runs`.
+- **Run words**: state is in the word, and colour only reinforces it.
+
+  | Word | Means | Tone |
+  | --- | --- | --- |
+  | `proven` | a stage command checked the recipe script's output | dim |
+  | `injected` | the recipe reached the agent; for checks this is the full proof | dim |
+  | `none` | a stage from after the update with no recipe row | dim |
+  | `not recorded` | older rows from before recipes or reports | dim |
+  | `DONE` | the agent's report | dim |
+  | `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT` | the agent's report | `caution` amber |
+  | `BLOCKED` | the agent's report, or the refusals used up | `failed` red |
+  | `not yet known`, `counting` | the stage is still running | dim |
+  | `no report found` | the run ended with no status | dim |
+
+- **Blocked and paused**: `BLOCKED` shows the reason from the row in a dim footnote under the stage;
+  a paused stage shows its decision id. A stage whose heading would read done and whose report says
+  `BLOCKED` shows `Needs a look`, never a green finish beside a red word.
+- **Tokens** stay off the run line, because they count context re-sent on every turn. The line carries
+  one figure.
+- No agent, recipe or report word is drawn for a stage on the fast or graduated lane.
+- A cut last line of the ledger adds one dim note in the gaps area and changes no stage.
 - **Step lines**: a footnote mark then the step: `✓` in default ink, `✕` in red, `○` dim, with a
   dim detail `  ·  N ...`.
 - **Gate rows** use Row.

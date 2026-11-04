@@ -177,6 +177,18 @@ export type PaqadStageProof = {
   state: string;
   steps: PaqadProofStep[];
   gates: PaqadProofGate[];
+  run?: PaqadStageRun;
+};
+
+export type PaqadStageRun = {
+  line: string;
+  short_line: string;
+  report: string;
+  recipe: string;
+  tone: 'fail' | 'cau' | 'dim';
+  runs: number;
+  needs_look: boolean;
+  footnote: string | null;
 };
 
 export type PaqadRung = 'done' | 'committed' | 'pr-open';
@@ -334,6 +346,7 @@ export type PaqadHudSnapshot = {
   verdict_stale?: true;
   start_point?: PaqadStartPoint | null;
   proof?: PaqadStageProof[];
+  ledger_note?: string;
 };
 
 export type PaqadStartPoint = {

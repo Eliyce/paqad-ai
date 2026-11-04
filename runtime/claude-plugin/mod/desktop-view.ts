@@ -749,6 +749,7 @@ export interface TrustView {
   stages: TrustStage[];
   gates: TrustGateRow[];
   repairs: string | null;
+  ledgerNote: string | null;
   gaps: string[];
   claims: ClaimsView;
   flags: FlagRow[];
@@ -777,6 +778,7 @@ export function trustView(snapshot: PaqadHudSnapshot): TrustView {
     stages,
     gates,
     repairs: active ? repairLine(snapshot) : null,
+    ledgerNote: active ? (snapshot.ledger_note ?? null) : null,
     gaps: active ? recordGapLines(snapshot) : [],
     claims,
     flags: active

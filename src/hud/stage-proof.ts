@@ -13,6 +13,7 @@ import {
 } from '@/feature-evidence/artifacts.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { laneStages } from '@/stage-evidence/stages.js';
+import type { HudStageRun } from './stage-run.js';
 import type { StageLane } from '@/stage-evidence/types.js';
 
 export type HudProofStepState = 'done' | 'failed' | 'not-yet';
@@ -38,6 +39,7 @@ export interface HudStageProof {
   state: string;
   steps: HudProofStep[];
   gates: HudProofGate[];
+  run?: HudStageRun | null;
 }
 
 export const PROOF_GATE_WORDS: Readonly<Record<HudProofGateState, string>> = {
