@@ -218,8 +218,11 @@ export class OnboardingOrchestrator {
         `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
       );
     }
+    let deliveryMoveBlocked = false;
     if (selections.domain === 'coding') {
-      onboardingWarnings.push(...migrateDeliveryPolicy(options.projectRoot).lines);
+      const deliveryMove = migrateDeliveryPolicy(options.projectRoot);
+      onboardingWarnings.push(...deliveryMove.lines);
+      deliveryMoveBlocked = deliveryMove.blocked === true;
     }
     const teamConfigMigration = migrateTeamConfig(options.projectRoot);
     if (teamConfigMigration.ran) onboardingWarnings.push(...teamConfigMigration.lines);
@@ -227,15 +230,20 @@ export class OnboardingOrchestrator {
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
     try {
-      writeResult = writeGeneratedFiles(options.projectRoot, filesToWrite, {
-        forceOverwrite: options.forceOverwrite,
-      });
+      const gitWorkflowPrefix = `${PATHS.GIT_WORKFLOW_DIR}/`;
+      writeResult = writeGeneratedFiles(
+        options.projectRoot,
+        deliveryMoveBlocked
+          ? filesToWrite.filter((file) => !toPosixPath(file.path).startsWith(gitWorkflowPrefix))
+          : filesToWrite,
+        { forceOverwrite: options.forceOverwrite },
+      );
       if (!options.forceOverwrite && isFrameworkEnabled(profile)) {
         writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
       }
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
       if (selections.domain === 'coding') {
-        settleGitWorkflow(options.projectRoot, writeResult.written);
+        settleGitWorkflow(options.projectRoot, writeResult.written, !deliveryMoveBlocked);
       }
       drift = await writeStackArtifacts(
         options.projectRoot,
@@ -1010,8 +1018,12 @@ function buildRustCommands(usingCompose: boolean): ProjectProfile['commands'] {
   };
 }
 
-function settleGitWorkflow(projectRoot: string, written: readonly string[]): void {
-  syncGitWorkflow(projectRoot);
+function settleGitWorkflow(
+  projectRoot: string,
+  written: readonly string[],
+  createMissing: boolean,
+): void {
+  syncGitWorkflow(projectRoot, { createMissing });
   const fresh = GIT_WORKFLOW_FILES.filter((file) =>
     written.some((path) => toPosixPath(path) === `${PATHS.GIT_WORKFLOW_DIR}/${file}`),
   );

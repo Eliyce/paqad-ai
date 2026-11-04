@@ -10,7 +10,7 @@ import {
 } from '@/feature-evidence/git-hooks.js';
 import { changedOutside } from '@/git-workflow/last-applied.js';
 import { gitWorkflowDir, loadGitWorkflow } from '@/git-workflow/load.js';
-import { OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import { deliveryMoveBlocks, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
 
 export const GIT_WORKFLOW_CHECK = 'git-workflow';
 
@@ -42,7 +42,17 @@ export function gitWorkflowHealth(
     results.push(warning(unknown.message, SKILL_REVIEW));
   }
 
-  if (existsSync(join(projectRoot, OLD_DELIVERY_POLICY))) {
+  const moveBlocks = existsSync(join(projectRoot, OLD_DELIVERY_POLICY))
+    ? deliveryMoveBlocks(projectRoot)
+    : [];
+  if (moveBlocks.length > 0) {
+    results.push(
+      warning(
+        `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. ${moveBlocks.join(' ')} The move runs on the next paqad-ai update.`,
+        moveBlocks.join(' '),
+      ),
+    );
+  } else if (existsSync(join(projectRoot, OLD_DELIVERY_POLICY))) {
     results.push(
       warning(
         `${OLD_DELIVERY_POLICY} is no longer read. Delete it.`,

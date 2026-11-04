@@ -19,6 +19,7 @@ export interface SyncOptions {
   baseBranch?: string;
   now?: () => Date;
   notes?: string[];
+  createMissing?: boolean;
 }
 
 export function syncGitWorkflowFile(text: string): string {
@@ -47,6 +48,7 @@ export function syncGitWorkflow(projectRoot: string, options: SyncOptions = {}):
   for (const file of GIT_WORKFLOW_FILES) {
     const path = gitWorkflowFilePath(projectRoot, file);
     let text = readTextIfExistsSync(path);
+    if (text === null && options.createMissing === false) continue;
     if (text === null) {
       baseBranch ??= remoteDefaultBranch(projectRoot);
       if (createFile(path, renderDefaultGitWorkflowFile(file, { baseBranch }))) {

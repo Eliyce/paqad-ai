@@ -114,6 +114,9 @@ Source directories owned by this feature:
   not, as hand-edited, and gives the lines to add. On a husky runner folder the advice reads "which husky runs"
   instead of "which your repo tracks", and names `.husky/commit-msg` and `.husky/pre-push`.
   Lines an older paqad appended to `.husky/_` don't count as installed, because they never run.
+- While a newer or unreadable git-workflow file stops the delivery move, the `git-workflow` check says
+  `<policy file> hasn't moved yet, so keep it. <the file's line> The move runs on the next paqad-ai update.`
+  instead of `<policy file> is no longer read. Delete it.`, because that file holds the team's only copy of the rules.
 - Doctor checks entry files only for the providers the project uses.
 - A project already on 1.119.0 keeps the changed-outside warning for its git-workflow files. The way out,
   after asking the team, is `paqad-ai git-workflow check --accept`.

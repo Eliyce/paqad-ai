@@ -154,6 +154,8 @@ Source directories owned by this feature:
   a dashboard save refuse a git-workflow file with a higher `schema_version` and print the newer-file line.
   The migration leaves the old policy file in place. A malformed stamp in any of the 5 git-workflow files
   also stops the move. Update names that file on each run until it is fixed, and the old policy file stays.
+  While the move is stopped, update and onboarding create none of the missing git-workflow files, so the move
+  runs on the next update once the stamp is fixed.
 - `config set` and the other single-value writers, and the settings migration, refuse one of paqad's own team
   files whose `schema_version` or `paqad_version` line can't be read (`renderWriteBlock`), with the
   message in `api.md`. A write to `git-workflow/commits.yaml` keeps that line and goes ahead, because

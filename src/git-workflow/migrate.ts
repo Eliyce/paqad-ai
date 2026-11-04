@@ -78,6 +78,7 @@ const OLD_DEFAULTS = {
 
 export interface MigrationResult {
   ran: boolean;
+  blocked?: boolean;
   lines: string[];
   written: string[];
   deleted: boolean;
@@ -273,20 +274,26 @@ function keepAiAttribution(projectRoot: string, files: Record<GitWorkflowFile, s
   }
 }
 
-export function migrateDeliveryPolicy(
-  projectRoot: string,
-  options: MigrateOptions = {},
-): MigrationResult {
-  const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
-  if (!existsSync(oldPath)) return { ran: false, lines: [], written: [], deleted: false };
-  const blocked = GIT_WORKFLOW_FILES.flatMap((file) => {
+export function deliveryMoveBlocks(projectRoot: string): string[] {
+  return GIT_WORKFLOW_FILES.flatMap((file) => {
     const line = renderWriteBlock(
       readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? '',
       `${PATHS.GIT_WORKFLOW_DIR}/${file}`,
     );
     return line === null ? [] : [line];
   });
-  if (blocked.length > 0) return { ran: false, lines: blocked, written: [], deleted: false };
+}
+
+export function migrateDeliveryPolicy(
+  projectRoot: string,
+  options: MigrateOptions = {},
+): MigrationResult {
+  const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
+  if (!existsSync(oldPath)) return { ran: false, lines: [], written: [], deleted: false };
+  const blocked = deliveryMoveBlocks(projectRoot);
+  if (blocked.length > 0) {
+    return { ran: false, blocked: true, lines: blocked, written: [], deleted: false };
+  }
   if (!gitWorkflowFilesAbsent(projectRoot)) {
     return { ran: false, lines: [], written: [], deleted: false };
   }

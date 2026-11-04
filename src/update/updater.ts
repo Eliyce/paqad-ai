@@ -438,7 +438,7 @@ function updateGitWorkflow(projectRoot: string): string[] {
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
   const syncNotes: string[] = [];
-  syncGitWorkflow(projectRoot, { notes: syncNotes });
+  syncGitWorkflow(projectRoot, { notes: syncNotes, createMissing: migration.blocked !== true });
   migration.lines.push(...syncNotes.filter((note) => !migration.lines.includes(note)));
   try {
     migration.lines.push(...(installGitHooks(projectRoot).problems ?? []));
