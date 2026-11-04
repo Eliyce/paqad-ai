@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('the retired strict value of the old evidence check', () => {
-  it('migrates evidence_existence_gate=strict to warn with nothing reported invalid', () => {
+  it('migrates evidence_existence_gate=strict to warn with nothing reported invalid (AC-1)', () => {
     writeConfig('.config.policy', 'evidence_existence_gate=strict\n');
 
     const result = migrateTeamConfig(root, { version: VERSION });
@@ -48,7 +48,7 @@ describe('the retired strict value of the old evidence check', () => {
     expect(readTeamConfig(root).issues.filter((issue) => issue.key !== undefined)).toEqual([]);
   });
 
-  it('reads an already migrated strict as warn with nothing reported invalid', () => {
+  it('reads an already migrated strict as warn with nothing reported invalid (AC-2)', () => {
     writeConfig(EVIDENCE, 'legacy_existence_check: strict\n');
 
     const team = readTeamConfig(root);
@@ -58,7 +58,7 @@ describe('the retired strict value of the old evidence check', () => {
     expect(resolveEvidenceExistenceMode(root, {})).toBe('warn');
   });
 
-  it('replaces an already migrated strict on sync, keeps other values and says so once', () => {
+  it('replaces an already migrated strict on sync, keeps other values and says so once (AC-3)', () => {
     writeConfig(
       EVIDENCE,
       `paqad_version: "1.117.0"\nenterprise:\n  enabled: true\nlegacy_existence_check: strict\n`,
@@ -80,7 +80,7 @@ describe('the retired strict value of the old evidence check', () => {
     expect(YAML.parse(readEvidence()).legacy_existence_check).toBe('warn');
   });
 
-  it.each(['warn', 'off'])('keeps a team value of %s as written', (value) => {
+  it.each(['warn', 'off'])('keeps a team value of %s as written (AC-4)', (value) => {
     writeConfig(EVIDENCE, `legacy_existence_check: ${value}\n`);
 
     const notes: string[] = [];

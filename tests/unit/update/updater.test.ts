@@ -589,7 +589,7 @@ describe('FrameworkUpdater', () => {
     await expect(updater.run(projectRoot)).rejects.toThrow(/newer than this engine/);
   });
 
-  it('skips user-managed artifacts and produces a diff report', async () => {
+  it('skips user-managed artifacts and produces a diff report (AC-6)', async () => {
     writeFileSync(
       join(projectRoot, '.paqad/onboarding-manifest.json'),
       JSON.stringify(
@@ -640,7 +640,7 @@ describe('FrameworkUpdater', () => {
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
 
-  it('leaves a file alone and unreported when its bytes already match', async () => {
+  it('leaves a file alone and unreported when its bytes already match (AC-5)', async () => {
     writeFileSync(
       join(projectRoot, '.paqad/onboarding-manifest.json'),
       JSON.stringify(

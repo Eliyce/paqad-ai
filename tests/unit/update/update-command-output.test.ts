@@ -60,7 +60,7 @@ describe('paqad-ai update output', () => {
     logSpy.mockRestore();
   });
 
-  it('prints a summary and the notes, never JSON or file text, with no flags', async () => {
+  it('prints a summary and the notes, never JSON or file text, with no flags (AC-7)', async () => {
     await run();
 
     const output = printed();
@@ -75,14 +75,14 @@ describe('paqad-ai update output', () => {
     expect(() => JSON.parse(output)).toThrow();
   });
 
-  it('prints only the full report with --json', async () => {
+  it('prints only the full report with --json (AC-8)', async () => {
     await run('--json');
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     expect(JSON.parse(printed())).toEqual(report());
   });
 
-  it('prints nothing with --silent, even with --json', async () => {
+  it('prints nothing with --silent, even with --json (AC-9)', async () => {
     await run('--silent');
     await run('--silent', '--json');
 
