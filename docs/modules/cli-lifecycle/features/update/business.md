@@ -37,10 +37,25 @@ Capture the main journeys for `update`. Each flow should call out:
   and asks the lead to review and commit the change in one go. Running it again changes nothing.
 - Teammates and CI need the release that made the move, or later. The stub left in
   `.paqad/configs/.config.app` sets `paqad_enable=false` and `minimum_version` for an older
-  paqad, so it turns itself off and updates instead of quietly running on defaults. A current
-  paqad ignores the stub.
+  paqad, so it turns itself off instead of quietly running on defaults. A 1.116.0 install stays
+  off and never asks to update, because the off switch stops its hooks before the minimum version
+  is read. `paqad-ai doctor` is the only place it says it is disabled, so a teammate on 1.116.0 has
+  to update by hand. A current paqad ignores the stub.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
   fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
+- `update` removes paqad's own old stage instructions and read paths from
+  `feature-development/workflow.yaml` and prints one line for each. It removes only a line whose
+  wording paqad once shipped for that stage, including `docs/modules/**` and
+  `docs/instructions/**`. Only the line goes, never a file or folder, and anything paqad never
+  shipped stays. A team that wants a removed line back should reword it, because the same wording
+  is removed again on the next update and a reworded one stays. Commit the file so teammates don't
+  repeat the change locally.
+- A background update tells the next session what it changed. The update runs detached from
+  session start, so the session that starts it works with changed files and hears nothing; the
+  following session gets one line asking the agent to tell the developer. `paqad-ai update --last`
+  shows the details at any time.
+- The session line reaches Claude Code and Codex developers only for now. Other hosts start no
+  background update, and a hand-run `update --silent` there leaves a record only `--last` reads.
 - The pentest, site-map, design-test and codebase-health workflows now run from skills, so `update`
   removes their seven old rule files from a project when nobody edited them and says so. An edited
   file is never deleted: `update` keeps it and tells the team it can be deleted.

@@ -136,11 +136,48 @@ Source directories owned by this feature:
   one so far and becomes `warn`, because that check never blocks a change.
 - After the move, `.paqad/configs/.config.app` is a stub whose first line is `# paqad-migrated-stub`.
   It holds `paqad_enable=false` and `minimum_version` for an older paqad, which turns itself off
-  instead of running on defaults and updates on its next check. Every current reader (the CLI, the
+  instead of running on defaults. The stub's own comment also says an older paqad asks to update,
+  which is wrong for 1.116.0 and recorded as tech debt `TD-01M6K1JWM70BNV30N1TTWVTQG2`: its
+  `silent-update.mjs` returns on the off switch before it reads the minimum version, so it starts no
+  update and prints nothing. Every current reader (the CLI, the
   shell and Node hooks, the plugin mod and the team launcher) skips a file with that first line,
   so a current paqad stays on. The stub is written last, after the YAML files and the workflow
   view, so a failed write leaves the old `.config.app` in place. The move is roll-forward only: no command
   restores the old files, so a bad release is fixed by the next release or `PAQAD_DISABLED=1`.
+- `src/core/shipped-workflow-entries.ts` lists a hash of every instruction and read path paqad has
+  shipped, per stage, in the shape of `OBSOLETE_WORKFLOW_RULES`. Text is hashed with whitespace
+  runs collapsed and trimmed, and the stage is part of the key, so a paqad wording a team moved to
+  another stage stays. `planWorkflowCarry` drops a listed entry when it migrates an old workflow
+  file, and `syncTeamConfigFiles` removes one from `feature-development/workflow.yaml`, after the
+  newer-checkout and stamped-version guards and before the render compare, so a file stamped by a
+  newer paqad is never edited and a second run writes nothing. A list left empty loses its key and
+  renders as the commented default, and a team comment on a removed line moves to the team notes.
+- The hash list is a committed literal because shallow CI clones have no history. To refresh it,
+  run `node scripts/shipped-workflow-hashes.mjs` with full git history and paste its output into
+  the list. It reads every commit of `src/pipeline/feature-development-policy.ts`, both the stage
+  objects and the embedded `stages:` template of older commits, and stops on an element it can't
+  resolve. A guard test fails and prints the hash to add when a current default isn't on the list.
+- `src/update/last-update.ts` stays light because SessionStart loads it through a caught dynamic
+  import of `dist/update/last-update.js`, so an older dist costs only the line. It imports the
+  updater for types only. The session line is built only from versions matching a version pattern
+  and a count, so text in a hand-edited record can't reach agent context. The record is written
+  before `appendAuditLog`, so an audit failure can't lose it, and a failed write never fails the
+  update. The hook renames the record first and adds the line only if the rename worked, so
+  concurrent sessions show it once and a failed rename keeps the record.
+- The merge is an unlocked read then write, so two background runs at the same moment may lose one
+  record's lists. A background update that fails partway writes no record: the failure stays in the
+  audit log, and `--last` may show an older update. `silent-update.mjs` passes `cwd: projectRoot`
+  to its spawn so the record lands where the reader looks.
+- After the cleanups, `withoutRemovedRetiredFiles` drops a `generated_artifacts` entry only when its
+  path is on the retired set (the `OBSOLETE_WORKFLOW_RULES` paths under `docs/instructions/rules`,
+  the old delivery policy and the old workflow view) and the file is absent. The manifest is written
+  again only when an entry dropped, keeping the resolved `providers`. Any other missing file keeps
+  its entry, and so does a file a cleanup couldn't remove, so the same rule covers a fresh upgrade
+  and a project that was already upgraded.
+- `syncGitWorkflowFile` adds the commented `ai_attribution` lines to `commits.yaml` when no live or
+  commented line exists, keeping the file's line ends, and changes `paqad_version` only on that
+  run. It runs before the check for missing keys, because a normal upgraded project has none.
+  `keepAiAttribution` takes the commented lines out when it inserts a team's live value.
 - The stage agents are written here too, because an upgraded machine goes through
   `paqad-ai update --silent` and never reaches the onboarding path that wrote them. This is
   best-effort, since the agents are inert until dispatched.

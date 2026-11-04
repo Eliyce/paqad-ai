@@ -205,7 +205,12 @@ CI splits the test run so no OS has to run the whole suite in one job. Four kind
 - **Merge** runs once per OS, on that same OS, but only when `scope` succeeded, the test
   matrix was not skipped, and the run was not cancelled. It checks every shard sent a report, merges
   them, and enforces the coverage floors on the whole result. It then runs
-  `scripts/check-shard-budget.mjs`.
+  `scripts/check-shard-budget.mjs`. Each shard uploads its report with `overwrite: true`, so
+  "Re-run failed jobs" replaces the earlier report and a shard that passes on a rerun can clear the
+  merge job. This was proven on ubuntu; the Windows leg isn't directly proven, so if a Windows shard
+  is green with a red merge job after a rerun, push a new commit. A passing shard's report expires
+  after a day, so a rerun more than a day after the run fails the report check with every shard
+  green. A new commit is the recovery there too.
 - **Discovery plugin** runs once on ubuntu. See below.
 - **Gate** jobs carry the four required check names (`Node 22 / ubuntu-latest` and so on).
   Each is red unless static, every shard, every merge and the discovery plugin job succeeded, so a failing shard on any

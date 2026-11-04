@@ -36,7 +36,7 @@ each with its own JSON Schema in `src/validators/schemas/git-workflow/`:
 | ---- | ---- |
 | `tickets.yaml` | ticket sources (tracker, key pattern, MCP server, status moves), require_ticket, write_back_refined, intake_decisions |
 | `branches.yaml` | base_branch, branch name template, slug_max_length, branch types, default_type |
-| `commits.yaml` | commit message template, summary style, sign_off, ask_when_unspecified |
+| `commits.yaml` | commit message template, summary style, sign_off, ask_when_unspecified, and `ai_attribution` as commented lines |
 | `pull-requests.yaml` | host, title/body templates, draft, reviewers, labels, link_ticket, also_open_against, the CI gate |
 | `enforcement.yaml` | enabled, and how strictly agents and people are checked |
 
@@ -86,7 +86,9 @@ One floored knob decides the posture: **`ai_attribution`** (`keep` | `strip`,
 default **`strip`**, policy group, resolved by
 `src/delivery/attribution-config.ts`). Like the other enforcement knobs, the team
 value is a floor — a developer's local config or `PAQAD_AI_ATTRIBUTION` may raise
-it but never lower it, so dropping the policy takes a reviewable team commit.
+it but never lower it, so dropping the policy takes a reviewable team commit. It
+sits commented in `commits.yaml`, and `paqad-ai update` adds those lines when the
+file has no live or commented value, so the default in code still applies.
 
 **In scope: the host agent only.** paqad's own
 `🤖 Generated with paqad-ai delivery` footer stays, by resolved decision

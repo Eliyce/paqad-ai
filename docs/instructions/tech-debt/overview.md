@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6K1JWM70BNV30N1TTWVTQG2](TD-01M6K1JWM70BNV30N1TTWVTQG2.md) (bug, low): The migrated stub says an older paqad asks to update, but 1.116.0 only turns itself off
+- [TD-01M6JZJB72CEMMT64C49C4KFN9](TD-01M6JZJB72CEMMT64C49C4KFN9.md) (gap, low): Interactive setup can't offer the three Node project types
 - [TD-01M6HVAANTK0X4AJW2Z5FWEEE6](TD-01M6HVAANTK0X4AJW2Z5FWEEE6.md) (gap, low): A failed rule-script map drop during update is not retried and its note names no recovery
 - [TD-01M6HTHEMMS1NK85TF0HHPXYHM](TD-01M6HTHEMMS1NK85TF0HHPXYHM.md) (bug, medium): Onboarding an existing project again silently drops the script bindings of edited rules
 - [TD-01M6HTHDZBG7NVDQV4PDDRNAZP](TD-01M6HTHDZBG7NVDQV4PDDRNAZP.md) (debt, low): The writeOldLeftovers test helper is copied in updater.test.ts and join.test.ts
