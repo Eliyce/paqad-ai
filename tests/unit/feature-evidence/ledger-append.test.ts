@@ -55,7 +55,7 @@ function append(root: string, row: Record<string, unknown>, now = at(0)) {
 }
 
 describe('the locked stage ledger append', () => {
-  it('chains each row to the last, with the chain inside the hash', () => {
+  it('AC-80: chains each row to the last, with the chain inside the hash', () => {
     const root = tempRoot();
     append(root, { kind: 'open' });
     append(root, { kind: 'stage_start', stage: 'planning' });
@@ -83,7 +83,22 @@ describe('the locked stage ledger append', () => {
     );
   });
 
-  it('drops a repeat of one row inside the window, keeps both outside it', () => {
+  it('AC-40: keeps a second review round started outside the window', () => {
+    const root = tempRoot();
+    const row = { kind: 'stage_start', stage: 'review' };
+    append(root, row, at(0));
+    append(root, { kind: 'stage_end', stage: 'review' }, at(1_000));
+    append(root, row, at(60_000));
+    append(root, { kind: 'stage_end', stage: 'review' }, at(61_000));
+    expect(rows(root).map((entry) => entry.kind)).toEqual([
+      'stage_start',
+      'stage_end',
+      'stage_start',
+      'stage_end',
+    ]);
+  });
+
+  it('AC-40: drops a repeat of one row inside the window, keeps both outside it', () => {
     const root = tempRoot();
     const row = { kind: 'stage_end', stage: 'planning' };
     append(root, row, at(0));
@@ -119,7 +134,7 @@ describe('the locked stage ledger append', () => {
     expect(rows(root)).toHaveLength(2);
   });
 
-  it('keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {
+  it('AC-41: keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {
     const root = tempRoot();
     const script = `
       import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
@@ -135,7 +150,7 @@ describe('the locked stage ledger append', () => {
     expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
   }, 60_000);
 
-  it('reclaims a lock left by a dead holder and chains normally', () => {
+  it('AC-41: reclaims a lock left by a dead holder and chains normally', () => {
     const root = tempRoot();
     append(root, { kind: 'open' });
     const lock = bundleLockPath(root, DIR);
@@ -148,7 +163,7 @@ describe('the locked stage ledger append', () => {
     expect(written[1]!.prev_hash).toBe(written[0]!.content_hash);
   });
 
-  it('appends with a declared gap when the lock stays held, and still does not duplicate', () => {
+  it('AC-41: appends with a declared gap when the lock stays held, and still does not duplicate', () => {
     const root = tempRoot();
     append(root, { kind: 'open' });
     mkdirSync(bundleLockPath(root, DIR));
@@ -218,7 +233,7 @@ describe('renaming a bundle mid-change', () => {
     appendFeatureStageRow(root, SESSION, UNTITLED, { kind: 'stage_end', stage: 'review' }, at(3));
   }
 
-  it('relinks every later row in order, with only the paths and hashes changed', () => {
+  it('AC-44 and AC-81: relinks every later row in order, with only the paths and hashes changed', () => {
     const root = untitledRoot();
     seeded(root);
     const before = rowsOf(root, UNTITLED);
@@ -243,7 +258,7 @@ describe('renaming a bundle mid-change', () => {
     expect(existsSync(bundleLockPath(root, TITLED))).toBe(false);
   });
 
-  it('still dedupes a row re-sent after the rename', () => {
+  it('AC-44: still dedupes a row re-sent after the rename', () => {
     const root = untitledRoot();
     seeded(root);
     backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');
@@ -252,7 +267,32 @@ describe('renaming a bundle mid-change', () => {
     expect(rowsOf(root, TITLED)).toHaveLength(count);
   });
 
-  it('lands a late append in the new folder and does not recreate the old name', () => {
+  it('AC-82: keeps every row and a clean chain when hooks append during the rename', async () => {
+    const root = untitledRoot();
+    seeded(root);
+    const file = join(root, 'append.mjs');
+    writeFileSync(
+      file,
+      `
+      import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+      appendFeatureStageRow(process.argv[2], ${JSON.stringify(SESSION)}, ${JSON.stringify(UNTITLED)}, { kind: 'stage_start', stage: 'checks', note: null, agent_id: 'p' + process.argv[3] });
+    `,
+    );
+    const hooks = Array.from({ length: 8 }, (_, index) =>
+      execa('node', [file, root, String(index)]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(backfillFeatureSlug(root, UNTITLED, 'a real title', undefined, '12').dirName).toBe(
+      TITLED,
+    );
+    await Promise.all(hooks);
+    expect(existsSync(join(root, featureDir(UNTITLED)))).toBe(false);
+    expect(rowsOf(root, TITLED)).toHaveLength(12);
+    const ledger = readFileSync(join(root, featureFilePath(TITLED, 'stageEvidence')), 'utf8');
+    expect(checkStageChain(ledger).breaks).toEqual([]);
+  }, 60_000);
+
+  it('AC-82: lands a late append in the new folder and does not recreate the old name', () => {
     const root = untitledRoot();
     seeded(root);
     backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');

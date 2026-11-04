@@ -153,21 +153,26 @@ describe('checking the chain', () => {
     return root;
   }
 
-  it('names the row after one removed from the middle', () => {
+  it('AC-80: names the row after one removed from the middle', () => {
     const all = lines(chained());
     const check = checkStageChain([all[0], all[2], all[3]].join('\n'));
     expect(check.breaks).toEqual([2]);
   });
 
-  it('names the row when two rows swap', () => {
+  it('AC-80: names the row when two rows swap', () => {
     const all = lines(chained());
     const check = checkStageChain([all[0], all[2], all[1], all[3]].join('\n'));
     expect(check.breaks.length).toBeGreaterThan(0);
   });
 
-  it('does not detect rows cut from the end, which is the stated limit', () => {
+  it('AC-43: does not detect rows cut from the end, and the docs state that limit', () => {
     const all = lines(chained());
     expect(checkStageChain(all.slice(0, 2).join('\n')).breaks).toEqual([]);
+    const doc = readFileSync(
+      join(process.cwd(), 'docs/modules/feature-evidence/index/summary.md'),
+      'utf8',
+    );
+    expect(doc).toContain('cannot see rows cut from the end of the file');
   });
 
   it('declares a late version 2 row and a torn line as gaps, not breaks', () => {
