@@ -13,7 +13,7 @@ import {
   resolveRecipe,
 } from '@/stage-isolation/recipes.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
-import { seedStageAgentDetailed } from '@/stage-isolation/stage-brief.js';
+import { buildStageBrief, seedStageAgentDetailed } from '@/stage-isolation/stage-brief.js';
 
 const roots: string[] = [];
 
@@ -74,6 +74,21 @@ describe('fitting a recipe beside the brief', () => {
 
   it('gives up with nothing when no room is left at all', () => {
     expect(fitRecipe(RECIPE_BUDGET_CHARS, body('x'))).toBeNull();
+  });
+});
+
+describe('the lines a recipe carries', () => {
+  it.each(STAGE_AGENT_STAGES)('are not repeated in the %s stage instructions', (stage) => {
+    const brief = buildStageBrief(stage, process.cwd(), 'ses_seed', { full: true });
+    const instructions = brief.slice(
+      brief.indexOf('## Stage instructions'),
+      brief.indexOf('## Hard rules'),
+    );
+    const recipeLines = resolveRecipe(stage)
+      .body.split('\n')
+      .map((line) => line.replace(/^(\d+\.|-)\s+/u, '').trim())
+      .filter((line) => line.length > 20);
+    for (const line of recipeLines) expect(instructions).not.toContain(line);
   });
 });
 

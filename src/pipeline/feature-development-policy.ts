@@ -123,7 +123,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: ['docs/instructions/stack/**', 'docs/instructions/design-system/**'],
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
-          'Keep planning scoped to the requested feature and the current repository state.',
           'Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues.',
           ...reusePlanningInstructions('full', { multiModule: true }),
         ],
@@ -144,7 +143,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       specification: {
         read: [],
         instructions: [
-          'Write or refine the feature specification before implementation when the lane includes specification.',
           'Spec sign-off: on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
           SPEC_REVIEW_ENFORCEMENT_INSTRUCTION,
           SPEC_PIPELINE_INSTRUCTION,
@@ -165,7 +163,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       development: {
         read: [],
         instructions: [
-          'Implement only the requested feature behavior and avoid unrelated refactors.',
           FULL_SUITE_INSTRUCTION,
         ],
         required_inputs: ['approved spec', 'implementation sequence'],
@@ -181,7 +178,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       review: {
         read: [],
         instructions: [
-          'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
           REVIEW_DIGEST_INSTRUCTION,
           REVIEW_DIGEST_REFRESH_INSTRUCTION,
           OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
@@ -200,7 +196,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       checks: {
         read: [],
         instructions: [
-          'Run the project command checks after implementation and before finalizing the feature.',
           'Run them deterministically with `paqad-ai checks run`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is `Needs your attention` — fix it before finalizing.',
           'Before `paqad-ai checks run`, run `paqad-ai checks plan`. If it prints `test: sequential (unknown)`, run the test-runner-discovery skill and record its result with `paqad-ai checks record-runner <file>` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used.',
         ],
@@ -230,7 +225,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       documentation_sync: {
         read: [],
         instructions: [
-          'Sync canonical docs affected by the feature diff after verification passes.',
           OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
         ],
         required_inputs: ['changed files'],
