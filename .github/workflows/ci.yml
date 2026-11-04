@@ -368,7 +368,7 @@ jobs:
           coverage: none
 
       - name: Cache the fixture's composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tests/fixtures/authoring/laravel-project/vendor
           key: skill-laravel-vendor-${{ hashFiles('tests/fixtures/authoring/laravel-project/composer.json') }}
