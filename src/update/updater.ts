@@ -13,6 +13,7 @@ import { dirname, join, relative } from 'node:path';
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
+import { compileFailureReason, ensureCompiledRulesCurrent } from '@/context/rule-context.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import {
@@ -336,6 +337,12 @@ export class FrameworkUpdater {
       writeManagedGitignoreBlock(projectRoot);
     }
     writeWorktreeInclude(projectRoot);
+    const compileFailure = await ensureCompiledRulesCurrent(projectRoot);
+    if (compileFailure !== null) {
+      gitWorkflowNotes.push(
+        `Couldn't refresh ${PATHS.COMPILED_RULES}: ${compileFailureReason(compileFailure)}. Doctor will flag it. Run paqad-ai rag refresh-context to try again.`,
+      );
+    }
 
     return {
       previous_version: previousVersion,

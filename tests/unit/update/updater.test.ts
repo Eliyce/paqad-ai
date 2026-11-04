@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
+import { refreshRuleContext } from '@/context/rule-context.js';
 import { readCapabilityDigest } from '@/kernel/capability-lock.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { compileRuleScripts, isRuleScriptMapStale } from '@/rule-scripts/compile.js';
@@ -778,6 +779,21 @@ describe('FrameworkUpdater', () => {
         [],
       );
       expect(isRuleScriptMapStale(projectRoot)).toBe(false);
+    });
+
+    it('AC-6: neither the compiled rules nor the session manifest lists a deleted path after the next refresh', async () => {
+      place(`# Rule\n\n- Keep me.\n\n${OLD_DELIVERY}\n`);
+      compileRuleScripts(projectRoot);
+      await run();
+      await refreshRuleContext(projectRoot);
+      for (const rel of ['.paqad/compiled-rules.json', '.paqad/context/session-context.md']) {
+        expect(readFileSync(join(projectRoot, rel), 'utf8')).not.toContain(
+          'docs/instructions/workflows',
+        );
+      }
+      expect(readCapabilityDigest(projectRoot, 'rule-scripts')).toBe(
+        computeRuleScriptsDigest(projectRoot),
+      );
     });
 
     it('writes no empty remove event when a repair is the only change', async () => {

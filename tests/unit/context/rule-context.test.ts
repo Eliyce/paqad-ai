@@ -354,7 +354,7 @@ describe('refreshRuleContext', () => {
       expect(readFileSync(target as string, 'utf8')).toContain('STALE BODY');
     });
 
-    it('does not recompile on a non-rule-loading refresh (loadRules false)', async () => {
+    it('recompiles a stale store on a non-rule-loading refresh too (loadRules false)', async () => {
       writeRuleFile('coding/x.md', '# X rule\nbody');
       writeCompiled([
         rule({ rule_id: 'RULE-1', trigger_patterns: ['**'], raw_text: 'STALE BODY' }),
@@ -366,7 +366,7 @@ describe('refreshRuleContext', () => {
         retrievalSection: '## Retrieved context — 1 slice\nRETRIEVAL BODY',
       });
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -18,7 +18,8 @@ import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
 import { composeContextPack, distillSlices } from '@/context/context-pack.js';
 import { gatherExistingSurface } from '@/context/existing-surface.js';
-import { refreshRuleContext } from '@/context/rule-context.js';
+import { compileFailureReason, refreshRuleContext } from '@/context/rule-context.js';
+import { PATHS } from '@/core/constants/paths.js';
 import {
   MAX_RETRIEVAL_SLICES,
   composeRetrievalSection,
@@ -245,6 +246,7 @@ interface RefreshContextOptions {
   projectRoot: string;
   quiet?: boolean;
   session?: string;
+  onCompileFailure?: (error: Error) => void;
 }
 
 async function runRefreshContext(options: RefreshContextOptions): Promise<void> {
@@ -270,6 +272,7 @@ async function runRefreshContext(options: RefreshContextOptions): Promise<void> 
     const target = await refreshRuleContext(options.projectRoot, {
       existingSurfaceSection,
       loadRules,
+      onCompileFailure: options.onCompileFailure,
     });
     if (!options.quiet) {
       process.stdout.write(
@@ -288,6 +291,7 @@ async function runRefreshContext(options: RefreshContextOptions): Promise<void> 
       existingSurfaceSection,
       retrievalSection: `## Retrieved context — none\n> Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`,
       loadRules,
+      onCompileFailure: options.onCompileFailure,
     });
     process.stderr.write(`Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`);
     if (!options.quiet) {
@@ -333,6 +337,7 @@ async function runRefreshContext(options: RefreshContextOptions): Promise<void> 
     retrievalSection,
     driftSection,
     loadRules,
+    onCompileFailure: options.onCompileFailure,
   });
 
   if (retrieves) {
@@ -520,7 +525,15 @@ export function createRagCommand(): Command {
         return;
       }
       try {
-        await runRefreshContext(options);
+        await runRefreshContext({
+          ...options,
+          onCompileFailure: (error) => {
+            process.stderr.write(
+              `Couldn't refresh ${PATHS.COMPILED_RULES}: ${compileFailureReason(error)}.\n`,
+            );
+            process.exitCode = 1;
+          },
+        });
       } finally {
         hold.release();
       }
