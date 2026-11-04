@@ -177,8 +177,8 @@ export function reportSection(artifact: string, maxTurns: number, returnLine: st
 const SEAT_DO_NOT: readonly string[] = [
   '## Do not',
   '',
-  '- Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only the verb writes there.',
-  '- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact; the orchestrator asks it.',
+  '- Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only `paqad-ai spec pipeline experts` writes there.',
+  '- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with `paqad-ai spec pipeline experts`; the orchestrator asks it.',
 ];
 
 const SEAT_SESSION_STEP =
@@ -262,12 +262,9 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 }
 
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
-  '- Do not ask the human. On a decision pause, run `paqad-ai decision create …` and return',
-  '  `paused: D-<id>` at once; the orchestrator asks and resumes you.',
-  '- Do not write into a feature bundle directory: the capability gate blocks an edit there. Only',
-  '  the stage commands write there.',
-  '- Do not skip a stage command because the orchestrator will run it: it will not, the next',
-  '  `paqad-ai stage start` refuses past an unfinished stage, and the completeness gate reads the end row.',
+  '- Do not ask the human. On a decision pause, run `paqad-ai decision create …` and return `paused: D-<id>` at once; the orchestrator asks and resumes you.',
+  '- Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.',
+  '- Do not skip a stage command because the orchestrator will run it: it will not, the next `paqad-ai stage start` refuses past an unfinished stage, and the completeness gate reads the end row.',
 ];
 
 const HOOK_ENFORCED_DO_NOT: readonly string[] = [
