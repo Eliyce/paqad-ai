@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { sha256Hex } from '@/compliance/markdown.js';
+import { RESUME_HANDOVER_TOKENS } from '@/onboarding/narration-contract-writer.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
@@ -285,6 +286,128 @@ export function isChecksRed(projectRoot: string, dirName: string, stage: string)
   } catch {
     return false;
   }
+}
+
+export interface StageReportJson {
+  agent_id: string;
+  stage: string | null;
+  report_status: string;
+  advance: boolean | null;
+  decision: string | null;
+  report_source: string;
+  reason: string | null;
+  tokens_not_recarried: number | null;
+  resume_advice: 'resume' | 'dispatch-fresh';
+  next_action: string;
+}
+
+function resumeAdvice(tokens: number | null): 'resume' | 'dispatch-fresh' {
+  return tokens !== null && tokens > RESUME_HANDOVER_TOKENS ? 'dispatch-fresh' : 'resume';
+}
+
+function nextAction(report: Omit<StageReportJson, 'next_action'>): string {
+  if (report.decision) return `present the decision ${report.decision} to the developer`;
+  if (report.report_source === 'legacy') return "read the stage's end row in stage-evidence.jsonl";
+  if (report.advance === true) {
+    return report.report_status === 'DONE_WITH_CONCERNS'
+      ? 'continue, and carry the concerns to the receipt'
+      : 'continue to the next stage';
+  }
+  if (report.report_status === 'NEEDS_CONTEXT') return 'resume the agent with what it names';
+  if (report.report_source === 'none') {
+    return 'resume the agent once, naming what is left; if it returns the same way, stop and tell the developer';
+  }
+  return report.reason
+    ? 'stop and tell the developer the reason'
+    : 'stop and tell the developer which stage stopped';
+}
+
+function withAction(report: Omit<StageReportJson, 'next_action'>): StageReportJson {
+  return { ...report, next_action: nextAction(report) };
+}
+
+function numberField(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function buildStageReport(rows: readonly Row[], agentId: string): StageReportJson | null {
+  const own = rows.filter((row) => row.agent_id === agentId);
+  const reported = own.filter(
+    (row) =>
+      row.kind === STAGE_HANDBACK_KIND ||
+      (row.kind === STAGE_AGENT_KIND && row.event_status === 'completed'),
+  );
+  const newest = reported.at(-1);
+  const completion = own
+    .filter((row) => row.kind === STAGE_AGENT_KIND && row.event_status === 'completed')
+    .at(-1);
+  const tokens = numberField(completion?.tokens_not_recarried);
+  const base = {
+    agent_id: agentId,
+    tokens_not_recarried: tokens,
+    resume_advice: resumeAdvice(tokens),
+  };
+  if (!newest) {
+    if (own.length === 0) return null;
+    return withAction({
+      ...base,
+      stage: stringField(own.at(-1)!.stage),
+      report_status: 'UNKNOWN',
+      advance: false,
+      decision: null,
+      report_source: 'none',
+      reason: 'the agent is still running and has given no report',
+    });
+  }
+  const stage = stringField(newest.stage);
+  const reason = stringField(newest.reason);
+  const source = stringField(newest.report_source);
+  if (source === null && newest.report_stated !== true) {
+    return withAction({
+      ...base,
+      stage,
+      report_status: 'UNKNOWN',
+      advance: null,
+      decision: null,
+      report_source: 'legacy',
+      reason,
+    });
+  }
+  const noClaim = source === 'none' || newest.report_stated !== true;
+  if (noClaim && stage !== null && stageRequirementMet(rows, stage, agentId)) {
+    return withAction({
+      ...base,
+      stage,
+      report_status: 'DONE',
+      advance: true,
+      decision: null,
+      report_source: source ?? 'none',
+      reason: "no Status line, and the stage's end row and result exist",
+    });
+  }
+  return withAction({
+    ...base,
+    stage,
+    report_status: noClaim ? 'BLOCKED' : String(newest.report_status),
+    advance: newest.advance === true,
+    decision: stringField(newest.decision),
+    report_source: source ?? 'text',
+    reason: reason ?? (noClaim ? 'the agent returned no report' : null),
+  });
+}
+
+export function unknownAgentReport(agentId: string, reason: string): StageReportJson {
+  return withAction({
+    agent_id: agentId,
+    stage: null,
+    report_status: 'UNKNOWN',
+    advance: false,
+    decision: null,
+    report_source: 'none',
+    reason,
+    tokens_not_recarried: null,
+    resume_advice: 'resume',
+  });
 }
 
 export const SUBAGENT_HANDBACK_TOOL = 'SubagentHandback';

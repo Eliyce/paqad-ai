@@ -22,6 +22,7 @@ import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
+import { buildStageReport, unknownAgentReport } from '@/stage-isolation/stage-handback.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 import { laneRaisedLine } from './plan.js';
@@ -127,6 +128,33 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
   console.log(brief);
 }
 
+function runStageReport(agentId: string | undefined, options: StageOptions): void {
+  if (!agentId) {
+    console.log(JSON.stringify(unknownAgentReport('', 'name the agent id to report on')));
+    process.exitCode = 1;
+    return;
+  }
+  const root = options.projectRoot;
+  try {
+    const report = keepingLedgerSessionCache(root, () => {
+      const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
+      const dirName = currentFeature(root, sessionId);
+      if (dirName === null) return null;
+      return buildStageReport(readFeatureStageUnit(root, dirName), agentId);
+    });
+    if (report === null) process.exitCode = 1;
+    console.log(
+      JSON.stringify(report ?? unknownAgentReport(agentId, `no stage row names agent ${agentId}`)),
+    );
+  } catch (error) {
+    console.log(
+      JSON.stringify(
+        unknownAgentReport(agentId, `could not read the ledger: ${(error as Error).message}`),
+      ),
+    );
+  }
+}
+
 export function createStageCommand(): Command {
   return new Command('stage')
     .description(
@@ -136,9 +164,10 @@ export function createStageCommand(): Command {
     .argument(
       '<phase>',
       "'start' or 'end', 'settings' to print and record this project's per-stage effort and " +
-        "model, or 'brief' to print a stage's brief for a resumed stage agent",
+        "model, 'brief' to print a stage's brief for a resumed stage agent, or 'report' to " +
+        'print what a stage agent reported, as JSON, from its agent id',
     )
-    .argument('[stage]', `one of: ${STAGE_ORDER.join(', ')}`)
+    .argument('[stage]', `one of: ${STAGE_ORDER.join(', ')}; for 'report', the agent id`)
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
@@ -178,8 +207,14 @@ export function createStageCommand(): Command {
         runStageBrief(stage, options);
         return;
       }
+      if (phase === 'report') {
+        runStageReport(stage, options);
+        return;
+      }
       if (phase !== 'start' && phase !== 'end') {
-        console.error(`unknown phase "${phase}" — use 'start', 'end', 'settings' or 'brief'`);
+        console.error(
+          `unknown phase "${phase}" — use 'start', 'end', 'settings', 'brief' or 'report'`,
+        );
         process.exitCode = 1;
         return;
       }
