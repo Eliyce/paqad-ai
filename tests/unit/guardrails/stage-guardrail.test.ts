@@ -154,10 +154,9 @@ function withoutGroupPolicy(hooks: HookGroups): HookGroups {
       groups.map((group) => ({
         ...group,
         hooks: group.hooks.map((entry) => {
-          const { onFailure: _onFailure, timeout: _timeout, ...rest } = entry as Record<
-            string,
-            unknown
-          >;
+          const rest: Record<string, unknown> = { ...entry };
+          delete rest.onFailure;
+          delete rest.timeout;
           return rest as { command: string };
         }),
       })),
@@ -166,7 +165,9 @@ function withoutGroupPolicy(hooks: HookGroups): HookGroups {
 }
 
 function withoutFailurePolicy(line: RenderedHook): RenderedHook {
-  const { onFailure: _onFailure, timeout: _timeout, ...rest } = line;
+  const rest = { ...line };
+  delete rest.onFailure;
+  delete rest.timeout;
   return rest;
 }
 
