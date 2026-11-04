@@ -112,6 +112,7 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     const result = migrateDeliveryPolicy(root, { baseBranch: 'main', version: '1.120.0' });
     expect(result).toEqual({
       ran: false,
+      blocked: true,
       lines: [NEWER_LINE(commits)],
       written: [],
       deleted: false,
@@ -220,6 +221,7 @@ describe('AC-21: a malformed stamp through the writers', () => {
     const result = migrateDeliveryPolicy(root, { baseBranch: 'main', version: '1.120.0' });
     expect(result).toEqual({
       ran: false,
+      blocked: true,
       lines: [unreadable(commits)],
       written: [],
       deleted: false,
