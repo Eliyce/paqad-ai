@@ -830,7 +830,7 @@ and `--no-verify` does not skip them. The installer appends after an existing ho
 replaces it. A hooks folder git tracks, such as a committed `.githooks/`, or a `.husky/_` runner folder,
 tracked or not, is never written, since that would make a diff and a husky reinstall wipes appended
 blocks. The line is printed instead. On husky the `join` lead-in is
-`Husky runs your git hooks, so paqad did not modify it. Add this yourself:`. Containment is checked on a folder boundary so `.githooks` is not read as inside `.git`.
+`Husky runs your git hooks, so paqad did not modify them. Add this yourself:`. Containment is checked on a folder boundary so `.githooks` is not read as inside `.git`.
 The tracked check uses a repo-relative, forward-slash pathspec, because an absolute one read empty
 on Linux CI. The hook block uses forward slashes since it runs under `sh`, also on Windows, and
 falls back to `node <paqad>/dist/cli/index.js` because the plugin puts `paqad-ai` on PATH only

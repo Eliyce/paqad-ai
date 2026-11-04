@@ -246,7 +246,7 @@ describe('paqad-ai join', () => {
     await joinProject({ projectRoot: root });
 
     const text = output.join('');
-    expect(text).toContain('Husky runs your git hooks, so paqad did not modify it.');
+    expect(text).toContain('Husky runs your git hooks, so paqad did not modify them.');
     expect(text).not.toContain('directory is tracked');
     expect(existsSync(join(root, '.husky/_/commit-msg'))).toBe(false);
   });
