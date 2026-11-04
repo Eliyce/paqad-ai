@@ -23,4 +23,4 @@ closed_reason: null
 
 Interactive setup can't offer `node-cli`, `node-library` or `node-service`, because `DOMAIN_STACK_MAP.coding` in `src/core/types/domain.ts` stops at `kotlin-android`. Its only consumer is the stack prompt in `src/onboarding/prompts.ts`, and `tests/unit/core/types/domain.test.ts` pins the list.
 
-Automatic detection can still give these three stacks, so only someone choosing a project type by hand is affected. The owner chose to leave setup unchanged in change 840 (decision D-01M6JXAFGXYXQJCBDRQ5RGKZ97).
+Automatic detection can still give these three stacks, so only someone choosing a project type by hand is affected. The owner chose to leave setup unchanged (decision D-01M6JXAFGXYXQJCBDRQ5RGKZ97).
