@@ -289,6 +289,45 @@ describe('a default husky layout, with the runner folder ignored', () => {
   });
 });
 
+describe('a hook that cannot be made executable', () => {
+  const failing = {
+    chmod: () => {
+      throw new Error('operation not permitted');
+    },
+  };
+
+  it('names a new hook and does not throw', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));
+    roots.push(root);
+    git(root, 'init', '-q');
+    const { problems, installed } = installGitHooks(root, failing);
+    expect(installed).toContain('commit-msg');
+    expect(problems).toContain(
+      "Couldn't make .git/hooks/commit-msg executable: operation not permitted. Run chmod +x .git/hooks/commit-msg, or git won't run it.",
+    );
+  });
+
+  it.runIf(process.platform !== 'win32')('names a hook that already holds its line', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));
+    roots.push(root);
+    git(root, 'init', '-q');
+    installGitHooks(root);
+    chmodSync(join(root, '.git/hooks/pre-push'), 0o644);
+    const { problems } = installGitHooks(root, failing);
+    expect(problems).toEqual([
+      "Couldn't make .git/hooks/pre-push executable: operation not permitted. Run chmod +x .git/hooks/pre-push, or git won't run it.",
+    ]);
+  });
+
+  it('reports nothing when the bit is already set', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));
+    roots.push(root);
+    git(root, 'init', '-q');
+    installGitHooks(root);
+    expect(installGitHooks(root).problems).toEqual([]);
+  });
+});
+
 describe('an untracked hooks folder on update', () => {
   it('restores the bit and a commented-out line, so running update clears the warning', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-tracked-hooks-'));

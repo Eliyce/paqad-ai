@@ -441,7 +441,7 @@ function updateGitWorkflow(projectRoot: string): string[] {
   syncGitWorkflow(projectRoot, { notes: syncNotes });
   migration.lines.push(...syncNotes.filter((note) => !migration.lines.includes(note)));
   try {
-    installGitHooks(projectRoot);
+    migration.lines.push(...(installGitHooks(projectRoot).problems ?? []));
     const advice = trackedWorkflowHookAdvice(projectRoot);
     if (advice !== null) migration.lines.push(advice);
   } catch (error) {

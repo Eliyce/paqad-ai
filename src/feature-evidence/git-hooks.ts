@@ -58,6 +58,7 @@ export interface InstallGitHooksResult {
   notAGitRepo: boolean;
   trackedHooksDir?: boolean;
   snippet?: string;
+  problems?: string[];
 }
 
 function hooksDirIsTracked(projectRoot: string, dir: string): boolean {
@@ -112,20 +113,41 @@ function readHook(path: string): string {
   }
 }
 
-function makeExecutable(path: string): void {
-  try {
-    chmodSync(path, 0o755);
-  } catch {}
+export interface GitHookIo {
+  chmod?: (path: string, mode: number) => void;
 }
 
-function appendBlock(path: string, existing: string, block: string): void {
+interface HookWriteContext {
+  projectRoot: string;
+  chmod: (path: string, mode: number) => void;
+  problems: string[];
+}
+
+function makeExecutable(path: string, context: HookWriteContext): void {
+  try {
+    context.chmod(path, 0o755);
+  } catch (error) {
+    const shown = toPosixPath(relative(context.projectRoot, path));
+    const reason = error instanceof Error ? error.message : 'unknown error';
+    context.problems.push(
+      `Couldn't make ${shown} executable: ${reason}. Run chmod +x ${shown}, or git won't run it.`,
+    );
+  }
+}
+
+function appendBlock(
+  path: string,
+  existing: string,
+  block: string,
+  context: HookWriteContext,
+): void {
   if (existing.trim() === '') {
     writeFileSync(path, `#!/bin/sh\n${block}\n`, 'utf8');
   } else {
     const prefix = existing.endsWith('\n') ? existing : `${existing}\n`;
     writeFileSync(path, `${prefix}${block}\n`, 'utf8');
   }
-  makeExecutable(path);
+  makeExecutable(path, context);
 }
 
 export function stripWorkflowBlock(text: string): string {
@@ -154,6 +176,7 @@ function syncWorkflowHooks(
   dir: string,
   people: PeopleEnforcement,
   result: { installed: string[]; skipped: string[]; removed: string[] },
+  context: HookWriteContext,
 ): void {
   for (const hook of WORKFLOW_HOOKS) {
     const { name } = hook;
@@ -169,11 +192,11 @@ function syncWorkflowHooks(
       continue;
     }
     if (hookRunsCheck(existing, hook)) {
-      makeExecutable(path);
+      if (!isExecutable(path)) makeExecutable(path, context);
       result.skipped.push(name);
       continue;
     }
-    appendBlock(path, existing, workflowHookBlock(name));
+    appendBlock(path, existing, workflowHookBlock(name), context);
     result.installed.push(name);
   }
 }
@@ -280,7 +303,8 @@ function deliveryLinkSnippet(): string[] {
   return HOOKS.flatMap(({ name, verb }) => [`${name}:`, hookBlock(verb)]);
 }
 
-export function installGitHooks(projectRoot: string): InstallGitHooksResult {
+export function installGitHooks(projectRoot: string, io: GitHookIo = {}): InstallGitHooksResult {
+  const context: HookWriteContext = { projectRoot, chmod: io.chmod ?? chmodSync, problems: [] };
   const dir = resolveHooksDir(projectRoot);
   if (!dir) {
     return { installed: [], skipped: [], notAGitRepo: true };
@@ -313,9 +337,9 @@ export function installGitHooks(projectRoot: string): InstallGitHooksResult {
       skipped.push(name);
       continue;
     }
-    appendBlock(path, existing, hookBlock(verb));
+    appendBlock(path, existing, hookBlock(verb), context);
     installed.push(name);
   }
-  syncWorkflowHooks(dir, peopleSetting(projectRoot), { installed, skipped, removed });
-  return { installed, skipped, removed, notAGitRepo: false };
+  syncWorkflowHooks(dir, peopleSetting(projectRoot), { installed, skipped, removed }, context);
+  return { installed, skipped, removed, notAGitRepo: false, problems: context.problems };
 }
