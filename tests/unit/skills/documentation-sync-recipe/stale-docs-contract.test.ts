@@ -39,12 +39,6 @@ function snapshot(folder: string): string {
     .join('\n');
 }
 
-function write(name: string, text: string): string {
-  const path = join(dir, name);
-  writeFileSync(path, text);
-  return path;
-}
-
 describe('stale-docs.mjs contract', () => {
   function project(): string {
     mkdirSync(join(dir, 'docs/modules/billing'), { recursive: true });

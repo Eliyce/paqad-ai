@@ -17,7 +17,7 @@ function quickFilter(input) {
 
 async function record(payload) {
   const fs = await import('node:fs');
-  const { dirname, join } = await import('node:path');
+  const { join } = await import('node:path');
   const core = await import('./lib/agent-delegation-core.mjs');
   const gate = await import('./lib/paqad-disabled.mjs');
   const projectRoot = gate.resolveProjectRoot(process.env, payload);
