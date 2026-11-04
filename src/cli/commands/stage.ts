@@ -9,7 +9,7 @@ import {
   raiseLaneForAuthoring,
   raiseLaneIfGrown,
 } from '@/feature-evidence/lane-resize.js';
-import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evidence/types.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
@@ -22,7 +22,11 @@ import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
-import { buildStageReport, unknownAgentReport } from '@/stage-isolation/stage-handback.js';
+import {
+  buildStageReport,
+  stageStartRefusal,
+  unknownAgentReport,
+} from '@/stage-isolation/stage-handback.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 import { laneRaisedLine } from './plan.js';
@@ -126,6 +130,18 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
     return;
   }
   console.log(brief);
+}
+
+function startRefusalMessage(root: string, sessionId: string, stage: string): string | null {
+  try {
+    const dirName = currentFeature(root, sessionId);
+    if (dirName === null) return null;
+    const rows = readFeatureStageUnit(root, dirName);
+    const lane = readChangeConstants(root, dirName, rows).lane;
+    return stageStartRefusal(rows, stage, lane)?.message ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function runStageReport(agentId: string | undefined, options: StageOptions): void {
@@ -254,6 +270,14 @@ export function createStageCommand(): Command {
           );
         }
         artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
+      }
+      if (phase === 'start' && !options.title) {
+        const refusal = startRefusalMessage(root, sessionId, stage);
+        if (refusal !== null) {
+          console.error(`**▸ paqad** · ${refusal}`);
+          process.exitCode = 1;
+          return;
+        }
       }
       const raised =
         phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)

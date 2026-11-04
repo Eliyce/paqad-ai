@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import { RESUME_HANDOVER_TOKENS } from '@/onboarding/narration-contract-writer.js';
+import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
@@ -12,6 +13,7 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { resolveHookSession } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { bundleLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { extractAssistantText } from '@/stage-evidence/marker-parse.js';
 import {
   STAGE_AGENT_KIND,
@@ -408,6 +410,86 @@ export function unknownAgentReport(agentId: string, reason: string): StageReport
     tokens_not_recarried: null,
     resume_advice: 'resume',
   });
+}
+
+export interface StageRefusal {
+  stage: string;
+  message: string;
+}
+
+function reportedStage(rows: readonly Row[], index: number): string | null {
+  const row = rows[index]!;
+  const agentId = stringField(row.agent_id);
+  if (agentId !== null) {
+    const started = lastIndexWhere(
+      rows.slice(0, index),
+      (candidate) => candidate.kind === 'stage_start' && candidate.agent_id === agentId,
+    );
+    const stage = started === -1 ? null : stringField(rows[started]!.stage);
+    if (stage !== null) return stage;
+  }
+  return stringField(row.stage);
+}
+
+function isStatedReport(row: Row): boolean {
+  const reporting =
+    row.kind === STAGE_HANDBACK_KIND
+      ? row.event_status === 'completed'
+      : row.kind === STAGE_AGENT_KIND && row.event_status === 'completed';
+  return (
+    reporting &&
+    row.report_stated === true &&
+    stringField(row.report_source) !== null &&
+    row.report_source !== 'none'
+  );
+}
+
+function newestReportIndex(rows: readonly Row[], stage: string): number {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (isStatedReport(rows[index]!) && reportedStage(rows, index) === stage) return index;
+  }
+  return -1;
+}
+
+function isUnfinishedReport(row: Row): boolean {
+  return (
+    row.report_status === 'BLOCKED' ||
+    row.report_status === 'NEEDS_CONTEXT' ||
+    stringField(row.decision) !== null
+  );
+}
+
+function refusalMessage(stage: string, blocked: string, rows: readonly Row[], row: Row): string {
+  const agentId = stringField(row.agent_id);
+  const report = agentId ? buildStageReport(rows, agentId) : null;
+  const status = stringField(row.decision) ?? String(row.report_status);
+  const reason = stringField(row.reason);
+  const next = report?.next_action ?? 'resume the stage agent';
+  return (
+    `${stage} cannot start: ${blocked} is unfinished (${status})` +
+    `${reason ? `: ${reason}` : ''}. Next: ${next}.`
+  );
+}
+
+export function stageStartRefusal(
+  rows: readonly Row[],
+  stage: string,
+  lane: string | null,
+): StageRefusal | null {
+  if (lane === 'fast' || lane === 'graduated') return null;
+  if (bundleLedgerEra(rows) !== 'v3') return null;
+  const position = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]);
+  if (position === -1) return null;
+  for (const earlier of STAGE_ORDER.slice(0, position)) {
+    if (stage === 'documentation_sync' && earlier === 'review') continue;
+    const index = newestReportIndex(rows, earlier);
+    if (index === -1) continue;
+    const row = rows[index]!;
+    if (!isUnfinishedReport(row)) continue;
+    if (rows.slice(index + 1).some((later) => endRowProvesStage(later, earlier))) continue;
+    return { stage: earlier, message: refusalMessage(stage, earlier, rows, row) };
+  }
+  return null;
 }
 
 export const SUBAGENT_HANDBACK_TOOL = 'SubagentHandback';
