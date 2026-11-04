@@ -1,0 +1,18 @@
+{
+  "session_id": "11b03ca4-5dd3-41d7-8333-5ab3ef528115",
+  "transcript_path": "/capture/home/.claude/projects/capture-project/11b03ca4-5dd3-41d7-8333-5ab3ef528115.jsonl",
+  "cwd": "/capture/project",
+  "prompt_id": "ad6a02f2-04d4-4eb4-afc1-92e028b9b1e5",
+  "permission_mode": "default",
+  "agent_id": "acb2c42d1f162ca6a",
+  "agent_type": "paqad-planning",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "/capture/home/.claude/projects/capture-project/11b03ca4-5dd3-41d7-8333-5ab3ef528115/subagents/agent-acb2c42d1f162ca6a.jsonl",
+  "last_assistant_message": "Captured for the paqad hook fixtures.\nStatus: DONE",
+  "background_tasks": [],
+  "session_crons": []
+}

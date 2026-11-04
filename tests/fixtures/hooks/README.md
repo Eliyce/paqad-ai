@@ -29,3 +29,21 @@ and the transcript pointer — Claude `transcript_path`, Codex `agent_transcript
 Neither payload carries a `usage` object, because usage on `SubagentStop` is undocumented on
 both hosts today; the recorder therefore estimates tokens from the transcript and records the
 row as inexact (`exact: false`). When a host surfaces exact usage, add it here and re-verify.
+
+## Live captures of the stage agent report
+
+`claude/subagent-handback.json`, `claude/subagent-stop.json` and `claude/subagent-stop-text.json`
+were captured live from Claude Code 2.1.302 on 4 November 2026 with
+`node scripts/capture-hook-fixtures.mjs --out tests/fixtures/hooks/claude`. The script makes a
+throwaway project, installs one logging hook and one stage agent, runs `claude -p` once in `auto`
+and once in `default` permission mode, and replaces the throwaway paths with `/capture/...`.
+Re-run it on each host version bump, because the fields below decide where the report comes from.
+
+| Fixture | Permission mode | Where the report is |
+| --- | --- | --- |
+| `subagent-handback.json` | `auto` | `tool_input.message` of the `SubagentHandback` PreToolUse |
+| `subagent-stop.json` | `auto` | nowhere: `last_assistant_message` is undefined |
+| `subagent-stop-text.json` | `default` | `last_assistant_message` |
+
+`SubagentHandback` exists only in `auto` permission mode on 2.1.302. In every other mode a stage
+agent ends in plain text and the SubagentStop payload carries the report.
