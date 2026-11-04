@@ -45,6 +45,16 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-write-guard.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-handback.mjs\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

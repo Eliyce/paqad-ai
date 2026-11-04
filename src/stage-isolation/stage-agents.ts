@@ -439,16 +439,17 @@ export interface StageReportReading {
   stated: boolean;
 }
 
-const STATUS_LINE = /\bStatus:\s*`?(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gu;
-const PAUSED_DECISION = /\bpaused:\s*(D-[A-Za-z0-9]+)/u;
+const STATUS_LINE = /^[\s*_`#-]*Status:\s*[*_`]*(DONE_WITH_CONCERNS|DONE|NEEDS_CONTEXT|BLOCKED)\b/gmu;
+const PAUSED_DECISION = /^[\s*_`#-]*paused:\s*`?(D-[A-Za-z0-9]+)/gmu;
 
 export function readStageReportStatus(text: string): StageReportReading {
   const statuses = [...text.matchAll(STATUS_LINE)].map((match) => match[1] as StageReportStatus);
   const status = statuses.at(-1) ?? 'BLOCKED';
+  const decisions = [...text.matchAll(PAUSED_DECISION)].map((match) => match[1]!);
   return {
     status,
     advance: status === 'DONE' || status === 'DONE_WITH_CONCERNS',
-    decision: PAUSED_DECISION.exec(text)?.[1] ?? null,
+    decision: decisions.at(-1) ?? null,
     stated: statuses.length > 0,
   };
 }

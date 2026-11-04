@@ -11,11 +11,13 @@ export type PaqadHookEvent =
   | 'post-tool-read'
   | 'post-tool-agent'
   | 'subagent-stop-any'
-  | 'pre-tool-bash';
+  | 'pre-tool-bash'
+  | 'pre-tool-handback';
 
 export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'pre-tool-mutation',
   'pre-tool-bash',
+  'pre-tool-handback',
   'prompt-submit',
   'session-start',
   'completion',
@@ -60,6 +62,8 @@ export const PAQAD_ANY_SUBAGENT_MATCHER = '.*';
 
 export const PAQAD_BASH_TOOL_MATCHER = 'Bash';
 
+export const PAQAD_HANDBACK_TOOL_MATCHER = 'SubagentHandback';
+
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
 export interface HostHookEventMap {
@@ -71,6 +75,7 @@ export interface HostHookEventMap {
   postAgentMatcher?: string;
   anySubagentMatcher?: string;
   bashMatcher?: string;
+  handbackMatcher?: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -86,6 +91,7 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'post-tool-agent': 'PostToolUse',
       'subagent-stop-any': 'SubagentStop',
       'pre-tool-bash': 'PreToolUse',
+      'pre-tool-handback': 'PreToolUse',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
@@ -94,6 +100,7 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
     postAgentMatcher: PAQAD_AGENT_TOOL_MATCHER,
     anySubagentMatcher: PAQAD_ANY_SUBAGENT_MATCHER,
     bashMatcher: PAQAD_BASH_TOOL_MATCHER,
+    handbackMatcher: PAQAD_HANDBACK_TOOL_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -265,6 +272,14 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     description:
       'Block shell file writes from the read-only paqad agents; High Table seats write only under .paqad/tmp/high-table/.',
   },
+  {
+    id: 'stage-agent-handback',
+    event: 'pre-tool-handback',
+    hookFile: 'stage-agent-handback.mjs',
+    timeoutSec: 10,
+    description:
+      'Record a stage agent’s handback report and refuse a finished claim whose stage has no result.',
+  },
 ];
 
 export interface RenderedHook {
@@ -342,6 +357,9 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
   }
   if (event === 'pre-tool-bash') {
     return host.bashMatcher;
+  }
+  if (event === 'pre-tool-handback') {
+    return host.handbackMatcher;
   }
   return undefined;
 }

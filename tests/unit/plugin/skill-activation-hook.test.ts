@@ -99,7 +99,7 @@ describe('the plugin hooks.json', () => {
     expect(Object.keys(commands)).toEqual([...Object.keys(PRE_EXISTING_ENTRIES), 'PostToolUse']);
     const appended: Record<string, string[]> = {
       SubagentStop: ['agent-delegation.mjs'],
-      PreToolUse: ['stage-agent-write-guard.mjs'],
+      PreToolUse: ['stage-agent-write-guard.mjs', 'stage-agent-handback.mjs'],
     };
     for (const [event, entries] of Object.entries(PRE_EXISTING_ENTRIES)) {
       expect(commands[event]).toEqual([...entries, ...(appended[event] ?? [])]);

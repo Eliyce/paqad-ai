@@ -131,7 +131,7 @@ describe('paqad-hooks command builders', () => {
     expect(start?.timeout).toBe(10);
     expect(start?.command).toContain('stage-agent-start.mjs');
     expect(distinctEvents(chain).slice(-2)).toEqual(['SubagentStop', 'PostToolUse']);
-    expect(chain.filter((hook) => hook.timeout !== undefined)).toHaveLength(1);
+    expect(chain.filter((hook) => hook.timeout !== undefined)).toHaveLength(2);
   });
 
   it('fail-closed hooks keep their block-on-failure entries and the seed hook carries none', () => {
