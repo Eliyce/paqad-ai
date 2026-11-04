@@ -1410,6 +1410,121 @@ describe('bundleCompletenessGate with the change split across two bundles', () =
   });
 });
 
+describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
+  const config = { ...ONLY_ALWAYS, stageIsolationExpected: true };
+  const gate = (root: string) =>
+    bundleCompletenessGate({ ...base, config, projectRoot: root, dirName: DIR, mode: 'strict' })!;
+  const add = (root: string, row: Record<string, unknown>) =>
+    appendFeatureStageRow(root, 'ses_1', DIR, row);
+  const agentRow = (stage: string) => ({
+    kind: 'stage-agent',
+    stage,
+    event_status: 'completed',
+    agent_id: 'a1',
+    tokens_used: 0,
+    tokens_not_recarried: 0,
+    estimate: true,
+  });
+  const injected = (stage: string) => ({
+    kind: 'recipe-injected',
+    stage,
+    recipe: 'r',
+    recipe_hash: 'h',
+  });
+  const used = (stage: string) => ({
+    kind: 'skill-used',
+    stage,
+    recipe: 'r',
+    source: 'script',
+    script: 's',
+    output_hash: 'h',
+  });
+
+  function started(stage: string): string {
+    const root = tempRoot();
+    mkdirSync(join(root, featureDir(DIR)), { recursive: true });
+    add(root, { kind: 'open' });
+    add(root, { kind: 'stage_start', stage });
+    return root;
+  }
+
+  it('fails a development stage with no skill-used row, naming development', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    const result = gate(root);
+    expect(result.status).toBe('fail');
+    expect(result.detail).toContain('recipe proof for development');
+  });
+
+  it('does not name a stage that has all its proof', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    add(root, used('development'));
+    expect(gate(root).detail).not.toContain('recipe proof for');
+  });
+
+  it('asks checks only for the injected row on Claude Code', () => {
+    const root = started('checks');
+    add(root, agentRow('checks'));
+    add(root, injected('checks'));
+    expect(gate(root).detail).not.toContain('recipe proof for');
+  });
+
+  it('does not ask a Codex change for injection, and takes the digest for checks', () => {
+    const root = started('development');
+    seedFeatureRecord(root, DIR, { adapter: 'codex-cli', sessionId: 'ses_1', lane: 'full' });
+    add(root, agentRow('development'));
+    add(root, used('development'));
+    add(root, { kind: 'stage_start', stage: 'checks' });
+    add(root, agentRow('checks'));
+    add(root, {
+      kind: 'stage_end',
+      stage: 'checks',
+      artifact_digest: 'd',
+      artifact_paths: ['x/checks.json'],
+    });
+    expect(gate(root).detail).not.toContain('recipe proof for');
+  });
+
+  it('warns about a stage that ran before the update, and fails one after it', () => {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    writeFileSync(
+      ledger,
+      `${JSON.stringify({
+        schema_version: 2,
+        doc_type: 'paqad.stage-evidence',
+        kind: 'stage_start',
+        stage: 'planning',
+        content_hash: 'a',
+        session_id: 's',
+        agent: 'orchestrator',
+        recorded_at: '2026-11-01T10:00:00.000Z',
+      })}\n`,
+    );
+    add(root, { kind: 'stage_start', stage: 'review' });
+    const result = gate(root);
+    expect(result.detail).toContain('ran before the update and hold no recipe proof: planning');
+    expect(result.detail).toContain('recipe proof for review');
+    expect(result.detail).not.toContain('recipe proof for planning');
+  });
+
+  it('asks nothing on another lane', () => {
+    const root = started('development');
+    const fast = bundleCompletenessGate({
+      ...base,
+      config: { ...config, lane: 'fast' },
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    })!;
+    expect(fast.detail).not.toContain('recipe proof for');
+  });
+});
+
 describe('bundleCompletenessGate reads the ledger chain', () => {
   function chainRoot(): { root: string; ledger: string } {
     const root = tempRoot();

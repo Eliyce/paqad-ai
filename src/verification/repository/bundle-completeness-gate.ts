@@ -43,7 +43,10 @@ import {
   skillRecordFilename,
 } from '@/feature-evidence/artifacts.js';
 import { checkStageChain, firstChainBreakLine } from '@/feature-evidence/ledger-chain.js';
-import { bundleLedgerEra } from '@/stage-evidence/ledger-era.js';
+import { bundleLedgerEra, stageLedgerEra } from '@/stage-evidence/ledger-era.js';
+import { RECIPE_INJECTED_KIND, SKILL_USED_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { recipeHasScript } from '@/stage-isolation/recipes.js';
+import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
   hasStageAgentEvidence,
@@ -213,6 +216,7 @@ export function bundleCompletenessGate(
       assertRequired(entry, input, dirName, sessionId, state);
     }
     assertStageAgentRows(input, dirName, state);
+    assertRecipeProof(input, dirName, state);
     assertSkillRecords(input, dirName, state);
     assertAgentRecords(input, dirName, state);
     assertNotSplit(input, dirName, state);
@@ -288,7 +292,7 @@ function assertLedgerChain(
   } else if (breakLine !== null) {
     warnings.push(`${breakLine} in a ledger from before the chain`);
   }
-  if (warnings.length > 0) state.chainNote = ` Ledger note: ${warnings.join('; ')}.`;
+  if (warnings.length > 0) state.chainNote += ` Ledger note: ${warnings.join('; ')}.`;
 }
 
 function assertSkillRecords(
@@ -348,6 +352,85 @@ function assertStageAgentRows(
   }
   if (input.config.stageIsolationUnresolved) {
     state.isolationUnverified = true;
+  }
+}
+
+function stageAgentRan(rows: readonly SessionLedgerRow[], stage: string): boolean {
+  return rows.some(
+    (row) =>
+      row.kind === STAGE_AGENT_KIND &&
+      row.event_status === 'completed' &&
+      (row.stage === stage || (Array.isArray(row.stages) && row.stages.includes(stage))),
+  );
+}
+
+function hasRowOf(rows: readonly SessionLedgerRow[], kind: string, stage: string): boolean {
+  return rows.some((row) => row.kind === kind && row.stage === stage);
+}
+
+function codexChecksProven(rows: readonly SessionLedgerRow[]): boolean {
+  return rows.some(
+    (row) =>
+      row.kind === 'stage_end' && row.stage === 'checks' && typeof row.artifact_digest === 'string',
+  );
+}
+
+function missingProof(
+  rows: readonly SessionLedgerRow[],
+  stage: string,
+  codex: boolean,
+): string | null {
+  if (!stageAgentRan(rows, stage)) return 'a stage-agent completed row';
+  if (codex && stage === 'checks') {
+    return codexChecksProven(rows) ? null : 'an end row with the digest of checks.json';
+  }
+  if (!codex && !hasRowOf(rows, RECIPE_INJECTED_KIND, stage)) return 'a recipe-injected row';
+  if (recipeHasScript(stage) && !hasRowOf(rows, SKILL_USED_KIND, stage)) return 'a skill-used row';
+  return null;
+}
+
+function startedBeforeLaneRaise(
+  rows: readonly SessionLedgerRow[],
+  stage: string,
+  raisedAt: number,
+): boolean {
+  if (Number.isNaN(raisedAt)) return false;
+  const started = rows.filter((row) => row.kind === 'stage_start' && row.stage === stage).at(-1);
+  const at = Date.parse(String(started?.recorded_at ?? ''));
+  return !Number.isNaN(at) && at < raisedAt;
+}
+
+function assertRecipeProof(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (!input.config.stageIsolationExpected || input.config.lane !== 'full') return;
+  const rows = readFeatureStageUnit(input.projectRoot, dirName);
+  const record = readFeatureRecord(input.projectRoot, dirName);
+  const codex = record?.adapter === 'codex-cli';
+  const raised = record?.lane_raised;
+  const raisedAt = raised?.to === 'full' ? Date.parse(raised.at) : Number.NaN;
+  const older: string[] = [];
+  for (const stage of STAGE_AGENT_STAGES) {
+    if (!hasRowOf(rows, 'stage_start', stage)) continue;
+    if (startedBeforeLaneRaise(rows, stage, raisedAt)) continue;
+    if (stageLedgerEra(rows, stage) !== 'v3') {
+      older.push(stage);
+      continue;
+    }
+    const missing = missingProof(rows, stage, codex);
+    if (missing === null) continue;
+    state.skillLines.push(
+      `The ${stage} stage has no proof its recipe was used: ${missing} is missing.`,
+    );
+    state.missing.push({
+      file: `recipe proof for ${stage}`,
+      writer: `dispatch the paqad-${stage.replace(/_/g, '-')} agent and end the stage with its command`,
+    });
+  }
+  if (older.length > 0) {
+    state.chainNote += ` These stages ran before the update and hold no recipe proof: ${older.join(', ')}.`;
   }
 }
 
@@ -525,7 +608,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
   if (state.missing.length > 0) {
     const named = state.missing.map((m) => `${m.file} (run: ${m.writer})`).join('; ');
     const skillNote = state.skillLines.length > 0 ? `${state.skillLines.join(' ')} ` : '';
-    const detail = `${skillNote}The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${state.splitNote}${skipNote}`;
+    const detail = `${skillNote}The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${state.splitNote}${skipNote}${state.chainNote}`;
     const remediation = `Produce the missing bundle file(s): ${named}.`;
     if (mode === 'strict') {
       return { name: GATE_NAME, status: 'fail', detail, remediation, failures: [] };
