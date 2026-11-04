@@ -57,7 +57,7 @@ describe('doctor: git-workflow', () => {
   });
 
   it('warns when the old delivery policy is still there (AC-44)', () => {
-    const root = project();
+    const root = project({ 'enforcement.yaml': 'enabled: true\n' });
     mkdirSync(join(root, 'docs/instructions/workflows'), { recursive: true });
     writeFileSync(
       join(root, 'docs/instructions/workflows/delivery-policy.yaml'),

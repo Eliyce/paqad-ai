@@ -274,6 +274,10 @@ function keepAiAttribution(projectRoot: string, files: Record<GitWorkflowFile, s
   }
 }
 
+export function deliveryMovePending(projectRoot: string): boolean {
+  return existsSync(join(projectRoot, OLD_DELIVERY_POLICY)) && gitWorkflowFilesAbsent(projectRoot);
+}
+
 export function deliveryMoveBlocks(projectRoot: string): string[] {
   return GIT_WORKFLOW_FILES.flatMap((file) => {
     const line = renderWriteBlock(
@@ -289,13 +293,12 @@ export function migrateDeliveryPolicy(
   options: MigrateOptions = {},
 ): MigrationResult {
   const oldPath = join(projectRoot, OLD_DELIVERY_POLICY);
-  if (!existsSync(oldPath)) return { ran: false, lines: [], written: [], deleted: false };
+  if (!deliveryMovePending(projectRoot)) {
+    return { ran: false, lines: [], written: [], deleted: false };
+  }
   const blocked = deliveryMoveBlocks(projectRoot);
   if (blocked.length > 0) {
     return { ran: false, blocked: true, lines: blocked, written: [], deleted: false };
-  }
-  if (!gitWorkflowFilesAbsent(projectRoot)) {
-    return { ran: false, lines: [], written: [], deleted: false };
   }
   const version = options.version ?? __PKG_VERSION__;
   const baseBranch = options.baseBranch ?? remoteDefaultBranch(projectRoot);

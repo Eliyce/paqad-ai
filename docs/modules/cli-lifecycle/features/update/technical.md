@@ -153,7 +153,7 @@ Source directories owned by this feature:
 - Other writers respect a higher number too. The delivery migration, `git-workflow setup --overwrite` and
   a dashboard save refuse a git-workflow file with a higher `schema_version` and print the newer-file line.
   The migration leaves the old policy file in place. A malformed stamp in any of the 5 git-workflow files
-  also stops the move. Update names that file on each run until it is fixed, and the old policy file stays.
+  also stops a pending move, meaning those files hold no settings yet. Update names that file on each run until it is fixed, and the old policy file stays.
   While the move is stopped, update and onboarding create none of the missing git-workflow files, so the move
   runs on the next update once the stamp is fixed.
 - `config set` and the other single-value writers, and the settings migration, refuse one of paqad's own team

@@ -10,7 +10,11 @@ import {
 } from '@/feature-evidence/git-hooks.js';
 import { changedOutside } from '@/git-workflow/last-applied.js';
 import { gitWorkflowDir, loadGitWorkflow } from '@/git-workflow/load.js';
-import { deliveryMoveBlocks, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import {
+  deliveryMoveBlocks,
+  deliveryMovePending,
+  OLD_DELIVERY_POLICY,
+} from '@/git-workflow/migrate.js';
 
 export const GIT_WORKFLOW_CHECK = 'git-workflow';
 
@@ -18,6 +22,27 @@ const SKILL_REVIEW = 'Ask your agent to review it with the git-workflow skill.';
 
 function warning(detail: string, remediation: string): HealthCheckResult {
   return { name: GIT_WORKFLOW_CHECK, status: 'warning', detail, remediation };
+}
+
+function oldPolicyWarning(projectRoot: string): HealthCheckResult {
+  const blocks = deliveryMoveBlocks(projectRoot);
+  if (!deliveryMovePending(projectRoot)) {
+    const remedy = `Delete ${OLD_DELIVERY_POLICY}.`;
+    return warning(
+      [`${OLD_DELIVERY_POLICY} is no longer read. Delete it.`, ...blocks].join(' '),
+      [remedy, ...blocks].join(' '),
+    );
+  }
+  if (blocks.length === 0) {
+    return warning(
+      `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. It holds your only copy of these rules. Run paqad-ai update to move them.`,
+      'Run paqad-ai update.',
+    );
+  }
+  return warning(
+    `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. ${blocks.join(' ')} The move runs on the next paqad-ai update.`,
+    blocks.join(' '),
+  );
 }
 
 export function gitWorkflowHealth(
@@ -42,23 +67,8 @@ export function gitWorkflowHealth(
     results.push(warning(unknown.message, SKILL_REVIEW));
   }
 
-  const moveBlocks = existsSync(join(projectRoot, OLD_DELIVERY_POLICY))
-    ? deliveryMoveBlocks(projectRoot)
-    : [];
-  if (moveBlocks.length > 0) {
-    results.push(
-      warning(
-        `${OLD_DELIVERY_POLICY} hasn't moved yet, so keep it. ${moveBlocks.join(' ')} The move runs on the next paqad-ai update.`,
-        moveBlocks.join(' '),
-      ),
-    );
-  } else if (existsSync(join(projectRoot, OLD_DELIVERY_POLICY))) {
-    results.push(
-      warning(
-        `${OLD_DELIVERY_POLICY} is no longer read. Delete it.`,
-        `Delete ${OLD_DELIVERY_POLICY}.`,
-      ),
-    );
+  if (existsSync(join(projectRoot, OLD_DELIVERY_POLICY))) {
+    results.push(oldPolicyWarning(projectRoot));
   }
 
   const { tickets, enforcement } = loaded.config;

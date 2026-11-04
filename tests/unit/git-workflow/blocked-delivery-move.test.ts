@@ -71,6 +71,33 @@ describe('a delivery move held back by a commit settings file', () => {
     },
   );
 
+  it('AC-14: once the stamp is fixed and before update runs, doctor says keep it, and its advice clears it', async () => {
+    put(COMMITS, 'schema_version: abc\n');
+    await update();
+    put(COMMITS, 'schema_version: 1\n');
+    const details = gitWorkflowHealth(root, () => true).map((result) => result.detail);
+    expect(details).toContain(
+      `${POLICY} hasn't moved yet, so keep it. It holds your only copy of these rules. Run paqad-ai update to move them.`,
+    );
+    expect(details.join('\n')).not.toContain('Delete it');
+    await update();
+    expect(existsSync(join(root, POLICY))).toBe(false);
+  });
+
+  it('a commit file with real settings and a bad stamp is not a pending move: doctor says delete, and names the line', async () => {
+    const text = 'schema_version: abc\nsign_off: true\n';
+    put(COMMITS, text);
+    const details = gitWorkflowHealth(root, () => true).map((result) => result.detail);
+    const line = details.find((detail) => detail.includes(POLICY))!;
+    expect(line).toContain(`${POLICY} is no longer read. Delete it.`);
+    expect(line).toContain(`${COMMITS} has a schema_version or paqad_version line`);
+    expect(line).not.toContain('The move runs');
+    await update();
+    expect(read(COMMITS)).toBe(text);
+    expect(existsSync(join(root, DIR, 'tickets.yaml'))).toBe(true);
+    expect(read(POLICY)).toBe(POLICY_TEXT);
+  });
+
   it('with no block, doctor still says to delete a file the team has already moved past', () => {
     put(`${DIR}/enforcement.yaml`, 'schema_version: 1\nenabled: true\n');
     const details = gitWorkflowHealth(root, () => true).map((result) => result.detail);
