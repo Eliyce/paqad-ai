@@ -274,9 +274,8 @@ describe('silent-update.mjs', () => {
     }
   });
 
-  itPosix(
-    'AC-20: runs the background update in the project folder when started elsewhere',
-    async () => {
+  describe('where the background update runs (AC-20)', () => {
+    itPosix('runs the stub in the project folder, not the folder the hook started in', async () => {
       const root = makeRoot();
       try {
         const project = join(root, 'project');
@@ -304,8 +303,8 @@ describe('silent-update.mjs', () => {
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
-    },
-  );
+    });
+  });
 
   itPosix('logs a forced self-update when more than two minors behind', async () => {
     const root = makeRoot();
