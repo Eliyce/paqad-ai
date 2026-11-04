@@ -205,7 +205,7 @@ describe('stage-agent-handback.mjs', () => {
     expect(handbackRows(other).filter((row) => row.event_status === 'denied')).toHaveLength(1);
   });
 
-  it('keeps a row for each fast identical retry and still reaches the ceiling', async () => {
+  it('AC-40: keeps a row for each fast identical retry and still reaches the ceiling', async () => {
     const root = tempRoot();
     await openChange(root);
     const exits: number[] = [];
@@ -230,7 +230,7 @@ describe('stage-agent-handback.mjs', () => {
     );
   });
 
-  it('exits 0 and writes no row for an agent outside the helper pattern or with no open row', async () => {
+  it('AC-14: exits 0 and writes no row for an agent outside the helper pattern or with no open row', async () => {
     const root = tempRoot();
     await openChange(root);
     const before = ledger(root).length;

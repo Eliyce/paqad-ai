@@ -107,7 +107,7 @@ describe('paqad-ai stage report', () => {
     expect(json).toHaveProperty('tokens_not_recarried');
   });
 
-  it('flips to dispatch-fresh above 150,000 tokens, and stays resume at the boundary', () => {
+  it('AC-57: flips to dispatch-fresh above 150,000 tokens, and stays resume at the boundary', () => {
     const completed = (tokens: number) =>
       row({
         kind: 'stage-agent',
@@ -122,7 +122,7 @@ describe('paqad-ai stage report', () => {
     expect(buildStageReport([completed(150_001)], AGENT)?.resume_advice).toBe('dispatch-fresh');
   });
 
-  it('exits 1 with JSON for an unknown agent id', async () => {
+  it('AC-57: exits 1 with JSON for an unknown agent id', async () => {
     const root = tempRoot();
     await openPlanning(root);
     const { exitCode, json } = await report(root, 'never_seen');
@@ -147,7 +147,7 @@ describe('paqad-ai stage report', () => {
     expect(String(unread.json.reason)).not.toBe('');
   });
 
-  it('reads an agent still running as not yet known, and a row with no token figure as resume', () => {
+  it('AC-57: reads an agent still running as not yet known, and a row with no token figure as resume', () => {
     const report = buildStageReport([row({ kind: 'stage-agent', event_status: 'started' })], AGENT);
     expect(report).toMatchObject({
       report_status: 'UNKNOWN',
@@ -177,7 +177,7 @@ describe('paqad-ai stage report', () => {
     });
   });
 
-  it('names the missing artifact after a plain text DONE used its refusals', async () => {
+  it('AC-18: names the missing artifact after a plain text DONE used its refusals', async () => {
     const root = tempRoot();
     await openPlanning(root);
     for (let attempt = 0; attempt < 4; attempt += 1) await stop(root, 'Status: DONE');

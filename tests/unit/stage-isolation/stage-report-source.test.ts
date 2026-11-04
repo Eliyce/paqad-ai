@@ -144,7 +144,7 @@ describe('where the completed row reads its report from', () => {
     expect(completedRow(root)).toMatchObject({ report_source: 'none', report_stated: false });
   });
 
-  it('reads a handback from the transcript when the hook crashed, and says the gate did not run', async () => {
+  it('AC-79: reads a handback from the transcript when the hook crashed, and says the gate did not run', async () => {
     const root = tempRoot();
     await openAndEndPlanning(root);
     const path = agentTranscript(root, [

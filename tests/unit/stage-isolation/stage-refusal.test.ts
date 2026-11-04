@@ -101,7 +101,7 @@ describe('stage start refuses a later stage past an unfinished one', () => {
     expect(stageStartRefusal([opened, denied], 'checks', 'full')).toBeNull();
   });
 
-  it('clears on a later end row with its artifact or a newer DONE', () => {
+  it('AC-26: clears on a later end row with its artifact or a newer DONE', () => {
     const blocked = report('review', 'BLOCKED');
     expect(stageStartRefusal([opened, blocked, reviewEnd], 'checks', 'full')).toBeNull();
     const done = report('review', 'DONE');

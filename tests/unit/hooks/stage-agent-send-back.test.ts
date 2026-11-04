@@ -109,7 +109,7 @@ function completed(root: string) {
 }
 
 describe('the stop check sends an unfinished stage back', () => {
-  it('blocks a plain text DONE with no artifact, writes no completed row, keeps the hold', async () => {
+  it('AC-16: blocks a plain text DONE with no artifact, writes no completed row, keeps the hold', async () => {
     const root = tempRoot();
     await openPlanning(root);
     const startRow = {
@@ -132,7 +132,7 @@ describe('the stop check sends an unfinished stage back', () => {
     expect(live.map((agent) => agent.agentId)).toContain(AGENT);
   });
 
-  it('shares the count with the handback path and lets the fourth attempt through as BLOCKED', async () => {
+  it('AC-17: shares the count with the handback path and lets the fourth attempt through as BLOCKED', async () => {
     const root = tempRoot();
     await openPlanning(root);
     expect((await handback(root, 'h1')).exitCode).toBe(2);
