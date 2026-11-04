@@ -41,13 +41,14 @@ import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
+import { LEGACY_MCP_OUTPUT_PATHS } from '@/mcp/config-manager.js';
 import {
   cleanObsoleteWorkflowRules,
   OBSOLETE_WORKFLOW_RULES,
 } from '@/onboarding/obsolete-cleanup.js';
 import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-development-view.js';
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
-import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
+import { LEGACY_VIEW_HASH, removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
@@ -120,6 +121,11 @@ const TRACKED_UPDATE_FILES: readonly string[] = [
   '.paqad/.gitignore',
   '.paqad/.gitattributes',
   '.worktreeinclude',
+  PATHS.RULE_SCRIPT_MAP,
+  PATHS.CAPABILITY_LOCK,
+  PATHS.SCHEMA_MARKER,
+  LEGACY_VIEW_HASH,
+  ...new Set(Object.values(LEGACY_MCP_OUTPUT_PATHS)),
   ...RETIRED_FILES,
 ];
 
@@ -176,11 +182,11 @@ export class FrameworkUpdater {
   constructor(private readonly options: FrameworkUpdaterOptions = {}) {}
 
   async run(projectRoot: string): Promise<UpdateReport> {
+    const filesBefore = snapshotFiles(projectRoot);
     await checkAndMigrateSchema(projectRoot, VERSION);
     runPendingEvidenceMigration(projectRoot);
 
     const previousVersion = readText(join(projectRoot, PATHS.FRAMEWORK_VERSION));
-    const filesBefore = snapshotFiles(projectRoot);
     const manifest = readManifest(projectRoot);
     const artifactPolicy = new Map(
       manifest?.generated_artifacts.map((artifact) => [artifact.path, artifact.auto_update]) ?? [],

@@ -95,7 +95,7 @@ export class FrameworkUpdater {
 }
 ```
 
-`changed_files` lists what the run changed outside `regenerated`: the manifest, `.paqad/.config.example`, the configs README, team config files, git-workflow files, team setup files, `.paqad/.gitignore`, `.paqad/.gitattributes`, `.worktreeinclude` and removed files. `.paqad/framework-version.txt` and the git-ignored `settings.local.json` don't count. `Changed <n> files:`, `--last` and the session line all count `regenerated` and `changed_files` together, without repeats.
+`changed_files` lists what the run changed outside `regenerated`: the manifest, `.paqad/.config.example`, the configs README, team config files, git-workflow files, team setup files, `.paqad/.gitignore`, `.paqad/.gitattributes`, `.worktreeinclude`, the rule-script map, `.paqad/capability-lock.json`, `.paqad/schema-version.json` and removed files. `.paqad/framework-version.txt` and the git-ignored `settings.local.json` don't count. `Changed <n> files:`, `--last` and the session line all count `regenerated` and `changed_files` together, without repeats.
 
 A file whose bytes already match what paqad would write is not written and appears in neither `regenerated` nor `skipped`, so a run changes no modified time and doesn't invalidate a running session's entry check. An executable file still gets its mode. `skipped` lists a file whose manifest entry says `auto_update: false` and whose bytes differ, with the bytes on disk and the bytes paqad would have written. `new_scripts` lists files under `scripts/` that did not exist before. `config_keys_pruned` lists the keys removed from `.paqad/configs/.config.*` because this version no longer knows them. `deprecated` and `new_mcp_servers` are always empty.
 

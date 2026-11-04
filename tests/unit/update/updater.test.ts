@@ -1121,6 +1121,50 @@ describe('FrameworkUpdater', () => {
       expect((await run()).changed_files).toEqual([]);
     });
 
+    it('AC-11: counts the rule-script map and capability lock on the upgrade that removes a rule file', async () => {
+      const shipped = readFileSync(
+        join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/codebase-health.md'),
+        'utf8',
+      );
+      const rule = 'docs/instructions/rules/coding/codebase-health.md';
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(join(projectRoot, rule), shipped);
+      writeFileSync(
+        join(projectRoot, 'docs/instructions/rules/coding/my-own-rule.md'),
+        '- Validate all input.\n',
+      );
+      compileRuleScripts(projectRoot);
+      const report = await run();
+      expect(report.changed_files).toEqual(
+        expect.arrayContaining([
+          rule,
+          'docs/instructions/rules/rule-script-map.yml',
+          '.paqad/capability-lock.json',
+        ]),
+      );
+    });
+
+    it('counts the schema marker a run writes and the old files a cleanup removes', async () => {
+      await run();
+      rmSync(join(projectRoot, '.paqad/schema-version.json'));
+      const hash = '.paqad/state/feature-development-view.sha256';
+      mkdirSync(join(projectRoot, '.paqad/state'), { recursive: true });
+      writeFileSync(join(projectRoot, hash), 'abc\n');
+      const mcp = '.codex/mcp.json';
+      mkdirSync(join(projectRoot, '.codex'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, mcp),
+        JSON.stringify({ mcpServers: {}, resolved_artifacts: [] }),
+      );
+      const report = await run();
+      expect(existsSync(join(projectRoot, hash))).toBe(false);
+      expect(existsSync(join(projectRoot, mcp))).toBe(false);
+      expect(report.changed_files).toEqual(
+        expect.arrayContaining(['.paqad/schema-version.json', hash, mcp]),
+      );
+      expect((await run()).changed_files).toEqual([]);
+    });
+
     it('counts a removed file', async () => {
       await run();
       const removed = 'docs/instructions/workflows/feature-development.yaml';
