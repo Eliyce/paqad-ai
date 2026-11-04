@@ -259,3 +259,15 @@ describe('runtime/hooks/skill-activation.mjs', () => {
     expect(ledger(root)).toEqual([]);
   });
 });
+
+describe('when both routes fire for one Skill call', () => {
+  it('holds one entry for a repeated call, and two for two calls', () => {
+    const root = project();
+    const call = { tool_name: 'Skill', tool_input: { skill: 'review' }, session_id: 's' };
+    runHook(root, { ...call, tool_use_id: 'toolu_one' });
+    runHook(root, { ...call, tool_use_id: 'toolu_one' });
+    expect(ledger(root)).toHaveLength(1);
+    runHook(root, { ...call, tool_use_id: 'toolu_two' });
+    expect(ledger(root)).toHaveLength(2);
+  });
+});

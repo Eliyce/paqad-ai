@@ -32,8 +32,20 @@ async function record(payload) {
   const line = entry === null ? null : core.activationLine(entry);
   if (line === null) return;
   const file = join(projectRoot, core.ACTIVATIONS_REL);
-  fs.mkdirSync(dirname(file), { recursive: true });
-  fs.appendFileSync(file, line, 'utf8');
+  const { seenInTail, withTailLock } = await import('./lib/ledger-tail-dedupe.mjs');
+  const wrote = withTailLock(file, () => {
+    if (
+      entry.request_id !== null &&
+      seenInTail(file, core.isSameActivation(entry), {
+        byValue: typeof payload.tool_use_id === 'string',
+      })
+    ) {
+      return false;
+    }
+    fs.appendFileSync(file, line, 'utf8');
+    return true;
+  });
+  if (!wrote) return;
   const fd = fs.openSync(file, 'r');
   let text;
   try {

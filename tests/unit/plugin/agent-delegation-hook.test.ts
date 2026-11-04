@@ -293,3 +293,31 @@ describe('runtime/hooks/agent-delegation.mjs', () => {
     }
   });
 });
+
+describe('when both routes fire for one delegation', () => {
+  it('holds one entry for a repeated call', () => {
+    const root = project();
+    const call = {
+      tool_name: 'Agent',
+      tool_input: { subagent_type: 'paqad-review' },
+      session_id: 's',
+      tool_use_id: 'toolu_one',
+    };
+    runHook(root, call);
+    runHook(root, call);
+    expect(ledger(root)).toHaveLength(1);
+  });
+
+  it('holds one stop for a repeat inside the window', () => {
+    const root = project();
+    const stop = {
+      hook_event_name: 'SubagentStop',
+      agent_type: 'paqad-review',
+      agent_id: 'a1',
+      session_id: 's',
+    };
+    runHook(root, stop);
+    runHook(root, stop);
+    expect(ledger(root)).toHaveLength(1);
+  });
+});

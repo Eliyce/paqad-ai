@@ -47,6 +47,10 @@ export function activationFromPayload(payload, now = new Date()) {
   };
 }
 
+export function isSameActivation(entry) {
+  return (row) => row.skill === entry.skill && row.request_id === entry.request_id;
+}
+
 export function activationLine(entry) {
   const line = `${JSON.stringify(entry)}\n`;
   return Buffer.byteLength(line) < MAX_LINE_BYTES ? line : null;
