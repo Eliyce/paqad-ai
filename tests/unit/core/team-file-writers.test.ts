@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -21,9 +21,11 @@ import {
   writeTeamYamlValue,
 } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
-import { runSetup } from '@/cli/commands/git-workflow.js';
+import { runCheck, runSetup } from '@/cli/commands/git-workflow.js';
 import { putGitWorkflowFile } from '@/dashboard/config-git-workflow.js';
 import { applyChange } from '@/git-workflow/change.js';
+import { stampLastApplied } from '@/git-workflow/last-applied.js';
+import { gitWorkflowHealth } from '@/health/git-workflow-check.js';
 import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
 import { FrameworkUpdater } from '@/update/index.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
@@ -102,7 +104,7 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     expect(read(file)).toBe(text);
   });
 
-  it('migrateDeliveryPolicy stops and names a newer file that holds only known keys', () => {
+  it('AC-24: migrateDeliveryPolicy stops and names a newer file that holds only known keys', () => {
     const commits = '.paqad/configs/git-workflow/commits.yaml';
     const text = 'schema_version: 2\nai_attribution: keep\n';
     put(commits, text);
@@ -118,7 +120,7 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     expect(read(OLD_DELIVERY_POLICY)).toBe('branch:\n  base: main\n');
   });
 
-  it('an update names that file once', async () => {
+  it('AC-24: an update names that file once', async () => {
     const commits = '.paqad/configs/git-workflow/commits.yaml';
     put(commits, 'schema_version: 2\nai_attribution: keep\n');
     put(OLD_DELIVERY_POLICY, 'branch:\n  base: main\n');
@@ -133,7 +135,7 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     ).toHaveLength(1);
   });
 
-  it('the git workflow setup refuses to overwrite it', async () => {
+  it('AC-24: the git workflow setup refuses to overwrite it', async () => {
     const file = '.paqad/configs/git-workflow/enforcement.yaml';
     put(file, 'schema_version: 2\nenabled: true\n');
     put('answers.json', '{"choices":{}}');
@@ -148,7 +150,7 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     expect(result.stdout).toContain(NEWER_LINE(file));
   });
 
-  it('the dashboard refuses to save it', () => {
+  it('AC-24: the dashboard refuses to save it', () => {
     const file = '.paqad/configs/git-workflow/enforcement.yaml';
     put(file, 'schema_version: 2\nenabled: true\n');
     expect(() =>
@@ -231,6 +233,99 @@ describe('AC-21: a malformed stamp through the writers', () => {
     expect(read(commits)).toBe('schema_version: abc\nai_attribution: strip\n');
   });
 });
+
+describe('AC-14: the changed-outside warning clears by doing what it says', () => {
+  it('AC-14: goes from doctor to the remedy and back to a clean doctor', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-team-writers-'));
+    try {
+      const commits = join(root, '.paqad/configs/git-workflow/commits.yaml');
+      mkdirSync(dirname(commits), { recursive: true });
+      writeFileSync(commits, 'schema_version: 1\nsign_off: false\n');
+      stampLastApplied(root);
+      expect(gitWorkflowHealth(root, () => true)[0]!.status).toBe('pass');
+      writeFileSync(commits, 'schema_version: 1\nsign_off: true\n');
+      const warned = gitWorkflowHealth(root, () => true);
+      expect(warned).toHaveLength(1);
+      expect(warned[0]!.detail).toContain(
+        'commits.yaml was changed outside the git-workflow skill',
+      );
+      expect(runCheck(root, true).exitCode).toBe(0);
+      expect(gitWorkflowHealth(root, () => true)[0]!.status).toBe('pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+  'AC-22: a write failure on one file',
+  () => {
+    let root: string;
+    const put = (rel: string, text: string) => {
+      mkdirSync(dirname(join(root, rel)), { recursive: true });
+      writeFileSync(join(root, rel), text);
+    };
+    const read = (rel: string) => readFileSync(join(root, rel), 'utf8');
+    const SAFETY = '.paqad/configs/feature-development/safety.yaml';
+    const DECISIONS = '.paqad/configs/decisions.yaml';
+
+    beforeEach(() => {
+      root = mkdtempSync(join(tmpdir(), 'paqad-team-writers-'));
+    });
+
+    afterEach(() => {
+      chmodSync(join(root, '.paqad/configs/feature-development'), 0o755);
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AC-22: an own team file is named, the others swap, and the next run finishes', () => {
+      syncTeamConfigFiles(root);
+      for (const rel of [MODELS, DECISIONS]) {
+        put(rel, read(rel).replace('schema_version: 1', 'paqad_version: "1.119.0"'));
+      }
+      chmodSync(join(root, MODELS), 0o444);
+      const notes: string[] = [];
+      expect(() => syncTeamConfigFiles(root, notes)).not.toThrow();
+      expect(notes).toHaveLength(1);
+      expect(notes[0]).toMatch(/^Couldn't write \.paqad\/configs\/models\.yaml: .*next update/u);
+      expect(read(DECISIONS)).toContain('schema_version: 1');
+      expect(read(MODELS)).toContain('paqad_version');
+      chmodSync(join(root, MODELS), 0o644);
+      expect(syncTeamConfigFiles(root)).toEqual([join(root, MODELS)]);
+      expect(read(MODELS)).not.toContain('paqad_version');
+      expect(syncTeamConfigFiles(root)).toEqual([]);
+    });
+
+    it('AC-22: a safety file with team notes that cannot be written is named, and the next run finishes', () => {
+      syncTeamConfigFiles(root);
+      put(SAFETY, 'paqad_version: "1.117.0"\n# Ask Sam first.\n');
+      chmodSync(join(root, SAFETY), 0o444);
+      const notes: string[] = [];
+      syncTeamConfigFiles(root, notes);
+      expect(notes).toHaveLength(1);
+      expect(notes[0]).toContain(`Couldn't change ${SAFETY}: `);
+      chmodSync(join(root, SAFETY), 0o644);
+      const next: string[] = [];
+      syncTeamConfigFiles(root, next);
+      expect(read(SAFETY)).toBe('schema_version: 1\n# Ask Sam first.\n');
+      expect(next[0]).toContain('holds notes your team wrote');
+    });
+
+    it('AC-22: a safety file that cannot be deleted is named, and the next run finishes', () => {
+      syncTeamConfigFiles(root);
+      put(SAFETY, 'schema_version: 1\n');
+      chmodSync(join(root, '.paqad/configs/feature-development'), 0o555);
+      const notes: string[] = [];
+      syncTeamConfigFiles(root, notes);
+      expect(notes).toHaveLength(1);
+      expect(notes[0]).toContain(`Couldn't change ${SAFETY}: `);
+      chmodSync(join(root, '.paqad/configs/feature-development'), 0o755);
+      const next: string[] = [];
+      syncTeamConfigFiles(root, next);
+      expect(next).toEqual([`Removed ${SAFETY}, which paqad doesn't read any more.`]);
+    });
+  },
+);
 
 describe('what an update may change in a team file', () => {
   let root: string;
