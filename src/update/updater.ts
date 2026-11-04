@@ -27,6 +27,7 @@ import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
+import { versionAtLeast } from '@/core/version-compare.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
@@ -51,6 +52,7 @@ import { LEGACY_VIEW_HASH, removeGeneratedFiles } from '@/update/generated-files
 import { VERSION } from '@/index.js';
 import { managedBlockIsNewer, writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
+  readFrameworkVersion,
   writeFrameworkVersionPreservingTimestamp,
   writeOnboardingManifest,
 } from '@/onboarding/manifest-writer.js';
@@ -314,11 +316,11 @@ export class FrameworkUpdater {
     const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
-    writeFrameworkVersionPreservingTimestamp(
-      join(projectRoot, PATHS.FRAMEWORK_VERSION),
-      VERSION,
-      new Date().toISOString(),
-    );
+    const versionPath = join(projectRoot, PATHS.FRAMEWORK_VERSION);
+    const recorded = readFrameworkVersion(versionPath);
+    if (recorded === null || versionAtLeast(VERSION, recorded)) {
+      writeFrameworkVersionPreservingTimestamp(versionPath, VERSION, new Date().toISOString());
+    }
     if (!managedBlockIsNewer(projectRoot)) {
       writeManagedGitignoreBlock(projectRoot);
     }

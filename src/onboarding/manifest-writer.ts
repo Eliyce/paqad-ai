@@ -164,6 +164,10 @@ function isSafePropertySegment(segment: string): boolean {
   return segment !== '__proto__' && segment !== 'prototype' && segment !== 'constructor';
 }
 
+export function readFrameworkVersion(path: string): string | null {
+  return readPreviousFrameworkVersion(path)?.version ?? null;
+}
+
 function readPreviousFrameworkVersion(path: string): { version: string; updatedAt: string } | null {
   if (!existsSync(path)) {
     return null;
