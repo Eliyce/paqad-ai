@@ -1,9 +1,12 @@
 import { existsSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { sleepSync } from '@/core/fs/atomic-rename.js';
+import { releaseLock, tryAcquireLock } from '@/background/single-flight-lock.js';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
+import { bundleLockPath, LEDGER_LOCK_STALE_MS, LEDGER_LOCK_TIMEOUT_MS } from './ledger-append.js';
 import {
   featureRecordIsUntitled,
   readFeatureRecord,
@@ -45,9 +48,11 @@ export function backfillFeatureSlug(
   if (existsSync(absNew)) {
     return unchanged;
   }
+  takeBundleLock(bundleLockPath(projectRoot, dirName));
   try {
     renameSync(absOld, absNew);
   } catch (error) {
+    releaseLock(bundleLockPath(projectRoot, dirName));
     /* c8 ignore start -- a real fs error (EPERM/EBUSY): degrade to the generic name. */
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       return unchanged;
@@ -56,6 +61,7 @@ export function backfillFeatureSlug(
   }
   repointSessionControls(projectRoot, dirName, minted.dirName, now);
   rewriteArtifactPaths(projectRoot, dirName, minted.dirName);
+  releaseLock(bundleLockPath(projectRoot, minted.dirName));
   updateFeatureRecord(
     projectRoot,
     minted.dirName,
@@ -82,6 +88,14 @@ export function titleActiveFeature(
   }
   const result = backfillFeatureSlug(projectRoot, active, title, now, issue);
   return result.renamed ? result.dirName : null;
+}
+
+function takeBundleLock(lockDir: string): void {
+  const deadline = Date.now() + LEDGER_LOCK_TIMEOUT_MS;
+  while (!tryAcquireLock(lockDir, { staleLockMs: LEDGER_LOCK_STALE_MS }).acquired) {
+    if (Date.now() >= deadline) return;
+    sleepSync(20);
+  }
 }
 
 function repointSessionControls(
@@ -133,30 +147,45 @@ function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: str
   const oldPrefix = `${featureDir(oldName)}/`;
   const newPrefix = `${featureDir(newName)}/`;
   let changed = false;
+  let previousOld: unknown = null;
+  let previousNew: unknown = null;
   const lines = raw.split('\n').map((line) => {
-    if (!line.includes(oldPrefix)) {
+    if (line.trim() === '') return line;
+    let row: Record<string, unknown>;
+    try {
+      row = JSON.parse(line) as Record<string, unknown>;
+    } catch {
       return line;
     }
-    try {
-      const row = JSON.parse(line) as Record<string, unknown>;
-      if (!Array.isArray(row.artifact_paths)) {
-        return line;
-      }
+    const oldHash = row.content_hash;
+    let touched = false;
+    if (Array.isArray(row.artifact_paths) && line.includes(oldPrefix)) {
       row.artifact_paths = row.artifact_paths.map((path) =>
         typeof path === 'string' && path.startsWith(oldPrefix)
           ? `${newPrefix}${path.slice(oldPrefix.length)}`
           : path,
       );
+      touched = true;
+    }
+    if (typeof row.prev_hash === 'string' && row.prev_hash === previousOld) {
+      if (previousNew !== previousOld) {
+        row.prev_hash = previousNew;
+        touched = true;
+      }
+    }
+    if (touched) {
       row.content_hash = computeSessionRowHash(row);
       changed = true;
-      return JSON.stringify(row);
-    } catch {
-      return line;
     }
+    previousOld = oldHash;
+    previousNew = row.content_hash;
+    return touched ? JSON.stringify(row) : line;
   });
   if (changed) {
     try {
-      writeFileSync(absLedger, lines.join('\n'), 'utf8');
+      const temp = `${absLedger}.rename-${process.pid}.tmp`;
+      writeFileSync(temp, lines.join('\n'), 'utf8');
+      renameSync(temp, absLedger);
       /* c8 ignore start -- best-effort: stale paths in old rows are cosmetic — digests are already stamped. */
     } catch {}
   }

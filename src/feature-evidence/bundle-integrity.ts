@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
+import { BUNDLE_LOCK_NAME } from './ledger-append.js';
 import { DYNAMIC_BUNDLE_FILES } from './manifest.js';
 import {
   FEATURE_BUNDLE_FILES,
@@ -85,7 +86,7 @@ export function strayBundleFiles(projectRoot: string, dirName: string): string[]
   const legacy = isLegacyBundle(bundleAbs);
   const strays: string[] = [];
   for (const name of entries) {
-    if (isAtomicWriteTemp(name)) {
+    if (isAtomicWriteTemp(name) || name === BUNDLE_LOCK_NAME) {
       continue;
     }
     if (name === SCREENSHOTS_DIR) {

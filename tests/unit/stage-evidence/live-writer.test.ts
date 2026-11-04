@@ -267,6 +267,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
         phase: 'start',
         title: 'Route first workflows',
         issue: '339',
+        now: () => new Date(Date.now() + 11_000),
       }),
     ).toBe(true);
     const titled = currentFeature(root, SES)!;
