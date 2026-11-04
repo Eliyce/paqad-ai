@@ -268,7 +268,7 @@ export class OnboardingOrchestrator {
       }
       writeGitignore(options.projectRoot);
       writeWorktreeInclude(options.projectRoot);
-      installGitHooks(options.projectRoot);
+      onboardingWarnings.push(...(installGitHooks(options.projectRoot).problems ?? []));
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
     } catch (error) {
