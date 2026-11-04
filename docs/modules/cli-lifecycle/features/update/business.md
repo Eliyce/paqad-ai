@@ -37,10 +37,25 @@ Capture the main journeys for `update`. Each flow should call out:
   and asks the lead to review and commit the change in one go. Running it again changes nothing.
 - Teammates and CI need the release that made the move, or later. The stub left in
   `.paqad/configs/.config.app` sets `paqad_enable=false` and `minimum_version` for an older
-  paqad, so it turns itself off instead of quietly running on defaults. A 1.116.0 install stays
+  paqad, so it turns itself off instead of quietly running on defaults, as the stub now says. A 1.116.0 install stays
   off and never asks to update, because the off switch stops its hooks before the minimum version
   is read. `paqad-ai doctor` is the only place it says it is disabled, so a teammate on 1.116.0 has
   to update by hand. A current paqad ignores the stub.
+- Updates leave team files alone. `update` rewrites one only for a migration, a retired value, a
+  removed setting or a stale workflow entry, and says so. A new setting no longer appears as a comment
+  in team files: find it in `.paqad/.config.example` or with `paqad-ai config show`. Explicit writes,
+  such as `paqad-ai config set`, still re-render the file they touch.
+- The first update swaps `paqad_version` for `schema_version: 1` in all 17 team files, once. One person
+  updates and commits the swap, then teammates update. Everyone needs this version or newer, and the
+  plugin must be updated too, because inside a session the plugin's copy comes first on the PATH.
+- To go back, revert the swap commit and install the older paqad.
+- A project already on 1.119.0 keeps the duplicate comment in `commits.yaml` and doctor's changed-outside
+  warning. After asking the team, the way out is `paqad-ai git-workflow check --accept`.
+- Eleven settings that nothing read are removed, along with `feature-development/safety.yaml`. Update
+  removes a live line once and says so. It keeps `safety.yaml` and says so if it holds notes your team wrote.
+- When the hooks folder is tracked, update gives the exact lines to add instead of changing it. The check
+  is skipped in a terminal where `paqad-ai` isn't on the PATH, so someone with only the plugin who
+  commits from a plain terminal gets no check.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
   fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
 - `update` removes paqad's own old stage instructions and read paths from

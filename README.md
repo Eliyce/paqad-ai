@@ -587,17 +587,19 @@ paqad runs on its own defaults. You only write down what your team changes.
 
 **Team settings** live in readable YAML files under `.paqad/configs/`, committed with the repo:
 
-| File                         | What it holds                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `paqad.yaml`                 | paqad on or off, updates, the Claude Code install, the HUD and the Site Map                        |
-| `models.yaml`                | which models paqad uses and how deep research goes                                                 |
-| `retrieval.yaml`             | the search index: on or off, embeddings, match limits                                              |
-| `decisions.yaml`             | when paqad asks you and when it decides on its own                                                 |
-| `authoring.yaml`             | how paqad writes and tests skills and helper agents, and its eval runs                             |
-| `git-workflow/`              | branches, commits, PRs and tickets (owned by the git-workflow skill)                               |
-| `feature-development/*.yaml` | the feature-development workflow: stages, specs, rules, reuse, safety, checks, evidence, analytics |
+| File                         | What it holds                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `paqad.yaml`                 | paqad on or off, updates, the Claude Code install, the HUD and the Site Map                |
+| `models.yaml`                | which models paqad uses                                                                    |
+| `retrieval.yaml`             | the search index: on or off, embeddings, match limits                                      |
+| `decisions.yaml`             | when paqad asks you and when it decides on its own                                         |
+| `authoring.yaml`             | how paqad writes and tests skills and helper agents, and its eval runs                     |
+| `git-workflow/`              | branches, commits, PRs and tickets (owned by the git-workflow skill)                       |
+| `feature-development/*.yaml` | the feature-development workflow: stages, specs, rules, reuse, checks, evidence, analytics |
 
-Each file lists every setting it owns, commented out at its default, with a line saying what it does. To change one, remove the `#` in front of it (and in front of its group line, such as `hud:`) and set the value, for example `enabled: false` in `paqad.yaml`. A setting left commented out keeps paqad's default, so it picks up a better default in a later version. `paqad-ai update` re-renders the files to add new settings, keeps every value you set and names each file it rewrote. If you set a value but leave the `#` on its group line, paqad still reads the value, names the line to fix, and `paqad-ai update` removes the `#` for you. `.paqad/configs/README.md` lists every setting with its default and allowed values, and `paqad-ai config show` prints what is in effect and where each value comes from (`--changed` hides the defaults). Your editor gets autocompletion from the schemas `paqad-ai update` writes to `.paqad/configs/schemas/`.
+A new file lists every setting it owns at that point, commented out at its default, with a line saying what it does. To change one, remove the `#` in front of it (and in front of its group line, such as `hud:`) and set the value, for example `enabled: false` in `paqad.yaml`. A setting left commented out keeps paqad's default, so it picks up a better default in a later version. `paqad-ai update` leaves these 17 files alone unless a migration, a retired value, a removed setting or a stale workflow entry needs a change, and it says what it changed. A new setting doesn't appear in them: find it in `.paqad/.config.example` or with `paqad-ai config show`. An explicit write such as `paqad-ai config set` still re-renders the file it touches. If you set a value but leave the `#` on its group line, paqad still reads the value and names the line to fix. `.paqad/configs/README.md` lists every setting with its default and allowed values, and `paqad-ai config show` prints what is in effect and where each value comes from (`--changed` hides the defaults).
+
+**After updating.** The first update swaps `paqad_version` for `schema_version: 1` once. One person updates and commits the swap, then teammates update. Everyone needs this version or newer, and the plugin must be updated too. To go back, revert the swap commit and install the older paqad. A project already on 1.119.0 keeps the duplicate comment and the changed-outside warning, and after asking the team the way out is `paqad-ai git-workflow check --accept`. Doctor warns when your `paqad-ai` is older than this repo was last updated with on your machine; it can't see other machines. If your hooks folder is tracked, update prints the lines to add. Someone with only the plugin who commits from a plain terminal skips that check.
 
 **Personal settings** still go in the git-ignored `.paqad/.config`, one `name=value` per line, and an env var still wins for a single run (`hud_view=false` or `PAQAD_HUD_VIEW=false`). `.paqad/.config.example` lists every name, with a comment saying which team file and path it maps to.
 

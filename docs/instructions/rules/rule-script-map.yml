@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-04T06:45:56.908Z
-rule_files_hash: sha256-38a3d329fdf7157a08040e655477f56d21150efc7ffd5579177d8fae19a3a973
+generated_at: 2026-11-04T14:07:34.482Z
+rule_files_hash: sha256-746e87bde73aad10b22027f10070afb42f2b9e1eb8bee0d0cefd8cbac006aca8
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1222,8 +1222,8 @@ rules:
     scripts: []
   - id: RL-6a6f
     source: docs/instructions/rules/coding/config-visibility.md
-    text: "Reconcile on re-onboard and update, never reset: re-render each team file from its live values, so new settings"
-    text_hash: e73d09703517d03ee0819bb64d2fa4fe4c782b090f16e47181c478b73cf6ef76
+    text: "Reconcile on re-onboard and update, never reset: update rewrites a team file only for a migration, a retired value,"
+    text_hash: d6197a61ad96f1c7ba2cfdaa918a9e443093ade312377fdbc5467168584240c8
     verifiability:
       kind: unverifiable
       reason: Reconcile-not-reset on re-onboard is a runtime behavior.

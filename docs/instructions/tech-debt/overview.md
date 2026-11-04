@@ -26,7 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
-- [TD-01M6K2SRCHM1CVJ4W805HGJ0XM](TD-01M6K2SRCHM1CVJ4W805HGJ0XM.md) (gap, low): The config preservation rule doesn't name the shipped-line removal
+- [TD-01M6KE5W2Y1ERT99AEMEMV09YC](TD-01M6KE5W2Y1ERT99AEMEMV09YC.md) (follow-up, low): No plan yet for an older paqad reading a higher schema_version
+- [TD-01M6KE5VATB5Q6QQZCDK46X80G](TD-01M6KE5VATB5Q6QQZCDK46X80G.md) (bug, medium): Team file hashes differ between Windows and Mac line endings
 - [TD-01M6K2SR17Q2AW6C9D5FSVFQDH](TD-01M6K2SR17Q2AW6C9D5FSVFQDH.md) (debt, low): The old leftovers test helper is copied in two test files
 - [TD-01M6K2SQNZH1PSX1ZTSNPAHKEF](TD-01M6K2SQNZH1PSX1ZTSNPAHKEF.md) (bug, low): Tracked Gemini settings hold one developer's home path
 - [TD-01M6K2SQ8YXSY6T3FT9K3KX7BJ](TD-01M6K2SQ8YXSY6T3FT9K3KX7BJ.md) (gap, low): Session line proofs skip silently if the build entry is dropped

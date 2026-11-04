@@ -6,7 +6,7 @@ Conditional steps have no HTTP surface. The stages, their checks and the team's 
 
 ## Team files
 
-The team's additions live in `.paqad/configs/feature-development/`: `workflow.yaml` (extra stage instructions and reads), `checks.yaml` (stage checks), and `analytics.yaml`, `evidence.yaml`, `reuse.yaml`, `rules.yaml`, `safety.yaml` and `specification.yaml` for the settings of each area. Every file starts header-only. A key appears only when the team changed it, so everything else keeps paqad's default.
+The team's additions live in `.paqad/configs/feature-development/`: `workflow.yaml` (extra stage instructions and reads), `checks.yaml` (stage checks), and `analytics.yaml`, `evidence.yaml`, `reuse.yaml`, `rules.yaml` and `specification.yaml` for the settings of each area. Every file starts header-only. A key appears only when the team changed it, so everything else keeps paqad's default.
 
 ## CLI: `paqad-ai config migrate`
 

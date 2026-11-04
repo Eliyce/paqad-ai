@@ -284,14 +284,7 @@ export const DOCS_PAGES = {
     sectionId: 'core-concepts',
     prev: 'how-it-works',
     next: 'stack-detection',
-    keywords: [
-      'project profile',
-      'yaml',
-      'capabilities',
-      'configuration',
-      'model routing',
-      'strictness',
-    ],
+    keywords: ['project profile', 'yaml', 'capabilities', 'configuration', 'model routing'],
     content: [
       { type: 'h1', text: 'Project Profile' },
       {
@@ -303,7 +296,7 @@ export const DOCS_PAGES = {
         type: 'terminal',
         lang: 'yaml',
         label: '.paqad/project-profile.yaml',
-        code: 'stack:\n  - laravel\n  - node-pnpm\n\ncapabilities:\n  content: true\n  coding: true\n  security: false\n\nmodel_routing:\n  default: gpt-4o\n  fast: gpt-4o-mini\n\nstrictness:\n  require_adversarial_review: true\n  block_on_stale_docs: false\n  require_db_review_for_migrations: true\n\nfeatures:\n  market_research: false\n  design_research: false\n  team_agents: true',
+        code: 'stack:\n  - laravel\n  - node-pnpm\n\ncapabilities:\n  content: true\n  coding: true\n  security: false\n\nmodel_routing:\n  default: gpt-4o\n  fast: gpt-4o-mini\n\nfeatures:\n  market_research: false\n  design_research: false\n  team_agents: true',
       },
       { type: 'h2', id: 'capabilities', text: 'Capabilities' },
       {
@@ -331,11 +324,6 @@ export const DOCS_PAGES = {
       {
         type: 'p',
         text: 'Model routing lets you specify which LLM each tier of agent should use. Lighter tasks (routing, linting, summarising) use the `fast` model; planning, architecture, and security tasks use the `default` model.',
-      },
-      { type: 'h2', id: 'strictness', text: 'Strictness flags' },
-      {
-        type: 'p',
-        text: "Strictness flags allow you to gate certain operations. When `block_on_stale_docs` is `true`, the framework will halt a workflow if documentation staleness is detected. Set these to match your team's quality bar.",
       },
       {
         type: 'callout',
@@ -731,7 +719,7 @@ export const DOCS_PAGES = {
       {
         type: 'callout',
         variant: 'warning',
-        text: "Always review the diff produced by `update` before committing. A framework update may change base rules that affect your team's workflow.",
+        text: "Always review the diff produced by `update` before committing. A framework update may change base rules that affect your team's workflow. It leaves the 17 team files in `.paqad/configs/` alone unless a migration, a retired value, a removed setting or a stale workflow entry needs a change, and new settings are listed in `.paqad/.config.example` and `paqad-ai config show`, not added to those files.",
       },
     ],
   },
@@ -2220,7 +2208,7 @@ export const DOCS_PAGES = {
       {
         type: 'callout',
         variant: 'danger',
-        text: 'When the `security` capability is enabled and `require_adversarial_review` is `true` in your profile, the workflow will not proceed to the implementation phase without a clean security gate. This is intentional.',
+        text: 'When the `security` capability is enabled, the workflow will not proceed to the implementation phase without a clean security gate. This is intentional.',
       },
     ],
   },
@@ -2315,7 +2303,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Guardrails' },
       {
         type: 'p',
-        text: 'Guardrails are hard stops that prevent dangerous operations from proceeding automatically. They are configured in your project profile and apply to all workflows.',
+        text: 'Guardrails are hard stops that prevent dangerous operations from proceeding automatically. They apply to all workflows.',
       },
       { type: 'h2', id: 'escalation-conditions', text: 'Escalation conditions' },
       { type: 'p', text: 'The following conditions trigger a guardrail halt by default:' },

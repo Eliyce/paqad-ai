@@ -54,9 +54,13 @@ The reasons below are not obvious from the code of these commands and the shared
   never touches the design system (owned by the documentation workflow) and re-renders entry
   files only for adapters already present, so it never onboards a new provider. The differential
   refresh reads the changed files straight from git.
+- **Team files stay put.** `update` and `onboard` rewrite an existing team file only for a migration, a
+  retired value, a removed setting or a stale workflow entry. Explicit writes such as `config set` still
+  re-render the file. `schema_version`, `catalog_version`, `LAUNCHER_REVISION` and
+  `managed_block_version` are whole numbers that change only with a layout, so a new release doesn't
+  touch the 17 team files, `.paqad/.config.example`, `.paqad/hook.mjs` or the managed `.gitignore` block.
 - **`config.ts`.** `config effective` shows, per knob, the value that binds, where it came from and
-  who reads it. The consumer map is curated by hand; `NOTHING` marks a knob no code reads, so a
-  team can see a setting with no effect. The two floored knobs show the value their resolver uses,
+  who reads it. The consumer map is curated by hand and names a real reader for every setting. The two floored knobs show the value their resolver uses,
   not the raw surface value.
 - **`dashboard.ts` and `graph.ts`.** With paqad disabled the server is not started, and the command
   exits 0 because that is a healthy state. `--print-url` prints exactly one line, which the

@@ -60,11 +60,21 @@ paqad updated itself to <new> and changed <n> files. Tell the developer, and run
 ```
 Removed an old copy of paqad's <stage> instruction from feature-development/workflow.yaml: <first 60 characters>
 Removed an old copy of paqad's <stage> read path from feature-development/workflow.yaml: <first 60 characters>
-Rewrote <file>: it lists every setting, and your own values and notes are kept.
-Commit <file> so your teammates don't repeat this change locally.
+<file>: <setting> was <value>, which this check doesn't have any more, so it is now <replacement>.
+Removed .paqad/configs/feature-development/safety.yaml, which paqad doesn't read any more.
+.paqad/configs/feature-development/safety.yaml holds notes your team wrote, so it stayed. paqad doesn't read it any more.
+<file> was written by a newer paqad, so it wasn't changed. Update paqad-ai.
+<file> still mentions <path>, which paqad removed. Update that line by hand.
+Commit <files> together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.
+Your git hooks are in <dir>, which your repo tracks, so paqad didn't change them.
+Add these lines to commit-msg and pre-push so people get the workflow check:
+<the lines for each file>
+The check is skipped in a terminal where paqad-ai is not on the PATH.
 ```
 
-The `Commit` line prints once for `feature-development/workflow.yaml` when update removed an entry from it, and once for `git-workflow/commits.yaml` when update added the commented `ai_attribution` lines to it.
+The `Commit` line prints on the run that swaps `paqad_version` for `schema_version` and names the files plus the git-workflow record.
+
+An update on a project already on 1.119.0 doesn't remove the duplicate comment or the changed-outside warning. `paqad-ai git-workflow check --accept` clears the warning, once the team agrees. `paqad-ai config set` still re-renders the file it writes.
 
 ## `src/update/updater.ts`
 

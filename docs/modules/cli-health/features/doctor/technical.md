@@ -91,7 +91,7 @@ Source directories owned by this feature:
   `config show` print (`readTeamConfig().issues`, legacy lines left out).
 - A setting set under a group line that is still commented out (`kind: 'repaired'`). paqad reads
   the value anyway and names both lines:
-  `<file> line <n>: <key> is set, but the # is still in front of <group>: on line <m>. paqad reads <key> anyway; remove the # in front of <group>: (paqad-ai update does this for you).`
+  `<file> line <n>: <key> is set, but the # is still in front of <group>: on line <m>. paqad reads <key> anyway; remove the # in front of <group>:.`
 - A key no setting owns, per file (`unknownTeamConfigSettings`), with structured settings such as
   `stages.<stage>.read` and `commands.extra` treated as known:
   `<file> has a setting paqad doesn't know: <path>. It may be from a newer paqad or a typo.`
@@ -100,6 +100,19 @@ Source directories owned by this feature:
   inside the read window. It fails only when this paqad was released after
   `LEGACY_TEAM_CONFIG_READ_UNTIL` (`releasedAfterLegacyWindow`), so a machine whose clock passes
   the date on an older release never starts failing on its own.
+
+## Running version (`paqad-ai version`)
+
+- `runningVersionHealth` (`src/health/running-version-check.ts`) warns when the running `paqad-ai` is older
+  than `.paqad/framework-version.txt`:
+  `This paqad-ai is <running>, but this repo was last updated with <repo> on this machine. <advice>`
+- The advice is `Run npm i -g paqad-ai@latest.`, or for a plugin binary, the plugin update command
+  and a reminder to start a new session, because the session's PATH still points at the old one.
+- Git ignores that file, so the check knows only about updates run on this machine. If a teammate committed
+  an update and you never updated here, you get no warning.
+- Doctor checks entry files only for the providers the project uses.
+- A project already on 1.119.0 keeps the changed-outside warning for its git-workflow files. The way out,
+  after asking the team, is `paqad-ai git-workflow check --accept`.
 
 ## Why the `src/health/` code works the way it does
 

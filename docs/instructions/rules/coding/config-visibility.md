@@ -12,7 +12,7 @@ line is project-fact vs framework-knob, not whether a value has a default. Speci
   the repository, not framework behavior.
 - Keep every framework knob in `src/core/framework-config.ts` (the `FRAMEWORK_CONFIG_SPECS` registry) at its code <!-- @rule RL-7483 -->
   default, and override it through the config layer below. Knobs include `paqad_enable`, the whole `enterprise` block,
-  the RAG/intelligence knobs, strictness, escalation, feature flags, model routing, the decision knobs, and the
+  the RAG/intelligence knobs, strictness, feature flags, model routing, the decision knobs, and the
   version/update knobs.
 
 ## The four surfaces
@@ -29,9 +29,10 @@ Resolution precedence, lowest to highest, local wins over team:
 
 `.paqad/configs/` holds readable YAML team files: `paqad.yaml`, `models.yaml`, `retrieval.yaml`, `decisions.yaml`,
 `authoring.yaml`, `git-workflow/commits.yaml` and one file per concern under `feature-development/`. Each registry setting
-has exactly one home (a file and a nested path), so two files never set the same key. Every team file lists every
-setting it can hold, commented out with its default and a one-line note. A team removes the `#` to change a setting,
-and a setting left commented out uses paqad's default. `paqad-ai update` regenerates `.paqad/configs/README.md`, which lists every setting with
+has exactly one home (a file and a nested path), so two files never set the same key. A new team file lists every
+setting it can hold at that point, commented out with its default and a one-line note. A setting added later doesn't
+appear in an existing file: people find it in `.paqad/.config.example` and `paqad-ai config show`. A team removes the `#`
+to change a setting, and a setting left commented out uses paqad's default. `paqad-ai update` regenerates `.paqad/configs/README.md`, which lists every setting with
 its default, allowed values, flat name and env var. `paqad-ai config show` prints the live value and source of every
 setting. `.paqad/.config` and `PAQAD_*` keep the flat names (`hud_view=false`); `.paqad/.config.example` lists them,
 with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` files are migrated by `update`,
@@ -51,10 +52,12 @@ with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` f
   re-introduce one into the profile schema. A leftover knob there is ignored on read and stripped on write.
 - Refresh the detection-derived fields (`active_capabilities`, `stack_profile`) from repository reality on every run; <!-- @rule RL-0203 -->
   they are framework-owned outputs, not team config.
-- Reconcile on re-onboard and update, never reset: re-render each team file from its live values, so new settings <!-- @rule RL-6a6f -->
-  appear commented out and removed ones disappear, keep the team's values and comments, regenerate the schemas and
-  README, and never write a default as a live value. `doctor` reports a setting this version doesn't know instead of
-  deleting it. MUST NOT rewrite a team's value or reset a file to defaults.
+- Reconcile on re-onboard and update, never reset: update rewrites a team file only for a migration, a retired value, <!-- @rule RL-6a6f -->
+  a removed setting or a stale workflow entry, and print a line for each. The entries paqad once shipped are listed in
+  `src/core/shipped-workflow-entries.ts`. Keep the team's values and comments, regenerate the README, and never write a
+  default as a live value. A new setting does not appear in an existing team file. Explicit writes, such as
+  `paqad-ai config set`, still re-render the file they touch. `doctor` reports a setting this version doesn't know
+  instead of deleting it. MUST NOT rewrite a team's value or reset a file to defaults, apart from these named cases.
 
 ## Evolving the config surface is a decision pause
 
@@ -69,7 +72,7 @@ edit. Before you change the registry:
    Give it a YAML home in TEAM_CONFIG_HOMES (file, path, value translation) and set `since`.
    The resolver, parser, schemas, README, `config show`, validation, and dashboard fields all derive from it.
 3. A test asserts every flat value round-trips through its YAML value.
-4. The new key shows up commented out in its team file, the schema, README and config show.
+4. The new key shows up in new team files, the README, .paqad/.config.example and config show. Existing team files stay as they are.
 ```
 
 ## How this is enforced
