@@ -14,7 +14,12 @@ import {
   writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
-import { syncTeamConfigFiles } from '@/core/team-config.js';
+import {
+  isRemovedWorkflowEntryNote,
+  syncTeamConfigFiles,
+  teamConfigPath,
+  WORKFLOW_TEAM_FILE,
+} from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
@@ -189,12 +194,20 @@ export class FrameworkUpdater {
       }
     }
     const teamConfigProblems: string[] = [];
-    for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {
+    const rewritten = syncTeamConfigFiles(projectRoot, teamConfigProblems);
+    gitWorkflowNotes.push(...teamConfigProblems);
+    for (const path of rewritten) {
       gitWorkflowNotes.push(
-        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your values and notes are kept.`,
+        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your own values and notes are kept.`,
       );
     }
-    gitWorkflowNotes.push(...teamConfigProblems);
+    if (teamConfigProblems.some(isRemovedWorkflowEntryNote)) {
+      gitWorkflowNotes.push(
+        commitFileNote(
+          toPosixPath(relative(projectRoot, teamConfigPath(projectRoot, WORKFLOW_TEAM_FILE))),
+        ),
+      );
+    }
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
@@ -264,6 +277,10 @@ export class FrameworkUpdater {
       await rm(tempRoot, { recursive: true, force: true });
     }
   }
+}
+
+function commitFileNote(path: string): string {
+  return `Commit ${path} so your teammates don't repeat this change locally.`;
 }
 
 function updateGitWorkflow(projectRoot: string): string[] {

@@ -962,7 +962,7 @@ describe('FrameworkUpdater', () => {
       const report = await run();
       const notes = report.git_workflow_notes ?? [];
       expect(notes).toContain(
-        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your values and notes are kept.',
+        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your own values and notes are kept.',
       );
       expect(notes.filter((line) => line.startsWith('Rewrote '))).toHaveLength(1);
       expect(notes.some((line) => line.startsWith("models.yaml isn't valid YAML"))).toBe(true);
@@ -975,6 +975,50 @@ describe('FrameworkUpdater', () => {
       expect(
         (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
       ).toEqual([]);
+    });
+  });
+
+  describe('removing old paqad entries from the workflow file on update', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const FILE = '.paqad/configs/feature-development/workflow.yaml';
+    const LISTED =
+      'Keep planning scoped to the requested feature and the current repository state.';
+
+    it('AC-5: reports the removal, says to commit the file, keeps the team line, and a second run stays quiet', async () => {
+      await run();
+      writeFileSync(
+        join(projectRoot, FILE),
+        [
+          `paqad_version: "${VERSION}"`,
+          'stages:',
+          '  planning:',
+          '    read:',
+          '      - docs/modules/**',
+          '    instructions:',
+          `      - ${LISTED}`,
+          '      - Verify test coverage is 100%',
+          '',
+        ].join('\n'),
+      );
+      const notes = (await run()).git_workflow_notes ?? [];
+      const removed = notes.findIndex((line) =>
+        line.startsWith("Removed an old copy of paqad's planning read path"),
+      );
+      const rewrote = notes.indexOf(
+        `Rewrote ${FILE}: it lists every setting, and your own values and notes are kept.`,
+      );
+      expect(removed).toBeGreaterThanOrEqual(0);
+      expect(rewrote).toBeGreaterThan(removed);
+      expect(notes).toContain(`Commit ${FILE} so your teammates don't repeat this change locally.`);
+      const after = readFileSync(join(projectRoot, FILE), 'utf8');
+      expect(YAML.parse(after).stages.planning.instructions).toEqual([
+        'Verify test coverage is 100%',
+      ]);
+      const again = (await run()).git_workflow_notes ?? [];
+      expect(again.filter((line) => /Removed an old copy|^Commit |^Rewrote /u.test(line))).toEqual(
+        [],
+      );
+      expect(readFileSync(join(projectRoot, FILE), 'utf8')).toBe(after);
     });
   });
 
