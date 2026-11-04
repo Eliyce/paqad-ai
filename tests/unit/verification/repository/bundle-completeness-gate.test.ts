@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -10,7 +10,8 @@ import {
 } from '@/verification/repository/bundle-completeness-gate.js';
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { appendFeatureStageRow, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   chatRagPath,
   featureDir,
@@ -1406,5 +1407,64 @@ describe('bundleCompletenessGate with the change split across two bundles', () =
       mode: 'strict',
     });
     expect(gate!.status).toBe('pass');
+  });
+});
+
+describe('bundleCompletenessGate reads the ledger chain', () => {
+  function chainRoot(): { root: string; ledger: string } {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    for (const row of [
+      { kind: 'open' },
+      { kind: 'stage_start', stage: 'planning' },
+      { kind: 'stage_start', stage: 'review' },
+    ]) {
+      appendFeatureStageRow(root, 'ses_1', DIR, row);
+    }
+    return { root, ledger };
+  }
+
+  function gate(root: string) {
+    return bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' })!;
+  }
+
+  it('fails a version 3 bundle with a row removed from the middle, naming the row', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    const result = gate(root);
+    expect(result.status).toBe('fail');
+    expect(result.detail).toContain('chain broken at row 2');
+  });
+
+  it('reports a declared gap as a note and adds no chain failure', () => {
+    const { root, ledger } = chainRoot();
+    const lockHeld = join(root, featureDir(DIR), '.lock');
+    mkdirSync(lockHeld);
+    appendFeatureStageRow(root, 'ses_1', DIR, { kind: 'stage_start', stage: 'checks' });
+    expect(readFileSync(ledger, 'utf8')).toContain('lock-timeout');
+    expect(gate(root).detail).not.toContain('chain broken');
+  });
+
+  it('only warns about a break in a bundle from before the chain', () => {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    const v2 = JSON.stringify({
+      schema_version: 2,
+      kind: 'open',
+      content_hash: 'a',
+      session_id: 's',
+    });
+    const v3 = JSON.stringify({
+      schema_version: 3,
+      kind: 'stage_start',
+      content_hash: 'b',
+      prev_hash: 'not-a',
+      session_id: 's',
+    });
+    writeFileSync(ledger, `${v2}\n${v3}\n`);
+    expect(gate(root).detail).not.toContain('missing/invalid: stage-evidence.jsonl');
   });
 });

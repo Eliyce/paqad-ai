@@ -42,6 +42,8 @@ import {
   SKILL_RECORD_WRITER,
   skillRecordFilename,
 } from '@/feature-evidence/artifacts.js';
+import { checkStageChain, firstChainBreakLine } from '@/feature-evidence/ledger-chain.js';
+import { bundleLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
   hasStageAgentEvidence,
@@ -149,6 +151,7 @@ interface GateState {
   isolationUnverified: boolean;
   skillLines: string[];
   splitNote: string;
+  chainNote: string;
 }
 
 export function bundleCompletenessGate(
@@ -180,6 +183,7 @@ export function bundleCompletenessGate(
     isolationUnverified: false,
     skillLines: [],
     splitNote: '',
+    chainNote: '',
   };
 
   try {
@@ -212,6 +216,7 @@ export function bundleCompletenessGate(
     assertSkillRecords(input, dirName, state);
     assertAgentRecords(input, dirName, state);
     assertNotSplit(input, dirName, state);
+    assertLedgerChain(input, dirName, state);
     /* v8 ignore start -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {}
@@ -261,6 +266,29 @@ function assertNotSplit(
     ` This session also has unfinished work in ${others.join(', ')}, which this check did not ` +
     `judge, so ${dirName} may hold only part of the change. Go back to that work with ` +
     `\`paqad-ai resume --feature ${others[0]}\`.`;
+}
+
+function assertLedgerChain(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  const raw = readFileSafe(input.projectRoot, featureFilePath(dirName, 'stageEvidence'));
+  if (raw === null) return;
+  const check = checkStageChain(raw);
+  const breakLine = firstChainBreakLine(check);
+  const era = bundleLedgerEra(readFeatureStageUnit(input.projectRoot, dirName));
+  const warnings = [...check.gaps];
+  if (breakLine !== null && era === 'v3') {
+    state.skillLines.push(`${breakLine}: a row was removed, reordered or edited by hand.`);
+    state.missing.push({
+      file: 'stage-evidence.jsonl',
+      writer: 'restore the ledger from git or add a `record-repair` row naming what happened',
+    });
+  } else if (breakLine !== null) {
+    warnings.push(`${breakLine} in a ledger from before the chain`);
+  }
+  if (warnings.length > 0) state.chainNote = ` Ledger note: ${warnings.join('; ')}.`;
 }
 
 function assertSkillRecords(
@@ -525,7 +553,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     return {
       name: GATE_NAME,
       status: 'inconclusive',
-      detail: `${lead}${backfillNote}${ragNote}${isolationNote}${state.splitNote}${skipNote}`,
+      detail: `${lead}${backfillNote}${ragNote}${isolationNote}${state.splitNote}${skipNote}${state.chainNote}`,
       remediation: null,
       failures: [],
     };
@@ -534,7 +562,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
   return {
     name: GATE_NAME,
     status: 'pass',
-    detail: `Every required bundle file is present for this feature (${state.present.length} checked).${skipNote}`,
+    detail: `Every required bundle file is present for this feature (${state.present.length} checked).${skipNote}${state.chainNote}`,
     remediation: null,
     failures: [],
   };
