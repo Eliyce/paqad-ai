@@ -2298,7 +2298,7 @@ export const DOCS_PAGES = {
     sectionId: 'security',
     prev: 'security-owasp',
     next: 'patterns-overview',
-    keywords: ['guardrails', 'escalation', 'block', 'destructive operations', 'override'],
+    keywords: ['guardrails', 'escalation', 'block', 'destructive operations'],
     content: [
       { type: 'h1', text: 'Guardrails' },
       {
@@ -2315,22 +2315,6 @@ export const DOCS_PAGES = {
           'An operation on a file matching the destructive operations pattern (DROP, DELETE, TRUNCATE).',
           'A detected secret (API key, password, token) in a file staged for commit.',
         ],
-      },
-      { type: 'h2', id: 'override', text: 'Overriding a guardrail' },
-      {
-        type: 'p',
-        text: 'Guardrails can be overridden per-task by a developer with explicit acknowledgement. This is logged and traceable.',
-      },
-      {
-        type: 'terminal',
-        lang: 'bash',
-        copyable: true,
-        code: 'paqad-ai task --override-guardrail "dropping unused table after backup confirmed"',
-      },
-      {
-        type: 'callout',
-        variant: 'danger',
-        text: 'Guardrail overrides are permanent for the task they are applied to. They are written to the task evidence log. Never override a guardrail without understanding the specific finding it is blocking on.',
       },
     ],
   },

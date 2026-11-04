@@ -44,7 +44,7 @@ The reasons below are not obvious from the code of these commands and the shared
   rebuilds the per-machine artifacts a clone does not bring: the detection reports `doctor` reads,
   the code-knowledge index (not its tracked registries), delivery detection, and the quality
   baseline from the clean HEAD, only when none exists. `framework-version.txt` is seeded at the
-  epoch so the next session's update check fires at once. A tracked hooks dir is not written; the
+  epoch so the next session's update check fires at once. A tracked hooks dir, or any `.husky/_` holding the runner `h`, is not written; the
   line to add is printed. `--non-interactive` never prompts. Every step is best-effort.
 - **`onboard.ts`.** A bad `--stack` is checked up front so the message names the valid stacks
   instead of a schema error. Without npm only the Claude Code plugin can be wired, so the provider
@@ -60,8 +60,8 @@ The reasons below are not obvious from the code of these commands and the shared
   `managed_block_version` are whole numbers that change only with a layout, so a new release doesn't
   touch the 17 team files, `.paqad/.config.example`, `.paqad/hook.mjs` or the managed `.gitignore` block.
 - **`config.ts`.** `config effective` shows, per knob, the value that binds, where it came from and
-  who reads it. The consumer map is curated by hand and names a real reader for every setting. The two floored knobs show the value their resolver uses,
-  not the raw surface value.
+  who reads it. The consumer map is curated by hand and names a real reader for every setting. The
+  two floored knobs show the value their resolver uses, not the raw surface value.
 - **`dashboard.ts` and `graph.ts`.** With paqad disabled the server is not started, and the command
   exits 0 because that is a healthy state. `--print-url` prints exactly one line, which the
   dashboard skill depends on. The hidden `graph` alias reuses the dashboard's port range.

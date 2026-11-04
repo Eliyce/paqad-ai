@@ -146,10 +146,21 @@ Source directories owned by this feature:
   `.paqad/.gitignore` block. A file with a higher number than this paqad knows is left alone, with a
   line saying to update paqad. The launcher is also rewritten when its revision is lower or missing, or equal
   with different content.
-- The first update swaps the line once. It prints a line asking one person to commit the swap together
-  with the git-workflow record, then teammates update. Everyone needs this version or newer, including the
+- The first update swaps the line once. It prints a line asking one person to commit the swap, together
+  with the git-workflow record when that file exists, then teammates update. Everyone needs this version or newer, including the
   plugin inside sessions, because a lagging plugin binary comes first on the PATH there. Released versions
   from 1.119.0 back don't know the new numbers, so they can overwrite these files.
+- Other writers respect a higher number too. The delivery migration, `git-workflow setup --overwrite` and
+  a dashboard save refuse a git-workflow file with a higher `schema_version` and print the newer-file line.
+  The migration leaves the old policy file in place.
+- `config set` and the other single-value writers, and the settings migration, refuse one of paqad's own team
+  files whose `schema_version` or `paqad_version` line can't be read (`renderWriteBlock`), with the
+  message in `api.md`. A write to `git-workflow/commits.yaml` keeps that line and goes ahead, because
+  it never re-renders the file. Update's sync skips the stamp swap on such a file.
+- When a hook paqad writes can't be made executable, update adds a note and doesn't fail, and join prints the
+  same line on stderr.
+- A retired setting's commented copy is deleted only when it sits under its own group, and its note only when
+  that note is right above it, so a team comment that looks like a removed setting stays.
 - To go back, revert the swap commit and install the older paqad.
 - A project already on 1.119.0 is not repaired. It keeps the duplicate `ai_attribution` comment in
   `commits.yaml` and the changed-outside warning from doctor. The way out, after asking the team, is
@@ -162,11 +173,13 @@ Source directories owned by this feature:
   `decisions_idle_timeout_minutes`. `src/core/team-config-retired.ts` removes a live line once and
   says so, and doctor doesn't report those paths as unknown. `feature-development/safety.yaml` goes
   with them: update deletes it, or keeps it and says so when it holds notes the team wrote.
-- A tracked hooks folder is never written. `trackedWorkflowHookAdvice`
+- paqad treats two kinds of hooks folder as hand-edited and never writes to them: a folder git tracks, and any
+  `.husky/_` holding the runner file `h`, tracked or not. `trackedWorkflowHookAdvice`
   (`src/feature-evidence/git-hooks.ts`) prints the exact lines to add to `commit-msg` and `pre-push`,
-  or the `chmod` step when the line is there but git can't run the file. For husky it points at
-  `.husky/commit-msg` and `.husky/pre-push`, not `.husky/_`, because a husky reinstall rewrites `.husky/_`
-  and lines added there never run. The executable bit isn't needed under husky. Both lines start with
+  or the `chmod` step when the line is there but git can't run the file. For husky it names
+  `.husky/commit-msg` and `.husky/pre-push`, because a husky reinstall rewrites `.husky/_` and lines added
+  there never run. Lines an older paqad appended to `.husky/_` stay untouched and don't count as installed,
+  and a reinstall wipes them. The executable bit isn't needed under husky. Both lines start with
   `if command -v paqad-ai`, so someone with only the plugin who commits from a plain terminal skips the
   check, even after doctor has gone green. This limit is accepted, and the advice says so.
 - After the rule cleanup, update repairs a kept rule line that points at a deleted file when paqad

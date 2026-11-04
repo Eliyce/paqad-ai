@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-04T14:07:34.482Z
-rule_files_hash: sha256-746e87bde73aad10b22027f10070afb42f2b9e1eb8bee0d0cefd8cbac006aca8
+generated_at: 2026-11-04T15:04:09.004Z
+rule_files_hash: sha256-097a80486a5da53a2406031097b60f68de84617da55937356cfc939474d5bc71
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1173,8 +1173,8 @@ rules:
         fixtures_passed: true
   - id: RL-0a01
     source: docs/instructions/rules/coding/config-visibility.md
-    text: "Keep every knob discoverable: give it a registry row with a YAML home, so it shows in its file's schema, the generated"
-    text_hash: b5e3b92cd6619fb30c5b034499df7b1045eae91090ec188091a3da89e0ec3916
+    text: "Keep every knob discoverable: give it a registry row with a YAML home, so it shows in the generated"
+    text_hash: fd38ebeaf49ca95cb3dcebe58433ca5c31240c94d65b0c8427c45a3e25233ded
     verifiability:
       kind: heuristic
     enforced_by: []

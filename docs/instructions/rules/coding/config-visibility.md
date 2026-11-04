@@ -2,7 +2,7 @@
 
 paqad separates two kinds of settings, and each lives where it belongs. Project facts (what this repo _is_) live in
 `.paqad/project-profile.yaml`. Framework knobs (how paqad _behaves_) live in code defaults, overridden through a
-four-surface config layer and made discoverable through tracked YAML team files, their schemas and a generated README. The dividing
+four-surface config layer and made discoverable through tracked YAML team files and a generated README. The dividing
 line is project-fact vs framework-knob, not whether a value has a default. Specific to this repo (paqad-ai).
 
 ## The two kinds of settings
@@ -40,7 +40,7 @@ with a comment naming each one's YAML home. The old `.paqad/configs/.config.*` f
 
 ## Rules
 
-- Keep every knob discoverable: give it a registry row with a YAML home, so it shows in its file's schema, the generated <!-- @rule RL-0a01 -->
+- Keep every knob discoverable: give it a registry row with a YAML home, so it shows in the generated <!-- @rule RL-0a01 -->
   README and `paqad-ai config show` with its default and `PAQAD_*` equivalent, and a plain one-line `comment`, because
   that comment is the note people read above the setting in its team file. MUST NOT add a knob that is invisible and
   undiscoverable.
@@ -70,7 +70,7 @@ edit. Before you change the registry:
 2. Edit the one FRAMEWORK_CONFIG_SPECS entry (key, PAQAD_* env, type, default, group, comment).
    The comment is one plain sentence: it is the note people read in the team file.
    Give it a YAML home in TEAM_CONFIG_HOMES (file, path, value translation) and set `since`.
-   The resolver, parser, schemas, README, `config show`, validation, and dashboard fields all derive from it.
+   The resolver, parser, README, `config show`, validation, and dashboard fields all derive from it.
 3. A test asserts every flat value round-trips through its YAML value.
 4. The new key shows up in new team files, the README, .paqad/.config.example and config show. Existing team files stay as they are.
 ```
@@ -78,7 +78,7 @@ edit. Before you change the registry:
 ## How this is enforced
 
 `src/core/framework-config.ts` is the single source of truth: one `FRAMEWORK_CONFIG_SPECS` registry drives the defaults,
-the parser, the layered resolver, the env mapping, the YAML homes, the schemas and the generated README, so they
+the parser, the layered resolver, the env mapping, the YAML homes and the generated README, so they
 cannot drift. Three independent parsers resolve the disabled signal, the TS predicate (`framework-enabled.ts`), the
 `.mjs` hook, and the `.sh` kill switch, pinned to one precedence and coercion by
 `tests/unit/core/config-parser-parity.test.ts`. `paqad-ai enable`/`disable` and the dashboard config surface read and

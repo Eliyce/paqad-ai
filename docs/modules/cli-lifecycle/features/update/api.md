@@ -64,6 +64,8 @@ Removed an old copy of paqad's <stage> read path from feature-development/workfl
 Removed .paqad/configs/feature-development/safety.yaml, which paqad doesn't read any more.
 .paqad/configs/feature-development/safety.yaml holds notes your team wrote, so it stayed. paqad doesn't read it any more.
 <file> was written by a newer paqad, so it wasn't changed. Update paqad-ai.
+<file> has a schema_version or paqad_version line paqad can't read, so it wasn't changed. Fix that line, then try again.
+Couldn't make <file> executable: <reason>. Run chmod +x <file>, or git won't run it.
 <file> still mentions <path>, which paqad removed. Update that line by hand.
 Commit <files> together so your teammates don't repeat this change. This happens once. Everyone needs this version or newer, including the plugin inside sessions.
 Your git hooks are in <dir>, which your repo tracks, so paqad didn't change them.
@@ -72,7 +74,7 @@ Add these lines to commit-msg and pre-push so people get the workflow check:
 The check is skipped in a terminal where paqad-ai is not on the PATH.
 ```
 
-The `Commit` line prints on the run that swaps `paqad_version` for `schema_version` and names the files plus the git-workflow record.
+The `Commit` line prints on the run that swaps `paqad_version` for `schema_version` and names the files, plus `.last-applied.json` when it exists. `config set` and the settings migration print the can't-read line; `git-workflow setup --overwrite` and a dashboard save print the newer-file line for a git-workflow file. The executable line is a note here, and goes to stderr in `join`. Neither fails the update.
 
 An update on a project already on 1.119.0 doesn't remove the duplicate comment or the changed-outside warning. `paqad-ai git-workflow check --accept` clears the warning, once the team agrees. `paqad-ai config set` still re-renders the file it writes.
 

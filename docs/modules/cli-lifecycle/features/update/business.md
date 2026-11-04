@@ -53,7 +53,7 @@ Capture the main journeys for `update`. Each flow should call out:
   warning. After asking the team, the way out is `paqad-ai git-workflow check --accept`.
 - Eleven settings that nothing read are removed, along with `feature-development/safety.yaml`. Update
   removes a live line once and says so. It keeps `safety.yaml` and says so if it holds notes your team wrote.
-- When the hooks folder is tracked, update gives the exact lines to add instead of changing it. The check
+- When the hooks folder is tracked, or is husky's `.husky/_`, update gives the exact lines to add instead of changing it. With husky those go in `.husky/commit-msg` and `.husky/pre-push`. Lines an older paqad added to `.husky/_` never ran, don't count as installed, and a husky reinstall wipes them. The check
   is skipped in a terminal where `paqad-ai` isn't on the PATH, so someone with only the plugin who
   commits from a plain terminal gets no check.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
