@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6JXAE7AJ707X1XEXJNE1GVF",
+  "category": "intake.requirement",
+  "title": "Is it enough for now that only Claude Code and Codex developers see the update message?",
+  "context": "Other tools have no session-start hook, so they don't start a background update themselves either. Their developers only meet one through a teammate's commit or a Claude Code or Codex session on the same project, and would find the details only by knowing to run paqad-ai update --last.",
+  "options": [
+    {
+      "option_key": "note",
+      "label": "Enough for now, and say so in the release note and docs",
+      "one_line_preview": "Enough for now, and say so in the release note and docs",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "followup",
+      "label": "Enough for now, and file a follow-up to reach the other tools",
+      "one_line_preview": "Enough for now, and file a follow-up to reach the other tools",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold",
+      "label": "Hold item 2 until every tool gets the message",
+      "one_line_preview": "Hold item 2 until every tool gets the message",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "note",
+  "created_at": "2026-11-04T09:12:56.810Z",
+  "status": "resolved",
+  "change": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "chosen": "note",
+  "rationale": "Owner chose: enough for now, state the limit",
+  "resolved_at": "2026-11-04T09:16:35.704Z",
+  "decision_id": "D-01M6JXAE7AJ707X1XEXJNE1GVF",
+  "fingerprint": "sha256:377c25c010fd3515717be76b4724e192a5769de6ce9c92cf312f38a733fcc143",
+  "question": "Is it enough for now that only Claude Code and Codex developers see the update message?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "ttl_until": "2026-11-18T09:12:56.810Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "note",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T09:16:35.704Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: enough for now, state the limit"
+  }
+}

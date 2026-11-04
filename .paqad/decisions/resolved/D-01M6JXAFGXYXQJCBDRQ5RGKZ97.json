@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6JXAFGXYXQJCBDRQ5RGKZ97",
+  "category": "intake.requirement",
+  "title": "Should interactive setup also offer the three Node project types?",
+  "context": "The issue covers doctor only. Someone choosing a project type by hand still can't pick node-cli, node-library or node-service, even though automatic detection can give them.",
+  "options": [
+    {
+      "option_key": "leave",
+      "label": "Leave setup as it is and report the gap separately",
+      "one_line_preview": "Leave setup as it is and report the gap separately",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "add",
+      "label": "Offer the three types in setup as part of this change",
+      "one_line_preview": "Offer the three types in setup as part of this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "leave",
+  "created_at": "2026-11-04T09:12:58.141Z",
+  "status": "resolved",
+  "change": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "chosen": "leave",
+  "rationale": "Owner chose: leave setup, report the gap",
+  "resolved_at": "2026-11-04T09:16:37.060Z",
+  "decision_id": "D-01M6JXAFGXYXQJCBDRQ5RGKZ97",
+  "fingerprint": "sha256:cc433c4958520b983652297cf36d26192bffd7415512db0b56d5ef2292207714",
+  "question": "Should interactive setup also offer the three Node project types?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "ttl_until": "2026-11-18T09:12:58.141Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "leave",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T09:16:37.060Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: leave setup, report the gap"
+  }
+}

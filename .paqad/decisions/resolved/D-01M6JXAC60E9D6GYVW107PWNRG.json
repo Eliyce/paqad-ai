@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6JXAC60E9D6GYVW107PWNRG",
+  "category": "intake.requirement",
+  "title": "What should happen to the 15 extra stage instructions in this repo?",
+  "context": "The issue expected the cleanup to remove them, but paqad never shipped them: they were written for this repo. They give this repo's stage briefs its Attribution Gate, Design-system, Visual evidence, Rules loaded, Module-health, Design-test and Site map lines, so removing them changes how work runs here.",
+  "options": [
+    {
+      "option_key": "keep",
+      "label": "Keep all 15 as this repo's own",
+      "one_line_preview": "Keep all 15 as this repo's own",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "name",
+      "label": "Remove only the ones you name, in this repo only",
+      "one_line_preview": "Remove only the ones you name, in this repo only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "list",
+      "label": "Treat them as paqad's own, so every project loses them",
+      "one_line_preview": "Treat them as paqad's own, so every project loses them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep",
+  "created_at": "2026-11-04T09:12:54.720Z",
+  "status": "resolved",
+  "change": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "chosen": "keep",
+  "rationale": "Owner: they only affect this repo and not onboarded projects, so keep all 15 unchanged",
+  "resolved_at": "2026-11-04T09:49:15.713Z",
+  "decision_id": "D-01M6JXAC60E9D6GYVW107PWNRG",
+  "fingerprint": "sha256:a3062e682e778db88fc4c88e834e1486b0c589d978295952135194d6d1ac5580",
+  "question": "What should happen to the 15 extra stage instructions in this repo?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "ttl_until": "2026-11-18T09:12:54.720Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "keep",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T09:49:15.713Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: they only affect this repo and not onboarded projects, so keep all 15 unchanged"
+  }
+}
