@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6JXACV8F2KTGV7D3742TD2D",
+  "category": "intake.requirement",
+  "title": "What should the one-time message report after a background update?",
+  "context": "The planned count leaves out team settings and some setup files, so it can say 0 files while git shows changes. A file the team kept would also bring the message back at every background update.",
+  "options": [
+    {
+      "option_key": "every",
+      "label": "Count every changed file; if none changed but there are messages, say so; a kept file alone says nothing",
+      "one_line_preview": "Count every changed file; if none changed but there are messages, say so; a kept file alone says nothing",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "normal",
+      "label": "Keep the count a normal update prints and list other changes separately; same rule for no changes and kept files",
+      "one_line_preview": "Keep the count a normal update prints and list other changes separately; same rule for no changes and kept files",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "asis",
+      "label": "Use the agreed sentence as written, including 'changed 0 files'",
+      "one_line_preview": "Use the agreed sentence as written, including 'changed 0 files'",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "every",
+  "created_at": "2026-11-04T09:12:55.400Z",
+  "status": "resolved",
+  "change": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "chosen": "every",
+  "rationale": "Owner chose: count every changed file",
+  "resolved_at": "2026-11-04T09:16:34.981Z",
+  "decision_id": "D-01M6JXACV8F2KTGV7D3742TD2D",
+  "fingerprint": "sha256:2273ab193f51edcfc4c99fd6243f00620d6fe400c2072824a8b213d2309f7ce3",
+  "question": "What should the one-time message report after a background update?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "ttl_until": "2026-11-18T09:12:55.400Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "every",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T09:16:34.981Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: count every changed file"
+  }
+}

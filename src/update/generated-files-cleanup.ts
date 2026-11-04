@@ -14,7 +14,7 @@ import {
 
 import { LEGACY_SCHEMA_LINE_PREFIX } from './legacy-schema-line.js';
 
-const LEGACY_VIEW_HASH = '.paqad/state/feature-development-view.sha256';
+export const LEGACY_VIEW_HASH = '.paqad/state/feature-development-view.sha256';
 const LEGACY_SCHEMAS_DIR = `${PATHS.PROJECT_CONFIGS_DIR}/schemas`;
 const INSTRUCTIONS_DIR = 'docs/instructions';
 

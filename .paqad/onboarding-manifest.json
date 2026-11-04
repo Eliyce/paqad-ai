@@ -660,31 +660,7 @@
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/coding/codebase-health.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/design-retest.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/design-test.md",
-      "auto_update": false
-    },
-    {
       "path": "docs/instructions/rules/coding/feature-development.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/health-retest.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/site-map-retest.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/site-map.md",
       "auto_update": false
     },
     {
@@ -764,10 +740,6 @@
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/security/pentest.md",
-      "auto_update": false
-    },
-    {
       "path": "docs/instructions/tools/react/README.md",
       "auto_update": false
     },
@@ -790,18 +762,16 @@
     {
       "path": "docs/instructions/tools/react/testing.md",
       "auto_update": false
-    },
-    {
-      "path": "docs/instructions/workflows/delivery-policy.yaml",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/workflows/feature-development.yaml",
-      "auto_update": false
     }
   ],
   "planning_artifacts": {
     "compiled_rules_path": ".paqad/compiled-rules.json",
     "module_health_initialized": []
-  }
+  },
+  "providers": [
+    "claude-code",
+    "codex-cli",
+    "gemini-cli",
+    "junie"
+  ]
 }

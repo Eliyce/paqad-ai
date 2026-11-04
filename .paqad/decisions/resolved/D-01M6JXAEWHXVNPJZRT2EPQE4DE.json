@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6JXAEWHXVNPJZRT2EPQE4DE",
+  "category": "intake.requirement",
+  "title": "How should teams hear about items 4 and 5, and is item 2 a minor version?",
+  "context": "Your instructions name release notes for items 1, 2 and 3 only, but items 4 and 5 also change what update does to a project's files. Item 5 adds lines to a tracked team file, so teams may look for the reason. Item 2 adds a new option, so it is planned as minor and the rest as patches.",
+  "options": [
+    {
+      "option_key": "sentence",
+      "label": "One sentence in item 1's release note; item 2 is minor",
+      "one_line_preview": "One sentence in item 1's release note; item 2 is minor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "separate",
+      "label": "A separate release note for each; item 2 is minor",
+      "one_line_preview": "A separate release note for each; item 2 is minor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "patch",
+      "label": "One sentence in item 1's release note; item 2 is a patch too",
+      "one_line_preview": "One sentence in item 1's release note; item 2 is a patch too",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "sentence",
+  "created_at": "2026-11-04T09:12:57.489Z",
+  "status": "resolved",
+  "change": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "chosen": "sentence",
+  "rationale": "Owner chose: one sentence in item 1 note, item 2 minor",
+  "resolved_at": "2026-11-04T09:16:36.388Z",
+  "decision_id": "D-01M6JXAEWHXVNPJZRT2EPQE4DE",
+  "fingerprint": "sha256:19e74c815ed8ccc7fba78dc51a1e0cbb28063a21cd7bdfcdb8aa000b3a15a4fb",
+  "question": "How should teams hear about items 4 and 5, and is item 2 a minor version?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6JW1PAC0MRPEFDFXYVC56MX",
+  "ttl_until": "2026-11-18T09:12:57.489Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "sentence",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T09:16:36.388Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: one sentence in item 1 note, item 2 minor"
+  }
+}

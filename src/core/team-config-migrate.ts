@@ -15,6 +15,7 @@ import {
 import { PATHS } from './constants/paths.js';
 import { checkoutIsNewer, FRAMEWORK_CONFIG_SPECS, parseDotConfig } from './framework-config.js';
 import { parseTeamConfigText, renderTeamConfigFile, teamConfigPath } from './team-config.js';
+import { isShippedWorkflowEntry } from './shipped-workflow-entries.js';
 import { CONFIG_GROUP_FILES, isMigratedStub, MIGRATED_STUB_MARKER } from './team-config-legacy.js';
 import { WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
@@ -196,12 +197,15 @@ function planWorkflowCarry(edited: unknown, oldFile: string): WorkflowCarry {
   for (const stage of WORKFLOW_POLICY_STAGES) {
     const raw = isRecord(stages[stage]) ? stages[stage] : {};
     const own = defaults.stages[stage];
-    const read = strings(raw.read).filter((entry) => !own.read.includes(entry));
+    const read = strings(raw.read).filter(
+      (entry) => !own.read.includes(entry) && !isShippedWorkflowEntry(stage, 'read', entry),
+    );
     if (read.length > 0) {
       carry(`stages.${stage}.read`, WORKFLOW_FILE, ['stages', stage, 'read'], read);
     }
     const instructions = strings(raw.instructions).filter(
-      (entry) => !own.instructions.includes(entry),
+      (entry) =>
+        !own.instructions.includes(entry) && !isShippedWorkflowEntry(stage, 'instructions', entry),
     );
     if (instructions.length > 0) {
       carry(

@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const PAQAD_LAUNCHER_VERSION = '1.116.0';
+export const PAQAD_LAUNCHER_VERSION = '1.118.0';
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
@@ -49,6 +49,8 @@ export const REQUIRED_COPY_SCRIPTS = [
 
 const ENV_TRUTHY = ['1', 'true', 'yes', 'on'];
 const FALSY = ['false', '0', 'no', 'off'];
+const BOOLEAN_WORDS = ENV_TRUTHY.concat(FALSY);
+export const LEGACY_TEAM_CONFIG_READ_UNTIL = '2027-02-01';
 const SCRIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.mjs$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -101,6 +103,14 @@ export function readKeyFromFile(path, key) {
   return v;
 }
 
+function isMigratedStubFile(path) {
+  try {
+    return readFileSync(path, 'utf8').split(/\r?\n/, 1)[0].trim() === '# paqad-migrated-stub';
+  } catch {
+    return false;
+  }
+}
+
 function readKeyFromConfigsDir(projectRoot, key) {
   const dir = join(projectRoot, '.paqad', 'configs');
   let names;
@@ -112,14 +122,98 @@ function readKeyFromConfigsDir(projectRoot, key) {
   let value;
   const sorted = names.filter((n) => /^\.config\..+/.test(n) && n !== '.config.example').sort();
   for (let i = 0; i < sorted.length; i += 1) {
-    const fromFile = readKeyFromFile(join(dir, sorted[i]), key);
+    const path = join(dir, sorted[i]);
+    if (isMigratedStubFile(path)) continue;
+    const fromFile = readKeyFromFile(path, key);
     if (fromFile !== undefined) value = fromFile;
   }
   return value;
 }
 
+function indentOf(line) {
+  const match = /^[ \t]*/.exec(line);
+  return match ? match[0].length : 0;
+}
+
+function isContent(line) {
+  const trimmed = line.trim();
+  return trimmed !== '' && !trimmed.startsWith('#');
+}
+
+function keyValue(line, key) {
+  const body = line.replace(/^[ \t]+/, '');
+  if (!body.startsWith(`${key}:`)) return null;
+  const rest = body.slice(key.length + 1);
+  if (rest !== '' && !/^[ \t]/.test(rest)) return null;
+  return rest;
+}
+
+function cleanScalar(rest) {
+  let value = ` ${rest}`;
+  const hash = value.search(/[ \t]#/);
+  if (hash !== -1) value = value.slice(0, hash);
+  value = value.trim();
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value === '' ? undefined : value;
+}
+
+export function readYamlScalar(text, path) {
+  if (typeof text !== 'string' || !Array.isArray(path) || path.length < 1 || path.length > 2) {
+    return undefined;
+  }
+  const lines = text.split(/\r?\n/);
+  const [top, child] = path;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!isContent(line) || indentOf(line) !== 0) continue;
+    const rest = keyValue(line, top);
+    if (rest === null) continue;
+    if (child === undefined) return cleanScalar(rest);
+    let childIndent = -1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const inner = lines[j];
+      if (!isContent(inner)) continue;
+      const indent = indentOf(inner);
+      if (indent === 0) return undefined;
+      if (childIndent === -1) childIndent = indent;
+      if (indent !== childIndent) continue;
+      const value = keyValue(inner, child);
+      if (value !== null) return cleanScalar(value);
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+const TEAM_YAML_HOMES = {
+  paqad_enable: ['enabled'],
+  team_bootstrap_enabled: ['team_bootstrap', 'enabled'],
+};
+
+function readTeamYamlKey(projectRoot, key) {
+  const path = TEAM_YAML_HOMES[key];
+  if (path === undefined) return undefined;
+  let text;
+  try {
+    text = readFileSync(join(projectRoot, '.paqad', 'configs', 'paqad.yaml'), 'utf8');
+  } catch {
+    return undefined;
+  }
+  const raw = readYamlScalar(text, path);
+  return raw !== undefined && BOOLEAN_WORDS.indexOf(lower(raw)) !== -1 ? raw : undefined;
+}
+
 export function readLayeredKey(projectRoot, key, envName, env) {
-  let value = readKeyFromConfigsDir(projectRoot, key);
+  let value = readTeamYamlKey(projectRoot, key);
+  if (value === undefined && new Date().toISOString().slice(0, 10) <= LEGACY_TEAM_CONFIG_READ_UNTIL) {
+    value = readKeyFromConfigsDir(projectRoot, key);
+  }
   const local = readKeyFromFile(join(projectRoot, '.paqad', '.config'), key);
   if (local !== undefined) value = local;
   const fromEnv = env[envName];

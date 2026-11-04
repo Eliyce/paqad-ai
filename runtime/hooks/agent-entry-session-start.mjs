@@ -68,8 +68,11 @@ async function main(input) {
   } catch {}
 
   const output = mergeSessionStartOutput(
-    await missingStageAgentsOutput(projectRoot),
-    await teamConfigNotice(projectRoot),
+    mergeSessionStartOutput(
+      await missingStageAgentsOutput(projectRoot),
+      await teamConfigNotice(projectRoot),
+    ),
+    await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
   );
   if (output) process.stdout.write(output);
 
@@ -98,6 +101,19 @@ async function teamConfigNotice(projectRoot) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendHooksLog(projectRoot, `session-start: team settings check skipped: ${message}`);
+    return null;
+  }
+}
+
+async function lastUpdateNotice(projectRoot, source) {
+  if (!isProjectOnboarded(projectRoot)) return null;
+  try {
+    const url = new URL('../../dist/update/last-update.js', import.meta.url);
+    const { takeLastUpdateSessionLine } = await import(url.href);
+    return takeLastUpdateSessionLine(projectRoot, source);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: last update notice skipped: ${message}`);
     return null;
   }
 }

@@ -35,6 +35,9 @@
         "nestjs",
         "kotlin-android",
         "short-video",
+        "node-cli",
+        "node-library",
+        "node-service",
         null
       ]
     },

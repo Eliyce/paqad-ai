@@ -3216,6 +3216,7 @@ modules:
       - src/core/project-intelligence.ts
       - src/core/runtime-paths.ts
       - src/onboarding/manifest-writer.ts
+      - src/core/shipped-workflow-entries.ts
       - src/core/team-config.ts
       - src/core/team-config-legacy.ts
       - src/core/team-config-migrate.ts

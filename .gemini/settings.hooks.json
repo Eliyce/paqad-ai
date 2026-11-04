@@ -1,5 +1,8 @@
 [
   {
+    "source": "hooks/agent-delegation.mjs"
+  },
+  {
     "source": "hooks/agent-entry-gate.mjs"
   },
   {
@@ -31,6 +34,9 @@
   },
   {
     "source": "hooks/decision-pause-gate.mjs"
+  },
+  {
+    "source": "hooks/lib/agent-delegation-core.mjs"
   },
   {
     "source": "hooks/lib/agent-entry-directive.mjs"
@@ -78,10 +84,16 @@
     "source": "hooks/lib/plugin-migration-tick.mjs"
   },
   {
+    "source": "hooks/lib/session-start-output.mjs"
+  },
+  {
     "source": "hooks/lib/skill-activation-core.mjs"
   },
   {
     "source": "hooks/lib/transcript.mjs"
+  },
+  {
+    "source": "hooks/lib/yaml-scalar.mjs"
   },
   {
     "source": "hooks/module-health-sync.sh"
@@ -133,6 +145,9 @@
   },
   {
     "source": "hooks/stage-agent-start.mjs"
+  },
+  {
+    "source": "hooks/stage-agent-write-guard.mjs"
   },
   {
     "source": "hooks/stage-marker-parse.mjs"

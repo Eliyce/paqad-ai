@@ -47,6 +47,7 @@ export interface YamlValueMap {
   yamlEnum?: readonly string[];
   list?: true;
   zeroIsAuto?: true;
+  retiredValues?: ReadonlyMap<string, string>;
 }
 
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -64,6 +65,16 @@ export function renameMap(pairs: Readonly<Record<string, string>>): YamlValueMap
       const text = scalarText(yaml).trim();
       return reverse.get(text) ?? text;
     },
+  };
+}
+
+export function retiredValueMap(retired: Readonly<Record<string, string>>): YamlValueMap {
+  const retiredValues = new Map(Object.entries(retired));
+  const current = (value: string): string => retiredValues.get(value) ?? value;
+  return {
+    toYaml: (legacy) => current(legacy.trim()),
+    fromYaml: (yaml) => current(scalarText(yaml).trim()),
+    retiredValues,
   };
 }
 
@@ -248,7 +259,11 @@ export const TEAM_CONFIG_HOMES: Readonly<Record<string, TeamConfigHome>> = {
   metrics_enabled: home(EVIDENCE, 'change_metrics'),
   bundle_completeness: home(EVIDENCE, 'bundle', STRICT_TO_BLOCK),
   visual_evidence_mode: home(EVIDENCE, 'screenshots.gate', STRICT_TO_BLOCK),
-  evidence_existence_gate: home(EVIDENCE, 'legacy_existence_check'),
+  evidence_existence_gate: home(
+    EVIDENCE,
+    'legacy_existence_check',
+    retiredValueMap({ strict: 'warn' }),
+  ),
   analytics_instrumentation: home(ANALYTICS, 'enabled'),
   analytics_strictness: home(ANALYTICS, 'gate', STRICT_TO_BLOCK),
   skill_orchestrator_enabled: home(AUTHORING, 'skills.enabled'),
@@ -346,6 +361,7 @@ export function checkYamlValue(spec: TranslatableSpec, yaml: unknown): string | 
   if (spec.yaml?.zeroIsAuto) {
     return yaml === 'auto' || isNumeric(yaml) ? null : 'It must be a number or auto.';
   }
+  if (isScalar(yaml) && spec.yaml?.retiredValues?.has(scalarText(yaml).trim())) return null;
   const allowed = yamlEnumOf(spec);
   if (allowed !== undefined) {
     return isScalar(yaml) && allowed.includes(scalarText(yaml).trim())

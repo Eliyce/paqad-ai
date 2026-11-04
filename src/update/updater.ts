@@ -1,4 +1,11 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -7,6 +14,7 @@ import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
@@ -14,22 +22,33 @@ import {
   writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
-import { syncTeamConfigFiles } from '@/core/team-config.js';
+import {
+  isRemovedWorkflowEntryNote,
+  syncTeamConfigFiles,
+  teamConfigPath,
+  WORKFLOW_TEAM_FILE,
+} from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
-import { migrateDeliveryPolicy } from '@/git-workflow/migrate.js';
-import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import { gitWorkflowFilePath } from '@/git-workflow/load.js';
+import { hasAiAttributionLine, syncGitWorkflow } from '@/git-workflow/sync.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
-import { cleanObsoleteWorkflowRules } from '@/onboarding/obsolete-cleanup.js';
+import { LEGACY_MCP_OUTPUT_PATHS } from '@/mcp/config-manager.js';
+import {
+  cleanObsoleteWorkflowRules,
+  OBSOLETE_WORKFLOW_RULES,
+} from '@/onboarding/obsolete-cleanup.js';
+import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-development-view.js';
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
-import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
+import { LEGACY_VIEW_HASH, removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
@@ -67,6 +86,7 @@ export interface UpdateReport {
   previous_version: string | null;
   target_version: string;
   regenerated: string[];
+  changed_files?: string[];
   skipped: UpdateDiff[];
   deprecated: string[];
   new_mcp_servers: string[];
@@ -78,6 +98,73 @@ export interface UpdateReport {
 
 export interface FrameworkUpdaterOptions {
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
+}
+
+const RETIRED_FILES: readonly string[] = [
+  ...OBSOLETE_WORKFLOW_RULES.map((rule) => `${PATHS.RULES_DIR}/${rule.path}`),
+  OLD_DELIVERY_POLICY,
+  FEATURE_DEVELOPMENT_VIEW_RELATIVE,
+];
+
+export function withoutRemovedRetiredFiles<T extends { path: string }>(
+  artifacts: readonly T[],
+  fileExists: (path: string) => boolean,
+): T[] {
+  return artifacts.filter(
+    (artifact) => !RETIRED_FILES.includes(toPosixPath(artifact.path)) || fileExists(artifact.path),
+  );
+}
+
+const TRACKED_UPDATE_FILES: readonly string[] = [
+  PATHS.ONBOARDING_MANIFEST,
+  PATHS.PROJECT_CONFIG_EXAMPLE,
+  '.paqad/.gitignore',
+  '.paqad/.gitattributes',
+  '.worktreeinclude',
+  PATHS.RULE_SCRIPT_MAP,
+  PATHS.CAPABILITY_LOCK,
+  PATHS.SCHEMA_MARKER,
+  LEGACY_VIEW_HASH,
+  ...new Set(Object.values(LEGACY_MCP_OUTPUT_PATHS)),
+  ...RETIRED_FILES,
+];
+
+function snapshotText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function filesUnder(projectRoot: string, relativeDir: string): string[] {
+  let entries;
+  try {
+    entries = readdirSync(join(projectRoot, relativeDir), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries.flatMap((entry) => {
+    const path = `${relativeDir}/${entry.name}`;
+    return entry.isDirectory() ? filesUnder(projectRoot, path) : [path];
+  });
+}
+
+function trackedUpdatePaths(projectRoot: string): string[] {
+  return [...TRACKED_UPDATE_FILES, ...filesUnder(projectRoot, PATHS.PROJECT_CONFIGS_DIR)];
+}
+
+function snapshotFiles(projectRoot: string): Map<string, string | null> {
+  return new Map(
+    trackedUpdatePaths(projectRoot).map((path) => [path, snapshotText(join(projectRoot, path))]),
+  );
+}
+
+function filesChangedSince(projectRoot: string, before: Map<string, string | null>): string[] {
+  const paths = new Set([...before.keys(), ...trackedUpdatePaths(projectRoot)]);
+  return [...paths]
+    .filter((path) => (before.get(path) ?? null) !== snapshotText(join(projectRoot, path)))
+    .sort();
 }
 
 function readExistingText(path: string): string | null {
@@ -95,6 +182,7 @@ export class FrameworkUpdater {
   constructor(private readonly options: FrameworkUpdaterOptions = {}) {}
 
   async run(projectRoot: string): Promise<UpdateReport> {
+    const filesBefore = snapshotFiles(projectRoot);
     await checkAndMigrateSchema(projectRoot, VERSION);
     runPendingEvidenceMigration(projectRoot);
 
@@ -135,6 +223,13 @@ export class FrameworkUpdater {
       const existing = readExistingText(target);
       const existed = existing !== null;
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;
+
+      if (existing === candidate.content) {
+        if (candidate.executable === true && autoUpdate !== false) {
+          chmodSync(target, 0o755);
+        }
+        continue;
+      }
 
       if (existing !== null && autoUpdate === false) {
         skipped.push({
@@ -181,20 +276,40 @@ export class FrameworkUpdater {
         );
       }
     }
+    if (manifest) {
+      const artifacts = withoutRemovedRetiredFiles(manifest.generated_artifacts, (path) =>
+        existsSync(join(projectRoot, path)),
+      );
+      if (artifacts.length !== manifest.generated_artifacts.length) {
+        writeOnboardingManifest(projectRoot, {
+          ...manifest,
+          providers,
+          generated_artifacts: artifacts,
+        });
+      }
+    }
     const teamConfigProblems: string[] = [];
-    for (const path of syncTeamConfigFiles(projectRoot, teamConfigProblems)) {
+    const rewritten = syncTeamConfigFiles(projectRoot, teamConfigProblems);
+    gitWorkflowNotes.push(...teamConfigProblems);
+    for (const path of rewritten) {
       gitWorkflowNotes.push(
-        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your values and notes are kept.`,
+        `Rewrote ${toPosixPath(relative(projectRoot, path))}: it lists every setting, and your own values and notes are kept.`,
       );
     }
-    gitWorkflowNotes.push(...teamConfigProblems);
+    if (teamConfigProblems.some(isRemovedWorkflowEntryNote)) {
+      gitWorkflowNotes.push(
+        commitFileNote(
+          toPosixPath(relative(projectRoot, teamConfigPath(projectRoot, WORKFLOW_TEAM_FILE))),
+        ),
+      );
+    }
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     try {
       writeStageAgents({ pluginInstalled: pluginLoadState(null) === 'live' });
     } catch {}
 
-    const teamSetupNotes = usesClaude ? claude.syncTeamSetup(projectRoot).notes : [];
+    const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     writeFrameworkVersionPreservingTimestamp(
@@ -211,12 +326,19 @@ export class FrameworkUpdater {
       previous_version: previousVersion,
       target_version: VERSION,
       regenerated,
+      changed_files: [
+        ...new Set([
+          ...filesChangedSince(projectRoot, filesBefore),
+          ...(teamSetup?.report.written ?? []),
+          ...(teamSetup?.report.removed ?? []),
+        ]),
+      ],
       skipped,
       deprecated: [],
       new_mcp_servers: [],
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
-      team_setup_notes: teamSetupNotes,
+      team_setup_notes: teamSetup?.notes ?? [],
       git_workflow_notes: gitWorkflowNotes,
     };
   }
@@ -259,11 +381,26 @@ export class FrameworkUpdater {
   }
 }
 
+function commitFileNote(path: string): string {
+  return `Commit ${path} so your teammates don't repeat this change locally.`;
+}
+
 function updateGitWorkflow(projectRoot: string): string[] {
   const profile = readProfile(projectRoot);
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
+  const commitsPath = gitWorkflowFilePath(projectRoot, 'commits.yaml');
+  const commitsBefore = readTextIfExistsSync(commitsPath);
   syncGitWorkflow(projectRoot);
+  const commitsAfter = readTextIfExistsSync(commitsPath);
+  if (
+    commitsBefore !== null &&
+    commitsAfter !== null &&
+    !hasAiAttributionLine(commitsBefore) &&
+    hasAiAttributionLine(commitsAfter)
+  ) {
+    migration.lines.push(commitFileNote(toPosixPath(relative(projectRoot, commitsPath))));
+  }
   try {
     installGitHooks(projectRoot);
   } catch {}

@@ -245,7 +245,7 @@ export class OnboardingOrchestrator {
       );
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
-      syncTeamConfigFiles(options.projectRoot);
+      syncTeamConfigFiles(options.projectRoot, onboardingWarnings);
       writeConfigsReadme(options.projectRoot);
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {

@@ -107,6 +107,13 @@ Source directories owned by this feature:
   silent-update hook recreates it), so a teammate who cloned an onboarded repo is healthy without
   it. The decisions audit log is git-ignored telemetry with no reader, so a clean clone is healthy
   without it too. An absent module-profiles folder on a quiet project is expected.
+- **Named-field message.** `checkJsonArtifact` names the field and value of a failure, such as
+  `detected_stack: node-cli isn't an allowed value`, with a dotted path when nested
+  (`detected.detected_stack: ...`). Other failures print `<field>: <message>`. The `anyOf` and
+  `must be null` errors that the manifest's `$ref` adds are dropped, because they name nothing the
+  developer can fix. Ajv stops at the first failure, so a file with two bad fields names one per
+  run. `detection-report.schema.json` holds its own copy of the stack list, and a test checks every
+  value in `STACKS` against it.
 - **Git-ignore check.** Doctor asks `git check-ignore`, which honours the root `.gitignore`, the
   nested `.paqad/.gitignore` and global excludes. Exit 0 means ignored and exit 1 means not; any
   other status (not a repo, no git) falls back to reading both ignore files, so the check works

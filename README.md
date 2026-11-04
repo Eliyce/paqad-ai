@@ -554,6 +554,7 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 | `paqad-ai compliance`                    | Pull obligations from a spec and check which ones the tests actually prove                        |
 | `paqad-ai refresh`                       | Re-detect the stack and regenerate the derived docs                                               |
 | `paqad-ai update`                        | Regenerate framework-managed files after a version change                                         |
+| `paqad-ai update --last`                 | Show what the last background update did, without updating                                        |
 | `paqad-ai capabilities`                  | Turn `content`, `coding`, and `security` on or off                                                |
 | `paqad-ai packs`                         | List, install, validate, and scaffold stack packs                                                 |
 | `paqad-ai rag`                           | Build, inspect, clear, and benchmark the optional search index                                    |

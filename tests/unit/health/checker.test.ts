@@ -238,6 +238,101 @@ describe('HealthChecker', () => {
     expect(report.checks.find((check) => check.name === 'API docs present')?.status).toBe('fail');
   });
 
+  describe('the detection report and manifest checks name what failed', () => {
+    const DETECTION = 'Detection report is valid';
+    const MANIFEST = 'Onboarding manifest is valid';
+
+    async function onboarded(stack: string): Promise<void> {
+      await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: { domain: 'coding', stack: stack as 'laravel', capabilities: [] },
+      });
+    }
+
+    function editJson(rel: string, edit: (data: Record<string, unknown>) => void): void {
+      const path = join(projectRoot, rel);
+      const data = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      edit(data);
+      writeFileSync(path, JSON.stringify(data));
+    }
+
+    async function checks(): Promise<{ report?: string; manifest?: string; bothFail: boolean }> {
+      const report = await new HealthChecker().run(projectRoot);
+      const find = (name: string) => report.checks.find((check) => check.name === name);
+      return {
+        report: find(DETECTION)?.detail,
+        manifest: find(MANIFEST)?.detail,
+        bothFail: find(DETECTION)?.status === 'fail' && find(MANIFEST)?.status === 'fail',
+      };
+    }
+
+    function setStack(value: unknown): void {
+      editJson('.paqad/detection-report.json', (data) => {
+        data.detected_stack = value;
+      });
+      editJson('.paqad/onboarding-manifest.json', (data) => {
+        (data.detected as Record<string, unknown>).detected_stack = value;
+      });
+    }
+
+    it.each(['node-cli', 'node-library', 'node-service'])(
+      'AC-21: %s passes both checks',
+      async (stack) => {
+        await onboarded('laravel');
+        setStack(stack);
+        const report = await new HealthChecker().run(projectRoot);
+        expect(report.checks.find((check) => check.name === DETECTION)?.status).toBe('pass');
+        expect(report.checks.find((check) => check.name === MANIFEST)?.status).toBe('pass');
+      },
+    );
+
+    it('AC-21: an invalid stack fails and names the field in both files', async () => {
+      await onboarded('laravel');
+      setStack('not-a-stack');
+      const result = await checks();
+      expect(result.bothFail).toBe(true);
+      expect(result.report).toBe("detected_stack: not-a-stack isn't an allowed value");
+      expect(result.manifest).toBe("detected.detected_stack: not-a-stack isn't an allowed value");
+    });
+
+    it('AC-23: a string in place of the detected object names that field alone', async () => {
+      await onboarded('laravel');
+      editJson('.paqad/onboarding-manifest.json', (data) => {
+        data.detected = 'a string';
+      });
+      expect((await checks()).manifest).toBe('detected: must be object');
+    });
+
+    it('AC-23: null as a bad value names its field', async () => {
+      await onboarded('laravel');
+      editJson('.paqad/detection-report.json', (data) => {
+        data.confidence = null;
+      });
+      expect((await checks()).report).toMatch(/^confidence: /u);
+    });
+
+    it('AC-23: a missing required field names it', async () => {
+      await onboarded('laravel');
+      editJson('.paqad/detection-report.json', (data) => {
+        delete data.detected_stack;
+      });
+      expect((await checks()).report).toContain("'detected_stack'");
+    });
+
+    it('AC-23: with two bad fields the message names a field and is never empty', async () => {
+      await onboarded('laravel');
+      editJson('.paqad/detection-report.json', (data) => {
+        data.detected_stack = 'not-a-stack';
+        data.detected_domain = 'not-a-domain';
+      });
+      const detail = (await checks()).report ?? '';
+      expect(detail).toMatch(
+        /^detected_(stack|domain): not-a-(stack|domain) isn't an allowed value/u,
+      );
+      for (const part of detail.split('; ')) expect(part).toMatch(/^detected_\w+: /u);
+    });
+  });
+
   it('warns when context hit rate falls below target', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,

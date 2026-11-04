@@ -55,6 +55,8 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain(END);
     expect(content).toContain('cache/');
     expect(content).toContain('logs/');
+    expect(content).toContain('state/last-update.json');
+    expect(content).toContain('state/last-update.seen.json');
     expect(content).toContain('module-health/');
     expect(content).toContain('module-health-evidence/');
     expect(content).toContain('scripts/rules/.cache/');

@@ -117,7 +117,10 @@ describe('the four fixture projects', () => {
           expect([key, after.get(key)]).toEqual([key, undefined]);
           continue;
         }
-        const flat = spec.yaml?.list ? fromYamlValue(spec, toYamlValue(spec, value)) : value;
+        const flat =
+          spec.yaml?.list || spec.yaml?.retiredValues
+            ? fromYamlValue(spec, toYamlValue(spec, value))
+            : value;
         expect([key, after.get(key)]).toEqual([key, flat]);
       }
       if (name !== 'project-b') {
@@ -142,7 +145,7 @@ describe('the four fixture projects', () => {
     expect(YAML.parse(evidence)).toEqual({
       paqad_version: VERSION,
       enterprise: { enabled: true, ledger: true },
-      legacy_existence_check: 'strict',
+      legacy_existence_check: 'warn',
     });
     expect(evidence).not.toContain('(env:');
     expect(evidence).not.toContain('──');
@@ -156,7 +159,7 @@ describe('the four fixture projects', () => {
       'site_map → paqad.yaml: site_map.enabled = true',
       'stages_mode → feature-development/workflow.yaml: stage_tracking = block',
       'rule_compliance → feature-development/rules.yaml: enforcement = block',
-      'evidence_existence_gate → feature-development/evidence.yaml: legacy_existence_check = strict',
+      'evidence_existence_gate → feature-development/evidence.yaml: legacy_existence_check = warn',
       'spec_pipeline_token_ceiling → feature-development/specification.yaml: pipeline.max_tokens = 60000',
       'rag_enabled → retrieval.yaml: enabled = true',
       'rag_embedding_provider → retrieval.yaml: embeddings.provider = local',
@@ -483,7 +486,10 @@ describe('the size of the team settings (AC-72)', () => {
         if (key === 'legacy_flag' || (key === 'rule_compliance' && name === 'project-b')) continue;
         const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === key)!;
         if (checkYamlValue(spec, toYamlValue(spec, value)) !== null) continue;
-        const flat = spec.yaml?.list ? fromYamlValue(spec, toYamlValue(spec, value)) : value;
+        const flat =
+          spec.yaml?.list || spec.yaml?.retiredValues
+            ? fromYamlValue(spec, toYamlValue(spec, value))
+            : value;
         expect([key, flatAfter.get(key)]).toEqual([key, flat]);
       }
     });

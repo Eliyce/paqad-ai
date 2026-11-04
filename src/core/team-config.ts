@@ -13,8 +13,12 @@ import {
   type FrameworkConfigSpec,
 } from './framework-config.js';
 import { readTextIfExistsSync } from './fs/read-if-exists.js';
+import {
+  isShippedWorkflowEntry,
+  type ShippedWorkflowEntryKind,
+} from './shipped-workflow-entries.js';
 import { versionAtLeast } from './version-compare.js';
-import { STRUCTURED_TEAM_SETTINGS } from './team-config-schema.js';
+import { STRUCTURED_TEAM_SETTINGS, WORKFLOW_POLICY_STAGES } from './team-config-schema.js';
 import {
   legacyBothLine,
   legacyStillLine,
@@ -277,6 +281,75 @@ function writtenVersion(document: YAML.Document): string | undefined {
   return typeof version === 'string' && /^\d+\.\d+\.\d+/u.test(version) ? version : undefined;
 }
 
+function replaceRetiredValues(
+  file: OwnTeamConfigFile,
+  document: YAML.Document,
+  notes: string[],
+): void {
+  for (const spec of FRAMEWORK_CONFIG_SPECS) {
+    if (spec.file !== file) continue;
+    const value: unknown = document.getIn([...spec.path]);
+    if (typeof value !== 'string') continue;
+    const replacement = spec.yaml?.retiredValues?.get(value.trim());
+    if (replacement === undefined) continue;
+    document.setIn([...spec.path], replacement);
+    notes.push(
+      `${PATHS.PROJECT_CONFIGS_DIR}/${file}: ${spec.path.join('.')} was ${value.trim()}, which this check doesn't have any more, so it is now ${replacement}.`,
+    );
+  }
+}
+
+const SHIPPED_ENTRY_LABELS: ReadonlyArray<[ShippedWorkflowEntryKind, string]> = [
+  ['read', 'read path'],
+  ['instructions', 'instruction'],
+];
+
+export const WORKFLOW_TEAM_FILE: OwnTeamConfigFile = 'feature-development/workflow.yaml';
+const REMOVED_ENTRY_PREFIX = "Removed an old copy of paqad's ";
+
+export function isRemovedWorkflowEntryNote(note: string): boolean {
+  return note.startsWith(REMOVED_ENTRY_PREFIX);
+}
+
+function keepComments(document: YAML.Document, node: unknown): void {
+  if (!YAML.isNode(node)) return;
+  const kept = [node.commentBefore, node.comment].filter(
+    (comment): comment is string => typeof comment === 'string' && comment.trim() !== '',
+  );
+  if (kept.length === 0) return;
+  document.comment = [document.comment, ...kept].filter(Boolean).join('\n');
+}
+
+function removeShippedWorkflowEntries(document: YAML.Document, notes: string[]): void {
+  for (const stage of WORKFLOW_POLICY_STAGES) {
+    for (const [kind, label] of SHIPPED_ENTRY_LABELS) {
+      const path = ['stages', stage, kind];
+      const list: unknown = document.getIn(path, true);
+      if (!YAML.isSeq(list)) continue;
+      const kept = list.items.filter((item) => {
+        if (!YAML.isScalar(item) || typeof item.value !== 'string') return true;
+        if (!isShippedWorkflowEntry(stage, kind, item.value)) return true;
+        keepComments(document, item);
+        const start = item.value.replace(/\s+/gu, ' ').trim().slice(0, 60);
+        notes.push(`${REMOVED_ENTRY_PREFIX}${stage} ${label} from ${WORKFLOW_TEAM_FILE}: ${start}`);
+        return false;
+      });
+      if (kept.length === list.items.length) continue;
+      list.items = kept;
+      if (kept.length > 0) continue;
+      const parent: unknown = document.getIn(['stages', stage], true);
+      if (YAML.isMap(parent)) {
+        keepComments(
+          document,
+          parent.items.find((pair) => YAML.isScalar(pair.key) && pair.key.value === kind)?.key,
+        );
+      }
+      keepComments(document, list);
+      document.deleteIn(path);
+    }
+  }
+}
+
 export function syncTeamConfigFiles(
   projectRoot: string,
   problems: string[] = [],
@@ -300,6 +373,8 @@ export function syncTeamConfigFiles(
     }
     const stamped = writtenVersion(document);
     if (stamped !== undefined && !versionAtLeast(version, stamped)) continue;
+    replaceRetiredValues(file, document, problems);
+    if (file === WORKFLOW_TEAM_FILE) removeShippedWorkflowEntries(document, problems);
     if (renderTeamConfigFile(file, document, stamped ?? version) === text) continue;
     writeFileSync(path, renderTeamConfigFile(file, document, version), 'utf8');
     written.push(path);

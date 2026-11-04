@@ -8,6 +8,8 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -33,7 +35,7 @@ import {
   migrateTeamConfig,
 } from '@/core/team-config-migrate.js';
 import { TEAM_CONFIG_FILES } from '@/core/team-config-values.js';
-import { FrameworkUpdater } from '@/update/index.js';
+import { FrameworkUpdater, withoutRemovedRetiredFiles } from '@/update/index.js';
 
 function writeOldLeftovers(projectRoot: string): void {
   const put = (rel: string, text: string) => {
@@ -587,7 +589,7 @@ describe('FrameworkUpdater', () => {
     await expect(updater.run(projectRoot)).rejects.toThrow(/newer than this engine/);
   });
 
-  it('skips user-managed artifacts and produces a diff report', async () => {
+  it('skips user-managed artifacts and produces a diff report (AC-6)', async () => {
     writeFileSync(
       join(projectRoot, '.paqad/onboarding-manifest.json'),
       JSON.stringify(
@@ -637,6 +639,59 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
+
+  it('leaves a file alone and unreported when its bytes already match (AC-5)', async () => {
+    writeFileSync(
+      join(projectRoot, '.paqad/onboarding-manifest.json'),
+      JSON.stringify(
+        {
+          framework_version: '0.0.0',
+          adapter: 'claude-code',
+          project_root: projectRoot,
+          profile: {},
+          detected: null,
+          generated_at: new Date().toISOString(),
+          generated_artifacts: [{ path: 'docs/rules/kept.md', auto_update: false }],
+        },
+        null,
+        2,
+      ),
+    );
+    mkdirSync(join(projectRoot, 'docs/rules'), { recursive: true });
+    mkdirSync(join(projectRoot, 'scripts'), { recursive: true });
+    const refreshed = join(projectRoot, 'docs/rules/refreshed.md');
+    const kept = join(projectRoot, 'docs/rules/kept.md');
+    const script = join(projectRoot, 'scripts/same.sh');
+    writeFileSync(refreshed, 'same');
+    writeFileSync(kept, 'same');
+    writeFileSync(script, '#!/usr/bin/env bash\n');
+    chmodSync(script, 0o644);
+    const past = new Date('2020-01-01T00:00:00Z');
+    utimesSync(refreshed, past, past);
+
+    const updater = new FrameworkUpdater({
+      generateCandidates: async () => [
+        { path: 'docs/rules/refreshed.md', content: 'same', autoUpdate: true },
+        { path: 'docs/rules/kept.md', content: 'same', autoUpdate: true },
+        {
+          path: 'scripts/same.sh',
+          content: '#!/usr/bin/env bash\n',
+          autoUpdate: true,
+          executable: true,
+        },
+      ],
+    });
+
+    const report = await updater.run(projectRoot);
+
+    expect(report.regenerated).toEqual([]);
+    expect(report.skipped).toEqual([]);
+    expect(statSync(refreshed).mtime.getTime()).toBe(past.getTime());
+    if (process.platform !== 'win32') {
+      expect(statSync(script).mode & 0o111).not.toBe(0);
+    }
+  });
+
   describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
@@ -907,7 +962,7 @@ describe('FrameworkUpdater', () => {
       const report = await run();
       const notes = report.git_workflow_notes ?? [];
       expect(notes).toContain(
-        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your values and notes are kept.',
+        'Rewrote .paqad/configs/paqad.yaml: it lists every setting, and your own values and notes are kept.',
       );
       expect(notes.filter((line) => line.startsWith('Rewrote '))).toHaveLength(1);
       expect(notes.some((line) => line.startsWith("models.yaml isn't valid YAML"))).toBe(true);
@@ -920,6 +975,251 @@ describe('FrameworkUpdater', () => {
       expect(
         (again.git_workflow_notes ?? []).filter((line) => line.startsWith('Rewrote ')),
       ).toEqual([]);
+    });
+  });
+
+  describe('dropping deleted files from the manifest', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const MANIFEST = '.paqad/onboarding-manifest.json';
+    const RETIRED_PATHS = [
+      'docs/instructions/rules/coding/codebase-health.md',
+      'docs/instructions/rules/coding/design-retest.md',
+      'docs/instructions/rules/coding/design-test.md',
+      'docs/instructions/rules/coding/health-retest.md',
+      'docs/instructions/rules/coding/site-map-retest.md',
+      'docs/instructions/rules/coding/site-map.md',
+      'docs/instructions/rules/security/pentest.md',
+      'docs/instructions/workflows/delivery-policy.yaml',
+      'docs/instructions/workflows/feature-development.yaml',
+    ];
+
+    function writeManifest(paths: string[]): void {
+      writeFileSync(
+        join(projectRoot, MANIFEST),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          adapter: 'codex-cli',
+          providers: ['codex-cli'],
+          generated_artifacts: paths.map((path) => ({
+            path,
+            owner: 'framework',
+            auto_update: true,
+          })),
+          detected: null,
+        }),
+      );
+    }
+
+    function listed(): string[] {
+      const manifest = JSON.parse(readFileSync(join(projectRoot, MANIFEST), 'utf8')) as {
+        generated_artifacts: Array<{ path: string }>;
+      };
+      return manifest.generated_artifacts.map((artifact) => artifact.path);
+    }
+
+    it('AC-24: lists none of the nine deleted files after an update, and keeps the providers', async () => {
+      writeManifest([...RETIRED_PATHS, 'CLAUDE.md']);
+      await run();
+      expect(listed()).toEqual(['CLAUDE.md']);
+      const manifest = JSON.parse(readFileSync(join(projectRoot, MANIFEST), 'utf8')) as {
+        providers: string[];
+      };
+      expect(manifest.providers).toEqual(['codex-cli']);
+    });
+
+    it('AC-25: keeps an edited copy that stayed and an unrelated missing file, and a second run changes nothing', async () => {
+      const edited = 'docs/instructions/rules/coding/design-test.md';
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(join(projectRoot, edited), 'our edited copy\n');
+      writeManifest([edited, 'docs/unrelated-missing.md']);
+      await run();
+      expect(listed()).toEqual([edited, 'docs/unrelated-missing.md']);
+      expect(readFileSync(join(projectRoot, edited), 'utf8')).toBe('our edited copy\n');
+      const first = readFileSync(join(projectRoot, MANIFEST), 'utf8');
+      await run();
+      expect(readFileSync(join(projectRoot, MANIFEST), 'utf8')).toBe(first);
+    });
+
+    it('AC-25: keeps the entry for a file a cleanup could not remove', () => {
+      const artifacts = RETIRED_PATHS.map((path) => ({ path }));
+      expect(
+        withoutRemovedRetiredFiles(artifacts, (path) => path.endsWith('site-map.md')).map(
+          (artifact) => artifact.path,
+        ),
+      ).toEqual(['docs/instructions/rules/coding/site-map.md']);
+    });
+
+    it('AC-25: runs with no manifest at all', async () => {
+      await expect(run()).resolves.toBeDefined();
+      expect(existsSync(join(projectRoot, MANIFEST))).toBe(false);
+    });
+
+    it('INV-7: holds full paths, so a bare rule path is not treated as retired', () => {
+      const bare = [{ path: 'coding/site-map.md' }];
+      expect(withoutRemovedRetiredFiles(bare, () => false)).toEqual(bare);
+    });
+  });
+
+  describe('the commented ai_attribution lines', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+
+    it('FR-9: says to commit the file on the run that adds the lines, and only then', async () => {
+      await run();
+      const path = join(projectRoot, COMMITS);
+      const fresh = readFileSync(path, 'utf8');
+      expect(fresh).toContain('# ai_attribution: strip');
+      writeFileSync(path, fresh.replace(/\n# Whether the attribution[^]*$/u, ''));
+      const notes = (await run()).git_workflow_notes ?? [];
+      expect(notes).toContain(
+        `Commit ${COMMITS} so your teammates don't repeat this change locally.`,
+      );
+      expect(readFileSync(path, 'utf8')).toContain('# ai_attribution: strip');
+      const again = (await run()).git_workflow_notes ?? [];
+      expect(again.some((line) => line.startsWith('Commit '))).toBe(false);
+    });
+  });
+
+  describe('listing the files an update changed outside the regenerated list', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const MANIFEST = '.paqad/onboarding-manifest.json';
+    const TEAM_FILE = '.paqad/configs/paqad.yaml';
+
+    function writeManifest(): void {
+      writeFileSync(
+        join(projectRoot, MANIFEST),
+        `${JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          providers: ['claude-code'],
+          generated_artifacts: [],
+          detected: {},
+        })}\n`,
+      );
+    }
+
+    it('AC-11: names only the manifest and the team file when only they changed', async () => {
+      writeManifest();
+      await run();
+      expect((await run()).changed_files).toEqual([]);
+      writeManifest();
+      writeFileSync(join(projectRoot, TEAM_FILE), 'paqad_version: "1.117.0"\n');
+      const report = await run();
+      expect(report.regenerated).toEqual([]);
+      expect(report.changed_files).toEqual([TEAM_FILE, MANIFEST]);
+    });
+
+    it('AC-11: does not count a rewrite of the framework version file', async () => {
+      await run();
+      writeFileSync(
+        join(projectRoot, '.paqad/framework-version.txt'),
+        'version=0.0.1\nupdated_at=2020-01-01T00:00:00.000Z\n',
+      );
+      expect((await run()).changed_files).toEqual([]);
+    });
+
+    it('AC-11: counts the rule-script map and capability lock on the upgrade that removes a rule file', async () => {
+      const shipped = readFileSync(
+        join(__dirname, '../../fixtures/obsolete-workflow-rules/coding/codebase-health.md'),
+        'utf8',
+      );
+      const rule = 'docs/instructions/rules/coding/codebase-health.md';
+      mkdirSync(join(projectRoot, 'docs/instructions/rules/coding'), { recursive: true });
+      writeFileSync(join(projectRoot, rule), shipped);
+      writeFileSync(
+        join(projectRoot, 'docs/instructions/rules/coding/my-own-rule.md'),
+        '- Validate all input.\n',
+      );
+      compileRuleScripts(projectRoot);
+      const report = await run();
+      expect(report.changed_files).toEqual(
+        expect.arrayContaining([
+          rule,
+          'docs/instructions/rules/rule-script-map.yml',
+          '.paqad/capability-lock.json',
+        ]),
+      );
+    });
+
+    it('counts the schema marker a run writes and the old files a cleanup removes', async () => {
+      await run();
+      rmSync(join(projectRoot, '.paqad/schema-version.json'));
+      const hash = '.paqad/state/feature-development-view.sha256';
+      mkdirSync(join(projectRoot, '.paqad/state'), { recursive: true });
+      writeFileSync(join(projectRoot, hash), 'abc\n');
+      const mcp = '.codex/mcp.json';
+      mkdirSync(join(projectRoot, '.codex'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, mcp),
+        JSON.stringify({ mcpServers: {}, resolved_artifacts: [] }),
+      );
+      const report = await run();
+      expect(existsSync(join(projectRoot, hash))).toBe(false);
+      expect(existsSync(join(projectRoot, mcp))).toBe(false);
+      expect(report.changed_files).toEqual(
+        expect.arrayContaining(['.paqad/schema-version.json', hash, mcp]),
+      );
+      expect((await run()).changed_files).toEqual([]);
+    });
+
+    it('counts a removed file', async () => {
+      await run();
+      const removed = 'docs/instructions/workflows/feature-development.yaml';
+      mkdirSync(join(projectRoot, 'docs/instructions/workflows'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, removed),
+        `# Generated by paqad. Do not edit: changes here are overwritten.\nstages: {}\n`,
+      );
+      const report = await run();
+      expect(existsSync(join(projectRoot, removed))).toBe(false);
+      expect(report.changed_files).toContain(removed);
+    });
+  });
+
+  describe('removing old paqad entries from the workflow file on update', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const FILE = '.paqad/configs/feature-development/workflow.yaml';
+    const LISTED =
+      'Keep planning scoped to the requested feature and the current repository state.';
+
+    it('AC-5: reports the removal, says to commit the file, keeps the team line, and a second run stays quiet', async () => {
+      await run();
+      writeFileSync(
+        join(projectRoot, FILE),
+        [
+          `paqad_version: "${VERSION}"`,
+          'stages:',
+          '  planning:',
+          '    read:',
+          '      - docs/modules/**',
+          '    instructions:',
+          `      - ${LISTED}`,
+          '      - Verify test coverage is 100%',
+          '',
+        ].join('\n'),
+      );
+      const notes = (await run()).git_workflow_notes ?? [];
+      const removed = notes.findIndex((line) =>
+        line.startsWith("Removed an old copy of paqad's planning read path"),
+      );
+      const rewrote = notes.indexOf(
+        `Rewrote ${FILE}: it lists every setting, and your own values and notes are kept.`,
+      );
+      expect(removed).toBeGreaterThanOrEqual(0);
+      expect(rewrote).toBeGreaterThan(removed);
+      expect(notes).toContain(`Commit ${FILE} so your teammates don't repeat this change locally.`);
+      const after = readFileSync(join(projectRoot, FILE), 'utf8');
+      expect(YAML.parse(after).stages.planning.instructions).toEqual([
+        'Verify test coverage is 100%',
+      ]);
+      const again = (await run()).git_workflow_notes ?? [];
+      expect(again.filter((line) => /Removed an old copy|^Commit |^Rewrote /u.test(line))).toEqual(
+        [],
+      );
+      expect(readFileSync(join(projectRoot, FILE), 'utf8')).toBe(after);
     });
   });
 

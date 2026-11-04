@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -271,6 +272,38 @@ describe('silent-update.mjs', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  describe('where the background update runs (AC-20)', () => {
+    itPosix('runs the stub in the project folder, not the folder the hook started in', async () => {
+      const root = makeRoot();
+      try {
+        const project = join(root, 'project');
+        mkdirSync(project, { recursive: true });
+        writeVersionFile(project, '1.14.0', STALE);
+        const fakeBinDir = join(root, 'fakebin');
+        mkdirSync(fakeBinDir, { recursive: true });
+        writeFakeNpmVersion(fakeBinDir, '1.15.0');
+        const marker = join(root, 'update-cwd.txt');
+        const stub = join(fakeBinDir, 'paqad-ai');
+        writeFileSync(
+          stub,
+          `#!/bin/sh\npwd -P > "${marker}.tmp"\nmv "${marker}.tmp" "${marker}"\n`,
+        );
+        chmodSync(stub, 0o755);
+
+        const result = await runHook(root, fakeBinDir, { env: { CLAUDE_PROJECT_DIR: project } });
+        expect(result.exitCode).toBe(0);
+
+        const deadline = Date.now() + 5000;
+        while (!existsSync(marker) && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        expect(readFileSync(marker, 'utf8').trim()).toBe(realpathSync(project));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   itPosix('logs a forced self-update when more than two minors behind', async () => {
