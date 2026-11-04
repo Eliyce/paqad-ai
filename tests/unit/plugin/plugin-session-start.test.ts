@@ -719,7 +719,7 @@ describe('the plugin and runtime version line', () => {
     return printed;
   }
 
-  it('prints and logs one line when the versions differ, and blocks nothing', () => {
+  it('AC-63: prints and logs one line when the versions differ, and blocks nothing', () => {
     const { project, plugin } = onboarded('1.1.0');
     const line = 'paqad: plugin 1.2.0 and runtime 1.1.0 differ; run `paqad-ai update`';
     expect(start(project, plugin)).toEqual([line]);
