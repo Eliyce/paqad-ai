@@ -1,0 +1,192 @@
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { collectDelivery } from '@/dashboard/collectors/delivery.js';
+import { exportFeatureBundle } from '@/feature-evidence/export.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { renderFeatureReportHtml } from '@/feature-evidence/report.js';
+import { checkStageChain } from '@/feature-evidence/ledger-chain.js';
+import {
+  appendFeatureStageRow,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { computeSessionRowHash, readUnitFileHealth } from '@/session-ledger/ledger.js';
+import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
+
+const DIR = 'mixed-01JABCDEFGHJKMNPQRSTVWXYZ0';
+const SESSION = 'ses_mixed';
+
+const roots: string[] = [];
+
+afterEach(() => {
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+});
+
+function tempRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'paqad-mixed-'));
+  roots.push(root);
+  mkdirSync(join(root, featureDir(DIR)), { recursive: true });
+  return root;
+}
+
+function v2Row(fields: Record<string, unknown>): string {
+  const row: Record<string, unknown> = {
+    schema_version: 2,
+    doc_type: 'paqad.stage-evidence',
+    change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    session_id: SESSION,
+    recorded_at: '2026-11-01T10:00:00.000Z',
+    agent: 'orchestrator',
+    ...fields,
+  };
+  row.content_hash = computeSessionRowHash(row);
+  return JSON.stringify(row);
+}
+
+function ledgerPath(root: string): string {
+  return join(root, featureFilePath(DIR, 'stageEvidence'));
+}
+
+function mixedBundle(root: string): void {
+  writeFileSync(
+    ledgerPath(root),
+    `${[
+      v2Row({ kind: 'open' }),
+      v2Row({ kind: 'stage_start', stage: 'planning' }),
+      v2Row({ kind: 'stage_end', stage: 'planning', event_status: 'completed' }),
+    ].join('\n')}\n`,
+  );
+  appendFeatureStageRow(root, SESSION, DIR, { kind: 'stage_start', stage: 'specification' });
+  appendFeatureStageRow(root, SESSION, DIR, {
+    kind: 'stage-handback',
+    stage: 'specification',
+    agent_id: 'a1',
+    event_status: 'denied',
+    tool_use_id: 't1',
+    report_status: 'DONE',
+    report_source: 'handback',
+  });
+}
+
+describe('a ledger with a torn line', () => {
+  it('reads cleanly with torn_tail true and no other row lost', () => {
+    const root = tempRoot();
+    mixedBundle(root);
+    const count = readFeatureStageUnit(root, DIR).length;
+    appendFileSync(ledgerPath(root), '{"kind":"stage_end","sta');
+    const health = readUnitFileHealth(root, featureFilePath(DIR, 'stageEvidence'));
+    expect(health.torn_tail).toBe(true);
+    expect(health.rows).toHaveLength(count);
+    expect(readFeatureStageUnit(root, DIR)).toHaveLength(count);
+  });
+
+  it('reports no torn tail on a whole file, and skips a torn line left in the middle', () => {
+    const root = tempRoot();
+    mixedBundle(root);
+    expect(readUnitFileHealth(root, featureFilePath(DIR, 'stageEvidence')).torn_tail).toBe(false);
+    appendFileSync(ledgerPath(root), '{"cut\n');
+    appendFeatureStageRow(root, SESSION, DIR, { kind: 'stage_end', stage: 'specification' });
+    const health = readUnitFileHealth(root, featureFilePath(DIR, 'stageEvidence'));
+    expect(health.torn_tail).toBe(false);
+    expect(health.torn_lines).toBe(1);
+  });
+
+  it('treats a missing file as empty and whole', () => {
+    expect(readUnitFileHealth(tempRoot(), 'none.jsonl')).toEqual({
+      rows: [],
+      torn_tail: false,
+      torn_lines: 0,
+    });
+  });
+});
+
+describe('a bundle mixing version 2 and 3 rows', () => {
+  it('validates, folds, snapshots and renders with no error', () => {
+    const root = tempRoot();
+    mixedBundle(root);
+    const rows = readFeatureStageUnit(root, DIR);
+    expect(rows.map((row) => row.schema_version)).toEqual([2, 2, 2, 3, 3]);
+    for (const row of rows) expect(validateStageEvidenceRow(row)).toEqual([]);
+    const fold = foldFeature(root, SESSION, DIR);
+    expect(fold.stages.find((stage) => stage.stage === 'planning')?.state).not.toBe('missing');
+    expect(() => buildHudSnapshot(root, SESSION)).not.toThrow();
+    const bundle = exportFeatureBundle(root, DIR);
+    expect(renderFeatureReportHtml(bundle, fold, { generatedAt: '2026-11-04' })).toContain('<html');
+    expect(() => collectDelivery(root)).not.toThrow();
+  });
+
+  it('starts the chain at the first version 3 row', () => {
+    const root = tempRoot();
+    mixedBundle(root);
+    const raw = readFileSync(ledgerPath(root), 'utf8');
+    const check = checkStageChain(raw);
+    expect(check.breaks).toEqual([]);
+    expect(check.gaps).toEqual([]);
+    const rows = readFeatureStageUnit(root, DIR);
+    expect(rows[3]!.prev_hash).toBe(rows[2]!.content_hash);
+  });
+});
+
+describe('checking the chain', () => {
+  function lines(root: string): string[] {
+    return readFileSync(ledgerPath(root), 'utf8').trimEnd().split('\n');
+  }
+
+  function chained(): string {
+    const root = tempRoot();
+    appendFeatureStageRow(root, SESSION, DIR, { kind: 'open' });
+    for (const stage of ['planning', 'specification', 'review']) {
+      appendFeatureStageRow(root, SESSION, DIR, { kind: 'stage_start', stage });
+    }
+    return root;
+  }
+
+  it('names the row after one removed from the middle', () => {
+    const all = lines(chained());
+    const check = checkStageChain([all[0], all[2], all[3]].join('\n'));
+    expect(check.breaks).toEqual([2]);
+  });
+
+  it('names the row when two rows swap', () => {
+    const all = lines(chained());
+    const check = checkStageChain([all[0], all[2], all[1], all[3]].join('\n'));
+    expect(check.breaks.length).toBeGreaterThan(0);
+  });
+
+  it('does not detect rows cut from the end, which is the stated limit', () => {
+    const all = lines(chained());
+    expect(checkStageChain(all.slice(0, 2).join('\n')).breaks).toEqual([]);
+  });
+
+  it('declares a late version 2 row and a torn line as gaps, not breaks', () => {
+    const root = chained();
+    appendFileSync(ledgerPath(root), `${v2Row({ kind: 'stage_end', stage: 'review' })}\n{"cut\n`);
+    appendFeatureStageRow(root, SESSION, DIR, { kind: 'stage_end', stage: 'planning' });
+    const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
+    expect(check.breaks).toEqual([]);
+    expect(check.gaps).toHaveLength(2);
+  });
+
+  it('accepts a row chaining past an adjacent declared gap', () => {
+    const row = (fields: Record<string, unknown>) =>
+      JSON.stringify({ schema_version: 3, ...fields });
+    const raw = [
+      row({ content_hash: 'a', prev_hash: null }),
+      row({ content_hash: 'gap', prev_hash: null, chain_note: 'lock-timeout' }),
+      row({ content_hash: 'b', prev_hash: 'a' }),
+    ].join('\n');
+    expect(checkStageChain(raw).breaks).toEqual([]);
+  });
+});
