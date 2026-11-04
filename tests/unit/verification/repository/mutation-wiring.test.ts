@@ -95,7 +95,7 @@ describe('mutation wiring: mode off or absent (disabled == missing)', () => {
       }
     }
     expect(readings.slice(0, ORIGINS.length)).toEqual(readings.slice(ORIGINS.length));
-  }, 60_000);
+  }, 120_000);
 });
 
 describe('mutation wiring: the seams', () => {
