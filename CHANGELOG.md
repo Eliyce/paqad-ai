@@ -1,5 +1,26 @@
 # paqad-ai
 
+## 1.119.0
+
+### Minor Changes
+
+- cc69e40: A background update now tells you what it changed. It leaves a git-ignored record, and the session after the update adds one line asking the agent to tell you. Run `paqad-ai update --last` to see the same summary and notes a manual `update` prints. This line reaches Claude Code and Codex developers only for now. The session that starts the update doesn't hear about it, because the update runs in the background.
+
+  `Changed <n> files:` in the `update` summary now counts every file the update changed, not only the regenerated ones.
+
+### Patch Changes
+
+- cc69e40: `paqad-ai doctor` no longer fails the detection report and manifest checks on `node-cli`, `node-library` and `node-service` projects. When one of those checks does fail, it now names the field and value, such as `detected_stack: not-a-stack isn't an allowed value`.
+- cc69e40: `paqad-ai update` no longer pins paqad's own old stage instructions into `feature-development/workflow.yaml`. It removes any instruction or read path paqad once shipped for that stage, including `docs/modules/**` and `docs/instructions/**`, and prints one line for each. Only the line goes, never a file or folder, and anything paqad never shipped stays. To keep a removed line, reword it, because the same wording is removed again on the next update. Commit the file afterwards so teammates don't repeat the change.
+
+  `update` also drops deleted paqad files from the onboarding manifest and lists `ai_attribution` as commented lines in `git-workflow/commits.yaml`.
+
+- cc69e40: `paqad-ai update` now prints a short summary instead of a JSON report that could run past 100 KB. Run `paqad-ai update --json` for the full report. It also leaves a file alone when its content wouldn't change, so a run no longer lists unchanged files or makes a running session reload the framework.
+
+  A team that had set `evidence_existence_gate=strict` no longer gets an invalid `legacy_existence_check: strict` from the move to YAML. The value now becomes `warn`, and your next `paqad-ai update` fixes a file that already holds `strict` and tells you it did.
+
+  This release also refreshes the committed rule-binding lock, which was out of date on the last release and blocked edits on a clean checkout until it was refreshed.
+
 ## 1.118.0
 
 ### Minor Changes
