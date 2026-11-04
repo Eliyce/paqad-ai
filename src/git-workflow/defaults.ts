@@ -147,6 +147,11 @@ types:
 default_type: feature
 `;
 
+export const AI_ATTRIBUTION_COMMENT_LINES = [
+  '# Whether the attribution of the coding agent stays on your commits and pull requests (keep or strip), while the paqad delivery footer is never changed.',
+  '# ai_attribution: strip',
+] as const;
+
 const COMMITS_YAML = `# How commit messages are written.
 #
 # template placeholders: {ticket} {summary} {type} {scope} {title}
@@ -167,6 +172,8 @@ ask_when_unspecified: true
 summary:
   style: plain
   max_length: 72
+
+${AI_ATTRIBUTION_COMMENT_LINES.join('\n')}
 `;
 
 const PULL_REQUESTS_YAML = `# How pull requests are opened.

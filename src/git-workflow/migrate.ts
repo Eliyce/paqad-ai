@@ -6,7 +6,11 @@ import YAML from 'yaml';
 import { PATHS } from '@/core/constants/paths.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
-import { DEFAULT_TRACKER_PATTERNS, renderDefaultGitWorkflowFile } from './defaults.js';
+import {
+  AI_ATTRIBUTION_COMMENT_LINES,
+  DEFAULT_TRACKER_PATTERNS,
+  renderDefaultGitWorkflowFile,
+} from './defaults.js';
 import { stampLastApplied } from './last-applied.js';
 import { gitWorkflowDir, gitWorkflowFilePath } from './load.js';
 import { remoteDefaultBranch } from './onboard.js';
@@ -262,7 +266,11 @@ export function gitWorkflowFilesAbsent(projectRoot: string): boolean {
 function keepAiAttribution(projectRoot: string, files: Record<GitWorkflowFile, string>): void {
   const kept = readSettings(gitWorkflowFilePath(projectRoot, 'commits.yaml'))?.ai_attribution;
   if (kept !== undefined) {
-    files['commits.yaml'] = insertKey(files['commits.yaml'], [], 'ai_attribution', kept);
+    const withoutComment = files['commits.yaml'].replace(
+      `\n${AI_ATTRIBUTION_COMMENT_LINES.join('\n')}\n`,
+      '',
+    );
+    files['commits.yaml'] = insertKey(withoutComment, [], 'ai_attribution', kept);
   }
 }
 

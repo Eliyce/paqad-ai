@@ -176,6 +176,9 @@ describe('migrateDeliveryPolicy', () => {
     writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'commits.yaml'), 'ai_attribution: keep\n');
     expect(migrateDeliveryPolicy(root, { version: '2.0.0', baseBranch: 'main' }).ran).toBe(true);
     expect(readNew('commits.yaml')).toMatchObject({ ai_attribution: 'keep', sign_off: true });
+    expect(readFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'commits.yaml'), 'utf8')).not.toContain(
+      '# ai_attribution',
+    );
     expect(existsSync(join(root, OLD_DELIVERY_POLICY))).toBe(false);
   });
 

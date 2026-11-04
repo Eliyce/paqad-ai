@@ -14,6 +14,7 @@ import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
 import { deriveRecordedProviders } from '@/adapters/recorded-providers.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import {
   checkoutIsNewer,
   reconcileConfigOverrides,
@@ -34,7 +35,8 @@ import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
-import { syncGitWorkflow } from '@/git-workflow/sync.js';
+import { gitWorkflowFilePath } from '@/git-workflow/load.js';
+import { hasAiAttributionLine, syncGitWorkflow } from '@/git-workflow/sync.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
@@ -381,7 +383,18 @@ function updateGitWorkflow(projectRoot: string): string[] {
   const profile = readProfile(projectRoot);
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
+  const commitsPath = gitWorkflowFilePath(projectRoot, 'commits.yaml');
+  const commitsBefore = readTextIfExistsSync(commitsPath);
   syncGitWorkflow(projectRoot);
+  const commitsAfter = readTextIfExistsSync(commitsPath);
+  if (
+    commitsBefore !== null &&
+    commitsAfter !== null &&
+    !hasAiAttributionLine(commitsBefore) &&
+    hasAiAttributionLine(commitsAfter)
+  ) {
+    migration.lines.push(commitFileNote(toPosixPath(relative(projectRoot, commitsPath))));
+  }
   try {
     installGitHooks(projectRoot);
   } catch {}

@@ -1062,6 +1062,26 @@ describe('FrameworkUpdater', () => {
     });
   });
 
+  describe('the commented ai_attribution lines', () => {
+    const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+    const COMMITS = '.paqad/configs/git-workflow/commits.yaml';
+
+    it('FR-9: says to commit the file on the run that adds the lines, and only then', async () => {
+      await run();
+      const path = join(projectRoot, COMMITS);
+      const fresh = readFileSync(path, 'utf8');
+      expect(fresh).toContain('# ai_attribution: strip');
+      writeFileSync(path, fresh.replace(/\n# Whether the attribution[^]*$/u, ''));
+      const notes = (await run()).git_workflow_notes ?? [];
+      expect(notes).toContain(
+        `Commit ${COMMITS} so your teammates don't repeat this change locally.`,
+      );
+      expect(readFileSync(path, 'utf8')).toContain('# ai_attribution: strip');
+      const again = (await run()).git_workflow_notes ?? [];
+      expect(again.some((line) => line.startsWith('Commit '))).toBe(false);
+    });
+  });
+
   describe('listing the files an update changed outside the regenerated list', () => {
     const run = () => new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
     const MANIFEST = '.paqad/onboarding-manifest.json';

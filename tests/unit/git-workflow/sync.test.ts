@@ -2,8 +2,15 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
+
 import { PATHS } from '@/core/constants/paths.js';
-import { renderDefaultGitWorkflowFile } from '@/git-workflow/defaults.js';
+import { FRAMEWORK_CONFIG_SPECS } from '@/core/framework-config.js';
+import { readTeamConfig } from '@/core/team-config.js';
+import {
+  AI_ATTRIBUTION_COMMENT_LINES,
+  renderDefaultGitWorkflowFile,
+} from '@/git-workflow/defaults.js';
 import { readLastApplied } from '@/git-workflow/last-applied.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { syncGitWorkflow, syncGitWorkflowFile } from '@/git-workflow/sync.js';
@@ -98,12 +105,86 @@ describe('syncGitWorkflowFile', () => {
   });
 });
 
+describe('the commented ai_attribution lines in commits.yaml', () => {
+  const COMMENT = AI_ATTRIBUTION_COMMENT_LINES.join('\n');
+  const OLD =
+    'paqad_version: "1.0.0"\ntemplate: "{ticket}: {summary}"\nsign_off: false\nask_when_unspecified: true\nsummary:\n  style: plain\n  max_length: 72\n';
+
+  it('AC-26: an upgraded file gets them, and a second run changes nothing', () => {
+    const once = syncGitWorkflowFile(OLD, 'commits.yaml', OPTS);
+    expect(once).toContain(COMMENT);
+    expect(YAML.parse(once).paqad_version).toBe('2.0.0');
+    expect(YAML.parse(once).ai_attribution).toBeUndefined();
+    expect(syncGitWorkflowFile(once, 'commits.yaml', OPTS)).toBe(once);
+  });
+
+  it('AC-26: a new file shows them and they match the default in code', () => {
+    const fresh = renderDefaultGitWorkflowFile('commits.yaml', OPTS);
+    expect(fresh).toContain(COMMENT);
+    const spec = FRAMEWORK_CONFIG_SPECS.find((row) => row.key === 'ai_attribution');
+    expect(AI_ATTRIBUTION_COMMENT_LINES[1]).toBe(`# ai_attribution: ${String(spec?.default)}`);
+    expect(syncGitWorkflowFile(fresh, 'commits.yaml', OPTS)).toBe(fresh);
+  });
+
+  it('AC-26: a live value stays byte-identical', () => {
+    const live = `${OLD}ai_attribution: keep\n`.replace('"1.0.0"', '"2.0.0"');
+    expect(syncGitWorkflowFile(live, 'commits.yaml', OPTS)).toBe(live);
+  });
+
+  it('AC-27: keeps CRLF line ends', () => {
+    const crlf = OLD.replaceAll('\n', '\r\n');
+    const once = syncGitWorkflowFile(crlf, 'commits.yaml', OPTS);
+    expect(once).toContain(AI_ATTRIBUTION_COMMENT_LINES.join('\r\n'));
+    expect(once.replaceAll('\r\n', '')).not.toContain('\n');
+    expect(YAML.parse(once).summary.max_length).toBe(72);
+  });
+
+  it('AC-27: handles a file with no final newline and stays valid', () => {
+    const once = syncGitWorkflowFile(OLD.trimEnd(), 'commits.yaml', OPTS);
+    expect(once).toContain(`max_length: 72\n\n${COMMENT}\n`);
+    expect(YAML.parse(once).summary.max_length).toBe(72);
+  });
+
+  it('AC-27: a comment with no space counts as present', () => {
+    const text = `${OLD}#ai_attribution: keep\n`;
+    expect(syncGitWorkflowFile(text, 'commits.yaml', OPTS)).toBe(text);
+  });
+
+  it('AC-27: a file stamped newer than the package is left alone', () => {
+    const text = OLD.replace('"1.0.0"', '"9.0.0"');
+    expect(syncGitWorkflowFile(text, 'commits.yaml', OPTS)).toBe(text);
+  });
+
+  it('AC-27: changes the version stamp only on the run that adds the lines', () => {
+    const once = syncGitWorkflowFile(OLD, 'commits.yaml', OPTS);
+    const later = syncGitWorkflowFile(once, 'commits.yaml', { ...OPTS, version: '3.0.0' });
+    expect(later).toBe(once);
+  });
+
+  it('adds them to no other file', () => {
+    const text = renderDefaultGitWorkflowFile('tickets.yaml', OPTS);
+    expect(syncGitWorkflowFile(text, 'tickets.yaml', OPTS)).not.toContain('ai_attribution');
+  });
+});
+
 describe('syncGitWorkflow', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'git-workflow-sync-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-26: the commented lines leave the value config show reports unchanged', () => {
+    const commits = join(root, PATHS.GIT_WORKFLOW_DIR, 'commits.yaml');
+    syncGitWorkflow(root, { version: '2.0.0', baseBranch: 'main' });
+    expect(readFileSync(commits, 'utf8')).toContain('# ai_attribution: strip');
+    expect(readTeamConfig(root).merged.has('ai_attribution')).toBe(false);
+    writeFileSync(commits, `${readFileSync(commits, 'utf8')}ai_attribution: keep\n`);
+    const live = readFileSync(commits, 'utf8');
+    expect(readTeamConfig(root).merged.get('ai_attribution')).toBe('keep');
+    syncGitWorkflow(root, { version: '2.0.0', baseBranch: 'main' });
+    expect(readFileSync(commits, 'utf8')).toBe(live);
+  });
 
   it('writes a missing file whole, then stamps .last-applied.json for the files it changed', () => {
     mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });

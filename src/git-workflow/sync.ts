@@ -5,7 +5,7 @@ import YAML from 'yaml';
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 
-import { renderDefaultGitWorkflowFile } from './defaults.js';
+import { AI_ATTRIBUTION_COMMENT_LINES, renderDefaultGitWorkflowFile } from './defaults.js';
 import { stampLastApplied } from './last-applied.js';
 import { gitWorkflowDir, gitWorkflowFilePath } from './load.js';
 import { remoteDefaultBranch } from './onboard.js';
@@ -48,6 +48,17 @@ export function isNewerThanPackage(fileVersion: unknown, running: string): boole
   return typeof fileVersion === 'string' && !versionAtLeast(running, fileVersion);
 }
 
+export function hasAiAttributionLine(text: string): boolean {
+  return /^#?\s*ai_attribution\s*:/mu.test(text);
+}
+
+function withAiAttributionComment(text: string): string {
+  if (hasPath(text, ['ai_attribution']) || hasAiAttributionLine(text)) return text;
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const base = text.endsWith('\n') ? text : `${text}${eol}`;
+  return `${base}${eol}${AI_ATTRIBUTION_COMMENT_LINES.join(eol)}${eol}`;
+}
+
 export function syncGitWorkflowFile(
   text: string,
   file: GitWorkflowFile,
@@ -62,9 +73,9 @@ export function syncGitWorkflowFile(
       baseBranch: options.baseBranch,
     }),
   ) as Plain;
+  let next = file === 'commits.yaml' ? withAiAttributionComment(text) : text;
   const missing = missingKeys(text, defaults, []);
-  if (missing.length === 0) return text;
-  let next = text;
+  if (missing.length === 0 && next === text) return text;
   for (const [path, value] of missing) {
     next = insertKey(
       next,
