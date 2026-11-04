@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "defect_id": "fix-01M6JMDXEAA02SJWWRE1ZYRQVN",
+  "created_at": "2026-11-04T06:47:34.707Z",
+  "proof": {
+    "test_id": "migrates evidence_existence_gate=strict to warn with nothing reported invalid",
+    "test_file": "tests/unit/core/team-config-retired-value.test.ts",
+    "command": "pnpm exec vitest run tests/unit/core/team-config-retired-value.test.ts tests/unit/update/update-command-output.test.ts"
+  },
+  "failing_evidence": {
+    "category": "test-failure",
+    "file": "tests/unit/core/team-config-retired-value.test.ts",
+    "line": null,
+    "test_id": "migrates evidence_existence_gate=strict to warn with nothing reported invalid",
+    "suite": null,
+    "ac_id": null,
+    "message": "Proof \"migrates evidence_existence_gate=strict to warn with nothing reported invalid\" fails before the fix.",
+    "stderr_excerpt": "    118|     const lines = formatUpdateSummary(report({ config_keys_pruned: ['o…\n       |                   ^\n    119|\n    120|     expect(lines).toContain('Removed 1 setting paqad no longer has: ol…\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯"
+  },
+  "linked_ac_id": null
+}
