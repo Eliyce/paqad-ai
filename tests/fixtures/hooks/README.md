@@ -47,3 +47,20 @@ Re-run it on each host version bump, because the fields below decide where the r
 
 `SubagentHandback` exists only in `auto` permission mode on 2.1.302. In every other mode a stage
 agent ends in plain text and the SubagentStop payload carries the report.
+
+## How much text reaches an agent
+
+Measured live on 2.1.302 on 4 November 2026 with `node scripts/capture-hook-fixtures.mjs --probe`,
+which sends a tail canary and asks the agent what arrived:
+
+| Channel | Size | What arrived |
+| --- | --- | --- |
+| SubagentStart `additionalContext` | 9,700 characters | the whole text |
+| SubagentStart `additionalContext` | 10,001 characters | a preview, the tail lost |
+| Bash output | 27,000 and 29,000 characters | the whole text |
+| Bash output | 31,000 and 40,000 characters | a 2 KB preview and a saved file path |
+
+So the start hook carries the brief and the recipe, kept at or under 9,700 characters, and the rest
+comes from `paqad-ai stage begin`. Its whole output stays at or under 27,000 characters, the
+measured Bash limit of about 30,000 less 10 percent, because a preview would cut the JSON and cost
+the second read the command exists to save.

@@ -68,7 +68,18 @@ function runClaude(root, mode, prompt) {
   delete env.CLAUDE_CODE_ENTRYPOINT;
   const result = spawnSync(
     'claude',
-    ['-p', prompt, '--permission-mode', mode, '--setting-sources', 'project', '--max-turns', '6'],
+    [
+      '-p',
+      prompt,
+      '--permission-mode',
+      mode,
+      '--setting-sources',
+      'project',
+      '--max-turns',
+      '6',
+      '--allowedTools',
+      'Bash(node emit.mjs)',
+    ],
     { cwd: root, env, encoding: 'utf8', timeout: 240_000 },
   );
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };

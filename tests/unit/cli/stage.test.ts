@@ -164,9 +164,11 @@ describe('paqad-ai stage command', () => {
     vi.spyOn(console, 'error').mockImplementation((line: string) => {
       errors.push(String(line));
     });
-    await run('begin', 'planning');
+    await run('nonsense', 'planning');
     expect(process.exitCode).toBe(1);
-    expect(errors.join('\n')).toContain("use 'start', 'end', 'settings' or 'brief'");
+    expect(errors.join('\n')).toContain(
+      "use 'start', 'end', 'begin', 'settings', 'brief' or 'report'",
+    );
   });
 
   it('a --title on start opens a fresh named feature', async () => {
@@ -363,9 +365,12 @@ describe('paqad-ai stage command', () => {
           estimate: true,
         });
         const printed = (await run('brief', stage)).join('\n');
-        expect(printed).toBe(
-          buildStageBrief(stage, root, SES, { agentId: 'agent-plan-1', resumed: true }),
-        );
+        expect(
+          printed.startsWith(
+            buildStageBrief(stage, root, SES, { agentId: 'agent-plan-1', resumed: true }),
+          ),
+        ).toBe(true);
+        expect(printed).toContain('## Request');
         expect(printed).toContain(
           `SE_SESSION=${SES} SE_AGENT_ID=agent-plan-1 paqad-ai stage start ${stage}`,
         );
@@ -418,7 +423,9 @@ describe('paqad-ai stage command', () => {
         estimate: true,
       });
       const printed = (await run('brief', 'specification')).join('\n');
-      expect(printed).toBe(buildStageBrief('specification', root, SES, { resumed: true }));
+      expect(
+        printed.startsWith(buildStageBrief('specification', root, SES, { resumed: true })),
+      ).toBe(true);
       expect(printed).not.toContain('SE_AGENT_ID');
     });
 
@@ -443,9 +450,11 @@ describe('paqad-ai stage command', () => {
       );
       vi.restoreAllMocks();
       const printed = (await run('brief', 'development', '--full')).join('\n');
-      expect(printed).toBe(
-        buildStageBrief('development', root, SES, { resumed: true, full: true }),
-      );
+      expect(
+        printed.startsWith(
+          buildStageBrief('development', root, SES, { resumed: true, full: true }),
+        ),
+      ).toBe(true);
       expect(printed).toContain('Long instruction 39 ');
       expect(printed).not.toContain('This brief was shortened.');
       expect(readFeatureStageUnit(root, dir)).toHaveLength(before);

@@ -149,20 +149,21 @@ export function safeAgentId(agentId: unknown): string | null {
   return isSafeSessionId(trimmed) ? trimmed : null;
 }
 
-function commandsSection(stage: string, sessionId: string, agentId: string | null): string[] {
+export function stageCommandLines(
+  stage: string,
+  sessionId: string,
+  agentId: string | null,
+): string[] {
   const prefix =
     agentId === null
       ? `SE_SESSION=${sessionId} paqad-ai`
       : `SE_SESSION=${sessionId} SE_AGENT_ID=${agentId} paqad-ai`;
   const agent = agentNameForStage(stage);
-  const rulesLoad = CODE_EDITING_STAGES.has(stage)
-    ? [`- \`${prefix} rules load\` before your first source edit.`]
-    : [];
+  const begins = CODE_EDITING_STAGES.has(stage)
+    ? ' It records the start and loads the rules before your first source edit.'
+    : ' It records the start.';
   return [
-    '## Commands',
-    '',
-    `- \`${prefix} stage start ${stage} --agent ${agent}\``,
-    ...rulesLoad,
+    `- \`${prefix} stage begin ${stage} --agent ${agent}\` first, and no single start command.${begins} It prints one JSON object with the request, the previous pillars and the paths you need.`,
     '- Do the stage work, then write its rigid artifact with the stage verb, or make the edits',
     '  for a mutation stage.',
     `- \`${prefix} stage end ${stage} --agent ${agent} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
@@ -271,7 +272,9 @@ export function buildStageBrief(
     ...STAGE_AGENT_HARD_RULES,
     ...exportLines(sessionId, agentId),
     '',
-    ...commandsSection(stage, sessionId, agentId),
+    '## Commands',
+    '',
+    ...stageCommandLines(stage, sessionId, agentId),
   ];
   const parts: BriefParts = {
     stage,

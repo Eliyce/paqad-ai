@@ -21,6 +21,11 @@ import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
+import {
+  runStageBegin,
+  stageContentMarkdown,
+  STAGE_CONTENT_MAX_CHARS,
+} from '@/stage-isolation/stage-begin.js';
 import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
 import {
   buildStageReport,
@@ -118,11 +123,13 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
       }
       const agentId =
         options.agentId ?? process.env.SE_AGENT_ID ?? openStageAgentId(root, sessionId, dirName);
-      return buildStageBrief(stage, root, sessionId, {
+      const text = buildStageBrief(stage, root, sessionId, {
         agentId,
         resumed: true,
         full: options.full === true,
       });
+      const room = STAGE_CONTENT_MAX_CHARS - text.length - 2;
+      return `${text}\n\n${stageContentMarkdown(root, dirName, stage, room)}`;
     });
   } catch (error) {
     console.error(`could not build the ${stage} stage brief: ${(error as Error).message}`);
@@ -142,6 +149,32 @@ function startRefusalMessage(root: string, sessionId: string, stage: string): st
   } catch {
     return null;
   }
+}
+
+function runStageBeginPhase(stage: string | undefined, options: StageOptions): void {
+  const root = options.projectRoot;
+  const name = stage ?? '';
+  const agent = options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined;
+  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionId = resolveSessionId(root, hint);
+  const { exitCode, output } = STAGE_AGENT_STAGES.includes(name)
+    ? runStageBegin({
+        projectRoot: root,
+        sessionId,
+        stage: name,
+        agent,
+        agentId: process.env.SE_AGENT_ID ?? null,
+      })
+    : {
+        exitCode: 1 as const,
+        output: {
+          stage: name,
+          failed_step: 'stage start',
+          error: `name the stage to begin: one of ${STAGE_AGENT_STAGES.join(', ')}`,
+        },
+      };
+  process.exitCode = exitCode;
+  console.log(JSON.stringify(output));
 }
 
 function runStageReport(agentId: string | undefined, options: StageOptions): void {
@@ -179,7 +212,7 @@ export function createStageCommand(): Command {
     )
     .argument(
       '<phase>',
-      "'start' or 'end', 'settings' to print and record this project's per-stage effort and " +
+      "'start' or 'end', 'begin' to start a stage and print what it needs as one JSON object, 'settings' to print and record this project's per-stage effort and " +
         "model, 'brief' to print a stage's brief for a resumed stage agent, or 'report' to " +
         'print what a stage agent reported, as JSON, from its agent id',
     )
@@ -223,13 +256,17 @@ export function createStageCommand(): Command {
         runStageBrief(stage, options);
         return;
       }
+      if (phase === 'begin') {
+        runStageBeginPhase(stage, options);
+        return;
+      }
       if (phase === 'report') {
         runStageReport(stage, options);
         return;
       }
       if (phase !== 'start' && phase !== 'end') {
         console.error(
-          `unknown phase "${phase}" — use 'start', 'end', 'settings', 'brief' or 'report'`,
+          `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief' or 'report'`,
         );
         process.exitCode = 1;
         return;
