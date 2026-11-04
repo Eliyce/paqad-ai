@@ -30,6 +30,7 @@ import testOutputResultSchema from './schemas/test-output-result.schema.json';
 export interface SchemaValidationIssue {
   path: string;
   message: string;
+  keyword?: string;
   expected?: string;
   actual?: string;
 }
@@ -103,6 +104,7 @@ export class SchemaValidator {
     return errors.map((error) => ({
       path: error.instancePath || '/',
       message: error.message ?? 'Validation failed',
+      keyword: error.keyword,
       expected: error.schemaPath,
       actual: error.data === undefined ? undefined : JSON.stringify(error.data),
     }));

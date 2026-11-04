@@ -41,7 +41,7 @@ import type {
   HealthCheckStatus,
 } from '@/core/types/health.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
-import { SchemaValidator } from '@/validators/validator.js';
+import { SchemaValidator, type SchemaValidationIssue } from '@/validators/validator.js';
 import { gitWorkflowHealth } from './git-workflow-check.js';
 import { teamConfigHealth } from './team-config-check.js';
 import {
@@ -1494,13 +1494,49 @@ export class HealthChecker {
         ? pass(input.name, `${input.relativePath} is present and valid`)
         : fail(
             input.name,
-            validation.errors.map((error) => error.message).join('; '),
+            schemaFailureDetail(validation.errors, parsed) ||
+              `${input.relativePath} doesn't match its schema`,
             input.invalidRemediation,
           );
     } catch {
       return fail(input.name, `${input.relativePath} is unreadable`, input.invalidRemediation);
     }
   }
+}
+
+function pointerSegments(pointer: string): string[] {
+  return pointer
+    .split('/')
+    .filter((segment) => segment !== '')
+    .map((segment) => segment.replaceAll('~1', '/').replaceAll('~0', '~'));
+}
+
+function valueAtPointer(data: unknown, segments: readonly string[]): unknown {
+  let node = data;
+  for (const segment of segments) {
+    if (node === null || typeof node !== 'object') return undefined;
+    node = (node as Record<string, unknown>)[segment];
+  }
+  return node;
+}
+
+function schemaIssueLine(issue: SchemaValidationIssue, parsed: unknown): string {
+  const segments = pointerSegments(issue.path);
+  const field = segments.join('.');
+  if (issue.keyword === 'enum' && field !== '') {
+    const value = valueAtPointer(parsed, segments);
+    const shown = typeof value === 'string' ? value : JSON.stringify(value);
+    return `${field}: ${shown} isn't an allowed value`;
+  }
+  return field === '' ? issue.message : `${field}: ${issue.message}`;
+}
+
+function schemaFailureDetail(issues: readonly SchemaValidationIssue[], parsed: unknown): string {
+  const named = issues.filter(
+    (issue) => issue.keyword !== 'anyOf' && issue.message !== 'must be null',
+  );
+  const shown = named.length > 0 ? named : issues;
+  return [...new Set(shown.map((issue) => schemaIssueLine(issue, parsed)))].join('; ');
 }
 
 type SpecPipelineSwitchKey =
