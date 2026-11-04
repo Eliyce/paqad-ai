@@ -103,7 +103,7 @@ describe('paqad-ai stage begin', () => {
     expect(startRows(root, 'specification')).toBe(1);
   });
 
-  it('holds the review digest and frozen spec text, not only their paths', async () => {
+  it('AC-28: holds the review digest and frozen spec text, not only their paths', async () => {
     const root = tempRoot();
     await openChange(root);
     writeFileSync(join(bundleDir(root), 'specification.json'), '{"frozen":"spec text"}\n');
@@ -122,7 +122,7 @@ describe('paqad-ai stage begin', () => {
     expect(result.output.content.review_digest).toContain('the digest text');
   });
 
-  it('truncates an oversized pillar and keeps every instruction and command line', async () => {
+  it('AC-29: truncates an oversized pillar at 27,000 characters and keeps every instruction and command line', async () => {
     const root = tempRoot();
     await openChange(root);
     writeFileSync(join(bundleDir(root), 'plan.json'), 'p'.repeat(100_000));
@@ -132,6 +132,10 @@ describe('paqad-ai stage begin', () => {
       stage: 'specification',
       run: () => ({ ok: true, stdout: '', stderr: '' }),
     });
+    expect(STAGE_CONTENT_MAX_CHARS).toBe(27_000);
+    expect(STAGE_CONTENT_TRUNCATED_LINE).toBe(
+      'truncated at 27,000 characters; read the file for the rest',
+    );
     expect(result.output.content.pillars.plan).toContain(STAGE_CONTENT_TRUNCATED_LINE);
     expect(result.output.truncated).toEqual(['plan']);
     expect(result.output.instructions.length).toBeGreaterThan(0);
@@ -154,7 +158,7 @@ describe('paqad-ai stage begin', () => {
     expect(JSON.stringify(result.output).length).toBeLessThanOrEqual(STAGE_CONTENT_MAX_CHARS);
   });
 
-  it('names the failed step, and a re-run neither repeats the start nor claims the rules', async () => {
+  it('AC-30: names the failed step, and a re-run neither repeats the start nor claims the rules', async () => {
     const root = tempRoot();
     await openChange(root);
     const failing: CommandRunner = (args) =>
@@ -231,22 +235,26 @@ describe('fitting content under the ceiling', () => {
     kept: size,
   });
 
-  it('cuts the longest first', () => {
-    const slots = [slot('plan', 40_001), slot('specification', 40_000), slot('request', 100)];
-    const size = (content: { request: string; pillars: Record<string, string> }) =>
-      JSON.stringify(content).length;
-    const fitted = fitToCeiling(slots, size, 70_000);
-    expect(size(fitted)).toBeLessThanOrEqual(70_000);
+  const total = (content: { request: string; pillars: Record<string, string> }) =>
+    content.request.length +
+    Object.values(content.pillars).reduce((sum, text) => sum + text.length, 0);
+
+  it('AC-30: cuts the longest first, with pillars around 27,000 and 27,001 characters', () => {
+    const slots = [slot('plan', 27_001), slot('specification', 27_000), slot('request', 100)];
+    const fitted = fitToCeiling(slots, total, 54_000);
+    expect(total(fitted)).toBeLessThanOrEqual(54_000);
     expect(fitted.request).toHaveLength(100);
     expect(fitted.pillars.plan).toContain(STAGE_CONTENT_TRUNCATED_LINE);
+    expect(fitted.pillars.specification).toHaveLength(27_000);
   });
 
-  it('cuts nothing at the ceiling, and cuts at one over', () => {
+  it('AC-29: cuts nothing at 27,000 characters, and cuts at 27,001', () => {
     const size = (content: { request: string }) => content.request.length;
-    const exact = fitToCeiling([slot('request', 1_000)], size, 1_000);
+    const exact = fitToCeiling([slot('request', 27_000)], size, STAGE_CONTENT_MAX_CHARS);
+    expect(exact.request).toHaveLength(27_000);
     expect(exact.request).not.toContain(STAGE_CONTENT_TRUNCATED_LINE);
-    const over = fitToCeiling([slot('request', 2_001)], size, 2_000);
+    const over = fitToCeiling([slot('request', 27_001)], size, STAGE_CONTENT_MAX_CHARS);
     expect(over.request).toContain(STAGE_CONTENT_TRUNCATED_LINE);
-    expect(size(over)).toBeLessThanOrEqual(2_000);
+    expect(size(over)).toBeLessThanOrEqual(27_000);
   });
 });
