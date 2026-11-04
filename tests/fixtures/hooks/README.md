@@ -32,8 +32,9 @@ row as inexact (`exact: false`). When a host surfaces exact usage, add it here a
 
 ## Live captures of the stage agent report
 
-`claude/subagent-handback.json`, `claude/subagent-stop.json` and `claude/subagent-stop-text.json`
-were captured live from Claude Code 2.1.302 on 4 November 2026 with
+`claude/subagent-handback.json`, `claude/subagent-stop.json`, `claude/subagent-stop-text.json`,
+`claude/session-start.json`, `claude/subagent-start.json`, `claude/pre-tool-agent.json` and
+`claude/pre-tool-skill.json` were captured live from Claude Code 2.1.302 on 4 November 2026 with
 `node scripts/capture-hook-fixtures.mjs --out tests/fixtures/hooks/claude`. The script makes a
 throwaway project, installs one logging hook and one stage agent, runs `claude -p` once in `auto`
 and once in `default` permission mode, and replaces the throwaway paths with `/capture/...`.

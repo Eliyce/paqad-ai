@@ -81,6 +81,16 @@ const CALL = {
   tool_use_id: 'tu-1',
 };
 
+describe('the live captured payload', () => {
+  it('names the agent from the PreToolUse payload Claude Code really sends', () => {
+    const payload = JSON.parse(
+      readFileSync(join(REPO, 'tests/fixtures/hooks/claude/pre-tool-agent.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(agentNameFromPayload(payload)).toBe('paqad-planning');
+    expect(delegationFromPayload(payload)?.request_id).toBeTruthy();
+  });
+});
+
 describe('the delegation core', () => {
   it('AC-11: takes the agent name from tool_input.subagent_type only, never the reply text', () => {
     expect(agentNameFromPayload(CALL)).toBe('migration-reviewer');

@@ -40,12 +40,18 @@ function makeProject(startChars) {
     join(root, '.claude', 'settings.json'),
     JSON.stringify({
       hooks: {
-        PreToolUse: [hook('SubagentHandback')],
+        SessionStart: [hook()],
+        PreToolUse: [hook('SubagentHandback|Agent|Task|Skill')],
         SubagentStart: [hook(AGENT_TYPE)],
         SubagentStop: [hook(AGENT_TYPE)],
       },
       env: startChars ? { PROBE_START_CHARS: String(startChars) } : {},
     }),
+  );
+  mkdirSync(join(root, '.claude', 'skills', 'capture-probe'), { recursive: true });
+  writeFileSync(
+    join(root, '.claude', 'skills', 'capture-probe', 'SKILL.md'),
+    '---\nname: capture-probe\ndescription: Hook capture probe. Use when asked to run the capture probe.\n---\nSay done.\n',
   );
   writeFileSync(
     join(root, '.claude', 'agents', `${AGENT_TYPE}.md`),
@@ -127,12 +133,26 @@ function capture(outDir) {
   const autoLog = readLog(auto);
   const handback = autoLog.find((e) => e.tool_name === 'SubagentHandback');
   const autoStop = autoLog.find((e) => e.hook_event_name === 'SubagentStop');
+  const sessionStart = autoLog.find((e) => e.hook_event_name === 'SessionStart');
+  const subagentStart = autoLog.find((e) => e.hook_event_name === 'SubagentStart');
+  const agentCall = autoLog.find((e) => e.tool_name === 'Agent' || e.tool_name === 'Task');
   const plain = makeProject();
   const plainRun = runClaude(plain, 'default', DISPATCH);
   const plainStop = readLog(plain).find((e) => e.hook_event_name === 'SubagentStop');
+  const skilled = makeProject();
+  runClaude(
+    skilled,
+    'auto',
+    'Use the capture-probe skill once with the Skill tool, then say done.',
+  );
+  const skillCall = readLog(skilled).find((e) => e.tool_name === 'Skill');
   const missing = [
     !handback && `auto mode gave no SubagentHandback: ${autoRun.stderr.slice(0, 300)}`,
     !autoStop && 'auto mode gave no SubagentStop',
+    !sessionStart && 'auto mode gave no SessionStart',
+    !subagentStart && 'auto mode gave no SubagentStart',
+    !agentCall && 'auto mode gave no PreToolUse for the agent call',
+    !skillCall && 'auto mode gave no PreToolUse for the skill call',
     !plainStop && `default mode gave no SubagentStop: ${plainRun.stderr.slice(0, 300)}`,
   ].filter(Boolean);
   if (missing.length > 0) {
@@ -144,6 +164,10 @@ function capture(outDir) {
   writeFileSync(join(outDir, 'subagent-handback.json'), scrub(handback, auto));
   writeFileSync(join(outDir, 'subagent-stop.json'), scrub(autoStop, auto));
   writeFileSync(join(outDir, 'subagent-stop-text.json'), scrub(plainStop, plain));
+  writeFileSync(join(outDir, 'session-start.json'), scrub(sessionStart, auto));
+  writeFileSync(join(outDir, 'subagent-start.json'), scrub(subagentStart, auto));
+  writeFileSync(join(outDir, 'pre-tool-agent.json'), scrub(agentCall, auto));
+  writeFileSync(join(outDir, 'pre-tool-skill.json'), scrub(skillCall, skilled));
   console.log(
     JSON.stringify({
       host: version,
@@ -162,6 +186,7 @@ function capture(outDir) {
   );
   rmSync(auto, { recursive: true, force: true });
   rmSync(plain, { recursive: true, force: true });
+  rmSync(skilled, { recursive: true, force: true });
 }
 
 function probeStart(size) {

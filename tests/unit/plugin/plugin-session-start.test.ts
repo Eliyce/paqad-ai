@@ -719,6 +719,28 @@ describe('the plugin and runtime version line', () => {
     return printed;
   }
 
+  it('prints the same line from the SessionStart payload Claude Code really sends', () => {
+    const { project, plugin } = onboarded('1.1.0');
+    const live = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hooks/claude/session-start.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const printed: string[] = [];
+    runPluginSessionStart(
+      {
+        CLAUDE_PLUGIN_ROOT: plugin,
+        CLAUDE_PROJECT_DIR: project,
+        PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+        CLAUDE_CONFIG_DIR: join(root, 'claude'),
+        HOME: root,
+      } as NodeJS.ProcessEnv,
+      { ...live, cwd: project },
+      { tick: () => {}, print: (line: string) => printed.push(line) },
+    );
+    expect(printed).toEqual([
+      'paqad: plugin 1.2.0 and runtime 1.1.0 differ; run `paqad-ai update`',
+    ]);
+  });
+
   it('AC-63: prints and logs one line when the versions differ, and blocks nothing', () => {
     const { project, plugin } = onboarded('1.1.0');
     const line = 'paqad: plugin 1.2.0 and runtime 1.1.0 differ; run `paqad-ai update`';

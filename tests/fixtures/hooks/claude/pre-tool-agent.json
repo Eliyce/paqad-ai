@@ -1,0 +1,19 @@
+{
+  "session_id": "30c8eb59-b1e4-49d2-aa43-71ac62888f76",
+  "transcript_path": "/capture/home/.claude/projects/capture-project/30c8eb59-b1e4-49d2-aa43-71ac62888f76.jsonl",
+  "cwd": "/capture/project",
+  "prompt_id": "900f8cf3-9b41-4d06-878b-2aa0c92d3e7b",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Hook capture probe report",
+    "prompt": "Make no tool calls except what is needed to return, and return exactly this report:\nCaptured for the paqad hook fixtures.\nStatus: DONE",
+    "subagent_type": "paqad-planning",
+    "run_in_background": false
+  },
+  "tool_use_id": "toolu_01Dsshd2zW1uujWWm2ranRpg"
+}

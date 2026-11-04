@@ -87,6 +87,18 @@ function commandsOf(hooks: Record<string, Array<{ hooks: Array<{ command: string
   );
 }
 
+describe('the live captured payload', () => {
+  it('names the skill from the PreToolUse payload Claude Code really sends', () => {
+    const payload = JSON.parse(
+      readFileSync(join(REPO, 'tests/fixtures/hooks/claude/pre-tool-skill.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(activationFromPayload(payload)).toMatchObject({
+      skill: 'capture-probe',
+      source: 'Skill-tool',
+    });
+  });
+});
+
 describe('the plugin hooks.json', () => {
   it('AC-39, INV-12: keeps every existing entry identical and in order, adding only the PostToolUse entry, the appended agent delegation entries and the Bash write guard', () => {
     const committed = JSON.parse(

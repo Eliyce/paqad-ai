@@ -1,0 +1,16 @@
+{
+  "session_id": "4ad7e7f4-c7fe-4912-a6fc-8459d82fd67d",
+  "transcript_path": "/capture/home/.claude/projects/capture-project/4ad7e7f4-c7fe-4912-a6fc-8459d82fd67d.jsonl",
+  "cwd": "/capture/project",
+  "prompt_id": "0d17f72f-bd02-46e6-a88c-0b2c1f5d05e9",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Skill",
+  "tool_input": {
+    "skill": "capture-probe"
+  },
+  "tool_use_id": "toolu_01YLoSMmqciVfPPgjREpUbLS"
+}

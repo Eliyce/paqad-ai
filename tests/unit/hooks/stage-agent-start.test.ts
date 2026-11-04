@@ -88,6 +88,18 @@ function stagePayload(overrides: Record<string, unknown> = {}): Record<string, u
 }
 
 describe('stage-agent-start.mjs', () => {
+  it('seeds the brief from the SubagentStart payload Claude Code really sends', async () => {
+    const root = onboard(tempRoot());
+    await openFeature(root, 'ses_it');
+    const live = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hooks/claude/subagent-start.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const result = await runHook(root, { ...live, cwd: root, session_id: 'ses_it' });
+    expect(result.exitCode).toBe(0);
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext as string;
+    expect(context).toContain(`SE_AGENT_ID=${String(live.agent_id)} paqad-ai stage begin planning`);
+  });
+
   it('prints one SubagentStart brief with the resolved session and stamps the marker after', async () => {
     const root = onboard(tempRoot());
     await openFeature(root, 'ses_it');
