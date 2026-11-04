@@ -1160,6 +1160,47 @@ describe('FrameworkUpdater', () => {
       restore('USERPROFILE', savedUserProfile);
     });
 
+    it('AC-52: an update writes the recipes and the read-first line, and git ignores only the six folders', async () => {
+      execFileSync('git', ['init', '-q'], { cwd: projectRoot });
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.paqad/onboarding-manifest.json'),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          adapter: 'codex-cli',
+          providers: ['codex-cli'],
+          generated_artifacts: [],
+          detected: null,
+        }),
+      );
+      await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+      expect(existsSync(join(projectRoot, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+      expect(readFileSync(join(userHome, '.codex/agents/paqad-review.toml'), 'utf8')).toContain(
+        'Read `.agents/skills/review-recipe/SKILL.md` first',
+      );
+      const ignored = (path: string): boolean => {
+        try {
+          execFileSync('git', ['check-ignore', '-q', path], { cwd: projectRoot });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      for (const recipe of [
+        'planning',
+        'specification',
+        'development',
+        'review',
+        'documentation-sync',
+        'checks',
+      ]) {
+        expect(ignored(`.agents/skills/${recipe}-recipe/SKILL.md`)).toBe(true);
+      }
+      expect(ignored('.agents/skills/our-skill/SKILL.md')).toBe(false);
+    });
+
     it('writes six Claude and six Codex stage agents, plus the two High Table agents, under the user home', async () => {
       await new FrameworkUpdater().run(projectRoot);
 

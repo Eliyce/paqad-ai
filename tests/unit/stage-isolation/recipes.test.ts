@@ -48,7 +48,7 @@ describe('the recipe resolver', () => {
 });
 
 describe('fitting a recipe beside the brief', () => {
-  it('sends the whole body at the limit, hashing what was sent', () => {
+  it('AC-54: sends the whole body at the limit, hashing what was sent', () => {
     const recipe = body('x'.repeat(100));
     const size = `${RECIPE_HEADING}\n\n${'x'.repeat(100)}`.length;
     const fitted = fitRecipe(RECIPE_BUDGET_CHARS - size - 2, recipe)!;
@@ -56,7 +56,7 @@ describe('fitting a recipe beside the brief', () => {
     expect(fitted.hash).toBe(sha256Hex(fitted.text));
   });
 
-  it('cuts at a line boundary one over the limit, with a pointer to the file', () => {
+  it('AC-54: cuts at a line boundary one over the limit, with a pointer to the file', () => {
     const recipe = body(`one\ntwo\n${'x'.repeat(100)}`);
     const size = `${RECIPE_HEADING}\n\n${recipe.body}`.length;
     const fitted = fitRecipe(RECIPE_BUDGET_CHARS - size - 2 + 1, recipe)!;
@@ -66,7 +66,7 @@ describe('fitting a recipe beside the brief', () => {
     expect(fitted.hash).toBe(sha256Hex(fitted.text));
   });
 
-  it('counts characters, not bytes', () => {
+  it('AC-54: counts characters, not bytes', () => {
     const recipe = body('é'.repeat(100));
     const size = `${RECIPE_HEADING}\n\n${recipe.body}`.length;
     expect(fitRecipe(RECIPE_BUDGET_CHARS - size - 2, recipe)?.truncated).toBe(false);
@@ -78,7 +78,7 @@ describe('fitting a recipe beside the brief', () => {
 });
 
 describe('the lines a recipe carries', () => {
-  it.each(STAGE_AGENT_STAGES)('are not repeated in the %s stage instructions', (stage) => {
+  it.each(STAGE_AGENT_STAGES)('AC-51: are not repeated in the %s stage instructions', (stage) => {
     const brief = buildStageBrief(stage, process.cwd(), 'ses_seed', { full: true });
     const instructions = brief.slice(
       brief.indexOf('## Stage instructions'),
@@ -93,18 +93,21 @@ describe('the lines a recipe carries', () => {
 });
 
 describe('seeding a stage agent', () => {
-  it.each(STAGE_AGENT_STAGES)('keeps %s under the host limit, with no recipe text cut', (stage) => {
-    const root = process.cwd();
-    const seeded = seedStageAgentDetailed(stage, root, { session_id: 'ses_seed' }, {});
-    const context = (
-      JSON.parse(seeded.output) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext;
-    expect(context.length).toBeLessThanOrEqual(RECIPE_BUDGET_CHARS);
-    expect(context).toContain(`${RECIPE_HEADING}\n\n${resolveRecipe(stage).body}`);
-    expect(seeded.injected?.truncated).toBe(false);
-    expect(seeded.injected?.recipe_hash).toBe(
-      sha256Hex(`${RECIPE_HEADING}\n\n${resolveRecipe(stage).body}`),
-    );
-    expect(seeded.notes).toEqual([]);
-  });
+  it.each(STAGE_AGENT_STAGES)(
+    'AC-54: keeps %s under the host limit, with no recipe text cut',
+    (stage) => {
+      const root = process.cwd();
+      const seeded = seedStageAgentDetailed(stage, root, { session_id: 'ses_seed' }, {});
+      const context = (
+        JSON.parse(seeded.output) as { hookSpecificOutput: { additionalContext: string } }
+      ).hookSpecificOutput.additionalContext;
+      expect(context.length).toBeLessThanOrEqual(RECIPE_BUDGET_CHARS);
+      expect(context).toContain(`${RECIPE_HEADING}\n\n${resolveRecipe(stage).body}`);
+      expect(seeded.injected?.truncated).toBe(false);
+      expect(seeded.injected?.recipe_hash).toBe(
+        sha256Hex(`${RECIPE_HEADING}\n\n${resolveRecipe(stage).body}`),
+      );
+      expect(seeded.notes).toEqual([]);
+    },
+  );
 });

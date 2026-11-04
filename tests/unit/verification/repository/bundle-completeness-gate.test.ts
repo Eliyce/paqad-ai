@@ -1488,7 +1488,7 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
     expect(gate(root).detail).not.toContain('recipe proof for');
   });
 
-  it('warns about a stage that ran before the update, and fails one after it', () => {
+  it('AC-56: warns about a stage that ran before the update, and fails one after it', () => {
     const root = tempRoot();
     const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
     mkdirSync(dirname(ledger), { recursive: true });
