@@ -4,7 +4,7 @@
 # summary.style:
 #   plain  the summary is written for a person who doesn't read code
 #   free   no style check
-paqad_version: "1.116.0"
+paqad_version: "1.118.0"
 
 template: "{type}({ticket}): {summary}"
 
@@ -18,3 +18,6 @@ ask_when_unspecified: true
 summary:
   style: plain
   max_length: 72
+
+# Whether the attribution of the coding agent stays on your commits and pull requests (keep or strip), while the paqad delivery footer is never changed.
+# ai_attribution: strip
