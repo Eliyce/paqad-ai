@@ -23,4 +23,6 @@ closed_reason: null
 A one-value correction to a frozen spec had to use `spec freeze --manual`, because the first freeze cleared the pipeline run.
 That dropped `task`, `grounding`, `trace` and the expert summary from `specification.json`.
 
-Expected: a correction to a frozen spec keeps them.
+It also marks the spec as hand-written, so the HUD hides the High Table and says it never sat, and the receipt says the spec was frozen without the pipeline. Both are false: the seats did sit, and `experts.json` and `high-table.jsonl` hold their work.
+
+Expected: a correction to a frozen spec keeps them and does not read as hand-written, and the HUD shows the High Table whenever seats are on record.
