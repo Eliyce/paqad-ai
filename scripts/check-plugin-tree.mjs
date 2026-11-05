@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'no
 import { join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { PLUGIN_PACKAGE_KEYS } from './assemble-plugin.mjs';
+import { escapeControlBytes, PLUGIN_PACKAGE_KEYS } from './assemble-plugin.mjs';
 
 export const SELF_IMPORTS = ['paqad-ai', 'paqad-ai/rule-scripts'];
 
@@ -61,6 +61,9 @@ export function checkPluginTree(tree) {
   for (const path of paths) {
     if (path.startsWith('dist/') && path.endsWith('.d.ts')) {
       problems.push(`${path} is a type file under dist.`);
+    }
+    if (path.endsWith('.js') && escapeControlBytes(readFileSync(join(root, path))) !== null) {
+      problems.push(`${path} holds a raw control byte.`);
     }
   }
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));

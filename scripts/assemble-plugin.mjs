@@ -139,7 +139,8 @@ function isControlByte(byte) {
     (byte >= 0x01 && byte <= 0x08) ||
     byte === 0x0b ||
     byte === 0x0c ||
-    (byte >= 0x0e && byte <= 0x1f)
+    (byte >= 0x0e && byte <= 0x1f) ||
+    byte === 0x7f
   );
 }
 

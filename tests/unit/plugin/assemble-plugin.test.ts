@@ -322,16 +322,16 @@ describe('scripts/assemble-plugin.mjs', () => {
   });
 });
 
-describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
-  const builtHere = (): boolean => {
-    const versionOf = (rel: string) =>
-      (JSON.parse(readFileSync(resolve(rel), 'utf8')) as { version: string }).version;
-    return (
-      existsSync(resolve('dist/cli/index.js')) &&
-      versionOf('package.json') === versionOf('.claude-plugin/plugin.json')
-    );
-  };
+function builtHere(): boolean {
+  const versionOf = (rel: string) =>
+    (JSON.parse(readFileSync(resolve(rel), 'utf8')) as { version: string }).version;
+  return (
+    existsSync(resolve('dist/cli/index.js')) &&
+    versionOf('package.json') === versionOf('.claude-plugin/plugin.json')
+  );
+}
 
+describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
   function assembledPackage(repoRoot: string): Record<string, unknown> {
     const outDir = join(tempDir('paqad-assemble-pkg-'), 'plugin');
     assemblePlugin({ repoRoot, outDir });
@@ -550,6 +550,56 @@ describe('scripts/assemble-plugin.mjs — what the directory reads', () => {
     ]);
     expect(escapeControlBytes(clean)).toBeNull();
   });
+
+  it('AC-30: escapes 0x7F and leaves its neighbours 0x7E and 0x80 alone', () => {
+    expect(escapeControlBytes(Buffer.from([0x61, 0x7f, 0x62]))!.toString('latin1')).toBe('a\\x7fb');
+    expect(escapeControlBytes(Buffer.from([0x7e, 0x80]))).toBeNull();
+    const mixed = escapeControlBytes(Buffer.from([0x7e, 0x7f, 0x80]))!;
+    expect([...mixed]).toEqual([0x7e, ...Buffer.from('\\x7f'), 0x80]);
+    const multibyte = Buffer.from('é€😀');
+    expect(escapeControlBytes(multibyte)).toBeNull();
+  });
+
+  it('AC-30: a regular expression holding the byte matches the same input before and after', async () => {
+    const source = Buffer.concat([
+      Buffer.from('export const R = /[\\x00-'),
+      Buffer.from([0x7f]),
+      Buffer.from(']+/;\n'),
+    ]);
+    const before = tempDir('paqad-assemble-del-');
+    write(before, 'raw.mjs');
+    writeFileSync(join(before, 'raw.mjs'), source);
+    write(before, 'escaped.mjs');
+    writeFileSync(join(before, 'escaped.mjs'), escapeControlBytes(source)!);
+    execFileSync(process.execPath, ['--check', join(before, 'escaped.mjs')]);
+    const load = async (name: string) =>
+      ((await import(pathToFileURL(join(before, name)).href)) as { R: RegExp }).R;
+    const raw = await load('raw.mjs');
+    const escaped = await load('escaped.mjs');
+    for (const input of ['abc', '\x7f', '\x7e\x7f\x80', 'é', '\x80', '']) {
+      expect(escaped.exec(input)?.[0]).toBe(raw.exec(input)?.[0]);
+    }
+    expect(escaped.test('\x7f')).toBe(true);
+    expect(escaped.test('\x80')).toBe(false);
+  });
+
+  it('AC-2: the tree check passes a clean tree and names a file holding a raw byte', () => {
+    const outDir = join(tempDir('paqad-assemble-check-'), 'plugin');
+    assemblePlugin({ repoRoot: builtRepo(), outDir });
+    expect(checkPluginTree(outDir)).toEqual([]);
+    writeFileSync(join(outDir, 'dist/index.js'), Buffer.from([0x7f]));
+    expect(checkPluginTree(outDir)).toContain('dist/index.js holds a raw control byte.');
+  });
+
+  it.runIf(builtHere())(
+    'AC-2: the real tree holds no type file under dist, only the kept keys and no raw byte',
+    () => {
+      const outDir = join(tempDir('paqad-assemble-real-check-'), 'plugin');
+      assemblePlugin({ repoRoot: resolve('.'), outDir });
+      expect(checkPluginTree(outDir)).toEqual([]);
+    },
+    60_000,
+  );
 
   it('AC-17: fails assembly when an escaped file no longer parses', () => {
     const repoRoot = builtRepo();
