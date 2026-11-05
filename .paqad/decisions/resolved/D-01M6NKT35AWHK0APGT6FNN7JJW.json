@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6NKT35AWHK0APGT6FNN7JJW",
+  "category": "spec.change",
+  "title": "Take the expert record fix back out of this change",
+  "context": "Decision D for the expert record was recorded after the owner said continue, taken as a go-ahead. The owner then said: Do not fix the HUD but continue. FR-107 and AC-84 come back out.",
+  "options": [
+    {
+      "option_key": "keep-current-spec",
+      "label": "Leave it out",
+      "one_line_preview": "Leave it out",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "update-and-refreeze",
+      "label": "Keep it in",
+      "one_line_preview": "Keep it in",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep-current-spec",
+  "created_at": "2026-11-05T10:24:27.306Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "keep-current-spec",
+  "rationale": "Owner, 5 Nov 2026: Do not fix the HUD but continue.",
+  "resolved_at": "2026-11-05T10:24:28.181Z",
+  "decision_id": "D-01M6NKT35AWHK0APGT6FNN7JJW",
+  "fingerprint": "sha256:638a4a12fea6c1ab5a67247f86661260a6502090366270a0ea5043691e41178c",
+  "question": "Take the expert record fix back out of this change",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T10:24:27.306Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "keep-current-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T10:24:28.181Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: Do not fix the HUD but continue."
+  }
+}
