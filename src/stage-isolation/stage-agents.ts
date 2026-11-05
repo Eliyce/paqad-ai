@@ -199,7 +199,7 @@ export function buildExpertAgentBody(): string {
     '',
     SEAT_SESSION_STEP,
     '2. Print your brief: `paqad-ai spec pipeline experts brief <role>` (this records your start).',
-    '3. Follow the `expert-notes` skill for your role: the host skill, or `runtime/base/skills/expert-notes/SKILL.md` under the install directory that `.paqad/framework-path.txt` names, with your lens in its `references/lenses/`.',
+    '3. Follow the `expert-notes` skill for your role: the host skill, or `base/skills/expert-notes/SKILL.md` under the install directory that `.paqad/framework-path.txt` names, with your lens in its `references/lenses/`.',
     '4. Write one note for your role in the skill format: one `notes` entry (role, `findings`, `questions`) and your spent tokens under `tokens.<role>`, saved as `.paqad/tmp/high-table/<role>-notes.json`.',
     '5. Record it: `paqad-ai spec pipeline experts notes .paqad/tmp/high-table/<role>-notes.json`. On a refusal, fix what it names and run the verb again.',
     '',
@@ -232,7 +232,7 @@ export function buildChiefArchitectAgentBody(): string {
     '',
     SEAT_SESSION_STEP,
     '2. Read the table: `paqad-ai spec pipeline experts context` (request, grounding, notes, voice warnings and merge; it records your start).',
-    '3. Follow the `expert-synthesis` skill: the host skill, or `runtime/base/skills/expert-synthesis/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.',
+    '3. Follow the `expert-synthesis` skill: the host skill, or `base/skills/expert-synthesis/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.',
     '4. Write the synthesis in the skill format as `.paqad/tmp/high-table/synthesis.json`.',
     '5. Record it: `paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json`. Each conflict becomes a decision packet for the owner. On a refusal, fix what it names and run the verb again.',
     '',
@@ -368,7 +368,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
 function recipeLines(host: string): string[] {
   return host === 'claude-code'
     ? [
-        'No `## Your recipe` heading? Run the brief; still none, continue, reporting `paqad-ai update`.',
+        'No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.',
         '',
       ]
     : [];

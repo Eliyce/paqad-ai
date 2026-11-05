@@ -14,7 +14,7 @@ Chair the paqad **High Table** for one feature-development change as its **chief
 
 1. Export the `SE_SESSION` you were given for every `paqad-ai` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Read the table: `paqad-ai spec pipeline experts context` (request, grounding, notes, voice warnings and merge; it records your start).
-3. Follow the `expert-synthesis` skill: the host skill, or `runtime/base/skills/expert-synthesis/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+3. Follow the `expert-synthesis` skill: the host skill, or `base/skills/expert-synthesis/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 4. Write the synthesis in the skill format as `.paqad/tmp/high-table/synthesis.json`.
 5. Record it: `paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json`. Each conflict becomes a decision packet for the owner. On a refusal, fix what it names and run the verb again.
 

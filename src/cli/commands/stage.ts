@@ -133,8 +133,8 @@ function briefRecipeSection(
   let recipe;
   try {
     recipe = resolveRecipe(stage);
-  } catch {
-    return null;
+  } catch (error) {
+    return `**▸ paqad** · ${(error as Error).message}`;
   }
   const text = `${RECIPE_HEADING}\n\n${recipe.body}`;
   if (typeof process.env.SE_AGENT_ID === 'string' && agentId !== null) {

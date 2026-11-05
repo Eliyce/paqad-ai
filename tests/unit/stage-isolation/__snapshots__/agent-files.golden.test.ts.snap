@@ -18,7 +18,7 @@ Chair the paqad **High Table** for one feature-development change as its **chief
 
 1. Export the \`SE_SESSION\` you were given for every \`paqad-ai\` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Read the table: \`paqad-ai spec pipeline experts context\` (request, grounding, notes, voice warnings and merge; it records your start).
-3. Follow the \`expert-synthesis\` skill: the host skill, or \`runtime/base/skills/expert-synthesis/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names.
+3. Follow the \`expert-synthesis\` skill: the host skill, or \`base/skills/expert-synthesis/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names.
 4. Write the synthesis in the skill format as \`.paqad/tmp/high-table/synthesis.json\`.
 5. Record it: \`paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json\`. Each conflict becomes a decision packet for the owner. On a refusal, fix what it names and run the verb again.
 
@@ -70,7 +70,7 @@ Write the request-time notes for one paqad **High Table** seat on one feature-de
 
 1. Export the \`SE_SESSION\` you were given for every \`paqad-ai\` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Print your brief: \`paqad-ai spec pipeline experts brief <role>\` (this records your start).
-3. Follow the \`expert-notes\` skill for your role: the host skill, or \`runtime/base/skills/expert-notes/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names, with your lens in its \`references/lenses/\`.
+3. Follow the \`expert-notes\` skill for your role: the host skill, or \`base/skills/expert-notes/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names, with your lens in its \`references/lenses/\`.
 4. Write one note for your role in the skill format: one \`notes\` entry (role, \`findings\`, \`questions\`) and your spent tokens under \`tokens.<role>\`, saved as \`.paqad/tmp/high-table/<role>-notes.json\`.
 5. Record it: \`paqad-ai spec pipeline experts notes .paqad/tmp/high-table/<role>-notes.json\`. On a refusal, fix what it names and run the verb again.
 
@@ -128,7 +128,7 @@ You are the paqad **checks** stage agent. Your job: run the project checks and r
 5. Follow your recipe: run the project checks once with \`paqad-ai checks run\`.
 6. \`paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -177,7 +177,7 @@ You are the paqad **development** stage agent. Your job: implement the frozen sp
 5. Follow your recipe to make the source and test edits the frozen spec asks for.
 6. \`paqad-ai stage end development --agent paqad-development\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -226,7 +226,7 @@ You are the paqad **documentation_sync** stage agent. Your job: sync the canonic
 5. Follow your recipe to update the canonical docs whose described behaviour the diff changed.
 6. \`paqad-ai stage end documentation_sync --agent paqad-documentation-sync\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -275,7 +275,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 5. Follow your recipe, then compile with \`paqad-ai plan compile <plan-template.json>\`.
 6. \`paqad-ai stage end planning --agent paqad-planning --artifact <the plan.json path that plan compile printed>\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -325,7 +325,7 @@ You are the paqad **review** stage agent. Your job: review the change and record
 5. Follow your recipe, then record with \`paqad-ai review record <review-template.json>\`.
 6. \`paqad-ai stage end review --agent paqad-review --artifact <the review.json path>\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -375,7 +375,7 @@ You are the paqad **specification** stage agent. Your job: write and freeze the 
 5. Follow your recipe, then freeze with \`paqad-ai spec freeze\`.
 6. \`paqad-ai stage end specification --agent paqad-specification --artifact <the specification.json path>\`.
 
-No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
+No \`## Your recipe\` heading? Run the brief; still none, continue, and report the repair it names.
 
 ## Report
 
@@ -458,7 +458,7 @@ Chair the paqad **High Table** for one feature-development change as its **chief
 
 1. Export the \`SE_SESSION\` you were given for every \`paqad-ai\` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Read the table: \`paqad-ai spec pipeline experts context\` (request, grounding, notes, voice warnings and merge; it records your start).
-3. Follow the \`expert-synthesis\` skill: the host skill, or \`runtime/base/skills/expert-synthesis/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names.
+3. Follow the \`expert-synthesis\` skill: the host skill, or \`base/skills/expert-synthesis/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names.
 4. Write the synthesis in the skill format as \`.paqad/tmp/high-table/synthesis.json\`.
 5. Record it: \`paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json\`. Each conflict becomes a decision packet for the owner. On a refusal, fix what it names and run the verb again.
 
@@ -594,7 +594,7 @@ Write the request-time notes for one paqad **High Table** seat on one feature-de
 
 1. Export the \`SE_SESSION\` you were given for every \`paqad-ai\` command. Your brief has what a seat needs, so skip the paqad router and rules.
 2. Print your brief: \`paqad-ai spec pipeline experts brief <role>\` (this records your start).
-3. Follow the \`expert-notes\` skill for your role: the host skill, or \`runtime/base/skills/expert-notes/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names, with your lens in its \`references/lenses/\`.
+3. Follow the \`expert-notes\` skill for your role: the host skill, or \`base/skills/expert-notes/SKILL.md\` under the install directory that \`.paqad/framework-path.txt\` names, with your lens in its \`references/lenses/\`.
 4. Write one note for your role in the skill format: one \`notes\` entry (role, \`findings\`, \`questions\`) and your spent tokens under \`tokens.<role>\`, saved as \`.paqad/tmp/high-table/<role>-notes.json\`.
 5. Record it: \`paqad-ai spec pipeline experts notes .paqad/tmp/high-table/<role>-notes.json\`. On a refusal, fix what it names and run the verb again.
 

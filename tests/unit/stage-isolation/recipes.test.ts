@@ -42,7 +42,7 @@ describe('the recipe resolver', () => {
     expect(resolveRecipe('review').scriptName).toBe('lint-findings.mjs');
   });
 
-  it('names paqad-ai update when a recipe is missing', () => {
+  it('names the repair for the install route when a recipe is missing', () => {
     expect(() => resolveRecipe('review', tempRoot())).toThrow(/paqad-ai update/u);
     expect(() => resolveRecipe('review', null)).toThrow(/paqad-ai update/u);
   });
