@@ -32,6 +32,17 @@ const SESSION = 'sess-edit-result';
 const SCRIPT_REL = '.paqad/scripts/rules/coding/gate/001-no-debugger.mjs';
 const TWO_FINDINGS = 'debugger one;\nconst a = 1;\ndebugger two;\n';
 const ONE_FINDING = 'debugger other;\n';
+const NO_OVERLAY = process.platform === 'win32';
+
+function fileSystemIgnoresCase(): boolean {
+  const probe = mkdtempSync(join(tmpdir(), 'paqad-edit-result-test-case-'));
+  try {
+    writeFileSync(join(probe, 'probe'), '', 'utf8');
+    return existsSync(join(probe, 'PROBE'));
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
 
 function write(path: string, body: string): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -151,7 +162,7 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-describe('AC-83: the pre-edit rule check judges an edit on its result', () => {
+describe.skipIf(NO_OVERLAY)('AC-83: the pre-edit rule check judges an edit on its result', () => {
   it('AC-83: an Edit that removes one finding and adds none passes and is recorded, with findings in two files', async () => {
     const root = project();
     const result = await edit(root, 'debugger one;\n', '');
@@ -251,7 +262,7 @@ describe('AC-83: the pre-edit rule check judges an edit on its result', () => {
   });
 });
 
-describe('AC-83: anything that cannot be judged stays refused', () => {
+describe.skipIf(NO_OVERLAY)('AC-83: anything that cannot be judged stays refused', () => {
   it('a rule script that crashes on the result refuses the edit', async () => {
     const extra = "  if (text.includes('marker')) process.exit(3);";
     const root = project({ extra });
@@ -346,5 +357,32 @@ describe('AC-83: anything that cannot be judged stays refused', () => {
       else process.env.TMPDIR = before;
     }
     expect(readdirSync(scratch)).toEqual([]);
+  });
+});
+
+describe.skipIf(NO_OVERLAY)('AC-83: a comparison write never follows a link', () => {
+  it.runIf(fileSystemIgnoresCase()).each(['src/APP.ts', 'SRC/app.ts', 'SRC/APP.TS'])(
+    'refuses %s, a spelling of the real file that is not its name on disk',
+    async (file) => {
+      const root = project();
+      const result = await attempt(
+        root,
+        'Edit',
+        { file_path: join(root, file), old_string: 'debugger one;\n', new_string: '' },
+        { file },
+      );
+      expect(result.block).toBe(true);
+      expect(allowedRows(root)).toEqual([]);
+      expect(readFileSync(join(root, 'src/app.ts'), 'utf8')).toBe(TWO_FINDINGS);
+    },
+  );
+
+  it('does not write the result through a link a rule script left at the target', async () => {
+    const extra =
+      "  if (!projectRoot.includes('-test-') && file === 'src/app.ts') { const { rmSync, symlinkSync, realpathSync } = await import('node:fs'); rmSync(abs); symlinkSync(realpathSync(join(projectRoot, 'src/other.ts')), abs); }";
+    const root = project({ extra });
+    await expect(edit(root, 'debugger one;\n', '')).rejects.toThrow();
+    expect(readFileSync(join(root, 'src/other.ts'), 'utf8')).toBe(ONE_FINDING);
+    expect(readFileSync(join(root, 'src/app.ts'), 'utf8')).toBe(TWO_FINDINGS);
   });
 });

@@ -1,7 +1,10 @@
 import {
+  closeSync,
+  constants,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -10,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { runPool } from '@/core/run-pool.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
@@ -23,6 +26,8 @@ import { loadRuleScriptMap } from './map.js';
 
 const RULE_SOURCES_PREFIX = 'docs/instructions/rules/';
 const MAX_GROWN_RESULT_BYTES = 1024 * 1024;
+const REWRITE_NOT_THROUGH_LINK =
+  constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW;
 
 export interface EditResultInput {
   projectRoot: string;
@@ -59,9 +64,22 @@ function refuse(reason: string): EditResultVerdict {
   return { allowed: false, reason };
 }
 
+function spelledAsOnDisk(projectRoot: string, rel: string): boolean {
+  let dir = projectRoot;
+  return rel.split('/').every((segment) => {
+    const found = readdirSync(dir).includes(segment);
+    dir = join(dir, segment);
+    return found;
+  });
+}
+
 function isRegularFileInProject(projectRoot: string, rel: string): boolean {
   const abs = join(projectRoot, rel);
-  return lstatSync(abs).isFile() && realpathSync(abs) === join(realpathSync(projectRoot), rel);
+  return (
+    lstatSync(abs).isFile() &&
+    realpathSync(abs) === join(realpathSync(projectRoot), rel) &&
+    spelledAsOnDisk(projectRoot, rel)
+  );
 }
 
 function resultSizeAllowed(current: string, after: string): boolean {
@@ -122,6 +140,15 @@ function buildOverlay(projectRoot: string, rel: string): string {
     if (index < segments.length - 1) mkdirSync(to);
   });
   return overlay;
+}
+
+function rewriteNotThroughLink(path: string, content: string): void {
+  const file = openSync(path, REWRITE_NOT_THROUGH_LINK);
+  try {
+    writeFileSync(file, content, 'utf8');
+  } finally {
+    closeSync(file);
+  }
 }
 
 async function scanOverlay(
@@ -245,13 +272,13 @@ async function compareOnOverlay(
   const overlay = buildOverlay(input.projectRoot, target.rel);
   try {
     const overlayTarget = join(overlay, target.rel);
-    writeFileSync(overlayTarget, target.current, 'utf8');
+    writeFileSync(overlayTarget, target.current, { encoding: 'utf8', flag: 'wx' });
     const baseline = await scanOverlay(overlay, scripts, target.rel, changedFiles, input);
     if (baseline === null) return refuse('a rule script gave no answer');
     if (!matchesRealRun(baseline, scripts, target.rel, input.violations)) {
       return refuse('the comparison did not reproduce the findings of the real run');
     }
-    writeFileSync(overlayTarget, target.after, 'utf8');
+    rewriteNotThroughLink(overlayTarget, target.after);
     const after = await scanOverlay(overlay, scripts, target.rel, changedFiles, input);
     if (after === null) return refuse('a rule script gave no answer');
     const compared = compareResults(baseline, after, target);
@@ -271,6 +298,7 @@ export async function judgeEditResult(input: EditResultInput): Promise<EditResul
   const rels = projectRelativeTargets(input.projectRoot, [...input.targets]);
   const rel = rels[0];
   if (input.targets.length !== 1 || rel === undefined) return NOT_A_CANDIDATE;
+  if (sep !== '/' || rel.includes('\\')) return NOT_A_CANDIDATE;
   if (!input.violations.some((violation) => violation.file === rel)) return NOT_A_CANDIDATE;
   if (rel.startsWith(RULE_SOURCES_PREFIX)) return refuse('the target is a rule file');
   const read = readEditedTarget(input, rel);

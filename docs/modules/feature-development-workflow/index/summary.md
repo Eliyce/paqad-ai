@@ -122,6 +122,9 @@ their say at the end of the turn. Every other edit is refused with the same mess
   is refused, not deferred to the end of the turn), a target that is a link or a rule file, a result
   above 1 MiB that grew, a finding left on the target with no line number, and everything under
   `rule_gate_pre_edit=all`. A crash in the comparison is a crash of the gate, which refuses the edit.
+  A target spelled differently from its name on disk (`src/APP.ts` for `src/app.ts`) is refused too.
+- **Where it does not apply.** Windows. The comparison does not run there, so the edit is refused with
+  the same rule message as before.
 - **What it records.** A `rule-run.jsonl` row of kind `edit-allowed` with the findings removed and the
   count remaining, and a line in the hooks log. If a change is open and the row cannot be written, the
   edit is refused. With no change open only the log line is written. The remaining findings still block at the end of the turn.
