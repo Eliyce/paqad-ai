@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6NNEJ6P2C9HEAYMFXCC0546](TD-01M6NNEJ6P2C9HEAYMFXCC0546.md) (bug, low): A folder link in a change crashes the rule runner on edits
 - [TD-01M6NMGFR3E41XGDDQ2CQC5F1D](TD-01M6NMGFR3E41XGDDQ2CQC5F1D.md) (gap, low): Rule scripts that read the working folder or skip links can misjudge an edit's result
 - [TD-01M6NK2MYG1A3GAKK1YGHP3021](TD-01M6NK2MYG1A3GAKK1YGHP3021.md) (bug, medium): A stage agent that edits an instruction doc locks itself out of every later edit
 - [TD-01M6NJXX8VPWZMC2C4MP8JFX2V](TD-01M6NJXX8VPWZMC2C4MP8JFX2V.md) (bug, medium): A committed agent copy from another plugin version reads as hand-edited
