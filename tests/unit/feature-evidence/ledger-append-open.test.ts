@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,7 @@ const SESSION = 'ses_ledger_open';
 const opens = vi.hoisted(() => ({
   count: 0,
   failures: [] as string[],
+  afterTailOpen: null as (() => void) | null,
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -26,7 +27,13 @@ vi.mock('node:fs', async (importOriginal) => {
         const code = opens.failures.shift();
         if (code !== undefined) throw Object.assign(new Error(code), { code });
       }
-      return actual.openSync(...args);
+      const fd = actual.openSync(...args);
+      if (flags === 'r' && String(path).endsWith('stage-evidence.jsonl')) {
+        const hook = opens.afterTailOpen;
+        opens.afterTailOpen = null;
+        hook?.();
+      }
+      return fd;
     },
   };
 });
@@ -36,6 +43,7 @@ let root: string;
 beforeEach(() => {
   opens.count = 0;
   opens.failures = [];
+  opens.afterTailOpen = null;
   root = mkdtempSync(join(tmpdir(), 'paqad-ledger-open-'));
   mkdirSync(join(root, featureDir(DIR)), { recursive: true });
 });
@@ -83,4 +91,23 @@ describe('opening the stage ledger to append', () => {
     expect(codeOf(append)).toBe('EACCES');
     expect(opens.count).toBe(2);
   });
+});
+
+describe('reading the tail of the stage ledger', () => {
+  it.skipIf(process.platform === 'win32')(
+    'sizes the read from the file it opened, not from what the path holds now',
+    () => {
+      const first = append() as unknown as { content_hash: string };
+      const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+      opens.afterTailOpen = () => {
+        rmSync(ledger);
+        writeFileSync(ledger, '');
+      };
+      const second = appendFeatureStageRow(root, SESSION, DIR, {
+        kind: 'stage_start',
+        stage: 'planning',
+      }) as unknown as { prev_hash: string | null };
+      expect(second.prev_hash).toBe(first.content_hash);
+    },
+  );
 });

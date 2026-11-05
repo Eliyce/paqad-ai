@@ -2,13 +2,13 @@ import { createHash } from 'node:crypto';
 import {
   closeSync,
   existsSync,
+  fstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
   readSync,
   readdirSync,
   rmdirSync,
-  statSync,
   writeSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -91,7 +91,7 @@ function readFileTail(path: string): { text: string; endsClean: boolean } {
     throw error;
   }
   try {
-    const size = statSync(path).size;
+    const size = fstatSync(fd).size;
     const length = Math.min(size, TAIL_BYTES);
     const buffer = Buffer.alloc(length);
     readSync(fd, buffer, 0, length, size - length);
