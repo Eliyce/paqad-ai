@@ -10,6 +10,7 @@ import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/path
 import {
   appendFeatureStageRow,
   currentFeature,
+  readFeatureStageUnit,
   recordedLaneOrFull,
 } from '@/feature-evidence/stage-ledger.js';
 import { extractCandidates } from '@/module-decisions/extractor.js';
@@ -396,6 +397,15 @@ export function recordRecipeInjected(
   const dirName = currentFeature(projectRoot, sessionId);
   if (dirName === null) return false;
   const agentId = safeAgentId(payload.agent_id);
+  const alreadyDelivered = readFeatureStageUnit(projectRoot, dirName).some(
+    (row) =>
+      row.kind === RECIPE_INJECTED_KIND &&
+      row.stage === stage &&
+      row.recipe_hash === injected.recipe_hash &&
+      agentId !== null &&
+      row.agent_id === agentId,
+  );
+  if (alreadyDelivered) return true;
   appendFeatureStageRow(projectRoot, sessionId, dirName, {
     kind: RECIPE_INJECTED_KIND,
     stage,

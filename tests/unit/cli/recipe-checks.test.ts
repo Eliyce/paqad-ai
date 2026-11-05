@@ -14,6 +14,7 @@ import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { checkRecipe, runRecipeScript } from '@/stage-isolation/recipe-check.js';
+import { recordRecipeInjected } from '@/stage-isolation/stage-brief.js';
 
 const CLI = join(process.cwd(), 'dist/cli/index.js');
 const SESSION = 'ses_recipe_check';
@@ -344,6 +345,40 @@ describe('spec freeze checks the spec', () => {
     expect(run.exitCode).not.toBe(0);
     expect(run.stderr).toContain('no "## Edge cases" section');
     expect(existsSync(join(bundleDir(root), 'specification.json'))).toBe(false);
+  });
+});
+
+describe('the recipe-injected row', () => {
+  const injected = (hash: string) => ({
+    recipe: 'review-recipe',
+    recipe_hash: hash,
+    recipe_root: '/r',
+    truncated: false,
+  });
+  const delivered = (root: string) => rows(root).filter((row) => row.kind === 'recipe-injected');
+
+  it('records one delivery per agent and text, however often the brief is read', async () => {
+    const root = tempRoot();
+    await opened(root, 'review');
+    const payload = { session_id: SESSION, agent_id: AGENT };
+    recordRecipeInjected(root, 'review', payload, injected('a'));
+    recordRecipeInjected(root, 'review', payload, injected('a'));
+    expect((await cli(root, ['stage', 'brief', 'review'])).exitCode).toBe(0);
+    const fromBrief = delivered(root).length;
+    expect((await cli(root, ['stage', 'brief', 'review'])).exitCode).toBe(0);
+    expect(delivered(root)).toHaveLength(fromBrief);
+    expect(delivered(root).filter((row) => row.recipe_hash === 'a')).toHaveLength(1);
+  });
+
+  it('keeps a row for another agent, another stage and a changed text', async () => {
+    const root = tempRoot();
+    await opened(root, 'review');
+    const payload = { session_id: SESSION, agent_id: AGENT };
+    recordRecipeInjected(root, 'review', payload, injected('a'));
+    recordRecipeInjected(root, 'review', { session_id: SESSION, agent_id: 'other' }, injected('a'));
+    recordRecipeInjected(root, 'checks', payload, injected('a'));
+    recordRecipeInjected(root, 'review', payload, injected('b'));
+    expect(delivered(root)).toHaveLength(4);
   });
 });
 
