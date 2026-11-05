@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -23,6 +24,10 @@ import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
 const DIR = 'ledger-test-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const SESSION = 'ses_ledger';
+
+const LEDGER_MODULE = JSON.stringify(
+  pathToFileURL(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js')).href,
+);
 
 const roots: string[] = [];
 
@@ -147,7 +152,7 @@ describe('the locked stage ledger append', () => {
   it('AC-35, AC-41: keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {
     const root = tempRoot();
     const script = `
-      import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+      import { appendFeatureStageRow } from ${LEDGER_MODULE};
       appendFeatureStageRow(process.argv[2], 'ses_ledger', ${JSON.stringify(DIR)}, { kind: 'stage_start', stage: 'planning', note: null, agent_id: 'p' + process.argv[3] });
     `;
     const file = join(root, 'append.mjs');
@@ -170,7 +175,7 @@ describe('the locked stage ledger append', () => {
     writeFileSync(
       file,
       `
-      import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+      import { appendFeatureStageRow } from ${LEDGER_MODULE};
       appendFeatureStageRow(process.argv[2], 'ses_ledger', ${JSON.stringify(DIR)}, { kind: 'stage_start', stage: 'planning', note: null, agent_id: 'p' + process.argv[3] });
     `,
     );
@@ -187,7 +192,7 @@ describe('the locked stage ledger append', () => {
       writeFileSync(
         file,
         `
-        import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+        import { appendFeatureStageRow } from ${LEDGER_MODULE};
         let paused = false;
         appendFeatureStageRow(process.argv[2], 'ses_ledger', ${JSON.stringify(DIR)}, { kind: 'stage_start', stage: 'review', agent_id: 'held' }, () => {
           if (!paused) {
@@ -481,7 +486,7 @@ describe('renaming a bundle mid-change', () => {
     writeFileSync(
       file,
       `
-      import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+      import { appendFeatureStageRow } from ${LEDGER_MODULE};
       appendFeatureStageRow(process.argv[2], ${JSON.stringify(SESSION)}, ${JSON.stringify(UNTITLED)}, { kind: 'stage_start', stage: 'checks', note: null, agent_id: 'p' + process.argv[3] });
     `,
     );
