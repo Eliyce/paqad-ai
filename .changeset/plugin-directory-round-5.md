@@ -10,3 +10,4 @@ The plugin ships a smaller package manifest and no type files, and its search en
 - Assembled scripts no longer hold a raw 0x7F byte.
 - Allow once now starts the plugin's own program, not a global `paqad-ai`. If that program is missing, nothing is recorded and the edit stays blocked. On a Windows root it starts `paqad-ai.cmd`, which has not been run yet; if that start fails, the edit stays blocked.
 - The README says what the HUD does with your prompt, and what the engine install runs and leaves unfixed.
+- A number in a branch name no longer counts as a GitHub ticket unless it sits where the branch template puts the ticket, so `fix/round-5` no longer asks its PR to link `#5` or puts it in a commit message.

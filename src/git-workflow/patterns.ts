@@ -9,6 +9,7 @@ export interface TemplatePatternOptions {
   optional?: TemplatePlaceholder[];
   branch?: boolean;
   prefixes?: string[];
+  ticketCapture?: string;
 }
 
 export interface TemplateMatcher {
@@ -55,7 +56,12 @@ function pieces(
       types.map((type) => type.commit_type),
       '\\w+',
     ),
-    ticket: tickets.length === 0 ? '\\S+' : `(?:${tickets.map((p) => `(?:${p})`).join('|')})`,
+    ticket:
+      options.ticketCapture !== undefined
+        ? `(?<ticket>${options.ticketCapture})`
+        : tickets.length === 0
+          ? '\\S+'
+          : `(?:${tickets.map((p) => `(?:${p})`).join('|')})`,
     title_slug: '[a-z0-9]+(?:-[a-z0-9]+)*',
     scope: '[^()\\s]+',
     title: '.+',
