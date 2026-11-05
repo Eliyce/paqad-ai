@@ -6,6 +6,7 @@ export interface ChainCheck {
 }
 
 const CHAINED_VERSION = 3;
+const RECORD_REPAIR = 'record-repair';
 
 interface ChainEntry {
   hash: string | null;
@@ -30,8 +31,24 @@ function parseLine(line: string): Record<string, unknown> | null {
   }
 }
 
+function repairedRows(lines: readonly string[]): Map<number, { hash: string; reason: string }> {
+  const repaired = new Map<number, { hash: string; reason: string }>();
+  for (const line of lines) {
+    if (line.trim() === '' || !line.includes(RECORD_REPAIR)) continue;
+    const row = parseLine(line);
+    if (row?.kind !== RECORD_REPAIR) continue;
+    if (typeof row.repairs_row !== 'number' || typeof row.repairs_hash !== 'string') continue;
+    repaired.set(row.repairs_row, {
+      hash: row.repairs_hash,
+      reason: typeof row.reason === 'string' ? row.reason : 'no reason given',
+    });
+  }
+  return repaired;
+}
+
 export function checkStageChain(raw: string): ChainCheck {
   const lines = raw.split('\n');
+  const repaired = repairedRows(lines);
   const check: ChainCheck = { rows: 0, torn_tail: false, gaps: [], breaks: [] };
   const entries: ChainEntry[] = [];
   let seenChained = false;
@@ -57,7 +74,14 @@ export function checkStageChain(raw: string): ChainCheck {
       entries.push({ hash, gap: true });
       return;
     }
-    if (!matchesAcrossGaps(entries, row.prev_hash)) check.breaks.push(number);
+    if (!matchesAcrossGaps(entries, row.prev_hash)) {
+      const repair = repaired.get(number);
+      if (repair !== undefined && repair.hash === hash) {
+        check.gaps.push(`row ${number} broke the chain and was repaired: ${repair.reason}`);
+      } else {
+        check.breaks.push(number);
+      }
+    }
     entries.push({ hash, gap: false });
   });
   return check;

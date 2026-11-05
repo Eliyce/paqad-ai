@@ -5,6 +5,7 @@ import { Command } from 'commander';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { repairChainBreak } from '@/feature-evidence/chain-repair.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
   laneMayRise,
@@ -62,6 +63,7 @@ interface StageOptions {
   agentId?: string;
   full?: boolean;
   staleOk?: string[];
+  reason?: string;
 }
 
 function runStageSettings(options: StageOptions): void {
@@ -259,6 +261,28 @@ function runStageBeginPhase(stage: string | undefined, options: StageOptions): v
   console.log(JSON.stringify(output));
 }
 
+function runStageRepair(rowArg: string | undefined, options: StageOptions): void {
+  const root = options.projectRoot;
+  const rowNumber = Number(rowArg);
+  const reason = options.reason?.trim();
+  if (!Number.isInteger(rowNumber) || rowNumber < 1 || !reason) {
+    console.error('usage: paqad-ai stage repair <row> --reason "<what happened>"');
+    process.exitCode = 2;
+    return;
+  }
+  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionId = resolveSessionId(root, hint);
+  const dirName = currentFeature(root, sessionId);
+  if (dirName === null) {
+    console.error('**▸ paqad** · no change is active, so there is no ledger to repair');
+    process.exitCode = 1;
+    return;
+  }
+  const result = repairChainBreak(root, sessionId, dirName, rowNumber, reason);
+  console[result.ok ? 'log' : 'error'](`**▸ paqad** · ${result.message}`);
+  if (!result.ok) process.exitCode = 1;
+}
+
 function runStageReport(agentId: string | undefined, options: StageOptions): void {
   if (!agentId) {
     console.log(JSON.stringify(unknownAgentReport('', 'name the agent id to report on')));
@@ -299,10 +323,14 @@ export function createStageCommand(): Command {
     .argument(
       '<phase>',
       "'start' or 'end', 'begin' to start a stage and print what it needs as one JSON object, 'settings' to print and record this project's per-stage effort and " +
-        "model, 'brief' to print a stage's brief for a resumed stage agent, or 'report' to " +
-        'print what a stage agent reported, as JSON, from its agent id',
+        "model, 'brief' to print a stage's brief for a resumed stage agent, 'report' to " +
+        "print what a stage agent reported, as JSON, from its agent id, or 'repair' to record " +
+        'why a ledger row broke the chain',
     )
-    .argument('[stage]', `one of: ${STAGE_ORDER.join(', ')}; for 'report', the agent id`)
+    .argument(
+      '[stage]',
+      `one of: ${STAGE_ORDER.join(', ')}; for 'report', the agent id; for 'repair', the row number`,
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
@@ -338,6 +366,7 @@ export function createStageCommand(): Command {
       'On `end documentation_sync`, a doc that needs no change although the diff touches its module (repeatable)',
       collectArtifact,
     )
+    .option('--reason <text>', 'On a `repair`, what happened to the row')
     .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
       if (phase === 'settings') {
         runStageSettings(options);
@@ -355,9 +384,13 @@ export function createStageCommand(): Command {
         runStageReport(stage, options);
         return;
       }
+      if (phase === 'repair') {
+        runStageRepair(stage, options);
+        return;
+      }
       if (phase !== 'start' && phase !== 'end') {
         console.error(
-          `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief' or 'report'`,
+          `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief', 'report' or 'repair'`,
         );
         process.exitCode = 1;
         return;

@@ -48,11 +48,11 @@ export function backfillFeatureSlug(
   if (existsSync(absNew)) {
     return unchanged;
   }
-  takeBundleLock(bundleLockPath(projectRoot, dirName));
+  const locked = takeBundleLock(bundleLockPath(projectRoot, dirName));
   try {
     renameSync(absOld, absNew);
   } catch (error) {
-    releaseLock(bundleLockPath(projectRoot, dirName));
+    if (locked) releaseLock(bundleLockPath(projectRoot, dirName));
     /* c8 ignore start -- a real fs error (EPERM/EBUSY): degrade to the generic name. */
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       return unchanged;
@@ -61,7 +61,7 @@ export function backfillFeatureSlug(
   }
   repointSessionControls(projectRoot, dirName, minted.dirName, now);
   rewriteArtifactPaths(projectRoot, dirName, minted.dirName);
-  releaseLock(bundleLockPath(projectRoot, minted.dirName));
+  if (locked) releaseLock(bundleLockPath(projectRoot, minted.dirName));
   updateFeatureRecord(
     projectRoot,
     minted.dirName,
@@ -90,12 +90,13 @@ export function titleActiveFeature(
   return result.renamed ? result.dirName : null;
 }
 
-function takeBundleLock(lockDir: string): void {
+function takeBundleLock(lockDir: string): boolean {
   const deadline = Date.now() + LEDGER_LOCK_TIMEOUT_MS;
   while (!tryAcquireLock(lockDir, { staleLockMs: LEDGER_LOCK_STALE_MS }).acquired) {
-    if (Date.now() >= deadline) return;
+    if (Date.now() >= deadline) return false;
     sleepSync(20);
   }
+  return true;
 }
 
 function repointSessionControls(
@@ -147,8 +148,7 @@ function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: str
   const oldPrefix = `${featureDir(oldName)}/`;
   const newPrefix = `${featureDir(newName)}/`;
   let changed = false;
-  let previousOld: unknown = null;
-  let previousNew: unknown = null;
+  const rehashed = new Map<unknown, unknown>();
   const lines = raw.split('\n').map((line) => {
     if (line.trim() === '') return line;
     let row: Record<string, unknown>;
@@ -167,18 +167,15 @@ function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: str
       );
       touched = true;
     }
-    if (typeof row.prev_hash === 'string' && row.prev_hash === previousOld) {
-      if (previousNew !== previousOld) {
-        row.prev_hash = previousNew;
-        touched = true;
-      }
+    if (rehashed.has(row.prev_hash)) {
+      row.prev_hash = rehashed.get(row.prev_hash);
+      touched = true;
     }
     if (touched) {
       row.content_hash = computeSessionRowHash(row);
       changed = true;
     }
-    previousOld = oldHash;
-    previousNew = row.content_hash;
+    if (row.content_hash !== oldHash) rehashed.set(oldHash, row.content_hash);
     return touched ? JSON.stringify(row) : line;
   });
   if (changed) {

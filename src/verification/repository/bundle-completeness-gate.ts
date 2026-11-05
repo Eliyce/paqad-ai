@@ -284,10 +284,10 @@ function assertLedgerChain(
   const era = bundleLedgerEra(readFeatureStageUnit(input.projectRoot, dirName));
   const warnings = [...check.gaps];
   if (breakLine !== null && era === 'v3') {
-    state.skillLines.push(`${breakLine}: a row was removed, reordered or edited by hand.`);
+    state.skillLines.push(`${breakLine}: a row was removed, reordered or edited.`);
     state.missing.push({
       file: 'stage-evidence.jsonl',
-      writer: 'restore the ledger from git or add a `record-repair` row naming what happened',
+      writer: `paqad-ai stage repair ${check.breaks[0]} --reason "<what happened>"`,
     });
   } else if (breakLine !== null) {
     warnings.push(`${breakLine} in a ledger from before the chain`);

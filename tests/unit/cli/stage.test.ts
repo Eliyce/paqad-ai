@@ -167,7 +167,7 @@ describe('paqad-ai stage command', () => {
     await run('nonsense', 'planning');
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain(
-      "use 'start', 'end', 'begin', 'settings', 'brief' or 'report'",
+      "use 'start', 'end', 'begin', 'settings', 'brief', 'report' or 'repair'",
     );
   });
 

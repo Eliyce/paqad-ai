@@ -98,7 +98,7 @@ describe('the locked stage ledger append', () => {
     ]);
   });
 
-  it('AC-40: drops a repeat of one row inside the window, keeps both outside it', () => {
+  it('AC-34, AC-40: drops a repeat of one row inside the window, keeps both outside it', () => {
     const root = tempRoot();
     const row = { kind: 'stage_end', stage: 'planning' };
     append(root, row, at(0));
@@ -134,7 +134,7 @@ describe('the locked stage ledger append', () => {
     expect(rows(root)).toHaveLength(2);
   });
 
-  it('AC-41: keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {
+  it('AC-35, AC-41: keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {
     const root = tempRoot();
     const script = `
       import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
@@ -175,7 +175,7 @@ describe('the locked stage ledger append', () => {
     expect(written[1]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
   });
 
-  it('starts on a fresh line after a torn tail and chains to the last readable row', () => {
+  it('AC-42: starts on a fresh line after a torn tail and chains to the last readable row', () => {
     const root = tempRoot();
     append(root, { kind: 'open' });
     const first = rows(root)[0]!;
@@ -265,6 +265,57 @@ describe('renaming a bundle mid-change', () => {
     const count = rowsOf(root, TITLED).length;
     appendFeatureStageRow(root, SESSION, TITLED, { kind: 'stage_end', stage: 'review' }, at(5));
     expect(rowsOf(root, TITLED)).toHaveLength(count);
+  });
+
+  it('AC-44: still dedupes a re-sent end row whose artifact path moved with the rename', () => {
+    const root = untitledRoot();
+    const path = (dir: string) => join(featureFilePath(dir, 'stageEvidence'), '..', 'review.json');
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      UNTITLED,
+      {
+        kind: 'stage_end',
+        stage: 'review',
+        artifact_paths: [path(UNTITLED)],
+        artifact_digest: 'd',
+      },
+      at(1),
+    );
+    backfillFeatureSlug(root, UNTITLED, 'a real title', at(2), '12');
+    const count = rowsOf(root, TITLED).length;
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      TITLED,
+      { kind: 'stage_end', stage: 'review', artifact_paths: [path(TITLED)], artifact_digest: 'd' },
+      at(3),
+    );
+    expect(rowsOf(root, TITLED)).toHaveLength(count);
+  });
+
+  it('relinks a row that chained past a declared gap, and releases only a lock it took', () => {
+    const root = untitledRoot();
+    seeded(root);
+    const ledger = join(root, featureFilePath(UNTITLED, 'stageEvidence'));
+    const lock = bundleLockPath(root, UNTITLED);
+    mkdirSync(lock);
+    appendFeatureStageRow(root, SESSION, UNTITLED, { kind: 'stage_start', stage: 'checks' }, at(3));
+    rmSync(lock, { recursive: true });
+    appendFeatureStageRow(root, SESSION, UNTITLED, { kind: 'stage_end', stage: 'checks' }, at(3));
+    expect(readFileSync(ledger, 'utf8')).toContain('lock-timeout');
+    backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');
+    const renamed = readFileSync(join(root, featureFilePath(TITLED, 'stageEvidence')), 'utf8');
+    expect(checkStageChain(renamed).breaks).toEqual([]);
+  });
+
+  it('leaves a lock another writer holds in place when the rename times out on it', () => {
+    const root = untitledRoot();
+    seeded(root);
+    const lock = bundleLockPath(root, UNTITLED);
+    mkdirSync(lock);
+    backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');
+    expect(existsSync(bundleLockPath(root, TITLED))).toBe(true);
   });
 
   it('AC-82: keeps every row and a clean chain when hooks append during the rename', async () => {

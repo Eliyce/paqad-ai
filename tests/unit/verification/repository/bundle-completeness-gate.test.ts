@@ -11,6 +11,8 @@ import {
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { appendFeatureStageRow, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { repairChainBreak } from '@/feature-evidence/chain-repair.js';
+import { stageReceiptNotes } from '@/stage-isolation/recipe-receipt.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   chatRagPath,
@@ -1448,7 +1450,7 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
     return root;
   }
 
-  it('fails a development stage with no skill-used row, naming development', () => {
+  it('AC-50: fails a development stage with no skill-used row, naming development', () => {
     const root = started('development');
     add(root, agentRow('development'));
     add(root, injected('development'));
@@ -1472,7 +1474,7 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
     expect(gate(root).detail).not.toContain('recipe proof for');
   });
 
-  it('does not ask a Codex change for injection, and takes the digest for checks', () => {
+  it('AC-53: does not ask a Codex change for injection, takes the digest for checks, and the receipt says so', () => {
     const root = started('development');
     seedFeatureRecord(root, DIR, { adapter: 'codex-cli', sessionId: 'ses_1', lane: 'full' });
     add(root, agentRow('development'));
@@ -1486,6 +1488,7 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
       artifact_paths: ['x/checks.json'],
     });
     expect(gate(root).detail).not.toContain('recipe proof for');
+    expect(stageReceiptNotes(root, DIR).join(' ')).toContain('recipe read, not injected');
   });
 
   it('AC-56: warns about a stage that ran before the update, and fails one after it', () => {
@@ -1544,13 +1547,38 @@ describe('bundleCompletenessGate reads the ledger chain', () => {
     return bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' })!;
   }
 
-  it('fails a version 3 bundle with a row removed from the middle, naming the row', () => {
+  it('AC-37: fails a version 3 bundle with a row removed from the middle, naming the row', () => {
     const { root, ledger } = chainRoot();
     const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
     writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
     const result = gate(root);
     expect(result.status).toBe('fail');
     expect(result.detail).toContain('chain broken at row 2');
+  });
+
+  it('names a working repair command, and a repair row naming the broken row clears the fail', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    const broken = gate(root);
+    expect(JSON.stringify(broken)).toContain('paqad-ai stage repair 2');
+    expect(repairChainBreak(root, 'ses_1', DIR, 1, 'nothing broke').ok).toBe(false);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'a row was lost in a crash').ok).toBe(true);
+    const repaired = gate(root);
+    expect(repaired.detail).not.toContain('chain broken');
+    expect(repaired.detail).toContain('a row was lost in a crash');
+  });
+
+  it('a repair row does not clear a row that changed after it was named', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    repairChainBreak(root, 'ses_1', DIR, 2, 'first repair');
+    const next = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    const edited = { ...(JSON.parse(next[1]!) as Record<string, unknown>), content_hash: 'other' };
+    next[1] = JSON.stringify(edited);
+    writeFileSync(ledger, `${next.join('\n')}\n`);
+    expect(gate(root).detail).toContain('chain broken');
   });
 
   it('reports a declared gap as a note and adds no chain failure', () => {

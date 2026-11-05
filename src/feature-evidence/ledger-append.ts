@@ -40,6 +40,7 @@ const BODY_HASH_EXCLUDED: ReadonlySet<string> = new Set([
   'content_hash',
   'idempotency_key',
   'host_pid',
+  'artifact_paths',
 ]);
 
 export function bundleLockPath(projectRoot: string, dirName: string): string {
