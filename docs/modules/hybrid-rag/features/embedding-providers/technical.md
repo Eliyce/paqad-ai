@@ -19,7 +19,8 @@ Source directories owned by this feature:
 
 - The providers are `local` and `openai`. `createEmbeddingProvider` in `src/rag/providers.ts`
   builds the `openai` provider for `openai` and the local provider otherwise.
-- The local provider needs `@huggingface/transformers` v4 (`^4.3.1`). Both transformers
+- The local provider needs `@huggingface/transformers` v4 (`^4.3.1` on the npm route; the plugin
+  installs the exact version it was built with). Both transformers
   pipelines, feature-extraction in the local provider and text-classification in the reranker
   (`src/context/reranker.ts`), keep the `dtype: 'q8'` pin, so the default MiniLM embeddings
   stay the same and existing indexes under `.paqad/vectors/` stay valid.
@@ -87,6 +88,40 @@ Source directories owned by this feature:
   recorded none), the declared specs are installed again, so an engine still on transformers v3
   is replaced. The in-progress lock and the 24-hour retry throttle still apply, and an engine
   that resolves outside `CLAUDE_PLUGIN_DATA` is left alone.
+- Versions. `readEngineSpecs` takes them from `paqadEngines` in the plugin's generated
+  `package.json`, at exact `x.y.z` values. A range, tag, URL, `file:` value, two-part version or
+  prerelease is refused. Any refused or incomplete `paqadEngines` gives no specs and the outcome
+  `no-pinned-range`, never a range. The `dependencies` ranges apply only when `paqadEngines` is
+  absent, which is the npm route.
+- Upgrades. A marker holding older range specs no longer matches the exact specs, so the engines
+  reinstall once in the background on a later RAG use, and again whenever a release changes a
+  pinned version. A marker younger than the 24-hour retry interval returns `throttled`, so an
+  upgrader can keep running the older engine until the interval passes. A rollback triggers the
+  same one reinstall.
+- The installer. `spawnEngineInstall` starts `runtime/scripts/install-engine.mjs` with
+  `process.execPath`. The script runs `npm install <specs> --no-audit --no-fund --omit=dev
+  --save-exact` in `CLAUDE_PLUGIN_DATA`, never in the user's project, so a project `.npmrc`
+  cannot redirect the registry. The npm child does not get `OPENAI_API_KEY`, `COHERE_API_KEY` or
+  their `CLAUDE_PLUGIN_OPTION_` forms, matched in any case. Downloaded packages' setup programs
+  stay allowed.
+- Windows. `npmInvocation` starts npm as `node npm-cli.js`, with no shell and no `.cmd` file,
+  because Node refuses to start a `.cmd` file without a shell. It tries `npm_execpath` when that
+  is absolute, named `npm-cli.js` and present, then `node_modules/npm/bin/npm-cli.js` beside node,
+  then the same path beside the first absolute `PATH` entry holding `npm.cmd`. Off Windows it
+  runs `npm`.
+- Failures. None leaves a lock behind:
+  - npm exits non-zero, the registry is unreachable or npm cannot start: the error's first line
+    goes to `.paqad-engine-install.log` and the failed marker, no rebuild starts, and a later RAG
+    use tries again under the 24-hour limit. On Windows with no npm the error is `npm was not
+    found: no npm-cli.js beside node or on PATH.`
+  - The log cannot be written: the failed marker is still written.
+  - The install script is missing: `maybeStartOptionalEngineInstall` appends one line naming the
+    path to the log and returns `install-script-missing`, before it writes a lock or marker, so a
+    later call never reads as `in-progress`. A damaged tree adds one log line per attempt.
+  - `rag rebuild` fails after a good install: the log says so and the marker stays `ready`.
+- The manual hint. `engineInstallNetworkHint(env)`, used by `describeOptionalEngine` and
+  `paqad-ai doctor`, prints `npm install` with the pinned specs and `--save-exact`, to run inside
+  `CLAUDE_PLUGIN_DATA`.
 
 ## API / Interface Contract
 

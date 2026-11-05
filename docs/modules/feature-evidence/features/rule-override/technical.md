@@ -105,13 +105,17 @@ NotebookEdit, registered after the unmatched `tool.call` hook so that one stays 
    question and runs the override. It returns `null` on every failure (a question that rejects,
    a file read that fails, an override that exits non-zero, cannot start or times out after
    15 seconds), and `null` returns the first denied result. A failed override shows a toast and
-   writes its stderr to the HUD debug log.
-3. It reads the stop record again. Without `allowed_once: true` for this call, the `paqad-ai` on
-   PATH is older than the HUD: it shows a toast saying Allow once could not take effect and that
-   `paqad-ai` should be updated, and returns the deny with no retry.
+   writes its stderr to the HUD debug log, with the stop's token replaced by `<token>`.
+   The override runs only the plugin's own program, `runtime/claude-plugin/bin/paqad-ai` under
+   `$.plugin.root` (the `paqad-ai.cmd` form on a Windows root), so a repository cannot shadow it
+   on PATH. When that file is absent nothing starts: the toast says the edit stays blocked, the
+   debug log says `paqad-ai is not in this plugin`, and the first denied result comes back.
+3. It reads the stop record again. Without `allowed_once: true` for this call, the plugin's
+   program is older than the HUD: it shows a toast saying Allow once could not take effect and
+   that `paqad-ai` should be updated, and returns the deny with no retry.
 4. It runs the same call once more (a second `next(e)`, never a third). The engine raises
    PreToolUse again with the same `tool_use_id`, and paqad's gate answers `ask` (below).
-5. It runs `paqad-ai rules override --outcome <landed|still-blocked>` and returns the retry's
+5. It runs the same program with `rules override --outcome <landed|still-blocked>` and returns the retry's
    result unchanged: `landed` when the retry is not denied, `still-blocked` when it is. The mod
    cannot tell a person refusing the dialog from another rule denying the retry, because the
    plugin directory accepts no hook that reads Claude Code's permission answer. The CLI still

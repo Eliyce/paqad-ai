@@ -51,9 +51,28 @@ export function maybeStartOptionalEngineInstall(
   env?: NodeJS.ProcessEnv,
   deps?: EngineInstallDeps,
   options?: { projectRoot?: string },
-): 'started' | 'already-present' | 'in-progress' | 'throttled' | 'no-plugin-data' | 'no-pinned-range';
+): 'started' | 'already-present' | 'in-progress' | 'throttled' | 'no-plugin-data' | 'no-pinned-range' | 'install-script-missing';
 
+export function engineInstallArguments(): string[];
+export function engineInstallNetworkHint(env?: NodeJS.ProcessEnv): string;
 export const ENGINE_INSTALL_NETWORK_HINT: string;
 ```
 
-`maybeStartOptionalEngineInstall` installs `@huggingface/transformers` into `CLAUDE_PLUGIN_DATA` in a detached process. With no `CLAUDE_PLUGIN_DATA` it returns `no-plugin-data` and starts nothing. An attempt within the retry interval returns `throttled`, and an install still running returns `in-progress`. Given `projectRoot`, the installer runs `paqad-ai rag rebuild --project-root <root>` after a successful install.
+`maybeStartOptionalEngineInstall` installs `@huggingface/transformers` and `openai` into `CLAUDE_PLUGIN_DATA` in a detached process, by starting `runtime/scripts/install-engine.mjs`. With no `CLAUDE_PLUGIN_DATA` it returns `no-plugin-data` and starts nothing. An attempt within the retry interval returns `throttled`, and an install still running returns `in-progress`. Given `projectRoot`, the installer runs `paqad-ai rag rebuild --project-root <root>` after a successful install.
+
+Versions come from `paqadEngines` in the plugin's generated `package.json`, at exact `x.y.z` values. The `dependencies` ranges apply only when `paqadEngines` is absent, which is the npm route. When `paqadEngines` is present but any value is not exact, or it is not an object, the call returns `no-pinned-range` and starts nothing. When the install script is not in the package, the call appends one line naming the path to the install log, writes no lock or marker, and returns `install-script-missing`.
+
+`engineInstallArguments()` returns the arguments that start the script, whose path comes from the running package's own location and never from the working directory. `engineInstallNetworkHint(env)` returns the manual install command with the pinned versions and `--save-exact`; `ENGINE_INSTALL_NETWORK_HINT` is its text when no versions can be read.
+
+## `runtime/scripts/install-engine.mjs`
+
+```ts
+export function npmInvocation(input: {
+  platform: string;
+  execPath: string;
+  env: NodeJS.ProcessEnv;
+  exists: (path: string) => boolean;
+}): { command: string; args: string[] } | null;
+```
+
+A standalone script that imports only `node:` built-ins and takes all its input from the `PAQAD_ENGINE_*` variables. Importing it starts nothing. `npmInvocation` says how to start npm, and `null` means npm was not found on Windows.
