@@ -12,12 +12,13 @@ and verification. Conditional and parallel steps supported.
 ## How a stage's report is read
 
 A stage agent reports through the `SubagentHandback` tool in `auto` permission mode and in plain
-text everywhere else, and the ledger records whichever arrived. The rule for what a report means
+text everywhere else, because the tool exists only in `auto` mode. The ledger records whichever arrived. The rule for what a report means
 sits in one function, `judgeStageReport` in `src/stage-isolation/stage-handback.ts`, called by
 the handback hook, the stop check and the completion record. A `DONE` or `DONE_WITH_CONCERNS`
 with no stage end row, or with no artifact on planning, specification, review or checks, is refused
 at handback (exit 2) and sent back at SubagentStop (`decision: block`). Both paths share one count
 per agent and stage: three refusals, then the report is let through as `BLOCKED` with the reason.
+That count is paqad's own, because the host sets no ceiling on these retries.
 Refusal rows use the `stage-handback` kind, so they release no running-agent hold. The main chat
 reads the result with `paqad-ai stage report <agent_id>` and follows its `next_action` and
 `resume_advice`. A crash in the check always lets the report through.
@@ -27,7 +28,9 @@ reads the result with `paqad-ai stage report <agent_id>` and follows its `next_a
 - **One way in.** `paqad-ai stage begin <stage>` records the start, loads the rules on development,
   writes the digest on review and prints the checks plan on checks, then prints one JSON object with
   the request, the previous pillars and the paths. A repeat run does not start twice. Its whole output
-  stays at or under 27,000 characters, because the host replaces a longer Bash output with a preview.
+  stays at or under 27,000 characters, the measured Bash output limit less 10 percent, because the host
+  replaces a longer output with a preview. Past that the longest file is cut first, with the line
+  `truncated at 27,000 characters; read the file for the rest`. Instruction and command lines are not cut.
 - **Refusal.** `stage start` and `stage begin` refuse a stage when an earlier stage's newest stated
   report is `BLOCKED`, `NEEDS_CONTEXT` or paused, naming the stage, the reason and the next action. A
   later end row with the artifact, or a newer `DONE`, clears it. Not refused: review and documentation
@@ -41,16 +44,23 @@ reads the result with `paqad-ai stage report <agent_id>` and follows its `next_a
   `recipe-check.ts`) and on a pass writes a `skill-used` row. On a fail it refuses a stage an agent
   started after the update, and only notes it otherwise. A broken install warns and writes no row.
   `paqad-ai stage end documentation_sync --stale-ok <path>` names a doc that needs no change. Recipe
-  text is a copy of its source skills, which stay for their other workflows.
+  text is a copy of its source skills, which stay for their other workflows. The stage agent files stay
+  short and leave the method to the recipe, so an agent with no `## Your recipe` heading in its context
+  returns `NEEDS_CONTEXT`.
+- **Recipe script contract.** A script prints one JSON line, `{ ok, errors, hash }`, and exits 0 when
+  `ok` is true and 1 when it found problems. At most 100 errors are printed, followed by `and <n> more`;
+  the hash covers the full list. A missing input file or a bad command line exits 2 with the reason on
+  stderr, and input that is not a JSON object exits 1 the same way. The stage commands read only that
+  JSON line, so any run that does not print one counts as a broken install.
 - **Proof.** On the full lane, the completeness gate asks each stage started after the update for a
   `stage-agent` completed row, a `recipe-injected` row and, when its recipe has a script, a `skill-used`
   row. Older stages get a note. On Codex the recipes are written to `.agents/skills/`, kept out of git
   by `.agents/skills/.gitignore`, and no `recipe-injected` row is written, because nothing was injected.
-- **Turns.** Budgets are 50 percent above the measured baselines. The completed row carries `api_turns`,
-  and the receipt states turns per stage against the budget and the baseline.
+- **Turns.** Budgets are 50 percent above the measured baselines, rounded up to the next ten: planning
+  100 (baseline 64), specification 60 (35), development 170 (109), review 70 (44), checks 20 (10) and
+  documentation sync 30 (17). The completed row carries `api_turns`, and the receipt states turns per stage against the budget and the baseline.
   `scripts/stage-benchmark.mjs` measures a sample of runs, and `scripts/skill-consumer-scan.mjs` lists
   each base skill with its consumers.
-
 
 ## Source Footprint
 
@@ -72,10 +82,7 @@ reads the result with `paqad-ai stage report <agent_id>` and follows its `next_a
 
 The single source of truth for this module's identity, slug, feature names, and source paths is
 [`docs/instructions/rules/module-map.yml`](../../../instructions/rules/module-map.yml). If anything
-in this page disagrees with the map, the **map wins** — update the map first, then regenerate this
-page via `create module documentation`.
-
-## How to Update These Docs
+in this page disagrees with the map, the **map wins**. To change this page:
 
 1. Edit `docs/instructions/rules/module-map.yml` if the module or feature names changed.
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).
