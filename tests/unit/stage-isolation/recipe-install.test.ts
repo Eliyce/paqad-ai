@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -71,6 +79,43 @@ describe('the recipes on a Codex project', () => {
       'kept\n',
     );
     expect(existsSync(join(root, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+  });
+
+  it('replaces a recipe whole, so a file the new copy dropped does not stay behind', () => {
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    writeFileSync(join(root, '.agents/skills/planning-recipe/stale.md'), 'old\n');
+    const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
+    roots.push(source);
+    mkdirSync(join(source, 'planning-recipe'));
+    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'new\n');
+    writeCodexRecipes(root, source);
+    expect(readdirSync(join(root, '.agents/skills/planning-recipe'))).toEqual(['SKILL.md']);
+  });
+
+  it('leaves no staged folder behind, whether the recipe was copied or skipped', () => {
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
+    roots.push(source);
+    mkdirSync(join(source, 'planning-recipe'));
+    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'new\n');
+    writeCodexRecipes(root, source);
+    const names = readdirSync(join(root, '.agents/skills'));
+    expect(names.filter((name) => name.includes('staged'))).toEqual([]);
+    expect(names).toEqual(expect.arrayContaining([...RECIPE_NAMES]));
+  });
+
+  it('rethrows an ignore file it cannot read, instead of writing over it', () => {
+    const root = project(['codex-cli']);
+    mkdirSync(join(root, '.agents/skills/.gitignore'), { recursive: true });
+    let code: unknown = null;
+    try {
+      writeCodexRecipes(root);
+    } catch (error) {
+      code = (error as NodeJS.ErrnoException).code;
+    }
+    expect(code).toBe('EISDIR');
   });
 
   it('writes nothing on a project without Codex', () => {

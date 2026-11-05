@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isGeneratedRecipeFolder } from '@/authoring/generated-recipes.js';
@@ -14,9 +14,18 @@ function recipeIgnoreBlock(): string {
   return [IGNORE_BEGIN, ...RECIPE_NAMES.map((name) => `/${name}/`), IGNORE_END, ''].join('\n');
 }
 
+function readIgnoreFile(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw error;
+  }
+}
+
 function writeRecipeIgnore(skillsRoot: string): void {
   const path = join(skillsRoot, '.gitignore');
-  const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const current = readIgnoreFile(path);
   const start = current.indexOf(IGNORE_BEGIN);
   const end = current.indexOf(IGNORE_END);
   const kept =
@@ -29,6 +38,30 @@ function writeRecipeIgnore(skillsRoot: string): void {
   );
 }
 
+function stagedCopy(source: string, staged: string): boolean {
+  rmSync(staged, { recursive: true, force: true });
+  try {
+    cpSync(source, staged, { recursive: true });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+function replaceRecipe(source: string, skillsRoot: string, name: string): boolean {
+  const target = join(skillsRoot, name);
+  const staged = join(skillsRoot, `.${name}.staged`);
+  try {
+    if (!stagedCopy(source, staged)) return false;
+    rmSync(target, { recursive: true, force: true });
+    renameSync(staged, target);
+    return true;
+  } finally {
+    rmSync(staged, { recursive: true, force: true });
+  }
+}
+
 export function writeCodexRecipes(
   projectRoot: string,
   source: string | null = recipeRoot(),
@@ -39,10 +72,7 @@ export function writeCodexRecipes(
   mkdirSync(skillsRoot, { recursive: true });
   const written: string[] = [];
   for (const name of RECIPE_NAMES) {
-    if (!existsSync(join(source, name))) continue;
-    const target = join(skillsRoot, name);
-    rmSync(target, { recursive: true, force: true });
-    cpSync(join(source, name), target, { recursive: true });
+    if (!replaceRecipe(join(source, name), skillsRoot, name)) continue;
     written.push(`${OPEN_STANDARD_SKILLS_ROOT}/${name}`);
   }
   writeRecipeIgnore(skillsRoot);
