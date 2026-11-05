@@ -33,6 +33,16 @@ describe('the six stage recipes', () => {
   });
 });
 
+describe('the development recipe', () => {
+  it('step 5 says check-ac-map proves a test names a criterion, not that it tests it', () => {
+    const body = readFileSync(join(skillDir('development-recipe'), 'SKILL.md'), 'utf8');
+    const stepFive = body.split('\n').find((line) => line.startsWith('5. '));
+    expect(stepFive).toContain(
+      '`check-ac-map.mjs` proves a test names a criterion, not that it tests it.',
+    );
+  });
+});
+
 describe('every path a recipe names, from an installed layout', () => {
   const scratch = mkdtempSync(join(tmpdir(), 'paqad-recipe-layouts-'));
   afterAll(() => rmSync(scratch, { recursive: true, force: true }));
