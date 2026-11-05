@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-expert",
-  "version": "1.2.0",
-  "file_hash": "sha256:c1965f890bcf7629fbcdf01255a01d5b8858c40e9c4790810a1ed83412c6ecc8",
+  "version": "1.3.0",
+  "file_hash": "sha256:d81e4f89904a445535f639bd74dbc2d9a52e907a0fb1cd528c599428eba37b06",
   "released_path": "runtime/claude-plugin/agents/paqad-expert.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-expert.md"
@@ -68,7 +68,9 @@
     "tests": 0,
     "passed": 0
   },
-  "permission_decisions": [],
+  "permission_decisions": [
+    "D-01M6N7M8BDCHG4ZD3GV12H1KHA"
+  ],
   "overrides": [
     {
       "gate": "S2",
@@ -85,7 +87,8 @@
   ],
   "decisions": [
     "D-01M6N2V6ZZ4Y1KGD5YSJNM12JR",
-    "D-01M6N2W34MREJZNE6Y68R8N16T"
+    "D-01M6N2W34MREJZNE6Y68R8N16T",
+    "D-01M6N7M8BDCHG4ZD3GV12H1KHA"
   ],
   "labels": [
     "unverified"

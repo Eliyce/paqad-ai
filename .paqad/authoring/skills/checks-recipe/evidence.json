@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "checks-recipe",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:f9e743aaeee8f271accc2e89098cb50f4ab7477cb1dd42e935fd1985fcdb9d45",
+  "folder_hash": "sha256:3ffe93464ac733a7f5ff9bc28ce1ecff4460997df92ed13a1774e61ced685360",
   "baseline": {
     "runs": 3,
     "passed": null,

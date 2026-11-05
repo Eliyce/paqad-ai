@@ -1,5 +1,9 @@
 # paqad-review
 
+## 1.5.0
+
+- pass^3 1; deployable: claude-plugin yes; labels: unverified
+
 ## 1.4.0
 
 - pass^3 1; deployable: claude-plugin yes; labels: unverified

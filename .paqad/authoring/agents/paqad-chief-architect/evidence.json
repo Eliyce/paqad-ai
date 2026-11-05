@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-chief-architect",
-  "version": "1.2.0",
-  "file_hash": "sha256:a6ea1934cab1677994d496e7fa7e9138c54ff8531c33f0b43b2e47d086153576",
+  "version": "1.3.0",
+  "file_hash": "sha256:229239026784f2d57a4649b1cedcd8035877950517f697bfcbc0261e11db9c5d",
   "released_path": "runtime/claude-plugin/agents/paqad-chief-architect.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-chief-architect.md"
@@ -68,7 +68,9 @@
     "tests": 0,
     "passed": 0
   },
-  "permission_decisions": [],
+  "permission_decisions": [
+    "D-01M6N7M8189WG029C9TKZ5DFHF"
+  ],
   "overrides": [
     {
       "gate": "S2",
@@ -85,7 +87,8 @@
   ],
   "decisions": [
     "D-01M6N2VQE8J8855X1PCA4NBZPC",
-    "D-01M6N2VZMD7YAKYWSVMQRVK47X"
+    "D-01M6N2VZMD7YAKYWSVMQRVK47X",
+    "D-01M6N7M8189WG029C9TKZ5DFHF"
   ],
   "labels": [
     "unverified"

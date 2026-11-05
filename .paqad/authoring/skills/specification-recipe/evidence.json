@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "specification-recipe",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:47f72dca2d3a6ead26d580446e3fa703fa954816dd870be40568f33c51731799",
+  "folder_hash": "sha256:82810e03d38e375a81b52889b402dbf34789bed56097d068b8b1c491da700550",
   "baseline": {
     "runs": 3,
     "passed": null,
