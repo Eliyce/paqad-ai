@@ -21,9 +21,11 @@ export interface World {
   answers: Array<string | null>;
   runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
+  rejectText: string;
   onRun: ((argv: readonly string[]) => void) | null;
   runGate: Promise<void> | null;
   pluginBinary: boolean;
+  program: string | null;
   marksAllowedOnce: boolean;
   toasts: string[];
   logs: Array<{ text: string; to: string | undefined }>;
@@ -83,9 +85,11 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     answers: [],
     runs: [],
     run: { exitCode: 0, stdout: OVERRIDE_RECORDED, stderr: '' },
+    rejectText: 'spawn failed',
     onRun: null,
     runGate: null,
     pluginBinary: true,
+    program: null,
     marksAllowedOnce: true,
     toasts: [],
     logs: [],
@@ -105,16 +109,17 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     const text = world.files.get(relOf(e.path));
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text };
   });
-  on('fs.exists', ($, e) =>
-    world.unreadable.has(relOf(e.path))
+  on('fs.exists', ($, e) => {
+    if (/runtime\/claude-plugin\/bin\/paqad-ai$/.test(e.path)) world.program = e.path;
+    return world.unreadable.has(relOf(e.path))
       ? { deny: `EACCES: ${e.path}` }
       : {
           value:
             world.files.has(relOf(e.path)) ||
             isDir(relOf(e.path)) ||
             (world.pluginBinary && /runtime\/claude-plugin\/bin\/paqad-ai$/.test(e.path)),
-        },
-  );
+        };
+  });
   on('fs.list', ($, e) => {
     const dir = relOf(e.path);
     if (!isDir(dir)) return { deny: `ENOENT: ${e.path}` };
@@ -201,7 +206,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     const marks = world.marksAllowedOnce && e.argv.includes('--token');
     if (marks && world.run !== 'reject' && world.run.exitCode === 0) markAllowedOnce(world);
     return world.run === 'reject'
-      ? { deny: 'spawn failed' }
+      ? { deny: world.rejectText }
       : { value: { ...world.run, isStdoutTruncated: false, isStderrTruncated: false } };
   });
   on('fs.write', ($, e) => {

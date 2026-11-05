@@ -125,6 +125,17 @@ describe('the program the CI watch runs', () => {
     expect(pluginProgramPath('')).toBeNull();
     expect(pluginProgramPath(undefined)).toBeNull();
   });
+
+  it('AC-33: an unset plugin root gives no program, so Allow once never starts one', () => {
+    expect(pluginProgramPath(undefined)).toBeNull();
+    expect(pluginProgramPath('')).toBeNull();
+  });
+
+  it('AC-32: a plugin root holding a space stays one argument', () => {
+    expect(pluginProgramPath('/plugins/my paqad')).toBe(
+      '/plugins/my paqad/runtime/claude-plugin/bin/paqad-ai',
+    );
+  });
 });
 
 describe('the rule stop the mod reads', () => {

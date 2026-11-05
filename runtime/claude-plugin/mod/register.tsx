@@ -154,7 +154,11 @@ async function recordOverride(
   cwd: string,
 ): Promise<PaqadRunResult> {
   try {
-    const result = await $.process.run(['paqad-ai', 'rules', 'override', ...args], {
+    const program = await paqadProgram($);
+    if (program === null) {
+      return { ok: false, stdout: '', stderr: 'paqad-ai is not in this plugin' };
+    }
+    const result = await $.process.run([program, 'rules', 'override', ...args], {
       cwd,
       timeoutMs: PAQAD_CLI_TIMEOUT_MS,
     });
@@ -762,9 +766,14 @@ async function hasPendingDecision($: EngineInterface, root: string): Promise<boo
   }
 }
 
-async function logOverrideFailure($: EngineInterface, stderr: string): Promise<void> {
+async function logOverrideFailure(
+  $: EngineInterface,
+  stderr: string,
+  token: string,
+): Promise<void> {
+  const text = token === '' ? stderr : stderr.split(token).join('<token>');
   try {
-    await $.ui.log(`paqad-ai rules override failed: ${stderr.trim() || 'no output'}`, {
+    await $.ui.log(`paqad-ai rules override failed: ${text.trim() || 'no output'}`, {
       to: 'debug',
     });
   } catch {}
@@ -819,7 +828,7 @@ async function allowRuleStopOnce(
     const ran = await recordOverride($, overrideArgs(stop, at.sessionId, at.root, reason), at.root);
     if (!ran.ok) {
       $.ui.toast('paqad could not record the override, so the edit stays blocked.');
-      await logOverrideFailure($, ran.stderr);
+      await logOverrideFailure($, ran.stderr, stop.token);
       return null;
     }
     await refresh($);
@@ -837,7 +846,7 @@ async function stopAllowedOnce($: EngineInterface, stop: RuleStop): Promise<bool
     }
     $.ui.toast(ALLOW_ONCE_STALE_CLI);
   } catch (error) {
-    await logOverrideFailure($, error instanceof Error ? error.message : String(error));
+    await logOverrideFailure($, error instanceof Error ? error.message : String(error), stop.token);
   }
   return false;
 }
@@ -855,7 +864,7 @@ async function retryAllowedOnce(
       outcomeArgs(stop, at.sessionId, at.root, editOutcome(result)),
       at.root,
     );
-    if (ran.stderr.trim() !== '') await logOverrideFailure($, ran.stderr);
+    if (ran.stderr.trim() !== '') await logOverrideFailure($, ran.stderr, stop.token);
   }
   return result;
 }

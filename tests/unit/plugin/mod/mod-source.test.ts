@@ -100,7 +100,7 @@ describe('the HUD mod source', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(register.match(/\$\.process\./g)).toEqual(['$.process.', '$.process.']);
-    expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
+    expect(register).toContain("$.process.run([program, 'rules', 'override', ...args], {");
     const start = register.indexOf('$.process.run(\n      [\n        program,');
     expect(start, 'the delivery refresh call').toBeGreaterThan(-1);
     const call = register.slice(start, register.indexOf(');', start));
@@ -110,6 +110,22 @@ describe('the HUD mod source', () => {
     expect(call).not.toMatch(/snapshot|branch|title|ship/);
     expect(register).not.toMatch(/\$\.process\.spawn/);
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
+  });
+
+  it('AC-34: register.tsx has exactly two process runs and both start with the plugin program', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    expect(register.match(/\$\.process\.run\(/g)).toHaveLength(2);
+    expect(register.match(/\$\.process\.run\(\s*\[\s*program,/g)).toHaveLength(2);
+    expect(register).not.toContain("['paqad-ai'");
+  });
+
+  it('AC-37: the prompt.submit handler passes the event to next and reads no field of it', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const start = register.indexOf("on('prompt.submit',");
+    expect(start).toBeGreaterThan(-1);
+    const handler = register.slice(start, register.indexOf('.catch(', start));
+    expect(handler).toContain('await next(e)');
+    expect(handler).not.toMatch(/\be\.|\be\[|\.\.\.e\b|\{[^}]*\}\s*=\s*e\b/);
   });
 
   it('the watch started after a git push can never fail or re-run the push', () => {
