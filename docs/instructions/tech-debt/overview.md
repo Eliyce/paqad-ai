@@ -26,6 +26,9 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6PVPT876Z739C9DTJGBT6PT](TD-01M6PVPT876Z739C9DTJGBT6PT.md) (gap, low): A timed-out Allow once can record an override the HUD reports as failed
+- [TD-01M6PVPSGTY2WWVFZGY1FRE3HE](TD-01M6PVPSGTY2WWVFZGY1FRE3HE.md) (bug, low): Two engine installs starting together can both run
+- [TD-01M6PVPRNVQB24GG59S2R15XWM](TD-01M6PVPRNVQB24GG59S2R15XWM.md) (bug, low): A dead engine install leaves its lock behind and blocks later installs
 - [TD-01M6PTPA0NJBPK6Z62GFAF7B37](TD-01M6PTPA0NJBPK6Z62GFAF7B37.md) (gap, medium): The AC-67 base comparison does not run in CI, so it can go red on main unseen
 - [TD-01M6PTP96FACB9KAHY2K4TF4C1](TD-01M6PTP96FACB9KAHY2K4TF4C1.md) (bug, low): assemble-plugin does nothing and exits 0 when started through a linked folder
 - [TD-01M6PRDYEEE0GR18P413R707GK](TD-01M6PRDYEEE0GR18P413R707GK.md) (debt, low): The duplication report calls older main code new, and that code holds real repeats
