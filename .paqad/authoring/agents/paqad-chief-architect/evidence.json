@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-chief-architect",
-  "version": "1.1.0",
-  "file_hash": "sha256:5726723baaa0b07939082b796fb080211d82184536a7f4dfb13982d0e4b7f75a",
+  "version": "1.2.0",
+  "file_hash": "sha256:a6ea1934cab1677994d496e7fa7e9138c54ff8531c33f0b43b2e47d086153576",
   "released_path": "runtime/claude-plugin/agents/paqad-chief-architect.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-chief-architect.md"

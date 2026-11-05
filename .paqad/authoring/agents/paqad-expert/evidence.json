@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-expert",
-  "version": "1.1.0",
-  "file_hash": "sha256:e8f8ae0b6793e2bc9eade551c8003b556d997bbc5e8d14cfd29b15c8ac45eb9b",
+  "version": "1.2.0",
+  "file_hash": "sha256:c1965f890bcf7629fbcdf01255a01d5b8858c40e9c4790810a1ed83412c6ecc8",
   "released_path": "runtime/claude-plugin/agents/paqad-expert.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-expert.md"

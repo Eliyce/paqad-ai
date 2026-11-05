@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "development-recipe",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:73d407dea83b41436aac9558a7531dd4e7e64bcd5a2d6b6ac76df9f675dd968c",
+  "folder_hash": "sha256:81e82f87db4d01686c93ede23162876a9e7b0a2cde245feb28cc2254993d32d0",
   "baseline": {
     "runs": 3,
     "passed": null,
