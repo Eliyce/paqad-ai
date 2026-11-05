@@ -1,8 +1,8 @@
 # Lanes, stage helpers, stage tracking, and per stage: effort, model, extra reads and instructions.
-# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# To change a setting, remove the # in front of it. Settings added later aren't listed here. See .paqad/.config.example or run paqad-ai config show.
 # A setting left commented out uses paqad's default, which can improve in a later version.
-# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
-paqad_version: "1.117.0"
+# Inside a group, also remove the # in front of the group name, such as updates:.
+schema_version: 1
 
 # Stops a change once the spec is written, so nothing is implemented.
 # stop_after: none
@@ -55,8 +55,6 @@ stages:
     # effort: high
     # The model the review stage helper runs on, where inherit uses the model of the main session and `paqad-ai stage settings` applies a change.
     # model: inherit
-    # Requires an adversarial review pass before a change is delivered.
-    # adversarial_pass: required
     # Paths added to paqad's own read list for the review stage.
     # read: []
     # Instructions added after paqad's own instructions for the review stage.
@@ -80,8 +78,6 @@ stages:
     # effort: low
     # The model the documentation_sync stage helper runs on, where inherit uses the model of the main session and `paqad-ai stage settings` applies a change.
     # model: inherit
-    # Blocks delivery while the project docs are out of date.
-    # stale_docs: block
     # Paths added to paqad's own read list for the documentation_sync stage.
     # read: []
     # Instructions added after paqad's own instructions for the documentation_sync stage.
@@ -100,9 +96,6 @@ stages:
 #   # The lanes on which each feature-development stage runs in its own helper agent, and full is always included.
 #   on_lanes: [ full ]
 
-# lanes:
-#   # Sends every change through the full lane, the most thorough one.
-#   default: auto
 
 # How firmly paqad checks that every feature-development stage was run and recorded.
 stage_tracking: block

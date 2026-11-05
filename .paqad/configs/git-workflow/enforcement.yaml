@@ -10,7 +10,7 @@
 #   block  the commit or push is refused (git commit --no-verify still skips it)
 #   warn   the hook prints what doesn't match and lets it through
 #   off    no git hooks for people
-paqad_version: "1.116.0"
+schema_version: 1
 
 enabled: true
 agents: block

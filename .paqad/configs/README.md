@@ -1,11 +1,11 @@
 # paqad team configuration (`.paqad/configs/`)
 
-Tracked, team-shared settings, in YAML files that list every setting they can hold,
-commented out with paqad's default and a note. A setting left commented out uses
-paqad's default.
+Tracked, team-shared settings, in YAML files that list the settings they could hold
+when they were written, commented out with paqad's default and a note. A setting left
+commented out uses paqad's default. Settings added later aren't listed in them.
 
 - `paqad.yaml` — The package itself: on/off, updates, Claude Code install, HUD and Site Map.
-- `models.yaml` — Which models paqad uses and how deep research goes.
+- `models.yaml` — Which models paqad uses.
 - `retrieval.yaml` — How paqad finds relevant code and docs (RAG).
 - `decisions.yaml` — When paqad stops to ask you, in any workflow.
 - `authoring.yaml` — How paqad writes and tests skills and helper agents, and its eval runs.
@@ -13,7 +13,6 @@ paqad's default.
 - `feature-development/specification.yaml` — The spec pipeline, its questions, the final review and the experts.
 - `feature-development/rules.yaml` — How project rules are loaded and enforced.
 - `feature-development/reuse.yaml` — The existing-code digest, the duplication gate and the create-vs-reuse pause.
-- `feature-development/safety.yaml` — Destructive operations, risky migrations, security findings and database review.
 - `feature-development/checks.yaml` — What the checks stage runs and how: commands, parallel runs, flaky tests, mutation testing.
 - `feature-development/evidence.yaml` — The proof a change leaves: bundle, report, metrics, screenshots and enterprise outputs.
 - `feature-development/analytics.yaml` — Analytics instrumentation (opt-in).
@@ -28,9 +27,9 @@ Run `paqad-ai config show` to see every setting, its value and where it comes fr
 - Remove the `#` in front of a setting (and in front of its group name) to change it;
   put the `#` back to go back to the default.
 - Gates use one vocabulary: `off | warn | block`.
-- `paqad-ai update` never changes a value you set. It regenerates this README and
-  rewrites each team file so new settings show up commented out and removed ones
-  disappear, keeping your values and notes.
+- `paqad-ai update` regenerates this README when the settings list changes. It rewrites
+  a team file only for a migration, a retired value or setting, or a stale workflow
+  entry, and it says so. Find new settings in `../.config.example`.
 
 ## Personal overrides
 
@@ -60,7 +59,6 @@ overrides everything. Both accept the values below as well as the older values.
 
 | Path | Default | Allowed values | Description | `.paqad/.config` name | Env var |
 |---|---|---|---|---|---|
-| `research.depth` | `standard` | cutting-edge \| standard \| conservative | How far planning research looks, from the newest options to proven ones. | `research_depth` | `PAQAD_RESEARCH_DEPTH` |
 | `models.default` | `gpt-5` | text | The model used for routine work. | `model_default` | `PAQAD_MODEL_DEFAULT` |
 | `models.reasoning` | `gpt-5` | text | The model used for heavy reasoning and planning. | `model_reasoning` | `PAQAD_MODEL_REASONING` |
 | `models.fast` | `gpt-5-mini` | text | The cheap, fast model used for light steps. | `model_fast` | `PAQAD_MODEL_FAST` |
@@ -83,8 +81,6 @@ overrides everything. Both accept the values below as well as the older values.
 | Path | Default | Allowed values | Description | `.paqad/.config` name | Env var |
 |---|---|---|---|---|---|
 | `ask` | `often` | often \| balanced \| rarely | How often paqad stops to ask you instead of making a choice itself. | `decisions_ask_threshold` | `PAQAD_DECISIONS_ASK_THRESHOLD` |
-| `max_screens_per_change` | `3` | a number | The most decision screens paqad shows for one change. | `decisions_max_screens_per_task` | `PAQAD_DECISIONS_MAX_SCREENS_PER_TASK` |
-| `auto_resolve_after_minutes` | `30` | a number | Minutes a pending decision waits for an answer before paqad settles it itself. | `decisions_idle_timeout_minutes` | `PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES` |
 
 ### `authoring.yaml`
 
@@ -140,9 +136,6 @@ overrides everything. Both accept the values below as well as the older values.
 | `stages.checks.model` | `inherit` | inherit \| haiku \| sonnet \| opus | The model the checks stage helper runs on, where inherit uses the model of the main session and `paqad-ai stage settings` applies a change. | `stage_model_checks` | `PAQAD_STAGE_MODEL_CHECKS` |
 | `stages.documentation_sync.effort` | `low` | low \| medium \| high \| xhigh \| inherit | How hard the documentation_sync stage helper thinks, where inherit uses the effort of the main session and `paqad-ai stage settings` applies a change. | `stage_effort_documentation_sync` | `PAQAD_STAGE_EFFORT_DOCUMENTATION_SYNC` |
 | `stages.documentation_sync.model` | `inherit` | inherit \| haiku \| sonnet \| opus | The model the documentation_sync stage helper runs on, where inherit uses the model of the main session and `paqad-ai stage settings` applies a change. | `stage_model_documentation_sync` | `PAQAD_STAGE_MODEL_DOCUMENTATION_SYNC` |
-| `lanes.default` | `auto` | full \| auto | Sends every change through the full lane, the most thorough one. | `full_lane_default` | `PAQAD_FULL_LANE_DEFAULT` |
-| `stages.review.adversarial_pass` | `required` | required \| optional | Requires an adversarial review pass before a change is delivered. | `require_adversarial_review` | `PAQAD_REQUIRE_ADVERSARIAL_REVIEW` |
-| `stages.documentation_sync.stale_docs` | `block` | block \| warn | Blocks delivery while the project docs are out of date. | `block_on_stale_docs` | `PAQAD_BLOCK_ON_STALE_DOCS` |
 | `stage_tracking` | `block` | off \| warn \| block | How firmly paqad checks that every feature-development stage was run and recorded. | `stages_mode` | `PAQAD_STAGES_MODE` |
 | `stage_helpers.on_lanes` | `[full]` | a list | The lanes on which each feature-development stage runs in its own helper agent, and full is always included. | `stage_isolation_lanes` | `PAQAD_STAGE_ISOLATION_LANES` |
 
@@ -181,16 +174,6 @@ overrides everything. Both accept the values below as well as the older values.
 | `create_vs_reuse.pause` | `warn` | off \| warn \| block | How paqad handles a planned new piece of code that looks like existing code, from a report to a pause that waits for your answer. | `decision_arm_mode` | `PAQAD_DECISION_ARM_MODE` |
 | `create_vs_reuse.min_similarity` | `0.85` | a number | How similar (0 to 1) a planned new name must be to an existing one before paqad asks whether to reuse it. | `decision_arm_plan_threshold` | `PAQAD_DECISION_ARM_PLAN_THRESHOLD` |
 | `create_vs_reuse.max_pauses_per_change` | `1` | a number | The most reuse pauses one change may open, with the rest reported as warnings. | `decision_arm_max_per_change` | `PAQAD_DECISION_ARM_MAX_PER_CHANGE` |
-
-### `feature-development/safety.yaml`
-
-| Path | Default | Allowed values | Description | `.paqad/.config` name | Env var |
-|---|---|---|---|---|---|
-| `database_review_for_migrations` | `required` | required \| optional | Requires a database review when a change includes migrations. | `require_db_review_for_migrations` | `PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS` |
-| `destructive_operations` | `block` | block \| ask \| warn | Whether paqad blocks, asks you about or warns on a destructive operation. | `escalate_destructive_operations` | `PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS` |
-| `risky_migrations` | `warn` | block \| ask \| warn | Whether paqad blocks, asks you about or warns on a risky migration. | `escalate_risky_migrations` | `PAQAD_ESCALATE_RISKY_MIGRATIONS` |
-| `security_findings` | `block` | block \| ask \| warn | Whether paqad blocks, asks you about or warns on a security finding. | `escalate_security_findings` | `PAQAD_ESCALATE_SECURITY_FINDINGS` |
-| `large_data_change_rows` | `10000` | a number | A data change that touches more rows than this is treated as risky. | `escalate_db_row_threshold` | `PAQAD_ESCALATE_DB_ROW_THRESHOLD` |
 
 ### `feature-development/checks.yaml`
 
@@ -238,8 +221,8 @@ and how strictly they're checked, in five YAML files: `tickets.yaml`, `branches.
 - No personal override applies: `../.config` and `PAQAD_*` env vars don't change them.
   The one exception is `ai_attribution` in `commits.yaml`, which keeps its personal
   and env override.
-- `paqad-ai update` adds new settings with a `# Added in paqad-ai <version>` line and
-  never changes a value you set.
+- `paqad-ai update` adds no settings to these files, and changes one only for a
+  migration.
 - The commit-msg and pre-push hooks check people's commits and pushes;
   `git commit --no-verify` skips them.
 - Changes go through the `git-workflow` skill. Ask your agent, for example "make hotfix

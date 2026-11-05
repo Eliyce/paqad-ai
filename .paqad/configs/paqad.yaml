@@ -1,8 +1,8 @@
 # The package itself: on/off, updates, Claude Code install, HUD and Site Map.
-# Every setting is listed with paqad's default. To change one, remove the # in front of it.
+# To change a setting, remove the # in front of it. Settings added later aren't listed here. See .paqad/.config.example or run paqad-ai config show.
 # A setting left commented out uses paqad's default, which can improve in a later version.
-# Inside a group, also remove the # in front of the group name, such as updates:. paqad-ai update does this for you.
-paqad_version: "1.117.0"
+# Inside a group, also remove the # in front of the group name, such as updates:.
+schema_version: 1
 
 # Turns paqad on or off for this project, and false lets you work without paqad.
 # enabled: true

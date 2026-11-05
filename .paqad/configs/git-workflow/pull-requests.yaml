@@ -7,7 +7,7 @@
 # labels: added to every PR. Branch type labels are added on top.
 # also_open_against: extra branches to open the same change against,
 #   like a qa branch. Each gets its own PR.
-paqad_version: "1.116.0"
+schema_version: 1
 
 host: github          # only github for now
 host_server: ""

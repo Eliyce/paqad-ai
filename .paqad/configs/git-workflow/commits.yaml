@@ -4,7 +4,7 @@
 # summary.style:
 #   plain  the summary is written for a person who doesn't read code
 #   free   no style check
-paqad_version: "1.118.0"
+schema_version: 1
 
 template: "{type}({ticket}): {summary}"
 
