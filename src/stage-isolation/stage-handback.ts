@@ -466,6 +466,18 @@ export function buildStageReport(
     },
     options,
   );
+  const silentReturns = own.filter(
+    (row) =>
+      row.kind === STAGE_AGENT_KIND &&
+      row.event_status === 'completed' &&
+      row.report_stated !== true,
+  ).length;
+  if (noClaim && silentReturns >= 2) {
+    return {
+      ...report,
+      next_action: `stop and tell the developer the ${stage ?? 'current'} stage returned twice with no report`,
+    };
+  }
   return newest.kind === STAGE_HANDBACK_KIND && newest.event_status === 'denied'
     ? { ...report, next_action: 'wait for the agent: its handback was sent back and it can retry' }
     : report;

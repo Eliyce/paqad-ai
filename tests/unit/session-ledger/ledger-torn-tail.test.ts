@@ -11,7 +11,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { collectDelivery } from '@/dashboard/collectors/delivery.js';
+import { PATHS } from '@/core/constants/paths.js';
+import { buildReport } from '@/dashboard/report.js';
 import { exportFeatureBundle } from '@/feature-evidence/export.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { renderFeatureReportHtml } from '@/feature-evidence/report.js';
@@ -21,9 +22,12 @@ import {
   foldFeature,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
+import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { computeSessionRowHash, readUnitFileHealth } from '@/session-ledger/ledger.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
+import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
 
 const DIR = 'mixed-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const SESSION = 'ses_mixed';
@@ -112,6 +116,23 @@ describe('a ledger with a torn line', () => {
   });
 });
 
+const GATE_CONFIG = {
+  lane: 'full',
+  ruleComplianceOn: false,
+  metricsEnabled: false,
+  duplicationOn: false,
+  featureReport: false,
+  ragEnabled: false,
+  enterprise: false,
+  evidenceLedger: false,
+  aiBom: false,
+  specPipelineStrict: false,
+  specPipelineEnabled: false,
+  expertsEnabled: false,
+  specFrozenBeforePipeline: false,
+  stageIsolationExpected: false,
+} as const;
+
 describe('a bundle mixing version 2 and 3 rows', () => {
   it('AC-38: validates, folds, snapshots and renders with no error', () => {
     const root = tempRoot();
@@ -121,10 +142,33 @@ describe('a bundle mixing version 2 and 3 rows', () => {
     for (const row of rows) expect(validateStageEvidenceRow(row)).toEqual([]);
     const fold = foldFeature(root, SESSION, DIR);
     expect(fold.stages.find((stage) => stage.stage === 'planning')?.state).not.toBe('missing');
-    expect(() => buildHudSnapshot(root, SESSION)).not.toThrow();
+    setActiveFeature(root, SESSION, DIR, { lane: 'full' });
+    writeWorkflowState(root, SESSION, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+    });
+    const snapshot = buildHudSnapshot(root, SESSION);
+    expect(snapshot.change?.dir).toBe(DIR);
+    expect(snapshot.stages.find((stage) => stage.stage === 'planning')).toBeDefined();
+    expect(snapshot.stages.find((stage) => stage.stage === 'specification')).toBeDefined();
     const bundle = exportFeatureBundle(root, DIR);
-    expect(renderFeatureReportHtml(bundle, fold, { generatedAt: '2026-11-04' })).toContain('<html');
-    expect(() => collectDelivery(root)).not.toThrow();
+    const html = renderFeatureReportHtml(bundle, fold, { generatedAt: '2026-11-04' });
+    expect(html).toContain('<html');
+    expect(html).toContain('specification');
+    writeFileSync(join(root, PATHS.ONBOARDING_MANIFEST), '{}\n');
+    expect(buildReport(root).sections.length).toBeGreaterThan(0);
+    const gate = bundleCompletenessGate({
+      projectRoot: root,
+      sessionId: SESSION,
+      dirName: DIR,
+      mode: 'strict',
+      origin: 'hook-completion',
+      isFeatureDev: true,
+      config: GATE_CONFIG,
+      changeMetrics: null,
+    });
+    expect(gate).not.toBeNull();
+    expect(gate!.detail).not.toContain('chain broken');
   });
 
   it('AC-42: starts the chain at the first version 3 row', () => {

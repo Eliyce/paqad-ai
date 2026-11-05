@@ -265,9 +265,32 @@ describe('paqad-ai stage report', () => {
     await openPlanning(root);
     for (let attempt = 0; attempt < 4; attempt += 1) await stop(root, 'Status: DONE');
     const { json } = await report(root);
-    expect(json).toMatchObject({ report_status: 'BLOCKED', advance: false });
+    expect(json).toMatchObject({
+      stage: 'planning',
+      report_status: 'BLOCKED',
+      advance: false,
+      next_action: 'stop and tell the developer the reason',
+    });
     expect(String(json.reason)).toContain('refused 3 times');
     expect(String(json.reason)).toContain('paqad-ai stage end planning');
+  });
+
+  it('AC-20: hands the main chat the stage and the reason from a really blocked report', async () => {
+    const root = tempRoot();
+    await openPlanning(root);
+    await stop(
+      root,
+      'The plan needs a decision.\n\nStatus: BLOCKED\nDecision needed: which store\nOptions: a or b',
+    );
+    const { json } = await report(root);
+    const ledger = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const stopped = ledger.filter((entry) => entry.kind === 'stage-agent').at(-1)!;
+    expect(json).toMatchObject({ stage: 'planning', report_status: 'BLOCKED', advance: false });
+    expect(json.reason ?? null).toBe(stopped.reason ?? null);
+    expect(String(json.next_action)).toContain('stop and tell the developer');
   });
 
   it('reads no Status line with its end row and artifact as completed', async () => {
@@ -286,6 +309,24 @@ describe('paqad-ai stage report', () => {
     const { json } = await report(root);
     expect(json).toMatchObject({ report_source: 'none', advance: false });
     expect(String(json.next_action)).toContain('resume the agent once');
+  });
+
+  it('AC-21: stops and names the stage when the resumed agent returns the same way', async () => {
+    const root = tempRoot();
+    await openPlanning(root);
+    await stop(root, undefined);
+    const ledger = join(bundleDir(root), 'stage-evidence.jsonl');
+    const past = new Date(Date.now() - 60_000).toISOString();
+    writeFileSync(
+      ledger,
+      readFileSync(ledger, 'utf8').replace(/"recorded_at":"[^"]+"/gu, `"recorded_at":"${past}"`),
+    );
+    await stop(root, undefined);
+    const { json } = await report(root);
+    expect(json).toMatchObject({ stage: 'planning', report_source: 'none', advance: false });
+    expect(json.next_action).toBe(
+      'stop and tell the developer the planning stage returned twice with no report',
+    );
   });
 
   it('keeps a red checks report from advancing', () => {

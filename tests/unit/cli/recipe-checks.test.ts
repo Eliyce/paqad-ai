@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { runRecipeScript } from '@/stage-isolation/recipe-check.js';
+import { checkRecipe, runRecipeScript } from '@/stage-isolation/recipe-check.js';
 
 const CLI = join(process.cwd(), 'dist/cli/index.js');
 const SESSION = 'ses_recipe_check';
@@ -322,6 +322,22 @@ describe('a broken install', () => {
     const run = runRecipeScript('review', ['x'], undefined, join(tmpdir(), 'no-such-paqad-root'));
     expect(run.status).toBe('broken');
     expect(run.errors[0]).toContain('paqad-ai update');
+  });
+
+  it('FR-89: carries on naming the fix, and the stage holds no skill-used row', async () => {
+    const root = tempRoot();
+    await opened(root, 'review');
+    const check = checkRecipe({
+      projectRoot: root,
+      sessionId: SESSION,
+      stage: 'review',
+      args: ['x'],
+      root: join(tmpdir(), 'no-such-paqad-root'),
+    });
+    expect(check.verdict).toBe('warn');
+    expect(check.lines.join('\n')).toContain('paqad-ai update');
+    check.record();
+    expect(skillUsed(root)).toEqual([]);
   });
 
   it('AC-55: treats a script that crashes as broken, not as a pass', () => {
