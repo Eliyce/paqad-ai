@@ -9,7 +9,7 @@ import {
 import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { SKILL_USED_KIND } from '@/stage-evidence/types.js';
 
-import { resolveRecipe } from './recipes.js';
+import { recipeRepairAdvice, resolveRecipe } from './recipes.js';
 import { agentNameForStage } from './stage-agents.js';
 
 export type RecipeRunStatus = 'pass' | 'fail' | 'broken';
@@ -57,7 +57,7 @@ export function runRecipeScript(
   });
   const broken = (why: string): RecipeRun => ({
     status: 'broken',
-    errors: [`the ${recipe.name} script ${recipe.scriptName} ${why}; run \`paqad-ai update\``],
+    errors: [`the ${recipe.name} script ${recipe.scriptName} ${why}; ${recipeRepairAdvice()}`],
     hash: null,
     ...base,
   });

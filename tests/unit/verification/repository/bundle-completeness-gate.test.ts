@@ -1459,6 +1459,28 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
     expect(result.detail).toContain('recipe proof for development');
   });
 
+  it('FR-89: the hold names the install fix and the command that writes the proof', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    const { detail } = gate(root);
+    expect(detail).toContain('npm i -g paqad-ai@latest');
+    expect(detail).toContain('paqad-ai update');
+    expect(detail).toContain('Then dispatch the paqad-development agent');
+    expect(detail).toContain('runs paqad-ai stage end development');
+  });
+
+  it.each([
+    ['planning', 'paqad-ai plan compile, then paqad-ai stage end planning'],
+    ['specification', 'paqad-ai spec freeze, then paqad-ai stage end specification'],
+    ['review', 'paqad-ai review record, then paqad-ai stage end review'],
+  ])('FR-89: the %s hold names the verb that writes its skill-used row', (stage, command) => {
+    const root = started(stage);
+    add(root, agentRow(stage));
+    add(root, injected(stage));
+    expect(gate(root).detail).toContain(command);
+  });
+
   it('does not name a stage that has all its proof', () => {
     const root = started('development');
     add(root, agentRow('development'));

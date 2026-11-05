@@ -45,7 +45,7 @@ import {
 import { checkStageChain, firstChainBreakLine } from '@/feature-evidence/ledger-chain.js';
 import { bundleLedgerEra, stageLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { RECIPE_INJECTED_KIND, SKILL_USED_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
-import { recipeHasScript } from '@/stage-isolation/recipes.js';
+import { recipeHasScript, recipeRepairAdvice } from '@/stage-isolation/recipes.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
@@ -400,6 +400,19 @@ function startedBeforeLaneRaise(
   return !Number.isNaN(at) && at < raisedAt;
 }
 
+const SKILL_USED_WRITER: Readonly<Record<string, string>> = {
+  planning: 'paqad-ai plan compile',
+  specification: 'paqad-ai spec freeze',
+  review: 'paqad-ai review record',
+};
+
+function recipeProofWriter(stage: string): string {
+  const end = `paqad-ai stage end ${stage}`;
+  const writer = SKILL_USED_WRITER[stage];
+  const finish = writer ? `${writer}, then ${end}` : end;
+  return `if the recipe is missing from this install, ${recipeRepairAdvice()}. Then dispatch the paqad-${stage.replace(/_/g, '-')} agent, which runs ${finish}`;
+}
+
 function assertRecipeProof(
   input: BundleCompletenessGateInput,
   dirName: string,
@@ -426,7 +439,7 @@ function assertRecipeProof(
     );
     state.missing.push({
       file: `recipe proof for ${stage}`,
-      writer: `dispatch the paqad-${stage.replace(/_/g, '-')} agent and end the stage with its command`,
+      writer: recipeProofWriter(stage),
     });
   }
   if (older.length > 0) {

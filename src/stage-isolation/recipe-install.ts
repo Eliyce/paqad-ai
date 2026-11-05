@@ -29,14 +29,17 @@ function writeRecipeIgnore(skillsRoot: string): void {
   );
 }
 
-export function writeCodexRecipes(projectRoot: string): string[] {
+export function writeCodexRecipes(
+  projectRoot: string,
+  source: string | null = recipeRoot(),
+): string[] {
   if (!enabledAdapters(projectRoot).includes(CODEX_ADAPTER)) return [];
-  const source = recipeRoot();
   if (source === null) return [];
   const skillsRoot = join(projectRoot, OPEN_STANDARD_SKILLS_ROOT);
   mkdirSync(skillsRoot, { recursive: true });
   const written: string[] = [];
   for (const name of RECIPE_NAMES) {
+    if (!existsSync(join(source, name))) continue;
     const target = join(skillsRoot, name);
     rmSync(target, { recursive: true, force: true });
     cpSync(join(source, name), target, { recursive: true });

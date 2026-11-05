@@ -59,6 +59,20 @@ describe('the recipes on a Codex project', () => {
     expect(text.match(/review-recipe/gu)).toHaveLength(1);
   });
 
+  it('FR-89: skips a recipe the install lost, and keeps the copy the project has', () => {
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
+    roots.push(source);
+    mkdirSync(join(source, 'planning-recipe'));
+    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'kept\n');
+    expect(writeCodexRecipes(root, source)).toEqual(['.agents/skills/planning-recipe']);
+    expect(readFileSync(join(root, '.agents/skills/planning-recipe/SKILL.md'), 'utf8')).toBe(
+      'kept\n',
+    );
+    expect(existsSync(join(root, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+  });
+
   it('writes nothing on a project without Codex', () => {
     const root = project(['claude-code']);
     expect(writeCodexRecipes(root)).toEqual([]);

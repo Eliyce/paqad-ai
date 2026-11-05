@@ -9,6 +9,7 @@ import {
   RECIPE_BUDGET_CHARS,
   RECIPE_HEADING,
   fitRecipe,
+  recipeRepairAdvice,
   recipeRoot,
   resolveRecipe,
 } from '@/stage-isolation/recipes.js';
@@ -44,6 +45,21 @@ describe('the recipe resolver', () => {
   it('names paqad-ai update when a recipe is missing', () => {
     expect(() => resolveRecipe('review', tempRoot())).toThrow(/paqad-ai update/u);
     expect(() => resolveRecipe('review', null)).toThrow(/paqad-ai update/u);
+  });
+
+  it('FR-89: names the npm install and then the update off the plugin', () => {
+    const advice = recipeRepairAdvice('/usr/local/lib/node_modules/paqad-ai');
+    expect(advice).toBe('run `npm i -g paqad-ai@latest`, then `paqad-ai update`');
+  });
+
+  it('FR-89: on the plugin, says update cannot restore it and names what does', () => {
+    const advice = recipeRepairAdvice('/home/me/.claude/plugins/cache/eliyce/paqad/1.2.3');
+    expect(advice).toContain('`paqad-ai update` cannot restore it on the plugin');
+    expect(advice).toContain('`claude plugin update paqad@eliyce`');
+    expect(advice).toContain('already at the latest version');
+    expect(advice).toContain('`claude plugin uninstall paqad@eliyce`');
+    expect(advice).toContain('`claude plugin install paqad@eliyce`');
+    expect(advice).toContain('start a new session');
   });
 });
 
