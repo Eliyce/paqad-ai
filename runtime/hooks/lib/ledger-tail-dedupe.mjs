@@ -24,14 +24,15 @@ export function withTailLock(file, fn) {
       try {
         stale = Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS;
       } catch {}
+      let removed = false;
       if (stale) {
         try {
           rmdirSync(lock);
+          removed = true;
         } catch {}
-        continue;
       }
       if (Date.now() >= deadline) break;
-      sleepBriefly(20);
+      if (!removed) sleepBriefly(20);
     }
   }
   try {
