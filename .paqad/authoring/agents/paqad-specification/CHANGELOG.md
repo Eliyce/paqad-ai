@@ -1,5 +1,9 @@
 # paqad-specification
 
+## 1.7.0
+
+- evals: not measured; deployable: claude-plugin yes; labels: unverified
+
 ## 1.6.0
 
 - evals: not measured; deployable: claude-plugin yes; labels: unverified
