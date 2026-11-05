@@ -23,6 +23,18 @@ Refusal rows use the `stage-handback` kind, so they release no running-agent hol
 reads the result with `paqad-ai stage report <agent_id>` and follows its `next_action` and
 `resume_advice`. A crash in the check always lets the report through.
 
+`advance` is true for a stated `DONE` or `DONE_WITH_CONCERNS` whose stage requirement is met, with green
+checks and no breach. With no stated report, a met requirement reads as `DONE` and advances. If checks
+are red or there is a breach it reads as `DONE_WITH_CONCERNS` and holds. A status repaired by the backfill
+is used in the same way. `next_action` then says one of these:
+
+- continue to the next stage, carrying any concerns to the receipt
+- present a decision, or resume the agent with its answer
+- resume the agent with what it names, on `NEEDS_CONTEXT`
+- wait for the agent, when its handback was sent back and it can retry
+- resume once after a return with no report, and stop and tell the developer on a second silent return
+- stop and tell the developer the reason, for anything else
+
 ## Stage start, recipes and turns
 
 - **One way in.** `paqad-ai stage begin <stage>` records the start, loads the rules on development,
@@ -45,13 +57,20 @@ reads the result with `paqad-ai stage report <agent_id>` and follows its `next_a
   started after the update, and only notes it otherwise. A broken install warns and writes no row.
   `paqad-ai stage end documentation_sync --stale-ok <path>` names a doc that needs no change. Recipe
   text is a copy of its source skills, which stay for their other workflows. The stage agent files stay
-  short and leave the method to the recipe, so an agent with no `## Your recipe` heading in its context
-  returns `NEEDS_CONTEXT`.
+  short and leave the method to the recipe. An agent with no `## Your recipe` heading in its context runs
+  the brief. If the recipe is still missing it carries on, and its report says so and names
+  `paqad-ai update`. The completeness gate still holds the change until the update is run and the stage
+  is run again, because the proof rows are missing.
 - **Recipe script contract.** A script prints one JSON line, `{ ok, errors, hash }`, and exits 0 when
   `ok` is true and 1 when it found problems. At most 100 errors are printed, followed by `and <n> more`;
   the hash covers the full list. A missing input file or a bad command line exits 2 with the reason on
   stderr, and input that is not a JSON object exits 1 the same way. The stage commands read only that
   JSON line, so any run that does not print one counts as a broken install.
+- **When `check-ac-map` passes.** Each automated criterion needs a test line this change added that names
+  it. Test files are recognised across JavaScript, TypeScript, Python, Ruby, Java, Kotlin, Go, Rust, C#,
+  PHP, Swift, Elixir, Dart, C and C++, among others. When the diff cannot be read it counts every test in
+  the project (`scope: all-tests`) and says so. When no test can be read it passes, sets `unchecked` and
+  prints a warning.
 - **Proof.** On the full lane, the completeness gate asks each stage started after the update for a
   `stage-agent` completed row, a `recipe-injected` row and, when its recipe has a script, a `skill-used`
   row. Older stages get a note. On Codex the recipes are written to `.agents/skills/`, kept out of git
