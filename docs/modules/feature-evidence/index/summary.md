@@ -1122,9 +1122,13 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
 `stage-handback`, `recipe-injected` and `skill-used`, valid on version 3 only.
 
 - **Append.** `appendFeatureStageRow` goes through `ledger-append.ts`: it takes `<bundle>/.lock` with
-  `withFileLockSync` (200 ms wait, reclaimed after 2 seconds), stamps inside the lock so `prev_hash`
-  is covered by `content_hash`, writes one line and `fsync`s. With no lock it appends anyway with
-  `prev_hash: null` and `chain_note: "lock-timeout"`. The ledger never blocks a hook.
+  `withOwnedFileLockSync` (200 ms wait), stamps inside the lock so `prev_hash` is covered by
+  `content_hash`, writes one line and `fsync`s. With no lock it appends anyway with `prev_hash: null`
+  and `chain_note: "lock-timeout"`. The ledger never blocks a hook.
+- **Lock.** The lock is a folder with an owner file inside it that names the holder's pid. It is
+  reclaimed after 60 seconds, or at once when every owner's pid is dead. A holder checks that its owner
+  file is still there right before it writes. If it lost the lock it writes nothing and reads the
+  ledger again, up to three tries, then appends with no lock.
 - **Duplicates.** The key is `<change>:<agent or session>:<stage>:<kind>:<status>:<final>`, where final is
   the `tool_use_id`, else a refusal id, else a hash of the row body without its stamps. A key ending
   in an id is compared by value. A body-hash key is dropped only inside 10 seconds, and only when
@@ -1134,10 +1138,16 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
   readable row and sets `chain_note: "after-torn-line"`.
 - **Chain check.** `ledger-chain.ts` walks the file. A declared gap (a `chain_note`, a torn line, or a late
   version 2 row) is a note in the completeness gate. An undeclared break fails with `chain broken at
-  row <n>` on a version 3 bundle and only warns on an older one.
+  row <n>` on a version 3 bundle and only warns on an older one. A no-lock first row followed by a
+  holder's `prev_hash: null` reads as a declared gap, not a break.
+- **Repairing a break.** The gate's remedy for a break is `paqad-ai stage repair <row> --reason <text>`.
+  It refuses a row that is not a break, and otherwise appends a `record-repair` row with the reason,
+  `repairs_row` and `repairs_hash`, the hash of the broken row. The check then lists that row as a
+  repaired gap, and only while the row still has that hash. The original row stays as it was.
 - **Rename.** A title given mid-change renames the bundle under its lock and relinks `prev_hash` on
   every later row in one atomic write. That pass may change only `artifact_paths`, `content_hash` and
-  `prev_hash`. An append that still names the old folder lands in the new one.
+  `prev_hash`. An append that still names the old folder lands in the new one. A rename waits 3 seconds
+  for the lock, and if the lock stays held it leaves the name alone.
 - **What the chain cannot do.** The chain is tamper-evident, not tamper-proof. The hashes are unkeyed, so
   it catches accidents and silent loss and does not stop someone who can write the file and
   recompute them. It also cannot see rows cut from the end of the file.
@@ -1146,6 +1156,15 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
   `stageLedgerEra` for the recipe proof. It is temporary, and its removal is tracked in the tech
   debt register.
 - **Other ledgers.** The lock and chain cover `stage-evidence.jsonl` only.
+- **Recipe proof fields.** A `skill-used` row can carry `scope`, which says what the script counted
+  (`added` or `all-tests`), and `unchecked`, the reason a script could not check anything.
+- **Repaired reports.** `scripts/backfill-stage-reports.ts` looks through older bundles for
+  completed stage agent rows with no stated report, reads the last report from each agent's transcript
+  under `~/.claude/projects`, and prints what it found as JSON. It takes `--since=YYYY-MM-DD` and writes
+  one `record-repair` row per change only with `--apply`, skipping a change that already has one. It has
+  no package script, and its `@/` imports do not resolve under plain Node, so it has to run through
+  vitest or a bundler, as `tests/unit/scripts/backfill-stage-reports.test.ts` does. The fold exposes those
+  rows as `repaired_reports`, and `stage report` uses them when the agent's own row states no report.
 
 
 ## Source Footprint
