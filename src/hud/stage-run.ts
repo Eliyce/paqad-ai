@@ -1,5 +1,6 @@
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
+import { readRepairedReports, type RepairedReport } from '@/stage-evidence/report-repair.js';
 import { RECIPE_INJECTED_KIND, SKILL_USED_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
 export type HudRunTone = 'fail' | 'cau' | 'dim';
@@ -40,8 +41,13 @@ function recipeWord(rows: readonly SessionLedgerRow[], stage: string): string {
   return stageLedgerEra(rows, stage) === 'v3' ? 'none' : 'not recorded';
 }
 
-function reportWord(row: SessionLedgerRow | undefined): string {
+function reportWord(
+  row: SessionLedgerRow | undefined,
+  repaired: readonly RepairedReport[],
+): string {
   if (row === undefined) return 'not yet known';
+  const fixed = repaired.find((entry) => entry.agent_id === row.agent_id);
+  if (fixed !== undefined && row.report_stated !== true) return fixed.report_status;
   if (row.report_source === 'none') return 'no report found';
   if (typeof row.report_source !== 'string' && row.report_stated !== true) return 'not recorded';
   return typeof row.report_status === 'string' ? row.report_status : 'not recorded';
@@ -73,7 +79,7 @@ export function buildStageRun(
   const latest = agentRows.at(-1);
   const running = latest?.event_status === 'started';
   const newest = running ? undefined : completed.at(-1);
-  const report = reportWord(newest);
+  const report = reportWord(newest, readRepairedReports(rows));
   const turns = sum(completed, 'api_turns');
   const figure = running ? 'counting' : turns === null ? 'no turns recorded' : `${turns} turns`;
   const short_line = [recipe, report, figure].join(' · ');

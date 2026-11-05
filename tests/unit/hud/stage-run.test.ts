@@ -36,7 +36,31 @@ describe('a stage run line', () => {
     expect(run.tokens_used).toBe(1000);
   });
 
-  it('reads injected when no skill-used row exists', () => {
+  it('AC-45: reads the repaired status on a row the old parser could not read', () => {
+    const line = buildStageRun(
+      [
+        {
+          kind: 'stage-agent',
+          stage: 'review',
+          agent_id: 'a1',
+          event_status: 'completed',
+          report_status: 'BLOCKED',
+          report_stated: false,
+          report_source: 'none',
+        },
+        {
+          kind: 'record-repair',
+          reason: 'report read from handback after the parser fix',
+          note: 'a1 review: DONE_WITH_CONCERNS (handback)',
+        },
+      ] as unknown as SessionLedgerRow[],
+      'review',
+      'full',
+    );
+    expect(line?.short_line).toContain('DONE_WITH_CONCERNS');
+  });
+
+  it('AC-69: reads injected when no skill-used row exists', () => {
     expect(buildStageRun([start, injected, completed()], 'review', 'full')?.recipe).toBe(
       'injected',
     );

@@ -1,3 +1,5 @@
+import type { RepairedReport } from './report-repair.js';
+
 export const STAGE_EVIDENCE_DOC_TYPE = 'paqad.stage-evidence';
 
 export const STAGE_EVIDENCE_SCHEMA_VERSION = 3;
@@ -125,4 +127,5 @@ export interface FoldedChange {
   stages: FoldedStage[];
   completeness: StageCompleteness;
   lane: StageLane;
+  repaired_reports?: RepairedReport[];
 }
