@@ -26,6 +26,10 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6PXQZQTKBNSE88RRKF8NTRC](TD-01M6PXQZQTKBNSE88RRKF8NTRC.md) (gap, low): live-run-replay test uses most of its timeout and fails under load
+- [TD-01M6PXQY5XBQQQK1JEXZQPM57P](TD-01M6PXQY5XBQQQK1JEXZQPM57P.md) (bug, low): parseBranchTickets reads a leading number as a ticket whatever the template says
+- [TD-01M6PXQWGXQY5NYW28FBN6SHFR](TD-01M6PXQWGXQY5NYW28FBN6SHFR.md) (gap, medium): A template with no ticket slot drops a number-first branch's ticket with no message
+- [TD-01M6PXQTRXW9XG9M2KE7FPKZA1](TD-01M6PXQTRXW9XG9M2KE7FPKZA1.md) (bug, low): A slug starting with a number still reads as a GitHub ticket on the default template
 - [TD-01M6PVPT876Z739C9DTJGBT6PT](TD-01M6PVPT876Z739C9DTJGBT6PT.md) (gap, low): A timed-out Allow once can record an override the HUD reports as failed
 - [TD-01M6PVPSGTY2WWVFZGY1FRE3HE](TD-01M6PVPSGTY2WWVFZGY1FRE3HE.md) (bug, low): Two engine installs starting together can both run
 - [TD-01M6PVPRNVQB24GG59S2R15XWM](TD-01M6PVPRNVQB24GG59S2R15XWM.md) (bug, low): A dead engine install leaves its lock behind and blocks later installs
