@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N7M9A6DDK70GJ6TKMS8A5E",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-specification asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:c0f39050a367ae8b13f5eff79bea3173b1b5e032be7ca4c40d92c8155ccf7719.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-specification keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-specification before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-05T06:51:34.086Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "allow",
+  "rationale": "Owner, 5 Nov 2026: this agent can only do its job through paqad commands.",
+  "resolved_at": "2026-11-05T06:57:24.857Z",
+  "decision_id": "D-01M6N7M9A6DDK70GJ6TKMS8A5E",
+  "fingerprint": "sha256:7de67d7c50615b9a0bb465dce45403b8ca2811ee76d85f8139f5100a3ca9e8dc",
+  "question": "The agent paqad-specification asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T06:51:34.086Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T06:57:24.857Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: this agent can only do its job through paqad commands."
+  }
+}
