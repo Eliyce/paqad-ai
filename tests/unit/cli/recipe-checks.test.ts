@@ -203,6 +203,36 @@ describe('stage end checks development and documentation sync', () => {
     expect(skillUsed(root)[0]?.unchecked).toContain('no test file could be read');
   });
 
+  describe('INV-6: the row names only an agent that was there', () => {
+    const withAgent = (root: string, args: string[], agent: string) =>
+      execa('node', [CLI, ...args], {
+        cwd: root,
+        env: { SE_SESSION: SESSION, SE_AGENT_ID: agent },
+        reject: false,
+      });
+    const SPEC = {
+      acceptance_criteria: [{ criterion_id: 'AC-1', proof_type: 'automated' }],
+    };
+
+    it('names no agent on a stage end run with no agent at all', async () => {
+      const root = tempRoot();
+      await withAgent(root, ['stage', 'start', 'development', '--title', 't', '--issue', '1'], '');
+      writeFileSync(join(bundleDir(root), 'specification.json'), JSON.stringify(SPEC));
+      expect((await withAgent(root, ['stage', 'end', 'development'], '')).exitCode).toBe(0);
+      expect(skillUsed(root)).toHaveLength(1);
+      expect(skillUsed(root)[0]?.agent).toBe('orchestrator');
+      expect(skillUsed(root)[0]?.agent_id).toBeUndefined();
+    });
+
+    it('names the agent that started the stage when its end carries no id', async () => {
+      const root = tempRoot();
+      await opened(root, 'development');
+      writeFileSync(join(bundleDir(root), 'specification.json'), JSON.stringify(SPEC));
+      expect((await withAgent(root, ['stage', 'end', 'development'], '')).exitCode).toBe(0);
+      expect(skillUsed(root)[0]).toMatchObject({ agent: 'paqad-development', agent_id: AGENT });
+    });
+  });
+
   it('counts only lines this change added once the change has a start commit', async () => {
     const root = tempRoot();
     const git = (...args: string[]) =>

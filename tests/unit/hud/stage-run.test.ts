@@ -36,6 +36,16 @@ describe('a stage run line', () => {
     expect(run.tokens_used).toBe(1000);
   });
 
+  it('INV-6: does not read a script that could not check anything as proven', () => {
+    const unchecked = row({ kind: 'skill-used', stage: 'review', unchecked: 'no test file' });
+    const run = buildStageRun(
+      [start, injected, unchecked, started(), completed()],
+      'review',
+      'full',
+    );
+    expect(run?.recipe).toBe('injected');
+  });
+
   it('AC-45: reads the repaired status on a row the old parser could not read', () => {
     const line = buildStageRun(
       [

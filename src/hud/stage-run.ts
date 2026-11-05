@@ -36,7 +36,10 @@ function ranStage(row: SessionLedgerRow, stage: string): boolean {
 
 function recipeWord(rows: readonly SessionLedgerRow[], stage: string): string {
   const has = (kind: string) => rows.some((row) => row.kind === kind && row.stage === stage);
-  if (has(SKILL_USED_KIND)) return 'proven';
+  const checked = rows.some(
+    (row) => row.kind === SKILL_USED_KIND && row.stage === stage && row.unchecked === undefined,
+  );
+  if (checked) return 'proven';
   if (has(RECIPE_INJECTED_KIND)) return 'injected';
   return stageLedgerEra(rows, stage) === 'v3' ? 'none' : 'not recorded';
 }

@@ -6,6 +6,7 @@ import {
   currentFeature,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { SKILL_USED_KIND } from '@/stage-evidence/types.js';
 
@@ -120,6 +121,11 @@ function recipeNotes(run: RecipeRun): string[] {
     : [];
 }
 
+function runningAgentId(rows: readonly SessionLedgerRow[], stage: string): string | undefined {
+  const started = rows.filter((row) => row.kind === 'stage_start' && row.stage === stage).at(-1);
+  return typeof started?.agent_id === 'string' ? started.agent_id : undefined;
+}
+
 export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
   const { projectRoot, sessionId, stage } = input;
   const dirName = currentFeature(projectRoot, sessionId);
@@ -156,7 +162,7 @@ export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
           record: NOTHING,
         };
   }
-  const agentId = process.env.SE_AGENT_ID?.trim();
+  const agentId = process.env.SE_AGENT_ID?.trim() || runningAgentId(rows, stage);
   return {
     verdict: 'pass',
     run,
@@ -166,8 +172,7 @@ export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
       appendFeatureStageRow(projectRoot, sessionId, dirName, {
         kind: SKILL_USED_KIND,
         stage,
-        agent: agentNameForStage(stage),
-        ...(agentId ? { agent_id: agentId } : {}),
+        ...(agentId ? { agent: agentNameForStage(stage), agent_id: agentId } : {}),
         recipe: run.recipe,
         source: 'script',
         script: run.script,
