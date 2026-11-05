@@ -170,6 +170,35 @@ describe('the stage report backfill', () => {
     ]);
   });
 
+  it('AC-45: a repair row reaches the stage report for an old row with no report source', () => {
+    const rows = [
+      { kind: 'stage_start', stage: 'checks', agent_id: 'old_agent' },
+      {
+        kind: 'stage-agent',
+        stage: 'checks',
+        agent: 'paqad:paqad-checks',
+        agent_id: 'old_agent',
+        event_status: 'completed',
+        report_status: 'BLOCKED',
+        report_stated: false,
+      },
+      {
+        kind: 'record-repair',
+        reason: REPORT_REPAIR_REASON,
+        note: 'other planning: DONE (handback); old_agent checks: DONE_WITH_CONCERNS (handback)',
+      },
+    ];
+    expect(buildStageReport(rows, 'old_agent')).toMatchObject({
+      report_status: 'DONE_WITH_CONCERNS',
+      report_source: 'handback',
+      reason: REPORT_REPAIR_REASON,
+    });
+    expect(buildStageReport(rows.slice(0, 2), 'old_agent')).toMatchObject({
+      report_status: 'UNKNOWN',
+      report_source: 'legacy',
+    });
+  });
+
   it('writes nothing on a dry run', () => {
     const { root, findTranscript } = fixture();
     const before = ledgers(root);

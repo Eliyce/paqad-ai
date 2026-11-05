@@ -421,17 +421,6 @@ export function buildStageReport(
   const stage = stringField(newest.stage);
   const reason = stringField(newest.reason);
   const source = stringField(newest.report_source);
-  if (source === null && newest.report_stated !== true) {
-    return withAction({
-      ...base,
-      stage,
-      report_status: 'UNKNOWN',
-      advance: null,
-      decision: null,
-      report_source: 'legacy',
-      reason,
-    });
-  }
   const noClaim = source === 'none' || newest.report_stated !== true;
   const requirementMet = stage !== null && stageRequirementMet(rows, stage, agentId);
   const hold = stage === null ? null : endRowHold(stage, [newest, completion], options);
@@ -465,6 +454,17 @@ export function buildStageReport(
         options,
       ),
     );
+  }
+  if (source === null && newest.report_stated !== true) {
+    return withAction({
+      ...base,
+      stage,
+      report_status: 'UNKNOWN',
+      advance: null,
+      decision: null,
+      report_source: 'legacy',
+      reason,
+    });
   }
   if (noClaim && requirementMet) {
     return held(
