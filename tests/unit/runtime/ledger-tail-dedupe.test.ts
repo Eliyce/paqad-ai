@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,5 +52,33 @@ describe('withTailLock', () => {
     const started = Date.now();
     expect(withTailLock(file, () => 'ran')).toBe('ran');
     expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it('runs the work again when the lock was taken over before the write', () => {
+    const file = target();
+    const lock = `${file}.lock`;
+    let runs = 0;
+    const result = withTailLock(file, (assertHeld: () => void) => {
+      runs += 1;
+      if (runs === 1) rmSync(lock, { recursive: true });
+      assertHeld();
+      return 'wrote';
+    });
+    expect(result).toBe('wrote');
+    expect(runs).toBe(2);
+    expect(existsSync(lock)).toBe(false);
+  });
+
+  it('does not reclaim a live lock younger than a minute, and takes one from a gone process', () => {
+    const file = target();
+    const lock = `${file}.lock`;
+    mkdirSync(lock);
+    const young = new Date(Date.now() - 3_000);
+    utimesSync(lock, young, young);
+    expect(withTailLock(file, () => 'ran')).toBe('ran');
+    expect(existsSync(lock)).toBe(true);
+    writeFileSync(join(lock, 'owner-999999-abc'), '');
+    expect(withTailLock(file, () => 'ran')).toBe('ran');
+    expect(existsSync(lock)).toBe(false);
   });
 });

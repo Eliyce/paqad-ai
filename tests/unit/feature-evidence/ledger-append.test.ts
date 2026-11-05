@@ -150,6 +150,123 @@ describe('the locked stage ledger append', () => {
     expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
   }, 60_000);
 
+  it('AC-35, AC-41: twenty processes racing to take over one old lock leave no break', async () => {
+    const root = tempRoot();
+    const lock = bundleLockPath(root, DIR);
+    mkdirSync(lock);
+    const old = new Date(Date.now() - 3_600_000);
+    utimesSync(lock, old, old);
+    const file = join(root, 'append.mjs');
+    writeFileSync(
+      file,
+      `
+      import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+      appendFeatureStageRow(process.argv[2], 'ses_ledger', ${JSON.stringify(DIR)}, { kind: 'stage_start', stage: 'planning', note: null, agent_id: 'p' + process.argv[3] });
+    `,
+    );
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) => execa('node', [file, root, String(index)])),
+    );
+    expect(rows(root)).toHaveLength(20);
+    expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
+  }, 60_000);
+
+  describe.skipIf(process.platform === 'win32')('a holder really paused inside the lock', () => {
+    function pausedHolder(root: string) {
+      const file = join(root, 'held.mjs');
+      writeFileSync(
+        file,
+        `
+        import { appendFeatureStageRow } from ${JSON.stringify(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js'))};
+        let paused = false;
+        appendFeatureStageRow(process.argv[2], 'ses_ledger', ${JSON.stringify(DIR)}, { kind: 'stage_start', stage: 'review', agent_id: 'held' }, () => {
+          if (!paused) {
+            paused = true;
+            process.kill(process.pid, 'SIGSTOP');
+          }
+          return new Date();
+        });
+      `,
+      );
+      return execa('node', [file, root], { reject: false });
+    }
+
+    async function stoppedInsideTheLock(pid: number): Promise<void> {
+      for (;;) {
+        const { stdout } = await execa('ps', ['-o', 'state=', '-p', String(pid)]);
+        if (stdout.trim().startsWith('T')) return;
+      }
+    }
+
+    it('re-reads and chains when its lock was taken over while it was stopped', async () => {
+      const root = tempRoot();
+      append(root, { kind: 'open' });
+      const holder = pausedHolder(root);
+      await stoppedInsideTheLock(holder.pid!);
+      const lock = bundleLockPath(root, DIR);
+      const old = new Date(Date.now() - 3_600_000);
+      utimesSync(lock, old, old);
+      append(root, { kind: 'stage_start', stage: 'planning' });
+      process.kill(holder.pid!, 'SIGCONT');
+      expect((await holder).exitCode).toBe(0);
+      const written = rows(root);
+      expect(written).toHaveLength(3);
+      expect(written[1]!.chain_note).toBeUndefined();
+      expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[1]!.content_hash });
+      expect(written[2]!.chain_note).toBeUndefined();
+      const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
+      expect(check.breaks).toEqual([]);
+      expect(check.gaps).toEqual([]);
+      expect(existsSync(lock)).toBe(false);
+    }, 30_000);
+
+    it('keeps its lock past the old two seconds while it is alive', async () => {
+      const root = tempRoot();
+      append(root, { kind: 'open' });
+      const holder = pausedHolder(root);
+      await stoppedInsideTheLock(holder.pid!);
+      const lock = bundleLockPath(root, DIR);
+      const three = new Date(Date.now() - 3_000);
+      utimesSync(lock, three, three);
+      append(root, { kind: 'stage_start', stage: 'planning' });
+      process.kill(holder.pid!, 'SIGCONT');
+      expect((await holder).exitCode).toBe(0);
+      const written = rows(root);
+      expect(written[1]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
+      expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[0]!.content_hash });
+      expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
+    }, 30_000);
+
+    it('reads a no-lock first row and the stopped holder behind it as a declared gap', async () => {
+      const root = tempRoot();
+      const holder = pausedHolder(root);
+      await stoppedInsideTheLock(holder.pid!);
+      append(root, { kind: 'stage_start', stage: 'planning' });
+      process.kill(holder.pid!, 'SIGCONT');
+      expect((await holder).exitCode).toBe(0);
+      const written = rows(root);
+      expect(written[0]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
+      expect(written[1]).toMatchObject({ agent_id: 'held', prev_hash: null });
+      const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
+      expect(check.breaks).toEqual([]);
+      expect(check.gaps).toEqual(['row 1 declares a gap: lock-timeout']);
+    }, 30_000);
+
+    it('takes the lock from a holder that was killed without waiting for its age', async () => {
+      const root = tempRoot();
+      append(root, { kind: 'open' });
+      const holder = pausedHolder(root);
+      await stoppedInsideTheLock(holder.pid!);
+      process.kill(holder.pid!, 'SIGKILL');
+      await holder;
+      append(root, { kind: 'stage_start', stage: 'planning' });
+      const written = rows(root);
+      expect(written).toHaveLength(2);
+      expect(written[1]!.chain_note).toBeUndefined();
+      expect(written[1]!.prev_hash).toBe(written[0]!.content_hash);
+    }, 30_000);
+  });
+
   it('AC-41: reclaims a lock left by a dead holder and chains normally', () => {
     const root = tempRoot();
     append(root, { kind: 'open' });
@@ -309,13 +426,15 @@ describe('renaming a bundle mid-change', () => {
     expect(checkStageChain(renamed).breaks).toEqual([]);
   });
 
-  it('leaves a lock another writer holds in place when the rename times out on it', () => {
+  it('leaves the name alone rather than rename without the lock another writer holds', () => {
     const root = untitledRoot();
     seeded(root);
     const lock = bundleLockPath(root, UNTITLED);
     mkdirSync(lock);
-    backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');
-    expect(existsSync(bundleLockPath(root, TITLED))).toBe(true);
+    const result = backfillFeatureSlug(root, UNTITLED, 'a real title', at(4), '12');
+    expect(result).toEqual({ dirName: UNTITLED, renamed: false });
+    expect(existsSync(lock)).toBe(true);
+    expect(existsSync(join(root, featureDir(TITLED)))).toBe(false);
   });
 
   it('AC-82: keeps every row and a clean chain when hooks append during the rename', async () => {

@@ -33,7 +33,7 @@ async function record(payload) {
   if (line === null) return;
   const file = join(projectRoot, core.ACTIVATIONS_REL);
   const { seenInTail, withTailLock } = await import('./lib/ledger-tail-dedupe.mjs');
-  const wrote = withTailLock(file, () => {
+  const wrote = withTailLock(file, (assertHeld) => {
     if (
       entry.request_id !== null &&
       seenInTail(file, core.isSameActivation(entry), {
@@ -42,6 +42,7 @@ async function record(payload) {
     ) {
       return false;
     }
+    assertHeld();
     fs.appendFileSync(file, line, 'utf8');
     return true;
   });

@@ -1,12 +1,19 @@
-import { existsSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
-import { sleepSync } from '@/core/fs/atomic-rename.js';
-import { releaseLock, tryAcquireLock } from '@/background/single-flight-lock.js';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { acquireOwnedFileLock, type OwnedFileLock } from '@/core/fs/file-lock.js';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
-import { bundleLockPath, LEDGER_LOCK_STALE_MS, LEDGER_LOCK_TIMEOUT_MS } from './ledger-append.js';
+import { bundleLockPath, LEDGER_LOCK_STALE_MS } from './ledger-append.js';
 import {
   featureRecordIsUntitled,
   readFeatureRecord,
@@ -16,6 +23,9 @@ import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
 import { currentFeature } from './stage-ledger.js';
+
+const RENAME_LOCK_TIMEOUT_MS = 3_000;
+const REWRITE_ATTEMPTS = 5;
 
 export interface SlugBackfillResult {
   dirName: string;
@@ -48,11 +58,12 @@ export function backfillFeatureSlug(
   if (existsSync(absNew)) {
     return unchanged;
   }
-  const locked = takeBundleLock(bundleLockPath(projectRoot, dirName));
+  const lock = takeBundleLock(bundleLockPath(projectRoot, dirName));
+  if (lock === null) return unchanged;
   try {
     renameSync(absOld, absNew);
   } catch (error) {
-    if (locked) releaseLock(bundleLockPath(projectRoot, dirName));
+    lock.release();
     /* c8 ignore start -- a real fs error (EPERM/EBUSY): degrade to the generic name. */
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       return unchanged;
@@ -61,7 +72,7 @@ export function backfillFeatureSlug(
   }
   repointSessionControls(projectRoot, dirName, minted.dirName, now);
   rewriteArtifactPaths(projectRoot, dirName, minted.dirName);
-  if (locked) releaseLock(bundleLockPath(projectRoot, minted.dirName));
+  lock.movedTo(bundleLockPath(projectRoot, minted.dirName)).release();
   updateFeatureRecord(
     projectRoot,
     minted.dirName,
@@ -90,13 +101,15 @@ export function titleActiveFeature(
   return result.renamed ? result.dirName : null;
 }
 
-function takeBundleLock(lockDir: string): boolean {
-  const deadline = Date.now() + LEDGER_LOCK_TIMEOUT_MS;
-  while (!tryAcquireLock(lockDir, { staleLockMs: LEDGER_LOCK_STALE_MS }).acquired) {
-    if (Date.now() >= deadline) return false;
-    sleepSync(20);
+function takeBundleLock(lockDir: string): OwnedFileLock | null {
+  try {
+    return acquireOwnedFileLock(lockDir, {
+      timeoutMs: RENAME_LOCK_TIMEOUT_MS,
+      staleMs: LEDGER_LOCK_STALE_MS,
+    });
+  } catch {
+    return null;
   }
-  return true;
 }
 
 function repointSessionControls(
@@ -139,12 +152,25 @@ function repointSessionControls(
 
 function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: string): void {
   const absLedger = join(projectRoot, featureFilePath(newName, 'stageEvidence'));
-  let raw: string;
+  const temp = `${absLedger}.rename-${process.pid}.tmp`;
   try {
-    raw = readFileSync(absLedger, 'utf8');
-  } catch {
-    return;
-  }
+    for (let attempt = 0; attempt < REWRITE_ATTEMPTS; attempt += 1) {
+      const raw = readFileSync(absLedger, 'utf8');
+      const rewritten = relinkedLedger(raw, oldName, newName);
+      if (rewritten === null) return;
+      writeFileSync(temp, rewritten, 'utf8');
+      if (statSync(absLedger).size === Buffer.byteLength(raw)) {
+        renameSync(temp, absLedger);
+        return;
+      }
+    }
+    rmSync(temp, { force: true });
+    /* c8 ignore start -- best-effort: stale paths in old rows are cosmetic — digests are already stamped. */
+  } catch {}
+}
+/* c8 ignore stop */
+
+function relinkedLedger(raw: string, oldName: string, newName: string): string | null {
   const oldPrefix = `${featureDir(oldName)}/`;
   const newPrefix = `${featureDir(newName)}/`;
   let changed = false;
@@ -178,13 +204,5 @@ function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: str
     if (row.content_hash !== oldHash) rehashed.set(oldHash, row.content_hash);
     return touched ? JSON.stringify(row) : line;
   });
-  if (changed) {
-    try {
-      const temp = `${absLedger}.rename-${process.pid}.tmp`;
-      writeFileSync(temp, lines.join('\n'), 'utf8');
-      renameSync(temp, absLedger);
-      /* c8 ignore start -- best-effort: stale paths in old rows are cosmetic — digests are already stamped. */
-    } catch {}
-  }
+  return changed ? lines.join('\n') : null;
 }
-/* c8 ignore stop */

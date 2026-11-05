@@ -13,7 +13,12 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { FileLockTimeoutError, withFileLockSync } from '@/core/fs/file-lock.js';
+import {
+  FileLockLostError,
+  FileLockTimeoutError,
+  type OwnedFileLock,
+  withOwnedFileLockSync,
+} from '@/core/fs/file-lock.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { ORCHESTRATOR_AGENT } from '@/stage-evidence/agent-identity.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
@@ -24,7 +29,8 @@ import { featureChangeKey, featureDir, featureFilePath, parseFeatureDirName } fr
 
 export const BUNDLE_LOCK_NAME = '.lock';
 export const LEDGER_LOCK_TIMEOUT_MS = 200;
-export const LEDGER_LOCK_STALE_MS = 2_000;
+export const LEDGER_LOCK_STALE_MS = 60_000;
+const LOST_LOCK_RETRIES = 3;
 export const DEDUPE_WINDOW_MS = 10_000;
 export const LOCK_TIMEOUT_NOTE = 'lock-timeout';
 export const AFTER_TORN_LINE_NOTE = 'after-torn-line';
@@ -132,10 +138,21 @@ function existingDuplicate(
   return null;
 }
 
-function writeLine(path: string, line: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const fd = openSync(path, 'a');
+function openForAppend(path: string, beforeCreate: () => void): number {
   try {
+    return openSync(path, 'a');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  beforeCreate();
+  mkdirSync(dirname(path), { recursive: true });
+  return openSync(path, 'a');
+}
+
+function writeLine(path: string, line: string, guard: () => void): void {
+  const fd = openForAppend(path, guard);
+  try {
+    guard();
     writeSync(fd, line);
     fsyncSync(fd);
   } finally {
@@ -151,7 +168,7 @@ interface AppendInput {
   now?: () => Date;
 }
 
-function appendRow(input: AppendInput, locked: boolean): SessionLedgerRow {
+function appendRow(input: AppendInput, lock: OwnedFileLock | null): SessionLedgerRow {
   const { projectRoot, sessionId, dirName, now } = input;
   const row: Record<string, unknown> = {
     ...input.row,
@@ -167,6 +184,7 @@ function appendRow(input: AppendInput, locked: boolean): SessionLedgerRow {
     row.kind === 'verify' ? null : existingDuplicate(rows, key, stampedAt.getTime(), row);
   if (duplicate) return duplicate as unknown as SessionLedgerRow;
   const previous = rows.at(-1);
+  const locked = lock !== null;
   const chain = {
     prev_hash: locked ? textField(previous?.content_hash) : null,
     ...(locked ? {} : { chain_note: LOCK_TIMEOUT_NOTE }),
@@ -181,7 +199,15 @@ function appendRow(input: AppendInput, locked: boolean): SessionLedgerRow {
     validate: (candidate) => validateStageEvidenceRow(candidate),
     now: () => stampedAt,
   });
-  writeLine(path, `${tail.endsClean ? '' : '\n'}${JSON.stringify(stamped)}\n`);
+  const guard = () => {
+    if (lock) {
+      lock.assertHeld();
+      return;
+    }
+    const target = renamedBundle(projectRoot, dirName);
+    if (target !== null) throw new BundleMoved(target);
+  };
+  writeLine(path, `${tail.endsClean ? '' : '\n'}${JSON.stringify(stamped)}\n`, guard);
   return stamped as unknown as SessionLedgerRow;
 }
 
@@ -206,30 +232,51 @@ class BundleMoved extends Error {
   }
 }
 
+function appendWithoutLock(input: AppendInput): SessionLedgerRow {
+  const target = renamedBundle(input.projectRoot, input.dirName);
+  if (target !== null) return appendWithoutLock({ ...input, dirName: target });
+  try {
+    return appendRow(input, null);
+  } catch (error) {
+    if (error instanceof BundleMoved) {
+      return appendWithoutLock({ ...input, dirName: error.target });
+    }
+    throw error;
+  }
+}
+
 export function appendChainedStageRow(input: AppendInput): SessionLedgerRow {
   const { projectRoot, dirName } = input;
   const moved = renamedBundle(projectRoot, dirName);
   if (moved !== null) return appendChainedStageRow({ ...input, dirName: moved });
-  let entered = false;
-  try {
-    return withFileLockSync(
-      bundleLockPath(projectRoot, dirName),
-      () => {
-        entered = true;
+  for (let attempt = 0; attempt < LOST_LOCK_RETRIES; attempt += 1) {
+    let entered = false;
+    try {
+      return withOwnedFileLockSync(
+        bundleLockPath(projectRoot, dirName),
+        (lock) => {
+          entered = true;
+          const target = renamedBundle(projectRoot, dirName);
+          if (target !== null) throw new BundleMoved(target);
+          return appendRow(input, lock);
+        },
+        { timeoutMs: LEDGER_LOCK_TIMEOUT_MS, staleMs: LEDGER_LOCK_STALE_MS },
+      );
+    } catch (error) {
+      if (error instanceof BundleMoved) {
+        try {
+          rmdirSync(join(projectRoot, featureDir(dirName)));
+        } catch {}
+        return appendChainedStageRow({ ...input, dirName: error.target });
+      }
+      if (error instanceof FileLockLostError) {
         const target = renamedBundle(projectRoot, dirName);
-        if (target !== null) throw new BundleMoved(target);
-        return appendRow(input, true);
-      },
-      { timeoutMs: LEDGER_LOCK_TIMEOUT_MS, staleMs: LEDGER_LOCK_STALE_MS },
-    );
-  } catch (error) {
-    if (error instanceof BundleMoved) {
-      try {
-        rmdirSync(join(projectRoot, featureDir(dirName)));
-      } catch {}
-      return appendChainedStageRow({ ...input, dirName: error.target });
+        if (target !== null) return appendChainedStageRow({ ...input, dirName: target });
+        continue;
+      }
+      if (entered && !(error instanceof FileLockTimeoutError)) throw error;
+      break;
     }
-    if (entered && !(error instanceof FileLockTimeoutError)) throw error;
-    return appendRow(input, false);
   }
+  return appendWithoutLock(input);
 }

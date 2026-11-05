@@ -1,49 +1,131 @@
-import { closeSync, fstatSync, mkdirSync, openSync, readSync, rmdirSync, statSync } from 'node:fs';
-import { dirname } from 'node:path';
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  readdirSync,
+  renameSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
 export const DEDUPE_WINDOW_MS = 10_000;
 const TAIL_BYTES = 64 * 1024;
 const LOCK_WAIT_MS = 200;
-const LOCK_STALE_MS = 2_000;
+const LOCK_STALE_MS = 60_000;
+const LOST_LOCK_RETRIES = 3;
+const OWNER_PREFIX = 'owner-';
+const CLAIM_PREFIX = 'claim-';
+
+class TailLockLost extends Error {}
 
 function sleepBriefly(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+function uniqueName(prefix) {
+  return `${prefix}${process.pid}-${randomBytes(6).toString('hex')}`;
+}
+
+function holderIsDead(name) {
+  const pid = Number(name.slice(OWNER_PREFIX.length).split('-')[0]);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    return error.code === 'ESRCH';
+  }
+}
+
+function tryTake(lock) {
+  try {
+    mkdirSync(lock);
+  } catch {
+    return null;
+  }
+  const owner = uniqueName(OWNER_PREFIX);
+  try {
+    writeFileSync(join(lock, owner), '');
+    if (readdirSync(lock).length === 1) return owner;
+    unlinkSync(join(lock, owner));
+    rmdirSync(lock);
+  } catch {}
+  return null;
+}
+
+function reclaimIfStale(lock) {
+  let names;
+  let aged;
+  try {
+    names = readdirSync(lock);
+    aged = Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS;
+  } catch {
+    return;
+  }
+  const owners = names.filter((name) => name.startsWith(OWNER_PREFIX));
+  if (!aged && !(owners.length > 0 && owners.every(holderIsDead))) return;
+  const claims = names.filter((name) => name.startsWith(CLAIM_PREFIX));
+  try {
+    for (const owner of owners) {
+      const claim = uniqueName(CLAIM_PREFIX);
+      renameSync(join(lock, owner), join(lock, claim));
+      claims.push(claim);
+    }
+    for (const claim of claims) unlinkSync(join(lock, claim));
+    rmdirSync(lock);
+  } catch {}
+}
+
+function takeWithinWait(lock) {
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    const taken = tryTake(lock);
+    if (taken) return taken;
+    reclaimIfStale(lock);
+    const retaken = tryTake(lock);
+    if (retaken) return retaken;
+    if (Date.now() >= deadline) return null;
+    sleepBriefly(20);
+  }
+}
+
+function release(lock, owner) {
+  try {
+    unlinkSync(join(lock, owner));
+    rmdirSync(lock);
+  } catch {}
+}
+
 export function withTailLock(file, fn) {
   const lock = `${file}.lock`;
   mkdirSync(dirname(file), { recursive: true });
-  const deadline = Date.now() + LOCK_WAIT_MS;
-  let held = false;
-  while (!held) {
+  for (let attempt = 0; attempt < LOST_LOCK_RETRIES; attempt += 1) {
+    const owner = takeWithinWait(lock);
+    if (owner === null) break;
+    const assertHeld = () => {
+      try {
+        const at = new Date();
+        utimesSync(lock, at, at);
+      } catch {}
+      if (!existsSync(join(lock, owner))) throw new TailLockLost();
+    };
     try {
-      mkdirSync(lock);
-      held = true;
-    } catch {
-      let stale = false;
-      try {
-        stale = Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS;
-      } catch {}
-      let removed = false;
-      if (stale) {
-        try {
-          rmdirSync(lock);
-          removed = true;
-        } catch {}
-      }
-      if (Date.now() >= deadline) break;
-      if (!removed) sleepBriefly(20);
+      return fn(assertHeld);
+    } catch (error) {
+      if (!(error instanceof TailLockLost)) throw error;
+    } finally {
+      release(lock, owner);
     }
   }
-  try {
-    return fn();
-  } finally {
-    if (held) {
-      try {
-        rmdirSync(lock);
-      } catch {}
-    }
-  }
+  return fn(() => {});
 }
 
 function readTail(file) {

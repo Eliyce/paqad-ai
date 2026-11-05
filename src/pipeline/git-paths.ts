@@ -125,9 +125,7 @@ export function addedLinesSince(
     if (!inChange.has(normalized)) continue;
     try {
       added[normalized] = readFileSync(join(projectRoot, normalized), 'utf8');
-    } catch {
-      /* A file that cannot be read adds no line. */
-    }
+    } catch {}
   }
   return added;
 }

@@ -19,7 +19,7 @@ function matchesAcrossGaps(entries: readonly ChainEntry[], prevHash: unknown): b
     if (entry.hash === prevHash) return true;
     if (!entry.gap) return false;
   }
-  return entries.length === 0 && prevHash === null;
+  return prevHash === null;
 }
 
 function parseLine(line: string): Record<string, unknown> | null {
