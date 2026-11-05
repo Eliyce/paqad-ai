@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { execa } from 'execa';
 
+import { PINNED_DIFF_ARGS } from '@/pipeline/git-paths.js';
+
 export interface LineRange {
   start: number;
   end: number;
@@ -80,7 +82,7 @@ async function diffTrackedRanges(
   try {
     const result = await execa(
       'git',
-      ['diff', '--unified=0', '--no-color', 'HEAD', '--', ...changedFiles],
+      [...PINNED_DIFF_ARGS, '--unified=0', 'HEAD', '--', ...changedFiles],
       { cwd: projectRoot, reject: false },
     );
     if (result.exitCode !== 0 || result.stdout.trim() === '') {

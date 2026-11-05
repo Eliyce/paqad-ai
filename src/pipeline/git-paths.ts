@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 export interface ChangeStartLike {
   commit: string;
@@ -10,6 +11,19 @@ export interface ChangeStartLike {
 }
 
 export const DELETED_AT_START = 'deleted';
+
+export const PINNED_DIFF_ARGS: readonly string[] = [
+  '-c',
+  'core.quotepath=off',
+  'diff',
+  '--no-color',
+  '--no-ext-diff',
+  '--no-textconv',
+  '--src-prefix=a/',
+  '--dst-prefix=b/',
+  '--submodule=short',
+  '--find-renames',
+];
 
 export function gitPathList(projectRoot: string, args: string[]): string[] | null {
   try {
@@ -85,6 +99,50 @@ function parseAddedLines(diff: string): Record<string, string> {
   return Object.fromEntries(Object.entries(added).map(([file, lines]) => [file, lines.join('\n')]));
 }
 
+function readGit(projectRoot: string, args: string[], env?: NodeJS.ProcessEnv): string {
+  return execFileSync('git', args, {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 30_000,
+    maxBuffer: 256 * 1024 * 1024,
+    ...(env ? { env } : {}),
+  });
+}
+
+function diffSeeingUntracked(
+  projectRoot: string,
+  diffArgs: string[],
+  untracked: readonly string[],
+): string | null {
+  const scratch = mkdtempSync(join(tmpdir(), 'paqad-index-'));
+  try {
+    const index = resolve(
+      projectRoot,
+      readGit(projectRoot, ['rev-parse', '--git-path', 'index']).trim(),
+    );
+    const tempIndex = join(scratch, 'index');
+    if (existsSync(index)) copyFileSync(index, tempIndex);
+    const env = { ...process.env, GIT_INDEX_FILE: tempIndex };
+    execFileSync(
+      'git',
+      ['--literal-pathspecs', 'add', '-N', '--pathspec-from-file=-', '--pathspec-file-nul'],
+      {
+        cwd: projectRoot,
+        input: untracked.join('\0'),
+        stdio: ['pipe', 'ignore', 'ignore'],
+        timeout: 30_000,
+        env,
+      },
+    );
+    return readGit(projectRoot, diffArgs, env);
+  } catch {
+    return null;
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
 export function addedLinesSince(
   projectRoot: string,
   start: ChangeStartLike,
@@ -92,37 +150,24 @@ export function addedLinesSince(
   const changed = changedFilesSince(projectRoot, start);
   const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
   if (changed === null || untracked === null) return null;
+  const inChange = new Set(changed);
+  const newFiles = untracked.filter(
+    (path) => !path.endsWith('/') && inChange.has(path.replace(/\\/g, '/')),
+  );
+  const diffArgs = [...PINNED_DIFF_ARGS, '-U0', '--relative', start.commit];
+  const seen = newFiles.length === 0 ? null : diffSeeingUntracked(projectRoot, diffArgs, newFiles);
   let diff: string;
   try {
-    diff = execFileSync(
-      'git',
-      [
-        '-c',
-        'core.quotepath=off',
-        'diff',
-        '-U0',
-        '--no-color',
-        '--no-ext-diff',
-        '--relative',
-      ].concat(start.commit),
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: 30_000,
-        maxBuffer: 256 * 1024 * 1024,
-      },
-    );
+    diff = seen ?? readGit(projectRoot, diffArgs);
   } catch {
     return null;
   }
-  const inChange = new Set(changed);
   const added = Object.fromEntries(
     Object.entries(parseAddedLines(diff)).filter(([path]) => inChange.has(path)),
   );
-  for (const path of untracked) {
+  if (seen !== null) return added;
+  for (const path of newFiles) {
     const normalized = path.replace(/\\/g, '/');
-    if (!inChange.has(normalized)) continue;
     try {
       added[normalized] = readFileSync(join(projectRoot, normalized), 'utf8');
     } catch {}

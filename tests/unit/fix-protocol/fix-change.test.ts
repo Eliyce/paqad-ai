@@ -127,12 +127,12 @@ describe('readChangeDiff', () => {
 
   it('returns null when the diff cannot be read and skips untracked files it cannot read', () => {
     seedRepo();
-    expect(readChangeDiff(root, (_root, args) => (args[0] === 'diff' ? null : ''))).toBeNull();
+    expect(readChangeDiff(root, (_root, args) => (args.includes('diff') ? null : ''))).toBeNull();
     const change = readChangeDiff(root, (_root, args) =>
-      args[0] === 'diff' ? '' : args[0] === 'ls-files' ? 'gone.ts\n' : null,
+      args.includes('diff') ? '' : args[0] === 'ls-files' ? 'gone.ts\n' : null,
     );
     expect(change).toEqual({ files: [] });
-    expect(readChangeDiff(root, (_root, args) => (args[0] === 'diff' ? '' : null))).toEqual({
+    expect(readChangeDiff(root, (_root, args) => (args.includes('diff') ? '' : null))).toEqual({
       files: [],
     });
   });
