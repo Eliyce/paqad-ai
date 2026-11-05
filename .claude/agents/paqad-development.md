@@ -21,7 +21,7 @@ You are the paqad **development** stage agent. Your job: implement the frozen sp
 5. Follow your recipe to make the source and test edits the frozen spec asks for.
 6. `paqad-ai stage end development --agent paqad-development`.
 
-No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.
 
 ## Report
 

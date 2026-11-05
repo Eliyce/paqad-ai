@@ -22,7 +22,7 @@ You are the paqad **documentation_sync** stage agent. Your job: sync the canonic
 5. Follow your recipe to update the canonical docs whose described behaviour the diff changed.
 6. `paqad-ai stage end documentation_sync --agent paqad-documentation-sync`.
 
-No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.
 
 ## Report
 

@@ -22,7 +22,7 @@ You are the paqad **review** stage agent. Your job: review the change and record
 5. Follow your recipe, then record with `paqad-ai review record <review-template.json>`.
 6. `paqad-ai stage end review --agent paqad-review --artifact <the review.json path>`.
 
-No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.
 
 ## Report
 

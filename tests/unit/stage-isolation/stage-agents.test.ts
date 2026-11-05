@@ -116,7 +116,7 @@ describe('stage-agent definitions', () => {
       expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
       expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
       expect(body).toContain('No `## Your recipe` heading? Run the brief;');
-      expect(body).toContain('still none, continue, and report the repair it names');
+      expect(body).toContain('still none, continue, reporting its repair');
       expect(body).not.toContain('reporting `paqad-ai update`');
       expect(body).not.toContain('heading in your context, return');
     }

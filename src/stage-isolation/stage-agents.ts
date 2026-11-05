@@ -368,7 +368,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
 function recipeLines(host: string): string[] {
   return host === 'claude-code'
     ? [
-        'No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.',
+        'No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.',
         '',
       ]
     : [];

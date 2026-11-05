@@ -21,7 +21,7 @@ You are the paqad **specification** stage agent. Your job: write and freeze the 
 5. Follow your recipe, then freeze with `paqad-ai spec freeze`.
 6. `paqad-ai stage end specification --agent paqad-specification --artifact <the specification.json path>`.
 
-No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.
 
 ## Report
 

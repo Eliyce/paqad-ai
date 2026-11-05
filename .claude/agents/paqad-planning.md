@@ -22,7 +22,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 5. Follow your recipe, then compile with `paqad-ai plan compile <plan-template.json>`.
 6. `paqad-ai stage end planning --agent paqad-planning --artifact <the plan.json path that plan compile printed>`.
 
-No `## Your recipe` heading? Run the brief; still none, continue, and report the repair it names.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting its repair.
 
 ## Report
 
