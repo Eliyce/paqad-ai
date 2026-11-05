@@ -29,6 +29,9 @@ const LEDGER_MODULE = JSON.stringify(
   pathToFileURL(join(process.cwd(), 'dist/feature-evidence/stage-ledger.js')).href,
 );
 
+const STOP_CEILING_MS = 15_000;
+const HOLDER_CEILING_MS = 20_000;
+
 const roots: string[] = [];
 
 afterEach(() => {
@@ -203,82 +206,124 @@ describe('the locked stage ledger append', () => {
         });
       `,
       );
-      return execa('node', [file, root], { reject: false });
+      return execa('node', [file, root], {
+        reject: false,
+        timeout: HOLDER_CEILING_MS,
+        killSignal: 'SIGKILL',
+      });
     }
 
-    async function stoppedInsideTheLock(pid: number): Promise<void> {
-      for (;;) {
-        const { stdout } = await execa('ps', ['-o', 'state=', '-p', String(pid)]);
-        if (stdout.trim().startsWith('T')) return;
+    async function stoppedInsideTheLock(pid: number, ceilingMs = STOP_CEILING_MS): Promise<void> {
+      const deadline = Date.now() + ceilingMs;
+      let state = '';
+      while (Date.now() < deadline) {
+        const ps = await execa('ps', ['-o', 'state=', '-p', String(pid)], {
+          reject: false,
+          timeout: STOP_CEILING_MS,
+        });
+        if (ps.exitCode !== 0) throw new Error(`process ${pid} exited before it stopped`);
+        state = String(ps.stdout).trim();
+        if (state.startsWith('T')) return;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      throw new Error(`process ${pid} did not stop within ${ceilingMs} ms, ps state "${state}"`);
+    }
+
+    async function whilePaused(
+      root: string,
+      body: (holder: ReturnType<typeof pausedHolder>) => Promise<void>,
+    ): Promise<void> {
+      const holder = pausedHolder(root);
+      try {
+        await stoppedInsideTheLock(holder.pid!);
+        await body(holder);
+      } finally {
+        holder.kill('SIGKILL');
+        await holder;
       }
     }
+
+    it('fails the wait, naming the state, when a process never stops', async () => {
+      const awake = execa('node', ['-e', 'setTimeout(() => {}, 60000)'], { reject: false });
+      try {
+        await expect(stoppedInsideTheLock(awake.pid!, 100)).rejects.toThrow('did not stop within');
+      } finally {
+        awake.kill('SIGKILL');
+        await awake;
+      }
+    });
+
+    it('fails the wait at once when the process has already gone', async () => {
+      const gone = await execa('node', ['-e', '']);
+      await expect(stoppedInsideTheLock(gone.pid!)).rejects.toThrow('exited before it stopped');
+    });
 
     it('re-reads and chains when its lock was taken over while it was stopped', async () => {
       const root = tempRoot();
       append(root, { kind: 'open' });
-      const holder = pausedHolder(root);
-      await stoppedInsideTheLock(holder.pid!);
-      const lock = bundleLockPath(root, DIR);
-      const old = new Date(Date.now() - 3_600_000);
-      utimesSync(lock, old, old);
-      append(root, { kind: 'stage_start', stage: 'planning' });
-      process.kill(holder.pid!, 'SIGCONT');
-      expect((await holder).exitCode).toBe(0);
-      const written = rows(root);
-      expect(written).toHaveLength(3);
-      expect(written[1]!.chain_note).toBeUndefined();
-      expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[1]!.content_hash });
-      expect(written[2]!.chain_note).toBeUndefined();
-      const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
-      expect(check.breaks).toEqual([]);
-      expect(check.gaps).toEqual([]);
-      expect(existsSync(lock)).toBe(false);
+      await whilePaused(root, async (holder) => {
+        const lock = bundleLockPath(root, DIR);
+        const old = new Date(Date.now() - 3_600_000);
+        utimesSync(lock, old, old);
+        append(root, { kind: 'stage_start', stage: 'planning' });
+        process.kill(holder.pid!, 'SIGCONT');
+        expect((await holder).exitCode).toBe(0);
+        const written = rows(root);
+        expect(written).toHaveLength(3);
+        expect(written[1]!.chain_note).toBeUndefined();
+        expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[1]!.content_hash });
+        expect(written[2]!.chain_note).toBeUndefined();
+        const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
+        expect(check.breaks).toEqual([]);
+        expect(check.gaps).toEqual([]);
+        expect(existsSync(lock)).toBe(false);
+      });
     }, 30_000);
 
     it('keeps its lock past the old two seconds while it is alive', async () => {
       const root = tempRoot();
       append(root, { kind: 'open' });
-      const holder = pausedHolder(root);
-      await stoppedInsideTheLock(holder.pid!);
-      const lock = bundleLockPath(root, DIR);
-      const three = new Date(Date.now() - 3_000);
-      utimesSync(lock, three, three);
-      append(root, { kind: 'stage_start', stage: 'planning' });
-      process.kill(holder.pid!, 'SIGCONT');
-      expect((await holder).exitCode).toBe(0);
-      const written = rows(root);
-      expect(written[1]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
-      expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[0]!.content_hash });
-      expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
+      await whilePaused(root, async (holder) => {
+        const lock = bundleLockPath(root, DIR);
+        const three = new Date(Date.now() - 3_000);
+        utimesSync(lock, three, three);
+        append(root, { kind: 'stage_start', stage: 'planning' });
+        process.kill(holder.pid!, 'SIGCONT');
+        expect((await holder).exitCode).toBe(0);
+        const written = rows(root);
+        expect(written[1]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
+        expect(written[2]).toMatchObject({ agent_id: 'held', prev_hash: written[0]!.content_hash });
+        expect(checkStageChain(readFileSync(ledgerPath(root), 'utf8')).breaks).toEqual([]);
+      });
     }, 30_000);
 
     it('reads a no-lock first row and the stopped holder behind it as a declared gap', async () => {
       const root = tempRoot();
-      const holder = pausedHolder(root);
-      await stoppedInsideTheLock(holder.pid!);
-      append(root, { kind: 'stage_start', stage: 'planning' });
-      process.kill(holder.pid!, 'SIGCONT');
-      expect((await holder).exitCode).toBe(0);
-      const written = rows(root);
-      expect(written[0]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
-      expect(written[1]).toMatchObject({ agent_id: 'held', prev_hash: null });
-      const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
-      expect(check.breaks).toEqual([]);
-      expect(check.gaps).toEqual(['row 1 declares a gap: lock-timeout']);
+      await whilePaused(root, async (holder) => {
+        append(root, { kind: 'stage_start', stage: 'planning' });
+        process.kill(holder.pid!, 'SIGCONT');
+        expect((await holder).exitCode).toBe(0);
+        const written = rows(root);
+        expect(written[0]).toMatchObject({ prev_hash: null, chain_note: 'lock-timeout' });
+        expect(written[1]).toMatchObject({ agent_id: 'held', prev_hash: null });
+        const check = checkStageChain(readFileSync(ledgerPath(root), 'utf8'));
+        expect(check.breaks).toEqual([]);
+        expect(check.gaps).toEqual(['row 1 declares a gap: lock-timeout']);
+      });
     }, 30_000);
 
     it('takes the lock from a holder that was killed without waiting for its age', async () => {
       const root = tempRoot();
       append(root, { kind: 'open' });
-      const holder = pausedHolder(root);
-      await stoppedInsideTheLock(holder.pid!);
-      process.kill(holder.pid!, 'SIGKILL');
-      await holder;
-      append(root, { kind: 'stage_start', stage: 'planning' });
-      const written = rows(root);
-      expect(written).toHaveLength(2);
-      expect(written[1]!.chain_note).toBeUndefined();
-      expect(written[1]!.prev_hash).toBe(written[0]!.content_hash);
+      await whilePaused(root, async (holder) => {
+        process.kill(holder.pid!, 'SIGKILL');
+        await holder;
+        append(root, { kind: 'stage_start', stage: 'planning' });
+        const written = rows(root);
+        expect(written).toHaveLength(2);
+        expect(written[1]!.chain_note).toBeUndefined();
+        expect(written[1]!.prev_hash).toBe(written[0]!.content_hash);
+      });
     }, 30_000);
   });
 
