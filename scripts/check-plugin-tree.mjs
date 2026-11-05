@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { escapeControlBytes, PLUGIN_PACKAGE_KEYS } from './assemble-plugin.mjs';
 
@@ -86,10 +93,12 @@ export function checkPluginTree(tree) {
 }
 
 function isDirectRun() {
-  return (
-    process.argv[1] !== undefined &&
-    import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-  );
+  if (process.argv[1] === undefined) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
 }
 
 if (isDirectRun()) {

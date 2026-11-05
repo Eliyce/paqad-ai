@@ -513,6 +513,18 @@ describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
     expect(started).toEqual([['@huggingface/transformers@4.3.1', 'openai@7.43.0']]);
   });
 
+  it('check-plugin-tree started through a linked folder still checks the tree', () => {
+    const link = join(tempDir('paqad-check-tree-link-'), 'scripts');
+    symlinkSync(resolve('scripts'), link, 'junction');
+    const run = spawnSync(
+      process.execPath,
+      [join(link, 'check-plugin-tree.mjs'), join(link, 'no-such-tree')],
+      { encoding: 'utf8' },
+    );
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('no-such-tree');
+  });
+
   it('AC-29: leaves every type file under dist out, at any depth, and keeps the mod types', () => {
     const repoRoot = builtRepo();
     write(repoRoot, 'dist/x.js');
