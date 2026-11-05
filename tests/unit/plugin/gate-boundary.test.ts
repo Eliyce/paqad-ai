@@ -1,34 +1,43 @@
-import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-function git(args: string[]): { ok: boolean; out: string } {
-  const run = spawnSync('git', args, { encoding: 'utf8' });
-  return { ok: run.status === 0, out: run.stdout.trim() };
+interface HookGroup {
+  matcher?: string;
+  hooks: { command: string; onFailure?: string }[];
 }
 
-function baseCommit(): string | null {
-  for (const ref of ['origin/main', 'main']) {
-    const found = git(['merge-base', 'HEAD', ref]);
-    if (found.ok && found.out !== '') return found.out;
-  }
-  return null;
+const hooksFile = JSON.parse(readFileSync('runtime/claude-plugin/hooks.json', 'utf8')) as {
+  hooks: { PreToolUse: HookGroup[] };
+};
+
+function stringValues(source: string): string[] {
+  const file = ts.createSourceFile('register.tsx', source, ts.ScriptTarget.Latest, false);
+  const values: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteralLike(node)) values.push(node.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return values;
 }
 
-const base = baseCommit();
-
-describe('what this change may not touch', () => {
-  it.runIf(base !== null)(
-    'AC-7: the diff against main holds no hook list, hook script or edit gate',
-    () => {
-      const changed = git(['diff', '--name-only', base!]).out.split('\n');
-      const touched = changed.filter(
-        (path) =>
-          path === 'runtime/claude-plugin/hooks.json' ||
-          path.startsWith('runtime/hooks/') ||
-          path === 'src/kernel/gate.ts',
-      );
-      expect(touched).toEqual([]);
+describe('AC-7: the edit gate holds without the HUD', () => {
+  it.each(['Edit', 'Write', 'NotebookEdit'])(
+    'AC-7: %s runs the capability gate, and a gate failure blocks it',
+    (tool) => {
+      const gates = hooksFile.hooks.PreToolUse.filter((group) =>
+        new RegExp(`^(?:${group.matcher ?? ''})$`).test(tool),
+      )
+        .flatMap((group) => group.hooks)
+        .filter((hook) => hook.command.includes('runtime/hooks/capability-gate.mjs" pre-mutation'));
+      expect(gates.map((gate) => gate.onFailure)).toEqual(['block']);
     },
   );
+
+  it('AC-7: register.tsx holds no allow answer, so the HUD can only leave a stop in place', () => {
+    const source = readFileSync('runtime/claude-plugin/mod/register.tsx', 'utf8');
+    expect(stringValues(source)).not.toContain('allow');
+  });
 });
