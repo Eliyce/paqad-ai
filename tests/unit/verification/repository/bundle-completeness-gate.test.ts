@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -1589,6 +1596,15 @@ describe('bundleCompletenessGate reads the ledger chain', () => {
     const repaired = gate(root);
     expect(repaired.detail).not.toContain('chain broken');
     expect(repaired.detail).toContain('a row was lost in a crash');
+  });
+
+  it('says in the gate note that a loss beside a gap would not show', () => {
+    const { root, ledger } = chainRoot();
+    appendFileSync(
+      ledger,
+      `${JSON.stringify({ schema_version: 3, content_hash: 'g', prev_hash: null, chain_note: 'lock-timeout' })}\n`,
+    );
+    expect(gate(root).detail).toContain('the chain does not vouch for rows beside a gap');
   });
 
   it('a repair row does not clear a row that changed after it was named', () => {

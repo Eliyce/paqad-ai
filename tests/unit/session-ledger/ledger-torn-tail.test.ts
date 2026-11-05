@@ -228,6 +228,35 @@ describe('checking the chain', () => {
     expect(check.gaps).toHaveLength(2);
   });
 
+  describe('loss beside a gap', () => {
+    const row = (fields: Record<string, unknown>) =>
+      JSON.stringify({ schema_version: 3, ...fields });
+    const start = row({ content_hash: 'a', prev_hash: null });
+    const lost = row({ content_hash: 'lost', prev_hash: 'a' });
+    const timeout = row({ content_hash: 'gap', prev_hash: null, chain_note: 'lock-timeout' });
+    const after = row({ content_hash: 'b', prev_hash: 'lost' });
+
+    it('still reads no break for a row deleted next to a lock-timeout gap, and says so', () => {
+      const raw = [start, timeout, row({ content_hash: 'b', prev_hash: 'a' })].join('\n');
+      const check = checkStageChain(raw);
+      expect(check.breaks).toEqual([]);
+      expect(check.blind_spot).toBe(
+        'the chain does not vouch for rows beside a gap, so a row lost next to row 2 would not show',
+      );
+    });
+
+    it('names the row when a gap row that chained to a lost row stays behind', () => {
+      const torn = row({ content_hash: 'gap', prev_hash: 'lost', chain_note: 'after-torn-line' });
+      const check = checkStageChain([start, torn].join('\n'));
+      expect(check.gaps).toContain('row 2 does not follow the row before it, so a row may be lost');
+    });
+
+    it('still breaks when the deleted row sits between chained rows', () => {
+      expect(checkStageChain([start, after].join('\n')).breaks).toEqual([2]);
+      expect(checkStageChain([start, lost, after].join('\n')).blind_spot).toBeNull();
+    });
+  });
+
   it('accepts a row chaining past an adjacent declared gap', () => {
     const row = (fields: Record<string, unknown>) =>
       JSON.stringify({ schema_version: 3, ...fields });

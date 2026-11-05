@@ -282,7 +282,7 @@ function assertLedgerChain(
   const check = checkStageChain(raw);
   const breakLine = firstChainBreakLine(check);
   const era = bundleLedgerEra(readFeatureStageUnit(input.projectRoot, dirName));
-  const warnings = [...check.gaps];
+  const warnings = [...check.gaps, ...(check.blind_spot === null ? [] : [check.blind_spot])];
   if (breakLine !== null && era === 'v3') {
     state.skillLines.push(`${breakLine}: a row was removed, reordered or edited.`);
     state.missing.push({

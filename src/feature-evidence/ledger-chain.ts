@@ -3,6 +3,7 @@ export interface ChainCheck {
   torn_tail: boolean;
   gaps: string[];
   breaks: number[];
+  blind_spot: string | null;
 }
 
 const CHAINED_VERSION = 3;
@@ -49,7 +50,8 @@ function repairedRows(lines: readonly string[]): Map<number, { hash: string; rea
 export function checkStageChain(raw: string): ChainCheck {
   const lines = raw.split('\n');
   const repaired = repairedRows(lines);
-  const check: ChainCheck = { rows: 0, torn_tail: false, gaps: [], breaks: [] };
+  const check: ChainCheck = { rows: 0, torn_tail: false, gaps: [], breaks: [], blind_spot: null };
+  const gapRows: number[] = [];
   const entries: ChainEntry[] = [];
   let seenChained = false;
   lines.forEach((line, index) => {
@@ -65,12 +67,17 @@ export function checkStageChain(raw: string): ChainCheck {
     const hash = typeof row.content_hash === 'string' ? row.content_hash : null;
     if (row.schema_version !== CHAINED_VERSION) {
       if (seenChained) check.gaps.push(`row ${number} was written by an older copy of paqad`);
+      if (seenChained) gapRows.push(number);
       entries.push({ hash, gap: seenChained });
       return;
     }
     seenChained = true;
     if (typeof row.chain_note === 'string') {
       check.gaps.push(`row ${number} declares a gap: ${row.chain_note}`);
+      if (typeof row.prev_hash === 'string' && !matchesAcrossGaps(entries, row.prev_hash)) {
+        check.gaps.push(`row ${number} does not follow the row before it, so a row may be lost`);
+      }
+      gapRows.push(number);
       entries.push({ hash, gap: true });
       return;
     }
@@ -84,6 +91,9 @@ export function checkStageChain(raw: string): ChainCheck {
     }
     entries.push({ hash, gap: false });
   });
+  if (gapRows.length > 0) {
+    check.blind_spot = `the chain does not vouch for rows beside a gap, so a row lost next to row${gapRows.length === 1 ? '' : 's'} ${gapRows.join(', ')} would not show`;
+  }
   return check;
 }
 
