@@ -129,7 +129,7 @@ function briefRecipeSection(
   sessionId: string,
   stage: string,
   agentId: string | null,
-): string | null {
+): string {
   let recipe;
   try {
     recipe = resolveRecipe(stage);
@@ -182,7 +182,7 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
         full: options.full === true,
       });
       const recipe = briefRecipeSection(root, sessionId, stage, agentId);
-      const head = recipe === null ? text : `${text}\n\n${recipe}`;
+      const head = `${text}\n\n${recipe}`;
       const room = STAGE_CONTENT_MAX_CHARS - head.length - 2;
       return `${head}\n\n${stageContentMarkdown(root, dirName, stage, room)}`;
     });
@@ -478,7 +478,7 @@ export function createStageCommand(): Command {
         artifactPaths,
         title: phase === 'start' ? options.title : undefined,
         issue: options.issue,
-        agent: options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined,
+        agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
         agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
       });
       if (!recorded) {

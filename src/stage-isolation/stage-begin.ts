@@ -92,7 +92,7 @@ function readIfPresent(path: string): string | null {
 }
 
 function lastJsonLine(text: string): Record<string, unknown> | null {
-  const line = text.trim().split('\n').at(-1) ?? '';
+  const line = text.trim().split('\n').at(-1)!;
   try {
     return JSON.parse(line) as Record<string, unknown>;
   } catch {

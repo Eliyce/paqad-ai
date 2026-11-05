@@ -71,7 +71,7 @@ export function runRecipeScript(
     scope?: unknown;
   };
   try {
-    parsed = JSON.parse(run.stdout.trim().split('\n').at(-1) ?? '') as typeof parsed;
+    parsed = JSON.parse(run.stdout.trim().split('\n').at(-1)!) as typeof parsed;
   } catch {
     return broken('did not run cleanly');
   }
