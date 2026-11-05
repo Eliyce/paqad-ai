@@ -19,6 +19,7 @@ import {
   PERMISSIONS_FILE,
   POWER_RULES,
   type AgentLintResult,
+  permissionPacketNamesFile,
 } from '../lint/agent-lint.js';
 import {
   lintRenderedTemplateAgent,
@@ -146,7 +147,11 @@ function permissionGate(
   const ids = readPermissionIds(workspace);
   const latest = ids.at(-1);
   const record = latest === undefined ? null : readAuthoringDecision(workspace.projectRoot, latest);
-  if (record !== null && record.status !== 'resolved') {
+  const waitingOnThisFile =
+    record !== null &&
+    record.status !== 'resolved' &&
+    permissionPacketNamesFile(workspace.projectRoot, record.id, lint.file_hash);
+  if (record !== null && waitingOnThisFile) {
     setWaiting(workspace, { stage: 'S4', decision: record.id, resume });
     return {
       ok: false,
@@ -157,7 +162,7 @@ function permissionGate(
       ],
     };
   }
-  if (record !== null && record.chosen !== AGENT_PERMISSION_ALLOW) {
+  if (record !== null && record.status === 'resolved' && record.chosen !== AGENT_PERMISSION_ALLOW) {
     throw new AuthoringRefusal(
       `S4 can't pass: the owner chose to remove ${powers} (decision ${record.id}). Take them out of the agent, rerun paqad-ai agent draft, then ${resume}.`,
     );

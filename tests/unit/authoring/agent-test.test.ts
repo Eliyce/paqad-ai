@@ -150,6 +150,23 @@ describe('agent test (S4)', () => {
     expect(passed.ok).toBe(true);
   });
 
+  it('asks again when the agent file changed while its packet was unanswered', async () => {
+    const workspace = agentThrough('S4');
+    put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const first = await runAgentTest(workspace, {});
+
+    put(workspace.projectRoot, FILE, `${agentText({ tools: 'Read, WebFetch' })}\nOne more line.\n`);
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const second = await runAgentTest(workspace, {});
+    expect(second.decision).toMatch(/^D-/);
+    expect(second.decision).not.toBe(first.decision);
+    expect(readPermissionIds(workspace)).toEqual([first.decision, second.decision]);
+
+    resolvePendingDecision(workspace.projectRoot, second.decision!, AGENT_PERMISSION_ALLOW, 'ok');
+    expect((await runAgentTest(workspace, {})).ok).toBe(true);
+  });
+
   it('a removed power refuses S4 until the agent drops it', async () => {
     const workspace = agentThrough('S4');
     put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));

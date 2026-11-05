@@ -316,6 +316,15 @@ function readPacketContext(projectRoot: string, id: string): string | null {
   return typeof context === 'string' ? context : null;
 }
 
+export function permissionPacketNamesFile(
+  projectRoot: string,
+  id: string,
+  fileHash: string,
+): boolean {
+  const context = readPacketContext(projectRoot, id);
+  return context !== null && parsePermissionContext(context)?.fileHash === fileHash;
+}
+
 export function permissionApproval(
   projectRoot: string,
   decisions: readonly string[],
