@@ -99,6 +99,31 @@ backfill is used in the same way. `next_action` then says one of these:
   `scripts/stage-benchmark.mjs` measures a sample of runs, and `scripts/skill-consumer-scan.mjs` lists
   each base skill with its consumers.
 
+## An edit that only removes a rule finding
+
+The rule check before an edit scans the whole change plus the target, so it used to refuse the edit
+that deleted the finding it named, and one finding could stop every code edit. Now, when the check
+would refuse and the target itself holds a finding, it works out what the file would become and judges
+that result. The edit passes only if it removes at least one finding from its target and adds none,
+anywhere in the change. Every other edit is refused with the same message as before.
+
+- **Where the result comes from.** `Edit` and `Write` on Claude Code, and `apply_patch` on Codex.
+  An `apply_patch` must update one file and each chunk must match exactly one place. Anything else
+  counts as a result that cannot be worked out, such as an old text that matches twice, a move, a named
+  `@@` context, another tool or an unknown input field.
+- **How it compares.** The real rule scripts run twice on a temporary copy of the project's layout:
+  once on the file as it is, once on the result. The first run must reproduce the findings of the real
+  check, or the comparison is not trusted. A finding on the target is matched by script, rule, message
+  and the exact text of its line, so removing two findings cannot pay for a new one with the same
+  message, and rewording a finding counts as adding one.
+- **What stays refused.** A rule script that fails or cannot run, the time budget running out (the edit
+  is refused, not deferred to the end of the turn), a target that is a link or a rule file, a result
+  above 1 MiB that grew, a finding left on the target with no line number, and everything under
+  `rule_gate_pre_edit=all`. A crash in the comparison is a crash of the gate, which refuses the edit.
+- **What it records.** A `rule-run.jsonl` row of kind `edit-allowed` with the findings removed and the
+  count remaining, and a line in the hooks log. If the row cannot be written the edit is refused. The
+  remaining findings still block at the end of the turn.
+
 ## Source Footprint
 
 - `src/pipeline/feature-development-policy.ts` (paqad's own stages) and the team files in `.paqad/configs/feature-development/`

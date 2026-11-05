@@ -46,7 +46,10 @@ export interface EnforceOptions {
   editTargets?: string[];
 }
 
-function projectRelativeTargets(projectRoot: string, targets: string[] | undefined): string[] {
+export function projectRelativeTargets(
+  projectRoot: string,
+  targets: string[] | undefined,
+): string[] {
   return (targets ?? [])
     .map((target) =>
       (isAbsolute(target) ? relative(projectRoot, target) : normalize(target)).replace(/^\.\//, ''),
