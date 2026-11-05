@@ -66,8 +66,8 @@ backfill is used in the same way. `next_action` then says one of these:
   `paqad-ai stage end documentation_sync --stale-ok <path>` names a doc that needs no change. Recipe
   text is a copy of its source skills, which stay for their other workflows. The stage agent files stay
   short and leave the method to the recipe. Paths a recipe names are relative to the install directory
-  in `.paqad/framework-path.txt`. `.claude/agents` holds copies that a test keeps equal to the rendered
-  agents.
+  in `.paqad/framework-path.txt`, which names a link to the package's runtime directory on both routes.
+  `.claude/agents` holds copies that a test keeps equal to the rendered agents.
 - **A missing recipe.** An agent with no `## Your recipe` heading in its context runs `stage brief`, which
   prints the repair. If the recipe is still missing the agent carries on and reports that repair. It
   depends on the route, because `paqad-ai update` cannot restore a recipe. On the plugin, run
@@ -77,7 +77,8 @@ backfill is used in the same way. `next_action` then says one of these:
   done and the stage is run again, because the proof rows are missing.
 - **When `stale-docs` lists a doc.** A module's doc is listed when a changed code file names the module
   or sits under one of its `sources` in `docs/instructions/rules/module-map.yml`. Tests, `docs/` and
-  dot-folders do not count as code, so a run with nothing to sync passes.
+  dot-folders do not count as code, so a run with nothing to sync passes. The script reads the map line
+  by line and takes only each slug and `sources` list, so it runs in a project with no packages installed.
 - **Recipe script contract.** A script prints one JSON line, `{ ok, errors, hash }`, and exits 0 when
   `ok` is true and 1 when it found problems. At most 100 errors are printed, followed by `and <n> more`;
   the hash covers the full list. A missing input file or a bad command line exits 2 with the reason on

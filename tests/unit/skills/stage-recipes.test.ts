@@ -37,7 +37,6 @@ describe('every path a recipe names, from an installed layout', () => {
   const scratch = mkdtempSync(join(tmpdir(), 'paqad-recipe-layouts-'));
   afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
-  // .paqad/framework-path.txt names a link to the package's runtime directory, on both routes.
   function installLink(route: string, packageDir: string): string {
     const runtime = join(scratch, route, packageDir, 'runtime');
     mkdirSync(dirname(runtime), { recursive: true });

@@ -57,7 +57,6 @@ function cleanSource(value) {
     .replace(/\/$/u, '');
 }
 
-// Only the slug and every sources list are needed, so a script with no packages can read them.
 function readModuleSources(root) {
   let text;
   try {
