@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N6702M97357B0TNB48C4C9",
+  "category": "spec.contradiction",
+  "title": "A stage agent with no recipe: FR-67 carries on, FR-89 stops",
+  "context": "FR-67 says a missing recipe returns the brief without it and names paqad-ai update. FR-89 says the agent returns NEEDS_CONTEXT. Review found stopping would stall every stage on a project with a missing file.",
+  "options": [
+    {
+      "option_key": "change-spec",
+      "label": "Carry on and name the fix",
+      "one_line_preview": "Carry on and name the fix",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-code",
+      "label": "Stop and ask",
+      "one_line_preview": "Stop and ask",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "change-spec",
+  "created_at": "2026-11-05T06:26:50.068Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "change-spec",
+  "rationale": "Owner, 5 Nov 2026: carry on, name the fix; the stage is not marked as having used its recipe.",
+  "resolved_at": "2026-11-05T06:26:50.768Z",
+  "decision_id": "D-01M6N6702M97357B0TNB48C4C9",
+  "fingerprint": "sha256:cde794f90dd4ad32678179ff0528d3344eaf70b695adf8523f353b01babc215e",
+  "question": "A stage agent with no recipe: FR-67 carries on, FR-89 stops",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-11-12T06:26:50.068Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "change-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T06:26:50.768Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: carry on, name the fix; the stage is not marked as having used its recipe."
+  }
+}
