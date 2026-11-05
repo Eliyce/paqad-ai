@@ -2,11 +2,19 @@ import { execa } from 'execa';
 
 import type { DeliveryShell } from './runner.js';
 
-export function createDeliveryShell(cwd: string): DeliveryShell {
+export interface DeliveryShellOptions {
+  env?: NodeJS.ProcessEnv;
+}
+
+export function createDeliveryShell(
+  cwd: string,
+  options: DeliveryShellOptions = {},
+): DeliveryShell {
+  const envOptions = options.env ? { env: options.env, extendEnv: false } : {};
   return {
     async run(command, args) {
       try {
-        const result = await execa(command, args, { cwd, reject: false });
+        const result = await execa(command, args, { cwd, reject: false, ...envOptions });
         return {
           /* v8 ignore start -- execa always returns string stdout/stderr; the ?? '' guards a never-null path */
           stdout: result.stdout ?? '',
