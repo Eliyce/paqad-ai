@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6NDKJ09Q16WF67KT7GS8ZF4",
+  "category": "spec.contradiction",
+  "title": "Which command repairs a missing recipe: the spec says paqad-ai update, which does not",
+  "context": "A probe in a scratch install showed paqad-ai update, claude plugin update and a second install do not restore a missing recipe at the same version. Recipes come from the running install. Plugin: uninstall then install restored it. npm: npm i -g paqad-ai@latest.",
+  "options": [
+    {
+      "option_key": "change-spec",
+      "label": "Correct the spec and the agents",
+      "one_line_preview": "Correct the spec and the agents",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-code",
+      "label": "Keep the old wording",
+      "one_line_preview": "Keep the old wording",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "change-spec",
+  "created_at": "2026-11-05T08:36:01.673Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "change-spec",
+  "rationale": "Owner, 5 Nov 2026: correct them all, so nobody is sent to the wrong fix.",
+  "resolved_at": "2026-11-05T08:36:02.435Z",
+  "decision_id": "D-01M6NDKJ09Q16WF67KT7GS8ZF4",
+  "fingerprint": "sha256:783c2b1b42c1b7a7243a027110a8118ae02f7afca24cf7a7380dc2af7d5f8083",
+  "question": "Which command repairs a missing recipe: the spec says paqad-ai update, which does not",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-11-12T08:36:01.673Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "change-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T08:36:02.435Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: correct them all, so nobody is sent to the wrong fix."
+  }
+}
