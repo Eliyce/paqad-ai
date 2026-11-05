@@ -88,7 +88,8 @@ backfill is used in the same way. `next_action` then says one of these:
   it. Test files are recognised across JavaScript, TypeScript, Python, Ruby, Java, Kotlin, Go, Rust, C#,
   PHP, Swift, Elixir, Dart, C and C++, among others. When the diff cannot be read it counts every test in
   the project (`scope: all-tests`) and says so. When no test can be read it passes, sets `unchecked` and
-  prints a warning.
+  prints a warning. The check proves a test names a criterion, not that it tests it, so whether the test
+  really covers the criterion is left to review.
 - **Proof.** On the full lane, the completeness gate asks each stage started after the update for a
   `stage-agent` completed row, a `recipe-injected` row and, when its recipe has a script, a `skill-used`
   row. Older stages get a note. On Codex the recipes are written to `.agents/skills/`, kept out of git
@@ -105,7 +106,8 @@ The rule check before an edit scans the whole change plus the target, so it used
 that deleted the finding it named, and one finding could stop every code edit. Now, when the check
 would refuse and the target itself holds a finding, it works out what the file would become and judges
 that result. The edit passes only if it removes at least one finding from its target and adds none,
-anywhere in the change. Every other edit is refused with the same message as before.
+anywhere in the change. Only the scripts this check runs are compared, so the other rule scripts have
+their say at the end of the turn. Every other edit is refused with the same message as before.
 
 - **Where the result comes from.** `Edit` and `Write` on Claude Code, and `apply_patch` on Codex.
   An `apply_patch` must update one file and each chunk must match exactly one place. Anything else
@@ -121,8 +123,8 @@ anywhere in the change. Every other edit is refused with the same message as bef
   above 1 MiB that grew, a finding left on the target with no line number, and everything under
   `rule_gate_pre_edit=all`. A crash in the comparison is a crash of the gate, which refuses the edit.
 - **What it records.** A `rule-run.jsonl` row of kind `edit-allowed` with the findings removed and the
-  count remaining, and a line in the hooks log. If the row cannot be written the edit is refused. The
-  remaining findings still block at the end of the turn.
+  count remaining, and a line in the hooks log. If a change is open and the row cannot be written, the
+  edit is refused. With no change open only the log line is written. The remaining findings still block at the end of the turn.
 
 ## Source Footprint
 

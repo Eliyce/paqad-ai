@@ -12,4 +12,6 @@ Stage agents now follow one recipe and prove it, and the ledger records what the
 - Agent files are short and each do-not line names what enforces it. Plugin and npm installs now render the same failure policy on the edit gates.
 - On the plugin route the three edit gates now block when their hook cannot run (`onFailure: block`, measured on Claude Code 2.1.302). If a partial install or a missing `node` blocks every Edit and Write, run `/plugin update`, which needs no edit, and try again.
 - `paqad-ai stage repair <row> --reason <text>` records why a ledger row broke the chain, and the end-of-change check accepts a row repaired that way.
+- The rule check before an edit no longer refuses an edit that only removes a finding. If the edit takes at least one finding out of its file and adds none, it passes and is recorded, and any other findings still block at the end of the turn. This does not apply under `rule_gate_pre_edit=all`.
+- When an agent draft asks for risky powers, `agent test` waits on one approval decision for that exact file. If the file changes while the decision is unanswered, the old decision is discarded and a new one is raised for the file as it is now.
 - The Ledger shows recipe, report and turns per stage, and the receipt states turns against the budget.
