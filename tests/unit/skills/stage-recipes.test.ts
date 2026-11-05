@@ -31,7 +31,6 @@ describe('the six stage recipes', () => {
       'allow_implicit_invocation: false',
     );
   });
-
 });
 
 describe('every path a recipe names, from an installed layout', () => {
