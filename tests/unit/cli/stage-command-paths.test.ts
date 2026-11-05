@@ -32,6 +32,10 @@ describe('paqad-ai stage, in process', () => {
     err = [];
     vi.spyOn(console, 'log').mockImplementation((line: string) => void out.push(String(line)));
     vi.spyOn(console, 'error').mockImplementation((line: string) => void err.push(String(line)));
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      out.push(String(chunk).trimEnd());
+      return true;
+    });
   });
 
   afterEach(() => {
