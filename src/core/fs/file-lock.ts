@@ -158,12 +158,14 @@ export function acquireOwnedFileLock(
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? sleepSync;
   const deadline = now() + timeoutMs;
-  try {
-    mkdirSync(dirname(lockDir), { recursive: true });
-  } catch {}
-  for (;;) {
+  for (let parentMade = false; ; parentMade = true) {
     const taken = tryTakeOwned(lockDir);
     if (taken) return taken;
+    if (!parentMade) {
+      try {
+        mkdirSync(dirname(lockDir), { recursive: true });
+      } catch {}
+    }
     reclaimIfStale(lockDir, staleMs, now);
     const retaken = tryTakeOwned(lockDir);
     if (retaken) return retaken;

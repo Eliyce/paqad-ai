@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { execa } from 'execa';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { bundleLockPath } from '@/feature-evidence/ledger-append.js';
 import { checkStageChain } from '@/feature-evidence/ledger-chain.js';
@@ -150,6 +150,67 @@ describe('the locked stage ledger append', () => {
     append(root, refusal('t2'), at(1));
     append(root, refusal('t1'), at(100_000));
     expect(rows(root)).toHaveLength(2);
+  });
+
+  describe('reading the tail', () => {
+    const refusal = (id: string) => ({
+      kind: 'stage-handback',
+      stage: 'planning',
+      agent_id: 'a1',
+      event_status: 'denied',
+      tool_use_id: id,
+    });
+
+    function parsesDuring(work: () => void): number {
+      const parse = vi.spyOn(JSON, 'parse');
+      try {
+        work();
+        return parse.mock.calls.length;
+      } finally {
+        parse.mockRestore();
+      }
+    }
+
+    it('finds an old id that needs escaping without parsing the rows after it', () => {
+      const root = tempRoot();
+      const quoted = 'toolu_"old"\\1';
+      const kept = append(root, refusal(quoted), at(0));
+      for (let index = 0; index < 30; index += 1) {
+        append(root, refusal(`t${index}`), at(index + 1));
+      }
+      let repeat: unknown;
+      const parses = parsesDuring(() => {
+        repeat = append(root, refusal(quoted), at(100_000));
+      });
+      expect(repeat).toEqual(kept);
+      expect(rows(root)).toHaveLength(31);
+      expect(parses).toBeLessThan(5);
+    });
+
+    it('chains a new row by parsing only the newest rows', () => {
+      const root = tempRoot();
+      for (let index = 0; index < 30; index += 1) {
+        const kind = index % 2 === 0 ? 'stage_start' : 'stage_end';
+        append(root, { kind, stage: 'planning', note: `row ${index}` }, at(index));
+      }
+      const newest = rows(root).at(-1)!;
+      const parses = parsesDuring(() => {
+        append(root, { kind: 'stage_start', stage: 'planning' }, at(40));
+      });
+      expect(rows(root).at(-1)!.prev_hash).toBe(newest.content_hash);
+      expect(parses).toBeLessThan(5);
+    });
+
+    it('finds no row to chain to in a tail that holds no row', () => {
+      const root = tempRoot();
+      writeFileSync(ledgerPath(root), '42\n{"cut":');
+      append(root, { kind: 'open' });
+      const row = JSON.parse(readFileSync(ledgerPath(root), 'utf8').split('\n')[2]!) as Record<
+        string,
+        unknown
+      >;
+      expect(row).toMatchObject({ prev_hash: null, chain_note: 'after-torn-line' });
+    });
   });
 
   it('AC-35, AC-41: keeps twenty parallel appends from separate processes, chained or with gaps declared', async () => {

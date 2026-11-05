@@ -102,17 +102,21 @@ function readFileTail(path: string): { text: string; endsClean: boolean } {
   }
 }
 
-function parseRows(text: string): Array<Record<string, unknown>> {
-  const rows: Array<Record<string, unknown>> = [];
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed === '') continue;
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (parsed && typeof parsed === 'object') rows.push(parsed as Record<string, unknown>);
-    } catch {}
+function parseRow(line: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(line) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
-  return rows;
+}
+
+function newestRow(lines: readonly string[]): Record<string, unknown> | null {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const row = parseRow(lines[index]!);
+    if (row !== null) return row;
+  }
+  return null;
 }
 
 function sameStageMoved(row: Record<string, unknown>, candidate: Record<string, unknown>): boolean {
@@ -120,13 +124,17 @@ function sameStageMoved(row: Record<string, unknown>, candidate: Record<string, 
 }
 
 function existingDuplicate(
-  rows: ReadonlyArray<Record<string, unknown>>,
+  lines: readonly string[],
   key: RowKey,
   nowMs: number,
   candidate: Record<string, unknown>,
 ): Record<string, unknown> | null {
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows[index]!;
+  const stored = key.byValue ? JSON.stringify(key.key).slice(1, -1) : null;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index]!;
+    if (stored !== null && !line.includes(stored)) continue;
+    const row = parseRow(line);
+    if (row === null) continue;
     if (row.idempotency_key !== key.key) {
       if (!key.byValue && sameStageMoved(row, candidate)) return null;
       continue;
@@ -179,15 +187,14 @@ function appendRow(input: AppendInput, lock: OwnedFileLock | null): SessionLedge
   const change = featureChangeKey(dirName);
   const key = rowKey(change, sessionId, row);
   const tail = readFileTail(path);
-  const rows = parseRows(tail.text);
+  const lines = tail.text.split('\n');
   const stampedAt = (now ?? (() => new Date()))();
   const duplicate =
-    row.kind === 'verify' ? null : existingDuplicate(rows, key, stampedAt.getTime(), row);
+    row.kind === 'verify' ? null : existingDuplicate(lines, key, stampedAt.getTime(), row);
   if (duplicate) return duplicate as unknown as SessionLedgerRow;
-  const previous = rows.at(-1);
   const locked = lock !== null;
   const chain = {
-    prev_hash: locked ? textField(previous?.content_hash) : null,
+    prev_hash: locked ? textField(newestRow(lines)?.content_hash) : null,
     ...(locked ? {} : { chain_note: LOCK_TIMEOUT_NOTE }),
     ...(locked && !tail.endsClean ? { chain_note: AFTER_TORN_LINE_NOTE } : {}),
   };
