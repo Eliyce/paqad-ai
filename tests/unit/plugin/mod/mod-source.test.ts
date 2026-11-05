@@ -244,9 +244,12 @@ describe('the HUD mod source', () => {
     expect(section).toContain(hooks);
     expect(section.indexOf('- **Sends:**')).toBeLessThan(section.indexOf(hooks));
     expect(section.indexOf(hooks)).toBeLessThan(section.indexOf('- **Commands:**'));
-    expect(section.indexOf('`<plugin>/runtime/claude-plugin/bin/paqad-ai rules override')).toBe(
-      section.indexOf(' rules override') - '`<plugin>/runtime/claude-plugin/bin/paqad-ai'.length,
-    );
+    const runs = section.slice(section.indexOf('- **Runs:**'));
+    expect(
+      runs
+        .match(/`[^`]*`/)?.[0]
+        .startsWith('`<plugin>/runtime/claude-plugin/bin/paqad-ai rules override'),
+    ).toBe(true);
   });
 
   it('AC-18: the README names the background delivery refresh, when it runs, and that gh contacts GitHub', () => {

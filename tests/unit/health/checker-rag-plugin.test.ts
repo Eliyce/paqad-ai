@@ -115,7 +115,7 @@ describe('doctor RAG lines for a plugin install', () => {
       join(data, '.paqad-engine-install.json'),
       JSON.stringify({ status: 'failed', error: 'boom', attempted_at: '2026-01-01T00:00:00Z' }),
     );
-    const pkgRoot = join(frameworkHome, 'copy');
+    const pkgRoot = join(projectRoot, 'package-copy');
     mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
     writeFileSync(
       join(pkgRoot, 'package.json'),
