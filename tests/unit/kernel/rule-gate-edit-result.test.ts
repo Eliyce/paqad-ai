@@ -49,7 +49,7 @@ function write(path: string, body: string): void {
   writeFileSync(path, body, 'utf8');
 }
 
-function gateScript(ruleId: string, perFile: boolean, extra: string): string {
+function gateScript(ruleId: string, perFile: boolean, extra: string, byPath = ''): string {
   return [
     '// @paqad-rule-script',
     `// rule_id: ${ruleId}`,
@@ -64,6 +64,7 @@ function gateScript(ruleId: string, perFile: boolean, extra: string): string {
     'const findings = [];',
     'for (const file of files) {',
     '  const abs = join(projectRoot, file);',
+    byPath,
     '  if (!existsSync(abs)) continue;',
     "  const text = readFileSync(abs, 'utf8');",
     extra,
@@ -76,13 +77,18 @@ function gateScript(ruleId: string, perFile: boolean, extra: string): string {
   ].join('\n');
 }
 
-function project(options: { perFile?: boolean; extra?: string; lines?: string[] } = {}): string {
+function project(
+  options: { perFile?: boolean; extra?: string; byPath?: string; lines?: string[] } = {},
+): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-edit-result-test-'));
   roots.push(root);
   write(join(root, 'docs/instructions/rules/coding/gate.md'), '- No debugger.\n');
   const scanned = scanAndEmbedIds(root);
   const ruleId = scanned.inventory[0]!.id;
-  write(join(root, SCRIPT_REL), gateScript(ruleId, options.perFile ?? true, options.extra ?? ''));
+  write(
+    join(root, SCRIPT_REL),
+    gateScript(ruleId, options.perFile ?? true, options.extra ?? '', options.byPath ?? ''),
+  );
   applyRuleScriptMap({
     projectRoot: root,
     map: upsertScriptEntry(
@@ -344,6 +350,24 @@ describe.skipIf(NO_OVERLAY)('AC-83: anything that cannot be judged stays refused
     expect((await edit(root, 'debugger one;\n', '')).block).toBe(true);
   });
 
+  it('a new file a script flags by path gets the normal refusal, not a gate failure', async () => {
+    const byPath =
+      "  if (file === 'src/new.ts') findings.push({ file, line: 1, message: 'flagged by path', severity: 'blocker' });";
+    const root = project({ byPath });
+    const file = 'src/new.ts';
+    const result = await attempt(
+      root,
+      'Write',
+      { file_path: join(root, file), content: 'export const a = 1;\n' },
+      { file },
+    );
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('flagged by path');
+    expect(result.summary).not.toContain('PAQAD_DISABLED');
+    expect(existsSync(join(root, file))).toBe(false);
+    expect(allowedRows(root)).toEqual([]);
+  });
+
   it('leaves no temporary project behind', async () => {
     const root = project();
     const scratch = join(root, 'scratch-tmp');
@@ -381,7 +405,12 @@ describe.skipIf(NO_OVERLAY)('AC-83: a comparison write never follows a link', ()
     const extra =
       "  if (!projectRoot.includes('-test-') && file === 'src/app.ts') { const { rmSync, symlinkSync, realpathSync } = await import('node:fs'); rmSync(abs); symlinkSync(realpathSync(join(projectRoot, 'src/other.ts')), abs); }";
     const root = project({ extra });
-    await expect(edit(root, 'debugger one;\n', '')).rejects.toThrow();
+    const result = await edit(root, 'debugger one;\n', '');
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('debugger');
+    expect(readFileSync(join(root, '.paqad/logs/hooks.log'), 'utf8')).toContain(
+      'edit-refused the comparison failed (ELOOP)',
+    );
     expect(readFileSync(join(root, 'src/other.ts'), 'utf8')).toBe(ONE_FINDING);
     expect(readFileSync(join(root, 'src/app.ts'), 'utf8')).toBe(TWO_FINDINGS);
   });

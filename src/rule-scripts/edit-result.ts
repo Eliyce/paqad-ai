@@ -126,8 +126,7 @@ function rerunScripts(projectRoot: string): RerunScript[] | null {
   return scripts;
 }
 
-function buildOverlay(projectRoot: string, rel: string): string {
-  const overlay = realpathSync(mkdtempSync(join(tmpdir(), 'paqad-edit-result-')));
+function buildOverlay(projectRoot: string, rel: string, overlay: string): void {
   const segments = rel.split('/');
   let from = projectRoot;
   let to = overlay;
@@ -139,7 +138,6 @@ function buildOverlay(projectRoot: string, rel: string): string {
     to = join(to, segment);
     if (index < segments.length - 1) mkdirSync(to);
   });
-  return overlay;
 }
 
 function rewriteNotThroughLink(path: string, content: string): void {
@@ -269,8 +267,9 @@ async function compareOnOverlay(
   scripts: readonly RerunScript[],
   changedFiles: readonly string[],
 ): Promise<EditResultVerdict> {
-  const overlay = buildOverlay(input.projectRoot, target.rel);
+  const overlay = realpathSync(mkdtempSync(join(tmpdir(), 'paqad-edit-result-')));
   try {
+    buildOverlay(input.projectRoot, target.rel, overlay);
     const overlayTarget = join(overlay, target.rel);
     writeFileSync(overlayTarget, target.current, { encoding: 'utf8', flag: 'wx' });
     const baseline = await scanOverlay(overlay, scripts, target.rel, changedFiles, input);

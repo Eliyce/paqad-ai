@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -11,8 +11,10 @@ import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
+const crash = vi.hoisted(() => ({ error: new Error('comparison crashed') as Error }));
+
 vi.mock('@/rule-scripts/edit-result.js', () => ({
-  judgeEditResult: vi.fn(() => Promise.reject(new Error('comparison crashed'))),
+  judgeEditResult: vi.fn(() => Promise.reject(crash.error)),
 }));
 
 const SCRIPT_REL = '.paqad/scripts/rules/coding/gate/001-flag.mjs';
@@ -76,23 +78,55 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
+function attemptEdit(root: string) {
+  const file = join(root, 'src/app.ts');
+  return runCapabilityGate({
+    projectRoot: root,
+    seam: 'pre-mutation',
+    env: {},
+    payload: {
+      sessionId: 'sess-crash',
+      toolName: 'Edit',
+      toolInput: { file_path: file, old_string: 'flag;\n', new_string: '' },
+      targetPath: file,
+      targetPaths: [file],
+    },
+  });
+}
+
+function hooksLog(root: string): string {
+  const path = join(root, '.paqad/logs/hooks.log');
+  return existsSync(path) ? readFileSync(path, 'utf8') : '';
+}
+
+function errorWithCode(code: string): Error {
+  return Object.assign(new Error(`${code}: comparison crashed`), { code });
+}
+
 describe('AC-83: a crash in the comparison', () => {
-  it('AC-83: reaches the hook as a gate failure, which refuses a pre-mutation edit', async () => {
+  it.each(['ENOENT', 'EEXIST'])(
+    'AC-83: %s refuses the edit with the normal rule message and logs nothing',
+    async (code) => {
+      crash.error = errorWithCode(code);
+      const root = blockedProject();
+      const result = await attemptEdit(root);
+      expect(result.block).toBe(true);
+      expect(result.summary).toContain('flag');
+      expect(result.summary).not.toContain('PAQAD_DISABLED');
+      expect(hooksLog(root)).not.toContain('edit-refused');
+    },
+  );
+
+  it.each([
+    ['a coded error', errorWithCode('EACCES'), 'the comparison failed (EACCES)'],
+    ['an uncoded error', new Error('boom'), 'the comparison failed (Error: boom)'],
+  ])('AC-83: %s stays refused with the normal message and logs a line', async (_, error, line) => {
+    crash.error = error;
     const root = blockedProject();
-    const file = join(root, 'src/app.ts');
-    await expect(
-      runCapabilityGate({
-        projectRoot: root,
-        seam: 'pre-mutation',
-        env: {},
-        payload: {
-          sessionId: 'sess-crash',
-          toolName: 'Edit',
-          toolInput: { file_path: file, old_string: 'flag;\n', new_string: '' },
-          targetPath: file,
-          targetPaths: [file],
-        },
-      }),
-    ).rejects.toThrow('comparison crashed');
+    const result = await attemptEdit(root);
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('flag');
+    expect(result.summary).not.toContain('PAQAD_DISABLED');
+    expect(hooksLog(root)).toContain(`edit-refused ${line}`);
   });
 });

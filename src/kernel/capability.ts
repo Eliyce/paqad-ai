@@ -258,6 +258,12 @@ function recordAllowedEdit(
   return true;
 }
 
+function refusalForFailedComparison(error: unknown): EditResultVerdict {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  if (code === 'ENOENT' || code === 'EEXIST') return { allowed: false, reason: null };
+  return { allowed: false, reason: `the comparison failed (${code ?? String(error)})` };
+}
+
 async function editOnlyRemovesFindings(
   context: CapabilityContext,
   gate: RuleGateConfig,
@@ -275,7 +281,7 @@ async function editOnlyRemovesFindings(
       concurrency: gate.concurrency,
       signal,
     }),
-  );
+  ).catch(refusalForFailedComparison);
   if (verdict.allowed) return recordAllowedEdit(context, verdict);
   if (verdict.reason !== null) {
     appendHooksLog(projectRoot, `capability-gate rule-scripts edit-refused ${verdict.reason}`);

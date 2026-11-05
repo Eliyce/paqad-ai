@@ -121,7 +121,8 @@ their say at the end of the turn. Every other edit is refused with the same mess
 - **What stays refused.** A rule script that fails or cannot run, the time budget running out (the edit
   is refused, not deferred to the end of the turn), a target that is a link or a rule file, a result
   above 1 MiB that grew, a finding left on the target with no line number, and everything under
-  `rule_gate_pre_edit=all`. A crash in the comparison is a crash of the gate, which refuses the edit.
+  `rule_gate_pre_edit=all`. If the comparison crashes, the edit is refused with the same rule message, and a crash other than a
+  missing or colliding file (`ENOENT`, `EEXIST`) adds a line to the hooks log.
   A target spelled differently from its name on disk (`src/APP.ts` for `src/app.ts`) is refused too.
 - **Where it does not apply.** Windows. The comparison does not run there, so the edit is refused with
   the same rule message as before.

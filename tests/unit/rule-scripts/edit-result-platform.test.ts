@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +6,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { judgeEditResult } from '@/rule-scripts/edit-result.js';
 
-const platform = vi.hoisted(() => ({ sep: '/' }));
+const platform = vi.hoisted(() => ({ sep: '/', linkError: null as Error | null }));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  const symlinkSync = (...args: Parameters<typeof actual.symlinkSync>): void => {
+    if (platform.linkError) throw platform.linkError;
+    actual.symlinkSync(...args);
+  };
+  return { ...actual, default: { ...actual, symlinkSync }, symlinkSync };
+});
 
 vi.mock('node:path', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:path')>();
@@ -50,6 +59,7 @@ function projectWith(rel: string): string {
 
 afterEach(() => {
   platform.sep = '/';
+  platform.linkError = null;
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -66,5 +76,25 @@ describe('AC-83: the comparison stays out of a path it cannot lay out', () => {
     const root = projectWith(rel);
     await expect(judge(root, rel)).resolves.toEqual({ allowed: false, reason: null });
     expect(readFileSync(join(root, rel), 'utf8')).toBe(BODY);
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('AC-83: a throw while linking the overlay', () => {
+  it('leaves no temporary project behind', async () => {
+    const root = projectWith('src/app.ts');
+    writeFileSync(join(root, 'src/other.ts'), BODY, 'utf8');
+    const scratch = mkdtempSync(join(tmpdir(), 'paqad-edit-platform-scratch-'));
+    roots.push(scratch);
+    platform.linkError = Object.assign(new Error('EEXIST'), { code: 'EEXIST' });
+    const before = process.env.TMPDIR;
+    process.env.TMPDIR = scratch;
+    try {
+      await expect(judge(root, 'src/app.ts')).rejects.toThrow('EEXIST');
+    } finally {
+      if (before === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = before;
+    }
+    expect(readdirSync(scratch)).toEqual([]);
+    expect(readFileSync(join(root, 'src/app.ts'), 'utf8')).toBe(BODY);
   });
 });
