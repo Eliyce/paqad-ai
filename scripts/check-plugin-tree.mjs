@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { PLUGIN_PACKAGE_KEYS } from './assemble-plugin.mjs';
 
 export const SELF_IMPORTS = ['paqad-ai', 'paqad-ai/rule-scripts'];
+
+function filesUnder(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.name === '.git') return [];
+    return entry.isDirectory() ? filesUnder(path) : [path];
+  });
+}
 
 function hasTypesCondition(value) {
   if (typeof value !== 'object' || value === null) return false;
@@ -49,6 +57,12 @@ export function runSelfImports(tree) {
 export function checkPluginTree(tree) {
   const root = resolve(tree);
   const problems = [];
+  const paths = filesUnder(root).map((path) => relative(root, path).split(sep).join('/'));
+  for (const path of paths) {
+    if (path.startsWith('dist/') && path.endsWith('.d.ts')) {
+      problems.push(`${path} is a type file under dist.`);
+    }
+  }
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const keys = Object.keys(pkg).join(', ');
   if (keys !== PLUGIN_PACKAGE_KEYS.join(', ')) {

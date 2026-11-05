@@ -469,6 +469,22 @@ describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
     60_000,
   );
 
+  it('AC-29: leaves every type file under dist out, at any depth, and keeps the mod types', () => {
+    const repoRoot = builtRepo();
+    write(repoRoot, 'dist/x.js');
+    write(repoRoot, 'dist/x.d.ts');
+    write(repoRoot, 'dist/nested/y.d.ts');
+    const outDir = join(tempDir('paqad-assemble-types-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    expect(existsSync(join(outDir, 'dist/x.js'))).toBe(true);
+    expect(existsSync(join(outDir, 'dist/x.d.ts'))).toBe(false);
+    expect(existsSync(join(outDir, 'dist/nested/y.d.ts'))).toBe(false);
+    expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/types/index.d.ts'))).toBe(true);
+    expect(checkPluginTree(outDir)).toEqual([]);
+    write(outDir, 'dist/nested/y.d.ts');
+    expect(checkPluginTree(outDir)).toEqual(['dist/nested/y.d.ts is a type file under dist.']);
+  });
+
   it('AC-9: the tree check names a failed self-import and a key outside the list', () => {
     const outDir = join(tempDir('paqad-assemble-bad-'), 'plugin');
     assemblePlugin({ repoRoot: builtRepo(), outDir });

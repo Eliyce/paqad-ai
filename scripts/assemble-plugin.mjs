@@ -73,9 +73,11 @@ function readVersion(path) {
   }
 }
 
-function isShippedFile(runtimeRoot, distPluginRoot, path) {
+function isShippedFile(runtimeRoot, distRoot, path) {
   if (NEVER_SHIPPED.has(basename(path)) || path.endsWith('.map')) return false;
+  const distPluginRoot = join(distRoot, 'plugin');
   if (path === distPluginRoot || path.startsWith(`${distPluginRoot}${sep}`)) return false;
+  if (path.startsWith(`${distRoot}${sep}`) && path.endsWith('.d.ts')) return false;
   const rel = relative(runtimeRoot, path).split(sep).join('/');
   if (rel.startsWith('..') || !rel.startsWith('claude-plugin/mod')) return true;
   if (rel === 'claude-plugin/mod/test' || rel.startsWith('claude-plugin/mod/test/')) return false;
@@ -113,7 +115,7 @@ function isInPluginTree(rel) {
   return PLUGIN_TREE.some((name) => rel === name || rel.startsWith(`${name}/`));
 }
 
-function pluginPackage(root, runtimeRoot, distPluginRoot) {
+function pluginPackage(root, runtimeRoot, distRoot) {
   const repoPackage = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   if (typeof repoPackage.exports !== 'object' || repoPackage.exports === null) {
     throw new Error('package.json has no exports to carry into the plugin.');
@@ -125,7 +127,7 @@ function pluginPackage(root, runtimeRoot, distPluginRoot) {
     const shipped =
       existsSync(path) &&
       isInPluginTree(relative(root, path).split(sep).join('/')) &&
-      isShippedFile(runtimeRoot, distPluginRoot, path);
+      isShippedFile(runtimeRoot, distRoot, path);
     if (!shipped) throw new Error(`${target} in exports is missing from the assembled tree.`);
   }
   const generated = { ...repoPackage, type: 'module', exports, paqadEngines };
@@ -196,8 +198,8 @@ export function assemblePlugin({ repoRoot, outDir }) {
     );
   }
   const runtimeRoot = join(root, 'runtime');
-  const distPluginRoot = join(root, 'dist', 'plugin');
-  const generatedPackage = pluginPackage(root, runtimeRoot, distPluginRoot);
+  const distRoot = join(root, 'dist');
+  const generatedPackage = pluginPackage(root, runtimeRoot, distRoot);
   mkdirSync(out, { recursive: true });
   for (const name of readdirSync(out)) {
     if (!KEEP_IN_OUTPUT.has(name)) rmSync(join(out, name), { recursive: true, force: true });
@@ -207,7 +209,7 @@ export function assemblePlugin({ repoRoot, outDir }) {
     mkdirSync(dirname(join(out, name)), { recursive: true });
     cpSync(join(root, name), join(out, name), {
       recursive: true,
-      filter: (path) => isShippedFile(runtimeRoot, distPluginRoot, path),
+      filter: (path) => isShippedFile(runtimeRoot, distRoot, path),
     });
   }
   escapeTreeControlBytes(out);
