@@ -133,7 +133,7 @@ function existingDuplicate(
     }
     if (key.byValue) return row;
     const at = Date.parse(String(row.recorded_at ?? ''));
-    return !Number.isNaN(at) && nowMs - at <= DEDUPE_WINDOW_MS ? row : null;
+    return !Number.isNaN(at) && Math.abs(nowMs - at) <= DEDUPE_WINDOW_MS ? row : null;
   }
   return null;
 }

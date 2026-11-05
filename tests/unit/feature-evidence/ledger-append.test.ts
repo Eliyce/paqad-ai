@@ -110,6 +110,16 @@ describe('the locked stage ledger append', () => {
     expect(rows(root)).toHaveLength(2);
   });
 
+  it('AC-34: the window counts both ways, so a row stamped well before its last copy stays', () => {
+    const root = tempRoot();
+    const row = { kind: 'completion-deferred', reason: 'background task', tasks: 1 };
+    append(root, row, at(60_000));
+    append(root, row, at(50_000));
+    expect(rows(root)).toHaveLength(1);
+    append(root, row, at(49_999));
+    expect(rows(root)).toHaveLength(2);
+  });
+
   it('ignores the stamps and the host pid when two routes write one event', () => {
     const root = tempRoot();
     const row = { kind: 'stage-agent', stage: 'review', agent_id: 'a1', event_status: 'started' };
