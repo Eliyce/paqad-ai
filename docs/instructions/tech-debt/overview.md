@@ -26,6 +26,9 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6PRDYEEE0GR18P413R707GK](TD-01M6PRDYEEE0GR18P413R707GK.md) (debt, low): The duplication report calls older main code new, and that code holds real repeats
+- [TD-01M6PRDXR9JDW5GXJ0PQHN5RE2](TD-01M6PRDXR9JDW5GXJ0PQHN5RE2.md) (bug, medium): ac-test-mapping misses titles in it.runIf(cond)(title) and matches ids across specs
+- [TD-01M6PRDX1RMDK5GENC03EYJK2B](TD-01M6PRDX1RMDK5GENC03EYJK2B.md) (gap, low): The mod test harness cannot set the plugin root, so AC-32 and AC-33 stop at the pure function
 - [TD-01M6PFVTK0MFYHTBT9T6C8AZBZ](TD-01M6PFVTK0MFYHTBT9T6C8AZBZ.md) (gap, low): Measure the ledger append cost on Windows and recover a lock that fails to release
 - [TD-01M6NNEJ6P2C9HEAYMFXCC0546](TD-01M6NNEJ6P2C9HEAYMFXCC0546.md) (bug, low): A folder link in a change crashes the rule runner on edits
 - [TD-01M6NMGFR3E41XGDDQ2CQC5F1D](TD-01M6NMGFR3E41XGDDQ2CQC5F1D.md) (gap, low): Rule scripts that read the working folder or skip links can misjudge an edit's result
