@@ -1826,6 +1826,8 @@ modules:
       - src/rag
       - src/project-knowledge
       - src/context/retrieval-context.ts
+      - src/core/optional-package.ts
+      - runtime/scripts/install-engine.mjs
     features:
       - slug: vector-index
         name: Vector Index

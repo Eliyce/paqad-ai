@@ -1,5 +1,12 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 
@@ -91,9 +98,26 @@ const PRIMARY_ENGINE = '@huggingface/transformers';
 
 const INSTALL_RETRY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
+const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
+
 export const ENGINE_INSTALL_NETWORK_HINT =
   'If this machine is offline or behind a proxy, install the engine manually: run ' +
   '`npm install @huggingface/transformers` inside the CLAUDE_PLUGIN_DATA directory.';
+
+export function engineInstallNetworkHint(env: NodeJS.ProcessEnv = process.env): string {
+  const specs = readEngineSpecs(env);
+  if (specs.length === 0) {
+    return ENGINE_INSTALL_NETWORK_HINT;
+  }
+  return (
+    'If this machine is offline or behind a proxy, install the engine manually: run ' +
+    `\`npm install ${specs.join(' ')} --save-exact\` inside the CLAUDE_PLUGIN_DATA directory.`
+  );
+}
+
+export function engineInstallArguments(): string[] {
+  return [join(getPackageRoot(), 'runtime', 'scripts', 'install-engine.mjs')];
+}
 
 interface EnginePaths {
   readonly marker: string;
@@ -124,12 +148,31 @@ function readInstallMarker(markerPath: string): InstallMarker | null {
   }
 }
 
+function pinnedEngineSpecs(pins: unknown): string[] {
+  if (typeof pins !== 'object' || pins === null) {
+    return [];
+  }
+  const specs: string[] = [];
+  for (const name of OPTIONAL_ENGINES) {
+    const version = (pins as Record<string, unknown>)[name];
+    if (typeof version !== 'string' || !EXACT_VERSION.test(version)) {
+      return [];
+    }
+    specs.push(`${name}@${version}`);
+  }
+  return specs;
+}
+
 function readEngineSpecs(env: NodeJS.ProcessEnv): string[] {
   try {
     const pkgRoot = dirname(realpathSync(frameworkLinkHome(env)));
     const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>;
+      paqadEngines?: unknown;
     };
+    if ('paqadEngines' in pkg) {
+      return pinnedEngineSpecs(pkg.paqadEngines);
+    }
     const deps = pkg.dependencies ?? {};
     const specs: string[] = [];
     for (const name of OPTIONAL_ENGINES) {
@@ -150,12 +193,14 @@ export type EngineInstallOutcome =
   | 'in-progress'
   | 'throttled'
   | 'no-plugin-data'
-  | 'no-pinned-range';
+  | 'no-pinned-range'
+  | 'install-script-missing';
 
 export interface EngineInstallDeps {
   now?: () => number;
   resolve?: (name: string, env: NodeJS.ProcessEnv) => string | null;
   readSpecs?: (env: NodeJS.ProcessEnv) => string[];
+  installScript?: string;
   startInstall?: (specs: string[], dir: string, paths: EnginePaths, projectRoot?: string) => void;
 }
 
@@ -216,7 +261,12 @@ export function maybeStartOptionalEngineInstall(
   if (specs.length === 0) {
     return 'no-pinned-range';
   }
+  const installScript = deps.installScript ?? engineInstallArguments()[0]!;
   mkdirSync(pluginData, { recursive: true });
+  if (!existsSync(installScript)) {
+    appendFileSync(paths.log, `The engine install script is missing: ${installScript}\n`);
+    return 'install-script-missing';
+  }
   writeFileSync(
     join(pluginData, 'package.json'),
     `${JSON.stringify({ private: true }, null, 2)}\n`,
@@ -240,31 +290,7 @@ function spawnEngineInstall(
   paths: EnginePaths,
   projectRoot?: string,
 ): void {
-  const installer = `
-    const { execFileSync } = require('node:child_process');
-    const { openSync, writeFileSync, rmSync } = require('node:fs');
-    const specs = process.env.PAQAD_ENGINE_SPECS.split(' ');
-    try {
-      const fd = openSync(process.env.PAQAD_ENGINE_LOG, 'a');
-      execFileSync('npm', ['install', ...specs, '--no-audit', '--no-fund', '--omit=dev'], {
-        cwd: process.env.PAQAD_ENGINE_DIR, stdio: ['ignore', fd, fd],
-      });
-      writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'ready', attempted_at: new Date().toISOString(), specs }));
-      if (process.env.PAQAD_ENGINE_REBUILD_ROOT && process.env.PAQAD_ENGINE_CLI) {
-        try {
-          execFileSync(process.execPath, [process.env.PAQAD_ENGINE_CLI, 'rag', 'rebuild', '--project-root', process.env.PAQAD_ENGINE_REBUILD_ROOT], {
-            cwd: process.env.PAQAD_ENGINE_REBUILD_ROOT, stdio: ['ignore', fd, fd],
-          });
-        } catch {}
-      }
-    } catch (e) {
-      const msg = String(e && e.message ? e.message : e).split('\\n')[0];
-      writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'failed', attempted_at: new Date().toISOString(), error: msg }));
-    } finally {
-      try { rmSync(process.env.PAQAD_ENGINE_LOCK); } catch {}
-    }
-  `;
-  const child = spawn(process.execPath, ['-e', installer], {
+  const child = spawn(process.execPath, engineInstallArguments(), {
     detached: true,
     stdio: 'ignore',
     windowsHide: true,
@@ -317,7 +343,7 @@ export function describeOptionalEngine(
       return {
         state: 'install failed',
         detail: (marker.error ?? '').split('\n')[0],
-        hint: ENGINE_INSTALL_NETWORK_HINT,
+        hint: engineInstallNetworkHint(env),
       };
     }
   }

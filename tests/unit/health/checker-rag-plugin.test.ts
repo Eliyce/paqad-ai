@@ -103,6 +103,46 @@ describe('doctor RAG lines for a plugin install', () => {
     );
   });
 
+  it('AC-25: the failed engine line names the exact versions, and the fixed text with no specs', async () => {
+    await onboard();
+    turnRagOnWithDefaultModel();
+    const actual = await vi.importActual<typeof import('@/core/optional-package.js')>(
+      '@/core/optional-package.js',
+    );
+    const data = join(projectRoot, 'plugin-data');
+    mkdirSync(data, { recursive: true });
+    writeFileSync(
+      join(data, '.paqad-engine-install.json'),
+      JSON.stringify({ status: 'failed', error: 'boom', attempted_at: '2026-01-01T00:00:00Z' }),
+    );
+    const pkgRoot = join(frameworkHome, 'copy');
+    mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
+    writeFileSync(
+      join(pkgRoot, 'package.json'),
+      JSON.stringify({ paqadEngines: { '@huggingface/transformers': '4.3.1', openai: '7.43.0' } }),
+    );
+    const env = {
+      ...process.env,
+      CLAUDE_PLUGIN_DATA: data,
+      PAQAD_FRAMEWORK_HOME: join(pkgRoot, 'runtime'),
+    };
+    vi.mocked(optionalPackage.describeOptionalEngine).mockImplementation(() =>
+      actual.describeOptionalEngine(env, { resolve: () => null }),
+    );
+    const pinned = find(await new HealthChecker().run(projectRoot), 'RAG engine installed');
+    expect(pinned?.status).toBe('warning');
+    expect(JSON.stringify(pinned)).toContain(
+      'npm install @huggingface/transformers@4.3.1 openai@7.43.0 --save-exact',
+    );
+    process.env.PAQAD_FRAMEWORK_HOME = join(projectRoot, 'gone');
+    vi.mocked(optionalPackage.describeOptionalEngine).mockReturnValue({
+      state: 'install failed',
+      detail: 'boom',
+    });
+    const fixed = find(await new HealthChecker().run(projectRoot), 'RAG engine installed');
+    expect(fixed?.remediation).toBe(actual.ENGINE_INSTALL_NETWORK_HINT);
+  });
+
   it('reads the vectors folder as ignored after onboarding with RAG off and no vectors folder', async () => {
     git(['init', '-q']);
     await onboard();

@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -27,7 +27,8 @@ import {
   PLUGIN_REPO,
 } from '../../../scripts/assemble-plugin.mjs';
 import { checkPluginTree, runSelfImports } from '../../../scripts/check-plugin-tree.mjs';
-import { OPTIONAL_ENGINES } from '@/core/optional-package.js';
+import { maybeStartOptionalEngineInstall, OPTIONAL_ENGINES } from '@/core/optional-package.js';
+import { __test as bootstrap } from '@/install/bootstrap.js';
 
 const SCRIPT = resolve('scripts/assemble-plugin.mjs');
 const dirs: string[] = [];
@@ -89,6 +90,7 @@ function builtRepo(version = '1.99.4', pluginVersion = version): string {
   write(root, 'dist/index.js', 'export const root = 1;\n');
   write(root, 'dist/rule-scripts/index.js', 'export const rules = 1;\n');
   write(root, 'runtime/base/skills/fixture/scripts/run.mjs', '');
+  write(root, 'runtime/scripts/install-engine.mjs', '');
   write(root, 'runtime/hooks/agent-entry-gate.mjs');
   write(root, 'runtime/claude-plugin/hooks.json', '{}');
   write(root, 'runtime/claude-plugin/mod/register.tsx');
@@ -468,6 +470,48 @@ describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
     },
     60_000,
   );
+
+  it('AC-23: the install script is in the assembled tree and in the npm package', () => {
+    const repoRoot = builtRepo();
+    cpSync(resolve('runtime/scripts'), join(repoRoot, 'runtime/scripts'), { recursive: true });
+    const outDir = join(tempDir('paqad-assemble-script-'), 'plugin');
+    assemblePlugin({ repoRoot: builtHere() ? resolve('.') : repoRoot, outDir });
+    expect(existsSync(join(outDir, 'runtime/scripts/install-engine.mjs'))).toBe(true);
+    const pack = spawnSync('npm', ['pack', '--dry-run', '--ignore-scripts', '--json'], {
+      cwd: resolve('.'),
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    });
+    expect(pack.status).toBe(0);
+    const [manifest] = JSON.parse(pack.stdout) as { files: { path: string }[] }[];
+    expect(manifest!.files.map((file) => file.path.replace(/\\/g, '/'))).toContain(
+      'runtime/scripts/install-engine.mjs',
+    );
+  }, 60_000);
+
+  it('AC-13: the bootstrap copy keeps the self-imports, the exact versions and the install script', () => {
+    const repoRoot = builtRepo();
+    const home = tempDir('paqad-assemble-copy-');
+    const plugin = join(home, 'plugin');
+    assemblePlugin({ repoRoot, outDir: plugin });
+    const env = { CLAUDE_PLUGIN_DATA: join(home, 'data') } as NodeJS.ProcessEnv;
+    const linked = bootstrap.ensureStablePluginRuntime(join(plugin, 'runtime'), env);
+    expect(linked).toBe(join(home, 'data', 'runtime', 'runtime'));
+    expect(runSelfImports(join(home, 'data', 'runtime'))).toContain('paqad-ai/rule-scripts');
+    expect(existsSync(join(linked, 'scripts/install-engine.mjs'))).toBe(true);
+    const started: string[][] = [];
+    const outcome = maybeStartOptionalEngineInstall(
+      { ...env, PAQAD_FRAMEWORK_HOME: linked },
+      {
+        resolve: () => null,
+        now: () => 0,
+        installScript: join(linked, 'scripts/install-engine.mjs'),
+        startInstall: (specs) => started.push(specs),
+      },
+    );
+    expect(outcome).toBe('started');
+    expect(started).toEqual([['@huggingface/transformers@4.3.1', 'openai@7.43.0']]);
+  });
 
   it('AC-29: leaves every type file under dist out, at any depth, and keeps the mod types', () => {
     const repoRoot = builtRepo();

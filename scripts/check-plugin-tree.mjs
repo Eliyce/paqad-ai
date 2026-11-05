@@ -8,6 +8,8 @@ import { escapeControlBytes, PLUGIN_PACKAGE_KEYS } from './assemble-plugin.mjs';
 
 export const SELF_IMPORTS = ['paqad-ai', 'paqad-ai/rule-scripts'];
 
+const INSTALL_SCRIPT = 'runtime/scripts/install-engine.mjs';
+
 function filesUnder(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -66,6 +68,7 @@ export function checkPluginTree(tree) {
       problems.push(`${path} holds a raw control byte.`);
     }
   }
+  if (!paths.includes(INSTALL_SCRIPT)) problems.push(`${INSTALL_SCRIPT} is missing.`);
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const keys = Object.keys(pkg).join(', ');
   if (keys !== PLUGIN_PACKAGE_KEYS.join(', ')) {
