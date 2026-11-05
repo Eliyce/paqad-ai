@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -135,6 +135,15 @@ describe('the High Table agents are never a stage (AC-42)', () => {
 });
 
 describe('the High Table agent bodies', () => {
+  it('AC-15: a seat keeps its own report format and its 20 turn limit', () => {
+    const seat = readFileSync(
+      join(process.cwd(), 'runtime/claude-plugin/agents/paqad-expert.md'),
+      'utf8',
+    );
+    expect(seat).toContain('maxTurns: 20');
+    expect(seat).toContain('`security-auditor: 1 finding, 1 question, <tokens> tokens`');
+  });
+
   it('the expert runs its brief first, writes one note for its role, records it and never edits source', () => {
     const body = buildExpertAgentBody();
     const brief = body.indexOf('paqad-ai spec pipeline experts brief <role>');

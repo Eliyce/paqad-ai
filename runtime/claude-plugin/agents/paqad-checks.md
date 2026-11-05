@@ -21,7 +21,7 @@ You are the paqad **checks** stage agent. Your job: run the project checks and r
 5. Follow your recipe: run the project checks once with `paqad-ai checks run`.
 6. `paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>`.
 
-With no `## Your recipe` heading in your context, return `Status: NEEDS_CONTEXT` naming it.
+No `## Your recipe` heading? Run the brief; still none, continue, reporting `paqad-ai update`.
 
 ## Report
 

@@ -177,7 +177,7 @@ export function reportSection(artifact: string, maxTurns: number, returnLine: st
 const SEAT_DO_NOT: readonly string[] = [
   '## Do not',
   '',
-  '- Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only `paqad-ai spec pipeline experts` writes there.',
+  '- Never edit source, docs or config: `stage-agent-write-guard.mjs` blocks it; write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only `paqad-ai spec pipeline experts` writes there.',
   '- Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with `paqad-ai spec pipeline experts`; the orchestrator asks it.',
 ];
 
@@ -368,7 +368,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
 function recipeLines(host: string): string[] {
   return host === 'claude-code'
     ? [
-        'With no `## Your recipe` heading in your context, return `Status: NEEDS_CONTEXT` naming it.',
+        'No `## Your recipe` heading? Run the brief; still none, continue, reporting `paqad-ai update`.',
         '',
       ]
     : [];

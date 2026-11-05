@@ -115,7 +115,9 @@ describe('stage-agent definitions', () => {
       expect(body).toContain(`run \`paqad-ai stage brief ${def.ledgerStage} --full\``);
       expect(body).not.toContain('docs/instructions/workflows/feature-development.yaml');
       expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join(' '));
-      expect(body).toContain('no `## Your recipe` heading');
+      expect(body).toContain('No `## Your recipe` heading? Run the brief;');
+      expect(body).toContain('still none, continue, reporting `paqad-ai update`');
+      expect(body).not.toContain('heading in your context, return');
     }
   });
 
@@ -185,7 +187,7 @@ describe('stage-agent definitions', () => {
     expect(rules).not.toContain('re-dispatches you');
   });
 
-  it('AC-45: the foreground line is in the specification brief, the body leaves it to the brief', () => {
+  it('the foreground line is in the specification brief, the body leaves it to the brief', () => {
     expect(SPEC_FOREGROUND_START_LINE).toBe(
       'Run `spec pipeline start` in the foreground. It returns within 20 seconds. Never background it and never poll `status`.',
     );

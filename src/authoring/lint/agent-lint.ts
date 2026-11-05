@@ -63,7 +63,8 @@ const RISKY_POWER_RULE = 'AG-022';
 const READ_ONLY_PAQAD_AGENT =
   /^paqad-(planning|specification|review|checks|expert|chief-architect)$/u;
 const STAGE_WRITE_GUARD_HOOK = 'stage-agent-write-guard.mjs';
-const NAMES_ITS_ENFORCER = /`paqad-ai [^`]+`|\bcapability gate\b|\bstage-agent-[a-z-]+\.mjs\b/u;
+const NAMES_ITS_ENFORCER = /\bcapability gate\b|\bstage-agent-[a-z-]+\.mjs\b/u;
+const NAMES_A_PAQAD_COMMAND = /`paqad-ai [^`]+`/u;
 export const POWER_RULES: readonly string[] = [PERMISSION_RULE, TOOL_LIMIT_RULE, RISKY_POWER_RULE];
 const SCRIPT_INTERPRETERS = /^(?:node|php|python3?|ruby|bash|sh|deno|bun|tsx)$/u;
 const SHELL_OPERATORS = /[;&|`<>]|\$\(/u;
@@ -761,6 +762,7 @@ function checkDoNot(
   const denied = new Set(
     (listOf(ctx.data.disallowedTools) ?? []).map((tool) => parseTool(tool).base),
   );
+  const paqadOwned = String(ctx.data.name ?? '').startsWith('paqad-');
   section.lines.forEach((text, index) => {
     if (!/^\s*(?:[-*+]|\d+[.)])\s+/u.test(text)) return;
     const named = CLAUDE_CODE_AGENT_FIELDS.tools.filter((tool) =>
@@ -768,6 +770,7 @@ function checkDoNot(
     );
     const enforced =
       NAMES_ITS_ENFORCER.test(text) ||
+      (paqadOwned && NAMES_A_PAQAD_COMMAND.test(text)) ||
       named.some((tool) => denied.has(tool) || (tools !== undefined && !allowed.has(tool))) ||
       named.some((tool) => blockingHookFor(hooks, tool)) ||
       (tools !== undefined &&

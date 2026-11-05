@@ -39,7 +39,7 @@ paused: D-<id>
 
 ## Do not
 
-- Never edit source, docs or config: write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only `paqad-ai spec pipeline experts` writes there.
+- Never edit source, docs or config: `stage-agent-write-guard.mjs` blocks it; write only your artifact under `.paqad/tmp/high-table/`, with a shell heredoc. Never write into a feature bundle directory; only `paqad-ai spec pipeline experts` writes there.
 - Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with `paqad-ai spec pipeline experts`; the orchestrator asks it.
 
 ## Example

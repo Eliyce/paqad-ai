@@ -43,7 +43,7 @@ paused: D-<id>
 
 ## Do not
 
-- Never edit source, docs or config: write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
+- Never edit source, docs or config: \`stage-agent-write-guard.mjs\` blocks it; write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
 - Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with \`paqad-ai spec pipeline experts\`; the orchestrator asks it.
 
 ## Example
@@ -95,7 +95,7 @@ paused: D-<id>
 
 ## Do not
 
-- Never edit source, docs or config: write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
+- Never edit source, docs or config: \`stage-agent-write-guard.mjs\` blocks it; write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
 - Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with \`paqad-ai spec pipeline experts\`; the orchestrator asks it.
 
 ## Example
@@ -128,7 +128,7 @@ You are the paqad **checks** stage agent. Your job: run the project checks and r
 5. Follow your recipe: run the project checks once with \`paqad-ai checks run\`.
 6. \`paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -177,7 +177,7 @@ You are the paqad **development** stage agent. Your job: implement the frozen sp
 5. Follow your recipe to make the source and test edits the frozen spec asks for.
 6. \`paqad-ai stage end development --agent paqad-development\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -226,7 +226,7 @@ You are the paqad **documentation_sync** stage agent. Your job: sync the canonic
 5. Follow your recipe to update the canonical docs whose described behaviour the diff changed.
 6. \`paqad-ai stage end documentation_sync --agent paqad-documentation-sync\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -275,7 +275,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 5. Follow your recipe, then compile with \`paqad-ai plan compile <plan-template.json>\`.
 6. \`paqad-ai stage end planning --agent paqad-planning --artifact <the plan.json path that plan compile printed>\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -325,7 +325,7 @@ You are the paqad **review** stage agent. Your job: review the change and record
 5. Follow your recipe, then record with \`paqad-ai review record <review-template.json>\`.
 6. \`paqad-ai stage end review --agent paqad-review --artifact <the review.json path>\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -375,7 +375,7 @@ You are the paqad **specification** stage agent. Your job: write and freeze the 
 5. Follow your recipe, then freeze with \`paqad-ai spec freeze\`.
 6. \`paqad-ai stage end specification --agent paqad-specification --artifact <the specification.json path>\`.
 
-With no \`## Your recipe\` heading in your context, return \`Status: NEEDS_CONTEXT\` naming it.
+No \`## Your recipe\` heading? Run the brief; still none, continue, reporting \`paqad-ai update\`.
 
 ## Report
 
@@ -483,7 +483,7 @@ paused: D-<id>
 
 ## Do not
 
-- Never edit source, docs or config: write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
+- Never edit source, docs or config: \`stage-agent-write-guard.mjs\` blocks it; write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
 - Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with \`paqad-ai spec pipeline experts\`; the orchestrator asks it.
 
 ## Example
@@ -619,7 +619,7 @@ paused: D-<id>
 
 ## Do not
 
-- Never edit source, docs or config: write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
+- Never edit source, docs or config: \`stage-agent-write-guard.mjs\` blocks it; write only your artifact under \`.paqad/tmp/high-table/\`, with a shell heredoc. Never write into a feature bundle directory; only \`paqad-ai spec pipeline experts\` writes there.
 - Never ask the human: the AskUserQuestion tool is not available to you. A question only a person can answer goes into your artifact, recorded with \`paqad-ai spec pipeline experts\`; the orchestrator asks it.
 
 ## Example
