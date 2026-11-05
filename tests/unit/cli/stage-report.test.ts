@@ -149,7 +149,33 @@ describe('paqad-ai stage report', () => {
       });
       expect(report?.advance).toBe(false);
       expect(report?.reason).toContain('the checks are red');
-      expect(report?.next_action).toContain('stop and tell the developer');
+      expect(report?.next_action).toBe(
+        'resume the development agent to fix the failures, then run checks again',
+      );
+    });
+
+    it('AC-22: stops on the second silent return with red checks, not resuming again', () => {
+      const silent = row({
+        kind: 'stage-agent',
+        stage: 'checks',
+        event_status: 'completed',
+        report_status: 'BLOCKED',
+        report_stated: false,
+        report_source: 'none',
+        advance: false,
+      });
+      const report = buildStageReport([...noClaim('checks'), silent], AGENT, {
+        checksRed: (stage) => stage === 'checks',
+      });
+      expect(report?.advance).toBe(false);
+      expect(report?.next_action).toBe(
+        'stop and tell the developer the checks stage returned twice with no report',
+      );
+    });
+
+    it('stops at once on a must-not breach, and never says resume', () => {
+      const report = buildStageReport(noClaim('review', { must_not: ['bundle_write'] }), AGENT);
+      expect(report?.next_action).toBe('stop and tell the developer the reason');
     });
 
     it('does not advance on a must-not breach', () => {
@@ -165,7 +191,9 @@ describe('paqad-ai stage report', () => {
         [row({ kind: 'stage-agent', event_status: 'started' })],
         AGENT,
       );
-      expect(report?.next_action).toBe('wait for the agent to return');
+      expect(report?.next_action).toBe(
+        'wait for the agent to return; if it has already returned, resume it once',
+      );
     });
 
     it('says to wait for an agent whose handback was sent back', () => {
@@ -184,6 +212,7 @@ describe('paqad-ai stage report', () => {
         AGENT,
       );
       expect(report?.next_action).toContain('wait for the agent');
+      expect(report?.next_action).toContain('if it has already returned, resume it once');
     });
 
     it('says to resume with the answer once the paused decision is resolved', () => {

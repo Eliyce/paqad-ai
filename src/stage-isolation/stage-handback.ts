@@ -353,16 +353,29 @@ function withAction(
   return { ...report, next_action: nextAction(report, options) };
 }
 
-function endRowHoldReason(
+interface EndRowHold {
+  reason: string;
+  action: string;
+}
+
+function endRowHold(
   stage: string,
   rows: readonly (Row | undefined)[],
   options: StageReportOptions,
-): string | null {
+): EndRowHold | null {
   const breaches = rows.flatMap((row) => (Array.isArray(row?.must_not) ? row.must_not : []));
   if (breaches.length > 0) {
-    return `no Status line, and the agent breached a must-not: ${[...new Set(breaches)].join(', ')}`;
+    return {
+      reason: `no Status line, and the agent breached a must-not: ${[...new Set(breaches)].join(', ')}`,
+      action: 'stop and tell the developer the reason',
+    };
   }
-  return options.checksRed?.(stage) === true ? 'no Status line, and the checks are red' : null;
+  return options.checksRed?.(stage) === true
+    ? {
+        reason: 'no Status line, and the checks are red',
+        action: 'resume the development agent to fix the failures, then run checks again',
+      }
+    : null;
 }
 
 function numberField(value: unknown): number | null {
@@ -402,7 +415,7 @@ export function buildStageReport(
         report_source: 'none',
         reason: 'the agent is still running and has given no report',
       }),
-      next_action: 'wait for the agent to return',
+      next_action: 'wait for the agent to return; if it has already returned, resume it once',
     };
   }
   const stage = stringField(newest.stage);
@@ -421,37 +434,52 @@ export function buildStageReport(
   }
   const noClaim = source === 'none' || newest.report_stated !== true;
   const requirementMet = stage !== null && stageRequirementMet(rows, stage, agentId);
-  const hold = stage === null ? null : endRowHoldReason(stage, [newest, completion], options);
+  const hold = stage === null ? null : endRowHold(stage, [newest, completion], options);
+  const silentReturns = own.filter(
+    (row) =>
+      row.kind === STAGE_AGENT_KIND &&
+      row.event_status === 'completed' &&
+      row.report_stated !== true,
+  ).length;
+  const twiceSilent = `stop and tell the developer the ${stage ?? 'current'} stage returned twice with no report`;
+  const held = (report: StageReportJson): StageReportJson =>
+    hold === null
+      ? report
+      : { ...report, next_action: silentReturns >= 2 ? twiceSilent : hold.action };
   const repaired = noClaim
     ? readRepairedReports(rows).find((entry) => entry.agent_id === agentId)
     : undefined;
   if (repaired !== undefined) {
     const finished = repaired.report_status.startsWith('DONE');
-    return withAction(
-      {
-        ...base,
-        stage,
-        report_status: repaired.report_status,
-        advance: finished && requirementMet && hold === null,
-        decision: null,
-        report_source: repaired.source,
-        reason: hold ?? REPORT_REPAIR_REASON,
-      },
-      options,
+    return held(
+      withAction(
+        {
+          ...base,
+          stage,
+          report_status: repaired.report_status,
+          advance: finished && requirementMet && hold === null,
+          decision: null,
+          report_source: repaired.source,
+          reason: hold?.reason ?? REPORT_REPAIR_REASON,
+        },
+        options,
+      ),
     );
   }
   if (noClaim && requirementMet) {
-    return withAction(
-      {
-        ...base,
-        stage,
-        report_status: hold === null ? 'DONE' : 'DONE_WITH_CONCERNS',
-        advance: hold === null,
-        decision: null,
-        report_source: source ?? 'none',
-        reason: hold ?? "no Status line, and the stage's end row and result exist",
-      },
-      options,
+    return held(
+      withAction(
+        {
+          ...base,
+          stage,
+          report_status: hold === null ? 'DONE' : 'DONE_WITH_CONCERNS',
+          advance: hold === null,
+          decision: null,
+          report_source: source ?? 'none',
+          reason: hold?.reason ?? "no Status line, and the stage's end row and result exist",
+        },
+        options,
+      ),
     );
   }
   const report = withAction(
@@ -466,20 +494,13 @@ export function buildStageReport(
     },
     options,
   );
-  const silentReturns = own.filter(
-    (row) =>
-      row.kind === STAGE_AGENT_KIND &&
-      row.event_status === 'completed' &&
-      row.report_stated !== true,
-  ).length;
-  if (noClaim && silentReturns >= 2) {
-    return {
-      ...report,
-      next_action: `stop and tell the developer the ${stage ?? 'current'} stage returned twice with no report`,
-    };
-  }
+  if (noClaim && silentReturns >= 2) return { ...report, next_action: twiceSilent };
   return newest.kind === STAGE_HANDBACK_KIND && newest.event_status === 'denied'
-    ? { ...report, next_action: 'wait for the agent: its handback was sent back and it can retry' }
+    ? {
+        ...report,
+        next_action:
+          'wait for the agent: its handback was sent back and it can retry; if it has already returned, resume it once',
+      }
     : report;
 }
 
