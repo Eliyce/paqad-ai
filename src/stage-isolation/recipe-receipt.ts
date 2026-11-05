@@ -2,17 +2,29 @@ import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/featu
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
-import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { RECORD_REPAIR_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
 import { MANDATORY_STAGE_AGENTS, STAGE_AGENT_STAGES } from './stage-agents.js';
 
 export const CODEX_RECIPE_LINE =
   'recipe read, not injected. On Codex an unfinished stage is caught by the next stage refusing to start and by `paqad-ai stage report`, not sent back.';
 
+function chainRepairLines(rows: readonly SessionLedgerRow[]): string[] {
+  return rows
+    .filter((row) => row.kind === RECORD_REPAIR_KIND && typeof row.repairs_row === 'number')
+    .map((row) => {
+      const running = Array.isArray(row.stage_agents_running)
+        ? ` while ${row.stage_agents_running.join(', ')} was running`
+        : '';
+      return `Ledger row ${String(row.repairs_row)} broke the chain and was repaired by ${String(row.agent)}${running}: ${String(row.reason)}.`;
+    });
+}
+
 export function stageReceiptNotes(projectRoot: string, dirName: string): string[] {
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  if (readChangeConstants(projectRoot, dirName, rows).lane !== 'full') return [];
-  const notes: string[] = [];
+  const repairs = chainRepairLines(rows);
+  if (readChangeConstants(projectRoot, dirName, rows).lane !== 'full') return repairs;
+  const notes: string[] = [...repairs];
   if (readFeatureRecord(projectRoot, dirName)?.adapter === 'codex-cli') {
     notes.push(CODEX_RECIPE_LINE);
   }

@@ -5,7 +5,11 @@ import { Command } from 'commander';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
-import { repairChainBreak } from '@/feature-evidence/chain-repair.js';
+import {
+  repairActor,
+  repairChainBreak,
+  stageAgentRepairRefusal,
+} from '@/feature-evidence/chain-repair.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
   laneMayRise,
@@ -272,6 +276,12 @@ function runStageBeginPhase(stage: string | undefined, options: StageOptions): v
 
 function runStageRepair(rowArg: string | undefined, options: StageOptions): void {
   const root = options.projectRoot;
+  const refusal = stageAgentRepairRefusal(process.env.SE_AGENT_ID);
+  if (refusal !== null) {
+    console.error(`**▸ paqad** · ${refusal}`);
+    process.exitCode = 1;
+    return;
+  }
   const rowNumber = Number(rowArg);
   const reason = options.reason?.trim();
   if (!Number.isInteger(rowNumber) || rowNumber < 1 || !reason) {
@@ -287,7 +297,7 @@ function runStageRepair(rowArg: string | undefined, options: StageOptions): void
     process.exitCode = 1;
     return;
   }
-  const result = repairChainBreak(root, sessionId, dirName, rowNumber, reason);
+  const result = repairChainBreak(root, sessionId, dirName, rowNumber, reason, repairActor());
   console[result.ok ? 'log' : 'error'](`**▸ paqad** · ${result.message}`);
   if (!result.ok) process.exitCode = 1;
 }

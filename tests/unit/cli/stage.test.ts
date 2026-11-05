@@ -159,6 +159,21 @@ describe('paqad-ai stage command', () => {
     expect(rows().find((r) => r.kind === 'stage_end')).not.toHaveProperty('agent_id');
   });
 
+  it('refuses a ledger repair from a stage agent and writes no row', async () => {
+    await run('start', 'planning');
+    const before = rows().length;
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((line: string) => {
+      errors.push(String(line));
+    });
+    vi.stubEnv('SE_AGENT_ID', 'agent-p1');
+    await run('repair', '1', '--reason', 'tidying up');
+    vi.unstubAllEnvs();
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('a stage agent cannot repair the ledger');
+    expect(rows()).toHaveLength(before);
+  });
+
   it('rejects an unknown phase with exit code 1', async () => {
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((line: string) => {

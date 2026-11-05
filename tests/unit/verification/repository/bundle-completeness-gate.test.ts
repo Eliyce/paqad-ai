@@ -17,7 +17,11 @@ import {
 } from '@/verification/repository/bundle-completeness-gate.js';
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { appendFeatureStageRow, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  readFeatureStageUnit,
+  recordChangeConstants,
+} from '@/feature-evidence/stage-ledger.js';
 import { repairChainBreak } from '@/feature-evidence/chain-repair.js';
 import { stageReceiptNotes } from '@/stage-isolation/recipe-receipt.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
@@ -1572,6 +1576,17 @@ describe('bundleCompletenessGate reads the ledger chain', () => {
     return { root, ledger };
   }
 
+  const agentStarted = () => ({
+    kind: 'stage-agent',
+    stage: 'review',
+    event_status: 'started',
+    agent: 'paqad-review',
+    agent_id: 'live-1',
+    tokens_used: 0,
+    tokens_not_recarried: 0,
+    estimate: true,
+  });
+
   function gate(root: string) {
     return bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' })!;
   }
@@ -1605,6 +1620,29 @@ describe('bundleCompletenessGate reads the ledger chain', () => {
       `${JSON.stringify({ schema_version: 3, content_hash: 'g', prev_hash: null, chain_note: 'lock-timeout' })}\n`,
     );
     expect(gate(root).detail).toContain('the chain does not vouch for rows beside a gap');
+  });
+
+  it('stamps the actor on a repair and gives the receipt one line per repaired row', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'lost in a crash', 'developer').ok).toBe(true);
+    const repair = readFeatureStageUnit(root, DIR).find((row) => row.kind === 'record-repair');
+    expect(repair?.agent).toBe('developer');
+    expect(stageReceiptNotes(root, DIR)).toContain(
+      'Ledger row 2 broke the chain and was repaired by developer: lost in a crash.',
+    );
+  });
+
+  it('names a stage agent still open when the repair ran', () => {
+    const { root, ledger } = chainRoot();
+    appendFeatureStageRow(root, 'ses_1', DIR, agentStarted());
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], ...lines.slice(2)].join('\n')}\n`);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'lost').ok).toBe(true);
+    expect(stageReceiptNotes(root, DIR).join(' ')).toContain(
+      'repaired by orchestrator while paqad-review was running',
+    );
   });
 
   it('a repair row does not clear a row that changed after it was named', () => {
