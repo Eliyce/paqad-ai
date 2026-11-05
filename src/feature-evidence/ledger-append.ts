@@ -139,14 +139,15 @@ function existingDuplicate(
 }
 
 function openForAppend(path: string, beforeCreate: () => void): number {
-  try {
-    return openSync(path, 'a');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  for (let created = false; ; created = true) {
+    try {
+      return openSync(path, 'a');
+    } catch (error) {
+      if (created || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    beforeCreate();
+    mkdirSync(dirname(path), { recursive: true });
   }
-  beforeCreate();
-  mkdirSync(dirname(path), { recursive: true });
-  return openSync(path, 'a');
 }
 
 function writeLine(path: string, line: string, guard: () => void): void {
