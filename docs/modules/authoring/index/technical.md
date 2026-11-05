@@ -76,7 +76,9 @@ in the project and write one deterministic JSON report. `--report <file>` sets t
 `--group-by rule|folder` groups the findings (default `rule`), and `--as-of <YYYY-MM-DD>` counts
 skill fires or agent dispatches in the 30 days up to that date. Giving a folder or file together
 with `--all` is refused. Persona files are listed apart instead of being linted as agents, and the
-stage-agent templates are linted after they are rendered.
+stage-agent templates are linted after they are rendered. `agent lint --all` skips paqad-managed
+stage agent copies in `.claude/agents/`, the ones carrying the managed marker, because their templates
+are already linted.
 `agent lint --all --owner-powers-as-warnings` reports the owner-permission rules AG-015, AG-018 and
 AG-022 as warnings, so other agent findings still fail; CI runs it this way. Linting a single file
 refuses the flag.
