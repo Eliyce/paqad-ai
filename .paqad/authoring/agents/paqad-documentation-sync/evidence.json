@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-documentation-sync",
-  "version": "1.2.0",
-  "file_hash": "sha256:636b4b4c94681bf2e85ef491de139d54274670fe7e5fb4ff1dbfaf87786dd95a",
+  "version": "1.3.0",
+  "file_hash": "sha256:8cf8022c0b48b975e80d77466c2a88b17db57efb9028fc9e6407cb443be44abc",
   "released_path": "runtime/claude-plugin/agents/paqad-documentation-sync.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-documentation-sync.md"
@@ -206,7 +206,7 @@
   },
   "lint": {
     "blocking": 0,
-    "warnings": 4
+    "warnings": 1
   },
   "script_tests": {
     "command": null,
@@ -214,26 +214,28 @@
     "passed": 0
   },
   "permission_decisions": [
-    "D-01M6H026RWJXX8BV05W6P4HMS5"
+    "D-01M6H026RWJXX8BV05W6P4HMS5",
+    "D-01M6M8K86D898TKEBDPJGJ1F4F"
   ],
   "overrides": [
     {
       "gate": "S2",
-      "reason": "Owner approved in chat (2026-11-03): S2 fails only on name shadowing against paqad's own generated Codex form ~/.codex/agents/<name>.toml of the same agent; overlap score is clean.",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-03T15:21:26.617Z"
+      "at": "2026-11-05T05:28:17.753Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt.",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-03T19:54:21.441Z"
+      "at": "2026-11-05T05:28:26.086Z"
     }
   ],
   "decisions": [
-    "D-01M6GZW9DH9KAM2E0B8GM7EW35",
     "D-01M6H026RWJXX8BV05W6P4HMS5",
-    "D-01M6HFKXMCP9FW3GFYBFYSTYJ6"
+    "D-01M6M8K86D898TKEBDPJGJ1F4F",
+    "D-01M6N2VSV0R71H3NY61WAD680F",
+    "D-01M6N2W1Z13FRDQ0Z3K70A88MX"
   ],
   "labels": [
     "unverified"

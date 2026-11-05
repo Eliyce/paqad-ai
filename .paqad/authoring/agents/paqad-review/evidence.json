@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-review",
-  "version": "1.2.0",
-  "file_hash": "sha256:ec9fe3a5a06f774b14d6d7c2c2d7e2cbd6b5c929aee2125153dc823c80981ea5",
+  "version": "1.3.0",
+  "file_hash": "sha256:ea7f74242b3e0542c8a686f05ce8e47e48b29d98157ebb128dab243d082e640d",
   "released_path": "runtime/claude-plugin/agents/paqad-review.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-review.md"
@@ -206,7 +206,7 @@
   },
   "lint": {
     "blocking": 0,
-    "warnings": 3
+    "warnings": 1
   },
   "script_tests": {
     "command": null,
@@ -219,14 +219,21 @@
   "overrides": [
     {
       "gate": "S2",
-      "reason": "Owner approved in chat (2026-11-03): skip S2 for all four helpers; name shadowing only matches paqad's own generated Codex form of the same agent.",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-03T15:21:55.779Z"
+      "at": "2026-11-05T05:28:20.131Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
+      "by": "human",
+      "at": "2026-11-05T05:28:29.680Z"
     }
   ],
   "decisions": [
-    "D-01M6H00G4W1DWAXNNXQEM3MEB1",
-    "D-01M6H07NHMN86WWSBGNBM7BTG6"
+    "D-01M6H07NHMN86WWSBGNBM7BTG6",
+    "D-01M6N2VW5AEE73458CF7SAHX5Z",
+    "D-01M6N2W5FXGG7DPXZS3BG1CN4F"
   ],
   "labels": [
     "unverified"

@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-checks",
-  "version": "1.3.0",
-  "file_hash": "sha256:122a8c8372cf80db1cd369b9f30e37c1cd9a6e141341041ecab6305e3e7c831e",
+  "version": "1.4.0",
+  "file_hash": "sha256:11c13f31e7599a1f6ccf88ff8ed13e595331255ccc002d1b538d08cc7f26086b",
   "released_path": "runtime/claude-plugin/agents/paqad-checks.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-checks.md"
@@ -17,7 +17,9 @@
     "verdict": "needed"
   },
   "reliability": null,
-  "delegation": null,
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
   "returned_to_main_tokens_median": "unavailable",
   "host_notes": {
@@ -54,12 +56,12 @@
   "batch": "unavailable",
   "creation_cost": {
     "S5": "unavailable",
-    "S6": "unavailable",
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
     "blocking": 0,
-    "warnings": 3
+    "warnings": 1
   },
   "script_tests": {
     "command": null,
@@ -72,38 +74,24 @@
   ],
   "overrides": [
     {
-      "gate": "S1",
-      "reason": "decision D-01M6EAYEVDSTHJWHXDEXENQ573",
-      "by": "human",
-      "at": "2026-11-02T14:36:20.754Z"
-    },
-    {
       "gate": "S2",
-      "reason": "decision D-01M6EAYF3NDSD6CK8GW33MB2CQ",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-02T14:36:21.333Z"
+      "at": "2026-11-05T05:28:14.103Z"
     },
     {
       "gate": "S5",
-      "reason": "decision D-01M6EAYFDJBM0R3WMQ0K12B9Z0",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-02T14:36:21.897Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "decision D-01M6EAYFNZ3M5HW00Y370VKYS7",
-      "by": "human",
-      "at": "2026-11-02T14:36:22.454Z"
+      "at": "2026-11-05T05:28:22.521Z"
     }
   ],
   "decisions": [
-    "D-01M6EAYEVDSTHJWHXDEXENQ573",
-    "D-01M6EAYF3NDSD6CK8GW33MB2CQ",
-    "D-01M6EAYFDJBM0R3WMQ0K12B9Z0",
-    "D-01M6EAYFNZ3M5HW00Y370VKYS7",
     "D-01M6EB30BSWYF7KTQ4KFVNX1RC",
     "D-01M6HFN1YXBPSMAEXXKFWW0GAB",
-    "D-01M6HFP7CMSWB9H94X6VH2MR23"
+    "D-01M6HFP7CMSWB9H94X6VH2MR23",
+    "D-01M6N2VP90745HRPDN8TF540MG",
+    "D-01M6N2VYFJS0FB5PN4AF3BHNFB"
   ],
   "labels": [
     "unverified"

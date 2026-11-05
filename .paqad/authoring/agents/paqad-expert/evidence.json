@@ -1,23 +1,25 @@
 {
   "schema_version": "1",
   "agent": "paqad-expert",
-  "version": "1.0.0",
-  "file_hash": "sha256:bd60e5496b03ad5d52957f0423210af6f92ed34458950681f43dc0ff2552eb03",
+  "version": "1.1.0",
+  "file_hash": "sha256:e8f8ae0b6793e2bc9eade551c8003b556d997bbc5e8d14cfd29b15c8ac45eb9b",
   "released_path": "runtime/claude-plugin/agents/paqad-expert.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-expert.md"
   ],
-  "pattern": null,
-  "class": null,
-  "invocation": null,
+  "pattern": "single-call",
+  "class": "specialist",
+  "invocation": "dispatched",
   "baseline": {
     "arm": null,
     "runs": 0,
     "passed": "unavailable",
-    "verdict": "overridden"
+    "verdict": "needed"
   },
   "reliability": null,
-  "delegation": null,
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
   "returned_to_main_tokens_median": "unavailable",
   "host_notes": {
@@ -54,60 +56,36 @@
   "batch": "unavailable",
   "creation_cost": {
     "S5": "unavailable",
-    "S6": "unavailable",
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
     "blocking": 0,
-    "warnings": 2
+    "warnings": 0
   },
   "script_tests": {
     "command": null,
     "tests": 0,
     "passed": 0
   },
-  "permission_decisions": [
-    "D-01M6DXJW0E76ZN6S07KR114YV6"
-  ],
+  "permission_decisions": [],
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:12.405Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:14.124Z"
-    },
-    {
       "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-02T10:41:15.762Z"
+      "at": "2026-11-05T05:28:12.895Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-02T10:41:17.386Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:19.138Z"
+      "at": "2026-11-05T05:28:27.288Z"
     }
   ],
   "decisions": [
-    "D-01M6DXJKA0Q712FH436N89CMA0",
-    "D-01M6DXJMZZ1ZHPWST46362XJNA",
-    "D-01M6DXJPKKXBRNK48WJV9QMVBM",
-    "D-01M6DXJR53MRNWC8FMJX3S8DAY",
-    "D-01M6DXJSTDAWQKNWQVQYZBSP1W",
-    "D-01M6DXJW0E76ZN6S07KR114YV6"
+    "D-01M6N2V6ZZ4Y1KGD5YSJNM12JR",
+    "D-01M6N2W34MREJZNE6Y68R8N16T"
   ],
   "labels": [
     "unverified"

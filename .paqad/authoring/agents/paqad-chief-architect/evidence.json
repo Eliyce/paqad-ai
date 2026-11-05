@@ -1,23 +1,25 @@
 {
   "schema_version": "1",
   "agent": "paqad-chief-architect",
-  "version": "1.0.0",
-  "file_hash": "sha256:bb424f6da35b55ebe1235614a5b8286b85c753fce7128cff23027077483c9358",
+  "version": "1.1.0",
+  "file_hash": "sha256:5726723baaa0b07939082b796fb080211d82184536a7f4dfb13982d0e4b7f75a",
   "released_path": "runtime/claude-plugin/agents/paqad-chief-architect.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-chief-architect.md"
   ],
-  "pattern": null,
-  "class": null,
-  "invocation": null,
+  "pattern": "single-call",
+  "class": "specialist",
+  "invocation": "dispatched",
   "baseline": {
     "arm": null,
     "runs": 0,
     "passed": "unavailable",
-    "verdict": "overridden"
+    "verdict": "needed"
   },
   "reliability": null,
-  "delegation": null,
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
   "returned_to_main_tokens_median": "unavailable",
   "host_notes": {
@@ -54,60 +56,36 @@
   "batch": "unavailable",
   "creation_cost": {
     "S5": "unavailable",
-    "S6": "unavailable",
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
     "blocking": 0,
-    "warnings": 2
+    "warnings": 0
   },
   "script_tests": {
     "command": null,
     "tests": 0,
     "passed": 0
   },
-  "permission_decisions": [
-    "D-01M6DXK4ZJTQ4CM39Q84R6CQ3K"
-  ],
+  "permission_decisions": [],
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:21.705Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:23.348Z"
-    },
-    {
       "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-02T10:41:25.013Z"
+      "at": "2026-11-05T05:28:15.301Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-02T10:41:26.713Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T10:41:28.334Z"
+      "at": "2026-11-05T05:28:23.682Z"
     }
   ],
   "decisions": [
-    "D-01M6DXJWD9REKGQR4AKMM7FJ6J",
-    "D-01M6DXJY0TDEKMFSTZJZEGSDMT",
-    "D-01M6DXJZK6EXGTMM50KRQNK5GC",
-    "D-01M6DXK1921G390YJP28B89535",
-    "D-01M6DXK2VJMEHD4Z51E5M81S27",
-    "D-01M6DXK4ZJTQ4CM39Q84R6CQ3K"
+    "D-01M6N2VQE8J8855X1PCA4NBZPC",
+    "D-01M6N2VZMD7YAKYWSVMQRVK47X"
   ],
   "labels": [
     "unverified"

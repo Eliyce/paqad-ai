@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-specification",
-  "version": "1.3.0",
-  "file_hash": "sha256:2d795338fa974f977a462cd0897181af4a99c0203c69496c0138605005190df2",
+  "version": "1.4.0",
+  "file_hash": "sha256:2c6062bf7d6c12c31a27307bfd9cabd4d9276c0e153b4e94d62eaf6bf1cb182d",
   "released_path": "runtime/claude-plugin/agents/paqad-specification.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-specification.md"
@@ -17,7 +17,9 @@
     "verdict": "needed"
   },
   "reliability": null,
-  "delegation": null,
+  "delegation": {
+    "skipped": "dispatched"
+  },
   "memory": "none",
   "returned_to_main_tokens_median": "unavailable",
   "host_notes": {
@@ -54,12 +56,12 @@
   "batch": "unavailable",
   "creation_cost": {
     "S5": "unavailable",
-    "S6": "unavailable",
+    "S6": 0,
     "source": "host-usage"
   },
   "lint": {
     "blocking": 0,
-    "warnings": 3
+    "warnings": 1
   },
   "script_tests": {
     "command": null,
@@ -72,38 +74,24 @@
   ],
   "overrides": [
     {
-      "gate": "S1",
-      "reason": "decision D-01M6EAYFY7YNGK497QQRDXNJJH",
-      "by": "human",
-      "at": "2026-11-02T14:36:23.022Z"
-    },
-    {
       "gate": "S2",
-      "reason": "decision D-01M6EAYG6H73GBMW4BTGQCHF4J",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-02T14:36:23.588Z"
+      "at": "2026-11-05T05:28:21.324Z"
     },
     {
       "gate": "S5",
-      "reason": "decision D-01M6EAYGESTWHW7GQGZ9E67V80",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-02T14:36:24.152Z"
-    },
-    {
-      "gate": "S6",
-      "reason": "decision D-01M6EAYGQ06W4V0DWGABEA65GA",
-      "by": "human",
-      "at": "2026-11-02T14:36:24.719Z"
+      "at": "2026-11-05T05:28:30.884Z"
     }
   ],
   "decisions": [
-    "D-01M6EAYFY7YNGK497QQRDXNJJH",
-    "D-01M6EAYG6H73GBMW4BTGQCHF4J",
-    "D-01M6EAYGESTWHW7GQGZ9E67V80",
-    "D-01M6EAYGQ06W4V0DWGABEA65GA",
     "D-01M6EB30SMCCWHFHEM4HZBSBQW",
     "D-01M6HFN291KDX9J6W3EVD5NJ98",
-    "D-01M6HFP88FVDAES0E97G6ZJ24A"
+    "D-01M6HFP88FVDAES0E97G6ZJ24A",
+    "D-01M6N2VXAN0CXF96TGBSN1VR32",
+    "D-01M6N2W6NEGZT7KB11Y5XSH77T"
   ],
   "labels": [
     "unverified"
