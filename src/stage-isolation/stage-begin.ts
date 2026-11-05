@@ -245,7 +245,7 @@ export function runStageBegin(input: StageBeginInput): StageBeginResult {
   }
   const dirName = currentFeature(projectRoot, sessionId);
   if (dirName === null) {
-    return failed(input, 'stage start', `no active change for session ${sessionId}`);
+    return failed(input, 'stage start', 'no active change for this session');
   }
   const rulesPath = featureFilePath(dirName, 'rulesLoaded');
   let rulesLoaded = false;

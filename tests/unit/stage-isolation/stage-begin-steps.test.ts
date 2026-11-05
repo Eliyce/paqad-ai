@@ -127,8 +127,9 @@ describe('stage begin: each step it runs', () => {
       expect(result.exitCode).toBe(1);
       expect(result.output).toMatchObject({
         failed_step: 'stage start',
-        error: `no active change for session ${SESSION}`,
+        error: 'no active change for this session',
       });
+      expect(result.output.error).not.toContain(SESSION);
     } finally {
       rmSync(empty, { recursive: true, force: true });
     }

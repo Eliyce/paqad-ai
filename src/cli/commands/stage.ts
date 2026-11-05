@@ -271,7 +271,7 @@ function runStageBeginPhase(stage: string | undefined, options: StageOptions): v
         },
       };
   process.exitCode = exitCode;
-  console.log(JSON.stringify(output));
+  process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
 function runStageRepair(rowArg: string | undefined, options: StageOptions): void {

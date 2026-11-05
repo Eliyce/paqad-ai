@@ -226,6 +226,25 @@ describe('paqad-ai stage begin', () => {
     expect(run.exitCode).toBe(1);
     expect(JSON.parse(run.stdout)).toMatchObject({ stage: 'nonsense', failed_step: 'stage start' });
   });
+
+  it('prints one compact JSON line ending in a single newline', async () => {
+    const root = tempRoot();
+    const run = await execa('node', [CLI, 'stage', 'begin', 'nonsense'], {
+      cwd: root,
+      env: { SE_SESSION: SESSION, SE_AGENT_ID: AGENT },
+      reject: false,
+      stripFinalNewline: false,
+    });
+    expect(run.stdout).toBe(`${JSON.stringify(JSON.parse(run.stdout))}\n`);
+  });
+
+  it('gives the agent its session id in the command lines', async () => {
+    const root = tempRoot();
+    await openChange(root);
+    const run = await cli(root, ['stage', 'begin', 'planning']);
+    const output = JSON.parse(run.stdout) as { commands: string[] };
+    expect(output.commands.join('\n')).toContain(`SE_SESSION=${SESSION}`);
+  });
 });
 
 describe('fitting content under the ceiling', () => {
