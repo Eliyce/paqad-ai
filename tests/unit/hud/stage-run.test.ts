@@ -43,7 +43,9 @@ describe('a stage run line', () => {
       'review',
       'full',
     );
-    expect(run?.recipe).toBe('injected');
+    expect(run?.recipe).toBe('unchecked');
+    expect(buildStageRun([start, used, unchecked], 'review', 'full')?.recipe).toBe('proven');
+    expect(buildStageRun([start, unchecked], 'review', 'full')?.short_line).toContain('unchecked');
   });
 
   it('AC-45: reads the repaired status on a row the old parser could not read', () => {

@@ -337,6 +337,7 @@ The Trust tab shows the proof of the work, stage by stage.
   | Word | Means | Tone |
   | --- | --- | --- |
   | `proven` | a stage command checked the recipe script's output | dim |
+  | `unchecked` | a recipe script ran but could not check anything, and none was checked | dim |
   | `injected` | the recipe reached the agent; for checks this is the full proof | dim |
   | `none` | a stage from after the update with no recipe row | dim |
   | `not recorded` | older rows from before recipes or reports | dim |

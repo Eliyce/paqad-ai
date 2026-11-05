@@ -40,6 +40,7 @@ function recipeWord(rows: readonly SessionLedgerRow[], stage: string): string {
     (row) => row.kind === SKILL_USED_KIND && row.stage === stage && row.unchecked === undefined,
   );
   if (checked) return 'proven';
+  if (has(SKILL_USED_KIND)) return 'unchecked';
   if (has(RECIPE_INJECTED_KIND)) return 'injected';
   return stageLedgerEra(rows, stage) === 'v3' ? 'none' : 'not recorded';
 }
@@ -77,7 +78,7 @@ export function buildStageRun(
   if (lane === 'fast' || lane === 'graduated') return null;
   const agentRows = rows.filter((row) => row.kind === STAGE_AGENT_KIND && ranStage(row, stage));
   const recipe = recipeWord(rows, stage);
-  if (agentRows.length === 0 && recipe !== 'proven' && recipe !== 'injected') return null;
+  if (agentRows.length === 0 && !['proven', 'unchecked', 'injected'].includes(recipe)) return null;
   const completed = agentRows.filter((row) => row.event_status === 'completed');
   const latest = agentRows.at(-1);
   const running = latest?.event_status === 'started';
