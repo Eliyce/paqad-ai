@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6NK2MYG1A3GAKK1YGHP3021](TD-01M6NK2MYG1A3GAKK1YGHP3021.md) (bug, medium): A stage agent that edits an instruction doc locks itself out of every later edit
 - [TD-01M6NJXX8VPWZMC2C4MP8JFX2V](TD-01M6NJXX8VPWZMC2C4MP8JFX2V.md) (bug, medium): A committed agent copy from another plugin version reads as hand-edited
 - [TD-01M6NGJMG849DTK949D3PBRWMC](TD-01M6NGJMG849DTK949D3PBRWMC.md) (gap, low): Slow contract e2e tests can pass the 10 second limit in a combined run
 - [TD-01M6NEZWJ958ZJHS82QR8E3JMJ](TD-01M6NEZWJ958ZJHS82QR8E3JMJ.md) (bug, medium): The stage write check refuses ordinary read-only shell commands
