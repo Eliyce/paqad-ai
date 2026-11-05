@@ -368,21 +368,23 @@ describe('npmInvocation', () => {
     });
   });
 
-  it.runIf(WIN32)(
-    'AC-27: the real node install starts npm-cli.js with no shell and no EINVAL',
-    () => {
-      const npm = npmInvocation({
-        platform: process.platform,
-        execPath: process.execPath,
-        env: process.env,
-        exists: existsSync,
-      });
-      expect(npm).not.toBeNull();
-      expect(existsSync(npm!.args[0]!)).toBe(true);
-      const version = spawnSync(npm!.command, [...npm!.args, '--version'], { encoding: 'utf8' });
-      expect(version.error).toBeUndefined();
-      expect(version.status, version.stderr).toBe(0);
-    },
-    60_000,
-  );
+  describe('AC-27: on Windows only', () => {
+    it.runIf(WIN32)(
+      'the real node install starts npm-cli.js with no shell and no EINVAL',
+      () => {
+        const npm = npmInvocation({
+          platform: process.platform,
+          execPath: process.execPath,
+          env: process.env,
+          exists: existsSync,
+        });
+        expect(npm).not.toBeNull();
+        expect(existsSync(npm!.args[0]!)).toBe(true);
+        const version = spawnSync(npm!.command, [...npm!.args, '--version'], { encoding: 'utf8' });
+        expect(version.error).toBeUndefined();
+        expect(version.status, version.stderr).toBe(0);
+      },
+      60_000,
+    );
+  });
 });
