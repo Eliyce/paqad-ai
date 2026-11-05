@@ -1470,6 +1470,13 @@ describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
     expect(result.detail).toContain('recipe proof for development');
   });
 
+  it('FR-76: does not hold checks for a skill-used row, because its recipe has no script', () => {
+    const root = started('checks');
+    add(root, agentRow('checks'));
+    add(root, injected('checks'));
+    expect(gate(root).detail ?? '').not.toContain('recipe proof for checks');
+  });
+
   it('FR-89: the hold names the install fix and the command that writes the proof', () => {
     const root = started('development');
     add(root, agentRow('development'));
