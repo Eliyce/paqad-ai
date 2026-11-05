@@ -10,7 +10,7 @@ import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-pol
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { stageCommandLines } from './stage-brief.js';
-import { stageStartRefusal } from './stage-handback.js';
+import { stageReportOptions, stageStartRefusal } from './stage-handback.js';
 
 export const STAGE_CONTENT_MAX_CHARS = 27_000;
 
@@ -229,7 +229,12 @@ export function runStageBegin(input: StageBeginInput): StageBeginResult {
   const beforeRows = before === null ? [] : readFeatureStageUnit(projectRoot, before);
   if (before !== null) {
     const lane = readChangeConstants(projectRoot, before, beforeRows).lane;
-    const refusal = stageStartRefusal(beforeRows, stage, lane);
+    const refusal = stageStartRefusal(
+      beforeRows,
+      stage,
+      lane,
+      stageReportOptions(projectRoot, before),
+    );
     if (refusal) return failed(input, 'stage start', refusal.message);
   }
   const started = !hasOpenStart(beforeRows, stage);

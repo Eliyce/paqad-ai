@@ -74,7 +74,7 @@ const row = (fields: Record<string, unknown>): SessionLedgerRow =>
   ({ agent_id: AGENT, stage: 'planning', content_hash: 'h', ...fields }) as SessionLedgerRow;
 
 describe('a stage agent running the brief command line', () => {
-  it('writes its own name on the end row', async () => {
+  it('AC-6: writes its own name on the end row', async () => {
     const root = tempRoot();
     await cli(root, ['stage', 'start', 'review', '--title', 'agent', '--issue', '1']);
     await cli(root, ['stage', 'end', 'review', '--agent', 'paqad-review']);
@@ -87,7 +87,7 @@ describe('a stage agent running the brief command line', () => {
 });
 
 describe('paqad-ai stage report', () => {
-  it('prints the JSON object for a finished agent', async () => {
+  it('AC-5: prints the JSON object for a finished agent', async () => {
     const root = tempRoot();
     await openPlanning(root);
     await endPlanning(root);
@@ -107,7 +107,7 @@ describe('paqad-ai stage report', () => {
     expect(json).toHaveProperty('tokens_not_recarried');
   });
 
-  it('AC-57: flips to dispatch-fresh above 150,000 tokens, and stays resume at the boundary', () => {
+  it('AC-5, AC-57: flips to dispatch-fresh above 150,000 tokens, and stays resume at the boundary', () => {
     const completed = (tokens: number) =>
       row({
         kind: 'stage-agent',
@@ -120,6 +120,89 @@ describe('paqad-ai stage report', () => {
       });
     expect(buildStageReport([completed(150_000)], AGENT)?.resume_advice).toBe('resume');
     expect(buildStageReport([completed(150_001)], AGENT)?.resume_advice).toBe('dispatch-fresh');
+  });
+
+  describe('a return with no Status line', () => {
+    const noClaim = (stage: string, extra: Record<string, unknown> = {}) => [
+      row({ kind: 'stage_start', stage }),
+      row({ kind: 'stage_end', stage, artifact_digest: 'd', artifact_paths: [`x/${stage}.json`] }),
+      row({
+        kind: 'stage-agent',
+        stage,
+        event_status: 'completed',
+        report_status: 'BLOCKED',
+        report_stated: false,
+        report_source: 'none',
+        advance: false,
+        ...extra,
+      }),
+    ];
+
+    it('AC-23: reads as done when the end row is there and nothing is wrong', () => {
+      const report = buildStageReport(noClaim('review'), AGENT, { checksRed: () => false });
+      expect(report).toMatchObject({ report_status: 'DONE', advance: true });
+    });
+
+    it('AC-22: does not advance on red checks', () => {
+      const report = buildStageReport(noClaim('checks'), AGENT, {
+        checksRed: (stage) => stage === 'checks',
+      });
+      expect(report?.advance).toBe(false);
+      expect(report?.reason).toContain('the checks are red');
+      expect(report?.next_action).toContain('stop and tell the developer');
+    });
+
+    it('does not advance on a must-not breach', () => {
+      const report = buildStageReport(noClaim('review', { must_not: ['bundle_write'] }), AGENT);
+      expect(report?.advance).toBe(false);
+      expect(report?.reason).toContain('bundle_write');
+    });
+  });
+
+  describe('next_action', () => {
+    it('says to wait for an agent still running', () => {
+      const report = buildStageReport(
+        [row({ kind: 'stage-agent', event_status: 'started' })],
+        AGENT,
+      );
+      expect(report?.next_action).toBe('wait for the agent to return');
+    });
+
+    it('says to wait for an agent whose handback was sent back', () => {
+      const report = buildStageReport(
+        [
+          row({
+            kind: 'stage-handback',
+            event_status: 'denied',
+            report_status: 'DONE',
+            report_stated: true,
+            report_source: 'handback',
+            advance: false,
+            reason: 'no end row',
+          }),
+        ],
+        AGENT,
+      );
+      expect(report?.next_action).toContain('wait for the agent');
+    });
+
+    it('says to resume with the answer once the paused decision is resolved', () => {
+      const paused = [
+        row({
+          kind: 'stage-agent',
+          event_status: 'completed',
+          report_status: 'BLOCKED',
+          report_stated: true,
+          report_source: 'text',
+          decision: 'D-1',
+          advance: false,
+        }),
+      ];
+      expect(buildStageReport(paused, AGENT)?.next_action).toContain('present the decision D-1');
+      expect(buildStageReport(paused, AGENT, { decisionAnswered: () => true })?.next_action).toBe(
+        'resume the agent with the answer to D-1',
+      );
+    });
   });
 
   it('AC-57: exits 1 with JSON for an unknown agent id', async () => {
@@ -177,7 +260,7 @@ describe('paqad-ai stage report', () => {
     });
   });
 
-  it('AC-18: names the missing artifact after a plain text DONE used its refusals', async () => {
+  it('AC-18, AC-19, AC-20: names the missing artifact after a plain text DONE used its refusals', async () => {
     const root = tempRoot();
     await openPlanning(root);
     for (let attempt = 0; attempt < 4; attempt += 1) await stop(root, 'Status: DONE');
@@ -196,7 +279,7 @@ describe('paqad-ai stage report', () => {
     expect(json).toMatchObject({ report_status: 'DONE', advance: true, report_source: 'none' });
   });
 
-  it('gives a next action for a run with no report and no end row', async () => {
+  it('AC-21: gives a next action for a run with no report and no end row', async () => {
     const root = tempRoot();
     await openPlanning(root);
     await stop(root, undefined);

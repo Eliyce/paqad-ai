@@ -40,6 +40,7 @@ import {
 } from '@/stage-isolation/stage-brief.js';
 import {
   buildStageReport,
+  stageReportOptions,
   stageStartRefusal,
   unknownAgentReport,
 } from '@/stage-isolation/stage-handback.js';
@@ -192,7 +193,7 @@ function startRefusalMessage(root: string, sessionId: string, stage: string): st
     if (dirName === null) return null;
     const rows = readFeatureStageUnit(root, dirName);
     const lane = readChangeConstants(root, dirName, rows).lane;
-    return stageStartRefusal(rows, stage, lane)?.message ?? null;
+    return stageStartRefusal(rows, stage, lane, stageReportOptions(root, dirName))?.message ?? null;
   } catch {
     return null;
   }
@@ -270,7 +271,11 @@ function runStageReport(agentId: string | undefined, options: StageOptions): voi
       const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
       const dirName = currentFeature(root, sessionId);
       if (dirName === null) return null;
-      return buildStageReport(readFeatureStageUnit(root, dirName), agentId);
+      return buildStageReport(
+        readFeatureStageUnit(root, dirName),
+        agentId,
+        stageReportOptions(root, dirName),
+      );
     });
     if (report === null) process.exitCode = 1;
     console.log(

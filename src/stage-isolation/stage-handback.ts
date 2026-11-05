@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { sha256Hex } from '@/compliance/markdown.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { RESUME_HANDOVER_TOKENS } from '@/onboarding/narration-contract-writer.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
@@ -15,6 +16,7 @@ import { resolveHookSession } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { bundleLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { extractAssistantText } from '@/stage-evidence/marker-parse.js';
+import { readRepairedReports, REPORT_REPAIR_REASON } from '@/stage-evidence/report-repair.js';
 import {
   STAGE_AGENT_KIND,
   STAGE_HANDBACK_KIND,
@@ -307,8 +309,28 @@ function resumeAdvice(tokens: number | null): 'resume' | 'dispatch-fresh' {
   return tokens !== null && tokens > RESUME_HANDOVER_TOKENS ? 'dispatch-fresh' : 'resume';
 }
 
-function nextAction(report: Omit<StageReportJson, 'next_action'>): string {
-  if (report.decision) return `present the decision ${report.decision} to the developer`;
+export interface StageReportOptions {
+  checksRed?: (stage: string) => boolean;
+  decisionAnswered?: (decision: string) => boolean;
+}
+
+export function stageReportOptions(projectRoot: string, dirName: string): StageReportOptions {
+  return {
+    checksRed: (stage) => isChecksRed(projectRoot, dirName, stage),
+    decisionAnswered: (decision) =>
+      existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${decision}.json`)),
+  };
+}
+
+function nextAction(
+  report: Omit<StageReportJson, 'next_action'>,
+  options: StageReportOptions,
+): string {
+  if (report.decision) {
+    return options.decisionAnswered?.(report.decision)
+      ? `resume the agent with the answer to ${report.decision}`
+      : `present the decision ${report.decision} to the developer`;
+  }
   if (report.report_source === 'legacy') return "read the stage's end row in stage-evidence.jsonl";
   if (report.advance === true) {
     return report.report_status === 'DONE_WITH_CONCERNS'
@@ -324,15 +346,34 @@ function nextAction(report: Omit<StageReportJson, 'next_action'>): string {
     : 'stop and tell the developer which stage stopped';
 }
 
-function withAction(report: Omit<StageReportJson, 'next_action'>): StageReportJson {
-  return { ...report, next_action: nextAction(report) };
+function withAction(
+  report: Omit<StageReportJson, 'next_action'>,
+  options: StageReportOptions = {},
+): StageReportJson {
+  return { ...report, next_action: nextAction(report, options) };
+}
+
+function endRowHoldReason(
+  stage: string,
+  rows: readonly (Row | undefined)[],
+  options: StageReportOptions,
+): string | null {
+  const breaches = rows.flatMap((row) => (Array.isArray(row?.must_not) ? row.must_not : []));
+  if (breaches.length > 0) {
+    return `no Status line, and the agent breached a must-not: ${[...new Set(breaches)].join(', ')}`;
+  }
+  return options.checksRed?.(stage) === true ? 'no Status line, and the checks are red' : null;
 }
 
 function numberField(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-export function buildStageReport(rows: readonly Row[], agentId: string): StageReportJson | null {
+export function buildStageReport(
+  rows: readonly Row[],
+  agentId: string,
+  options: StageReportOptions = {},
+): StageReportJson | null {
   const own = rows.filter((row) => row.agent_id === agentId);
   const reported = own.filter(
     (row) =>
@@ -351,15 +392,18 @@ export function buildStageReport(rows: readonly Row[], agentId: string): StageRe
   };
   if (!newest) {
     if (own.length === 0) return null;
-    return withAction({
-      ...base,
-      stage: stringField(own.at(-1)!.stage),
-      report_status: 'UNKNOWN',
-      advance: false,
-      decision: null,
-      report_source: 'none',
-      reason: 'the agent is still running and has given no report',
-    });
+    return {
+      ...withAction({
+        ...base,
+        stage: stringField(own.at(-1)!.stage),
+        report_status: 'UNKNOWN',
+        advance: false,
+        decision: null,
+        report_source: 'none',
+        reason: 'the agent is still running and has given no report',
+      }),
+      next_action: 'wait for the agent to return',
+    };
   }
   const stage = stringField(newest.stage);
   const reason = stringField(newest.reason);
@@ -376,26 +420,55 @@ export function buildStageReport(rows: readonly Row[], agentId: string): StageRe
     });
   }
   const noClaim = source === 'none' || newest.report_stated !== true;
-  if (noClaim && stage !== null && stageRequirementMet(rows, stage, agentId)) {
-    return withAction({
+  const requirementMet = stage !== null && stageRequirementMet(rows, stage, agentId);
+  const hold = stage === null ? null : endRowHoldReason(stage, [newest, completion], options);
+  const repaired = noClaim
+    ? readRepairedReports(rows).find((entry) => entry.agent_id === agentId)
+    : undefined;
+  if (repaired !== undefined) {
+    const finished = repaired.report_status.startsWith('DONE');
+    return withAction(
+      {
+        ...base,
+        stage,
+        report_status: repaired.report_status,
+        advance: finished && requirementMet && hold === null,
+        decision: null,
+        report_source: repaired.source,
+        reason: hold ?? REPORT_REPAIR_REASON,
+      },
+      options,
+    );
+  }
+  if (noClaim && requirementMet) {
+    return withAction(
+      {
+        ...base,
+        stage,
+        report_status: hold === null ? 'DONE' : 'DONE_WITH_CONCERNS',
+        advance: hold === null,
+        decision: null,
+        report_source: source ?? 'none',
+        reason: hold ?? "no Status line, and the stage's end row and result exist",
+      },
+      options,
+    );
+  }
+  const report = withAction(
+    {
       ...base,
       stage,
-      report_status: 'DONE',
-      advance: true,
-      decision: null,
-      report_source: source ?? 'none',
-      reason: "no Status line, and the stage's end row and result exist",
-    });
-  }
-  return withAction({
-    ...base,
-    stage,
-    report_status: noClaim ? 'BLOCKED' : String(newest.report_status),
-    advance: newest.advance === true,
-    decision: stringField(newest.decision),
-    report_source: source ?? 'text',
-    reason: reason ?? (noClaim ? 'the agent returned no report' : null),
-  });
+      report_status: noClaim ? 'BLOCKED' : String(newest.report_status),
+      advance: newest.advance === true,
+      decision: stringField(newest.decision),
+      report_source: source ?? 'text',
+      reason: reason ?? (noClaim ? 'the agent returned no report' : null),
+    },
+    options,
+  );
+  return newest.kind === STAGE_HANDBACK_KIND && newest.event_status === 'denied'
+    ? { ...report, next_action: 'wait for the agent: its handback was sent back and it can retry' }
+    : report;
 }
 
 export function unknownAgentReport(agentId: string, reason: string): StageReportJson {
@@ -459,9 +532,15 @@ function isUnfinishedReport(row: Row): boolean {
   );
 }
 
-function refusalMessage(stage: string, blocked: string, rows: readonly Row[], row: Row): string {
+function refusalMessage(
+  stage: string,
+  blocked: string,
+  rows: readonly Row[],
+  row: Row,
+  options: StageReportOptions,
+): string {
   const agentId = stringField(row.agent_id);
-  const report = agentId ? buildStageReport(rows, agentId) : null;
+  const report = agentId ? buildStageReport(rows, agentId, options) : null;
   const status = stringField(row.decision) ?? String(row.report_status);
   const reason = stringField(row.reason);
   const next = report?.next_action ?? 'resume the stage agent';
@@ -475,6 +554,7 @@ export function stageStartRefusal(
   rows: readonly Row[],
   stage: string,
   lane: string | null,
+  options: StageReportOptions = {},
 ): StageRefusal | null {
   if (lane === 'fast' || lane === 'graduated') return null;
   if (bundleLedgerEra(rows) !== 'v3') return null;
@@ -487,7 +567,7 @@ export function stageStartRefusal(
     const row = rows[index]!;
     if (!isUnfinishedReport(row)) continue;
     if (rows.slice(index + 1).some((later) => endRowProvesStage(later, earlier))) continue;
-    return { stage: earlier, message: refusalMessage(stage, earlier, rows, row) };
+    return { stage: earlier, message: refusalMessage(stage, earlier, rows, row, options) };
   }
   return null;
 }
