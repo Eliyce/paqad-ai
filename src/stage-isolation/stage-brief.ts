@@ -7,8 +7,14 @@ import type { FeatureDevelopmentStageName } from '@/core/types/feature-developme
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
-import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  readFeatureStageUnit,
+  recordedLaneOrFull,
+} from '@/feature-evidence/stage-ledger.js';
 import { extractCandidates } from '@/module-decisions/extractor.js';
+import { RECIPE_INJECTED_KIND } from '@/stage-evidence/types.js';
 import {
   loadFeatureDevelopmentPolicy,
   moduleAttributionMode,
@@ -24,7 +30,9 @@ import {
   STAGE_AGENT_HARD_RULES,
   stageNoteLines,
   type StageAgentDef,
+  agentNameForStage,
 } from './stage-agents.js';
+import { fitRecipe, RECIPE_BUDGET_CHARS, resolveRecipe } from './recipes.js';
 import { isSafeSessionId } from './stage-settings.js';
 import { stageFromAgentType } from './subagent-completion.js';
 
@@ -148,22 +156,24 @@ export function safeAgentId(agentId: unknown): string | null {
   return isSafeSessionId(trimmed) ? trimmed : null;
 }
 
-function commandsSection(stage: string, sessionId: string, agentId: string | null): string[] {
+export function stageCommandLines(
+  stage: string,
+  sessionId: string,
+  agentId: string | null,
+): string[] {
   const prefix =
     agentId === null
       ? `SE_SESSION=${sessionId} paqad-ai`
       : `SE_SESSION=${sessionId} SE_AGENT_ID=${agentId} paqad-ai`;
-  const rulesLoad = CODE_EDITING_STAGES.has(stage)
-    ? [`- \`${prefix} rules load\` before your first source edit.`]
-    : [];
+  const agent = agentNameForStage(stage);
+  const begins = CODE_EDITING_STAGES.has(stage)
+    ? ' It records the start and loads the rules before your first source edit.'
+    : ' It records the start.';
   return [
-    '## Commands',
-    '',
-    `- \`${prefix} stage start ${stage}\``,
-    ...rulesLoad,
+    `- \`${prefix} stage begin ${stage} --agent ${agent}\` first, and no single start command.${begins} It prints one JSON object with the request, the previous pillars and the paths you need.`,
     '- Do the stage work, then write its rigid artifact with the stage verb, or make the edits',
     '  for a mutation stage.',
-    `- \`${prefix} stage end ${stage} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
+    `- \`${prefix} stage end ${stage} --agent ${agent} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
   ];
 }
 
@@ -269,7 +279,9 @@ export function buildStageBrief(
     ...STAGE_AGENT_HARD_RULES,
     ...exportLines(sessionId, agentId),
     '',
-    ...commandsSection(stage, sessionId, agentId),
+    '## Commands',
+    '',
+    ...stageCommandLines(stage, sessionId, agentId),
   ];
   const parts: BriefParts = {
     stage,
@@ -300,17 +312,109 @@ export function resolveBriefSession(
   return resolveHookSession(projectRoot, payload, env);
 }
 
+export interface InjectedRecipe {
+  recipe: string;
+  recipe_hash: string;
+  recipe_root: string;
+  truncated: boolean;
+}
+
+export interface SeededStageAgent {
+  output: string;
+  injected: InjectedRecipe | null;
+  notes: string[];
+}
+
+function overBudgetBrief(stage: string, sessionId: string, agentId: unknown): string {
+  return [
+    `You are the paqad **${stage}** stage agent. Your stage brief is too long to send here.`,
+    `Run \`paqad-ai stage brief ${stage}\` to print every instruction line, uncut.`,
+    '',
+    '## Commands',
+    '',
+    ...stageCommandLines(stage, sessionId, safeAgentId(agentId)),
+  ].join('\n');
+}
+
+export function seedStageAgentDetailed(
+  stage: string,
+  projectRoot: string,
+  payload: HookSessionPayload & { agent_id?: unknown },
+  env: NodeJS.ProcessEnv = process.env,
+): SeededStageAgent {
+  return keepingLedgerSessionCache(projectRoot, () => {
+    const sessionId = resolveBriefSession(projectRoot, payload, env);
+    const notes: string[] = [];
+    let brief = buildStageBrief(stage, projectRoot, sessionId, {
+      agentId: payload.agent_id,
+      full: true,
+    });
+    if (brief.length > RECIPE_BUDGET_CHARS) {
+      notes.push(
+        `the ${stage} brief passed the ${RECIPE_BUDGET_CHARS} character limit, so it was sent as a pointer`,
+      );
+      brief = overBudgetBrief(stage, sessionId, payload.agent_id);
+    }
+    let injected: InjectedRecipe | null = null;
+    try {
+      const recipe = resolveRecipe(stage);
+      const fitted = fitRecipe(brief.length, recipe);
+      if (fitted === null) {
+        notes.push(`the ${recipe.name} recipe did not fit beside the brief`);
+      } else {
+        brief = `${brief}\n\n${fitted.text}`;
+        injected = {
+          recipe: recipe.name,
+          recipe_hash: fitted.hash,
+          recipe_root: recipe.root,
+          truncated: fitted.truncated,
+        };
+      }
+    } catch (error) {
+      notes.push((error as Error).message);
+    }
+    return { output: stageBriefHookOutput(brief), injected, notes };
+  });
+}
+
 export function seedStageAgent(
   stage: string,
   projectRoot: string,
   payload: HookSessionPayload & { agent_id?: unknown },
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return keepingLedgerSessionCache(projectRoot, () =>
-    stageBriefHookOutput(
-      buildStageBrief(stage, projectRoot, resolveBriefSession(projectRoot, payload, env), {
-        agentId: payload.agent_id,
-      }),
-    ),
+  return seedStageAgentDetailed(stage, projectRoot, payload, env).output;
+}
+
+export function recordRecipeInjected(
+  projectRoot: string,
+  stage: string,
+  payload: HookSessionPayload & { agent_id?: unknown; agent_type?: unknown },
+  injected: InjectedRecipe,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const sessionId = resolveBriefSession(projectRoot, payload, env);
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (dirName === null) return false;
+  const agentId = safeAgentId(payload.agent_id);
+  const alreadyDelivered = readFeatureStageUnit(projectRoot, dirName).some(
+    (row) =>
+      row.kind === RECIPE_INJECTED_KIND &&
+      row.stage === stage &&
+      row.recipe_hash === injected.recipe_hash &&
+      agentId !== null &&
+      row.agent_id === agentId,
   );
+  if (alreadyDelivered) return true;
+  appendFeatureStageRow(projectRoot, sessionId, dirName, {
+    kind: RECIPE_INJECTED_KIND,
+    stage,
+    agent: agentNameForStage(stage),
+    ...(agentId === null ? {} : { agent_id: agentId }),
+    recipe: injected.recipe,
+    recipe_hash: injected.recipe_hash,
+    recipe_root: injected.recipe_root,
+    ...(injected.truncated ? { truncated: true } : {}),
+  });
+  return true;
 }

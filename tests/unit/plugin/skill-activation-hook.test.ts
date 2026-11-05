@@ -87,6 +87,18 @@ function commandsOf(hooks: Record<string, Array<{ hooks: Array<{ command: string
   );
 }
 
+describe('the live captured payload', () => {
+  it('names the skill from the PreToolUse payload Claude Code really sends', () => {
+    const payload = JSON.parse(
+      readFileSync(join(REPO, 'tests/fixtures/hooks/claude/pre-tool-skill.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(activationFromPayload(payload)).toMatchObject({
+      skill: 'capture-probe',
+      source: 'Skill-tool',
+    });
+  });
+});
+
 describe('the plugin hooks.json', () => {
   it('AC-39, INV-12: keeps every existing entry identical and in order, adding only the PostToolUse entry, the appended agent delegation entries and the Bash write guard', () => {
     const committed = JSON.parse(
@@ -99,7 +111,7 @@ describe('the plugin hooks.json', () => {
     expect(Object.keys(commands)).toEqual([...Object.keys(PRE_EXISTING_ENTRIES), 'PostToolUse']);
     const appended: Record<string, string[]> = {
       SubagentStop: ['agent-delegation.mjs'],
-      PreToolUse: ['stage-agent-write-guard.mjs'],
+      PreToolUse: ['stage-agent-write-guard.mjs', 'stage-agent-handback.mjs'],
     };
     for (const [event, entries] of Object.entries(PRE_EXISTING_ENTRIES)) {
       expect(commands[event]).toEqual([...entries, ...(appended[event] ?? [])]);
@@ -257,5 +269,17 @@ describe('runtime/hooks/skill-activation.mjs', () => {
     rmSync(join(root, '.paqad/framework-path.txt'));
     runHook(root, { tool_name: 'Skill', tool_input: { skill: 'x' } });
     expect(ledger(root)).toEqual([]);
+  });
+});
+
+describe('when both routes fire for one Skill call', () => {
+  it('AC-39: holds one entry for a repeated call, and two for two calls', () => {
+    const root = project();
+    const call = { tool_name: 'Skill', tool_input: { skill: 'review' }, session_id: 's' };
+    runHook(root, { ...call, tool_use_id: 'toolu_one' });
+    runHook(root, { ...call, tool_use_id: 'toolu_one' });
+    expect(ledger(root)).toHaveLength(1);
+    runHook(root, { ...call, tool_use_id: 'toolu_two' });
+    expect(ledger(root)).toHaveLength(2);
   });
 });

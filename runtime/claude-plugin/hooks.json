@@ -6,7 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/agent-entry-gate.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/agent-entry-gate.mjs\"",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       },
@@ -24,7 +26,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/decision-pause-gate.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/decision-pause-gate.mjs\"",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       },
@@ -33,7 +37,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/capability-gate.mjs\" pre-mutation"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/capability-gate.mjs\" pre-mutation",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       },
@@ -43,6 +49,16 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-write-guard.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-handback.mjs\"",
+            "timeout": 10
           }
         ]
       }

@@ -140,7 +140,7 @@ function capFindings<T>(all: readonly T[]): { findings: T[]; findings_overflow: 
 }
 
 export interface RuleRunEntry {
-  kind: 'findings' | 'drift';
+  kind: 'findings' | 'drift' | 'edit-allowed';
   counts: Record<string, number>;
   blocking: boolean;
   note?: string | null;

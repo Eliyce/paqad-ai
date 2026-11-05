@@ -453,6 +453,17 @@ describe('lintAgentFile', () => {
     expect(rules(lint(root, agent({}, `${BODY}\nYou MUST read it.\n`)))).toContain('AG-020');
   });
 
+  it("AG-021 counts a named paqad command only on paqad's own agents", () => {
+    const line = '- Do not guess the schema, run `paqad-ai stage end` instead.';
+    const consumer = lint(project(), agent({}, BODY.replace('- Do not edit any file.', line)));
+    expect(rules(consumer)).toContain('AG-021');
+    const own = lint(
+      project(),
+      agent({ name: 'paqad-reviewer' }, BODY.replace('- Do not edit any file.', line)),
+    );
+    expect(own.findings.filter((entry) => entry.rule === 'AG-021')).toEqual([]);
+  });
+
   it('AG-021 warns on a Do not item no tool restriction or hook enforces', () => {
     const result = lint(
       project(),

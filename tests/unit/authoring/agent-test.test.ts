@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, readFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import YAML from 'yaml';
@@ -15,7 +15,9 @@ import {
   runAgentTest,
 } from '@/authoring/stages/agent-test.js';
 import { AGENT_STAGES, AuthoringRefusal, stageState } from '@/authoring/workspace.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { resolvePendingDecision } from '@/decisions/authoring.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 
 import {
   AGENT_TRACE,
@@ -26,7 +28,13 @@ import {
   put,
 } from '../../shared/agent-pipeline.js';
 
-afterEach(cleanAgentProjects);
+afterEach(() => {
+  vi.restoreAllMocks();
+  cleanAgentProjects();
+});
+
+const pendingPacket = (root: string, id: string | undefined) =>
+  join(root, PATHS.DECISIONS_PENDING_DIR, `${id}.json`);
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/authoring/npm-project/agent');
 const FILE = '.claude/agents/migration-reviewer.md';
@@ -148,6 +156,66 @@ describe('agent test (S4)', () => {
     resolvePendingDecision(workspace.projectRoot, waiting.decision!, AGENT_PERMISSION_ALLOW, 'ok');
     const passed = await runAgentTest(workspace, {});
     expect(passed.ok).toBe(true);
+  });
+
+  it('asks again when the agent file changed while its packet was unanswered', async () => {
+    const workspace = agentThrough('S4');
+    put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const first = await runAgentTest(workspace, {});
+
+    put(workspace.projectRoot, FILE, `${agentText({ tools: 'Read, WebFetch' })}\nOne more line.\n`);
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const discard = vi.spyOn(DecisionStore.prototype, 'discard');
+    const second = await runAgentTest(workspace, {});
+    expect(second.decision).toMatch(/^D-/);
+    expect(second.decision).not.toBe(first.decision);
+    expect(readPermissionIds(workspace)).toEqual([first.decision, second.decision]);
+    expect(discard).toHaveBeenCalledTimes(1);
+    expect(discard).toHaveBeenCalledWith({
+      decisionId: first.decision,
+      reason: `superseded by ${second.decision}`,
+    });
+    expect(existsSync(pendingPacket(workspace.projectRoot, first.decision))).toBe(false);
+    expect(existsSync(pendingPacket(workspace.projectRoot, second.decision))).toBe(true);
+
+    resolvePendingDecision(workspace.projectRoot, second.decision!, AGENT_PERMISSION_ALLOW, 'ok');
+    expect((await runAgentTest(workspace, {})).ok).toBe(true);
+  });
+
+  it('keeps an answered packet when the agent file changed after it', async () => {
+    const workspace = agentThrough('S4');
+    put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const first = await runAgentTest(workspace, {});
+    resolvePendingDecision(workspace.projectRoot, first.decision!, AGENT_PERMISSION_ALLOW, 'ok');
+
+    put(workspace.projectRoot, FILE, `${agentText({ tools: 'Read, WebFetch' })}\nOne more line.\n`);
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const discard = vi.spyOn(DecisionStore.prototype, 'discard');
+    const second = await runAgentTest(workspace, {});
+    expect(second.decision).not.toBe(first.decision);
+    expect(discard).not.toHaveBeenCalled();
+  });
+
+  it('still asks and names the old packet when it cannot be closed', async () => {
+    const workspace = agentThrough('S4');
+    put(workspace.projectRoot, FILE, agentText({ tools: 'Read, WebFetch' }));
+    runAgentDraft(workspace, { file: FILE, traceText: AGENT_TRACE });
+    const first = await runAgentTest(workspace, {});
+    const oldPacket = pendingPacket(workspace.projectRoot, first.decision);
+    writeFileSync(
+      oldPacket,
+      JSON.stringify({ id: first.decision, category: 'authoring.agent_permission' }),
+    );
+
+    const second = await runAgentTest(workspace, {});
+    expect(second.decision).not.toBe(first.decision);
+    expect(existsSync(oldPacket)).toBe(true);
+    expect(second.lines.join('\n')).toContain(
+      `Decision ${first.decision} stays open because it could not be closed`,
+    );
+    expect(existsSync(pendingPacket(workspace.projectRoot, second.decision))).toBe(true);
   });
 
   it('a removed power refuses S4 until the agent drops it', async () => {

@@ -1,6 +1,15 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Command } from 'commander';
 
+import { sha256Hex } from '@/compliance/markdown.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import {
+  repairActor,
+  repairChainBreak,
+  stageAgentRepairRefusal,
+} from '@/feature-evidence/chain-repair.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import {
   laneMayRise,
@@ -9,10 +18,12 @@ import {
   raiseLaneForAuthoring,
   raiseLaneIfGrown,
 } from '@/feature-evidence/lane-resize.js';
-import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evidence/types.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { addedLinesSince } from '@/pipeline/git-paths.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -21,7 +32,24 @@ import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
-import { buildStageBrief, resolveBriefSession } from '@/stage-isolation/stage-brief.js';
+import {
+  runStageBegin,
+  stageContentMarkdown,
+  STAGE_CONTENT_MAX_CHARS,
+} from '@/stage-isolation/stage-begin.js';
+import { checkRecipe, type RecipeCheck } from '@/stage-isolation/recipe-check.js';
+import { RECIPE_HEADING, resolveRecipe } from '@/stage-isolation/recipes.js';
+import {
+  buildStageBrief,
+  recordRecipeInjected,
+  resolveBriefSession,
+} from '@/stage-isolation/stage-brief.js';
+import {
+  buildStageReport,
+  stageReportOptions,
+  stageStartRefusal,
+  unknownAgentReport,
+} from '@/stage-isolation/stage-handback.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 import { laneRaisedLine } from './plan.js';
@@ -39,6 +67,8 @@ interface StageOptions {
   agent?: string;
   agentId?: string;
   full?: boolean;
+  staleOk?: string[];
+  reason?: string;
 }
 
 function runStageSettings(options: StageOptions): void {
@@ -94,6 +124,39 @@ function openStageAgentId(root: string, sessionId: string, dirName: string): str
   return open.at(-1)?.agentId ?? null;
 }
 
+function briefRecipeSection(
+  root: string,
+  sessionId: string,
+  stage: string,
+  agentId: string | null,
+): string {
+  let recipe;
+  try {
+    recipe = resolveRecipe(stage);
+  } catch (error) {
+    return `**▸ paqad** · ${(error as Error).message}`;
+  }
+  const text = `${RECIPE_HEADING}\n\n${recipe.body}`;
+  if (typeof process.env.SE_AGENT_ID === 'string' && agentId !== null) {
+    const dirName = currentFeature(root, sessionId);
+    const codex = dirName !== null && readFeatureRecord(root, dirName)?.adapter === 'codex-cli';
+    if (!codex) {
+      recordRecipeInjected(
+        root,
+        stage,
+        { session_id: sessionId, agent_id: agentId },
+        {
+          recipe: recipe.name,
+          recipe_hash: sha256Hex(text),
+          recipe_root: recipe.root,
+          truncated: false,
+        },
+      );
+    }
+  }
+  return text;
+}
+
 function runStageBrief(stage: string | undefined, options: StageOptions): void {
   if (!stage || !STAGE_AGENT_STAGES.includes(stage)) {
     console.error(
@@ -113,11 +176,15 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
       }
       const agentId =
         options.agentId ?? process.env.SE_AGENT_ID ?? openStageAgentId(root, sessionId, dirName);
-      return buildStageBrief(stage, root, sessionId, {
+      const text = buildStageBrief(stage, root, sessionId, {
         agentId,
         resumed: true,
         full: options.full === true,
       });
+      const recipe = briefRecipeSection(root, sessionId, stage, agentId);
+      const head = `${text}\n\n${recipe}`;
+      const room = STAGE_CONTENT_MAX_CHARS - head.length - 2;
+      return `${head}\n\n${stageContentMarkdown(root, dirName, stage, room)}`;
     });
   } catch (error) {
     console.error(`could not build the ${stage} stage brief: ${(error as Error).message}`);
@@ -125,6 +192,145 @@ function runStageBrief(stage: string | undefined, options: StageOptions): void {
     return;
   }
   console.log(brief);
+}
+
+function startRefusalMessage(root: string, sessionId: string, stage: string): string | null {
+  try {
+    const dirName = currentFeature(root, sessionId);
+    if (dirName === null) return null;
+    const rows = readFeatureStageUnit(root, dirName);
+    const lane = readChangeConstants(root, dirName, rows).lane;
+    return stageStartRefusal(rows, stage, lane, stageReportOptions(root, dirName))?.message ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function stageEndRecipeCheck(
+  root: string,
+  sessionId: string,
+  stage: string,
+  options: StageOptions,
+): Promise<RecipeCheck | null> {
+  try {
+    const dirName = currentFeature(root, sessionId);
+    if (dirName === null) return null;
+    if (stage === 'development') {
+      const spec = join(root, featureFilePath(dirName, 'specification'));
+      if (!existsSync(spec)) return null;
+      const start = readChangeStartPoint(root, dirName);
+      const added = start === null ? null : addedLinesSince(root, start);
+      return checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage,
+        args: added === null ? [spec, root] : [spec, root, '--added-stdin'],
+        ...(added === null ? {} : { input: JSON.stringify(added) }),
+      });
+    }
+    if (stage === 'documentation_sync') {
+      const staleOk = options.staleOk ?? [];
+      const { files } = await loadChangeEvidence(root, {
+        since: readChangeStartPoint(root, dirName),
+      });
+      return checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage,
+        args: [root, ...staleOk.flatMap((path) => ['--ok', path])],
+        input: files.join('\n'),
+        staleOk,
+      });
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function runStageBeginPhase(stage: string | undefined, options: StageOptions): void {
+  const root = options.projectRoot;
+  const name = stage ?? '';
+  const agent = options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined;
+  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionId = resolveSessionId(root, hint);
+  const { exitCode, output } = STAGE_AGENT_STAGES.includes(name)
+    ? runStageBegin({
+        projectRoot: root,
+        sessionId,
+        stage: name,
+        agent,
+        agentId: process.env.SE_AGENT_ID ?? null,
+      })
+    : {
+        exitCode: 1 as const,
+        output: {
+          stage: name,
+          failed_step: 'stage start',
+          error: `name the stage to begin: one of ${STAGE_AGENT_STAGES.join(', ')}`,
+        },
+      };
+  process.exitCode = exitCode;
+  process.stdout.write(`${JSON.stringify(output)}\n`);
+}
+
+function runStageRepair(rowArg: string | undefined, options: StageOptions): void {
+  const root = options.projectRoot;
+  const refusal = stageAgentRepairRefusal(process.env.SE_AGENT_ID);
+  if (refusal !== null) {
+    console.error(`**▸ paqad** · ${refusal}`);
+    process.exitCode = 1;
+    return;
+  }
+  const rowNumber = Number(rowArg);
+  const reason = options.reason?.trim();
+  if (!Number.isInteger(rowNumber) || rowNumber < 1 || !reason) {
+    console.error('usage: paqad-ai stage repair <row> --reason "<what happened>"');
+    process.exitCode = 2;
+    return;
+  }
+  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionId = resolveSessionId(root, hint);
+  const dirName = currentFeature(root, sessionId);
+  if (dirName === null) {
+    console.error('**▸ paqad** · no change is active, so there is no ledger to repair');
+    process.exitCode = 1;
+    return;
+  }
+  const result = repairChainBreak(root, sessionId, dirName, rowNumber, reason, repairActor());
+  console[result.ok ? 'log' : 'error'](`**▸ paqad** · ${result.message}`);
+  if (!result.ok) process.exitCode = 1;
+}
+
+function runStageReport(agentId: string | undefined, options: StageOptions): void {
+  if (!agentId) {
+    console.log(JSON.stringify(unknownAgentReport('', 'name the agent id to report on')));
+    process.exitCode = 1;
+    return;
+  }
+  const root = options.projectRoot;
+  try {
+    const report = keepingLedgerSessionCache(root, () => {
+      const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
+      const dirName = currentFeature(root, sessionId);
+      if (dirName === null) return null;
+      return buildStageReport(
+        readFeatureStageUnit(root, dirName),
+        agentId,
+        stageReportOptions(root, dirName),
+      );
+    });
+    if (report === null) process.exitCode = 1;
+    console.log(
+      JSON.stringify(report ?? unknownAgentReport(agentId, `no stage row names agent ${agentId}`)),
+    );
+  } catch (error) {
+    console.log(
+      JSON.stringify(
+        unknownAgentReport(agentId, `could not read the ledger: ${(error as Error).message}`),
+      ),
+    );
+  }
 }
 
 export function createStageCommand(): Command {
@@ -135,10 +341,15 @@ export function createStageCommand(): Command {
     )
     .argument(
       '<phase>',
-      "'start' or 'end', 'settings' to print and record this project's per-stage effort and " +
-        "model, or 'brief' to print a stage's brief for a resumed stage agent",
+      "'start' or 'end', 'begin' to start a stage and print what it needs as one JSON object, 'settings' to print and record this project's per-stage effort and " +
+        "model, 'brief' to print a stage's brief for a resumed stage agent, 'report' to " +
+        "print what a stage agent reported, as JSON, from its agent id, or 'repair' to record " +
+        'why a ledger row broke the chain',
     )
-    .argument('[stage]', `one of: ${STAGE_ORDER.join(', ')}`)
+    .argument(
+      '[stage]',
+      `one of: ${STAGE_ORDER.join(', ')}; for 'report', the agent id; for 'repair', the row number`,
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
@@ -169,6 +380,12 @@ export function createStageCommand(): Command {
         "then the session's open stage-agent row)",
     )
     .option('--full', 'On a `brief`, print every read entry and instruction, with no length cut')
+    .option(
+      '--stale-ok <path>',
+      'On `end documentation_sync`, a doc that needs no change although the diff touches its module (repeatable)',
+      collectArtifact,
+    )
+    .option('--reason <text>', 'On a `repair`, what happened to the row')
     .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
       if (phase === 'settings') {
         runStageSettings(options);
@@ -178,8 +395,22 @@ export function createStageCommand(): Command {
         runStageBrief(stage, options);
         return;
       }
+      if (phase === 'begin') {
+        runStageBeginPhase(stage, options);
+        return;
+      }
+      if (phase === 'report') {
+        runStageReport(stage, options);
+        return;
+      }
+      if (phase === 'repair') {
+        runStageRepair(stage, options);
+        return;
+      }
       if (phase !== 'start' && phase !== 'end') {
-        console.error(`unknown phase "${phase}" — use 'start', 'end', 'settings' or 'brief'`);
+        console.error(
+          `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief', 'report' or 'repair'`,
+        );
         process.exitCode = 1;
         return;
       }
@@ -220,10 +451,25 @@ export function createStageCommand(): Command {
         }
         artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
       }
+      if (phase === 'start' && !options.title) {
+        const refusal = startRefusalMessage(root, sessionId, stage);
+        if (refusal !== null) {
+          console.error(`**▸ paqad** · ${refusal}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
       const raised =
         phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
           ? await raiseLaneOnStageStart(root, sessionId)
           : NO_RAISES;
+      const recipeCheck =
+        phase === 'end' ? await stageEndRecipeCheck(root, sessionId, stage, options) : null;
+      for (const line of recipeCheck?.lines ?? []) console.error(line);
+      if (recipeCheck?.verdict === 'refuse') {
+        process.exitCode = 1;
+        return;
+      }
       const recorded = recordMarkedStage(root, {
         sessionId,
         sessionSource,
@@ -232,7 +478,7 @@ export function createStageCommand(): Command {
         artifactPaths,
         title: phase === 'start' ? options.title : undefined,
         issue: options.issue,
-        agent: options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined,
+        agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
         agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
       });
       if (!recorded) {
@@ -243,6 +489,7 @@ export function createStageCommand(): Command {
         process.exitCode = 1;
         return;
       }
+      recipeCheck?.record();
       if (raised.authoring) console.log(laneRaisedLine(raised.authoring));
       if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);

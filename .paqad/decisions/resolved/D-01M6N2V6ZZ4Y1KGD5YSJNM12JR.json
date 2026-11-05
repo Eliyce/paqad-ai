@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N2V6ZZ4Y1KGD5YSJNM12JR",
+  "category": "authoring.override",
+  "title": "The agent paqad-expert cannot run its S2 check. Add it unverified, kept in this project?",
+  "context": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-expert is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-expert helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-expert is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-05T05:27:58.207Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "add-unverified",
+  "rationale": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
+  "resolved_at": "2026-11-05T05:28:12.895Z",
+  "decision_id": "D-01M6N2V6ZZ4Y1KGD5YSJNM12JR",
+  "fingerprint": "sha256:47c42b3de8ca6f4fa0c48d293a5f204980ef56b1941eb4d9588869cfc3624ad1",
+  "question": "The agent paqad-expert cannot run its S2 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T05:27:58.207Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T05:28:12.895Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict."
+  }
+}

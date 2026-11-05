@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6NKSBCGC1N3H5ZCQMS1885H",
+  "category": "spec.change",
+  "title": "A correction to a frozen spec keeps its expert record",
+  "context": "Every manual re-freeze on this change marked the spec as hand-written, so the HUD reports that the High Table never sat, which is false. The experts' records are intact. Recommended fix: a correction keeps the record, the HUD trusts recorded seats, and this change's record is restored through a command.",
+  "options": [
+    {
+      "option_key": "update-and-refreeze",
+      "label": "Add it to this change",
+      "one_line_preview": "Add it to this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-current-spec",
+      "label": "Note it for later",
+      "one_line_preview": "Note it for later",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "update-and-refreeze",
+  "created_at": "2026-11-05T10:24:02.960Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "update-and-refreeze",
+  "rationale": "Owner, 5 Nov 2026: said continue after the fix was recommended in this PR; taken as a go-ahead.",
+  "resolved_at": "2026-11-05T10:24:03.766Z",
+  "decision_id": "D-01M6NKSBCGC1N3H5ZCQMS1885H",
+  "fingerprint": "sha256:3f4152e3be18b6a68fd9e57361d53187203a8930177c74b78f81a559b6c65280",
+  "question": "A correction to a frozen spec keeps its expert record",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T10:24:02.960Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "update-and-refreeze",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T10:24:03.766Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: said continue after the fix was recommended in this PR; taken as a go-ahead."
+  }
+}

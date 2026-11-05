@@ -1,4 +1,4 @@
-import type { PaqadHudSnapshot, PaqadStageProof } from './types';
+import type { PaqadHudSnapshot, PaqadStageProof, PaqadStageRun } from './types';
 
 export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'cau' | 'dim';
 
@@ -65,6 +65,32 @@ export interface TrustStage {
   mark: string | null;
   steps: TrustStep[];
   gates: TrustGateRow[];
+  run: TrustRun | null;
+}
+
+export interface TrustRun {
+  before: string;
+  report: string;
+  after: string;
+  tone: WordTone;
+  footnote: string | null;
+}
+
+export const DOCKED_LINE_MAX = 46;
+export const NEEDS_A_LOOK = 'Needs a look';
+
+function trustRun(run: PaqadStageRun | undefined): TrustRun | null {
+  if (!run) return null;
+  const line = run.line.length <= DOCKED_LINE_MAX ? run.line : run.short_line;
+  const at = line.indexOf(` · ${run.report} · `);
+  const count = run.runs > 1 ? `  ·  ${run.runs} runs` : '';
+  return {
+    before: at === -1 ? '' : line.slice(0, at + 3),
+    report: run.report,
+    after: `${at === -1 ? '' : line.slice(at + 3 + run.report.length)}${count}`,
+    tone: run.tone,
+    footnote: run.footnote,
+  };
 }
 
 export function stageHasEvidence(stage: PaqadStageProof): boolean {
@@ -77,12 +103,14 @@ export function stageHasEvidence(stage: PaqadStageProof): boolean {
 
 export function trustStage(stage: PaqadStageProof): TrustStage {
   const look = STAGE_STATE_WORDS[stage.state] ?? NOT_YET_WORD;
+  const needsLook = stage.run?.needs_look === true && DONE_STATES.has(stage.state);
   return {
     key: stage.stage,
     words: stage.words,
-    word: look.word,
-    tone: look.tone,
-    mark: DONE_STATES.has(stage.state) ? DONE_MARK : null,
+    word: needsLook ? NEEDS_A_LOOK : look.word,
+    tone: needsLook ? 'cau' : look.tone,
+    mark: DONE_STATES.has(stage.state) && !needsLook ? DONE_MARK : null,
+    run: trustRun(stage.run),
     steps: stage.steps.map((step) => ({
       key: `${stage.stage}-${step.id}`,
       mark: step.state,

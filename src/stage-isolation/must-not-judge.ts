@@ -9,6 +9,7 @@ export const MUST_NOT_VIOLATIONS = ['asked_human', 'bundle_write', 'out_of_stage
 export type MustNotViolation = (typeof MUST_NOT_VIOLATIONS)[number];
 
 export interface TranscriptToolUse {
+  id?: string;
   name: string;
   input: Record<string, unknown>;
 }
@@ -22,13 +23,17 @@ function toolUsesIn(content: unknown): TranscriptToolUse[] {
   const uses: TranscriptToolUse[] = [];
   for (const block of content as unknown[]) {
     if (!block || typeof block !== 'object') continue;
-    const entry = block as { type?: unknown; name?: unknown; input?: unknown };
+    const entry = block as { type?: unknown; id?: unknown; name?: unknown; input?: unknown };
     if (entry.type !== 'tool_use' || typeof entry.name !== 'string') continue;
     const input =
       entry.input && typeof entry.input === 'object'
         ? (entry.input as Record<string, unknown>)
         : {};
-    uses.push({ name: entry.name, input });
+    uses.push({
+      ...(typeof entry.id === 'string' ? { id: entry.id } : {}),
+      name: entry.name,
+      input,
+    });
   }
   return uses;
 }

@@ -200,6 +200,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/checks-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "checks-recipe",
+    "output_format": "markdown",
+    "triggers": [],
+  },
   "runtime/base/skills/context-budget-planner": {
     "cache_key_inputs": [],
     "cacheable": false,
@@ -348,6 +365,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/development-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "development-recipe",
+    "output_format": "markdown",
+    "triggers": [],
+  },
   "runtime/base/skills/diff-doc-sync": {
     "cache_key_inputs": [
       ".paqad/session/review-digest.md",
@@ -455,6 +489,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         ],
       },
     ],
+  },
+  "runtime/base/skills/documentation-sync-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "documentation-sync-recipe",
+    "output_format": "markdown",
+    "triggers": [],
   },
   "runtime/base/skills/documentation-workflow": {
     "cache_key_inputs": [],
@@ -987,6 +1038,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/planning-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "planning-recipe",
+    "output_format": "markdown",
+    "triggers": [],
+  },
   "runtime/base/skills/request-classifier": {
     "cache_key_inputs": [
       "request_text",
@@ -1061,6 +1129,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         ],
       },
     ],
+  },
+  "runtime/base/skills/review-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "review-recipe",
+    "output_format": "markdown",
+    "triggers": [],
   },
   "runtime/base/skills/rollback-safety-planner": {
     "cache_key_inputs": [],
@@ -1420,6 +1505,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         ],
       },
     ],
+  },
+  "runtime/base/skills/specification-recipe": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "request_text": {
+        "description": "The request this stage serves.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "specification-recipe",
+    "output_format": "markdown",
+    "triggers": [],
   },
   "runtime/base/skills/story-and-solution-writer": {
     "cache_key_inputs": [],

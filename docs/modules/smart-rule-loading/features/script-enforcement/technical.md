@@ -44,6 +44,11 @@
   which scripts run; scripts outside them are not run at all. `concurrency` defaults to the
   `rule_gate_concurrency` setting. An aborted `signal` returns `aborted: true` with no
   verdict, and nothing is written to the report.
+- `judgeEditResult(input)` in `src/rule-scripts/edit-result.ts` runs at pre-mutation when the check
+  would block under `blocking-only`. It lets through an edit whose result removes a finding from its
+  target and adds none. `editedContent` in `src/rule-scripts/edited-content.ts` works out the result.
+  The behaviour and what stays refused are in the feature-development-workflow summary, under "An edit
+  that only removes a rule finding".
 - The capability kernel passes `{ kinds: ['deterministic'], scopes: ['changed-files'] }`, the
   file cache and an abort signal at pre-mutation (scope `whole-tree`), and no filter at
   completion (scope `changed-files`). Under `rule_gate_pre_edit=all` pre-mutation passes no

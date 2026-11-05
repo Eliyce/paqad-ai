@@ -1,9 +1,17 @@
 {
-  "session_id": "01JCLAUDESESSION000000000",
-  "transcript_path": "/work/project/.claude/subagent-transcript.jsonl",
-  "cwd": "/work/project",
+  "session_id": "18db59c1-9994-4b7d-9914-a0916ec80d2c",
+  "transcript_path": "/capture/home/.claude/projects/capture-project/18db59c1-9994-4b7d-9914-a0916ec80d2c.jsonl",
+  "cwd": "/capture/project",
+  "prompt_id": "f5bb9ab2-9679-4e95-9a8f-b11450199983",
+  "permission_mode": "auto",
+  "agent_id": "ae014fbc49e33e66a",
+  "agent_type": "paqad-planning",
+  "effort": {
+    "level": "medium"
+  },
   "hook_event_name": "SubagentStop",
-  "agent_id": "agent_01JCLAUDESUBAGENT0000",
-  "agent_type": "paqad-development",
-  "permission_mode": "default"
+  "stop_hook_active": false,
+  "agent_transcript_path": "/capture/home/.claude/projects/capture-project/18db59c1-9994-4b7d-9914-a0916ec80d2c/subagents/agent-ae014fbc49e33e66a.jsonl",
+  "background_tasks": [],
+  "session_crons": []
 }

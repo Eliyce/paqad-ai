@@ -1,6 +1,7 @@
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { readRepairedReports } from './report-repair.js';
 import {
   isArtifactBearingStage,
   isCompletionAnchoredStage,
@@ -47,6 +48,7 @@ export function foldRowsWithKey(
   const hadRedo = stages.some((stage) => stage.state === 'redone');
 
   const verdict = computeVerdict(stageRows, missing, orderingViolations.length > 0, hadRedo);
+  const repaired = readRepairedReports(rows);
 
   return {
     session_id: sessionId,
@@ -61,6 +63,7 @@ export function foldRowsWithKey(
       required_total: required.length,
       ordering_violations: orderingViolations,
     },
+    ...(repaired.length > 0 ? { repaired_reports: repaired } : {}),
   };
 }
 

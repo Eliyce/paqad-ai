@@ -12,7 +12,9 @@ import { createStageCommand } from '@/cli/commands/stage.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { RECIPE_INJECTED_KIND, SKILL_USED_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { agentNameForStage, STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
+import { recipeHasScript } from '@/stage-isolation/recipes.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { openRagConversation } from '@/rag-ledger/recorder.js';
 import { writePendingLane } from '@/stage-evidence/pending-lane.js';
@@ -407,6 +409,36 @@ export async function runBundleFixture(
         tokens_not_recarried: 0,
         estimate: true,
       });
+      for (const stage of STAGE_AGENT_STAGES) {
+        appendFeatureStageRow(root, RUN_SESSION, dir, {
+          kind: STAGE_AGENT_KIND,
+          stage,
+          agent: agentNameForStage(stage),
+          event_status: 'completed',
+          tokens_used: 0,
+          tokens_not_recarried: 0,
+          estimate: true,
+        });
+        appendFeatureStageRow(root, RUN_SESSION, dir, {
+          kind: RECIPE_INJECTED_KIND,
+          stage,
+          agent: agentNameForStage(stage),
+          recipe: `${stage}-recipe`,
+          recipe_hash: 'a'.repeat(64),
+        });
+        if (recipeHasScript(stage)) {
+          appendFeatureStageRow(root, RUN_SESSION, dir, {
+            kind: SKILL_USED_KIND,
+            stage,
+            agent: agentNameForStage(stage),
+            recipe: `${stage}-recipe`,
+            source: 'script',
+            script: 'fixture.mjs',
+            output_hash: 'a'.repeat(64),
+            recipe_root: 'fixture',
+          });
+        }
+      }
     }
     options.beforeVerification?.(root, dir);
     await runRepositoryVerification({

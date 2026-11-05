@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N7M7Q3H9F3RKNRVBND8ZDK",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-checks asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:337145bc19727ea4ec15893d81fc09e388c2e5a827ac62b47e20039889010653.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-checks keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-checks before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-05T06:51:32.451Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "allow",
+  "rationale": "Owner, 5 Nov 2026: this agent can only do its job through paqad commands.",
+  "resolved_at": "2026-11-05T06:57:18.214Z",
+  "decision_id": "D-01M6N7M7Q3H9F3RKNRVBND8ZDK",
+  "fingerprint": "sha256:a3ad13741845bedba12439164025d71013c1db46f8bf9d309af10c9d879cf1e8",
+  "question": "The agent paqad-checks asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T06:51:32.451Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T06:57:18.214Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: this agent can only do its job through paqad commands."
+  }
+}

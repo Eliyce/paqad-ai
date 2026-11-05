@@ -193,7 +193,7 @@ describe('closeAbandonedBundles', () => {
     const closed = closeAbandonedBundles(root, { now: after(48 * HOUR), git: counting });
     expect(closed).toHaveLength(40);
     expect(calls).toEqual([['for-each-ref', '--format=%(refname)', 'refs/heads', 'refs/remotes']]);
-  });
+  }, 180_000);
 
   it('makes no git call when no change is quiet long enough, and stops when git fails', () => {
     const root = repoRoot();

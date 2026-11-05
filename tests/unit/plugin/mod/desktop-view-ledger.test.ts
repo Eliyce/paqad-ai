@@ -31,7 +31,7 @@ import {
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
-import { OLD_RECORD_NOTE } from '../../../../runtime/claude-plugin/mod/trust.ts';
+import { OLD_RECORD_NOTE, trustStage } from '../../../../runtime/claude-plugin/mod/trust.ts';
 import {
   FAST_ORD_490,
   FULL_ORD_501,
@@ -189,7 +189,17 @@ describe('AC-20: the Trust tab', () => {
   it('AC-34: groups the proof by the lane stages with steps inside, and no light, ring or reason', () => {
     const view = trustView(parse(FULL_ORD_501));
     expect(Object.keys(view).sort()).toEqual(
-      ['claims', 'empty', 'flags', 'gaps', 'gates', 'note', 'repairs', 'stages'].sort(),
+      [
+        'claims',
+        'empty',
+        'flags',
+        'gaps',
+        'gates',
+        'ledgerNote',
+        'note',
+        'repairs',
+        'stages',
+      ].sort(),
     );
     expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
       ['Plan', 'Done', 'pass'],
@@ -981,5 +991,79 @@ describe('the Ledger frame', () => {
       ledgerIsLive(ledger({ snapshot: open({ stages: stages({ development: 'running' }) }) })),
     ).toBe(true);
     expect(ledgerIsLive(ledger({ snapshot: parse(OTHER_WORKFLOW) }))).toBe(false);
+  });
+});
+
+describe('AC-78: a cut last ledger line in the Trust tab', () => {
+  it('adds one note beside the gaps, raises no flag and does not fail the latest stage', () => {
+    const line = 'The last line of this ledger was cut, so paqad read every line before it.';
+    const plain = trustView(open());
+    const cut = trustView(open({ ledger_note: line }));
+    expect(plain.ledgerNote).toBeNull();
+    expect(cut.ledgerNote).toBe(line);
+    expect(cut.flags).toEqual(plain.flags);
+    expect(cut.gaps).toEqual(plain.gaps);
+    expect(cut.stages).toEqual(plain.stages);
+  });
+});
+
+describe('the run line in the Trust tab', () => {
+  const stage = (run: Record<string, unknown> | undefined, state = 'complete') =>
+    trustStage({
+      stage: 'review',
+      words: 'Review',
+      state,
+      steps: [],
+      gates: [],
+      ...(run ? { run } : {}),
+    } as unknown as Parameters<typeof trustStage>[0]);
+  const run = (fields: Record<string, unknown> = {}) => ({
+    line: 'review · proven · DONE · 44 turns',
+    short_line: 'proven · DONE · 44 turns',
+    report: 'DONE',
+    recipe: 'proven',
+    tone: 'dim',
+    runs: 1,
+    needs_look: false,
+    footnote: null,
+    ...fields,
+  });
+
+  it('AC-75: splits the line around the report word, for the colour', () => {
+    expect(stage(run()).run).toMatchObject({
+      before: 'review · proven · ',
+      report: 'DONE',
+      after: ' · 44 turns',
+    });
+  });
+
+  it('leaves the stage name to the heading when the line would not fit the docked width', () => {
+    const long = 'documentation sync · injected · DONE_WITH_CONCERNS · 17 turns';
+    const view = stage(
+      run({
+        line: long,
+        short_line: 'injected · DONE_WITH_CONCERNS · 17 turns',
+        report: 'DONE_WITH_CONCERNS',
+        tone: 'cau',
+      }),
+    ).run!;
+    expect(view.before).toBe('injected · ');
+    expect(view.after).toBe(' · 17 turns');
+    expect(view.tone).toBe('cau');
+  });
+
+  it('counts runs dim, after the turns', () => {
+    expect(stage(run({ runs: 3 })).run?.after).toBe(' · 44 turns  ·  3 runs');
+  });
+
+  it('AC-71: reads a done stage whose report is BLOCKED as needing a look, with no green check', () => {
+    const view = stage(run({ report: 'BLOCKED', tone: 'fail', needs_look: true }));
+    expect(view.word).toBe('Needs a look');
+    expect(view.mark).toBeNull();
+    expect(view.tone).toBe('cau');
+  });
+
+  it('draws no run on a stage with none', () => {
+    expect(stage(undefined).run).toBeNull();
   });
 });

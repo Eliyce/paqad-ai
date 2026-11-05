@@ -382,6 +382,17 @@ state on its own.
   it, so CI is the layer that cannot be skipped. When the runtime cannot be resolved it does not
   block the commit.
 
+## The stage report hooks on each route
+
+`stage-agent-handback.mjs` is a PreToolUse hook on `SubagentHandback`, rendered on Claude Code only. It
+fails open: only a deliberate refusal exits 2, and it has a timeout and no `onFailure`. The stop check
+inside `stage-agent-completion.mjs` answers `{ decision: "block", reason }` from SubagentStop, also
+failing open, and is not run on Codex. The plugin chain now carries `onFailure: "block"` and `timeout:
+10` on the same three edit gates as the npm chain, and the host honours them. On the plugin route
+SessionStart prints one line when the plugin and the runtime in `.paqad/framework-path.txt` differ in
+version, and blocks nothing. Live measurements are in `tests/fixtures/hooks/README.md`.
+
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

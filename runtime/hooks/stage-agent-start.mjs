@@ -44,16 +44,32 @@ async function seed(projectRoot, payload) {
   const agent = logKey(payload.agent_id);
   let stage = 'unknown';
   try {
-    const { seedStageAgent, stageHelperStage } = await importDist('stage-isolation/stage-brief.js');
+    const { recordRecipeInjected, seedStageAgentDetailed, stageHelperStage } = await importDist(
+      'stage-isolation/stage-brief.js',
+    );
     const resolved = stageHelperStage(payload.agent_type);
     if (!resolved) {
       appendHooksLog(projectRoot, `${LOG_PREFIX}: skipped agent=${agent} stage=none`);
       return;
     }
     stage = resolved;
-    process.stdout.write(seedStageAgent(stage, projectRoot, payload));
+    const seeded = seedStageAgentDetailed(stage, projectRoot, payload);
+    process.stdout.write(seeded.output);
     stampAgentEntryMarker(projectRoot, payload.agent_id);
     await recordStart(projectRoot, payload);
+    for (const note of seeded.notes) {
+      appendHooksLog(projectRoot, `${LOG_PREFIX}: agent=${agent} stage=${stage}: ${note}`);
+    }
+    if (seeded.injected) {
+      try {
+        recordRecipeInjected(projectRoot, stage, payload, seeded.injected);
+      } catch (error) {
+        appendHooksLog(
+          projectRoot,
+          `${LOG_PREFIX}: recipe row not written agent=${agent}: ${errorMessage(error)}`,
+        );
+      }
+    }
     appendHooksLog(projectRoot, `${LOG_PREFIX}: seeded agent=${agent} stage=${stage}`);
   } catch (error) {
     appendHooksLog(

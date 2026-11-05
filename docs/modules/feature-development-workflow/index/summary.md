@@ -9,6 +9,127 @@ Generic feature-delivery pipeline assembled from YAML in
 story design, parallel implementation + tests, adversarial review,
 and verification. Conditional and parallel steps supported.
 
+## How a stage's report is read
+
+A stage agent reports through the `SubagentHandback` tool in `auto` permission mode and in plain
+text everywhere else, because the tool exists only in `auto` mode. The ledger records whichever arrived. The rule for what a report means
+sits in one function, `judgeStageReport` in `src/stage-isolation/stage-handback.ts`, called by
+the handback hook, the stop check and the completion record. A `DONE` or `DONE_WITH_CONCERNS`
+with no stage end row, or with no artifact on planning, specification, review or checks, is refused
+at handback (exit 2) and sent back at SubagentStop (`decision: block`). Both paths share one count
+per agent and stage: three refusals, then the report is let through as `BLOCKED` with the reason.
+That count is paqad's own, because the host sets no ceiling on these retries.
+Refusal rows use the `stage-handback` kind, so they release no running-agent hold. The main chat
+reads the result with `paqad-ai stage report <agent_id>` and follows its `next_action` and
+`resume_advice`. A crash in the check always lets the report through.
+
+`advance` is true for a stated `DONE` or `DONE_WITH_CONCERNS` whose stage requirement is met, with green
+checks and no breach. With no stated report, a met requirement reads as `DONE` and advances. If checks
+are red or there is a must-not breach it reads as `DONE_WITH_CONCERNS` and holds. A status repaired by the
+backfill is used in the same way. `next_action` then says one of these:
+
+- continue to the next stage, carrying any concerns to the receipt
+- present a decision, or resume the agent with its answer
+- resume the agent with what it names, on `NEEDS_CONTEXT`
+- wait for the agent, when its handback was sent back and it can retry, or wait for a running agent and
+  resume it once if it has already returned
+- on a no-Status hold from red checks, resume the development agent to fix the failures, then run checks
+  again
+- on a no-Status hold from a must-not breach, stop and tell the developer the reason
+- resume once after a return with no report, and stop and tell the developer on a second silent return,
+  held or not
+- stop and tell the developer the reason, for anything else
+
+## Stage start, recipes and turns
+
+- **One way in.** `paqad-ai stage begin <stage>` records the start, loads the rules on development,
+  writes the digest on review and prints the checks plan on checks, then prints one JSON object with
+  the request, the previous pillars and the paths. A repeat run does not start twice. Its whole output
+  stays at or under 27,000 characters, the measured Bash output limit less 10 percent, because the host
+  replaces a longer output with a preview. Past that the longest file is cut first, with the line
+  `truncated at 27,000 characters; read the file for the rest`. Instruction and command lines are not cut.
+- **Refusal.** `stage start` and `stage begin` refuse a stage when an earlier stage's newest stated
+  report is `BLOCKED`, `NEEDS_CONTEXT` or paused, naming the stage, the reason and the next action. A
+  later end row with the artifact, or a newer `DONE`, clears it. Not refused: review and documentation
+  sync side by side, a later stage's blocked report while development is resumed, a stage restarting
+  itself, the fast and graduated lanes, inline runs, older bundles and unstated reports. No edit gate
+  changes.
+- **Recipes.** `runtime/base/skills/<stage>-recipe` holds each stage's method and script. The start
+  hook sends the brief and the recipe, at most 9,700 characters together, and writes a
+  `recipe-injected` row with the hash of the text sent, one row per agent and text, so reading the brief
+  again adds none. Recipe text gives way first, at a line, with a
+  pointer to its file. Each stage command runs the script from paqad's own install (`recipes.ts`,
+  `recipe-check.ts`) and on a pass writes a `skill-used` row, which names an agent only when an agent id
+  is on the command or on the stage's start row. The Ledger run line says `proven` only when the script
+  really checked something, so a row with `unchecked` does not count. On a fail it refuses a stage an agent
+  started after the update, and only notes it otherwise. A broken install warns and writes no row.
+  `paqad-ai stage end documentation_sync --stale-ok <path>` names a doc that needs no change. Recipe
+  text is a copy of its source skills, which stay for their other workflows. The stage agent files stay
+  short and leave the method to the recipe. Paths a recipe names are relative to the install directory
+  in `.paqad/framework-path.txt`, which names a link to the package's runtime directory on both routes.
+  `.claude/agents` holds copies that a test keeps equal to the rendered agents.
+- **A missing recipe.** An agent with no `## Your recipe` heading in its context runs `stage brief`, which
+  prints the repair. If the recipe is still missing the agent carries on and reports that repair. It
+  depends on the route, because `paqad-ai update` cannot restore a recipe. On the plugin, run
+  `claude plugin update paqad@eliyce`; if that says it is already at the latest version, uninstall and
+  install the plugin, then start a new session. On npm, run `npm i -g paqad-ai@latest`, then
+  `paqad-ai update`. The completeness gate names the same repair and holds the change until the repair is
+  done and the stage is run again, because the proof rows are missing.
+- **When `stale-docs` lists a doc.** A module's doc is listed when a changed code file names the module
+  or sits under one of its `sources` in `docs/instructions/rules/module-map.yml`. Tests, `docs/` and
+  dot-folders do not count as code, so a run with nothing to sync passes. The script reads the map line
+  by line and takes only each slug and `sources` list, so it runs in a project with no packages installed.
+- **Recipe script contract.** A script prints one JSON line, `{ ok, errors, hash }`, and exits 0 when
+  `ok` is true and 1 when it found problems. At most 100 errors are printed, followed by `and <n> more`;
+  the hash covers the full list. A missing input file or a bad command line exits 2 with the reason on
+  stderr, and input that is not a JSON object exits 1 the same way. The stage commands read only that
+  JSON line, so any run that does not print one counts as a broken install.
+- **When `check-ac-map` passes.** Each automated criterion needs a test line this change added that names
+  it. Test files are recognised across JavaScript, TypeScript, Python, Ruby, Java, Kotlin, Go, Rust, C#,
+  PHP, Swift, Elixir, Dart, C and C++, among others. When the diff cannot be read it counts every test in
+  the project (`scope: all-tests`) and says so. When no test can be read it passes, sets `unchecked` and
+  prints a warning. The check proves a test names a criterion, not that it tests it, so whether the test
+  really covers the criterion is left to review.
+- **Proof.** On the full lane, the completeness gate asks each stage started after the update for a
+  `stage-agent` completed row, a `recipe-injected` row and, when its recipe has a script, a `skill-used`
+  row. Older stages get a note. On Codex the recipes are written to `.agents/skills/`, kept out of git
+  by `.agents/skills/.gitignore`, and no `recipe-injected` row is written, because nothing was injected.
+- **Turns.** Budgets are 50 percent above the measured baselines, rounded up to the next ten: planning
+  100 (baseline 64), specification 60 (35), development 170 (109), review 70 (44), checks 20 (10) and
+  documentation sync 30 (17). The completed row carries `api_turns`, and the receipt states turns per stage against the budget and the baseline.
+  `scripts/stage-benchmark.mjs` measures a sample of runs, and `scripts/skill-consumer-scan.mjs` lists
+  each base skill with its consumers.
+
+## An edit that only removes a rule finding
+
+The rule check before an edit scans the whole change plus the target, so it used to refuse the edit
+that deleted the finding it named, and one finding could stop every code edit. Now, when the check
+would refuse and the target itself holds a finding, it works out what the file would become and judges
+that result. The edit passes only if it removes at least one finding from its target and adds none,
+anywhere in the change. Only the scripts this check runs are compared, so the other rule scripts have
+their say at the end of the turn. Every other edit is refused with the same message as before.
+
+- **Where the result comes from.** `Edit` and `Write` on Claude Code, and `apply_patch` on Codex.
+  An `apply_patch` must update one file and each chunk must match exactly one place. Anything else
+  counts as a result that cannot be worked out, such as an old text that matches twice, a move, a named
+  `@@` context, another tool or an unknown input field.
+- **How it compares.** The real rule scripts run twice on a temporary copy of the project's layout:
+  once on the file as it is, once on the result. The first run must reproduce the findings of the real
+  check, or the comparison is not trusted. A finding on the target is matched by script, rule, message
+  and the exact text of its line, so removing two findings cannot pay for a new one with the same
+  message, and rewording a finding counts as adding one.
+- **What stays refused.** A rule script that fails or cannot run, the time budget running out (the edit
+  is refused, not deferred to the end of the turn), a target that is a link or a rule file, a result
+  above 1 MiB that grew, a finding left on the target with no line number, and everything under
+  `rule_gate_pre_edit=all`. If the comparison crashes, the edit is refused with the same rule message, and a crash other than a
+  missing or colliding file (`ENOENT`, `EEXIST`) adds a line to the hooks log.
+  A target spelled differently from its name on disk (`src/APP.ts` for `src/app.ts`) is refused too.
+- **Where it does not apply.** Windows. The comparison does not run there, so the edit is refused with
+  the same rule message as before.
+- **What it records.** A `rule-run.jsonl` row of kind `edit-allowed` with the findings removed and the
+  count remaining, and a line in the hooks log. If a change is open and the row cannot be written, the
+  edit is refused. With no change open only the log line is written. The remaining findings still block at the end of the turn.
+
 ## Source Footprint
 
 - `src/pipeline/feature-development-policy.ts` (paqad's own stages) and the team files in `.paqad/configs/feature-development/`
@@ -29,10 +150,7 @@ and verification. Conditional and parallel steps supported.
 
 The single source of truth for this module's identity, slug, feature names, and source paths is
 [`docs/instructions/rules/module-map.yml`](../../../instructions/rules/module-map.yml). If anything
-in this page disagrees with the map, the **map wins** — update the map first, then regenerate this
-page via `create module documentation`.
-
-## How to Update These Docs
+in this page disagrees with the map, the **map wins**. To change this page:
 
 1. Edit `docs/instructions/rules/module-map.yml` if the module or feature names changed.
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).

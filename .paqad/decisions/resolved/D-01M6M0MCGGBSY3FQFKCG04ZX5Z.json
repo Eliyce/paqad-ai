@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M0MCGGBSY3FQFKCG04ZX5Z",
+  "category": "architecture-path",
+  "title": "Issue 841 D6: Ledger integrity",
+  "context": "Owner decision recorded in Eliyce/paqad-ai issue 841, row D6: Every row gets an `idempotency_key` and a `prev_hash`. Appends take a per-bundle lock (atomic `mkdir`, wait up to 200 ms, then read the last line, append, `fsync`, release). If the lock is not won in time, append anyway with `prev_hash: null` and `chain_note: \"lock-timeout\"`. The completeness gate verifies the chain and reports a declared gap as a warning, never a failure. The ledger never blocks a hook.",
+  "options": [
+    {
+      "option_key": "as-decided",
+      "label": "As the owner decided in the issue",
+      "one_line_preview": "As the owner decided in the issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reopen",
+      "label": "Reopen with the owner",
+      "one_line_preview": "Reopen with the owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "as-decided",
+  "created_at": "2026-11-04T19:30:02.897Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "as-decided",
+  "rationale": "Owner's answer of 4 November 2026, recorded in issue 841 row D6, which says these are final and not to be asked again.",
+  "resolved_at": "2026-11-04T19:30:03.501Z",
+  "decision_id": "D-01M6M0MCGGBSY3FQFKCG04ZX5Z",
+  "fingerprint": "sha256:0bb3523de4f7e8e43272bfb1beafdb435db2ec321f8c71f092c0d0402aaa3bdc",
+  "question": "Issue 841 D6: Ledger integrity",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2027-02-02T19:30:02.897Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "as-decided",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T19:30:03.501Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner's answer of 4 November 2026, recorded in issue 841 row D6, which says these are final and not to be asked again."
+  }
+}

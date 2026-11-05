@@ -88,6 +88,18 @@ function stagePayload(overrides: Record<string, unknown> = {}): Record<string, u
 }
 
 describe('stage-agent-start.mjs', () => {
+  it('seeds the brief from the SubagentStart payload Claude Code really sends', async () => {
+    const root = onboard(tempRoot());
+    await openFeature(root, 'ses_it');
+    const live = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hooks/claude/subagent-start.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const result = await runHook(root, { ...live, cwd: root, session_id: 'ses_it' });
+    expect(result.exitCode).toBe(0);
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext as string;
+    expect(context).toContain(`SE_AGENT_ID=${String(live.agent_id)} paqad-ai stage begin planning`);
+  });
+
   it('prints one SubagentStart brief with the resolved session and stamps the marker after', async () => {
     const root = onboard(tempRoot());
     await openFeature(root, 'ses_it');
@@ -99,10 +111,10 @@ describe('stage-agent-start.mjs', () => {
     expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     const brief: string = output.hookSpecificOutput.additionalContext;
     expect(brief).toContain(
-      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage start development',
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage begin development',
     );
     expect(brief).toContain(
-      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage end development --artifact',
+      'SE_SESSION=ses_it SE_AGENT_ID=agent_dev_1 paqad-ai stage end development --agent paqad-development --artifact',
     );
     expect(markers(root)).toEqual(['agent_dev_1']);
     expect(hookLog(root)).toHaveLength(1);
@@ -136,7 +148,7 @@ describe('stage-agent-start.mjs', () => {
     const start = await runHook(root, payload, { SE_SESSION: 'ses_env_other' });
     const brief: string = JSON.parse(start.stdout).hookSpecificOutput.additionalContext;
     const session = brief.match(
-      /SE_SESSION=(\S+) SE_AGENT_ID=agent_dev_1 paqad-ai stage start/,
+      /SE_SESSION=(\S+) SE_AGENT_ID=agent_dev_1 paqad-ai stage begin/,
     )?.[1];
 
     await runHook(

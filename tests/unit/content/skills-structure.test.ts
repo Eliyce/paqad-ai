@@ -1,6 +1,6 @@
 import fg from 'fast-glob';
 import { readFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,15 @@ import { toPosixPath } from '@/core/path-utils.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
 import { PARENT_CALLED_HELPERS } from '../skills/_helpers/parent-called-helpers.js';
+
+const STAGE_RECIPES = [
+  'planning-recipe',
+  'specification-recipe',
+  'development-recipe',
+  'review-recipe',
+  'documentation-sync-recipe',
+  'checks-recipe',
+];
 
 describe('runtime skills', () => {
   it('all shipped runtime skills have valid frontmatter, bundled metadata, and required sections', async () => {
@@ -37,6 +46,7 @@ describe('runtime skills', () => {
     for (const file of files) {
       const content = await readFile(file, 'utf8');
       const skillDir = dirname(file);
+      const isStageRecipe = STAGE_RECIPES.includes(basename(skillDir));
       const parsed = parser.parse(content, skillDir);
       const agentConfigPath = join(skillDir, 'agents', 'openai.yaml');
       const bundledReferences = await fg('references/**/*', {
@@ -54,11 +64,20 @@ describe('runtime skills', () => {
       expect(parsed.frontmatter.output_format).toBeTruthy();
       expect(Object.keys(parsed.frontmatter.input_schema)).not.toHaveLength(0);
       expect(await readFile(agentConfigPath, 'utf8')).toContain('interface:');
-      expect(bundledReferences.length).toBeGreaterThan(0);
 
       for (const section of requiredSections) {
+        if (section === '## Resources' && isStageRecipe) continue;
         expect(parsed.body).toContain(section);
       }
+
+      if (isStageRecipe) {
+        expect(bundledReferences).toEqual([]);
+        expect(parsed.body).toContain('## Read This Path');
+        expect(parsed.body).toMatch(/`base\/skills\/[a-z-]+\/SKILL\.md`/);
+        continue;
+      }
+
+      expect(bundledReferences.length).toBeGreaterThan(0);
 
       const resourceReferences = [
         ...bundledReferences,

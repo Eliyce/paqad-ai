@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,6 +16,17 @@ describe('stage enforcement contract suite stays frozen', () => {
       .update(readFileSync(join(process.cwd(), CONTRACT)))
       .digest('hex');
     expect(digest).toBe(FROZEN_SHA256);
+  });
+
+  it('AC-33: this branch has no diff against origin/main on the contract e2e suite', (ctx) => {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe' });
+    try {
+      git('rev-parse', '--verify', 'origin/main');
+    } catch {
+      ctx.skip();
+    }
+    expect(git('diff', 'origin/main', '--', CONTRACT)).toBe('');
   });
 
   it('AC-38: the contract e2e suite still runs on both the npm and the plugin route', () => {

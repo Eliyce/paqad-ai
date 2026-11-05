@@ -678,3 +678,65 @@ function startStageRaw(
     );
   }
 }
+
+describe('stage evidence schema versions', () => {
+  const header = {
+    doc_type: 'paqad.stage-evidence',
+    change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    session_id: 'ses_1',
+    recorded_at: '2026-11-04T10:00:00.000Z',
+    content_hash: 'a'.repeat(64),
+    agent: 'paqad-planning',
+  };
+  const handback = {
+    kind: 'stage-handback',
+    stage: 'planning',
+    event_status: 'denied',
+    agent_id: 'a1',
+    report_status: 'DONE',
+    report_source: 'handback',
+    idempotency_key: 'k',
+    prev_hash: null,
+    chain_note: 'lock-timeout',
+  };
+
+  it('accepts a version 2 row and a version 3 row beside it', () => {
+    expect(validateStageEvidenceRow({ ...header, schema_version: 2, kind: 'open' })).toEqual([]);
+    expect(validateStageEvidenceRow({ ...header, schema_version: 3, kind: 'open' })).toEqual([]);
+  });
+
+  it('accepts the new kinds and fields only on version 3', () => {
+    expect(validateStageEvidenceRow({ ...header, schema_version: 3, ...handback })).toEqual([]);
+    expect(validateStageEvidenceRow({ ...header, schema_version: 2, ...handback })).not.toEqual([]);
+    expect(
+      validateStageEvidenceRow({
+        ...header,
+        schema_version: 2,
+        kind: 'open',
+        event_status: 'denied',
+      }),
+    ).not.toEqual([]);
+  });
+
+  it('requires the recipe proof fields on version 3', () => {
+    expect(
+      validateStageEvidenceRow({
+        ...header,
+        schema_version: 3,
+        kind: 'skill-used',
+        stage: 'review',
+        recipe: 'review-recipe',
+      }),
+    ).not.toEqual([]);
+    expect(
+      validateStageEvidenceRow({
+        ...header,
+        schema_version: 3,
+        kind: 'recipe-injected',
+        stage: 'review',
+        recipe: 'review-recipe',
+        recipe_hash: 'h',
+      }),
+    ).toEqual([]);
+  });
+});

@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +14,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
-import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  openFeatureChange,
+  recordChangeConstants,
+} from '@/feature-evidence/stage-ledger.js';
 import { appendFixProofRow, type FixProofRow } from '@/fix-protocol/fix-proof-record.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 import { writeRuleStopRecord } from '@/hud/last-block.js';
@@ -1603,5 +1614,35 @@ describe('AC-11: decisions belong to a change only when the packet names it', ()
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
     expect(snapshot.decisions.pending).toEqual([]);
     expect(snapshot.headline.text).not.toMatch(/waiting for you/i);
+  });
+});
+
+describe('the snapshot carries the run of each stage', () => {
+  it('AC-78: adds the run and a note when the last ledger line was cut, and keeps every stage', () => {
+    const session = 'ses_run';
+    const root = onboardedRoot();
+    const dir = openChange(root, session, 'full', '12 run line');
+    appendFeatureStageRow(root, session, dir, { kind: 'stage_start', stage: 'review' });
+    appendFeatureStageRow(root, session, dir, {
+      kind: 'stage-agent',
+      stage: 'review',
+      event_status: 'completed',
+      agent_id: 'a1',
+      tokens_used: 10,
+      tokens_not_recarried: 1,
+      estimate: true,
+      report_status: 'DONE',
+      report_stated: true,
+      report_source: 'handback',
+      api_turns: 44,
+    });
+    const before = buildHudSnapshot(root, session);
+    expect(before.ledger_note).toBeUndefined();
+    const review = before.proof?.find((entry) => entry.stage === 'review');
+    expect(review?.run?.line).toContain('DONE · 44 turns');
+    appendFileSync(join(root, featureFilePath(dir, 'stageEvidence')), '{"cut');
+    const after = buildHudSnapshot(root, session);
+    expect(after.ledger_note).toContain('cut');
+    expect(after.proof?.find((entry) => entry.stage === 'review')?.state).toBe(review?.state);
   });
 });

@@ -187,7 +187,7 @@ describe('narration-contract-writer', () => {
 
   it('AC-50: resumes the paused agent after decision resolve, never re-dispatching the same stage', () => {
     const body = buildNarrationContractBody();
-    const paused = body.split('\n').find((line) => line.startsWith('3. On `paused: D-<id>`'))!;
+    const paused = body.split('\n').find((line) => line.startsWith('3. When the stage returns'))!;
     expect(paused).toContain(
       'resolve it with `paqad-ai decision resolve`, then resume the paused agent with the answer (the resume protocol below).',
     );
@@ -227,7 +227,7 @@ describe('narration-contract-writer', () => {
       expect(body.indexOf(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH)).toBeLessThan(
         body.indexOf('**The resume protocol.**'),
       );
-      const step4 = body.split('\n').find((line) => line.startsWith('4. On `completed`'))!;
+      const step4 = body.split('\n').find((line) => line.startsWith('4. On `advance: true`'))!;
       expect(step4).toContain('Review and documentation sync side by side');
       expect(router()).toContain(PARALLEL_REVIEW_AND_DOCS_PARAGRAPH);
       expect(router()).toContain(step4);
@@ -291,6 +291,17 @@ describe('narration-contract-writer', () => {
 
 describe('the orchestrator protocol for stage returns', () => {
   const router = readFileSync(join(process.cwd(), 'runtime', 'AGENT-ROUTER.md'), 'utf8');
+
+  it('AC-20: acts on the stage report row and tells the developer the reason from it', () => {
+    const body = buildNarrationContractBody();
+    for (const text of [body, router]) {
+      expect(text).toContain('run `paqad-ai stage report <agent_id>` and act on the JSON');
+      expect(text).toContain('tell the developer which stage stopped and the `reason`');
+      expect(text).toContain('tell them that reason, not the claim');
+      expect(text).toContain('Follow `resume_advice`');
+      expect(text).not.toContain('No gate reads `advance`');
+    }
+  });
 
   it('AC-8: a return with no Status line is checked against the ledger and resumed once', () => {
     const body = buildNarrationContractBody();

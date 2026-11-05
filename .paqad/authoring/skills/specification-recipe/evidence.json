@@ -1,0 +1,66 @@
+{
+  "schema_version": "1",
+  "skill": "specification-recipe",
+  "version": "1.1.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:82810e03d38e375a81b52889b402dbf34789bed56097d068b8b1c491da700550",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "overridden"
+  },
+  "sources": {
+    "count": 11,
+    "non_model": 11,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap tests/unit/skills/specification-recipe",
+    "tests": 7,
+    "passed": 7,
+    "skipped": 0
+  },
+  "benchmark": null,
+  "trigger": null,
+  "performance": {
+    "tokens": "unavailable",
+    "source": "unavailable"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": "unavailable",
+    "source": "host-usage"
+  },
+  "overrides": [
+    {
+      "gate": "S0",
+      "reason": "Owner, 4 Nov 2026: skip. One recipe per stage is already decided, so a no-skill baseline cannot change the outcome.",
+      "by": "human",
+      "at": "2026-11-04T21:33:16.244Z"
+    },
+    {
+      "gate": "S5",
+      "reason": "Owner, 4 Nov 2026: the 12 approved sample runs are the measure for now; full measurement later.",
+      "by": "human",
+      "at": "2026-11-04T21:33:16.878Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner, 4 Nov 2026: skip. paqad loads the recipe itself and it has no triggers, so a trigger test measures nothing.",
+      "by": "human",
+      "at": "2026-11-04T21:33:17.507Z"
+    }
+  ],
+  "decisions": [
+    "D-01M6M72QAF97J8G6E1YVMK0RDB",
+    "D-01M6M72QM5Y3MM70QYCEG955PH",
+    "D-01M6M72QZV3J4BG9E6ZYM10YAR"
+  ],
+  "labels": [
+    "unverified"
+  ]
+}

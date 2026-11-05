@@ -104,6 +104,14 @@ export interface RunChecksOptions {
   nodeVersion?: string;
 }
 
+const STAGE_IDENTITY_ENV = ['SE_AGENT_ID', 'SE_SESSION'] as const;
+
+export function projectCommandEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const projectEnv = { ...env };
+  for (const name of STAGE_IDENTITY_ENV) delete projectEnv[name];
+  return projectEnv;
+}
+
 const EMPTY_ISOLATION: ChecksReportIsolation = {
   performed: false,
   skipped_reason: null,
@@ -115,7 +123,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   const projectRoot = options.projectRoot;
   const nowIso = options.now ?? (() => new Date().toISOString());
   const nowMs = options.nowMs ?? (() => Date.now());
-  const shell = options.shell ?? createDeliveryShell(projectRoot);
+  const shell = options.shell ?? createDeliveryShell(projectRoot, { env: projectCommandEnv() });
   const changedFiles = [...(options.changedFiles ?? [])];
   const osFacts = options.osFacts ?? {
     availableParallelism: osAvailableParallelism(),

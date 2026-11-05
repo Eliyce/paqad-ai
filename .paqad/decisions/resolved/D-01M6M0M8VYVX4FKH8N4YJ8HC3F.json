@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M0M8VYVX4FKH8N4YJ8HC3F",
+  "category": "architecture-path",
+  "title": "Issue 841 D3: Delivery",
+  "context": "Owner decision recorded in Eliyce/paqad-ai issue 841, row D3: The recipe is appended to the brief by the `SubagentStart` hook, read from paqad's own runtime. No `skills:` field on the agent, no `Skill` tool, nothing installed into the repo for the runtime, nothing listed in any chat. One code path for both routes.",
+  "options": [
+    {
+      "option_key": "as-decided",
+      "label": "As the owner decided in the issue",
+      "one_line_preview": "As the owner decided in the issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reopen",
+      "label": "Reopen with the owner",
+      "one_line_preview": "Reopen with the owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "as-decided",
+  "created_at": "2026-11-04T19:29:59.167Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "as-decided",
+  "rationale": "Owner's answer of 4 November 2026, recorded in issue 841 row D3, which says these are final and not to be asked again.",
+  "resolved_at": "2026-11-04T19:29:59.786Z",
+  "decision_id": "D-01M6M0M8VYVX4FKH8N4YJ8HC3F",
+  "fingerprint": "sha256:a2433262f6a960063d4a90a2537f8ca2902a2e83ef28416c26cd1fc7e2903f38",
+  "question": "Issue 841 D3: Delivery",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2027-02-02T19:29:59.167Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "as-decided",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T19:29:59.786Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner's answer of 4 November 2026, recorded in issue 841 row D3, which says these are final and not to be asked again."
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "sample": true,
+  "note": "Twelve real runs, one past task per stage in two arms. A sample, not a statistic.",
+  "runs": [
+    {
+      "stage": "planning",
+      "arm": "old",
+      "turns": 28,
+      "tokens_used": 1496190,
+      "duration_ms": 439169,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 64
+    },
+    {
+      "stage": "planning",
+      "arm": "new",
+      "turns": 22,
+      "tokens_used": 1461702,
+      "duration_ms": 686769,
+      "artifact_pass": true,
+      "skill_used": true,
+      "within_budget": true,
+      "baseline_turns": 64
+    },
+    {
+      "stage": "specification",
+      "arm": "old",
+      "turns": 39,
+      "tokens_used": 2505835,
+      "duration_ms": 1124322,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 35
+    },
+    {
+      "stage": "specification",
+      "arm": "new",
+      "turns": 40,
+      "tokens_used": 2410080,
+      "duration_ms": 1278956,
+      "artifact_pass": true,
+      "skill_used": true,
+      "within_budget": true,
+      "baseline_turns": 35
+    },
+    {
+      "stage": "development",
+      "arm": "old",
+      "turns": 50,
+      "tokens_used": 3753926,
+      "duration_ms": 854769,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 109
+    },
+    {
+      "stage": "development",
+      "arm": "new",
+      "turns": 41,
+      "tokens_used": 3025814,
+      "duration_ms": 819563,
+      "artifact_pass": true,
+      "skill_used": true,
+      "within_budget": true,
+      "baseline_turns": 109
+    },
+    {
+      "stage": "review",
+      "arm": "old",
+      "turns": 19,
+      "tokens_used": 837415,
+      "duration_ms": 315718,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 44
+    },
+    {
+      "stage": "review",
+      "arm": "new",
+      "turns": 24,
+      "tokens_used": 969579,
+      "duration_ms": 273555,
+      "artifact_pass": true,
+      "skill_used": true,
+      "within_budget": true,
+      "baseline_turns": 44
+    },
+    {
+      "stage": "checks",
+      "arm": "old",
+      "turns": 8,
+      "tokens_used": 115981,
+      "duration_ms": 2190064,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 10
+    },
+    {
+      "stage": "checks",
+      "arm": "new",
+      "turns": 8,
+      "tokens_used": 105552,
+      "duration_ms": 380568,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 10
+    },
+    {
+      "stage": "documentation_sync",
+      "arm": "old",
+      "turns": 10,
+      "tokens_used": 155516,
+      "duration_ms": 83313,
+      "artifact_pass": true,
+      "skill_used": false,
+      "within_budget": true,
+      "baseline_turns": 17
+    },
+    {
+      "stage": "documentation_sync",
+      "arm": "new",
+      "turns": 11,
+      "tokens_used": 207742,
+      "duration_ms": 191710,
+      "artifact_pass": true,
+      "skill_used": true,
+      "within_budget": true,
+      "baseline_turns": 17
+    }
+  ],
+  "over_budget": []
+}

@@ -26,6 +26,19 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6PFVTK0MFYHTBT9T6C8AZBZ](TD-01M6PFVTK0MFYHTBT9T6C8AZBZ.md) (gap, low): Measure the ledger append cost on Windows and recover a lock that fails to release
+- [TD-01M6NNEJ6P2C9HEAYMFXCC0546](TD-01M6NNEJ6P2C9HEAYMFXCC0546.md) (bug, low): A folder link in a change crashes the rule runner on edits
+- [TD-01M6NMGFR3E41XGDDQ2CQC5F1D](TD-01M6NMGFR3E41XGDDQ2CQC5F1D.md) (gap, low): Rule scripts that read the working folder or skip links can misjudge an edit's result
+- [TD-01M6NK2MYG1A3GAKK1YGHP3021](TD-01M6NK2MYG1A3GAKK1YGHP3021.md) (bug, medium): A stage agent that edits an instruction doc locks itself out of every later edit
+- [TD-01M6NJXX8VPWZMC2C4MP8JFX2V](TD-01M6NJXX8VPWZMC2C4MP8JFX2V.md) (bug, medium): A committed agent copy from another plugin version reads as hand-edited
+- [TD-01M6NGJMG849DTK949D3PBRWMC](TD-01M6NGJMG849DTK949D3PBRWMC.md) (gap, low): Slow contract e2e tests can pass the 10 second limit in a combined run
+- [TD-01M6NEZWJ958ZJHS82QR8E3JMJ](TD-01M6NEZWJ958ZJHS82QR8E3JMJ.md) (bug, medium): The stage write check refuses ordinary read-only shell commands
+- [TD-01M6N3VSHZKCM5R2DM77RSAAY5](TD-01M6N3VSHZKCM5R2DM77RSAAY5.md) (gap, low): Nothing warns when a managed .claude/agents copy has drifted from its render
+- [TD-01M6N3VRTP8WV561B7PQDS5PEG](TD-01M6N3VRTP8WV561B7PQDS5PEG.md) (bug, low): agent status says every stage passed when some were skipped, overridden or carried from an earlier release
+- [TD-01M6M931VPCRP9EDCWKHW7T463](TD-01M6M931VPCRP9EDCWKHW7T463.md) (debt, medium): A frozen spec cannot be corrected without losing its pipeline record
+- [TD-01M6M6WQSM3YKAVYM4EA18N6CA](TD-01M6M6WQSM3YKAVYM4EA18N6CA.md) (follow-up, low): Finish the stage recipe measurement and retire what nothing uses
+- [TD-01M6M1ZTFHDE37D76MW9Q59PP1](TD-01M6M1ZTFHDE37D76MW9Q59PP1.md) (bug, low): End-of-turn check judges a change while expert seats are still running
+- [TD-01M6M1ZSVBMTGYRPDHXEGE1E06](TD-01M6M1ZSVBMTGYRPDHXEGE1E06.md) (debt, medium): Remove the code that lets changes started before stage recipes close without recipe proof, after 4 December 2026
 - [TD-01M6KK0MVMVSXGA9Q59CZ7G2E0](TD-01M6KK0MVMVSXGA9Q59CZ7G2E0.md) (gap, low): Doctor says to delete an old delivery file that sits beside hand-written settings and may hold unmoved rules
 - [TD-01M6KJMZY5DX3D3YCQYD2JSAGJ](TD-01M6KJMZY5DX3D3YCQYD2JSAGJ.md) (gap, low): The forceOverwrite onboarding option can overwrite a file written by a newer paqad
 - [TD-01M6KJ5DY1SZAHER0ZGTT2KA04](TD-01M6KJ5DY1SZAHER0ZGTT2KA04.md) (bug, low): delivery-link install says the hooks are ready when it left a tracked or husky folder alone

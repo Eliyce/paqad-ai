@@ -3,19 +3,10 @@ import { join } from 'node:path';
 
 import { readGitState } from '@/rag/git-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import {
-  appendStampedRowToUnit,
-  readUnitFile,
-  type SessionLedgerRow,
-} from '@/session-ledger/ledger.js';
+import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { augmentWithBundleArtifacts, foldRowsWithKey } from '@/stage-evidence/fold.js';
-import { BACKSTOP_WRITER, ORCHESTRATOR_AGENT } from '@/stage-evidence/agent-identity.js';
-import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
-import {
-  STAGE_EVIDENCE_DOC_TYPE,
-  STAGE_EVIDENCE_SCHEMA_VERSION,
-  type FoldedChange,
-} from '@/stage-evidence/types.js';
+import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
+import type { FoldedChange } from '@/stage-evidence/types.js';
 
 import {
   adoptableInFlightOnBranch,
@@ -33,7 +24,7 @@ import {
   type FeatureRecordPatch,
 } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
-import { stampBundleRow } from './envelope.js';
+import { appendChainedStageRow } from './ledger-append.js';
 import { featureChangeKey, featureFilePath, parseFeatureDirName } from './paths.js';
 import {
   markDone,
@@ -114,17 +105,7 @@ export function appendFeatureStageRow(
   row: Record<string, unknown>,
   now?: () => Date,
 ): SessionLedgerRow {
-  const stamped = stampBundleRow({
-    docType: STAGE_EVIDENCE_DOC_TYPE,
-    change: featureChangeKey(dirName),
-    sessionId,
-    schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-    row: { ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
-    validate: (r) => validateStageEvidenceRow(r),
-    now,
-  }) as unknown as SessionLedgerRow;
-  appendStampedRowToUnit(projectRoot, featureStagePath(dirName), stamped);
-  return stamped;
+  return appendChainedStageRow({ projectRoot, sessionId, dirName, row, now });
 }
 
 export interface ChangeConstantsInput {

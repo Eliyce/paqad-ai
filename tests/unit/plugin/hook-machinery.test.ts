@@ -52,10 +52,13 @@ describe('buildPluginHookChain', () => {
     expect(chain.some((h) => h.command.includes('silent-update'))).toBe(false);
   });
 
-  it('fails open — no onFailure on any entry, and only the stage seed hook carries a timeout', () => {
+  it('blocks on failure on the three edit gates only, and fails open everywhere else', () => {
     for (const hook of chain) {
-      expect(hook.onFailure).toBeUndefined();
-      if (hook.nativeEvent === 'SubagentStart') {
+      const gate = /agent-entry-gate|decision-pause-gate|capability-gate\.mjs" pre-mutation/u.test(
+        hook.command,
+      );
+      expect(hook.onFailure).toBe(gate ? 'block' : undefined);
+      if (gate || hook.nativeEvent === 'SubagentStart' || hook.matcher === 'SubagentHandback') {
         expect(hook.timeout).toBe(10);
       } else {
         expect(hook.timeout).toBeUndefined();

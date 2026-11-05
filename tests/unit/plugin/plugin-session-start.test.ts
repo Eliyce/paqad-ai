@@ -687,3 +687,72 @@ describe('plugin-seen marker', () => {
     expect(typeof seen.at).toBe('string');
   });
 });
+
+describe('the plugin and runtime version line', () => {
+  function onboarded(runtimeVersion: string | null): { project: string; plugin: string } {
+    const project = join(root, 'project');
+    mkdirSync(join(project, '.paqad'), { recursive: true });
+    const plugin = join(root, 'plugin');
+    makeRuntime(plugin, '1.2.0');
+    const install = join(root, 'install');
+    const runtime =
+      runtimeVersion === null
+        ? join(root, 'gone', 'runtime')
+        : makeRuntime(install, runtimeVersion);
+    writeFileSync(join(project, '.paqad/framework-path.txt'), `${runtime}\n`);
+    return { project, plugin };
+  }
+
+  function start(project: string, plugin: string): string[] {
+    const printed: string[] = [];
+    runPluginSessionStart(
+      {
+        CLAUDE_PLUGIN_ROOT: plugin,
+        CLAUDE_PROJECT_DIR: project,
+        PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+        CLAUDE_CONFIG_DIR: join(root, 'claude'),
+        HOME: root,
+      } as NodeJS.ProcessEnv,
+      { session_id: 'ses_version', cwd: project },
+      { tick: () => {}, print: (line: string) => printed.push(line) },
+    );
+    return printed;
+  }
+
+  it('prints the same line from the SessionStart payload Claude Code really sends', () => {
+    const { project, plugin } = onboarded('1.1.0');
+    const live = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hooks/claude/session-start.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const printed: string[] = [];
+    runPluginSessionStart(
+      {
+        CLAUDE_PLUGIN_ROOT: plugin,
+        CLAUDE_PROJECT_DIR: project,
+        PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+        CLAUDE_CONFIG_DIR: join(root, 'claude'),
+        HOME: root,
+      } as NodeJS.ProcessEnv,
+      { ...live, cwd: project },
+      { tick: () => {}, print: (line: string) => printed.push(line) },
+    );
+    expect(printed).toEqual([
+      'paqad: plugin 1.2.0 and runtime 1.1.0 differ; run `paqad-ai update`',
+    ]);
+  });
+
+  it('AC-63: prints and logs one line when the versions differ, and blocks nothing', () => {
+    const { project, plugin } = onboarded('1.1.0');
+    const line = 'paqad: plugin 1.2.0 and runtime 1.1.0 differ; run `paqad-ai update`';
+    expect(start(project, plugin)).toEqual([line]);
+    expect(readFileSync(join(project, '.paqad/logs/hooks.log'), 'utf8')).toContain(line);
+  });
+
+  it('says nothing when they match, or when a version cannot be read', () => {
+    const same = onboarded('1.2.0');
+    expect(start(same.project, same.plugin)).toEqual([]);
+    rmSync(join(root, 'install'), { recursive: true, force: true });
+    const unread = onboarded(null);
+    expect(start(unread.project, unread.plugin)).toEqual([]);
+  });
+});

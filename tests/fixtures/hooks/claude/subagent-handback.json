@@ -1,0 +1,18 @@
+{
+  "session_id": "18db59c1-9994-4b7d-9914-a0916ec80d2c",
+  "transcript_path": "/capture/home/.claude/projects/capture-project/18db59c1-9994-4b7d-9914-a0916ec80d2c.jsonl",
+  "cwd": "/capture/project",
+  "prompt_id": "f5bb9ab2-9679-4e95-9a8f-b11450199983",
+  "permission_mode": "auto",
+  "agent_id": "ae014fbc49e33e66a",
+  "agent_type": "paqad-planning",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "SubagentHandback",
+  "tool_input": {
+    "message": "Captured for the paqad hook fixtures.\nStatus: DONE"
+  },
+  "tool_use_id": "toolu_01UxSUFbTRZ3wSCEugrziScS"
+}

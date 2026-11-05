@@ -1,0 +1,5 @@
+interface:
+  display_name: Specification Recipe
+  short_description: Run the spec pipeline, write testable criteria and freeze.
+policy:
+  allow_implicit_invocation: false

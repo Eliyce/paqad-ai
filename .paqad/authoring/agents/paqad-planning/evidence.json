@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-planning",
-  "version": "1.2.0",
-  "file_hash": "sha256:12ea7f2186aafa90b78cbff91289d58f7030342d94e70c83d2c1fb744f3b90ec",
+  "version": "1.6.0",
+  "file_hash": "sha256:6be87be0a88e4e378792e5b6ffc0bde8af1acd866a91ef292618378936566800",
   "released_path": "runtime/claude-plugin/agents/paqad-planning.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-planning.md"
@@ -234,7 +234,7 @@
   },
   "lint": {
     "blocking": 0,
-    "warnings": 3
+    "warnings": 1
   },
   "script_tests": {
     "command": null,
@@ -242,26 +242,28 @@
     "passed": 0
   },
   "permission_decisions": [
-    "D-01M6H0263561FR9TFNRX53ESS1"
+    "D-01M6H0263561FR9TFNRX53ESS1",
+    "D-01M6N7M8NJ7WXYBC2V3WFH34TN"
   ],
   "overrides": [
     {
       "gate": "S2",
-      "reason": "Owner approved in chat (2026-11-03): skip S2 for all four helpers; name shadowing only matches paqad's own generated Codex form of the same agent.",
+      "reason": "Owner approved on 5 Nov 2026: the only name clash is with paqad's own generated copy in ~/.codex/agents, so it is not a real conflict.",
       "by": "human",
-      "at": "2026-11-03T15:21:55.016Z"
+      "at": "2026-11-05T05:28:18.946Z"
     },
     {
       "gate": "S5",
-      "reason": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt.",
+      "reason": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
       "by": "human",
-      "at": "2026-11-03T19:54:21.128Z"
+      "at": "2026-11-05T05:28:28.514Z"
     }
   ],
   "decisions": [
-    "D-01M6H00FVZQ37SYQ88SDCM7HSV",
     "D-01M6H0263561FR9TFNRX53ESS1",
-    "D-01M6HFKX9R1E21K286TWQ5Z5CP"
+    "D-01M6N2VV0G7JZXR6JYTZV7RXKE",
+    "D-01M6N2W4AY2HZYKC2WV0EWDJSG",
+    "D-01M6N7M8NJ7WXYBC2V3WFH34TN"
   ],
   "labels": [
     "unverified"

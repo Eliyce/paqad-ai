@@ -20,6 +20,7 @@ import { delimiter, dirname, join } from 'node:path';
 
 import {
   anyLiveNpmHookLines,
+  appendHooksLog,
   claudeDir,
   claudeSettingsPath,
   hasLiveNpmHookLines,
@@ -369,6 +370,27 @@ function maybeRefreshVersion(pluginRoot, projectRoot, deps = {}) {
   return 'started';
 }
 
+function runtimeVersion(projectRoot, env) {
+  let target;
+  try {
+    target = readFileSync(join(projectRoot, '.paqad', 'framework-path.txt'), 'utf8').trim();
+  } catch {
+    return null;
+  }
+  if (target === '') return null;
+  const resolved = target.startsWith('~/') ? join(env.HOME ?? homedir(), target.slice(2)) : target;
+  return readPackageVersion(resolved) ?? readPackageVersion(dirname(resolved));
+}
+
+function reportVersionMismatch(pluginRoot, projectRoot, env, deps) {
+  const plugin = readPackageVersion(pluginRoot);
+  const runtime = runtimeVersion(projectRoot, env);
+  if (!plugin || !runtime || plugin === runtime) return;
+  const line = `paqad: plugin ${plugin} and runtime ${runtime} differ; run \`paqad-ai update\``;
+  appendHooksLog(projectRoot, line);
+  (deps.print ?? ((text) => process.stdout.write(`${text}\n`)))(line);
+}
+
 export function runPluginSessionStart(env = process.env, payload = undefined, deps = {}) {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   if (!pluginRoot) {
@@ -401,6 +423,7 @@ export function runPluginSessionStart(env = process.env, payload = undefined, de
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));
   maybeRefreshVersion(pluginRoot, projectRoot);
+  reportVersionMismatch(pluginRoot, projectRoot, env, deps);
 }
 
 export const __test = {

@@ -1,0 +1,5 @@
+interface:
+  display_name: Documentation Sync Recipe
+  short_description: Find the docs the diff made stale and update each surface.
+policy:
+  allow_implicit_invocation: false

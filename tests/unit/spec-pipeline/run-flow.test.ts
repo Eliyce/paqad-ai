@@ -45,6 +45,9 @@ const SPEC = [
   '## Invariants',
   '- INV-1: The invoices table keeps its customer_id index.',
   '',
+  '## Edge cases',
+  '- A customer with no invoices lists nothing.',
+  '',
 ].join('\n');
 
 describe('a whole spec pipeline run never touches the old scratch folder (AC-2)', () => {

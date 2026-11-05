@@ -157,6 +157,34 @@ export function readUnitFile(projectRoot: string, unitRelPath: string): SessionL
   return readJsonl(join(projectRoot, unitRelPath));
 }
 
+export interface UnitFileHealth {
+  rows: SessionLedgerRow[];
+  torn_tail: boolean;
+  torn_lines: number;
+}
+
+export function readUnitFileHealth(projectRoot: string, unitRelPath: string): UnitFileHealth {
+  const abs = join(projectRoot, unitRelPath);
+  const rows = readJsonl(abs);
+  if (!existsSync(abs)) return { rows, torn_tail: false, torn_lines: 0 };
+  const lines = readFileSync(abs, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() !== '');
+  const torn = lines.map((line) => {
+    try {
+      JSON.parse(line);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  return {
+    rows,
+    torn_tail: torn.at(-1) === true,
+    torn_lines: torn.filter(Boolean).length,
+  };
+}
+
 export function appendSessionEvent(
   projectRoot: string,
   docType: string,

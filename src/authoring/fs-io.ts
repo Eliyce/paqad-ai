@@ -13,7 +13,10 @@ import { basename, dirname, join } from 'node:path';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
 const MISSING_CODES = new Set(['ENOENT', 'ENOTDIR']);
-const READ_NO_FOLLOW = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+
+function readNoFollowFlags(): number {
+  return constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+}
 
 export function isMissingPathError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code;
@@ -56,7 +59,7 @@ export interface RegularFile {
 export function readRegularFile(path: string, followLinks = true): RegularFile | null {
   let fd: number;
   try {
-    fd = openSync(path, followLinks ? constants.O_RDONLY : READ_NO_FOLLOW);
+    fd = openSync(path, followLinks ? constants.O_RDONLY : readNoFollowFlags());
   } catch (error) {
     if ((error as NodeJS.ErrnoException | null)?.code === 'EISDIR') return null;
     throw error;

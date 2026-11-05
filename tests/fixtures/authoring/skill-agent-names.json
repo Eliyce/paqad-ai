@@ -97,6 +97,11 @@
       "name": "canonical-doc-sync"
     },
     {
+      "path": "runtime/base/skills/checks-recipe/SKILL.md",
+      "folder": "checks-recipe",
+      "name": "checks-recipe"
+    },
+    {
       "path": "runtime/base/skills/context-budget-planner/SKILL.md",
       "folder": "context-budget-planner",
       "name": "context-budget-planner"
@@ -112,6 +117,11 @@
       "name": "decision"
     },
     {
+      "path": "runtime/base/skills/development-recipe/SKILL.md",
+      "folder": "development-recipe",
+      "name": "development-recipe"
+    },
+    {
       "path": "runtime/base/skills/diff-doc-sync/SKILL.md",
       "folder": "diff-doc-sync",
       "name": "diff-doc-sync"
@@ -125,6 +135,11 @@
       "path": "runtime/base/skills/documentation-sync-engine/SKILL.md",
       "folder": "documentation-sync-engine",
       "name": "documentation-sync-engine"
+    },
+    {
+      "path": "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+      "folder": "documentation-sync-recipe",
+      "name": "documentation-sync-recipe"
     },
     {
       "path": "runtime/base/skills/documentation-workflow/SKILL.md",
@@ -212,6 +227,11 @@
       "name": "performance-regression-estimator"
     },
     {
+      "path": "runtime/base/skills/planning-recipe/SKILL.md",
+      "folder": "planning-recipe",
+      "name": "planning-recipe"
+    },
+    {
       "path": "runtime/base/skills/request-classifier/SKILL.md",
       "folder": "request-classifier",
       "name": "request-classifier"
@@ -220,6 +240,11 @@
       "path": "runtime/base/skills/requirement-enrichment/SKILL.md",
       "folder": "requirement-enrichment",
       "name": "requirement-enrichment"
+    },
+    {
+      "path": "runtime/base/skills/review-recipe/SKILL.md",
+      "folder": "review-recipe",
+      "name": "review-recipe"
     },
     {
       "path": "runtime/base/skills/rollback-safety-planner/SKILL.md",
@@ -280,6 +305,11 @@
       "path": "runtime/base/skills/spec-quality-review/SKILL.md",
       "folder": "spec-quality-review",
       "name": "spec-quality-review"
+    },
+    {
+      "path": "runtime/base/skills/specification-recipe/SKILL.md",
+      "folder": "specification-recipe",
+      "name": "specification-recipe"
     },
     {
       "path": "runtime/base/skills/story-and-solution-writer/SKILL.md",

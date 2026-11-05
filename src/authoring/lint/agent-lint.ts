@@ -60,6 +60,11 @@ export const TOOL_LIMIT_POWER = 'tool-limit';
 const PERMISSION_RULE = 'AG-015';
 const TOOL_LIMIT_RULE = 'AG-018';
 const RISKY_POWER_RULE = 'AG-022';
+const READ_ONLY_PAQAD_AGENT =
+  /^paqad-(planning|specification|review|checks|expert|chief-architect)$/u;
+const STAGE_WRITE_GUARD_HOOK = 'stage-agent-write-guard.mjs';
+const NAMES_ITS_ENFORCER = /\bcapability gate\b|\bstage-agent-[a-z-]+\.mjs\b/u;
+const NAMES_A_PAQAD_COMMAND = /`paqad-ai [^`]+`/u;
 export const POWER_RULES: readonly string[] = [PERMISSION_RULE, TOOL_LIMIT_RULE, RISKY_POWER_RULE];
 const SCRIPT_INTERPRETERS = /^(?:node|php|python3?|ruby|bash|sh|deno|bun|tsx)$/u;
 const SHELL_OPERATORS = /[;&|`<>]|\$\(/u;
@@ -309,6 +314,15 @@ function readPacketContext(projectRoot: string, id: string): string | null {
   const row = readContractDecisions(projectRoot).find((entry) => entry.packet.id === id);
   const context = (row?.packet as { context?: unknown } | undefined)?.context;
   return typeof context === 'string' ? context : null;
+}
+
+export function permissionPacketNamesFile(
+  projectRoot: string,
+  id: string,
+  fileHash: string,
+): boolean {
+  const context = readPacketContext(projectRoot, id);
+  return context !== null && parsePermissionContext(context)?.fileHash === fileHash;
 }
 
 export function permissionApproval(
@@ -704,6 +718,22 @@ function blockingHookFor(hooks: AgentHookScripts, tool: string): boolean {
   );
 }
 
+function withStageWriteGuard(
+  name: string,
+  tools: readonly ParsedTool[] | undefined,
+  hooks: AgentHookScripts,
+): AgentHookScripts {
+  const editing = tools?.some((tool) => tool.base === 'Edit' || tool.base === 'Write') ?? true;
+  if (editing || !READ_ONLY_PAQAD_AGENT.test(name)) return hooks;
+  return {
+    ...hooks,
+    commands: [
+      ...hooks.commands,
+      { event: 'PreToolUse', matcher: 'Bash', command: STAGE_WRITE_GUARD_HOOK },
+    ],
+  };
+}
+
 function riskyPowers(
   tools: readonly ParsedTool[] | undefined,
   hooks: AgentHookScripts,
@@ -741,12 +771,15 @@ function checkDoNot(
   const denied = new Set(
     (listOf(ctx.data.disallowedTools) ?? []).map((tool) => parseTool(tool).base),
   );
+  const paqadOwned = String(ctx.data.name ?? '').startsWith('paqad-');
   section.lines.forEach((text, index) => {
     if (!/^\s*(?:[-*+]|\d+[.)])\s+/u.test(text)) return;
     const named = CLAUDE_CODE_AGENT_FIELDS.tools.filter((tool) =>
       new RegExp(`\\b${tool}\\b`, 'u').test(text),
     );
     const enforced =
+      NAMES_ITS_ENFORCER.test(text) ||
+      (paqadOwned && NAMES_A_PAQAD_COMMAND.test(text)) ||
       named.some((tool) => denied.has(tool) || (tools !== undefined && !allowed.has(tool))) ||
       named.some((tool) => blockingHookFor(hooks, tool)) ||
       (tools !== undefined &&
@@ -883,7 +916,7 @@ export function lintAgentFile(file: string, options: AgentLintOptions): AgentLin
   const toolTokens = toolCount * TOOL_DEFINITION_TOKENS_ESTIMATE;
   const overTools =
     !codex && (toolCount > limits.maxTools || toolTokens > TOOL_DEFINITIONS_MAX_TOKENS);
-  const risky = codex ? [] : riskyPowers(tools, hooks);
+  const risky = codex ? [] : riskyPowers(tools, withStageWriteGuard(name, tools, hooks));
   const powers = [
     ...(permission ? ['bypassPermissions'] : []),
     ...(overTools ? [TOOL_LIMIT_POWER] : []),

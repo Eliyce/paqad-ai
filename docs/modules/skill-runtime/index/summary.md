@@ -84,6 +84,9 @@ while risk and scope are left to the model). The reasons below are not obvious f
   It runs under `set -euo pipefail` like every skill script, so the two `paqad-ai module-health`
   calls and the node step that combines them each end in `|| true`: their failure is expected and
   must not stop the script. `--help` prints only the usage text.
+- **Stage recipes.** The six `<stage>-recipe` skills under `runtime/base/skills` hold each stage's method,
+  and all but `checks-recipe` ship a check script run by the stage commands. The contract and the rules for
+  each script are in [the workflow summary](../../feature-development-workflow/index/summary.md).
 - **Strict mode in skill scripts.** The skill-authoring rule that asks for `set -euo pipefail` at
   the top of a shell script (RL-aa4e) is checked only on scripts under `skills/<name>/scripts/`,
   and never on files under `node_modules/` or `__fixtures__/`. Hook scripts stay best-effort on purpose

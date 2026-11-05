@@ -117,6 +117,9 @@ call, so a static reader sees it:
   and keeps the finished ids per change in the `agentsFinished` atom, so the count covers the
   current change only. `Waiting for your answer` still wins, and `headline.ts` falls back to the
   snapshot headline when nothing runs.
+- It shows each stage's run on the full lane: one footnote line in the Ledger with the recipe, the
+  report and the turns, such as `review · proven · DONE · 44 turns`. The words and tones are in
+  [hud.md](../../../instructions/design-system/hud.md).
 - It keeps the headline on one line: `fitLine` in `shell.ts` cuts it with `…` to the band
   width on both surfaces.
 - It never answers a permission check of its own. Allow once lives in a `tool.call` hook on Edit,

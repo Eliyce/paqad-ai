@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -10,7 +17,14 @@ import {
 } from '@/verification/repository/bundle-completeness-gate.js';
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  readFeatureStageUnit,
+  recordChangeConstants,
+} from '@/feature-evidence/stage-ledger.js';
+import { repairChainBreak } from '@/feature-evidence/chain-repair.js';
+import { stageReceiptNotes } from '@/stage-isolation/recipe-receipt.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   chatRagPath,
   featureDir,
@@ -1406,5 +1420,277 @@ describe('bundleCompletenessGate with the change split across two bundles', () =
       mode: 'strict',
     });
     expect(gate!.status).toBe('pass');
+  });
+});
+
+describe('bundleCompletenessGate asks each stage for its recipe proof', () => {
+  const config = { ...ONLY_ALWAYS, stageIsolationExpected: true };
+  const gate = (root: string) =>
+    bundleCompletenessGate({ ...base, config, projectRoot: root, dirName: DIR, mode: 'strict' })!;
+  const add = (root: string, row: Record<string, unknown>) =>
+    appendFeatureStageRow(root, 'ses_1', DIR, row);
+  const agentRow = (stage: string) => ({
+    kind: 'stage-agent',
+    stage,
+    event_status: 'completed',
+    agent_id: 'a1',
+    tokens_used: 0,
+    tokens_not_recarried: 0,
+    estimate: true,
+  });
+  const injected = (stage: string) => ({
+    kind: 'recipe-injected',
+    stage,
+    recipe: 'r',
+    recipe_hash: 'h',
+  });
+  const used = (stage: string) => ({
+    kind: 'skill-used',
+    stage,
+    recipe: 'r',
+    source: 'script',
+    script: 's',
+    output_hash: 'h',
+  });
+
+  function started(stage: string): string {
+    const root = tempRoot();
+    mkdirSync(join(root, featureDir(DIR)), { recursive: true });
+    add(root, { kind: 'open' });
+    add(root, { kind: 'stage_start', stage });
+    return root;
+  }
+
+  it('AC-50: fails a development stage with no skill-used row, naming development', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    const result = gate(root);
+    expect(result.status).toBe('fail');
+    expect(result.detail).toContain('recipe proof for development');
+  });
+
+  it('FR-76: does not hold checks for a skill-used row, because its recipe has no script', () => {
+    const root = started('checks');
+    add(root, agentRow('checks'));
+    add(root, injected('checks'));
+    expect(gate(root).detail ?? '').not.toContain('recipe proof for checks');
+  });
+
+  it('FR-89: the hold names the install fix and the command that writes the proof', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    const { detail } = gate(root);
+    expect(detail).toContain('npm i -g paqad-ai@latest');
+    expect(detail).toContain('paqad-ai update');
+    expect(detail).toContain('Then dispatch the paqad-development agent');
+    expect(detail).toContain('runs paqad-ai stage end development');
+  });
+
+  it.each([
+    ['planning', 'paqad-ai plan compile, then paqad-ai stage end planning'],
+    ['specification', 'paqad-ai spec freeze, then paqad-ai stage end specification'],
+    ['review', 'paqad-ai review record, then paqad-ai stage end review'],
+  ])('FR-89: the %s hold names the verb that writes its skill-used row', (stage, command) => {
+    const root = started(stage);
+    add(root, agentRow(stage));
+    add(root, injected(stage));
+    expect(gate(root).detail).toContain(command);
+  });
+
+  it('does not name a stage that has all its proof', () => {
+    const root = started('development');
+    add(root, agentRow('development'));
+    add(root, injected('development'));
+    add(root, used('development'));
+    expect(gate(root).detail).not.toContain('recipe proof for');
+  });
+
+  it('asks checks only for the injected row on Claude Code', () => {
+    const root = started('checks');
+    add(root, agentRow('checks'));
+    add(root, injected('checks'));
+    expect(gate(root).detail).not.toContain('recipe proof for');
+  });
+
+  it('AC-53: does not ask a Codex change for injection, takes the digest for checks, and the receipt says so', () => {
+    const root = started('development');
+    seedFeatureRecord(root, DIR, { adapter: 'codex-cli', sessionId: 'ses_1', lane: 'full' });
+    add(root, agentRow('development'));
+    add(root, used('development'));
+    add(root, { kind: 'stage_start', stage: 'checks' });
+    add(root, agentRow('checks'));
+    add(root, {
+      kind: 'stage_end',
+      stage: 'checks',
+      artifact_digest: 'd',
+      artifact_paths: ['x/checks.json'],
+    });
+    expect(gate(root).detail).not.toContain('recipe proof for');
+    expect(stageReceiptNotes(root, DIR).join(' ')).toContain('recipe read, not injected');
+  });
+
+  it('AC-56: warns about a stage that ran before the update, and fails one after it', () => {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    writeFileSync(
+      ledger,
+      `${JSON.stringify({
+        schema_version: 2,
+        doc_type: 'paqad.stage-evidence',
+        kind: 'stage_start',
+        stage: 'planning',
+        content_hash: 'a',
+        session_id: 's',
+        agent: 'orchestrator',
+        recorded_at: '2026-11-01T10:00:00.000Z',
+      })}\n`,
+    );
+    add(root, { kind: 'stage_start', stage: 'review' });
+    const result = gate(root);
+    expect(result.detail).toContain('ran before the update and hold no recipe proof: planning');
+    expect(result.detail).toContain('recipe proof for review');
+    expect(result.detail).not.toContain('recipe proof for planning');
+  });
+
+  it('asks nothing on another lane', () => {
+    const root = started('development');
+    const fast = bundleCompletenessGate({
+      ...base,
+      config: { ...config, lane: 'fast' },
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    })!;
+    expect(fast.detail).not.toContain('recipe proof for');
+  });
+});
+
+describe('bundleCompletenessGate reads the ledger chain', () => {
+  function chainRoot(): { root: string; ledger: string } {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    for (const row of [
+      { kind: 'open' },
+      { kind: 'stage_start', stage: 'planning' },
+      { kind: 'stage_start', stage: 'review' },
+    ]) {
+      appendFeatureStageRow(root, 'ses_1', DIR, row);
+    }
+    return { root, ledger };
+  }
+
+  const agentStarted = () => ({
+    kind: 'stage-agent',
+    stage: 'review',
+    event_status: 'started',
+    agent: 'paqad-review',
+    agent_id: 'live-1',
+    tokens_used: 0,
+    tokens_not_recarried: 0,
+    estimate: true,
+  });
+
+  function gate(root: string) {
+    return bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' })!;
+  }
+
+  it('AC-37: fails a version 3 bundle with a row removed from the middle, naming the row', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    const result = gate(root);
+    expect(result.status).toBe('fail');
+    expect(result.detail).toContain('chain broken at row 2');
+  });
+
+  it('names a working repair command, and a repair row naming the broken row clears the fail', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    const broken = gate(root);
+    expect(JSON.stringify(broken)).toContain('paqad-ai stage repair 2');
+    expect(repairChainBreak(root, 'ses_1', DIR, 1, 'nothing broke').ok).toBe(false);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'a row was lost in a crash').ok).toBe(true);
+    const repaired = gate(root);
+    expect(repaired.detail).not.toContain('chain broken');
+    expect(repaired.detail).toContain('a row was lost in a crash');
+  });
+
+  it('says in the gate note that a loss beside a gap would not show', () => {
+    const { root, ledger } = chainRoot();
+    appendFileSync(
+      ledger,
+      `${JSON.stringify({ schema_version: 3, content_hash: 'g', prev_hash: null, chain_note: 'lock-timeout' })}\n`,
+    );
+    expect(gate(root).detail).toContain('the chain does not vouch for rows beside a gap');
+  });
+
+  it('stamps the actor on a repair and gives the receipt one line per repaired row', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'lost in a crash', 'developer').ok).toBe(true);
+    const repair = readFeatureStageUnit(root, DIR).find((row) => row.kind === 'record-repair');
+    expect(repair?.agent).toBe('developer');
+    expect(stageReceiptNotes(root, DIR)).toContain(
+      'Ledger row 2 broke the chain and was repaired by developer: lost in a crash.',
+    );
+  });
+
+  it('names a stage agent still open when the repair ran', () => {
+    const { root, ledger } = chainRoot();
+    appendFeatureStageRow(root, 'ses_1', DIR, agentStarted());
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], ...lines.slice(2)].join('\n')}\n`);
+    expect(repairChainBreak(root, 'ses_1', DIR, 2, 'lost').ok).toBe(true);
+    expect(stageReceiptNotes(root, DIR).join(' ')).toContain(
+      'repaired by orchestrator while paqad-review was running',
+    );
+  });
+
+  it('a repair row does not clear a row that changed after it was named', () => {
+    const { root, ledger } = chainRoot();
+    const lines = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    writeFileSync(ledger, `${[lines[0], lines[2]].join('\n')}\n`);
+    repairChainBreak(root, 'ses_1', DIR, 2, 'first repair');
+    const next = readFileSync(ledger, 'utf8').trimEnd().split('\n');
+    const edited = { ...(JSON.parse(next[1]!) as Record<string, unknown>), content_hash: 'other' };
+    next[1] = JSON.stringify(edited);
+    writeFileSync(ledger, `${next.join('\n')}\n`);
+    expect(gate(root).detail).toContain('chain broken');
+  });
+
+  it('reports a declared gap as a note and adds no chain failure', () => {
+    const { root, ledger } = chainRoot();
+    const lockHeld = join(root, featureDir(DIR), '.lock');
+    mkdirSync(lockHeld);
+    appendFeatureStageRow(root, 'ses_1', DIR, { kind: 'stage_start', stage: 'checks' });
+    expect(readFileSync(ledger, 'utf8')).toContain('lock-timeout');
+    expect(gate(root).detail).not.toContain('chain broken');
+  });
+
+  it('only warns about a break in a bundle from before the chain', () => {
+    const root = tempRoot();
+    const ledger = join(root, featureFilePath(DIR, 'stageEvidence'));
+    mkdirSync(dirname(ledger), { recursive: true });
+    const v2 = JSON.stringify({
+      schema_version: 2,
+      kind: 'open',
+      content_hash: 'a',
+      session_id: 's',
+    });
+    const v3 = JSON.stringify({
+      schema_version: 3,
+      kind: 'stage_start',
+      content_hash: 'b',
+      prev_hash: 'not-a',
+      session_id: 's',
+    });
+    writeFileSync(ledger, `${v2}\n${v3}\n`);
+    expect(gate(root).detail).not.toContain('missing/invalid: stage-evidence.jsonl');
   });
 });

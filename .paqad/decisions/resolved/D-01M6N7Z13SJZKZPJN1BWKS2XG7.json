@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N7Z13SJZKZPJN1BWKS2XG7",
+  "category": "spec.contradiction",
+  "title": "How a stuck ledger lock is released: FR-48 and FR-50 describe the old way",
+  "context": "A live race showed the 2 second reclaim let a paused holder lose its lock. The lock now has an owner, is reclaimed after 60 seconds or at once when its owner died, and a holder re-checks before it writes.",
+  "options": [
+    {
+      "option_key": "change-spec",
+      "label": "Update the two lines",
+      "one_line_preview": "Update the two lines",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-code",
+      "label": "Keep the old wording",
+      "one_line_preview": "Keep the old wording",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "change-spec",
+  "created_at": "2026-11-05T06:57:26.137Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "change-spec",
+  "rationale": "Owner, 5 Nov 2026: update the spec to match the lock fix.",
+  "resolved_at": "2026-11-05T06:57:27.060Z",
+  "decision_id": "D-01M6N7Z13SJZKZPJN1BWKS2XG7",
+  "fingerprint": "sha256:0ed5c1f3f38ac49162718a9b032bfe04473e0a553481500431b2ea2be8f82ac1",
+  "question": "How a stuck ledger lock is released: FR-48 and FR-50 describe the old way",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-11-12T06:57:26.137Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "change-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T06:57:27.060Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: update the spec to match the lock fix."
+  }
+}

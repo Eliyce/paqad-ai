@@ -199,4 +199,25 @@ describe('paqad-ai agent lint --all', () => {
   it('exits 2 with neither a file nor --all', async () => {
     expect((await run('agent', 'lint')).code).toBe(2);
   });
+
+  it('leaves a paqad-managed stage agent copy out of agent lint --all and lints one the team owns', async () => {
+    const head = ['---', 'description: Edits the code.', 'tools: Read, Edit, Bash', '---'];
+    write(
+      '.claude/agents/paqad-development.md',
+      [
+        ...head,
+        '<!-- paqad-ai managed agent: paqad rewrites this file, so edits here are lost -->',
+        '## Objective',
+        '',
+      ].join('\n'),
+    );
+    write('.claude/agents/paqad-review.md', [...head, '## Objective', ''].join('\n'));
+    await run('agent', 'lint', '--all', '--project-root', root);
+    const report = JSON.parse(
+      readFileSync(join(root, '.paqad/tmp/agent-lint-all.json'), 'utf8'),
+    ) as {
+      items: { path: string }[];
+    };
+    expect(report.items.map((item) => item.path)).toEqual(['.claude/agents/paqad-review.md']);
+  });
 });

@@ -81,6 +81,16 @@ const CALL = {
   tool_use_id: 'tu-1',
 };
 
+describe('the live captured payload', () => {
+  it('names the agent from the PreToolUse payload Claude Code really sends', () => {
+    const payload = JSON.parse(
+      readFileSync(join(REPO, 'tests/fixtures/hooks/claude/pre-tool-agent.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(agentNameFromPayload(payload)).toBe('paqad-planning');
+    expect(delegationFromPayload(payload)?.request_id).toBeTruthy();
+  });
+});
+
 describe('the delegation core', () => {
   it('AC-11: takes the agent name from tool_input.subagent_type only, never the reply text', () => {
     expect(agentNameFromPayload(CALL)).toBe('migration-reviewer');
@@ -291,5 +301,33 @@ describe('runtime/hooks/agent-delegation.mjs', () => {
     for (const group of [hooks.PostToolUse!.at(-1)!, hooks.SubagentStop!.at(-1)!]) {
       expect(group.hooks[0]!.command).toContain('agent-delegation.mjs');
     }
+  });
+});
+
+describe('when both routes fire for one delegation', () => {
+  it('AC-39: holds one entry for a repeated call', () => {
+    const root = project();
+    const call = {
+      tool_name: 'Agent',
+      tool_input: { subagent_type: 'paqad-review' },
+      session_id: 's',
+      tool_use_id: 'toolu_one',
+    };
+    runHook(root, call);
+    runHook(root, call);
+    expect(ledger(root)).toHaveLength(1);
+  });
+
+  it('holds one stop for a repeat inside the window', () => {
+    const root = project();
+    const stop = {
+      hook_event_name: 'SubagentStop',
+      agent_type: 'paqad-review',
+      agent_id: 'a1',
+      session_id: 's',
+    };
+    runHook(root, stop);
+    runHook(root, stop);
+    expect(ledger(root)).toHaveLength(1);
   });
 });

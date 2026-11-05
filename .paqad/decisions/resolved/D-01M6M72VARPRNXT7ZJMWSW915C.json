@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M72VARPRNXT7ZJMWSW915C",
+  "category": "authoring.override",
+  "title": "The skill checks-recipe cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "The recipe is injected by the start hook and has no triggers on purpose (spec FR-84, agents/openai.yaml turns off automatic start), so there is nothing for a trigger test to measure.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, checks-recipe is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that checks-recipe helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, checks-recipe is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-04T21:22:48.280Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "add-unverified",
+  "rationale": "Owner, 4 Nov 2026: skip. paqad loads the recipe itself and it has no triggers, so a trigger test measures nothing.",
+  "resolved_at": "2026-11-04T21:33:25.129Z",
+  "decision_id": "D-01M6M72VARPRNXT7ZJMWSW915C",
+  "fingerprint": "sha256:909c8e4c944b6cb5436b40bd34d7bb8ce7627510787f8b769ae49ba79ee5f41d",
+  "question": "The skill checks-recipe cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-04T21:22:48.280Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T21:33:25.129Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 4 Nov 2026: skip. paqad loads the recipe itself and it has no triggers, so a trigger test measures nothing."
+  }
+}

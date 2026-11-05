@@ -12,6 +12,7 @@ import {
   isPaqadArtifactPath,
   isTestFile,
 } from '@/pipeline/change-evidence.js';
+import { PINNED_DIFF_ARGS } from '@/pipeline/git-paths.js';
 import { readGitState } from '@/rag/git-state.js';
 
 import { affectsBehaviour } from './affects-behaviour.js';
@@ -106,7 +107,7 @@ export function readChangeDiff(
   const state = readGitState(projectRoot);
   if (!state.head_commit) return null;
   const base = state.base_commit ?? 'HEAD';
-  const diff = runGit(projectRoot, ['diff', '--no-color', '--unified=0', base]);
+  const diff = runGit(projectRoot, [...PINNED_DIFF_ARGS, '--unified=0', base]);
   if (diff === null) return null;
   const tracked = parseChangedLines(diff);
   const seen = new Set(tracked.map((file) => file.path));

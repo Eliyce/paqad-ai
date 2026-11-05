@@ -47,7 +47,10 @@ When the only blocking lint findings on a draft are risky powers (a broad permis
 large tool list or no tool list at all), `agent test` raises one `authoring.agent_permission`
 decision naming the powers and the file hash. S4 waits until you resolve it. The approval is
 tied to the agent text and its hook scripts, so it still holds after release and expires when
-either changes; `agent catalog` and the end-of-change check name an expired approval.
+either changes; `agent catalog` and the end-of-change check name an expired approval. An unanswered
+decision counts only for the file hash it names. If the agent file changes while it waits, `agent test`
+raises a new one for the file as it is and discards the old one with the reason `superseded by D-…`. If the old one cannot be closed, the
+output says it stays open and why.
 
 ## Delegation log
 
@@ -76,7 +79,9 @@ in the project and write one deterministic JSON report. `--report <file>` sets t
 `--group-by rule|folder` groups the findings (default `rule`), and `--as-of <YYYY-MM-DD>` counts
 skill fires or agent dispatches in the 30 days up to that date. Giving a folder or file together
 with `--all` is refused. Persona files are listed apart instead of being linted as agents, and the
-stage-agent templates are linted after they are rendered.
+stage-agent templates are linted after they are rendered. `agent lint --all` skips paqad-managed
+stage agent copies in `.claude/agents/`, the ones carrying the managed marker, because their templates
+are already linted.
 `agent lint --all --owner-powers-as-warnings` reports the owner-permission rules AG-015, AG-018 and
 AG-022 as warnings, so other agent findings still fail; CI runs it this way. Linting a single file
 refuses the flag.

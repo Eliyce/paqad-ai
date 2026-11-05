@@ -48,7 +48,7 @@ export function startedByAnotherAgent(
   starter: StageAgentIdentity,
   holder: StageAgentIdentity,
 ): boolean {
-  if (starter.agentId !== null && starter.agentId !== holder.agentId) return true;
+  if (starter.agentId !== null) return starter.agentId !== holder.agentId;
   return isStageAgent(starter.agent) && starter.agent !== holder.agent;
 }
 

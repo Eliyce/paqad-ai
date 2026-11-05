@@ -202,7 +202,7 @@ function validateShape(reuse: unknown): ReuseValidation {
   const errors: string[] = [];
   if (!Array.isArray(candidate.consulted) || candidate.consulted.length === 0) {
     errors.push(
-      'plan template "reuse.consulted" must list at least one thing you checked (run `paqad-ai index query <name>` or read the Existing surface section)',
+      'a plan must record what existing code was checked: plan template "reuse.consulted" must list at least one thing you checked (run `paqad-ai index query <name>` or read the Existing surface section)',
     );
   }
   if (candidate.reusing !== undefined && !Array.isArray(candidate.reusing)) {

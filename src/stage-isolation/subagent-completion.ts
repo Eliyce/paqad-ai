@@ -11,14 +11,22 @@ import { resolveHookSession } from '@/rag-ledger/session.js';
 import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { extractAssistantText, extractMarkers } from '@/stage-evidence/marker-parse.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 
 import { judgeMustNot, transcriptToolUses } from './must-not-judge.js';
 import {
+  MANDATORY_STAGE_AGENTS,
   STAGE_AGENT_STAGES,
-  readStageReportStatus,
   stageForAgentName,
   stripPluginAgentNamespace,
 } from './stage-agents.js';
+import {
+  currentStageOfAgent,
+  isChecksRed,
+  judgeStageReport,
+  resolveStageReport,
+  type StopPayload,
+} from './stage-handback.js';
 import { readStageSetting } from './stage-settings.js';
 
 export { recordHighTableUsage };
@@ -37,6 +45,7 @@ export interface SubagentStopPayload {
   agent_type?: unknown;
   session_id?: unknown;
   agent_transcript_path?: unknown;
+  last_assistant_message?: unknown;
   usage?: {
     input_tokens?: unknown;
     output_tokens?: unknown;
@@ -120,6 +129,7 @@ export interface RecordStageAgentCompletionInput {
   transcriptText: string;
   adapter: string;
   now?: () => Date;
+  log?: (line: string) => void;
 }
 
 function requestedSetting(
@@ -172,24 +182,100 @@ export interface StageAgentJudgement {
   report_status?: string;
   report_stated?: boolean;
   advance?: boolean;
+  decision?: string | null;
+  report_source?: string;
+  report_hash?: string;
+  stated_status?: string;
+  reason?: string;
+  gate_checked?: boolean;
+  api_turns?: number;
   must_not?: string[];
+}
+
+function agentTurns(payload: SubagentStopPayload): number | null {
+  const path = payload.agent_transcript_path;
+  if (typeof path !== 'string' || path.trim() === '') return null;
+  const usage = readTranscriptUsage(path);
+  return usage.messages.length > 0 ? usage.messages.length : null;
+}
+
+function turnLimitReason(stage: string, turns: number | null): string | null {
+  const limit = MANDATORY_STAGE_AGENTS.find((def) => def.ledgerStage === stage)?.maxTurns;
+  return limit !== undefined && turns !== null && turns >= limit
+    ? `${stage} reached its turn limit of ${limit} and returned no report`
+    : null;
+}
+
+export interface JudgeStageAgentReturnInput {
+  projectRoot: string;
+  dirName: string;
+  adapter: string;
+  fallbackTranscript?: string;
 }
 
 export function judgeStageAgentReturn(
   stage: string,
   payload: SubagentStopPayload,
+  context: JudgeStageAgentReturnInput,
 ): StageAgentJudgement {
+  const rows = readFeatureStageUnit(context.projectRoot, context.dirName);
+  const agentId = agentIdField(payload).agent_id ?? null;
+  const report = resolveStageReport({
+    rows,
+    agentId,
+    payload: payload as StopPayload,
+    adapter: context.adapter,
+    fallbackTranscript: context.fallbackTranscript,
+  });
   const path = payload.agent_transcript_path;
-  if (typeof path !== 'string' || path.trim() === '') return {};
-  const text = readAgentTranscriptText(path);
-  if (text === null) return {};
-  const report = readStageReportStatus(extractAssistantText(text));
-  const violations = judgeMustNot(stage, transcriptToolUses(text));
-  return {
-    report_status: report.status,
-    report_stated: report.stated,
-    advance: report.advance && violations.length === 0,
+  const text =
+    typeof path === 'string' && path.trim() !== '' ? readAgentTranscriptText(path) : null;
+  const violations = text === null ? [] : judgeMustNot(stage, transcriptToolUses(text));
+  const current =
+    currentStageOfAgent(
+      rows,
+      agentId,
+      typeof payload.agent_type === 'string' ? payload.agent_type : null,
+    ) ?? stage;
+  const turns = agentTurns(payload);
+  const row = report.handbackRow;
+  const shared = {
+    report_source: report.source,
+    gate_checked: report.gateChecked,
+    ...(turns === null ? {} : { api_turns: turns }),
     ...(violations.length > 0 ? { must_not: violations } : {}),
+  };
+  if (row) {
+    return {
+      ...shared,
+      report_status: String(row.report_status),
+      report_stated: row.report_stated === true,
+      advance: row.advance === true && violations.length === 0,
+      decision: typeof row.decision === 'string' ? row.decision : null,
+      report_hash: String(row.report_hash),
+      ...(typeof row.stated_status === 'string' ? { stated_status: row.stated_status } : {}),
+      ...(typeof row.reason === 'string' ? { reason: row.reason } : {}),
+    };
+  }
+  const judged = judgeStageReport({
+    stage: current,
+    agentId,
+    reading: report.reading,
+    rows,
+    violations,
+    checksRed: isChecksRed(context.projectRoot, context.dirName, current),
+  });
+  const turnLimit = report.source === 'none' ? turnLimitReason(current, turns) : null;
+  const reason = judged.reason ?? turnLimit;
+  return {
+    ...shared,
+    report_status: judged.report_status,
+    report_stated: judged.report_stated,
+    advance: judged.advance,
+    decision: judged.decision,
+    ...(report.message === null ? {} : { report_hash: sha256Hex(report.message) }),
+    ...(judged.stated_status ? { stated_status: judged.stated_status } : {}),
+    ...(reason ? { reason } : {}),
   };
 }
 
@@ -250,6 +336,17 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
     }
     const tokens = resolveStageAgentTokens(input.payload, input.transcriptText);
     const stages = stagesRunByAgent(input.projectRoot, dirName, stage, input.payload);
+    const judgement = judgeStageAgentReturn(stage, input.payload, {
+      projectRoot: input.projectRoot,
+      dirName,
+      adapter: input.adapter,
+      fallbackTranscript: input.transcriptText,
+    });
+    if (judgement.report_source === 'none') {
+      input.log?.(
+        `stage-agent-completion: no report found agent=${agentIdField(input.payload).agent_id ?? 'none'} stage=${stage}`,
+      );
+    }
     appendFeatureStageRow(
       input.projectRoot,
       sessionId,
@@ -265,7 +362,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
         tokens_not_recarried: tokens.tokens_not_recarried,
         estimate: !tokens.exact,
         ...requestedSetting(input.projectRoot, sessionId, stage),
-        ...judgeStageAgentReturn(stage, input.payload),
+        ...judgement,
       },
       input.now,
     );

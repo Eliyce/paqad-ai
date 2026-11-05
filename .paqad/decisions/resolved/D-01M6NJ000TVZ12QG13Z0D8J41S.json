@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6NJ000TVZ12QG13Z0D8J41S",
+  "category": "spec.change",
+  "title": "Let an edit through when it only removes a rule violation",
+  "context": "The pre-edit rule gate scans the whole change plus the target, so it refuses the edit that deletes the violation it names. Live on this change: two comment lines stopped every code edit. Owner chose to fix this in the same pull request.",
+  "options": [
+    {
+      "option_key": "update-and-refreeze",
+      "label": "Add it to this change",
+      "one_line_preview": "Add it to this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-current-spec",
+      "label": "Fix it separately",
+      "one_line_preview": "Fix it separately",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "update-and-refreeze",
+  "created_at": "2026-11-05T09:52:43.547Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "update-and-refreeze",
+  "rationale": "Owner, 5 Nov 2026: fix it in this PR.",
+  "resolved_at": "2026-11-05T09:52:44.389Z",
+  "decision_id": "D-01M6NJ000TVZ12QG13Z0D8J41S",
+  "fingerprint": "sha256:63ba448aebfa90b7d47359d0e807b0a339edc6ae3fb87fc9ca68906a3e938c00",
+  "question": "Let an edit through when it only removes a rule violation",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T09:52:43.547Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "update-and-refreeze",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T09:52:44.389Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: fix it in this PR."
+  }
+}

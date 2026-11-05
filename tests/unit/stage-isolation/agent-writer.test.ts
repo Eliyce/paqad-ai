@@ -9,6 +9,7 @@ import {
   renderClaudePluginStageAgents,
   renderStageAgentFiles,
   writeStageAgents,
+  withManagedMarker,
 } from '@/stage-isolation/agent-writer';
 
 const roots: string[] = [];
@@ -167,5 +168,14 @@ describe('stage agent frontmatter', () => {
 
   it('throws for a host with no stage agents', () => {
     expect(() => renderStageAgentFiles('gemini-cli')).toThrow(/no stage-agent host/);
+  });
+});
+
+describe('the stage agent copies this repo commits', () => {
+  it('match what team setup would write, so a bare agent name gets the current text', () => {
+    for (const { name, content } of renderStageAgentFiles('claude-code')) {
+      const committed = readFileSync(join(process.cwd(), '.claude/agents', name), 'utf8');
+      expect(committed, `.claude/agents/${name} is out of date`).toBe(withManagedMarker(content));
+    }
   });
 });

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 
+import { DecisionStore } from '@/planning/decision-store.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import {
@@ -19,6 +20,7 @@ import {
   PERMISSIONS_FILE,
   POWER_RULES,
   type AgentLintResult,
+  permissionPacketNamesFile,
 } from '../lint/agent-lint.js';
 import {
   lintRenderedTemplateAgent,
@@ -135,6 +137,23 @@ function onlyPowerFindings(lint: AgentLintResult): boolean {
   );
 }
 
+function discardSupersededPermission(
+  projectRoot: string,
+  supersededId: string,
+  newId: string,
+): string[] {
+  try {
+    new DecisionStore(projectRoot).discard({
+      decisionId: supersededId,
+      reason: `superseded by ${newId}`,
+    });
+    return [];
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error);
+    return [`Decision ${supersededId} stays open because it could not be closed: ${why}`];
+  }
+}
+
 function permissionGate(
   workspace: AuthoringWorkspace,
   lint: AgentLintResult,
@@ -146,7 +165,11 @@ function permissionGate(
   const ids = readPermissionIds(workspace);
   const latest = ids.at(-1);
   const record = latest === undefined ? null : readAuthoringDecision(workspace.projectRoot, latest);
-  if (record !== null && record.status !== 'resolved') {
+  const waitingOnThisFile =
+    record !== null &&
+    record.status !== 'resolved' &&
+    permissionPacketNamesFile(workspace.projectRoot, record.id, lint.file_hash);
+  if (record !== null && waitingOnThisFile) {
     setWaiting(workspace, { stage: 'S4', decision: record.id, resume });
     return {
       ok: false,
@@ -157,7 +180,7 @@ function permissionGate(
       ],
     };
   }
-  if (record !== null && record.chosen !== AGENT_PERMISSION_ALLOW) {
+  if (record !== null && record.status === 'resolved' && record.chosen !== AGENT_PERMISSION_ALLOW) {
     throw new AuthoringRefusal(
       `S4 can't pass: the owner chose to remove ${powers} (decision ${record.id}). Take them out of the agent, rerun paqad-ai agent draft, then ${resume}.`,
     );
@@ -170,12 +193,17 @@ function permissionGate(
   });
   workspace.writeJson(PERMISSIONS_FILE, [...ids, id]);
   setWaiting(workspace, { stage: 'S4', decision: id, resume });
+  const notClosed =
+    record?.status === 'pending'
+      ? discardSupersededPermission(workspace.projectRoot, record.id, id)
+      : [];
   return {
     ok: false,
     decision: id,
     artifacts: [workspace.relPath(PERMISSIONS_FILE)],
     lines: [
       `${workspace.name} asks for ${powers}, so S4 is waiting on decision ${id} (authoring.agent_permission). Once it is answered, run ${resume}.`,
+      ...notClosed,
     ],
   };
 }

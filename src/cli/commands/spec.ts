@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 
 import { Command } from 'commander';
 
+import { checkRecipe } from '@/stage-isolation/recipe-check.js';
 import { reviewSpecification } from '@/compliance/spec-review.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
@@ -123,6 +124,17 @@ export function createSpecCommand(): Command {
           options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
         );
         const freezeFeature = currentFeature(options.projectRoot, freezeSession);
+        const recipeCheck = checkRecipe({
+          projectRoot: options.projectRoot,
+          sessionId: freezeSession,
+          stage: 'specification',
+          args: [specFile],
+        });
+        for (const line of recipeCheck.lines) console.error(line);
+        if (recipeCheck.verdict === 'refuse') {
+          process.exitCode = 1;
+          return;
+        }
         const pipelineConfig = readPipelineConfig(options.projectRoot);
         const freezeLaneRunsPipeline = laneRunsSpecPipeline(
           freezeFeature ? readChangeConstants(options.projectRoot, freezeFeature).lane : null,
@@ -244,6 +256,7 @@ export function createSpecCommand(): Command {
           clearFrozenRun(options.projectRoot, bundleDir, options.keepInput ? [relSpec] : []);
         }
 
+        recipeCheck.record();
         console.log(`**▸ paqad** · spec ${specId} frozen and signed off — sign-off recorded`);
         console.log(
           JSON.stringify({

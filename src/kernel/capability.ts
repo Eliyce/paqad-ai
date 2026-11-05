@@ -18,6 +18,7 @@ import {
   type EnforcementResult,
   type RuleViolation,
 } from '@/rule-scripts/enforce.js';
+import { judgeEditResult, type EditResultVerdict } from '@/rule-scripts/edit-result.js';
 import {
   clearPendingPreMutation,
   hasPendingPreMutation,
@@ -28,6 +29,7 @@ import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { bundleWriterFor } from '@/feature-evidence/manifest.js';
 import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
+import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { changedLoadedRuleSources, readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readCompiledRules } from '@/planning/rule-compiler.js';
@@ -162,6 +164,10 @@ export const RULE_GATE_BUDGET_CONTEXT =
   'paqad: the blocking rule checks did not finish in time for this edit. They will run again ' +
   'at the end of this turn and block there if anything fails.';
 
+export const RULE_GATE_REMOVAL_CONTEXT =
+  'paqad: this edit removes a rule finding from its file and adds none, so it passed and was ' +
+  'recorded. Other findings in this change still block at the end of the turn.';
+
 const PRE_EDIT_FILTER = {
   kinds: ['deterministic' as const],
   scopes: ['changed-files' as const],
@@ -188,18 +194,30 @@ function payloadTargets(payload: CapabilityPayload | undefined): string[] {
   return payload?.targetPaths ?? (payload?.targetPath ? [payload.targetPath] : []);
 }
 
-async function enforceBeforeEdit(
+async function withinGateBudget<T>(
   context: CapabilityContext,
-  mode: RuleComplianceMode,
   gate: RuleGateConfig,
-): Promise<EnforcementResult> {
+  work: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
   const now = context.now ?? Date.now;
   const remaining = (context.startedAt ?? now()) + gate.budgetMs - now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(0, remaining));
   if (remaining <= 0) controller.abort();
   try {
-    return await enforceRuleScripts({
+    return await work(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function enforceBeforeEdit(
+  context: CapabilityContext,
+  mode: RuleComplianceMode,
+  gate: RuleGateConfig,
+): Promise<EnforcementResult> {
+  return withinGateBudget(context, gate, (signal) =>
+    enforceRuleScripts({
       projectRoot: context.projectRoot,
       mode,
       scope: 'whole-tree',
@@ -207,11 +225,68 @@ async function enforceBeforeEdit(
         ? { ...PRE_EDIT_FILTER, useFileCache: true, editTargets: payloadTargets(context.payload) }
         : {}),
       concurrency: gate.concurrency,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
+      signal,
+    }),
+  );
+}
+
+function recordAllowedEdit(
+  context: CapabilityContext,
+  verdict: Extract<EditResultVerdict, { allowed: true }>,
+): boolean {
+  const { projectRoot, env, payload } = context;
+  const sessionId = payloadSessionId(projectRoot, env, payload);
+  const removed = verdict.removed.length;
+  const row = appendRuleRun(projectRoot, sessionId, {
+    kind: 'edit-allowed',
+    counts: { removed, remaining: verdict.remaining },
+    blocking: false,
+    note: `edit to ${verdict.target} removes ${removed} rule finding(s) and adds none`,
+    findings: verdict.removed.map((violation) => ({
+      rule_id: violation.rule_id,
+      file: violation.file,
+      line: violation.line ?? null,
+      message: violation.message,
+      severity: violation.severity,
+    })),
+  });
+  if (row === null && currentFeature(projectRoot, sessionId)) return false;
+  appendHooksLog(
+    projectRoot,
+    `capability-gate rule-scripts edit-allowed session=${sessionId} file=${verdict.target} removed=${removed} remaining=${verdict.remaining}`,
+  );
+  return true;
+}
+
+function refusalForFailedComparison(error: unknown): EditResultVerdict {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  if (code === 'ENOENT' || code === 'EEXIST') return { allowed: false, reason: null };
+  return { allowed: false, reason: `the comparison failed (${code ?? String(error)})` };
+}
+
+async function editOnlyRemovesFindings(
+  context: CapabilityContext,
+  gate: RuleGateConfig,
+  result: EnforcementResult,
+): Promise<boolean> {
+  if (gate.preEdit !== 'blocking-only') return false;
+  const { projectRoot, payload } = context;
+  const verdict = await withinGateBudget(context, gate, (signal) =>
+    judgeEditResult({
+      projectRoot,
+      targets: payloadTargets(payload),
+      toolName: payload?.toolName,
+      toolInput: payload?.toolInput,
+      violations: result.violations,
+      concurrency: gate.concurrency,
+      signal,
+    }),
+  ).catch(refusalForFailedComparison);
+  if (verdict.allowed) return recordAllowedEdit(context, verdict);
+  if (verdict.reason !== null) {
+    appendHooksLog(projectRoot, `capability-gate rule-scripts edit-refused ${verdict.reason}`);
   }
+  return false;
 }
 
 function deferToTurnEnd(context: CapabilityContext): CapabilityOutcome {
@@ -301,6 +376,13 @@ const ruleScriptsCapability: Capability = {
       return integrity === 'unverified'
         ? { ran: true, blocking: false, summary: formatUnverifiedSummary() }
         : NO_OP;
+    }
+    if (
+      seam === 'pre-mutation' &&
+      result.blocking &&
+      (await editOnlyRemovesFindings(context, resolveRuleGateConfig(projectRoot, env), result))
+    ) {
+      return { ran: true, blocking: false, summary: '', context: RULE_GATE_REMOVAL_CONTEXT };
     }
     return {
       ran: true,

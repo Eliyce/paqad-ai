@@ -159,8 +159,8 @@ describe('tokens not re-carried, once per agent', () => {
     const root = tempRoot();
     stageAgent(root, 'planning', 1500);
     stageAgent(root, 'development', 2500);
-    stageAgent(root, 'development', 2500);
-    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(6500);
+    stageAgent(root, 'development', 2400);
+    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(6400);
   });
 });
 

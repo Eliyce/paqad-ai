@@ -26,6 +26,8 @@ export default defineConfig({
     'planning/ticket-ref-detect': 'src/planning/ticket-ref-detect.ts',
     'delivery/commit-split': 'src/delivery/commit-split.ts',
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
+    'feature-evidence/stage-ledger': 'src/feature-evidence/stage-ledger.ts',
+    'stage-isolation/stage-handback': 'src/stage-isolation/stage-handback.ts',
     'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
     'stage-isolation/agent-availability': 'src/stage-isolation/agent-availability.ts',
     'stage-isolation/bash-write-guard': 'src/stage-isolation/bash-write-guard.ts',

@@ -1,0 +1,5 @@
+interface:
+  display_name: Planning Recipe
+  short_description: Search for reuse, minimise the steps and compile a checked plan.
+policy:
+  allow_implicit_invocation: false

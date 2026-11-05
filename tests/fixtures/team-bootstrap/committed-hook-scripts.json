@@ -10,6 +10,7 @@
     "silent-update.mjs",
     "skill-activation.mjs",
     "stage-agent-completion.mjs",
+    "stage-agent-handback.mjs",
     "stage-agent-start.mjs",
     "stage-agent-write-guard.mjs",
     "stage-marker-parse.mjs",

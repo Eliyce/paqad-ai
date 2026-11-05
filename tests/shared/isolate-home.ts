@@ -10,6 +10,9 @@ const home = realpathSync.native(mkdtempSync(join(tmpdir(), 'paqad-test-home-'))
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 
+delete process.env.SE_AGENT_ID;
+delete process.env.SE_SESSION;
+
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
 });

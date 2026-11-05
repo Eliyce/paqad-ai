@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M0MG84ACRVMRWHVFCZA9B1",
+  "category": "workflow-or-tool",
+  "title": "Issue 841 D9: Metric",
+  "context": "Owner decision recorded in Eliyce/paqad-ai issue 841, row D9: Turns per stage is the primary metric for tokens and wall-clock. Baselines measured on 296 runs since 25 October: planning 64, specification 35, review 44, checks 10, documentation sync 17, development 109 API turns per run.",
+  "options": [
+    {
+      "option_key": "as-decided",
+      "label": "As the owner decided in the issue",
+      "one_line_preview": "As the owner decided in the issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reopen",
+      "label": "Reopen with the owner",
+      "one_line_preview": "Reopen with the owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "as-decided",
+  "created_at": "2026-11-04T19:30:06.724Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "as-decided",
+  "rationale": "Owner's answer of 4 November 2026, recorded in issue 841 row D9, which says these are final and not to be asked again.",
+  "resolved_at": "2026-11-04T19:30:07.373Z",
+  "decision_id": "D-01M6M0MG84ACRVMRWHVFCZA9B1",
+  "fingerprint": "sha256:5b1369f555885c0f7521857a8e7b715672c05fe3634883c844cd7b987cd38b9a",
+  "question": "Issue 841 D9: Metric",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-11-11T19:30:06.724Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "as-decided",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T19:30:07.373Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner's answer of 4 November 2026, recorded in issue 841 row D9, which says these are final and not to be asked again."
+  }
+}

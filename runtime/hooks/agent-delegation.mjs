@@ -17,7 +17,7 @@ function quickFilter(input) {
 
 async function record(payload) {
   const fs = await import('node:fs');
-  const { dirname, join } = await import('node:path');
+  const { join } = await import('node:path');
   const core = await import('./lib/agent-delegation-core.mjs');
   const gate = await import('./lib/paqad-disabled.mjs');
   const projectRoot = gate.resolveProjectRoot(process.env, payload);
@@ -33,8 +33,21 @@ async function record(payload) {
   const line = entry === null ? null : core.delegationLine(entry);
   if (line === null) return;
   const file = join(projectRoot, core.DELEGATIONS_REL);
-  fs.mkdirSync(dirname(file), { recursive: true });
-  fs.appendFileSync(file, line, 'utf8');
+  const { seenInTail, withTailLock } = await import('./lib/ledger-tail-dedupe.mjs');
+  const wrote = withTailLock(file, (assertHeld) => {
+    if (
+      entry.request_id !== null &&
+      seenInTail(file, core.isSameDelegation(entry), {
+        byValue: typeof payload.tool_use_id === 'string',
+      })
+    ) {
+      return false;
+    }
+    assertHeld();
+    fs.appendFileSync(file, line, 'utf8');
+    return true;
+  });
+  if (!wrote) return;
   if (fs.statSync(file).size <= core.PRUNE_THRESHOLD_BYTES) return;
   const window = Number(
     gate.readLayeredKey(

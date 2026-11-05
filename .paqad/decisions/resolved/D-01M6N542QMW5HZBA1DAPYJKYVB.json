@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N542QMW5HZBA1DAPYJKYVB",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-development asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:7585e12fcbefdd543f21fc7da3053d92a0c03099a8ebdb132671e4009f49a875.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-development keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-development before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove",
+  "created_at": "2026-11-05T06:07:45.908Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "allow",
+  "rationale": "Owner, 5 Nov 2026: keeps shell commands; same answer as before the edit.",
+  "resolved_at": "2026-11-05T06:26:48.615Z",
+  "decision_id": "D-01M6N542QMW5HZBA1DAPYJKYVB",
+  "fingerprint": "sha256:d58ce95f3272b9a28b33dd3ecd3906cd7d64e33962a89ff14893be07cc1102d6",
+  "question": "The agent paqad-development asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T06:07:45.908Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T06:26:48.615Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 5 Nov 2026: keeps shell commands; same answer as before the edit."
+  }
+}

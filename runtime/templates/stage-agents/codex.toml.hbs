@@ -2,5 +2,9 @@
 name = "{{agentName}}"
 description = "{{description}}"
 developer_instructions = """
+{{#if recipe}}
+Read `.agents/skills/{{recipe}}/SKILL.md` first and follow it.
+
+{{/if}}
 {{{body}}}
 """

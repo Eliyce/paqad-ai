@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M72SCRWY1Q593W5VDTCAXW",
+  "category": "authoring.override",
+  "title": "The skill review-recipe cannot run its S5 check. Add it unverified, kept in this project?",
+  "context": "A stage agent cannot dispatch the eval runs. Part 6 of the owner's plan measures every recipe with 12 real runs after the final commit (scripts/stage-benchmark.mjs), reported in benchmark.json.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, review-recipe is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that review-recipe helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, review-recipe is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-04T21:22:46.297Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "add-unverified",
+  "rationale": "Owner, 4 Nov 2026: the 12 approved sample runs are the measure for now; full measurement later.",
+  "resolved_at": "2026-11-04T21:33:20.675Z",
+  "decision_id": "D-01M6M72SCRWY1Q593W5VDTCAXW",
+  "fingerprint": "sha256:8827eaf30692752bf984d76d3a3d66335bb15b424bc969f6ca46557f686ad583",
+  "question": "The skill review-recipe cannot run its S5 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-04T21:22:46.297Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T21:33:20.675Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 4 Nov 2026: the 12 approved sample runs are the measure for now; full measurement later."
+  }
+}

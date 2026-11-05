@@ -1,3 +1,4 @@
+import { stageReceiptNotes } from '@/stage-isolation/recipe-receipt.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { isFrameworkEnabledForRoot } from '@/core/framework-enabled.js';
@@ -681,6 +682,7 @@ export async function runRepositoryVerification(
       : null,
     ruleOverrides: receiptFeature ? readRuleOverrides(context.project_root, receiptFeature) : null,
     fixProof,
+    stageNotes: receiptFeature ? stageReceiptNotes(context.project_root, receiptFeature) : [],
     cloudNote: cloudContinuationNote(context.project_root, receiptFeature, receiptSession),
   });
 

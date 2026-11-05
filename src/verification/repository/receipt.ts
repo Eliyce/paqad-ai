@@ -109,6 +109,7 @@ function reuseSuffix(stage: FoldedStage, reuse: ReuseCounts | null | undefined):
 }
 
 export interface ComposeChangeReceiptInput {
+  stageNotes?: readonly string[];
   verdictSummary: string;
   fold: FoldedChange | null;
   delivery?: string | null;
@@ -149,6 +150,9 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.isolation) {
     parts.push(`> ${formatStageIsolationLine(input.isolation)}`);
+  }
+  for (const note of input.stageNotes ?? []) {
+    parts.push(`> ${note}`);
   }
   if (input.techDebt && input.techDebt.length > 0) {
     parts.push(

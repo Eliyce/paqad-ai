@@ -47,6 +47,9 @@ const ACTIVATION_HOOK = 'skill-activation.mjs';
 const ACTIVATION_BLOCK = /,\n {4}"PostToolUse": \[\n(?: {6}.*\n)+? {4}\]/;
 const DELEGATION_HOOK = 'agent-delegation.mjs';
 const WRITE_GUARD_HOOK = 'stage-agent-write-guard.mjs';
+const HANDBACK_HOOK = 'stage-agent-handback.mjs';
+const HANDBACK_GROUP =
+  /,\n {6}\{\n {8}"matcher": "SubagentHandback",\n {8}"hooks": \[\n[\s\S]*?stage-agent-handback\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 const WRITE_GUARD_GROUP =
   /,\n {6}\{\n {8}"matcher": "Bash",\n {8}"hooks": \[\n[\s\S]*?stage-agent-write-guard\.mjs[\s\S]*?\n {8}\]\n {6}\}/;
 const DELEGATION_STOP_GROUP =
@@ -63,6 +66,7 @@ const APPENDED_ENTRIES: readonly HookLine[] = [
   { event: ACTIVATION_EVENT, matcher: 'Agent|Task', hook: DELEGATION_HOOK },
   { event: 'SubagentStop', matcher: '.*', hook: DELEGATION_HOOK },
   { event: 'PreToolUse', matcher: 'Bash', hook: WRITE_GUARD_HOOK },
+  { event: 'PreToolUse', matcher: 'SubagentHandback', hook: HANDBACK_HOOK },
 ];
 
 function isAppended(event: string, matcher: string | undefined, command: string): boolean {
@@ -116,8 +120,9 @@ function expectOnlyTheActivationEntry(hooks: HookGroups): void {
   expect(hooks.SubagentStop?.at(-1)?.matcher).toBe('.*');
   expect(appendedGroups(hooks, 'PreToolUse')).toEqual([
     { matcher: 'Bash', hooks: [WRITE_GUARD_HOOK] },
+    { matcher: 'SubagentHandback', hooks: [HANDBACK_HOOK] },
   ]);
-  expect(hooks.PreToolUse?.at(-1)?.matcher).toBe('Bash');
+  expect(hooks.PreToolUse?.at(-1)?.matcher).toBe('SubagentHandback');
 }
 
 function isActivationLine(line: RenderedHook): boolean {
@@ -140,6 +145,30 @@ const PINNED = JSON.parse(
 
 function notSeed(line: RenderedHook): boolean {
   return line.nativeEvent !== SEED_EVENT && !isActivationLine(line);
+}
+
+function withoutGroupPolicy(hooks: HookGroups): HookGroups {
+  return Object.fromEntries(
+    Object.entries(hooks).map(([event, groups]) => [
+      event,
+      groups.map((group) => ({
+        ...group,
+        hooks: group.hooks.map((entry) => {
+          const rest: Record<string, unknown> = { ...entry };
+          delete rest.onFailure;
+          delete rest.timeout;
+          return rest as { command: string };
+        }),
+      })),
+    ]),
+  );
+}
+
+function withoutFailurePolicy(line: RenderedHook): RenderedHook {
+  const rest = { ...line };
+  delete rest.onFailure;
+  delete rest.timeout;
+  return rest;
 }
 
 function seedLine(hooksDir: string): RenderedHook {
@@ -432,7 +461,7 @@ describe('the stage enforcement guardrails', () => {
     expect(Object.keys(withoutSeedHook(workHooks))).toEqual(
       Object.keys(withoutSeedHook(baseHooks)),
     );
-    expect(withoutSeedHook(workHooks)).toEqual(withoutSeedHook(baseHooks));
+    expect(withoutGroupPolicy(withoutSeedHook(workHooks))).toEqual(withoutSeedHook(baseHooks));
     expect(flatten({ [SEED_EVENT]: workHooks[SEED_EVENT] ?? [] })).toEqual([
       { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
     ]);
@@ -446,12 +475,14 @@ describe('the stage enforcement guardrails', () => {
     expect(ACTIVATION_BLOCK.exec(golden)?.[0]).toContain(ACTIVATION_HOOK);
     expect(DELEGATION_STOP_GROUP.exec(golden)?.[0]).toContain(DELEGATION_HOOK);
     expect(WRITE_GUARD_GROUP.exec(golden)?.[0]).toContain(WRITE_GUARD_HOOK);
+    expect(HANDBACK_GROUP.exec(golden)?.[0]).toContain(HANDBACK_HOOK);
     const stripped = (text: string) =>
       text
         .replace(SEED_BLOCK, '')
         .replace(ACTIVATION_BLOCK, '')
         .replace(DELEGATION_STOP_GROUP, '')
-        .replace(WRITE_GUARD_GROUP, '');
+        .replace(WRITE_GUARD_GROUP, '')
+        .replace(HANDBACK_GROUP, '');
     expect(stripped(golden)).toBe(stripped(goldenAsHost(atBase(GOLDEN))));
     expect(
       PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),
@@ -488,7 +519,9 @@ describe('the stage enforcement guardrails', () => {
     expect(buildHostHookChain('claude-code', env).filter(notSeed)).toEqual(
       PINNED.chains['claude-code'],
     );
-    expect(buildPluginHookChain(env).filter(notSeed)).toEqual(PINNED.plugin);
+    expect(buildPluginHookChain(env).filter(notSeed).map(withoutFailurePolicy)).toEqual(
+      PINNED.plugin,
+    );
     expect(
       buildHostHookChain('claude-code', env).filter((line) => line.nativeEvent === SEED_EVENT),
     ).toEqual([seedLine(`${PINNED.frameworkHome}/hooks`)]);
@@ -542,10 +575,15 @@ describe('the stage enforcement guardrails', () => {
       { hook: 'agent-entry-gate.mjs', timeout: 10, onFailure: 'block' },
       { hook: 'decision-pause-gate.mjs', timeout: 10, onFailure: 'block' },
       { hook: 'capability-gate.mjs pre-mutation', timeout: 10, onFailure: 'block' },
+      { hook: 'stage-agent-handback.mjs', timeout: 10, onFailure: undefined },
       { hook: 'stage-agent-start.mjs', timeout: 10, onFailure: undefined },
     ]);
     expect(guarded(buildHostHookChain('codex-cli', env))).toEqual([]);
     expect(guarded(buildPluginHookChain(env))).toEqual([
+      { hook: 'agent-entry-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'decision-pause-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'capability-gate.mjs pre-mutation', timeout: 10, onFailure: 'block' },
+      { hook: 'stage-agent-handback.mjs', timeout: 10, onFailure: undefined },
       { hook: 'stage-agent-start.mjs', timeout: 10, onFailure: undefined },
     ]);
     expect(
@@ -559,6 +597,7 @@ describe('the stage enforcement guardrails', () => {
       ['decision-pause-gate', 10, true],
       ['capability-gate-pre-mutation', 10, true],
       ['stage-agent-start', 10, false],
+      ['stage-agent-handback', 10, false],
     ]);
   });
 

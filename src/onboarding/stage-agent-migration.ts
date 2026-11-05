@@ -130,12 +130,17 @@ export function isGeneratedProjectStageAgent(path: string, content: string): boo
 
 type SyncOutcome = 'same' | 'kept' | 'written';
 
-const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
+function noFollowFlag(): number {
+  return constants.O_NOFOLLOW ?? 0;
+}
 
 function createAgentFile(target: string, wanted: string): SyncOutcome {
   let fd: number;
   try {
-    fd = openSync(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NO_FOLLOW);
+    fd = openSync(
+      target,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollowFlag(),
+    );
   } catch {
     return 'kept';
   }
@@ -150,7 +155,7 @@ function createAgentFile(target: string, wanted: string): SyncOutcome {
 function syncAgentFile(target: string, wanted: string, known: ReadonlySet<string>): SyncOutcome {
   let fd: number;
   try {
-    fd = openSync(target, constants.O_RDWR | NO_FOLLOW);
+    fd = openSync(target, constants.O_RDWR | noFollowFlag());
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return createAgentFile(target, wanted);
     return 'kept';

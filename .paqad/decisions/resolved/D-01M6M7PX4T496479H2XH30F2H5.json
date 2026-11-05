@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M7PX4T496479H2XH30F2H5",
+  "category": "spec.contradiction",
+  "title": "The stage start output limit: 40,000 characters in the spec, 27,000 in the code",
+  "context": "FR-41, AC-29 and AC-30 say 40,000. A live test showed Bash output arrives whole at 29,000 and becomes a preview at 31,000 and 40,000, so the agent would lose the end of the text. Plan step S9 sets the limit to the measured limit less 10 percent.",
+  "options": [
+    {
+      "option_key": "change-spec",
+      "label": "Change the spec to 27,000",
+      "one_line_preview": "Change the spec to 27,000",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fix-code",
+      "label": "Fix the code to 40,000",
+      "one_line_preview": "Fix the code to 40,000",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "change-spec",
+  "created_at": "2026-11-04T21:33:45.498Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "change-spec",
+  "rationale": "Owner, 4 Nov 2026: use 27,000 so agents always get the full text.",
+  "resolved_at": "2026-11-04T21:33:46.163Z",
+  "decision_id": "D-01M6M7PX4T496479H2XH30F2H5",
+  "fingerprint": "sha256:e8dd968ee393a2bcffef4af95e169bc612d8a720dca7ee15e2b9405bacfdbfc0",
+  "question": "The stage start output limit: 40,000 characters in the spec, 27,000 in the code",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-11-11T21:33:45.498Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "change-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T21:33:46.163Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 4 Nov 2026: use 27,000 so agents always get the full text."
+  }
+}

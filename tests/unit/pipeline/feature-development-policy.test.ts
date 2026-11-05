@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -17,6 +17,7 @@ import {
   reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
 import { stageNoteLines } from '@/stage-isolation/stage-agents.js';
+import { seedStageAgent } from '@/stage-isolation/stage-brief.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
 const repoView = (): string =>
@@ -26,6 +27,18 @@ const repoView = (): string =>
 
 const renderDefaultFeatureDevelopmentPolicyYaml = (): string =>
   YAML.stringify(defaultFeatureDevelopmentPolicy(), { lineWidth: 0 });
+
+function briefSentToAgent(stage: string): string {
+  const root = mkdtempSync(join(tmpdir(), 'paqad-seeded-brief-'));
+  try {
+    const output = JSON.parse(seedStageAgent(stage, root, { session_id: 'ses_policy' })) as {
+      hookSpecificOutput: { additionalContext: string };
+    };
+    return output.hookSpecificOutput.additionalContext;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
 
 function teamFile(root: string, name: string, value: unknown): void {
   const path = join(root, '.paqad/configs/feature-development', name);
@@ -475,11 +488,12 @@ describe('feature development policy', () => {
       for (const path of [
         'runtime/capabilities/coding/rules/feature-development.md',
         'docs/instructions/rules/coding/feature-development.md',
-        'runtime/claude-plugin/agents/paqad-review.md',
-        'runtime/claude-plugin/agents/paqad-documentation-sync.md',
       ]) {
         expect(repo(path)).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
       }
+      expect(briefSentToAgent('review')).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+      expect(briefSentToAgent('documentation_sync')).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+      expect(briefSentToAgent('development')).not.toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
       expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
         OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
       );
@@ -518,12 +532,11 @@ describe('feature development policy', () => {
       }
     });
 
-    it('AC-13: the review stage brief and review agent carry it; development does not', () => {
+    it('AC-13: the brief sent to the review agent carries it; development does not', () => {
       expect(stageNoteLines('review')).toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
       expect(stageNoteLines('development')).not.toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
-      expect(repo('runtime/claude-plugin/agents/paqad-review.md')).toContain(
-        REVIEW_DIGEST_REFRESH_INSTRUCTION,
-      );
+      expect(briefSentToAgent('review')).toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
+      expect(briefSentToAgent('development')).not.toContain(REVIEW_DIGEST_REFRESH_INSTRUCTION);
       expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
         REVIEW_DIGEST_REFRESH_INSTRUCTION,
       );
