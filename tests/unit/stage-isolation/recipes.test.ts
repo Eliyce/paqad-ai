@@ -53,7 +53,7 @@ describe('the recipe resolver', () => {
   });
 
   it('FR-89: on the plugin, says update cannot restore it and names what does', () => {
-    const advice = recipeRepairAdvice('/home/me/.claude/plugins/cache/eliyce/paqad/1.2.3');
+    const advice = recipeRepairAdvice('/opt/cc/.claude/plugins/cache/eliyce/paqad/1.2.3');
     expect(advice).toContain('`paqad-ai update` cannot restore it on the plugin');
     expect(advice).toContain('`claude plugin update paqad@eliyce`');
     expect(advice).toContain('already at the latest version');
