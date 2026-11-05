@@ -1143,14 +1143,19 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
 - **Repairing a break.** The gate's remedy for a break is `paqad-ai stage repair <row> --reason <text>`.
   It refuses a row that is not a break, and otherwise appends a `record-repair` row with the reason,
   `repairs_row` and `repairs_hash`, the hash of the broken row. The check then lists that row as a
-  repaired gap, and only while the row still has that hash. The original row stays as it was.
+  repaired gap, and only while the row still has that hash. The original row stays as it was. A command
+  carrying `SE_AGENT_ID` is refused, so a stage agent reports the break and the orchestrator or the
+  developer repairs it. The row's `agent` is `developer` at a terminal and the orchestrator otherwise, and
+  `stage_agents_running` names any stage agent still open. The receipt notes add a line per repaired row,
+  on every lane.
 - **Rename.** A title given mid-change renames the bundle under its lock and relinks `prev_hash` on
   every later row in one atomic write. That pass may change only `artifact_paths`, `content_hash` and
   `prev_hash`. An append that still names the old folder lands in the new one. A rename waits 3 seconds
   for the lock, and if the lock stays held it leaves the name alone.
 - **What the chain cannot do.** The chain is tamper-evident, not tamper-proof. The hashes are unkeyed, so
   it catches accidents and silent loss and does not stop someone who can write the file and
-  recompute them. It also cannot see rows cut from the end of the file.
+  recompute them. It also cannot see rows cut from the end of the file, or a row lost next to a declared
+  gap. The check carries that as `blind_spot`, naming the gap rows, and the gate note prints it.
 - **Older changes.** All handling of bundles from before this version lives in
   `src/stage-evidence/ledger-era.ts`: `bundleLedgerEra` for the refusal and the chain check, and
   `stageLedgerEra` for the recipe proof. It is temporary, and its removal is tracked in the tech
