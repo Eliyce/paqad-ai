@@ -22,7 +22,8 @@ recorded and read at completion; on advisory hosts the verb still runs but nothi
 The report goes into the bundle of the session the verb runs under (`src/checks/report-target.ts`),
 resolved in the same order as every other verb: the first non-blank of `SE_SESSION`, then
 `CLAUDE_SESSION_ID`, then the cached session id. A stage agent running `checks run` with the
-orchestrator's `SE_SESSION` therefore reports into the orchestrator's change, not its own.
+orchestrator's `SE_SESSION` therefore reports into the orchestrator's change, not its own. The project
+commands it runs do not inherit that identity: `checks run` removes `SE_AGENT_ID` and `SE_SESSION` from their environment.
 
 Before running, the agent runs `npx paqad-ai checks plan`; if it prints `test: sequential (unknown)`
 it runs the **test-runner-discovery** skill and records the result with `npx paqad-ai checks

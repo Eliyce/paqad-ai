@@ -1131,8 +1131,8 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
   ledger again, up to three tries, then appends with no lock.
 - **Duplicates.** The key is `<change>:<agent or session>:<stage>:<kind>:<status>:<final>`, where final is
   the `tool_use_id`, else a refusal id, else a hash of the row body without its stamps. A key ending
-  in an id is compared by value. A body-hash key is dropped only inside 10 seconds, and only when
-  the same stage has not moved on since. `verify` rows are never dropped, because the redo cap counts
+  in an id is compared by value. A body-hash key is dropped only inside 10 seconds of the earlier
+  row's stamp, counted both ways so a stamp ahead of the clock still matches, and only when the same stage has not moved on since. `verify` rows are never dropped, because the redo cap counts
   them.
 - **Torn lines.** An append after a line with no newline starts on a fresh line, chains to the last
   readable row and sets `chain_note: "after-torn-line"`.
