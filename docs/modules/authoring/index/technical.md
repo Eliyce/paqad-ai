@@ -49,7 +49,7 @@ decision naming the powers and the file hash. S4 waits until you resolve it. The
 tied to the agent text and its hook scripts, so it still holds after release and expires when
 either changes; `agent catalog` and the end-of-change check name an expired approval. An unanswered
 decision counts only for the file hash it names. If the agent file changes while it waits, `agent test`
-raises a new one for the file as it is.
+raises a new one for the file as it is and discards the old one with the reason `superseded by D-…`.
 
 ## Delegation log
 

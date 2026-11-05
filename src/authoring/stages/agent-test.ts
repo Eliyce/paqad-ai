@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 
+import { DecisionStore } from '@/planning/decision-store.js';
 import { splitSkillFrontmatter } from '@/skills/frontmatter-parser.js';
 
 import {
@@ -136,6 +137,23 @@ function onlyPowerFindings(lint: AgentLintResult): boolean {
   );
 }
 
+function discardSupersededPermission(
+  projectRoot: string,
+  supersededId: string,
+  newId: string,
+): string[] {
+  try {
+    new DecisionStore(projectRoot).discard({
+      decisionId: supersededId,
+      reason: `superseded by ${newId}`,
+    });
+    return [];
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error);
+    return [`Decision ${supersededId} stays open because it could not be closed: ${why}`];
+  }
+}
+
 function permissionGate(
   workspace: AuthoringWorkspace,
   lint: AgentLintResult,
@@ -175,12 +193,17 @@ function permissionGate(
   });
   workspace.writeJson(PERMISSIONS_FILE, [...ids, id]);
   setWaiting(workspace, { stage: 'S4', decision: id, resume });
+  const notClosed =
+    record?.status === 'pending'
+      ? discardSupersededPermission(workspace.projectRoot, record.id, id)
+      : [];
   return {
     ok: false,
     decision: id,
     artifacts: [workspace.relPath(PERMISSIONS_FILE)],
     lines: [
       `${workspace.name} asks for ${powers}, so S4 is waiting on decision ${id} (authoring.agent_permission). Once it is answered, run ${resume}.`,
+      ...notClosed,
     ],
   };
 }
