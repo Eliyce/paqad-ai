@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6M72R8PAF9HYXTHC0GEA078",
+  "category": "authoring.override",
+  "title": "The skill development-recipe cannot run its S0 check. Add it unverified, kept in this project?",
+  "context": "The six stage recipes are decided by the owner (issue table D2, D3): one recipe per stage is required, so three no-skill baseline runs cannot change the outcome.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, development-recipe is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that development-recipe helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, development-recipe is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-04T21:22:45.142Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "add-unverified",
+  "rationale": "Owner, 4 Nov 2026: skip. One recipe per stage is already decided, so a no-skill baseline cannot change the outcome.",
+  "resolved_at": "2026-11-04T21:33:18.144Z",
+  "decision_id": "D-01M6M72R8PAF9HYXTHC0GEA078",
+  "fingerprint": "sha256:ccc67ff2ff8dc6e3a2a74a1e4ebd42504da141e236c3064a9a8a643714880190",
+  "question": "The skill development-recipe cannot run its S0 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-04T21:22:45.142Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-04T21:33:18.144Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner, 4 Nov 2026: skip. One recipe per stage is already decided, so a no-skill baseline cannot change the outcome."
+  }
+}

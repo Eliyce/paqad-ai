@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6N2W0SZ1ZG2J29D4MNP2AZ1",
+  "category": "authoring.override",
+  "title": "The agent paqad-development cannot run its S5 check. Add it unverified, kept in this project?",
+  "context": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-development is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-development helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-development is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-05T05:28:24.639Z",
+  "status": "resolved",
+  "change": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "chosen": "add-unverified",
+  "rationale": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later.",
+  "resolved_at": "2026-11-05T05:28:24.884Z",
+  "decision_id": "D-01M6N2W0SZ1ZG2J29D4MNP2AZ1",
+  "fingerprint": "sha256:ac2949b778c5b7b063ca0f9eea3202b5e6c3e6cd08330eb4ac47b8201adbdb4f",
+  "question": "The agent paqad-development cannot run its S5 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6KZV16XPRVAM7PK1SAZ4Y94",
+  "ttl_until": "2026-12-05T05:28:24.639Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T05:28:24.884Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved on 5 Nov 2026: the 12 approved sample runs are the measure for now, full measurement later."
+  }
+}
