@@ -80,6 +80,7 @@ describe('check-ac-map.mjs contract', () => {
   });
 
   it('check-ac-map output size', () => {
+    write('a.test.ts', 'nothing named here\n');
     const ids = Array.from({ length: 5_000 }, (_, index) => `AC-${index}`);
     const run = runScript(SCRIPT, [write('spec.json', spec(ids)), dir]);
     expect(run.status).toBe(1);

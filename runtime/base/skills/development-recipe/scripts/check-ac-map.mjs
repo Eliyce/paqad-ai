@@ -1,9 +1,34 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 const MAX_ERRORS = 100;
+const SKIP = new Set([
+  'node_modules',
+  'dist',
+  '.git',
+  '.paqad',
+  'coverage',
+  'build',
+  'target',
+  'vendor',
+  'bin',
+  'obj',
+  'venv',
+  '.venv',
+  '.tox',
+  '.gradle',
+  '__pycache__',
+  '__snapshots__',
+  'fixtures',
+]);
+const TEST_NAME =
+  /(?:\.(?:test|spec)\.[cm]?[jt]sx?|_(?:test|spec)\.[a-z]+|(?:^|\/)test_[^/]+\.(?:py|rb)|(?:Tests?|Spec|IT)\.(?:java|kt|kts|groovy|scala|cs|fs|vb|php|swift|cc|cpp)|(?:^|\/)Test[A-Z][^/]*\.(?:java|kt|cs))$/u;
+const IN_TEST_FOLDER =
+  /(?:^|\/)(?:tests?|specs?|__tests__)\/.*\.(?:py|rb|java|kt|kts|groovy|scala|cs|fs|go|rs|php|swift|exs?|dart|c|cc|cpp|[cm]?[jt]sx?)$/u;
+const RUST_TEST = /#\[(?:cfg\(test\)|[a-z_:]*test)\]/u;
 
 function stopWith(code, message) {
   process.stderr.write(`check-ac-map.mjs: ${message}\n`);
@@ -45,13 +70,22 @@ function finish(input, errors, extra = {}) {
   process.exitCode = errors.length === 0 ? 0 : 1;
 }
 
-import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+function readText(path) {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
 
-const SKIP = new Set(['node_modules', 'dist', '.git', '.paqad', 'coverage', 'build']);
-const TEST_FILE = /(\.(test|spec)\.[cm]?[jt]sx?|_test\.(go|py)|Test\.php)$/u;
+function isTestPath(path, read) {
+  const normalized = path.replaceAll('\\', '/');
+  if (normalized.split('/').some((part) => SKIP.has(part))) return false;
+  if (TEST_NAME.test(normalized) || IN_TEST_FOLDER.test(normalized)) return true;
+  return normalized.endsWith('.rs') && RUST_TEST.test(read() ?? '');
+}
 
-function testFiles(dir, found = []) {
+function allTestTexts(root, dir = root, found = []) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -61,33 +95,75 @@ function testFiles(dir, found = []) {
   for (const entry of entries) {
     if (SKIP.has(entry.name)) continue;
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) testFiles(path, found);
-    else if (TEST_FILE.test(entry.name)) found.push(path);
+    if (entry.isDirectory()) {
+      allTestTexts(root, path, found);
+    } else if (isTestPath(relative(root, path), () => readText(path))) {
+      const text = readText(path);
+      if (text !== null) found.push(text);
+    }
   }
   return found;
 }
 
-function check(spec, root) {
-  const criteria = (spec.acceptance_criteria ?? []).filter(
-    (criterion) => (criterion.proof_type ?? 'automated') === 'automated',
+function criterionPattern(id) {
+  const number = /^AC-(\d+)$/u.exec(id)?.[1];
+  if (number === undefined) {
+    const literal = id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    return new RegExp(`(?<![\\w-])${literal}(?![0-9]|\\.[0-9])`, 'u');
+  }
+  return new RegExp(
+    `(?:(?<![A-Za-z0-9])[Aa][Cc][-_]?|(?<=[a-z0-9])A[Cc]_?)${number}(?![0-9]|\\.[0-9])`,
+    'u',
   );
-  const text = testFiles(root)
-    .map((file) => readFileSync(file, 'utf8'))
-    .join('\n');
-  return criteria
-    .map((criterion) => criterion.criterion_id ?? criterion.id)
-    .filter((id) => !new RegExp(`\\b${id}(?![\\d.])`, 'u').test(text))
-    .map((id) => `${id} has no test that names it`);
 }
 
-const [file, root] = process.argv.slice(2);
+function missingCriteria(spec, text, message) {
+  return (spec.acceptance_criteria ?? [])
+    .filter((criterion) => (criterion.proof_type ?? 'automated') === 'automated')
+    .map((criterion) => criterion.criterion_id ?? criterion.id)
+    .filter((id) => !criterionPattern(id).test(text))
+    .map((id) => `${id} ${message}`);
+}
+
+function addedTestLines(root) {
+  const added = JSON.parse(readFileSync(0, 'utf8'));
+  return Object.entries(added)
+    .filter(([path]) => isTestPath(path, () => readText(join(root, path))))
+    .map(([, text]) => text)
+    .join('\n');
+}
+
+function check(input, spec, root, addedOnly) {
+  const all = allTestTexts(root);
+  if (all.length === 0) {
+    finish(input, [], { unchecked: `no test file could be read under ${root}` });
+    return;
+  }
+  if (addedOnly) {
+    finish(
+      input,
+      missingCriteria(spec, addedTestLines(root), 'has no test line added by this change'),
+      { scope: 'added' },
+    );
+    return;
+  }
+  finish(input, missingCriteria(spec, all.join('\n'), 'has no test that names it'), {
+    scope: 'all-tests',
+  });
+}
+
+const args = process.argv.slice(2);
+const addedOnly = args.includes('--added-stdin');
+const [file, root] = args.filter((arg) => arg !== '--added-stdin');
 if (!file || file === '--help') {
   process.stdout.write(
-    'usage: check-ac-map.mjs <specification.json> [project-root]\nprints { ok, errors, hash }\n',
+    'usage: check-ac-map.mjs <specification.json> [project-root] [--added-stdin]\n' +
+      'prints { ok, errors, hash, scope } and, when no test can be read, { unchecked }\n' +
+      '--added-stdin reads { path: added lines } as JSON and counts only those lines\n',
   );
   process.exitCode = file ? 0 : 2;
 } else {
   const text = readInput(file, 'a specification.json file');
   const spec = text === null ? null : parseJson(text);
-  if (spec !== null) finish(text, check(spec, root ?? process.cwd()));
+  if (spec !== null) check(text, spec, root ?? process.cwd(), addedOnly);
 }

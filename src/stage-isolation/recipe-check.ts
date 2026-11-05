@@ -22,6 +22,8 @@ export interface RecipeRun {
   script: string | null;
   root: string | null;
   stale?: string[];
+  unchecked?: string;
+  scope?: string;
 }
 
 const SCRIPT_TIMEOUT_MS = 60_000;
@@ -59,7 +61,14 @@ export function runRecipeScript(
     hash: null,
     ...base,
   });
-  let parsed: { ok?: unknown; errors?: unknown; hash?: unknown; stale?: unknown };
+  let parsed: {
+    ok?: unknown;
+    errors?: unknown;
+    hash?: unknown;
+    stale?: unknown;
+    unchecked?: unknown;
+    scope?: unknown;
+  };
   try {
     parsed = JSON.parse(run.stdout.trim().split('\n').at(-1) ?? '') as typeof parsed;
   } catch {
@@ -74,6 +83,8 @@ export function runRecipeScript(
     hash: parsed.hash,
     ...base,
     ...(Array.isArray(parsed.stale) ? { stale: parsed.stale.map(String) } : {}),
+    ...(typeof parsed.unchecked === 'string' ? { unchecked: parsed.unchecked } : {}),
+    ...(typeof parsed.scope === 'string' ? { scope: parsed.scope } : {}),
   };
 }
 
@@ -97,6 +108,17 @@ export interface RecipeCheckInput {
 }
 
 const NOTHING = (): void => {};
+
+function recipeNotes(run: RecipeRun): string[] {
+  if (run.unchecked !== undefined) {
+    return [`**▸ paqad** · the ${run.recipe} check could not check this: ${run.unchecked}`];
+  }
+  return run.scope === 'all-tests'
+    ? [
+        `**▸ paqad** · the ${run.recipe} check could not read this change's diff, so it counted every test in the project`,
+      ]
+    : [];
+}
 
 export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
   const { projectRoot, sessionId, stage } = input;
@@ -138,7 +160,7 @@ export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
   return {
     verdict: 'pass',
     run,
-    lines: [],
+    lines: recipeNotes(run),
     record: () => {
       if (run.hash === null) return;
       appendFeatureStageRow(projectRoot, sessionId, dirName, {
@@ -151,6 +173,8 @@ export function checkRecipe(input: RecipeCheckInput): RecipeCheck {
         script: run.script,
         output_hash: run.hash,
         recipe_root: run.root,
+        ...(run.unchecked === undefined ? {} : { unchecked: run.unchecked }),
+        ...(run.scope === undefined ? {} : { scope: run.scope }),
         ...(input.staleOk && input.staleOk.length > 0 ? { stale_ok: [...input.staleOk] } : {}),
       });
     },

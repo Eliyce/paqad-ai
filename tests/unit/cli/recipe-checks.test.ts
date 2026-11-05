@@ -81,7 +81,7 @@ const REUSE = {
 };
 
 describe('review record checks the template with the recipe script', () => {
-  it('refuses a template that fails, writing no review.json and printing the errors', async () => {
+  it('AC-47: refuses a template that fails, writing no review.json and printing the errors', async () => {
     const root = tempRoot();
     await opened(root, 'review');
     const run = await cli(root, [
@@ -101,7 +101,7 @@ describe('review record checks the template with the recipe script', () => {
     expect(skillUsed(root)).toEqual([]);
   });
 
-  it('writes review.json and a skill-used row on a pass', async () => {
+  it('AC-48: writes review.json and a skill-used row on a pass', async () => {
     const root = tempRoot();
     await opened(root, 'review');
     const run = await cli(root, ['review', 'record', template(root, 'r.json', REVIEW)]);
@@ -144,7 +144,7 @@ describe('review record checks the template with the recipe script', () => {
 });
 
 describe('plan compile checks the plan', () => {
-  it('refuses zero consulted entries with the plain message', async () => {
+  it('AC-49: refuses zero consulted entries with the plain message', async () => {
     const root = tempRoot();
     await opened(root, 'planning');
     const run = await cli(root, [
@@ -160,7 +160,7 @@ describe('plan compile checks the plan', () => {
     expect(run.stderr).toContain('a plan must record what existing code was checked');
   });
 
-  it('refuses a step with no verdict and records a passing one', async () => {
+  it('AC-55: refuses a step with no verdict and records a passing one', async () => {
     const root = tempRoot();
     await opened(root, 'planning');
     const bad = await cli(root, [
@@ -189,13 +189,50 @@ describe('plan compile checks the plan', () => {
 });
 
 describe('stage end checks development and documentation sync', () => {
-  it('refuses development when a criterion has no test, and passes once one names it', async () => {
+  it('lets development through and records it when no test can be read at all', async () => {
     const root = tempRoot();
     await opened(root, 'development');
     writeFileSync(
       join(bundleDir(root), 'specification.json'),
       JSON.stringify({ acceptance_criteria: [{ criterion_id: 'AC-1', proof_type: 'automated' }] }),
     );
+    const run = await cli(root, ['stage', 'end', 'development']);
+    expect(run.exitCode).toBe(0);
+    expect(run.stderr).toContain('could not check this');
+    expect(rows(root).some((row) => row.kind === 'stage_end')).toBe(true);
+    expect(skillUsed(root)[0]?.unchecked).toContain('no test file could be read');
+  });
+
+  it('counts only lines this change added once the change has a start commit', async () => {
+    const root = tempRoot();
+    const git = (...args: string[]) =>
+      execa('git', ['-c', 'user.email=a@b.c', '-c', 'user.name=t', ...args], { cwd: root });
+    await git('init', '-q');
+    writeFileSync(join(root, 'old.test.ts'), "it('AC-1 from an older spec', () => {});\n");
+    await git('add', 'old.test.ts');
+    await git('commit', '-qm', 'old');
+    await opened(root, 'development');
+    writeFileSync(
+      join(bundleDir(root), 'specification.json'),
+      JSON.stringify({ acceptance_criteria: [{ criterion_id: 'AC-1', proof_type: 'automated' }] }),
+    );
+    const bad = await cli(root, ['stage', 'end', 'development']);
+    expect(bad.exitCode).not.toBe(0);
+    expect(bad.stderr).toContain('AC-1 has no test line added by this change');
+    writeFileSync(join(root, 'old.test.ts'), "it('AC-1 now', () => {});\n");
+    const good = await cli(root, ['stage', 'end', 'development']);
+    expect(good.exitCode).toBe(0);
+    expect(skillUsed(root)[0]?.scope).toBe('added');
+  });
+
+  it('AC-55: refuses development when a criterion has no test, and passes once one names it', async () => {
+    const root = tempRoot();
+    await opened(root, 'development');
+    writeFileSync(
+      join(bundleDir(root), 'specification.json'),
+      JSON.stringify({ acceptance_criteria: [{ criterion_id: 'AC-1', proof_type: 'automated' }] }),
+    );
+    writeFileSync(join(root, 'other.test.ts'), "it('something else', () => {});");
     const bad = await cli(root, ['stage', 'end', 'development']);
     expect(bad.exitCode).not.toBe(0);
     expect(bad.stderr).toContain('AC-1 has no test');
@@ -206,7 +243,26 @@ describe('stage end checks development and documentation sync', () => {
     expect(skillUsed(root)).toMatchObject([{ stage: 'development', script: 'check-ac-map.mjs' }]);
   });
 
-  it('holds acknowledged stale docs on the row', async () => {
+  it('AC-55: refuses documentation sync with a stale doc, and names it', async () => {
+    const root = tempRoot();
+    const git = (...args: string[]) =>
+      execa('git', ['-c', 'user.email=a@b.c', '-c', 'user.name=t', ...args], { cwd: root });
+    await git('init', '-q');
+    mkdirSync(join(root, 'docs/modules/hud/index'), { recursive: true });
+    mkdirSync(join(root, 'src/hud'), { recursive: true });
+    writeFileSync(join(root, 'docs/modules/hud/index/summary.md'), '# hud\n');
+    writeFileSync(join(root, 'src/hud/snapshot.ts'), 'export {};\n');
+    await git('add', 'docs', 'src');
+    await git('commit', '-qm', 'base');
+    await opened(root, 'documentation_sync');
+    writeFileSync(join(root, 'src/hud/snapshot.ts'), 'export const a = 1;\n');
+    const run = await cli(root, ['stage', 'end', 'documentation_sync']);
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr).toContain('docs/modules/hud/index/summary.md');
+    expect(rows(root).some((row) => row.kind === 'stage_end')).toBe(false);
+  });
+
+  it('AC-55: holds acknowledged stale docs on the row', async () => {
     const root = tempRoot();
     await opened(root, 'documentation_sync');
     const run = await cli(root, [
@@ -225,7 +281,28 @@ describe('stage end checks development and documentation sync', () => {
 });
 
 describe('spec freeze checks the spec', () => {
-  it('refuses a spec with no edge cases, printing why', async () => {
+  it('AC-55: records a spec that passes the check', async () => {
+    const root = tempRoot();
+    await opened(root, 'specification');
+    const spec = join(root, 'spec.md');
+    writeFileSync(
+      spec,
+      '# Spec\n\n## Functional requirements\n- FR-1: The widget greets.\n\n## Acceptance criteria\n\n- AC-1: Given a, when b, then c (proof: automated).\n\n## Invariants\n- INV-1: It never throws.\n\n## Edge cases\n\n- EC-1: an empty input.\n',
+    );
+    const run = await cli(root, [
+      'spec',
+      'freeze',
+      spec,
+      '--confirm-invariants',
+      '--manual',
+      '--reason',
+      'no pipeline in this fixture',
+    ]);
+    expect(run.stderr).toBe('');
+    expect(skillUsed(root)).toMatchObject([{ stage: 'specification', script: 'check-spec.mjs' }]);
+  });
+
+  it('AC-55: refuses a spec with no edge cases, printing why', async () => {
     const root = tempRoot();
     await opened(root, 'specification');
     const spec = join(root, 'spec.md');
@@ -241,13 +318,13 @@ describe('spec freeze checks the spec', () => {
 });
 
 describe('a broken install', () => {
-  it('is told apart from a bad artifact', () => {
+  it('AC-55: is told apart from a bad artifact', () => {
     const run = runRecipeScript('review', ['x'], undefined, join(tmpdir(), 'no-such-paqad-root'));
     expect(run.status).toBe('broken');
     expect(run.errors[0]).toContain('paqad-ai update');
   });
 
-  it('treats a script that crashes as broken, not as a pass', () => {
+  it('AC-55: treats a script that crashes as broken, not as a pass', () => {
     const run = runRecipeScript('planning', ['/no/such/plan.json']);
     expect(run.status).toBe('broken');
     expect(run.errors[0]).toContain('did not run cleanly');

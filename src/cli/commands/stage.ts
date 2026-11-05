@@ -19,6 +19,7 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evidence/types.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { addedLinesSince } from '@/pipeline/git-paths.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -213,7 +214,15 @@ async function stageEndRecipeCheck(
     if (stage === 'development') {
       const spec = join(root, featureFilePath(dirName, 'specification'));
       if (!existsSync(spec)) return null;
-      return checkRecipe({ projectRoot: root, sessionId, stage, args: [spec, root] });
+      const start = readChangeStartPoint(root, dirName);
+      const added = start === null ? null : addedLinesSince(root, start);
+      return checkRecipe({
+        projectRoot: root,
+        sessionId,
+        stage,
+        args: added === null ? [spec, root] : [spec, root, '--added-stdin'],
+        ...(added === null ? {} : { input: JSON.stringify(added) }),
+      });
     }
     if (stage === 'documentation_sync') {
       const staleOk = options.staleOk ?? [];

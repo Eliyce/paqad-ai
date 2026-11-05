@@ -65,6 +65,73 @@ export function changedFilesSince(projectRoot: string, start: ChangeStartLike): 
     .sort();
 }
 
+function parseAddedLines(diff: string): Record<string, string> {
+  const added: Record<string, string[]> = {};
+  let path: string | null = null;
+  let inHunk = false;
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      path = null;
+      inHunk = false;
+    } else if (!inHunk && line.startsWith('+++ ')) {
+      const name = line.slice(4).replace(/\t$/u, '');
+      path = name.startsWith('b/') ? name.slice(2) : null;
+    } else if (line.startsWith('@@')) {
+      inHunk = true;
+    } else if (inHunk && path !== null && line.startsWith('+')) {
+      (added[path] ??= []).push(line.slice(1));
+    }
+  }
+  return Object.fromEntries(Object.entries(added).map(([file, lines]) => [file, lines.join('\n')]));
+}
+
+export function addedLinesSince(
+  projectRoot: string,
+  start: ChangeStartLike,
+): Record<string, string> | null {
+  const changed = changedFilesSince(projectRoot, start);
+  const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
+  if (changed === null || untracked === null) return null;
+  let diff: string;
+  try {
+    diff = execFileSync(
+      'git',
+      [
+        '-c',
+        'core.quotepath=off',
+        'diff',
+        '-U0',
+        '--no-color',
+        '--no-ext-diff',
+        '--relative',
+      ].concat(start.commit),
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 30_000,
+        maxBuffer: 256 * 1024 * 1024,
+      },
+    );
+  } catch {
+    return null;
+  }
+  const inChange = new Set(changed);
+  const added = Object.fromEntries(
+    Object.entries(parseAddedLines(diff)).filter(([path]) => inChange.has(path)),
+  );
+  for (const path of untracked) {
+    const normalized = path.replace(/\\/g, '/');
+    if (!inChange.has(normalized)) continue;
+    try {
+      added[normalized] = readFileSync(join(projectRoot, normalized), 'utf8');
+    } catch {
+      /* A file that cannot be read adds no line. */
+    }
+  }
+  return added;
+}
+
 export function isPaqadArtifactPath(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
   return (
