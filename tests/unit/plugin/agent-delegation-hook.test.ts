@@ -305,7 +305,7 @@ describe('runtime/hooks/agent-delegation.mjs', () => {
 });
 
 describe('when both routes fire for one delegation', () => {
-  it('holds one entry for a repeated call', () => {
+  it('AC-39: holds one entry for a repeated call', () => {
     const root = project();
     const call = {
       tool_name: 'Agent',

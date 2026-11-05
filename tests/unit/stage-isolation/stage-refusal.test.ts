@@ -56,7 +56,7 @@ describe('stage start refuses a later stage past an unfinished one', () => {
     expect(stageStartRefusal(rows, 'development', 'full')?.stage).toBe('specification');
   });
 
-  it('leaves review and documentation sync side by side', () => {
+  it('AC-25: leaves review and documentation sync side by side', () => {
     const blocked = [opened, report('review', 'BLOCKED')];
     expect(stageStartRefusal(blocked, 'documentation_sync', 'full')).toBeNull();
     expect(
@@ -64,7 +64,7 @@ describe('stage start refuses a later stage past an unfinished one', () => {
     ).toBeNull();
   });
 
-  it('leaves development resumed for a review or checks fix', () => {
+  it('AC-25: leaves development resumed for a review or checks fix', () => {
     expect(
       stageStartRefusal([opened, report('review', 'BLOCKED')], 'development', 'full'),
     ).toBeNull();
@@ -73,25 +73,25 @@ describe('stage start refuses a later stage past an unfinished one', () => {
     ).toBeNull();
   });
 
-  it('leaves a resumed agent restarting its own stage', () => {
+  it('AC-25: leaves a resumed agent restarting its own stage', () => {
     expect(stageStartRefusal([opened, report('review', 'BLOCKED')], 'review', 'full')).toBeNull();
   });
 
-  it.each(['fast', 'graduated'] as const)('leaves the %s lane', (lane) => {
+  it.each(['fast', 'graduated'] as const)('AC-25: leaves the %s lane', (lane) => {
     expect(stageStartRefusal([opened, report('review', 'BLOCKED')], 'checks', lane)).toBeNull();
   });
 
-  it('leaves an inline run with no report rows', () => {
+  it('AC-25: leaves an inline run with no report rows', () => {
     const rows = [opened, row({ kind: 'stage_start', stage: 'review', agent: 'orchestrator' })];
     expect(stageStartRefusal(rows, 'checks', 'full')).toBeNull();
   });
 
-  it('leaves an older bundle', () => {
+  it('AC-25: leaves an older bundle', () => {
     const rows = [row({ kind: 'open', schema_version: 2 }), report('review', 'BLOCKED')];
     expect(stageStartRefusal(rows, 'checks', 'full')).toBeNull();
   });
 
-  it('leaves a report nobody stated', () => {
+  it('AC-25: leaves a report nobody stated', () => {
     const none = report('review', 'BLOCKED', { report_source: 'none', report_stated: false });
     expect(stageStartRefusal([opened, none], 'checks', 'full')).toBeNull();
   });

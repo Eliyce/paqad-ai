@@ -292,7 +292,7 @@ describe('narration-contract-writer', () => {
 describe('the orchestrator protocol for stage returns', () => {
   const router = readFileSync(join(process.cwd(), 'runtime', 'AGENT-ROUTER.md'), 'utf8');
 
-  it('acts on the stage report row and tells the developer the reason from it', () => {
+  it('AC-20: acts on the stage report row and tells the developer the reason from it', () => {
     const body = buildNarrationContractBody();
     for (const text of [body, router]) {
       expect(text).toContain('run `paqad-ai stage report <agent_id>` and act on the JSON');

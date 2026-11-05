@@ -199,7 +199,7 @@ describe('the stop check sends an unfinished stage back', () => {
     expect(JSON.parse(result.stdout).reason).toContain('specification ended without its artifact');
   });
 
-  it('does not send back a report with no Status line, a seat, or Codex', async () => {
+  it('AC-15: does not send back a report with no Status line, a seat, or Codex', async () => {
     const root = tempRoot();
     await openPlanning(root);
     const noStatus = await stop(root, stopPayload({ last_assistant_message: 'no line here' }));
@@ -212,7 +212,7 @@ describe('the stop check sends an unfinished stage back', () => {
     expect(codex.stdout).toBe('');
   });
 
-  it('lets the agent stop when the check cannot read the ledger, and logs it', async () => {
+  it('AC-11: lets the agent stop when the check cannot read the ledger, and logs it', async () => {
     const root = tempRoot();
     await openPlanning(root);
     const file = join(bundleDir(root), 'stage-evidence.jsonl');

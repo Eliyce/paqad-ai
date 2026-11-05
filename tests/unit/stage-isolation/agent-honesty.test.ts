@@ -37,11 +37,14 @@ describe('honest agent files', () => {
     }
   });
 
-  it.each(['claude-code', 'codex-cli'])('keeps every %s stage body under 300 words', (host) => {
-    for (const def of MANDATORY_STAGE_AGENTS) {
-      expect(words(buildStageAgentBody(def, host)), def.agentName).toBeLessThan(300);
-    }
-  });
+  it.each(['claude-code', 'codex-cli'])(
+    'AC-60: keeps every %s stage body under 300 words',
+    (host) => {
+      for (const def of MANDATORY_STAGE_AGENTS) {
+        expect(words(buildStageAgentBody(def, host)), def.agentName).toBeLessThan(300);
+      }
+    },
+  );
 
   it('passes the agent lint: no warning on a Do not line, and Bash held by the guard', async () => {
     for (const name of readdirSync(PLUGIN_AGENTS)) {

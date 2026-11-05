@@ -70,7 +70,7 @@ describe.each([
   ['Claude Code', []],
   ['Codex', ['codex-cli']],
 ])('the next stage refuses to start past a blocked review on %s', (_host, argv) => {
-  it('refuses checks, naming review, the reason and the next action, and leaves the edit gate alone', async () => {
+  it('AC-24: refuses checks, naming review, the reason and the next action, and leaves the edit gate alone', async () => {
     const root = tempRoot();
     await cli(root, ['stage', 'start', 'review', '--title', 'refusal', '--issue', '1']);
     const gateBefore = await editGateExit(root);

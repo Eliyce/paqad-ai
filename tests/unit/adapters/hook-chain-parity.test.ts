@@ -87,7 +87,7 @@ describe('the plugin route and the npm route render the same hooks', () => {
     for (const hook of blocking) expect(hook.timeout).toBe(10);
   });
 
-  it('AC-61 and AC-62: blocks on failure on the three gates and leaves the handback hook fail-open', () => {
+  it('AC-7, AC-11, AC-61 and AC-62: blocks on failure on the three gates and leaves the handback hook fail-open', () => {
     for (const chain of [hostChain(), pluginChain()]) {
       const blocking = chain.filter((line) => line.onFailure === 'block');
       expect(blocking.map((line) => line.script.split('"').join(''))).toEqual([

@@ -1056,7 +1056,7 @@ describe('the run line in the Trust tab', () => {
     expect(stage(run({ runs: 3 })).run?.after).toBe(' · 44 turns  ·  3 runs');
   });
 
-  it('reads a done stage whose report is BLOCKED as needing a look, with no green check', () => {
+  it('AC-71: reads a done stage whose report is BLOCKED as needing a look, with no green check', () => {
     const view = stage(run({ report: 'BLOCKED', tone: 'fail', needs_look: true }));
     expect(view.word).toBe('Needs a look');
     expect(view.mark).toBeNull();

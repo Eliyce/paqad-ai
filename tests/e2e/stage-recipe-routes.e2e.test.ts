@@ -91,7 +91,7 @@ function repo(): string {
 }
 
 describe.each(ROUTES)('the recipe reaches a stage agent on the $name route', ({ env }) => {
-  it('adds the recipe to the brief and records it', async () => {
+  it('AC-46: adds the recipe to the brief and records it', async () => {
     const root = repo();
     await execa('node', [CLI, 'stage', 'start', 'planning', '--title', 'routes', '--issue', '1'], {
       cwd: root,

@@ -81,7 +81,7 @@ function mixedBundle(root: string): void {
 }
 
 describe('a ledger with a torn line', () => {
-  it('reads cleanly with torn_tail true and no other row lost', () => {
+  it('AC-36: reads cleanly with torn_tail true and no other row lost', () => {
     const root = tempRoot();
     mixedBundle(root);
     const count = readFeatureStageUnit(root, DIR).length;
@@ -113,7 +113,7 @@ describe('a ledger with a torn line', () => {
 });
 
 describe('a bundle mixing version 2 and 3 rows', () => {
-  it('validates, folds, snapshots and renders with no error', () => {
+  it('AC-38: validates, folds, snapshots and renders with no error', () => {
     const root = tempRoot();
     mixedBundle(root);
     const rows = readFeatureStageUnit(root, DIR);
@@ -127,7 +127,7 @@ describe('a bundle mixing version 2 and 3 rows', () => {
     expect(() => collectDelivery(root)).not.toThrow();
   });
 
-  it('starts the chain at the first version 3 row', () => {
+  it('AC-42: starts the chain at the first version 3 row', () => {
     const root = tempRoot();
     mixedBundle(root);
     const raw = readFileSync(ledgerPath(root), 'utf8');
@@ -159,7 +159,7 @@ describe('checking the chain', () => {
     expect(check.breaks).toEqual([2]);
   });
 
-  it('AC-80: names the row when two rows swap', () => {
+  it('AC-42, AC-80: names the row when two rows swap', () => {
     const all = lines(chained());
     const check = checkStageChain([all[0], all[2], all[1], all[3]].join('\n'));
     expect(check.breaks.length).toBeGreaterThan(0);

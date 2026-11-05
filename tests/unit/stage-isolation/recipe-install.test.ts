@@ -105,7 +105,7 @@ describe('the turns line in the receipt', () => {
       api_turns: turns,
     }) as unknown as SessionLedgerRow;
 
-  it('states turns against the budget and the baseline, summed across agents', () => {
+  it('AC-65: states turns against the budget and the baseline, summed across agents', () => {
     expect(stageTurnsLine([row('review', 20), row('review', 5), row('checks', 3)])).toBe(
       'Turns per stage: review 25 of 70 (was 44), checks 3 of 20 (was 10).',
     );

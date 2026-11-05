@@ -27,7 +27,7 @@ describe('stage turn budgets', () => {
     ).toEqual(BUDGETS);
   });
 
-  it('asks the review stage for at most 25 commands', () => {
+  it('AC-32: asks the review stage for at most 25 commands', () => {
     const brief = buildStageBrief('review', REPO, 'ses_budget', { full: true });
     const recipe = resolveRecipe('review').body;
     expect(requiredCommands(`${brief}\n${recipe}`).length).toBeLessThanOrEqual(25);

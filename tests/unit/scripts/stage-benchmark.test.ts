@@ -92,7 +92,7 @@ describe('stage-benchmark.mjs', () => {
 });
 
 describe('skill-consumer-scan.mjs', () => {
-  it('lists every base skill with consumers or none, and each recipe beside its sources', () => {
+  it('AC-66: lists every base skill with consumers or none, and each recipe beside its sources', () => {
     const scan = scanConsumers(process.cwd());
     for (const item of scan.skills) {
       expect(item.consumers === 'none' || item.consumers.length > 0).toBe(true);

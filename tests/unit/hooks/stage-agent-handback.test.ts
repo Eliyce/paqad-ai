@@ -146,19 +146,22 @@ describe('stage-agent-handback.mjs', () => {
     ['Status: BLOCKED', 'BLOCKED', null],
     ['Status: BLOCKED\npaused: D-01ABC', 'BLOCKED', 'D-01ABC'],
     ['paused: D-01ABC\nStatus: DONE', 'DONE', 'D-01ABC'],
-  ])('passes %j with no artifact and keeps the status and decision', async (msg, status, id) => {
-    const root = tempRoot();
-    await openChange(root);
-    expect((await runHook(root, handback(msg))).exitCode).toBe(0);
-    expect(handbackRows(root).at(-1)).toMatchObject({
-      event_status: 'completed',
-      report_status: status,
-      decision: id,
-      advance: false,
-    });
-  });
+  ])(
+    'AC-4: passes %j with no artifact and keeps the status and decision',
+    async (msg, status, id) => {
+      const root = tempRoot();
+      await openChange(root);
+      expect((await runHook(root, handback(msg))).exitCode).toBe(0);
+      expect(handbackRows(root).at(-1)).toMatchObject({
+        event_status: 'completed',
+        report_status: status,
+        decision: id,
+        advance: false,
+      });
+    },
+  );
 
-  it('stands down when the other route owns the session and writes no row', async () => {
+  it('AC-8: stands down when the other route owns the session and writes no row', async () => {
     const root = tempRoot();
     await openChange(root);
     const markerDir = join(root, '.paqad/session/plugin-active.d');
@@ -172,7 +175,7 @@ describe('stage-agent-handback.mjs', () => {
     expect(handbackRows(root)).toEqual([]);
   });
 
-  it('refuses three times, lets the fourth through as BLOCKED, and counts per agent', async () => {
+  it('AC-9: refuses three times, lets the fourth through as BLOCKED, and counts per agent', async () => {
     const root = tempRoot();
     await openChange(root);
     for (const id of ['t1', 't2', 't3']) {
@@ -205,7 +208,7 @@ describe('stage-agent-handback.mjs', () => {
     expect(handbackRows(other).filter((row) => row.event_status === 'denied')).toHaveLength(1);
   });
 
-  it('AC-40: keeps a row for each fast identical retry and still reaches the ceiling', async () => {
+  it('AC-10, AC-40: keeps a row for each fast identical retry and still reaches the ceiling', async () => {
     const root = tempRoot();
     await openChange(root);
     const exits: number[] = [];
@@ -218,7 +221,7 @@ describe('stage-agent-handback.mjs', () => {
     expect(handbackRows(root).at(-1)).toMatchObject({ report_status: 'BLOCKED' });
   });
 
-  it('exits 0 and logs when the bundle cannot be read', async () => {
+  it('AC-11: exits 0 and logs when the bundle cannot be read', async () => {
     const root = tempRoot();
     await openChange(root);
     rmSync(join(bundleDir(root), 'stage-evidence.jsonl'));
@@ -241,7 +244,7 @@ describe('stage-agent-handback.mjs', () => {
     expect(ledger(root)).toHaveLength(before);
   });
 
-  it('passes an expert seat with no stage and writes no row', async () => {
+  it('AC-15: passes an expert seat with no stage and writes no row', async () => {
     const root = tempRoot();
     await openChange(root);
     const before = ledger(root).length;
@@ -276,7 +279,7 @@ describe('reading the report', () => {
     ['Status: DONE_WITH_CONCERNS', 'DONE_WITH_CONCERNS', true],
     ['**Status: DONE**', 'DONE', true],
     ['```\nStatus: BLOCKED\n```', 'BLOCKED', true],
-  ])('%j reads as %s (stated %s)', (text, status, stated) => {
+  ])('AC-13: %j reads as %s (stated %s)', (text, status, stated) => {
     const reading = readStageReportStatus(text);
     expect(reading.status).toBe(status);
     expect(reading.stated).toBe(stated);

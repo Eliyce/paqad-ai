@@ -66,7 +66,7 @@ function writeRulesRunner(root: string): CommandRunner {
 }
 
 describe('paqad-ai stage begin', () => {
-  it('writes the start row and rules, and prints one JSON object', async () => {
+  it('AC-27: writes the start row and rules, and prints one JSON object', async () => {
     const root = tempRoot();
     await openChange(root);
     writeFileSync(join(bundleDir(root), 'plan.json'), '{"plan":"text"}\n');
@@ -184,7 +184,7 @@ describe('paqad-ai stage begin', () => {
     expect(startRows(root, 'development')).toBe(1);
   });
 
-  it('does not start twice, for a resumed agent or a fresh one', async () => {
+  it('AC-31: does not start twice, for a resumed agent or a fresh one', async () => {
     const root = tempRoot();
     await openChange(root);
     await cli(root, ['stage', 'end', 'planning']);

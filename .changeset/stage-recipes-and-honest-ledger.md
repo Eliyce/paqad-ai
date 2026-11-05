@@ -10,4 +10,6 @@ Stage agents now follow one recipe and prove it, and the ledger records what the
 - The stage ledger gains a lock, a hash chain and duplicate protection. The chain catches accidents and silent loss, not someone who rewrites the file on purpose, and it cannot see rows cut from the end.
 - Each stage gets its recipe at start. Its stage command checks the recipe's script, and the end-of-change check asks each new stage for that proof. On Codex the recipe is written to the project, kept out of git, and read rather than injected.
 - Agent files are short and each do-not line names what enforces it. Plugin and npm installs now render the same failure policy on the edit gates.
+- On the plugin route the three edit gates now block when their hook cannot run (`onFailure: block`, measured on Claude Code 2.1.302). If a partial install or a missing `node` blocks every Edit and Write, run `/plugin update`, which needs no edit, and try again.
+- `paqad-ai stage repair <row> --reason <text>` records why a ledger row broke the chain, and the end-of-change check accepts a row repaired that way.
 - The Ledger shows recipe, report and turns per stage, and the receipt states turns against the budget.
