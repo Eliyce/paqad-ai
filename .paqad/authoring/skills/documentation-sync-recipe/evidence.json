@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "documentation-sync-recipe",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:f6e40f0dfd8302f58d9f7c7a0a794549b8131e5bb7dd44f96acedeadd7c3f210",
+  "folder_hash": "sha256:c8338daf9f6a24754c60f937b1a96083c1f944ac9f7f2dc11c420a694afe06a4",
   "baseline": {
     "runs": 3,
     "passed": null,
