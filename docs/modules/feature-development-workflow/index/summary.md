@@ -25,14 +25,19 @@ reads the result with `paqad-ai stage report <agent_id>` and follows its `next_a
 
 `advance` is true for a stated `DONE` or `DONE_WITH_CONCERNS` whose stage requirement is met, with green
 checks and no breach. With no stated report, a met requirement reads as `DONE` and advances. If checks
-are red or there is a breach it reads as `DONE_WITH_CONCERNS` and holds. A status repaired by the backfill
-is used in the same way. `next_action` then says one of these:
+are red or there is a must-not breach it reads as `DONE_WITH_CONCERNS` and holds. A status repaired by the
+backfill is used in the same way. `next_action` then says one of these:
 
 - continue to the next stage, carrying any concerns to the receipt
 - present a decision, or resume the agent with its answer
 - resume the agent with what it names, on `NEEDS_CONTEXT`
-- wait for the agent, when its handback was sent back and it can retry
-- resume once after a return with no report, and stop and tell the developer on a second silent return
+- wait for the agent, when its handback was sent back and it can retry, or wait for a running agent and
+  resume it once if it has already returned
+- on a no-Status hold from red checks, resume the development agent to fix the failures, then run checks
+  again
+- on a no-Status hold from a must-not breach, stop and tell the developer the reason
+- resume once after a return with no report, and stop and tell the developer on a second silent return,
+  held or not
 - stop and tell the developer the reason, for anything else
 
 ## Stage start, recipes and turns
@@ -51,16 +56,28 @@ is used in the same way. `next_action` then says one of these:
   changes.
 - **Recipes.** `runtime/base/skills/<stage>-recipe` holds each stage's method and script. The start
   hook sends the brief and the recipe, at most 9,700 characters together, and writes a
-  `recipe-injected` row with the hash of the text sent. Recipe text gives way first, at a line, with a
+  `recipe-injected` row with the hash of the text sent, one row per agent and text, so reading the brief
+  again adds none. Recipe text gives way first, at a line, with a
   pointer to its file. Each stage command runs the script from paqad's own install (`recipes.ts`,
-  `recipe-check.ts`) and on a pass writes a `skill-used` row. On a fail it refuses a stage an agent
+  `recipe-check.ts`) and on a pass writes a `skill-used` row, which names an agent only when an agent id
+  is on the command or on the stage's start row. The Ledger run line says `proven` only when the script
+  really checked something, so a row with `unchecked` does not count. On a fail it refuses a stage an agent
   started after the update, and only notes it otherwise. A broken install warns and writes no row.
   `paqad-ai stage end documentation_sync --stale-ok <path>` names a doc that needs no change. Recipe
   text is a copy of its source skills, which stay for their other workflows. The stage agent files stay
-  short and leave the method to the recipe. An agent with no `## Your recipe` heading in its context runs
-  the brief. If the recipe is still missing it carries on, and its report says so and names
-  `paqad-ai update`. The completeness gate still holds the change until the update is run and the stage
-  is run again, because the proof rows are missing.
+  short and leave the method to the recipe. Paths a recipe names are relative to the install directory
+  in `.paqad/framework-path.txt`. `.claude/agents` holds copies that a test keeps equal to the rendered
+  agents.
+- **A missing recipe.** An agent with no `## Your recipe` heading in its context runs `stage brief`, which
+  prints the repair. If the recipe is still missing the agent carries on and reports that repair. It
+  depends on the route, because `paqad-ai update` cannot restore a recipe. On the plugin, run
+  `claude plugin update paqad@eliyce`; if that says it is already at the latest version, uninstall and
+  install the plugin, then start a new session. On npm, run `npm i -g paqad-ai@latest`, then
+  `paqad-ai update`. The completeness gate names the same repair and holds the change until the repair is
+  done and the stage is run again, because the proof rows are missing.
+- **When `stale-docs` lists a doc.** A module's doc is listed when a changed code file names the module
+  or sits under one of its `sources` in `docs/instructions/rules/module-map.yml`. Tests, `docs/` and
+  dot-folders do not count as code, so a run with nothing to sync passes.
 - **Recipe script contract.** A script prints one JSON line, `{ ok, errors, hash }`, and exits 0 when
   `ok` is true and 1 when it found problems. At most 100 errors are printed, followed by `and <n> more`;
   the hash covers the full list. A missing input file or a bad command line exits 2 with the reason on
