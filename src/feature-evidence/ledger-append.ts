@@ -222,8 +222,14 @@ function renamedBundle(projectRoot: string, dirName: string): string | null {
   } catch {
     return null;
   }
-  const match = names.find((name) => name !== dirName && parseFeatureDirName(name)?.ulid === ulid);
-  return match ?? null;
+  const sameChange = names.filter((name) => parseFeatureDirName(name)?.ulid === ulid);
+  const holding = (file: 'stageEvidence' | 'feature') => (name: string) =>
+    existsSync(join(projectRoot, featureFilePath(name, file)));
+  const target =
+    sameChange.find(holding('stageEvidence')) ??
+    sameChange.find(holding('feature')) ??
+    sameChange.sort()[0];
+  return target === undefined || target === dirName ? null : target;
 }
 
 class BundleMoved extends Error {

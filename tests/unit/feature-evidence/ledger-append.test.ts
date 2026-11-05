@@ -375,6 +375,33 @@ describe('renaming a bundle mid-change', () => {
     expect(existsSync(bundleLockPath(root, TITLED))).toBe(false);
   });
 
+  it('settles on one folder when two of one change hold no ledger yet', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-ledger-rename-'));
+    roots.push(root);
+    const first = 'first-name-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    const second = 'second-name-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    mkdirSync(join(root, featureDir(first)), { recursive: true });
+    mkdirSync(join(root, featureDir(second)), { recursive: true });
+    appendFeatureStageRow(root, SESSION, second, { kind: 'open' });
+    appendFeatureStageRow(root, SESSION, first, { kind: 'stage_start', stage: 'planning' });
+    expect(existsSync(join(root, featureFilePath(second, 'stageEvidence')))).toBe(false);
+    const raw = readFileSync(join(root, featureFilePath(first, 'stageEvidence')), 'utf8');
+    expect(raw.trimEnd().split('\n')).toHaveLength(2);
+  });
+
+  it('follows the folder holding the record when two of one change hold no ledger', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-ledger-rename-'));
+    roots.push(root);
+    const ghost = 'a-ghost-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    const real = 'real-name-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    mkdirSync(join(root, featureDir(ghost)), { recursive: true });
+    mkdirSync(join(root, featureDir(real)), { recursive: true });
+    writeFileSync(join(root, featureFilePath(real, 'feature')), '{}\n');
+    appendFeatureStageRow(root, SESSION, ghost, { kind: 'open' });
+    expect(existsSync(join(root, featureFilePath(real, 'stageEvidence')))).toBe(true);
+    expect(existsSync(join(root, featureFilePath(ghost, 'stageEvidence')))).toBe(false);
+  });
+
   it('AC-44: still dedupes a row re-sent after the rename', () => {
     const root = untitledRoot();
     seeded(root);
