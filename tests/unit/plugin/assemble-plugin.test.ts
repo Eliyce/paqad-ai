@@ -21,9 +21,13 @@ import {
   assemblePlugin,
   escapeControlBytes,
   NEVER_SHIPPED,
+  PLUGIN_ENGINES,
   PLUGIN_MARKETPLACE,
+  PLUGIN_PACKAGE_KEYS,
   PLUGIN_REPO,
 } from '../../../scripts/assemble-plugin.mjs';
+import { checkPluginTree, runSelfImports } from '../../../scripts/check-plugin-tree.mjs';
+import { OPTIONAL_ENGINES } from '@/core/optional-package.js';
 
 const SCRIPT = resolve('scripts/assemble-plugin.mjs');
 const dirs: string[] = [];
@@ -43,15 +47,48 @@ function write(root: string, rel: string, text = 'x'): void {
   writeFileSync(join(root, rel), text);
 }
 
+function writeEngine(root: string, name: string, version: string): void {
+  write(root, `node_modules/${name}/package.json`, JSON.stringify({ name, version }));
+}
+
 function builtRepo(version = '1.99.4', pluginVersion = version): string {
   const root = tempDir('paqad-assemble-repo-');
-  write(root, 'package.json', JSON.stringify({ name: 'paqad-ai', version }));
+  write(
+    root,
+    'package.json',
+    JSON.stringify({
+      name: 'paqad-ai',
+      version,
+      description: 'fixture',
+      type: 'module',
+      license: 'MIT',
+      bin: { 'paqad-ai': './dist/cli/index.js' },
+      files: ['dist'],
+      main: './dist/index.js',
+      scripts: { postinstall: 'node x.mjs' },
+      dependencies: { '@huggingface/transformers': '^4.3.1', openai: '^7.43.0' },
+      devDependencies: { vitest: '^5.0.0' },
+      exports: {
+        '.': { import: './dist/index.js', types: './dist/index.d.ts' },
+        './cli': { import: './dist/cli/index.js', types: './dist/cli/index.d.ts' },
+        './rule-scripts': {
+          import: './dist/rule-scripts/index.js',
+          types: './dist/rule-scripts/index.d.ts',
+        },
+      },
+    }),
+  );
+  writeEngine(root, '@huggingface/transformers', '4.3.1');
+  writeEngine(root, 'openai', '7.43.0');
   write(
     root,
     '.claude-plugin/plugin.json',
     JSON.stringify({ name: 'paqad', version: pluginVersion }),
   );
   write(root, 'dist/cli/index.js');
+  write(root, 'dist/index.js', 'export const root = 1;\n');
+  write(root, 'dist/rule-scripts/index.js', 'export const rules = 1;\n');
+  write(root, 'runtime/base/skills/fixture/scripts/run.mjs', '');
   write(root, 'runtime/hooks/agent-entry-gate.mjs');
   write(root, 'runtime/claude-plugin/hooks.json', '{}');
   write(root, 'runtime/claude-plugin/mod/register.tsx');
@@ -282,6 +319,168 @@ describe('scripts/assemble-plugin.mjs', () => {
       );
     }
     expect(failed).toBe(true);
+  });
+});
+
+describe('scripts/assemble-plugin.mjs — the generated package.json', () => {
+  const builtHere = (): boolean => {
+    const versionOf = (rel: string) =>
+      (JSON.parse(readFileSync(resolve(rel), 'utf8')) as { version: string }).version;
+    return (
+      existsSync(resolve('dist/cli/index.js')) &&
+      versionOf('package.json') === versionOf('.claude-plugin/plugin.json')
+    );
+  };
+
+  function assembledPackage(repoRoot: string): Record<string, unknown> {
+    const outDir = join(tempDir('paqad-assemble-pkg-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    return JSON.parse(readFileSync(join(outDir, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+  }
+
+  function leavesOutputAlone(repoRoot: string, message: string): void {
+    const outDir = tempDir('paqad-assemble-kept-');
+    write(outDir, 'old-file.txt', 'kept');
+    expect(() => assemblePlugin({ repoRoot, outDir })).toThrow(message);
+    expect(readdirSync(outDir)).toEqual(['old-file.txt']);
+    expect(readFileSync(join(outDir, 'old-file.txt'), 'utf8')).toBe('kept');
+  }
+
+  it('AC-11: has exactly the kept keys in order, with exact engine versions and nothing from the npm package', () => {
+    const pkg = assembledPackage(builtRepo());
+    expect(Object.keys(pkg)).toEqual(PLUGIN_PACKAGE_KEYS);
+    expect(PLUGIN_PACKAGE_KEYS).toEqual([
+      'name',
+      'version',
+      'description',
+      'type',
+      'license',
+      'exports',
+      'paqadEngines',
+    ]);
+    expect(pkg).toMatchObject({
+      name: 'paqad-ai',
+      version: '1.99.4',
+      description: 'fixture',
+      license: 'MIT',
+    });
+    expect(pkg.type).toBe('module');
+    expect(pkg.paqadEngines).toEqual({ '@huggingface/transformers': '4.3.1', openai: '7.43.0' });
+    for (const key of ['scripts', 'devDependencies', 'files', 'bin', 'dependencies', 'main']) {
+      expect(pkg[key], key).toBeUndefined();
+    }
+  });
+
+  it('AC-11: type is module even when the repo leaves it out', () => {
+    const repoRoot = builtRepo();
+    const repoPackage = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    delete repoPackage.type;
+    write(repoRoot, 'package.json', JSON.stringify(repoPackage));
+    expect(assembledPackage(repoRoot).type).toBe('module');
+  });
+
+  it('AC-11: refuses an engine whose installed version is not exact', () => {
+    const repoRoot = builtRepo();
+    writeEngine(repoRoot, '@huggingface/transformers', '4.3.1-beta.1');
+    leavesOutputAlone(
+      repoRoot,
+      '@huggingface/transformers has version 4.3.1-beta.1, which is not an exact x.y.z version.',
+    );
+  });
+
+  it.each(['@huggingface/transformers', 'openai'])(
+    'AC-8: refuses a repo with %s missing and leaves the output folder as it was',
+    (name) => {
+      const repoRoot = builtRepo();
+      rmSync(join(repoRoot, 'node_modules', name), { recursive: true });
+      leavesOutputAlone(repoRoot, `${name} is not installed. Run pnpm install first.`);
+    },
+  );
+
+  it('AC-8: reads the engines from the repo, not the working directory', () => {
+    const repoRoot = builtRepo();
+    writeEngine(repoRoot, 'openai', '1.2.3');
+    expect((assembledPackage(repoRoot).paqadEngines as Record<string, string>).openai).toBe(
+      '1.2.3',
+    );
+  });
+
+  it.each([
+    ['is absent from the repo', './dist/gone.js', null],
+    ['sits outside the plugin tree', './src/index.js', 'src/index.js'],
+    ['is left out of the tree', './dist/plugin/manifest-build.js', 'dist/plugin/manifest-build.js'],
+  ])('AC-10: refuses an export whose target %s', (_label, target, present) => {
+    const repoRoot = builtRepo();
+    if (present) write(repoRoot, present);
+    const repoPackage = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    repoPackage.exports = { '.': { import: target, types: './dist/index.d.ts' } };
+    write(repoRoot, 'package.json', JSON.stringify(repoPackage));
+    leavesOutputAlone(repoRoot, `${target} in exports is missing from the assembled tree.`);
+  });
+
+  it('AC-10: a types target needs no file, because the condition is dropped first', () => {
+    const repoRoot = builtRepo();
+    expect(existsSync(join(repoRoot, 'dist/index.d.ts'))).toBe(false);
+    expect(() => assembledPackage(repoRoot)).not.toThrow();
+  });
+
+  it('AC-10: refuses a repo with no exports to carry', () => {
+    const repoRoot = builtRepo();
+    const repoPackage = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    delete repoPackage.exports;
+    write(repoRoot, 'package.json', JSON.stringify(repoPackage));
+    leavesOutputAlone(repoRoot, 'package.json has no exports to carry into the plugin.');
+  });
+
+  it('AC-12: PLUGIN_ENGINES equals OPTIONAL_ENGINES, so a drift cannot drop an engine', () => {
+    expect([...PLUGIN_ENGINES]).toEqual([...OPTIONAL_ENGINES]);
+  });
+
+  it('AC-9: a shipped skill script imports both self-imports from the fixture tree, with no types condition', () => {
+    const outDir = join(tempDir('paqad-assemble-self-'), 'plugin');
+    assemblePlugin({ repoRoot: builtRepo(), outDir });
+    expect(runSelfImports(outDir)).toContain('paqad-ai/rule-scripts');
+    const pkg = JSON.parse(readFileSync(join(outDir, 'package.json'), 'utf8')) as {
+      exports: unknown;
+    };
+    expect(JSON.stringify(pkg.exports)).not.toContain('types');
+  });
+
+  it.runIf(builtHere())(
+    'AC-9: a shipped skill script imports both self-imports from the real tree',
+    () => {
+      const outDir = join(tempDir('paqad-assemble-self-real-'), 'plugin');
+      assemblePlugin({ repoRoot: resolve('.'), outDir });
+      expect(runSelfImports(outDir)).toContain('paqad-ai/rule-scripts');
+      expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/types/index.d.ts'))).toBe(true);
+    },
+    60_000,
+  );
+
+  it('AC-9: the tree check names a failed self-import and a key outside the list', () => {
+    const outDir = join(tempDir('paqad-assemble-bad-'), 'plugin');
+    assemblePlugin({ repoRoot: builtRepo(), outDir });
+    expect(checkPluginTree(outDir)).toEqual([]);
+    const pkg = JSON.parse(readFileSync(join(outDir, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    write(outDir, 'package.json', JSON.stringify({ name: pkg.name, type: pkg.type, scripts: {} }));
+    const problems = checkPluginTree(outDir);
+    expect(problems[0]).toContain('package.json has the keys name, type, scripts');
+    expect(problems[1]).toContain('The self-imports failed.');
   });
 });
 

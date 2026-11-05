@@ -23,6 +23,20 @@ export const PLUGIN_TREE = [
   'assets/icon.png',
 ];
 
+export const PLUGIN_PACKAGE_KEYS = [
+  'name',
+  'version',
+  'description',
+  'type',
+  'license',
+  'exports',
+  'paqadEngines',
+];
+
+export const PLUGIN_ENGINES = ['@huggingface/transformers', 'openai'];
+
+const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
+
 export const PLUGIN_REPO = 'Eliyce/paqad-claude-plugin';
 
 export const PLUGIN_MARKETPLACE = {
@@ -66,6 +80,56 @@ function isShippedFile(runtimeRoot, distPluginRoot, path) {
   if (rel.startsWith('..') || !rel.startsWith('claude-plugin/mod')) return true;
   if (rel === 'claude-plugin/mod/test' || rel.startsWith('claude-plugin/mod/test/')) return false;
   return !/\.test\.tsx?$/.test(rel);
+}
+
+function pinnedEngines(root) {
+  return Object.fromEntries(
+    PLUGIN_ENGINES.map((name) => {
+      const version = readVersion(join(root, 'node_modules', name, 'package.json'));
+      if (version === null) throw new Error(`${name} is not installed. Run pnpm install first.`);
+      if (!EXACT_VERSION.test(version)) {
+        throw new Error(`${name} has version ${version}, which is not an exact x.y.z version.`);
+      }
+      return [name, version];
+    }),
+  );
+}
+
+function withoutTypes(value) {
+  if (typeof value !== 'object' || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([condition]) => condition !== 'types')
+      .map(([condition, target]) => [condition, withoutTypes(target)]),
+  );
+}
+
+function exportTargets(value) {
+  if (typeof value === 'string') return [value];
+  return Object.values(value).flatMap(exportTargets);
+}
+
+function isInPluginTree(rel) {
+  return PLUGIN_TREE.some((name) => rel === name || rel.startsWith(`${name}/`));
+}
+
+function pluginPackage(root, runtimeRoot, distPluginRoot) {
+  const repoPackage = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  if (typeof repoPackage.exports !== 'object' || repoPackage.exports === null) {
+    throw new Error('package.json has no exports to carry into the plugin.');
+  }
+  const paqadEngines = pinnedEngines(root);
+  const exports = withoutTypes(repoPackage.exports);
+  for (const target of exportTargets(exports)) {
+    const path = join(root, target);
+    const shipped =
+      existsSync(path) &&
+      isInPluginTree(relative(root, path).split(sep).join('/')) &&
+      isShippedFile(runtimeRoot, distPluginRoot, path);
+    if (!shipped) throw new Error(`${target} in exports is missing from the assembled tree.`);
+  }
+  const generated = { ...repoPackage, type: 'module', exports, paqadEngines };
+  return Object.fromEntries(PLUGIN_PACKAGE_KEYS.map((key) => [key, generated[key]]));
 }
 
 function isControlByte(byte) {
@@ -131,13 +195,15 @@ export function assemblePlugin({ repoRoot, outDir }) {
       `plugin.json is at ${pluginVersion ?? 'no version'} but package.json is at ${packageVersion ?? 'no version'}. Run pnpm build first.`,
     );
   }
+  const runtimeRoot = join(root, 'runtime');
+  const distPluginRoot = join(root, 'dist', 'plugin');
+  const generatedPackage = pluginPackage(root, runtimeRoot, distPluginRoot);
   mkdirSync(out, { recursive: true });
   for (const name of readdirSync(out)) {
     if (!KEEP_IN_OUTPUT.has(name)) rmSync(join(out, name), { recursive: true, force: true });
   }
-  const runtimeRoot = join(root, 'runtime');
-  const distPluginRoot = join(root, 'dist', 'plugin');
   for (const name of PLUGIN_TREE) {
+    if (name === 'package.json') continue;
     mkdirSync(dirname(join(out, name)), { recursive: true });
     cpSync(join(root, name), join(out, name), {
       recursive: true,
@@ -145,6 +211,7 @@ export function assemblePlugin({ repoRoot, outDir }) {
     });
   }
   escapeTreeControlBytes(out);
+  writeFileSync(join(out, 'package.json'), `${JSON.stringify(generatedPackage, null, 2)}\n`);
   writeFileSync(
     join(out, '.claude-plugin', 'marketplace.json'),
     `${JSON.stringify(PLUGIN_MARKETPLACE, null, 2)}\n`,

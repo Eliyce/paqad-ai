@@ -1,0 +1,61 @@
+{
+  "id": "D-01M6PMF1T3GH4PK5AJHH0YRJE4",
+  "category": "intake.requirement",
+  "title": "Module attribution: which module does src/core/optional-package.ts belong to?",
+  "context": "No existing module clearly matches; pick one of the options. The file has no module in the module map, and the automatic match scored below the 0.5 needed to apply it. It only loads and installs the search engines, and its docs already live under hybrid-rag's embedding-providers feature, so planning used hybrid-rag provisionally. Only an Extend answer changes the module map.",
+  "options": [
+    {
+      "option_key": "extend-hybrid-rag",
+      "label": "Extend hybrid-rag: the file loads and installs the search engines, and its docs are there",
+      "one_line_preview": "Extend hybrid-rag: the file loads and installs the search engines, and its docs are there",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-claude-plugin",
+      "label": "Extend claude-plugin: the engine install only runs in a plugin install",
+      "one_line_preview": "Extend claude-plugin: the engine install only runs in a plugin install",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Introduce a new module",
+      "one_line_preview": "Introduce a new module",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-attribution",
+      "label": "Skip attribution for this change and leave the module map alone",
+      "one_line_preview": "Skip attribution for this change and leave the module map alone",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "extend-hybrid-rag",
+  "created_at": "2026-11-05T19:55:08.483Z",
+  "status": "resolved",
+  "change": "01M6PKFYRQGVAS21PYXKKVC711",
+  "chosen": "extend-hybrid-rag",
+  "rationale": "Owner: hybrid-rag.",
+  "resolved_at": "2026-11-05T20:07:56.775Z",
+  "decision_id": "D-01M6PMF1T3GH4PK5AJHH0YRJE4",
+  "fingerprint": "sha256:069bd8b1c10174006d4fde87ba311eaecd95d7d95ebf4d5da88341409d16853a",
+  "question": "Module attribution: which module does src/core/optional-package.ts belong to?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6PKFYRQGVAS21PYXKKVC711",
+  "ttl_until": "2026-11-19T19:55:08.483Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "extend-hybrid-rag",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T20:07:56.775Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: hybrid-rag."
+  }
+}

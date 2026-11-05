@@ -405,7 +405,12 @@ Why each one works the way it does, for the parts the code does not say.
   otherwise skips with exit 0.
 - **`assemble-plugin.mjs`** builds the tree the `publish-plugin` release job pushes to
   `Eliyce/paqad-claude-plugin`: the plugin files plus a generated `.claude-plugin/marketplace.json`
-  (marketplace `eliyce`, plugin `paqad`, source `./`). The tree includes `SECURITY.md` and the
+  (marketplace `eliyce`, plugin `paqad`, source `./`) and a generated `package.json` holding only
+  the keys in `PLUGIN_PACKAGE_KEYS`. Its `exports` stays, with import conditions only, because shipped
+  skill scripts import `paqad-ai` and `paqad-ai/rule-scripts` through it. `paqadEngines` records the
+  installed engine versions, so assembly needs dependencies installed and fails before it clears the
+  target when an engine is missing or not an exact version. The `static` CI job assembles the real
+  tree and runs `scripts/check-plugin-tree.mjs` on it. The tree includes `SECURITY.md` and the
   listing icon `assets/icon.png`. It leaves out every `*.map` file and the OS junk names
   `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX`, because Anthropic's plugin directory
   stops validation on any file over 5 MiB (the source maps are the only files that big) and

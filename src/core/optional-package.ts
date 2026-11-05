@@ -85,7 +85,7 @@ function kickOffEngineInstall(env: NodeJS.ProcessEnv): void {
   /* v8 ignore stop */
 }
 
-const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai'] as const;
+export const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai'] as const;
 
 const PRIMARY_ENGINE = '@huggingface/transformers';
 

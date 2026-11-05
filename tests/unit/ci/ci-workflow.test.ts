@@ -135,6 +135,19 @@ describe('.github/workflows/ci.yml', () => {
       }
     });
 
+    it('AC-2: assembles the real tree after the build and checks it, with no skip', () => {
+      const names = job.steps.map((step) => step.name);
+      const assemble = job.steps.find(
+        (step) => step.name === 'Assemble the real plugin tree and check it',
+      )!;
+      expect(names.indexOf(assemble.name)).toBeGreaterThan(names.indexOf('Build'));
+      expect(assemble.if).toBeUndefined();
+      expect(assemble.run).toContain('node scripts/assemble-plugin.mjs "$RUNNER_TEMP/plugin-tree"');
+      expect(assemble.run).toContain(
+        'node scripts/check-plugin-tree.mjs "$RUNNER_TEMP/plugin-tree"',
+      );
+    });
+
     it('installs the pinned Claude Code so the plugin checks really run', () => {
       expect(runs(job)).toContain('npm install -g @anthropic-ai/claude-code@2.1.302');
     });

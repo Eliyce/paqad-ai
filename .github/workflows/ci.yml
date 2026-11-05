@@ -116,6 +116,11 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Assemble the real plugin tree and check it
+        run: |
+          node scripts/assemble-plugin.mjs "$RUNNER_TEMP/plugin-tree"
+          node scripts/check-plugin-tree.mjs "$RUNNER_TEMP/plugin-tree"
+
       - name: Lint every skill
         timeout-minutes: 1
         run: node dist/cli/index.js skill lint --all

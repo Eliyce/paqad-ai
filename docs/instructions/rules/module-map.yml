@@ -3303,6 +3303,7 @@ modules:
       - runtime/hooks/lib/agent-delegation-core.mjs
       - plugins/discovery
       - scripts/assemble-plugin.mjs
+      - scripts/check-plugin-tree.mjs
       - scripts/build-plugin-manifest.mjs
       - scripts/validate-plugin.mjs
       - scripts/test-plugin.mjs
