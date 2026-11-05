@@ -32,7 +32,8 @@ and filling in real tokens unlocks generation. `# Template Engine
 
 Handlebars templates for spec documents, user flows, registry pages,
 sequence plans, phase handoffs, adversarial review reports, and
-design-system docs.
+design-system docs. The Codex stage agent template tells an agent with a recipe to read
+`.agents/skills/<recipe>/SKILL.md` first, because Codex gets no injected recipe.
 
 ## Source Footprint
 
