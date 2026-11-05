@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6NEZWJ958ZJHS82QR8E3JMJ](TD-01M6NEZWJ958ZJHS82QR8E3JMJ.md) (bug, medium): The stage write check refuses ordinary read-only shell commands
 - [TD-01M6N3VSHZKCM5R2DM77RSAAY5](TD-01M6N3VSHZKCM5R2DM77RSAAY5.md) (gap, low): Nothing warns when a managed .claude/agents copy has drifted from its render
 - [TD-01M6N3VRTP8WV561B7PQDS5PEG](TD-01M6N3VRTP8WV561B7PQDS5PEG.md) (bug, low): agent status says every stage passed when some were skipped, overridden or carried from an earlier release
 - [TD-01M6M931VPCRP9EDCWKHW7T463](TD-01M6M931VPCRP9EDCWKHW7T463.md) (debt, medium): A frozen spec cannot be corrected without losing its pipeline record
