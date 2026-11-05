@@ -58,11 +58,11 @@ const USER_SETTINGS: ReadonlyArray<readonly [string, (root: string) => void]> = 
   [
     'diff.external',
     (root) => {
-      const script = join(root, '..', `${root.split('/').pop()}-external.sh`);
+      const script = `${root}-external.sh`;
       writeFileSync(script, '#!/bin/sh\necho nothing a parser can read\n');
       chmodSync(script, 0o755);
       roots.push(script);
-      git(root, 'config', 'diff.external', script);
+      git(root, 'config', 'diff.external', script.replaceAll('\\', '/'));
     },
   ],
   [
