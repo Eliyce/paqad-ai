@@ -30,11 +30,11 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 5. Break the work into steps of one file, function or significant edit each, listing the files of each step.
 6. Give every step a `classification`: `ac-satisfying` or `necessary-setup` keeps it, `scaffolding` or `over-build` means drop it or name a leaner form. Delete what you would drop before you compile.
 7. Attribute each step to its module with `docs/instructions/rules/module-map.yml` when the project has one.
-8. Write the template under `.paqad/tmp/` and run `paqad-ai plan compile <plan-template.json>`. It runs `scripts/check-plan.mjs` and refuses a plan that fails, printing the errors. Fix them and run it again.
+8. Write the template under `.paqad/tmp/` and run `paqad-ai plan compile <plan-template.json>`. It runs the `check-plan.mjs` check itself and refuses a plan that fails, printing the errors. Fix them and run it again.
 
 ## Read This Path
 
-- When the plan touches more than one module, read `runtime/base/skills/cross-module-impact-scanner/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+- When the plan touches more than one module, read `base/skills/cross-module-impact-scanner/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 
 ## Output Contract
 

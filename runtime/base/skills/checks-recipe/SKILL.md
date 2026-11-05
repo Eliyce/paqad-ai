@@ -32,7 +32,7 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 
 ## Read This Path
 
-- When the plan prints `test: sequential (unknown)`, read `runtime/base/skills/test-runner-discovery/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+- When the plan prints `test: sequential (unknown)`, read `base/skills/test-runner-discovery/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 
 ## Output Contract
 

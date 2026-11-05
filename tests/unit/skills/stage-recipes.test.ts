@@ -1,7 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
+
+import { renderClaudePluginStageAgents } from '@/stage-isolation/agent-writer.js';
 
 const RECIPES = [
   'planning-recipe',
@@ -29,12 +32,73 @@ describe('the six stage recipes', () => {
     );
   });
 
-  it('points only at sibling skills that exist', () => {
-    for (const name of RECIPES) {
+});
+
+describe('every path a recipe names, from an installed layout', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'paqad-recipe-layouts-'));
+  afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+
+  // .paqad/framework-path.txt names a link to the package's runtime directory, on both routes.
+  function installLink(route: string, packageDir: string): string {
+    const runtime = join(scratch, route, packageDir, 'runtime');
+    mkdirSync(dirname(runtime), { recursive: true });
+    symlinkSync(join(process.cwd(), 'runtime'), runtime);
+    const link = join(scratch, route, 'home/.paqad-ai/current');
+    mkdirSync(dirname(link), { recursive: true });
+    symlinkSync(runtime, link);
+    return link;
+  }
+
+  const LAYOUTS = [
+    ['npm', 'lib/node_modules/paqad-ai'],
+    ['plugin', 'home/.claude/plugins/cache/eliyce/paqad/1.2.3'],
+  ] as const;
+
+  const installPaths = (text: string): string[] =>
+    [...text.matchAll(/`(?:node (?:<dir>\/)?)?([^`\s]*)`/gu)]
+      .map((match) => match[1]!.replace(/^<dir>\//u, ''))
+      .filter((path) => /^(?:runtime\/|base\/|scripts\/)/u.test(path));
+
+  describe.each(LAYOUTS)('on the %s route', (route, packageDir) => {
+    const link = installLink(route, packageDir);
+
+    it.each(RECIPES)('%s names only paths that resolve', (name) => {
       const body = readFileSync(join(skillDir(name), 'SKILL.md'), 'utf8');
-      for (const match of body.matchAll(/runtime\/base\/skills\/([a-z-]+)\/SKILL\.md/gu)) {
-        expect(() => readFileSync(join(skillDir(match[1]!), 'SKILL.md'))).not.toThrow();
+      for (const path of installPaths(body)) {
+        expect(path, `${name} names ${path}`).toMatch(/^base\//u);
+        expect(existsSync(join(link, path)), `${name} names ${path}`).toBe(true);
       }
+    });
+
+    it('each stage agent names only paths that resolve', () => {
+      for (const { name, content } of renderClaudePluginStageAgents()) {
+        for (const path of installPaths(content)) {
+          expect(path, `${name} names ${path}`).toMatch(/^base\//u);
+          expect(existsSync(join(link, path)), `${name} names ${path}`).toBe(true);
+        }
+      }
+    });
+  });
+
+  it.each(RECIPES)('%s names a script only by a path or by a name its folder holds', (name) => {
+    const body = readFileSync(join(skillDir(name), 'SKILL.md'), 'utf8');
+    for (const match of body.matchAll(/`[^`\s]*\.mjs`/gu)) {
+      const token = match[0].slice(1, -1);
+      expect(token).not.toContain('scripts/');
+      expect(existsSync(join(skillDir(name), 'scripts', token)), token).toBe(true);
     }
+  });
+
+  it('the documentation recipe names its stale docs script by a full path', () => {
+    const body = readFileSync(join(skillDir('documentation-sync-recipe'), 'SKILL.md'), 'utf8');
+    expect(installPaths(body)).toContain(
+      'base/skills/documentation-sync-recipe/scripts/stale-docs.mjs',
+    );
+  });
+
+  it('the published package keeps the skills the recipes point at', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { files: string[] };
+    expect(pkg.files).toContain('runtime');
+    expect(pkg.files.filter((entry) => entry.startsWith('!runtime/base'))).toEqual([]);
   });
 });

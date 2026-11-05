@@ -28,11 +28,11 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 3. Confirm or contest each machine finding in the digest. Cite the digest rows in your findings, by file or by rule id.
 4. Judge the diff in this order: correctness and safety, rollback and migration, contract and compatibility, verification gaps, documentation drift. Mention style only when it raises risk.
 5. Rank findings from worst to least. A blocker comes first, then major, then minor. Each names its file and what must change.
-6. Fill the review template under `.paqad/tmp/` and run `paqad-ai review record <review-template.json>`. It runs `scripts/lint-findings.mjs` and refuses a template that fails, printing the errors. It also refuses findings that are all judgment when the digest has a machine row.
+6. Fill the review template under `.paqad/tmp/` and run `paqad-ai review record <review-template.json>`. It runs the `lint-findings.mjs` check itself and refuses a template that fails, printing the errors. It also refuses findings that are all judgment when the digest has a machine row.
 
 ## Read This Path
 
-- For the full review method and its output template, read `runtime/base/skills/adversarial-review/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+- For the full review method and its output template, read `base/skills/adversarial-review/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 
 ## Output Contract
 

@@ -29,12 +29,12 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 5. Write one flat criterion per outcome: `- AC-N: Given ..., when ..., then ... (proof: automated|manual|visual).` Keep ids stable and never reuse a removed id.
 6. Walk each edge case category against the request: empty, stale, loading, retry, permission, concurrency, rollback, integration, overflow, state-skip. Keep only cases that change behaviour, docs or tests, and tie each to what absorbs it.
 7. Ask the owner every open question in one round with `paqad-ai spec pipeline round`.
-8. Freeze with `paqad-ai spec freeze`. It runs `scripts/check-spec.mjs` beside the quality review and refuses a spec that fails, printing the errors.
+8. Freeze with `paqad-ai spec freeze`. It runs the `check-spec.mjs` check itself beside the quality review and refuses a spec that fails, printing the errors.
 
 ## Read This Path
 
-- For the full criteria rules, read `runtime/base/skills/acceptance-criteria-gen/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
-- For the full edge case method, read `runtime/base/skills/edge-case-detection/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+- For the full criteria rules, read `base/skills/acceptance-criteria-gen/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
+- For the full edge case method, read `base/skills/edge-case-detection/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.
 
 ## Output Contract
 
