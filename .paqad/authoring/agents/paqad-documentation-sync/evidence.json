@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-documentation-sync",
-  "version": "1.3.0",
-  "file_hash": "sha256:8cf8022c0b48b975e80d77466c2a88b17db57efb9028fc9e6407cb443be44abc",
+  "version": "1.4.0",
+  "file_hash": "sha256:a1cedb04baad96b961f2b551b3aeecdc10efd2386edc64fbb489b5695e2302d6",
   "released_path": "runtime/claude-plugin/agents/paqad-documentation-sync.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-documentation-sync.md"
@@ -215,7 +215,8 @@
   },
   "permission_decisions": [
     "D-01M6H026RWJXX8BV05W6P4HMS5",
-    "D-01M6M8K86D898TKEBDPJGJ1F4F"
+    "D-01M6M8K86D898TKEBDPJGJ1F4F",
+    "D-01M6N543B36HPN6EKFCWQNSHYH"
   ],
   "overrides": [
     {
@@ -235,7 +236,8 @@
     "D-01M6H026RWJXX8BV05W6P4HMS5",
     "D-01M6M8K86D898TKEBDPJGJ1F4F",
     "D-01M6N2VSV0R71H3NY61WAD680F",
-    "D-01M6N2W1Z13FRDQ0Z3K70A88MX"
+    "D-01M6N2W1Z13FRDQ0Z3K70A88MX",
+    "D-01M6N543B36HPN6EKFCWQNSHYH"
   ],
   "labels": [
     "unverified"
