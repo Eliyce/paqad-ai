@@ -211,8 +211,9 @@ carries the template file's own hash.
 
 The completion check skips a stage recipe folder under the open-standard skills root when its hash
 matches the source in `runtime/base/skills`, because paqad wrote that copy and nobody authored it. An
-edited copy is checked as usual. The agent lint treats a `Do not` line that names a `paqad-ai` command,
-the capability gate or a `stage-agent-*.mjs` hook as enforced. It also counts the stage write guard as
+edited copy is checked as usual. AG-021 warns on a `Do not` line that nothing enforces. It accepts a line
+that names the capability gate or a `stage-agent-*.mjs` hook, and it accepts a line naming a
+`paqad-ai` command only in a `paqad-` agent. The agent lint also counts the stage write guard as
 the blocking hook on Bash for the read-only paqad stage and seat agents that have no Edit or Write.
 
 The delegation hook logs `{agent, request_id, session_id, at, tokens, duration_ms, status}` for
