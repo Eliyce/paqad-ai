@@ -1,3 +1,4 @@
+import { renderBranchName } from '@/delivery/templates.js';
 import {
   branchFinding,
   expectedBase,
@@ -74,6 +75,21 @@ describe('workflow findings: edge inputs', () => {
       expect(prFindings(config, `feature/${key}-fix`, pr)).toEqual([
         { code: 'pr-ticket-link', message: `PR #? doesn't link #${key}.` },
       ]);
+    });
+
+    it('finds the ticket when the title gave no slug, as paqad renders that branch', () => {
+      const config = defaultGitWorkflow();
+      config.tickets.sources = { gh: source('#\\d+') };
+      const key = 12;
+      for (const title of ['', '!!!', '日本語']) {
+        const branch = renderBranchName(config, 'feature', {
+          ticket: `#${key}`,
+          title,
+          summary: '',
+        });
+        expect(branch).toBe(`feature/${key}`);
+        expect(ticketInBranch(config, branch)).toBe(`#${key}`);
+      }
     });
 
     it('finds no ticket for a slug number when the default slot is empty', () => {

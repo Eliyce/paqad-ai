@@ -127,7 +127,7 @@ function ticketInTemplateSlot(
       : [{ template: config.branches.template, prefixes: undefined }];
   for (const { template, prefixes } of shapes) {
     const { patterns } = templateToRegExp(template, config, {
-      optional: ['scope'],
+      optional: ['scope', 'title_slug'],
       branch: true,
       prefixes,
       ticketCapture: pattern,
