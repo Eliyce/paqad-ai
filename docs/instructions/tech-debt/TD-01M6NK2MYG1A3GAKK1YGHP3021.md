@@ -19,4 +19,7 @@ closed_reason: null
 
 ## What
 
+When a stage agent edits a file under `docs/instructions`, the entry check blocks its later Edit and Write until it writes a marker file. In auto permission mode the host refuses that write, so the agent cannot go on. On 5 November 2026 this stopped a development agent mid-change, and only a fresh agent could carry on.
+
+Expected: an agent's own edit to an instruction doc does not lock it out, or the check offers a repair the host allows.
 
