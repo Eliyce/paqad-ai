@@ -13,7 +13,7 @@ import { createPendingDecision, resolvePendingDecision } from '@/decisions/autho
 import { DecisionStore } from '@/planning/decision-store.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import { pendingStorePacket } from '../../shared/store-packet.js';
+import { pendingStorePacket, storeOptions } from '../../shared/store-packet.js';
 
 describe('paqad-ai decision command', () => {
   let root: string;
@@ -167,6 +167,92 @@ describe('paqad-ai decision command', () => {
       const { err } = await run('resolve', id, 'a');
       expect(err.join('\n')).toContain(`Run paqad-ai decision check ${id}.`);
       expect(pendingBytes(id)).toBe(before);
+    });
+  });
+
+  describe('AC-56 the store-shape question block', () => {
+    const STORE_ID = 'D-01J000000000000000000000C1';
+
+    async function storeChecked(keys: string[]): Promise<string> {
+      await answered('Which colour should the banner use');
+      vi.restoreAllMocks();
+      new DecisionStore(root).writePending(
+        pendingStorePacket({
+          decision_id: STORE_ID,
+          question: 'Which colour should banner use',
+          options: storeOptions(keys),
+        }),
+      );
+      return STORE_ID;
+    }
+
+    it('prints no other command, and a fifth option under not_shown with its command', async () => {
+      const id = await storeChecked(['a', 'b', 'c', 'd', 'e']);
+      const earlier = JSON.parse(pendingBytes(id)).earlier_check.candidates[0] as string;
+      const { out } = await run(
+        'suggest',
+        id,
+        '--earlier',
+        earlier,
+        '--option',
+        'c',
+        '--reason',
+        'r',
+      );
+      const printed = JSON.parse(out.join('\n'));
+      expect(printed.question).not.toHaveProperty('other');
+      expect(printed.question.options).toHaveLength(4);
+      expect(printed.question.options[0].option_key).toBe('c');
+      expect(printed.question.not_shown).toEqual([
+        {
+          label: 'Use option e',
+          option_key: 'e',
+          resolve: `paqad-ai decision resolve ${id} e`,
+        },
+      ]);
+      vi.restoreAllMocks();
+      const check = JSON.parse((await run('check', id)).out.join('\n'));
+      expect(check.question).toEqual(printed.question);
+    });
+
+    it('prints no not_shown when every option fits', async () => {
+      const id = await storeChecked(['a', 'b', 'c', 'd']);
+      const { out } = await run('suggest', id, '--none', '--reason', 'r');
+      const printed = JSON.parse(out.join('\n'));
+      expect(printed.question).not.toHaveProperty('other');
+      expect(printed.question).not.toHaveProperty('not_shown');
+      expect(
+        printed.question.options.map((entry: { option_key: string }) => entry.option_key),
+      ).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('refuses --other with the fixed message, no TypeError, and an identical file', async () => {
+      const id = await storeChecked(['a', 'b']);
+      await run('suggest', id, '--none', '--reason', 'r');
+      vi.restoreAllMocks();
+      const before = pendingBytes(id);
+      const { err } = await run('resolve', id, 'x', '--other', 'text');
+      expect(err.join('\n')).toContain(
+        "This question takes only its listed options, so --other can't be used. Pick one of them.",
+      );
+      expect(err.join('\n')).not.toContain('TypeError');
+      expect(process.exitCode).toBe(1);
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('still refuses a required store-shape --other with the earlier-check message first', async () => {
+      const id = await storeChecked(['a', 'b']);
+      const before = pendingBytes(id);
+      const { err } = await run('resolve', id, 'x', '--other', 'text');
+      expect(err.join('\n')).toContain('earlier answers to check first');
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('keeps other on a contract-shape packet', async () => {
+      const { output } = await openQuestion('Where should nightly reports be stored');
+      vi.restoreAllMocks();
+      const check = JSON.parse((await run('check', output.id as string)).out.join('\n'));
+      expect(check.question.other).toContain('--other');
     });
   });
 

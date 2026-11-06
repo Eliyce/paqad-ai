@@ -248,7 +248,8 @@ export interface QuestionEntry {
 export interface QuestionBlock {
   question: string;
   options: QuestionEntry[];
-  other: string;
+  not_shown?: QuestionEntry[];
+  other?: string;
 }
 
 export const MAX_QUESTION_ENTRIES = 4;
@@ -308,9 +309,15 @@ export function buildQuestionBlock(id: string, packet: StoredPendingPacket): Que
   const entries =
     (packet.suggestion && suggestedEntries(id, packet, packet.suggestion)) ??
     packet.options.map((option) => plainEntry(id, option));
+  const question = packet.title ?? packet.question ?? '';
+  const options = entries.slice(0, MAX_QUESTION_ENTRIES);
+  if (packet.id === undefined) {
+    const notShown = entries.slice(MAX_QUESTION_ENTRIES);
+    return { question, options, ...(notShown.length > 0 ? { not_shown: notShown } : {}) };
+  }
   return {
-    question: packet.title ?? packet.question ?? '',
-    options: entries.slice(0, MAX_QUESTION_ENTRIES),
+    question,
+    options,
     other: `paqad-ai decision resolve ${id} other --other "<text>"`,
   };
 }

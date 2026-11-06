@@ -456,6 +456,9 @@ export function listContractDecisions(projectRoot: string): ContractDecisionList
   }));
 }
 
+export const WRITE_IN_REFUSED_ON_STORE_SHAPE =
+  "This question takes only its listed options, so --other can't be used. Pick one of them.";
+
 export function addWriteInOption(projectRoot: string, id: string, label: string): string {
   assertContractDecisionId(id);
   if (label.trim().length === 0) {
@@ -465,7 +468,11 @@ export function addWriteInOption(projectRoot: string, id: string, label: string)
   if (!existsSync(pendingPath)) {
     throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
   }
-  const pending = JSON.parse(readFileSync(pendingPath, 'utf8')) as PendingContractDecision;
+  const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
+  if (stored.id === undefined && stored.decision_id !== undefined) {
+    throw new Error(WRITE_IN_REFUSED_ON_STORE_SHAPE);
+  }
+  const pending = stored as PendingContractDecision;
   const existing = new Set(pending.options.map((option) => option.option_key));
   let key = 'other';
   let suffix = 2;
