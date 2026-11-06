@@ -143,7 +143,7 @@ describe('syncGitWorkflow', () => {
       allFilesOnOldStamp();
       chmodSync(join(dir(), 'tickets.yaml'), 0o444);
       const notes: string[] = [];
-      expect(syncGitWorkflow(root, { notes })).toHaveLength(4);
+      expect(syncGitWorkflow(root, { notes })).toHaveLength(5);
       expect(notes).toHaveLength(1);
       expect(notes[0]).toMatch(/^Couldn't write \.paqad\/configs\/git-workflow\/tickets\.yaml: /u);
       expect(read('tickets.yaml')).toContain('paqad_version');
