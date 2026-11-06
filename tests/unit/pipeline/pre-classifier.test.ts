@@ -417,6 +417,16 @@ const FEATURE_PROMPTS: {
   readFileSync(join(process.cwd(), 'tests/fixtures/pipeline/feature-prompts.json'), 'utf8'),
 );
 
+describe('the feature prompt fixture', () => {
+  it('AC-8: holds all 7 develop prompts', () => {
+    expect(FEATURE_PROMPTS.developPrompts).toHaveLength(7);
+  });
+
+  it('AC-11: holds all 6 work on and develops routes', () => {
+    expect(FEATURE_PROMPTS.workOnRoutes).toHaveLength(6);
+  });
+});
+
 describe('isQuestionRoute on a develop lead', () => {
   it.each(['develop the login page?', 'develops the login page?', 'add the login page?'])(
     'AC-8: a message starting with develop reads as add does: %s',
