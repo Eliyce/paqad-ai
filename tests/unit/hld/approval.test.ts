@@ -124,6 +124,19 @@ describe('approval rule', () => {
     expect(decide([reply('No problem, approved')]).outcome).toBe('approved');
   });
 
+  it.each([
+    ['I would not say this is approved'],
+    ['never would have approved this'],
+    ['This is not something I have approved'],
+    ["We haven't given our sign off yet"],
+  ])('AC-30: a negation earlier in the sentence never approves: %s', (text) => {
+    expect(decide([reply(text)]).outcome).toBe('changes_requested');
+  });
+
+  it('AC-30: a negation in an earlier sentence does not stop a later approval', () => {
+    expect(decide([reply('Not sure at first. Approved now')]).outcome).toBe('approved');
+  });
+
   it('AC-31: with approve_by either and approved_status empty, a status never approves', () => {
     expect(decide([], { status: '' }).outcome).toBe('waiting');
     expect(decide([], { status: null }).outcome).toBe('waiting');

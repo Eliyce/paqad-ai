@@ -46,6 +46,16 @@ const CHANGE_PHRASES = [
 const NEGATION =
   /(?<![\p{L}'])(?:not|never|no|cannot|can't|cant|won't|wont|don't|dont|isn't|isnt)\s+(?:[\p{L}']+\s+)?$/iu;
 
+const SENTENCE_NEGATION =
+  /(?<![\p{L}'])(?:not|never|cannot|can't|cant|won't|wont|don't|dont|isn't|isnt|wouldn't|wouldnt|haven't|havent|hasn't|hasnt|didn't|didnt|shouldn't|shouldnt|couldn't|couldnt|aren't|arent|wasn't|wasnt)(?![\p{L}'])/iu;
+const SENTENCE_END = /[.!?;\n]/u;
+
+function sentenceBefore(text: string, index: number): string {
+  const before = text.slice(0, index);
+  const parts = before.split(SENTENCE_END);
+  return parts[parts.length - 1] ?? '';
+}
+
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
@@ -70,7 +80,10 @@ function asksForChanges(text: string, approveWords: readonly string[]): boolean 
   for (const word of approveWords) {
     const match = phrase(word).exec(text);
     if (!match) continue;
-    if (NEGATION.test(text.slice(0, match.index))) return true;
+    const before = text.slice(0, match.index);
+    if (NEGATION.test(before) || SENTENCE_NEGATION.test(sentenceBefore(text, match.index))) {
+      return true;
+    }
   }
   return false;
 }
