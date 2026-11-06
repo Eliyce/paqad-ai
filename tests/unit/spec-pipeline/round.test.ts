@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { readinessLine } from '@/cli/commands/plan.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { suggestEarlierAnswer } from '@/decisions/earlier-answers.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import {
@@ -150,6 +151,19 @@ describe('one question round per change', () => {
     expect(round.packets.find((entry) => entry.id === plain)).not.toHaveProperty(
       'earlier_check_required',
     );
+  });
+
+  it('AC-45 shows the Same as last time block once the suggestion is recorded', () => {
+    const root = tempRoot();
+    const dir = openFix(root, 'ses_block', 'block', '01JABCDEFGHJKMNPQRSTVWXYZ7');
+    const earlier = packet(root, 'architecture-path', 'where should reports live', null);
+    resolvePendingDecision(root, earlier, 'a', 'reports stay local');
+    const id = packet(root, 'workflow-or-tool', 'where should reports live', featureChangeKey(dir));
+    expect(buildQuestionRound(root, dir).packets[0]?.next).toContain(`decision check ${id}`);
+    suggestEarlierAnswer(root, id, { earlier, option: 'a', reason: 'Same storage rule' });
+    const entry = buildQuestionRound(root, dir).packets[0];
+    expect(entry).not.toHaveProperty('earlier_check_required');
+    expect(entry?.question?.options[0]?.label).toBe(`Same as last time: a (from ${earlier})`);
   });
 
   it('a partly answered round asks only what is still pending', () => {

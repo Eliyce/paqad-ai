@@ -262,13 +262,13 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 }
 
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
-  '- Do not ask the human. On a decision pause, run `paqad-ai decision create …` and return `paused: D-<id>` at once; the orchestrator asks and resumes you.',
+  '- Do not ask the human. Run `paqad-ai decision create …`; on `earlier_check`, `decision check`, `decision suggest`; return `paused: D-<id>`; the orchestrator asks and resumes you. On `"reused": true`, carry on, repeating `say`.',
   '- Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.',
   '- Do not skip a stage command because the orchestrator will run it: it will not, the next `paqad-ai stage start` refuses past an unfinished stage, and the completeness gate reads the end row.',
 ];
 
 const HOOK_ENFORCED_DO_NOT: readonly string[] = [
-  '- Do not ask the human: the AskUserQuestion tool is not available to you. Run `paqad-ai decision create …` and return `paused: D-<id>`.',
+  '- Do not ask the human: no AskUserQuestion. Run `paqad-ai decision create`; on `earlier_check`, `decision check`, `decision suggest`, `paused: D-<id>`; on `"reused": true`, carry on.',
   '- Do not write into a feature bundle directory: the capability gate blocks it.',
   '- Do not return a finished report without the `paqad-ai stage end` row: `stage-agent-handback.mjs` refuses it.',
 ];
@@ -406,7 +406,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '## Stop when',
     '',
     `- ${procedure.stop}`,
-    '- You opened a decision packet: return `Status: BLOCKED` at once.',
+    '- You opened a decision packet: return `Status: BLOCKED`.',
     '- An input is missing: return `Status: NEEDS_CONTEXT` naming it.',
     '',
     ...stageDoNot(def, host),

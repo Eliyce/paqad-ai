@@ -41,4 +41,4 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 
 ## Escalate / Stop Conditions
 
-- A doc you cannot update without a decision: open one. A recipe never resolves it.
+- A doc you cannot update without a decision: run `paqad-ai decision create`, handle `earlier_check` or `"reused": true` as your rules say, and unless it was reused return `paused: D-<id>`. A recipe never resolves it.

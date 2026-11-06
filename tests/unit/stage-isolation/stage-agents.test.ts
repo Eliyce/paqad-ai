@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { resolveRecipe } from '@/stage-isolation/recipes.js';
 import { describe, expect, it } from 'vitest';
 
 import { overlapScore } from '@/authoring/overlap';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy';
-import { renderStageAgentFiles } from '@/stage-isolation/agent-writer';
+import {
+  renderClaudePluginStageAgents,
+  renderStageAgentFiles,
+} from '@/stage-isolation/agent-writer';
 import {
   HIGH_TABLE_AGENTS,
   MANDATORY_STAGE_AGENTS,
@@ -97,7 +103,7 @@ describe('stage-agent definitions', () => {
       const claude = buildStageAgentBody(def, 'claude-code');
       expect(claude).toContain(`stage begin ${def.ledgerStage}`);
       const doNot = claude.slice(claude.indexOf('## Do not'), claude.indexOf('## Example'));
-      expect(doNot).toContain('the AskUserQuestion tool is not available to you');
+      expect(doNot).toContain('no AskUserQuestion');
       expect(doNot).toContain('the capability gate blocks it');
       expect(doNot).toContain('`stage-agent-handback.mjs` refuses it');
       expect(doNot).not.toContain('holds a stage');
@@ -307,5 +313,54 @@ describe('stage agent returns the orchestrator can act on', () => {
       'return at once with `Status: NEEDS_CONTEXT` naming every seated role',
     );
     expect(spec).toContain('or you returned the seated experts');
+  });
+});
+
+describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
+  const recipes = ['development-recipe', 'planning-recipe', 'documentation-sync-recipe'].map(
+    (name) => readFileSync(join(process.cwd(), 'runtime/base/skills', name, 'SKILL.md'), 'utf8'),
+  );
+  const bodies = MANDATORY_STAGE_AGENTS.map((def) => buildStageAgentBody(def, 'claude-code'));
+
+  it('AC-30 every agent that can open a packet names check, suggest and the reused branch', () => {
+    for (const recipe of recipes) {
+      expect(recipe).toContain('earlier_check');
+      expect(recipe).toContain('"reused": true');
+    }
+    for (const body of [...bodies, STAGE_AGENT_HARD_RULES.join('\n')]) {
+      expect(body).toContain('decision check');
+      expect(body).toContain('decision suggest');
+      expect(body).toContain('"reused": true');
+    }
+  });
+
+  it('AC-30 none keeps "at once" after create', () => {
+    for (const body of [...bodies, ...recipes, STAGE_AGENT_HARD_RULES.join('\n')]) {
+      expect(body).not.toMatch(/decision create[^\n]*at once/u);
+      expect(body).not.toContain('You opened a decision packet: return `Status: BLOCKED` at once');
+    }
+  });
+
+  it('AC-30 the plugin agent files match the source', () => {
+    for (const agent of renderClaudePluginStageAgents()) {
+      expect(
+        readFileSync(join(process.cwd(), 'runtime/claude-plugin/agents', agent.name), 'utf8'),
+      ).toBe(agent.content);
+    }
+  });
+
+  it('AC-42 no stage text or recipe names the always flag', () => {
+    const agentFiles = renderClaudePluginStageAgents().map((agent) => agent.content);
+    for (const text of [...agentFiles, ...recipes, ...bodies, STAGE_AGENT_HARD_RULES.join('\n')]) {
+      expect(text).not.toContain('--always');
+    }
+  });
+
+  it('INV-15 the High Table seats do not get the check and suggest text', () => {
+    for (const agent of renderClaudePluginStageAgents()) {
+      if (agent.name === 'paqad-expert.md' || agent.name === 'paqad-chief-architect.md') {
+        expect(agent.content).not.toContain('decision suggest');
+      }
+    }
   });
 });

@@ -7,10 +7,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import {
+  ALWAYS_LABEL,
+  buildQuestionBlock,
   EARLIER_METHOD_FALLBACK,
   earlierCheckFor,
   findEarlierQuestions,
+  NO_STANDING_ANSWER_CATEGORIES,
   readEarlierMethod,
+  type StoredPendingPacket,
 } from '@/decisions/earlier-answers.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
@@ -246,5 +250,107 @@ describe('a failed search never stops a pause', () => {
     const store = new DecisionStore(root);
     const written = store.writePending(pendingStorePacket({ question: 'same words here' }));
     expect(JSON.parse(readFileSync(written, 'utf8')).earlier_check.status).toBe('required');
+  });
+});
+
+describe('AC-9 AC-10 AC-29 AC-32 the question block', () => {
+  const ID = 'D-01J000000000000000000000Q1';
+  const EARLIER = 'D-01J000000000000000000000Q2';
+  const packet = (
+    count: number,
+    overrides: Partial<StoredPendingPacket> = {},
+  ): StoredPendingPacket => ({
+    id: ID,
+    category: 'ux-pattern',
+    title: 'Which one',
+    options: Array.from({ length: count }, (_, index) => ({
+      option_key: `k${index}`,
+      label: `Label ${index}`,
+    })),
+    suggestion: { earlier_id: EARLIER, option_key: 'k1', reason: 'r', at: 'now' },
+    ...overrides,
+  });
+  const labels = (input: StoredPendingPacket): string[] =>
+    buildQuestionBlock(ID, input).options.map((entry) => entry.label);
+
+  it('AC-9 AC-32 puts the earlier answer first with its id and always last, within four', () => {
+    expect(labels(packet(3))).toEqual([
+      `Same as last time: Label 1 (from ${EARLIER})`,
+      'Label 0',
+      'Label 2',
+      ALWAYS_LABEL,
+    ]);
+    expect(labels(packet(2))).toHaveLength(3);
+  });
+
+  it('AC-29 a question at four or five options shows no always and never over four entries', () => {
+    expect(labels(packet(4))).toEqual([
+      `Same as last time: Label 1 (from ${EARLIER})`,
+      'Label 0',
+      'Label 2',
+      'Label 3',
+    ]);
+    const five = labels(packet(5));
+    expect(five).toHaveLength(4);
+    expect(five).not.toContain(ALWAYS_LABEL);
+    expect(five[0]).toContain('Label 1');
+  });
+
+  it('AC-29 keeps a long label whole and gives every entry a resolve command', () => {
+    const long = 'x'.repeat(300);
+    const block = buildQuestionBlock(
+      ID,
+      packet(2, {
+        options: [
+          { option_key: 'k0', label: long },
+          { option_key: 'k1', label: 'Short' },
+        ],
+      }),
+    );
+    expect(block.options[1]?.label).toBe(long);
+    for (const entry of block.options) {
+      expect(entry.resolve.startsWith(`paqad-ai decision resolve ${ID} ${entry.option_key}`)).toBe(
+        true,
+      );
+    }
+    expect(block.options.at(-1)?.resolve).toBe(`paqad-ai decision resolve ${ID} k1 --always`);
+    expect(block.options.at(-1)?.always).toBe(true);
+  });
+
+  it('AC-10 no always for any of the nine categories, and the suggestion still shows', () => {
+    expect(NO_STANDING_ANSWER_CATEGORIES).toHaveLength(9);
+    for (const category of NO_STANDING_ANSWER_CATEGORIES) {
+      const shown = labels(packet(3, { category }));
+      expect(shown).not.toContain(ALWAYS_LABEL);
+      expect(shown[0]).toContain('Same as last time');
+    }
+  });
+
+  it('shows no always on a store-format packet or after --none', () => {
+    expect(labels(packet(3, { id: undefined, decision_id: ID }))).not.toContain(ALWAYS_LABEL);
+    const none = packet(3, { suggestion: undefined });
+    expect(labels(none)).toEqual(['Label 0', 'Label 1', 'Label 2']);
+  });
+
+  it('treats a suggestion for a missing option as no suggestion', () => {
+    const stale = packet(2, {
+      suggestion: { earlier_id: EARLIER, option_key: 'gone', reason: 'r', at: 'n' },
+    });
+    expect(labels(stale)).toEqual(['Label 0', 'Label 1']);
+  });
+
+  it('quotes a key that a shell would otherwise split, and reads a store-format question', () => {
+    const block = buildQuestionBlock(ID, {
+      decision_id: ID,
+      category: 'ux-pattern',
+      question: 'Store question',
+      options: [
+        { option_key: "it's odd", label: 'Odd' },
+        { option_key: 'reuse:thing', label: 'Fine' },
+      ],
+    });
+    expect(block.question).toBe('Store question');
+    expect(block.options[0]?.resolve).toBe(`paqad-ai decision resolve ${ID} 'it'\\''s odd'`);
+    expect(block.options[1]?.resolve).toBe(`paqad-ai decision resolve ${ID} reuse:thing`);
   });
 });

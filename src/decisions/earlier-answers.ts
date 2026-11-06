@@ -198,10 +198,24 @@ export function earlierCheckBlock(
   };
 }
 
+export const NO_STANDING_ANSWER_CATEGORIES: readonly string[] = [
+  ...PRIVATE_ANSWER_CATEGORIES,
+  'spec.change',
+  'architecture-path',
+  'spec.contradiction',
+  'analytics.taxonomy_violation',
+  'analytics.new_event',
+];
+
+export const ALWAYS_LABEL = 'Always use this answer for this kind of question';
+
+export const MAX_ALWAYS_OPTIONS = 3;
+
 export interface QuestionEntry {
   label: string;
   option_key: string;
   resolve: string;
+  always?: true;
 }
 
 export interface QuestionBlock {
@@ -220,14 +234,56 @@ function resolveCommand(id: string, key: string): string {
   return `paqad-ai decision resolve ${id} ${shellArg(key)}`;
 }
 
+function plainEntry(id: string, option: { option_key: string; label: string }): QuestionEntry {
+  return {
+    label: option.label,
+    option_key: option.option_key,
+    resolve: resolveCommand(id, option.option_key),
+  };
+}
+
+function suggestedEntries(
+  id: string,
+  packet: StoredPendingPacket,
+  suggestion: DecisionSuggestion,
+): QuestionEntry[] | null {
+  const suggested = packet.options.find((option) => option.option_key === suggestion.option_key);
+  if (suggested === undefined) return null;
+  const first: QuestionEntry = {
+    ...plainEntry(id, suggested),
+    label: `Same as last time: ${suggested.label} (from ${suggestion.earlier_id})`,
+  };
+  const rest = packet.options
+    .filter((option) => option.option_key !== suggestion.option_key)
+    .map((option) => plainEntry(id, option));
+  const always: QuestionEntry[] = canOfferAlways(packet)
+    ? [
+        {
+          label: ALWAYS_LABEL,
+          option_key: suggested.option_key,
+          resolve: `${resolveCommand(id, suggested.option_key)} --always`,
+          always: true,
+        },
+      ]
+    : [];
+  return [first, ...rest, ...always];
+}
+
+function canOfferAlways(packet: StoredPendingPacket): boolean {
+  return (
+    packet.id !== undefined &&
+    packet.options.length <= MAX_ALWAYS_OPTIONS &&
+    !NO_STANDING_ANSWER_CATEGORIES.includes(packet.category)
+  );
+}
+
 export function buildQuestionBlock(id: string, packet: StoredPendingPacket): QuestionBlock {
+  const entries =
+    (packet.suggestion && suggestedEntries(id, packet, packet.suggestion)) ??
+    packet.options.map((option) => plainEntry(id, option));
   return {
     question: packet.title ?? packet.question ?? '',
-    options: packet.options.slice(0, MAX_QUESTION_ENTRIES).map((option) => ({
-      label: option.label,
-      option_key: option.option_key,
-      resolve: resolveCommand(id, option.option_key),
-    })),
+    options: entries.slice(0, MAX_QUESTION_ENTRIES),
     other: `paqad-ai decision resolve ${id} other --other "<text>"`,
   };
 }

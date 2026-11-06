@@ -138,12 +138,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end checks\` has accepted \`checks.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 - Do not edit project files: \`stage-agent-write-guard.mjs\` blocks it, except your stage input under \`.paqad/tmp/\`, written with a shell heredoc.
@@ -187,12 +187,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end development\` has succeeded with every criterion tested.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 
@@ -236,12 +236,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end documentation_sync\` has succeeded.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 
@@ -285,12 +285,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end planning\` has accepted \`plan.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 - Do not edit project files: \`stage-agent-write-guard.mjs\` blocks it, except your stage input under \`.paqad/tmp/\`, written with a shell heredoc.
@@ -335,12 +335,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end review\` has accepted \`review.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 - Do not edit project files: \`stage-agent-write-guard.mjs\` blocks it, except your stage input under \`.paqad/tmp/\`, written with a shell heredoc.
@@ -385,12 +385,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end specification\` has accepted \`specification.json\`, or you returned the seated experts.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run \`paqad-ai decision create …\` and return \`paused: D-<id>\`.
+- Do not ask the human: no AskUserQuestion. Run \`paqad-ai decision create\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`, \`paused: D-<id>\`; on \`"reused": true\`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the \`paqad-ai stage end\` row: \`stage-agent-handback.mjs\` refuses it.
 - Do not edit project files: \`stage-agent-write-guard.mjs\` blocks it, except your stage input under \`.paqad/tmp/\`, written with a shell heredoc.
@@ -429,12 +429,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end checks\` has accepted \`checks.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 
@@ -521,12 +521,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end development\` has succeeded with every criterion tested.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 
@@ -565,12 +565,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end documentation_sync\` has succeeded.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 
@@ -657,12 +657,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end planning\` has accepted \`plan.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 
@@ -701,12 +701,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end review\` has accepted \`review.json\`.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 
@@ -745,12 +745,12 @@ End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the co
 ## Stop when
 
 - \`stage end specification\` has accepted \`specification.json\`, or you returned the seated experts.
-- You opened a decision packet: return \`Status: BLOCKED\` at once.
+- You opened a decision packet: return \`Status: BLOCKED\`.
 - An input is missing: return \`Status: NEEDS_CONTEXT\` naming it.
 
 ## Do not
 
-- Do not ask the human. On a decision pause, run \`paqad-ai decision create …\` and return \`paused: D-<id>\` at once; the orchestrator asks and resumes you.
+- Do not ask the human. Run \`paqad-ai decision create …\`; on \`earlier_check\`, \`decision check\`, \`decision suggest\`; return \`paused: D-<id>\`; the orchestrator asks and resumes you. On \`"reused": true\`, carry on, repeating \`say\`.
 - Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.
 - Do not skip a stage command because the orchestrator will run it: it will not, the next \`paqad-ai stage start\` refuses past an unfinished stage, and the completeness gate reads the end row.
 

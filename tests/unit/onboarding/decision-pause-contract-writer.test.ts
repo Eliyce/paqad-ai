@@ -79,3 +79,22 @@ describe('decision-pause-contract-writer', () => {
     expect(body).toContain('nothing is auto-answered');
   });
 });
+
+describe('the Resolution flow names the earlier check', () => {
+  const body = buildDecisionPauseContractBody();
+
+  it('AC-46 says to check and suggest, and to keep an answer already held', () => {
+    expect(body).toContain('paqad-ai decision check <id>');
+    expect(body).toContain('paqad-ai decision suggest <id>');
+    expect(body).toContain('keep that answer, run check and suggest, and resolve with it');
+    expect(body).toContain('Never ask the same question again');
+  });
+
+  it('names the block, the hand-back rule, the orchestrator and the commit', () => {
+    expect(body).toContain('Same as last time: <label> (from D-...)');
+    expect(body).toContain('not from the hand-back');
+    expect(body).toContain('the orchestrator then runs check and suggest itself');
+    expect(body).toContain('.paqad/decisions/standing-answers.json');
+    expect(body).toContain('"reused": true');
+  });
+});

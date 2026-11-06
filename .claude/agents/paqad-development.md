@@ -31,12 +31,12 @@ End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concer
 ## Stop when
 
 - `stage end development` has succeeded with every criterion tested.
-- You opened a decision packet: return `Status: BLOCKED` at once.
+- You opened a decision packet: return `Status: BLOCKED`.
 - An input is missing: return `Status: NEEDS_CONTEXT` naming it.
 
 ## Do not
 
-- Do not ask the human: the AskUserQuestion tool is not available to you. Run `paqad-ai decision create …` and return `paused: D-<id>`.
+- Do not ask the human: no AskUserQuestion. Run `paqad-ai decision create`; on `earlier_check`, `decision check`, `decision suggest`, `paused: D-<id>`; on `"reused": true`, carry on.
 - Do not write into a feature bundle directory: the capability gate blocks it.
 - Do not return a finished report without the `paqad-ai stage end` row: `stage-agent-handback.mjs` refuses it.
 
