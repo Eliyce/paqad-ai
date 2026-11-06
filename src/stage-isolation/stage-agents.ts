@@ -262,13 +262,13 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
 }
 
 export const STAGE_AGENT_HARD_RULES: readonly string[] = [
-  '- Do not ask the human. Run `paqad-ai decision create …`; on `earlier_check`, `decision check`, `decision suggest`; return `paused: D-<id>`; the orchestrator asks and resumes you. On `"reused": true`, carry on, repeating `say`.',
+  '- Do not ask the human. Run `paqad-ai decision create …`; on `earlier_check`, scan titles, `decision check <id> --read` (≤5), `decision suggest`, `paused: D-<id>`; the orchestrator asks and resumes you. On `"reused": true`, carry on, repeating `say`.',
   '- Do not write into a feature bundle directory: the capability gate blocks an edit there. Only the stage commands write there.',
   '- Do not skip a stage command because the orchestrator will run it: it will not, the next `paqad-ai stage start` refuses past an unfinished stage, and the completeness gate reads the end row.',
 ];
 
 const HOOK_ENFORCED_DO_NOT: readonly string[] = [
-  '- Do not ask the human: no AskUserQuestion. Run `paqad-ai decision create`; on `earlier_check`, `decision check`, `decision suggest`, `paused: D-<id>`; on `"reused": true`, carry on.',
+  '- Do not ask the human: no AskUserQuestion. `paqad-ai decision create`; on `earlier_check`, scan titles, `decision check <id> --read` (≤5), `decision suggest`, `paused: D-<id>`; on `"reused": true`, carry on.',
   '- Do not write into a feature bundle directory: the capability gate blocks it.',
   '- Do not return a finished report without the `paqad-ai stage end` row: `stage-agent-handback.mjs` refuses it.',
 ];
@@ -351,7 +351,7 @@ const STAGE_PROCEDURE: Record<string, StageProcedure> = {
       'Record `review.json` with one deferred finding. Return its path and `Status: DONE_WITH_CONCERNS`.',
   },
   checks: {
-    work: 'Follow your recipe: run the project checks once with `paqad-ai checks run`.',
+    work: 'Follow your recipe: `paqad-ai checks run`, once.',
     end: '`paqad-ai stage end checks --agent paqad-checks --artifact <the checks.json path>`.',
     stop: '`stage end checks` has accepted `checks.json`.',
     example:
@@ -406,7 +406,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '## Stop when',
     '',
     `- ${procedure.stop}`,
-    '- You opened a decision packet: return `Status: BLOCKED`.',
+    '- You opened a packet: finish `earlier_check`, return `Status: BLOCKED`.',
     '- An input is missing: return `Status: NEEDS_CONTEXT` naming it.',
     '',
     ...stageDoNot(def, host),

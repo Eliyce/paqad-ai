@@ -62,7 +62,7 @@ function earlierCheckFields(packet: PendingContractDecision): Partial<RoundPacke
   if (packet.earlier_check?.status === 'required') {
     return {
       earlier_check_required: true,
-      next: `Before asking, run paqad-ai decision check ${packet.id}, then paqad-ai decision suggest ${packet.id}.`,
+      next: `Before asking, run paqad-ai decision check ${packet.id}, read up to 5 with --read where it lists titles, then run paqad-ai decision suggest ${packet.id}.`,
     };
   }
   return packet.suggestion ? { question: buildQuestionBlock(packet.id, packet) } : {};

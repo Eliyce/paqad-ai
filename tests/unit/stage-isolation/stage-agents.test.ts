@@ -325,10 +325,13 @@ describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
   it('AC-30 every agent that can open a packet names check, suggest and the reused branch', () => {
     for (const recipe of recipes) {
       expect(recipe).toContain('earlier_check');
+      expect(recipe).toContain('--read');
+      expect(recipe).toContain('decision suggest');
       expect(recipe).toContain('"reused": true');
     }
     for (const body of [...bodies, STAGE_AGENT_HARD_RULES.join('\n')]) {
       expect(body).toContain('decision check');
+      expect(body).toContain('--read');
       expect(body).toContain('decision suggest');
       expect(body).toContain('"reused": true');
     }
