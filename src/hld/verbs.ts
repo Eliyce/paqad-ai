@@ -376,6 +376,8 @@ export function runHldCheckApproval(context: HldContext, input: CheckApprovalInp
   }
   const settings = config(context);
   const now = nowOf(context);
+  const settled = settledApproval(record);
+  if (settled !== null) return ok(settled);
   const decision = decideApproval({
     read,
     status: input.status ?? null,
@@ -418,6 +420,19 @@ export function runHldCheckApproval(context: HldContext, input: CheckApprovalInp
     lines.push('Only an approver answering there can start the build.');
   }
   return ok(lines);
+}
+
+function settledApproval(record: HldRecord): string[] | null {
+  if (record.state === 'approved' && record.approved_at) {
+    return [approvedLine(record.ref, record.approved_at)];
+  }
+  if (record.state === 'skipped') return [skippedLine(record.ref)];
+  if (record.state === 'changes_requested') {
+    return [
+      `${HEAD} a reply already asked for changes to the high-level design for ${record.ref}. Re-freeze the spec, then post the design again as v2.`,
+    ];
+  }
+  return null;
 }
 
 function raiseSpecChange(
