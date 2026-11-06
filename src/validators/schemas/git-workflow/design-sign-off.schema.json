@@ -11,7 +11,7 @@
     "enabled": { "type": "boolean" },
     "lanes": {
       "type": "array",
-      "items": { "type": "string", "enum": ["fast", "graduated", "full"] },
+      "items": { "type": "string", "enum": ["graduated", "full"] },
       "uniqueItems": true
     },
     "approval_channel": {
