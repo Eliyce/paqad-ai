@@ -1,0 +1,59 @@
+{
+  "id": "D-01M6SJEHGHXF7G68BZVR3Q7H1T",
+  "category": "spec.contradiction",
+  "title": "First-turn band blanks when an earlier turn left a turn id behind",
+  "context": "Measured in runtime/claude-plugin/mod/register.test.ts through the real live.ts state. A prompt.submit, then the hook snapshot, then turn.start, with turnId still set from an earlier turn that had no turn.complete: turnStarted replaces the stamp with its own now, the snapshot is older than the stamp, routeFromEarlierTurn returns true, and the Desktop band is empty (received an empty string, expected Paqad Getting Ready) until the next CLI refresh. The other three cases draw the band: fresh session in both orders, and leftover turn id with turn.start before the snapshot. The spec promises no empty band in the first turn (AC-7, FR-2) and also makes changing the event order or the workflow band guard a non-goal, and AC-33 says an empty band is raised here rather than changed silently. Not measured on a real Desktop session; how often a turn ends with no turn.complete is unknown.",
+  "options": [
+    {
+      "option_key": "clear-leftover-turn",
+      "label": "Clear a leftover turnId in promptSubmitted in live.ts, so turn.start keeps the prompt stamp. Order and guard stay as they are, but live.ts changes",
+      "one_line_preview": "Clear a leftover turnId in promptSubmitted in live.ts, so turn.start keeps the prompt stamp. Order and guard stay as they are, but live.ts changes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "stamp-ready-band",
+      "label": "Guard ready-feature on the snapshot's own turn stamp instead of generated_at. Needs a new parsed snapshot field, which goes beyond INV-10; the workflow band stays exposed",
+      "one_line_preview": "Guard ready-feature on the snapshot's own turn stamp instead of generated_at. Needs a new parsed snapshot field, which goes beyond INV-10; the workflow band stays exposed",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "accept-and-document",
+      "label": "Accept the blank for this leftover case until the next CLI refresh, as FR-26 already allows for a nearby window; commit the test pinning the blank and record it as a known residual",
+      "one_line_preview": "Accept the blank for this leftover case until the next CLI refresh, as FR-26 already allows for a nearby window; commit the test pinning the blank and record it as a known residual",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "clear-leftover-turn",
+  "created_at": "2026-11-06T23:17:37.937Z",
+  "status": "resolved",
+  "change": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "The two nearest answers cover a finished turn with no change and the word Ready; neither covers a turn id left by an earlier turn blanking the band mid-turn."
+  },
+  "chosen": "clear-leftover-turn",
+  "rationale": "Owner chose this: clear a leftover turnId when a new prompt arrives, so turn.start keeps the prompt stamp. Event order and the guard stay as they are.",
+  "resolved_at": "2026-11-06T23:25:38.208Z",
+  "decision_id": "D-01M6SJEHGHXF7G68BZVR3Q7H1T",
+  "fingerprint": "sha256:3c7f487a34412120d483d306ffba9bb5c0226504b5c631a930ab13972ef21919",
+  "question": "First-turn band blanks when an earlier turn left a turn id behind",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "ttl_until": "2026-11-13T23:17:37.937Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "clear-leftover-turn",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T23:25:38.208Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this: clear a leftover turnId when a new prompt arrives, so turn.start keeps the prompt stamp. Event order and the guard stay as they are."
+  }
+}

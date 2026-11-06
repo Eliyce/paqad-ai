@@ -1,0 +1,52 @@
+{
+  "id": "D-01M6SEBAB1N4MD3NBQJQW8PE3V",
+  "category": "intake.requirement",
+  "title": "The first word on Desktop before Paqad Getting Ready",
+  "context": "Desktop shows the word Ready before the HUD has read anything, and the new state then says Paqad Getting Ready. Should the first word change so the two read in the right order? A person sees Ready and then Getting Ready on every first turn, which can read as going backwards. This order comes from reading the code, not from a live session. The word Ready shows in every session, not only feature work, and changing it is a small addition this issue did not ask for, so the recommendation is to leave it.",
+  "options": [
+    {
+      "option_key": "leave-ready",
+      "label": "Leave Ready as it is and accept the order",
+      "one_line_preview": "Leave Ready as it is and accept the order",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "getting-ready",
+      "label": "Change the first word to Getting ready, matching the terminal",
+      "one_line_preview": "Change the first word to Getting ready, matching the terminal",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "leave-ready",
+  "created_at": "2026-11-06T22:05:57.985Z",
+  "status": "resolved",
+  "change": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier title is about the Desktop band's first word or the order of Ready and Getting Ready. The one HUD-related title, recordOverride in register.tsx, is about another matter, so nothing is close enough to read."
+  },
+  "chosen": "leave-ready",
+  "rationale": "Owner chose this: the issue did not ask to change the first word.",
+  "resolved_at": "2026-11-06T22:08:20.391Z",
+  "decision_id": "D-01M6SEBAB1N4MD3NBQJQW8PE3V",
+  "fingerprint": "sha256:f68bc5afca5199dfbb650d998696b93087b54d9feb8dba02b1ff52163e038247",
+  "question": "The first word on Desktop before Paqad Getting Ready",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "ttl_until": "2026-11-20T22:05:57.985Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "leave-ready",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T22:08:20.391Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this: the issue did not ask to change the first word."
+  }
+}

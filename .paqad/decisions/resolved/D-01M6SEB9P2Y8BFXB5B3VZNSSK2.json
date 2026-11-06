@@ -1,0 +1,59 @@
+{
+  "id": "D-01M6SEB9P2Y8BFXB5B3VZNSSK2",
+  "category": "intake.requirement",
+  "title": "HUD after a turn that ends with no change opened",
+  "context": "If the agent ends its turn on a feature without ever starting the change, what should the HUD show until the next message? Paqad Getting Ready with nothing running can look stuck, while an empty HUD is the problem this issue reports. The headline has no clock and no moving mark. The next message rewrites the route, so this only lasts until then. The recommended answer matches AC-6 as the issue wrote it and adds no new wording.",
+  "options": [
+    {
+      "option_key": "keep-getting-ready",
+      "label": "Keep showing Paqad Getting Ready until the next message",
+      "one_line_preview": "Keep showing Paqad Getting Ready until the next message",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "show-nothing",
+      "label": "Show nothing until the next message",
+      "one_line_preview": "Show nothing until the next message",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "waiting-for-you",
+      "label": "Keep the card but say paqad is waiting for you",
+      "one_line_preview": "Keep the card but say paqad is waiting for you",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep-getting-ready",
+  "created_at": "2026-11-06T22:05:57.315Z",
+  "status": "resolved",
+  "change": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier title is about what the HUD shows after a turn ends without a change. The titles scanned cover skills, updates, decision reuse, plugin rollout and releases, so nothing is close enough to read."
+  },
+  "chosen": "keep-getting-ready",
+  "rationale": "Owner chose this: matches AC-6 as written, no new wording.",
+  "resolved_at": "2026-11-06T22:08:19.745Z",
+  "decision_id": "D-01M6SEB9P2Y8BFXB5B3VZNSSK2",
+  "fingerprint": "sha256:13c56d4ace01e940f979a2bd2f8bbafc7af27244ce3141e4bbbd25611065cdaf",
+  "question": "HUD after a turn that ends with no change opened",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "ttl_until": "2026-11-20T22:05:57.315Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "keep-getting-ready",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T22:08:19.745Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this: matches AC-6 as written, no new wording."
+  }
+}
