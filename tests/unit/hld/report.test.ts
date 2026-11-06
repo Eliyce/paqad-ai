@@ -70,6 +70,25 @@ describe('design sign-off in the PR body and receipt', () => {
     expect(designSignOffReceiptLine(root, DIR, 'full')).toContain('skipped before sign-off');
   });
 
+  it('AC-53: no change, no design yet or a design that was not posted each say so', () => {
+    enable();
+    expect(designSignOffPrLine(root, null)).toBe('');
+    expect(designSignOffReceiptLine(root, null, 'full')).toContain('⚪ off for this team');
+    expect(designSignOffReceiptLine(root, DIR, 'full')).toBe(
+      'High-level design: 🟡 not written yet',
+    );
+    writeHld(root, DIR, { ...emptyHldRecord(REF), state: 'not_posted' });
+    expect(designSignOffReceiptLine(root, DIR, 'full')).toBe(
+      '🟡 High-level design not posted, shared in chat',
+    );
+    writeHld(root, DIR, { ...emptyHldRecord(REF), state: 'approved' });
+    expect(designSignOffReceiptLine(root, DIR, 'full')).toContain('signed off');
+    expect(designSignOffPrLine(root, DIR)).toBe('');
+    writeHld(root, DIR, { ...emptyHldRecord(REF), state: 'skipped' });
+    expect(designSignOffReceiptLine(root, DIR, 'full')).toContain('skipped before sign-off');
+    expect(designSignOffPrLine(root, DIR)).toBe('');
+  });
+
   it('AC-1: with the default file or no file the PR body is unchanged and the receipt only gains the off line', () => {
     const absentLine = designSignOffReceiptLine(root, DIR, 'full');
     const absentPr = designSignOffPrLine(root, DIR);

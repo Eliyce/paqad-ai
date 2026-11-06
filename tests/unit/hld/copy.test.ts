@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAge, formatDay, prSkippedLine } from '@/hld/copy.js';
+import { formatAge, formatDay, gateBlockLine, prSkippedLine } from '@/hld/copy.js';
 
 const AT = '2026-10-30T09:00:00Z';
 const at = (ms: number) => new Date(Date.parse(AT) + ms);
@@ -28,6 +28,12 @@ describe('hld copy', () => {
     expect(formatDay('2026-10-31T23:30:00Z')).toBe('31 Oct');
     expect(prSkippedLine('Hotfix for checkout.')).toBe(
       'Built before high-level design sign-off. Reason: Hotfix for checkout.',
+    );
+  });
+
+  it('FR-20: the gate line drops the skip when skips are off', () => {
+    expect(gateBlockLine('PQD-1', false)).toBe(
+      'The high-level design for PQD-1 is waiting for sign-off. Check for an answer with paqad-ai hld check-approval. The build starts only once an approver answers there.',
     );
   });
 });

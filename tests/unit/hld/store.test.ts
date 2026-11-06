@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,9 +9,11 @@ import { bundleWriterFor } from '@/feature-evidence/manifest.js';
 import {
   authorDigest,
   emptyHldRecord,
+  hldMarkdownPath,
   readHld,
   readWaitingIndex,
   writeHld,
+  writeHldMarkdown,
   type HldRecord,
 } from '@/hld/store.js';
 
@@ -101,5 +103,40 @@ describe('hld store', () => {
 
   it('reads a missing or broken hld.json as none', () => {
     expect(readHld(root, DIR)).toBeNull();
+    const path = join(root, PATHS.FEATURE_EVIDENCE_DIR, DIR, 'hld.json');
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify({ state: 'lost' }));
+    expect(readHld(root, DIR)).toBeNull();
+  });
+
+  it('fills fields a hand-edited hld.json lost with empty values', () => {
+    const path = join(root, PATHS.FEATURE_EVIDENCE_DIR, DIR, 'hld.json');
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify({ state: 'not_posted', ref: 7, posts: 'none' }));
+    expect(readHld(root, DIR)).toEqual({
+      state: 'not_posted',
+      ref: '',
+      version: 0,
+      digest: '',
+      posts: [],
+      approved_at: null,
+      approval_link: null,
+      skip_reason: null,
+    });
+  });
+
+  it('saves hld.md ending with one newline', () => {
+    writeHldMarkdown(root, DIR, 'line one');
+    expect(readFileSync(hldMarkdownPath(root, DIR), 'utf8')).toBe('line one\n');
+    writeHldMarkdown(root, DIR, 'line two\n');
+    expect(readFileSync(hldMarkdownPath(root, DIR), 'utf8')).toBe('line two\n');
+  });
+
+  it('reads a waiting index that is not a list as empty and rebuilds it on the next write', () => {
+    mkdirSync(join(root, PATHS.HLD_WAITING_INDEX, '..'), { recursive: true });
+    writeFileSync(join(root, PATHS.HLD_WAITING_INDEX), JSON.stringify({ dir: DIR }));
+    expect(readWaitingIndex(root)).toEqual([]);
+    writeHld(root, DIR, posted('awaiting_sign_off'));
+    expect(readWaitingIndex(root)).toHaveLength(1);
   });
 });

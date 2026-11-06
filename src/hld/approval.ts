@@ -53,7 +53,7 @@ const SENTENCE_END = /[.!?;\n]/u;
 function sentenceBefore(text: string, index: number): string {
   const before = text.slice(0, index);
   const parts = before.split(SENTENCE_END);
-  return parts[parts.length - 1] ?? '';
+  return parts[parts.length - 1]!;
 }
 
 function escape(text: string): string {

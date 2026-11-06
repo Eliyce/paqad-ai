@@ -17,6 +17,7 @@ import { createProgram } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { renderDefaultGitWorkflowFile } from '@/git-workflow/defaults.js';
 import { authorDigest, readHld, readWaitingIndex } from '@/hld/store.js';
@@ -105,6 +106,27 @@ function post(extra: Partial<Parameters<typeof runHldPosted>[1]> = {}, now?: str
   });
 }
 
+function configure(edit: (text: string) => string): void {
+  writeFileSync(
+    join(root, PATHS.GIT_WORKFLOW_DIR, 'design-sign-off.yaml'),
+    edit(
+      renderDefaultGitWorkflowFile('design-sign-off.yaml').replace(
+        'enabled: false',
+        'enabled: true',
+      ),
+    ),
+  );
+}
+
+async function run(args: string[], at = root): Promise<{ out: string; err: string }> {
+  const out: string[] = [];
+  const err: string[] = [];
+  vi.spyOn(console, 'log').mockImplementation((line: string) => out.push(String(line)));
+  vi.spyOn(console, 'error').mockImplementation((line: string) => err.push(String(line)));
+  await createHldCommand().parseAsync([...args, '--project-root', at], { from: 'user' });
+  return { out: out.join('\n'), err: err.join('\n') };
+}
+
 function reply(text: string, at = '2026-10-30T12:00:00Z', extra: Record<string, unknown> = {}) {
   return { author_id: 'mate', is_change_author: false, text, reaction: null, at, ...extra };
 }
@@ -118,6 +140,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   process.exitCode = undefined;
   rmSync(root, { recursive: true, force: true });
 });
@@ -455,5 +478,232 @@ describe('paqad-ai hld', () => {
     );
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('Give a reason to skip sign-off');
+  });
+
+  it('runs each verb through the command and prints success on stdout', async () => {
+    vi.stubEnv('SE_SESSION', SES);
+    const brief = await run(['brief', '--text', `https://acme.atlassian.net/browse/${REF}`]);
+    expect(process.exitCode).toBe(0);
+    expect(brief.out).toContain(`> - destination: ${REF} on jira (acme.atlassian.net)`);
+    file('good.md', DESIGN);
+    expect((await run(['check', 'good.md'])).out).toContain('passed its check');
+    const posted = await run([
+      'posted',
+      '--target',
+      'jira',
+      '--link',
+      'https://acme.atlassian.net/browse/x?focusedCommentId=1',
+      '--id',
+      'c1',
+      '--at',
+      POST_AT,
+      '--author-id',
+      DEV,
+      '--file',
+      'good.md',
+      '--ref',
+      REF,
+    ]);
+    expect(posted.out).toContain(`Posted the high-level design to ${REF}.`);
+    const approval = await run([
+      'check-approval',
+      '--replies',
+      replies([reply('approved', '2026-10-31T08:00:00Z')]),
+    ]);
+    expect(approval.out).toBe(
+      `The high-level design for ${REF} was approved on 31 Oct. Starting the build.`,
+    );
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('takes the session from CLAUDE_SESSION_ID, then from the one this project last used', async () => {
+    vi.stubEnv('SE_SESSION', undefined);
+    vi.stubEnv('CLAUDE_SESSION_ID', SES);
+    file('hld.md', DESIGN);
+    const notPosted = await run(['not-posted', '--target', 'slack', '--file', 'hld.md']);
+    expect(notPosted.out.split('\n')[0]).toContain("slack isn't connected");
+    vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+    const skipped = await run(['skip', '--reason', 'Hotfix']);
+    expect(skipped.out).toBe(
+      'Skipped high-level design sign-off for slack. Post the reason back to the team where the design was posted.',
+    );
+    expect(readHld(root, dir)?.state).toBe('skipped');
+  });
+
+  it('a session with no change stops every verb plainly', async () => {
+    const empty = mkdtempSync(join(tmpdir(), 'paqad-hld-empty-'));
+    const none = await run(['brief', '--session', 'ses_without_change'], empty);
+    rmSync(empty, { recursive: true, force: true });
+    expect(process.exitCode).toBe(1);
+    expect(none.err).toBe(
+      'No active change in this session, so there is no high-level design to record.',
+    );
+    const lonely: HldContext = { ...context(), dirName: null, lane: null };
+    const results = [
+      runHldBrief(lonely),
+      runHldPosted(lonely, {
+        target: 'jira',
+        link: 'l',
+        id: 'c1',
+        at: POST_AT,
+        authorId: DEV,
+        file: 'hld.md',
+      }),
+      runHldNotPosted(lonely, { target: 'jira', file: 'hld.md' }),
+      runHldCheckApproval(lonely, { replies: 'r.json' }),
+      runHldSkip(lonely, { reason: 'Hotfix' }),
+    ];
+    for (const result of results) expect(result).toEqual({ exitCode: 1, output: none.err });
+  });
+
+  it('brief reads the ticket from the saved request and says when no destination is found', () => {
+    const none = runHldBrief(context());
+    expect(none.output).toContain('> - destination: none found');
+    expect(none.output).toContain(
+      '> - destination profile: none, so record paqad-ai hld not-posted once the design passes its check',
+    );
+    expect(none.output).toContain('> - version: 1\n');
+    file(featureFilePath(dir, 'request'), `Build https://acme.atlassian.net/browse/${REF}\n`);
+    expect(runHldBrief(context()).output).toContain(
+      `> - destination: ${REF} on jira (acme.atlassian.net)`,
+    );
+  });
+
+  it('brief names an approval channel, a tracker found by key and a tracker with no profile', () => {
+    expect(runHldBrief(context(), { text: 'the outage in CHG0001234' }).output).toContain(
+      '> - destination: CHG0001234 on servicenow\n> - destination profile: none',
+    );
+    configure((text) =>
+      text.replace('server: ""', 'server: "ms-teams"').replace('channel: ""', 'channel: "Design"'),
+    );
+    const channel = runHldBrief(context());
+    expect(channel.output).toContain('> - destination: ms-teams channel Design');
+    expect(channel.output).toContain(
+      '> - destination profile: runtime/base/skills/high-level-design/references/destinations/ms-teams.md',
+    );
+  });
+
+  it('brief lists earlier posts and asks for v2 after a change request', () => {
+    runHldNotPosted(context(), { target: 'jira', file: file('hld.md', DESIGN), ref: REF });
+    expect(runHldBrief(context()).output).toContain('> - version: 1\n');
+    post();
+    expect(runHldBrief(context()).output).toContain('> - version: 1\n');
+    runHldCheckApproval(context(), { replies: replies([reply('needs changes')]) });
+    const brief = runHldBrief(context()).output;
+    expect(brief).toContain('> - version: 2, update the same comment with v2 at the top');
+    expect(brief).toContain('> - already posted: version 1 to jira (comment c1)');
+  });
+
+  it('check and posted refuse a missing file, a bad time or a blank author id', () => {
+    expect(runHldCheck(context(), 'nowhere.md')).toEqual({
+      exitCode: 1,
+      output: "Couldn't read nowhere.md. Save the design there and try again.",
+    });
+    expect(post({ at: '31 Oct' })).toEqual({
+      exitCode: 1,
+      output: '--at needs the time the destination shows for the post, like 2026-10-31T09:30:00Z.',
+    });
+    expect(post({ authorId: '  ' }).output).toBe('--author-id needs your id on the destination.');
+    expect(post({ file: 'nowhere.md' }).output).toBe(
+      "Couldn't read nowhere.md. Save the design there and try again.",
+    );
+    expect(runHldNotPosted(context(), { target: 'jira', file: 'nowhere.md' }).output).toBe(
+      "Couldn't read nowhere.md. Save the design there and try again.",
+    );
+    expect(readHld(root, dir)).toBeNull();
+  });
+
+  it('posted and not-posted fall back to the recorded ref, the change issue and then the target', () => {
+    expect(post({ ref: undefined }).output).toContain('Posted the high-level design to jira.');
+    rmSync(join(root, PATHS.FEATURE_EVIDENCE_DIR, dir, 'hld.json'));
+    updateFeatureRecord(root, dir, { issue: REF });
+    expect(post({ ref: undefined }).output).toContain(`Posted the high-level design to ${REF}.`);
+    expect(
+      runHldNotPosted(context(), { target: 'slack', file: file('hld.md', DESIGN) }).output,
+    ).toContain("slack isn't connected");
+    expect(readHld(root, dir)?.ref).toBe(REF);
+  });
+
+  it('a second target with the same design keeps the version and both posts', () => {
+    post();
+    const slack = post({ target: 'slack', id: 's1' });
+    expect(slack.output).toBe(
+      `Posted the high-level design to ${REF}. The build starts once it's signed off there. You can work on something else meanwhile.`,
+    );
+    const record = readHld(root, dir)!;
+    expect(record.version).toBe(1);
+    expect(record.posts.map((p) => p.target)).toEqual(['jira', 'slack']);
+  });
+
+  it('a failed move names the reason when no move status is set, and queues nothing extra', () => {
+    expect(post({ moveFailed: 'In review' }).output.split('\n')[1]).toBe(
+      `Couldn't move ${REF} to "In review". The design is posted and still waits for sign-off.`,
+    );
+    expect(post({ target: 'slack', id: 's0' }).output).toContain('Posted the high-level design');
+    expect(post({ target: 'slack', id: 's0', moveFailed: 'Later' }).output).toBe(
+      `Couldn't move ${REF} to "Later". The design is posted and still waits for sign-off.`,
+    );
+    expect(post({ moveFailed: 'Later' }).output).toBe(
+      `This version of the high-level design for ${REF} is already recorded as posted to jira. Nothing to post again.`,
+    );
+    configure((text) => text.replace('move_to_on_post: ""', 'move_to_on_post: "Design review"'));
+    const first = post({ target: 'github', id: 'g1', moveFailed: 'no transition' });
+    expect(first.output).toContain(`Couldn't move ${REF} to "Design review".`);
+    expect(first.output).not.toContain('ticket: move');
+  });
+
+  it('a post to the approval channel queues no ticket move, a post to the tracker does', () => {
+    configure((text) =>
+      text
+        .replace('server: ""', 'server: "ms-teams"')
+        .replace('channel: ""', 'channel: "Design"')
+        .replace('move_to_on_post: ""', 'move_to_on_post: "Design review"'),
+    );
+    expect(post({ target: 'ms-teams' }).output).not.toContain('ticket: move');
+    expect(readFeatureDelivery(root, dir).ticket_actions ?? []).toEqual([]);
+    expect(post({ target: 'jira', id: 'c2' }).output).toContain(
+      `ticket: move ${REF} to "Design review"`,
+    );
+  });
+
+  it('check-approval needs a posted design and only removes replies saved under .paqad/tmp', () => {
+    expect(runHldCheckApproval(context(), { replies: replies([]) }).output).toBe(
+      'There is no posted high-level design for this change yet. Record it with paqad-ai hld posted first.',
+    );
+    runHldNotPosted(context(), { target: 'jira', file: file('hld.md', DESIGN), ref: REF });
+    expect(runHldCheckApproval(context(), { replies: replies([]) }).exitCode).toBe(1);
+    post();
+    const kept = file('replies.json', '[]');
+    expect(runHldCheckApproval(context(), { replies: 'replies.json' }).output).toContain(
+      'yet (posted 1 day ago)',
+    );
+    expect(existsSync(kept)).toBe(true);
+    mkdirSync(join(root, '.paqad/tmp/folder'), { recursive: true });
+    expect(() =>
+      runHldCheckApproval(context(), { replies: join(root, '.paqad/tmp/folder') }),
+    ).toThrow();
+  });
+
+  it('a status approval with no reply time is stamped with the time of the check', () => {
+    configure((text) => text.replace('approved_status: ""', 'approved_status: "Ready to build"'));
+    post();
+    const result = runHldCheckApproval(context('2026-11-02T10:00:00Z'), {
+      replies: replies([]),
+      status: 'Ready to build',
+    });
+    expect(result.output).toBe(
+      `The high-level design for ${REF} was approved on 2 Nov. Starting the build.`,
+    );
+    expect(readHld(root, dir)?.approved_at).toBe('2026-11-02T10:00:00.000Z');
+  });
+
+  it('skip uses the change issue, or names this change when there is none', () => {
+    expect(runHldSkip(context(), { reason: 'Hotfix' }).output).toBe(
+      'Skipped high-level design sign-off for this change. Post the reason back to the team where the design was posted.',
+    );
+    rmSync(join(root, PATHS.FEATURE_EVIDENCE_DIR, dir, 'hld.json'));
+    updateFeatureRecord(root, dir, { issue: REF });
+    expect(runHldSkip(context(), { reason: ' Hotfix ' }).output).toContain(`sign-off for ${REF}.`);
+    expect(readHld(root, dir)).toMatchObject({ ref: REF, skip_reason: 'Hotfix' });
   });
 });

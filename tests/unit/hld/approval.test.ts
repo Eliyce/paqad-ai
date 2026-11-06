@@ -98,6 +98,29 @@ describe('replies file', () => {
       ),
     ).toThrow(/Reply 1 needs an at time/);
   });
+
+  it('AC-43: a reply that is not an object, has no text or has a non-text reaction fails plainly', () => {
+    const base = {
+      author_id: 'a',
+      is_change_author: false,
+      text: 'ok',
+      reaction: null,
+      at: POST_AT,
+    };
+    expect(() => parseRepliesFile(JSON.stringify([base, 'approved']))).toThrow(
+      "Reply 2 isn't a reply.",
+    );
+    expect(() => parseRepliesFile(JSON.stringify([{ ...base, text: 7 }]))).toThrow(
+      "Reply 1 needs text, even if it's empty.",
+    );
+    expect(() => parseRepliesFile(JSON.stringify([{ ...base, reaction: 1 }]))).toThrow(
+      'Reply 1 needs reaction as text or null.',
+    );
+    expect(parseRepliesFile(JSON.stringify({ error: null }))).toEqual({
+      replies: [],
+      failed: false,
+    });
+  });
 });
 
 describe('approval rule', () => {

@@ -124,4 +124,17 @@ describe('design destination', () => {
       ref: `acme/web-app${'#'}${NUM}`,
     });
   });
+
+  it('AC-13: a channel on a server with no profile keeps the server name as its profile', () => {
+    const channel = config((c) => {
+      c.design_sign_off.approval_channel = { server: 'discord', channel: 'Design' };
+    });
+    expect(resolveDesignDestination('make the button bigger', channel)).toEqual({
+      kind: 'channel',
+      server: 'discord',
+      channel: 'Design',
+      profile: 'discord',
+      tracker: null,
+    });
+  });
 });

@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { authorDigest, emptyHldRecord, writeHld, type HldState } from '@/hld/store.js';
 import { resumeWaitingByPrompt, waitingSignOffLines, waitingSignOffText } from '@/hld/session.js';
@@ -88,5 +89,63 @@ describe('waiting design sign-off across chats', () => {
     expect(resumeWaitingByPrompt(root, 'ses_old', `about ${REF}`)).toBeNull();
     expect(resumeWaitingByPrompt(root, 'ses_new', 'make the button blue')).toBeNull();
     expect(resumeWaitingByPrompt(root, 'ses_new', `about ${OTHER}`)).toBeNull();
+  });
+
+  it('AC-52: an empty index resumes nothing', () => {
+    expect(resumeWaitingByPrompt(root, 'ses_new', `any news on ${REF}?`)).toBeNull();
+  });
+
+  it('AC-52: a waiting entry whose folder is not a change folder resumes nothing', () => {
+    writeHld(root, 'old-notes', {
+      ...emptyHldRecord(REF),
+      state: 'awaiting_sign_off',
+      posts: [
+        {
+          target: 'jira',
+          link: 'https://example.com/c/1',
+          id: 'c1',
+          at: '2026-10-30T09:00:00Z',
+          version: 1,
+          digest: 'd',
+          author_digest: authorDigest('dev'),
+          detail_posted: true,
+          move_failed: false,
+        },
+      ],
+    });
+    expect(resumeWaitingByPrompt(root, 'ses_new', `any news on ${REF}?`)).toBeNull();
+    expect(currentFeature(root, 'ses_new')).toBeNull();
+  });
+
+  it('AC-52: a short issue number names a waiting GitHub issue', () => {
+    const dir = waiting('ses_old', `acme/web-app${'#'}42`);
+    openFeatureChange(root, 'ses_new', { adapter: 'claude-code', title: 'other', ulidSeed: 9 });
+    expect(resumeWaitingByPrompt(root, 'ses_new', `what about ${'#'}42?`)).toContain(
+      `Resumed the change for acme/web-app${'#'}42`,
+    );
+    expect(currentFeature(root, 'ses_new')).toBe(dir);
+  });
+
+  it('AC-52: a ref matched only by a tickets.yaml source resumes, and a broken pattern is skipped', () => {
+    mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.GIT_WORKFLOW_DIR, 'tickets.yaml'),
+      [
+        'sources:',
+        '  broken:',
+        '    tracker: jira',
+        '    pattern: "(OPS"',
+        '  ops:',
+        '    tracker: servicenow',
+        '    pattern: "OPS\\\\d{4}"',
+        '',
+      ].join('\n'),
+    );
+    const dir = waiting('ses_old', 'OPS1234');
+    openFeatureChange(root, 'ses_new', { adapter: 'claude-code', title: 'other', ulidSeed: 9 });
+    expect(resumeWaitingByPrompt(root, 'ses_new', 'is OPS1234 signed off')).toContain(
+      'Resumed the change for OPS1234',
+    );
+    expect(currentFeature(root, 'ses_new')).toBe(dir);
   });
 });

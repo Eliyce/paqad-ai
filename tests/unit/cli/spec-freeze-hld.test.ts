@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSpecCommand } from '@/cli/commands/spec.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { renderDefaultGitWorkflowFile } from '@/git-workflow/defaults.js';
-import { FREEZE_NEXT_LINE } from '@/hld/copy.js';
+import { freezeNudge } from '@/hld/applies.js';
+import { FREEZE_NEXT_LINE, FREEZE_NEXT_V2_LINE } from '@/hld/copy.js';
+import { emptyHldRecord, writeHld } from '@/hld/store.js';
 
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
@@ -87,6 +89,15 @@ describe('spec freeze and design sign-off', () => {
     expect(FREEZE_NEXT_LINE).toBe(
       '> - 🟡 next: write the high-level design. Run paqad-ai hld brief.',
     );
+  });
+
+  it('AC-6: a re-freeze after a change request asks for the design again as v2', () => {
+    signOff(enabled());
+    openFeatureChange(root, SES, { adapter: 'claude-code', title: 'Widget', lane: 'full' });
+    const dir = currentFeature(root, SES)!;
+    expect(freezeNudge(root, SES, dir)).toBe(FREEZE_NEXT_LINE);
+    writeHld(root, dir, { ...emptyHldRecord('PQD-1'), state: 'changes_requested' });
+    expect(freezeNudge(root, SES, dir)).toBe(FREEZE_NEXT_V2_LINE);
   });
 
   it('AC-6: the fast lane or a lane not listed leaves the freeze output unchanged', async () => {

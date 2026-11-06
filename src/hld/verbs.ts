@@ -270,16 +270,18 @@ export function runHldPosted(context: HldContext, input: PostedInput): HldResult
   writeHldMarkdown(context.projectRoot, dirName, text);
   writeHld(context.projectRoot, dirName, record, options);
 
+  const failedMove =
+    input.moveFailed === undefined
+      ? null
+      : moveFailedLine(ref, settings.move_to_on_post || input.moveFailed);
   const lines = [
     restarted ? startedOverLine(ref) : null,
     settings.wait_for_approval ? postedWaitingLine(ref) : postedInfoLine(ref),
     post.detail_posted ? null : detailMissingLine(ref),
-    post.move_failed
-      ? moveFailedLine(ref, settings.move_to_on_post || input.moveFailed || '')
-      : null,
+    failedMove,
   ].filter((line): line is string => line !== null);
   const move = queueMove(context, dirName, settings, input.target, ref, now);
-  if (move && !post.move_failed) lines.push(move);
+  if (move && failedMove === null) lines.push(move);
   return ok(lines);
 }
 

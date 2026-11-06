@@ -111,6 +111,13 @@ describe('hld check', () => {
     },
   );
 
+  it('AC-14: a design with no divider counts every word as summary and fails on length', () => {
+    const result = checkHld(`${design('').split('\n---\n')[0]}\n${words(200)}`, FORMAT);
+    expect(result.ok).toBe(false);
+    expect(result.detail_words).toBe(0);
+    expect(result.summary_words).toBeGreaterThan(200);
+  });
+
   it('AC-18: a jargon word names its plain replacement', () => {
     const result = checkHld(design('We add a new endpoint and Hooks.'), FORMAT);
     expect(formatHldFindings(result)).toEqual([
