@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6QTDJWMJE67DR9VRC1GAENV](TD-01M6QTDJWMJE67DR9VRC1GAENV.md) (bug, low): GitHub check-status tests depend on the machine's gh CLI
 - [TD-01M6QPY9Y11K3NQ3Z2KF8ZS6M0](TD-01M6QPY9Y11K3NQ3Z2KF8ZS6M0.md) (bug, low): agent-entry-gate abandoned-close fault test fails when run as root
 - [TD-01M6QPY987X6D9221RPNY4M2FA](TD-01M6QPY987X6D9221RPNY4M2FA.md) (bug, medium): deliver commit rejects --summary because the parent deliver command swallows it
 - [TD-01M6PXQZQTKBNSE88RRKF8NTRC](TD-01M6PXQZQTKBNSE88RRKF8NTRC.md) (gap, low): live-run-replay test uses most of its timeout and fails under load
