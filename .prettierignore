@@ -46,3 +46,6 @@ runtime/claude-plugin/skills/*
 !runtime/claude-plugin/skills/onboard
 !runtime/claude-plugin/skills/join
 !runtime/claude-plugin/skills/dashboard
+
+# The high-level design template is copied as written into every design, so its markdown stays as the team wrote it.
+runtime/base/skills/high-level-design/assets/hld.template.md

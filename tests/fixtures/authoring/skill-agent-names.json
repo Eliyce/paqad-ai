@@ -192,6 +192,11 @@
       "name": "glossary-maintainer"
     },
     {
+      "path": "runtime/base/skills/high-level-design/SKILL.md",
+      "folder": "high-level-design",
+      "name": "high-level-design"
+    },
+    {
       "path": "runtime/base/skills/integration-doc-maintainer/SKILL.md",
       "folder": "integration-doc-maintainer",
       "name": "integration-doc-maintainer"
