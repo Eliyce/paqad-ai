@@ -19,6 +19,7 @@ import { assertCanRunStep, writeStepArtifact } from '@/spec-pipeline/orchestrato
 import type { SynthesisConflict } from '@/spec-pipeline/experts/synthesis.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
+import { keepAnswerAsRule } from '../../../shared/store-packet.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -54,6 +55,21 @@ function pending(root: string) {
 }
 
 describe('mintExpertConflictDecisions', () => {
+  it('AC-12 AC-18 a standing rule goes under auto-resolved and announces no question', () => {
+    const root = tempRoot();
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const packet = pending(root)[0]!.packet;
+    keepAnswerAsRule(root, first.minted[0]!.id, packet.options[0]!.option_key);
+    const second = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    expect(second.minted).toEqual([]);
+    expect(second.autoResolved).toHaveLength(1);
+    expect(second.autoResolved[0]?.chosen).toBe(packet.options[0]!.label);
+    expect(pending(root)).toEqual([]);
+    const resolved = readContractDecisions(root).find(({ status }) => status === 'resolved');
+    const raw = resolved!.packet as unknown as { human_response: { responded_by: string } };
+    expect(raw.human_response.responded_by).toBe('standing-answer');
+  });
+
   it('mints exactly one spec.expert_conflict packet per conflict, with the chief pick pre-filled', () => {
     const root = tempRoot();
     const result = mintExpertConflictDecisions(root, merged, synthesisConflicts);

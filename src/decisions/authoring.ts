@@ -17,10 +17,23 @@ import {
   type DecisionSuggestion,
   type EarlierCheck,
 } from '@/planning/decision-packet.js';
-import { DecisionStore } from '@/planning/decision-store.js';
+import { DecisionStore, STANDING_ANSWER_RESPONDER } from '@/planning/decision-store.js';
 
-import { assertEarlierCheckDone, earlierCheckFor } from './earlier-answers.js';
+import {
+  assertEarlierCheckDone,
+  earlierCheckFor,
+  NO_STANDING_ANSWER_CATEGORIES,
+  type DecisionCreateResult,
+} from './earlier-answers.js';
 import { readAnyDecisionPacket, richFieldsFor } from './packet-shape.js';
+import {
+  addStandingAnswer,
+  assertNotStageAgent,
+  findStandingAnswer,
+  isStandingFileReadable,
+  STANDING_FILE_UNREADABLE,
+  type StandingAnswer,
+} from './standing-answers.js';
 
 export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict' | 'fix-proof';
 
@@ -52,6 +65,7 @@ export interface ResolvedContractDecision extends Omit<PendingContractDecision, 
   chosen: string;
   rationale: string;
   resolved_at: string;
+  responded_by?: string;
 }
 
 export interface CreateDecisionInput {
@@ -62,6 +76,7 @@ export interface CreateDecisionInput {
   recommendation?: string | null;
   origin?: ContractDecisionOrigin;
   change?: string | null;
+  askAnyway?: boolean;
 }
 
 export function mintDecisionId(): string {
@@ -123,7 +138,7 @@ function validateCreateInput(input: CreateDecisionInput): string[] {
 export function createPendingDecision(
   projectRoot: string,
   input: CreateDecisionInput,
-): { id: string; path: string } {
+): DecisionCreateResult {
   const errors = validateCreateInput(input);
   if (errors.length > 0) {
     throw new Error(`Cannot create decision packet: ${errors.join('; ')}`);
@@ -143,6 +158,15 @@ export function createPendingDecision(
     ...(input.change ? { change: input.change } : {}),
   };
 
+  const rule = input.askAnyway
+    ? null
+    : findStandingAnswer(projectRoot, {
+        category: packet.category,
+        question: packet.title,
+        optionKeys: packet.options.map((option) => option.option_key),
+      });
+  if (rule !== null) return answerFromStandingRule(projectRoot, packet, rule);
+
   const check =
     richFieldsFor(packet) === null
       ? null
@@ -156,6 +180,79 @@ export function createPendingDecision(
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
   atomicWriteJson(path, withRichFields(packet));
   return { id, path };
+}
+
+function answerFromStandingRule(
+  projectRoot: string,
+  packet: PendingContractDecision,
+  rule: StandingAnswer,
+): DecisionCreateResult {
+  const resolved: ResolvedContractDecision = {
+    ...packet,
+    status: 'resolved',
+    chosen: rule.chosen,
+    rationale: `Standing answer ${rule.id}`,
+    resolved_at: new Date().toISOString(),
+    responded_by: STANDING_ANSWER_RESPONDER,
+  };
+  const path = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, packet.id);
+  const file = withRichFields(resolved);
+  atomicWriteJson(path, file);
+  const indexable = readAnyDecisionPacket(file);
+  if (indexable !== null) {
+    new DecisionStore(projectRoot).recordResolvedByStandingAnswer(indexable);
+  }
+  const label = packet.options.find((option) => option.option_key === rule.chosen)!.label;
+  return { id: packet.id, path, reused: { rule: rule.id, chosen: rule.chosen, label } };
+}
+
+export function assertAlwaysAllowed(projectRoot: string, id: string, other?: string): void {
+  assertNotStageAgent('set a standing answer');
+  if (other) {
+    throw new Error('--always cannot be used with --other: a write-in could never match again.');
+  }
+  const pendingPath = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
+  if (!existsSync(pendingPath)) return;
+  const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
+  if (stored.id === undefined) {
+    throw new Error(
+      `--always is refused for ${id}: rules do not apply to packets opened this way.`,
+    );
+  }
+  if (richFieldsFor(stored as PendingContractDecision) === null) {
+    throw new Error(`--always is refused for ${id}: this question has no stable fingerprint.`);
+  }
+  if (NO_STANDING_ANSWER_CATEGORIES.includes(stored.category ?? '')) {
+    throw new Error(`--always is refused for the category ${stored.category}.`);
+  }
+  if (!isStandingFileReadable(projectRoot)) {
+    throw new Error(STANDING_FILE_UNREADABLE);
+  }
+}
+
+export interface AnswerDecisionOptions {
+  change?: string | null;
+  always?: boolean;
+}
+
+export function answerPendingDecision(
+  projectRoot: string,
+  id: string,
+  chosen: string,
+  rationale = '',
+  options: AnswerDecisionOptions = {},
+): { path: string; packet: ResolvedContractDecision; rule?: StandingAnswer } {
+  if (options.always) assertAlwaysAllowed(projectRoot, id);
+  const result = resolvePendingDecision(projectRoot, id, chosen, rationale, options);
+  if (!options.always) return result;
+  const rule = addStandingAnswer(projectRoot, {
+    category: result.packet.category,
+    question: result.packet.title,
+    optionKeys: result.packet.options.map((option) => option.option_key),
+    chosen,
+    fromDecision: id,
+  });
+  return { ...result, rule };
 }
 
 export function resolvePendingDecision(

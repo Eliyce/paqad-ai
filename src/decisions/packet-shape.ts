@@ -29,6 +29,7 @@ export interface ContractPacketFields {
   chosen?: string;
   rationale?: string;
   resolved_at?: string;
+  responded_by?: string;
 }
 
 export type RichPacketFields = Omit<
@@ -74,7 +75,12 @@ export function richFieldsFor(packet: ContractPacketFields): RichPacketFields | 
     invalidation_watch: [],
   };
   if (packet.status === 'resolved' && typeof packet.chosen === 'string') {
-    fields.human_response = humanResponseFor(packet.chosen, packet.rationale, packet.resolved_at);
+    fields.human_response = humanResponseFor(
+      packet.chosen,
+      packet.rationale,
+      packet.resolved_at,
+      packet.responded_by,
+    );
   }
   return fields;
 }
@@ -83,13 +89,14 @@ export function humanResponseFor(
   chosen: string,
   rationale: string | undefined,
   resolvedAt: string | undefined,
+  respondedBy = 'human',
 ): DecisionHumanResponse {
   return {
     chosen_option_key: chosen,
     intent: 'explicit',
     explanation_rounds_used: 0,
     responded_at: resolvedAt ?? new Date(0).toISOString(),
-    responded_by: 'human',
+    responded_by: respondedBy,
     carry_over_scope: 'task',
     ...(rationale ? { note: rationale } : {}),
   };

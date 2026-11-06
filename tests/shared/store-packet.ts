@@ -1,3 +1,8 @@
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { PATHS } from '@/core/constants/paths.js';
+import { answerPendingDecision } from '@/decisions/authoring.js';
 import type { DecisionOption, DecisionPacket } from '@/planning/decision-packet.js';
 
 export function storeOptions(keys: readonly string[]): DecisionOption[] {
@@ -27,4 +32,9 @@ export function pendingStorePacket(overrides: Partial<DecisionPacket> = {}): Dec
     invalidation_watch: [],
     ...overrides,
   };
+}
+
+export function keepAnswerAsRule(projectRoot: string, id: string, chosen: string): void {
+  answerPendingDecision(projectRoot, id, chosen, '', { always: true });
+  rmSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`));
 }

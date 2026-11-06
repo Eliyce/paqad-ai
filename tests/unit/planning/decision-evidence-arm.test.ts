@@ -25,6 +25,7 @@ import {
   reuseOptionKey,
   CREATE_NEW_OPTION_KEY,
 } from '@/planning/decision-evidence-arm.js';
+import { keepAnswerAsRule } from '../../shared/store-packet.js';
 
 const CHANGE = '361-armed-01KY000000000000000000000';
 
@@ -275,6 +276,24 @@ describe('armDecisionFromPlan', () => {
     );
     expect(createOption?.label).toContain('need the relative form');
     expect(createOption?.evidence).toEqual({});
+  });
+
+  it('AC-12 AC-18 a standing rule goes to reused decisions, not minted', () => {
+    const root = makeProject();
+    seedIndex(root, [symbol()]);
+    const run = () =>
+      armDecisionFromPlan({
+        projectRoot: root,
+        changeKey: CHANGE,
+        config: config(),
+        constructs: [{ name: 'formatRelativeDate', justification: 'need the relative form' }],
+      });
+    keepAnswerAsRule(root, run().minted[0]!, CREATE_NEW_OPTION_KEY);
+    const result = run();
+    expect(result.minted).toEqual([]);
+    expect(result.reusedDecisions).toHaveLength(1);
+    expect(result.reusedDecisions[0]).toMatch(/^reused_decision:D-/u);
+    expect(pendingPackets(root)).toEqual([]);
   });
 
   it('recommends nothing when the existing symbol has too few callers to argue from', () => {

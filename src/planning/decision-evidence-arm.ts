@@ -305,6 +305,10 @@ function mintForks(input: ArmInput, config: DecisionArmConfig, forks: MintableFo
       origin: 'evidence-armed',
       change: featureChangeKey(input.changeKey),
     });
+    if (created.reused) {
+      result.reusedDecisions.push(`reused_decision:${created.id}`);
+      continue;
+    }
     result.minted.push(created.id);
     openedForChange += 1;
   }

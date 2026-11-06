@@ -30,6 +30,7 @@ export const PATHS = {
   DECISIONS_RESOLVED_DIR: '.paqad/decisions/resolved',
   DECISIONS_EXPIRED_DIR: '.paqad/decisions/expired',
   DECISIONS_INDEX: '.paqad/decisions/index.json',
+  DECISIONS_STANDING_ANSWERS: '.paqad/decisions/standing-answers.json',
   DECISIONS_AUDIT_LOG: '.paqad/decisions/audit.jsonl',
   DECISIONS_EVENTS_LOG: '.paqad/decisions/events.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',

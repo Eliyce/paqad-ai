@@ -81,7 +81,7 @@ export function mintExpertConflictDecisions(
     }
     const { options, recommendation } = buildOptions(conflict, chief?.recommendation);
     const context = buildContext(conflict, chief?.rationale, token);
-    const { id } = createPendingDecision(projectRoot, {
+    const { id, reused } = createPendingDecision(projectRoot, {
       category: CATEGORY,
       title: `Experts disagree on ${conflict.target}`,
       context,
@@ -90,6 +90,10 @@ export function mintExpertConflictDecisions(
       origin: 'expert-conflict',
       ...(dirName ? { change: featureChangeKey(dirName) } : {}),
     });
+    if (reused) {
+      autoResolved.push({ target: conflict.target, chosen: reused.label, source: id });
+      continue;
+    }
     minted.push({ id, target: conflict.target });
   }
 

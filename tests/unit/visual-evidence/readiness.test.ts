@@ -73,6 +73,8 @@ const PRE_EXTRACTION_ROWS = [
   },
 ];
 
+import { keepAnswerAsRule } from '../../shared/store-packet.js';
+
 let root: string;
 
 function writeConfig(body: string): void {
@@ -188,6 +190,16 @@ describe('openVisualEvidenceReadinessPause', () => {
     expect(packet.context).toContain(readinessToken(DIR));
     expect(packet.context).toContain('site_map is off');
     expect(packet.options.map((o) => o.option_key)).toEqual(['setup', 'attach', 'waive']);
+  });
+
+  it('AC-18 returns null and asks nothing when a standing rule answers it', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    const input = { projectRoot: root, dirName: DIR, files: ['src/pages/Goals.tsx'] };
+    keepAnswerAsRule(root, openVisualEvidenceReadinessPause(input)!, 'waive');
+    expect(openVisualEvidenceReadinessPause(input)).toBeNull();
+    expect(readContractDecisions(root).find(({ status }) => status === 'pending')).toBeUndefined();
+    expect(findVisualEvidenceWaiver(root, DIR)).toMatch(/^D-/u);
   });
 
   it("AC-17: the readiness pause carries its change and joins that change's question round", () => {

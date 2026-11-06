@@ -35,6 +35,7 @@ function project(): string {
   roots.push(root);
   return root;
 }
+import { keepAnswerAsRule } from '../../../shared/store-packet.js';
 
 const CHANGES = ['ORD-501', 'ORD-502', 'ORD-503'];
 
@@ -119,6 +120,20 @@ describe('experts benchmark', () => {
     expect(again.decision).toBe(first.decision);
     expect(readContractDecisions(root)).toHaveLength(1);
     expect(readAuthoringDecision(root, first.decision!)?.status).toBe('pending');
+  });
+
+  it('AC-18 keeps only the id, which reads as resolved under a standing rule', () => {
+    const root = project();
+    const input = {
+      projectRoot: root,
+      changes: CHANGES,
+      resultsText: JSON.stringify({ runs: runs() }),
+    };
+    const first = recordHighTableBenchmark(input);
+    keepAnswerAsRule(root, first.decision!, KEEP_SEATS_OPTION);
+    const second = recordHighTableBenchmark(input);
+    expect(readAuthoringDecision(root, second.decision!)?.status).toBe('resolved');
+    expect(readContractDecisions(root).find(({ status }) => status === 'pending')).toBeUndefined();
   });
 
   it('a run stopped halfway writes nothing final, raises no packet and says how to resume', () => {

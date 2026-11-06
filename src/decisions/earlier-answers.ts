@@ -308,19 +308,59 @@ export function checkDecision(projectRoot: string, id: string): DecisionCheckOut
   return { id, earlier_check: { required: false }, question: buildQuestionBlock(id, packet) };
 }
 
-export interface PendingCreateResult {
-  id: string;
-  path: string;
+export interface StandingReuse {
+  rule: string;
+  chosen: string;
+  label: string;
 }
 
-export interface PendingCreateOutput extends PendingCreateResult {
+export interface PendingDecisionResult {
+  id: string;
+  path: string;
+  reused?: undefined;
+}
+
+export interface ReusedDecisionResult {
+  id: string;
+  path: string;
+  reused: StandingReuse;
+}
+
+export type DecisionCreateResult = PendingDecisionResult | ReusedDecisionResult;
+
+export interface ReusedCreateOutput {
+  reused: true;
+  id: string;
+  chosen: string;
+  label: string;
+  match: 'standing';
+  say: string;
+}
+
+export interface PendingCreateOutput {
+  id: string;
+  path: string;
   earlier_check?: EarlierCheckBlock;
+}
+
+function standingSayLine(label: string, ruleId: string): string {
+  return `I used your standing answer: ${label} (rule ${ruleId}), so I did not ask. Say "ask me anyway" to be asked this time (--ask-anyway), or "remove that rule" to stop it (paqad-ai decision standing remove ${ruleId}).`;
 }
 
 export function formatCreateOutput(
   projectRoot: string,
-  result: PendingCreateResult,
-): PendingCreateOutput {
+  result: DecisionCreateResult,
+): PendingCreateOutput | ReusedCreateOutput {
+  if (result.reused) {
+    return {
+      reused: true,
+      id: result.id,
+      chosen: result.reused.chosen,
+      label: result.reused.label,
+      match: 'standing',
+      say: standingSayLine(result.reused.label, result.reused.rule),
+    };
+  }
   const check = readPendingFile(projectRoot, result.id)?.earlier_check;
   if (!check) return { id: result.id, path: result.path };
   return {

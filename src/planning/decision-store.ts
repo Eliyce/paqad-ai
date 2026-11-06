@@ -100,6 +100,8 @@ export interface DiscardDecisionInput {
 
 export const MAX_PENDING_DECISIONS = 20;
 
+export const STANDING_ANSWER_RESPONDER = 'standing-answer';
+
 export class DecisionCapExceededError extends Error {
   constructor(
     readonly pendingCount: number,
@@ -325,6 +327,11 @@ export class DecisionStore {
     index.fingerprints[resolved.fingerprint] = resolved.decision_id;
     index.decisions[resolved.decision_id] = indexEntryFor(resolved);
     this.writeIndex(index);
+  }
+
+  recordResolvedByStandingAnswer(resolved: DecisionPacket): void {
+    this.recordResolvedInIndex(resolved);
+    this.appendAudit('decision-resolved-by-rule', resolved, STANDING_ANSWER_RESPONDER);
   }
 
   private backfillIndex(index: DecisionIndexFile): void {

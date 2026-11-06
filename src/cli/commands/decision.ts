@@ -2,9 +2,10 @@ import { Command } from 'commander';
 
 import {
   addWriteInOption,
+  answerPendingDecision,
+  assertAlwaysAllowed,
   createPendingDecision,
   listContractDecisions,
-  resolvePendingDecision,
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
 import {
@@ -13,6 +14,11 @@ import {
   formatCreateOutput,
   suggestEarlierAnswer,
 } from '@/decisions/earlier-answers.js';
+import {
+  assertNotStageAgent,
+  listStandingAnswers,
+  removeStandingAnswer,
+} from '@/decisions/standing-answers.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { activeChangeKey, resolveActiveChange } from '@/feature-evidence/stage-ledger.js';
 import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
@@ -67,11 +73,13 @@ interface CreateOptions {
   option?: ContractDecisionOption[];
   recommendation?: string;
   session?: string;
+  askAnyway?: boolean;
 }
 
 interface ResolveOptions {
   projectRoot: string;
   other?: string;
+  always?: boolean;
   session?: string;
 }
 
@@ -89,6 +97,7 @@ export function createDecisionCommand(): Command {
     .requiredOption('--context <context>', 'why this decision is needed')
     .option('--option <key=label>', 'an option (repeatable, at least 2)', collectOption)
     .option('--recommendation <key>', 'option_key you recommend')
+    .option('--ask-anyway', 'Open the question even when a standing answer matches')
     .option('--session <id>', 'Session whose active change the packet belongs to')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: CreateOptions) => {
@@ -107,7 +116,16 @@ export function createDecisionCommand(): Command {
           options: options.option ?? [],
           recommendation: options.recommendation ?? null,
           change: activeChangeKey(options.projectRoot, options.session),
+          askAnyway: options.askAnyway === true,
         });
+        if (result.reused) {
+          const active = resolveActiveChange(options.projectRoot, options.session);
+          if (active) {
+            writeFeatureDecisionsIndex(options.projectRoot, active.dirName, {
+              sessionId: active.sessionId,
+            });
+          }
+        }
         console.log(JSON.stringify(formatCreateOutput(options.projectRoot, result), null, 2));
       } catch (error) {
         fail(error instanceof Error ? error.message : String(error));
@@ -121,28 +139,36 @@ export function createDecisionCommand(): Command {
     .argument('<chosen>', 'the chosen option_key (ignored when --other is given)')
     .argument('[rationale...]', 'optional free-text rationale')
     .option('--other <text>', 'resolve to a minted write-in option with this label')
+    .option('--always', 'also keep this answer as a standing answer for this question')
     .option('--session <id>', 'Session whose active change the decision belongs to')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((id: string, chosen: string, rationale: string[], options: ResolveOptions) => {
       try {
+        if (options.always) assertAlwaysAllowed(options.projectRoot, id, options.other);
         assertEarlierCheckDone(options.projectRoot, id);
         const chosenKey = options.other
           ? addWriteInOption(options.projectRoot, id, options.other)
           : chosen;
         const active = resolveActiveChange(options.projectRoot, options.session);
-        const { path } = resolvePendingDecision(
+        const { path, rule } = answerPendingDecision(
           options.projectRoot,
           id,
           chosenKey,
           rationale.join(' '),
-          { change: active ? active.key : null },
+          { change: active ? active.key : null, always: options.always === true },
         );
         if (active) {
           writeFeatureDecisionsIndex(options.projectRoot, active.dirName, {
             sessionId: active.sessionId,
           });
         }
-        console.log(JSON.stringify({ path, chosen: chosenKey }, null, 2));
+        console.log(
+          JSON.stringify(
+            { path, chosen: chosenKey, ...(rule ? { standing_answer: rule.id } : {}) },
+            null,
+            2,
+          ),
+        );
       } catch (error) {
         fail(error instanceof Error ? error.message : String(error));
       }
@@ -190,6 +216,37 @@ export function createDecisionCommand(): Command {
         }
       },
     );
+
+  const standing = command
+    .command('standing')
+    .description('List or remove the standing answers that skip a question');
+
+  standing
+    .command('list')
+    .description('Print the standing answers')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { projectRoot: string }) => {
+      try {
+        console.log(JSON.stringify(listStandingAnswers(options.projectRoot), null, 2));
+      } catch (error) {
+        fail(error instanceof Error ? error.message : String(error));
+      }
+    });
+
+  standing
+    .command('remove')
+    .description('Remove one standing answer, so its question is asked again')
+    .argument('<id>', 'the rule id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((id: string, options: { projectRoot: string }) => {
+      try {
+        assertNotStageAgent('remove a standing answer');
+        const rule = removeStandingAnswer(options.projectRoot, id);
+        console.log(JSON.stringify({ removed: rule.id }, null, 2));
+      } catch (error) {
+        fail(error instanceof Error ? error.message : String(error));
+      }
+    });
 
   command
     .command('list')

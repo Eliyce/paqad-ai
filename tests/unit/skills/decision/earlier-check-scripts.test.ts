@@ -77,3 +77,51 @@ describe('the decision skill scripts', () => {
     expect(output.earlier_check.method).toContain('Treat shared wording as no evidence');
   });
 });
+
+describe('standing answers through the skill scripts', () => {
+  function always(env: Record<string, string> = {}): ReturnType<typeof runScript> {
+    const { id } = createPendingDecision(root, question);
+    return runScript(RESOLVE, [root, id, 'a', 'Keep it', '--always'], { env });
+  }
+
+  const createArgs = (...extra: string[]): string[] => [
+    root,
+    '--category',
+    question.category,
+    '--title',
+    question.title,
+    '--context',
+    question.context,
+    '--option',
+    'a=Fix A',
+    '--option',
+    'b=Fix B',
+    ...extra,
+  ];
+
+  it('AC-10 resolve.mjs refuses a stage agent before anything changes', () => {
+    const result = always({ SE_AGENT_ID: 'agent-1' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('A stage agent cannot');
+  });
+
+  it('AC-51 create.mjs prints the reused shape, and --ask-anyway opens a pending packet', () => {
+    const set = always({ SE_AGENT_ID: '' });
+    expect(set.status).toBe(0);
+    const ruleId = JSON.parse(set.stdout).standing_answer as string;
+
+    const reused = runScript(CREATE, createArgs());
+    expect(reused.status).toBe(0);
+    expect(JSON.parse(reused.stdout)).toMatchObject({
+      reused: true,
+      chosen: 'a',
+      label: 'Fix A',
+      match: 'standing',
+    });
+    expect(JSON.parse(reused.stdout).say).toContain(ruleId);
+
+    const anyway = JSON.parse(runScript(CREATE, createArgs('--ask-anyway')).stdout);
+    expect(anyway).not.toHaveProperty('reused');
+    expect(anyway.path).toContain('pending');
+  });
+});

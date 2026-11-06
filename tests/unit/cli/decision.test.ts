@@ -312,6 +312,130 @@ describe('paqad-ai decision command', () => {
     });
   });
 
+  describe('one click and standing answers', () => {
+    const TITLE = 'Which colour should banner use';
+
+    async function suggested(): Promise<{ id: string; earlier: string }> {
+      const earlier = await answered('Which colour should the banner use', 'Matches the brand');
+      const { output } = await openQuestion(TITLE);
+      const id = output.id as string;
+      vi.restoreAllMocks();
+      await run('suggest', id, '--earlier', earlier, '--option', 'b', '--reason', 'Same rule');
+      vi.restoreAllMocks();
+      return { id, earlier };
+    }
+
+    it('AC-9 AC-32 check lists the earlier answer first with its id and always last', async () => {
+      const { id, earlier } = await suggested();
+      const { out } = await run('check', id);
+      const block = JSON.parse(out.join('\n')).question;
+      expect(block.options.map((entry: { label: string }) => entry.label)).toEqual([
+        `Same as last time: Fix B (from ${earlier})`,
+        'Fix A',
+        'Fix C',
+        'Always use this answer for this kind of question',
+      ]);
+      expect(block.options[0].resolve).toBe(`paqad-ai decision resolve ${id} b`);
+    });
+
+    it('AC-31 AC-47 the always entry adds a rule, and the next open is skipped with the say line', async () => {
+      const { id } = await suggested();
+      const { out } = await run('resolve', id, 'b', '--always');
+      const ruleId = JSON.parse(out.join('\n')).standing_answer as string;
+      expect(ruleId).toMatch(/^R-/u);
+
+      vi.restoreAllMocks();
+      const { output } = await openQuestion(TITLE);
+      expect(output).toMatchObject({
+        reused: true,
+        chosen: 'b',
+        label: 'Fix B',
+        match: 'standing',
+      });
+      expect(output.say).toBe(
+        `I used your standing answer: Fix B (rule ${ruleId}), so I did not ask. Say "ask me anyway" to be asked this time (--ask-anyway), or "remove that rule" to stop it (paqad-ai decision standing remove ${ruleId}).`,
+      );
+      expect(
+        existsSync(join(root, '.paqad/decisions/pending', `${output.id as string}.json`)),
+      ).toBe(false);
+    });
+
+    it('AC-13 --ask-anyway opens a pending packet, and so does removing the rule', async () => {
+      const { id } = await suggested();
+      const { out } = await run('resolve', id, 'b', '--always');
+      const ruleId = JSON.parse(out.join('\n')).standing_answer as string;
+
+      vi.restoreAllMocks();
+      const anyway = await openQuestion(TITLE, 'finding.triage', '--ask-anyway');
+      expect(anyway.output).not.toHaveProperty('reused');
+
+      vi.restoreAllMocks();
+      const listed = await run('standing', 'list');
+      expect(JSON.parse(listed.out.join('\n')).map((rule: { id: string }) => rule.id)).toEqual([
+        ruleId,
+      ]);
+
+      vi.restoreAllMocks();
+      const removed = await run('standing', 'remove', ruleId);
+      expect(JSON.parse(removed.out.join('\n')).removed).toBe(ruleId);
+
+      vi.restoreAllMocks();
+      const after = await openQuestion(TITLE);
+      expect(after.output).not.toHaveProperty('reused');
+    });
+
+    it('AC-10 a stage agent is refused on --always and standing remove, not on list', async () => {
+      const { id } = await suggested();
+      vi.stubEnv('SE_AGENT_ID', 'agent-1');
+      try {
+        const always = await run('resolve', id, 'b', '--always');
+        expect(always.err.join('\n')).toContain('A stage agent cannot set');
+        expect(existsSync(join(root, '.paqad/decisions/pending', `${id}.json`))).toBe(true);
+        vi.restoreAllMocks();
+        const remove = await run('standing', 'remove', 'R-1');
+        expect(remove.err.join('\n')).toContain('A stage agent cannot remove');
+        vi.restoreAllMocks();
+        process.exitCode = undefined;
+        const list = await run('standing', 'list');
+        expect(list.out.join('\n')).toBe('[]');
+        expect(process.exitCode).toBeUndefined();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('AC-25 AC-48 refuses --always with --other, an unknown rule and a corrupt file on list', async () => {
+      const { id } = await suggested();
+      const before = pendingBytes(id);
+      const other = await run('resolve', id, 'x', '--always', '--other', 'Shade');
+      expect(other.err.join('\n')).toContain('--always cannot be used with --other');
+      expect(pendingBytes(id)).toBe(before);
+
+      vi.restoreAllMocks();
+      const unknown = await run('standing', 'remove', 'R-unknown');
+      expect(unknown.err.join('\n')).toContain('R-unknown');
+      expect(process.exitCode).toBe(1);
+
+      vi.restoreAllMocks();
+      writeFileSync(join(root, '.paqad/decisions/standing-answers.json'), '{ bad');
+      const list = await run('standing', 'list');
+      expect(list.err.join('\n')).toContain('cannot be read');
+    });
+
+    it('lists a reused packet in the change decision index', async () => {
+      const { id } = await suggested();
+      await run('resolve', id, 'b', '--always');
+      const dir = openFeatureChange(root, 'ses-standing', {
+        adapter: 'claude-code',
+        title: 'standing',
+      });
+      vi.restoreAllMocks();
+      const { output } = await openQuestion(TITLE, 'finding.triage', '--session', 'ses-standing');
+      const index = readFileSync(join(root, featureFilePath(dir, 'decisions')), 'utf8');
+      expect(index).toContain(output.id as string);
+    });
+  });
+
   describe('AC-24 decision check', () => {
     it('exits 1 naming the id for an unknown id and for a malformed one', async () => {
       const unknown = 'D-01J000000000000000000000B1';
