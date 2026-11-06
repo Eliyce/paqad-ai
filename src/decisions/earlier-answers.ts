@@ -480,6 +480,36 @@ export function checkDecision(projectRoot: string, id: string): DecisionCheckOut
   return { id, earlier_check: { required: false }, question: buildQuestionBlock(id, packet) };
 }
 
+export interface EarlierReadOutput {
+  id: string;
+  read: EarlierCandidate[];
+  missing?: string[];
+}
+
+export function readEarlierAnswers(
+  projectRoot: string,
+  id: string,
+  ids: string[],
+): EarlierReadOutput {
+  const check = requirePendingFile(projectRoot, id).earlier_check;
+  if (check === undefined) {
+    throw new Error(`Decision ${id} has no earlier answers to read.`);
+  }
+  const wanted = [...new Set(ids)];
+  if (wanted.length > EARLIER_LIMIT) {
+    throw new Error(
+      `Read at most ${EARLIER_LIMIT} earlier answers per call. Got ${wanted.length}.`,
+    );
+  }
+  const offered = check.candidates ?? [];
+  const notOffered = wanted.filter((earlier) => !offered.includes(earlier));
+  if (notOffered.length > 0) {
+    throw new Error(`${notOffered.join(', ')} was not offered for ${id}, so it cannot be read.`);
+  }
+  const { found, missing } = readOffered(projectRoot, wanted);
+  return { id, read: found, ...(missing.length > 0 ? { missing } : {}) };
+}
+
 export interface StandingReuse {
   rule: string;
   chosen: string;

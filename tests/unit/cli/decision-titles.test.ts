@@ -39,6 +39,7 @@ describe('agent-opened questions list earlier titles', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     process.exitCode = undefined;
     rmSync(root, { recursive: true, force: true });
   });
@@ -260,6 +261,189 @@ describe('agent-opened questions list earlier titles', () => {
     });
   });
 
+  describe('AC-61 check --read', () => {
+    function pendingBytes(id: string): string {
+      return readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8');
+    }
+
+    it('AC-5 prints the context, chosen label and reason of an offered answer', async () => {
+      const earlier = answer('Which colour should the banner use', 'Matches the brand');
+      const { id } = await open();
+      const before = pendingBytes(id);
+      const { raw } = await run('check', id, '--read', earlier);
+      expect(JSON.parse(raw)).toEqual({
+        id,
+        read: [
+          {
+            id: earlier,
+            category: 'ux-pattern',
+            question: 'Which colour should the banner use',
+            context: 'Why this came up then',
+            chosen: 'b',
+            chosen_label: 'Fix B',
+            why: 'Matches the brand',
+            resolved_at: expect.any(String),
+          },
+        ],
+      });
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('refuses an id not offered, and prints no answer', async () => {
+      answer('Which colour should the banner use');
+      const { id } = await open();
+      const before = pendingBytes(id);
+      const unknown = 'D-01J00000000000000000000099';
+      const { raw, err } = await run('check', id, '--read', unknown);
+      expect(raw).toBe('');
+      expect(err).toContain(`${unknown} was not offered for ${id}`);
+      expect(process.exitCode).toBe(1);
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('refuses six ids, and counts a repeated id once', async () => {
+      const ids = seed(6, (index) => `q ${index}`);
+      const { id } = await open();
+      const before = pendingBytes(id);
+      const six = await run('check', id, '--read', ...ids);
+      expect(six.raw).toBe('');
+      expect(six.err).toContain('at most 5');
+      expect(process.exitCode).toBe(1);
+      process.exitCode = undefined;
+
+      const five = ids.slice(0, 5);
+      const { raw, err } = await run('check', id, '--read', ...five, five[0]!);
+      expect(err).toBe('');
+      const read = JSON.parse(raw).read as { id: string; chosen_label: string; why: string }[];
+      expect(read.map((entry) => entry.id)).toEqual(five);
+      expect(read[0]).toMatchObject({ chosen_label: 'Fix A', why: 'r' });
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('refuses a packet with no earlier_check', async () => {
+      const { id } = await open();
+      const before = pendingBytes(id);
+      const { raw, err } = await run('check', id, '--read', 'D-01J00000000000000000000099');
+      expect(raw).toBe('');
+      expect(err).toContain('no earlier answers to read');
+      expect(process.exitCode).toBe(1);
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('gives the errors of check for an unknown or resolved packet', async () => {
+      const earlier = answer('Which colour should the banner use');
+      expect((await run('check', earlier, '--read', earlier)).err).toContain('already resolved');
+      const unknown = 'D-01J00000000000000000000098';
+      expect((await run('check', unknown, '--read', earlier)).err).toContain('was not found');
+    });
+
+    it('names an offered id whose file has gone under missing and prints the others', async () => {
+      const [kept, gone] = seed(2, (index) => `q ${index}`) as [string, string];
+      const { id } = await open();
+      rmSync(join(root, '.paqad/decisions/resolved', `${gone}.json`));
+      const printed = JSON.parse((await run('check', id, '--read', kept, gone)).raw);
+      expect(printed.read.map((entry: { id: string }) => entry.id)).toEqual([kept]);
+      expect(printed.missing).toEqual([gone]);
+    });
+
+    it('works on an automated packet and on a check already done', async () => {
+      const earlier = answer('Which colour should the banner use');
+      const { id } = createPendingDecision(root, {
+        category: 'finding.triage',
+        title: 'Which colour should banner use',
+        context: 'Now',
+        options: OPTIONS,
+      });
+      expect(JSON.parse((await run('check', id, '--read', earlier)).raw).read).toHaveLength(1);
+      await run('suggest', id, '--none', '--reason', 'Different screen');
+      const printed = JSON.parse((await run('check', id, '--read', earlier)).raw);
+      expect(printed.read).toHaveLength(1);
+      expect(printed).not.toHaveProperty('question');
+    });
+
+    it('AC-43 refuses a private answer under an unrelated question', async () => {
+      const { id: privateId } = createPendingDecision(root, {
+        category: 'analytics.pii_consent',
+        title: 'May we store these emails',
+        context: 'c',
+        options: OPTIONS,
+      });
+      resolvePendingDecision(root, privateId, 'a', 'Consent given');
+      answer('Which colour should the banner use');
+      const { id, check } = await open('May we store these emails');
+      expect(check?.titles.map((row) => row.id)).not.toContain(privateId);
+      const { raw, err } = await run('check', id, '--read', privateId);
+      expect(raw).toBe('');
+      expect(err).toContain('was not offered');
+      const same = await run(
+        'create',
+        '--category',
+        'analytics.pii_consent',
+        '--title',
+        'Keep their addresses?',
+        '--context',
+        'c',
+        '--option',
+        'a=Yes',
+        '--option',
+        'b=No',
+      );
+      const titles = JSON.parse(same.raw).earlier_check.titles as { id: string }[];
+      expect(titles.map((row) => row.id)).toContain(privateId);
+    });
+  });
+
+  describe('AC-63 suggesting without reading', () => {
+    it('accepts an offered id never read', async () => {
+      const earlier = answer('Which colour should the banner use');
+      const { id } = await open();
+      const { raw } = await run(
+        'suggest',
+        id,
+        '--earlier',
+        earlier,
+        '--option',
+        'b',
+        '--reason',
+        'Same rule',
+      );
+      expect(JSON.parse(raw).question.options[0].label).toContain(`from ${earlier}`);
+    });
+
+    it('accepts --none with nothing read, then check prints the question block', async () => {
+      answer('Which colour should the banner use');
+      const { id } = await open();
+      await run('suggest', id, '--none', '--reason', 'Nothing close');
+      expect(stored(id).earlier_check).toMatchObject({ status: 'done' });
+      const printed = JSON.parse((await run('check', id)).raw);
+      expect(printed.earlier_check).toEqual({ required: false });
+      expect(printed.question.options).toHaveLength(2);
+    });
+  });
+
+  it('AC-64 --ask-anyway opens with the same check, and --none lets it resolve', async () => {
+    const title = 'Which colour should the banner use';
+    answer(title);
+    const first = await open(title);
+    await run('suggest', first.id, '--none', '--reason', 'Different screen');
+    vi.stubEnv('SE_AGENT_ID', '');
+    await run('resolve', first.id, 'a', '--always');
+    const reused = await open(title);
+    expect((reused.output as unknown as { reused: boolean }).reused).toBe(true);
+
+    const { id, check } = await open(title, '--ask-anyway');
+    expect(check?.required).toBe(true);
+    expect(check?.titles.map((row) => row.id)).toContain(reused.id);
+    const refused = await run('resolve', id, 'a');
+    expect(refused.err).toContain('earlier answers to check first');
+    process.exitCode = undefined;
+
+    await run('suggest', id, '--none', '--reason', 'Ask this time');
+    const resolved = await run('resolve', id, 'b');
+    expect(resolved.err).toBe('');
+    expect(existsSync(JSON.parse(resolved.raw).path)).toBe(true);
+  });
+
   describe('AC-65 the printed size', () => {
     const longTitle = (index: number): string =>
       `${String(index).padStart(4, '0')} ${'x'.repeat(200)}`;
@@ -292,6 +476,14 @@ describe('agent-opened questions list earlier titles', () => {
       const { raw, check } = await open();
       expect(raw.length + 1).toBeLessThanOrEqual(EARLIER_OUTPUT_MAX_CHARS);
       expect(check?.titles.length).toBeGreaterThan(0);
+    });
+
+    it('--read prints the whole title', async () => {
+      const ids = seed(1, longTitle);
+      const { id, check } = await open();
+      expect(check?.titles[0]?.question).toHaveLength(141);
+      const read = JSON.parse((await run('check', id, '--read', ids[0]!)).raw).read;
+      expect(read[0].question).toBe(longTitle(0));
     });
 
     it('offers only printed rows: an unprinted answer is refused by suggest', async () => {

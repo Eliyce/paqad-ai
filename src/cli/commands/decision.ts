@@ -13,6 +13,7 @@ import {
   checkDecision,
   formatCreateOutput,
   printDecisionOutput,
+  readEarlierAnswers,
   suggestEarlierAnswer,
 } from '@/decisions/earlier-answers.js';
 import {
@@ -184,10 +185,17 @@ export function createDecisionCommand(): Command {
     .command('check')
     .description('Print the earlier answers to check first, or the question block once checked')
     .argument('<id>', 'the D-<ULID> id')
+    .option('--read <D-id...>', 'print up to 5 offered answers in full, and nothing else')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .action((id: string, options: { projectRoot: string }) => {
+    .action((id: string, options: { projectRoot: string; read?: string[] }) => {
       try {
-        console.log(printDecisionOutput(checkDecision(options.projectRoot, id)));
+        console.log(
+          printDecisionOutput(
+            options.read
+              ? readEarlierAnswers(options.projectRoot, id, options.read)
+              : checkDecision(options.projectRoot, id),
+          ),
+        );
       } catch (error) {
         failWith(error);
       }
