@@ -113,6 +113,7 @@ function writeAtomic(path: string, text: string): void {
 export interface WriteHldOptions {
   sessionId?: string | null;
   now?: () => Date;
+  waits?: boolean;
 }
 
 export function writeHld(
@@ -132,7 +133,7 @@ export function writeHld(
   });
   const path = hldPath(projectRoot, dirName);
   writeAtomic(path, `${JSON.stringify(doc, null, 2)}\n`);
-  updateWaitingIndex(projectRoot, dirName, record);
+  updateWaitingIndex(projectRoot, dirName, record, options.waits ?? true);
   return path;
 }
 
@@ -167,11 +168,16 @@ export function readWaitingIndex(projectRoot: string): WaitingEntry[] {
   }
 }
 
-function updateWaitingIndex(projectRoot: string, dirName: string, record: HldRecord): void {
+function updateWaitingIndex(
+  projectRoot: string,
+  dirName: string,
+  record: HldRecord,
+  waits: boolean,
+): void {
   const rest = readWaitingIndex(projectRoot).filter((entry) => entry.dir !== dirName);
   const post = latestPost(record);
   const next =
-    record.state === 'awaiting_sign_off' && post
+    waits && record.state === 'awaiting_sign_off' && post
       ? [...rest, { dir: dirName, ref: record.ref, posted_at: post.at }]
       : rest;
   writeAtomic(waitingIndexPath(projectRoot), `${JSON.stringify(next, null, 2)}\n`);

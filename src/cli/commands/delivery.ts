@@ -46,14 +46,13 @@ import {
   type CiState,
   type DeliveryTicketAction,
   type ShipPatch,
-  type TicketActionId,
 } from '@/feature-evidence/delivery.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
 import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { DEFAULT_PR_BODY } from '@/git-workflow/onboard.js';
-import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
+import type { ResolvedGitWorkflow, TicketTransitions } from '@/git-workflow/types.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import type { ProjectMcpServer } from '@/core/types/project-profile.js';
 import { resolveTicketProvider } from '@/providers/registry.js';
@@ -379,7 +378,11 @@ export function ticketMoveLine(action: DeliveryTicketAction): string {
   return `> - 🟡 ticket: move ${action.ticket} to "${action.to}" with your tracker tool, then run paqad-ai deliver ticket-done ${action.id}`;
 }
 
-function queueMove(deps: DeliverDeps, matched: MatchedSource | null, id: TicketActionId): string[] {
+function queueMove(
+  deps: DeliverDeps,
+  matched: MatchedSource | null,
+  id: keyof TicketTransitions,
+): string[] {
   const ticket = deps.inputs.ticket.trim();
   if (!matched || ticket === '') return [];
   const to = matched.source.transitions[id];
