@@ -441,8 +441,19 @@ describe('isCreateArtifactAsk token rules', () => {
     'never create an issue for this',
     'no need to create an issue for this',
     'we do not really open a ticket for this',
+    'do not even create an issue for this',
+    'please don t ever open a ticket for this',
+    'try not to create an issue for this',
   ])('AC-9: a negated create verb is no ask: %s', (message) => {
     expect(isCreateArtifactAsk(message)).toBe(false);
+  });
+
+  it.each([
+    'never mind create an issue for the login bug',
+    'not urgent open a ticket for the flaky test',
+    'do not worry create a ticket for this',
+  ])('INV-3: a negation in an earlier sentence leaves the ask standing: %s', (message) => {
+    expect(isCreateArtifactAsk(message)).toBe(true);
   });
 
   it.each([
@@ -497,6 +508,17 @@ describe('prompt route for feature prompts that mention a ticket', () => {
 
   it('AC-1: a real ask to write a ticket stays project-question', async () => {
     expect(await routeOf('create an issue for the login bug')).toBe('project-question');
+  });
+
+  it.each([
+    'never mind, create an issue for the login bug',
+    'not urgent, open a ticket for the flaky test',
+  ])('INV-3: an ask after a negated sentence routes project-question: %s', async (prompt) => {
+    expect(await routeOf(prompt)).toBe('project-question');
+  });
+
+  it('INV-3: a refusal to create a PR stays no ask', () => {
+    expect(isCreateArtifactAsk('do not create pr')).toBe(false);
   });
 
   it.each(FEATURE_PROMPTS.developPrompts)(

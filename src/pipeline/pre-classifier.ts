@@ -569,6 +569,8 @@ const LEADING_CODE_VERBS = new Set([
 
 const NEGATION_WORDS = new Set(['not', 'dont', 'never']);
 
+const NEGATION_FILLERS = new Set(['actually', 'even', 'ever', 'go', 'just', 'really', 'to', 'yet']);
+
 const VERB_TO_NOUN_REACH = 4;
 
 const NEVER_TICKET_PREFIXES = new Set([
@@ -600,15 +602,20 @@ function startsWithLeadingCodeVerb(tokens: readonly string[]): boolean {
   return tokens[0] === 'work' && tokens[1] === 'on';
 }
 
+function isNegationAt(tokens: readonly string[], index: number): boolean {
+  const token = tokens[index];
+  if (token === undefined) {
+    return false;
+  }
+  return NEGATION_WORDS.has(token) || (token === 't' && tokens[index - 1] === 'don');
+}
+
 function isNegatedAt(tokens: readonly string[], index: number): boolean {
-  for (const back of [1, 2]) {
-    const before = tokens[index - back];
-    if (before === undefined) {
-      continue;
-    }
-    if (NEGATION_WORDS.has(before) || (before === 't' && tokens[index - back - 1] === 'don')) {
-      return true;
-    }
+  if (isNegationAt(tokens, index - 1)) {
+    return true;
+  }
+  if (NEGATION_FILLERS.has(tokens[index - 1] ?? '') && isNegationAt(tokens, index - 2)) {
+    return true;
   }
   return tokens[index - 3] === 'no' && tokens[index - 2] === 'need' && tokens[index - 1] === 'to';
 }
