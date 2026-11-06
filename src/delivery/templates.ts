@@ -8,6 +8,7 @@ export interface DeliveryRenderInputs {
   summary: string;
   scope?: string;
   tech_debt?: string;
+  design_sign_off?: string;
 }
 
 export interface RenderedDelivery {
@@ -140,6 +141,12 @@ function withTechDebt(template: string, body: string, section: string): string {
   return trimmed === '' ? `${section}\n` : `${trimmed}\n\n${section}\n`;
 }
 
+function withSection(body: string, section: string): string {
+  if (section === '') return body;
+  const trimmed = stripTrailingChars(body, ' \t\r\n');
+  return trimmed === '' ? `${section}\n` : `${trimmed}\n\n${section}\n`;
+}
+
 export function renderVars(
   config: ResolvedGitWorkflow,
   typeName: string,
@@ -183,6 +190,9 @@ export function renderDelivery(
     branch: renderBranchName(config, typeName, inputs),
     commit: renderTemplate(config.commits.template, vars),
     pr_title: renderTemplate(config.pull_requests.title_template, vars),
-    pr_body: withTechDebt(prBodyTemplate, renderTemplate(prBodyTemplate, vars), vars.tech_debt),
+    pr_body: withSection(
+      withTechDebt(prBodyTemplate, renderTemplate(prBodyTemplate, vars), vars.tech_debt),
+      inputs.design_sign_off ?? '',
+    ),
   };
 }

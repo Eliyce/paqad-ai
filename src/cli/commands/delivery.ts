@@ -53,6 +53,7 @@ import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-
 import { loadGitWorkflow } from '@/git-workflow/load.js';
 import { DEFAULT_PR_BODY } from '@/git-workflow/onboard.js';
 import type { ResolvedGitWorkflow, TicketTransitions } from '@/git-workflow/types.js';
+import { designSignOffPrLine } from '@/hld/report.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import type { ProjectMcpServer } from '@/core/types/project-profile.js';
 import { resolveTicketProvider } from '@/providers/registry.js';
@@ -814,6 +815,7 @@ export function createDeliveryCommand(): Command {
                 options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
               ),
             ),
+            design_sign_off: designSignOffPrLine(projectRoot, dirName),
           },
           type: options.type,
           base: options.base ?? null,
