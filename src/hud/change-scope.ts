@@ -6,6 +6,7 @@ import {
   isBundleMaterialized,
   sessionReattachableFeature,
 } from '@/feature-evidence/adoption.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { isFeatureFinished, readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
@@ -19,6 +20,7 @@ export type HudScopeReason =
   | 'qualified'
   | 'finished'
   | 'no-active-change'
+  | 'no-change-yet'
   | 'closed'
   | 'other-branch'
   | 'not-feature-route'
@@ -90,16 +92,30 @@ function finishedChange(
   const head = readHeadRef(projectRoot);
   if (head.detached) return none;
   const dir = sessionReattachableFeature(projectRoot, sessionId, head.branch);
-  if (!dir) return none;
-  const start =
-    episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
-  if (
-    !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
-    !stageStillRunning(projectRoot, dir)
-  ) {
-    return none;
+  if (dir) {
+    const start =
+      episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
+    if (
+      sessionWroteInEpisode(projectRoot, sessionId, dir, start) ||
+      stageStillRunning(projectRoot, dir)
+    ) {
+      return { dir, reason: 'finished' };
+    }
   }
-  return { dir, reason: 'finished' };
+  return noChangeYet(projectRoot, sessionId, turnStartedAt)
+    ? { dir: null, reason: 'no-change-yet' }
+    : none;
+}
+
+function noChangeYet(
+  projectRoot: string,
+  sessionId: string,
+  turnStartedAt: string | null,
+): boolean {
+  if (turnStartedAt === null || Number.isNaN(Date.parse(turnStartedAt))) return false;
+  return !listFeatureDirs(projectRoot).some((dir) =>
+    sessionWroteInEpisode(projectRoot, sessionId, dir, turnStartedAt),
+  );
 }
 
 function rowTime(row: SessionLedgerRow): number {

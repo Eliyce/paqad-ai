@@ -29,6 +29,8 @@ export interface BandActions {
   show: () => void;
 }
 
+type CardBand = Extract<DesktopBand, { kind: 'feature' | 'ready-feature' }>;
+
 function brand(ui: D) {
   const { Text } = ui;
   return <Text weight="semibold">paqad</Text>;
@@ -103,7 +105,7 @@ function closeMenu(ui: D, actions: BandActions) {
   );
 }
 
-function messageRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick: number) {
+function messageRow(ui: D, band: CardBand, tick: number) {
   const { Text, Svg } = ui;
   const headline = band.headline;
   if (headline.live) {
@@ -133,7 +135,7 @@ function messageRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick
   );
 }
 
-function bodyRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
+function bodyRow(ui: D, band: CardBand) {
   const { Text } = ui;
   return (
     <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
@@ -142,7 +144,7 @@ function bodyRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
   );
 }
 
-function stripRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
+function stripRow(ui: D, band: CardBand) {
   const { Box, Svg } = ui;
   return (
     <Box key="paqad-strip" flexDirection="row">
@@ -155,12 +157,7 @@ function stripRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>) {
   );
 }
 
-function minimisedRow(
-  ui: D,
-  band: Extract<DesktopBand, { kind: 'feature' }>,
-  tick: number,
-  actions: BandActions,
-) {
+function minimisedRow(ui: D, band: CardBand, tick: number, actions: BandActions) {
   const { Box, Text, Svg } = ui;
   const view = band.minimised;
   return (
@@ -183,12 +180,7 @@ function minimisedRow(
   );
 }
 
-function featureBand(
-  ui: D,
-  band: Extract<DesktopBand, { kind: 'feature' }>,
-  tick: number,
-  actions: BandActions,
-) {
+function featureBand(ui: D, band: CardBand, tick: number, actions: BandActions) {
   const { Box } = ui;
   if (band.mode === 'minimised') {
     return (
@@ -314,6 +306,7 @@ export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions:
     case 'hidden':
       return closedBand(ui, band, actions);
     case 'feature':
+    case 'ready-feature':
       return featureBand(ui, band, tick, actions);
   }
 }

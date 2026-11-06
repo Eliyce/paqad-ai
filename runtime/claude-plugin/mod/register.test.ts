@@ -756,7 +756,7 @@ describe('the Desktop band', () => {
     );
   });
 
-  test('AC-6: draws Ready before the first snapshot, and nothing on the feature route until a change opens', async ($, on) => {
+  test('AC-6: draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -764,6 +764,47 @@ describe('the Desktop band', () => {
     world.put(SNAPSHOT, fileText(snapshot({ route: 'feature-development' })));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('paqad');
+    world.put(
+      SNAPSHOT,
+      fileText(
+        snapshot({
+          route: 'feature-development',
+          active: false,
+          scope: { qualified: false, reason: 'no-change-yet' },
+        }),
+      ),
+    );
+    await $.tool.call({ tool: 'Edit', file_path: '/work/b.ts' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
+  });
+
+  test('AC-28: the Ledger button on Paqad Getting Ready opens the no-change view and closes back to the card', async ($, on) => {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(
+          snapshot({
+            route: 'feature-development',
+            active: false,
+            scope: { qualified: false, reason: 'no-change-yet' },
+          }),
+        ),
+      },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const opener = await mountBand($, 'desktop');
+    await opener.press({ key: 'paqad-ledger' });
+    await opener.unmount();
+    const lines = drawnLines(await $.ui.render(pane('desktop')));
+    expect(lines).toContain('No change is in progress.');
+    expect(lines.join(' ')).not.toContain('Trust');
+    expect(lines.join(' ')).not.toContain('What happened, with proof');
+    const closer = await mountBand($, 'desktop');
+    await closer.press({ key: 'paqad-ledger' });
+    await closer.unmount();
+    expect(world.closedPanes).toEqual(['paqad']);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
   });
 
   test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {

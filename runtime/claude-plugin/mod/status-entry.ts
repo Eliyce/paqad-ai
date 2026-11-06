@@ -17,6 +17,8 @@ export const WORKFLOW_WORDS: Readonly<Record<string, string>> = {
 
 export const NO_WORKFLOW = 'no-workflow';
 export const FEATURE_ROUTE = 'feature-development';
+export const FEATURE_WORDS = 'Feature development';
+const NO_CHANGE_YET = 'no-change-yet';
 
 export function workflowWords(name: string): string {
   return WORKFLOW_WORDS[name] ?? name.replace(/-/g, ' ');
@@ -26,6 +28,22 @@ export function statusEntryRoute(snapshot: PaqadHudSnapshot | null): string | nu
   const route = snapshot?.route ?? null;
   if (route === null || route === NO_WORKFLOW || route === FEATURE_ROUTE) return null;
   return route;
+}
+
+export function readyFeatureRoute(snapshot: PaqadHudSnapshot | null): boolean {
+  return (
+    snapshot?.route === FEATURE_ROUTE &&
+    !snapshot.active &&
+    snapshot.scope?.reason === NO_CHANGE_YET
+  );
+}
+
+export function routeFromEarlierTurn(
+  snapshot: PaqadHudSnapshot,
+  turnStartedAt: number | null,
+): boolean {
+  const generatedAt = Date.parse(snapshot.generated_at);
+  return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
 }
 
 export function workflowCost(workflow: PaqadWorkflow | null): string | null {

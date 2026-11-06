@@ -13,7 +13,15 @@ import { needsAnswers, roleInitials, tableStatus } from './instruments';
 import { stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
-import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
+import {
+  FEATURE_WORDS,
+  readyFeatureRoute,
+  routeFromEarlierTurn,
+  statusEntryRoute,
+  workflowCost,
+  workflowWords,
+} from './status-entry';
+import { NO_CHANGE } from './tabs';
 import {
   seatsThatFit,
   type ChiefState,
@@ -25,7 +33,7 @@ import {
   type TableSeat,
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
-import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
+import { visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
 import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
@@ -60,8 +68,8 @@ export const UNREADABLE_WHY = {
   'session-id': 'The session id could not be read.',
   snapshot: 'The snapshot file is not valid.',
 } as const;
-export const GETTING_READY = IDLE_WORDS;
-export const FEATURE_WORDS = 'Feature development';
+export const GETTING_READY = 'Paqad Getting Ready';
+export { FEATURE_WORDS };
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
 export const NEEDS_YOU_WORDS = WAITING_FOR_ANSWER;
@@ -484,6 +492,19 @@ function minimisedView(
   };
 }
 
+export interface FeatureCard {
+  mode: 'card' | 'minimised';
+  menu: boolean;
+  identity: IdentityView;
+  headline: DesktopHeadline;
+  headlineAlt: string;
+  strip: StripInput;
+  alt: string;
+  stripAlts: StripAlts;
+  minimised: MinimisedView;
+  activity: string[];
+}
+
 export type DesktopBand =
   | { kind: 'none' }
   | { kind: 'ready' }
@@ -496,19 +517,8 @@ export type DesktopBand =
       cost: string;
     }
   | { kind: 'closed' | 'hidden'; needsYou: boolean }
-  | {
-      kind: 'feature';
-      mode: 'card' | 'minimised';
-      menu: boolean;
-      identity: IdentityView;
-      headline: DesktopHeadline;
-      headlineAlt: string;
-      strip: StripInput;
-      alt: string;
-      stripAlts: StripAlts;
-      minimised: MinimisedView;
-      activity: string[];
-    };
+  | ({ kind: 'feature' } & FeatureCard)
+  | ({ kind: 'ready-feature' } & FeatureCard);
 
 export interface DesktopBandInput {
   snapshot: PaqadHudSnapshot | null;
@@ -550,12 +560,51 @@ function workflowBand(
   };
 }
 
-function routeFromEarlierTurn(snapshot: PaqadHudSnapshot, turnStartedAt: number | null): boolean {
-  const generatedAt = Date.parse(snapshot.generated_at);
-  return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
+const HEADLINE_INSET_COLUMNS = 2;
+
+const READY_CARD_MIN_COLUMNS = 40;
+
+const READY_HEADLINE: DesktopHeadline = {
+  row: 0,
+  signal: 'idle',
+  tone: 'neutral',
+  live: false,
+  text: GETTING_READY,
+  word: null,
+  note: null,
+  gap: null,
+  clock: null,
+  activity: [],
+};
+
+function readyIdentity(snapshot: PaqadHudSnapshot): IdentityView {
+  const lane = snapshot.lane ? (LANE_WORDS[snapshot.lane] ?? null) : null;
+  return { parts: lane ? [FEATURE_WORDS, lane] : [FEATURE_WORDS], flags: 0 };
 }
 
-const HEADLINE_INSET_COLUMNS = 2;
+function readyFeatureBand(snapshot: PaqadHudSnapshot, input: DesktopBandInput): DesktopBand {
+  const mode = visibilityMode(input.visibility);
+  const blank = { ...snapshot, lane: null, lane_stages: undefined };
+  const head = {
+    ...READY_HEADLINE,
+    text: fitLine(GETTING_READY, input.columns - HEADLINE_INSET_COLUMNS),
+  };
+  const strip = stripOf(blank, input.columns, IDLE_LIVE, input.now);
+  const fits = input.maxRows >= cardRows(input.menuOpen) && input.columns >= READY_CARD_MIN_COLUMNS;
+  return {
+    kind: 'ready-feature',
+    mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
+    menu: input.menuOpen,
+    identity: readyIdentity(snapshot),
+    headline: head,
+    headlineAlt: headlineAlt(READY_HEADLINE),
+    strip,
+    alt: `${stripAltText(GETTING_READY, strip)} Delivery not started.`,
+    stripAlts: stripAlts(GETTING_READY, strip),
+    minimised: minimisedView(blank, head, stageStrip(blank, IDLE_LIVE)),
+    activity: [],
+  };
+}
 
 export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
@@ -567,11 +616,16 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
     return workflowBand(snapshot, route, input.now, input.turnStartedAt);
   }
-  if (!snapshot.active) return { kind: 'none' };
+  if (!snapshot.active && !readyFeatureRoute(snapshot)) return { kind: 'none' };
   const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
+  }
+  if (!snapshot.active) {
+    return routeFromEarlierTurn(snapshot, input.turnStartedAt)
+      ? { kind: 'none' }
+      : readyFeatureBand(snapshot, input);
   }
   const full = desktopHeadline(snapshot, input.now, live);
   const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
@@ -1388,6 +1442,7 @@ export function workflowLedger(snapshot: PaqadHudSnapshot, route: string): Workf
 
 export type DesktopLedger =
   | { kind: 'none' }
+  | { kind: 'no-change'; words: string }
   | { kind: 'unreadable'; light: LightView }
   | { kind: 'workflow'; view: WorkflowLedger }
   | {
@@ -1419,6 +1474,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
   if (!snapshot) return { kind: 'none' };
   const route = statusEntryRoute(snapshot);
   if (route) return { kind: 'workflow', view: workflowLedger(snapshot, route) };
+  if (readyFeatureRoute(snapshot)) return { kind: 'no-change', words: NO_CHANGE };
   const tabs = ledgerTabs(snapshot, input.tab ?? 'trust');
   return {
     kind: 'feature',
