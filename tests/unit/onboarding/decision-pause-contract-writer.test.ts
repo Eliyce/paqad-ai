@@ -93,7 +93,9 @@ describe('the Resolution flow names the earlier check', () => {
   it('names the block, the hand-back rule, the orchestrator and the commit', () => {
     expect(body).toContain('Same as last time: <label> (from D-...)');
     expect(body).toContain('not from the hand-back');
-    expect(body).toContain('the orchestrator then runs check, reads up to 5 where the block lists titles, and runs suggest itself');
+    expect(body).toContain(
+      'the orchestrator then runs check, reads up to 5 where the block lists titles, and runs suggest itself',
+    );
     expect(body).toContain('.paqad/decisions/standing-answers.json');
     expect(body).toContain('"reused": true');
   });

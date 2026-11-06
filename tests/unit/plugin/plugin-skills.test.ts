@@ -18,7 +18,7 @@ const FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK: Record<(typeof CLAUDE_CODE_SKILLS)[
   join: 'The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.',
   dashboard: 'The dashboard is a local web app for this project. It never leaves the machine.',
   'decision-pause':
-    'A decision pause asks the person one real choice. Scripts find earlier questions, you judge them for meaning, and the person approves.',
+    'A decision pause asks the person one real choice. Scripts list earlier questions, you judge them for meaning, and the person approves.',
 };
 
 function body(name: string): string {
