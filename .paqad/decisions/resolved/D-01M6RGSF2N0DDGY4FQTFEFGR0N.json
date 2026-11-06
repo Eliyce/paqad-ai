@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6RGSF2N0DDGY4FQTFEFGR0N",
+  "category": "intake.requirement",
+  "title": "When should a person see the \"always use this answer\" choice?",
+  "context": "With no earlier answer suggested, the choice has no answer to point at. On a question that already shows four choices, adding it could push a real choice off the list or stop the question displaying. Recommended: only when an earlier answer is suggested and the question has room. It keeps every real choice clickable, and on a full question a person can still set a rule with the resolve command flag. This narrows AC-9, because a question with four or more choices shows no always choice, and it replaces the planning call that moved extra choices to a typed list.",
+  "options": [
+    {
+      "option_key": "suggested-and-room",
+      "label": "Only when an earlier answer is suggested and the question has room, so no real choice is pushed out",
+      "one_line_preview": "Only when an earlier answer is suggested and the question has room, so no real choice is pushed out",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "suggested-move-last",
+      "label": "Whenever an earlier answer is suggested, moving the last real choice to a typed answer if needed",
+      "one_line_preview": "Whenever an earlier answer is suggested, moving the last real choice to a typed answer if needed",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "every-question",
+      "label": "On every allowed question, with a second question asking which answer to keep",
+      "one_line_preview": "On every allowed question, with a second question asking which answer to keep",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "suggested-and-room",
+  "created_at": "2026-11-06T13:29:24.309Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "suggested-and-room",
+  "rationale": "Owner chose this in the spec question round.",
+  "resolved_at": "2026-11-06T13:40:41.489Z",
+  "decision_id": "D-01M6RGSF2N0DDGY4FQTFEFGR0N",
+  "fingerprint": "sha256:6ecfa687258161fe03ba3f58cedce576e050b5d551fa8ddfcbda5c35c4c355fe",
+  "question": "When should a person see the \"always use this answer\" choice?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:29:24.309Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "suggested-and-room",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:40:41.489Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this in the spec question round."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6RGSCYKM14GXB18XVYTHSW8",
+  "category": "intake.requirement",
+  "title": "Which kinds of question should never get an \"always use this answer\" choice?",
+  "context": "Our own rules say a spec change raised during development is always asked straight away, and four more kinds of question marked hard to undo are still allowed: architecture path, spec contradiction, analytics naming violations and new analytics events. A standing answer would decide these with nobody looking. Recommended: the four listed plus spec changes and every kind marked hard to undo, nine in all, which widens AC-10 from four to nine. These are the questions where an unseen wrong answer costs most, and the earlier answer still shows as a one-click suggestion, so the person only loses the skip.",
+  "options": [
+    {
+      "option_key": "four-plus-spec-and-hard",
+      "label": "The four listed, plus spec changes and every kind marked hard to undo",
+      "one_line_preview": "The four listed, plus spec changes and every kind marked hard to undo",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "four-plus-spec-only",
+      "label": "The four listed, plus spec changes and spec contradictions only",
+      "one_line_preview": "The four listed, plus spec changes and spec contradictions only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "four-only",
+      "label": "Only the four listed, because the person chooses",
+      "one_line_preview": "Only the four listed, because the person chooses",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "four-plus-spec-and-hard",
+  "created_at": "2026-11-06T13:29:22.132Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "four-plus-spec-and-hard",
+  "rationale": "Owner chose this in the spec question round.",
+  "resolved_at": "2026-11-06T13:40:39.208Z",
+  "decision_id": "D-01M6RGSCYKM14GXB18XVYTHSW8",
+  "fingerprint": "sha256:12a36209ff6d134a1c30629777ef9fed5f2d87544b5cb09ec99cf349ef0e1d66",
+  "question": "Which kinds of question should never get an \"always use this answer\" choice?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:29:22.132Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "four-plus-spec-and-hard",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:40:39.208Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this in the spec question round."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6RGSDNCXGY7VJSKXPQJCJZ9",
+  "category": "intake.requirement",
+  "title": "Should a standing answer ever expire?",
+  "context": "Earlier answers past their expiry date are no longer suggested, yet a standing answer as described lasts forever, so an old choice could keep skipping a person after the situation has changed. Recommended: it lasts until someone removes it. That is what \"always\" says and what the rule shape in issue 822 holds. Each use prints a line naming the rule and is logged, and removing it is one command. A 90-day expiry would re-ask people who said always, and following the question type could end a rule within 1 to 90 days. The cost: a stale rule keeps answering until someone notices it.",
+  "options": [
+    {
+      "option_key": "until-removed",
+      "label": "It lasts until someone removes it",
+      "one_line_preview": "It lasts until someone removes it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ninety-days",
+      "label": "It expires after 90 days and the question is asked again",
+      "one_line_preview": "It expires after 90 days and the question is asked again",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "category-ttl",
+      "label": "It follows the expiry period of its question type",
+      "one_line_preview": "It follows the expiry period of its question type",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "until-removed",
+  "created_at": "2026-11-06T13:29:22.860Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "until-removed",
+  "rationale": "Owner chose this in the spec question round.",
+  "resolved_at": "2026-11-06T13:40:40.005Z",
+  "decision_id": "D-01M6RGSDNCXGY7VJSKXPQJCJZ9",
+  "fingerprint": "sha256:1076b1a73a47b1c244a19b5ae3f008d662d5591dd945c9df658744f6dc99b6a9",
+  "question": "Should a standing answer ever expire?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:29:22.860Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "until-removed",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:40:40.005Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this in the spec question round."
+  }
+}

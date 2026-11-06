@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RJ2MT45YAC4T7XC54RWMDJ",
+  "category": "intake.requirement",
+  "title": "Do you confirm the frozen spec for one-click earlier answers so building can start?",
+  "context": "The spec was frozen with the owner's name before the owner had seen its invariants. This is the real sign-off. The closing message lists the rules, the calls made without the owner, and the weak spots, including 227 unread major items from the spec's automatic review.",
+  "options": [
+    {
+      "option_key": "confirm",
+      "label": "Confirm the spec and start building",
+      "one_line_preview": "Confirm the spec and start building",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "change",
+      "label": "Change something first",
+      "one_line_preview": "Change something first",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "confirm",
+  "created_at": "2026-11-06T13:51:53.668Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "confirm",
+  "rationale": "Owner read the rules, the calls made without them and the weak spots, then confirmed: this is the real sign-off for the frozen spec.",
+  "resolved_at": "2026-11-06T14:00:57.161Z",
+  "decision_id": "D-01M6RJ2MT45YAC4T7XC54RWMDJ",
+  "fingerprint": "sha256:5990c805725379c303963d9ba8a044e0365bd2aa754d9cd67f0ab86a63845e0e",
+  "question": "Do you confirm the frozen spec for one-click earlier answers so building can start?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:51:53.668Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "confirm",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T14:00:57.161Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner read the rules, the calls made without them and the weak spots, then confirmed: this is the real sign-off for the frozen spec."
+  }
+}

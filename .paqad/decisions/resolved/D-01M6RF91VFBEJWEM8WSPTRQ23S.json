@@ -1,0 +1,46 @@
+{
+  "id": "D-01M6RF91VFBEJWEM8WSPTRQ23S",
+  "category": "architecture-path",
+  "title": "How should a decision pause use an earlier answer?",
+  "context": "Replay of 40 past questions: an agent reading earlier reasons answered 7 alone with 0 wrong and asked 33; too few to trust, none high confidence. Same options and category got 9 of 21 wrong.",
+  "options": [
+    {
+      "option_key": "suggest-one-click",
+      "label": "The skill suggests the earlier answer and a person approves in one click; only a standing answer the person chose skips the question",
+      "one_line_preview": "The skill suggests the earlier answer and a person approves in one click; only a standing answer the person chose skips the question",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "answer-alone",
+      "label": "The agent answers alone when it judges the intent is the same",
+      "one_line_preview": "The agent answers alone when it judges the intent is the same",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "suggest-one-click",
+  "created_at": "2026-11-06T13:02:57.903Z",
+  "status": "resolved",
+  "chosen": "suggest-one-click",
+  "rationale": "Owner chose one-click after the replay test; replaces the earlier intent-only answer D-01M6RBZW9BZ73S12GZZQMBD4MF.",
+  "resolved_at": "2026-11-06T13:02:58.444Z",
+  "decision_id": "D-01M6RF91VFBEJWEM8WSPTRQ23S",
+  "fingerprint": "sha256:9e0ae80a93363bf47093651c633716c8e41bc020677935e1ae420e0ce627d80e",
+  "question": "How should a decision pause use an earlier answer?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2027-02-04T13:02:57.903Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "suggest-one-click",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:02:58.444Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose one-click after the replay test; replaces the earlier intent-only answer D-01M6RBZW9BZ73S12GZZQMBD4MF."
+  }
+}

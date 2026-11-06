@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6RGSC7QSMPMD3KN8N9ZQDAF",
+  "category": "intake.requirement",
+  "title": "When one person chooses \"always use this answer\" and the rule is committed, should it also skip the question for their teammates?",
+  "context": "The rule lives in a shared file, so one person's choice could answer questions for people who never saw them, including through a merged pull request. Recommended: the whole team once merged. A rule records no person, and proving who answered is out of scope for issue 822, so \"only the person who chose it\" would need an identity check paqad does not have, and a second approver would need a new approval step. The cost: one person can answer for teammates, limited by the pull request diff, the line printed each time a rule is used, and the receipt.",
+  "options": [
+    {
+      "option_key": "team-on-merge",
+      "label": "Yes, it applies to the whole team once merged, and a reviewer sees it in the pull request",
+      "one_line_preview": "Yes, it applies to the whole team once merged, and a reviewer sees it in the pull request",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "only-chooser",
+      "label": "No, it applies only to the person who chose it",
+      "one_line_preview": "No, it applies only to the person who chose it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "second-approver",
+      "label": "It applies to the team only after a second person approves it",
+      "one_line_preview": "It applies to the team only after a second person approves it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "team-on-merge",
+  "created_at": "2026-11-06T13:29:21.399Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "team-on-merge",
+  "rationale": "Owner chose this in the spec question round.",
+  "resolved_at": "2026-11-06T13:40:38.466Z",
+  "decision_id": "D-01M6RGSC7QSMPMD3KN8N9ZQDAF",
+  "fingerprint": "sha256:027dc81f4970c96d5515f25c4c2046722b6b1830b0b8267a655853e0e0ae0108",
+  "question": "When one person chooses \"always use this answer\" and the rule is committed, should it also skip the question for their teammates?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:29:21.399Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "team-on-merge",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:40:38.466Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this in the spec question round."
+  }
+}
