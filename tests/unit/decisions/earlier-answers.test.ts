@@ -9,7 +9,9 @@ import { createPendingDecision } from '@/decisions/authoring.js';
 import {
   ALWAYS_LABEL,
   buildQuestionBlock,
+  checkDecision,
   EARLIER_METHOD_FALLBACK,
+  EARLIER_METHOD_MAX_CHARS,
   earlierCheckFor,
   findEarlierQuestions,
   listEarlierTitles,
@@ -343,6 +345,56 @@ describe('AC-26 the method text', () => {
     expect(fallback).toContain('earlier reason');
     expect(fallback).toContain('shared wording');
     expect(fallback).toContain('--none');
+  });
+
+  it('AC-65 falls back when the file has grown past the limit', () => {
+    const dir = join(root, 'runtime/base/skills/decision/references');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'earlier-answers.md'), 'x'.repeat(EARLIER_METHOD_MAX_CHARS + 1));
+    expect(readEarlierMethod(join(root, 'runtime'))).toBe(EARLIER_METHOD_FALLBACK);
+  });
+
+  it('AC-66 the file, the built-in line and the skills each carry the two-step method', () => {
+    const read = (path: string): string => readFileSync(join(process.cwd(), path), 'utf8');
+    for (const text of [
+      read('runtime/base/skills/decision/references/earlier-answers.md'),
+      EARLIER_METHOD_FALLBACK,
+      read('runtime/base/skills/decision/SKILL.md'),
+      read('runtime/claude-plugin/skills/decision-pause/SKILL.md'),
+    ]) {
+      expect(text.toLowerCase()).toContain('titles');
+      expect(text).toContain('up to 5');
+      expect(text).toContain('--read');
+      expect(text).toContain('meaning');
+      expect(text).toContain('--none');
+    }
+    const method = readEarlierMethod();
+    expect(method).toBe(read('runtime/base/skills/decision/references/earlier-answers.md').trim());
+    expect(method.length).toBeLessThanOrEqual(EARLIER_METHOD_MAX_CHARS);
+    expect(method).toContain('0.00 to 0.31');
+    expect(method).toContain('different wording as no evidence');
+    expect(method).toContain('9 of the 11 repeated questions');
+    expect(method).toContain('none was high confidence');
+  });
+
+  it('AC-66 next on a title list names --read', () => {
+    earlier('same words here');
+    const { id } = createPendingDecision(root, {
+      category: 'ux-pattern',
+      title: 'wholly different thing',
+      context: 'c',
+      options: [
+        { option_key: 'one', label: 'One' },
+        { option_key: 'two', label: 'Two' },
+      ],
+      agentWorded: true,
+    });
+    const output = checkDecision(root, id) as {
+      earlier_check: { next: string; titles: unknown[] };
+    };
+    expect(output.earlier_check.titles).toHaveLength(1);
+    expect(output.earlier_check.next).toContain(`paqad-ai decision check ${id} --read <D-id>`);
+    expect(output.earlier_check.next).toContain(`paqad-ai decision suggest ${id} --earlier`);
   });
 
   it('falls back when the file is empty', () => {

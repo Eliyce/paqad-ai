@@ -219,7 +219,7 @@ export function titleCheckFor(projectRoot: string, query: TitleCheckQuery): Earl
 const METHOD_RELATIVE_PATH = 'base/skills/decision/references/earlier-answers.md';
 
 export const EARLIER_METHOD_FALLBACK =
-  'Compare the earlier reason with the situation now, treat shared wording as no evidence, and answer --none when unsure.';
+  'Scan the titles and read up to 5 that may be the same question with paqad-ai decision check <id> --read <D-id> ... Then judge meaning: compare the earlier reason with the situation now, treat shared wording as no evidence, treat different wording as no evidence either, and answer --none when unsure.';
 
 export function readEarlierMethod(runtimeRoot: string = getRuntimeRoot()): string {
   try {
