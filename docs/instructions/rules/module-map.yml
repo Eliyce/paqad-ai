@@ -3056,6 +3056,22 @@ modules:
         - sectionsFromBlock
         - validateRagEvidenceRow
 
+  - slug: design-sign-off
+    name: High-Level Design Sign-off
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      Opt-in team sign-off of a short, business-language design of each change after
+      spec freeze and before any code is written. Reads design-sign-off.yaml from the
+      git-workflow config, writes hld.json and hld.md into the evidence bundle, and
+      gates the first code edit until the design is approved or skipped. The PR body
+      and the receipt only read hld.json.
+    sources:
+      - src/hld
+      - src/cli/commands/hld.ts
+      - runtime/base/skills/high-level-design
+    features: []
+
   - slug: delivery-workflow
     name: Provider-Agnostic Delivery Workflow
     layer: framework-internals
