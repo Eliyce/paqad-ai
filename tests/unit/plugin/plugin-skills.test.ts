@@ -11,12 +11,14 @@ import { serializePluginHooksJson } from '@/plugin/manifest-build.js';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const skillsDir = join(repoRoot, 'runtime', 'claude-plugin', 'skills');
 
-const CLAUDE_CODE_SKILLS = ['onboard', 'join', 'dashboard'] as const;
+const CLAUDE_CODE_SKILLS = ['onboard', 'join', 'dashboard', 'decision'] as const;
 
 const FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK: Record<(typeof CLAUDE_CODE_SKILLS)[number], string> = {
   onboard: 'You are the project lead setting paqad up for the whole team.',
   join: 'The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.',
   dashboard: 'The dashboard is a local web app for this project. It never leaves the machine.',
+  decision:
+    'A decision pause asks the person one real choice. Scripts find earlier questions, you judge them for meaning, and the person approves.',
 };
 
 function body(name: string): string {
@@ -45,7 +47,7 @@ describe('hand-written plugin skills', () => {
 });
 
 describe('tooling around the generated skills', () => {
-  it('AC-22: format:check skips plugins/ and the generated skills but still checks onboard, join and dashboard', async () => {
+  it('AC-22: format:check skips plugins/ and the generated skills but still checks onboard, join, dashboard and decision', async () => {
     const ignorePath = [join(repoRoot, '.prettierignore')];
     const ignored = async (rel: string) =>
       (await getFileInfo(join(repoRoot, rel), { ignorePath })).ignored;

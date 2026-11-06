@@ -11,6 +11,7 @@ import {
   assertEarlierCheckDone,
   checkDecision,
   formatCreateOutput,
+  suggestEarlierAnswer,
 } from '@/decisions/earlier-answers.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { activeChangeKey, resolveActiveChange } from '@/feature-evidence/stage-ledger.js';
@@ -159,6 +160,36 @@ export function createDecisionCommand(): Command {
         fail(error instanceof Error ? error.message : String(error));
       }
     });
+
+  command
+    .command('suggest')
+    .description('Record which earlier answer fits this question, or that none does')
+    .argument('<id>', 'the D-<ULID> id')
+    .option('--earlier <id>', 'the earlier decision whose answer fits')
+    .option('--option <key>', "this question's option_key for that answer")
+    .option('--none', 'no earlier answer fits')
+    .option('--reason <text>', 'why it fits, or why none does')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action(
+      (
+        id: string,
+        options: {
+          projectRoot: string;
+          earlier?: string;
+          option?: string;
+          none?: boolean;
+          reason?: string;
+        },
+      ) => {
+        try {
+          console.log(
+            JSON.stringify(suggestEarlierAnswer(options.projectRoot, id, options), null, 2),
+          );
+        } catch (error) {
+          fail(error instanceof Error ? error.message : String(error));
+        }
+      },
+    );
 
   command
     .command('list')

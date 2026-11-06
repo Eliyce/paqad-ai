@@ -250,7 +250,12 @@ function withRichFields(packet: PendingContractDecision | ResolvedContractDecisi
   const contractOnly = { ...packet, options: packet.options.map(contractOption) };
   for (const key of RICH_ONLY_KEYS) delete (contractOnly as Record<string, unknown>)[key];
   const rich = richFieldsFor(contractOnly);
-  return rich === null ? contractOnly : { ...contractOnly, ...rich };
+  if (rich === null) return contractOnly;
+  return {
+    ...contractOnly,
+    ...rich,
+    ...(packet.suggestion ? { recommendation_reason: packet.suggestion.reason } : {}),
+  };
 }
 
 const RICH_ONLY_KEYS = [

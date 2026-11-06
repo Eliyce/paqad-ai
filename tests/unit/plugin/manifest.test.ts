@@ -22,6 +22,7 @@ const PLUGIN_SKILLS = [
   'onboard',
   'join',
   'dashboard',
+  'decision',
   'start',
   'discover',
   'ask',
@@ -140,7 +141,7 @@ describe('plugin manifest and marketplace', () => {
     }
   });
 
-  it('AC-3: ships exactly the 17 plugin skills under the declared skills dir', () => {
+  it('AC-3 AC-50: ships exactly the 18 plugin skills under the declared skills dir', () => {
     const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as { skills: string };
     expect(manifest.skills).toBe('./runtime/claude-plugin/skills');
     const folders = readdirSync(join(repoRoot, 'runtime', 'claude-plugin', 'skills')).sort();
@@ -152,7 +153,7 @@ describe('plugin manifest and marketplace', () => {
     }
   });
 
-  it('AC-16: the npm package carries onboard, join and dashboard but no discovery skill', () => {
+  it('AC-16 AC-50: the npm package carries onboard, join, dashboard and decision but no discovery skill', () => {
     const out = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -166,7 +167,7 @@ describe('plugin manifest and marketplace', () => {
         .filter((path) => path.startsWith('runtime/claude-plugin/skills/'))
         .map((path) => path.split('/')[3]),
     );
-    expect([...shipped].sort()).toEqual(['dashboard', 'join', 'onboard']);
+    expect([...shipped].sort()).toEqual(['dashboard', 'decision', 'join', 'onboard']);
   }, 60_000);
 
   it('keeps no marketplace in this repository and names the plugin repo for the eliyce marketplace', () => {

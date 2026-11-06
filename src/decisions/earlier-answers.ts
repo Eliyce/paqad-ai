@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { jaccard } from '@/duplication/token-similarity.js';
 import { normalizeDecisionQuestion } from '@/planning/decision-fingerprint.js';
@@ -133,6 +134,7 @@ export interface StoredPendingPacket {
   question?: string;
   options: { option_key: string; label: string }[];
   recommendation?: string | null;
+  recommendation_reason?: string;
   earlier_check?: EarlierCheck;
   suggestion?: DecisionSuggestion;
 }
@@ -269,5 +271,102 @@ export function formatCreateOutput(
     id: result.id,
     path: result.path,
     earlier_check: earlierCheckBlock(projectRoot, result.id, check),
+  };
+}
+
+export interface SuggestEarlierInput {
+  earlier?: string;
+  option?: string;
+  none?: boolean;
+  reason?: string;
+}
+
+function writePendingFile(projectRoot: string, id: string, packet: StoredPendingPacket): void {
+  const path = pendingFile(projectRoot, id);
+  mkdirSync(dirname(path), { recursive: true });
+  const tempPath = `${path}.tmp`;
+  writeFileSync(tempPath, `${JSON.stringify(packet, null, 2)}\n`);
+  renameWithRetrySync(tempPath, path);
+}
+
+function assertSuggestable(
+  projectRoot: string,
+  id: string,
+  packet: StoredPendingPacket,
+  input: SuggestEarlierInput,
+): void {
+  const check = packet.earlier_check!;
+  if (input.none) return;
+  const earlier = input.earlier!;
+  if (!check.candidates.includes(earlier)) {
+    throw new Error(
+      `${earlier} was not offered for ${id}. Offered: ${check.candidates.join(', ')}.`,
+    );
+  }
+  if (readCandidate(projectRoot, earlier) === null) {
+    throw new Error(`${earlier} can no longer be read, so it cannot be suggested for ${id}.`);
+  }
+  if (!packet.options.some((option) => option.option_key === input.option)) {
+    const keys = packet.options.map((option) => option.option_key).join(', ');
+    throw new Error(`Option "${input.option}" is not one of ${id}'s options (${keys}).`);
+  }
+}
+
+export function suggestEarlierAnswer(
+  projectRoot: string,
+  id: string,
+  input: SuggestEarlierInput,
+): DecisionCheckOutput {
+  const reason = input.reason?.trim() ?? '';
+  if (Boolean(input.earlier) === Boolean(input.none)) {
+    throw new Error('Give exactly one of --earlier <D-id> or --none.');
+  }
+  if (input.earlier && !input.option) {
+    throw new Error('--earlier needs --option <key>.');
+  }
+  if (reason === '') {
+    throw new Error('A suggestion needs a non-empty --reason.');
+  }
+  checkDecision(projectRoot, id);
+  const packet = readPendingFile(projectRoot, id)!;
+  if (packet.earlier_check === undefined) {
+    throw new Error(`Decision ${id} has no earlier answers to check.`);
+  }
+  if (packet.earlier_check.status !== 'required') {
+    throw new Error(`Decision ${id} has already been checked.`);
+  }
+  assertSuggestable(projectRoot, id, packet, input);
+  writePendingFile(
+    projectRoot,
+    id,
+    input.none ? withNoneFound(packet, reason) : withSuggestion(packet, input, reason),
+  );
+  return checkDecision(projectRoot, id);
+}
+
+function withNoneFound(packet: StoredPendingPacket, reason: string): StoredPendingPacket {
+  return {
+    ...packet,
+    earlier_check: { ...packet.earlier_check!, status: 'done', none_reason: reason },
+  };
+}
+
+function withSuggestion(
+  packet: StoredPendingPacket,
+  input: SuggestEarlierInput,
+  reason: string,
+): StoredPendingPacket {
+  const optionKey = input.option!;
+  return {
+    ...packet,
+    earlier_check: { ...packet.earlier_check!, status: 'done' },
+    suggestion: {
+      earlier_id: input.earlier!,
+      option_key: optionKey,
+      reason,
+      at: new Date().toISOString(),
+    },
+    recommendation: optionKey,
+    recommendation_reason: reason,
   };
 }

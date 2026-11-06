@@ -164,6 +164,7 @@ describe('scripts/build-discovery.mjs', () => {
     expect(snapshot(skills)).toEqual({
       'ask/scripts/x.py': 'print(1)',
       'dashboard/SKILL.md': 'dashboard',
+      'decision/SKILL.md': 'decision',
       'join/SKILL.md': 'join',
       'onboard/SKILL.md': 'onboard',
       'start/SKILL.md': 'new start',

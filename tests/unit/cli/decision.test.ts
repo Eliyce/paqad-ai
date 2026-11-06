@@ -167,6 +167,151 @@ describe('paqad-ai decision command', () => {
     });
   });
 
+  describe('decision suggest', () => {
+    async function openChecked(): Promise<{ id: string; earlier: string }> {
+      const earlier = await answered('Which colour should the banner use', 'Matches the brand');
+      const { output } = await openQuestion('Which colour should banner use');
+      vi.restoreAllMocks();
+      return { id: output.id as string, earlier };
+    }
+
+    it('AC-8 AC-23 refuses bad input and leaves the file byte-identical', async () => {
+      const { id, earlier } = await openChecked();
+      const before = pendingBytes(id);
+      const cases: [string[], string][] = [
+        [
+          ['--earlier', 'D-01J000000000000000000000B2', '--option', 'a', '--reason', 'r'],
+          'not offered',
+        ],
+        [['--earlier', earlier, '--option', 'nope', '--reason', 'r'], 'not one of'],
+        [['--earlier', earlier, '--option', 'a', '--reason', ''], 'non-empty --reason'],
+        [['--earlier', earlier, '--option', 'a', '--reason', '   '], 'non-empty --reason'],
+        [['--earlier', earlier, '--option', 'a'], 'non-empty --reason'],
+        [['--earlier', earlier, '--reason', 'r'], 'needs --option'],
+        [['--earlier', earlier, '--option', 'a', '--none', '--reason', 'r'], 'exactly one'],
+        [['--option', 'a', '--reason', 'r'], 'exactly one'],
+      ];
+      for (const [args, message] of cases) {
+        process.exitCode = undefined;
+        vi.restoreAllMocks();
+        const { err } = await run('suggest', id, ...args);
+        expect(err.join('\n')).toContain(message);
+        expect(process.exitCode).toBe(1);
+        expect(pendingBytes(id)).toBe(before);
+      }
+    });
+
+    it('AC-23 refuses an unknown id, a resolved id, no check and a check already done', async () => {
+      const { id, earlier } = await openChecked();
+      const unknown = await run(
+        'suggest',
+        'D-01J000000000000000000000B3',
+        '--none',
+        '--reason',
+        'r',
+      );
+      expect(unknown.err.join('\n')).toContain('was not found');
+
+      vi.restoreAllMocks();
+      const resolved = await run('suggest', earlier, '--none', '--reason', 'r');
+      expect(resolved.err.join('\n')).toContain('already resolved');
+
+      vi.restoreAllMocks();
+      const plain = (await openQuestion('Where should nightly reports be stored')).output
+        .id as string;
+      vi.restoreAllMocks();
+      const noCheck = await run('suggest', plain, '--none', '--reason', 'r');
+      expect(noCheck.err.join('\n')).toContain('no earlier answers');
+
+      vi.restoreAllMocks();
+      await run('suggest', id, '--none', '--reason', 'Different screen');
+      const before = pendingBytes(id);
+      vi.restoreAllMocks();
+      const again = await run(
+        'suggest',
+        id,
+        '--earlier',
+        earlier,
+        '--option',
+        'a',
+        '--reason',
+        'r',
+      );
+      expect(again.err.join('\n')).toContain('already been checked');
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('refuses a candidate whose file has gone', async () => {
+      const { id, earlier } = await openChecked();
+      rmSync(join(root, '.paqad/decisions/resolved', `${earlier}.json`));
+      const { err } = await run(
+        'suggest',
+        id,
+        '--earlier',
+        earlier,
+        '--option',
+        'a',
+        '--reason',
+        'r',
+      );
+      expect(err.join('\n')).toContain('can no longer be read');
+    });
+
+    it('writes the suggestion, marks the check done and sets the recommendation with its reason', async () => {
+      const { id, earlier } = await openChecked();
+      const { out } = await run(
+        'suggest',
+        id,
+        '--earlier',
+        earlier,
+        '--option',
+        'b',
+        '--reason',
+        'Same brand rule applies',
+      );
+      const stored = JSON.parse(pendingBytes(id));
+      expect(stored.earlier_check.status).toBe('done');
+      expect(stored.suggestion).toMatchObject({
+        earlier_id: earlier,
+        option_key: 'b',
+        reason: 'Same brand rule applies',
+      });
+      expect(stored.recommendation).toBe('b');
+      expect(stored.recommendation_reason).toBe('Same brand rule applies');
+      expect(JSON.parse(out.join('\n')).question).toBeDefined();
+      vi.restoreAllMocks();
+      const resolved = await run('resolve', id, 'b');
+      const file = JSON.parse(readFileSync(JSON.parse(resolved.out.join('\n')).path, 'utf8'));
+      expect(file.recommendation_reason).toBe('Same brand rule applies');
+    });
+
+    it('--none records why and sets no recommendation', async () => {
+      const { id } = await openChecked();
+      await run('suggest', id, '--none', '--reason', 'Different screen');
+      const stored = JSON.parse(pendingBytes(id));
+      expect(stored.earlier_check).toMatchObject({
+        status: 'done',
+        none_reason: 'Different screen',
+      });
+      expect(stored.recommendation ?? null).toBeNull();
+      expect(stored).not.toHaveProperty('suggestion');
+    });
+
+    it('AC-46 an answer already held resolves after check and suggest with no second question', async () => {
+      const { id, earlier } = await openChecked();
+      const held = 'a';
+      const refused = await run('resolve', id, held);
+      expect(refused.err.join('\n')).toContain(`decision check ${id}`);
+      process.exitCode = undefined;
+      vi.restoreAllMocks();
+      await run('suggest', id, '--earlier', earlier, '--option', 'b', '--reason', 'Same rule');
+      vi.restoreAllMocks();
+      const { out } = await run('resolve', id, held);
+      expect(JSON.parse(out.join('\n')).chosen).toBe('a');
+      expect(existsSync(join(root, '.paqad/decisions/resolved', `${id}.json`))).toBe(true);
+    });
+  });
+
   describe('AC-24 decision check', () => {
     it('exits 1 naming the id for an unknown id and for a malformed one', async () => {
       const unknown = 'D-01J000000000000000000000B1';
