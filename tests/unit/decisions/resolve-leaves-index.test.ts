@@ -11,7 +11,7 @@ import {
   resolvePendingDecision,
   type CreateDecisionInput,
 } from '@/decisions/authoring.js';
-import { suggestEarlierAnswer } from '@/decisions/earlier-answers.js';
+import { findEarlierQuestions, suggestEarlierAnswer } from '@/decisions/earlier-answers.js';
 import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
@@ -198,8 +198,12 @@ describe('AC-34 a CLI answer past its ttl_until', () => {
         options: keys('one', 'two'),
       }),
     ).toBeNull();
-    const reopened = createPendingDecision(root, input({ title: 'Something wholly unrelated' }));
-    expect(JSON.parse(readFileSync(reopened.path, 'utf8'))).not.toHaveProperty('earlier_check');
+    expect(
+      findEarlierQuestions(root, {
+        question: 'Where should the helper script live?',
+        category: 'workflow-or-tool',
+      }),
+    ).toEqual([]);
     expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`))).toBe(true);
     expect(readFileSync(indexPath(), 'utf8')).toBe(before);
   });
