@@ -215,8 +215,8 @@ overrides everything. Both accept the values below as well as the older values.
 ## git-workflow/
 
 `git-workflow/` holds this team's rules for tickets, branches, commits, pull requests
-and how strictly they're checked, in five YAML files: `tickets.yaml`, `branches.yaml`,
-`commits.yaml`, `pull-requests.yaml` and `enforcement.yaml`.
+and how strictly they're checked, in six YAML files: `tickets.yaml`, `branches.yaml`,
+`commits.yaml`, `pull-requests.yaml`, `enforcement.yaml` and `design-sign-off.yaml`.
 
 - No personal override applies: `../.config` and `PAQAD_*` env vars don't change them.
   The one exception is `ai_attribution` in `commits.yaml`, which keeps its personal

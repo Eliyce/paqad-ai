@@ -20,6 +20,7 @@ import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
 import { createFixCommand } from './commands/fix.js';
+import { createHldCommand } from './commands/hld.js';
 import { createSkillCommand } from './commands/skill.js';
 import { createAgentCommand } from './commands/agent.js';
 import { createGraphCommand } from './commands/graph.js';
@@ -126,6 +127,7 @@ export function createProgram(): Command {
   program.addCommand(createHookCommand());
   program.addCommand(createManagedSettingsCommand());
   program.addCommand(createFixCommand());
+  program.addCommand(createHldCommand());
   program.addCommand(createSkillCommand());
   program.addCommand(createAgentCommand());
 

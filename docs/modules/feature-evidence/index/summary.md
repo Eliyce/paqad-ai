@@ -104,6 +104,8 @@ change, so the live feature-development stage spine is untouched:
 | `evidence.jsonl` | always | `appendFeatureEvidenceRows` |
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
 | `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
+| `hld.json` | checked-when-present (design sign-off on, lane listed) | `paqad-ai hld` (posted, not-posted, check-approval, skip) |
+| `hld.md` | checked-when-present (design sign-off on, lane listed) | `paqad-ai hld posted` and `paqad-ai hld not-posted` (the design as posted or saved) |
 
 A `rule-run.jsonl` findings row and a `duplication.jsonl` row keep the findings themselves, not
 just their counts: each rule finding as `{rule_id, file, line, message,

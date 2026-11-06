@@ -228,7 +228,7 @@ describe('default files', () => {
     );
   });
 
-  it('onboarding writes the five files and the PR body template, and no delivery-policy.yaml', () => {
+  it('onboarding writes the six files and the PR body template, and no delivery-policy.yaml', () => {
     const files = generateGitWorkflowFiles('coding', root);
     expect(files.map((f) => f.path)).toEqual([
       '.paqad/configs/git-workflow/tickets.yaml',
@@ -236,6 +236,7 @@ describe('default files', () => {
       '.paqad/configs/git-workflow/commits.yaml',
       '.paqad/configs/git-workflow/pull-requests.yaml',
       '.paqad/configs/git-workflow/enforcement.yaml',
+      '.paqad/configs/git-workflow/design-sign-off.yaml',
       '.paqad/templates/pr-body.md',
     ]);
     expect(files.some((f) => f.path.endsWith('delivery-policy.yaml'))).toBe(false);

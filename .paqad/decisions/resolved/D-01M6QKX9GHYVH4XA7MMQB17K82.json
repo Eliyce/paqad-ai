@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6QKX9GHYVH4XA7MMQB17K82",
+  "category": "workflow-or-tool",
+  "title": "Does the Jira status count when the design is posted to Teams or Slack?",
+  "context": "When the ticket is in Jira but the design is posted to Microsoft Teams or Slack, should moving the Jira ticket to the approved status also count as sign-off? Sign-off could then come from two places, and the team needs to know which one starts the build.",
+  "options": [
+    {
+      "option_key": "reply-or-status",
+      "label": "Yes, a reply in the channel or the ticket status counts, as the team's settings allow",
+      "one_line_preview": "Yes, a reply in the channel or the ticket status counts, as the team's settings allow",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reply-where-posted",
+      "label": "No, only a reply where the design was posted counts",
+      "one_line_preview": "No, only a reply where the design was posted counts",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "reply-or-status",
+  "created_at": "2026-11-06T05:04:40.977Z",
+  "status": "resolved",
+  "change": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "chosen": "reply-or-status",
+  "rationale": "Developer chose: a channel reply or the ticket reaching approved_status counts, as approve_by allows.",
+  "resolved_at": "2026-11-06T05:07:10.103Z",
+  "decision_id": "D-01M6QKX9GHYVH4XA7MMQB17K82",
+  "fingerprint": "sha256:8c432d28e040eed1bb3f33fdc3ad3a665f87a45b023015f809cc79f92ae5de3b",
+  "question": "Does the Jira status count when the design is posted to Teams or Slack?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "ttl_until": "2026-11-13T05:04:40.977Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reply-or-status",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T05:07:10.103Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose: a channel reply or the ticket reaching approved_status counts, as approve_by allows."
+  }
+}

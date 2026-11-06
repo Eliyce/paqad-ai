@@ -1,0 +1,5 @@
+interface:
+  display_name: High-Level Design Sign-off
+  short_description: Writes a short, plain-language design of a change after its spec is
+    frozen, posts it to the team's ticket or approval channel and waits for sign-off
+    before the build starts.

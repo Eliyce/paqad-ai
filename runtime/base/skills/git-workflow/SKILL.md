@@ -17,10 +17,10 @@ metadata:
 
 ## What It Does
 
-One skill is in charge of `.paqad/configs/git-workflow/`, the five files that hold this
+One skill is in charge of `.paqad/configs/git-workflow/`, the six files that hold this
 team's rules for tickets, branches, commits, pull requests and how strictly they're
 checked (`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml`,
-`enforcement.yaml`). It handles three cases:
+`enforcement.yaml`, `design-sign-off.yaml`). It handles three cases:
 
 - **first setup** from the repo's history, during `create documentation`
 - **a new project** with no history
@@ -83,7 +83,7 @@ for any other key, because settings are never removed.
 
 ## Output Contract
 
-- The five files under `.paqad/configs/git-workflow/`, valid, written only by the
+- The six files under `.paqad/configs/git-workflow/`, valid, written only by the
   scripts, and stamped in `.paqad/configs/git-workflow/.last-applied.json`.
 - One resolved decision per answered choice.
 - A final message in the shape of `assets/final-message.txt`.

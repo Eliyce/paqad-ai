@@ -68,17 +68,17 @@ describe('syncGitWorkflow', () => {
   it('writes a missing file whole, and stamps only the file it created', () => {
     write('enforcement.yaml', 'schema_version: 1\nenabled: true\nagents: warn\n');
     const written = syncGitWorkflow(root, { version: '2.0.0', baseBranch: 'develop' });
-    expect(written).toHaveLength(4);
+    expect(written).toHaveLength(5);
     expect(read('branches.yaml')).toContain('\nbase_branch: develop\n');
     expect(read('enforcement.yaml')).toBe('schema_version: 1\nenabled: true\nagents: warn\n');
-    expect(Object.keys(readLastApplied(root)?.files ?? {})).toHaveLength(4);
+    expect(Object.keys(readLastApplied(root)?.files ?? {})).toHaveLength(5);
     expect(loadGitWorkflow(root).config.enforcement.agents).toBe('warn');
     expect(syncGitWorkflow(root, { version: '2.0.0' })).toEqual([]);
   });
 
-  it('AC-10: swaps all five files with no outside change left, and a second run writes nothing', () => {
+  it('AC-10: swaps all six files with no outside change left, and a second run writes nothing', () => {
     allFilesOnOldStamp();
-    expect(syncGitWorkflow(root)).toHaveLength(5);
+    expect(syncGitWorkflow(root)).toHaveLength(6);
     for (const file of GIT_WORKFLOW_FILES) {
       expect(read(file)).toContain('schema_version: 1');
       expect(read(file)).not.toContain('paqad_version');
@@ -110,7 +110,7 @@ describe('syncGitWorkflow', () => {
     rmSync(join(dir(), '.last-applied.json'));
     syncGitWorkflow(root);
     expect(readLastApplied(root)).toBeNull();
-    expect(changedOutside(root)).toHaveLength(5);
+    expect(changedOutside(root)).toHaveLength(6);
   });
 
   it('AC-23: heals a paqad_version added back, once, with no warning left', () => {
@@ -143,7 +143,7 @@ describe('syncGitWorkflow', () => {
       allFilesOnOldStamp();
       chmodSync(join(dir(), 'tickets.yaml'), 0o444);
       const notes: string[] = [];
-      expect(syncGitWorkflow(root, { notes })).toHaveLength(4);
+      expect(syncGitWorkflow(root, { notes })).toHaveLength(5);
       expect(notes).toHaveLength(1);
       expect(notes[0]).toMatch(/^Couldn't write \.paqad\/configs\/git-workflow\/tickets\.yaml: /u);
       expect(read('tickets.yaml')).toContain('paqad_version');

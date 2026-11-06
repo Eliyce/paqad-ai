@@ -28,6 +28,11 @@ export const GIT_WORKFLOW_TABS: readonly GitWorkflowTab[] = [
     label: 'Enforcement',
     what: 'How strictly paqad holds everyone to these rules.',
   },
+  {
+    name: 'design-sign-off.yaml',
+    label: 'Design sign-off',
+    what: 'A short design of each change for the team to sign off before the build starts.',
+  },
 ];
 
 export function issuesForFile(

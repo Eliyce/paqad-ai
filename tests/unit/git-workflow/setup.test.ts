@@ -258,9 +258,9 @@ describe('git-workflow setup: reading signals', () => {
     expect(first.exitCode).toBe(0);
     const out = JSON.parse(first.stdout);
     expect(out.valid).toBe(true);
-    expect(out.written).toHaveLength(5);
+    expect(out.written).toHaveLength(6);
     expect(out.not_confirmed).toContain('not confirmed: How should a commit message start?');
-    expect(Object.keys(readLastApplied(root)?.files ?? {})).toHaveLength(5);
+    expect(Object.keys(readLastApplied(root)?.files ?? {})).toHaveLength(6);
     const again = await runSetup({ projectRoot: root, shell, answersFile: 'answers.json' });
     expect(again.exitCode).toBe(1);
     expect(JSON.parse(again.stdout).error).toContain('--overwrite');

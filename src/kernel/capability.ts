@@ -28,6 +28,7 @@ import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { bundleWriterFor } from '@/feature-evidence/manifest.js';
+import { designSignOffBlock } from '@/hld/gate.js';
 import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
 import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
@@ -593,6 +594,8 @@ const stagesCapability: Capability = {
         return { ran: true, blocking, summary: formatMissingStageSummary(stage, mode), narration };
       }
     }
+    const signOff = designSignOffBlock(projectRoot, dirName, effectiveLane);
+    if (signOff !== null) return { ran: true, blocking, summary: signOff, narration };
     return { ran: true, blocking: false, summary: '', narration };
   },
 };

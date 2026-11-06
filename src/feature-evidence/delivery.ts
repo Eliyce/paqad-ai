@@ -91,9 +91,13 @@ export interface DeliveryCiRead {
   at: string;
 }
 
-export type TicketActionId = 'on_pr_open' | 'on_ci_green';
+export type TicketActionId = 'on_pr_open' | 'on_ci_green' | 'on_hld_post';
 export type TicketActionState = 'pending' | 'done' | 'failed' | 'skipped';
-export const TICKET_ACTION_IDS: readonly TicketActionId[] = ['on_pr_open', 'on_ci_green'];
+export const TICKET_ACTION_IDS: readonly TicketActionId[] = [
+  'on_pr_open',
+  'on_ci_green',
+  'on_hld_post',
+];
 
 export interface DeliveryTicketAction {
   id: TicketActionId;

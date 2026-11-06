@@ -31,7 +31,11 @@ import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
-import { migrateDeliveryPolicy, OLD_DELIVERY_POLICY } from '@/git-workflow/migrate.js';
+import {
+  migrateDeliveryPolicy,
+  NOT_MOVED_FILES,
+  OLD_DELIVERY_POLICY,
+} from '@/git-workflow/migrate.js';
 import { gitWorkflowFilePath } from '@/git-workflow/load.js';
 import { syncGitWorkflow } from '@/git-workflow/sync.js';
 import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
@@ -442,7 +446,20 @@ function updateGitWorkflow(projectRoot: string): string[] {
   if (profile === null || getProfileDomain(profile) !== 'coding') return [];
   const migration = migrateDeliveryPolicy(projectRoot);
   const syncNotes: string[] = [];
-  syncGitWorkflow(projectRoot, { notes: syncNotes, createMissing: migration.blocked !== true });
+  const held = migration.blocked === true;
+  const missing = NOT_MOVED_FILES.map((file) => gitWorkflowFilePath(projectRoot, file)).filter(
+    (path) => !existsSync(path),
+  );
+  syncGitWorkflow(projectRoot, {
+    notes: syncNotes,
+    createMissing: !held,
+    alwaysCreate: held ? NOT_MOVED_FILES : [],
+  });
+  if (held) {
+    for (const path of missing.filter((path) => existsSync(path))) {
+      syncNotes.push(`Added ${toTeamRelative(projectRoot, path)} with its defaults.`);
+    }
+  }
   migration.lines.push(...syncNotes.filter((note) => !migration.lines.includes(note)));
   try {
     migration.lines.push(...(installGitHooks(projectRoot).problems ?? []));
