@@ -45,7 +45,7 @@ describe('dashboard git-workflow config', () => {
     write('commits.yaml', 'sign_off: true\n');
     const config = getGitWorkflowConfig(root);
 
-    expect(config.files).toHaveLength(5);
+    expect(config.files).toHaveLength(6);
     const commits = config.files.find((file) => file.name === 'commits.yaml')!;
     expect(commits).toMatchObject({
       exists: true,

@@ -7,6 +7,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 import branchesSchema from '@/validators/schemas/git-workflow/branches.schema.json';
 import commitsSchema from '@/validators/schemas/git-workflow/commits.schema.json';
+import designSignOffSchema from '@/validators/schemas/git-workflow/design-sign-off.schema.json';
 import enforcementSchema from '@/validators/schemas/git-workflow/enforcement.schema.json';
 import pullRequestsSchema from '@/validators/schemas/git-workflow/pull-requests.schema.json';
 import ticketsSchema from '@/validators/schemas/git-workflow/tickets.schema.json';
@@ -15,7 +16,9 @@ import { SchemaValidator } from '@/validators/validator.js';
 import { DEFAULT_TRACKER_PATTERNS, defaultGitWorkflow } from './defaults.js';
 import {
   GIT_WORKFLOW_FILES,
+  type ApproveBy,
   type BranchType,
+  type DesignSignOffLane,
   type GitWorkflowFile,
   type GitWorkflowIssue,
   type GitWorkflowLoadResult,
@@ -38,6 +41,7 @@ export const GIT_WORKFLOW_SCHEMAS: Readonly<Record<GitWorkflowFile, SchemaNode>>
   'commits.yaml': commitsSchema as SchemaNode,
   'pull-requests.yaml': pullRequestsSchema as SchemaNode,
   'enforcement.yaml': enforcementSchema as SchemaNode,
+  'design-sign-off.yaml': designSignOffSchema as SchemaNode,
 };
 
 export function gitWorkflowDir(projectRoot: string): string {
@@ -126,6 +130,7 @@ function mergeGitWorkflow(
   const c = raw['commits.yaml'] ?? {};
   const p = raw['pull-requests.yaml'] ?? {};
   const e = raw['enforcement.yaml'] ?? {};
+  const s = raw['design-sign-off.yaml'] ?? {};
 
   const template = stringOr(b.template, defaults.branches.template);
   const base = defaults.branches.base_branch;
@@ -195,6 +200,34 @@ function mergeGitWorkflow(
       agents: (e.agents as 'warn' | 'block' | undefined) ?? defaults.enforcement.agents,
       people: (e.people as 'warn' | 'block' | 'off' | undefined) ?? defaults.enforcement.people,
     },
+    design_sign_off: resolveDesignSignOff(s, defaults.design_sign_off),
+  };
+}
+
+function resolveDesignSignOff(
+  raw: Raw,
+  defaults: ResolvedGitWorkflow['design_sign_off'],
+): ResolvedGitWorkflow['design_sign_off'] {
+  const channel = isRecord(raw.approval_channel) ? raw.approval_channel : {};
+  const format = isRecord(raw.format) ? raw.format : {};
+  return {
+    enabled: boolOr(raw.enabled, defaults.enabled),
+    lanes: stringList(raw.lanes, defaults.lanes) as DesignSignOffLane[],
+    approval_channel: {
+      server: stringOr(channel.server, defaults.approval_channel.server, true),
+      channel: stringOr(channel.channel, defaults.approval_channel.channel, true),
+    },
+    format: {
+      summary_max_words: numberOr(format.summary_max_words, defaults.format.summary_max_words),
+      detail_max_words: numberOr(format.detail_max_words, defaults.format.detail_max_words),
+    },
+    wait_for_approval: boolOr(raw.wait_for_approval, defaults.wait_for_approval),
+    approve_by: (raw.approve_by as ApproveBy | undefined) ?? defaults.approve_by,
+    approve_words: stringList(raw.approve_words, defaults.approve_words),
+    approvers: stringList(raw.approvers, defaults.approvers),
+    move_to_on_post: stringOr(raw.move_to_on_post, defaults.move_to_on_post, true),
+    approved_status: stringOr(raw.approved_status, defaults.approved_status, true),
+    allow_skip_with_reason: boolOr(raw.allow_skip_with_reason, defaults.allow_skip_with_reason),
   };
 }
 

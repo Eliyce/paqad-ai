@@ -236,12 +236,17 @@ export function convertDeliveryPolicy(raw: Plain, options: { baseBranch: string 
       'commits.yaml': commits,
       'pull-requests.yaml': pulls,
       'enforcement.yaml': enforcement,
+      'design-sign-off.yaml': render('design-sign-off.yaml'),
     },
     lines,
   };
 }
 
 const NOT_GIT_WORKFLOW_KEYS = new Set(['paqad_version', 'schema_version', 'ai_attribution']);
+
+export const NOT_MOVED_FILES: readonly GitWorkflowFile[] = ['design-sign-off.yaml'];
+
+const MOVED_FILES = GIT_WORKFLOW_FILES.filter((file) => !NOT_MOVED_FILES.includes(file));
 
 function readSettings(path: string): Plain | null {
   if (!existsSync(path)) return null;
@@ -254,7 +259,7 @@ function readSettings(path: string): Plain | null {
 }
 
 export function gitWorkflowFilesAbsent(projectRoot: string): boolean {
-  return GIT_WORKFLOW_FILES.every((file) => {
+  return MOVED_FILES.every((file) => {
     const settings = readSettings(gitWorkflowFilePath(projectRoot, file));
     return (
       settings === null || Object.keys(settings).every((key) => NOT_GIT_WORKFLOW_KEYS.has(key))
@@ -279,7 +284,7 @@ export function deliveryMovePending(projectRoot: string): boolean {
 }
 
 export function deliveryMoveBlocks(projectRoot: string): string[] {
-  return GIT_WORKFLOW_FILES.flatMap((file) => {
+  return MOVED_FILES.flatMap((file) => {
     const line = renderWriteBlock(
       readTextIfExistsSync(gitWorkflowFilePath(projectRoot, file)) ?? '',
       `${PATHS.GIT_WORKFLOW_DIR}/${file}`,
@@ -320,26 +325,32 @@ export function migrateDeliveryPolicy(
 
   mkdirSync(gitWorkflowDir(projectRoot), { recursive: true });
   const written: string[] = [];
+  const targets = GIT_WORKFLOW_FILES.filter(
+    (file) =>
+      !NOT_MOVED_FILES.includes(file) || !existsSync(gitWorkflowFilePath(projectRoot, file)),
+  );
   if (!oldFileReadable(raw)) {
-    for (const file of GIT_WORKFLOW_FILES) {
+    for (const file of targets) {
       const path = gitWorkflowFilePath(projectRoot, file);
       writeFileSync(path, renderDefaultGitWorkflowFile(file, { baseBranch }), 'utf8');
       written.push(path);
     }
-    stampLastApplied(projectRoot, GIT_WORKFLOW_FILES, { version, now: options.now });
+    stampLastApplied(projectRoot, targets, { version, now: options.now });
     return { ran: true, lines: [UNREADABLE_MESSAGE], written, deleted: false };
   }
 
   const converted = convertDeliveryPolicy(raw, { baseBranch });
   keepAiAttribution(projectRoot, converted.files);
   const lines: string[] = [];
-  for (const file of GIT_WORKFLOW_FILES) {
+  for (const file of targets) {
     const path = gitWorkflowFilePath(projectRoot, file);
     writeFileSync(path, converted.files[file], 'utf8');
     written.push(path);
-    lines.push(`Moved delivery rules into ${PATHS.GIT_WORKFLOW_DIR}/${file}.`);
+    if (!NOT_MOVED_FILES.includes(file)) {
+      lines.push(`Moved delivery rules into ${PATHS.GIT_WORKFLOW_DIR}/${file}.`);
+    }
   }
-  stampLastApplied(projectRoot, GIT_WORKFLOW_FILES, { version, now: options.now });
+  stampLastApplied(projectRoot, targets, { version, now: options.now });
   rmSync(oldPath);
   return {
     ran: true,

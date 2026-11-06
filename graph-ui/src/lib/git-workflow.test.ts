@@ -13,6 +13,7 @@ describe('git-workflow tabs', () => {
       'commits.yaml',
       'pull-requests.yaml',
       'enforcement.yaml',
+      'design-sign-off.yaml',
     ]);
   });
 

@@ -727,6 +727,7 @@ describe('startDashboardServer', () => {
         'commits.yaml',
         'pull-requests.yaml',
         'enforcement.yaml',
+        'design-sign-off.yaml',
       ]);
 
       const put = await fetch(`${server!.url}/api/config/git-workflow/commits.yaml`, {
