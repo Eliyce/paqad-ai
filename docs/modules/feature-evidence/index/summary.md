@@ -145,7 +145,9 @@ any turn the session-ownership check skips (see below).
   excluding any bundle that was ever closed, so no other session adopts a reopened change.
   No owned rows skips the turn (`not-owner`). An owner that wrote a row since the
   turn's `turn_started_at` stamp (in the per-session workflow-state) is checked; an owner
-  on a non-feature route with no row this turn is skipped (`detour`). CLI stage rows carry
+  on a non-feature route with no row this turn is skipped (`detour`). An open change proven
+  to have no changed files, with no stage past specification, no stage ended this turn and
+  no rows from this session this turn on another change, is skipped (`empty-change`). CLI stage rows carry
   `session_source` (`host` / `env` / `cache`), and a `cache` row never counts as this
   turn's edit, since the shared cache file may name another live session. The work of the
   session's own stage agents counts too: in the unclosed bundle this session's
@@ -493,9 +495,12 @@ no git process; a change with no recorded branch qualifies only while HEAD is at
 detached HEAD never qualifies); and this session wrote one of its rows since the current
 feature-development episode began, or started a stage it has not ended (so a "continue" keeps the
 card). Otherwise `scope` is `{ qualified: false, reason }` with the reason
-`not-feature-route`, `no-active-change`, `closed`, `other-branch` or `no-row-this-episode`, and
-the change fields are empty: no stages, table, gates, claims, flags, ship, verdict, cost or
+`not-feature-route`, `no-active-change`, `no-change-yet`, `closed`, `other-branch` or
+`no-row-this-episode`, and the change fields are empty: no stages, table, gates, claims, flags, ship, verdict, cost or
 decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-ownership.ts`.
+With no active change, `no-change-yet` means the turn has a stamp and this session wrote no row in
+any bundle since it. That tells the first turn of feature work apart from a turn whose change has
+already finished, and the mod draws Paqad Getting Ready only for this reason.
 
 - **Verdict.** `HudVerdictRecord` carries the `change` it was written for (from
   `currentFeature`). A verdict shows only when it names this change and was written at or after
@@ -581,8 +586,9 @@ network, and starts no process.
 - **What the band shows.** On the feature-development route, one card with a header (brand,
   change chip, headline, verdict, flag chip, lane, tokens, Proof, minimise and close) and three
   instruments: STAGE, HIGH TABLE (not on the fast lane) and SHIP. Before the first snapshot is
-  read it shows only the header, `paqad  Getting ready`; once read, nothing is drawn until a
-  change opens. Any other workflow gets one status line with its own tokens instead of a band, and
+  read it shows only the header, `paqad  Getting ready`. Once read, with no change yet this turn,
+  it shows the Paqad Getting Ready card on Desktop and one line in the terminal. With no change
+  after that, such as when one has finished, nothing is drawn. Any other workflow gets one status line with its own tokens instead of a band, and
   no workflow gets nothing. The band can be minimised, closed for the session or hidden in this
   project, and comes back with `/paqad show`; while it is out of the way and something waits on
   you, its line turns amber and reads Waiting for your answer.

@@ -45,7 +45,9 @@ this audit row is the only thing a disabled Stop writes, with no `completion-def
 - **`non-feature-skip-audit.ts`.** It mirrors the disabled-session audit: one best-effort row per
   session when the completion backstop skips verification. The row carries the routed workflow
   and why it skipped: `not-owner` (the session owns no change), `detour` (an owner on a
-  non-feature turn that edited nothing), or the default `non-feature-route`.
+  non-feature turn that edited nothing), `empty-change` (an open change proven to have no changed
+  files, not yet past specification, with no rows from this session this turn on another change),
+  or the default `non-feature-route`.
 - **`project-ledger.ts`.** Some stores are project snapshots (delivery detection, rule compliance)
   rather than per-conversation records. They ride the same substrate under a sentinel "session",
   one row per producer run, and the latest matching row is the current state. Writes are

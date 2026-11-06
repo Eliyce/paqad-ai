@@ -48,8 +48,12 @@ from turning into a nuisance:
   rows of its own in an unclosed bundle (or in the closed-then-reopened bundle its
   control points at) is skipped with the audit reason `not-owner`,
   so a question in a second session is never held to another session's change. An
-  owner on a non-feature turn that edited nothing this turn is skipped as `detour`.
-  Both skips are logged by `src/session-ledger/non-feature-skip-audit.ts`. This
+  owner on a non-feature turn that edited nothing this turn is skipped as `detour`. An open
+  change proven to have no changed files, with no stage past specification and no stage
+  ended this turn, and where this session wrote no rows this turn on another change, is
+  skipped as `empty-change`, and is checked once it has edits. If the
+  file set cannot be proven, the change is still checked.
+  All three skips are logged by `src/session-ledger/non-feature-skip-audit.ts`. This
   replaced an older guess, which tried to prove "not feature-development" from
   state every session shares.
 
@@ -97,7 +101,7 @@ and the verdict (word, kind, passed, reasons) to `.paqad/session/hud/<session>.v
 through `writeHudReceipt` in `src/hud/receipt-file.ts`. A failed write is logged to
 `.paqad/logs/hook-failures.log` and never changes the `{decision:'block'}` or the exit code.
 
-A turn whose check was skipped writes neither file. The not-owner and detour
+A turn whose check was skipped writes neither file. The not-owner, detour and empty-change
 skip verdict carries `applicable: false`, and `writeHudReceipt` returns null for it, and for
 any verdict with no gates and no decided kind, which would otherwise read as Safe to merge.
 The previous HUD files stay as they were, so a question asked after a graded change keeps
@@ -284,7 +288,12 @@ report (strict mode with a deterministic finding), so the default warn bake-in n
 **`gates/implementation-review.ts`.** The anchoring check is deliberately blunt: it searches every
 field the recorded review filled, asking "did the reviewer look at this place?", not whether the
 prose is good. Only deterministic, file-anchored, high-severity rows can trigger it, so a change
-with no machine findings behaves as before.
+with no machine findings behaves as before. Rule and duplication rows count only for the change's
+own files (`change_own_files` on the verification context, filtered by `scopeFindingsToChange`).
+Those include files the change committed, even if they were dirty when it opened. A change with no
+files of its own and no stage row past specification (`change_past_specification`) reads not
+required, so it never fails on findings from other work; past specification it is still judged.
+Failing tests are not filtered, and an unproven file set filters nothing.
 
 **`gates/module-docs-structure.ts`.** A flat `docs/modules/<module>/features/<feature>.md` layout
 is accepted once a flat doc not part of this change already exists, because then the change did

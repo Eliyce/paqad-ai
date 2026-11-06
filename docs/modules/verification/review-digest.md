@@ -70,9 +70,24 @@ With no machine findings on record, the gate behaves exactly as it did before th
 feature, and the pre-existing decision-violation failure still fires ahead of the
 anchoring check.
 
+## Only the change's own files
+
+A change is judged only on its own files. `scopeFindingsToChange` drops rule and duplication rows
+anchored to a file the change did not touch, measured from the change's start point by
+`activeChangeFiles`. A file the change committed counts as its own even if it was already dirty
+when the change opened. The gate, the digest and the review record all use this one filter, so they
+agree. Failing tests and gate rows always stay, as does a row with no file or a file outside the
+project.
+
+When the file set cannot be proven (no active change, a detached HEAD, another branch, or no real
+start point), nothing is filtered. When the set is proven empty and the change has no stage row
+past specification, the gate reads not required, with the reason
+`no files changed in this change yet`. Past specification, an empty set is still judged.
+
 ## Honest limits
 
-- The changed-file header comes from `loadChangeEvidence`, which reads git alone:
+- When the change's own files are known, the changed-file header lists them. Otherwise it comes from
+  `loadChangeEvidence`, which reads git alone:
   the working-tree changes plus every file committed on the branch since it
   left `main` or `master`, exactly as the completion gates see the change. The old
   `.paqad/session/changed-files.json` cache is never read, so a leftover copy can neither
@@ -119,6 +134,7 @@ anchoring check.
 - `src/review-digest/write.ts` — reads the cached inputs and persists the digest.
 - `src/cli/commands/review.ts` — the `paqad-ai review digest` verb.
 - `src/verification/gates/implementation-review.ts` — the tightened gate.
+- `src/pipeline/change-evidence.ts`: `activeChangeFiles`, the change's own file list.
 
 ## Authority
 

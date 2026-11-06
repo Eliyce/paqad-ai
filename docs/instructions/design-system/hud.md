@@ -156,8 +156,24 @@ strip, no `−` and no `×`. With no workflow nothing is drawn.
 ### Ready row
 
 Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`, and no Ledger.
+`Ready` stays as the first word on screen, because at that point paqad has read nothing and cannot
+yet say the work is a feature.
+
+### Paqad Getting Ready card
+
+Once the snapshot says the session is on the feature route and this session has written no row of
+any change since the current turn started (the scope reason `no-change-yet`), the band draws the
+normal feature card, so the first turn of feature work never looks idle. The identity row reads
+`Feature development`, plus the lane when one is recorded. The headline is `Paqad Getting Ready`
+with the idle light and no clock, every stage is grey, and nothing is flagged. It uses the same
+minimise and close controls, and it minimises by itself when fewer than 40 columns or too few rows
+are free. A route written before the prompt just sent belongs to the previous turn, so this card
+waits for the fresh snapshot.
 
 ### Ledger
+
+While the Paqad Getting Ready card shows, the Ledger holds no tabs, only the words
+`No change is in progress.`, because there is no proof to show yet.
 
 Opened with the title `paqad Ledger`, on Trust. The `Ledger` Button toggles it and the flags open it
 on Trust; the brand text and the strip image are not pressable (R16).
@@ -239,11 +255,15 @@ changes classes, and the glow and sheen show only while running.
 The band resolves its state from the snapshot and the mod's live session state in this order; the
 first match wins. `signal` picks the light's colour; live states breathe and show the clock. State 1
 still draws the identity row with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can
-give the reason. A feature route with no change open draws nothing. While a newer turn runs, a
+give the reason. A feature route with no change open draws the Paqad Getting Ready card when this
+session has written no change row this turn, and nothing otherwise, such as after a change has
+finished. While a newer turn runs, a
 verdict written before that turn started is skipped (rows 12, 13 and 16), so the running stage
 leads. The same holds while a stage runs in a live stage agent of the change: nothing is asked of
 the person, so a verdict written meanwhile never leads over the running stage. A stage left running
-with no live agent still shows its verdict. The verdict words stay as they are in the receipt and
+with no live agent still shows its verdict. Between `prompt.submit` and `turn.start` an older
+verdict is not held back, and a new prompt clears a leftover turn id so `turn.start` keeps the
+prompt's time stamp. The verdict words stay as they are in the receipt and
 the Ledger. A rule stop is never a
 row: Claude handles it, and the Trust tab keeps it as history.
 
@@ -316,7 +336,9 @@ was current, kept per change by the mod because the engine gives no start time a
 agents. With nothing running the normal headline and its rows come back.
 
 With paqad off nothing is drawn. The terminal keeps its own headline, except that its idle header
-says `Getting ready`.
+says `Getting ready`. On the feature route with no change yet, the terminal draws one line in place
+of the card: `paqad  Feature development · Getting ready`. It draws nothing while the band is closed
+or hidden.
 
 ### Trust tab
 

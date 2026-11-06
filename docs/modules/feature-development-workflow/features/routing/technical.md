@@ -9,6 +9,8 @@
 | Deterministic prompt classifier | `src/pipeline/pre-classifier.ts` |
 | Prompt route seam and notification detection | `src/pipeline/prompt-lane.ts` |
 | Route correction verb | `src/cli/commands/route.ts` |
+| Shared route write and the move to feature development | `src/pipeline/route-switch.ts` |
+| First-prompt route line and hint | `runtime/hooks/agent-entry-prompt-gate.mjs` |
 | Lane override verb | `src/cli/commands/lane.ts` |
 | Per-session workflow state (active and paused) | `src/pipeline/workflow-state.ts` |
 | "Did this session edit this turn" | `src/pipeline/session-ownership.ts` |
@@ -58,6 +60,21 @@ Each marker must open its own line. A human prompt that quotes one of them inlin
 4. Rewrites the active workflow-state entry. If the target sits in the paused stack, the most recent matching entry is resumed with its plan, spec and lane anchors and taken off the stack. Otherwise a fresh active entry is set and the paused stack is left alone. The mislabelled entry is replaced, never paused.
 5. Updates `.session-route.json`, clears a stashed lane when the new route is not feature development, and appends an `agent-override` row to `.route-overrides.jsonl` in the session's stage-evidence ledger.
 
+## Opening a change moves the route
+
+A wrong first route must not outlast the change it missed. `paqad-ai stage start` and `paqad-ai lane set` move the session to `feature-development` through `writeRouteCorrection`, the same write path `route set` uses.
+
+- The audit row carries the source `stage-start` or `lane-set` instead of `agent-override`. The session prints `**▸ paqad** · route set to feature-development: a change was opened in this session.` once, and nothing when the route is already feature development.
+- The `delivery` and `ticket_intake` stages never move the route.
+- A session id read only from the shared cache never moves the route, because that cache can name another live session. The session must be explicit: `--session`, then `SE_SESSION`, `CLAUDE_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, which Claude Code exports to the agent's shell.
+- A failed move is written to the hooks log and never fails the stage or lane command.
+
+## The first prompt
+
+On the first prompt of a session the prompt gate used to record the route and drop its text, so the agent never saw it. In soft mode the gate now puts the route line ahead of the load directive, followed by a hint that this is the hook's first guess and that the agent should run `paqad-ai route set <workflow>` before any other paqad-ai call if it routes the message elsewhere. Hard mode still writes only the directive.
+
+The `SE_SESSION` line now prints on every route, not only feature development, so a session first routed elsewhere still learns its id.
+
 ## Lanes
 
 `paqad-ai lane set <fast|graduated|full>` writes the lane on the active change's `feature.json` through the monotonic ratchet: it can raise the lane, and a downgrade is refused and reported. A request at or above the current lane records `lane_source: manual`. The end-of-change checks read that recorded lane.
@@ -95,9 +112,16 @@ The reasons below are not obvious from the code.
   "documentation sync" to `documentation-update`. A question is a strong wh-word anywhere, an
   `in short` or `show me` lead, or a trailing `?`, unless it is a polite code request ("can you
   add a logout button?"); auxiliary leads count only through the `?`, so "do the thing" is not
-  a question. It takes the raw request because normalising strips `?`. An explicit "don't code"
-  or a request to write an issue is a project question, unless the same prompt asks to implement
-  something. "migration" is deliberately not a code surface noun, and the word after "label" is
+  a question. It takes the raw request because normalising strips `?`. A message whose first word
+  is `develop` or `develops` is not read as a question, so "develop issue N, ask me where it
+  should go" stays feature work, while "can you develop ..." and "how do we develop ..." are still
+  questions. An explicit "don't code" or a request to write an issue is a project question, unless
+  the same prompt asks to implement something. A request to write an issue works on words, not on
+  the whole message: the create verb must not be negated ("do not create"), where the negation sits
+  right before the verb or one filler word away (actually, even, ever, go, just, really, to, yet),
+  so a "not" in an earlier sentence does not cancel the ask. The ticket noun must sit
+  within four words after it, and the noun must not name a ticket that already exists ("issue N",
+  "ticket ABC 12"). A message that leads with a code verb or `work on` never counts. "migration" is deliberately not a code surface noun, and the word after "label" is
   skipped so "label bug" is not read as a bug.
 - **Specialist phrasings and the uncertain idea.** design-test and rules-analyze (with their
   design-retest and rules-generate companions) are classification workflows of their own, so the
@@ -137,6 +161,9 @@ The reasons below are not obvious from the code.
   means unknown, not non-feature, because only Claude Code's prompt seam writes route state and
   treating its absence as non-feature would stop all Codex and Gemini evidence. This session's
   own route pointer wins over the shared one.
+- **`route-switch.ts`.** `route set`, `stage start` and `lane set` share one route write, so a
+  move also keeps the resume of a paused entry, the stashed-lane rule and the audit row. A move
+  caused by a stage or lane command never blocks that command.
 - **`route-override-log.ts`.** An agent's route correction goes to a session-scoped log, not the
   stage-evidence ledger, because opening a bundle for a correction to a non-feature route would
   defeat the route gate.
@@ -154,7 +181,10 @@ The reasons below are not obvious from the code.
   calls `currentFeature` or `reconcileSessionControl`, so a Stop can never point a session at
   another session's bundle. A row recorded against a session id read from the shared cache file
   never counts, so a CLI call that resolved the wrong session cannot make this one enforce.
-  Older rows use `ts` instead of `recorded_at`.
+  Older rows use `ts` instead of `recorded_at`. A change proven empty, with no stage past
+  specification, no stage ended this turn and no rows from this session this turn on another
+  change, is skipped as `empty-change`. Any doubt about the
+  file set, including an unknown start point, keeps the check on.
 - **`workflow-state.ts`.** Switching pauses the active workflow (it is pushed with its anchors),
   routing to a paused one pops and resumes it, and routing to the same one merges anchors. An
   undefined anchor never overwrites an existing one. A Discovery entry records its run directory
@@ -221,3 +251,5 @@ The reasons below are not obvious from the code.
 - `tests/unit/pipeline/prompt-lane.test.ts`: notification and hand-back detection.
 - `tests/unit/pipeline/session-ownership.test.ts`: `editedDevelopmentThisTurn`.
 - `tests/unit/cli/route.test.ts`: refusal, the unresolved-session path and resume of a paused entry.
+- `tests/unit/cli/stage.test.ts` and `tests/unit/cli/lane.test.ts`: opening a change moves the route, and a session from the shared cache does not.
+- `tests/e2e/hud-first-turn.e2e.test.ts`: the first turn of feature work from prompt to HUD.

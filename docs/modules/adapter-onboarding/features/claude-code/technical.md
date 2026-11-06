@@ -301,7 +301,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   number, else the ticket, else the last six characters of the ULID), the headline, then on the
   right the verdict chip (a fresh verdict only), one amber flag chip, the lane, the tokens chip,
   a `Proof` Button, `– Minimise` and `× Close`. Before the first snapshot is read the card shows the
-  header only, `paqad  Getting ready`; with a snapshot but no change open, nothing is drawn. The body comes from `BAND_BODIES`, a
+  header only, `paqad  Getting ready`. With a snapshot on the feature route whose scope reason is
+  `no-change-yet`, it draws one line, `paqad  Feature development · Getting ready`, unless the band is
+  closed or hidden; with any other reason and no change open, nothing is drawn. The body comes from `BAND_BODIES`, a
   per-workflow registry in `shell.ts` that only feature development fills; the shell imports no
   body code.
 - **Instruments.** STAGE shows eight labelled cells (Intake Plan Spec Build Review Checks Docs
@@ -393,6 +395,13 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   when the merge is ready. Record lists the events in local time, and Cost the total, each stage
   and each seat. Another workflow gets only its light and its cost. The `Ledger` Button toggles the
   pane on Trust and the flags open it on Trust; the brand and the strip open nothing on Desktop.
+- **Paqad Getting Ready on Desktop.** With the `no-change-yet` scope reason, `desktop-view.ts`
+  returns a `ready-feature` band. It has the same shape as the feature card and `desktop-band.tsx`
+  draws it the same way: identity `Feature development` plus any recorded lane, the headline
+  `Paqad Getting Ready`, and every stage grey. It minimises below 40 columns or when too few rows
+  are free. A route from before the current turn draws nothing. The Ledger gets a `no-change` view
+  with only the words `No change is in progress.`, and no tabs. `readyFeatureRoute` and
+  `routeFromEarlierTurn` in `status-entry.ts` make these checks for both hosts.
 - **Mod API limits.** Buttons hold only strings and Text, so an instrument opens its tab from its
   title, not from the whole box. `$.ui.ask` takes plain option labels and a header of at most 12
   characters, so the close question uses the header `Close band?` and carries the spec's full
@@ -435,6 +444,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   subcommands and writes the refusal to the debug log only; every hint (`slash()` in
   `command-name.ts`) then names `/paqad-hud`. If both are refused the HUD still draws and nothing
   escapes the hook. `/paqad delivery` is an alias of `/paqad ships`.
+- **Session id.** The prompt gate prints the `SE_SESSION` line on every route. The
+  `CLAUDE_CODE_SESSION_ID` that Claude Code exports counts as an explicit session in `stage` and
+  `lane` commands, while an id from the shared cache alone still does not move the route.
 - **Task list.** On a feature-development prompt the prompt gate prints the lane's task-list
   sentence next to the `SE_SESSION` line (Plan, Spec, Load rules, Build, Review, Checks, Docs; the
   fast lane Plan, Build, Checks). The mod's `tool.call` hook on `mcp__ccd_turn__update_plan`

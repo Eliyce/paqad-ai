@@ -51,7 +51,10 @@ eval, never a per-answer causal claim.
   edit could read an earlier session's id and mint its bundle under it, while the edit gate keys on
   the real host id, which orphans the bundle and blocks the edit. A host id passed to
   `resolveSessionId` is also cached, so a later reader with no hint resolves the same id, matching
-  the hooks' own resolver. Cache writes are best-effort.
+  the hooks' own resolver. Cache writes are best-effort. `explicitSessionHint` gives the session a
+  command was told about: `--session`, then `SE_SESSION`, `CLAUDE_SESSION_ID` and
+  `CLAUDE_CODE_SESSION_ID`. It never reads the cache, so callers can tell a named session from a
+  cached one.
 
 - **`runtime/scripts/rag-evidence-record.mjs`.** The prompt seam runs from the global hook install,
   which may have no compiled `dist`, so this small writer produces rows in exactly the format

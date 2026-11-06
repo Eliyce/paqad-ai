@@ -24,7 +24,17 @@ Behaviour:
 
 ## CLI: `paqad-ai lane set <fast|graduated|full>`
 
-Records the lane on the active change's `feature.json`. It can only raise the lane; a downgrade is refused and reported. Takes `--project-root` and `--session` (same defaults as above).
+Records the lane on the active change's `feature.json`. It can only raise the lane; a downgrade is refused and reported. Takes `--project-root` and `--session` (defaults to `SE_SESSION`, then `CLAUDE_SESSION_ID`, then `CLAUDE_CODE_SESSION_ID`, then the shared ledger-session cache).
+
+When one of those flags or variables names the session, not the cache alone, and the route is not already feature development, it also moves the route there, prints the line below and appends a row with `source: "lane-set"`.
+
+## CLI: `paqad-ai stage start <stage>`
+
+Beyond its stage work, this verb moves the route in the same way with `source: "stage-start"` when the session was named by `--session`, `SE_SESSION`, `CLAUDE_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, rather than read from the shared cache. The `delivery` and `ticket_intake` stages never move it.
+
+```
+**▸ paqad** · route set to feature-development: a change was opened in this session.
+```
 
 ## TypeScript
 
@@ -39,6 +49,20 @@ export function isSystemNotificationPrompt(prompt: string): boolean;
 
 // src/pipeline/session-ownership.ts
 export function editedDevelopmentThisTurn(projectRoot: string, sessionId: string): boolean;
+
+// src/pipeline/route-override-log.ts
+export type RouteOverrideSource = 'agent-override' | 'stage-start' | 'lane-set';
+
+// src/pipeline/route-switch.ts
+export const ROUTE_SWITCHED_LINE: string;
+export function writeRouteCorrection(
+  root: string,
+  sessionId: string,
+  target: RoutedWorkflow,
+  audit?: { source?: RouteOverrideSource; reason?: string },
+): RoutedWorkflow | null;
+export function switchRouteToFeatureDevelopment(root: string, sessionId: string, source: RouteOverrideSource): boolean;
+export function announceRouteSwitch(root: string, sessionId: string, source: RouteOverrideSource): void;
 
 // src/cli/commands/route.ts
 export const UNRESOLVED_SESSION_REASON: string;
