@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RVMXHY8RHGEFMMNK7AV6KE",
+  "category": "workflow-or-tool",
+  "title": "How should the other 10 skills and agents get their release records?",
+  "context": "The pilot showed real evals on all 11 can't run as asked. The 9 already-released items hold owner overrides that win in the gate, with no verb to remove them, so a fresh eval would still read overridden. Recipes have no triggers, so S6 measures nothing. The 6 agents' plans price at 120 to 180 dollars unless capped at about 9.60 dollars each; they must reach 0.95 and past samples scored 0.33 and 0.5. decision-pause has no record and needs 3 no-skill baseline runs and a 10-point gain.",
+  "options": [
+    {
+      "option_key": "pause-real-rest-rerecord",
+      "label": "Run decision-pause for real; rerun draft and tests on the 9 and keep their overrides, labelled unverified",
+      "one_line_preview": "Run decision-pause for real; rerun draft and tests on the 9 and keep their overrides, labelled unverified",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "plus-evals-as-evidence",
+      "label": "Same, and also run capped evals on the 9 as evidence, at about 75 dollars; the gate still reads overridden",
+      "one_line_preview": "Same, and also run capped evals on the 9 as evidence, at about 75 dollars; the gate still reads overridden",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pause-real-rest-rerecord",
+  "created_at": "2026-11-06T16:39:09.630Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "pause-real-rest-rerecord",
+  "rationale": "Owner chose this after the pilot showed real evals cannot register on items holding overrides.",
+  "resolved_at": "2026-11-06T16:40:01.339Z",
+  "decision_id": "D-01M6RVMXHY8RHGEFMMNK7AV6KE",
+  "fingerprint": "sha256:12a9ddc4a27db277ebe5e3d601fa877974f6fb5758619da7a2ff8d946a253978",
+  "question": "How should the other 10 skills and agents get their release records?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-13T16:39:09.630Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pause-real-rest-rerecord",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T16:40:01.339Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this after the pilot showed real evals cannot register on items holding overrides."
+  }
+}

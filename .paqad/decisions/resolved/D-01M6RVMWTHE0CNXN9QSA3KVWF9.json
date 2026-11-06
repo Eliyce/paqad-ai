@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6RVMWTHE0CNXN9QSA3KVWF9",
+  "category": "spec.change",
+  "title": "How should the check handle a question an agent words its own way?",
+  "context": "Evals: the check never ran in 26 of 60 question-opening runs, mainly because agents reworded the question and the word match found nothing. On past data, reworded titles scored 0.00 to 0.31 against the 0.5 floor, so word matching cannot detect meaning. A wider floor of 0.3 fires on 44 percent of questions and still misses most rewordings. Within runs where the check ran: 0 wrong suggestions.",
+  "options": [
+    {
+      "option_key": "all-earlier-titles",
+      "label": "For a question an agent opens, always list earlier question titles and let the skill pick up to 5 to read; automated questions keep word matching",
+      "one_line_preview": "For a question an agent opens, always list earlier question titles and let the skill pick up to 5 to read; automated questions keep word matching",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "prompt-line",
+      "label": "Add a line asking agents to keep the wording",
+      "one_line_preview": "Add a line asking agents to keep the wording",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "wider-floor",
+      "label": "Lower the word match floor to 0.3",
+      "one_line_preview": "Lower the word match floor to 0.3",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "all-earlier-titles",
+  "created_at": "2026-11-06T16:39:08.881Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "all-earlier-titles",
+  "rationale": "Owner chose this after the evals showed rewording dodges the word match.",
+  "resolved_at": "2026-11-06T16:40:00.570Z",
+  "decision_id": "D-01M6RVMWTHE0CNXN9QSA3KVWF9",
+  "fingerprint": "sha256:80d4fbddf8a312eafe742951244a4efe17ea57b65d71edaa366ca59ce438eb2f",
+  "question": "How should the check handle a question an agent words its own way?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-12-06T16:39:08.881Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "all-earlier-titles",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T16:40:00.570Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this after the evals showed rewording dodges the word match."
+  }
+}
