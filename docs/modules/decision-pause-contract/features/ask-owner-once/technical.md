@@ -95,9 +95,10 @@ Packets raised before the round carry their change and do not stop work when the
 On the fast lane, or with the spec pipeline off, no round follows, so `plan compile` still asks
 the readiness pause at once. `spec.change` and `spec.contradiction` raised during development
 are always asked straight away. If the owner answers only part of a round, the rest stay
-pending for that change and the next round asks only those. The only answers given without
+pending for that change and the next round asks only those. The answers given without
 asking are a standing answer, a fork already resolved, and the spec pipeline's high-score
-precedent answer. Each of those writes a `paqad.decision-reuse` row.
+precedent answer, each of which writes a `paqad.decision-reuse` row, and an automated caller's
+reuse from the decision index (see [The decision index](#the-decision-index)).
 
 ## Earlier answers
 

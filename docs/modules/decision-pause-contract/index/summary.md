@@ -39,9 +39,12 @@ related-but-not-identical precedents the human still decides.
 
 ### Earlier answers and standing answers
 
-A script lists earlier questions, every eligible title for a question an agent opens and word
-matches for an automated one. The `decision` skill reads up to 5 and judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
-flow, its limits and its evidence rows are on the
+A script lists earlier questions: every eligible title for a question an agent opens, and word
+matches for an automated one. On a title list the `decision` skill reads up to 5 with
+`paqad-ai decision check <id> --read` and judges them for meaning, and a person approves. A
+suggestion never closes a question; once a pause would open, only a standing answer a person
+chose skips it. Older reuse that runs before a pause is unchanged. The flow, its limits and its
+evidence rows are on the
 [Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 
 ### The visual-evidence readiness pause
@@ -159,16 +162,20 @@ reasons below are not obvious from the code.
   the self-arm sees the fork as already resolved instead of opening it again.
 - **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
   model guess.
-- **`decisions/earlier-answers.ts`.** Wording can neither prove nor rule out a match: in the tested
-  history most repeated questions got different answers, and reworded titles scored 0.00 to 0.31
-  against the 0.5 floor. So an agent-opened question lists every eligible title, automated callers
-  keep the word match, and the script never decides: a person approves what the skill suggests. The
-  printed list stops before 24,000 characters and counts what it left out, because a host could
-  otherwise cut it with no sign. A private answer stays out of other categories' lists.
+- **`decisions/earlier-answers.ts`.** The agent suggests and a person approves because a matching
+  rule would too often give the wrong answer. In a replay of past decisions, reusing the answer to
+  a question with the same options and category was wrong 36% of the time, and with the same words
+  and options 19%. Titles are listed because wording cannot find the match either: reworded titles
+  scored 0.00 to 0.31 against the word match's 0.5 floor. So an agent-opened question lists every
+  eligible title, automated callers keep the word match, and the script never decides. The printed
+  list stops before 24,000 characters and `older_omitted` counts what it left out, because a host
+  could otherwise cut it with no sign. The offered ids are dropped when the question resolves,
+  because they are only needed while it is pending. A private answer stays out of other categories'
+  lists.
 - **`decisions/standing-answers.ts`.** A standing answer is a tracked team file, so it can be
   reviewed in a PR and takes effect for everyone once merged. A file that cannot be read is
-  refused rather than overwritten. A stage agent cannot set or remove a rule, so a skipped
-  question always traces back to a person.
+  refused rather than overwritten. A stage agent cannot set or remove a rule through the command,
+  so a rule comes from a person's choice.
 - **`decision-reuse/`.** Every reuse of a resolved decision in a session appends to one unit on
   the session-ledger substrate, along with suggestions and standing-answer changes. Recording is
   best-effort and never breaks the decision flow. The schema lives in `src/`, never under

@@ -25,14 +25,16 @@ lives at [`technical.md`](./technical.md) and the commands at [`api.md`](./api.m
 - **The same disagreement is never asked twice.** If you already answered it, the answer is reused.
 - **A question only holds its own change.** A pending question blocks edits for the change it
   belongs to. Other changes keep moving.
-- **An earlier answer is one click away.** When a new question looks like one you answered
-  before, paqad checks whether that answer still fits and shows it first as
-  `Same as last time: <label> (from D-...)`. Approve it, pick another option, or, when there is
-  room, choose `Always use this answer for this kind of question`.
-- **Only you can make a question go away.** A question is skipped only by a standing answer a
-  person chose. It applies to the whole team once merged and lasts until someone runs
-  `paqad-ai decision standing remove <id>`. Add `--ask-anyway` to `decision create` to be asked
-  this one time.
+- **An earlier answer is one click away.** When an agent opens a question, it sees the titles of
+  the earlier questions, whatever their wording, and reads up to 5 that may be the same question.
+  If one still fits, it appears first as `Same as last time: <label> (from D-...)`. Approve it,
+  pick another option, or, when there is room, choose
+  `Always use this answer for this kind of question`. Automated questions still find earlier
+  answers by matching words.
+- **An agent can suggest, but only a person can approve.** A suggestion never closes a question.
+  To stop being asked, a person chooses a standing answer. It applies to the whole team once
+  merged and lasts until someone runs `paqad-ai decision standing remove <id>`. Add `--ask-anyway`
+  to `decision create` to be asked this one time.
 - **You can see what happened.** The end-of-change receipt can say
   `decisions: 3 earlier answers suggested, 2 accepted, 1 changed; 1 standing answer used`.
 - **Planning stops asking when it is sure.** If paqad is confident about which module a change
@@ -41,9 +43,12 @@ lives at [`technical.md`](./technical.md) and the commands at [`api.md`](./api.m
 
 ## Business Rules
 
-- Nothing in a round is answered for you, apart from a standing answer you chose and the existing
-  reuse of an answer to the same disagreement. If you answer only part of a round, the rest stay pending and the
-  next round asks only those.
+- Nothing is answered for you when a decision pause opens, with one exception: a standing answer
+  a person chose.
+- Some questions never reach a pause, because older reuse still runs first and is unchanged: the
+  answer to the same expert disagreement, a spec question with a close precedent, and an
+  automated question that matches an answer in the decision index.
+- If you answer only part of a round, the rest stay pending and the next round asks only those.
 - On the fast lane, or with the spec pipeline off, there is no round, so the readiness question
   is still asked straight away.
 - Questions raised during development about a spec change or contradiction are always asked at once.

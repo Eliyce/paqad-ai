@@ -168,9 +168,10 @@ feature-development stages are named in §2. Throughout:
 - The **Decision Pause Contract** forces the AI to write a Decision Packet and
   stop for a human at flagged junctions (reuse-vs-create, architecture path, spec
   change, module-slug collision)
-  ([`decision-pause-contract`](decision-pause-contract/index/summary.md)). When a question looks
-  like an earlier one, the `decision` skill suggests that answer for a person to approve. Only a
-  standing answer the person chose skips the question, and each outcome is a
+  ([`decision-pause-contract`](decision-pause-contract/index/summary.md)). When an agent opens a
+  question, the `decision` skill scans the earlier question titles, reads up to 5 and may suggest
+  an earlier answer for a person to approve. Automated questions keep their word match. Once a
+  pause would open, only a standing answer a person chose skips it, and each outcome is a
   `paqad.decision-reuse` evidence row.
 - **Verification gates** (17 of them) decide whether the change may land. They run
   transparently in-pipeline **and again at a git/CI backstop independent of the
