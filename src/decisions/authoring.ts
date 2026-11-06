@@ -14,7 +14,7 @@ import { ulid } from '@/core/ids/ulid.js';
 import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 
-import { richFieldsFor } from './packet-shape.js';
+import { readAnyDecisionPacket, richFieldsFor } from './packet-shape.js';
 
 export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict' | 'fix-proof';
 
@@ -173,8 +173,13 @@ export function resolvePendingDecision(
   };
 
   const resolvedPath = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, id);
-  atomicWriteJson(resolvedPath, withRichFields(resolved));
+  const resolvedFile = withRichFields(resolved);
+  atomicWriteJson(resolvedPath, resolvedFile);
   unlinkSync(pendingPath);
+  const indexable = readAnyDecisionPacket(resolvedFile);
+  if (indexable !== null) {
+    new DecisionStore(projectRoot).recordResolvedInIndex(indexable);
+  }
   return { path: resolvedPath, packet: resolved };
 }
 

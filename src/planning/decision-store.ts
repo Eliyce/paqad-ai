@@ -261,8 +261,9 @@ export class DecisionStore {
     packet: Pick<DecisionPacket, 'fingerprint' | 'category' | 'options'>,
   ): string | null {
     const index = this.readIndex();
+    this.backfillIndex(index);
     const exactDecisionId = index.fingerprints[packet.fingerprint];
-    if (exactDecisionId) {
+    if (exactDecisionId && !this.isWrittenByAuthoring(exactDecisionId)) {
       const exactMatch = this.readReusableDecision(exactDecisionId);
       if (exactMatch) {
         this.appendAudit('decision-reused', exactMatch);
@@ -280,6 +281,9 @@ export class DecisionStore {
         continue;
       }
       if (!packetOptionKeys.includes(entry.chosen_option_key)) {
+        continue;
+      }
+      if (this.isWrittenByAuthoring(entry.decision_id)) {
         continue;
       }
       const resolved = this.readReusableDecision(entry.decision_id);
@@ -300,6 +304,58 @@ export class DecisionStore {
       }
     }
     return bestMatch?.id ?? null;
+  }
+
+  recordResolvedInIndex(resolved: DecisionPacket): void {
+    this.supersedeConflictingDecision(resolved);
+    const index = this.readIndex();
+    index.fingerprints[resolved.fingerprint] = resolved.decision_id;
+    index.decisions[resolved.decision_id] = indexEntryFor(resolved);
+    this.writeIndex(index);
+  }
+
+  private backfillIndex(index: DecisionIndexFile): void {
+    const missing = this.listDirectoryIds(PATHS.DECISIONS_RESOLVED_DIR)
+      .filter((id) => index.decisions[id] === undefined)
+      .map((id) => this.readResolvedOrNull(id))
+      .filter((packet): packet is DecisionPacket => packet !== null)
+      .sort(compareOldestFirst);
+    if (missing.length === 0) {
+      return;
+    }
+    for (const packet of missing) {
+      const entry = indexEntryFor(packet);
+      index.decisions[packet.decision_id] = entry;
+      if (canHoldFingerprint(entry) && this.isNewerThanHolder(index, entry)) {
+        index.fingerprints[entry.fingerprint] = entry.decision_id;
+      }
+    }
+    this.writeIndex(index);
+  }
+
+  private isNewerThanHolder(index: DecisionIndexFile, entry: DecisionIndexEntry): boolean {
+    const holderId = index.fingerprints[entry.fingerprint];
+    const holder = holderId === undefined ? undefined : index.decisions[holderId];
+    return holder === undefined || compareEntries(holder, entry) < 0;
+  }
+
+  private readResolvedOrNull(decisionId: string): DecisionPacket | null {
+    try {
+      return this.readResolved(decisionId);
+    } catch {
+      return null;
+    }
+  }
+
+  private isWrittenByAuthoring(decisionId: string): boolean {
+    try {
+      const raw = JSON.parse(
+        readFileSync(this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, decisionId), 'utf8'),
+      ) as { id?: unknown };
+      return typeof raw.id === 'string';
+    } catch {
+      return false;
+    }
   }
 
   private recordReuseToLedger(packet: DecisionPacket, matchKind: DecisionReuseMatch): void {
@@ -484,7 +540,14 @@ export class DecisionStore {
 
   private readIndex(): DecisionIndexFile {
     this.initialize();
-    return JSON.parse(readFileSync(this.indexPath(), 'utf8')) as DecisionIndexFile;
+    try {
+      const parsed = JSON.parse(
+        readFileSync(this.indexPath(), 'utf8'),
+      ) as Partial<DecisionIndexFile>;
+      return { fingerprints: parsed.fingerprints ?? {}, decisions: parsed.decisions ?? {} };
+    } catch {
+      return { fingerprints: {}, decisions: {} };
+    }
   }
 
   private writeIndex(index: DecisionIndexFile): void {
@@ -516,21 +579,8 @@ export class DecisionStore {
       human_response: input.humanResponse,
     };
     const resolvedPath = this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, resolved.decision_id);
-    this.supersedeConflictingDecision(resolved);
     atomicWriteJson(resolvedPath, resolved);
-
-    const index = this.readIndex();
-    index.fingerprints[resolved.fingerprint] = resolved.decision_id;
-    index.decisions[resolved.decision_id] = {
-      decision_id: resolved.decision_id,
-      fingerprint: resolved.fingerprint,
-      category: resolved.category,
-      chosen_option_key: resolved.human_response?.chosen_option_key ?? null,
-      responded_at: resolved.human_response?.responded_at ?? resolved.created_at,
-      status: resolved.status,
-      option_keys: resolved.options.map((option) => option.option_key).sort(),
-    };
-    this.writeIndex(index);
+    this.recordResolvedInIndex(resolved);
     this.appendAudit(input.event, resolved, input.respondedByProvider);
     recordDecisionResolved(
       this.projectRoot,
@@ -575,6 +625,34 @@ function atomicWriteJson(path: string, value: unknown): void {
   const tempPath = `${path}.tmp`;
   writeFileSync(tempPath, JSON.stringify(value, null, 2) + '\n');
   renameSync(tempPath, path);
+}
+
+function indexEntryFor(packet: DecisionPacket): DecisionIndexEntry {
+  return {
+    decision_id: packet.decision_id,
+    fingerprint: packet.fingerprint,
+    category: packet.category,
+    chosen_option_key: packet.human_response?.chosen_option_key ?? null,
+    responded_at: packet.human_response?.responded_at ?? packet.created_at,
+    status: packet.status,
+    option_keys: packet.options.map((option) => option.option_key).sort(),
+  };
+}
+
+function canHoldFingerprint(entry: DecisionIndexEntry): boolean {
+  return (
+    (entry.status === 'resolved' || entry.status === 'delegated') &&
+    entry.chosen_option_key !== null
+  );
+}
+
+function compareEntries(left: DecisionIndexEntry, right: DecisionIndexEntry): number {
+  const byTime = Date.parse(left.responded_at) - Date.parse(right.responded_at);
+  return byTime !== 0 ? byTime : left.decision_id.localeCompare(right.decision_id);
+}
+
+function compareOldestFirst(left: DecisionPacket, right: DecisionPacket): number {
+  return compareEntries(indexEntryFor(left), indexEntryFor(right));
 }
 
 function isExpired(packet: DecisionPacket): boolean {
