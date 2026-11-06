@@ -458,14 +458,12 @@ describe('paqad-ai decision command', () => {
       return { id, earlier };
     }
 
-    it('AC-1 a decision resolved through the CLI reaches the index', async () => {
-      const id = await answered('Which colour should the banner use');
-      const stored = JSON.parse(
-        readFileSync(join(root, '.paqad/decisions/resolved', `${id}.json`), 'utf8'),
-      );
-      const index = JSON.parse(readFileSync(join(root, '.paqad/decisions/index.json'), 'utf8'));
-      expect(index.fingerprints[stored.fingerprint]).toBe(id);
-      expect(index.decisions[id].chosen_option_key).toBe('b');
+    it('AC-1 a decision resolved through the CLI leaves the index unchanged', async () => {
+      new DecisionStore(root).initialize();
+      const indexPath = join(root, '.paqad/decisions/index.json');
+      const before = readFileSync(indexPath, 'utf8');
+      await answered('Which colour should the banner use');
+      expect(readFileSync(indexPath, 'utf8')).toBe(before);
     });
 
     it('AC-11 accepting the suggestion writes one accepted row with the earlier id and reason', async () => {

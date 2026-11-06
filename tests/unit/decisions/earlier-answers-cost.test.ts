@@ -2,11 +2,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { DecisionStore } from '@/planning/decision-store.js';
+import { findEarlierQuestions } from '@/decisions/earlier-answers.js';
+import { storeOptions } from '../../shared/store-packet.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -14,39 +15,78 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 const FILES = 3000;
+const MATCH_EVERY = 300;
+const QUESTION = 'where should release notes live';
 let root: string;
 
-beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'paqad-earlier-cost-'));
-  const dir = join(root, PATHS.DECISIONS_RESOLVED_DIR);
-  mkdirSync(dir, { recursive: true });
-  for (let index = 0; index < FILES; index += 1) {
-    const id = `D-01J${String(index).padStart(23, '0')}`;
-    writeFileSync(
-      join(dir, `${id}.json`),
-      JSON.stringify({
-        id,
-        category: 'workflow-or-tool',
-        title: index % 600 === 0 ? 'where should release notes live' : `unrelated topic ${index}`,
-        context: 'c',
-        options: [
-          { option_key: 'one', label: 'One' },
-          { option_key: 'two', label: 'Two' },
-        ],
-        recommendation: null,
-        created_at: '2999-06-01T00:00:00.000Z',
-        status: 'resolved',
-        chosen: 'one',
-        rationale: 'r',
-        resolved_at: '2999-06-02T00:00:00.000Z',
-      }),
-    );
-  }
-});
+function idFor(index: number): string {
+  return `D-01J${String(index).padStart(23, '0')}`;
+}
 
-afterEach(() => {
-  rmSync(root, { recursive: true, force: true });
-});
+function resolvedAt(index: number): string {
+  return new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString();
+}
+
+function contractPacket(id: string, title: string, index: number): object {
+  return {
+    id,
+    category: 'workflow-or-tool',
+    title,
+    context: 'c',
+    options: [
+      { option_key: 'one', label: 'One' },
+      { option_key: 'two', label: 'Two' },
+    ],
+    recommendation: null,
+    created_at: '2999-06-01T00:00:00.000Z',
+    status: 'resolved',
+    chosen: 'one',
+    rationale: 'r',
+    resolved_at: resolvedAt(index),
+  };
+}
+
+function storePacket(id: string, question: string, index: number): object {
+  return {
+    decision_id: id,
+    fingerprint: `sha256:${id}`,
+    category: 'component-reuse',
+    question,
+    context: 'c',
+    options: storeOptions(['one', 'two']),
+    confidence: 1,
+    requested_by: 'test',
+    task_session_id: 's',
+    created_at: '2026-01-01T00:00:00.000Z',
+    status: 'resolved',
+    ttl_until: '2999-01-01T00:00:00.000Z',
+    invalidation_watch: [],
+    human_response: {
+      chosen_option_key: 'one',
+      intent: 'explicit',
+      explanation_rounds_used: 0,
+      responded_at: resolvedAt(index),
+      responded_by: 'human',
+      carry_over_scope: 'task',
+    },
+  };
+}
+
+function questionFor(index: number): string {
+  if (index % MATCH_EVERY !== 0) return `unrelated topic number ${index}`;
+  const reordered = QUESTION.split(' ').reverse();
+  return index % (MATCH_EVERY * 2) === 0
+    ? `${QUESTION} ${index}`
+    : `${reordered.join(' ')} ${index}`;
+}
+
+function matchesNewestFirst(): string[] {
+  return Array.from({ length: FILES }, (_, index) => index)
+    .filter((index) => index % MATCH_EVERY === 0)
+    .reverse()
+    .slice(0, 5)
+    .map(idFor);
+}
 
 function readsPerFile(): Map<string, number> {
   const counts = new Map<string, number>();
@@ -59,36 +99,55 @@ function readsPerFile(): Map<string, number> {
   return counts;
 }
 
-describe('AC-49 cost at 3,000 resolved files', () => {
-  it('reads each file at most once per search, and the second backfill reads no packet', () => {
+beforeAll(() => {
+  root = mkdtempSync(join(tmpdir(), 'paqad-earlier-cost-'));
+  const dir = join(root, PATHS.DECISIONS_RESOLVED_DIR);
+  mkdirSync(dir, { recursive: true });
+  for (let index = 0; index < FILES; index += 1) {
+    const id = idFor(index);
+    const isMatch = index % MATCH_EVERY === 0;
+    const useStoreShape = isMatch ? index % (MATCH_EVERY * 2) !== 0 : index % 2 === 1;
+    const packet = useStoreShape
+      ? storePacket(id, questionFor(index), index)
+      : contractPacket(id, questionFor(index), index);
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify(packet));
+  }
+}, 60_000);
+
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+});
+
+describe('AC-49 cost at 3,000 resolved files in both shapes', () => {
+  it('finds the right matches in both shapes, reading each file once in one search', () => {
+    vi.mocked(readFileSync).mockClear();
+    const found = findEarlierQuestions(root, { question: QUESTION });
+    const reads = readsPerFile();
+    expect(reads.size).toBe(FILES);
+    expect(Math.max(...reads.values())).toBe(1);
+    expect(found.map((entry) => entry.id)).toEqual(matchesNewestFirst());
+    expect(new Set(found.map((entry) => entry.category))).toEqual(
+      new Set(['workflow-or-tool', 'component-reuse']),
+    );
+  }, 60_000);
+
+  it('one open through createPendingDecision runs one search', () => {
     vi.mocked(readFileSync).mockClear();
     const { path } = createPendingDecision(root, {
       category: 'ux-pattern',
-      title: 'where should release notes live',
+      title: QUESTION,
       context: 'now',
       options: [
         { option_key: 'one', label: 'One' },
         { option_key: 'two', label: 'Two' },
       ],
     });
-    const opened = readsPerFile();
-    expect(opened.size).toBe(FILES);
-    expect(Math.max(...opened.values())).toBe(1);
+    const reads = readsPerFile();
+    expect(reads.size).toBe(FILES);
+    expect(Math.max(...reads.values())).toBe(1);
     const stored = JSON.parse(readFileSync(path, 'utf8')) as {
       earlier_check: { candidates: string[] };
     };
-    expect(stored.earlier_check.candidates).toHaveLength(5);
-
-    const store = new DecisionStore(root);
-    const lookup = { fingerprint: 'sha256:none', category: 'ux-pattern' as const, options: [] };
-    vi.mocked(readFileSync).mockClear();
-    expect(store.findReusableDecision(lookup)).toBeNull();
-    const first = readsPerFile();
-    expect(first.size).toBe(FILES);
-    expect(Math.max(...first.values())).toBe(1);
-
-    vi.mocked(readFileSync).mockClear();
-    expect(store.findReusableDecision(lookup)).toBeNull();
-    expect(readsPerFile().size).toBe(0);
+    expect(stored.earlier_check.candidates).toEqual(matchesNewestFirst());
   }, 60_000);
 });

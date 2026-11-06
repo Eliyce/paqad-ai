@@ -15,6 +15,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const REQUESTED_BY = 'paqad-decision-cli';
 
+export const STANDING_ANSWER_RESPONDER = 'standing-answer';
+
 export interface ContractPacketFields {
   id: string;
   category: string;

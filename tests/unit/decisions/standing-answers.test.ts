@@ -106,8 +106,19 @@ describe('AC-12 AC-39 a matching rule answers the question', () => {
     expect(audit.map((event) => event.responded_by)).toContain('standing-answer');
     expect(audit.map((event) => event.responded_by)).not.toContain('human');
 
-    const index = JSON.parse(readFileSync(join(root, PATHS.DECISIONS_INDEX), 'utf8'));
-    expect(index.decisions[result.id].chosen_option_key).toBe('yes');
+    expect(audit.map((event) => event.event)).toEqual(['decision-resolved-by-rule']);
+    expect(audit[0]?.provider).toBe('standing-answer');
+    expect(audit[0]?.chosen_option_key).toBe('yes');
+  });
+
+  it('AC-39 a packet answered by a rule leaves the index unchanged', () => {
+    ruleFor();
+    createPendingDecision(root, input());
+    expect(existsSync(join(root, PATHS.DECISIONS_INDEX))).toBe(false);
+    new DecisionStore(root).initialize();
+    const before = readFileSync(join(root, PATHS.DECISIONS_INDEX), 'utf8');
+    createPendingDecision(root, input());
+    expect(readFileSync(join(root, PATHS.DECISIONS_INDEX), 'utf8')).toBe(before);
   });
 
   it('a later rule for the same question replaces the earlier one', () => {

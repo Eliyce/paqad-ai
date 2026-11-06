@@ -18,7 +18,8 @@ import {
   type DecisionSuggestion,
   type EarlierCheck,
 } from '@/planning/decision-packet.js';
-import { DecisionStore, STANDING_ANSWER_RESPONDER } from '@/planning/decision-store.js';
+import { appendDecisionAuditEvent } from '@/planning/decision-audit.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 
 import {
   assertEarlierCheckDone,
@@ -26,7 +27,7 @@ import {
   NO_STANDING_ANSWER_CATEGORIES,
   type DecisionCreateResult,
 } from './earlier-answers.js';
-import { readAnyDecisionPacket, richFieldsFor } from './packet-shape.js';
+import { readAnyDecisionPacket, richFieldsFor, STANDING_ANSWER_RESPONDER } from './packet-shape.js';
 import {
   addStandingAnswer,
   assertNotStageAgent,
@@ -199,9 +200,20 @@ function answerFromStandingRule(
   const path = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, packet.id);
   const file = withRichFields(resolved);
   atomicWriteJson(path, file);
-  const indexable = readAnyDecisionPacket(file);
-  if (indexable !== null) {
-    new DecisionStore(projectRoot).recordResolvedByStandingAnswer(indexable);
+  const written = readAnyDecisionPacket(file);
+  if (written !== null) {
+    appendDecisionAuditEvent(projectRoot, {
+      event: 'decision-resolved-by-rule',
+      decision_id: written.decision_id,
+      fingerprint: written.fingerprint,
+      task_session_id: written.task_session_id,
+      provider: STANDING_ANSWER_RESPONDER,
+      timestamp: resolved.resolved_at,
+      category: written.category,
+      responded_by: STANDING_ANSWER_RESPONDER,
+      chosen_option_key: rule.chosen,
+      intent: written.human_response?.intent,
+    });
   }
   recordDecisionReuse(projectRoot, {
     kind: 'reuse',
@@ -302,13 +314,8 @@ export function resolvePendingDecision(
   };
 
   const resolvedPath = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, id);
-  const resolvedFile = withRichFields(resolved);
-  atomicWriteJson(resolvedPath, resolvedFile);
+  atomicWriteJson(resolvedPath, withRichFields(resolved));
   unlinkSync(pendingPath);
-  const indexable = readAnyDecisionPacket(resolvedFile);
-  if (indexable !== null) {
-    new DecisionStore(projectRoot).recordResolvedInIndex(indexable);
-  }
   recordSuggestionOutcome(projectRoot, {
     forDecision: id,
     category: resolved.category,
