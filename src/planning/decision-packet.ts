@@ -93,6 +93,19 @@ export interface DecisionHumanResponse {
   note?: string;
 }
 
+export interface EarlierCheck {
+  status: 'required' | 'done';
+  candidates: string[];
+  none_reason?: string;
+}
+
+export interface DecisionSuggestion {
+  earlier_id: string;
+  option_key: string;
+  reason: string;
+  at: string;
+}
+
 export interface DecisionPacket {
   decision_id: string;
   fingerprint: string;
@@ -112,6 +125,8 @@ export interface DecisionPacket {
   human_response?: DecisionHumanResponse;
   ttl_until: string;
   invalidation_watch: string[];
+  earlier_check?: EarlierCheck;
+  suggestion?: DecisionSuggestion;
 }
 
 export type DecisionCategoryTtlOverrides = Partial<Record<DecisionCategory, number>>;

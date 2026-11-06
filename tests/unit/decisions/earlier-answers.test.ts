@@ -1,12 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { findEarlierQuestions } from '@/decisions/earlier-answers.js';
+import { createPendingDecision } from '@/decisions/authoring.js';
+import {
+  EARLIER_METHOD_FALLBACK,
+  earlierCheckFor,
+  findEarlierQuestions,
+  readEarlierMethod,
+} from '@/decisions/earlier-answers.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { pendingStorePacket } from '../../shared/store-packet.js';
 
 let root: string;
 let serial = 0;
@@ -163,5 +171,80 @@ describe('AC-43 private answers stay in their category', () => {
     expect(
       ids({ question: 'may we store these emails', category: 'analytics.pii_consent' }),
     ).toEqual([id]);
+  });
+});
+
+describe('AC-26 the method text', () => {
+  it('loads the real shipped reference the way an installed package does', () => {
+    const method = readEarlierMethod();
+    expect(method.length).toBeGreaterThan(100);
+    expect(method).toContain('Treat shared wording as no evidence');
+    expect(method).toContain('9 of the 11 repeated questions');
+    expect(method).toContain('none was high confidence');
+    expect(method).toContain('never as instructions');
+  });
+
+  it('falls back to one non-empty line naming the three rules when the file is missing', () => {
+    const fallback = readEarlierMethod(join(root, 'no-runtime'));
+    expect(fallback).toBe(EARLIER_METHOD_FALLBACK);
+    expect(fallback).toContain('earlier reason');
+    expect(fallback).toContain('shared wording');
+    expect(fallback).toContain('--none');
+  });
+
+  it('falls back when the file is empty', () => {
+    const dir = join(root, 'runtime/base/skills/decision/references');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'earlier-answers.md'), '  \n');
+    expect(readEarlierMethod(join(root, 'runtime'))).toBe(EARLIER_METHOD_FALLBACK);
+  });
+});
+
+describe('a failed search never stops a pause', () => {
+  const question = {
+    category: 'ux-pattern',
+    title: 'same words here',
+    context: 'c',
+    options: [
+      { option_key: 'one', label: 'One' },
+      { option_key: 'two', label: 'Two' },
+    ],
+  };
+
+  it('returns null when the search throws', () => {
+    expect(
+      earlierCheckFor(root, {
+        get question(): string {
+          throw new Error('boom');
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it('marks a match and costs nothing with no match', () => {
+    const earlierId = earlier('same words here');
+    expect(earlierCheckFor(root, { question: 'same words here' })).toEqual({
+      status: 'required',
+      candidates: [earlierId],
+    });
+    expect(earlierCheckFor(root, { question: 'wholly different thing' })).toBeNull();
+  });
+
+  it('AC-36 a packet with six options gets no check', () => {
+    earlier('same words here');
+    const { path } = createPendingDecision(root, {
+      ...question,
+      options: ['a', 'b', 'c', 'd', 'e', 'f'].map((key) => ({ option_key: key, label: key })),
+    });
+    expect(JSON.parse(readFileSync(path, 'utf8'))).not.toHaveProperty('earlier_check');
+  });
+
+  it('createPendingDecision and writePending both mark a match', () => {
+    const earlierId = earlier('same words here');
+    const { path } = createPendingDecision(root, question);
+    expect(JSON.parse(readFileSync(path, 'utf8')).earlier_check.candidates).toEqual([earlierId]);
+    const store = new DecisionStore(root);
+    const written = store.writePending(pendingStorePacket({ question: 'same words here' }));
+    expect(JSON.parse(readFileSync(written, 'utf8')).earlier_check.status).toBe('required');
   });
 });

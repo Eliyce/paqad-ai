@@ -126,6 +126,13 @@ function resolved(id: string): { status: string; id?: string; title?: string; ch
   return JSON.parse(readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`), 'utf8'));
 }
 
+function markChecked(id: string): void {
+  const path = join(root, PATHS.DECISIONS_PENDING_DIR, `${id}.json`);
+  const packet = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  delete packet.earlier_check;
+  writeFileSync(path, JSON.stringify(packet));
+}
+
 describe('AC-1 resolve keeps the index up to date', () => {
   it('holds the fingerprint and an index.decisions entry with the chosen key', () => {
     const { id } = createPendingDecision(root, input());
@@ -145,10 +152,12 @@ describe('AC-1 resolve keeps the index up to date', () => {
     const first = createPendingDecision(root, input()).id;
     resolvePendingDecision(root, first, 'one');
     const second = createPendingDecision(root, input()).id;
+    markChecked(second);
     resolvePendingDecision(root, second, 'one');
     expect(resolved(first).status).toBe('resolved');
 
     const third = createPendingDecision(root, input()).id;
+    markChecked(third);
     resolvePendingDecision(root, third, 'two');
     expect(resolved(second).status).toBe('superseded');
     expect(readIndex().decisions[second]?.status).toBe('superseded');
@@ -166,6 +175,7 @@ describe('AC-53 a superseded contract-shaped file keeps its identity', () => {
     const first = createPendingDecision(root, input()).id;
     resolvePendingDecision(root, first, 'one');
     const second = createPendingDecision(root, input()).id;
+    markChecked(second);
     resolvePendingDecision(root, second, 'two');
     const file = resolved(first);
     expect(file.status).toBe('superseded');

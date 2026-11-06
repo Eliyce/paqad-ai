@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -263,16 +263,24 @@ describe('findVisualEvidenceWaiver', () => {
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
     packet(DIR);
     const other = packet('other-change-01JABCDEFGHJKMNPQRSTVWXYZ1');
-    resolvePendingDecision(root, other, 'waive');
+    answerChecked(other, 'waive');
     const setup = packet(DIR);
-    resolvePendingDecision(root, setup, 'setup');
+    answerChecked(setup, 'setup');
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
 
     const waived = packet(DIR);
-    resolvePendingDecision(root, waived, 'waive');
+    answerChecked(waived, 'waive');
     expect(findVisualEvidenceWaiver(root, DIR)).toBe(waived);
   });
 });
+
+function answerChecked(id: string, chosen: string): void {
+  const path = join(root, '.paqad/decisions/pending', `${id}.json`);
+  const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  delete stored.earlier_check;
+  writeFileSync(path, JSON.stringify(stored));
+  resolvePendingDecision(root, id, chosen);
+}
 
 describe('visualAcRequiredFiles', () => {
   it('returns the deduped frontend files when visual evidence is on', () => {

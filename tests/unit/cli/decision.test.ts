@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDecisionCommand } from '@/cli/commands/decision.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { pendingStorePacket } from '../../shared/store-packet.js';
 
 describe('paqad-ai decision command', () => {
   let root: string;
@@ -48,6 +50,190 @@ describe('paqad-ai decision command', () => {
     );
     return (JSON.parse(out.join('\n')) as { id: string }).id;
   }
+
+  async function openQuestion(
+    title: string,
+    category = 'finding.triage',
+    ...extra: string[]
+  ): Promise<{ out: string; err: string; output: Record<string, unknown> }> {
+    const { out, err } = await run(
+      'create',
+      '--category',
+      category,
+      '--title',
+      title,
+      '--context',
+      'Why this came up',
+      '--option',
+      'a=Fix A',
+      '--option',
+      'b=Fix B',
+      '--option',
+      'c=Fix C',
+      ...extra,
+    );
+    const text = out.join('\n');
+    return { out: text, err: err.join('\n'), output: JSON.parse(text || '{}') };
+  }
+
+  async function answered(title: string, why = 'The reason then'): Promise<string> {
+    vi.restoreAllMocks();
+    const { output } = await openQuestion(title, 'ux-pattern');
+    const id = output.id as string;
+    vi.restoreAllMocks();
+    await run('resolve', id, 'b', why);
+    vi.restoreAllMocks();
+    return id;
+  }
+
+  function pendingBytes(id: string): string {
+    return readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8');
+  }
+
+  describe('earlier check on open', () => {
+    it('AC-4 prints exactly id and path with no match, and the packet has no check', async () => {
+      await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Where should nightly reports be stored');
+      expect(Object.keys(output).sort()).toEqual(['id', 'path']);
+      expect(JSON.parse(pendingBytes(output.id as string))).not.toHaveProperty('earlier_check');
+    });
+
+    it('AC-5 prints a candidate from another category with its reason and the shipped method', async () => {
+      const earlier = await answered('Which colour should the banner use', 'Matches the brand');
+      const { output } = await openQuestion('Which colour should banner use');
+      const id = output.id as string;
+      const check = output.earlier_check as {
+        required: boolean;
+        candidates: Record<string, unknown>[];
+        method: string;
+        next: string;
+      };
+      expect(existsSync(join(root, '.paqad/decisions/pending', `${id}.json`))).toBe(true);
+      expect(check.required).toBe(true);
+      expect(check.candidates).toHaveLength(1);
+      expect(check.candidates[0]).toMatchObject({
+        id: earlier,
+        category: 'ux-pattern',
+        context: 'Why this came up',
+        chosen: 'b',
+        chosen_label: 'Fix B',
+        why: 'Matches the brand',
+      });
+      expect(check.candidates[0]).not.toHaveProperty('score');
+      expect(check.method).toContain('Treat shared wording as no evidence');
+      expect(check.next).toContain(`paqad-ai decision suggest ${id} --earlier`);
+      expect(JSON.parse(pendingBytes(id)).earlier_check).toEqual({
+        status: 'required',
+        candidates: [earlier],
+      });
+    });
+
+    it('AC-6 refuses resolve while the check is required and leaves the packet pending', async () => {
+      await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Which colour should banner use');
+      const id = output.id as string;
+      const before = pendingBytes(id);
+      vi.restoreAllMocks();
+      const { err } = await run('resolve', id, 'a');
+      expect(err.join('\n')).toBe(
+        `This question has earlier answers to check first. Run paqad-ai decision check ${id}.`,
+      );
+      expect(process.exitCode).toBe(1);
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('AC-38 refuses --other before the write-in reaches the pending file', async () => {
+      await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Which colour should banner use');
+      const id = output.id as string;
+      const before = pendingBytes(id);
+      vi.restoreAllMocks();
+      const { err } = await run('resolve', id, 'x', '--other', 'A new shade');
+      expect(err.join('\n')).toContain('earlier answers to check first');
+      expect(pendingBytes(id)).toBe(before);
+    });
+
+    it('AC-19 refuses a required store-format packet with the file byte-identical', async () => {
+      await answered('Which colour should the banner use');
+      const id = 'D-01J000000000000000000000A9';
+      new DecisionStore(root).writePending(
+        pendingStorePacket({ decision_id: id, question: 'Which colour should banner use' }),
+      );
+      const before = pendingBytes(id);
+      expect(JSON.parse(before).earlier_check.status).toBe('required');
+      const { err } = await run('resolve', id, 'a');
+      expect(err.join('\n')).toContain(`Run paqad-ai decision check ${id}.`);
+      expect(pendingBytes(id)).toBe(before);
+    });
+  });
+
+  describe('AC-24 decision check', () => {
+    it('exits 1 naming the id for an unknown id and for a malformed one', async () => {
+      const unknown = 'D-01J000000000000000000000B1';
+      const { err } = await run('check', unknown);
+      expect(err.join('\n')).toBe(`Decision ${unknown} was not found.`);
+      expect(process.exitCode).toBe(1);
+      vi.restoreAllMocks();
+      process.exitCode = undefined;
+      const malformed = await run('check', '../../etc/passwd');
+      expect(malformed.err.join('\n')).toContain('was not found');
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('exits 1 naming the id for a resolved packet', async () => {
+      const id = await answered('Which colour should the banner use');
+      const { err } = await run('check', id);
+      expect(err.join('\n')).toBe(`Decision ${id} is already resolved.`);
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('exits 0 with required false and the plain block for a packet with no check', async () => {
+      const { output } = await openQuestion('Where should nightly reports be stored');
+      const id = output.id as string;
+      vi.restoreAllMocks();
+      const { out } = await run('check', id);
+      const printed = JSON.parse(out.join('\n'));
+      expect(process.exitCode).not.toBe(1);
+      expect(printed.earlier_check).toEqual({ required: false });
+      expect(printed.question.options.map((entry: { label: string }) => entry.label)).toEqual([
+        'Fix A',
+        'Fix B',
+        'Fix C',
+      ]);
+      expect(printed.question.options[0].resolve).toBe(`paqad-ai decision resolve ${id} a`);
+    });
+
+    it('prints the check and no question while required, for a store-format packet too', async () => {
+      await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Which colour should banner use');
+      vi.restoreAllMocks();
+      const { out } = await run('check', output.id as string);
+      const printed = JSON.parse(out.join('\n'));
+      expect(printed.earlier_check.required).toBe(true);
+      expect(printed).not.toHaveProperty('question');
+    });
+
+    it('names a candidate whose file has gone under missing and drops it from the list', async () => {
+      const earlier = await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Which colour should banner use');
+      rmSync(join(root, '.paqad/decisions/resolved', `${earlier}.json`));
+      vi.restoreAllMocks();
+      const { out } = await run('check', output.id as string);
+      const printed = JSON.parse(out.join('\n'));
+      expect(printed.earlier_check.candidates).toEqual([]);
+      expect(printed.earlier_check.missing).toEqual([earlier]);
+    });
+
+    it('names a candidate whose file no longer holds an answer under missing', async () => {
+      const earlier = await answered('Which colour should the banner use');
+      const { output } = await openQuestion('Which colour should banner use');
+      const path = join(root, '.paqad/decisions/resolved', `${earlier}.json`);
+      writeFileSync(path, '{ "status": "resolved" }');
+      vi.restoreAllMocks();
+      const { out } = await run('check', output.id as string);
+      expect(JSON.parse(out.join('\n')).earlier_check.missing).toEqual([earlier]);
+    });
+  });
 
   it('creates a packet with a minted D-<ULID> id in an onboarded project', async () => {
     const id = await createOne();

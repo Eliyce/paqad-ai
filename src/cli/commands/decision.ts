@@ -7,6 +7,11 @@ import {
   resolvePendingDecision,
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
+import {
+  assertEarlierCheckDone,
+  checkDecision,
+  formatCreateOutput,
+} from '@/decisions/earlier-answers.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { activeChangeKey, resolveActiveChange } from '@/feature-evidence/stage-ledger.js';
 import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
@@ -102,7 +107,7 @@ export function createDecisionCommand(): Command {
           recommendation: options.recommendation ?? null,
           change: activeChangeKey(options.projectRoot, options.session),
         });
-        console.log(JSON.stringify(result, null, 2));
+        console.log(JSON.stringify(formatCreateOutput(options.projectRoot, result), null, 2));
       } catch (error) {
         fail(error instanceof Error ? error.message : String(error));
       }
@@ -119,6 +124,7 @@ export function createDecisionCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((id: string, chosen: string, rationale: string[], options: ResolveOptions) => {
       try {
+        assertEarlierCheckDone(options.projectRoot, id);
         const chosenKey = options.other
           ? addWriteInOption(options.projectRoot, id, options.other)
           : chosen;
@@ -136,6 +142,19 @@ export function createDecisionCommand(): Command {
           });
         }
         console.log(JSON.stringify({ path, chosen: chosenKey }, null, 2));
+      } catch (error) {
+        fail(error instanceof Error ? error.message : String(error));
+      }
+    });
+
+  command
+    .command('check')
+    .description('Print the earlier answers to check first, or the question block once checked')
+    .argument('<id>', 'the D-<ULID> id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((id: string, options: { projectRoot: string }) => {
+      try {
+        console.log(JSON.stringify(checkDecision(options.projectRoot, id), null, 2));
       } catch (error) {
         fail(error instanceof Error ? error.message : String(error));
       }

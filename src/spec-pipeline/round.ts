@@ -12,6 +12,7 @@ export interface RoundPacket {
   category: string;
   title: string;
   recommendation: string | null;
+  earlier_check_required?: true;
 }
 
 export interface RoundMergedClaim {
@@ -63,6 +64,9 @@ export function pendingRoundPackets(projectRoot: string, dirName: string): Round
       category: packet.category,
       title: packet.title,
       recommendation: packet.recommendation,
+      ...(packet.earlier_check?.status === 'required'
+        ? { earlier_check_required: true as const }
+        : {}),
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }

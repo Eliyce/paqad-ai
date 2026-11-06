@@ -128,6 +128,30 @@ describe('one question round per change', () => {
     expect(questionRoundAhead(root, fast)).toBe(false);
   });
 
+  it('AC-45 flags a packet whose earlier check is required, and only that one', () => {
+    const root = tempRoot();
+    const dir = openFix(root, 'ses_flag', 'flag', '01JABCDEFGHJKMNPQRSTVWXYZ6');
+    const earlier = packet(root, 'architecture-path', 'where should reports live', null);
+    resolvePendingDecision(root, earlier, 'a', 'reports stay local');
+    const flagged = packet(
+      root,
+      'workflow-or-tool',
+      'where should reports live',
+      featureChangeKey(dir),
+    );
+    const plain = packet(
+      root,
+      'workflow-or-tool',
+      'unrelated release wording',
+      featureChangeKey(dir),
+    );
+    const round = buildQuestionRound(root, dir);
+    expect(round.packets.find((entry) => entry.id === flagged)?.earlier_check_required).toBe(true);
+    expect(round.packets.find((entry) => entry.id === plain)).not.toHaveProperty(
+      'earlier_check_required',
+    );
+  });
+
   it('a partly answered round asks only what is still pending', () => {
     const root = tempRoot();
     const dir = openFix(root, 'ses_partial', 'partial', '01JABCDEFGHJKMNPQRSTVWXYZ5');

@@ -11,9 +11,15 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
-import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
+import {
+  isStrictDecisionId,
+  type DecisionOptionEvidence,
+  type DecisionSuggestion,
+  type EarlierCheck,
+} from '@/planning/decision-packet.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 
+import { assertEarlierCheckDone, earlierCheckFor } from './earlier-answers.js';
 import { readAnyDecisionPacket, richFieldsFor } from './packet-shape.js';
 
 export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict' | 'fix-proof';
@@ -37,6 +43,8 @@ export interface PendingContractDecision {
   status: 'pending';
   origin?: ContractDecisionOrigin;
   change?: string;
+  earlier_check?: EarlierCheck;
+  suggestion?: DecisionSuggestion;
 }
 
 export interface ResolvedContractDecision extends Omit<PendingContractDecision, 'status'> {
@@ -135,6 +143,16 @@ export function createPendingDecision(
     ...(input.change ? { change: input.change } : {}),
   };
 
+  const check =
+    richFieldsFor(packet) === null
+      ? null
+      : earlierCheckFor(projectRoot, {
+          question: packet.title,
+          excludeId: id,
+          category: packet.category,
+        });
+  if (check !== null) packet.earlier_check = check;
+
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
   atomicWriteJson(path, withRichFields(packet));
   return { id, path };
@@ -152,6 +170,7 @@ export function resolvePendingDecision(
   if (!existsSync(pendingPath)) {
     throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
   }
+  assertEarlierCheckDone(projectRoot, id);
 
   const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
   if (stored.id === undefined && stored.decision_id !== undefined) {

@@ -156,6 +156,16 @@ describe('dashboard approvals', () => {
   });
 
   describe('resolvePauseDecision', () => {
+    it('AC-7 resolves a packet whose earlier check is still required', () => {
+      const store = new DecisionStore(root);
+      store.writePending(makePacket({ earlier_check: { status: 'required', candidates: [WID2] } }));
+      expect(store.readPending(WID)?.earlier_check?.status).toBe('required');
+      expect(
+        resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'make-new' }).status,
+      ).toBe('resolved');
+      expect(store.readResolved(WID)?.earlier_check?.status).toBe('required');
+    });
+
     it('resolves through the agent store and audits the dashboard actor', () => {
       const store = new DecisionStore(root);
       store.initialize();
