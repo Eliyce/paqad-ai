@@ -171,6 +171,20 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    key: 'hld',
+    file: FEATURE_BUNDLE_FILES.hld,
+    required: 'optional',
+    writer: 'paqad-ai hld posted, not-posted, check-approval or skip',
+    validate: 'json',
+  },
+  {
+    key: 'hldMd',
+    file: FEATURE_BUNDLE_FILES.hldMd,
+    required: 'optional',
+    writer: 'paqad-ai hld not-posted or hld posted --file',
+    validate: 'nonempty',
+  },
+  {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
     required: laneHasStage('review'),

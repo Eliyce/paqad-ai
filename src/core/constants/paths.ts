@@ -89,6 +89,7 @@ export const PATHS = {
   BASE_DRIFT_MARKER: '.paqad/session/base-drift.marker',
   BASE_DRIFT_LOCK: '.paqad/locks/base-drift.lock',
   CONTEXT_BUDGET_STATE: '.paqad/session/context-budget.json',
+  HLD_WAITING_INDEX: '.paqad/session/hld-waiting.json',
   CONTEXT_SAVINGS: '.paqad/session/context-savings.json',
   DEDUP_STATS: '.paqad/session/dedup-stats.json',
   HANDOFF_JSON: '.paqad/session/handoff.json',
