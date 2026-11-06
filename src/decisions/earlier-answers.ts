@@ -19,6 +19,10 @@ import { readAnyDecisionPacket } from './packet-shape.js';
 
 export const EARLIER_SCORE_FLOOR = 0.5;
 export const EARLIER_LIMIT = 5;
+export const EARLIER_TITLE_LIMIT = 200;
+export const EARLIER_TITLE_MAX_CHARS = 140;
+export const EARLIER_METHOD_MAX_CHARS = 2000;
+export const EARLIER_OUTPUT_MAX_CHARS = 24000;
 
 export const PRIVATE_ANSWER_CATEGORIES: readonly string[] = [
   'authoring.override',
@@ -32,6 +36,18 @@ export interface EarlierQuestionQuery {
   excludeId?: string;
   category?: string;
   now?: Date;
+}
+
+export interface EarlierTitleQuery {
+  excludeId?: string;
+  category?: string;
+  now?: Date;
+}
+
+export interface EarlierTitle {
+  id: string;
+  category: string;
+  question: string;
 }
 
 export interface EarlierCandidate {
@@ -57,7 +73,7 @@ function questionWords(question: string): Set<string> {
   return new Set(normalizeDecisionQuestion(question).split(' ').filter(Boolean));
 }
 
-function mayBeOffered(packet: DecisionPacket, query: EarlierQuestionQuery): boolean {
+function mayBeOffered(packet: DecisionPacket, query: EarlierTitleQuery): boolean {
   if (packet.decision_id === query.excludeId) return false;
   if (packet.status !== 'resolved' && packet.status !== 'delegated') return false;
   if (!packet.human_response?.chosen_option_key) return false;
@@ -106,16 +122,19 @@ function compareBestFirst(left: EarlierQuestion, right: EarlierQuestion): number
   return byTime !== 0 ? byTime : left.id.localeCompare(right.id);
 }
 
+function eligiblePackets(projectRoot: string, query: EarlierTitleQuery): DecisionPacket[] {
+  const now = (query.now ?? new Date()).getTime();
+  const offered = readResolvedPackets(projectRoot).filter((packet) => mayBeOffered(packet, query));
+  return newestOfEachQuestion(offered).filter((packet) => Date.parse(packet.ttl_until) >= now);
+}
+
 export function findEarlierQuestions(
   projectRoot: string,
   query: EarlierQuestionQuery,
 ): EarlierQuestion[] {
   const words = questionWords(query.question);
   if (words.size === 0) return [];
-  const now = (query.now ?? new Date()).getTime();
-  const offered = readResolvedPackets(projectRoot).filter((packet) => mayBeOffered(packet, query));
-  return newestOfEachQuestion(offered)
-    .filter((packet) => Date.parse(packet.ttl_until) >= now)
+  return eligiblePackets(projectRoot, query)
     .map((packet) => ({
       ...toCandidate(packet),
       score: jaccard(words, questionWords(packet.question)),
@@ -138,6 +157,65 @@ export function earlierCheckFor(
   }
 }
 
+function eligibleTitles(projectRoot: string, query: EarlierTitleQuery): EarlierTitle[] {
+  return eligiblePackets(projectRoot, query)
+    .sort((left, right) => (isNewerAnswer(left, right) ? -1 : 1))
+    .map((packet) => ({
+      id: packet.decision_id,
+      category: packet.category,
+      question: packet.question,
+    }));
+}
+
+export function listEarlierTitles(projectRoot: string, query: EarlierTitleQuery): EarlierTitle[] {
+  return eligibleTitles(projectRoot, query).slice(0, EARLIER_TITLE_LIMIT);
+}
+
+function printedTitle(title: EarlierTitle): EarlierTitle {
+  const points = Array.from(title.question);
+  return points.length > EARLIER_TITLE_MAX_CHARS
+    ? { ...title, question: `${points.slice(0, EARLIER_TITLE_MAX_CHARS).join('')}…` }
+    : title;
+}
+
+function titlesThatFit(id: string, path: string, eligible: EarlierTitle[]): EarlierTitle[] {
+  const empty: PendingCreateOutput = {
+    id,
+    path,
+    earlier_check: titleBlock(id, [], eligible.length),
+  };
+  let used = printDecisionOutput(empty).length;
+  const fit: EarlierTitle[] = [];
+  for (const title of eligible.slice(0, EARLIER_TITLE_LIMIT)) {
+    used += JSON.stringify(printedTitle(title)).length + 1;
+    if (used >= EARLIER_OUTPUT_MAX_CHARS) break;
+    fit.push(title);
+  }
+  return fit;
+}
+
+export interface TitleCheckQuery extends EarlierTitleQuery {
+  excludeId: string;
+  path: string;
+}
+
+export function titleCheckFor(projectRoot: string, query: TitleCheckQuery): EarlierCheck | null {
+  try {
+    const eligible = eligibleTitles(projectRoot, query);
+    if (eligible.length === 0) return null;
+    const fit = titlesThatFit(query.excludeId, query.path, eligible);
+    const omitted = eligible.length - fit.length;
+    return {
+      status: 'required',
+      listed_by: 'titles',
+      candidates: fit.map((title) => title.id),
+      ...(omitted > 0 ? { older_omitted: omitted } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 const METHOD_RELATIVE_PATH = 'base/skills/decision/references/earlier-answers.md';
 
 export const EARLIER_METHOD_FALLBACK =
@@ -146,7 +224,7 @@ export const EARLIER_METHOD_FALLBACK =
 export function readEarlierMethod(runtimeRoot: string = getRuntimeRoot()): string {
   try {
     const text = readFileSync(join(runtimeRoot, METHOD_RELATIVE_PATH), 'utf8').trim();
-    return text === '' ? EARLIER_METHOD_FALLBACK : text;
+    return text === '' || text.length > EARLIER_METHOD_MAX_CHARS ? EARLIER_METHOD_FALLBACK : text;
   } catch {
     return EARLIER_METHOD_FALLBACK;
   }
@@ -193,6 +271,15 @@ export interface EarlierCheckBlock {
   next: string;
 }
 
+export interface EarlierTitlesBlock {
+  required: true;
+  method: string;
+  next: string;
+  older_omitted?: number;
+  missing?: string[];
+  titles: EarlierTitle[];
+}
+
 function readCandidate(projectRoot: string, id: string): EarlierCandidate | null {
   const path = join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`);
   try {
@@ -209,20 +296,68 @@ export function earlierCheckBlock(
   id: string,
   check: EarlierCheck,
 ): EarlierCheckBlock {
-  const candidates: EarlierCandidate[] = [];
-  const missing: string[] = [];
-  for (const candidateId of check.candidates) {
-    const candidate = readCandidate(projectRoot, candidateId);
-    if (candidate) candidates.push(candidate);
-    else missing.push(candidateId);
-  }
+  const { found, missing } = readOffered(projectRoot, check.candidates ?? []);
   return {
     required: true,
-    candidates,
+    candidates: found,
     ...(missing.length > 0 ? { missing } : {}),
     method: readEarlierMethod(),
-    next: `paqad-ai decision suggest ${id} --earlier <D-id> --option <key> --reason <text>, or --none --reason <text>`,
+    next: suggestCommand(id),
   };
+}
+
+function readOffered(
+  projectRoot: string,
+  ids: string[],
+): { found: EarlierCandidate[]; missing: string[] } {
+  const found: EarlierCandidate[] = [];
+  const missing: string[] = [];
+  for (const offeredId of ids) {
+    const candidate = readCandidate(projectRoot, offeredId);
+    if (candidate) found.push(candidate);
+    else missing.push(offeredId);
+  }
+  return { found, missing };
+}
+
+function suggestCommand(id: string): string {
+  return `paqad-ai decision suggest ${id} --earlier <D-id> --option <key> --reason <text>, or --none --reason <text>`;
+}
+
+function titleBlock(
+  id: string,
+  titles: EarlierTitle[],
+  olderOmitted = 0,
+  missing: string[] = [],
+): EarlierTitlesBlock {
+  return {
+    required: true,
+    method: readEarlierMethod(),
+    next: `Read up to ${EARLIER_LIMIT} with paqad-ai decision check ${id} --read <D-id> ... Then ${suggestCommand(id)}`,
+    ...(olderOmitted > 0 ? { older_omitted: olderOmitted } : {}),
+    ...(missing.length > 0 ? { missing } : {}),
+    titles,
+  };
+}
+
+function checkBlockFor(
+  projectRoot: string,
+  id: string,
+  check: EarlierCheck,
+): EarlierCheckBlock | EarlierTitlesBlock {
+  if (check.listed_by !== 'titles') return earlierCheckBlock(projectRoot, id, check);
+  const { found, missing } = readOffered(projectRoot, check.candidates ?? []);
+  const titles = found.map(({ id: earlierId, category, question }) =>
+    printedTitle({ id: earlierId, category, question }),
+  );
+  return titleBlock(id, titles, check.older_omitted, missing);
+}
+
+export function printDecisionOutput(output: object): string {
+  const check = (output as { earlier_check?: object }).earlier_check;
+  return check !== undefined && 'titles' in check
+    ? JSON.stringify(output)
+    : JSON.stringify(output, null, 2);
 }
 
 export const NO_STANDING_ANSWER_CATEGORIES: readonly string[] = [
@@ -323,21 +458,24 @@ export function buildQuestionBlock(id: string, packet: StoredPendingPacket): Que
 }
 
 export type DecisionCheckOutput =
-  | { id: string; earlier_check: EarlierCheckBlock }
+  | { id: string; earlier_check: EarlierCheckBlock | EarlierTitlesBlock }
   | { id: string; earlier_check: { required: false }; question: QuestionBlock };
 
-export function checkDecision(projectRoot: string, id: string): DecisionCheckOutput {
+function requirePendingFile(projectRoot: string, id: string): StoredPendingPacket {
   const packet = readPendingFile(projectRoot, id);
-  if (packet === null) {
-    const resolved =
-      isStrictDecisionId(id) &&
-      existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`));
-    throw new Error(
-      resolved ? `Decision ${id} is already resolved.` : `Decision ${id} was not found.`,
-    );
-  }
+  if (packet !== null) return packet;
+  const resolved =
+    isStrictDecisionId(id) &&
+    existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`));
+  throw new Error(
+    resolved ? `Decision ${id} is already resolved.` : `Decision ${id} was not found.`,
+  );
+}
+
+export function checkDecision(projectRoot: string, id: string): DecisionCheckOutput {
+  const packet = requirePendingFile(projectRoot, id);
   if (packet.earlier_check?.status === 'required') {
-    return { id, earlier_check: earlierCheckBlock(projectRoot, id, packet.earlier_check) };
+    return { id, earlier_check: checkBlockFor(projectRoot, id, packet.earlier_check) };
   }
   return { id, earlier_check: { required: false }, question: buildQuestionBlock(id, packet) };
 }
@@ -374,7 +512,7 @@ export interface ReusedCreateOutput {
 export interface PendingCreateOutput {
   id: string;
   path: string;
-  earlier_check?: EarlierCheckBlock;
+  earlier_check?: EarlierCheckBlock | EarlierTitlesBlock;
 }
 
 function standingSayLine(label: string, ruleId: string): string {
@@ -400,7 +538,7 @@ export function formatCreateOutput(
   return {
     id: result.id,
     path: result.path,
-    earlier_check: earlierCheckBlock(projectRoot, result.id, check),
+    earlier_check: checkBlockFor(projectRoot, result.id, check),
   };
 }
 
@@ -428,10 +566,10 @@ function assertSuggestable(
   const check = packet.earlier_check!;
   if (input.none) return;
   const earlier = input.earlier!;
-  if (!check.candidates.includes(earlier)) {
-    throw new Error(
-      `${earlier} was not offered for ${id}. Offered: ${check.candidates.join(', ')}.`,
-    );
+  const offered = check.candidates ?? [];
+  if (!offered.includes(earlier)) {
+    const list = check.listed_by === 'titles' ? '' : ` Offered: ${offered.join(', ')}.`;
+    throw new Error(`${earlier} was not offered for ${id}.${list}`);
   }
   if (readCandidate(projectRoot, earlier) === null) {
     throw new Error(`${earlier} can no longer be read, so it cannot be suggested for ${id}.`);
@@ -457,8 +595,7 @@ export function suggestEarlierAnswer(
   if (reason === '') {
     throw new Error('A suggestion needs a non-empty --reason.');
   }
-  checkDecision(projectRoot, id);
-  const packet = readPendingFile(projectRoot, id)!;
+  const packet = requirePendingFile(projectRoot, id);
   if (packet.earlier_check === undefined) {
     throw new Error(`Decision ${id} has no earlier answers to check.`);
   }

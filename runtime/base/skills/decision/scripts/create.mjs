@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createPendingDecision, formatCreateOutput } from 'paqad-ai';
+import { createPendingDecision, formatCreateOutput, printDecisionOutput } from 'paqad-ai';
 
 const argv = process.argv.slice(2);
 const projectRoot = argv[0];
@@ -46,8 +46,9 @@ try {
     options,
     recommendation: flags.recommendation,
     askAnyway: flags.askAnyway,
+    agentWorded: true,
   });
-  process.stdout.write(`${JSON.stringify(formatCreateOutput(projectRoot, result), null, 2)}\n`);
+  process.stdout.write(`${printDecisionOutput(formatCreateOutput(projectRoot, result))}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);

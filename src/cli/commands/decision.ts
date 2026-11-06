@@ -12,6 +12,7 @@ import {
   assertEarlierCheckDone,
   checkDecision,
   formatCreateOutput,
+  printDecisionOutput,
   suggestEarlierAnswer,
 } from '@/decisions/earlier-answers.js';
 import {
@@ -121,6 +122,7 @@ export function createDecisionCommand(): Command {
           recommendation: options.recommendation ?? null,
           change: activeChangeKey(options.projectRoot, options.session),
           askAnyway: options.askAnyway === true,
+          agentWorded: true,
         });
         if (result.reused) {
           const active = resolveActiveChange(options.projectRoot, options.session);
@@ -130,7 +132,7 @@ export function createDecisionCommand(): Command {
             });
           }
         }
-        console.log(JSON.stringify(formatCreateOutput(options.projectRoot, result), null, 2));
+        console.log(printDecisionOutput(formatCreateOutput(options.projectRoot, result)));
       } catch (error) {
         failWith(error);
       }
@@ -185,7 +187,7 @@ export function createDecisionCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((id: string, options: { projectRoot: string }) => {
       try {
-        console.log(JSON.stringify(checkDecision(options.projectRoot, id), null, 2));
+        console.log(printDecisionOutput(checkDecision(options.projectRoot, id)));
       } catch (error) {
         failWith(error);
       }

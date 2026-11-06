@@ -25,6 +25,7 @@ import {
   assertEarlierCheckDone,
   earlierCheckFor,
   NO_STANDING_ANSWER_CATEGORIES,
+  titleCheckFor,
   type DecisionCreateResult,
 } from './earlier-answers.js';
 import { readAnyDecisionPacket, richFieldsFor, STANDING_ANSWER_RESPONDER } from './packet-shape.js';
@@ -79,6 +80,7 @@ export interface CreateDecisionInput {
   origin?: ContractDecisionOrigin;
   change?: string | null;
   askAnyway?: boolean;
+  agentWorded?: boolean;
 }
 
 export function mintDecisionId(): string {
@@ -169,19 +171,25 @@ export function createPendingDecision(
       });
   if (rule !== null) return answerFromStandingRule(projectRoot, packet, rule);
 
-  const check =
-    richFieldsFor(packet) === null
-      ? null
-      : earlierCheckFor(projectRoot, {
-          question: packet.title,
-          excludeId: id,
-          category: packet.category,
-        });
+  const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
+  const check = earlierCheckOnOpen(projectRoot, packet, path, input.agentWorded === true);
   if (check !== null) packet.earlier_check = check;
 
-  const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
   atomicWriteJson(path, withRichFields(packet));
   return { id, path };
+}
+
+function earlierCheckOnOpen(
+  projectRoot: string,
+  packet: PendingContractDecision,
+  path: string,
+  agentWorded: boolean,
+): EarlierCheck | null {
+  if (richFieldsFor(packet) === null) return null;
+  const { id: excludeId, category } = packet;
+  return agentWorded
+    ? titleCheckFor(projectRoot, { excludeId, category, path })
+    : earlierCheckFor(projectRoot, { question: packet.title, excludeId, category });
 }
 
 function answerFromStandingRule(

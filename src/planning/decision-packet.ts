@@ -95,7 +95,9 @@ export interface DecisionHumanResponse {
 
 export interface EarlierCheck {
   status: 'required' | 'done';
-  candidates: string[];
+  candidates?: string[];
+  listed_by?: 'titles';
+  older_omitted?: number;
   none_reason?: string;
 }
 

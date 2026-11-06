@@ -81,11 +81,17 @@ describe('paqad-ai decision command', () => {
 
   async function answered(title: string, why = 'The reason then'): Promise<string> {
     vi.restoreAllMocks();
-    const { output } = await openQuestion(title, 'ux-pattern');
-    const id = output.id as string;
-    vi.restoreAllMocks();
-    await run('resolve', id, 'b', why);
-    vi.restoreAllMocks();
+    const { id } = createPendingDecision(root, {
+      category: 'ux-pattern',
+      title,
+      context: 'Why this came up',
+      options: [
+        { option_key: 'a', label: 'Fix A' },
+        { option_key: 'b', label: 'Fix B' },
+        { option_key: 'c', label: 'Fix C' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'b', why);
     return id;
   }
 
@@ -94,41 +100,49 @@ describe('paqad-ai decision command', () => {
   }
 
   describe('earlier check on open', () => {
-    it('AC-4 prints exactly id and path with no match, and the packet has no check', async () => {
-      await answered('Which colour should the banner use');
+    it('AC-4 prints exactly id and path with no earlier answers, and the packet has no check', async () => {
       const { output } = await openQuestion('Where should nightly reports be stored');
       expect(Object.keys(output).sort()).toEqual(['id', 'path']);
       expect(JSON.parse(pendingBytes(output.id as string))).not.toHaveProperty('earlier_check');
     });
 
-    it('AC-5 prints a candidate from another category with its reason and the shipped method', async () => {
+    it('AC-5 a reworded question lists the titles and the method, and --read prints the answer', async () => {
       const earlier = await answered('Which colour should the banner use', 'Matches the brand');
-      const { output } = await openQuestion('Which colour should banner use');
+      const { output } = await openQuestion('Pick a shade for the top strip');
       const id = output.id as string;
       const check = output.earlier_check as {
         required: boolean;
-        candidates: Record<string, unknown>[];
+        titles: Record<string, unknown>[];
         method: string;
         next: string;
       };
       expect(existsSync(join(root, '.paqad/decisions/pending', `${id}.json`))).toBe(true);
       expect(check.required).toBe(true);
-      expect(check.candidates).toHaveLength(1);
-      expect(check.candidates[0]).toMatchObject({
-        id: earlier,
-        category: 'ux-pattern',
-        context: 'Why this came up',
-        chosen: 'b',
-        chosen_label: 'Fix B',
-        why: 'Matches the brand',
-      });
-      expect(check.candidates[0]).not.toHaveProperty('score');
+      expect(check.titles).toEqual([
+        { id: earlier, category: 'ux-pattern', question: 'Which colour should the banner use' },
+      ]);
       expect(check.method).toContain('Treat shared wording as no evidence');
+      expect(check.next).toContain(`paqad-ai decision check ${id} --read`);
       expect(check.next).toContain(`paqad-ai decision suggest ${id} --earlier`);
       expect(JSON.parse(pendingBytes(id)).earlier_check).toEqual({
         status: 'required',
+        listed_by: 'titles',
         candidates: [earlier],
       });
+    });
+
+    it('AC-5 an automated caller with no word match has no check', async () => {
+      await answered('Which colour should the banner use');
+      const { path } = createPendingDecision(root, {
+        category: 'finding.triage',
+        title: 'Pick a shade for the top strip',
+        context: 'Why this came up',
+        options: [
+          { option_key: 'a', label: 'Fix A' },
+          { option_key: 'b', label: 'Fix B' },
+        ],
+      });
+      expect(JSON.parse(readFileSync(path, 'utf8'))).not.toHaveProperty('earlier_check');
     });
 
     it('AC-6 refuses resolve while the check is required and leaves the packet pending', async () => {
@@ -306,9 +320,15 @@ describe('paqad-ai decision command', () => {
       expect(resolved.err.join('\n')).toContain('already resolved');
 
       vi.restoreAllMocks();
-      const plain = (await openQuestion('Where should nightly reports be stored')).output
-        .id as string;
-      vi.restoreAllMocks();
+      const plain = createPendingDecision(root, {
+        category: 'finding.triage',
+        title: 'Where should nightly reports be stored',
+        context: 'Why this came up',
+        options: [
+          { option_key: 'a', label: 'Fix A' },
+          { option_key: 'b', label: 'Fix B' },
+        ],
+      }).id;
       const noCheck = await run('suggest', plain, '--none', '--reason', 'r');
       expect(noCheck.err.join('\n')).toContain('no earlier answers');
 
@@ -599,10 +619,9 @@ describe('paqad-ai decision command', () => {
         '--ask-anyway',
       );
       const id = again.output.id as string;
-      const candidates = (again.output.earlier_check as { candidates: { id: string }[] })
-        .candidates;
+      const titles = (again.output.earlier_check as { titles: { id: string }[] }).titles;
       vi.restoreAllMocks();
-      await run('suggest', id, '--earlier', candidates[0]!.id, '--option', 'b', '--reason', 'Same');
+      await run('suggest', id, '--earlier', titles[0]!.id, '--option', 'b', '--reason', 'Same');
       vi.restoreAllMocks();
       await run('resolve', id, 'x', '--other', 'A new shade');
       expect(rows().at(-1)?.outcome).toBe('changed');
@@ -723,7 +742,7 @@ describe('paqad-ai decision command', () => {
       vi.restoreAllMocks();
       const { out } = await run('check', output.id as string);
       const printed = JSON.parse(out.join('\n'));
-      expect(printed.earlier_check.candidates).toEqual([]);
+      expect(printed.earlier_check.titles).toEqual([]);
       expect(printed.earlier_check.missing).toEqual([earlier]);
     });
 

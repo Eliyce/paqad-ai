@@ -94,6 +94,7 @@ scripts, not `src/`.
 | decisions | src/decisions/authoring.ts | `resolvePendingDecision` | `resolvePendingDecision(projectRoot: string, id: string, chosen: string, rationale?: string, options?: { change? }): { path; packet }` | beta | 1.1.0 | consumed by runtime skill scripts |
 | decisions | src/decisions/authoring.ts | `answerPendingDecision` | `answerPendingDecision(projectRoot: string, id: string, chosen: string, ...)` | beta | 1.123.0 | consumed by runtime skill scripts |
 | decisions | src/decisions/earlier-answers.ts | `formatCreateOutput` | `formatCreateOutput(projectRoot: string, result: DecisionCreateResult)` | beta | 1.123.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/earlier-answers.ts | `printDecisionOutput` | `printDecisionOutput(output: object): string` | beta | 1.123.0 | consumed by runtime skill scripts |
 
 ## Verification consumers
 

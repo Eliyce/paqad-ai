@@ -11,6 +11,9 @@ import { runScript } from '../_helpers/run-script.js';
 const CREATE = 'runtime/base/skills/decision/scripts/create.mjs';
 const RESOLVE = 'runtime/base/skills/decision/scripts/resolve.mjs';
 
+const EVAL_TITLE =
+  'The goal changed mid-build. Update the frozen spec and re-freeze, or keep it as-is?';
+
 let root: string;
 
 beforeEach(() => {
@@ -50,14 +53,15 @@ describe('the decision skill scripts', () => {
     expect(readFileSync(path, 'utf8')).toBe(before);
   });
 
-  it('AC-51 create.mjs prints the same earlier_check block as the CLI', () => {
-    const earlier = answered();
+  it('AC-51 AC-59 create.mjs lists the titles on a reworded question, as the CLI does', () => {
+    const { id } = createPendingDecision(root, { ...question, title: EVAL_TITLE });
+    resolvePendingDecision(root, id, 'b', 'The spec moved');
     const result = runScript(CREATE, [
       root,
       '--category',
       'finding.triage',
       '--title',
-      'Which colour should banner use',
+      'Update frozen spec to cover refunds, or keep it?',
       '--context',
       'Now',
       '--option',
@@ -68,13 +72,28 @@ describe('the decision skill scripts', () => {
     expect(result.status).toBe(0);
     const output = JSON.parse(result.stdout);
     expect(output.earlier_check.required).toBe(true);
-    expect(output.earlier_check.candidates[0]).toMatchObject({
-      id: earlier,
-      chosen: 'b',
-      chosen_label: 'Fix B',
-      why: 'Matches the brand',
-    });
+    expect(output.earlier_check.titles).toEqual([
+      { id, category: 'finding.triage', question: EVAL_TITLE },
+    ]);
     expect(output.earlier_check.method).toContain('Treat shared wording as no evidence');
+    expect(output.earlier_check).not.toHaveProperty('candidates');
+  });
+
+  it('AC-51 create.mjs prints exactly id and path with no earlier answer', () => {
+    const result = runScript(CREATE, [
+      root,
+      '--category',
+      'finding.triage',
+      '--title',
+      question.title,
+      '--context',
+      'Now',
+      '--option',
+      'a=Fix A',
+      '--option',
+      'b=Fix B',
+    ]);
+    expect(Object.keys(JSON.parse(result.stdout)).sort()).toEqual(['id', 'path']);
   });
 });
 

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,8 +12,10 @@ import {
   EARLIER_METHOD_FALLBACK,
   earlierCheckFor,
   findEarlierQuestions,
+  listEarlierTitles,
   NO_STANDING_ANSWER_CATEGORIES,
   readEarlierMethod,
+  titleCheckFor,
   type StoredPendingPacket,
 } from '@/decisions/earlier-answers.js';
 import { DecisionStore } from '@/planning/decision-store.js';
@@ -277,6 +279,51 @@ describe('AC-43 private answers stay in their category', () => {
     expect(
       ids({ question: 'may we store these emails', category: 'analytics.pii_consent' }),
     ).toEqual([id]);
+  });
+});
+
+describe('listEarlierTitles', () => {
+  it('AC-62 returns newest first, leaves out this packet, and moves no file', () => {
+    const older = earlier('first thing', { respondedAt: '2026-01-01T00:00:00.000Z' });
+    const newer = earlier('second thing', { respondedAt: '2026-03-01T00:00:00.000Z' });
+    const self = earlier('third thing', { respondedAt: '2026-04-01T00:00:00.000Z' });
+    earlier('no answer', { chosen: null });
+    expect(listEarlierTitles(root, { excludeId: self })).toEqual([
+      { id: newer, category: 'workflow-or-tool', question: 'second thing' },
+      { id: older, category: 'workflow-or-tool', question: 'first thing' },
+    ]);
+    expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${self}.json`))).toBe(true);
+  });
+
+  it('AC-34 drops an answer past ttl_until and keeps its file in place', () => {
+    const now = new Date('2026-06-01T00:00:00.000Z');
+    const atNow = earlier('at now', { ttl_until: now.toISOString() });
+    const passed = earlier('passed', { ttl_until: '2026-05-31T23:59:59.000Z' });
+    expect(listEarlierTitles(root, { now }).map((title) => title.id)).toEqual([atNow]);
+    expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${passed}.json`))).toBe(true);
+  });
+
+  it('AC-43 lists a private answer only in its own category', () => {
+    const id = earlier('may we store these emails', { category: 'analytics.pii_consent' });
+    expect(listEarlierTitles(root, { category: 'ux-pattern' })).toEqual([]);
+    expect(listEarlierTitles(root, { category: 'analytics.pii_consent' })[0]?.id).toBe(id);
+  });
+
+  it('caps the list at 200', () => {
+    for (let index = 0; index < 201; index += 1) earlier(`question ${index}`);
+    expect(listEarlierTitles(root, {})).toHaveLength(200);
+  });
+
+  it('a title list that cannot be built leaves no check', () => {
+    expect(
+      titleCheckFor(root, {
+        excludeId: 'x',
+        path: 'p',
+        get now(): Date {
+          throw new Error('boom');
+        },
+      }),
+    ).toBeNull();
   });
 });
 
