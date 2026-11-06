@@ -9,12 +9,35 @@ import {
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { recordDecisionReuse, recordSuggestionOutcome } from '@/decision-reuse/index.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
-import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
+import {
+  earlierCheckToKeep,
+  isStrictDecisionId,
+  type DecisionOptionEvidence,
+  type DecisionSuggestion,
+  type EarlierCheck,
+} from '@/planning/decision-packet.js';
+import { appendDecisionAuditEvent } from '@/planning/decision-audit.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 
-import { richFieldsFor } from './packet-shape.js';
+import {
+  assertEarlierCheckDone,
+  earlierCheckFor,
+  NO_STANDING_ANSWER_CATEGORIES,
+  titleCheckFor,
+  type DecisionCreateResult,
+} from './earlier-answers.js';
+import { readAnyDecisionPacket, richFieldsFor, STANDING_ANSWER_RESPONDER } from './packet-shape.js';
+import {
+  addStandingAnswer,
+  assertNotStageAgent,
+  findStandingAnswer,
+  isStandingFileReadable,
+  STANDING_FILE_UNREADABLE,
+  type StandingAnswer,
+} from './standing-answers.js';
 
 export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict' | 'fix-proof';
 
@@ -37,6 +60,8 @@ export interface PendingContractDecision {
   status: 'pending';
   origin?: ContractDecisionOrigin;
   change?: string;
+  earlier_check?: EarlierCheck;
+  suggestion?: DecisionSuggestion;
 }
 
 export interface ResolvedContractDecision extends Omit<PendingContractDecision, 'status'> {
@@ -44,6 +69,7 @@ export interface ResolvedContractDecision extends Omit<PendingContractDecision, 
   chosen: string;
   rationale: string;
   resolved_at: string;
+  responded_by?: string;
 }
 
 export interface CreateDecisionInput {
@@ -54,6 +80,8 @@ export interface CreateDecisionInput {
   recommendation?: string | null;
   origin?: ContractDecisionOrigin;
   change?: string | null;
+  askAnyway?: boolean;
+  agentWorded?: boolean;
 }
 
 export function mintDecisionId(): string {
@@ -115,7 +143,7 @@ function validateCreateInput(input: CreateDecisionInput): string[] {
 export function createPendingDecision(
   projectRoot: string,
   input: CreateDecisionInput,
-): { id: string; path: string } {
+): DecisionCreateResult {
   const errors = validateCreateInput(input);
   if (errors.length > 0) {
     throw new Error(`Cannot create decision packet: ${errors.join('; ')}`);
@@ -135,9 +163,130 @@ export function createPendingDecision(
     ...(input.change ? { change: input.change } : {}),
   };
 
+  const rule = input.askAnyway
+    ? null
+    : findStandingAnswer(projectRoot, {
+        category: packet.category,
+        question: packet.title,
+        optionKeys: packet.options.map((option) => option.option_key),
+      });
+  if (rule !== null) return answerFromStandingRule(projectRoot, packet, rule);
+
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
+  const check = earlierCheckOnOpen(projectRoot, packet, path, input.agentWorded === true);
+  if (check !== null) packet.earlier_check = check;
+
   atomicWriteJson(path, withRichFields(packet));
   return { id, path };
+}
+
+function earlierCheckOnOpen(
+  projectRoot: string,
+  packet: PendingContractDecision,
+  path: string,
+  listTitles: boolean,
+): EarlierCheck | null {
+  if (richFieldsFor(packet) === null) return null;
+  const { id: excludeId, category } = packet;
+  return listTitles
+    ? titleCheckFor(projectRoot, { excludeId, category, path })
+    : earlierCheckFor(projectRoot, { question: packet.title, excludeId, category });
+}
+
+function answerFromStandingRule(
+  projectRoot: string,
+  packet: PendingContractDecision,
+  rule: StandingAnswer,
+): DecisionCreateResult {
+  const resolved: ResolvedContractDecision = {
+    ...packet,
+    status: 'resolved',
+    chosen: rule.chosen,
+    rationale: `Standing answer ${rule.id}`,
+    resolved_at: new Date().toISOString(),
+    responded_by: STANDING_ANSWER_RESPONDER,
+  };
+  const path = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, packet.id);
+  const file = withRichFields(resolved);
+  atomicWriteJson(path, file);
+  const written = readAnyDecisionPacket(file);
+  if (written !== null) {
+    appendDecisionAuditEvent(projectRoot, {
+      event: 'decision-resolved-by-rule',
+      decision_id: written.decision_id,
+      fingerprint: written.fingerprint,
+      task_session_id: written.task_session_id,
+      provider: STANDING_ANSWER_RESPONDER,
+      timestamp: resolved.resolved_at,
+      category: written.category,
+      responded_by: STANDING_ANSWER_RESPONDER,
+      chosen_option_key: rule.chosen,
+      intent: written.human_response?.intent,
+    });
+  }
+  recordDecisionReuse(projectRoot, {
+    kind: 'reuse',
+    decisionId: rule.from_decision,
+    matchKind: 'standing',
+    category: packet.category,
+    chosenOptionKey: rule.chosen,
+    sourcePath: packetPathRelative(packet.id),
+    note: `Standing answer ${rule.id} answered ${packet.id}`,
+    change: packet.change,
+    forDecision: packet.id,
+    ruleId: rule.id,
+  });
+  const label = packet.options.find((option) => option.option_key === rule.chosen)!.label;
+  return { id: packet.id, path, reused: { rule: rule.id, chosen: rule.chosen, label } };
+}
+
+export function assertAlwaysAllowed(projectRoot: string, id: string, other?: string): void {
+  assertNotStageAgent('set a standing answer');
+  if (other) {
+    throw new Error('--always cannot be used with --other: a write-in could never match again.');
+  }
+  const pendingPath = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
+  if (!existsSync(pendingPath)) return;
+  const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
+  if (stored.id === undefined) {
+    throw new Error(
+      `--always is refused for ${id}: rules do not apply to packets opened this way.`,
+    );
+  }
+  if (richFieldsFor(stored as PendingContractDecision) === null) {
+    throw new Error(`--always is refused for ${id}: this question has no stable fingerprint.`);
+  }
+  if (NO_STANDING_ANSWER_CATEGORIES.includes(stored.category ?? '')) {
+    throw new Error(`--always is refused for the category ${stored.category}.`);
+  }
+  if (!isStandingFileReadable(projectRoot)) {
+    throw new Error(STANDING_FILE_UNREADABLE);
+  }
+}
+
+export interface AnswerDecisionOptions {
+  change?: string | null;
+  always?: boolean;
+}
+
+export function answerPendingDecision(
+  projectRoot: string,
+  id: string,
+  chosen: string,
+  rationale = '',
+  options: AnswerDecisionOptions = {},
+): { path: string; packet: ResolvedContractDecision; rule?: StandingAnswer } {
+  if (options.always) assertAlwaysAllowed(projectRoot, id);
+  const result = resolvePendingDecision(projectRoot, id, chosen, rationale, options);
+  if (!options.always) return result;
+  const rule = addStandingAnswer(projectRoot, {
+    category: result.packet.category,
+    question: result.packet.title,
+    optionKeys: result.packet.options.map((option) => option.option_key),
+    chosen,
+    fromDecision: id,
+  });
+  return { ...result, rule };
 }
 
 export function resolvePendingDecision(
@@ -152,6 +301,7 @@ export function resolvePendingDecision(
   if (!existsSync(pendingPath)) {
     throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
   }
+  assertEarlierCheckDone(projectRoot, id);
 
   const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
   if (stored.id === undefined && stored.decision_id !== undefined) {
@@ -165,6 +315,7 @@ export function resolvePendingDecision(
 
   const resolved: ResolvedContractDecision = {
     ...pending,
+    ...(pending.earlier_check ? { earlier_check: earlierCheckToKeep(pending.earlier_check) } : {}),
     ...(pending.change === undefined && options.change ? { change: options.change } : {}),
     status: 'resolved',
     chosen,
@@ -175,6 +326,13 @@ export function resolvePendingDecision(
   const resolvedPath = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, id);
   atomicWriteJson(resolvedPath, withRichFields(resolved));
   unlinkSync(pendingPath);
+  recordSuggestionOutcome(projectRoot, {
+    forDecision: id,
+    category: resolved.category,
+    chosen,
+    change: resolved.change,
+    suggestion: resolved.suggestion,
+  });
   return { path: resolvedPath, packet: resolved };
 }
 
@@ -204,6 +362,12 @@ function resolveStorePacket(
       ...(rationale ? { note: rationale } : {}),
     },
   });
+  recordSuggestionOutcome(projectRoot, {
+    forDecision: id,
+    category: stored.category,
+    chosen,
+    suggestion: stored.suggestion,
+  });
   return {
     path,
     packet: {
@@ -226,7 +390,12 @@ function withRichFields(packet: PendingContractDecision | ResolvedContractDecisi
   const contractOnly = { ...packet, options: packet.options.map(contractOption) };
   for (const key of RICH_ONLY_KEYS) delete (contractOnly as Record<string, unknown>)[key];
   const rich = richFieldsFor(contractOnly);
-  return rich === null ? contractOnly : { ...contractOnly, ...rich };
+  if (rich === null) return contractOnly;
+  return {
+    ...contractOnly,
+    ...rich,
+    ...(packet.suggestion ? { recommendation_reason: packet.suggestion.reason } : {}),
+  };
 }
 
 const RICH_ONLY_KEYS = [
@@ -297,6 +466,9 @@ export function listContractDecisions(projectRoot: string): ContractDecisionList
   }));
 }
 
+export const WRITE_IN_REFUSED_ON_STORE_SHAPE =
+  "This question takes only its listed options, so --other can't be used. Pick one of them.";
+
 export function addWriteInOption(projectRoot: string, id: string, label: string): string {
   assertContractDecisionId(id);
   if (label.trim().length === 0) {
@@ -306,7 +478,11 @@ export function addWriteInOption(projectRoot: string, id: string, label: string)
   if (!existsSync(pendingPath)) {
     throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
   }
-  const pending = JSON.parse(readFileSync(pendingPath, 'utf8')) as PendingContractDecision;
+  const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
+  if (stored.id === undefined && stored.decision_id !== undefined) {
+    throw new Error(WRITE_IN_REFUSED_ON_STORE_SHAPE);
+  }
+  const pending = stored as PendingContractDecision;
   const existing = new Set(pending.options.map((option) => option.option_key));
   let key = 'other';
   let suffix = 2;
@@ -316,6 +492,10 @@ export function addWriteInOption(projectRoot: string, id: string, label: string)
   pending.options = [...pending.options, { option_key: key, label }];
   atomicWriteJson(pendingPath, withRichFields(pending));
   return key;
+}
+
+function packetPathRelative(id: string): string {
+  return join(PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`);
 }
 
 function packetPath(projectRoot: string, relativeDir: string, id: string): string {

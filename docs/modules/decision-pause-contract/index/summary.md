@@ -34,7 +34,18 @@ deterministic — same category plus question/context token overlap (`src/planni
 `findDecisionPrecedents` / `formatDecisionPrecedents`) — with no embeddings and no LLM
 call, capped to keep the token cost low and best-effort so a missing/corrupt store never
 breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
-match) by only ADVISING on related-but-not-identical precedents the human still decides.
+match for automated callers, and a CLI answer never reaches the index) by only ADVISING on
+related-but-not-identical precedents the human still decides.
+
+### Earlier answers and standing answers
+
+A script lists earlier questions: every eligible title for a question an agent opens, and word
+matches for an automated one. On a title list the `decision` skill reads up to 5 with
+`paqad-ai decision check <id> --read` and judges them for meaning, and a person approves. A
+suggestion never closes a question; once a pause would open, only a standing answer a person
+chose skips it. Older reuse that runs before a pause is unchanged. The flow, its limits and its
+evidence rows are on the
+[Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 
 ### The visual-evidence readiness pause
 
@@ -54,11 +65,15 @@ the change's questions at the spec questions step (`src/visual-evidence/readines
 
 - `.paqad/decisions`
 - `src/planning/decision-precedents.ts`
+- `src/decisions`
+- `src/decision-reuse`
+- `src/cli/commands/decision.ts`
 
 ## Features
 
 - [Ask the owner once](../features/ask-owner-once/technical.md): compatible expert rulings, one
-  question round per change, and a pause gate scoped to the change a packet names.
+  question round per change, a pause gate scoped to the change a packet names, and earlier
+  answers a person approves in one click.
 
 ## Why the `src/planning/` code works the way it does
 
@@ -147,10 +162,25 @@ reasons below are not obvious from the code.
   the self-arm sees the fork as already resolved instead of opening it again.
 - **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
   model guess.
+- **`decisions/earlier-answers.ts`.** The agent suggests and a person approves because a matching
+  rule would too often give the wrong answer. In a replay of past decisions, reusing the answer to
+  a question with the same options and category was wrong 36% of the time, and with the same words
+  and options 19%. Titles are listed because wording cannot find the match either: reworded titles
+  scored 0.00 to 0.31 against the word match's 0.5 floor. So an agent-opened question lists every
+  eligible title, automated callers keep the word match, and the script never decides. The printed
+  list stops before 24,000 characters and `older_omitted` counts what it left out, because a host
+  could otherwise cut it with no sign. The offered ids are dropped when the question resolves,
+  because they are only needed while it is pending. A private answer stays out of other categories'
+  lists.
+- **`decisions/standing-answers.ts`.** A standing answer is a tracked team file, so it can be
+  reviewed in a PR and takes effect for everyone once merged. A file that cannot be read is
+  refused rather than overwritten. A stage agent cannot set or remove a rule through the command,
+  so a rule comes from a person's choice.
 - **`decision-reuse/`.** Every reuse of a resolved decision in a session appends to one unit on
-  the session-ledger substrate. Recording is best-effort and never breaks the decision flow. The
-  schema lives in `src/`, never under `.paqad/`, so the model cannot weaken it. A row proves a
-  reuse was observed, not that it was correct.
+  the session-ledger substrate, along with suggestions and standing-answer changes. Recording is
+  best-effort and never breaks the decision flow. The schema lives in `src/`, never under
+  `.paqad/`, so the model cannot weaken it. A row proves a reuse was observed, not that it was
+  correct.
 
 ## Authority
 

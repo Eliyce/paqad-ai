@@ -331,8 +331,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         "required": false,
         "type": "string",
       },
+      "earlier": {
+        "description": "The earlier decision id whose answer fits. Used by \`suggest\`.",
+        "required": false,
+        "type": "string",
+      },
       "id": {
         "description": "The \`D-<ULID>\` id of a pending packet. Required by \`resolve\`.",
+        "required": false,
+        "type": "string",
+      },
+      "none": {
+        "description": "No earlier answer fits. Used by \`suggest\` in place of \`earlier\`.",
+        "required": false,
+        "type": "boolean",
+      },
+      "option": {
+        "description": "This packet's option_key for the earlier answer. Used by \`suggest\`.",
         "required": false,
         "type": "string",
       },
@@ -346,6 +361,11 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
         "required": false,
         "type": "path",
       },
+      "reason": {
+        "description": "Why the earlier answer fits, or why none does. Required by \`suggest\`.",
+        "required": false,
+        "type": "string",
+      },
       "title": {
         "description": "One-line question the decision answers. Required by \`create\`.",
         "required": false,
@@ -353,7 +373,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     },
     "max_lines": 300,
-    "model_tier": "fast",
+    "model_tier": "medium",
     "name": "decision",
     "output_format": "json",
     "triggers": [

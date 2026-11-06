@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RNHY9EG0FSG6Y7Q11XGRJ3",
+  "category": "spec.change",
+  "title": "Should CLI answers still be written into the decision index?",
+  "context": "The one-click design finds earlier answers by reading the resolved folder, and every index lookup deliberately skips CLI answers. So nothing reads what this part writes. Review also proved a real regression: backfill lets automatic checks reuse store-shape answers after a damaged merge, with the ratchet approving a second kind and the spec-change guard skipping a pause. It also adds a one-off diff of about 144 entries, and a revert or an older teammate version can read those entries and skip a spec-change pause.",
+  "options": [
+    {
+      "option_key": "drop-index",
+      "label": "Drop it: keep today's index behaviour, and have the search show only the newest answer to the same question",
+      "one_line_preview": "Drop it: keep today's index behaviour, and have the search show only the newest answer to the same question",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-with-marker",
+      "label": "Keep it, as the issue says, and mark backfilled entries so lookups skip them",
+      "one_line_preview": "Keep it, as the issue says, and mark backfilled entries so lookups skip them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "drop-index",
+  "created_at": "2026-11-06T14:52:40.622Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "drop-index",
+  "rationale": "Owner chose this after review proved nothing reads the entries and that backfill changes automatic reuse.",
+  "resolved_at": "2026-11-06T15:08:12.664Z",
+  "decision_id": "D-01M6RNHY9EG0FSG6Y7Q11XGRJ3",
+  "fingerprint": "sha256:bef8997cf504085af27948109271e49692e3cbe80b19ff862107cf7fbd85dae0",
+  "question": "Should CLI answers still be written into the decision index?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-12-06T14:52:40.622Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "drop-index",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T15:08:12.664Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this after review proved nothing reads the entries and that backfill changes automatic reuse."
+  }
+}

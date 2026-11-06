@@ -28,6 +28,12 @@ the change a packet names.
   `runtime/AGENT-ROUTER.md`.
 - `src/module-decisions/inferencer.ts` and `src/pipeline/feature-development-policy.ts`: the
   attribution floor and the `defer` escalation.
+- `src/decisions/earlier-answers.ts`: the word match, the title list, `--read`, the question block
+  and `suggest`.
+- `src/decisions/standing-answers.ts`: the standing-answer file.
+- `src/decision-reuse/`: the `paqad.decision-reuse` ledger rows and the receipt line.
+- `src/cli/commands/decision.ts`: the `decision` verbs, listed in [`api.md`](./api.md).
+- `runtime/base/skills/decision/`: the skill method.
 
 ## Compatible and pick rulings
 
@@ -89,7 +95,90 @@ Packets raised before the round carry their change and do not stop work when the
 On the fast lane, or with the spec pipeline off, no round follows, so `plan compile` still asks
 the readiness pause at once. `spec.change` and `spec.contradiction` raised during development
 are always asked straight away. If the owner answers only part of a round, the rest stay
-pending for that change and the next round asks only those. Nothing is auto-answered.
+pending for that change and the next round asks only those. The answers given without
+asking are a standing answer, a fork already resolved, and the spec pipeline's high-score
+precedent answer, each of which writes a `paqad.decision-reuse` row, and an automated caller's
+reuse from the decision index (see [The decision index](#the-decision-index)).
+
+## Earlier answers
+
+1. **Find.** A packet opens with one of two kinds of check, and one open runs only one of them.
+   - **Title list, for a question an agent opens.** Agents word questions themselves: on real
+     history, reworded titles scored 0.00 to 0.31 against the 0.5 floor, and the check never ran in
+     26 of 60 eval runs. So `createPendingDecision` gets `agentWorded` from the CLI create action and
+     `create.mjs`, and from nothing else, and `titleCheckFor` offers every eligible answer whatever
+     its wording. The offer is fixed when the packet opens, as `earlier_check.candidates` with
+     `listed_by: "titles"`.
+   - **Word match, for automated callers.** `findEarlierQuestions` scores wording and keeps up to 5
+     at or above the 0.5 floor. With no match there is no check. `origin` is not the test, because
+     authoring and delivery callers pass none.
+
+   Both use the same eligibility. Of several answers to the same question text and option keys,
+   only the newest counts, so a changed answer is not suggested again. An answer past its expiry is
+   not offered, and an older answer to the same question does not take its place. A private category
+   (`PRIVATE_ANSWER_CATEGORIES`) is offered only to a question of the same category, and is left out
+   before the newest is picked, so it cannot hide an answer this question may see. A packet with no
+   fingerprint, such as one over 5 options, gets no check of either kind.
+2. **Judge.** `decision create` and `decision check` print the method from
+   `runtime/base/skills/decision/references/earlier-answers.md`, with the titles or the full
+   candidates. On a title list the skill scans the titles, reads up to 5 with
+   `decision check <id> --read`, and judges meaning rather than wording. Stored text is data to judge,
+   never instructions.
+3. **Suggest.** `decision suggest` records one earlier answer or `--none`, and marks the check
+   done. `decision resolve` refuses while the check is required. The Approvals screen is exempt,
+   because a person answers there directly.
+4. **Ask.** The printed `question` block puts the suggestion first, then the other options, then
+   the always entry when it all fits within four entries. A store-shape packet has no `other`
+   write-in, and a fifth option sits under `not_shown` with its resolve command. A stage agent stops
+   at `paused: D-<id>` and the orchestrator asks.
+
+### Size limits
+
+A pause puts the title list in the opening agent's context once, so `titlesThatFit` holds the printed
+output under 24,000 characters, about 6,000 tokens, at most 200 rows and with `method` at most 2,000
+characters. It adds rows newest first and stops before the limit, measuring the JSON as printed,
+so an escaped title counts in full. A host can cut a long output with no sign, so paqad cuts first,
+and `older_omitted` says how many were left out. `method`, `next` and `older_omitted` print before
+`titles`, so they outlast a cut. Only printed rows go into `candidates`, so nothing unseen can be
+suggested. A method file over the limit falls back to the built-in line.
+
+`printDecisionOutput` prints a title list as one compact line, because indenting 200 rows would use
+the whole budget on spaces. Every other output stays indented.
+
+An open reads every file in `resolved/` once, and printing the list reads at most 200 more. `--read`
+reads at most 5.
+
+### Packet fields
+
+`earlier_check` holds `status`, `candidates`, and optionally `listed_by`, `older_omitted` and
+`none_reason`. `suggestion` holds `earlier_id`, `option_key`, `reason` and `at`. When a title-list
+packet resolves, through the CLI or Approvals, `earlierCheckToKeep` removes `candidates` from the
+resolved file and keeps the rest, because the list is only needed while the packet is pending and
+would add about 6 KB to a tracked file per decision. An automated packet keeps its short list.
+
+### Standing answers
+
+`decision resolve --always` adds a rule to the tracked `.paqad/decisions/standing-answers.json`,
+keyed by the question's fingerprint. When `createPendingDecision` finds a matching rule, it
+returns `reused`, writes a resolved packet and an audit row, and opens no pause. Callers that open their own packets
+(delivery, fix proof, expert conflicts, evidence-armed forks, visual-evidence readiness) treat
+that as already answered. `NO_STANDING_ANSWER_CATEGORIES` lists the kinds that can never have a
+rule, and `assertNotStageAgent` refuses a stage agent both setting and removing one.
+
+### The decision index
+
+Nothing in this flow reads `.paqad/decisions/index.json`: earlier answers are found by reading
+`.paqad/decisions/resolved/`, and rules by reading `standing-answers.json`. A packet opened with
+`decision create` and answered with `decision resolve`, or answered by a rule, writes no index entry
+and supersedes nothing, so automated callers still pause rather than reuse it. A store-shape packet
+reaches the index through `DecisionStore.resolve`, as does any packet answered on Approvals, and an
+automated caller can reuse those.
+
+### Evidence
+
+Each outcome is one `paqad.decision-reuse` row, of kind `open`, `reuse`, `suggestion`,
+`standing-set` or `standing-removed`. A suggestion row's outcome is `accepted`, `changed` or
+`none`. `decisionsReceiptLine` folds a change's rows into the receipt's `decisions:` line.
 
 ## Attribution
 

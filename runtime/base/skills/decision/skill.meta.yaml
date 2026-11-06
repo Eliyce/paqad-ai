@@ -1,3 +1,4 @@
+model_tier: medium
 triggers:
   - workflow:
       - feature-development
@@ -28,6 +29,22 @@ input_schema:
     type: string
     required: false
     description: The `D-<ULID>` id of a pending packet. Required by `resolve`.
+  earlier:
+    type: string
+    required: false
+    description: The earlier decision id whose answer fits. Used by `suggest`.
+  option:
+    type: string
+    required: false
+    description: This packet's option_key for the earlier answer. Used by `suggest`.
+  none:
+    type: boolean
+    required: false
+    description: No earlier answer fits. Used by `suggest` in place of `earlier`.
+  reason:
+    type: string
+    required: false
+    description: Why the earlier answer fits, or why none does. Required by `suggest`.
   chosen:
     type: string
     required: false

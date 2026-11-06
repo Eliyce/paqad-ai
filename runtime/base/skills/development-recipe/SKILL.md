@@ -28,7 +28,7 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 4. Check scope before each area: compare what you are about to change with the frozen spec only. Outside it, stop and open a decision.
 5. For each criterion, pick the smallest test layer that proves it, reuse existing test files first, and name the criterion id in the test name or its describe block, so the `check-ac-map.mjs` check finds it on a line this change adds. `check-ac-map.mjs` proves a test names a criterion, not that it tests it. A language with no hyphen in a name can use `ac_1` or `Ac1`. A criterion with `proof: manual` or `proof: visual` needs no test.
 6. Inner loop: run only the tests for the files you changed (for vitest, `vitest related <files>`).
-7. On a business choice, run `paqad-ai decision create`, return `paused: D-<id>` at once, and wait to be resumed with the answer.
+7. On a business choice, run `paqad-ai decision create`, on `earlier_check` scan the titles, read up to 5 with `decision check <id> --read` and run `decision suggest`, on `"reused": true` carry on as your rules say, and unless it was reused return `paused: D-<id>` and wait to be resumed with the answer.
 8. End with `paqad-ai stage end development --agent paqad-development`. It runs the `check-ac-map.mjs` check itself and refuses when a criterion has no test, printing which.
 
 ## Read This Path

@@ -1,0 +1,53 @@
+{
+  "id": "D-01M6RBZW9BZ73S12GZZQMBD4MF",
+  "category": "architecture-path",
+  "title": "When should decision create reuse an earlier answer without asking?",
+  "context": "Issue 822 lets decision create reuse on an exact match or on the same category with 0.8 option overlap. The overlap match ignores the question text. In this repo's 143 resolved decisions, 19 pairs in architecture, workflow and spec categories have different questions but identical option keys, for example four unrelated spec contradictions all using fix-code and change-spec, and spec changes answered differently with the same keys. Adding CLI answers to the index also lets the spec-change guard match them by options.",
+  "options": [
+    {
+      "option_key": "exact-only",
+      "label": "Reuse only on the same category, question and options; a similar one is shown as a hint",
+      "one_line_preview": "Reuse only on the same category, question and options; a similar one is shown as a hint",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "issue-as-written",
+      "label": "Reuse on exact or on 0.8 option overlap, as the issue says",
+      "one_line_preview": "Reuse on exact or on 0.8 option overlap, as the issue says",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Reuse by intent: the skill reads earlier answers and judges whether the question means the same thing, scripts trigger it and the evidence ledger logs it. Not exact category or text, and not option overlap alone.",
+      "one_line_preview": "Reuse by intent: the skill reads earlier answers and judges whether the question means the same thing, scripts trigger it and the evidence ledger logs it. Not exact category or text, and not option overlap alone.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "exact-only",
+  "created_at": "2026-11-06T12:05:31.563Z",
+  "status": "resolved",
+  "chosen": "other",
+  "rationale": "The owner first picked the issue as written, then replaced that with reuse by intent. Correction: the context says 19 pairs; the measured number is 22.",
+  "resolved_at": "2026-11-06T12:41:24.888Z",
+  "decision_id": "D-01M6RBZW9BZ73S12GZZQMBD4MF",
+  "fingerprint": "sha256:d9f1cc5e22b13d1e86f8883692b159184507a22a34751a740b06b562b3db435e",
+  "question": "When should decision create reuse an earlier answer without asking?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2027-02-04T12:05:31.563Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T12:41:24.888Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "The owner first picked the issue as written, then replaced that with reuse by intent. Correction: the context says 19 pairs; the measured number is 22."
+  }
+}

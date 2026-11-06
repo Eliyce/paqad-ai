@@ -149,7 +149,10 @@ time of the changed files outside `.paqad/`, else unknown (`lastSourceEditAt` in
 `repository-context.ts`). When it is unknown every pending decision blocks, as before. The
 receipt prints one line per waiting decision after the skip lines, with the skipped glyph:
 `a decision is waiting for you: D-<id> (<category>): <question>`. Those lines never change the
-counts or the verdict word.
+counts or the verdict word. The receipt can also carry one line from the change's
+`paqad.decision-reuse` rows, such as
+`decisions: 3 earlier answers suggested, 2 accepted, 1 changed; 1 standing answer used`. It is
+left out when there is nothing to report and it never changes the verdict.
 
 ### The late gates
 

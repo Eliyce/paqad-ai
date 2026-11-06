@@ -65,7 +65,8 @@ about it at every stage:
   readiness check (`readiness.ts`, the same checks `paqad-ai doctor` reports) finds a problem,
   `plan compile` opens one decision pause ("Visual evidence is on, but I can't capture
   screenshots here yet") with three options: set it up now, attach my own screenshots, or
-  record a waiver. A re-run of `plan compile` for the same change opens no second pause.
+  record a waiver. A re-run of `plan compile` for the same change opens no second pause, and a
+  standing answer for this question settles it with no pause at all.
 - **Specification.** `spec freeze` refuses a spec for a frontend change with no acceptance
   criterion marked `(proof: visual)`, naming the frontend files.
 - **Development.** The first frontend edit of the change carries one model-facing reminder to

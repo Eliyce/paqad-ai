@@ -44,6 +44,7 @@ import {
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { decisionsReceiptLine } from '@/decision-reuse/receipt-line.js';
 import { designSignOffReceiptLine } from '@/hld/report.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
@@ -686,6 +687,9 @@ export async function runRepositoryVerification(
     fixProof,
     stageNotes: receiptFeature ? stageReceiptNotes(context.project_root, receiptFeature) : [],
     cloudNote: cloudContinuationNote(context.project_root, receiptFeature, receiptSession),
+    decisions: receiptFeature
+      ? decisionsReceiptLine(context.project_root, receiptFeature, receiptSession)
+      : null,
     designSignOff: designSignOffReceiptLine(
       context.project_root,
       receiptFeature,

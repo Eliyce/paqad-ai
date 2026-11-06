@@ -52,6 +52,10 @@ records `{gate, reason, by, at}` only from a resolved `authoring.override` decis
 
 ## Decisions the owner is asked
 
+`authoring.override`, `authoring.agent_permission` and `authoring.risky_script` answers are private:
+they are offered as earlier answers only to the same kind of question, and can never become a
+standing answer.
+
 Only business questions become decision packets: `authoring.overlap`, `authoring.risky_script`,
 `authoring.intake_gap`, `authoring.improvement`, `authoring.retirement` and `authoring.override`.
 A gate a skill cannot pass is never a question: the verb appends `{skill, gate, evidence_path, at}`

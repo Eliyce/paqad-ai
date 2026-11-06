@@ -8,6 +8,10 @@ import { PATHS } from '@/core/constants/paths.js';
 import { computeDecisionFingerprint } from '@/planning/decision-fingerprint.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { buildRepoStateForIntake } from '@/planning/intake-prior-resolver.js';
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import type { PipelineQuestion } from '@/spec-pipeline/types.js';
 
@@ -176,6 +180,28 @@ describe('autoAnswerQuestions', () => {
     const { answered, remaining } = autoAnswerQuestions(root, [q]);
     expect(answered).toHaveLength(0);
     expect(remaining).toEqual([q]);
+  });
+
+  it('AC-14 an answer from a precedent writes one similar row with the score', () => {
+    const root = tempRoot();
+    const q = question();
+    const { id } = createPendingDecision(root, {
+      category: 'intake.requirement',
+      title: q.business_text,
+      context: [q.why_it_matters, ...q.options].join(' '),
+      options: [
+        { option_key: 'include', label: 'Include archived orders' },
+        { option_key: 'exclude', label: 'Exclude archived orders' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'include', 'Keeps the audit trail');
+    expect(autoAnswerQuestions(root, [q]).answered[0]?.source).toBe(id);
+    const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+      (row) => row.kind === 'reuse' && row.match_kind === 'similar',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.decision_id).toBe(id);
+    expect(rows[0]?.note).toMatch(/^score \d\.\d{2}$/u);
   });
 
   it('splits a mixed batch — matched removed, unmatched kept', () => {

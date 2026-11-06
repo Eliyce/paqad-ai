@@ -16,6 +16,109 @@ import { readAnyDecisionPacket, richFieldsFor } from '@/decisions/packet-shape.j
 import { isDecisionPacket, type DecisionPacket } from '@/planning/decision-packet.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
+import { pendingStorePacket, storeOptions } from '../../shared/store-packet.js';
+
+describe('AC-52 earlier_check and suggestion survive both shapes', () => {
+  const check = { status: 'done' as const, candidates: ['D-01J000000000000000000000A1'] };
+  const suggestion = {
+    earlier_id: 'D-01J000000000000000000000A1',
+    option_key: 'include',
+    reason: 'Same export, same audience.',
+    at: '2026-06-01T00:00:00.000Z',
+  };
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-shape-survive-'));
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('AC-68 keeps listed_by and the suggestion on a title check, without its candidates', () => {
+    const titled = { ...check, listed_by: 'titles' as const };
+    const { id, path } = createPendingDecision(projectRoot, {
+      category: 'intake.requirement',
+      title: 'Should exports include archived orders?',
+      context: 'It changes which rows appear in the file.',
+      options: [
+        { option_key: 'include', label: 'Include archived orders' },
+        { option_key: 'exclude', label: 'Exclude archived orders' },
+      ],
+    });
+    const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    writeFileSync(path, JSON.stringify({ ...stored, earlier_check: titled, suggestion }));
+    addWriteInOption(projectRoot, id, 'Something else');
+    const read = readAnyDecisionPacket(JSON.parse(readFileSync(path, 'utf8')));
+    expect(read?.earlier_check).toEqual(titled);
+    expect(read?.suggestion).toEqual(suggestion);
+
+    const { path: resolvedPath } = resolvePendingDecision(projectRoot, id, 'include');
+    const resolved = readAnyDecisionPacket(JSON.parse(readFileSync(resolvedPath, 'utf8')));
+    expect(resolved?.earlier_check).toEqual({ status: 'done', listed_by: 'titles' });
+    expect(resolved?.suggestion).toEqual(suggestion);
+  });
+
+  it('keeps both through the contract shape, a write-in and the resolved file', () => {
+    const { id, path } = createPendingDecision(projectRoot, {
+      category: 'intake.requirement',
+      title: 'Should exports include archived orders?',
+      context: 'It changes which rows appear in the file.',
+      options: [
+        { option_key: 'include', label: 'Include archived orders' },
+        { option_key: 'exclude', label: 'Exclude archived orders' },
+      ],
+    });
+    const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    writeFileSync(path, JSON.stringify({ ...stored, earlier_check: check, suggestion }));
+    addWriteInOption(projectRoot, id, 'Something else');
+    const read = readAnyDecisionPacket(JSON.parse(readFileSync(path, 'utf8')));
+    expect(read?.earlier_check).toEqual(check);
+    expect(read?.suggestion).toEqual(suggestion);
+    const resolved = JSON.parse(
+      readFileSync(resolvePendingDecision(projectRoot, id, 'include').path, 'utf8'),
+    ) as Record<string, unknown>;
+    expect(resolved.earlier_check).toEqual(check);
+    expect(resolved.suggestion).toEqual(suggestion);
+  });
+
+  it('AC-52 keeps listed_by through the store shape and its resolve', () => {
+    const decisionId = 'D-01J000000000000000000000A3';
+    const store = new DecisionStore(projectRoot);
+    store.writePending(
+      pendingStorePacket({
+        decision_id: decisionId,
+        options: storeOptions(['include', 'exclude']),
+        earlier_check: { ...check, listed_by: 'titles' },
+        suggestion,
+      }),
+    );
+    expect(store.readPending(decisionId)?.earlier_check?.listed_by).toBe('titles');
+    const path = resolvePendingDecision(projectRoot, decisionId, 'include').path;
+    const resolved = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    expect(resolved.earlier_check).toEqual({ status: 'done', listed_by: 'titles' });
+    expect(resolved.suggestion).toEqual(suggestion);
+  });
+
+  it('keeps both through the store shape and its resolve', () => {
+    const decisionId = 'D-01J000000000000000000000A2';
+    const store = new DecisionStore(projectRoot);
+    store.writePending(
+      pendingStorePacket({
+        decision_id: decisionId,
+        options: storeOptions(['include', 'exclude']),
+        earlier_check: check,
+        suggestion,
+      }),
+    );
+    expect(store.readPending(decisionId)?.suggestion).toEqual(suggestion);
+    const path = resolvePendingDecision(projectRoot, decisionId, 'include').path;
+    const resolved = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    expect(resolved.earlier_check).toEqual(check);
+    expect(resolved.suggestion).toEqual(suggestion);
+  });
+});
 
 const INPUT = {
   category: 'intake.requirement',

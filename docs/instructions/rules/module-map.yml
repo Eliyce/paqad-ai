@@ -2326,10 +2326,17 @@ modules:
       packet exists. Routed through the interactive question UI when
       available. On a new pause, the packet context is enriched with the top
       similar prior resolved decisions (deterministic, embedding-free) so the
-      developer sees the precedents they already set (RAG buildout F25).
+      developer sees the precedents they already set (RAG buildout F25). A script
+      also finds earlier questions that may be the same; the `decision` skill
+      judges them and suggests an answer the person approves. A suggestion never
+      closes a question; once a pause would open, only a standing answer the
+      person chose skips it. Every outcome is logged.
     sources:
       - .paqad/decisions
       - src/planning/decision-precedents.ts
+      - src/decisions
+      - src/decision-reuse
+      - src/cli/commands/decision.ts
     features:
       - slug: ask-owner-once
         name: Ask the owner once per change (expert-conflict minting, change-scoped pause gate, batched question round)

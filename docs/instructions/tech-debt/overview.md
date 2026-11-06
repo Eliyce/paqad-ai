@@ -26,6 +26,18 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6S056GMRR3STN1VWPE4060W](TD-01M6S056GMRR3STN1VWPE4060W.md) (gap, low): The warning that stored text is data is missing from the fallback method and comes late on the word-match path
+- [TD-01M6S055R6KVGPAF3D9WSR5J1G](TD-01M6S055R6KVGPAF3D9WSR5J1G.md) (bug, low): decision resolve warns on unknown flags and can lose the reason or the standing answer
+- [TD-01M6S054YFFWH3E2A305XF0TDN](TD-01M6S054YFFWH3E2A305XF0TDN.md) (gap, low): An agent-opened question over 5 options or with an unknown category skips the earlier check
+- [TD-01M6RRS43NB1X6F3HVPN69GZX2](TD-01M6RRS43NB1X6F3HVPN69GZX2.md) (gap, low): A write-in answer does not stop the older answer to the same question being offered
+- [TD-01M6RRS3C9SWWNK95C9NZR4NMD](TD-01M6RRS3C9SWWNK95C9NZR4NMD.md) (bug, medium): A stage agent that opens the change gets no recipe-injected row, so the gate reports no proof
+- [TD-01M6RQ1TZDWKKG5ZF9F3ZXY7PX](TD-01M6RQ1TZDWKKG5ZF9F3ZXY7PX.md) (gap, medium): A pipeline-made spec can't be corrected after freeze without a manual re-freeze that marks it hand-written
+- [TD-01M6RNCA6NH470705MVB461QSS](TD-01M6RNCA6NH470705MVB461QSS.md) (debt, low): Standing answers drop malformed rows on write and rule answers show as earlier answers
+- [TD-01M6RNC9G7RDQNZQ4N9PPGZAXG](TD-01M6RNC9G7RDQNZQ4N9PPGZAXG.md) (bug, low): Spec review reports 227 false major items and saves only the count
+- [TD-01M6RNC8SZ3TY4VZGVGVY38TJE](TD-01M6RNC8SZ3TY4VZGVGVY38TJE.md) (debt, low): pnpm run ci tests before it builds, so script tests need an existing dist
+- [TD-01M6RNC83J9YMJ309KPMXVZCPH](TD-01M6RNC83J9YMJ309KPMXVZCPH.md) (bug, high): Option-overlap reuse crosses ratchet kinds, specs and self-arm targets
+- [TD-01M6RNC7D8DWKKZYAWWABEZ4T6](TD-01M6RNC7D8DWKKZYAWWABEZ4T6.md) (gap, medium): A hand-written standing rule skips a question with no proof anyone chose it
+- [TD-01M6RNC6PHFJYGEGRVRB8JZWTP](TD-01M6RNC6PHFJYGEGRVRB8JZWTP.md) (gap, high): A pause does not stop Bash edits and nothing proves a person answered
 - [TD-01M6QV0TXRVFR8HN12GW88KXEX](TD-01M6QV0TXRVFR8HN12GW88KXEX.md) (gap, medium): Moving a change to a new branch strands its evidence record
 - [TD-01M6QTDJWMJE67DR9VRC1GAENV](TD-01M6QTDJWMJE67DR9VRC1GAENV.md) (bug, low): GitHub check-status tests depend on the machine's gh CLI
 - [TD-01M6QPY9Y11K3NQ3Z2KF8ZS6M0](TD-01M6QPY9Y11K3NQ3Z2KF8ZS6M0.md) (bug, low): agent-entry-gate abandoned-close fault test fails when run as root

@@ -92,7 +92,7 @@ export function openVisualEvidenceReadinessPause(input: {
     return null;
   }
   const reasons = problems.map((problem) => `- ${problem.detail}`).join('\n');
-  const { id } = createPendingDecision(projectRoot, {
+  const { id, reused } = createPendingDecision(projectRoot, {
     category: 'workflow-or-tool',
     title: READINESS_DECISION_TITLE,
     context:
@@ -109,7 +109,7 @@ export function openVisualEvidenceReadinessPause(input: {
     recommendation: 'setup',
     change: featureChangeKey(dirName),
   });
-  return id;
+  return reused ? null : id;
 }
 
 export function visualAcRequiredFiles(projectRoot: string, files: readonly string[]): string[] {

@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-planning",
-  "version": "1.6.0",
-  "file_hash": "sha256:6be87be0a88e4e378792e5b6ffc0bde8af1acd866a91ef292618378936566800",
+  "version": "1.7.0",
+  "file_hash": "sha256:277d755b6293a620ba92dc6e7b9512e6308c2229020e14ee68e4d119dc1b0208",
   "released_path": "runtime/claude-plugin/agents/paqad-planning.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-planning.md"

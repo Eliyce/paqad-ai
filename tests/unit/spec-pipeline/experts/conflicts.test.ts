@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
 
 import {
   createPendingDecision,
@@ -19,6 +22,11 @@ import { assertCanRunStep, writeStepArtifact } from '@/spec-pipeline/orchestrato
 import type { SynthesisConflict } from '@/spec-pipeline/experts/synthesis.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../../shared/store-packet.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -54,6 +62,30 @@ function pending(root: string) {
 }
 
 describe('mintExpertConflictDecisions', () => {
+  it('AC-67 an automated question with no word match has no check', () => {
+    const root = tempRoot();
+    seedUnrelatedAnswer(root);
+    mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
+  it('AC-12 AC-18 a standing rule goes under auto-resolved and announces no question', () => {
+    const root = tempRoot();
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const packet = pending(root)[0]!.packet;
+    keepAnswerAsRule(root, first.minted[0]!.id, packet.options[0]!.option_key);
+    const second = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    expect(second.minted).toEqual([]);
+    expect(second.autoResolved).toHaveLength(1);
+    expect(second.autoResolved[0]?.chosen).toBe(packet.options[0]!.label);
+    expect(pending(root)).toEqual([]);
+    const resolved = readContractDecisions(root).find(({ status }) => status === 'resolved');
+    const raw = resolved!.packet as unknown as { human_response: { responded_by: string } };
+    expect(raw.human_response.responded_by).toBe('standing-answer');
+  });
+
   it('mints exactly one spec.expert_conflict packet per conflict, with the chief pick pre-filled', () => {
     const root = tempRoot();
     const result = mintExpertConflictDecisions(root, merged, synthesisConflicts);
@@ -82,6 +114,43 @@ describe('mintExpertConflictDecisions', () => {
     mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
     const packet = pending(root)[0]!.packet as unknown as { change?: string };
     expect(packet.change).toBe(featureChangeKey(dirName));
+  });
+
+  it('AC-15 a fork resolved before writes one reuse row with that id, alongside auto_resolved', () => {
+    const root = tempRoot();
+    const dirName = 'export-orders-01M5JAC57SYAJ69SV5MZN8A40K';
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    const id = first.minted[0]!.id;
+    const key = pending(root)[0]!.packet.options[0]!.option_key;
+    resolvePendingDecision(root, id, key);
+    const second = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    expect(second.autoResolved[0]?.source).toBe(id);
+    const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+      (row) => row.kind === 'reuse',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      decision_id: id,
+      match_kind: 'exact',
+      note: 'expert-conflict-fork',
+      chosen_option_key: key,
+      change: featureChangeKey(dirName),
+    });
+  });
+
+  it('AC-15 records no change for a fork with no bundle', () => {
+    const root = tempRoot();
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    resolvePendingDecision(
+      root,
+      first.minted[0]!.id,
+      pending(root)[0]!.packet.options[0]!.option_key,
+    );
+    mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+      (row) => row.kind === 'reuse',
+    );
+    expect(rows[0]).not.toHaveProperty('change');
   });
 
   it('reuses an identical resolved fork instead of minting again (FR-6.3)', () => {

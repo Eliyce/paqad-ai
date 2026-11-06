@@ -1,4 +1,5 @@
-import { readContractDecisions } from '@/decisions/authoring.js';
+import { readContractDecisions, type PendingContractDecision } from '@/decisions/authoring.js';
+import { buildQuestionBlock, type QuestionBlock } from '@/decisions/earlier-answers.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 
@@ -12,6 +13,9 @@ export interface RoundPacket {
   category: string;
   title: string;
   recommendation: string | null;
+  earlier_check_required?: true;
+  next?: string;
+  question?: QuestionBlock;
 }
 
 export interface RoundMergedClaim {
@@ -54,6 +58,16 @@ export function mergedClaims(projectRoot: string, dirName: string): RoundMergedC
     .map((conflict) => ({ target: conflict.target, merged_claim: conflict.merged_claim! }));
 }
 
+function earlierCheckFields(packet: PendingContractDecision): Partial<RoundPacket> {
+  if (packet.earlier_check?.status === 'required') {
+    return {
+      earlier_check_required: true,
+      next: `Before asking, run paqad-ai decision check ${packet.id}, read up to 5 with --read where it lists titles, then run paqad-ai decision suggest ${packet.id}.`,
+    };
+  }
+  return packet.suggestion ? { question: buildQuestionBlock(packet.id, packet) } : {};
+}
+
 export function pendingRoundPackets(projectRoot: string, dirName: string): RoundPacket[] {
   const change = featureChangeKey(dirName);
   return readContractDecisions(projectRoot)
@@ -63,6 +77,7 @@ export function pendingRoundPackets(projectRoot: string, dirName: string): Round
       category: packet.category,
       title: packet.title,
       recommendation: packet.recommendation,
+      ...earlierCheckFields(packet),
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }

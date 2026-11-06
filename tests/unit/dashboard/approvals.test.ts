@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
 import {
   acceptModuleProposal,
   ApprovalConflictError,
@@ -20,6 +23,7 @@ import type { DecisionPacket } from '@/planning/decision-packet.js';
 
 const WID = 'D-01J000000000000000000000A1';
 const WID2 = 'D-01J000000000000000000000A2';
+const WID3 = 'D-01J000000000000000000000A3';
 
 function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
   return {
@@ -156,6 +160,65 @@ describe('dashboard approvals', () => {
   });
 
   describe('resolvePauseDecision', () => {
+    it('AC-20 a suggested packet answered here writes accepted or changed', () => {
+      const store = new DecisionStore(root);
+      const suggestion = {
+        earlier_id: WID2,
+        option_key: 'reuse-button',
+        reason: 'Same button',
+        at: '2026-06-01T00:00:00.000Z',
+      };
+      store.writePending(
+        makePacket({
+          earlier_check: { status: 'done', candidates: [WID2] },
+          suggestion,
+          recommendation: 'reuse-button',
+          recommendation_reason: 'Same button',
+        }),
+      );
+      resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'reuse-button' });
+      store.writePending(
+        makePacket({
+          decision_id: WID3,
+          task_session_id: 'other-task',
+          question: 'Keep the shared table layout?',
+          earlier_check: { status: 'done', candidates: [WID2] },
+          suggestion,
+          recommendation: 'reuse-button',
+          recommendation_reason: 'Same button',
+        }),
+      );
+      resolvePauseDecision(root, { decisionId: WID3, chosenOptionKey: 'make-new' });
+      const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+        (row) => row.kind === 'suggestion',
+      );
+      expect(rows.map((row) => [row.for_decision, row.outcome, row.decision_id])).toEqual([
+        [WID, 'accepted', WID2],
+        [WID3, 'changed', WID2],
+      ]);
+    });
+
+    it('AC-20 a required packet with no suggestion resolves and writes no row', () => {
+      new DecisionStore(root).writePending(
+        makePacket({ earlier_check: { status: 'required', candidates: [WID2] } }),
+      );
+      resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'make-new' });
+      const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+        (row) => row.kind === 'suggestion',
+      );
+      expect(rows).toEqual([]);
+    });
+
+    it('AC-7 resolves a packet whose earlier check is still required', () => {
+      const store = new DecisionStore(root);
+      store.writePending(makePacket({ earlier_check: { status: 'required', candidates: [WID2] } }));
+      expect(store.readPending(WID)?.earlier_check?.status).toBe('required');
+      expect(
+        resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'make-new' }).status,
+      ).toBe('resolved');
+      expect(store.readResolved(WID)?.earlier_check?.status).toBe('required');
+    });
+
     it('resolves through the agent store and audits the dashboard actor', () => {
       const store = new DecisionStore(root);
       store.initialize();

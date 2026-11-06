@@ -611,7 +611,7 @@ export function resolveOpenPrDecision(
   try {
     const ships = shipsWith(projectRoot, dirName);
     const withEvidence = ships.evidence ? { evidence: ships.evidence } : {};
-    createPendingDecision(projectRoot, {
+    const created = createPendingDecision(projectRoot, {
       category: 'delivery.open_pr',
       title: 'Open a pull request for this change?',
       context:
@@ -626,6 +626,8 @@ export function resolveOpenPrDecision(
       recommendation: normalizeChoice(defaultChoice) ? defaultChoice : 'yes',
       change: dirName ? featureChangeKey(dirName) : null,
     });
+    const choice = created.reused ? normalizeChoice(created.reused.chosen) : null;
+    if (choice) return { status: 'resolved', choice };
   } catch {}
   return { status: 'paused', message: pauseMessage() };
 }

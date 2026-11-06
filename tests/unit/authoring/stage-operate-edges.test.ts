@@ -9,6 +9,7 @@ import { askForOverride, hasSecretFinding, recordOverride } from '@/authoring/st
 import { runEvidence } from '@/authoring/stages/sources.js';
 import { renderGateMarkdown, SkillWorkspace } from '@/authoring/workspace.js';
 import { resolvePendingDecision } from '@/decisions/authoring.js';
+import { suggestEarlierAnswer } from '@/decisions/earlier-answers.js';
 
 const NAME = 'booking-invoices';
 const SKILL = `---\nname: ${NAME}\ndescription: Books invoices. Use when one arrives.\n---\n# Booking\n\n1. Book it.\n\n## Gotchas\n\nOne known trap.\n`;
@@ -169,6 +170,7 @@ describe('override edges', () => {
       'The owner chose not to add',
     );
     const granted = askForOverride(workspace, { gate: 'S6', why: 'slow' });
+    suggestEarlierAnswer(root, granted.decision!, { none: true, reason: 'A different gate' });
     resolvePendingDecision(root, granted.decision!, 'add-unverified', '');
     const recorded = recordOverride(workspace, { gate: 'S6', decision: granted.decision! });
     expect(workspace.readJson<Array<{ reason: string }>>('overrides.json')![0]!.reason).toBe(

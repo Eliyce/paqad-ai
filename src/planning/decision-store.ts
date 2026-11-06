@@ -43,9 +43,11 @@ import {
   findDecisionPrecedents,
   formatDecisionPrecedents,
 } from './decision-precedents.js';
+import { earlierCheckFor } from '@/decisions/earlier-answers.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 
 import {
+  earlierCheckToKeep,
   isStrictDecisionId,
   validateDecisionPacket,
   type DecisionHumanResponse,
@@ -153,7 +155,7 @@ export class DecisionStore {
     }
     this.enforcePendingCap(packet.decision_id);
     this.assertWritablePacket(packet);
-    const enriched = this.enrichWithPrecedents(packet);
+    const enriched = this.withEarlierCheck(this.enrichWithPrecedents(packet));
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
     atomicWriteJson(path, enriched);
     this.appendAudit('decision-pending-written', enriched);
@@ -184,6 +186,18 @@ export class DecisionStore {
     } catch {
       return packet;
     }
+  }
+
+  private withEarlierCheck(packet: DecisionPacket): DecisionPacket {
+    if (packet.earlier_check !== undefined) {
+      return packet;
+    }
+    const check = earlierCheckFor(this.projectRoot, {
+      question: packet.question,
+      excludeId: packet.decision_id,
+      category: packet.category,
+    });
+    return check === null ? packet : { ...packet, earlier_check: check };
   }
 
   private enforcePendingCap(decisionId: string): void {
@@ -512,6 +526,9 @@ export class DecisionStore {
   private writeResolvedPacket(input: ResolveExistingDecisionInput): DecisionPacket {
     const resolved: DecisionPacket = {
       ...input.packet,
+      ...(input.packet.earlier_check
+        ? { earlier_check: earlierCheckToKeep(input.packet.earlier_check) }
+        : {}),
       status: input.humanResponse.intent === 'delegated' ? 'delegated' : 'resolved',
       human_response: input.humanResponse,
     };

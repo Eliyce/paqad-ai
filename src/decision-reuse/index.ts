@@ -4,10 +4,13 @@ export {
   type DecisionReuseRow,
   type DecisionReuseKind,
   type DecisionReuseMatch,
+  type DecisionReuseOutcome,
 } from './types.js';
 export { validateDecisionReuseRow, DECISION_REUSE_SCHEMA } from './schema.js';
 export {
   recordDecisionReuse,
+  recordSuggestionOutcome,
+  type SuggestionOutcomeInput,
   type DecisionReuseFields,
   type DecisionReuseContext,
 } from './recorder.js';

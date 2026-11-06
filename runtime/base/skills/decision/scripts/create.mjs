@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-import { createPendingDecision } from 'paqad-ai';
+import { createPendingDecision, formatCreateOutput, printDecisionOutput } from 'paqad-ai';
 
 const argv = process.argv.slice(2);
 const projectRoot = argv[0];
 if (!projectRoot || projectRoot === '--help' || projectRoot === '-h') {
   process.stdout.write(
     'Usage: node scripts/create.mjs <project-root> --category <c> --title <t> ' +
-      '--context <ctx> --option <key>=<label> [--option ...] [--recommendation <key>]\n',
+      '--context <ctx> --option <key>=<label> [--option ...] [--recommendation <key>] [--ask-anyway]\n',
   );
   process.exit(projectRoot ? 0 : 1);
 }
 
-const flags = { category: '', title: '', context: '', recommendation: null };
+const flags = { category: '', title: '', context: '', recommendation: null, askAnyway: false };
 const options = [];
 for (let i = 1; i < argv.length; i++) {
   const arg = argv[i];
@@ -27,6 +27,8 @@ for (let i = 1; i < argv.length; i++) {
   } else if (arg === '--category' || arg === '--title' || arg === '--context') {
     flags[arg.slice(2)] = value ?? '';
     i++;
+  } else if (arg === '--ask-anyway') {
+    flags.askAnyway = true;
   } else if (arg === '--recommendation') {
     flags.recommendation = value ?? null;
     i++;
@@ -43,8 +45,10 @@ try {
     context: flags.context,
     options,
     recommendation: flags.recommendation,
+    askAnyway: flags.askAnyway,
+    agentWorded: true,
   });
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  process.stdout.write(`${printDecisionOutput(formatCreateOutput(projectRoot, result))}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);

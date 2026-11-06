@@ -9,9 +9,15 @@ import {
   AGENT_PERMISSION_REMOVE,
   agentPermissionContext,
   raiseAgentPermissionDecision,
+  raiseAuthoringDecision,
   readAuthoringDecision,
 } from '@/authoring/decisions.js';
 import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 const roots: string[] = [];
 
@@ -66,5 +72,41 @@ describe('raiseAgentPermissionDecision', () => {
     expect(record?.status).toBe('resolved');
     expect(record?.chosen).toBe(AGENT_PERMISSION_ALLOW);
     expect(record?.category).toBe('authoring.agent_permission');
+  });
+});
+
+describe('AC-18 a standing rule', () => {
+  it('AC-67 an automated question with no word match has no check', () => {
+    const root = project();
+    seedUnrelatedAnswer(root);
+    raiseAuthoringDecision(root, {
+      category: 'authoring.overlap',
+      title: 'Does this overlap the existing skill?',
+      context: 'Two skills look alike.',
+      options: [
+        { option_key: 'merge', label: 'Merge them' },
+        { option_key: 'keep', label: 'Keep both' },
+      ],
+    });
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
+  it('keeps only the id, which re-reads as resolved', () => {
+    const root = project();
+    const input = {
+      category: 'authoring.overlap' as const,
+      title: 'Does this overlap the existing skill?',
+      context: 'Two skills look alike.',
+      options: [
+        { option_key: 'merge', label: 'Merge them' },
+        { option_key: 'keep', label: 'Keep both' },
+      ],
+    };
+    keepAnswerAsRule(root, raiseAuthoringDecision(root, input), 'merge');
+    const id = raiseAuthoringDecision(root, input);
+    expect(readAuthoringDecision(root, id)?.status).toBe('resolved');
+    expect(readAuthoringDecision(root, id)?.chosen).toBe('merge');
   });
 });

@@ -122,7 +122,7 @@ export function raiseFixProofMethodDecision(
     ({ packet }) => packet.category === CATEGORY && packet.change === change,
   );
   if (existing) return { id: existing.packet.id, raised: false };
-  const { id } = createPendingDecision(projectRoot, {
+  const { id, reused } = createPendingDecision(projectRoot, {
     category: CATEGORY,
     title: QUESTION,
     context:
@@ -134,7 +134,7 @@ export function raiseFixProofMethodDecision(
     origin: 'fix-proof',
     change,
   });
-  return { id, raised: true };
+  return { id, raised: reused === undefined };
 }
 
 export function fixProofMethodLine(id: string, options: { deferred?: boolean } = {}): string {

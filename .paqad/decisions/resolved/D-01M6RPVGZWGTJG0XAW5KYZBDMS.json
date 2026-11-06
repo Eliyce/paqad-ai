@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RPVGZWGTJG0XAW5KYZBDMS",
+  "category": "workflow-or-tool",
+  "title": "How do we freeze the amended spec, since the first freeze cleared the pipeline run?",
+  "context": "spec freeze --from-pipeline needs a staged run, and the first freeze cleared it, so paqad has no way to correct a pipeline-made spec and keep its record. Manual re-freeze is what earlier changes did: the new record says the pipeline did not produce it and the HUD may say the High Table never sat, though its records stay in the bundle. A full rerun reseats the eight experts and the chief.",
+  "options": [
+    {
+      "option_key": "manual-with-reason",
+      "label": "Freeze by hand and record why; the expert records stay in the bundle",
+      "one_line_preview": "Freeze by hand and record why; the expert records stay in the bundle",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "full-rerun",
+      "label": "Run the whole spec pipeline again, keeping the record intact, at about 500,000 tokens",
+      "one_line_preview": "Run the whole spec pipeline again, keeping the record intact, at about 500,000 tokens",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "manual-with-reason",
+  "created_at": "2026-11-06T15:15:23.260Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "manual-with-reason",
+  "rationale": "Owner first picked the rerun, then interrupted and said: freeze by hand.",
+  "resolved_at": "2026-11-06T15:18:20.939Z",
+  "decision_id": "D-01M6RPVGZWGTJG0XAW5KYZBDMS",
+  "fingerprint": "sha256:7a7b115ba18755f467d9a2f2e1d4aa1580ec2c4d928da3dd75e06507d5866d11",
+  "question": "How do we freeze the amended spec, since the first freeze cleared the pipeline run?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-13T15:15:23.260Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "manual-with-reason",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T15:18:20.939Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner first picked the rerun, then interrupted and said: freeze by hand."
+  }
+}

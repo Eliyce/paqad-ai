@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RGSEC15F3N50HMA9M4MKRZ",
+  "category": "intake.requirement",
+  "title": "Should an AI working on a stage be stopped from setting or removing an \"always use this answer\" choice, or do we accept that risk for now?",
+  "context": "A standing answer skips that question from then on. This change promises that only a person can choose one, but today only written instructions stop an AI working on a stage from choosing one by mistake. Recommended: stop it now. Stage agents already hand questions back rather than answer them, so they lose nothing they should be doing, and paqad already refuses one stage-agent action this way. This adds one refusal beyond issue 822. It stops mistakes rather than an agent set on getting round it, so proving a person answered stays out of scope and stays in tech debt.",
+  "options": [
+    {
+      "option_key": "stop-now",
+      "label": "Stop it now: the AI working on a stage is refused, and only the main conversation or the person can set or remove a standing answer",
+      "one_line_preview": "Stop it now: the AI working on a stage is refused, and only the main conversation or the person can set or remove a standing answer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "accept-for-now",
+      "label": "Accept it for now: rely on the written instructions and add the gap to tech debt",
+      "one_line_preview": "Accept it for now: rely on the written instructions and add the gap to tech debt",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "stop-now",
+  "created_at": "2026-11-06T13:29:23.586Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "stop-now",
+  "rationale": "Owner chose this in the spec question round.",
+  "resolved_at": "2026-11-06T13:40:40.751Z",
+  "decision_id": "D-01M6RGSEC15F3N50HMA9M4MKRZ",
+  "fingerprint": "sha256:227ce216340b51e56ae6e63fd6feee3e0eb629e396b0c82577b308b3dd96b1a3",
+  "question": "Should an AI working on a stage be stopped from setting or removing an \"always use this answer\" choice, or do we accept that risk for now?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-20T13:29:23.586Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "stop-now",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T13:40:40.751Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this in the spec question round."
+  }
+}

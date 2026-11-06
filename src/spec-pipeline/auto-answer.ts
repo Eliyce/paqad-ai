@@ -1,5 +1,6 @@
 import { readProjectProfile } from '@/core/project-profile.js';
 import type { ActiveCapability } from '@/core/types/domain.js';
+import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import type { DecisionOption } from '@/planning/decision-packet.js';
 import { findDecisionPrecedents } from '@/planning/decision-precedents.js';
 import { DecisionStore } from '@/planning/decision-store.js';
@@ -80,6 +81,12 @@ function answerFromPrecedent(projectRoot: string, question: PipelineQuestion): A
     return null;
   }
   /* v8 ignore stop */
+  recordDecisionReuse(projectRoot, {
+    decisionId: top.decision_id,
+    matchKind: 'similar',
+    category: top.category,
+    note: `score ${top.score.toFixed(2)}`,
+  });
   return { question: question.business_text, answer: top.chosen, source: top.decision_id };
 }
 

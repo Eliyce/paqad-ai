@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -72,6 +72,12 @@ const PRE_EXTRACTION_ROWS = [
       'Run `paqad-ai visual-evidence setup` to provision Playwright + Chromium under ~/.paqad-ai/ve-runtime.',
   },
 ];
+
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 let root: string;
 
@@ -190,6 +196,30 @@ describe('openVisualEvidenceReadinessPause', () => {
     expect(packet.options.map((o) => o.option_key)).toEqual(['setup', 'attach', 'waive']);
   });
 
+  it('AC-67 an automated question with no word match has no check', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    seedUnrelatedAnswer(root);
+    openVisualEvidenceReadinessPause({
+      projectRoot: root,
+      dirName: DIR,
+      files: ['src/pages/Goals.tsx'],
+    });
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
+  it('AC-18 returns null and asks nothing when a standing rule answers it', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    const input = { projectRoot: root, dirName: DIR, files: ['src/pages/Goals.tsx'] };
+    keepAnswerAsRule(root, openVisualEvidenceReadinessPause(input)!, 'waive');
+    expect(openVisualEvidenceReadinessPause(input)).toBeNull();
+    expect(readContractDecisions(root).find(({ status }) => status === 'pending')).toBeUndefined();
+    expect(findVisualEvidenceWaiver(root, DIR)).toMatch(/^D-/u);
+  });
+
   it("AC-17: the readiness pause carries its change and joins that change's question round", () => {
     writeProfile(['coding']);
     writeConfig('visual_evidence=true\n');
@@ -263,16 +293,24 @@ describe('findVisualEvidenceWaiver', () => {
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
     packet(DIR);
     const other = packet('other-change-01JABCDEFGHJKMNPQRSTVWXYZ1');
-    resolvePendingDecision(root, other, 'waive');
+    answerChecked(other, 'waive');
     const setup = packet(DIR);
-    resolvePendingDecision(root, setup, 'setup');
+    answerChecked(setup, 'setup');
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
 
     const waived = packet(DIR);
-    resolvePendingDecision(root, waived, 'waive');
+    answerChecked(waived, 'waive');
     expect(findVisualEvidenceWaiver(root, DIR)).toBe(waived);
   });
 });
+
+function answerChecked(id: string, chosen: string): void {
+  const path = join(root, '.paqad/decisions/pending', `${id}.json`);
+  const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  delete stored.earlier_check;
+  writeFileSync(path, JSON.stringify(stored));
+  resolvePendingDecision(root, id, chosen);
+}
 
 describe('visualAcRequiredFiles', () => {
   it('returns the deduped frontend files when visual evidence is on', () => {

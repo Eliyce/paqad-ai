@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { sha256Hex } from '@/compliance/markdown.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
@@ -97,6 +98,30 @@ describe('runSpecChangeGuard — deterministic frozen-spec staleness minter', ()
     expect(out.summary).toContain('▸ paqad');
     expect(out.summary).toContain('S-102');
     expect(pendingIds(root)).toHaveLength(1);
+  });
+
+  it('AC-3 still opens its pause when a CLI-resolved spec.change holds the same keys', () => {
+    const { id } = createPendingDecision(root, {
+      category: 'spec.change',
+      title: 'Should the unrelated exporter keep its old name?',
+      context: 'A different question with the same keys.',
+      options: [
+        { option_key: 'update-and-refreeze', label: 'Update' },
+        { option_key: 'keep-current-spec', label: 'Keep' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'keep-current-spec');
+    const out = runSpecChangeGuard({
+      projectRoot: root,
+      sessionId: 'ses1',
+      seam: 'pre-mutation',
+      frozenSpecs: [frozenSpec()],
+      readMarkdown: () => '# Spec S-102\n\nExport as XLSX now.\n',
+      now: () => new Date('2026-06-07T00:00:00.000Z'),
+    });
+    expect(out.ran).toBe(true);
+    expect(pendingIds(root)).toHaveLength(1);
+    expect(existsSync(join(root, '.paqad/decisions/resolved', `${id}.json`))).toBe(true);
   });
 
   it('does NOT mint when the frozen spec source is unchanged', () => {

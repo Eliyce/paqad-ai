@@ -419,12 +419,35 @@ describe('paqad-ai deliver', () => {
   });
 });
 
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
+
 describe('resolveOpenPrDecision', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-openpr-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-67 an automated question with no word match has no check', () => {
+    seedUnrelatedAnswer(root);
+    expect(resolveOpenPrDecision(root, 'yes').status).toBe('paused');
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
+  it('AC-18 a standing rule resolves with the choice and leaves nothing pending', () => {
+    resolveOpenPrDecision(root, 'yes');
+    const pendingDir = join(root, PATHS.DECISIONS_PENDING_DIR);
+    const file = readdirSync(pendingDir).find((name) => name.endsWith('.json'))!;
+    keepAnswerAsRule(root, file.replace(/\.json$/u, ''), 'draft');
+    expect(resolveOpenPrDecision(root, 'yes')).toEqual({ status: 'resolved', choice: 'draft' });
+    expect(readdirSync(pendingDir).filter((name) => name.endsWith('.json'))).toEqual([]);
+  });
 
   it('mints a pending delivery.open_pr packet and pauses when none exists', () => {
     const decision = resolveOpenPrDecision(root, 'yes');

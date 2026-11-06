@@ -173,6 +173,17 @@ describe('scripts/build-discovery.mjs', () => {
     ).toThrow(BuildDiscoveryError);
   });
 
+  it('AC-55: the ci script runs every gate the checks stage records', () => {
+    const { ci } = (
+      JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+        scripts: Record<string, string>;
+      }
+    ).scripts;
+    for (const gate of ['typecheck', 'lint', 'format:check', 'test:coverage', 'build']) {
+      expect(ci, gate).toContain(`pnpm run ${gate}`);
+    }
+  });
+
   it('AC-30: neither the build nor the ci script runs the discovery build or Python', () => {
     const scripts = (
       JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
