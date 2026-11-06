@@ -312,6 +312,8 @@ describe('AC-10 AC-36 AC-48 what --always refuses', () => {
     answerPendingDecision(root, id, 'a');
     expect(existsSync(join(root, PATHS.DECISIONS_INDEX))).toBe(false);
     expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`))).toBe(true);
+    const next = createPendingDecision(root, input());
+    expect(JSON.parse(readFileSync(next.path, 'utf8'))).not.toHaveProperty('earlier_check');
   });
 
   it('AC-48 a store-format packet is refused', () => {

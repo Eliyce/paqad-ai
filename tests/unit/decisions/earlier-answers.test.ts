@@ -168,6 +168,28 @@ describe('AC-22 findEarlierQuestions', () => {
 });
 
 describe('AC-43 private answers stay in their category', () => {
+  it('a packet opened in another category gets no check, and one in that category does', () => {
+    earlier('may we store these emails', { category: 'analytics.pii_consent' });
+    const options = [
+      { option_key: 'one', label: 'One' },
+      { option_key: 'two', label: 'Two' },
+    ];
+    const other = createPendingDecision(root, {
+      category: 'ux-pattern',
+      title: 'may we store these emails',
+      context: 'c',
+      options,
+    });
+    expect(JSON.parse(readFileSync(other.path, 'utf8'))).not.toHaveProperty('earlier_check');
+    const same = createPendingDecision(root, {
+      category: 'analytics.pii_consent',
+      title: 'may we store these emails',
+      context: 'c',
+      options,
+    });
+    expect(JSON.parse(readFileSync(same.path, 'utf8')).earlier_check.status).toBe('required');
+  });
+
   it('offers a consent answer only to a question in that category', () => {
     const id = earlier('may we store these emails', { category: 'analytics.pii_consent' });
     expect(ids({ question: 'may we store these emails', category: 'ux-pattern' })).toEqual([]);
