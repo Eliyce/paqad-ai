@@ -1,5 +1,9 @@
 # paqad-development
 
+## 1.6.0
+
+- pass^3 1; deployable: claude-plugin yes; labels: unverified
+
 ## 1.5.0
 
 - pass^3 1; deployable: claude-plugin yes; labels: unverified

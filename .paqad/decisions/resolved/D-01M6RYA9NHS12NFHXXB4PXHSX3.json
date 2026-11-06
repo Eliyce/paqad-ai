@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RYA9NHS12NFHXXB4PXHSX3",
+  "category": "authoring.retirement",
+  "title": "Retire the skill decision-pause?",
+  "context": "The agent did this right 3 times out of 3 without decision-pause, so the skill no longer earns its place.",
+  "options": [
+    {
+      "option_key": "retire",
+      "label": "Retire it",
+      "one_line_preview": "If you pick this, decision-pause is removed from the catalog.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep it",
+      "one_line_preview": "If you pick this, decision-pause stays as it is.",
+      "trade_off": "You give up: its listing space.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "retire",
+  "created_at": "2026-11-06T17:25:47.313Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "retire",
+  "rationale": "Owner chose to retire it: the no-skill test passed 3 of 3 and the script already hands agents the method.",
+  "resolved_at": "2026-11-06T17:40:38.413Z",
+  "decision_id": "D-01M6RYA9NHS12NFHXXB4PXHSX3",
+  "fingerprint": "sha256:a584fd49cd6358080ce4f424e101e1e99dd989bee8c753f60807d8e4b938410b",
+  "question": "Retire the skill decision-pause?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2027-01-05T17:25:47.313Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "retire",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T17:40:38.413Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose to retire it: the no-skill test passed 3 of 3 and the script already hands agents the method."
+  }
+}
