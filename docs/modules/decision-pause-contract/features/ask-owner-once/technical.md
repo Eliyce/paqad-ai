@@ -104,7 +104,8 @@ precedent answer. Each of those writes a `paqad.decision-reuse` row.
 
 1. **Find.** When a packet opens, a script scores earlier resolved questions by wording
    (`findEarlierQuestions`). Of several answers to the same question text and option keys, only the
-   newest counts, so a changed answer is not suggested again. Up to 5 at or above the 0.5 floor
+   newest counts, so a changed answer is not suggested again. An answer past its expiry is not offered, and an older
+   answer to the same question does not take its place. Up to 5 at or above the 0.5 floor
    become `earlier_check` on the packet, with status `required`. A private category
    (`PRIVATE_ANSWER_CATEGORIES`) is offered only to a question of the same category, and is left
    out before the newest is picked, so it cannot hide an answer this question may see.
