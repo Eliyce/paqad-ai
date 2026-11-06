@@ -391,6 +391,97 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt'
     );
   }
 
+  const FIRST_GUESS_LINE =
+    "[paqad] This is the hook's first guess. If you route this message to a different workflow, run paqad-ai route set <workflow> before any other paqad-ai call.";
+  const CODE_PROMPT = 'implement a schema migration adding a pii payment column';
+
+  function newProject(prefix: string): string {
+    const projectRoot = mkdtempSync(join(tmpdir(), prefix));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+    writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+    return projectRoot;
+  }
+
+  it('AC-2: the first prompt injects the routed line, the hint and the session line before the load directive', () => {
+    const projectRoot = newProject('paqad-prompt-first-');
+    try {
+      const result = runPromptGateWithInput(
+        projectRoot,
+        JSON.stringify({ prompt: CODE_PROMPT, session_id: 'first-route' }),
+      );
+
+      expect(result.status).toBe(0);
+      const lines = result.stdout.split('\n');
+      const routed = lines.findIndex((line) => line.startsWith('**▸ paqad** · routed to'));
+      expect(routed).toBeGreaterThanOrEqual(0);
+      expect(lines[routed + 1]).toBe(FIRST_GUESS_LINE);
+      const session = lines.findIndex((line) => line.includes('SE_SESSION=first-route'));
+      expect(session).toBeGreaterThan(routed + 1);
+      const load = lines.findIndex((line) => line.includes('MUST load the paqad framework'));
+      expect(load).toBeGreaterThan(session);
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
+  it('AC-2: a fresh sentinel keeps the routed line and never gets the first-guess hint', () => {
+    const projectRoot = newProject('paqad-prompt-fresh-');
+    try {
+      const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d/fresh-route');
+      mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+      writeFileSync(sentinel, '{"loaded_at":"now"}');
+      const future = new Date(Date.now() + 60_000);
+      utimesSync(sentinel, future, future);
+
+      const result = runPromptGateWithInput(
+        projectRoot,
+        JSON.stringify({ prompt: CODE_PROMPT, session_id: 'fresh-route' }),
+      );
+
+      expect(result.stdout).toContain('**▸ paqad** · routed to');
+      expect(result.stdout).not.toContain(FIRST_GUESS_LINE);
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
+  it('AC-12: hard mode writes only the directive to stderr and exits 2 on a routed prompt', () => {
+    const projectRoot = newProject('paqad-prompt-hard-');
+    try {
+      let status = 0;
+      let stderr = '';
+      let stdout = '';
+      try {
+        stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
+          env: {
+            ...process.env,
+            ...NO_CONTEXT_REFRESH_ENV,
+            CLAUDE_PROJECT_DIR: projectRoot,
+            PAQAD_AGENT_ENTRY_MODE: 'hard',
+          },
+          input: JSON.stringify({ prompt: CODE_PROMPT, session_id: 'hard-route' }),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }).toString('utf8');
+      } catch (error) {
+        const err = error as { status: number; stdout: Buffer; stderr: Buffer };
+        status = err.status;
+        stdout = err.stdout.toString('utf8');
+        stderr = err.stderr.toString('utf8');
+      }
+
+      expect(status).toBe(2);
+      expect(stdout).toBe('');
+      expect(stderr).toContain('MUST load the paqad framework');
+      expect(stderr).not.toContain('routed to');
+      expect(stderr).not.toContain(FIRST_GUESS_LINE);
+      expect(stderr).not.toContain('SE_SESSION=');
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
   it('writes the per-session workflow-state on the first prompt even when the sentinel is missing', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-route-'));
     try {
