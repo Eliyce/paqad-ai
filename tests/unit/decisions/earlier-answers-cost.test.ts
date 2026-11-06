@@ -97,7 +97,7 @@ function matchesNewestFirst(): string[] {
 function readsPerFile(): Map<string, number> {
   const counts = new Map<string, number>();
   for (const [path] of vi.mocked(readFileSync).mock.calls) {
-    const text = String(path);
+    const text = String(path).replace(/\\/gu, '/');
     if (text.includes(PATHS.DECISIONS_RESOLVED_DIR)) {
       counts.set(text, (counts.get(text) ?? 0) + 1);
     }

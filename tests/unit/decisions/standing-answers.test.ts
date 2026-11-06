@@ -88,7 +88,7 @@ describe('AC-12 AC-39 a matching rule answers the question', () => {
     expect(result.reused).toEqual({ rule: ruleId, chosen: 'yes', label: 'Yes please' });
     expect(pendingCount()).toBe(0);
     const stored = JSON.parse(readFileSync(result.path, 'utf8'));
-    expect(result.path).toContain(PATHS.DECISIONS_RESOLVED_DIR);
+    expect(result.path.replace(/\\/gu, '/')).toContain(PATHS.DECISIONS_RESOLVED_DIR);
     expect(stored.human_response.responded_by).toBe('standing-answer');
     expect(stored.responded_by).toBe('standing-answer');
     expect(stored.rationale).toContain(ruleId);

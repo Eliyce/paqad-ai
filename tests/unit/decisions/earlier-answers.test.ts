@@ -305,7 +305,8 @@ describe('AC-67 only the CLI create action and create.mjs pass the flag', () => 
     const cwd = process.cwd();
     const files = [...sourceFiles(join(cwd, 'src')), ...sourceFiles(join(cwd, 'runtime'))];
     const passing = files.filter((file) => /agentWorded:/u.test(readFileSync(file, 'utf8')));
-    expect(passing.map((file) => relative(cwd, file)).sort()).toEqual([
+    const relativePaths = passing.map((file) => relative(cwd, file).replace(/\\/gu, '/'));
+    expect(relativePaths.sort()).toEqual([
       'runtime/base/skills/decision/scripts/create.mjs',
       'src/cli/commands/decision.ts',
     ]);
