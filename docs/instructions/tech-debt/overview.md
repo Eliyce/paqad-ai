@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6RRS43NB1X6F3HVPN69GZX2](TD-01M6RRS43NB1X6F3HVPN69GZX2.md) (gap, low): A write-in answer does not stop the older answer to the same question being offered
+- [TD-01M6RRS3C9SWWNK95C9NZR4NMD](TD-01M6RRS3C9SWWNK95C9NZR4NMD.md) (bug, medium): A stage agent that opens the change gets no recipe-injected row, so the gate reports no proof
 - [TD-01M6RQ1TZDWKKG5ZF9F3ZXY7PX](TD-01M6RQ1TZDWKKG5ZF9F3ZXY7PX.md) (gap, medium): A pipeline-made spec can't be corrected after freeze without a manual re-freeze that marks it hand-written
 - [TD-01M6RNCA6NH470705MVB461QSS](TD-01M6RNCA6NH470705MVB461QSS.md) (debt, low): Standing answers drop malformed rows on write and rule answers show as earlier answers
 - [TD-01M6RNC9G7RDQNZQ4N9PPGZAXG](TD-01M6RNC9G7RDQNZQ4N9PPGZAXG.md) (bug, low): Spec review reports 227 false major items and saves only the count
