@@ -147,23 +147,6 @@ function notSeed(line: RenderedHook): boolean {
   return line.nativeEvent !== SEED_EVENT && !isActivationLine(line);
 }
 
-function withoutGroupPolicy(hooks: HookGroups): HookGroups {
-  return Object.fromEntries(
-    Object.entries(hooks).map(([event, groups]) => [
-      event,
-      groups.map((group) => ({
-        ...group,
-        hooks: group.hooks.map((entry) => {
-          const rest: Record<string, unknown> = { ...entry };
-          delete rest.onFailure;
-          delete rest.timeout;
-          return rest as { command: string };
-        }),
-      })),
-    ]),
-  );
-}
-
 function withoutFailurePolicy(line: RenderedHook): RenderedHook {
   const rest = { ...line };
   delete rest.onFailure;
@@ -461,7 +444,7 @@ describe('the stage enforcement guardrails', () => {
     expect(Object.keys(withoutSeedHook(workHooks))).toEqual(
       Object.keys(withoutSeedHook(baseHooks)),
     );
-    expect(withoutGroupPolicy(withoutSeedHook(workHooks))).toEqual(withoutSeedHook(baseHooks));
+    expect(withoutSeedHook(workHooks)).toEqual(withoutSeedHook(baseHooks));
     expect(flatten({ [SEED_EVENT]: workHooks[SEED_EVENT] ?? [] })).toEqual([
       { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
     ]);

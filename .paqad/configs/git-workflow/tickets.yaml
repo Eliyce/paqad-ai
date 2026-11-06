@@ -11,7 +11,7 @@
 #   transitions:  the status to move the ticket to, "" means don't move it
 #     on_pr_open:   when the PR opens
 #     on_ci_green:  when CI passes on the PR
-paqad_version: "1.116.0"
+schema_version: 1
 
 # true means every change needs a ticket, and deliver stops without one.
 require_ticket: false

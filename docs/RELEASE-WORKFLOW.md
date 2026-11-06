@@ -405,14 +405,20 @@ Why each one works the way it does, for the parts the code does not say.
   otherwise skips with exit 0.
 - **`assemble-plugin.mjs`** builds the tree the `publish-plugin` release job pushes to
   `Eliyce/paqad-claude-plugin`: the plugin files plus a generated `.claude-plugin/marketplace.json`
-  (marketplace `eliyce`, plugin `paqad`, source `./`). The tree includes `SECURITY.md` and the
+  (marketplace `eliyce`, plugin `paqad`, source `./`) and a generated `package.json` holding only
+  the keys in `PLUGIN_PACKAGE_KEYS`. Its `exports` stays, with import conditions only, because shipped
+  skill scripts import `paqad-ai` and `paqad-ai/rule-scripts` through it. `paqadEngines` records the
+  installed engine versions, so assembly needs dependencies installed and fails before it clears the
+  target when an engine is missing or not an exact version. The `static` CI job assembles the real
+  tree and runs `scripts/check-plugin-tree.mjs` on it. The tree includes `SECURITY.md` and the
   listing icon `assets/icon.png`. It leaves out every `*.map` file and the OS junk names
   `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX`, because Anthropic's plugin directory
   stops validation on any file over 5 MiB (the source maps are the only files that big) and
   blocks those junk names. Neither the npm package nor the plugin tree ships source maps:
   `tsup.config.ts` builds none, and the assembler still filters `*.map` as a guard. It also leaves out
   `dist/plugin/` (only `scripts/build-plugin-manifest.mjs` imports it, at build time, so the npm
-  package keeps it), and it rewrites every raw control byte (0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F) in
+  package keeps it) and every `.d.ts` under `dist/`, at any depth (the mod's own
+  `runtime/claude-plugin/mod/types/index.d.ts` stays), and it rewrites every raw control byte (0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F) in
   an assembled `.js` file as `\xNN` text, because esbuild writes the bundled yaml lexer's
   `"\x02"`, `"\x18"` and `"\x1f"` as literal bytes and the directory flags them. Each rewritten file
   must pass `node --check` or assembly fails; a file with no such byte is copied byte for byte. It wipes everything in the

@@ -9,12 +9,17 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getPackageRoot } from '@/core/runtime-paths.js';
+
 import {
   describeOptionalEngine,
+  ENGINE_INSTALL_NETWORK_HINT,
+  engineInstallArguments,
+  engineInstallNetworkHint,
   loadOptionalPackage,
   maybeStartOptionalEngineInstall,
   resolveOptionalPackage,
@@ -464,6 +469,175 @@ describe('maybeStartOptionalEngineInstall', () => {
       ),
     ).toBe('started');
     expect(start).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the exact engine versions from paqadEngines', () => {
+  const EXACT = ['@huggingface/transformers@4.3.1', 'openai@7.43.0'];
+  const PINS = { '@huggingface/transformers': '4.3.1', openai: '7.43.0' };
+  const RANGES = { '@huggingface/transformers': '^4.3.1', openai: '^7.43.0' };
+
+  function linkedPackage(pkg: Record<string, unknown>): string {
+    const pkgRoot = join(root, 'npm-copy');
+    mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
+    writeFileSync(join(pkgRoot, 'package.json'), JSON.stringify(pkg));
+    const link = join(root, 'current');
+    symlinkSync(join(pkgRoot, 'runtime'), link, 'junction');
+    return link;
+  }
+
+  function envFor(pkg: Record<string, unknown>): NodeJS.ProcessEnv {
+    return {
+      CLAUDE_PLUGIN_DATA: join(root, 'plugin-data'),
+      PAQAD_FRAMEWORK_HOME: linkedPackage(pkg),
+    };
+  }
+
+  it('AC-14: paqadEngines starts the two exact specs', () => {
+    const start = vi.fn();
+    const outcome = maybeStartOptionalEngineInstall(
+      envFor({ paqadEngines: PINS, dependencies: RANGES }),
+      { resolve: () => null, startInstall: start, now: () => 0 },
+    );
+    expect(outcome).toBe('started');
+    expect(start.mock.calls[0]?.[0]).toEqual(EXACT);
+  });
+
+  it('AC-14: no paqadEngines keeps the range specs', () => {
+    const start = vi.fn();
+    maybeStartOptionalEngineInstall(envFor({ dependencies: RANGES }), {
+      resolve: () => null,
+      startInstall: start,
+      now: () => 0,
+    });
+    expect(start.mock.calls[0]?.[0]).toEqual([
+      '@huggingface/transformers@^4.3.1',
+      'openai@^7.43.0',
+    ]);
+  });
+
+  it.each([
+    ['a string', 'nope'],
+    ['null', null],
+    ['an array', ['4.3.1', '7.43.0']],
+    ['an empty object', {}],
+    ['a non-string value', { '@huggingface/transformers': 4, openai: '7.43.0' }],
+    ['one engine missing', { openai: '7.43.0' }],
+    ['a caret range', { ...PINS, openai: '^4.3.1' }],
+    ['a tag', { ...PINS, openai: 'latest' }],
+    ['a file value', { ...PINS, openai: 'file:../x' }],
+    ['a URL', { ...PINS, openai: 'https://example.com/x.tgz' }],
+    ['a two-part version', { ...PINS, openai: '4.3' }],
+    ['a prerelease', { ...PINS, openai: '4.3.1-beta' }],
+  ])('AC-14: paqadEngines holding %s returns no-pinned-range, never a range', (_label, pins) => {
+    const start = vi.fn();
+    const outcome = maybeStartOptionalEngineInstall(
+      envFor({ paqadEngines: pins, dependencies: RANGES }),
+      { resolve: () => null, startInstall: start, now: () => 0 },
+    );
+    expect(outcome).toBe('no-pinned-range');
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('AC-22: the argument builder returns only the script path under the package root', () => {
+    expect(engineInstallArguments()).toEqual([
+      join(getPackageRoot(), 'runtime', 'scripts', 'install-engine.mjs'),
+    ]);
+    expect(existsSync(engineInstallArguments()[0]!)).toBe(true);
+  });
+
+  it('AC-20: the argument builder ignores a project holding its own paqad-ai package', () => {
+    const expected = engineInstallArguments();
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'paqad-ai' }));
+    const cwd = process.cwd();
+    process.chdir(root);
+    try {
+      expect(engineInstallArguments()).toEqual(expected);
+      expect(engineInstallArguments()[0]!.startsWith(`${realpathSync(root)}${sep}`)).toBe(false);
+    } finally {
+      process.chdir(cwd);
+    }
+  });
+
+  it('AC-21: a missing script writes no lock or marker, logs the path and starts later', () => {
+    const start = vi.fn();
+    const installDir = join(root, 'plugin-data');
+    const script = join(root, 'scripts', 'install-engine.mjs');
+    const deps = {
+      resolve: () => null,
+      readSpecs: () => EXACT,
+      startInstall: start,
+      now: () => 0,
+      installScript: script,
+    };
+    const env = { CLAUDE_PLUGIN_DATA: installDir };
+    expect(maybeStartOptionalEngineInstall(env, deps)).toBe('install-script-missing');
+    expect(existsSync(join(installDir, '.paqad-engine-install.lock'))).toBe(false);
+    expect(existsSync(join(installDir, '.paqad-engine-install.json'))).toBe(false);
+    expect(existsSync(join(installDir, 'package.json'))).toBe(false);
+    expect(readFileSync(join(installDir, '.paqad-engine-install.log'), 'utf8')).toContain(script);
+    expect(start).not.toHaveBeenCalled();
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    writeFileSync(script, '');
+    expect(maybeStartOptionalEngineInstall(env, deps)).toBe('started');
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  describe('a ready marker holding older range specs, with the engine in plugin data', () => {
+    const NOW = Date.parse('2026-11-05T12:00:00.000Z');
+
+    function outcomeAfter(ageMs: number, start: () => void): string {
+      const env = envFor({ paqadEngines: PINS });
+      const installDir = env.CLAUDE_PLUGIN_DATA!;
+      mkdirSync(installDir, { recursive: true });
+      writeFileSync(
+        join(installDir, '.paqad-engine-install.json'),
+        JSON.stringify({
+          status: 'ready',
+          attempted_at: new Date(NOW - ageMs).toISOString(),
+          specs: ['@huggingface/transformers@^4.3.1', 'openai@^7.43.0'],
+        }),
+      );
+      return maybeStartOptionalEngineInstall(env, {
+        resolve: () => join(installDir, 'node_modules', 'engine', 'index.js'),
+        startInstall: start,
+        now: () => NOW,
+      });
+    }
+
+    it('AC-24: starts the exact specs once the marker is older than 24 hours', () => {
+      const start = vi.fn();
+      expect(outcomeAfter(25 * 60 * 60 * 1000, start)).toBe('started');
+      expect(start.mock.calls[0]?.[0]).toEqual(EXACT);
+    });
+
+    it('AC-24: returns throttled while the marker is younger', () => {
+      const start = vi.fn();
+      expect(outcomeAfter(60 * 60 * 1000, start)).toBe('throttled');
+      expect(start).not.toHaveBeenCalled();
+    });
+  });
+
+  it('AC-25: a failed install hint names the exact versions with --save-exact', () => {
+    const env = envFor({ paqadEngines: PINS });
+    mkdirSync(env.CLAUDE_PLUGIN_DATA!, { recursive: true });
+    writeFileSync(
+      join(env.CLAUDE_PLUGIN_DATA!, '.paqad-engine-install.json'),
+      JSON.stringify({ status: 'failed', error: 'boom', attempted_at: '2026-01-01T00:00:00Z' }),
+    );
+    const report = describeOptionalEngine(env, { resolve: () => null });
+    for (const hint of [report.hint!, engineInstallNetworkHint(env)]) {
+      expect(hint).toContain(
+        'npm install @huggingface/transformers@4.3.1 openai@7.43.0 --save-exact',
+      );
+      expect(hint).toContain('CLAUDE_PLUGIN_DATA');
+    }
+  });
+
+  it('AC-25: with no readable specs the hint is the fixed text', () => {
+    expect(engineInstallNetworkHint({ PAQAD_FRAMEWORK_HOME: join(root, 'gone') })).toBe(
+      ENGINE_INSTALL_NETWORK_HINT,
+    );
   });
 });
 

@@ -83,6 +83,11 @@ The reasons below are not obvious from the code, grouped by file in `src/rag/`.
 - **`providers.ts`.** The local model is pinned to `q8` so the quantized files load as before;
   newer transformers versions default to fp32, which changes the download size and the vectors.
   The cache path is posix-normalized so it is the same on every platform.
+- **`optional-package.ts`.** A plugin install takes exact engine versions from `paqadEngines`, so
+  it gets what the plugin directory reviewer read, and a bad value stops the install instead of
+  falling back to a range. The installer is a real file, `runtime/scripts/install-engine.mjs`, so
+  it can be read and tested. Details are in
+  [the technical view](../features/embedding-providers/technical.md).
 - **`rerank-order.ts`.** Reranking only changes order: the original hits with their cosine scores
   are reattached, and hits the reranker did not score keep their relative order at the end.
 - **`service.ts`.** One scoring path serves both retrieval and `rag probe`, so a probe shows the

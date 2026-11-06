@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6PMF0EHYJQESGSEK7KSQW9D",
+  "category": "intake.requirement",
+  "title": "May downloaded search packages run their own setup programs?",
+  "context": "When local search is first turned on, the packages it downloads can run their own setup programs on the user's machine. At least one does: onnxruntime-node 1.30.0 runs node ./script/install after it installs. Those programs are code the directory reviewer never read. Allowing them is what happens today and adds a README sentence beside your fixed one. Either of the other two changes the exact install command in AC-3, adds work, and needs a test that local search still works, since stopping them may break it.",
+  "options": [
+    {
+      "option_key": "allow-and-disclose",
+      "label": "Allow the setup programs, and say so plainly in the README",
+      "one_line_preview": "Allow the setup programs, and say so plainly in the README",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "stop-all",
+      "label": "Stop the setup programs, and accept extra work if local search needs them",
+      "one_line_preview": "Stop the setup programs, and accept extra work if local search needs them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "allow-needed-only",
+      "label": "Allow them only for the packages that need them",
+      "one_line_preview": "Allow them only for the packages that need them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow-and-disclose",
+  "created_at": "2026-11-05T19:55:07.089Z",
+  "status": "resolved",
+  "change": "01M6PKFYRQGVAS21PYXKKVC711",
+  "chosen": "allow-and-disclose",
+  "rationale": "Owner: allow setup programs and say so in the README.",
+  "resolved_at": "2026-11-05T20:07:55.513Z",
+  "decision_id": "D-01M6PMF0EHYJQESGSEK7KSQW9D",
+  "fingerprint": "sha256:c600e26073080545100b0642daad29c74950cf90f7ef49e479c6a22beb661b86",
+  "question": "May downloaded search packages run their own setup programs?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6PKFYRQGVAS21PYXKKVC711",
+  "ttl_until": "2026-11-19T19:55:07.089Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow-and-disclose",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T20:07:55.513Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: allow setup programs and say so in the README."
+  }
+}

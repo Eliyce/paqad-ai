@@ -54,9 +54,20 @@ function write(root: string, rel: string, text = 'x'): void {
 
 function builtWorkspace(version: string): string {
   const root = tempDir('paqad-release-ws-');
-  write(root, 'package.json', JSON.stringify({ name: 'paqad-ai', version }));
+  write(
+    root,
+    'package.json',
+    JSON.stringify({
+      name: 'paqad-ai',
+      version,
+      exports: { './cli': { import: './dist/cli/index.js', types: './dist/cli/index.d.ts' } },
+    }),
+  );
   write(root, '.claude-plugin/plugin.json', JSON.stringify({ name: 'paqad', version }));
   write(root, 'dist/cli/index.js', `export const v = '${version}';`);
+  for (const name of ['@huggingface/transformers', 'openai']) {
+    write(root, `node_modules/${name}/package.json`, JSON.stringify({ name, version: '1.0.0' }));
+  }
   write(root, 'runtime/claude-plugin/hooks.json', '{}');
   write(root, 'README.md');
   write(root, 'LICENSE');
@@ -235,6 +246,22 @@ describe('the release workflow publishes the plugin', () => {
         expect(step.env.PAQAD_PLUGIN_PUSH_TOKEN).toBe('${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}');
       }
     }
+  });
+
+  it('AC-39: installs from the frozen lockfile, then assembles under set -eu before any git add', () => {
+    const job = workflow.jobs['publish-plugin']!;
+    const names = job.steps.map((step) => step.run ?? '');
+    const install = names.indexOf('pnpm install --frozen-lockfile');
+    expect(install).toBeGreaterThan(-1);
+    expect(install).toBeLessThan(job.steps.indexOf(pushStep));
+    const push = pushStep.run!;
+    expect(push.indexOf('set -eu')).toBeGreaterThan(-1);
+    expect(push.indexOf('set -eu')).toBeLessThan(
+      push.indexOf('node scripts/assemble-plugin.mjs plugin-repo'),
+    );
+    expect(push.indexOf('node scripts/assemble-plugin.mjs plugin-repo')).toBeLessThan(
+      push.indexOf('git add'),
+    );
   });
 
   it('assembles the tree with the script and pushes it and a version tag to Eliyce/paqad-claude-plugin', () => {

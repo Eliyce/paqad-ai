@@ -263,6 +263,28 @@ describe('paqad-ai rules override', () => {
       );
     }
 
+    it.each(['-rf.ts', '--project-root'])(
+      'AC-36: a file named %s reaches the override as that exact value and changes no other option',
+      async (file) => {
+        const token = writeRuleStopRecord({
+          projectRoot: root,
+          sessionId: SES,
+          rule: 'RL-1',
+          title: 'No comments',
+          file,
+          toolUseId: 'tu_1',
+          managed: false,
+          sole: true,
+          now: () => new Date(),
+        }).token;
+        await run('--rule', 'RL-1', '--file', file, '--token', token, '--tool-use-id', 'tu_1');
+        expect(process.exitCode).toBeUndefined();
+        const json = JSON.parse(lines.at(-1)!) as Record<string, unknown>;
+        expect(json).toMatchObject({ overridden: true, rule: 'RL-1', file, bundle: dir });
+        expect(readRuleOverrides(root, dir).at(-1)).toMatchObject({ file, rule: 'RL-1' });
+      },
+    );
+
     it('records the override and prints the row', async () => {
       const token = stop();
       await run('--rule', 'RL-1', '--file', 'src/x.ts', '--token', token, '--reason', 'ok');

@@ -51,6 +51,16 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-agent-write-guard.mjs"
           }
         ]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\" stage-agent-handback.mjs",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

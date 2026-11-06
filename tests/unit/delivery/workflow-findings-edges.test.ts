@@ -1,3 +1,4 @@
+import { renderBranchName } from '@/delivery/templates.js';
 import {
   branchFinding,
   expectedBase,
@@ -41,8 +42,85 @@ describe('workflow findings: edge inputs', () => {
   it('skips a ticket pattern that does not compile and keeps the hash of a GitHub key', () => {
     const config = defaultGitWorkflow();
     config.tickets.sources = { bad: source('('), gh: source('#\\d+') };
-    expect(ticketInBranch(config, 'feature/12-fix')).toBe('#12');
+    const key = 12;
+    expect(ticketInBranch(config, `feature/${key}-fix`)).toBe(`#${key}`);
     expect(ticketInBranch(config, 'feature/fix')).toBe('');
+  });
+
+  describe('a number is a GitHub ticket only in the slot the branch template gives it', () => {
+    const github = (template: string) => {
+      const config = defaultGitWorkflow();
+      config.tickets.sources = { gh: source('#\\d+') };
+      config.branches.template = template;
+      for (const type of Object.values(config.branches.types)) type.template = '';
+      return config;
+    };
+    const pr = { number: null, base: 'main', title: null, labels: [], body: '' };
+
+    it('finds no ticket when the template has no ticket slot', () => {
+      const config = github('{prefix}/{title_slug}');
+      expect(ticketInBranch(config, 'feature/round-5')).toBe('');
+      expect(ticketInBranch(config, 'bugfix/12-fix')).toBe('');
+    });
+
+    it('raises no link finding for a slug number when the template has no ticket slot', () => {
+      const config = github('{prefix}/{title_slug}');
+      expect(prFindings(config, 'feature/plugin-directory-round-5', pr)).toEqual([]);
+    });
+
+    it('finds the ticket in the default template slot and still asks the PR to link it', () => {
+      const config = github('{prefix}/{ticket}-{title_slug}');
+      const key = 12;
+      expect(ticketInBranch(config, `feature/${key}-fix`)).toBe(`#${key}`);
+      expect(prFindings(config, `feature/${key}-fix`, pr)).toEqual([
+        { code: 'pr-ticket-link', message: `PR #? doesn't link #${key}.` },
+      ]);
+    });
+
+    it('finds the ticket when the title gave no slug, as paqad renders that branch', () => {
+      const config = defaultGitWorkflow();
+      config.tickets.sources = { gh: source('#\\d+') };
+      const key = 12;
+      for (const title of ['', '!!!', '日本語']) {
+        const branch = renderBranchName(config, 'feature', {
+          ticket: `#${key}`,
+          title,
+          summary: '',
+        });
+        expect(branch).toBe(`feature/${key}`);
+        expect(ticketInBranch(config, branch)).toBe(`#${key}`);
+      }
+    });
+
+    it('finds no ticket for a slug number when the default slot is empty', () => {
+      const config = github('{prefix}/{ticket}-{title_slug}');
+      expect(ticketInBranch(config, 'feature/fix-round-5')).toBe('');
+      expect(prFindings(config, 'feature/fix-round-5', pr)).toEqual([]);
+    });
+
+    it('reads a slot wherever the template puts it, and a type template wins', () => {
+      expect(ticketInBranch(github('{prefix}/{title_slug}-{ticket}'), 'feature/round-5-7')).toBe(
+        '#7',
+      );
+      const config = github('{prefix}/{title_slug}');
+      config.branches.types.bugfix.template = '{ticket}-{title_slug}';
+      expect(ticketInBranch(config, '7-fix')).toBe('#7');
+      expect(ticketInBranch(config, 'bugfix/7-fix')).toBe('');
+    });
+
+    it('uses the team template with any prefix when no branch types are set', () => {
+      const config = github('{prefix}/{ticket}-{title_slug}');
+      config.branches.types = {};
+      expect(ticketInBranch(config, 'any/7-fix')).toBe('#7');
+      expect(ticketInBranch(config, 'any/fix-7')).toBe('');
+    });
+
+    it('still resolves a key from a pattern without a leading hash, in any position', () => {
+      const config = github('{prefix}/{title_slug}');
+      config.tickets.sources = { jira: source('PROJ-\\d+'), snow: source('INC\\d+') };
+      expect(ticketInBranch(config, 'feature/fix-PROJ-9-login')).toBe('PROJ-9');
+      expect(ticketInBranch(config, 'INC0012345')).toBe('INC0012345');
+    });
   });
 
   it('accepts a PR to a glob base, a second target or a parent branch, and flags others', () => {

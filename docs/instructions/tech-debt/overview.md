@@ -26,6 +26,18 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6PXQZQTKBNSE88RRKF8NTRC](TD-01M6PXQZQTKBNSE88RRKF8NTRC.md) (gap, low): live-run-replay test uses most of its timeout and fails under load
+- [TD-01M6PXQY5XBQQQK1JEXZQPM57P](TD-01M6PXQY5XBQQQK1JEXZQPM57P.md) (bug, low): parseBranchTickets reads a leading number as a ticket whatever the template says
+- [TD-01M6PXQWGXQY5NYW28FBN6SHFR](TD-01M6PXQWGXQY5NYW28FBN6SHFR.md) (gap, medium): A template with no ticket slot drops a number-first branch's ticket with no message
+- [TD-01M6PXQTRXW9XG9M2KE7FPKZA1](TD-01M6PXQTRXW9XG9M2KE7FPKZA1.md) (bug, low): A slug starting with a number still reads as a GitHub ticket on the default template
+- [TD-01M6PVPT876Z739C9DTJGBT6PT](TD-01M6PVPT876Z739C9DTJGBT6PT.md) (gap, low): A timed-out Allow once can record an override the HUD reports as failed
+- [TD-01M6PVPSGTY2WWVFZGY1FRE3HE](TD-01M6PVPSGTY2WWVFZGY1FRE3HE.md) (bug, low): Two engine installs starting together can both run
+- [TD-01M6PVPRNVQB24GG59S2R15XWM](TD-01M6PVPRNVQB24GG59S2R15XWM.md) (bug, low): A dead engine install leaves its lock behind and blocks later installs
+- [TD-01M6PTPA0NJBPK6Z62GFAF7B37](TD-01M6PTPA0NJBPK6Z62GFAF7B37.md) (gap, medium): The AC-67 base comparison does not run in CI, so it can go red on main unseen
+- [TD-01M6PTP96FACB9KAHY2K4TF4C1](TD-01M6PTP96FACB9KAHY2K4TF4C1.md) (bug, low): assemble-plugin does nothing and exits 0 when started through a linked folder
+- [TD-01M6PRDYEEE0GR18P413R707GK](TD-01M6PRDYEEE0GR18P413R707GK.md) (debt, low): The duplication report calls older main code new, and that code holds real repeats
+- [TD-01M6PRDXR9JDW5GXJ0PQHN5RE2](TD-01M6PRDXR9JDW5GXJ0PQHN5RE2.md) (bug, medium): ac-test-mapping misses titles in it.runIf(cond)(title) and matches ids across specs
+- [TD-01M6PRDX1RMDK5GENC03EYJK2B](TD-01M6PRDX1RMDK5GENC03EYJK2B.md) (gap, low): The mod test harness cannot set the plugin root, so AC-32 and AC-33 stop at the pure function
 - [TD-01M6PFVTK0MFYHTBT9T6C8AZBZ](TD-01M6PFVTK0MFYHTBT9T6C8AZBZ.md) (gap, low): Measure the ledger append cost on Windows and recover a lock that fails to release
 - [TD-01M6NNEJ6P2C9HEAYMFXCC0546](TD-01M6NNEJ6P2C9HEAYMFXCC0546.md) (bug, low): A folder link in a change crashes the rule runner on edits
 - [TD-01M6NMGFR3E41XGDDQ2CQC5F1D](TD-01M6NMGFR3E41XGDDQ2CQC5F1D.md) (gap, low): Rule scripts that read the working folder or skip links can misjudge an edit's result

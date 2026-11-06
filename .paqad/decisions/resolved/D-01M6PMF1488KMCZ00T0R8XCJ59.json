@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6PMF1488KMCZ00T0R8XCJ59",
+  "category": "intake.requirement",
+  "title": "How do we disclose the packages the two search packages bring with them?",
+  "context": "Fixing the versions covers the two search packages, not the smaller packages they bring with them, so those can still change after review. The README promises exact versions, and a reviewer may read that as everything being fixed. Your word-for-word sentence stays either way. A full list adds one more file to the plugin and a step to every release.",
+  "options": [
+    {
+      "option_key": "sentence-before-fixed",
+      "label": "Keep the two fixed versions and add one plain sentence before my fixed sentence saying the packages they bring can still change",
+      "one_line_preview": "Keep the two fixed versions and add one plain sentence before my fixed sentence saying the packages they bring can still change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "full-version-list",
+      "label": "Ship a full list of every version with the plugin",
+      "one_line_preview": "Ship a full list of every version with the plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "sentence-before-fixed",
+  "created_at": "2026-11-05T19:55:07.784Z",
+  "status": "resolved",
+  "change": "01M6PKFYRQGVAS21PYXKKVC711",
+  "chosen": "sentence-before-fixed",
+  "rationale": "Owner: one plain sentence before the fixed sentence.",
+  "resolved_at": "2026-11-05T20:07:56.148Z",
+  "decision_id": "D-01M6PMF1488KMCZ00T0R8XCJ59",
+  "fingerprint": "sha256:036288a12a3734e9830d64ecdc58cde8423fb7e6b831205d3b0ad8058010bb27",
+  "question": "How do we disclose the packages the two search packages bring with them?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6PKFYRQGVAS21PYXKKVC711",
+  "ttl_until": "2026-11-19T19:55:07.784Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "sentence-before-fixed",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T20:07:56.148Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: one plain sentence before the fixed sentence."
+  }
+}

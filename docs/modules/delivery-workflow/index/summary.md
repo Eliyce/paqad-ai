@@ -40,6 +40,8 @@ each with its own JSON Schema in `src/validators/schemas/git-workflow/`:
 | `pull-requests.yaml` | host, title/body templates, draft, reviewers, labels, link_ticket, also_open_against, the CI gate |
 | `enforcement.yaml` | enabled, and how strictly agents and people are checked |
 
+`link_ticket` asks a PR to link the ticket its branch names. For a source pattern with a leading `#`, a number counts as that ticket only in the place the branch template gives `{ticket}`, and the branch must fit a configured type's shape. A number in the slug, or a template with no `{ticket}`, gives no ticket. The slug itself may be empty, because a title with no Latin letters or digits renders as `feature/12`. Other patterns, like Jira keys, match anywhere in the branch name.
+
 `loadGitWorkflow` (`src/git-workflow/load.ts`) reads them. A missing file means that
 file's defaults; a missing folder means all defaults plus a `doctor` warning. Each file
 is checked against its schema and then against the cross-file rules, and a setting

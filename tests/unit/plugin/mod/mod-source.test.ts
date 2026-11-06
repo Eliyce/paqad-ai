@@ -100,7 +100,7 @@ describe('the HUD mod source', () => {
     const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(register.match(/\$\.process\./g)).toEqual(['$.process.', '$.process.']);
-    expect(register).toContain("$.process.run(['paqad-ai', 'rules', 'override', ...args], {");
+    expect(register).toContain("$.process.run([program, 'rules', 'override', ...args], {");
     const start = register.indexOf('$.process.run(\n      [\n        program,');
     expect(start, 'the delivery refresh call').toBeGreaterThan(-1);
     const call = register.slice(start, register.indexOf(');', start));
@@ -110,6 +110,22 @@ describe('the HUD mod source', () => {
     expect(call).not.toMatch(/snapshot|branch|title|ship/);
     expect(register).not.toMatch(/\$\.process\.spawn/);
     expect(helper).not.toMatch(/spawn|shell|exec|argv/);
+  });
+
+  it('AC-34: register.tsx has exactly two process runs and both start with the plugin program', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    expect(register.match(/\$\.process\.run\(/g)).toHaveLength(2);
+    expect(register.match(/\$\.process\.run\(\s*\[\s*program,/g)).toHaveLength(2);
+    expect(register).not.toContain("['paqad-ai'");
+  });
+
+  it('AC-37: the prompt.submit handler passes the event to next and reads no field of it', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const start = register.indexOf("on('prompt.submit',");
+    expect(start).toBeGreaterThan(-1);
+    const handler = register.slice(start, register.indexOf('.catch(', start));
+    expect(handler).toContain('await next(e)');
+    expect(handler).not.toMatch(/\be\.|\be\[|\.\.\.e\b|\{[^}]*\}\s*=\s*e\b/);
   });
 
   it('the watch started after a git push can never fail or re-run the push', () => {
@@ -197,7 +213,9 @@ describe('the HUD mod source', () => {
     expect(new Set(used.map((u) => u.name))).toEqual(new Set(['register.tsx']));
     expect(section).toContain('two programs, both paqad');
     expect(section).toContain('only after you choose **Allow once, recorded**');
-    expect(section).toContain('`paqad-ai rules override --rule <id>');
+    expect(section).toContain(
+      '`<plugin>/runtime/claude-plugin/bin/paqad-ai rules override --rule <id>',
+    );
     for (const file of ['`<session>.live`', '`<session>.last-block.json`']) {
       expect(section).toContain(file);
     }
@@ -207,6 +225,31 @@ describe('the HUD mod source', () => {
     for (const name of vars) expect(section).toContain(`\`${name}\``);
     expect(section).toContain('**Commands:** `/paqad`, or `/paqad-hud`');
     expect(section).toContain('--outcome landed');
+  });
+
+  it('AC-38: the README holds the owner sentences word for word, in order, and names the plugin program', () => {
+    const readme = readFileSync(join(MOD_DIR, '../../../README.md'), 'utf8');
+    const row = readme.split('\n').find((line) => line.startsWith('| `registry.npmjs.org`'))!;
+    const setup =
+      'The packages downloaded may run their own setup code on your machine during the install.';
+    const transitive =
+      'Only these two are fixed: the packages they bring with them are chosen at install time and can still change.';
+    const fixed =
+      "It installs exact versions (`@huggingface/transformers` and `openai`, at the versions this release was built with) into Claude Code's plugin data folder, with `npm install --save-exact`.";
+    expect(row.replace(/\s*\|\s*$/, '').endsWith(`${setup} ${transitive} ${fixed}`)).toBe(true);
+    const start = readme.indexOf('### What the HUD does (Claude Code)');
+    const section = readme.slice(start, readme.indexOf('\n### ', start + 1));
+    const hooks =
+      "- **Hooks on your prompt:** the HUD hooks each prompt you send only to restart its clock and redraw. It never reads, stores or sends the prompt's text.";
+    expect(section).toContain(hooks);
+    expect(section.indexOf('- **Sends:**')).toBeLessThan(section.indexOf(hooks));
+    expect(section.indexOf(hooks)).toBeLessThan(section.indexOf('- **Commands:**'));
+    const runs = section.slice(section.indexOf('- **Runs:**'));
+    expect(
+      runs
+        .match(/`[^`]*`/)?.[0]
+        .startsWith('`<plugin>/runtime/claude-plugin/bin/paqad-ai rules override'),
+    ).toBe(true);
   });
 
   it('AC-18: the README names the background delivery refresh, when it runs, and that gh contacts GitHub', () => {

@@ -35,6 +35,28 @@ list in `package.json` excludes each generated skill folder), so npm users get t
 developer skills only. There is no root `bin/`: the launcher lives in `dist/` and
 `runtime/claude-plugin/bin/`.
 
+## What the assembled plugin holds
+
+`scripts/assemble-plugin.mjs` copies the paths in `PLUGIN_TREE` and leaves out source maps, the
+mod's tests, `dist/plugin` and every `.d.ts` under `dist/`. The mod's own
+`runtime/claude-plugin/mod/types/index.d.ts` stays.
+
+The plugin's `package.json` is generated and is not the npm one. It holds only the keys in
+`PLUGIN_PACKAGE_KEYS`: `name`, `version`, `description`, `type`, `license`, `exports` and
+`paqadEngines`. If you add a field that runtime code reads from `package.json`, add it to
+`PLUGIN_PACKAGE_KEYS` too, or the plugin ships without it.
+
+- `exports` stays because shipped skill scripts import `paqad-ai` and `paqad-ai/rule-scripts`
+  through it. It comes from the repository `package.json` with each `types` condition dropped.
+  Assembly fails before it clears the output folder if a target would not ship.
+- `paqadEngines` holds the exact installed versions of `@huggingface/transformers` and `openai`,
+  read from `node_modules`, so assembly needs dependencies installed. A missing engine or a version
+  that is not exact `x.y.z` fails assembly. The runtime installs these versions on demand; see
+  [Embedding Providers](../../hybrid-rag/features/embedding-providers/technical.md).
+
+`scripts/check-plugin-tree.mjs` checks an assembled tree, including both `exports` imports, and
+CI runs it on every pull request and every push to `main`.
+
 ## How the discovery skills are built
 
 The source is `plugins/discovery`. Its builder is `plugins/discovery/build/build.py`
@@ -85,14 +107,14 @@ call, so a static reader sees it:
   trailing separator is dropped once when the session binds, and a root of `/` stays `/`.
   `heartbeatPath` and `lastBlockPath` in `model.ts` stay for the reads and the tests.
 - It starts two programs, each with its argv written at the call and the 15 s timeout:
-  - `recordOverride`'s literal `['paqad-ai', 'rules', 'override', ...args]`, only after a person
+  - `recordOverride`'s `[program, 'rules', 'override', ...args]`, only after a person
     picks Allow once: once for the override and once more with `--outcome` after the retried edit
-    returns.
+    returns. When `program` does not exist nothing starts and the edit stays blocked.
   - `pollCi`'s `[program, 'delivery-link', 'refresh', '--session', <id>,
-    '--project-root', <root>, '--min-age-seconds', <delay>]`. `program` is only the plugin's own
-    `runtime/claude-plugin/bin/paqad-ai` under `$.plugin.root` (`pluginProgramPath`; the
-    `paqad-ai.cmd` form on a Windows root), so a repository cannot shadow it on PATH. When that file
-    does not exist the watch stops and runs nothing. No value comes from the snapshot, branch name
+    '--project-root', <root>, '--min-age-seconds', <delay>]`. In both, `program` is only the
+    plugin's own `runtime/claude-plugin/bin/paqad-ai` under `$.plugin.root` (`pluginProgramPath`;
+    the `paqad-ai.cmd` form on a Windows root), so a repository cannot shadow it on PATH. When that
+    file does not exist the watch stops and runs nothing. No value comes from the snapshot, branch name
     or PR title. A failure in `watchAfterPush` is caught inside it, so it never fails or re-runs
     the push. It runs only while the
     snapshot shows an open PR whose CI is pending (`ciWatchHead`). `nextCiPoll` in
@@ -166,6 +188,6 @@ Release assembles the plugin and pushes it to `Eliyce/paqad-claude-plugin` with 
 ## Sources
 
 - `src/plugin`, `runtime/claude-plugin`, `plugins/discovery`
-- `scripts/assemble-plugin.mjs`, `scripts/build-plugin-manifest.mjs`,
+- `scripts/assemble-plugin.mjs`, `scripts/check-plugin-tree.mjs`, `scripts/build-plugin-manifest.mjs`,
   `scripts/validate-plugin.mjs`, `scripts/test-plugin.mjs`
 - `scripts/build-discovery.mjs`, `scripts/check-plugin-skills.mjs`

@@ -2328,8 +2328,8 @@ function expectLanded(result: unknown): void {
   expect((result as { isError?: unknown }).isError).not.toBe(true);
 }
 
-const OVERRIDE_ARGV = [
-  'paqad-ai',
+const overrideArgv = (world: World) => [
+  world.program,
   'rules',
   'override',
   '--rule',
@@ -2346,8 +2346,8 @@ const OVERRIDE_ARGV = [
   '/work',
 ];
 
-const outcomeArgv = (outcome: string) => [
-  'paqad-ai',
+const outcomeArgv = (world: World, outcome: string) => [
+  world.program,
   'rules',
   'override',
   '--outcome',
@@ -2372,8 +2372,78 @@ describe('a retried edit reaches PreToolUse again', () => {
     world.answers.push('Allow once, recorded', 'No reason');
     const result = await editCall($, gate);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
-    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV, outcomeArgv('landed')]);
+    expect(world.runs.map((run) => run.argv)).toEqual([
+      overrideArgv(world),
+      outcomeArgv(world, 'landed'),
+    ]);
     expectLanded(result);
+  });
+});
+
+describe("Allow once starts only the plugin's own program", () => {
+  const FAILED_TOAST = 'paqad could not record the override, so the edit stays blocked.';
+
+  test('AC-31: the override and its outcome both start <plugin root>/runtime/claude-plugin/bin/paqad-ai', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectLanded(await editCall($, gate));
+    const program = world.runs[0]!.argv[0]!;
+    expect(program).toMatch(/^\/.+\/runtime\/claude-plugin\/bin\/paqad-ai$/);
+    expect(program).toBe(world.program!);
+    expect(world.runs.map((run) => run.argv.slice(0, 3))).toEqual([
+      [program, 'rules', 'override'],
+      [program, 'rules', 'override'],
+    ]);
+    expect(world.runs[1]!.argv).toContain('--outcome');
+  });
+
+  for (const [label, run, rejectText] of [
+    ['fails to start', 'reject', 'spawn failed'],
+    ['times out', 'reject', 'timed out after 15000 ms'],
+    ['exits non-zero', { exitCode: 1, stdout: '', stderr: 'no' }, ''],
+  ] as const) {
+    test(`AC-32: when the program ${label}, nothing is recorded, the deny stays and the next attempt asks again`, async ($, on) => {
+      const { world, gate } = await ruleStopped($, on);
+      world.run = run;
+      world.rejectText = rejectText;
+      world.marksAllowedOnce = false;
+      world.answers.push('Allow once, recorded', 'No reason');
+      expectDenied(await editCall($, gate));
+      expect(gate.seen).toEqual(['tu_1']);
+      expect(world.toasts).toEqual([FAILED_TOAST]);
+      expect(world.writes.filter((write) => write.path.endsWith('.last-block.json'))).toEqual([]);
+      const asks = () =>
+        world.asked.filter((ask) => ask.options.includes('Allow once, recorded')).length;
+      expect(asks()).toBe(1);
+      world.answers.push('Let Claude fix it');
+      expectDenied(await editCall($, gate));
+      expect(asks()).toBe(2);
+    });
+  }
+
+  test('AC-33: with the program file absent nothing is recorded, the deny stays and no program runs', async ($, on) => {
+    const { world, gate } = await ruleStopped($, on);
+    world.pluginBinary = false;
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(world.runs).toEqual([]);
+    expect(gate.seen).toEqual(['tu_1']);
+    expect(world.toasts).toEqual([FAILED_TOAST]);
+    expect(world.logs.at(-1)!.text).toContain('paqad-ai is not in this plugin');
+  });
+
+  test('AC-35: a start failure that repeats the argument list keeps the token out of the toast and the log', async ($, on) => {
+    const token = 'one-time-value-81f3';
+    const { world, gate } = await ruleStopped($, on, { ...RULE_STOP, token });
+    world.run = 'reject';
+    world.rejectText = `spawn failed: rules override --rule RL-13 --token ${token} --session s`;
+    world.answers.push('Allow once, recorded', 'No reason');
+    expectDenied(await editCall($, gate));
+    expect(world.toasts.join(' ')).not.toContain(token);
+    expect(world.toasts).toEqual([FAILED_TOAST]);
+    const logged = world.logs.map((log) => log.text).join('\n');
+    expect(logged).not.toContain(token);
+    expect(logged).toContain('--token <token> --session s');
   });
 });
 
@@ -2388,7 +2458,9 @@ describe('the rule stop answer on a denied edit', () => {
       'Show the rule',
     ]);
     expect(world.asked[0]!.question).toContain('RL-13 stopped this edit to src/x.ts');
-    expect(overrideRuns(world)).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(overrideRuns(world)).toEqual([
+      { argv: overrideArgv(world), cwd: '/work', timeoutMs: 15_000 },
+    ]);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2397,7 +2469,7 @@ describe('the rule stop answer on a denied edit', () => {
     world.answers.push('Allow once, recorded', 'needed for the hotfix');
     expectLanded(await editCall($, gate));
     expect(overrideRuns(world)[0]!.argv).toEqual([
-      ...OVERRIDE_ARGV,
+      ...overrideArgv(world),
       '--reason=needed for the hotfix',
     ]);
   });
@@ -2406,7 +2478,7 @@ describe('the rule stop answer on a denied edit', () => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded');
     expectLanded(await editCall($, gate));
-    expect(overrideRuns(world)[0]!.argv).toEqual(OVERRIDE_ARGV);
+    expect(overrideRuns(world)[0]!.argv).toEqual(overrideArgv(world));
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2518,7 +2590,9 @@ describe('the rule stop answer on a denied edit', () => {
     world.answers.push('Allow once, recorded', 'No reason');
     expectLanded(await editCall($, gate, 'tu_1', 'Edit', { agentId: 'agent-a1' }));
     expect(world.asked[0]!.options).toContain('Allow once, recorded');
-    expect(overrideRuns(world)).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+    expect(overrideRuns(world)).toEqual([
+      { argv: overrideArgv(world), cwd: '/work', timeoutMs: 15_000 },
+    ]);
     expect(gate.seen).toEqual(['tu_1', 'tu_1']);
   });
 
@@ -2586,8 +2660,8 @@ describe('the rule stop answer on a denied edit', () => {
       2,
     );
     expect(overrideRuns(world).map((run) => run.argv)).toEqual([
-      OVERRIDE_ARGV,
-      OVERRIDE_ARGV.map((arg) => (arg === 'tok' ? 'tok2' : arg === 'tu_1' ? 'tu_2' : arg)),
+      overrideArgv(world),
+      overrideArgv(world).map((arg) => (arg === 'tok' ? 'tok2' : arg === 'tu_1' ? 'tu_2' : arg)),
     ]);
   });
 
@@ -2608,7 +2682,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
       1,
     );
-    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('still-blocked'));
+    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv(world, 'still-blocked'));
   });
 
   test('an edit that fails as a tool with no paqad stop for its call is never retried', async ($, on) => {
@@ -2676,7 +2750,10 @@ describe('the outcome line after an allowed-once retry', () => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
     expectLanded(await editCall($, gate));
-    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV, outcomeArgv('landed')]);
+    expect(world.runs.map((run) => run.argv)).toEqual([
+      overrideArgv(world),
+      outcomeArgv(world, 'landed'),
+    ]);
     expect(world.runs[1]!.timeoutMs).toBe(15_000);
   });
 
@@ -2692,7 +2769,7 @@ describe('the outcome line after an allowed-once retry', () => {
     ];
     world.answers.push('Allow once, recorded', 'No reason');
     expectDenied(await editCall($, gate));
-    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('still-blocked'));
+    expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv(world, 'still-blocked'));
   });
 
   test('AC-14: a failed outcome run leaves the returned result as it was', async ($, on) => {
@@ -2713,7 +2790,7 @@ describe('the outcome line after an allowed-once retry', () => {
       ];
       world.answers.push('Allow once, recorded', 'No reason');
       expectLanded(await editCall($, gate));
-      expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv('landed'));
+      expect(world.runs.at(-1)!.argv).toEqual(outcomeArgv(world, 'landed'));
       expect(
         world.logs.some(
           (log) => log.to === 'debug' && log.text.startsWith('paqad-ai rules override failed'),
@@ -2728,7 +2805,7 @@ describe('the outcome line after an allowed-once retry', () => {
     world.answers.push('Allow once, recorded', 'No reason');
     expectDenied(await editCall($, gate));
     expect(gate.seen).toEqual(['tu_1']);
-    expect(world.runs.map((run) => run.argv)).toEqual([OVERRIDE_ARGV]);
+    expect(world.runs.map((run) => run.argv)).toEqual([overrideArgv(world)]);
     expect(world.toasts).toEqual([ALLOW_ONCE_STALE_CLI]);
   });
 });

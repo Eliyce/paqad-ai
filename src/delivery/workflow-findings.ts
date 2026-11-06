@@ -112,13 +112,44 @@ export function commitFindings(
   return findings;
 }
 
+function ticketInTemplateSlot(
+  config: ResolvedGitWorkflow,
+  pattern: string,
+  branch: string,
+): string {
+  const types = Object.values(config.branches.types);
+  const shapes =
+    types.length > 0
+      ? types.map((type) => ({
+          template: type.template || config.branches.template,
+          prefixes: [type.prefix],
+        }))
+      : [{ template: config.branches.template, prefixes: undefined }];
+  for (const { template, prefixes } of shapes) {
+    const { patterns } = templateToRegExp(template, config, {
+      optional: ['scope', 'title_slug'],
+      branch: true,
+      prefixes,
+      ticketCapture: pattern,
+    });
+    for (const shape of patterns) {
+      const ticket = shape.exec(branch)?.groups?.ticket;
+      if (ticket) return `#${ticket}`;
+    }
+  }
+  return '';
+}
+
 export function ticketInBranch(config: ResolvedGitWorkflow, branch: string): string {
   for (const source of Object.values(config.tickets.sources)) {
-    const hashed = source.pattern.startsWith('#');
-    const pattern = hashed ? source.pattern.slice(1) : source.pattern;
     try {
-      const found = new RegExp(`(?<![A-Za-z0-9])(?:${pattern})(?![A-Za-z0-9])`).exec(branch);
-      if (found) return hashed ? `#${found[0]}` : found[0];
+      if (source.pattern.startsWith('#')) {
+        const ticket = ticketInTemplateSlot(config, source.pattern.slice(1), branch);
+        if (ticket) return ticket;
+        continue;
+      }
+      const found = new RegExp(`(?<![A-Za-z0-9])(?:${source.pattern})(?![A-Za-z0-9])`).exec(branch);
+      if (found) return found[0];
     } catch {
       continue;
     }

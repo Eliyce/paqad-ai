@@ -6,7 +6,7 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
-import { describeOptionalEngine, ENGINE_INSTALL_NETWORK_HINT } from '@/core/optional-package.js';
+import { describeOptionalEngine, engineInstallNetworkHint } from '@/core/optional-package.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { SCHEMA_VERSION_UPDATE_HINT } from '@/core/errors/schema-version-error.js';
 import { checkSchemaCompatibility, readSchemaMarkerSync } from '@/core/schema-version.js';
@@ -1400,7 +1400,7 @@ export class HealthChecker {
         warn(
           'RAG engine installed',
           `The embedding engine install failed: ${engine.detail ?? 'unknown error'}`,
-          engine.hint ?? ENGINE_INSTALL_NETWORK_HINT,
+          engine.hint ?? engineInstallNetworkHint(),
         ),
       );
     } else {

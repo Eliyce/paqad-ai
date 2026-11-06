@@ -9,6 +9,7 @@ export default tseslint.config(
       'dist/**',
       'node_modules/**',
       '.claude/**',
+      '.agents/**',
       '.codex-tracker/**',
       '.paqad/**',
       'docs/slides/**',

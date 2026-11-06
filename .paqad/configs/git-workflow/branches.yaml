@@ -15,7 +15,7 @@
 #   base_branch:   overrides the base_branch above for this type
 #   labels:        PR labels added for this type
 #   template:      overrides the template above for this type
-paqad_version: "1.116.0"
+schema_version: 1
 
 base_branch: main
 template: "{prefix}/{title_slug}"

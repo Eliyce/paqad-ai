@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6PTTCQXR3X2AADQFEJTN14K",
+  "category": "spec.change",
+  "title": "How is AC-7's no-hook-files-changed clause proved?",
+  "context": "The frozen spec marks AC-7's diff clause as automated. A test comparing the branch with main skips in CI (no main ref) and would fail any later branch that legitimately edits hooks, so it was replaced by a stable test that the edit gate stays wired. The clause itself was checked by hand: 0 of the guarded paths changed.",
+  "options": [
+    {
+      "option_key": "one-off-check",
+      "label": "Change the spec: the diff clause is a one-off check recorded in the PR, and the stable test stays",
+      "one_line_preview": "Change the spec: the diff clause is a one-off check recorded in the PR, and the stable test stays",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ci-job",
+      "label": "Add a CI check scoped to this PR only, removed after merge",
+      "one_line_preview": "Add a CI check scoped to this PR only, removed after merge",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "one-off-check",
+  "created_at": "2026-11-05T21:46:11.581Z",
+  "status": "resolved",
+  "change": "01M6PKFYRQGVAS21PYXKKVC711",
+  "chosen": "one-off-check",
+  "rationale": "Owner: the diff clause is a one-off check recorded in the PR; the stable test stays. Owner also confirmed the nine frozen invariants as they are.",
+  "resolved_at": "2026-11-05T21:51:01.488Z",
+  "decision_id": "D-01M6PTTCQXR3X2AADQFEJTN14K",
+  "fingerprint": "sha256:17da684cfb2817c4d113992f10126e974787bb28b422c04b0eba1df33b4c027e",
+  "question": "How is AC-7's no-hook-files-changed clause proved?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6PKFYRQGVAS21PYXKKVC711",
+  "ttl_until": "2026-12-05T21:46:11.581Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "one-off-check",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-05T21:51:01.488Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: the diff clause is a one-off check recorded in the PR; the stable test stays. Owner also confirmed the nine frozen invariants as they are."
+  }
+}

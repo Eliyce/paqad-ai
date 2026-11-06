@@ -60,6 +60,25 @@ describe('.github/workflows/ci.yml', () => {
     expect(workflow.env.NODE_OPTIONS).toBe('--max-old-space-size=4096');
   });
 
+  it('AC-1: pnpm run ci runs typecheck, lint, format, coverage, the build and the plugin checks', () => {
+    const scripts = (
+      JSON.parse(readFileSync('package.json', 'utf8')) as {
+        scripts: Record<string, string>;
+      }
+    ).scripts;
+    for (const step of [
+      'typecheck',
+      'lint',
+      'format:check',
+      'test:coverage',
+      'build',
+      'plugin:validate',
+      'plugin:test',
+    ]) {
+      expect(scripts.ci).toContain(`pnpm run ${step}`);
+    }
+  });
+
   it('AC-19: defines exactly the scope, static, test, merge, discovery-plugin, skill-e2e-laravel and gate jobs', () => {
     expect(Object.keys(jobs).sort()).toEqual([
       'discovery-plugin',
@@ -133,6 +152,19 @@ describe('.github/workflows/ci.yml', () => {
       ]) {
         expect(script).toContain(check);
       }
+    });
+
+    it('AC-2: assembles the real tree after the build and checks it, with no skip', () => {
+      const names = job.steps.map((step) => step.name);
+      const assemble = job.steps.find(
+        (step) => step.name === 'Assemble the real plugin tree and check it',
+      )!;
+      expect(names.indexOf(assemble.name)).toBeGreaterThan(names.indexOf('Build'));
+      expect(assemble.if).toBeUndefined();
+      expect(assemble.run).toContain('node scripts/assemble-plugin.mjs "$RUNNER_TEMP/plugin-tree"');
+      expect(assemble.run).toContain(
+        'node scripts/check-plugin-tree.mjs "$RUNNER_TEMP/plugin-tree"',
+      );
     });
 
     it('installs the pinned Claude Code so the plugin checks really run', () => {

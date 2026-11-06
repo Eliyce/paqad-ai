@@ -1826,6 +1826,8 @@ modules:
       - src/rag
       - src/project-knowledge
       - src/context/retrieval-context.ts
+      - src/core/optional-package.ts
+      - runtime/scripts/install-engine.mjs
     features:
       - slug: vector-index
         name: Vector Index
@@ -3303,6 +3305,7 @@ modules:
       - runtime/hooks/lib/agent-delegation-core.mjs
       - plugins/discovery
       - scripts/assemble-plugin.mjs
+      - scripts/check-plugin-tree.mjs
       - scripts/build-plugin-manifest.mjs
       - scripts/validate-plugin.mjs
       - scripts/test-plugin.mjs
