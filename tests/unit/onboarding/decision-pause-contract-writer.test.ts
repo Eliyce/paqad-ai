@@ -97,4 +97,17 @@ describe('the Resolution flow names the earlier check', () => {
     expect(body).toContain('.paqad/decisions/standing-answers.json');
     expect(body).toContain('"reused": true');
   });
+
+  it('commits only the standing answers file beyond the packet, and only when a rule changed', () => {
+    expect(body).toContain(
+      'Commit `.paqad/decisions/standing-answers.json` with it when a rule was added or removed.',
+    );
+    expect(body).not.toContain('.paqad/decisions/index.json');
+  });
+
+  it('names the plugin skill and the store-shape block', () => {
+    expect(body).toContain('which is `decision-pause` on Claude Code');
+    expect(body).toContain('has no `other` command and takes only its listed options');
+    expect(body).toContain('under `not_shown`');
+  });
 });

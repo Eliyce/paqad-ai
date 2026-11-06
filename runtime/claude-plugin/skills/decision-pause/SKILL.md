@@ -27,9 +27,9 @@ A decision pause asks the person one real choice. Scripts find earlier questions
 
 3. Ask with the `question` block that `suggest` or `paqad-ai decision check <id>` prints, in the host's question tool. Keep the entries and their order.
 
-4. Run the `resolve` command of the entry the person picked. For a write-in use `paqad-ai decision resolve <id> other --other "<text>"`.
+4. Run the `resolve` command of the entry the person picked. For a write-in use the block's `other` command. A block with no `other` takes only its listed options, and a fifth option sits under `not_shown` with its command. If the person types something else, resolve with the listed key the text names, or ask again with the options.
 
-5. Commit `.paqad/decisions/index.json`, `.paqad/decisions/standing-answers.json` and the resolved packet with the change it justifies.
+5. Commit the resolved packet with the change it justifies, and `.paqad/decisions/standing-answers.json` when a rule was added or removed.
 
 If resolve refuses because the check comes first and you already hold the person's answer, keep it, run steps 2 and 4, and do not ask again.
 

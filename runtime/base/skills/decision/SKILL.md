@@ -80,7 +80,9 @@ mints and consumes. See `references/decision-packet-contract.md`.
    (on Claude Code, the `AskUserQuestion` tray). Ask every pending packet for this
    change in one round: up to 4 packets per question call, oldest first; ids sort
    chronologically. A stage agent does not ask: it returns `paused: D-<id>` and the
-   orchestrator asks.
+   orchestrator asks. A block with no `other` takes only its listed options, and a
+   fifth option sits under `not_shown` with its command. If the person types something
+   else, resolve with the listed key the text names, or ask again with the options.
 
 5. **Resolve.** Once the user answers, run the entry's command, or:
 
@@ -91,9 +93,9 @@ mints and consumes. See `references/decision-packet-contract.md`.
    If resolve refuses and you already hold the answer, run steps 2 and 3 and resolve
    with that answer. Never ask the same question again.
 
-6. **Commit.** Stage the resolved packet with `.paqad/decisions/index.json` and
-   `.paqad/decisions/standing-answers.json`, with the change it justifies, so a
-   reviewer and future `git blame` can see _why_ (delivery workflow).
+6. **Commit.** Stage the resolved packet with the change it justifies, so a reviewer
+   and future `git blame` can see _why_ (delivery workflow). Stage
+   `.paqad/decisions/standing-answers.json` with it when a rule was added or removed.
 
 ## Output Contract
 

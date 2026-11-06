@@ -34,13 +34,13 @@ deterministic — same category plus question/context token overlap (`src/planni
 `findDecisionPrecedents` / `formatDecisionPrecedents`) — with no embeddings and no LLM
 call, capped to keep the token cost low and best-effort so a missing/corrupt store never
 breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
-match for automated callers, but never an answer written by `decision create`) by only ADVISING
-on related-but-not-identical precedents the human still decides.
+match for automated callers, and a CLI answer never reaches the index) by only ADVISING on
+related-but-not-identical precedents the human still decides.
 
 ### Earlier answers and standing answers
 
-A script finds earlier questions that may be the same, the `decision` skill judges them for
-meaning, and a person approves. Only a standing answer the person chose skips a question. The
+A script finds earlier questions that may be the same, the `decision` skill (`decision-pause` on
+Claude Code) judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
 flow, its limits and its evidence rows are on the
 [Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 

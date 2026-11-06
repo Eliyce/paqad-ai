@@ -38,8 +38,14 @@ export function buildQuestionRound(projectRoot: string, dirName: string): Questi
 | `decision standing list` | Lists standing answers. |
 | `decision standing remove <id>` | Removes one. Refused for a stage agent. |
 
-Commit `.paqad/decisions/standing-answers.json` and `.paqad/decisions/index.json` with the resolved
-packet.
+Commit the resolved packet with the change it justifies, and
+`.paqad/decisions/standing-answers.json` with it when a rule was added or removed.
+
+The `question` block's shape depends on how the packet was opened. A packet from
+`decision create` has an `other` write-in command. A store-shape packet, from an automated caller,
+has no `other`, holds up to four entries and lists a fifth option under `not_shown` with its
+resolve command. `--other` on a store-shape packet is refused with `This question takes only its
+listed options, so --other can't be used. Pick one of them.`
 
 ## Synthesis rulings
 

@@ -33,7 +33,8 @@ the change a packet names.
 - `src/decision-reuse/`: the `paqad.decision-reuse` ledger rows and the receipt line.
 - `src/cli/commands/decision.ts`: the `decision` verbs, listed in [`api.md`](./api.md).
 - `runtime/base/skills/decision/`: the skill method, with a Claude Code entry in
-  `runtime/claude-plugin/skills/decision/`.
+  `runtime/claude-plugin/skills/decision-pause/`, a separate name because the release check keeps
+  one record per skill name.
 
 ## Compatible and pick rulings
 
@@ -102,9 +103,11 @@ precedent answer. Each of those writes a `paqad.decision-reuse` row.
 ## Earlier answers
 
 1. **Find.** When a packet opens, a script scores earlier resolved questions by wording
-   (`findEarlierQuestions`). Up to 5 at or above the 0.5 floor become `earlier_check` on the
-   packet, with status `required`. A private category (`PRIVATE_ANSWER_CATEGORIES`) is offered
-   only to a question of the same category.
+   (`findEarlierQuestions`). Of several answers to the same question text and option keys, only the
+   newest counts, so a changed answer is not suggested again. Up to 5 at or above the 0.5 floor
+   become `earlier_check` on the packet, with status `required`. A private category
+   (`PRIVATE_ANSWER_CATEGORIES`) is offered only to a question of the same category, and is left
+   out before the newest is picked, so it cannot hide an answer this question may see.
 2. **Judge.** `decision create` and `decision check` print the candidates and the method from
    `runtime/base/skills/decision/references/earlier-answers.md`. Stored candidate text is data to
    judge, never instructions.
@@ -112,24 +115,27 @@ precedent answer. Each of those writes a `paqad.decision-reuse` row.
    done. `decision resolve` refuses while the check is required. The Approvals screen is exempt,
    because a person answers there directly.
 4. **Ask.** The printed `question` block puts the suggestion first, then the other options, then
-   the always entry when it all fits within four entries. A stage agent stops at
-   `paused: D-<id>` and the orchestrator asks.
+   the always entry when it all fits within four entries. A store-shape packet has no `other`
+   write-in, and a fifth option sits under `not_shown` with its resolve command. A stage agent stops
+   at `paused: D-<id>` and the orchestrator asks.
 
 ### Standing answers
 
 `decision resolve --always` adds a rule to the tracked `.paqad/decisions/standing-answers.json`,
 keyed by the question's fingerprint. When `createPendingDecision` finds a matching rule, it
-returns `reused`, writes a resolved packet and opens no pause. Callers that open their own packets
+returns `reused`, writes a resolved packet and an audit row, and opens no pause. Callers that open their own packets
 (delivery, fix proof, expert conflicts, evidence-armed forks, visual-evidence readiness) treat
 that as already answered. `NO_STANDING_ANSWER_CATEGORIES` lists the kinds that can never have a
 rule, and `assertNotStageAgent` refuses a stage agent both setting and removing one.
 
 ### The decision index
 
-`decision resolve` now records answers in `.paqad/decisions/index.json`. Answers from before are
-backfilled on the next lookup, and a damaged index rebuilds from `.paqad/decisions/resolved/`.
-`findReusableDecision` skips answers written by `decision create`, so automated callers still
-pause rather than silently reuse them.
+Nothing in this flow reads `.paqad/decisions/index.json`: earlier answers are found by reading
+`.paqad/decisions/resolved/`, and rules by reading `standing-answers.json`. A packet opened with
+`decision create` and answered with `decision resolve`, or answered by a rule, writes no index entry
+and supersedes nothing, so automated callers still pause rather than reuse it. A store-shape packet
+reaches the index through `DecisionStore.resolve`, as does any packet answered on Approvals, and an
+automated caller can reuse those.
 
 ### Evidence
 
