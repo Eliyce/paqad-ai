@@ -65,8 +65,8 @@ while risk and scope are left to the model). The reasons below are not obvious f
   usage error never depends on the built package resolving.
 - **`decision/scripts/`.** `create.mjs` mints the `D-<ULID>` id, timestamps and JSON so a
   hand-picked sequential `D-N` id can never be minted, and `resolve.mjs` rejects any id not in
-  that form. `create.mjs` also prints `earlier_check` and the method from
-  `references/earlier-answers.md`, so finding candidates stays a script's job and judging them
+  that form. `create.mjs` also prints `earlier_check`, with the earlier titles and the method from
+  `references/earlier-answers.md`, so listing them stays a script's job and judging them
   stays the skill's. The skill only suggests, and a person approves.
 - **Rule scripts.** `rule-analyzer/scripts/analyze.mjs` imports the compiled engine through the
   package self-reference rather than calling a CLI verb. `record-conflicts.mjs` exists because a

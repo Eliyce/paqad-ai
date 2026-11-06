@@ -39,8 +39,9 @@ related-but-not-identical precedents the human still decides.
 
 ### Earlier answers and standing answers
 
-A script finds earlier questions that may be the same, the `decision` skill (`decision-pause` on
-Claude Code) judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
+A script lists earlier questions, every eligible title for a question an agent opens and word
+matches for an automated one. The `decision` skill (`decision-pause` on Claude Code) reads up to
+5 and judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
 flow, its limits and its evidence rows are on the
 [Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 
@@ -159,10 +160,12 @@ reasons below are not obvious from the code.
   the self-arm sees the fork as already resolved instead of opening it again.
 - **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
   model guess.
-- **`decisions/earlier-answers.ts`.** Similar wording only makes a question a candidate, because
-  in the tested history most repeated questions got different answers. So the script never
-  decides: a person approves what the skill suggests. A private answer stays out of other
-  categories' candidates.
+- **`decisions/earlier-answers.ts`.** Wording can neither prove nor rule out a match: in the tested
+  history most repeated questions got different answers, and reworded titles scored 0.00 to 0.31
+  against the 0.5 floor. So an agent-opened question lists every eligible title, automated callers
+  keep the word match, and the script never decides: a person approves what the skill suggests. The
+  printed list stops before 24,000 characters and counts what it left out, because a host could
+  otherwise cut it with no sign. A private answer stays out of other categories' lists.
 - **`decisions/standing-answers.ts`.** A standing answer is a tracked team file, so it can be
   reviewed in a PR and takes effect for everyone once merged. A file that cannot be read is
   refused rather than overwritten. A stage agent cannot set or remove a rule, so a skipped
