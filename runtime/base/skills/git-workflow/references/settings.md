@@ -82,7 +82,7 @@ files.
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Post a high-level design for sign-off after the spec is frozen. |
-| `lanes` | list | `[graduated, full]` | The lanes that need sign-off. |
+| `lanes` | list | `[graduated, full]` | The lanes that need sign-off: `graduated` and/or `full` only. Listing `fast` is a schema error and sign-off falls back to the defaults. |
 | `approval_channel.server` / `.channel` | string | `""` | Where to post. Empty means the change's tracker. |
 | `format.summary_max_words` / `.detail_max_words` | number | `200` / `800` | Word limits for the design. |
 | `wait_for_approval` | boolean | `true` | Hold the first code edit until sign-off. |

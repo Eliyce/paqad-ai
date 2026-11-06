@@ -12,7 +12,8 @@ second, team-facing stop. Off by default.
 ## Config
 
 `.paqad/configs/git-workflow/design-sign-off.yaml`, the sixth git-workflow file, team-wide
-with no personal override. Defaults: `enabled: false`, `lanes: [graduated, full]`,
+with no personal override. Defaults: `enabled: false`, `lanes: [graduated, full]` (only `graduated` and `full`
+are allowed; a file listing `fast` is a schema error and sign-off falls back to the defaults),
 `approval_channel` empty (post to the change's ticket), `format.summary_max_words: 200`,
 `format.detail_max_words: 800`, `wait_for_approval: true`, `approve_by: either`,
 `approve_words: [approved, lgtm, "sign off"]`, `approvers: []` (anyone except the change's
@@ -36,7 +37,9 @@ with the delivery ticket-move `on_hld_post` when `move_to_on_post` is set.
    Microsoft Teams, Slack, GitHub), and records `paqad-ai hld posted` or `hld not-posted`.
 5. The first code edit waits until `hld.json` is `approved`, `skipped` or `not_posted`.
 6. `paqad-ai hld check-approval --replies <file> [--status <status>]` decides approved,
-   changes requested (raises a `spec.change` decision) or still waiting.
+   changes requested (raises a `spec.change` decision) or still waiting. Running it again on an
+   approved, skipped or changes-requested design leaves it as it is and raises no second
+   `spec.change` decision.
 
 ## Verbs
 
@@ -73,10 +76,12 @@ reply text: only a sha256 digest of the developer's author id. Waiting refs are 
 
 Only replies after the latest post's destination time count. The developer's own replies and
 reactions, and bot replies, never count. A reply with an approve word (whole word, not
-negated, not a question) or a ✅ or 👍 reaction approves, from anyone in `approvers` or, when
+a question) or a ✅ or 👍 reaction approves, from anyone in `approvers` or, when
 that list is empty, anyone except the developer. A status equal to `approved_status` approves
 when `approve_by` is `status` or `either`. A clear request for changes sends the spec back;
-any other reply keeps the design waiting.
+any other reply keeps the design waiting. An approve word never approves when a negation (`not`,
+`never`, `cannot`, or any word ending in `n't`) comes earlier in the same sentence; sentences
+end at `.`, `!`, `?`, `;` or a line break. Such a reply counts as a request for changes.
 
 ## Sources
 
