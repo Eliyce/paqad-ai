@@ -20,6 +20,16 @@ export function persistLedgerSessionId(projectRoot: string, sessionId?: string |
 }
 /* v8 ignore stop */
 
+export function explicitSessionHint(option?: string | null): string | null {
+  return (
+    option ??
+    process.env.SE_SESSION ??
+    process.env.CLAUDE_SESSION_ID ??
+    process.env.CLAUDE_CODE_SESSION_ID ??
+    null
+  );
+}
+
 export function resolveSessionId(projectRoot: string, hint?: string | null): string {
   const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);
   const cleaned = hint?.trim();

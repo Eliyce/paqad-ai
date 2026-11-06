@@ -139,6 +139,7 @@ describe('paqad-ai lane command', () => {
     it('AC-18: a lane set on a session read from the shared cache leaves the route', async () => {
       vi.stubEnv('SE_SESSION', undefined);
       vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
       openFast();
       resolveSessionId(root, SES);
       vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -149,6 +150,22 @@ describe('paqad-ai lane command', () => {
       expect(readChangeConstants(root, currentFeature(root, SES)!).lane).toBe('full');
       expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
       expect(readRouteOverrides(root, SES)).toEqual([]);
+    });
+
+    it('AC-18: CLAUDE_CODE_SESSION_ID counts as explicit and moves the route', async () => {
+      vi.stubEnv('SE_SESSION', undefined);
+      vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);
+      openFast();
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      await createLaneCommand().parseAsync(['set', 'full', '--project-root', root], {
+        from: 'user',
+      });
+      vi.unstubAllEnvs();
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+      expect(readRouteOverrides(root, SES)).toEqual([
+        expect.objectContaining({ source: 'lane-set' }),
+      ]);
     });
 
     it('AC-17: a lane set after a switch records no second switch', async () => {

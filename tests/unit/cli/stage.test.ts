@@ -43,6 +43,7 @@ describe('paqad-ai stage command', () => {
   const SES = 'ses_cli_stage';
 
   beforeEach(() => {
+    vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-stage-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
@@ -794,6 +795,42 @@ describe('paqad-ai stage command', () => {
       expect(lines).toContain(ROUTE_SWITCHED_LINE);
       expect(lines.indexOf(ROUTE_SWITCHED_LINE)).toBeLessThan(lines.length - 1);
       expect(JSON.parse(lines.at(-1)!)).toMatchObject({ recorded: true, stage: 'planning' });
+    });
+
+    describe('a stage start with no session flag', () => {
+      async function startBare(): Promise<string[]> {
+        const lines: string[] = [];
+        vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));
+        await createStageCommand().parseAsync(
+          ['start', 'planning', '--title', 'x', '--project-root', root],
+          { from: 'user' },
+        );
+        return lines;
+      }
+
+      beforeEach(() => {
+        vi.stubEnv('SE_SESSION', undefined);
+        vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+        vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
+      });
+
+      it('AC-3: CLAUDE_CODE_SESSION_ID counts as explicit and moves the route', async () => {
+        vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+        expect(readRouteOverrides(root, SES)).toEqual([
+          expect.objectContaining({ source: 'stage-start' }),
+        ]);
+        expect(lines).toContain(ROUTE_SWITCHED_LINE);
+      });
+
+      it('AC-3: an id found only in the shared cache leaves the route', async () => {
+        resolveSessionId(root, SES);
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+        expect(readRouteOverrides(root, SES)).toEqual([]);
+        expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+      });
     });
 
     it('AC-3: a paused feature entry is restored, not duplicated', async () => {

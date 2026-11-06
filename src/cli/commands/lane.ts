@@ -5,7 +5,7 @@ import { laneRank } from '@/feature-evidence/lane-rank.js';
 import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureLane } from '@/feature-evidence/types.js';
 import { announceRouteSwitch } from '@/pipeline/route-switch.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { explicitSessionHint, resolveSessionId } from '@/rag-ledger/session.js';
 
 const SETTABLE_LANES: readonly Exclude<FeatureLane, null>[] = ['fast', 'graduated', 'full'];
 
@@ -26,7 +26,7 @@ export function createLaneCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
-      'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
+      'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID / CLAUDE_CODE_SESSION_ID, then the shared ledger-session cache)',
     )
     .action((lane: string, options: LaneOptions) => {
       if (!SETTABLE_LANES.includes(lane as Exclude<FeatureLane, null>)) {
@@ -36,8 +36,7 @@ export function createLaneCommand(): Command {
       }
       const requested = lane as Exclude<FeatureLane, null>;
       const root = options.projectRoot;
-      const sessionHint =
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+      const sessionHint = explicitSessionHint(options.session);
       const sessionId = resolveSessionId(root, sessionHint);
       const dirName = currentFeature(root, sessionId);
       if (!dirName) {
@@ -80,12 +79,13 @@ export function createLaneCommand(): Command {
     .command('show')
     .description('Show the lane recorded for the active change')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
+    .option(
+      '--session <id>',
+      'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID / CLAUDE_CODE_SESSION_ID)',
+    )
     .action((options: LaneOptions) => {
       const root = options.projectRoot;
-      const sessionHint =
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
-      const sessionId = resolveSessionId(root, sessionHint);
+      const sessionId = resolveSessionId(root, explicitSessionHint(options.session));
       const dirName = currentFeature(root, sessionId);
       if (!dirName) {
         console.error('no active feature — run `paqad-ai stage start planning` first');

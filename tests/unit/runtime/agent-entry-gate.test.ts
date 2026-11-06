@@ -506,11 +506,12 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt'
   });
 
   it.each([
-    ['implement a schema migration adding a pii payment column', true],
-    ['why does the login page throw an error when I submit?', false],
+    'implement a schema migration adding a pii payment column',
+    'why does the login page throw an error when I submit?',
+    'thanks',
   ])(
-    'names the session id for SE_SESSION only on a feature-development prompt (%s)',
-    (prompt, named) => {
+    'names the session id for SE_SESSION on every route, so a misrouted session is told it (%s)',
+    (prompt) => {
       const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-session-'));
       try {
         mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
@@ -531,7 +532,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt'
         expect(result.status).toBe(0);
         const line =
           '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
-        expect(result.stdout.includes(line)).toBe(named);
+        expect(result.stdout).toContain(line);
       } finally {
         removeTempProject(projectRoot);
       }

@@ -92,9 +92,40 @@ class Replay {
     });
     this.note(checkpoint);
   }
+
+  async cliWithHostSessionOnly(checkpoint: string, ...args: string[]): Promise<void> {
+    await execa('node', [CLI, ...args, '--project-root', this.root], {
+      cwd: this.root,
+      env: {
+        ...process.env,
+        SE_SESSION: undefined,
+        CLAUDE_SESSION_ID: undefined,
+        CLAUDE_CODE_SESSION_ID: this.session,
+      },
+    });
+    this.note(checkpoint);
+  }
 }
 
 describe('the first turn, measured from the first routed snapshot', { timeout: 180_000 }, () => {
+  it('AC-3: a misrouted question, then a bare stage start, draws the feature band', async () => {
+    const replay = new Replay(await freshRepo(), 'ses-misrouted');
+    await replay.prompt('prompt hook', 'what does this project do');
+    await replay.cliWithHostSessionOnly(
+      'stage start',
+      'stage',
+      'start',
+      'planning',
+      '--title',
+      'first turn',
+    );
+
+    expect(replay.seen).toEqual([
+      ['prompt hook', 'workflow'],
+      ['stage start', 'feature'],
+    ]);
+  });
+
   it('AC-7: session order A, from the prompt hook snapshot on, never draws Question or empty', async () => {
     const replay = new Replay(await freshRepo(), 'ses-order-a');
     await replay.prompt('prompt hook', FEATURE_PROMPT);

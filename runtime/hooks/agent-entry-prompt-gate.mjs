@@ -138,7 +138,7 @@ async function emitRoute(stdin, projectRoot, sink, afterNarration = '') {
     if (narration) {
       sink(`${narration}\n${afterNarration}`);
     }
-    if (routed === 'feature-development' && sessionId) {
+    if (sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
     if (routed === 'feature-development') {
