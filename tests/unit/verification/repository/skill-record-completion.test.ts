@@ -1,16 +1,22 @@
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { skillCompletionFindings, skillCompletionLine } from '@/authoring/completion.js';
+import {
+  changedSkillFolders,
+  skillCompletionFindings,
+  skillCompletionLine,
+} from '@/authoring/completion.js';
 import { hashFolder } from '@/authoring/hash.js';
 import { classifyBundlePath, strayBundleFiles } from '@/feature-evidence/bundle-integrity.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { bundleWriterFor, type BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
+
+import { HAND_WRITTEN_SKILLS } from '../../../../scripts/build-discovery.mjs';
 
 const DIR = '794-add-skill-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const NAME = 'processing-invoices';
@@ -93,6 +99,54 @@ function gate(root: string, changedFiles: string[]) {
     changedFiles,
   })!;
 }
+
+describe('AC-50 the base decision skill and the plugin decision-pause skill', () => {
+  const BASE = 'runtime/base/skills/decision';
+  const PLUGIN = 'runtime/claude-plugin/skills/decision-pause';
+
+  function frameworkProject(): string {
+    const root = project();
+    write(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
+    write(root, `${BASE}/SKILL.md`, '---\nname: decision\ndescription: d\n---\n');
+    write(root, `${PLUGIN}/SKILL.md`, '---\nname: decision-pause\ndescription: d\n---\n');
+    return root;
+  }
+
+  const changed = [`${BASE}/SKILL.md`, `${PLUGIN}/SKILL.md`];
+
+  it('reads as two skills, each needing its own record', () => {
+    const root = frameworkProject();
+    expect(changedSkillFolders(root, changed)).toEqual([
+      { name: 'decision', folder: BASE },
+      { name: 'decision-pause', folder: PLUGIN },
+    ]);
+    expect(
+      skillCompletionFindings({ projectRoot: root, dirName: DIR, changedFiles: changed }).map(
+        (finding) => finding.skill,
+      ),
+    ).toEqual(['decision', 'decision-pause']);
+  });
+
+  it('passes the release gate once each has its own record', () => {
+    const root = frameworkProject();
+    record(root, 'passed', BASE, 'decision');
+    record(root, 'passed', PLUGIN, 'decision-pause');
+    expect(
+      skillCompletionFindings({ projectRoot: root, dirName: DIR, changedFiles: changed }),
+    ).toEqual([]);
+  });
+
+  it('the shipped skill folders hold those names', () => {
+    expect(readFileSync(join(process.cwd(), BASE, 'SKILL.md'), 'utf8')).toContain(
+      'name: decision\n',
+    );
+    expect(readFileSync(join(process.cwd(), PLUGIN, 'SKILL.md'), 'utf8')).toContain(
+      'name: decision-pause\n',
+    );
+    expect(HAND_WRITTEN_SKILLS).toContain('decision-pause');
+    expect(HAND_WRITTEN_SKILLS).not.toContain('decision');
+  });
+});
 
 describe('the skill completion check', () => {
   it('AC-30, AC-43: a new SKILL.md with no record is Needs your attention with the exact line', () => {

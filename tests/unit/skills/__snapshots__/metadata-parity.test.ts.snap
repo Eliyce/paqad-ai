@@ -3207,7 +3207,7 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
   "runtime/claude-plugin/skills/decide-together": {
     "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
   },
-  "runtime/claude-plugin/skills/decision": {
+  "runtime/claude-plugin/skills/decision-pause": {
     "error": "SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning",
   },
   "runtime/claude-plugin/skills/discover": {

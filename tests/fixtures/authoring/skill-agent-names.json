@@ -727,9 +727,9 @@
       "name": "decide-together"
     },
     {
-      "path": "runtime/claude-plugin/skills/decision/SKILL.md",
-      "folder": "decision",
-      "name": "decision"
+      "path": "runtime/claude-plugin/skills/decision-pause/SKILL.md",
+      "folder": "decision-pause",
+      "name": "decision-pause"
     },
     {
       "path": "runtime/claude-plugin/skills/discover/SKILL.md",

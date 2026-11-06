@@ -22,7 +22,7 @@ const PLUGIN_SKILLS = [
   'onboard',
   'join',
   'dashboard',
-  'decision',
+  'decision-pause',
   'start',
   'discover',
   'ask',
@@ -153,7 +153,7 @@ describe('plugin manifest and marketplace', () => {
     }
   });
 
-  it('AC-16 AC-50: the npm package carries onboard, join, dashboard and decision but no discovery skill', () => {
+  it('AC-16 AC-50: the npm package carries onboard, join, dashboard and decision-pause but no discovery skill', () => {
     const out = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -167,7 +167,7 @@ describe('plugin manifest and marketplace', () => {
         .filter((path) => path.startsWith('runtime/claude-plugin/skills/'))
         .map((path) => path.split('/')[3]),
     );
-    expect([...shipped].sort()).toEqual(['dashboard', 'decision', 'join', 'onboard']);
+    expect([...shipped].sort()).toEqual(['dashboard', 'decision-pause', 'join', 'onboard']);
   }, 60_000);
 
   it('keeps no marketplace in this repository and names the plugin repo for the eliyce marketplace', () => {

@@ -1,5 +1,5 @@
 ---
-name: decision
+name: decision-pause
 description: 'Claude Code: Open, check, suggest, ask and resolve a paqad Decision Pause, including an earlier answer the person can approve in one click. Use when a choice falls into a Decision Pause category, or when a pending decision has earlier answers to check.'
 compatibility: 'Claude Code with a project folder open (needs a shell)'
 ---
