@@ -20,6 +20,12 @@ developer), `move_to_on_post: ""`, `approved_status: ""`, `allow_skip_with_reaso
 `paqad-ai update` adds the file with its defaults when it is missing, even while the other
 git-workflow files are on hold.
 
+## Where it posts
+
+The tracker comes from the ticket link the developer pasted first; with no link, from
+`tickets.yaml`. An empty `approval_channel` means the tracker itself. A post moves the ticket
+with the delivery ticket-move `on_hld_post` when `move_to_on_post` is set.
+
 ## Flow
 
 1. `paqad-ai spec freeze` prints `> - 🟡 next: write the high-level design. Run paqad-ai hld brief.`
@@ -42,6 +48,17 @@ git-workflow files are on hold.
 | `paqad-ai hld not-posted` | Saves `hld.md`, records `not_posted`, prints the not-connected line. The change is not parked. |
 | `paqad-ai hld check-approval` | Decides sign-off from the replies and status; removes a replies file under `.paqad/tmp`. |
 | `paqad-ai hld skip --reason` | Builds before sign-off when the team allows it; shown in the PR body and the receipt. |
+
+## Session hooks, PR body and receipt
+
+SessionStart prints a waiting line for each design still awaiting sign-off, and
+UserPromptSubmit resumes the change on its own once `check-approval` finds it approved. The
+PR body and the receipt each carry one line with the sign-off state, link or skip reason.
+
+## Bundle files
+
+The feature bundle holds `hld.json` (the state) and `hld.md` (the design as posted or, when
+not posted, as saved).
 
 ## hld.json
 

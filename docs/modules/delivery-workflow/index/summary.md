@@ -29,7 +29,7 @@ degradation and the dashboard.
 
 ## Config — `.paqad/configs/git-workflow/`
 
-The team's delivery rules live in five YAML files under `.paqad/configs/git-workflow/`,
+The team's delivery rules live in six YAML files under `.paqad/configs/git-workflow/`,
 each with its own JSON Schema in `src/validators/schemas/git-workflow/`:
 
 | File | Owns |
@@ -39,6 +39,7 @@ each with its own JSON Schema in `src/validators/schemas/git-workflow/`:
 | `commits.yaml` | commit message template, summary style, sign_off, ask_when_unspecified, and `ai_attribution` as commented lines |
 | `pull-requests.yaml` | host, title/body templates, draft, reviewers, labels, link_ticket, also_open_against, the CI gate |
 | `enforcement.yaml` | enabled, and how strictly agents and people are checked |
+| `design-sign-off.yaml` | enabled, lanes, approval_channel, format word limits, wait_for_approval, approve_by, approve_words, approvers, move_to_on_post, approved_status, allow_skip_with_reason |
 
 `link_ticket` asks a PR to link the ticket its branch names. For a source pattern with a leading `#`, a number counts as that ticket only in the place the branch template gives `{ticket}`, and the branch must fit a configured type's shape. A number in the slug, or a template with no `{ticket}`, gives no ticket. The slug itself may be empty, because a title with no Latin letters or digits renders as `feature/12`. Other patterns, like Jira keys, match anywhere in the branch name.
 
