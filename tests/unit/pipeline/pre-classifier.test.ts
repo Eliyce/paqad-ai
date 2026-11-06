@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,7 +8,7 @@ import * as deltaDetector from '@/pipeline/delta-detector.js';
 import * as ruleTriggerMatcher from '@/pipeline/rule-trigger-matcher.js';
 import * as scopeResolver from '@/pipeline/scope-resolver.js';
 import { ModuleResolver } from '@/pipeline/module-resolver.js';
-import { resolvePromptRoute } from '@/pipeline/prompt-lane.js';
+import { resolvePromptRoute, runPromptRouteSeam } from '@/pipeline/prompt-lane.js';
 import {
   PreClassifier,
   isQuestionRoute,
@@ -405,6 +405,113 @@ describe('isQuestionRoute / hasCodeNegation / isCreateArtifactAsk', () => {
     expect(isCreateArtifactAsk('file an issue and implement the fix')).toBe(false);
     expect(isCreateArtifactAsk('add a logout button')).toBe(false);
   });
+});
+
+const FEATURE_PROMPTS: {
+  threeSessionPrompt: string;
+  developPrompts: string[];
+  workOnRoutes: [string, string][];
+  namedTicketAsk: string;
+  workOnThenCreate: string;
+} = JSON.parse(
+  readFileSync(join(process.cwd(), 'tests/fixtures/pipeline/feature-prompts.json'), 'utf8'),
+);
+
+describe('isQuestionRoute on a develop lead', () => {
+  it.each(['develop the login page?', 'develops the login page?', 'add the login page?'])(
+    'AC-8: a message starting with develop reads as add does: %s',
+    (message) => {
+      expect(isQuestionRoute(message)).toBe(false);
+    },
+  );
+
+  it.each(['can you develop the login page?', 'how do we develop the login page'])(
+    'AC-8: develop elsewhere in the message stays a question: %s',
+    (message) => {
+      expect(isQuestionRoute(message)).toBe(true);
+    },
+  );
+});
+
+describe('isCreateArtifactAsk token rules', () => {
+  it.each([
+    'please don t create an issue for this',
+    'please dont create an issue for this',
+    'do not create an issue for this',
+    'never create an issue for this',
+    'no need to create an issue for this',
+    'we do not really open a ticket for this',
+  ])('AC-9: a negated create verb is no ask: %s', (message) => {
+    expect(isCreateArtifactAsk(message)).toBe(false);
+  });
+
+  it.each([
+    'create a new login issue',
+    'create a ticket for pqd 12',
+    'write up a bug report',
+    'write up the postmortem',
+    'create a github issue for this bug',
+    'open a ticket for the flaky test',
+    'open a ticket for 2 things',
+    'create tickets for the flaky tests',
+    'file bug reports for each crash',
+  ])('AC-10: a real ask stays an ask, case %#', (message) => {
+    expect(isCreateArtifactAsk(message)).toBe(true);
+  });
+
+  it.each([
+    'create a new github login issue',
+    FEATURE_PROMPTS.namedTicketAsk,
+    'open ticket pqd 12',
+    'file an issue and implement the fix',
+  ])('AC-10: a far noun, a named ticket or an implementing ask is no ask, case %#', (message) => {
+    expect(isCreateArtifactAsk(message)).toBe(false);
+  });
+
+  it('AC-11: a leading work on stops the false ticket reading', () => {
+    expect(isCreateArtifactAsk(FEATURE_PROMPTS.workOnThenCreate)).toBe(false);
+  });
+});
+
+describe('prompt route for feature prompts that mention a ticket', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'pre-classifier-route-'));
+    return () => rmSync(root, { recursive: true, force: true });
+  });
+
+  async function routeOf(request: string): Promise<string | null> {
+    const { routed } = await runPromptRouteSeam({
+      projectRoot: root,
+      request,
+      sessionId: 'route-session',
+      adapter: 'claude-code',
+    });
+    return routed;
+  }
+
+  it('AC-1: the three-session prompt routes to feature-development', async () => {
+    expect(await routeOf(FEATURE_PROMPTS.threeSessionPrompt)).toBe('feature-development');
+  });
+
+  it('AC-1: a real ask to write a ticket stays project-question', async () => {
+    expect(await routeOf('create an issue for the login bug')).toBe('project-question');
+  });
+
+  it.each(FEATURE_PROMPTS.developPrompts)(
+    'AC-8: develop prompt %# routes to feature-development',
+    async (prompt) => {
+      expect(await routeOf(prompt)).toBe('feature-development');
+    },
+  );
+
+  it.each(FEATURE_PROMPTS.workOnRoutes)(
+    'AC-11: work on or develops prompt %# routes as stated',
+    async (prompt, expected) => {
+      expect(await routeOf(prompt)).toBe(expected);
+    },
+  );
 });
 
 const ABOUT_WORK_FIXTURES: Array<[string, string]> = [
