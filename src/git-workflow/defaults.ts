@@ -1,7 +1,7 @@
 import { TEAM_FILE_SCHEMA_VERSION } from '@/core/team-file-schema.js';
 import type { TicketProviderKind } from '@/core/types/project-profile.js';
 
-import type { GitWorkflowFile, ResolvedGitWorkflow } from './types.js';
+import type { GitWorkflowFile, ResolvedDesignSignOff, ResolvedGitWorkflow } from './types.js';
 
 export const DEFAULT_BASE_BRANCH = 'main';
 
@@ -59,6 +59,23 @@ export function defaultGitWorkflow(baseBranch: string = DEFAULT_BASE_BRANCH): Re
       ci: { gate: 'wait_for_green', timeout_minutes: 30, on_red: 'stop' },
     },
     enforcement: { enabled: true, agents: 'block', people: 'warn' },
+    design_sign_off: defaultDesignSignOff(),
+  };
+}
+
+export function defaultDesignSignOff(): ResolvedDesignSignOff {
+  return {
+    enabled: false,
+    lanes: ['graduated', 'full'],
+    approval_channel: { server: '', channel: '' },
+    format: { summary_max_words: 200, detail_max_words: 800 },
+    wait_for_approval: true,
+    approve_by: 'either',
+    approve_words: ['approved', 'lgtm', 'sign off'],
+    approvers: [],
+    move_to_on_post: '',
+    approved_status: '',
+    allow_skip_with_reason: true,
   };
 }
 
@@ -237,12 +254,52 @@ agents: block
 people: warn
 `;
 
+const DESIGN_SIGN_OFF_YAML = `# A short, plain-language design of each change for the team to sign off
+# in the ticket or an approval channel, after the spec is frozen and before
+# any code is written. Off until the team turns it on.
+#
+# lanes:              which kinds of change post a design (fast never does)
+# approval_channel:   where to post it; empty means the change's own ticket
+#   server:   the chat or tracker connected in the coding agent, like ms-teams or slack
+#   channel:  the channel or chat name that server understands
+# format:             the most words above and below the divider
+# wait_for_approval:  true waits for sign-off before the build starts,
+#                     false posts it for the team to read and carries on
+# approve_by:         reply | status | either
+# approve_words:      words in a reply that sign the design off
+# approvers:          who may sign off; empty means anyone but the developer
+# move_to_on_post:    ticket status to move to once posted; "" means don't move it
+# approved_status:    ticket status that means signed off; "" means status never signs off
+# allow_skip_with_reason: true lets the developer build before sign-off with a reason
+schema_version: <schema>
+
+enabled: false
+lanes: [graduated, full]
+
+approval_channel:
+  server: ""
+  channel: ""
+
+format:
+  summary_max_words: 200
+  detail_max_words: 800
+
+wait_for_approval: true
+approve_by: either
+approve_words: [approved, lgtm, "sign off"]
+approvers: []
+move_to_on_post: ""
+approved_status: ""
+allow_skip_with_reason: true
+`;
+
 const FILE_TEMPLATES: Readonly<Record<GitWorkflowFile, string>> = {
   'tickets.yaml': TICKETS_YAML,
   'branches.yaml': BRANCHES_YAML,
   'commits.yaml': COMMITS_YAML,
   'pull-requests.yaml': PULL_REQUESTS_YAML,
   'enforcement.yaml': ENFORCEMENT_YAML,
+  'design-sign-off.yaml': DESIGN_SIGN_OFF_YAML,
 };
 
 export interface RenderDefaultsOptions {

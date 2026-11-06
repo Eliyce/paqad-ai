@@ -50,6 +50,7 @@ describe('git-workflow: files that are not settings', () => {
         'branches.yaml',
         'pull-requests.yaml',
         'enforcement.yaml',
+        'design-sign-off.yaml',
       ]);
       expect(readFileSync(join(dir, 'commits.yaml'), 'utf8')).toBe('template: [unclosed\n');
     } finally {

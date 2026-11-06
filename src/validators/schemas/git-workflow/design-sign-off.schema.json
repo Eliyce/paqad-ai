@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "git-workflow-design-sign-off",
+  "title": "design-sign-off.yaml",
+  "description": "A short, plain-language design of each change for the team to sign off before any code is written.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "paqad_version": { "type": "string" },
+    "enabled": { "type": "boolean" },
+    "lanes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["fast", "graduated", "full"] },
+      "uniqueItems": true
+    },
+    "approval_channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "server": { "type": "string" },
+        "channel": { "type": "string" }
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary_max_words": { "type": "integer", "minimum": 1 },
+        "detail_max_words": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "wait_for_approval": { "type": "boolean" },
+    "approve_by": { "type": "string", "enum": ["reply", "status", "either"] },
+    "approve_words": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "approvers": { "type": "array", "items": { "type": "string" } },
+    "move_to_on_post": { "type": "string" },
+    "approved_status": { "type": "string" },
+    "allow_skip_with_reason": { "type": "boolean" }
+  }
+}

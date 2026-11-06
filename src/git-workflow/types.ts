@@ -19,6 +19,7 @@ export const GIT_WORKFLOW_FILES = [
   'commits.yaml',
   'pull-requests.yaml',
   'enforcement.yaml',
+  'design-sign-off.yaml',
 ] as const;
 export type GitWorkflowFile = (typeof GIT_WORKFLOW_FILES)[number];
 
@@ -103,12 +104,43 @@ export interface ResolvedEnforcement {
   people: PeopleEnforcement;
 }
 
+export const DESIGN_SIGN_OFF_LANES = ['fast', 'graduated', 'full'] as const;
+export type DesignSignOffLane = (typeof DESIGN_SIGN_OFF_LANES)[number];
+
+export const APPROVE_BY_MODES = ['reply', 'status', 'either'] as const;
+export type ApproveBy = (typeof APPROVE_BY_MODES)[number];
+
+export interface DesignApprovalChannel {
+  server: string;
+  channel: string;
+}
+
+export interface DesignFormat {
+  summary_max_words: number;
+  detail_max_words: number;
+}
+
+export interface ResolvedDesignSignOff {
+  enabled: boolean;
+  lanes: DesignSignOffLane[];
+  approval_channel: DesignApprovalChannel;
+  format: DesignFormat;
+  wait_for_approval: boolean;
+  approve_by: ApproveBy;
+  approve_words: string[];
+  approvers: string[];
+  move_to_on_post: string;
+  approved_status: string;
+  allow_skip_with_reason: boolean;
+}
+
 export interface ResolvedGitWorkflow {
   tickets: ResolvedTickets;
   branches: ResolvedBranches;
   commits: ResolvedCommits;
   pull_requests: ResolvedPullRequests;
   enforcement: ResolvedEnforcement;
+  design_sign_off: ResolvedDesignSignOff;
 }
 
 export interface GitWorkflowIssue {

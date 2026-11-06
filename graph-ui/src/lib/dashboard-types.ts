@@ -194,7 +194,12 @@ export interface SavedView {
 }
 
 export type GitWorkflowFileName =
-  'tickets.yaml' | 'branches.yaml' | 'commits.yaml' | 'pull-requests.yaml' | 'enforcement.yaml';
+  | 'tickets.yaml'
+  | 'branches.yaml'
+  | 'commits.yaml'
+  | 'pull-requests.yaml'
+  | 'enforcement.yaml'
+  | 'design-sign-off.yaml';
 
 export interface GitWorkflowIssue {
   file: string;
