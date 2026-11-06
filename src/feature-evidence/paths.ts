@@ -33,6 +33,8 @@ export const FEATURE_BUNDLE_FILES = {
   techDebt: 'tech-debt.json',
   ruleOverrides: 'rule-overrides.jsonl',
   fixProof: 'fix-proof.json',
+  hld: 'hld.json',
+  hldMd: 'hld.md',
 } as const;
 
 export const LEGACY_BUNDLE_FILES = {

@@ -1,0 +1,70 @@
+{
+  "developer": "dev-login",
+  "post_at": "2026-10-30T09:00:00Z",
+  "replies": {
+    "developer_approved": {
+      "author_id": "dev-login",
+      "is_change_author": true,
+      "text": "approved",
+      "reaction": null,
+      "at": "2026-10-30T10:00:00Z"
+    },
+    "developer_unflagged": {
+      "author_id": "dev-login",
+      "is_change_author": false,
+      "text": "approved",
+      "reaction": "✅",
+      "at": "2026-10-30T10:00:00Z"
+    },
+    "developer_reaction": {
+      "author_id": "dev-login",
+      "is_change_author": true,
+      "text": "",
+      "reaction": "👍",
+      "at": "2026-10-30T10:05:00Z"
+    },
+    "teammate_approved": {
+      "author_id": "teammate-login",
+      "is_change_author": false,
+      "text": "Approved, nice work",
+      "reaction": null,
+      "at": "2026-10-31T08:15:00+01:00"
+    },
+    "teammate_reaction": {
+      "author_id": "teammate-login",
+      "is_change_author": false,
+      "text": "",
+      "reaction": "✅",
+      "at": "2026-10-31T07:15:00Z"
+    },
+    "teammate_thumbs": {
+      "author_id": "teammate-login",
+      "is_change_author": false,
+      "text": "",
+      "reaction": "👍🏽",
+      "at": "2026-10-31T07:16:00Z"
+    },
+    "bot_reaction": {
+      "author_id": "ci-bot[bot]",
+      "is_change_author": false,
+      "text": "",
+      "reaction": "✅",
+      "at": "2026-10-31T07:15:00Z",
+      "is_bot": true
+    },
+    "teammate_question": {
+      "author_id": "teammate-login",
+      "is_change_author": false,
+      "text": "Why not keep the old address step?",
+      "reaction": null,
+      "at": "2026-10-31T07:20:00Z"
+    },
+    "teammate_changes": {
+      "author_id": "teammate-login",
+      "is_change_author": false,
+      "text": "Needs changes: keep the address step for guests.",
+      "reaction": null,
+      "at": "2026-10-31T07:30:00Z"
+    }
+  }
+}
