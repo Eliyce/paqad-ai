@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-review",
-  "version": "1.6.0",
-  "file_hash": "sha256:c062666d3ee3ca3177ce423167aae30f89cfe0b71db876cafd47cf3039543de2",
+  "version": "1.7.0",
+  "file_hash": "sha256:745a39ba3e71317d99f4b653771594ba6d499a140a98b83b71c1ec9e2857d8d2",
   "released_path": "runtime/claude-plugin/agents/paqad-review.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-review.md"

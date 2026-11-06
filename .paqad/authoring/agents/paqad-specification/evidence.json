@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-specification",
-  "version": "1.7.0",
-  "file_hash": "sha256:cb397dd500c126804e300c1416d5ca65f3946df1a39fd6c161650eaa2e443585",
+  "version": "1.8.0",
+  "file_hash": "sha256:585332c136e98bac08cf63fcaa27d648ce7c1af2c5d75163ed73726b84611f5e",
   "released_path": "runtime/claude-plugin/agents/paqad-specification.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-specification.md"
