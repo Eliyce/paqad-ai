@@ -9,6 +9,7 @@ import {
   anchoringFindings,
   collectMachineFindings,
   findingAnchor,
+  scopeFindingsToChange,
   unanchoredMachineFindings,
   type MachineFinding,
 } from '@/review-digest/index.js';
@@ -297,5 +298,77 @@ describe('anchoring', () => {
     expect(unanchoredMachineFindings(findings, 'src/x.ts:12 and src/y.ts:3 both checked')).toEqual(
       [],
     );
+  });
+});
+
+describe('scopeFindingsToChange', () => {
+  const ROOT = '/repo';
+
+  function row(source: string, file: string | null): MachineFinding {
+    return { source, severity: 'high', tier: 'deterministic', file, line: null, message: 'm' };
+  }
+
+  it('AC-5: drops rule findings on a file the change did not touch', () => {
+    const scoped = scopeFindingsToChange([row('rule:RL-1', 'a.ts')], ['b.ts'], ROOT);
+    expect(scoped).toEqual([]);
+  });
+
+  it('AC-19: keeps a finding on the changed file, a row with no file, and drops the other', () => {
+    const rows = [
+      row('rule:RL-1', 'b.ts'),
+      row('duplication', 'b.ts'),
+      row('duplication', 'a.ts'),
+      row('rule:RL-1', null),
+    ];
+    expect(scopeFindingsToChange(rows, ['b.ts'], ROOT)).toEqual([rows[0], rows[1], rows[3]]);
+  });
+
+  it.each([
+    ['an absolute path', '/repo/b.ts'],
+    ['a dot path', './b.ts'],
+    ['a backslash path', 'src\\..\\b.ts'],
+  ])('AC-20: %s on a changed file is still kept', (_label, file) => {
+    expect(scopeFindingsToChange([row('rule:RL-1', file)], ['b.ts'], ROOT)).toHaveLength(1);
+  });
+
+  it.each(['/elsewhere/a.ts', '../a.ts'])(
+    'AC-19: a path that does not resolve under the root is kept: %s',
+    (file) => {
+      expect(scopeFindingsToChange([row('rule:RL-1', file)], ['b.ts'], ROOT)).toHaveLength(1);
+    },
+  );
+
+  it.each(['checks:vitest', 'checks', 'gate:code-tests-lint'])(
+    'AC-22: a %s row on another file stays',
+    (source) => {
+      const rows = [row(source, 'tests/a.test.ts')];
+      expect(scopeFindingsToChange(rows, ['b.ts'], ROOT)).toEqual(rows);
+    },
+  );
+
+  it.each([null, undefined])('AC-19: an unknown file set keeps every row (%s)', (files) => {
+    const rows = [row('rule:RL-1', 'a.ts')];
+    expect(scopeFindingsToChange(rows, files, ROOT)).toEqual(rows);
+  });
+
+  it('AC-19: a missing report gives no rows, as today', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'paqad-digest-scope-'));
+    try {
+      expect(scopeFindingsToChange(collectMachineFindings(empty), ['b.ts'], empty)).toEqual([]);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it('AC-19: a corrupt report gives no rows, as today', () => {
+    const corrupt = mkdtempSync(join(tmpdir(), 'paqad-digest-scope-'));
+    try {
+      const report = join(corrupt, '.paqad/scripts/rules/.cache/report.json');
+      mkdirSync(dirname(report), { recursive: true });
+      writeFileSync(report, '{ not json', 'utf8');
+      expect(scopeFindingsToChange(collectMachineFindings(corrupt), ['b.ts'], corrupt)).toEqual([]);
+    } finally {
+      rmSync(corrupt, { recursive: true, force: true });
+    }
   });
 });

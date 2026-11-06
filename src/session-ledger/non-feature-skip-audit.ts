@@ -5,7 +5,7 @@ import { currentOrdinal, openSessionDoc, type OpenSessionDocResult } from './led
 export const NON_FEATURE_SKIP_DOC_TYPE = 'non-feature-verification-skip';
 export const NON_FEATURE_SKIP_SCHEMA_VERSION = 1 as const;
 
-export type NonFeatureSkipReason = 'non-feature-route' | 'not-owner' | 'detour';
+export type NonFeatureSkipReason = 'non-feature-route' | 'not-owner' | 'detour' | 'empty-change';
 
 export interface RecordNonFeatureSkipContext {
   sessionId?: string | null;

@@ -23,6 +23,7 @@ import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
 import { runQualityRatchetGate } from '@/quality-ratchet/index.js';
 import { runBackstopMutation, type BackstopMutationDeps } from '@/mutation/backstop.js';
 import {
+  activeChangeFiles,
   detectStaleDocTargets,
   isCodeFile,
   isDocumentationFile,
@@ -51,6 +52,7 @@ export interface BuildRepositoryVerificationContextOptions {
   projectRoot: string;
   origin: Extract<VerificationOrigin, 'hook-completion' | 'git-backstop' | 'ci-backstop'>;
   mutationDeps?: BackstopMutationDeps;
+  hostSessionId?: string | null;
 }
 
 export interface RepositoryVerificationContextResult {
@@ -150,6 +152,9 @@ export async function buildRepositoryVerificationContext(
     modules: [],
     changed_files: changedFiles,
     changed_files_source: changeEvidence.source,
+    ...(options.hostSessionId
+      ? { change_own_files: activeChangeFiles(projectRoot, options.hostSessionId) }
+      : {}),
     spec_boundary: specBoundary,
     code_changed: codeChanged,
     test_files_changed: changedFiles.some((filePath) => isTestFile(filePath)),

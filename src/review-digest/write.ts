@@ -4,10 +4,10 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { activeChangeFiles, loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
 import { buildReviewDigest, type DigestCriterion, type DigestStage } from './digest.js';
-import { collectMachineFindings, type MachineFinding } from './sources.js';
+import { collectMachineFindings, scopeFindingsToChange, type MachineFinding } from './sources.js';
 
 export interface WrittenDigest {
   path: string;
@@ -57,8 +57,13 @@ export async function writeReviewDigest(
   }
   /* v8 ignore stop */
 
-  const findings: MachineFinding[] = collectMachineFindings(projectRoot);
-  const { files: changedFiles } = await loadChangeEvidence(projectRoot);
+  const ownFiles = activeChangeFiles(projectRoot, sessionId);
+  const findings: MachineFinding[] = scopeFindingsToChange(
+    collectMachineFindings(projectRoot),
+    ownFiles,
+    projectRoot,
+  );
+  const changedFiles = ownFiles ?? (await loadChangeEvidence(projectRoot)).files;
   const markdown = buildReviewDigest({
     feature,
     generated_at: now().toISOString(),

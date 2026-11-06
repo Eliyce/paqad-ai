@@ -1,3 +1,5 @@
+import { isAbsolute, normalize, relative } from 'node:path';
+
 import { activeFeatureDirOrNull, readChecksReportForFeature } from '@/checks/report-target.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { formatRange } from '@/duplication/types.js';
@@ -134,6 +136,31 @@ export function collectMachineFindings(projectRoot: string): MachineFinding[] {
     ...checksRows(projectRoot),
     ...gateRows(projectRoot),
   ];
+}
+
+function isFileScopedRow(finding: MachineFinding): boolean {
+  return finding.source.startsWith('rule:') || finding.source === 'duplication';
+}
+
+function pathUnderRoot(file: string, projectRoot: string): string | null {
+  const slashed = file.replace(/\\/g, '/');
+  const under = isAbsolute(slashed) ? relative(projectRoot, slashed) : normalize(slashed);
+  const clean = under.replace(/\\/g, '/');
+  return clean === '..' || clean.startsWith('../') || isAbsolute(clean) ? null : clean;
+}
+
+export function scopeFindingsToChange(
+  findings: MachineFinding[],
+  files: readonly string[] | null | undefined,
+  projectRoot: string,
+): MachineFinding[] {
+  if (files === null || files === undefined) return findings;
+  const own = new Set(files);
+  return findings.filter((finding) => {
+    if (!isFileScopedRow(finding) || !finding.file) return true;
+    const path = pathUnderRoot(finding.file, projectRoot);
+    return path === null || own.has(path);
+  });
 }
 
 export function anchoringFindings(findings: MachineFinding[]): MachineFinding[] {

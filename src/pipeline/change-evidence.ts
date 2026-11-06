@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 
 import type { CanonicalDocOwnershipKind, CanonicalDocTarget } from '@/core/types/verification.js';
-import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
+import { featureBranch, listInFlightFeatures } from '@/feature-evidence/adoption.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { readGitState } from '@/rag/git-state.js';
+import { readGitState, readHeadRef } from '@/rag/git-state.js';
 import { readLedgerSessionId } from '@/rag-ledger/session.js';
 
 import { changedFilesSince, isPaqadArtifactPath, type ChangeStartLike } from './git-paths.js';
@@ -44,6 +44,21 @@ function activeChangeStart(projectRoot: string): ChangeStartLike | null {
     if (!sessionId || listInFlightFeatures(projectRoot).length === 0) return null;
     const dirName = currentFeature(projectRoot, sessionId);
     return dirName ? readChangeStartPoint(projectRoot, dirName) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function activeChangeFiles(projectRoot: string, sessionId: string): string[] | null {
+  try {
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName) return null;
+    const head = readHeadRef(projectRoot);
+    if (head.detached || head.branch === null) return null;
+    if (featureBranch(projectRoot, dirName) !== head.branch) return null;
+    const start = readChangeStartPoint(projectRoot, dirName);
+    if (start === null || start.source === 'fallback-base') return null;
+    return changedFilesSince(projectRoot, start);
   } catch {
     return null;
   }

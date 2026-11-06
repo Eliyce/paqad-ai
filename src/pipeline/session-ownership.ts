@@ -5,16 +5,17 @@ import {
 } from '@/feature-evidence/adoption.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
-import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { isStageAgent } from '@/stage-evidence/agent-identity.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
+import { activeChangeFiles } from './change-evidence.js';
 import { isFeatureDevelopmentRoute, type RoutedWorkflow } from './routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from './workflow-state.js';
 
-export type CompletionSkipReason = 'not-owner' | 'detour';
+export type CompletionSkipReason = 'not-owner' | 'detour' | 'empty-change';
 
 export type CompletionEnforceReason =
   'edited-this-turn' | 'owner-feature-dev' | 'owner-unknown-route';
@@ -27,6 +28,12 @@ export type CompletionEnforcement = (
 };
 
 const AGENT_AUTHORED_SOURCES = new Set(['live-mark', 'redo']);
+
+const PRE_EDIT_STAGES: ReadonlySet<string> = new Set([
+  'ticket_intake',
+  'planning',
+  'specification',
+]);
 
 export function sessionOwnedRows(projectRoot: string, sessionId: string): SessionLedgerRow[] {
   let dirNames: string[];
@@ -132,6 +139,25 @@ export function editedDevelopmentThisTurn(projectRoot: string, sessionId: string
   return editedThisTurn(development, readWorkflowState(projectRoot, sessionId));
 }
 
+function isEmptyChange(projectRoot: string, sessionId: string, state: WorkflowState): boolean {
+  const turnStart = state.turn_started_at === undefined ? NaN : Date.parse(state.turn_started_at);
+  if (Number.isNaN(turnStart)) return false;
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) return false;
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  const pastSpecification = rows.some(
+    (row) => typeof row.stage === 'string' && !PRE_EDIT_STAGES.has(row.stage),
+  );
+  if (pastSpecification) return false;
+  const endedThisTurn = rows.some((row) => {
+    if (row.kind !== 'stage_end') return false;
+    const at = Date.parse(rowRecordedAt(row) ?? '');
+    return Number.isNaN(at) || at >= turnStart;
+  });
+  if (endedThisTurn) return false;
+  return activeChangeFiles(projectRoot, sessionId)?.length === 0;
+}
+
 export function classifyCompletionEnforcement(
   projectRoot: string,
   sessionId?: string | null,
@@ -151,6 +177,9 @@ export function classifyCompletionEnforcement(
 
   if (owned.length === 0) {
     return { enforce: false, reason: 'not-owner', activeWorkflow };
+  }
+  if (isEmptyChange(projectRoot, resolved, state)) {
+    return { enforce: false, reason: 'empty-change', activeWorkflow };
   }
   if (editedThisTurn(owned, state)) {
     return { enforce: true, reason: 'edited-this-turn', activeWorkflow };

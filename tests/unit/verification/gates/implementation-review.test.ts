@@ -7,6 +7,7 @@ import { writeFeatureReview } from '@/feature-evidence/artifacts.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { ImplementationReviewGate } from '@/verification/gates/implementation-review.js';
 
+import { writeFailingChecks, writeRuleReport } from '../own-change.fixture.js';
 import { createVerificationContext } from '../shared.fixture.js';
 
 describe('ImplementationReviewGate', () => {
@@ -209,5 +210,66 @@ describe('ImplementationReviewGate · unaddressed machine findings', () => {
       passed: true,
       detail: expect.stringContaining('passed with warnings'),
     });
+  });
+});
+
+describe('ImplementationReviewGate on the change own files', () => {
+  function withRuleFinding(file: string, ownFiles: string[] | null | undefined) {
+    const context = createVerificationContext({
+      ...(ownFiles === undefined ? {} : { change_own_files: ownFiles }),
+    });
+    writeRuleReport(context.project_root, file);
+    return context;
+  }
+
+  it('AC-4: an empty known set reads not required, naming why, with a stale row on disk', async () => {
+    const result = await new ImplementationReviewGate().check(withRuleFinding('a.ts', []));
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toBe('no files changed in this change yet');
+  });
+
+  it('AC-4: a blocking finding still fails an empty change', async () => {
+    const result = await new ImplementationReviewGate().check(
+      createVerificationContext({
+        change_own_files: [],
+        implementation_review_findings: [
+          { kind: 'decision-violation', severity: 'error', detail: 'open defect', evidence: [] },
+        ],
+      }),
+    );
+    expect(result.passed).toBe(false);
+  });
+
+  it('AC-5: a finding on a.ts is ignored when the change only changed b.ts', async () => {
+    const result = await new ImplementationReviewGate().check(withRuleFinding('a.ts', ['b.ts']));
+    expect(result.detail).not.toContain('a.ts');
+    expect(result.detail).not.toContain('machine finding');
+  });
+
+  it('AC-19: a finding on b.ts still fails when the change changed b.ts', async () => {
+    const result = await new ImplementationReviewGate().check(withRuleFinding('b.ts', ['b.ts']));
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('b.ts:3');
+  });
+
+  it.each([null, undefined])('AC-19: an unknown set keeps the finding (%s)', async (own) => {
+    const result = await new ImplementationReviewGate().check(withRuleFinding('a.ts', own));
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('a.ts:3');
+  });
+
+  it('AC-20: an absolute finding path on a changed file still fails', async () => {
+    const context = createVerificationContext({ change_own_files: ['b.ts'] });
+    writeRuleReport(context.project_root, join(context.project_root, 'b.ts'));
+    const result = await new ImplementationReviewGate().check(context);
+    expect(result.passed).toBe(false);
+  });
+
+  it('AC-22: a checks failure in an untouched file stays a citation requirement', async () => {
+    const context = createVerificationContext({ change_own_files: ['b.ts'] });
+    writeFailingChecks(context.project_root, 'tests/a.test.ts');
+    const result = await new ImplementationReviewGate().check(context);
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('tests/a.test.ts:4');
   });
 });

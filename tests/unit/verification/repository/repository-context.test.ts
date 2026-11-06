@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildRepositoryVerificationContext } from '@/verification/repository/repository-context.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -11,7 +12,15 @@ import type { DecisionPacket } from '@/planning/decision-packet.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { persistLedgerSessionId } from '@/rag-ledger/session.js';
+import { sessionLedgerDir } from '@/session-ledger/ledger.js';
+import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
+import { ImplementationReviewGate } from '@/verification/gates/implementation-review.js';
+
 import { ownInFlightChange } from '../shared.fixture.js';
+import { git, writeRepoFile } from '../../pipeline/changed-files.fixture.js';
+import { cleanupOwnChanges, ownChangeRepo, writeRuleReport } from '../own-change.fixture.js';
 import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 function makeProject(): string {
@@ -270,5 +279,63 @@ describe('buildRepositoryVerificationContext', () => {
 
     expect(context.changed_files).toEqual(['src/feature.ts']);
     expect(context.code_changed).toBe(true);
+  });
+});
+
+describe('change_own_files', () => {
+  const Y = 'ses_host_y';
+  const X = 'ses_cached_x';
+
+  afterEach(cleanupOwnChanges);
+
+  it('AC-35: resolves from the Stop session, not the session in the cache', async () => {
+    const { root } = ownChangeRepo(X, 'feat/x');
+    git(root, ['switch', '-q', '-c', 'feat/y', 'main']);
+    openFeatureChange(root, Y, { adapter: 'claude-code', title: 'y', issue: null });
+    writeRepoFile(root, 'y.ts', 'export const y = 1;\n');
+    persistLedgerSessionId(root, X);
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+      hostSessionId: Y,
+    });
+
+    expect(context.change_own_files).toEqual(['y.ts']);
+  });
+
+  it('AC-35: with no Stop session the field stays unset, whatever the cache names', async () => {
+    const { root } = ownChangeRepo(X);
+    persistLedgerSessionId(root, X);
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'git-backstop',
+    });
+    expect(context.change_own_files).toBeUndefined();
+  });
+
+  it('AC-20: a resumed session keeps its own dirty-baseline file and its finding fails', async () => {
+    const { root } = ownChangeRepo(Y);
+    writeRepoFile(root, 'a.ts', 'export const a = 2;\n');
+    const dirty = createHash('sha256')
+      .update(readFileSync(join(root, 'a.ts')))
+      .digest('hex');
+    writeFileSync(
+      join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, Y), '.dirty-baseline.json'),
+      JSON.stringify({ files: { 'a.ts': dirty } }),
+    );
+    writeRuleReport(root, 'a.ts');
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+      hostSessionId: Y,
+    });
+    expect(context.changed_files).not.toContain('a.ts');
+    expect(context.change_own_files).toEqual(['a.ts']);
+
+    const result = await new ImplementationReviewGate().check(context);
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('a.ts:3');
   });
 });

@@ -1,6 +1,7 @@
 import {
   collectMachineFindings,
   findingAnchor,
+  scopeFindingsToChange,
   unanchoredMachineFindings,
 } from '@/review-digest/index.js';
 import { readFeatureReview } from '@/feature-evidence/artifacts.js';
@@ -55,9 +56,17 @@ export class ImplementationReviewGate implements Gate {
       );
     }
 
+    if (context.change_own_files?.length === 0) {
+      return createNotRequired(this.gate, 'no files changed in this change yet');
+    }
+
     const review = activeReview(context.project_root);
     const unaddressed = unanchoredMachineFindings(
-      collectMachineFindings(context.project_root),
+      scopeFindingsToChange(
+        collectMachineFindings(context.project_root),
+        context.change_own_files,
+        context.project_root,
+      ),
       reviewText(review),
     );
     if (unaddressed.length > 0) {

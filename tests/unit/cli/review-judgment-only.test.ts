@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createReviewCommand } from '@/cli/commands/review.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
+import { commitAll, git, makeEmptyRepo, writeRepoFile } from '../pipeline/changed-files.fixture.js';
+
 const machineRows = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }));
 vi.mock('@/review-digest/sources.js', async (original) => ({
   ...(await original<typeof import('@/review-digest/sources.js')>()),
@@ -174,6 +176,42 @@ describe('review record against machine findings', () => {
       vi.stubEnv(name, SES);
       await digest([]);
       expect(JSON.parse(out.at(-1)!)).toMatchObject({ written: true });
+    });
+  });
+
+  describe('on a change with its own files', () => {
+    const judgment = { severity: 'minor', description: 'naming' };
+
+    function ownRepo(): void {
+      rmSync(root, { recursive: true, force: true });
+      root = makeEmptyRepo('main');
+      writeRepoFile(root, 'src/a.ts', 'export const a = 1;\n');
+      writeRepoFile(root, 'src/b.ts', 'export const b = 1;\n');
+      commitAll(root, 'chore: base');
+      git(root, ['switch', '-q', '-c', 'feat/own']);
+      open();
+      writeRepoFile(root, 'src/b.ts', 'export const b = 2;\n');
+    }
+
+    it('AC-21: review record does not demand a citation of a row on another file', async () => {
+      ownRepo();
+      machineRows.rows = [{ tier: 'deterministic', file: 'src/a.ts', source: 'rule:RL-1' }];
+      await record([judgment], session);
+      expect(err.join('\n')).not.toContain(JUDGMENT);
+    });
+
+    it('AC-21: review record still demands a citation of a row on its own file', async () => {
+      ownRepo();
+      machineRows.rows = [{ tier: 'deterministic', file: 'src/b.ts', source: 'rule:RL-1' }];
+      await record([judgment], session);
+      expect(err.join('\n')).toContain(JUDGMENT);
+    });
+
+    it('AC-22: a checks row on an untouched test keeps the citation requirement', async () => {
+      ownRepo();
+      machineRows.rows = [{ tier: 'deterministic', file: 'tests/a.test.ts', source: 'checks:v' }];
+      await record([judgment], session);
+      expect(err.join('\n')).toContain(JUDGMENT);
     });
   });
 });

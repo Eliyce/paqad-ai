@@ -64,7 +64,10 @@ import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
-import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
+import {
+  classifyCompletionEnforcement,
+  type CompletionEnforcement,
+} from '@/pipeline/session-ownership.js';
 import { recordNonFeatureVerificationSkip } from '@/session-ledger/non-feature-skip-audit.js';
 import { PAQAD_STATUS_GLYPH, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -158,6 +161,22 @@ export interface RunRepositoryVerificationOptions extends BuildRepositoryVerific
   now?: () => string;
 }
 
+function skipDetail(decision: Extract<CompletionEnforcement, { enforce: false }>): string {
+  if (decision.reason === 'detour') {
+    return (
+      `This turn ran the ${decision.activeWorkflow!} workflow and made no ` +
+      `code change. The paused change is checked when it resumes.`
+    );
+  }
+  if (decision.reason === 'empty-change') {
+    return (
+      'The open change has no changed files and has not reached development, so there is ' +
+      'nothing to check yet. It is checked once it has edits.'
+    );
+  }
+  return 'This session made no code change of its own, so there are no end-of-change checks to run.';
+}
+
 export async function runRepositoryVerification(
   options: RunRepositoryVerificationOptions,
 ): Promise<RepositoryVerificationVerdict> {
@@ -190,12 +209,7 @@ export async function runRepositoryVerification(
         reason: decision.reason,
       });
       const at = now();
-      const detail =
-        decision.reason === 'detour'
-          ? `This turn ran the ${decision.activeWorkflow!} workflow and made no ` +
-            `code change. The paused change is checked when it resumes.`
-          : 'This session made no code change of its own, so there are no end-of-change ' +
-            'checks to run.';
+      const detail = skipDetail(decision);
       return {
         origin: options.origin,
         ok: true,
@@ -220,6 +234,7 @@ export async function runRepositoryVerification(
       projectRoot: options.projectRoot,
       origin: options.origin,
       mutationDeps: options.mutationDeps,
+      hostSessionId: options.hostSessionId ?? null,
     }));
   const { context, escalations } = built;
 

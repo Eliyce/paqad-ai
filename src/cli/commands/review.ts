@@ -7,9 +7,10 @@ import {
   writeFeatureReview,
   type ReviewRecordInput,
 } from '@/feature-evidence/artifacts.js';
+import { activeChangeFiles } from '@/pipeline/change-evidence.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeReviewDigest } from '@/review-digest/index.js';
-import { collectMachineFindings } from '@/review-digest/sources.js';
+import { collectMachineFindings, scopeFindingsToChange } from '@/review-digest/sources.js';
 import { stageLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { checkRecipe } from '@/stage-isolation/recipe-check.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -37,7 +38,11 @@ function judgmentOnlyRefusal(
   const dirName = currentFeature(root, sessionId);
   if (dirName === null) return null;
   if (stageLedgerEra(readFeatureStageUnit(root, dirName), 'review') !== 'v3') return null;
-  const rows = collectMachineFindings(root).filter((row) => row.tier === 'deterministic');
+  const rows = scopeFindingsToChange(
+    collectMachineFindings(root),
+    activeChangeFiles(root, sessionId),
+    root,
+  ).filter((row) => row.tier === 'deterministic');
   if (rows.length === 0) return null;
   const cited = findings.some((finding) =>
     rows.some(

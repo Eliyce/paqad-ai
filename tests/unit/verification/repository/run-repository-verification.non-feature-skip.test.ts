@@ -20,6 +20,7 @@ import { startStage } from '@/stage-evidence/recorder.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
+import { cleanupOwnChanges, ownChangeRepo } from '../own-change.fixture.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -273,4 +274,19 @@ describe('runRepositoryVerification — session-owned enforcement', () => {
       expect(verdict.summary).not.toContain('verification not applicable');
     },
   );
+});
+
+describe('runRepositoryVerification on an empty change', () => {
+  const S = 'ses_empty_verify';
+
+  afterEach(cleanupOwnChanges);
+
+  it('AC-34: records the skip with reason empty-change and its own sentence', async () => {
+    const { root } = ownChangeRepo(S);
+    const verdict = await stop(root, S);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.applicable).toBe(false);
+    expect(verdict.summary).toContain('has no changed files');
+    expect(skipAuditRows(root, S)?.[0]).toMatchObject({ reason: 'empty-change' });
+  });
 });
