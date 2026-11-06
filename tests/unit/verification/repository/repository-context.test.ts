@@ -13,6 +13,8 @@ import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { sessionLedgerDir } from '@/session-ledger/ledger.js';
 import { startStage } from '@/stage-evidence/recorder.js';
@@ -21,7 +23,14 @@ import { ImplementationReviewGate } from '@/verification/gates/implementation-re
 
 import { ownInFlightChange } from '../shared.fixture.js';
 import { commitAll, git, writeRepoFile } from '../../pipeline/changed-files.fixture.js';
-import { cleanupOwnChanges, ownChangeRepo, writeRuleReport } from '../own-change.fixture.js';
+import {
+  cleanupOwnChanges,
+  IN_TURN,
+  OPENED_AT,
+  ownChangeRepo,
+  TURN,
+  writeRuleReport,
+} from '../own-change.fixture.js';
 import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 function makeProject(): string {
@@ -313,6 +322,68 @@ describe('change_own_files', () => {
       origin: 'git-backstop',
     });
     expect(context.change_own_files).toBeUndefined();
+  });
+
+  function planningChangeOnOwnBranch(root: string, owner: string): void {
+    git(root, ['switch', '-q', '-c', 'feat/other', 'main']);
+    const dirName = openFeatureChange(root, owner, {
+      adapter: 'claude-code',
+      title: 'planning only',
+      issue: null,
+      now: () => OPENED_AT,
+    });
+    startStage(root, 'planning', {
+      sessionId: owner,
+      dirName,
+      adapter: 'claude-code',
+      now: () => OPENED_AT,
+    });
+  }
+
+  it('AC-34, AC-35: edits on its own change keep a session judged after it adopts another', () => {
+    const { root, dir } = ownChangeRepo(Y, 'feat/own');
+    startStage(root, 'development', {
+      sessionId: Y,
+      dirName: dir,
+      adapter: 'claude-code',
+      now: () => IN_TURN,
+    });
+    writeRepoFile(root, 'y.ts', 'export const y = 1;\n');
+    commitAll(root, 'feat: y');
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+
+    planningChangeOnOwnBranch(root, X);
+
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+  });
+
+  it('AC-34, AC-35: earlier work on its own change does not stop the skip on an adopted one', () => {
+    const { root } = ownChangeRepo(Y, 'feat/own');
+    planningChangeOnOwnBranch(root, X);
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: false,
+      reason: 'empty-change',
+    });
+  });
+
+  it('AC-34, AC-35: a session with no rows that adopts a planning change stays not-owner', () => {
+    const { root } = ownChangeRepo(X, 'feat/own');
+    planningChangeOnOwnBranch(root, X);
+    writeWorkflowState(root, Y, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+      turn_started_at: TURN,
+    });
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: false,
+      reason: 'not-owner',
+    });
   });
 
   describe('INV-5: a change past specification with an empty set is still judged', () => {

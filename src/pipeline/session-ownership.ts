@@ -36,6 +36,13 @@ const PRE_EDIT_STAGES: ReadonlySet<string> = new Set([
 ]);
 
 export function sessionOwnedRows(projectRoot: string, sessionId: string): SessionLedgerRow[] {
+  return ownedRowsByChange(projectRoot, sessionId).flatMap(({ rows }) => rows);
+}
+
+function ownedRowsByChange(
+  projectRoot: string,
+  sessionId: string,
+): { dirName: string; rows: SessionLedgerRow[] }[] {
   let dirNames: string[];
   try {
     dirNames = listInFlightFeatures(projectRoot);
@@ -47,8 +54,9 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
     dirNames = [...dirNames, ownBundle];
   }
   const lastPrompt = lastPromptAt(projectRoot, sessionId);
-  return dirNames.flatMap((dirName) =>
-    readFeatureStageUnit(projectRoot, dirName).filter(
+  return dirNames.map((dirName) => ({
+    dirName,
+    rows: readFeatureStageUnit(projectRoot, dirName).filter(
       (row) =>
         (row.session_id === sessionId &&
           typeof row.evidence_source === 'string' &&
@@ -57,7 +65,7 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
           isStageAgentRow(row) &&
           stageAgentRowIsOwn(row, sessionId, lastPrompt)),
     ),
-  );
+  }));
 }
 
 function isReopened(projectRoot: string, dirName: string): boolean {
@@ -153,6 +161,10 @@ function isEmptyChange(projectRoot: string, sessionId: string, state: WorkflowSt
   if (Number.isNaN(turnStart)) return false;
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) return false;
+  const elsewhere = ownedRowsByChange(projectRoot, sessionId)
+    .filter((change) => change.dirName !== dirName)
+    .flatMap((change) => change.rows);
+  if (editedThisTurn(elsewhere, state)) return false;
   const rows = readFeatureStageUnit(projectRoot, dirName);
   if (hasRowPastSpecification(rows)) return false;
   const endedThisTurn = rows.some((row) => {
