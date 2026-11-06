@@ -6,7 +6,13 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { findEarlierQuestions } from '@/decisions/earlier-answers.js';
+import {
+  checkDecision,
+  EARLIER_TITLE_LIMIT,
+  findEarlierQuestions,
+  formatCreateOutput,
+  readEarlierAnswers,
+} from '@/decisions/earlier-answers.js';
 import { storeOptions } from '../../shared/store-packet.js';
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -150,4 +156,51 @@ describe('AC-49 cost at 3,000 resolved files in both shapes', () => {
     };
     expect(stored.earlier_check.candidates).toEqual(matchesNewestFirst());
   }, 60_000);
+
+  describe('the flagged open', () => {
+    const newest200 = Array.from({ length: EARLIER_TITLE_LIMIT }, (_, index) =>
+      idFor(FILES - 1 - index),
+    );
+    let id: string;
+
+    it('runs one search, reads each file once and offers the newest 200', () => {
+      vi.mocked(readFileSync).mockClear();
+      const result = createPendingDecision(root, {
+        category: 'ux-pattern',
+        title: QUESTION,
+        context: 'now',
+        options: [
+          { option_key: 'one', label: 'One' },
+          { option_key: 'two', label: 'Two' },
+        ],
+        agentWorded: true,
+      });
+      id = result.id;
+      const reads = readsPerFile();
+      expect(reads.size).toBe(FILES);
+      expect(Math.max(...reads.values())).toBe(1);
+      const stored = JSON.parse(readFileSync(result.path, 'utf8')) as {
+        earlier_check: { candidates: string[]; older_omitted: number };
+      };
+      expect(stored.earlier_check.candidates).toEqual(newest200);
+      expect(stored.earlier_check.older_omitted).toBe(FILES - EARLIER_TITLE_LIMIT);
+
+      vi.mocked(readFileSync).mockClear();
+      const printed = formatCreateOutput(root, result) as {
+        earlier_check: { titles: { id: string }[] };
+      };
+      expect(printed.earlier_check.titles.map((title) => title.id)).toEqual(newest200);
+      expect(readsPerFile().size).toBeLessThanOrEqual(EARLIER_TITLE_LIMIT);
+    }, 60_000);
+
+    it('printing the check reads at most 200 files and --read at most 5', () => {
+      vi.mocked(readFileSync).mockClear();
+      checkDecision(root, id);
+      expect(readsPerFile().size).toBeLessThanOrEqual(EARLIER_TITLE_LIMIT);
+
+      vi.mocked(readFileSync).mockClear();
+      expect(readEarlierAnswers(root, id, newest200.slice(0, 5)).read).toHaveLength(5);
+      expect(readsPerFile().size).toBe(5);
+    }, 60_000);
+  });
 });

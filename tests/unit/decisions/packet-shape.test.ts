@@ -83,6 +83,24 @@ describe('AC-52 earlier_check and suggestion survive both shapes', () => {
     expect(resolved.suggestion).toEqual(suggestion);
   });
 
+  it('AC-52 keeps listed_by through the store shape and its resolve', () => {
+    const decisionId = 'D-01J000000000000000000000A3';
+    const store = new DecisionStore(projectRoot);
+    store.writePending(
+      pendingStorePacket({
+        decision_id: decisionId,
+        options: storeOptions(['include', 'exclude']),
+        earlier_check: { ...check, listed_by: 'titles' },
+        suggestion,
+      }),
+    );
+    expect(store.readPending(decisionId)?.earlier_check?.listed_by).toBe('titles');
+    const path = resolvePendingDecision(projectRoot, decisionId, 'include').path;
+    const resolved = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    expect(resolved.earlier_check).toEqual({ status: 'done', listed_by: 'titles' });
+    expect(resolved.suggestion).toEqual(suggestion);
+  });
+
   it('keeps both through the store shape and its resolve', () => {
     const decisionId = 'D-01J000000000000000000000A2';
     const store = new DecisionStore(projectRoot);

@@ -419,7 +419,11 @@ describe('paqad-ai deliver', () => {
   });
 });
 
-import { keepAnswerAsRule } from '../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 describe('resolveOpenPrDecision', () => {
   let root: string;
@@ -427,6 +431,14 @@ describe('resolveOpenPrDecision', () => {
     root = mkdtempSync(join(tmpdir(), 'paqad-openpr-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-67 an automated question with no word match has no check', () => {
+    seedUnrelatedAnswer(root);
+    expect(resolveOpenPrDecision(root, 'yes').status).toBe('paused');
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
 
   it('AC-18 a standing rule resolves with the choice and leaves nothing pending', () => {
     resolveOpenPrDecision(root, 'yes');

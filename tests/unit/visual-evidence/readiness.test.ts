@@ -73,7 +73,11 @@ const PRE_EXTRACTION_ROWS = [
   },
 ];
 
-import { keepAnswerAsRule } from '../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 let root: string;
 
@@ -190,6 +194,20 @@ describe('openVisualEvidenceReadinessPause', () => {
     expect(packet.context).toContain(readinessToken(DIR));
     expect(packet.context).toContain('site_map is off');
     expect(packet.options.map((o) => o.option_key)).toEqual(['setup', 'attach', 'waive']);
+  });
+
+  it('AC-67 an automated question with no word match has no check', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    seedUnrelatedAnswer(root);
+    openVisualEvidenceReadinessPause({
+      projectRoot: root,
+      dirName: DIR,
+      files: ['src/pages/Goals.tsx'],
+    });
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
   });
 
   it('AC-18 returns null and asks nothing when a standing rule answers it', () => {

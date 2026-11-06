@@ -13,7 +13,11 @@ import {
   readAuthoringDecision,
 } from '@/authoring/decisions.js';
 import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
-import { keepAnswerAsRule } from '../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 const roots: string[] = [];
 
@@ -72,6 +76,23 @@ describe('raiseAgentPermissionDecision', () => {
 });
 
 describe('AC-18 a standing rule', () => {
+  it('AC-67 an automated question with no word match has no check', () => {
+    const root = project();
+    seedUnrelatedAnswer(root);
+    raiseAuthoringDecision(root, {
+      category: 'authoring.overlap',
+      title: 'Does this overlap the existing skill?',
+      context: 'Two skills look alike.',
+      options: [
+        { option_key: 'merge', label: 'Merge them' },
+        { option_key: 'keep', label: 'Keep both' },
+      ],
+    });
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
   it('keeps only the id, which re-reads as resolved', () => {
     const root = project();
     const input = {

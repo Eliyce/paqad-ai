@@ -22,7 +22,11 @@ import { assertCanRunStep, writeStepArtifact } from '@/spec-pipeline/orchestrato
 import type { SynthesisConflict } from '@/spec-pipeline/experts/synthesis.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
-import { keepAnswerAsRule } from '../../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../../shared/store-packet.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -58,6 +62,15 @@ function pending(root: string) {
 }
 
 describe('mintExpertConflictDecisions', () => {
+  it('AC-67 an automated question with no word match has no check', () => {
+    const root = tempRoot();
+    seedUnrelatedAnswer(root);
+    mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
+  });
+
   it('AC-12 AC-18 a standing rule goes under auto-resolved and announces no question', () => {
     const root = tempRoot();
     const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);

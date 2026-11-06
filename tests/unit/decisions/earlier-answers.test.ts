@@ -1,6 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -281,6 +289,38 @@ describe('AC-43 private answers stay in their category', () => {
     expect(
       ids({ question: 'may we store these emails', category: 'analytics.pii_consent' }),
     ).toEqual([id]);
+  });
+});
+
+describe('AC-67 only the CLI create action and create.mjs pass the flag', () => {
+  function sourceFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(path);
+      return /\.(ts|mjs)$/u.test(entry.name) ? [path] : [];
+    });
+  }
+
+  it('finds no other caller passing it and none testing origin for it', () => {
+    const cwd = process.cwd();
+    const files = [...sourceFiles(join(cwd, 'src')), ...sourceFiles(join(cwd, 'runtime'))];
+    const passing = files.filter((file) => /agentWorded:/u.test(readFileSync(file, 'utf8')));
+    expect(passing.map((file) => relative(cwd, file)).sort()).toEqual([
+      'runtime/base/skills/decision/scripts/create.mjs',
+      'src/cli/commands/decision.ts',
+    ]);
+    for (const file of files) {
+      expect(readFileSync(file, 'utf8')).not.toMatch(
+        /origin[^\n]*agentWorded|agentWorded[^\n]*origin/u,
+      );
+    }
+  });
+
+  it('DecisionStore.writePending keeps the word match, with no check on no match', () => {
+    earlier('same words here');
+    const store = new DecisionStore(root);
+    const unmatched = store.writePending(pendingStorePacket({ question: 'wholly other topic' }));
+    expect(JSON.parse(readFileSync(unmatched, 'utf8'))).not.toHaveProperty('earlier_check');
   });
 });
 

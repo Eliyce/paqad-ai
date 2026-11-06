@@ -25,7 +25,11 @@ import {
   reuseOptionKey,
   CREATE_NEW_OPTION_KEY,
 } from '@/planning/decision-evidence-arm.js';
-import { keepAnswerAsRule } from '../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 const CHANGE = '361-armed-01KY000000000000000000000';
 
@@ -294,6 +298,21 @@ describe('armDecisionFromPlan', () => {
     expect(result.reusedDecisions).toHaveLength(1);
     expect(result.reusedDecisions[0]).toMatch(/^reused_decision:D-/u);
     expect(pendingPackets(root)).toEqual([]);
+  });
+
+  it('AC-67 an automated question with no word match has no check', () => {
+    const root = makeProject();
+    seedUnrelatedAnswer(root);
+    seedIndex(root, [symbol()]);
+    armDecisionFromPlan({
+      projectRoot: root,
+      changeKey: CHANGE,
+      config: config(),
+      constructs: [{ name: 'formatRelativeDate', justification: 'need the relative form' }],
+    });
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
   });
 
   it('recommends nothing when the existing symbol has too few callers to argue from', () => {

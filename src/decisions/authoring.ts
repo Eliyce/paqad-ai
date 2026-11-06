@@ -184,11 +184,11 @@ function earlierCheckOnOpen(
   projectRoot: string,
   packet: PendingContractDecision,
   path: string,
-  agentWorded: boolean,
+  listTitles: boolean,
 ): EarlierCheck | null {
   if (richFieldsFor(packet) === null) return null;
   const { id: excludeId, category } = packet;
-  return agentWorded
+  return listTitles
     ? titleCheckFor(projectRoot, { excludeId, category, path })
     : earlierCheckFor(projectRoot, { question: packet.title, excludeId, category });
 }

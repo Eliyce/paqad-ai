@@ -11,7 +11,11 @@ import {
   raiseFixProofMethodDecision,
 } from '@/fix-protocol/fix-proof-method-decision.js';
 import { isDecisionPacket, validateDecisionPacket } from '@/planning/decision-packet.js';
-import { keepAnswerAsRule } from '../../shared/store-packet.js';
+import {
+  keepAnswerAsRule,
+  pendingPacketFiles,
+  seedUnrelatedAnswer,
+} from '../../shared/store-packet.js';
 
 const SES = 'ses-proof-method';
 
@@ -27,6 +31,15 @@ describe('raiseFixProofMethodDecision', () => {
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('AC-67 an automated question with no word match has no check', () => {
+    seedUnrelatedAnswer(root);
+    recordChangeConstants(root, dir, { kind: 'fix' });
+    raiseFixProofMethodDecision(root, dir);
+    const opened = pendingPacketFiles(root);
+    expect(opened.length).toBeGreaterThan(0);
+    for (const packet of opened) expect(packet).not.toHaveProperty('earlier_check');
   });
 
   it('AC-18 reports nothing raised when a standing rule answers it', () => {

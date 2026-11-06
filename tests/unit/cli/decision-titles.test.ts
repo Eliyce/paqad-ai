@@ -445,6 +445,27 @@ describe('agent-opened questions list earlier titles', () => {
     expect(existsSync(JSON.parse(resolved.raw).path)).toBe(true);
   });
 
+  it('AC-36 a six-option question an agent opens has no check, and --always is refused', async () => {
+    answer('Which colour should the banner use');
+    const { raw } = await run(
+      'create',
+      '--category',
+      'finding.triage',
+      '--title',
+      'Pick a shade for the top strip',
+      '--context',
+      'Why',
+      ...['a', 'b', 'c', 'd', 'e', 'f'].flatMap((key) => ['--option', `${key}=${key}`]),
+    );
+    const output = JSON.parse(raw);
+    expect(Object.keys(output).sort()).toEqual(['id', 'path']);
+    const refused = await run('resolve', output.id, 'a', '--always');
+    expect(refused.err).toContain('no stable fingerprint');
+    process.exitCode = undefined;
+    const resolved = await run('resolve', output.id, 'a');
+    expect(existsSync(JSON.parse(resolved.raw).path)).toBe(true);
+  });
+
   describe('AC-68 the resolved file stays small', () => {
     function resolvedFile(id: string): Record<string, unknown> {
       return JSON.parse(
