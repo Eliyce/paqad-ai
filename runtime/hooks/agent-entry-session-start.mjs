@@ -69,10 +69,13 @@ async function main(input) {
 
   const output = mergeSessionStartOutput(
     mergeSessionStartOutput(
-      await missingStageAgentsOutput(projectRoot),
-      await teamConfigNotice(projectRoot),
+      mergeSessionStartOutput(
+        await missingStageAgentsOutput(projectRoot),
+        await teamConfigNotice(projectRoot),
+      ),
+      await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
     ),
-    await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
+    await designSignOffNotice(projectRoot),
   );
   if (output) process.stdout.write(output);
 
@@ -114,6 +117,19 @@ async function lastUpdateNotice(projectRoot, source) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendHooksLog(projectRoot, `session-start: last update notice skipped: ${message}`);
+    return null;
+  }
+}
+
+async function designSignOffNotice(projectRoot) {
+  if (!isProjectOnboarded(projectRoot)) return null;
+  try {
+    const url = new URL('../../dist/hld/session.js', import.meta.url);
+    const { waitingSignOffText } = await import(url.href);
+    return waitingSignOffText(projectRoot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: design sign-off check skipped: ${message}`);
     return null;
   }
 }
