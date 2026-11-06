@@ -1,0 +1,10 @@
+[
+  {
+    "author_id": "the author's id on the destination",
+    "is_change_author": false,
+    "is_bot": false,
+    "text": "the reply text, or an empty string for a reaction",
+    "reaction": "✅",
+    "at": "2026-10-31T09:30:00Z"
+  }
+]

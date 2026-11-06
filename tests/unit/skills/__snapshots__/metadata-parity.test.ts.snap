@@ -813,6 +813,30 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/high-level-design": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "ticket_text": {
+        "description": "The ticket link or text the user pasted, used to find the tracker.",
+        "required": false,
+        "type": "string",
+      },
+    },
+    "max_lines": 200,
+    "model_tier": "medium",
+    "name": "high-level-design",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "process_depth": [
+          "graduated lane",
+          "full lane",
+        ],
+      },
+    ],
+  },
   "runtime/base/skills/integration-doc-maintainer": {
     "cache_key_inputs": [],
     "cacheable": false,

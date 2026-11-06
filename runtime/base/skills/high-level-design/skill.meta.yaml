@@ -1,0 +1,10 @@
+triggers:
+  - process_depth:
+      - graduated lane
+      - full lane
+cache_key_inputs: []
+input_schema:
+  ticket_text:
+    type: string
+    required: false
+    description: The ticket link or text the user pasted, used to find the tracker.
