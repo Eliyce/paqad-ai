@@ -15,11 +15,12 @@ import type { SpecReviewReport } from '@/compliance/types.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { sessionLedgerDir } from '@/session-ledger/ledger.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 import { ImplementationReviewGate } from '@/verification/gates/implementation-review.js';
 
 import { ownInFlightChange } from '../shared.fixture.js';
-import { git, writeRepoFile } from '../../pipeline/changed-files.fixture.js';
+import { commitAll, git, writeRepoFile } from '../../pipeline/changed-files.fixture.js';
 import { cleanupOwnChanges, ownChangeRepo, writeRuleReport } from '../own-change.fixture.js';
 import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
@@ -312,6 +313,46 @@ describe('change_own_files', () => {
       origin: 'git-backstop',
     });
     expect(context.change_own_files).toBeUndefined();
+  });
+
+  describe('INV-5: a change past specification with an empty set is still judged', () => {
+    function withDevelopmentRow(): { root: string } {
+      const { root, dir } = ownChangeRepo(Y);
+      startStage(root, 'development', { sessionId: Y, dirName: dir, adapter: 'claude-code' });
+      writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+      return { root };
+    }
+
+    async function gateResult(root: string) {
+      writeRuleReport(root, 'a.ts');
+      const { context } = await buildRepositoryVerificationContext({
+        projectRoot: root,
+        origin: 'hook-completion',
+        hostSessionId: Y,
+      });
+      expect(context.change_own_files).toEqual([]);
+      return new ImplementationReviewGate().check(context);
+    }
+
+    it('its edits stashed', async () => {
+      const { root } = withDevelopmentRow();
+      git(root, ['stash', '-q']);
+      expect((await gateResult(root)).outcome).not.toBe('not-required');
+    });
+
+    it('its commit reverted', async () => {
+      const { root } = withDevelopmentRow();
+      commitAll(root, 'feat: b');
+      git(root, ['revert', '--no-edit', 'HEAD']);
+      expect((await gateResult(root)).outcome).not.toBe('not-required');
+    });
+
+    it('a change with planning rows only still reads not required', async () => {
+      const { root } = ownChangeRepo(Y);
+      const result = await gateResult(root);
+      expect(result.outcome).toBe('not-required');
+      expect(result.detail).toBe('no files changed in this change yet');
+    });
   });
 
   it('AC-20: a resumed session keeps its own dirty-baseline file and its finding fails', async () => {

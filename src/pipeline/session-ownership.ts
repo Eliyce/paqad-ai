@@ -139,16 +139,22 @@ export function editedDevelopmentThisTurn(projectRoot: string, sessionId: string
   return editedThisTurn(development, readWorkflowState(projectRoot, sessionId));
 }
 
+function hasRowPastSpecification(rows: readonly SessionLedgerRow[]): boolean {
+  return rows.some((row) => typeof row.stage === 'string' && !PRE_EDIT_STAGES.has(row.stage));
+}
+
+export function changePastSpecification(projectRoot: string, sessionId: string): boolean {
+  const dirName = currentFeature(projectRoot, sessionId);
+  return dirName !== null && hasRowPastSpecification(readFeatureStageUnit(projectRoot, dirName));
+}
+
 function isEmptyChange(projectRoot: string, sessionId: string, state: WorkflowState): boolean {
   const turnStart = state.turn_started_at === undefined ? NaN : Date.parse(state.turn_started_at);
   if (Number.isNaN(turnStart)) return false;
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) return false;
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  const pastSpecification = rows.some(
-    (row) => typeof row.stage === 'string' && !PRE_EDIT_STAGES.has(row.stage),
-  );
-  if (pastSpecification) return false;
+  if (hasRowPastSpecification(rows)) return false;
   const endedThisTurn = rows.some((row) => {
     if (row.kind !== 'stage_end') return false;
     const at = Date.parse(rowRecordedAt(row) ?? '');

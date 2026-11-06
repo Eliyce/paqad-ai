@@ -56,7 +56,7 @@ export class ImplementationReviewGate implements Gate {
       );
     }
 
-    if (context.change_own_files?.length === 0) {
+    if (context.change_own_files?.length === 0 && !context.change_past_specification) {
       return createNotRequired(this.gate, 'no files changed in this change yet');
     }
 

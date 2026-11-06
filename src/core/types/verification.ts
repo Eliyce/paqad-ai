@@ -262,6 +262,7 @@ export interface VerificationContext {
   changed_files: string[];
   changed_files_source: 'git' | 'none';
   change_own_files?: string[] | null;
+  change_past_specification?: boolean;
   spec_boundary?: string[];
   code_changed: boolean;
   test_files_changed: boolean;

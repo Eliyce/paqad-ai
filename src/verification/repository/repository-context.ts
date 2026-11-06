@@ -32,6 +32,7 @@ import {
   loadChangeEvidence,
 } from '@/pipeline/change-evidence.js';
 import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
+import { changePastSpecification } from '@/pipeline/session-ownership.js';
 import type {
   ChecksReportStaleness,
   VerificationContext,
@@ -153,7 +154,10 @@ export async function buildRepositoryVerificationContext(
     changed_files: changedFiles,
     changed_files_source: changeEvidence.source,
     ...(options.hostSessionId
-      ? { change_own_files: activeChangeFiles(projectRoot, options.hostSessionId) }
+      ? {
+          change_own_files: activeChangeFiles(projectRoot, options.hostSessionId),
+          change_past_specification: changePastSpecification(projectRoot, options.hostSessionId),
+        }
       : {}),
     spec_boundary: specBoundary,
     code_changed: codeChanged,

@@ -228,6 +228,17 @@ describe('ImplementationReviewGate on the change own files', () => {
     expect(result.detail).toBe('no files changed in this change yet');
   });
 
+  it('INV-5: an empty set past specification falls through to the filter', async () => {
+    const context = createVerificationContext({
+      change_own_files: [],
+      change_past_specification: true,
+    });
+    writeFailingChecks(context.project_root, 'tests/a.test.ts');
+    const result = await new ImplementationReviewGate().check(context);
+    expect(result.outcome).not.toBe('not-required');
+    expect(result.detail).toContain('tests/a.test.ts:4');
+  });
+
   it('AC-4: a blocking finding still fails an empty change', async () => {
     const result = await new ImplementationReviewGate().check(
       createVerificationContext({
