@@ -81,8 +81,9 @@ export function receiptSignedOffLine(link: string): string {
   return `🟢 High-level design signed off (${link})`;
 }
 
-export const RECEIPT_POSTED_LINE = '🟡 posted, not signed off';
-export const RECEIPT_OFF_LINE = '⚪ off for this team';
+export const RECEIPT_POSTED_LINE = 'High-level design: 🟡 posted, not signed off';
+export const RECEIPT_OFF_LINE = 'High-level design: ⚪ off for this team';
+export const RECEIPT_NOT_WRITTEN_LINE = 'High-level design: 🟡 not written yet';
 
 export function receiptSkippedLine(reason: string): string {
   return `🟡 High-level design skipped before sign-off. Reason: ${reason.trim().replace(/\.$/u, '')}.`;

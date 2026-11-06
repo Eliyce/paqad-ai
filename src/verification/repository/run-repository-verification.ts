@@ -44,6 +44,8 @@ import {
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { designSignOffReceiptLine } from '@/hld/report.js';
+import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
@@ -684,6 +686,11 @@ export async function runRepositoryVerification(
     fixProof,
     stageNotes: receiptFeature ? stageReceiptNotes(context.project_root, receiptFeature) : [],
     cloudNote: cloudContinuationNote(context.project_root, receiptFeature, receiptSession),
+    designSignOff: designSignOffReceiptLine(
+      context.project_root,
+      receiptFeature,
+      resolveEffectiveLane(context.project_root, undefined, fold?.lane ?? null),
+    ),
   });
 
   if (reportPath) {
