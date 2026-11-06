@@ -8,6 +8,7 @@ import { reviewSpecification } from '@/compliance/spec-review.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
+import { freezeNudge } from '@/hld/applies.js';
 import {
   NoActiveFeatureError,
   readFeaturePlan,
@@ -227,11 +228,11 @@ export function createSpecCommand(): Command {
 
         let bundlePath: string | null = null;
         let bundleDir: string | null = null;
+        const sessionId = resolveSessionId(
+          options.projectRoot,
+          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+        );
         try {
-          const sessionId = resolveSessionId(
-            options.projectRoot,
-            options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-          );
           const written = writeFeatureSpecification(
             options.projectRoot,
             sessionId,
@@ -258,6 +259,9 @@ export function createSpecCommand(): Command {
 
         recipeCheck.record();
         console.log(`**▸ paqad** · spec ${specId} frozen and signed off — sign-off recorded`);
+        const nudge =
+          bundleDir === null ? null : freezeNudge(options.projectRoot, sessionId, bundleDir);
+        if (nudge !== null) console.log(nudge);
         console.log(
           JSON.stringify({
             frozen: true,
