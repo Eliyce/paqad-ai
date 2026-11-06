@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { jaccard } from '@/duplication/token-similarity.js';
 import { normalizeDecisionQuestion } from '@/planning/decision-fingerprint.js';
 import {
@@ -137,6 +138,7 @@ export interface StoredPendingPacket {
   recommendation_reason?: string;
   earlier_check?: EarlierCheck;
   suggestion?: DecisionSuggestion;
+  change?: string;
 }
 
 function pendingFile(projectRoot: string, id: string): string {
@@ -437,6 +439,17 @@ export function suggestEarlierAnswer(
     id,
     input.none ? withNoneFound(packet, reason) : withSuggestion(packet, input, reason),
   );
+  if (input.none) {
+    recordDecisionReuse(projectRoot, {
+      kind: 'suggestion',
+      decisionId: null,
+      category: packet.category,
+      note: reason,
+      outcome: 'none',
+      change: packet.change,
+      forDecision: id,
+    });
+  }
   return checkDecision(projectRoot, id);
 }
 

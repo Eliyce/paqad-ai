@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
+import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { computeDecisionFingerprint } from '@/planning/decision-fingerprint.js';
 
 import { NO_STANDING_ANSWER_CATEGORIES } from './earlier-answers.js';
@@ -66,6 +67,20 @@ function writeRules(projectRoot: string, rules: StandingAnswer[]): void {
   const tempPath = `${path}.tmp`;
   writeFileSync(tempPath, `${JSON.stringify({ rules }, null, 2)}\n`);
   renameWithRetrySync(tempPath, path);
+}
+
+function recordRuleRow(
+  projectRoot: string,
+  kind: 'standing-set' | 'standing-removed',
+  rule: StandingAnswer,
+): void {
+  recordDecisionReuse(projectRoot, {
+    kind,
+    decisionId: rule.from_decision,
+    category: rule.category,
+    chosenOptionKey: rule.chosen,
+    ruleId: rule.id,
+  });
 }
 
 export function isStandingFileReadable(projectRoot: string): boolean {
@@ -144,6 +159,7 @@ export function addStandingAnswer(
       !sameText(existing.question, rule.question),
   );
   writeRules(projectRoot, [...kept, rule]);
+  recordRuleRow(projectRoot, 'standing-set', rule);
   return rule;
 }
 
@@ -155,6 +171,7 @@ export function removeStandingAnswer(projectRoot: string, id: string): StandingA
     projectRoot,
     rules.filter((candidate) => candidate.id !== id),
   );
+  recordRuleRow(projectRoot, 'standing-removed', rule);
   return rule;
 }
 

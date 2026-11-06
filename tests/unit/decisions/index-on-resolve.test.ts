@@ -412,6 +412,20 @@ describe('AC-3 AC-33 AC-34 AC-54 answers written by the writer are never reused'
     expect(lookup(fingerprint)).toBe(ID_A);
   });
 
+  it('AC-54 the same question through createPendingDecision is asked, with the earlier answer as a suggestion', () => {
+    writeResolvedFile(storePacket(), ID_A);
+    const { path } = createPendingDecision(
+      root,
+      input({ category: 'component-reuse', title: 'Use the shared button?' }),
+    );
+    const stored = JSON.parse(readFileSync(path, 'utf8')) as {
+      status: string;
+      earlier_check: { status: string; candidates: string[] };
+    };
+    expect(stored.status).toBe('pending');
+    expect(stored.earlier_check).toEqual({ status: 'required', candidates: [ID_A] });
+  });
+
   it('treats a missing or corrupt file as not written by the writer', () => {
     const store = new DecisionStore(root);
     store.initialize();

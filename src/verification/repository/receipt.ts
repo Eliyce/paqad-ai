@@ -123,6 +123,7 @@ export interface ComposeChangeReceiptInput {
   fixProof?: { required: boolean; state: FixProofState } | null;
   cloudNote?: string | null;
   designSignOff?: string | null;
+  decisions?: string | null;
 }
 
 function fixProofLine(fixProof: { required: boolean; state: FixProofState }): string {
@@ -170,6 +171,9 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.designSignOff) {
     parts.push(`> ${input.designSignOff}`);
+  }
+  if (input.decisions) {
+    parts.push(`> ${input.decisions}`);
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);

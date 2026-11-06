@@ -65,6 +65,10 @@ function fail(message: string): void {
   process.exitCode = 1;
 }
 
+function failWith(error: unknown): void {
+  fail(error instanceof Error ? error.message : String(error));
+}
+
 interface CreateOptions {
   projectRoot: string;
   category: string;
@@ -128,7 +132,7 @@ export function createDecisionCommand(): Command {
         }
         console.log(JSON.stringify(formatCreateOutput(options.projectRoot, result), null, 2));
       } catch (error) {
-        fail(error instanceof Error ? error.message : String(error));
+        failWith(error);
       }
     });
 
@@ -170,7 +174,7 @@ export function createDecisionCommand(): Command {
           ),
         );
       } catch (error) {
-        fail(error instanceof Error ? error.message : String(error));
+        failWith(error);
       }
     });
 
@@ -183,7 +187,7 @@ export function createDecisionCommand(): Command {
       try {
         console.log(JSON.stringify(checkDecision(options.projectRoot, id), null, 2));
       } catch (error) {
-        fail(error instanceof Error ? error.message : String(error));
+        failWith(error);
       }
     });
 
@@ -212,7 +216,7 @@ export function createDecisionCommand(): Command {
             JSON.stringify(suggestEarlierAnswer(options.projectRoot, id, options), null, 2),
           );
         } catch (error) {
-          fail(error instanceof Error ? error.message : String(error));
+          failWith(error);
         }
       },
     );
@@ -229,7 +233,7 @@ export function createDecisionCommand(): Command {
       try {
         console.log(JSON.stringify(listStandingAnswers(options.projectRoot), null, 2));
       } catch (error) {
-        fail(error instanceof Error ? error.message : String(error));
+        failWith(error);
       }
     });
 
@@ -244,7 +248,7 @@ export function createDecisionCommand(): Command {
         const rule = removeStandingAnswer(options.projectRoot, id);
         console.log(JSON.stringify({ removed: rule.id }, null, 2));
       } catch (error) {
-        fail(error instanceof Error ? error.message : String(error));
+        failWith(error);
       }
     });
 

@@ -9,6 +9,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { recordDecisionReuse, recordSuggestionOutcome } from '@/decision-reuse/index.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
 import {
@@ -202,6 +203,18 @@ function answerFromStandingRule(
   if (indexable !== null) {
     new DecisionStore(projectRoot).recordResolvedByStandingAnswer(indexable);
   }
+  recordDecisionReuse(projectRoot, {
+    kind: 'reuse',
+    decisionId: rule.from_decision,
+    matchKind: 'standing',
+    category: packet.category,
+    chosenOptionKey: rule.chosen,
+    sourcePath: packetPathRelative(packet.id),
+    note: `Standing answer ${rule.id} answered ${packet.id}`,
+    change: packet.change,
+    forDecision: packet.id,
+    ruleId: rule.id,
+  });
   const label = packet.options.find((option) => option.option_key === rule.chosen)!.label;
   return { id: packet.id, path, reused: { rule: rule.id, chosen: rule.chosen, label } };
 }
@@ -296,6 +309,13 @@ export function resolvePendingDecision(
   if (indexable !== null) {
     new DecisionStore(projectRoot).recordResolvedInIndex(indexable);
   }
+  recordSuggestionOutcome(projectRoot, {
+    forDecision: id,
+    category: resolved.category,
+    chosen,
+    change: resolved.change,
+    suggestion: resolved.suggestion,
+  });
   return { path: resolvedPath, packet: resolved };
 }
 
@@ -324,6 +344,12 @@ function resolveStorePacket(
       carry_over_scope: 'session',
       ...(rationale ? { note: rationale } : {}),
     },
+  });
+  recordSuggestionOutcome(projectRoot, {
+    forDecision: id,
+    category: stored.category,
+    chosen,
+    suggestion: stored.suggestion,
   });
   return {
     path,
@@ -442,6 +468,10 @@ export function addWriteInOption(projectRoot: string, id: string, label: string)
   pending.options = [...pending.options, { option_key: key, label }];
   atomicWriteJson(pendingPath, withRichFields(pending));
   return key;
+}
+
+function packetPathRelative(id: string): string {
+  return join(PATHS.DECISIONS_RESOLVED_DIR, `${id}.json`);
 }
 
 function packetPath(projectRoot: string, relativeDir: string, id: string): string {

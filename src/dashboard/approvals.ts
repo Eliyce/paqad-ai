@@ -2,6 +2,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { recordSuggestionOutcome } from '@/decision-reuse/index.js';
 import { appendModuleMapEvent } from '@/module-decisions/events.js';
 import { canTransition, isExpired, type ModuleDecision } from '@/module-decisions/schema.js';
 import { listDecisionsByState, readDecision, writeDecision } from '@/module-decisions/store.js';
@@ -177,6 +178,13 @@ export function resolvePauseDecision(
       ...(input.note ? { note: input.note } : {}),
     },
     respondedByProvider: DASHBOARD_ACTOR,
+  });
+  recordSuggestionOutcome(projectRoot, {
+    forDecision: input.decisionId,
+    category: packet.category,
+    chosen: input.chosenOptionKey,
+    change: (packet as DecisionPacket & { change?: string }).change,
+    suggestion: packet.suggestion,
   });
   appendDashboardAudit(projectRoot, 'dashboard-decision-resolved', {
     decision_id: input.decisionId,

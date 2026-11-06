@@ -21,7 +21,7 @@ export const DECISION_REUSE_SCHEMA = {
   properties: {
     schema_version: { type: 'integer', const: 1 },
     doc_type: { const: DECISION_REUSE_DOC_TYPE },
-    kind: { enum: ['open', 'reuse'] },
+    kind: { enum: ['open', 'reuse', 'suggestion', 'standing-set', 'standing-removed'] },
     session_id: { type: 'string', minLength: 1 },
     conversation_ordinal: { type: 'integer', minimum: 1 },
     ts: { type: 'string', minLength: 1 },
@@ -30,9 +30,16 @@ export const DECISION_REUSE_SCHEMA = {
     decision_id: nullableString,
     category: nullableString,
     chosen_option_key: nullableString,
-    match_kind: { type: ['string', 'null'], enum: ['exact', 'fingerprint', null] },
+    match_kind: {
+      type: ['string', 'null'],
+      enum: ['exact', 'fingerprint', 'intent', 'standing', 'similar', null],
+    },
     source_path: nullableString,
     note: nullableString,
+    outcome: { type: ['string', 'null'], enum: ['accepted', 'changed', 'none', null] },
+    change: nullableString,
+    for_decision: nullableString,
+    rule_id: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },
 } as const;

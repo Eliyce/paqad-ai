@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDecisionCommand } from '@/cli/commands/decision.js';
 import { sha256Hex } from '@/compliance/markdown.js';
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
@@ -433,6 +436,153 @@ describe('paqad-ai decision command', () => {
       const { output } = await openQuestion(TITLE, 'finding.triage', '--session', 'ses-standing');
       const index = readFileSync(join(root, featureFilePath(dir, 'decisions')), 'utf8');
       expect(index).toContain(output.id as string);
+    });
+  });
+
+  describe('evidence rows', () => {
+    const TITLE = 'Which colour should banner use';
+
+    function rows(): Record<string, unknown>[] {
+      return readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+        (row) => row.kind !== 'open',
+      );
+    }
+
+    async function suggested(): Promise<{ id: string; earlier: string }> {
+      const earlier = await answered('Which colour should the banner use', 'Matches the brand');
+      const { output } = await openQuestion(TITLE);
+      const id = output.id as string;
+      vi.restoreAllMocks();
+      await run('suggest', id, '--earlier', earlier, '--option', 'b', '--reason', 'Same rule');
+      vi.restoreAllMocks();
+      return { id, earlier };
+    }
+
+    it('AC-1 a decision resolved through the CLI reaches the index', async () => {
+      const id = await answered('Which colour should the banner use');
+      const stored = JSON.parse(
+        readFileSync(join(root, '.paqad/decisions/resolved', `${id}.json`), 'utf8'),
+      );
+      const index = JSON.parse(readFileSync(join(root, '.paqad/decisions/index.json'), 'utf8'));
+      expect(index.fingerprints[stored.fingerprint]).toBe(id);
+      expect(index.decisions[id].chosen_option_key).toBe('b');
+    });
+
+    it('AC-11 accepting the suggestion writes one accepted row with the earlier id and reason', async () => {
+      const { id, earlier } = await suggested();
+      await run('resolve', id, 'b');
+      expect(rows()).toEqual([
+        expect.objectContaining({
+          kind: 'suggestion',
+          match_kind: 'intent',
+          decision_id: earlier,
+          outcome: 'accepted',
+          note: 'Same rule',
+          for_decision: id,
+        }),
+      ]);
+    });
+
+    it('AC-11 picking another option writes changed', async () => {
+      const { id } = await suggested();
+      await run('resolve', id, 'a');
+      expect(rows().map((row) => row.outcome)).toEqual(['changed']);
+    });
+
+    it('AC-11 a store-format suggestion answered through the CLI writes its row too', async () => {
+      const earlier = await answered('Which colour should the banner use', 'Matches the brand');
+      const id = 'D-01J000000000000000000000C1';
+      new DecisionStore(root).writePending(
+        pendingStorePacket({ decision_id: id, question: TITLE }),
+      );
+      await run('suggest', id, '--earlier', earlier, '--option', 'a', '--reason', 'Same rule');
+      vi.restoreAllMocks();
+      await run('resolve', id, 'a');
+      expect(rows().map((row) => row.outcome)).toEqual(['accepted']);
+    });
+
+    it('AC-31 the always entry says accepted and a write-in says changed', async () => {
+      const first = await suggested();
+      await run('resolve', first.id, 'b', '--always');
+      const kept = rows();
+      expect(kept.map((row) => row.kind)).toEqual(['suggestion', 'standing-set']);
+      expect(kept[0]?.outcome).toBe('accepted');
+      vi.restoreAllMocks();
+
+      const again = await openQuestion(
+        'Which colour should banner use',
+        'finding.triage',
+        '--ask-anyway',
+      );
+      const id = again.output.id as string;
+      const candidates = (again.output.earlier_check as { candidates: { id: string }[] })
+        .candidates;
+      vi.restoreAllMocks();
+      await run('suggest', id, '--earlier', candidates[0]!.id, '--option', 'b', '--reason', 'Same');
+      vi.restoreAllMocks();
+      await run('resolve', id, 'x', '--other', 'A new shade');
+      expect(rows().at(-1)?.outcome).toBe('changed');
+    });
+
+    it('AC-27 a none answer writes exactly one row across suggest and resolve', async () => {
+      await answered('Which colour should the banner use', 'Matches the brand');
+      const { output } = await openQuestion(TITLE);
+      const id = output.id as string;
+      vi.restoreAllMocks();
+      await run('suggest', id, '--none', '--reason', 'Different screen');
+      vi.restoreAllMocks();
+      await run('resolve', id, 'a');
+      expect(rows()).toEqual([
+        expect.objectContaining({
+          kind: 'suggestion',
+          outcome: 'none',
+          note: 'Different screen',
+          for_decision: id,
+        }),
+      ]);
+    });
+
+    it('AC-12 AC-41 a rule set, used and removed each write one row', async () => {
+      const { id } = await suggested();
+      const { out } = await run('resolve', id, 'b', '--always');
+      const ruleId = JSON.parse(out.join('\n')).standing_answer as string;
+      vi.restoreAllMocks();
+      const reused = await openQuestion(TITLE);
+      vi.restoreAllMocks();
+      await run('standing', 'remove', ruleId);
+      const byKind = rows().filter((row) => row.kind !== 'suggestion');
+      expect(byKind.map((row) => row.kind)).toEqual(['standing-set', 'reuse', 'standing-removed']);
+      expect(byKind[1]).toMatchObject({
+        match_kind: 'standing',
+        rule_id: ruleId,
+        decision_id: id,
+        for_decision: reused.output.id,
+      });
+      for (const row of [byKind[0]!, byKind[2]!]) {
+        expect(row).toMatchObject({
+          rule_id: ruleId,
+          category: 'finding.triage',
+          chosen_option_key: 'b',
+        });
+        expect(typeof row.session_id).toBe('string');
+        expect(typeof row.ts).toBe('string');
+      }
+    });
+
+    it('passes SE_SESSION through as the session id', async () => {
+      vi.stubEnv('SE_SESSION', 'ses-from-env');
+      try {
+        await suggested();
+        const id = (await openQuestion('Which colour should banner use this time')).output
+          .id as string;
+        vi.restoreAllMocks();
+        await run('suggest', id, '--none', '--reason', 'No fit');
+        expect(
+          readSessionDoc(root, DECISION_REUSE_DOC_TYPE, 'ses-from-env').map((row) => row.outcome),
+        ).toContain('none');
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
   });
 

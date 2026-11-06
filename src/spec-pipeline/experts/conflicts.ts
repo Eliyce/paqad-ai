@@ -5,6 +5,7 @@ import {
   readContractDecisions,
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
+import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 
 import {
@@ -77,6 +78,14 @@ export function mintExpertConflictDecisions(
     if (prior?.status === 'pending') continue;
     if (prior) {
       autoResolved.push({ target: conflict.target, chosen: prior.chosen, source: prior.id });
+      recordDecisionReuse(projectRoot, {
+        decisionId: prior.id,
+        matchKind: 'exact',
+        category: CATEGORY,
+        chosenOptionKey: prior.key,
+        note: 'expert-conflict-fork',
+        change: dirName ? featureChangeKey(dirName) : null,
+      });
       continue;
     }
     const { options, recommendation } = buildOptions(conflict, chief?.recommendation);
@@ -101,7 +110,8 @@ export function mintExpertConflictDecisions(
 }
 
 type KnownFork =
-  { status: 'pending'; id: string } | { status: 'resolved'; id: string; chosen: string };
+  | { status: 'pending'; id: string }
+  | { status: 'resolved'; id: string; chosen: string; key: string };
 
 function collectKnownForks(projectRoot: string): Map<string, KnownFork> {
   const forks = new Map<string, KnownFork>();
@@ -119,7 +129,12 @@ function collectKnownForks(projectRoot: string): Map<string, KnownFork> {
     const chosenOption = packet.options.find((option) => option.option_key === resolved.chosen);
     if (!chosenOption) continue;
     if (forks.get(match[0])?.status !== 'resolved') {
-      forks.set(match[0], { status: 'resolved', id: packet.id, chosen: chosenOption.label });
+      forks.set(match[0], {
+        status: 'resolved',
+        id: packet.id,
+        chosen: chosenOption.label,
+        key: chosenOption.option_key,
+      });
     }
   }
   return forks;

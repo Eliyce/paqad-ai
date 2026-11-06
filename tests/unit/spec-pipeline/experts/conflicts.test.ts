@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
 
 import {
   createPendingDecision,
@@ -98,6 +101,43 @@ describe('mintExpertConflictDecisions', () => {
     mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
     const packet = pending(root)[0]!.packet as unknown as { change?: string };
     expect(packet.change).toBe(featureChangeKey(dirName));
+  });
+
+  it('AC-15 a fork resolved before writes one reuse row with that id, alongside auto_resolved', () => {
+    const root = tempRoot();
+    const dirName = 'export-orders-01M5JAC57SYAJ69SV5MZN8A40K';
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    const id = first.minted[0]!.id;
+    const key = pending(root)[0]!.packet.options[0]!.option_key;
+    resolvePendingDecision(root, id, key);
+    const second = mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    expect(second.autoResolved[0]?.source).toBe(id);
+    const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+      (row) => row.kind === 'reuse',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      decision_id: id,
+      match_kind: 'exact',
+      note: 'expert-conflict-fork',
+      chosen_option_key: key,
+      change: featureChangeKey(dirName),
+    });
+  });
+
+  it('AC-15 records no change for a fork with no bundle', () => {
+    const root = tempRoot();
+    const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    resolvePendingDecision(
+      root,
+      first.minted[0]!.id,
+      pending(root)[0]!.packet.options[0]!.option_key,
+    );
+    mintExpertConflictDecisions(root, merged, synthesisConflicts);
+    const rows = readSessionDoc(root, DECISION_REUSE_DOC_TYPE, resolveSessionId(root)).filter(
+      (row) => row.kind === 'reuse',
+    );
+    expect(rows[0]).not.toHaveProperty('change');
   });
 
   it('reuses an identical resolved fork instead of minting again (FR-6.3)', () => {
