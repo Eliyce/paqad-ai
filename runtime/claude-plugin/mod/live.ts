@@ -41,7 +41,7 @@ export function liveToolCall(event: {
 }
 
 export function promptSubmitted(state: LiveState, now: number): LiveState {
-  return { ...state, turnStartedAt: now };
+  return { ...state, turnId: null, turnStartedAt: now };
 }
 
 export function turnStarted(state: LiveState, turnId: string, now: number): LiveState {

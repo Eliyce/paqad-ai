@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { verdictFromEarlierTurn } from '../../../../runtime/claude-plugin/mod/attention.ts';
 import {
   IDLE_LIVE,
   answeredRuleStopText,
@@ -40,6 +41,51 @@ describe('live session state', () => {
       finished: 1,
     };
     expect(turnEnded({ ...IDLE_LIVE, turnId: 't', agents })).toEqual({ ...IDLE_LIVE, agents });
+  });
+
+  it('AC-7, AC-33: a new prompt clears a leftover turn id and keeps all other live state', () => {
+    const agents = {
+      running: [{ id: 'a', description: 'd', status: 'running' }],
+      lines: ['x'],
+      finished: 1,
+    };
+    const leftover = {
+      ...IDLE_LIVE,
+      turnId: 'turn-0',
+      turnStartedAt: 100,
+      editing: { toolUseId: 'tu_1', file: '/work/src/a.ts' },
+      waitingOn: 'question' as const,
+      waitingToolUseId: 'tu_q',
+      agents,
+    };
+    expect(promptSubmitted(leftover, 200)).toEqual({
+      ...leftover,
+      turnId: null,
+      turnStartedAt: 200,
+    });
+  });
+
+  it('AC-7, AC-33: the turn start after a leftover turn id keeps the prompt stamp', () => {
+    const leftover = turnStarted(IDLE_LIVE, 'turn-0', 100);
+    const prompted = promptSubmitted(leftover, 200);
+    expect(turnStarted(prompted, 'turn-1', 300)).toEqual({
+      ...IDLE_LIVE,
+      turnId: 'turn-1',
+      turnStartedAt: 200,
+    });
+  });
+
+  it('AC-7, AC-33: an older verdict shows until turn start lands, then is held back again', () => {
+    const verdictAt = Date.parse('2026-03-01T10:00:00.000Z');
+    const older = { verdict: { at: new Date(verdictAt).toISOString() } } as never;
+    const leftover = turnStarted(IDLE_LIVE, 'turn-0', verdictAt - 1_000);
+    expect(verdictFromEarlierTurn(older, leftover)).toBe(false);
+    const prompted = promptSubmitted(leftover, verdictAt + 1_000);
+    expect(prompted).toEqual(promptSubmitted(IDLE_LIVE, verdictAt + 1_000));
+    expect(verdictFromEarlierTurn(older, prompted)).toBe(false);
+    const started = turnStarted(prompted, 'turn-1', verdictAt + 2_000);
+    expect(started.turnStartedAt).toBe(verdictAt + 1_000);
+    expect(verdictFromEarlierTurn(older, started)).toBe(true);
   });
 
   it('an edit is current from its start until its own call ends', () => {

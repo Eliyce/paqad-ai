@@ -778,6 +778,68 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
   });
 
+  const gettingReadyAt = (ms: number): string =>
+    fileText(
+      snapshot({
+        generated_at: new Date(ms).toISOString(),
+        route: 'feature-development',
+        active: false,
+        scope: { qualified: false, reason: 'no-change-yet' },
+      }),
+    );
+
+  test('AC-7, AC-33: the first-turn band draws when the snapshot lands before turn.start', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.put(SNAPSHOT, gettingReadyAt(NOW + 1_000));
+    await $.prompt.submit({ text: 'develop it' } as never);
+    await clock.advance(2_000);
+    await $.turn.start({ text: 'develop it', turnId: 'turn-1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
+  });
+
+  test('AC-7, AC-33: the first-turn band draws when turn.start lands before the snapshot', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await $.prompt.submit({ text: 'develop it' } as never);
+    await clock.advance(1_000);
+    await $.turn.start({ text: 'develop it', turnId: 'turn-1' } as never);
+    await clock.advance(1_000);
+    world.put(SNAPSHOT, gettingReadyAt(NOW + 2_000));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
+  });
+
+  test('AC-7, AC-33: a leftover turn id, snapshot before turn.start, still draws the band', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await $.turn.start({ text: 'earlier', turnId: 'turn-0' } as never);
+    await clock.advance(10_000);
+    world.put(SNAPSHOT, gettingReadyAt(NOW + 11_000));
+    await $.prompt.submit({ text: 'develop it' } as never);
+    await clock.advance(2_000);
+    await $.turn.start({ text: 'develop it', turnId: 'turn-1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
+  });
+
+  test('AC-7, AC-33: a leftover turn id, turn.start before the snapshot, still draws the band', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await $.turn.start({ text: 'earlier', turnId: 'turn-0' } as never);
+    await clock.advance(10_000);
+    await $.prompt.submit({ text: 'develop it' } as never);
+    await clock.advance(1_000);
+    await $.turn.start({ text: 'develop it', turnId: 'turn-1' } as never);
+    await clock.advance(1_000);
+    world.put(SNAPSHOT, gettingReadyAt(NOW + 12_000));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
+  });
+
   test('AC-28: the Ledger button on Paqad Getting Ready opens the no-change view and closes back to the card', async ($, on) => {
     const world = worldOf(on, {
       files: {
