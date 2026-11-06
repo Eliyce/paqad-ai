@@ -9,7 +9,12 @@ import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { readGitState, readHeadRef } from '@/rag/git-state.js';
 import { readLedgerSessionId } from '@/rag-ledger/session.js';
 
-import { changedFilesSince, isPaqadArtifactPath, type ChangeStartLike } from './git-paths.js';
+import {
+  changedFilesSince,
+  gitPathList,
+  isPaqadArtifactPath,
+  type ChangeStartLike,
+} from './git-paths.js';
 
 export {
   changedFilesSince,
@@ -58,10 +63,25 @@ export function activeChangeFiles(projectRoot: string, sessionId: string): strin
     if (featureBranch(projectRoot, dirName) !== head.branch) return null;
     const start = readChangeStartPoint(projectRoot, dirName);
     if (start === null || start.source === 'fallback-base') return null;
-    return changedFilesSince(projectRoot, start);
+    const changed = changedFilesSince(projectRoot, start);
+    const committed = committedFilesSince(projectRoot, start);
+    if (changed === null || committed === null) return null;
+    return [...new Set([...changed, ...committed])].sort();
   } catch {
     return null;
   }
+}
+
+function committedFilesSince(projectRoot: string, start: ChangeStartLike): string[] | null {
+  const diffToHead = (commit: string) =>
+    gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', commit, 'HEAD']);
+  const committed = diffToHead(start.commit);
+  const merged = start.mergedBase ? diffToHead(start.mergedBase) : null;
+  if (committed === null || (start.mergedBase && merged === null)) return null;
+  return committed
+    .filter((path) => !merged || merged.includes(path))
+    .map((path) => path.replace(/\\/g, '/'))
+    .filter((path) => !isPaqadArtifactPath(path));
 }
 
 export async function readGitChangedFiles(

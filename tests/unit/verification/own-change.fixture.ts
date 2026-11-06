@@ -20,13 +20,18 @@ export function cleanupOwnChanges(): void {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 }
 
-export function ownChangeRepo(session: string, branch = 'feat/own'): { root: string; dir: string } {
+export function ownChangeRepo(
+  session: string,
+  branch = 'feat/own',
+  beforeOpen: (root: string) => void = () => {},
+): { root: string; dir: string } {
   const root = makeEmptyRepo('main');
   roots.push(root);
   writeRepoFile(root, 'a.ts', 'export const a = 1;\n');
   writeRepoFile(root, 'b.ts', 'export const b = 1;\n');
   commitAll(root, 'chore: base');
   git(root, ['switch', '-q', '-c', branch]);
+  beforeOpen(root);
   const dir = openFeatureChange(root, session, {
     adapter: 'claude-code',
     title: 'own change',
