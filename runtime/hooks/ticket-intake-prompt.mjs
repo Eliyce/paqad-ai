@@ -2,6 +2,7 @@
 
 import process from 'node:process';
 
+import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { logHookFailure } from './lib/hook-log.mjs';
 import {
   hookStandsDown,
@@ -39,8 +40,21 @@ async function main(rawInput) {
   } catch (error) {
     logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'detecting ticket refs');
   }
+  await resumeWaitingDesign(projectRoot, sessionIdFromStdin(rawInput), prompt);
   if (refs.length > 0) await writeBranchLine(projectRoot, refs);
   return 0;
+}
+
+async function resumeWaitingDesign(projectRoot, sessionId, prompt) {
+  if (!sessionId) return;
+  try {
+    const url = new URL('../../dist/hld/session.js', import.meta.url);
+    const { resumeWaitingByPrompt } = await import(url.href);
+    const line = resumeWaitingByPrompt(projectRoot, sessionId, prompt);
+    if (line) process.stdout.write(line + '\n');
+  } catch (error) {
+    logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'resuming a waiting design');
+  }
 }
 
 async function writeBranchLine(projectRoot, refs) {
