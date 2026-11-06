@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "planning-recipe",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:e6fedcc1d6b7238b331460161ef7d1e7f7150ff1c505a0dadda06d5d2e8407fd",
+  "folder_hash": "sha256:ed9a92210df6d31f62ee4edec269632043a0c2e2cf4628b9a126da861f594744",
   "baseline": {
     "runs": 3,
     "passed": null,
