@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "decision",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:26d71f788d72802ac8fdc8db9790a9f6b6f3cdd8c92445214dc08ee4ac3d4abf",
+  "folder_hash": "sha256:297eb7027955b261e4216ebef2cb2c48e2b21e06c9d40dd7d193bccc967649e2",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -26,10 +26,10 @@
   },
   "benchmark": {
     "iterations": 1,
-    "pass_rate_with": 0.5611,
-    "pass_rate_without": 0.6236,
-    "delta_points": -6.25,
-    "token_multiple": 1.001,
+    "pass_rate_with": 0.8796,
+    "pass_rate_without": 0.4233,
+    "delta_points": 45.63,
+    "token_multiple": 1.545,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
@@ -49,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 1.6543477999999998,
+    "S6": 1.6619585999999995,
     "source": "host-usage"
   },
   "overrides": [],
