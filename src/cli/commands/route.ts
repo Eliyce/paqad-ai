@@ -5,16 +5,10 @@ import {
   isFeatureDevelopmentRoute,
   type RoutedWorkflow,
 } from '@/pipeline/routed-workflow.js';
-import { appendRouteOverride } from '@/pipeline/route-override-log.js';
+import { writeRouteCorrection } from '@/pipeline/route-switch.js';
 import { editedDevelopmentThisTurn } from '@/pipeline/session-ownership.js';
-import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
-import {
-  readWorkflowState,
-  writeWorkflowState,
-  type WorkflowState,
-} from '@/pipeline/workflow-state.js';
+import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { clearPendingLane } from '@/stage-evidence/pending-lane.js';
 
 interface RouteSetOptions {
   projectRoot: string;
@@ -37,18 +31,6 @@ function explicitSessionHint(option: string | undefined): string | null {
     }
   }
   return null;
-}
-
-function correctedState(state: WorkflowState, target: RoutedWorkflow): WorkflowState {
-  const pausedIndex = state.paused.map((entry) => entry.workflow).lastIndexOf(target);
-  if (pausedIndex === -1) {
-    return { ...state, active: { workflow: target } };
-  }
-  return {
-    ...state,
-    active: state.paused[pausedIndex]!,
-    paused: state.paused.filter((_, index) => index !== pausedIndex),
-  };
 }
 
 export function createRouteCommand(): Command {
@@ -81,7 +63,6 @@ export function createRouteCommand(): Command {
 
       const state = readWorkflowState(root, sessionId);
       const current = state.active?.workflow ?? null;
-      const hookLabel = current ?? readSessionRoute(root, sessionId)?.workflow ?? null;
 
       if (
         hint !== null &&
@@ -97,30 +78,11 @@ export function createRouteCommand(): Command {
         return;
       }
 
-      writeWorkflowState(root, sessionId, correctedState(state, target));
-
-      const priorRoute = readSessionRoute(root, sessionId);
-      writeSessionRoute(
-        root,
-        {
-          workflow: target,
-          query: priorRoute?.query ?? '',
-          ...(priorRoute?.adapter === undefined ? {} : { adapter: priorRoute.adapter }),
-        },
-        sessionId,
-      );
-
-      if (!isFeatureDevelopmentRoute(target)) {
-        clearPendingLane(root, sessionId);
-      }
-
       const reasons = [
         options.reason,
         hint === null ? UNRESOLVED_SESSION_REASON : undefined,
       ].filter((part): part is string => part !== undefined);
-      appendRouteOverride(root, sessionId, {
-        hookLabel,
-        agentLabel: target,
+      const hookLabel = writeRouteCorrection(root, sessionId, target, {
         ...(reasons.length === 0 ? {} : { reason: reasons.join('; ') }),
       });
 

@@ -47,6 +47,11 @@ describe('route-override-log', () => {
     expect(rows[1]).not.toHaveProperty('reason');
   });
 
+  it.each(['stage-start', 'lane-set'] as const)('AC-13: reads a %s row back', (source) => {
+    appendRouteOverride(root, SES, { hookLabel: null, agentLabel: 'feature-development', source });
+    expect(readRouteOverrides(root, SES)[0]?.source).toBe(source);
+  });
+
   it('records a null hook label', () => {
     appendRouteOverride(root, SES, { hookLabel: null, agentLabel: 'project-question' });
     expect(readRouteOverrides(root, SES)[0]?.hook_label).toBeNull();

@@ -25,6 +25,7 @@ import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evide
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { addedLinesSince } from '@/pipeline/git-paths.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
+import { announceRouteSwitch } from '@/pipeline/route-switch.js';
 import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { bundleArtifactFile, checkBundleArtifacts } from '@/stage-evidence/bundle-artifact.js';
@@ -89,6 +90,8 @@ interface StageStartRaises {
   authoring: FeatureAuthoringLaneRaise | null;
   grown: FeatureLaneMove | null;
 }
+
+const STAGES_THAT_KEEP_THE_ROUTE: ReadonlySet<string> = new Set(['delivery', 'ticket_intake']);
 
 const NO_RAISES: StageStartRaises = { authoring: null, grown: null };
 
@@ -494,6 +497,9 @@ export function createStageCommand(): Command {
       if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
+      if (phase === 'start' && sessionSource === 'env' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
+        announceRouteSwitch(root, sessionId, 'stage-start');
+      }
       console.log(
         JSON.stringify({
           recorded: true,

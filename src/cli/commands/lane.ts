@@ -4,6 +4,7 @@ import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { laneRank } from '@/feature-evidence/lane-rank.js';
 import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureLane } from '@/feature-evidence/types.js';
+import { announceRouteSwitch } from '@/pipeline/route-switch.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 const SETTABLE_LANES: readonly Exclude<FeatureLane, null>[] = ['fast', 'graduated', 'full'];
@@ -60,6 +61,9 @@ export function createLaneCommand(): Command {
         );
       } else {
         console.log(`**▸ paqad** · lane already ${after} — nothing to change.`);
+      }
+      if (sessionHint?.trim()) {
+        announceRouteSwitch(root, sessionId, 'lane-set');
       }
       console.log(
         JSON.stringify({

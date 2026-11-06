@@ -8,8 +8,12 @@ import type { RoutedWorkflow } from './routed-workflow.js';
 
 const ROUTE_OVERRIDE_FILE = '.route-overrides.jsonl';
 
+const ROUTE_OVERRIDE_SOURCES = ['agent-override', 'stage-start', 'lane-set'] as const;
+
+export type RouteOverrideSource = (typeof ROUTE_OVERRIDE_SOURCES)[number];
+
 export interface RouteOverrideRow {
-  source: 'agent-override';
+  source: RouteOverrideSource;
   ts: string;
   hook_label: RoutedWorkflow | null;
   agent_label: RoutedWorkflow;
@@ -31,11 +35,12 @@ export function appendRouteOverride(
     hookLabel: RoutedWorkflow | null;
     agentLabel: RoutedWorkflow;
     reason?: string;
+    source?: RouteOverrideSource;
     now?: () => Date;
   },
 ): RouteOverrideRow {
   const row: RouteOverrideRow = {
-    source: 'agent-override',
+    source: input.source ?? 'agent-override',
     ts: (input.now ?? (() => new Date()))().toISOString(),
     hook_label: input.hookLabel,
     agent_label: input.agentLabel,
@@ -63,7 +68,11 @@ export function readRouteOverrides(projectRoot: string, sessionId: string): Rout
     }
     try {
       const parsed = JSON.parse(trimmed) as RouteOverrideRow;
-      if (parsed && parsed.source === 'agent-override' && typeof parsed.agent_label === 'string') {
+      if (
+        parsed &&
+        ROUTE_OVERRIDE_SOURCES.includes(parsed.source) &&
+        typeof parsed.agent_label === 'string'
+      ) {
         rows.push(parsed);
       }
     } catch {}
