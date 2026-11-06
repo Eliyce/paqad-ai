@@ -101,6 +101,13 @@ export interface EarlierCheck {
   none_reason?: string;
 }
 
+export function earlierCheckToKeep(check: EarlierCheck): EarlierCheck {
+  if (check.listed_by !== 'titles') return check;
+  const kept = { ...check };
+  delete kept.candidates;
+  return kept;
+}
+
 export interface DecisionSuggestion {
   earlier_id: string;
   option_key: string;

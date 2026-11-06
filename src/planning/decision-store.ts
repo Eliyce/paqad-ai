@@ -47,6 +47,7 @@ import { earlierCheckFor } from '@/decisions/earlier-answers.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 
 import {
+  earlierCheckToKeep,
   isStrictDecisionId,
   validateDecisionPacket,
   type DecisionHumanResponse,
@@ -525,6 +526,9 @@ export class DecisionStore {
   private writeResolvedPacket(input: ResolveExistingDecisionInput): DecisionPacket {
     const resolved: DecisionPacket = {
       ...input.packet,
+      ...(input.packet.earlier_check
+        ? { earlier_check: earlierCheckToKeep(input.packet.earlier_check) }
+        : {}),
       status: input.humanResponse.intent === 'delegated' ? 'delegated' : 'resolved',
       human_response: input.humanResponse,
     };

@@ -36,6 +36,30 @@ describe('AC-52 earlier_check and suggestion survive both shapes', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
+  it('AC-68 keeps listed_by and the suggestion on a title check, without its candidates', () => {
+    const titled = { ...check, listed_by: 'titles' as const };
+    const { id, path } = createPendingDecision(projectRoot, {
+      category: 'intake.requirement',
+      title: 'Should exports include archived orders?',
+      context: 'It changes which rows appear in the file.',
+      options: [
+        { option_key: 'include', label: 'Include archived orders' },
+        { option_key: 'exclude', label: 'Exclude archived orders' },
+      ],
+    });
+    const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    writeFileSync(path, JSON.stringify({ ...stored, earlier_check: titled, suggestion }));
+    addWriteInOption(projectRoot, id, 'Something else');
+    const read = readAnyDecisionPacket(JSON.parse(readFileSync(path, 'utf8')));
+    expect(read?.earlier_check).toEqual(titled);
+    expect(read?.suggestion).toEqual(suggestion);
+
+    const { path: resolvedPath } = resolvePendingDecision(projectRoot, id, 'include');
+    const resolved = readAnyDecisionPacket(JSON.parse(readFileSync(resolvedPath, 'utf8')));
+    expect(resolved?.earlier_check).toEqual({ status: 'done', listed_by: 'titles' });
+    expect(resolved?.suggestion).toEqual(suggestion);
+  });
+
   it('keeps both through the contract shape, a write-in and the resolved file', () => {
     const { id, path } = createPendingDecision(projectRoot, {
       category: 'intake.requirement',

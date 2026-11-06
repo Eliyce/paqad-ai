@@ -13,6 +13,7 @@ import { recordDecisionReuse, recordSuggestionOutcome } from '@/decision-reuse/i
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
 import {
+  earlierCheckToKeep,
   isStrictDecisionId,
   type DecisionOptionEvidence,
   type DecisionSuggestion,
@@ -314,6 +315,7 @@ export function resolvePendingDecision(
 
   const resolved: ResolvedContractDecision = {
     ...pending,
+    ...(pending.earlier_check ? { earlier_check: earlierCheckToKeep(pending.earlier_check) } : {}),
     ...(pending.change === undefined && options.change ? { change: options.change } : {}),
     status: 'resolved',
     chosen,

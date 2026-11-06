@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDecisionCommand } from '@/cli/commands/decision.js';
+import { resolvePauseDecision } from '@/dashboard/approvals.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import {
   EARLIER_OUTPUT_MAX_CHARS,
@@ -442,6 +443,69 @@ describe('agent-opened questions list earlier titles', () => {
     const resolved = await run('resolve', id, 'b');
     expect(resolved.err).toBe('');
     expect(existsSync(JSON.parse(resolved.raw).path)).toBe(true);
+  });
+
+  describe('AC-68 the resolved file stays small', () => {
+    function resolvedFile(id: string): Record<string, unknown> {
+      return JSON.parse(
+        readFileSync(join(root, '.paqad/decisions/resolved', `${id}.json`), 'utf8'),
+      );
+    }
+
+    it('drops the candidates and keeps the suggestion and the rest', async () => {
+      const earlier = answer('Which colour should the banner use');
+      const { id } = await open();
+      await run('suggest', id, '--earlier', earlier, '--option', 'b', '--reason', 'Same rule');
+      await run('resolve', id, 'b');
+      const file = resolvedFile(id);
+      expect(file.earlier_check).toEqual({ status: 'done', listed_by: 'titles' });
+      expect(file.suggestion).toMatchObject({ earlier_id: earlier, option_key: 'b' });
+    });
+
+    it('keeps the older_omitted count and the none reason', async () => {
+      seed(EARLIER_TITLE_LIMIT + 1, (index) => `q ${index}`);
+      const { id } = await open();
+      await run('suggest', id, '--none', '--reason', 'Nothing close');
+      await run('resolve', id, 'a');
+      expect(resolvedFile(id).earlier_check).toEqual({
+        status: 'done',
+        listed_by: 'titles',
+        older_omitted: 1,
+        none_reason: 'Nothing close',
+      });
+    });
+
+    it('drops them when a person answers on Approvals too', async () => {
+      answer('Which colour should the banner use');
+      const { id } = await open();
+      resolvePauseDecision(root, { decisionId: id, chosenOptionKey: 'a' });
+      const check = resolvedFile(id).earlier_check as Record<string, unknown>;
+      expect(check).toEqual({ status: 'required', listed_by: 'titles' });
+    });
+
+    it('leaves the candidates on an automated packet', async () => {
+      const earlier = answer('Which colour should the banner use');
+      const { id } = createPendingDecision(root, {
+        category: 'finding.triage',
+        title: 'Which colour should banner use',
+        context: 'Now',
+        options: OPTIONS,
+      });
+      await run('suggest', id, '--none', '--reason', 'Different screen');
+      await run('resolve', id, 'a');
+      expect((resolvedFile(id).earlier_check as { candidates: string[] }).candidates).toEqual([
+        earlier,
+      ]);
+    });
+
+    it('a resolved title packet can itself be offered later', async () => {
+      answer('Which colour should the banner use');
+      const first = await open();
+      await run('suggest', first.id, '--none', '--reason', 'Nothing close');
+      await run('resolve', first.id, 'a');
+      const { check } = await open('Something else entirely');
+      expect(check?.titles.map((row) => row.id)).toContain(first.id);
+    });
   });
 
   describe('AC-65 the printed size', () => {
