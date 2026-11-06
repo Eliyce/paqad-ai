@@ -191,7 +191,7 @@ describe('scripts/assemble-plugin.mjs', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('AC-17 AC-18 AC-50: ships all 18 skills with their references and scripts, under 5,000 files and 200 MB', () => {
+  it('AC-17 AC-18: ships all 17 skills with their references and scripts, under 5,000 files and 200 MB', () => {
     let repoRoot = resolve('.');
     const versionOf = (rel: string) =>
       (JSON.parse(readFileSync(join(repoRoot, rel), 'utf8')) as { version: string }).version;
@@ -212,7 +212,6 @@ describe('scripts/assemble-plugin.mjs', () => {
         'check-tickets',
         'dashboard',
         'decide-together',
-        'decision-pause',
         'discover',
         'get-connected',
         'ground-in-project',

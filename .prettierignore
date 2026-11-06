@@ -40,13 +40,12 @@ runtime/claude-plugin/hooks.json
 
 # The product-owner discovery source keeps its own formatting, and the discovery skills under
 # runtime/claude-plugin/skills are generated from it by `pnpm build:discovery`. The hand-written
-# onboard, join, dashboard and decision-pause skills are still formatted.
+# onboard, join and dashboard skills are still formatted.
 plugins
 runtime/claude-plugin/skills/*
 !runtime/claude-plugin/skills/onboard
 !runtime/claude-plugin/skills/join
 !runtime/claude-plugin/skills/dashboard
-!runtime/claude-plugin/skills/decision-pause
 
 # The high-level design template is copied as written into every design, so its markdown stays as the team wrote it.
 runtime/base/skills/high-level-design/assets/hld.template.md

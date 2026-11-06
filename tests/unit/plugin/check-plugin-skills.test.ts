@@ -200,11 +200,11 @@ describe('the real repository', () => {
     );
   });
 
-  it('AC-11 AC-50: discovery skills carry the chat label and onboard, join, dashboard and decision-pause the Claude Code label', () => {
+  it('AC-11: discovery skills carry the chat label and onboard, join and dashboard the Claude Code label', () => {
     const runtimeSkills = join(repoRoot, 'runtime', 'claude-plugin', 'skills');
     const sourceSkills = join(repoRoot, 'plugins', 'discovery', 'skills');
     const discovery = readdirSync(runtimeSkills).filter(
-      (name) => !['onboard', 'join', 'dashboard', 'decision-pause'].includes(name),
+      (name) => !['onboard', 'join', 'dashboard'].includes(name),
     );
     expect(discovery).toHaveLength(14);
     expect(readdirSync(sourceSkills)).toHaveLength(14);
@@ -216,7 +216,7 @@ describe('the real repository', () => {
       expect(text, path).toContain(`description: "${CHAT.prefix}`);
       expect(text, path).toContain(`compatibility: ${JSON.stringify(CHAT.compatibility)}`);
     }
-    for (const name of ['onboard', 'join', 'dashboard', 'decision-pause']) {
+    for (const name of ['onboard', 'join', 'dashboard']) {
       const text = readFileSync(join(runtimeSkills, name, 'SKILL.md'), 'utf8');
       expect(text, name).toMatch(new RegExp(`^description: ['"]${CLAUDE_CODE.prefix}`, 'm'));
       expect(text, name).toContain(CLAUDE_CODE.compatibility);

@@ -40,8 +40,7 @@ related-but-not-identical precedents the human still decides.
 ### Earlier answers and standing answers
 
 A script lists earlier questions, every eligible title for a question an agent opens and word
-matches for an automated one. The `decision` skill (`decision-pause` on Claude Code) reads up to
-5 and judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
+matches for an automated one. The `decision` skill reads up to 5 and judges them for meaning, and a person approves. Only a standing answer the person chose skips a question. The
 flow, its limits and its evidence rows are on the
 [Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 

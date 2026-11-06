@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const HAND_WRITTEN_SKILLS = ['onboard', 'join', 'dashboard', 'decision-pause'];
+export const HAND_WRITTEN_SKILLS = ['onboard', 'join', 'dashboard'];
 export const PYTHON_CANDIDATES = ['python3', 'python'];
 export const MIN_PYTHON = [3, 9];
 const NEVER_COPIED = new Set(['__pycache__', '.DS_Store']);

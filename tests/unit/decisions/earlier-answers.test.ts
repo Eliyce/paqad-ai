@@ -394,13 +394,12 @@ describe('AC-26 the method text', () => {
     expect(readEarlierMethod(join(root, 'runtime'))).toBe(EARLIER_METHOD_FALLBACK);
   });
 
-  it('AC-66 the file, the built-in line and the skills each carry the two-step method', () => {
+  it('AC-66 the file, the built-in line and the skill each carry the two-step method', () => {
     const read = (path: string): string => readFileSync(join(process.cwd(), path), 'utf8');
     for (const text of [
       read('runtime/base/skills/decision/references/earlier-answers.md'),
       EARLIER_METHOD_FALLBACK,
       read('runtime/base/skills/decision/SKILL.md'),
-      read('runtime/claude-plugin/skills/decision-pause/SKILL.md'),
     ]) {
       expect(text.toLowerCase()).toContain('titles');
       expect(text).toContain('up to 5');

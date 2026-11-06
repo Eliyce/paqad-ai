@@ -107,8 +107,9 @@ describe('the Resolution flow names the earlier check', () => {
     expect(body).not.toContain('.paqad/decisions/index.json');
   });
 
-  it('names the plugin skill and the store-shape block', () => {
-    expect(body).toContain('which is `decision-pause` on Claude Code');
+  it('names the decision skill and the store-shape block', () => {
+    expect(body).toContain('using the decision skill.');
+    expect(body).not.toContain('`decision-pause`');
     expect(body).toContain('has no `other` command and takes only its listed options');
     expect(body).toContain('under `not_shown`');
   });

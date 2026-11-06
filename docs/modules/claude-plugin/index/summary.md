@@ -17,9 +17,9 @@ should push to that repo.
 
 ## What the plugin ships
 
-18 skills, all under `runtime/claude-plugin/skills/`, each invoked as `/paqad:<name>`.
+17 skills, all under `runtime/claude-plugin/skills/`, each invoked as `/paqad:<name>`.
 
-- Developer skills, written by hand: `onboard`, `join`, `dashboard`, `decision-pause`.
+- Developer skills, written by hand: `onboard`, `join`, `dashboard`.
 - Product-owner discovery skills, generated from `plugins/discovery`: `start`, `discover`,
   `ask`, `refine-ticket`, `size-work`, `plan-sprint`, `get-connected`, `understand-idea`,
   `ground-in-project`, `shape-idea`, `decide-together`, `write-tickets`, `check-tickets`,
@@ -70,7 +70,7 @@ The source is `plugins/discovery`. Its builder is `plugins/discovery/build/build
 
 Run `pnpm build:discovery` (which runs `scripts/build-discovery.mjs`). It builds the skills,
 then replaces the generated skill folders in `runtime/claude-plugin/skills/` and leaves
-`onboard`, `join`, `dashboard` and `decision-pause` alone. The generated skills are committed.
+`onboard`, `join` and `dashboard` alone. The generated skills are committed.
 
 Run it whenever you change anything under `plugins/discovery` that a skill uses. CI rebuilds
 the skills in the `discovery-plugin` job and fails if `runtime/claude-plugin/skills` differs
@@ -90,7 +90,7 @@ value:
 | `Chat and Claude Code: ` | `claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder` |
 | `Claude Code: ` | `Claude Code with a project folder open (needs a shell)` |
 
-The discovery skills use the first. `onboard`, `join`, `dashboard` and `decision-pause` need a shell, so they use
+The discovery skills use the first. `onboard`, `join` and `dashboard` need a shell, so they use
 the second.
 
 `scripts/check-plugin-skills.mjs` checks these rules over `runtime/claude-plugin/skills` and

@@ -33,9 +33,7 @@ the change a packet names.
 - `src/decisions/standing-answers.ts`: the standing-answer file.
 - `src/decision-reuse/`: the `paqad.decision-reuse` ledger rows and the receipt line.
 - `src/cli/commands/decision.ts`: the `decision` verbs, listed in [`api.md`](./api.md).
-- `runtime/base/skills/decision/`: the skill method, with a Claude Code entry in
-  `runtime/claude-plugin/skills/decision-pause/`, a separate name because the release check keeps
-  one record per skill name.
+- `runtime/base/skills/decision/`: the skill method.
 
 ## Compatible and pick rulings
 

@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -100,51 +109,44 @@ function gate(root: string, changedFiles: string[]) {
   })!;
 }
 
-describe('AC-50 the base decision skill and the plugin decision-pause skill', () => {
+describe('AC-50 no plugin decision-pause skill, and one record for the base decision skill', () => {
   const BASE = 'runtime/base/skills/decision';
-  const PLUGIN = 'runtime/claude-plugin/skills/decision-pause';
+  const PLUGIN_SKILLS = join(process.cwd(), 'runtime/claude-plugin/skills');
 
   function frameworkProject(): string {
     const root = project();
     write(root, 'package.json', JSON.stringify({ name: 'paqad-ai' }));
     write(root, `${BASE}/SKILL.md`, '---\nname: decision\ndescription: d\n---\n');
-    write(root, `${PLUGIN}/SKILL.md`, '---\nname: decision-pause\ndescription: d\n---\n');
     return root;
   }
 
-  const changed = [`${BASE}/SKILL.md`, `${PLUGIN}/SKILL.md`];
+  const changed = [`${BASE}/SKILL.md`];
 
-  it('reads as two skills, each needing its own record', () => {
+  it('reads the base skill as the one skill needing a record', () => {
     const root = frameworkProject();
-    expect(changedSkillFolders(root, changed)).toEqual([
-      { name: 'decision', folder: BASE },
-      { name: 'decision-pause', folder: PLUGIN },
-    ]);
+    expect(changedSkillFolders(root, changed)).toEqual([{ name: 'decision', folder: BASE }]);
     expect(
       skillCompletionFindings({ projectRoot: root, dirName: DIR, changedFiles: changed }).map(
         (finding) => finding.skill,
       ),
-    ).toEqual(['decision', 'decision-pause']);
+    ).toEqual(['decision']);
   });
 
-  it('passes the release gate once each has its own record', () => {
+  it('passes the release gate with skill-decision.json alone', () => {
     const root = frameworkProject();
     record(root, 'passed', BASE, 'decision');
-    record(root, 'passed', PLUGIN, 'decision-pause');
     expect(
       skillCompletionFindings({ projectRoot: root, dirName: DIR, changedFiles: changed }),
     ).toEqual([]);
   });
 
-  it('the shipped skill folders hold those names', () => {
+  it('the plugin ships no decision-pause skill and lists 17 skills, as on main', () => {
+    expect(existsSync(join(PLUGIN_SKILLS, 'decision-pause'))).toBe(false);
+    expect(readdirSync(PLUGIN_SKILLS)).toHaveLength(17);
+    expect(HAND_WRITTEN_SKILLS).toEqual(['onboard', 'join', 'dashboard']);
     expect(readFileSync(join(process.cwd(), BASE, 'SKILL.md'), 'utf8')).toContain(
       'name: decision\n',
     );
-    expect(readFileSync(join(process.cwd(), PLUGIN, 'SKILL.md'), 'utf8')).toContain(
-      'name: decision-pause\n',
-    );
-    expect(HAND_WRITTEN_SKILLS).toContain('decision-pause');
-    expect(HAND_WRITTEN_SKILLS).not.toContain('decision');
   });
 });
 
