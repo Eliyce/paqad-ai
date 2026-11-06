@@ -102,9 +102,10 @@ dashboard) lives in
 
 ## The git-workflow files
 
-Conventions are configured by five YAML files in `.paqad/configs/git-workflow/`:
-`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml` and
-`enforcement.yaml`. `paqad-ai onboard` writes them, `paqad-ai update` adds new
+Conventions are configured by six YAML files in `.paqad/configs/git-workflow/`:
+`tickets.yaml`, `branches.yaml`, `commits.yaml`, `pull-requests.yaml`,
+`enforcement.yaml` and `design-sign-off.yaml` (the high-level design sign-off, off by
+default; see [design-sign-off](../design-sign-off/index/summary.md)). `paqad-ai onboard` writes them, `paqad-ai update` adds new
 settings, and changes go through the `git-workflow` skill.
 [`loadGitWorkflow`](../../../src/git-workflow/load.ts) reads them and
 [`defaultGitWorkflow`](../../../src/git-workflow/defaults.ts) is the runtime source
