@@ -107,6 +107,13 @@ describe('design-sign-off.yaml config', () => {
     expect(loaded.config.design_sign_off).toEqual(defaultDesignSignOff());
   });
 
+  it('AC-5 FR-4: the fast lane is rejected in lanes and sign-off falls back to defaults', () => {
+    put(SIGN_OFF, 'schema_version: 1\nenabled: true\nlanes: [fast, full]\n');
+    const loaded = loadGitWorkflow(root);
+    expect(loaded.errors.map((issue) => issue.file)).toContain('design-sign-off.yaml');
+    expect(loaded.config.design_sign_off).toEqual(defaultDesignSignOff());
+  });
+
   it('AC-3: update sync writes a missing file once with its defaults and leaves team edits alone', () => {
     writeFive();
     const first = syncGitWorkflow(root, { version: '2.0.0', baseBranch: 'main' });

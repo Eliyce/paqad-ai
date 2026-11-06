@@ -104,7 +104,7 @@ export interface ResolvedEnforcement {
   people: PeopleEnforcement;
 }
 
-export const DESIGN_SIGN_OFF_LANES = ['fast', 'graduated', 'full'] as const;
+export const DESIGN_SIGN_OFF_LANES = ['graduated', 'full'] as const;
 export type DesignSignOffLane = (typeof DESIGN_SIGN_OFF_LANES)[number];
 
 export const APPROVE_BY_MODES = ['reply', 'status', 'either'] as const;
