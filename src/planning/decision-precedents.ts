@@ -66,7 +66,7 @@ function chosenLabel(packet: DecisionPacket): string | null {
   return packet.options.find((option) => option.option_key === key)?.label ?? key;
 }
 
-function readResolvedPackets(projectRoot: string): DecisionPacket[] {
+export function readResolvedPackets(projectRoot: string): DecisionPacket[] {
   const dir = join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR);
   let files: string[];
   try {
