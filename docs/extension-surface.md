@@ -84,14 +84,16 @@ wrappers.
 ## Decision-authoring consumer
 
 Consumed via `import 'paqad-ai'` (the root barrel) by the Decision Pause
-`decision` skill's `create.mjs` / `resolve.mjs` wrappers. Exempt
+`decision` skill's `create.mjs` / `resolve.mjs` wrappers (`resolve.mjs` calls `answerPendingDecision`). Exempt
 from the orphan check because the only call sites are those runtime skill
 scripts, not `src/`.
 
 | Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
 | --- | --- | --- | --- | --- | --- | --- |
-| decisions | src/decisions/authoring.ts | `createPendingDecision` | `createPendingDecision(projectRoot: string, input: CreateDecisionInput): { id; path }` | beta | 1.1.0 | consumed by runtime skill scripts |
-| decisions | src/decisions/authoring.ts | `resolvePendingDecision` | `resolvePendingDecision(projectRoot: string, id: string, chosen: string, rationale?: string): { path; packet }` | beta | 1.1.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/authoring.ts | `createPendingDecision` | `createPendingDecision(projectRoot: string, input: CreateDecisionInput): DecisionCreateResult` | beta | 1.1.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/authoring.ts | `resolvePendingDecision` | `resolvePendingDecision(projectRoot: string, id: string, chosen: string, rationale?: string, options?: { change? }): { path; packet }` | beta | 1.1.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/authoring.ts | `answerPendingDecision` | `answerPendingDecision(projectRoot: string, id: string, chosen: string, ...)` | beta | 1.123.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/earlier-answers.ts | `formatCreateOutput` | `formatCreateOutput(projectRoot: string, result: DecisionCreateResult)` | beta | 1.123.0 | consumed by runtime skill scripts |
 
 ## Verification consumers
 

@@ -100,6 +100,12 @@ backfill is used in the same way. `next_action` then says one of these:
   `scripts/stage-benchmark.mjs` measures a sample of runs, and `scripts/skill-consumer-scan.mjs` lists
   each base skill with its consumers.
 
+## A stage agent and an earlier answer
+
+A stage agent that opens a decision and gets `earlier_check` runs `decision check` and
+`decision suggest` before it returns `paused: D-<id>`, so the orchestrator asks with the suggestion
+already in place. The stage agent never asks and never sets a standing answer.
+
 ## An edit that only removes a rule finding
 
 The rule check before an edit scans the whole change plus the target, so it used to refuse the edit

@@ -28,6 +28,12 @@ the change a packet names.
   `runtime/AGENT-ROUTER.md`.
 - `src/module-decisions/inferencer.ts` and `src/pipeline/feature-development-policy.ts`: the
   attribution floor and the `defer` escalation.
+- `src/decisions/earlier-answers.ts`: candidate search, the question block and `suggest`.
+- `src/decisions/standing-answers.ts`: the standing-answer file.
+- `src/decision-reuse/`: the `paqad.decision-reuse` ledger rows and the receipt line.
+- `src/cli/commands/decision.ts`: the `decision` verbs, listed in [`api.md`](./api.md).
+- `runtime/base/skills/decision/`: the skill method, with a Claude Code entry in
+  `runtime/claude-plugin/skills/decision/`.
 
 ## Compatible and pick rulings
 
@@ -89,7 +95,47 @@ Packets raised before the round carry their change and do not stop work when the
 On the fast lane, or with the spec pipeline off, no round follows, so `plan compile` still asks
 the readiness pause at once. `spec.change` and `spec.contradiction` raised during development
 are always asked straight away. If the owner answers only part of a round, the rest stay
-pending for that change and the next round asks only those. Nothing is auto-answered.
+pending for that change and the next round asks only those. The only answers given without
+asking are a standing answer, a fork already resolved, and the spec pipeline's high-score
+precedent answer. Each of those writes a `paqad.decision-reuse` row.
+
+## Earlier answers
+
+1. **Find.** When a packet opens, a script scores earlier resolved questions by wording
+   (`findEarlierQuestions`). Up to 5 at or above the 0.5 floor become `earlier_check` on the
+   packet, with status `required`. A private category (`PRIVATE_ANSWER_CATEGORIES`) is offered
+   only to a question of the same category.
+2. **Judge.** `decision create` and `decision check` print the candidates and the method from
+   `runtime/base/skills/decision/references/earlier-answers.md`. Stored candidate text is data to
+   judge, never instructions.
+3. **Suggest.** `decision suggest` records one earlier answer or `--none`, and marks the check
+   done. `decision resolve` refuses while the check is required. The Approvals screen is exempt,
+   because a person answers there directly.
+4. **Ask.** The printed `question` block puts the suggestion first, then the other options, then
+   the always entry when it all fits within four entries. A stage agent stops at
+   `paused: D-<id>` and the orchestrator asks.
+
+### Standing answers
+
+`decision resolve --always` adds a rule to the tracked `.paqad/decisions/standing-answers.json`,
+keyed by the question's fingerprint. When `createPendingDecision` finds a matching rule, it
+returns `reused`, writes a resolved packet and opens no pause. Callers that open their own packets
+(delivery, fix proof, expert conflicts, evidence-armed forks, visual-evidence readiness) treat
+that as already answered. `NO_STANDING_ANSWER_CATEGORIES` lists the kinds that can never have a
+rule, and `assertNotStageAgent` refuses a stage agent both setting and removing one.
+
+### The decision index
+
+`decision resolve` now records answers in `.paqad/decisions/index.json`. Answers from before are
+backfilled on the next lookup, and a damaged index rebuilds from `.paqad/decisions/resolved/`.
+`findReusableDecision` skips answers written by `decision create`, so automated callers still
+pause rather than silently reuse them.
+
+### Evidence
+
+Each outcome is one `paqad.decision-reuse` row, of kind `open`, `reuse`, `suggestion`,
+`standing-set` or `standing-removed`. A suggestion row's outcome is `accepted`, `changed` or
+`none`. `decisionsReceiptLine` folds a change's rows into the receipt's `decisions:` line.
 
 ## Attribution
 

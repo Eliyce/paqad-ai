@@ -67,6 +67,8 @@ dashboard, reached through the shared `graph-ui` bundle via a hash router.
 - `src/dashboard/collectors/**` — per-section collectors (health, drift,
   approvals, trust, module map, rules, workflows, …).
 - `src/dashboard/scoring/**` — freshness / presence / band primitives.
+- `src/dashboard/approvals.ts` answers a decision directly, so it needs no earlier-answer check,
+  and logs how a suggestion turned out.
 - `src/dashboard/approvals.ts`, `trust.ts`, `inventory.ts` — the approvals inbox,
   the read-only trust area, and the web/prompt/evidence classification.
 - `src/dashboard/write-pipeline.ts` and the `config-*.ts` editors — the audited

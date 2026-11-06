@@ -26,6 +26,21 @@ export function buildQuestionRound(projectRoot: string, dirName: string): Questi
 "The experts agreed on N point(s) after merging overlaps" followed by a `<details>` list of
 `- <target>: <merged_claim>`.
 
+## `paqad-ai decision` verbs for earlier answers
+
+| Command | What it does |
+| --- | --- |
+| `decision create ... [--ask-anyway]` | Opens a packet and prints `earlier_check` on a match. Prints `reused: true` when a standing answer settled it. `--ask-anyway` asks this one time. |
+| `decision check <id>` | Prints the candidates, the judging method and the `question` block. |
+| `decision suggest <id> --earlier <D-id> --option <key> --reason <text>` | Records the earlier answer that fits. The key belongs to the open question. |
+| `decision suggest <id> --none --reason <text>` | Records that none fits. |
+| `decision resolve <id> <key> [--always]` | Resolves. Refuses while the check is required. `--always` also keeps a standing answer. |
+| `decision standing list` | Lists standing answers. |
+| `decision standing remove <id>` | Removes one. Refused for a stage agent. |
+
+Commit `.paqad/decisions/standing-answers.json` and `.paqad/decisions/index.json` with the resolved
+packet.
+
 ## Synthesis rulings
 
 Each row in the synthesis input's `conflicts` array (read by `paqad-ai spec pipeline experts

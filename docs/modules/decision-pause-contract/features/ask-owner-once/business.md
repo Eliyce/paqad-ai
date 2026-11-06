@@ -25,15 +25,29 @@ lives at [`technical.md`](./technical.md) and the commands at [`api.md`](./api.m
 - **The same disagreement is never asked twice.** If you already answered it, the answer is reused.
 - **A question only holds its own change.** A pending question blocks edits for the change it
   belongs to. Other changes keep moving.
+- **An earlier answer is one click away.** When a new question looks like one you answered
+  before, paqad checks whether that answer still fits and shows it first as
+  `Same as last time: <label> (from D-...)`. Approve it, pick another option, or, when there is
+  room, choose `Always use this answer for this kind of question`.
+- **Only you can make a question go away.** A question is skipped only by a standing answer a
+  person chose. It applies to the whole team once merged and lasts until someone runs
+  `paqad-ai decision standing remove <id>`. Add `--ask-anyway` to `decision create` to be asked
+  this one time.
+- **You can see what happened.** The end-of-change receipt can say
+  `decisions: 3 earlier answers suggested, 2 accepted, 1 changed; 1 standing answer used`.
 - **Planning stops asking when it is sure.** If paqad is confident about which module a change
   belongs to (score 0.5 or more), it applies that choice and shows it in the round as a choice
   you can change. If it is unsure, the question joins the round instead of stopping planning.
 
 ## Business Rules
 
-- Nothing is answered for you. If you answer only part of a round, the rest stay pending and the
+- Nothing in a round is answered for you, apart from a standing answer you chose and the existing
+  reuse of an answer to the same disagreement. If you answer only part of a round, the rest stay pending and the
   next round asks only those.
 - On the fast lane, or with the spec pipeline off, there is no round, so the readiness question
   is still asked straight away.
 - Questions raised during development about a spec change or contradiction are always asked at once.
+- Nine sensitive kinds of question can never have a standing answer, such as a spec change, an
+  architecture path or consent over personal data. A stage agent cannot set or remove one.
+- Spec questions answered from a close precedent still auto-answer as before, and are now logged.
 - A project that sets `attribution_pending: stop` keeps the old behaviour of stopping during planning.

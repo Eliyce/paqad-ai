@@ -34,7 +34,15 @@ deterministic — same category plus question/context token overlap (`src/planni
 `findDecisionPrecedents` / `formatDecisionPrecedents`) — with no embeddings and no LLM
 call, capped to keep the token cost low and best-effort so a missing/corrupt store never
 breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
-match) by only ADVISING on related-but-not-identical precedents the human still decides.
+match for automated callers, but never an answer written by `decision create`) by only ADVISING
+on related-but-not-identical precedents the human still decides.
+
+### Earlier answers and standing answers
+
+A script finds earlier questions that may be the same, the `decision` skill judges them for
+meaning, and a person approves. Only a standing answer the person chose skips a question. The
+flow, its limits and its evidence rows are on the
+[Ask the owner once](../features/ask-owner-once/technical.md#earlier-answers) page.
 
 ### The visual-evidence readiness pause
 
@@ -54,11 +62,15 @@ the change's questions at the spec questions step (`src/visual-evidence/readines
 
 - `.paqad/decisions`
 - `src/planning/decision-precedents.ts`
+- `src/decisions`
+- `src/decision-reuse`
+- `src/cli/commands/decision.ts`
 
 ## Features
 
 - [Ask the owner once](../features/ask-owner-once/technical.md): compatible expert rulings, one
-  question round per change, and a pause gate scoped to the change a packet names.
+  question round per change, a pause gate scoped to the change a packet names, and earlier
+  answers a person approves in one click.
 
 ## Why the `src/planning/` code works the way it does
 
@@ -147,10 +159,19 @@ reasons below are not obvious from the code.
   the self-arm sees the fork as already resolved instead of opening it again.
 - **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
   model guess.
+- **`decisions/earlier-answers.ts`.** Similar wording only makes a question a candidate, because
+  in the tested history most repeated questions got different answers. So the script never
+  decides: a person approves what the skill suggests. A private answer stays out of other
+  categories' candidates.
+- **`decisions/standing-answers.ts`.** A standing answer is a tracked team file, so it can be
+  reviewed in a PR and takes effect for everyone once merged. A file that cannot be read is
+  refused rather than overwritten. A stage agent cannot set or remove a rule, so a skipped
+  question always traces back to a person.
 - **`decision-reuse/`.** Every reuse of a resolved decision in a session appends to one unit on
-  the session-ledger substrate. Recording is best-effort and never breaks the decision flow. The
-  schema lives in `src/`, never under `.paqad/`, so the model cannot weaken it. A row proves a
-  reuse was observed, not that it was correct.
+  the session-ledger substrate, along with suggestions and standing-answer changes. Recording is
+  best-effort and never breaks the decision flow. The schema lives in `src/`, never under
+  `.paqad/`, so the model cannot weaken it. A row proves a reuse was observed, not that it was
+  correct.
 
 ## Authority
 

@@ -137,6 +137,9 @@ finding per vendor detected, carrying that vendor's exact remediation. It is
 
 The reasons below are not obvious from the code in `src/delivery/` and are not stated above.
 
+- **A delivery question with a standing answer.** `paqad-ai delivery` opens its question through
+  `createPendingDecision`. If a person's standing answer settles it, delivery takes that choice
+  and does not wait.
 - **`delivery-check.ts`.** The delivery rules had a loader and schema but nothing read them
   at runtime, so a commit straight to `main` went unnoticed; this is that reader, at the completion
   seam, one turn late rather than never. Every subprocess goes through an injected runner so each
