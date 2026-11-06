@@ -79,19 +79,19 @@ files.
 
 ## `design-sign-off.yaml`
 
-| Key | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `enabled` | boolean | `false` | Post a high-level design for sign-off after the spec is frozen. |
-| `lanes` | list | `[graduated, full]` | The lanes that need sign-off: `graduated` and/or `full` only. Listing `fast` is a schema error and sign-off falls back to the defaults. |
-| `approval_channel.server` / `.channel` | string | `""` | Where to post. Empty means the change's tracker. |
-| `format.summary_max_words` / `.detail_max_words` | number | `200` / `800` | Word limits for the design. |
-| `wait_for_approval` | boolean | `true` | Hold the first code edit until sign-off. |
-| `approve_by` | `reply` \| `status` \| `either` | `either` | What counts as sign-off. |
-| `approve_words` | list | `[approved, lgtm, "sign off"]` | Words in a reply that approve. |
-| `approvers` | list | none | Who may approve. Empty means anyone except the developer. |
-| `move_to_on_post` | string | `""` | Status the ticket moves to when the design is posted. |
-| `approved_status` | string | `""` | A ticket status that counts as approval. |
-| `allow_skip_with_reason` | boolean | `true` | Allow building before sign-off with a stated reason. |
+| Key                                              | Type                            | Default                        | Meaning                                                                                                                                 |
+| ------------------------------------------------ | ------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                                        | boolean                         | `false`                        | Post a high-level design for sign-off after the spec is frozen.                                                                         |
+| `lanes`                                          | list                            | `[graduated, full]`            | The lanes that need sign-off: `graduated` and/or `full` only. Listing `fast` is a schema error and sign-off falls back to the defaults. |
+| `approval_channel.server` / `.channel`           | string                          | `""`                           | Where to post. Empty means the change's tracker.                                                                                        |
+| `format.summary_max_words` / `.detail_max_words` | number                          | `200` / `800`                  | Word limits for the design.                                                                                                             |
+| `wait_for_approval`                              | boolean                         | `true`                         | Hold the first code edit until sign-off.                                                                                                |
+| `approve_by`                                     | `reply` \| `status` \| `either` | `either`                       | What counts as sign-off.                                                                                                                |
+| `approve_words`                                  | list                            | `[approved, lgtm, "sign off"]` | Words in a reply that approve.                                                                                                          |
+| `approvers`                                      | list                            | none                           | Who may approve. Empty means anyone except the developer.                                                                               |
+| `move_to_on_post`                                | string                          | `""`                           | Status the ticket moves to when the design is posted.                                                                                   |
+| `approved_status`                                | string                          | `""`                           | A ticket status that counts as approval.                                                                                                |
+| `allow_skip_with_reason`                         | boolean                         | `true`                         | Allow building before sign-off with a stated reason.                                                                                    |
 
 Templates use these placeholders: `{prefix}`, `{type}`, `{ticket}`, `{title}`,
 `{title_slug}`, `{summary}`, `{scope}` and `{tech_debt}`.
