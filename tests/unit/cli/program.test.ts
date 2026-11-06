@@ -69,6 +69,7 @@ describe('createProgram', () => {
       'hook',
       'managed-settings',
       'fix',
+      'hld',
       'skill',
       'agent',
     ]);
