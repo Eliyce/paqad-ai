@@ -7,7 +7,7 @@ import { ulid } from '@/core/ids/ulid.js';
 import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { computeDecisionFingerprint } from '@/planning/decision-fingerprint.js';
 
-import { NO_STANDING_ANSWER_CATEGORIES } from './earlier-answers.js';
+import { foldQuestionText, NO_STANDING_ANSWER_CATEGORIES } from './earlier-answers.js';
 import { isDecisionCategory } from './packet-shape.js';
 
 export interface StandingAnswer {
@@ -94,8 +94,7 @@ export function listStandingAnswers(projectRoot: string): StandingAnswer[] {
 }
 
 function sameText(left: string, right: string): boolean {
-  const fold = (text: string): string => text.trim().toLowerCase().replace(/\s+/gu, ' ');
-  return fold(left) === fold(right);
+  return foldQuestionText(left) === foldQuestionText(right);
 }
 
 function fingerprintFor(question: StandingQuestion): string | null {

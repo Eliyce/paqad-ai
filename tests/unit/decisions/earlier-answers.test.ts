@@ -92,7 +92,9 @@ describe('AC-22 findEarlierQuestions', () => {
 
   it('returns five, best first, from six matches', () => {
     const best = earlier('ship release notes today');
-    for (let index = 0; index < 5; index += 1) earlier('ship release notes today friday');
+    for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']) {
+      earlier(`ship release notes today ${day}`);
+    }
     const found = findEarlierQuestions(root, { question: 'ship release notes today' });
     expect(found).toHaveLength(5);
     expect(found[0]?.id).toBe(best);
@@ -101,8 +103,8 @@ describe('AC-22 findEarlierQuestions', () => {
 
   it('orders ties newest first, then by id', () => {
     const older = earlier('same words here', { respondedAt: '2026-01-01T00:00:00.000Z' });
-    const first = earlier('same words here', { respondedAt: '2026-03-01T00:00:00.000Z' });
-    const second = earlier('same words here', { respondedAt: '2026-03-01T00:00:00.000Z' });
+    const first = earlier('here same words', { respondedAt: '2026-03-01T00:00:00.000Z' });
+    const second = earlier('words here same', { respondedAt: '2026-03-01T00:00:00.000Z' });
     expect(ids({ question: 'same words here' })).toEqual([first, second, older]);
   });
 
@@ -115,7 +117,7 @@ describe('AC-22 findEarlierQuestions', () => {
   it('keeps ttl exactly now and drops a passed ttl', () => {
     const now = new Date('2026-06-01T00:00:00.000Z');
     const atNow = earlier('same words here', { ttl_until: now.toISOString() });
-    earlier('same words here', { ttl_until: '2026-05-31T23:59:59.000Z' });
+    earlier('here same words', { ttl_until: '2026-05-31T23:59:59.000Z' });
     expect(ids({ question: 'same words here', now })).toEqual([atNow]);
   });
 
@@ -164,6 +166,84 @@ describe('AC-22 findEarlierQuestions', () => {
 
   it('returns nothing when there is no resolved folder', () => {
     expect(ids({ question: 'same words here' })).toEqual([]);
+  });
+});
+
+describe('AC-2 a repeated question offers only its newest answer', () => {
+  it('returns only the newer of two answers to the same question and options', () => {
+    earlier('same words here', { chosen: 'one', respondedAt: '2026-01-01T00:00:00.000Z' });
+    const newer = earlier('same words here', {
+      chosen: 'two',
+      respondedAt: '2026-03-01T00:00:00.000Z',
+    });
+    const found = findEarlierQuestions(root, { question: 'same words here' });
+    expect(found.map((entry) => entry.id)).toEqual([newer]);
+    expect(found[0]?.chosen).toBe('two');
+  });
+});
+
+describe('AC-57 what counts as the same question', () => {
+  const newestAt = '2026-03-01T00:00:00.000Z';
+
+  it('treats case and spacing as the same question', () => {
+    earlier('Same  WORDS here', { respondedAt: '2026-01-01T00:00:00.000Z' });
+    const newer = earlier('same words  here', { respondedAt: newestAt });
+    expect(ids({ question: 'same words here' })).toEqual([newer]);
+  });
+
+  it('gives an equal responded_at to the greater id', () => {
+    earlier('same words here', {
+      decision_id: 'D-01J000000000000000000000B1',
+      respondedAt: newestAt,
+    });
+    const greater = earlier('same words here', {
+      decision_id: 'D-01J000000000000000000000B2',
+      respondedAt: newestAt,
+    });
+    earlier('same words here', {
+      decision_id: 'D-01J000000000000000000000B0',
+      respondedAt: newestAt,
+    });
+    expect(ids({ question: 'same words here' })).toEqual([greater]);
+  });
+
+  it('groups across categories', () => {
+    earlier('same words here', { category: 'ux-pattern', respondedAt: '2026-01-01T00:00:00.000Z' });
+    const newer = earlier('same words here', { category: 'finding.triage', respondedAt: newestAt });
+    expect(ids({ question: 'same words here' })).toEqual([newer]);
+  });
+
+  it('returns nothing from a group whose newest is past ttl_until', () => {
+    const now = new Date('2026-06-01T00:00:00.000Z');
+    earlier('same words here', { respondedAt: '2026-01-01T00:00:00.000Z' });
+    earlier('same words here', { respondedAt: newestAt, ttl_until: '2026-05-01T00:00:00.000Z' });
+    expect(ids({ question: 'same words here', now })).toEqual([]);
+  });
+
+  it('keeps reversed wording and different option keys apart', () => {
+    const forward = earlier('same words here', { respondedAt: '2026-01-03T00:00:00.000Z' });
+    const reversed = earlier('here words same', { respondedAt: '2026-01-02T00:00:00.000Z' });
+    const otherKeys = earlier('same words here', {
+      respondedAt: '2026-01-01T00:00:00.000Z',
+      options: ['one', 'three'].map((key) => ({
+        option_key: key,
+        label: `Label ${key}`,
+        one_line_preview: key,
+        trade_off: 'none',
+        evidence: {},
+      })),
+    });
+    expect(ids({ question: 'same words here' })).toEqual([forward, reversed, otherKeys]);
+  });
+
+  it('does not let a newer private answer hide an older one from another category', () => {
+    const allowed = earlier('same words here', { respondedAt: '2026-01-01T00:00:00.000Z' });
+    const hidden = earlier('same words here', {
+      category: 'authoring.override',
+      respondedAt: newestAt,
+    });
+    expect(ids({ question: 'same words here', category: 'ux-pattern' })).toEqual([allowed]);
+    expect(ids({ question: 'same words here', category: 'authoring.override' })).toEqual([hidden]);
   });
 });
 

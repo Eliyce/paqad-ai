@@ -49,16 +49,40 @@ export interface EarlierQuestion extends EarlierCandidate {
   score: number;
 }
 
+export function foldQuestionText(question: string): string {
+  return question.trim().toLowerCase().replace(/\s+/gu, ' ');
+}
+
 function questionWords(question: string): Set<string> {
   return new Set(normalizeDecisionQuestion(question).split(' ').filter(Boolean));
 }
 
-function isCandidate(packet: DecisionPacket, query: EarlierQuestionQuery, now: number): boolean {
+function mayBeOffered(packet: DecisionPacket, query: EarlierQuestionQuery): boolean {
   if (packet.decision_id === query.excludeId) return false;
   if (packet.status !== 'resolved' && packet.status !== 'delegated') return false;
   if (!packet.human_response?.chosen_option_key) return false;
-  if (Date.parse(packet.ttl_until) < now) return false;
   return !PRIVATE_ANSWER_CATEGORIES.includes(packet.category) || packet.category === query.category;
+}
+
+function sameQuestionKey(packet: DecisionPacket): string {
+  const optionKeys = packet.options.map((option) => option.option_key).sort();
+  return JSON.stringify([foldQuestionText(packet.question), optionKeys]);
+}
+
+function isNewerAnswer(packet: DecisionPacket, held: DecisionPacket): boolean {
+  const byTime =
+    Date.parse(packet.human_response!.responded_at) - Date.parse(held.human_response!.responded_at);
+  return byTime !== 0 ? byTime > 0 : packet.decision_id > held.decision_id;
+}
+
+function newestOfEachQuestion(packets: DecisionPacket[]): DecisionPacket[] {
+  const newest = new Map<string, DecisionPacket>();
+  for (const packet of packets) {
+    const key = sameQuestionKey(packet);
+    const held = newest.get(key);
+    if (held === undefined || isNewerAnswer(packet, held)) newest.set(key, packet);
+  }
+  return [...newest.values()];
 }
 
 function toCandidate(packet: DecisionPacket): EarlierCandidate {
@@ -89,8 +113,9 @@ export function findEarlierQuestions(
   const words = questionWords(query.question);
   if (words.size === 0) return [];
   const now = (query.now ?? new Date()).getTime();
-  return readResolvedPackets(projectRoot)
-    .filter((packet) => isCandidate(packet, query, now))
+  const offered = readResolvedPackets(projectRoot).filter((packet) => mayBeOffered(packet, query));
+  return newestOfEachQuestion(offered)
+    .filter((packet) => Date.parse(packet.ttl_until) >= now)
     .map((packet) => ({
       ...toCandidate(packet),
       score: jaccard(words, questionWords(packet.question)),
