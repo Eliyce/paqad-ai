@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6RNHYYEDYVZ5EWQY3YAYHFF",
+  "category": "spec.contradiction",
+  "title": "Two skills are named decision, and the release check can only record one",
+  "context": "The base skill and the new plugin skill share one record file, so the release gate always fails one of them, even with an override. Nothing else in the plugin shares a name with a base skill.",
+  "options": [
+    {
+      "option_key": "rename-plugin-skill",
+      "label": "Rename the plugin skill to decision-pause",
+      "one_line_preview": "Rename the plugin skill to decision-pause",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "change-the-gate",
+      "label": "Keep both names and change the release gate to record skills by folder",
+      "one_line_preview": "Keep both names and change the release gate to record skills by folder",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "rename-plugin-skill",
+  "created_at": "2026-11-06T14:52:41.294Z",
+  "status": "resolved",
+  "change": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "chosen": "rename-plugin-skill",
+  "rationale": "Owner chose this; the release gate keeps one record per skill name.",
+  "resolved_at": "2026-11-06T15:08:13.334Z",
+  "decision_id": "D-01M6RNHYYEDYVZ5EWQY3YAYHFF",
+  "fingerprint": "sha256:d03e3aa32b284856fb0eef09899661fc8cc0b1512c1d6a8bdc7b2fa5a15c8ac4",
+  "question": "Two skills are named decision, and the release check can only record one",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6RF9KPAM4XSEYPVGBBWZP70",
+  "ttl_until": "2026-11-13T14:52:41.294Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "rename-plugin-skill",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T15:08:13.334Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this; the release gate keeps one record per skill name."
+  }
+}
