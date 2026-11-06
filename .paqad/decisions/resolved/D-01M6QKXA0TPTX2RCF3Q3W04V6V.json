@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6QKXA0TPTX2RCF3Q3W04V6V",
+  "category": "architecture-path",
+  "title": "Which module owns the design sign-off code?",
+  "context": "Module attribution was deferred from planning: the extractor found no module and the best inferred match scored 0.375 (feature-evidence, claude-plugin; delivery-workflow 0.29), below the 0.5 auto-apply bar. The new src/hld folder, the hld CLI verbs, the freeze nudge, the edit gate hook-in and the session hook lines need an owner in docs/instructions/rules/module-map.yml. The High Table agreed on one new src/hld module with its own module-map entry that reads git-workflow config and writes the evidence bundle.",
+  "options": [
+    {
+      "option_key": "new-design-sign-off-module",
+      "label": "New module design-sign-off owning src/hld, src/cli/commands/hld.ts and runtime/base/skills/high-level-design",
+      "one_line_preview": "New module design-sign-off owning src/hld, src/cli/commands/hld.ts and runtime/base/skills/high-level-design",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "delivery-workflow",
+      "label": "Add it to delivery-workflow, next to the git-workflow config and ticket moves",
+      "one_line_preview": "Add it to delivery-workflow, next to the git-workflow config and ticket moves",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "feature-evidence",
+      "label": "Add it to feature-evidence, next to the bundle files it writes",
+      "one_line_preview": "Add it to feature-evidence, next to the bundle files it writes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "new-design-sign-off-module",
+  "created_at": "2026-11-06T05:04:41.498Z",
+  "status": "resolved",
+  "change": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "chosen": "new-design-sign-off-module",
+  "rationale": "Developer chose a new design-sign-off module.",
+  "resolved_at": "2026-11-06T05:07:10.701Z",
+  "decision_id": "D-01M6QKXA0TPTX2RCF3Q3W04V6V",
+  "fingerprint": "sha256:fe61aace85fdb84942980dfd2bd8e276557b694c66f99e59c656f1f07f8c79bf",
+  "question": "Which module owns the design sign-off code?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "ttl_until": "2027-02-04T05:04:41.498Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "new-design-sign-off-module",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T05:07:10.701Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose a new design-sign-off module."
+  }
+}

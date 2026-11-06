@@ -1,0 +1,54 @@
+{
+  "id": "D-01M6QKX8F2SP9MN7Q87KF5T6C0",
+  "category": "workflow-or-tool",
+  "title": "What a non-approving reply on the posted design does",
+  "context": "When a teammate replies to the posted design without approving it, for example with a question or 'I'll look tomorrow', what should happen? If every such reply counts as asking for changes, a simple question reopens the spec and restarts sign-off, and teams may stop asking. In every option a reply like 'not approved' or 'approved?' never counts as approval.",
+  "options": [
+    {
+      "option_key": "clear-change-words",
+      "label": "Keep waiting and show the reply; only a reply that clearly asks for changes, such as 'please change' or 'not approved', sends the spec back",
+      "one_line_preview": "Keep waiting and show the reply; only a reply that clearly asks for changes, such as 'please change' or 'not approved', sends the spec back",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "developer-decides",
+      "label": "Keep waiting and show the reply; the developer decides whether it asks for changes",
+      "one_line_preview": "Keep waiting and show the reply; the developer decides whether it asks for changes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "any-reply-changes",
+      "label": "Any reply that is not an approval asks for changes, as the issue says",
+      "one_line_preview": "Any reply that is not an approval asks for changes, as the issue says",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "clear-change-words",
+  "created_at": "2026-11-06T05:04:39.906Z",
+  "status": "resolved",
+  "change": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "chosen": "clear-change-words",
+  "rationale": "Developer chose: only a reply that clearly asks for changes sends the spec back; other replies keep the change waiting and are shown.",
+  "resolved_at": "2026-11-06T05:07:08.935Z",
+  "decision_id": "D-01M6QKX8F2SP9MN7Q87KF5T6C0",
+  "fingerprint": "sha256:011d56952609072cb2a3aef074015b938a40a0152ea6a7000c48403fe4ff3b42",
+  "question": "What a non-approving reply on the posted design does",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "ttl_until": "2026-11-13T05:04:39.906Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "clear-change-words",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T05:07:08.935Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose: only a reply that clearly asks for changes sends the spec back; other replies keep the change waiting and are shown."
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M6QKX8ZT1VR9E52SFBSWXQYT",
+  "category": "architecture-path",
+  "title": "Post the design to GitHub issues in this change?",
+  "context": "When a team's tickets live in GitHub, should this change also post the design to the GitHub issue, or only to Jira, Microsoft Teams and Slack for now? Without it, GitHub teams (this project included) see the design only in chat and the build carries on without the team's sign-off. The plan already lists a small GitHub destination profile (More detail inside a details block).",
+  "options": [
+    {
+      "option_key": "jira-teams-slack-only",
+      "label": "Only Jira, Microsoft Teams and Slack now; GitHub teams see the design in chat and the build carries on",
+      "one_line_preview": "Only Jira, Microsoft Teams and Slack now; GitHub teams see the design in chat and the build carries on",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "add-github",
+      "label": "Add GitHub as a fourth place to post in this change",
+      "one_line_preview": "Add GitHub as a fourth place to post in this change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "add-github",
+  "created_at": "2026-11-06T05:04:40.442Z",
+  "status": "resolved",
+  "change": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "chosen": "add-github",
+  "rationale": "Developer chose to add GitHub issues as a fourth destination in this PR.",
+  "resolved_at": "2026-11-06T05:07:09.507Z",
+  "decision_id": "D-01M6QKX8ZT1VR9E52SFBSWXQYT",
+  "fingerprint": "sha256:636bb40ad010803d6bb23cad9ac26dd986f350ef96e91c9bce1b75cc9dff3208",
+  "question": "Post the design to GitHub issues in this change?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6QK5T2B678P4DRW3T7FPYQB",
+  "ttl_until": "2027-02-04T05:04:40.442Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-github",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T05:07:09.507Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose to add GitHub issues as a fourth destination in this PR."
+  }
+}
