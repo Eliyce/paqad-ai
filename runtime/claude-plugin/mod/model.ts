@@ -459,6 +459,16 @@ function readCiDetail(value: unknown): PaqadCi | null {
   };
 }
 
+export function readDiff(
+  value: unknown,
+): { additions: number; deletions: number; partial: boolean } | null {
+  const diff = rec(value);
+  const additions = num(diff?.additions);
+  const deletions = num(diff?.deletions);
+  if (additions === null || deletions === null) return null;
+  return { additions, deletions, partial: diff?.partial === true };
+}
+
 function readShipCommits(value: unknown): PaqadShipCommit[] {
   return each(value, (commit) => ({
     sha: str(commit.sha) ?? '',
@@ -841,6 +851,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           pr_files: num(ship.pr_files),
           pr_additions: num(ship.pr_additions),
           pr_deletions: num(ship.pr_deletions),
+          diff: readDiff(ship.diff),
           files_changed: num(ship.files_changed),
           ci_read_at: str(ship.ci_read_at),
           all_green: ship.all_green === true,

@@ -89,7 +89,12 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
-import { readChangeGit, readWorkingTreeDirty } from './changed-files.js';
+import {
+  type ChangeDiff,
+  readChangeDiff,
+  readChangeGit,
+  readWorkingTreeDirty,
+} from './changed-files.js';
 import {
   computeDoneLadder,
   type DoneLadder,
@@ -446,6 +451,7 @@ export interface HudShip {
   inherited: CommitGroup | null;
   inherited_count: number;
   files_changed: number | null;
+  diff: ChangeDiff | null;
 }
 
 export interface HudWorkflow {
@@ -880,7 +886,11 @@ function pushIsCurrent(delivery: DeliveryRecord): boolean {
   return push.sha === delivery.head_sha;
 }
 
-export function buildShip(delivery: DeliveryRecord, filesChanged: number | null = null): HudShip {
+export function buildShip(
+  delivery: DeliveryRecord,
+  filesChanged: number | null = null,
+  diff: ChangeDiff | null = null,
+): HudShip {
   const split = delivery.commit_split ?? null;
   const ownShas = split?.own_shas ? new Set(split.own_shas) : null;
   const inheritedShas = split?.inherited_shas ?? [];
@@ -921,6 +931,7 @@ export function buildShip(delivery: DeliveryRecord, filesChanged: number | null 
     inherited: split?.inherited ?? null,
     inherited_count: inheritedShas.length,
     files_changed: filesChanged,
+    diff,
   };
 }
 
@@ -1657,7 +1668,10 @@ export function buildHudSnapshot(
     startPoint,
   );
   const changedFiles = changeGit?.files ?? null;
-  const ship = buildShip(delivery, changedFiles ? changedFiles.length : null);
+  const diff = readChangeDiff(projectRoot, startPoint, changedFiles, (error) =>
+    logHudWriteError(projectRoot, 'changed diff', error),
+  );
+  const ship = buildShip(delivery, changedFiles ? changedFiles.length : null, diff);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
   const findings = buildFindings(projectRoot, dirName);

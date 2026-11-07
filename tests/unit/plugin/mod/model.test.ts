@@ -31,6 +31,7 @@ import {
   joinPath,
   liveClock,
   parseSnapshot,
+  readDiff,
   receiptPath,
   safeSessionId,
   snapshotPath,
@@ -245,6 +246,7 @@ describe('parseSnapshot', () => {
       pr_files: null,
       pr_additions: null,
       pr_deletions: null,
+      diff: null,
       files_changed: null,
       ci_read_at: null,
       all_green: false,
@@ -758,5 +760,25 @@ describe('the fixtures match the snapshot paqad writes', () => {
     expect(parsed.lane).toBe('fast');
     expect(bandState(parsed)).toBe('Working');
     expect(stageSegments(parsed).find((s) => s.stage === 'development')?.state).toBe('running');
+  });
+});
+
+describe('#836 ship.diff in the plugin model (FR-1)', () => {
+  it('reads the diff, and null for an older engine or a half-missing diff', () => {
+    const ship = FULL_ORD_501.ship as Record<string, unknown>;
+    const diff = { additions: 530, deletions: 96, partial: false };
+    expect(parse(snapshot({ ...FULL_ORD_501, ship: { ...ship, diff } })).ship?.diff).toEqual(diff);
+    expect(
+      parse(snapshot({ ...FULL_ORD_501, ship: { ...ship, diff: undefined } })).ship?.diff,
+    ).toBeNull();
+    expect(readDiff(undefined)).toBeNull();
+    expect(readDiff({ additions: 3 })).toBeNull();
+    expect(readDiff({ deletions: 3 })).toBeNull();
+    expect(readDiff({ additions: 3, deletions: 'x' })).toBeNull();
+    expect(readDiff({ additions: 3, deletions: 1, partial: true })).toEqual({
+      additions: 3,
+      deletions: 1,
+      partial: true,
+    });
   });
 });

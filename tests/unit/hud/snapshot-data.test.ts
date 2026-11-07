@@ -15,6 +15,7 @@ import {
 } from '@/feature-evidence/delivery.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { readChangeDiff } from '@/hud/changed-files.js';
 import type { HudHighTable } from '@/hud/high-table-view.js';
 import {
   buildHudSnapshot,
@@ -42,6 +43,11 @@ import {
 vi.mock('@/git-workflow/load.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/git-workflow/load.js')>();
   return { ...real, loadGitWorkflow: vi.fn(real.loadGitWorkflow) };
+});
+
+vi.mock('@/hud/changed-files.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/hud/changed-files.js')>();
+  return { ...real, readChangeDiff: vi.fn(real.readChangeDiff) };
 });
 
 vi.mock('@/traceability/change-map.js', async (importOriginal) => {
@@ -356,11 +362,30 @@ describe('AC-27: files changed and plan steps built', () => {
     startStage(root, 'development', { sessionId: S, adapter: 'claude-code' });
     const snapshot = buildHudSnapshot(root, S);
     expect(snapshot.ship?.files_changed).toBe(2);
+    expect(snapshot.ship?.diff).toEqual({ additions: 2, deletions: 0, partial: false });
     expect(snapshot.plan).toEqual({ steps: 3, done: 1 });
 
     mkdirSync(join(root, 'docs'), { recursive: true });
     writeFileSync(join(root, 'docs', 'b.md'), 'docs\n');
     expect(buildHudSnapshot(root, S).plan).toEqual({ steps: 3, done: 2 });
+  });
+
+  it('AC-4: ship.diff is null, logged once, and the snapshot still writes when git fails', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/diff-fails', true);
+    const S = 'ses-diff-fails';
+    openChangeHere(root, S);
+    writeFileSync(join(root, 'notes.txt'), 'untracked\n');
+    vi.mocked(readChangeDiff).mockImplementationOnce((_root, _start, _files, onError) => {
+      onError(new Error('numstat timed out'));
+      return null;
+    });
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.active).toBe(true);
+    expect(snapshot.ship?.diff).toBeNull();
+    expect(snapshot.ship?.files_changed).toBe(1);
+    const log = readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8');
+    expect(log.match(/hud-snapshot \(changed diff\): numstat timed out/g)).toHaveLength(1);
   });
 
   it('leaves both out when git cannot say, and the plan out when it has no steps', () => {
@@ -370,6 +395,7 @@ describe('AC-27: files changed and plan steps built', () => {
     writePlan(root, dir, [{ id: 'S1', description: 'a', files: ['src/a.ts'] }]);
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
     expect(snapshot.ship?.files_changed).toBeNull();
+    expect(snapshot.ship?.diff).toBeNull();
     expect(snapshot.plan).toBeNull();
     expect(buildShip(readFeatureDelivery(root, dir)).files_changed).toBeNull();
 

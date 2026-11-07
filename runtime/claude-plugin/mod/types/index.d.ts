@@ -324,6 +324,7 @@ export type PaqadHudSnapshot = {
     pr_files: number | null;
     pr_additions: number | null;
     pr_deletions: number | null;
+    diff: { additions: number; deletions: number; partial: boolean } | null;
     files_changed: number | null;
     ci_read_at: string | null;
     all_green: boolean;

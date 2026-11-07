@@ -940,6 +940,7 @@ function shipped(over: Raw = {}): Raw {
     pr_title: 'Add CSV export to the orders page',
     pr_additions: 412,
     pr_deletions: 87,
+    diff: { additions: 530, deletions: 96, partial: false },
     files_changed: 14,
     commit_list: COMMITS,
     inherited_count: 1,
