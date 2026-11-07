@@ -9,6 +9,7 @@ export {
   anchoringFindings,
   collectMachineFindings,
   findingAnchor,
+  scopeFindingsToChange,
   unanchoredMachineFindings,
   type MachineFinding,
   type MachineFindingSeverity,

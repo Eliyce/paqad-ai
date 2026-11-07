@@ -10,7 +10,9 @@ import {
   TASK_LIST_SENTENCES,
   UNREADABLE,
   bandIsLive,
+  GETTING_READY,
   buildDesktopBand,
+  buildDesktopLedger,
   cardRows,
   costWords,
   deliverySteps,
@@ -158,7 +160,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ snapshot: parse(snapshot()) })).toEqual({ kind: 'none' });
   });
 
-  it('the feature route draws nothing until a change opens', () => {
+  it('the feature route draws nothing without the no-change-yet reason', () => {
     const idle = parse(snapshot({ route: 'feature-development' }));
     expect(band({ snapshot: idle })).toEqual({ kind: 'none' });
     expect(band({ snapshot: { ...open(), active: false } })).toEqual({ kind: 'none' });
@@ -935,5 +937,128 @@ describe('live subagents lead the band while they run', () => {
     expect(tight.kind === 'feature' && tight.mode).toBe('minimised');
     const quiet = band({ maxRows: 6 });
     expect(quiet.kind === 'feature' && quiet.mode).toBe('card');
+  });
+});
+
+describe('Paqad Getting Ready', () => {
+  const ready = (over: Raw = {}) =>
+    parse(
+      snapshot({
+        route: 'feature-development',
+        active: false,
+        scope: { qualified: false, reason: 'no-change-yet' },
+        ...over,
+      }),
+    );
+  const LABELS = ['Intake', 'Plan', 'Spec', 'Build', 'Review', 'Checks', 'Docs', 'Deliver'];
+
+  function card(over: Partial<DesktopBandInput> = {}) {
+    const drawn = band({ snapshot: ready(), ...over });
+    if (drawn.kind !== 'ready-feature') throw new Error(`drew ${drawn.kind}`);
+    return drawn;
+  }
+
+  it('AC-6: draws the card with the headline and 8 not-yet stages', () => {
+    const drawn = card();
+    expect(drawn.mode).toBe('card');
+    expect(drawn.headline).toMatchObject({ text: 'Paqad Getting Ready', live: false, clock: null });
+    expect(GETTING_READY).toBe('Paqad Getting Ready');
+    expect(drawn.strip.stages.map((mark) => mark.label)).toEqual(LABELS);
+    expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
+    expect(new Set(drawn.strip.delivery.map((mark) => mark.state)).size).toBe(1);
+    expect(bandIsLive(drawn)).toBe(false);
+  });
+
+  it('AC-6: a fast lane keeps all 8 stages not-yet', () => {
+    const drawn = card({ snapshot: ready({ lane: 'fast' }) });
+    expect(drawn.strip.stages.map((mark) => mark.label)).toEqual(LABELS);
+    expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
+  });
+
+  it('AC-24: every other reason, or no scope, draws nothing', () => {
+    for (const reason of ['closed', 'other-branch', 'no-row-this-episode', 'no-active-change']) {
+      const other = ready({ scope: { qualified: false, reason } });
+      expect(band({ snapshot: other })).toEqual({ kind: 'none' });
+    }
+    const raw = snapshot({ route: 'feature-development', active: false });
+    delete (raw as Raw).scope;
+    expect(band({ snapshot: parse(raw) })).toEqual({ kind: 'none' });
+  });
+
+  it('AC-24: a non-feature route never draws it, whatever the reason', () => {
+    const question = parse(
+      snapshot({
+        route: 'project-question',
+        active: false,
+        scope: { qualified: false, reason: 'no-change-yet' },
+      }),
+    );
+    expect(band({ snapshot: question }).kind).toBe('workflow');
+    const notFeature = parse(
+      snapshot({ route: 'no-workflow', scope: { qualified: false, reason: 'not-feature-route' } }),
+    );
+    expect(band({ snapshot: notFeature })).toEqual({ kind: 'none' });
+  });
+
+  it('AC-24: a snapshot older than the running turn draws nothing, between turns it draws', () => {
+    const older = Date.parse(ready().generated_at) + 1000;
+    expect(band({ snapshot: ready(), turnStartedAt: older })).toEqual({ kind: 'none' });
+    expect(band({ snapshot: ready(), turnStartedAt: null }).kind).toBe('ready-feature');
+  });
+
+  it('AC-26: the identity line carries the lane only when one is set', () => {
+    expect(identityText(card().identity)).toBe('   Feature development');
+    expect(identityText(card({ snapshot: ready({ lane: 'full' }) }).identity)).toBe(
+      '   Feature development  ·  Full lane',
+    );
+  });
+
+  it('AC-27: the words say it reads with the colour gone', () => {
+    const drawn = card();
+    expect(drawn.headlineAlt).toBe('Paqad Getting Ready.');
+    expect(drawn.alt).toBe('Paqad Getting Ready. Stage not started. Delivery not started.');
+    expect(drawn.stripAlts.stage).toContain('Stage not started');
+    expect(drawn.stripAlts.delivery).toBe('Delivery not started.');
+    expect(drawn.minimised.stages).toEqual(LABELS.map(() => 'todo'));
+  });
+
+  it('AC-28: the Ledger for this state is the no-change view', () => {
+    expect(
+      buildDesktopLedger({
+        snapshot: ready(),
+        unbound: false,
+        unavailable: false,
+        tab: null,
+        now: NOW,
+        specText: null,
+      }),
+    ).toEqual({ kind: 'no-change', words: 'No change is in progress.' });
+  });
+
+  it('AC-6: minimised, closed and hidden are honoured, and unreadable wins', () => {
+    expect(card({ visibility: { ...SHOWN, minimised: true } }).mode).toBe('minimised');
+    expect(band({ snapshot: ready(), visibility: { ...SHOWN, closed: true } })).toEqual({
+      kind: 'closed',
+      needsYou: false,
+    });
+    expect(band({ snapshot: ready(), visibility: { ...SHOWN, hidden: true } })).toEqual({
+      kind: 'hidden',
+      needsYou: false,
+    });
+    expect(band({ snapshot: ready(), unbound: true }).kind).toBe('unreadable');
+  });
+
+  it('AC-6: a short or narrow window falls back to the minimised row and never clips', () => {
+    expect(card({ maxRows: cardRows(false) }).mode).toBe('card');
+    expect(card({ maxRows: cardRows(false) - 1 }).mode).toBe('minimised');
+    expect(card({ columns: 40 }).mode).toBe('card');
+    expect(card({ columns: 39 }).mode).toBe('minimised');
+    const narrow = card({ columns: 12 });
+    expect(narrow.mode).toBe('minimised');
+    expect([...narrow.headline.text].length).toBeLessThanOrEqual(10);
+  });
+
+  it('AC-32: no snapshot yet still reads Ready', () => {
+    expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
   });
 });

@@ -26,7 +26,7 @@ import type {
 
 export const NOTHING_PUSHED = 'Nothing pushed yet.';
 
-const NO_CHANGE = 'No change is in progress.';
+export const NO_CHANGE = 'No change is in progress.';
 export const NO_PLAN = 'No plan recorded yet.';
 
 export const CLAIMS_HEADING = 'Claims and the tests that prove them';

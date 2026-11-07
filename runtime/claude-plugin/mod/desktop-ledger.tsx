@@ -600,6 +600,9 @@ export function drawDesktopLedger(
   if (ledger.kind === 'none') {
     return <Box flexDirection="column">{note(ui, NOTHING_TO_PROVE, 'paqad-trust-empty')}</Box>;
   }
+  if (ledger.kind === 'no-change') {
+    return <Box flexDirection="column">{note(ui, ledger.words, 'paqad-no-change')}</Box>;
+  }
   if (ledger.kind === 'unreadable') {
     return <Box flexDirection="column">{light(ui, ledger.light)}</Box>;
   }

@@ -25,6 +25,7 @@ describe('paqad-ai stage, in process', () => {
     vi.stubEnv('SE_AGENT_ID', undefined);
     vi.stubEnv('SE_SESSION', undefined);
     vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+    vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
     vi.stubEnv('PAQAD_STAGE_AGENT', undefined);
     root = mkdtempSync(join(tmpdir(), 'paqad-stage-paths-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });

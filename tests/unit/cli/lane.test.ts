@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLaneCommand } from '@/cli/commands/lane.js';
 import { createProgram } from '@/cli/program.js';
 import { readChangeConstants, readFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { readRouteOverrides } from '@/pipeline/route-override-log.js';
+import { ROUTE_SWITCHED_LINE } from '@/pipeline/route-switch.js';
+import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 describe('paqad-ai lane command', () => {
   let root: string;
@@ -107,5 +111,70 @@ describe('paqad-ai lane command', () => {
     openFast();
     const { lines } = await run('show');
     expect(JSON.parse(lines.at(-1)!)).toEqual({ lane: 'fast' });
+  });
+
+  describe('the route', () => {
+    beforeEach(() => {
+      writeWorkflowState(root, SES, { active: { workflow: 'project-question' }, paused: [] });
+    });
+
+    it('AC-18: lane set full moves project-question to feature with source lane-set', async () => {
+      openFast();
+      const { lines } = await run('set', 'full');
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+      expect(readRouteOverrides(root, SES)).toEqual([
+        expect.objectContaining({ source: 'lane-set', agent_label: 'feature-development' }),
+      ]);
+      expect(lines.indexOf(ROUTE_SWITCHED_LINE)).toBeGreaterThanOrEqual(0);
+      expect(JSON.parse(lines.at(-1)!)).toMatchObject({ set: true, lane: 'full' });
+    });
+
+    it('AC-18: a refused lane set leaves the route', async () => {
+      const { errors } = await run('set', 'full');
+      expect(errors.join('\n')).toContain('no active feature');
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+      expect(readRouteOverrides(root, SES)).toEqual([]);
+    });
+
+    it('AC-18: a lane set on a session read from the shared cache leaves the route', async () => {
+      vi.stubEnv('SE_SESSION', undefined);
+      vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
+      openFast();
+      resolveSessionId(root, SES);
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      await createLaneCommand().parseAsync(['set', 'full', '--project-root', root], {
+        from: 'user',
+      });
+      vi.unstubAllEnvs();
+      expect(readChangeConstants(root, currentFeature(root, SES)!).lane).toBe('full');
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+      expect(readRouteOverrides(root, SES)).toEqual([]);
+    });
+
+    it('AC-18: CLAUDE_CODE_SESSION_ID counts as explicit and moves the route', async () => {
+      vi.stubEnv('SE_SESSION', undefined);
+      vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);
+      openFast();
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      await createLaneCommand().parseAsync(['set', 'full', '--project-root', root], {
+        from: 'user',
+      });
+      vi.unstubAllEnvs();
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+      expect(readRouteOverrides(root, SES)).toEqual([
+        expect.objectContaining({ source: 'lane-set' }),
+      ]);
+    });
+
+    it('AC-17: a lane set after a switch records no second switch', async () => {
+      openFast();
+      await run('set', 'graduated');
+      vi.restoreAllMocks();
+      const { lines } = await run('set', 'full');
+      expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+      expect(readRouteOverrides(root, SES)).toHaveLength(1);
+    });
   });
 });

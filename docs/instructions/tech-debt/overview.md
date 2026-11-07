@@ -26,6 +26,12 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M6SM2TXQ13W1WX63D9WDPME2](TD-01M6SM2TXQ13W1WX63D9WDPME2.md) (bug, low): An empty change fast-forwarded to main is judged on main's files
+- [TD-01M6SM2T7F9809WQHZ4EBGE2A8](TD-01M6SM2T7F9809WQHZ4EBGE2A8.md) (bug, low): A prompt queued during a running turn lets an older verdict word show in the band
+- [TD-01M6SM2SGVJDS3GMD4020TE3TD](TD-01M6SM2SGVJDS3GMD4020TE3TD.md) (gap, low): A session that moves to another change in the turn is judged on that change, not the one it edited
+- [TD-01M6SM2RSN1WPJ85A49W73DX45](TD-01M6SM2RSN1WPJ85A49W73DX45.md) (gap, low): A ticket ask after 'not really,' or 'not yet,' still reads as negated
+- [TD-01M6SHPKM7AQYMW759WBWECZZH](TD-01M6SHPKM7AQYMW759WBWECZZH.md) (bug, medium): Session resolution never reads the id the host exports as CLAUDE_CODE_SESSION_ID
+- [TD-01M6SHPJX2FYBBGYD6ZN7XE8PA](TD-01M6SHPJX2FYBBGYD6ZN7XE8PA.md) (gap, medium): A change opened on the default branch and then branched is still judged on other files
 - [TD-01M6S056GMRR3STN1VWPE4060W](TD-01M6S056GMRR3STN1VWPE4060W.md) (gap, low): The warning that stored text is data is missing from the fallback method and comes late on the word-match path
 - [TD-01M6S055R6KVGPAF3D9WSR5J1G](TD-01M6S055R6KVGPAF3D9WSR5J1G.md) (bug, low): decision resolve warns on unknown flags and can lose the reason or the standing answer
 - [TD-01M6S054YFFWH3E2A305XF0TDN](TD-01M6S054YFFWH3E2A305XF0TDN.md) (gap, low): An agent-opened question over 5 options or with an unknown category skips the earlier check

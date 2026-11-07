@@ -1,0 +1,52 @@
+{
+  "id": "D-01M6SFA6PSC3JAM2YTP52WDG92",
+  "category": "spec.contradiction",
+  "title": "AC-8 sixth prompt cannot route to feature-development under NFR-1",
+  "context": "AC-8 requires 'develop only issue 830 and create one generic branch where we later add 829 and 830 issue' to route feature-development. NFR-1 says cause 1 makes no change to the other pre-classifier checks. Measured with the cause 1 token rules in place: isCreateArtifactAsk is now false, hasCodeNegation and isAboutWorkPrompt are false, but isQuestionRoute is true, because 'where' is in QUESTION_ANYWHERE_LEADS and a leading 'develop' is not in CODE_VERBS, so resolveWorkflow returns project-question. The word 'where' came from the spec spelling out the issue's elided row (the issue shows '… create one generic branch … 829 and 830 issue'), so the plan's measurement that isQuestionRoute is false for every row did not cover it. The same prompt without 'where' routes feature-development, and the other six AC-8 prompts and the AC-1 prompt already pass. Both AC-8 and NFR-1 cannot hold as written.",
+  "options": [
+    {
+      "option_key": "rescue-develop",
+      "label": "Keep AC-8 verbatim. Widen NFR-1 by one local rule: a message starting with develop or develops is not read as a question, as add and fix are today. Any develop-led prompt with where, how, why or a trailing question mark then stops being a question",
+      "one_line_preview": "Keep AC-8 verbatim. Widen NFR-1 by one local rule: a message starting with develop or develops is not read as a question, as add and fix are today. Any develop-led prompt with where, how, why or a trailing question mark then stops being a question",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reword-row",
+      "label": "Keep NFR-1. Change AC-8's sixth prompt to drop where, for example '... one generic branch, later we add 829 and 830 issue'. A develop-led prompt containing where keeps routing project-question and goes to a follow-up issue",
+      "one_line_preview": "Keep NFR-1. Change AC-8's sixth prompt to drop where, for example '... one generic branch, later we add 829 and 830 issue'. A develop-led prompt containing where keeps routing project-question and goes to a follow-up issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "rescue-develop",
+  "created_at": "2026-11-06T22:22:50.073Z",
+  "status": "resolved",
+  "change": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "The only close title concerns a branch name read as a ticket link, a different check and question. No earlier answer covers how a develop-led prompt containing where should route."
+  },
+  "chosen": "rescue-develop",
+  "rationale": "Owner chose this: keep AC-8 verbatim; one local exception to NFR-1 so a message starting with develop or develops is not read as a question, the same as add and fix.",
+  "resolved_at": "2026-11-06T22:24:10.858Z",
+  "decision_id": "D-01M6SFA6PSC3JAM2YTP52WDG92",
+  "fingerprint": "sha256:4908d3493e4104d8d87bd852f58585a3431252c24608ba90ace896589e6a2f94",
+  "question": "AC-8 sixth prompt cannot route to feature-development under NFR-1",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6SCTKHRJ3BVTHQY2T3XR3KV",
+  "ttl_until": "2026-11-13T22:22:50.073Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "rescue-develop",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-06T22:24:10.858Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose this: keep AC-8 verbatim; one local exception to NFR-1 so a message starting with develop or develops is not read as a question, the same as add and fix."
+  }
+}

@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildRepositoryVerificationContext } from '@/verification/repository/repository-context.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -11,7 +12,25 @@ import type { DecisionPacket } from '@/planning/decision-packet.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { persistLedgerSessionId } from '@/rag-ledger/session.js';
+import { sessionLedgerDir } from '@/session-ledger/ledger.js';
+import { startStage } from '@/stage-evidence/recorder.js';
+import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
+import { ImplementationReviewGate } from '@/verification/gates/implementation-review.js';
+
 import { ownInFlightChange } from '../shared.fixture.js';
+import { commitAll, git, writeRepoFile } from '../../pipeline/changed-files.fixture.js';
+import {
+  cleanupOwnChanges,
+  IN_TURN,
+  OPENED_AT,
+  ownChangeRepo,
+  TURN,
+  writeRuleReport,
+} from '../own-change.fixture.js';
 import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 function makeProject(): string {
@@ -270,5 +289,165 @@ describe('buildRepositoryVerificationContext', () => {
 
     expect(context.changed_files).toEqual(['src/feature.ts']);
     expect(context.code_changed).toBe(true);
+  });
+});
+
+describe('change_own_files', () => {
+  const Y = 'ses_host_y';
+  const X = 'ses_cached_x';
+
+  afterEach(cleanupOwnChanges);
+
+  it('AC-35: resolves from the Stop session, not the session in the cache', async () => {
+    const { root } = ownChangeRepo(X, 'feat/x');
+    git(root, ['switch', '-q', '-c', 'feat/y', 'main']);
+    openFeatureChange(root, Y, { adapter: 'claude-code', title: 'y', issue: null });
+    writeRepoFile(root, 'y.ts', 'export const y = 1;\n');
+    persistLedgerSessionId(root, X);
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+      hostSessionId: Y,
+    });
+
+    expect(context.change_own_files).toEqual(['y.ts']);
+  });
+
+  it('AC-35: with no Stop session the field stays unset, whatever the cache names', async () => {
+    const { root } = ownChangeRepo(X);
+    persistLedgerSessionId(root, X);
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'git-backstop',
+    });
+    expect(context.change_own_files).toBeUndefined();
+  });
+
+  function planningChangeOnOwnBranch(root: string, owner: string): void {
+    git(root, ['switch', '-q', '-c', 'feat/other', 'main']);
+    const dirName = openFeatureChange(root, owner, {
+      adapter: 'claude-code',
+      title: 'planning only',
+      issue: null,
+      now: () => OPENED_AT,
+    });
+    startStage(root, 'planning', {
+      sessionId: owner,
+      dirName,
+      adapter: 'claude-code',
+      now: () => OPENED_AT,
+    });
+  }
+
+  it('AC-34, AC-35: edits on its own change keep a session judged after it adopts another', () => {
+    const { root, dir } = ownChangeRepo(Y, 'feat/own');
+    startStage(root, 'development', {
+      sessionId: Y,
+      dirName: dir,
+      adapter: 'claude-code',
+      now: () => IN_TURN,
+    });
+    writeRepoFile(root, 'y.ts', 'export const y = 1;\n');
+    commitAll(root, 'feat: y');
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+
+    planningChangeOnOwnBranch(root, X);
+
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+  });
+
+  it('AC-34, AC-35: earlier work on its own change does not stop the skip on an adopted one', () => {
+    const { root } = ownChangeRepo(Y, 'feat/own');
+    planningChangeOnOwnBranch(root, X);
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: false,
+      reason: 'empty-change',
+    });
+  });
+
+  it('AC-34, AC-35: a session with no rows that adopts a planning change stays not-owner', () => {
+    const { root } = ownChangeRepo(X, 'feat/own');
+    planningChangeOnOwnBranch(root, X);
+    writeWorkflowState(root, Y, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+      turn_started_at: TURN,
+    });
+    expect(classifyCompletionEnforcement(root, Y)).toMatchObject({
+      enforce: false,
+      reason: 'not-owner',
+    });
+  });
+
+  describe('INV-5: a change past specification with an empty set is still judged', () => {
+    function withDevelopmentRow(): { root: string } {
+      const { root, dir } = ownChangeRepo(Y);
+      startStage(root, 'development', { sessionId: Y, dirName: dir, adapter: 'claude-code' });
+      writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+      return { root };
+    }
+
+    async function gateResult(root: string) {
+      writeRuleReport(root, 'a.ts');
+      const { context } = await buildRepositoryVerificationContext({
+        projectRoot: root,
+        origin: 'hook-completion',
+        hostSessionId: Y,
+      });
+      expect(context.change_own_files).toEqual([]);
+      return new ImplementationReviewGate().check(context);
+    }
+
+    it('its edits stashed', async () => {
+      const { root } = withDevelopmentRow();
+      git(root, ['stash', '-q']);
+      expect((await gateResult(root)).outcome).not.toBe('not-required');
+    });
+
+    it('its commit reverted', async () => {
+      const { root } = withDevelopmentRow();
+      commitAll(root, 'feat: b');
+      git(root, ['revert', '--no-edit', 'HEAD']);
+      expect((await gateResult(root)).outcome).not.toBe('not-required');
+    });
+
+    it('a change with planning rows only still reads not required', async () => {
+      const { root } = ownChangeRepo(Y);
+      const result = await gateResult(root);
+      expect(result.outcome).toBe('not-required');
+      expect(result.detail).toBe('no files changed in this change yet');
+    });
+  });
+
+  it('AC-20: a resumed session keeps its own dirty-baseline file and its finding fails', async () => {
+    const { root } = ownChangeRepo(Y);
+    writeRepoFile(root, 'a.ts', 'export const a = 2;\n');
+    const dirty = createHash('sha256')
+      .update(readFileSync(join(root, 'a.ts')))
+      .digest('hex');
+    writeFileSync(
+      join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, Y), '.dirty-baseline.json'),
+      JSON.stringify({ files: { 'a.ts': dirty } }),
+    );
+    writeRuleReport(root, 'a.ts');
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+      hostSessionId: Y,
+    });
+    expect(context.changed_files).not.toContain('a.ts');
+    expect(context.change_own_files).toEqual(['a.ts']);
+
+    const result = await new ImplementationReviewGate().check(context);
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('a.ts:3');
   });
 });

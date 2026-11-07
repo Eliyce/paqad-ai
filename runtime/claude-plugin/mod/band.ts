@@ -12,7 +12,14 @@ import {
   type ShellHeader,
 } from './shell';
 import { shipRail } from './ship';
-import { NO_WORKFLOW, statusEntryRoute, statusEntryRow } from './status-entry';
+import {
+  FEATURE_WORDS,
+  NO_WORKFLOW,
+  readyFeatureRoute,
+  routeFromEarlierTurn,
+  statusEntryRoute,
+  statusEntryRow,
+} from './status-entry';
 import {
   IDLE_WORDS,
   closedLine,
@@ -30,6 +37,7 @@ const ELLIPSIS = '…';
 
 export const FEATURE_DEVELOPMENT = 'feature-development';
 export const IDLE_HEADLINE = IDLE_WORDS;
+export const READY_FEATURE_LINE = `paqad  ${FEATURE_WORDS} · ${IDLE_WORDS}`;
 
 export function rowText(row: BandRow): string {
   return row.map((segment) => segment.text).join('');
@@ -129,7 +137,16 @@ export function layoutBand(
   if (mode !== 'band' && waitingOnHuman(snapshot, context.live)) {
     return { kind: 'line', row: needsYouLine() };
   }
-  if (snapshot && !snapshot.active) return { kind: 'none' };
+  if (snapshot && !snapshot.active) {
+    const drawsReady =
+      mode !== 'closed' &&
+      mode !== 'hidden' &&
+      readyFeatureRoute(snapshot) &&
+      !routeFromEarlierTurn(snapshot, context.turnStartedAt ?? null);
+    return drawsReady
+      ? { kind: 'line', row: truncateRow([{ text: READY_FEATURE_LINE }], size.columns) }
+      : { kind: 'none' };
+  }
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: 'line', row: closedLine(mode, view) };
   }

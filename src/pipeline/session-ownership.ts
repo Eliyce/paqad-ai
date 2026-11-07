@@ -5,16 +5,17 @@ import {
 } from '@/feature-evidence/adoption.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
-import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { isStageAgent } from '@/stage-evidence/agent-identity.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
+import { activeChangeFiles } from './change-evidence.js';
 import { isFeatureDevelopmentRoute, type RoutedWorkflow } from './routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from './workflow-state.js';
 
-export type CompletionSkipReason = 'not-owner' | 'detour';
+export type CompletionSkipReason = 'not-owner' | 'detour' | 'empty-change';
 
 export type CompletionEnforceReason =
   'edited-this-turn' | 'owner-feature-dev' | 'owner-unknown-route';
@@ -28,7 +29,20 @@ export type CompletionEnforcement = (
 
 const AGENT_AUTHORED_SOURCES = new Set(['live-mark', 'redo']);
 
+const PRE_EDIT_STAGES: ReadonlySet<string> = new Set([
+  'ticket_intake',
+  'planning',
+  'specification',
+]);
+
 export function sessionOwnedRows(projectRoot: string, sessionId: string): SessionLedgerRow[] {
+  return ownedRowsByChange(projectRoot, sessionId).flatMap(({ rows }) => rows);
+}
+
+function ownedRowsByChange(
+  projectRoot: string,
+  sessionId: string,
+): { dirName: string; rows: SessionLedgerRow[] }[] {
   let dirNames: string[];
   try {
     dirNames = listInFlightFeatures(projectRoot);
@@ -40,8 +54,9 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
     dirNames = [...dirNames, ownBundle];
   }
   const lastPrompt = lastPromptAt(projectRoot, sessionId);
-  return dirNames.flatMap((dirName) =>
-    readFeatureStageUnit(projectRoot, dirName).filter(
+  return dirNames.map((dirName) => ({
+    dirName,
+    rows: readFeatureStageUnit(projectRoot, dirName).filter(
       (row) =>
         (row.session_id === sessionId &&
           typeof row.evidence_source === 'string' &&
@@ -50,7 +65,7 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
           isStageAgentRow(row) &&
           stageAgentRowIsOwn(row, sessionId, lastPrompt)),
     ),
-  );
+  }));
 }
 
 function isReopened(projectRoot: string, dirName: string): boolean {
@@ -132,6 +147,35 @@ export function editedDevelopmentThisTurn(projectRoot: string, sessionId: string
   return editedThisTurn(development, readWorkflowState(projectRoot, sessionId));
 }
 
+function hasRowPastSpecification(rows: readonly SessionLedgerRow[]): boolean {
+  return rows.some((row) => typeof row.stage === 'string' && !PRE_EDIT_STAGES.has(row.stage));
+}
+
+export function changePastSpecification(projectRoot: string, sessionId: string): boolean {
+  const dirName = currentFeature(projectRoot, sessionId);
+  return dirName !== null && hasRowPastSpecification(readFeatureStageUnit(projectRoot, dirName));
+}
+
+function isEmptyChange(projectRoot: string, sessionId: string, state: WorkflowState): boolean {
+  const turnStart = state.turn_started_at === undefined ? NaN : Date.parse(state.turn_started_at);
+  if (Number.isNaN(turnStart)) return false;
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) return false;
+  const elsewhere = ownedRowsByChange(projectRoot, sessionId)
+    .filter((change) => change.dirName !== dirName)
+    .flatMap((change) => change.rows);
+  if (editedThisTurn(elsewhere, state)) return false;
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  if (hasRowPastSpecification(rows)) return false;
+  const endedThisTurn = rows.some((row) => {
+    if (row.kind !== 'stage_end') return false;
+    const at = Date.parse(rowRecordedAt(row) ?? '');
+    return Number.isNaN(at) || at >= turnStart;
+  });
+  if (endedThisTurn) return false;
+  return activeChangeFiles(projectRoot, sessionId)?.length === 0;
+}
+
 export function classifyCompletionEnforcement(
   projectRoot: string,
   sessionId?: string | null,
@@ -151,6 +195,9 @@ export function classifyCompletionEnforcement(
 
   if (owned.length === 0) {
     return { enforce: false, reason: 'not-owner', activeWorkflow };
+  }
+  if (isEmptyChange(projectRoot, resolved, state)) {
+    return { enforce: false, reason: 'empty-change', activeWorkflow };
   }
   if (editedThisTurn(owned, state)) {
     return { enforce: true, reason: 'edited-this-turn', activeWorkflow };

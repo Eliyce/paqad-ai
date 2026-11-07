@@ -502,6 +502,8 @@ function usesPathEditVerb(normalized: string): boolean {
 
 const POLITE_LEAD_INS = ['can you', 'could you', 'would you', 'please', 'let s'];
 
+const DEVELOP_LEADS = new Set(['develop', 'develops']);
+
 export function isQuestionRoute(requestText: string): boolean {
   const normalized = normalizeText(requestText);
   const tokens = normalized.length > 0 ? normalized.split(' ') : [];
@@ -515,7 +517,7 @@ export function isQuestionRoute(requestText: string): boolean {
 
 function isPoliteCodeRequest(normalized: string): boolean {
   const tokens = normalized.length > 0 ? normalized.split(' ') : [];
-  if (tokens[0] && CODE_VERBS.has(tokens[0])) {
+  if (tokens[0] && (CODE_VERBS.has(tokens[0]) || DEVELOP_LEADS.has(tokens[0]))) {
     return true;
   }
   return POLITE_LEAD_INS.some((lead) => {
@@ -539,7 +541,16 @@ export function hasCodeNegation(normalized: string): boolean {
 }
 
 const CREATE_VERBS = ['create', 'file', 'open', 'write', 'draft'];
-const ARTIFACT_NOUNS = ['issue', 'ticket', 'bug report', 'write up'];
+const ARTIFACT_NOUNS: readonly (readonly string[])[] = [
+  ['issue'],
+  ['issues'],
+  ['ticket'],
+  ['tickets'],
+  ['bug', 'report'],
+  ['bug', 'reports'],
+  ['write', 'up'],
+  ['write', 'ups'],
+];
 
 const LEADING_CODE_VERBS = new Set([
   'fix',
@@ -552,15 +563,110 @@ const LEADING_CODE_VERBS = new Set([
   'refactors',
   'add',
   'adds',
+  'develop',
+  'develops',
 ]);
 
-export function isCreateArtifactAsk(normalized: string): boolean {
-  if (LEADING_CODE_VERBS.has(tokensOf(normalized)[0] ?? '')) {
+const NEGATION_WORDS = new Set(['not', 'dont', 'never']);
+
+const NEGATION_FILLERS = new Set(['actually', 'even', 'ever', 'go', 'just', 'really', 'to', 'yet']);
+
+const VERB_TO_NOUN_REACH = 4;
+
+const NEVER_TICKET_PREFIXES = new Set([
+  'a',
+  'an',
+  'about',
+  'after',
+  'and',
+  'at',
+  'before',
+  'by',
+  'for',
+  'from',
+  'in',
+  'of',
+  'on',
+  'or',
+  'per',
+  'the',
+  'to',
+  'until',
+  'with',
+]);
+
+function startsWithLeadingCodeVerb(tokens: readonly string[]): boolean {
+  if (LEADING_CODE_VERBS.has(tokens[0] ?? '')) {
+    return true;
+  }
+  return tokens[0] === 'work' && tokens[1] === 'on';
+}
+
+function isNegationAt(tokens: readonly string[], index: number): boolean {
+  const token = tokens[index];
+  if (token === undefined) {
     return false;
   }
-  const hasCreateVerb = CREATE_VERBS.some((verb) => matchesWholeWord(normalized, verb));
-  const hasArtifactNoun = ARTIFACT_NOUNS.some((noun) => normalized.includes(normalizeText(noun)));
-  if (!hasCreateVerb || !hasArtifactNoun) {
+  return NEGATION_WORDS.has(token) || (token === 't' && tokens[index - 1] === 'don');
+}
+
+function isNegatedAt(tokens: readonly string[], index: number): boolean {
+  if (isNegationAt(tokens, index - 1)) {
+    return true;
+  }
+  if (NEGATION_FILLERS.has(tokens[index - 1] ?? '') && isNegationAt(tokens, index - 2)) {
+    return true;
+  }
+  return tokens[index - 3] === 'no' && tokens[index - 2] === 'need' && tokens[index - 1] === 'to';
+}
+
+function isNumberToken(token: string | undefined): boolean {
+  return token !== undefined && /^\d+$/.test(token);
+}
+
+function namesExistingTicket(tokens: readonly string[], afterNoun: number): boolean {
+  const next = tokens[afterNoun];
+  if (isNumberToken(next)) {
+    return true;
+  }
+  return (
+    next !== undefined &&
+    !NEVER_TICKET_PREFIXES.has(next) &&
+    /^[a-z]+$/.test(next) &&
+    isNumberToken(tokens[afterNoun + 1])
+  );
+}
+
+function nounLengthAt(tokens: readonly string[], index: number): number {
+  const noun = ARTIFACT_NOUNS.find((words) =>
+    words.every((word, offset) => tokens[index + offset] === word),
+  );
+  return noun?.length ?? 0;
+}
+
+function asksForArtifactFrom(tokens: readonly string[], verbIndex: number): boolean {
+  const last = Math.min(verbIndex + VERB_TO_NOUN_REACH, tokens.length - 1);
+  for (let index = verbIndex; index <= last; index += 1) {
+    const length = nounLengthAt(tokens, index);
+    if (length > 0 && !namesExistingTicket(tokens, index + length)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isCreateArtifactAsk(normalized: string): boolean {
+  const tokens = tokensOf(normalized);
+  if (startsWithLeadingCodeVerb(tokens)) {
+    return false;
+  }
+  const asked = tokens.some(
+    (token, index) =>
+      CREATE_VERBS.includes(token) &&
+      !isNegatedAt(tokens, index) &&
+      asksForArtifactFrom(tokens, index),
+  );
+  if (!asked) {
     return false;
   }
   const alsoImplements = /\b(implement|and (?:fix|add|build|change|update))\b/.test(normalized);

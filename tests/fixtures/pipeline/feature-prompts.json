@@ -1,0 +1,22 @@
+{
+  "threeSessionPrompt": "develop issue 830\nsmall commits\none branch\nDo not create PR because in this branch we later add 829 and 830 issue",
+  "developPrompts": [
+    "develop issue 830",
+    "develop issue 830\nsmall commits\none branch",
+    "develop issue 830\nDo not create PR",
+    "develop issue 830\nDo not create PR because in this branch we later add 829 and 830 issue",
+    "develop issue 830\nlater we add 829 issue",
+    "develop only issue 830 and create one generic branch where we later add 829 and 830 issue",
+    "develop issue 830\nDo not file a PR"
+  ],
+  "workOnRoutes": [
+    ["work on issue 830\nDo not create PR", "no-workflow"],
+    ["work on issue 830", "no-workflow"],
+    ["work on the login page", "no-workflow"],
+    ["please work on issue 830", "no-workflow"],
+    ["work on the login bug", "feature-development"],
+    ["develops issue 830", "feature-development"]
+  ],
+  "namedTicketAsk": "create issue 830",
+  "workOnThenCreate": "work on issue 830 create an issue for it"
+}

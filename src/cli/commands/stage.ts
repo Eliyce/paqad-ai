@@ -25,7 +25,12 @@ import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evide
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { addedLinesSince } from '@/pipeline/git-paths.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
-import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
+import { announceRouteSwitch } from '@/pipeline/route-switch.js';
+import {
+  explicitSessionHint,
+  keepingLedgerSessionCache,
+  resolveSessionId,
+} from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { bundleArtifactFile, checkBundleArtifacts } from '@/stage-evidence/bundle-artifact.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
@@ -73,8 +78,7 @@ interface StageOptions {
 
 function runStageSettings(options: StageOptions): void {
   const root = options.projectRoot;
-  const sessionHint =
-    options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionHint = explicitSessionHint(options.session);
   const sessionId = sessionHint?.trim() ? sessionHint.trim() : resolveSessionId(root, null);
   try {
     const settings = writeStageSettings(root, sessionId);
@@ -89,6 +93,8 @@ interface StageStartRaises {
   authoring: FeatureAuthoringLaneRaise | null;
   grown: FeatureLaneMove | null;
 }
+
+const STAGES_THAT_KEEP_THE_ROUTE: ReadonlySet<string> = new Set(['delivery', 'ticket_intake']);
 
 const NO_RAISES: StageStartRaises = { authoring: null, grown: null };
 
@@ -252,7 +258,7 @@ function runStageBeginPhase(stage: string | undefined, options: StageOptions): v
   const root = options.projectRoot;
   const name = stage ?? '';
   const agent = options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined;
-  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const hint = explicitSessionHint(options.session);
   const sessionId = resolveSessionId(root, hint);
   const { exitCode, output } = STAGE_AGENT_STAGES.includes(name)
     ? runStageBegin({
@@ -289,7 +295,7 @@ function runStageRepair(rowArg: string | undefined, options: StageOptions): void
     process.exitCode = 2;
     return;
   }
-  const hint = options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const hint = explicitSessionHint(options.session);
   const sessionId = resolveSessionId(root, hint);
   const dirName = currentFeature(root, sessionId);
   if (dirName === null) {
@@ -353,7 +359,7 @@ export function createStageCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
-      'Session id to record under (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
+      'Session id to record under (defaults to SE_SESSION / CLAUDE_SESSION_ID / CLAUDE_CODE_SESSION_ID, then the shared ledger-session cache)',
     )
     .option(
       '--artifact <path>',
@@ -420,8 +426,7 @@ export function createStageCommand(): Command {
         return;
       }
       const root = options.projectRoot;
-      const sessionHint =
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+      const sessionHint = explicitSessionHint(options.session);
       const sessionId = resolveSessionId(root, sessionHint);
       const sessionSource = sessionHint?.trim() ? 'env' : 'cache';
       let artifactPaths: string[] | undefined;
@@ -494,6 +499,9 @@ export function createStageCommand(): Command {
       if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
+      if (phase === 'start' && sessionSource === 'env' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
+        announceRouteSwitch(root, sessionId, 'stage-start');
+      }
       console.log(
         JSON.stringify({
           recorded: true,

@@ -19,13 +19,20 @@ import {
   readFeatureStageUnit,
   resolveFeatureRef,
 } from '@/feature-evidence/stage-ledger.js';
+import { qualifyHudChange } from '@/hud/change-scope.js';
+import { readRouteOverrides } from '@/pipeline/route-override-log.js';
+import { ROUTE_SWITCHED_LINE } from '@/pipeline/route-switch.js';
+import { appendRouteTurn } from '@/pipeline/route-turns.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
-import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
+import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { sessionLedgerDir } from '@/session-ledger/ledger.js';
 import { planLaneResize } from '@/feature-evidence/lane-resize.js';
 import { writePendingImpact, writePendingLane } from '@/stage-evidence/pending-lane.js';
-import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { STAGE_AGENT_KIND, STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 import { buildStageBrief } from '@/stage-isolation/stage-brief.js';
+import { cleanupScopeFixtures, repoRoot } from '../hud/scope-fixtures.js';
 import {
   buildBundleCompletenessConfig,
   stageIsolationStatus,
@@ -36,6 +43,7 @@ describe('paqad-ai stage command', () => {
   const SES = 'ses_cli_stage';
 
   beforeEach(() => {
+    vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-stage-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
   });
@@ -750,6 +758,152 @@ describe('paqad-ai stage command', () => {
 
       const minted = currentFeature(root, resolveSessionId(root, SES));
       expect(readFeatureRecord(root, minted!)?.lane).toBe('fast');
+    });
+  });
+
+  describe('opening a change moves the route', () => {
+    const TURN = '2020-01-01T00:00:00.000Z';
+
+    beforeEach(() => {
+      root = repoRoot();
+      writeWorkflowState(root, SES, {
+        active: { workflow: 'project-question' },
+        paused: [],
+        turn_started_at: TURN,
+      });
+      appendRouteTurn(root, SES, { at: TURN, workflow: 'project-question' });
+      writeSessionRoute(root, { workflow: 'project-question', query: 'q' }, SES);
+    });
+
+    afterEach(cleanupScopeFixtures);
+
+    it('AC-3: stage start planning moves project-question to feature and qualifies the snapshot', async () => {
+      const lines = await run('start', 'planning', '--title', 'x');
+
+      const state = readWorkflowState(root, SES);
+      expect(state.active?.workflow).toBe('feature-development');
+      expect(state.turn_started_at).toBe(TURN);
+      expect(readSessionRoute(root, SES)?.workflow).toBe('feature-development');
+      expect(qualifyHudChange(root, SES).reason).toBe('qualified');
+      expect(readRouteOverrides(root, SES)).toEqual([
+        expect.objectContaining({
+          source: 'stage-start',
+          hook_label: 'project-question',
+          agent_label: 'feature-development',
+        }),
+      ]);
+      expect(lines).toContain(ROUTE_SWITCHED_LINE);
+      expect(lines.indexOf(ROUTE_SWITCHED_LINE)).toBeLessThan(lines.length - 1);
+      expect(JSON.parse(lines.at(-1)!)).toMatchObject({ recorded: true, stage: 'planning' });
+    });
+
+    describe('a stage start with no session flag', () => {
+      async function startBare(): Promise<string[]> {
+        const lines: string[] = [];
+        vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));
+        await createStageCommand().parseAsync(
+          ['start', 'planning', '--title', 'x', '--project-root', root],
+          { from: 'user' },
+        );
+        return lines;
+      }
+
+      beforeEach(() => {
+        vi.stubEnv('SE_SESSION', undefined);
+        vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+        vi.stubEnv('CLAUDE_CODE_SESSION_ID', undefined);
+      });
+
+      it('AC-3: CLAUDE_CODE_SESSION_ID counts as explicit and moves the route', async () => {
+        vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+        expect(readRouteOverrides(root, SES)).toEqual([
+          expect.objectContaining({ source: 'stage-start' }),
+        ]);
+        expect(lines).toContain(ROUTE_SWITCHED_LINE);
+      });
+
+      it('AC-3: an id found only in the shared cache leaves the route', async () => {
+        resolveSessionId(root, SES);
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+        expect(readRouteOverrides(root, SES)).toEqual([]);
+        expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+      });
+    });
+
+    it('AC-3: a paused feature entry is restored, not duplicated', async () => {
+      writeWorkflowState(root, SES, {
+        active: { workflow: 'project-question' },
+        paused: [{ workflow: 'feature-development', lane: 'fast' }],
+        turn_started_at: TURN,
+      });
+      await run('start', 'planning', '--title', 'x');
+      expect(readWorkflowState(root, SES)).toMatchObject({
+        active: { workflow: 'feature-development', lane: 'fast' },
+        paused: [],
+      });
+    });
+
+    it.each(['delivery', 'ticket_intake'])(
+      'AC-13: stage start %s on its own leaves the route',
+      async (stage) => {
+        const lines = await run('start', stage);
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+        expect(readRouteOverrides(root, SES)).toEqual([]);
+        expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+      },
+    );
+
+    it('AC-13: a refused stage start leaves the route', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      await run('start', 'nonsense');
+      expect(process.exitCode).toBe(1);
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+      expect(readRouteOverrides(root, SES)).toEqual([]);
+    });
+
+    it('AC-13: an already-feature route writes no row and prints no line', async () => {
+      writeWorkflowState(root, SES, { active: { workflow: 'feature-development' }, paused: [] });
+      const lines = await run('start', 'planning', '--title', 'x');
+      expect(readRouteOverrides(root, SES)).toEqual([]);
+      expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+    });
+
+    it('AC-14: a switched route stays qualified in that turn and after the next feature prompt', async () => {
+      await run('start', 'planning', '--title', 'x');
+      expect(qualifyHudChange(root, SES).reason).toBe('qualified');
+
+      const next = new Date(Date.now() + 60_000).toISOString();
+      appendRouteTurn(root, SES, { at: next, workflow: 'feature-development' });
+      writeWorkflowState(root, SES, {
+        ...readWorkflowState(root, SES),
+        turn_started_at: next,
+      });
+      expect(qualifyHudChange(root, SES).reason).toBe('qualified');
+    });
+
+    it('AC-17: a second stage start records no second switch and prints no second line', async () => {
+      const first = await run('start', 'planning', '--title', 'x');
+      vi.restoreAllMocks();
+      const second = await run('end', 'planning');
+      vi.restoreAllMocks();
+      const third = await run('start', 'specification');
+      expect(first).toContain(ROUTE_SWITCHED_LINE);
+      expect(second).not.toContain(ROUTE_SWITCHED_LINE);
+      expect(third).not.toContain(ROUTE_SWITCHED_LINE);
+      expect(readRouteOverrides(root, SES)).toHaveLength(1);
+    });
+
+    it('AC-13: a failing switch never refuses the stage start', async () => {
+      const statePath = join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, SES));
+      rmSync(join(statePath, '.workflow-state.json'));
+      mkdirSync(join(statePath, '.workflow-state.json'));
+      const lines = await run('start', 'planning', '--title', 'x');
+      expect(process.exitCode).toBeUndefined();
+      expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+      expect(JSON.parse(lines.at(-1)!)).toMatchObject({ recorded: true });
     });
   });
 });

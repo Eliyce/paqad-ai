@@ -14,6 +14,8 @@ Every message is routed before any work starts. Routing answers two questions: i
 ## What routing gets right
 
 - **Talking about the work is not a code change.** "Post this as an issue", "update the draft", "link the ticket" or "recheck and reconfirm the plan" go to project question, not feature development. A real code request that mentions a report, a plan or a doc still goes to feature development: "fix the typo in the report" or "add retry logic to the report generator" stay code changes. A message that names a source path, a code verb such as fix or build, or a part of the product such as a page or an endpoint is always treated as code.
+- **Asking to build from a ticket is not asking for a ticket.** "Develop issue N, do not create a new ticket" is feature work. Only a real request to write one, such as "create an issue for this", goes to project question.
+- **Starting with "develop" means build.** A message that starts with "develop" is feature work, even with a "where" or "what" later in it. "Can you develop this?" and "how do we develop this?" are still questions.
 - **A subagent's report is not you talking.** When a subagent hands its report back, or a background task posts a notice, paqad does not route it as if you had typed it. This holds wherever the notice banner sits in the message, including when the report comes first.
 
 ## Correcting a wrong label
@@ -23,6 +25,14 @@ The hook's label is a quick guess. When the agent disagrees, it runs `paqad-ai r
 - **Only your own edits hold you in place.** Once your session has edited source this turn, the route cannot be moved off feature development: a change under way stays governed as a change. Another session working in the same folder no longer blocks your correction.
 - **No session id, no block.** If paqad cannot tell which session is asking, it allows the correction and writes why in the route override log, so the skip is on the record.
 - **Going back resumes.** If you set the route back to a workflow that was paused, paqad picks that paused change up again, with its plan, spec and lane, and leaves no stray paused copy behind.
+
+## Opening a change fixes the route
+
+If the first guess was wrong and the agent opens a change anyway, the route moves to feature development on its own, once, and says so on screen. This happens when a stage starts or the lane is set, and the move is written to the route override log. Delivery and ticket intake do not move it, and neither does a command that could only find its session in the shared cache, because that could belong to someone else's session.
+
+Claude Code's own session id counts as naming the session, so a first stage start from a misrouted session moves the route without extra setup.
+
+The agent also sees the route and how to correct it from the very first prompt of a session, and is told its session id on every route.
 
 ## Lanes only go up, with one exception
 

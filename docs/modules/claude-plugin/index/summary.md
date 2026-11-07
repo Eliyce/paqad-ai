@@ -125,6 +125,9 @@ call, so a static reader sees it:
     `offline` or `signed out`, and a Bash `git push` in this session or a pending CI on a newer PR
     head starts it again. It is
     always on, with no setting.
+- Before a change opens on the feature route, it draws the same card with the headline
+  `Paqad Getting Ready` and every stage grey, or one line in the terminal. See
+  [the HUD contract](../../../instructions/design-system/hud.md).
 - It draws finished stages green: bars in `pass`, labels in `passText` with a check, and a
   green `✓` on the terminal. When the last mandatory stage ends while the HUD watches
   (`settledChange`, first seen within `SETTLE_WINDOW_MS` of its end, kept per change in the

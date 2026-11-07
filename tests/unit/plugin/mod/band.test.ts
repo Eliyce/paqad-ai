@@ -413,3 +413,45 @@ describe('live subagents on the terminal', () => {
     expect(layout.activity.map(rowText)).toEqual(['  Bash: pnpm test', '  Grep: ciWatch']);
   });
 });
+
+describe('the terminal line before a change opens', () => {
+  const ready = (over: Record<string, unknown> = {}) =>
+    parseSnapshot(
+      fileText(
+        snapshot({
+          route: 'feature-development',
+          active: false,
+          scope: { qualified: false, reason: 'no-change-yet' },
+          ...over,
+        }),
+      ),
+    )!;
+  const context = { now: NOW, live: IDLE_LIVE };
+  const size = { columns: 80, maxRows: 12 };
+
+  it('AC-26: shows one line, with no clock or live mark', () => {
+    const layout = layoutBand(ready(), size, context);
+    expect(layout.kind).toBe('line');
+    if (layout.kind !== 'line') return;
+    expect(rowText(layout.row)).toBe('paqad  Feature development · Getting ready');
+  });
+
+  it.each([
+    ['closed', { minimised: false, closed: true, hidden: false }],
+    ['hidden', { minimised: false, closed: false, hidden: true }],
+  ])('AC-26: a %s band stays none', (_label, visibility) => {
+    expect(layoutBand(ready(), size, context, visibility)).toEqual({ kind: 'none' });
+  });
+
+  it('AC-26: a snapshot older than the running turn stays none', () => {
+    const older = Date.parse(ready().generated_at) + 1000;
+    expect(layoutBand(ready(), size, { ...context, turnStartedAt: older })).toEqual({
+      kind: 'none',
+    });
+  });
+
+  it('AC-26: any other reason stays none', () => {
+    const closed = ready({ scope: { qualified: false, reason: 'closed' } });
+    expect(layoutBand(closed, size, context)).toEqual({ kind: 'none' });
+  });
+});

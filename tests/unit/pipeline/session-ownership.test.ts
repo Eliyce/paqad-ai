@@ -19,6 +19,14 @@ import {
 import { writeWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
+import { commitAll, git, writeRepoFile } from './changed-files.fixture.js';
+import {
+  cleanupOwnChanges,
+  IN_TURN,
+  OPENED_AT,
+  ownChangeRepo,
+} from '../verification/own-change.fixture.js';
+
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-session-ownership-'));
@@ -480,5 +488,125 @@ describe('stage-agent work counts as the orchestrator session’s own', () => {
       enforce: false,
       reason: 'detour',
     });
+  });
+});
+
+describe('classifyCompletionEnforcement on a change with no edits', () => {
+  const S = 'ses_empty';
+
+  afterEach(cleanupOwnChanges);
+
+  it('AC-34: planning rows, no files and no stage ended this turn skip as empty-change', () => {
+    const { root } = ownChangeRepo(S);
+    expect(classifyCompletionEnforcement(root, S)).toMatchObject({
+      enforce: false,
+      reason: 'empty-change',
+    });
+  });
+
+  it('AC-4: a planning stage started in this turn still skips', () => {
+    const { root, dir } = ownChangeRepo(S);
+    endStage(
+      root,
+      'planning',
+      {},
+      {
+        sessionId: S,
+        dirName: dir,
+        adapter: 'claude-code',
+        now: () => OPENED_AT,
+      },
+    );
+    startStage(root, 'specification', {
+      sessionId: S,
+      dirName: dir,
+      adapter: 'claude-code',
+      now: () => IN_TURN,
+    });
+    expect(classifyCompletionEnforcement(root, S).reason).toBe('empty-change');
+  });
+
+  it('AC-23: the first changed file enforces', () => {
+    const { root } = ownChangeRepo(S);
+    writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-23: a committed file enforces', () => {
+    const { root } = ownChangeRepo(S);
+    writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+    commitAll(root, 'feat: b');
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: a stage ended this turn enforces', () => {
+    const { root, dir } = ownChangeRepo(S);
+    endStage(
+      root,
+      'planning',
+      {},
+      {
+        sessionId: S,
+        dirName: dir,
+        adapter: 'claude-code',
+        now: () => IN_TURN,
+      },
+    );
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: a stage ended this turn by another session enforces', () => {
+    const { root, dir } = ownChangeRepo(S);
+    endStage(
+      root,
+      'planning',
+      {},
+      {
+        sessionId: 'ses_other',
+        dirName: dir,
+        adapter: 'claude-code',
+        now: () => IN_TURN,
+      },
+    );
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: a development row with an empty tree enforces', () => {
+    const { root, dir } = ownChangeRepo(S);
+    startStage(root, 'development', {
+      sessionId: S,
+      dirName: dir,
+      adapter: 'claude-code',
+      now: () => OPENED_AT,
+    });
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: HEAD on another branch enforces', () => {
+    const { root } = ownChangeRepo(S);
+    git(root, ['switch', '-q', 'main']);
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: a missing turn stamp enforces', () => {
+    const { root } = ownChangeRepo(S);
+    writeWorkflowState(root, S, { active: { workflow: 'feature-development' }, paused: [] });
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: an unparseable turn stamp enforces', () => {
+    const { root } = ownChangeRepo(S);
+    writeWorkflowState(root, S, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+      turn_started_at: 'soon',
+    });
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
+  });
+
+  it('AC-34: a project that is not a git repo enforces', () => {
+    const { root } = ownChangeRepo(S);
+    rmSync(join(root, '.git'), { recursive: true, force: true });
+    expect(classifyCompletionEnforcement(root, S).enforce).toBe(true);
   });
 });

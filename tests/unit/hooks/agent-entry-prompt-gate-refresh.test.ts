@@ -167,6 +167,33 @@ describe.skipIf(process.platform === 'win32')(
       expect(result.stdout).toContain('MUST load the paqad framework');
     });
 
+    it.each(MACHINE_PROMPTS)(
+      'AC-12: %s gets the load directive alone on the first prompt',
+      (_label, prompt) => {
+        const result = runGate(harness, projectRoot, prompt, 'machine');
+        expect(result.status).toBe(0);
+        expect(result.stdout.startsWith('[paqad]')).toBe(true);
+        expect(result.stdout).toContain('MUST load the paqad framework');
+        expect(result.stdout).not.toContain('routed to');
+        expect(result.stdout).not.toContain('first guess');
+        expect(result.stdout).not.toContain('SE_SESSION=');
+      },
+    );
+
+    it('AC-12: a routing failure gets the load directive alone and does not block', () => {
+      const bare = buildHarness(false);
+      try {
+        const result = runGate(bare, projectRoot, 'add a logout button', 'no-route');
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('MUST load the paqad framework');
+        expect(result.stdout).not.toContain('routed to');
+        expect(result.stdout).not.toContain('first guess');
+        expect(result.stdout).not.toContain('SE_SESSION=');
+      } finally {
+        rmSync(bare.pkg, { recursive: true, force: true });
+      }
+    });
+
     it('AC-58: with dist missing a human prompt is not blocked and spawns no refresh', async () => {
       const bare = buildHarness(false);
       try {

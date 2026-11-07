@@ -208,6 +208,64 @@ describe('qualifyHudChange', () => {
   });
 });
 
+describe('qualifyHudChange before a change opens', () => {
+  const STAMP = '2026-06-01T10:00:00.000Z';
+  const LATER_STAMP = '2100-01-01T10:00:00.000Z';
+
+  it('AC-31: a stamped feature route with no row since reads no-change-yet, during and after the turn', () => {
+    const root = repoRoot();
+    setRoute(root, S, 'feature-development', STAMP);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-change-yet' });
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-change-yet' });
+  });
+
+  it('AC-25: a detached HEAD reads no-active-change', () => {
+    const root = repoRoot();
+    git(root, 'checkout', '-q', '--detach');
+    setRoute(root, S, 'feature-development', STAMP);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
+  });
+
+  it.each([undefined, 'not a time'])('AC-25: a stamp of %s reads no-active-change', (stamp) => {
+    const root = repoRoot();
+    setRoute(root, S, 'feature-development', stamp);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
+  });
+
+  it('AC-25: a row this session wrote on a closed change reads no-active-change, then a later prompt no-change-yet', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/merged', true);
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    closeActiveFeature(root, S);
+    checkout(root, 'main');
+    setRoute(root, S, 'feature-development', STAMP);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
+
+    setRoute(root, S, 'feature-development', LATER_STAMP);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-change-yet' });
+  });
+
+  it('AC-25: another session writing rows does not count', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/other', true);
+    openChangeHere(root, 'ses-other');
+    runStage(root, 'ses-other', 'planning');
+    closeActiveFeature(root, 'ses-other');
+    checkout(root, 'main');
+    setRoute(root, S, 'feature-development', STAMP);
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-change-yet' });
+  });
+
+  it('AC-24: a snapshot of no-change-yet stays inactive with a scope the mod can read', () => {
+    const root = repoRoot();
+    setRoute(root, S, 'feature-development', STAMP);
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.active).toBe(false);
+    expect(snapshot.scope).toEqual({ qualified: false, reason: 'no-change-yet' });
+  });
+});
+
 describe('an unqualified snapshot carries no change story', () => {
   it('a question-only session over an old unclosed change shows nothing of it', () => {
     const root = repoRoot();

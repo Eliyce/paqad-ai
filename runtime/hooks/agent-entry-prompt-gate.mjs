@@ -33,6 +33,9 @@ const TASK_LIST_SENTENCES = {
   fast: 'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
 };
 
+const FIRST_GUESS_LINE =
+  "[paqad] This is the hook's first guess. If you route this message to a different workflow, run paqad-ai route set <workflow> before any other paqad-ai call.";
+
 function taskListSentence(lane) {
   return lane === 'fast' ? TASK_LIST_SENTENCES.fast : TASK_LIST_SENTENCES.full;
 }
@@ -113,7 +116,7 @@ async function refreshForHumanPrompt(stdin, projectRoot, sessionId) {
   }
 }
 
-async function emitRoute(stdin, projectRoot, sink) {
+async function emitRoute(stdin, projectRoot, sink, afterNarration = '') {
   try {
     const parsed = JSON.parse(stdin);
     const request = typeof parsed?.prompt === 'string' ? parsed.prompt : '';
@@ -133,9 +136,9 @@ async function emitRoute(stdin, projectRoot, sink) {
       return null;
     }
     if (narration) {
-      sink(`${narration}\n`);
+      sink(`${narration}\n${afterNarration}`);
     }
-    if (routed === 'feature-development' && sessionId) {
+    if (sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
     if (routed === 'feature-development') {
@@ -158,14 +161,15 @@ async function main(stdin) {
   const sessionId = sessionIdFromStdin(stdin);
   const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
-    await emitRoute(stdin, projectRoot, () => {});
+    let firstRouteBuf = '';
+    await emitRoute(stdin, projectRoot, (text) => (firstRouteBuf += text), `${FIRST_GUESS_LINE}\n`);
     await refreshForHumanPrompt(stdin, projectRoot, sessionId);
     const message = directive(state, entryFile(), sentinelRelative(sessionId));
     if ((process.env.PAQAD_AGENT_ENTRY_MODE || 'soft') === 'hard') {
       process.stderr.write(message);
       return 2;
     }
-    emitInjection(message);
+    emitInjection(`${firstRouteBuf}${message}`);
     return 0;
   }
 

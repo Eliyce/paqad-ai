@@ -11,6 +11,13 @@ import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { writeReviewDigest } from '@/review-digest/index.js';
 
 import {
+  cleanupOwnChanges,
+  ownChangeRepo,
+  writeFailingChecks,
+  writeRuleReport,
+} from '../verification/own-change.fixture.js';
+
+import {
   DELIVERED_FILES,
   STALE_CACHE_PATH,
   commitAll,
@@ -209,5 +216,36 @@ describe('writeReviewDigest on the stale-digest scenario', () => {
     expect(markdown).toContain(`  - …and ${expected.length - listed.length} more`);
     expect(listed).toContain(CACHED[0]);
     for (const file of CACHED.slice(1)) expect(markdown).not.toContain(file);
+  });
+});
+
+describe('writeReviewDigest limited to the change', () => {
+  const S = 'ses_digest_scope';
+
+  afterEach(cleanupOwnChanges);
+
+  it('AC-21: lists only the change own files and rows over a stale digest', async () => {
+    const { root } = ownChangeRepo(S);
+    writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+    writeRuleReport(root, 'a.ts', 'b.ts');
+    mkdirSync(dirname(join(root, PATHS.REVIEW_DIGEST)), { recursive: true });
+    writeFileSync(join(root, PATHS.REVIEW_DIGEST), 'stale digest naming a.ts:3', 'utf8');
+
+    const result = await writeReviewDigest(root, S);
+
+    expect(result.findings).toBe(1);
+    expect(result.markdown).toContain('b.ts');
+    expect(result.markdown).not.toContain('a.ts');
+    expect(readFileSync(join(root, PATHS.REVIEW_DIGEST), 'utf8')).toBe(result.markdown);
+  });
+
+  it('AC-22: a checks row on an untouched file stays in the digest', async () => {
+    const { root } = ownChangeRepo(S);
+    writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
+    writeFailingChecks(root, 'tests/a.test.ts');
+
+    const result = await writeReviewDigest(root, S);
+
+    expect(result.markdown).toContain('tests/a.test.ts');
   });
 });

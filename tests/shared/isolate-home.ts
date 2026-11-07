@@ -12,6 +12,7 @@ process.env.USERPROFILE = home;
 
 delete process.env.SE_AGENT_ID;
 delete process.env.SE_SESSION;
+delete process.env.CLAUDE_CODE_SESSION_ID;
 
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
