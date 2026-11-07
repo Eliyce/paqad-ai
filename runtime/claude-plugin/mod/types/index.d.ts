@@ -267,6 +267,23 @@ export type PaqadWorkflow = {
   unpriced: string[];
 };
 
+export type PaqadSignoffState =
+  | 'pending'
+  | 'writing'
+  | 'awaiting_sign_off'
+  | 'approved'
+  | 'changes_requested'
+  | 'skipped'
+  | 'not_posted';
+
+export type PaqadSignoff = {
+  state: PaqadSignoffState;
+  ref: string | null;
+  posted_at: string | null;
+  checked_at: string | null;
+  link: string | null;
+};
+
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
@@ -341,6 +358,7 @@ export type PaqadHudSnapshot = {
   } | null;
   receipt: { path: string } | null;
   cost: PaqadCost | null;
+  signoff?: PaqadSignoff | null;
   record_gaps?: string[];
   repairs?: PaqadRepair[];
   rung?: PaqadRung;
@@ -383,6 +401,9 @@ declare module 'claude-code' {
       tableSides: boolean;
       live: LiveState;
       tableSitting: TableSitting | null;
+      signoffCheck: { ref: string | null; at: number } | null;
+      designText: string | null;
+      designCopiedAt: number | null;
     };
   }
 }

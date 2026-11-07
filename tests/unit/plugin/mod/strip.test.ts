@@ -25,6 +25,7 @@ import {
   STAGE_MIN_PX,
   STAGE_NAME_X,
   TABLE_PX,
+  buttonPx,
   figureWords,
   seatsThatFit,
   stageBarPx,
@@ -35,6 +36,7 @@ import {
   tableRing,
   type Mark,
   type SeatState,
+  type SignoffTone,
   type StageState,
   type StripInput,
 } from '../../../../runtime/claude-plugin/mod/strip.ts';
@@ -83,6 +85,7 @@ const PALETTE = new Set(
     INK.inkDark,
     INK.muted,
     INK.mutedDark,
+    INK.mutedText,
     INK.headline,
     INK.headlineDark,
     ...Object.values(SIGNAL),
@@ -162,7 +165,7 @@ describe('the strip geometry', () => {
     expect(labelled(12, 57)).toBe(0);
   });
 
-  it('AC-14 (#835): the stage name draws right after the STAGE caption, at x0 + 44', () => {
+  it('AC-14: the stage name draws right after the STAGE caption, at x0 + 44', () => {
     expect(STAGE_NAME_X).toBe(44);
     expect(textX(draw(), 'All stages done')).toBe(44);
     expect(draw({ stageValue: '' })).not.toMatch(/class="val ink" x="44.0"/);
@@ -254,7 +257,7 @@ describe('the High Table shows three seats and the chief', () => {
     expect(draw({ seats: three, hiddenSeats: 1 })).toContain('>+1</text>');
   });
 
-  it('#835: three seats and +N always fit the 150 px section, whatever the band width', () => {
+  it('three seats and +N always fit the 150 px section, whatever the band width', () => {
     expect(seatsThatFit(11, 3)).toBe(3);
     expect(seatsThatFit(4, 3)).toBe(3);
     expect(seatsThatFit(3, 3)).toBe(3);
@@ -280,7 +283,7 @@ describe('the High Table shows three seats and the chief', () => {
     });
   }
 
-  it('#835: one seat with nothing hidden joins the chief with a connector, not the hairline', () => {
+  it('one seat with nothing hidden joins the chief with a connector, not the hairline', () => {
     const one = draw({ seats: three.slice(0, 1), hiddenSeats: 0 });
     const x0 = 451 + 18;
     expect(one).toContain(
@@ -293,7 +296,7 @@ describe('the High Table shows three seats and the chief', () => {
     expect(draw({ seats: three.slice(0, 2) })).toMatch(/<line class="hair" x1="[\d.]+" y1="19"/);
   });
 
-  it('#835: Needs answers replaces the HIGH TABLE caption in the attention colour', () => {
+  it('Needs answers replaces the HIGH TABLE caption in the attention colour', () => {
     const needs = draw({ tableValue: 'Needs answers', chief: 'needs' });
     expect(needs).toContain('<text class="val att" x="469.0" y="9">Needs answers</text>');
     expect(needs).not.toContain('HIGH TABLE');
@@ -504,7 +507,7 @@ describe('the live headline image', () => {
     expect(liveHeadline(HEAD).source).not.toContain('begin=');
   });
 
-  it('AC-11 (#835): a subagent tag draws the SUBAGENT pill with a breathing ring, no dot, and the title at x = 81', () => {
+  it('AC-11: a subagent tag draws the SUBAGENT pill with a breathing ring, no dot, and the title at x = 81', () => {
     const source = headline({ tag: 'SUBAGENT', clockMs: 5_000 });
     expect(source).toContain(
       `<rect class="motion" x=".6" y="3.6" width="70" height="14.8" rx="7.4" fill="none" stroke="${SIGNAL.accent}" stroke-width="1.1"><animate attributeName="stroke-opacity" values=".25;1;.25" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" begin="-0.200s"/></rect>`,
@@ -775,5 +778,96 @@ describe('finished stages turn green, and the strip glows once', () => {
     );
     expect(draw({ stages: allDone, clockMs: settledAt })).not.toContain('settle');
     expect(draw({ stages: allDone })).not.toContain('<animate');
+  });
+});
+
+describe('Part C: the sign-off words on the Stage caption row', () => {
+  const STATES: Array<[string, SignoffTone, string | null]> = [
+    ['Writing design', 'acct', null],
+    ['Waiting 3h', 'caut', 'Check'],
+    ['Checking…', 'acct', null],
+    ['Signed off', 'passt', null],
+    ['Changes requested', 'fail', 'View'],
+    ['Sign-off skipped', 'mutt', null],
+    ['Not posted', 'mutt', 'Copy design'],
+  ];
+
+  it('AC-23, FR-31: at the 340 px Stage minimum the words and button stay whole and the stage name truncates first', () => {
+    for (const [words, tone, button] of STATES) {
+      const source = strip({
+        ...SETTLED,
+        columns: 80,
+        stageValue: 'A very long stage name that cannot fit',
+        signoff: { words, tone, button },
+      }).sections[0]!.source;
+      expect(strip({ ...SETTLED, columns: 80 }).sections[0]!.px).toBe(340);
+      const end = 340 - 18 - (button ? buttonPx(button) : 0);
+      expect(source).toContain(
+        `<text class="val ${tone}" x="${end.toFixed(1)}" y="9" text-anchor="end">${words}</text>`,
+      );
+      const name = /<text class="val ink" x="44.0" y="9">([^<]*)<\/text>/.exec(source);
+      const nameEnd = 44 + (name ? [...name[1]!].length * 6 : 0);
+      expect(nameEnd).toBeLessThanOrEqual(end - [...words].length * 6);
+      if (name) expect(name[1]!.endsWith('…')).toBe(true);
+      expect(end - [...words].length * 6).toBeGreaterThan(44);
+    }
+  });
+
+  it('FR-22: draws words only, no icon, and nothing without a sign-off', () => {
+    const source = draw({ signoff: { words: 'Signed off', tone: 'passt', button: null } });
+    expect(source).toContain('class="val passt"');
+    expect(source).not.toMatch(/scale\(.45\)/);
+    expect(draw()).not.toMatch(/class="val (acct|caut|mutt)"/);
+  });
+
+  it('AC-25: every sign-off word colour reaches 4.5:1 on the light and dark band', () => {
+    const channel = (hex: string, at: number) => {
+      const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (hex: string) =>
+      0.2126 * channel(hex, 1) + 0.7152 * channel(hex, 3) + 0.0722 * channel(hex, 5);
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi! + 0.05) / (lo! + 0.05);
+    };
+    for (const colour of [
+      SIGNAL.accentText,
+      SIGNAL.cautionText,
+      SIGNAL.passText,
+      SIGNAL.fail,
+      INK.mutedText,
+    ]) {
+      expect(ratio(colour, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const colour of [
+      SIGNAL.accentTextDark,
+      SIGNAL.cautionDark,
+      SIGNAL.passDark,
+      SIGNAL.failDark,
+      INK.mutedDark,
+    ]) {
+      expect(ratio(colour, '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
+    }
+    const style = draw();
+    expect(style).toContain(
+      `.acct{fill:${SIGNAL.accentText}}.caut{fill:${SIGNAL.cautionText}}.mutt{fill:${INK.mutedText}}`,
+    );
+    expect(style).toContain(
+      `.acct{fill:${SIGNAL.accentTextDark}}.caut{fill:${SIGNAL.cautionDark}}.mutt{fill:${INK.mutedDark}}`,
+    );
+  });
+
+  it('AC-27: under reduced motion Checking… and a running Sign-off bar do not pulse', () => {
+    const source = draw({
+      stages: marks(['Plan', 'Spec', 'Sign-off'], ['done', 'done', 'run'] as StageState[]),
+      signoff: { words: 'Checking…', tone: 'acct', button: null },
+      clockMs: 0,
+    });
+    expect(source).toContain(
+      '@media (prefers-reduced-motion: reduce){.pulse,.spin{animation:none}.motion{display:none}}',
+    );
+    expect(source).toMatch(/<text class="val acct"[^>]*>Checking…<\/text>/);
+    expect(source).not.toMatch(/<text class="[^"]*(pulse|motion)[^"]*"[^>]*>Checking/);
   });
 });

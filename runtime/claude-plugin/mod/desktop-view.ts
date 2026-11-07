@@ -8,6 +8,7 @@ import {
   formatTokens,
   formatUsd,
   roleWords,
+  shortAge,
 } from './cost';
 import { needsAnswers, roleInitials, tableStatus } from './instruments';
 import { stageSegments, type SegmentState } from './model';
@@ -32,6 +33,7 @@ import {
   type Mark,
   type SeatState,
   type ShipState,
+  type SignoffTone,
   type StageState,
   type StripInput,
   type TableSeat,
@@ -62,6 +64,8 @@ import type {
   PaqadHudSnapshot,
   PaqadPaneTab,
   PaqadSeat,
+  PaqadSignoff,
+  PaqadSignoffState,
   PaqadTimelineEntry,
   TableSitting,
 } from './types';
@@ -235,27 +239,160 @@ function markedValue(snapshot: PaqadHudSnapshot, stage: string): string {
   return `${word} marked`;
 }
 
+export const SIGNOFF_LABEL = 'Sign-off';
+export const CHECK_CEILING_MS = 10 * 60_000;
+export const COPIED_MS = 2_000;
+
+export interface SignoffCheck {
+  ref: string | null;
+  at: number;
+}
+
+export type SignoffShown = PaqadSignoffState | 'checking';
+export type SignoffAction = 'check' | 'view' | 'copy';
+
+export interface SignoffView {
+  state: SignoffShown;
+  bar: StageState;
+  words: string | null;
+  tone: SignoffTone | null;
+  action: SignoffAction | null;
+  label: string | null;
+  name: string | null;
+  ref: string | null;
+}
+
+export interface SignoffInput {
+  now: number;
+  check?: SignoffCheck | null;
+  design?: boolean;
+  copiedAt?: number | null;
+}
+
+export function signoffCheckPrompt(ref: string | null): string {
+  return `Check the design sign-off for ${ref ?? 'this change'}: read the replies with your connector and run paqad-ai hld check-approval.`;
+}
+
+export function checkPending(
+  signoff: PaqadSignoff | null | undefined,
+  check: SignoffCheck | null | undefined,
+  now: number,
+): boolean {
+  if (!signoff || !check || signoff.state !== 'awaiting_sign_off') return false;
+  if (check.ref !== signoff.ref) return false;
+  if (!(now - check.at < CHECK_CEILING_MS)) return false;
+  const checked = Date.parse(signoff.checked_at ?? '');
+  return !(Number.isFinite(checked) && checked >= check.at);
+}
+
+function ageSince(at: string | null, now: number): string | null {
+  const from = Date.parse(at ?? '');
+  return Number.isFinite(from) ? shortAge(now - from) : null;
+}
+
+const SIGNOFF_BAR: Readonly<Record<SignoffShown, StageState>> = {
+  pending: 'todo',
+  writing: 'run',
+  awaiting_sign_off: 'paused',
+  checking: 'paused',
+  approved: 'done',
+  changes_requested: 'todo',
+  skipped: 'skip',
+  not_posted: 'skip',
+};
+
+export function signoffView(
+  signoff: PaqadSignoff | null | undefined,
+  input: SignoffInput,
+): SignoffView | null {
+  if (!signoff) return null;
+  const ref = signoff.ref;
+  const state: SignoffShown = checkPending(signoff, input.check, input.now)
+    ? 'checking'
+    : signoff.state;
+  const view = (
+    words: string | null,
+    tone: SignoffTone | null,
+    action: SignoffAction | null = null,
+    label: string | null = null,
+    name: string | null = null,
+  ): SignoffView => ({ state, bar: SIGNOFF_BAR[state], words, tone, action, label, name, ref });
+  const named = (verb: string) => `${verb} for ${ref ?? 'this change'}`;
+  switch (state) {
+    case 'pending':
+      return view(null, null);
+    case 'writing':
+      return view('Writing design', 'acct');
+    case 'awaiting_sign_off': {
+      const age = ageSince(signoff.posted_at, input.now);
+      return view(
+        age ? `Waiting ${age}` : 'Waiting',
+        'caut',
+        'check',
+        'Check',
+        named('Check design sign-off'),
+      );
+    }
+    case 'checking':
+      return view('Checking…', 'acct');
+    case 'approved':
+      return view('Signed off', 'passt');
+    case 'changes_requested':
+      return view('Changes requested', 'fail', 'view', 'View', named('View design sign-off'));
+    case 'skipped':
+      return view('Sign-off skipped', 'mutt');
+    case 'not_posted': {
+      if (!input.design) return view('Not posted', 'mutt');
+      const copied = typeof input.copiedAt === 'number' && input.now - input.copiedAt < COPIED_MS;
+      return view(
+        'Not posted',
+        'mutt',
+        'copy',
+        copied ? 'Copied' : 'Copy design',
+        named('Copy design'),
+      );
+    }
+  }
+}
+
 export interface StageStrip {
   stages: Array<Mark<StageState>>;
   value: string;
   word: string | null;
 }
 
-export function stageStrip(snapshot: PaqadHudSnapshot, live: LiveState = IDLE_LIVE): StageStrip {
+export function stageStrip(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+  signoff: SignoffView | null = null,
+): StageStrip {
   const segments = stageSegments(snapshot);
   const hold = paused(snapshot, live);
   const stages = laneStages(snapshot).map(([stage, label]) => {
     const state = segments.find((segment) => segment.stage === stage)?.state ?? 'not yet';
     const mark: StageState = state === 'running' && hold ? 'paused' : STAGE_STATE[state];
-    return { stage, label, state: mark };
+    const respec = stage === 'specification' && signoff?.state === 'changes_requested';
+    return { stage, label, state: respec && mark !== 'fail' ? 'run' : mark };
   });
+  if (signoff) {
+    const build = stages.findIndex((entry) => entry.stage === 'development');
+    stages.splice(build < 0 ? stages.length : build, 0, {
+      stage: 'design_sign_off',
+      label: SIGNOFF_LABEL,
+      state: signoff.bar,
+    });
+  }
   const running = stages.find((entry) => entry.state === 'run' || entry.state === 'paused');
   const failed = stages.find((entry) => entry.state === 'fail');
   const marked = stages.find((entry) => entry.state === 'marked');
   const drawn = stages.filter((entry) => entry.state !== 'skip');
   let value = '';
-  if (running) value = running.state === 'paused' ? `${running.label} · paused` : running.label;
-  else if (failed) value = `${failed.label} failed`;
+  if (running) {
+    value =
+      running.state === 'paused' && running.label !== SIGNOFF_LABEL
+        ? `${running.label} · paused`
+        : running.label;
+  } else if (failed) value = `${failed.label} failed`;
   else if (marked) value = markedValue(snapshot, marked.stage);
   else if (snapshot.active && drawn.length > 0 && drawn.every((entry) => entry.state === 'done')) {
     value = 'All stages done';
@@ -462,8 +599,9 @@ export function stripOf(
   live: LiveState = IDLE_LIVE,
   clockMs?: number,
   settledAtMs: number | null = null,
+  signoff: SignoffView | null = null,
 ): StripInput {
-  const stage = stageStrip(snapshot, live);
+  const stage = stageStrip(snapshot, live, signoff);
   const table = tableStrip(snapshot);
   const delivery = deliveryStrip(snapshot, live);
   return {
@@ -477,6 +615,9 @@ export function stripOf(
     deliveryValue: delivery.value,
     deliveryTone: delivery.tone,
     deliveryFigures: delivery.figures,
+    ...(signoff?.words && signoff.tone
+      ? { signoff: { words: signoff.words, tone: signoff.tone, button: signoff.label } }
+      : {}),
     ...(clockMs === undefined ? {} : { clockMs }),
     ...(settledAtMs === null ? {} : { settledAtMs }),
   };
@@ -494,6 +635,13 @@ function tableSentence(strip: StripInput): string {
   const hidden = strip.hiddenSeats ?? 0;
   const seats = `${plural(shown + hidden, 'seat', 'seats')}${hidden > 0 ? `, ${shown} shown` : ''}`;
   return `High Table: ${strip.tableValue || CHIEF_WORDS[strip.chief]}, ${seats}.`;
+}
+
+function signoffAlt(strip: StripInput): string | null {
+  const signoff = strip.signoff;
+  if (!signoff) return null;
+  const action = signoff.button ? ` ${signoff.button} available.` : '';
+  return `Design sign-off: ${signoff.words.replace(/…$/, '')}.${action}`;
 }
 
 function deliverySentence(strip: StripInput): string {
@@ -515,6 +663,8 @@ export function stripAltText(text: string, strip: StripInput): string {
   const parts = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
   const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
   if (done.length > 0) parts.push(`${done.join(', ')} done.`);
+  const signoff = signoffAlt(strip);
+  if (signoff) parts.push(signoff);
   if (strip.seats) parts.push(tableSentence(strip));
   parts.push(deliverySentence(strip));
   return parts.join(' ');
@@ -536,6 +686,8 @@ export function stripAlts(text: string, strip: StripInput): StripAlts {
   const stage = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
   const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
   if (done.length > 0) stage.push(`${done.join(', ')} done.`);
+  const signoff = signoffAlt(strip);
+  if (signoff) stage.push(signoff);
   const table = tableSentence(strip);
   const delivery = deliverySentence(strip);
   const shown = stripLayout(stripWidth(strip.columns), strip.seats !== null).ids;
@@ -586,6 +738,7 @@ function minimisedView(
 }
 
 export interface FeatureCard {
+  signoff: SignoffView | null;
   mode: 'card' | 'minimised';
   menu: boolean;
   identity: IdentityView;
@@ -625,6 +778,9 @@ export interface DesktopBandInput {
   columns: number;
   maxRows: number;
   settledAtMs?: number | null;
+  signoffCheck?: SignoffCheck | null;
+  design?: boolean;
+  copiedAt?: number | null;
 }
 
 export function unreadableReason(input: {
@@ -686,6 +842,7 @@ function readyFeatureBand(snapshot: PaqadHudSnapshot, input: DesktopBandInput): 
   const fits = input.maxRows >= cardRows(input.menuOpen) && input.columns >= READY_CARD_MIN_COLUMNS;
   return {
     kind: 'ready-feature',
+    signoff: null,
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
     menu: input.menuOpen,
     identity: readyIdentity(snapshot),
@@ -722,10 +879,24 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   }
   const full = desktopHeadline(snapshot, input.now, live);
   const head = { ...full, text: fitLine(full.text, input.columns - HEADLINE_INSET_COLUMNS) };
-  const strip = stripOf(snapshot, input.columns, live, input.now, input.settledAtMs ?? null);
+  const signoff = signoffView(snapshot.signoff, {
+    now: input.now,
+    check: input.signoffCheck ?? null,
+    design: input.design === true,
+    copiedAt: input.copiedAt ?? null,
+  });
+  const strip = stripOf(
+    snapshot,
+    input.columns,
+    live,
+    input.now,
+    input.settledAtMs ?? null,
+    signoff,
+  );
   const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
+    signoff,
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
     menu: input.menuOpen,
     identity: identityView(snapshot, input.columns),
@@ -734,7 +905,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     strip,
     alt: stripAltText(full.text, strip),
     stripAlts: stripAlts(full.text, strip),
-    minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
+    minimised: minimisedView(snapshot, head, stageStrip(snapshot, live, signoff)),
     activity: full.activity.slice(0, ACTIVITY_LINES),
   };
 }
@@ -890,7 +1061,13 @@ export {
   type TrustStep,
 } from './trust';
 
+export interface SignoffRecord {
+  words: string;
+  link: { href: string; text: string } | null;
+}
+
 export interface TrustView {
+  signoff?: SignoffRecord;
   empty: string | null;
   note: string | null;
   stages: TrustStage[];
@@ -912,6 +1089,25 @@ export function ruleStopHistory(snapshot: PaqadHudSnapshot): FlagRow | null {
   };
 }
 
+const SIGNOFF_RECORD_WORDS: Readonly<Record<PaqadSignoffState, string>> = {
+  pending: 'not started',
+  writing: 'writing the design',
+  awaiting_sign_off: 'waiting for sign-off',
+  approved: 'signed off',
+  changes_requested: 'changes requested',
+  skipped: 'skipped',
+  not_posted: 'not posted',
+};
+
+export function signoffRecord(snapshot: PaqadHudSnapshot): SignoffRecord | null {
+  const signoff = snapshot.active ? snapshot.signoff : null;
+  if (!signoff) return null;
+  return {
+    words: `Design sign-off for ${signoff.ref ?? 'this change'}: ${SIGNOFF_RECORD_WORDS[signoff.state]}`,
+    link: signoff.link ? { href: signoff.link, text: 'Open the design record' } : null,
+  };
+}
+
 export function trustView(snapshot: PaqadHudSnapshot): TrustView {
   const active = snapshot.active;
   const history = active ? ruleStopHistory(snapshot) : null;
@@ -919,7 +1115,9 @@ export function trustView(snapshot: PaqadHudSnapshot): TrustView {
   const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
   const gates = active && proof === null ? oldRecordGates(snapshot) : [];
   const claims = claimsView(snapshot);
+  const signoff = signoffRecord(snapshot);
   const view: TrustView = {
+    ...(signoff ? { signoff } : {}),
     empty: null,
     note: gates.length > 0 ? OLD_RECORD_NOTE : null,
     stages,
@@ -936,6 +1134,7 @@ export function trustView(snapshot: PaqadHudSnapshot): TrustView {
       : [],
   };
   const nothing =
+    signoff === null &&
     stages.length === 0 &&
     gates.length === 0 &&
     view.repairs === null &&

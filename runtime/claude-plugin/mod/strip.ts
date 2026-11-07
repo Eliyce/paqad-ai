@@ -34,6 +34,14 @@ export interface DeliveryFigures {
   partial?: boolean;
 }
 
+export type SignoffTone = 'acct' | 'caut' | 'passt' | 'fail' | 'mutt';
+
+export interface StripSignoff {
+  words: string;
+  tone: SignoffTone;
+  button: string | null;
+}
+
 export interface StripInput {
   columns: number;
   stages: ReadonlyArray<Mark<StageState>>;
@@ -45,6 +53,7 @@ export interface StripInput {
   deliveryValue: string;
   deliveryTone: DeliveryTone;
   deliveryFigures: DeliveryFigures | null;
+  signoff?: StripSignoff | null;
   clockMs?: number;
   settledAtMs?: number | null;
 }
@@ -133,6 +142,7 @@ function css(clockMs?: number): string {
     `.pass{fill:${STATUS_B.done}}.passs{stroke:${STATUS_B.done}}`,
     `.passt{fill:${SIGNAL.passText}}`,
     `.fail{fill:${STATUS_B.failed}}.fails{stroke:${STATUS_B.failed}}`,
+    `.acct{fill:${SIGNAL.accentText}}.caut{fill:${SIGNAL.cautionText}}.mutt{fill:${INK.mutedText}}`,
     '.cap{font-size:8.5px;font-weight:600;letter-spacing:1.1px}',
     '.val{font-size:10.5px;font-weight:500}',
     '.lbl{font-size:9px}.cur{font-weight:650}',
@@ -142,6 +152,7 @@ function css(clockMs?: number): string {
     `.passt{fill:${SIGNAL.passDark}}`,
     `.fail{fill:${STATUS_B.failedDark}}.fails{stroke:${STATUS_B.failedDark}}`,
     `.cau{fill:${SIGNAL.cautionDark}}.caus{stroke:${SIGNAL.cautionDark}}`,
+    `.acct{fill:${SIGNAL.accentTextDark}}.caut{fill:${SIGNAL.cautionDark}}.mutt{fill:${INK.mutedDark}}`,
     '}',
     '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}',
     '@keyframes spin{to{transform:rotate(360deg)}}',
@@ -449,6 +460,13 @@ export function stripLayout(width: number, table: boolean): StripLayout {
   return { ids: ['stage', 'delivery'], px: [width - DELIVERY_PX, DELIVERY_PX] };
 }
 
+const WORDS_GAP_PX = 10;
+const BUTTON_PAD_COLUMNS = 3;
+
+export function buttonPx(label: string): number {
+  return ([...label].length + BUTTON_PAD_COLUMNS) * PX_PER_COLUMN + WORDS_GAP_PX;
+}
+
 function fitPx(text: string, px: number, charPx: number): string {
   if (px < charPx) return '';
   return fitLine(text, px / charPx);
@@ -508,7 +526,14 @@ function stripBody(
   const settle = settlePhase(input.clockMs, input.settledAtMs);
   const body = { stage: '', table: '', delivery: '' };
   body.stage = section(stage, 'STAGE', cut);
-  const nameRoom = stage.inner - (stage.x0 + STAGE_NAME_X);
+  const signoff = input.signoff ?? null;
+  const wordsEnd = stage.inner - (signoff?.button ? buttonPx(signoff.button) : 0);
+  const wordsPx = signoff ? [...signoff.words].length * VALUE_CHAR_PX : 0;
+  if (signoff) {
+    body.stage += `<text class="val ${signoff.tone}" x="${fixed(wordsEnd)}" y="${Y_CAP}" text-anchor="end">${escapeXml(signoff.words)}</text>`;
+  }
+  const nameRoom =
+    (signoff ? wordsEnd - wordsPx - WORDS_GAP_PX : stage.inner) - (stage.x0 + STAGE_NAME_X);
   const name = input.stageValue ? fitPx(input.stageValue, nameRoom, VALUE_CHAR_PX) : '';
   if (name) {
     body.stage += `<text class="val ink" x="${fixed(stage.x0 + STAGE_NAME_X)}" y="${Y_CAP}">${escapeXml(name)}</text>`;

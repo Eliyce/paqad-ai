@@ -32,6 +32,7 @@ import {
   liveClock,
   parseSnapshot,
   readDiff,
+  readSignoff,
   receiptPath,
   safeSessionId,
   snapshotPath,
@@ -154,7 +155,7 @@ describe('parseSnapshot', () => {
       expect(reading.ship.every((step) => !step.word.startsWith('<'))).toBe(true);
     }
     const today = Object.keys(JSON.parse(JSON.stringify(FULL_ORD_501)) as object).filter(
-      (key) => key !== 'proof' && key !== 'start_point',
+      (key) => key !== 'proof' && key !== 'start_point' && key !== 'signoff',
     );
     expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
   });
@@ -763,7 +764,7 @@ describe('the fixtures match the snapshot paqad writes', () => {
   });
 });
 
-describe('#836 ship.diff in the plugin model (FR-1)', () => {
+describe('ship.diff in the plugin model (FR-1)', () => {
   it('reads the diff, and null for an older engine or a half-missing diff', () => {
     const ship = FULL_ORD_501.ship as Record<string, unknown>;
     const diff = { additions: 530, deletions: 96, partial: false };
@@ -780,5 +781,24 @@ describe('#836 ship.diff in the plugin model (FR-1)', () => {
       deletions: 1,
       partial: true,
     });
+  });
+});
+
+describe('FR-15: the sign-off in the plugin model', () => {
+  it('FR-15: reads each state, and null for an older engine or an unknown state', () => {
+    const signoff = {
+      state: 'awaiting_sign_off',
+      ref: 'PQD-12',
+      posted_at: '2026-10-18T06:00:00.000Z',
+      checked_at: null,
+      link: 'https://acme.test/1',
+    };
+    expect(readSignoff(signoff)).toEqual(signoff);
+    expect(readSignoff(undefined)).toBeNull();
+    expect(readSignoff({ ...signoff, state: 'checking' })).toBeNull();
+    expect(parse(snapshot({ ...FULL_ORD_501, signoff })).signoff?.state).toBe('awaiting_sign_off');
+    const older = { ...(FULL_ORD_501 as Record<string, unknown>) };
+    delete older.signoff;
+    expect(parse(snapshot(older)).signoff).toBeNull();
   });
 });

@@ -14,6 +14,7 @@ export interface World {
   closedPanes: string[];
   commands: string[];
   reads: string[];
+  submitted: string[];
   agents: AgentInfo[];
   opened: string[];
   drawn: Array<{ component: string; props: unknown }>;
@@ -78,6 +79,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     closedPanes: [],
     commands: [],
     reads: [],
+    submitted: [],
     agents: [],
     opened: [],
     drawn: [],
@@ -179,7 +181,10 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     return { value: { isPlaced: true } };
   });
   on('session.start', ($, e) => ({ cwd: e.cwd }));
-  on('prompt.submit', ($, e) => ({ text: e.text }));
+  on('prompt.submit', ($, e) => {
+    world.submitted.push(e.text);
+    return { text: e.text };
+  });
   on('turn.start', ($, e) => ({ turnId: e.turnId }));
   on('turn.complete', () => ({ text: '' }));
   on('tool.call', async ($, e) => {

@@ -80,6 +80,7 @@ describe('hld store', () => {
       'approved_at',
       'approval_link',
       'skip_reason',
+      'checked_at',
     ]);
     expect(JSON.stringify(raw)).not.toContain('dev-account');
     expect(readHld(root, DIR)).toEqual(record);
@@ -122,7 +123,25 @@ describe('hld store', () => {
       approved_at: null,
       approval_link: null,
       skip_reason: null,
+      checked_at: null,
     });
+  });
+
+  it('AC-17: reads checked_at when hld check-approval recorded it, and null in an older hld.json', () => {
+    const path = join(root, PATHS.FEATURE_EVIDENCE_DIR, DIR, 'hld.json');
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify({ state: 'awaiting_sign_off', ref: 'PQD-1' }));
+    expect(readHld(root, DIR)?.checked_at).toBeNull();
+    writeFileSync(
+      path,
+      JSON.stringify({
+        state: 'awaiting_sign_off',
+        ref: 'PQD-1',
+        checked_at: '2026-11-07T10:00:00Z',
+      }),
+    );
+    expect(readHld(root, DIR)?.checked_at).toBe('2026-11-07T10:00:00Z');
+    expect(emptyHldRecord('PQD-1').checked_at).toBeNull();
   });
 
   it('saves hld.md ending with one newline', () => {

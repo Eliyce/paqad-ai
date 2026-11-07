@@ -10,6 +10,7 @@ import {
   fullTokens,
   moneyShort,
   roleWords,
+  shortAge,
 } from '../../../../runtime/claude-plugin/mod/cost.ts';
 import {
   buildBandView,
@@ -322,5 +323,15 @@ describe('the paqad Ledger (FR-54, AC-39)', () => {
     expect(JSON.stringify(view)).not.toContain('<svg');
     const fast = buildPaneView(parse(FAST_ORD_490_COST), 'cost');
     expect(fast.lines[0]).toContain('Cost of this change');
+  });
+});
+
+describe('AC-19: shortAge gives the single largest whole unit', () => {
+  it('AC-19: reads <1m, 59m, 1h and 1d', () => {
+    expect(shortAge(30_000)).toBe('<1m');
+    expect(shortAge(59 * 60_000)).toBe('59m');
+    expect(shortAge(60 * 60_000)).toBe('1h');
+    expect(shortAge(25 * 3_600_000)).toBe('1d');
+    expect(shortAge(-5)).toBe('<1m');
   });
 });

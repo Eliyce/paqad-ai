@@ -393,6 +393,7 @@ export function runHldCheckApproval(context: HldContext, input: CheckApprovalInp
     now: () => now,
     waits: settings.wait_for_approval,
   };
+  record.checked_at = now.toISOString();
 
   if (decision.outcome === 'approved') {
     record.state = 'approved';

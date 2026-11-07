@@ -7,6 +7,11 @@ import {
   stripAltText,
   stripAlts,
   CARD_ROWS,
+  CHECK_CEILING_MS,
+  checkPending,
+  signoffRecord,
+  signoffView,
+  stageStrip as stagesOf,
   CONTROLS_COLUMNS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
@@ -34,6 +39,7 @@ import {
   type DesktopBandInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
+import { LABEL_MIN_PX, stageBarPx } from '../../../../runtime/claude-plugin/mod/strip.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   FAST_ORD_490,
@@ -316,7 +322,7 @@ describe('the identity row', () => {
     expect(identityView(open({ lane: 'sideways' })).parts).toEqual(['Feature', 'ORD-501']);
   });
 
-  it('AC-7: #835 drops the cost, then the lane, then the workflow as the row narrows; the chip stays', () => {
+  it('AC-7: drops the cost, then the lane, then the workflow as the row narrows; the chip stays', () => {
     const full = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() }));
     const wide = identityView(full, 93);
     expect(wide).toEqual({
@@ -488,7 +494,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(value({ stages: stages({ planning: 'complete' }) })).toBe('');
   });
 
-  it('AC-8: says the delivery state in the 15 rows of #835, first match wins, with its colour', () => {
+  it('AC-8: says the delivery state in its 15 rows, first match wins, with its colour', () => {
     const line = (over: Raw) => {
       const strip = deliveryStrip(open(over));
       return [strip.value, strip.tone];
@@ -725,14 +731,14 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const ci = {
       ...strip,
       hiddenSeats: 0,
-      deliveryValue: 'PR #823 · CI running',
+      deliveryValue: `${PR} · CI running`,
       deliveryFigures: figures,
     };
     expect(stripAlts('Building', ci).delivery).toBe(
-      'Delivery PR #823 · CI running. 53 commits, 6,375 lines added, 983 lines removed.',
+      `Delivery ${PR} · CI running. 53 commits, 6,375 lines added, 983 lines removed.`,
     );
     expect(stripAltText('Building', ci)).toContain(
-      'High Table: chief ruling, 3 seats. Delivery PR #823 · CI running. 53 commits, 6,375 lines added, 983 lines removed.',
+      `High Table: chief ruling, 3 seats. Delivery ${PR} · CI running. 53 commits, 6,375 lines added, 983 lines removed.`,
     );
     expect(
       stripAlts('Building', { ...strip, deliveryValue: '', deliveryFigures: null }).delivery,
@@ -1174,5 +1180,149 @@ describe('Paqad Getting Ready', () => {
 
   it('AC-32: no snapshot yet still reads Ready', () => {
     expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
+  });
+});
+
+describe('Part C: the Sign-off stage, words and button', () => {
+  const HOUR = 3_600_000;
+  const WAITING = {
+    state: 'awaiting_sign_off',
+    ref: 'PQD-12',
+    posted_at: new Date(NOW - 3 * HOUR).toISOString(),
+    checked_at: new Date(NOW - 10 * 60_000).toISOString(),
+    link: 'https://acme.test/1',
+  };
+  const signed = (over: Raw = {}) => open({ signoff: { ...WAITING, ...over } });
+  const viewOf = (over: Raw = {}, extra: Partial<Parameters<typeof signoffView>[1]> = {}) =>
+    signoffView(signed(over).signoff, { now: NOW, design: true, ...extra })!;
+  const press = { ref: 'PQD-12', at: NOW - 60_000 };
+
+  it('AC-14: each shown state has its bar, words, colour and button', () => {
+    const row = (over: Raw, extra = {}) => {
+      const view = viewOf(over, extra);
+      return [view.state, view.bar, view.words, view.tone, view.label];
+    };
+    expect(row({ state: 'pending' })).toEqual(['pending', 'todo', null, null, null]);
+    expect(row({ state: 'writing' })).toEqual(['writing', 'run', 'Writing design', 'acct', null]);
+    expect(row({})).toEqual(['awaiting_sign_off', 'paused', 'Waiting 3h', 'caut', 'Check']);
+    expect(row({}, { check: press })).toEqual(['checking', 'paused', 'Checking…', 'acct', null]);
+    expect(row({ state: 'approved' })).toEqual(['approved', 'done', 'Signed off', 'passt', null]);
+    expect(row({ state: 'changes_requested' })).toEqual([
+      'changes_requested',
+      'todo',
+      'Changes requested',
+      'fail',
+      'View',
+    ]);
+    expect(row({ state: 'skipped' })).toEqual([
+      'skipped',
+      'skip',
+      'Sign-off skipped',
+      'mutt',
+      null,
+    ]);
+    expect(row({ state: 'not_posted' })).toEqual([
+      'not_posted',
+      'skip',
+      'Not posted',
+      'mutt',
+      'Copy design',
+    ]);
+    expect(viewOf({}).name).toBe('Check design sign-off for PQD-12');
+    const strip = stagesOf(
+      signed({ state: 'changes_requested' }),
+      IDLE_LIVE,
+      viewOf({ state: 'changes_requested' }),
+    );
+    expect(strip.stages.map((mark) => `${mark.label}:${mark.state}`)).toEqual([
+      'Plan:todo',
+      'Spec:run',
+      'Sign-off:todo',
+      'Build:todo',
+      'Review:todo',
+      'Checks:todo',
+      'Docs:todo',
+    ]);
+    expect(strip.value).toBe('Spec');
+    expect(stagesOf(signed(), IDLE_LIVE, viewOf({})).value).toBe('Sign-off');
+  });
+
+  it('AC-21: Copy design reads Copied for 2 s after a copy, and hides with no design text', () => {
+    expect(viewOf({ state: 'not_posted' }, { copiedAt: NOW - 1_000 }).label).toBe('Copied');
+    expect(viewOf({ state: 'not_posted' }, { copiedAt: NOW - 2_000 }).label).toBe('Copy design');
+    const bare = viewOf({ state: 'not_posted' }, { design: false });
+    expect([bare.words, bare.label, bare.action]).toEqual(['Not posted', null, null]);
+  });
+
+  it('AC-16, FR-21: Checking… shows only between a press and its clear event', () => {
+    const signoff = signed().signoff!;
+    expect(checkPending(signoff, press, NOW)).toBe(true);
+    expect(checkPending(signoff, null, NOW)).toBe(false);
+    expect(checkPending({ ...signoff, checked_at: new Date(NOW).toISOString() }, press, NOW)).toBe(
+      false,
+    );
+    expect(checkPending({ ...signoff, state: 'approved' }, press, NOW)).toBe(false);
+    expect(checkPending(signoff, press, press.at + CHECK_CEILING_MS)).toBe(false);
+    expect(checkPending(signoff, { ...press, ref: 'PQD-9' }, NOW)).toBe(false);
+  });
+
+  it('AC-13, AC-12: pending keeps the bar count through the freeze; no sign-off draws no stage, words or minimised bar', () => {
+    const pending = band({ snapshot: signed({ state: 'pending' }) });
+    const writing = band({ snapshot: signed({ state: 'writing' }) });
+    if (pending.kind !== 'feature' || writing.kind !== 'feature') throw new Error('no card');
+    expect(pending.strip.stages).toHaveLength(7);
+    expect(writing.strip.stages).toHaveLength(7);
+    expect(pending.strip.signoff).toBeUndefined();
+    expect(pending.minimised.stages).toHaveLength(7);
+    const off = band({ snapshot: open({ signoff: null }) });
+    if (off.kind !== 'feature') throw new Error('no card');
+    expect(off.signoff).toBeNull();
+    expect(off.strip.stages.map((mark) => mark.label)).not.toContain('Sign-off');
+    expect(off.strip.signoff).toBeUndefined();
+    expect(off.minimised.stages).toHaveLength(6);
+    expect(off.alt).not.toMatch(/sign-off/i);
+  });
+
+  it('AC-24: the strip alt text carries the status words and the button action', () => {
+    const drawn = band({ snapshot: signed() });
+    if (drawn.kind !== 'feature') throw new Error('no card');
+    expect(drawn.stripAlts.stage).toContain('Design sign-off: Waiting 3h. Check available.');
+    expect(drawn.alt).toContain('Design sign-off: Waiting 3h. Check available.');
+    const approved = band({ snapshot: signed({ state: 'approved' }) });
+    if (approved.kind !== 'feature') throw new Error('no card');
+    expect(approved.alt).toContain('Design sign-off: Signed off.');
+  });
+
+  it('AC-33: 7 bars hide the labels where 6 bars still fit them', () => {
+    const room = 270;
+    expect(stageBarPx(room, 6)).toBeGreaterThanOrEqual(LABEL_MIN_PX);
+    expect(stageBarPx(room, 7)).toBeLessThan(LABEL_MIN_PX);
+    const withSignoff = stagesOf(signed(), IDLE_LIVE, viewOf({})).stages.length;
+    const without = stagesOf(open()).stages.length;
+    expect(stageBarPx(room, withSignoff) >= LABEL_MIN_PX).toBe(false);
+    expect(stageBarPx(room, without) >= LABEL_MIN_PX).toBe(true);
+  });
+
+  it('AC-20: waiting for sign-off is a caution headline with checked <age> ago', () => {
+    const headline = desktopHeadline(
+      open({
+        signoff: WAITING,
+        headline: { text: 'Waiting for sign-off on PQD-12', tone: 'warn', row: 21 },
+      }),
+      NOW,
+    );
+    expect(headline).toMatchObject({
+      signal: 'caution',
+      text: 'Waiting for sign-off on PQD-12',
+      note: 'checked 10m ago',
+    });
+  });
+
+  it('AC-22: the Ledger Trust tab names the sign-off and links the design record', () => {
+    expect(signoffRecord(signed({ state: 'changes_requested' }))).toEqual({
+      words: 'Design sign-off for PQD-12: changes requested',
+      link: { href: 'https://acme.test/1', text: 'Open the design record' },
+    });
+    expect(signoffRecord(open({ signoff: null }))).toBeNull();
   });
 });

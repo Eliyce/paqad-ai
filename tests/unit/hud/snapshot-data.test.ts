@@ -15,6 +15,8 @@ import {
 } from '@/feature-evidence/delivery.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { renderDefaultGitWorkflowFile } from '@/git-workflow/defaults.js';
+import { emptyHldRecord, readHld, writeHld, type HldRecord } from '@/hld/store.js';
 import { readChangeDiff } from '@/hud/changed-files.js';
 import type { HudHighTable } from '@/hud/high-table-view.js';
 import {
@@ -48,6 +50,11 @@ vi.mock('@/git-workflow/load.js', async (importOriginal) => {
 vi.mock('@/hud/changed-files.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/hud/changed-files.js')>();
   return { ...real, readChangeDiff: vi.fn(real.readChangeDiff) };
+});
+
+vi.mock('@/hld/store.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/hld/store.js')>();
+  return { ...real, readHld: vi.fn(real.readHld) };
 });
 
 vi.mock('@/traceability/change-map.js', async (importOriginal) => {
@@ -959,5 +966,157 @@ describe('AC-8 / AC-26: a branch with earlier work and local files shows none of
     const steps = (snapshot.proof ?? []).flatMap((entry) => entry.steps);
     expect(steps.find((entry) => entry.id === 'edits')?.state).toBe('not-yet');
     expect(steps.find((entry) => entry.id === 'docs')?.state ?? 'not-yet').toBe('not-yet');
+  });
+});
+
+describe('Part C: the design sign-off in the snapshot', () => {
+  function signOff(root: string, enabled = true, lanes = '[graduated, full]'): void {
+    mkdirSync(join(root, PATHS.GIT_WORKFLOW_DIR), { recursive: true });
+    const yaml = renderDefaultGitWorkflowFile('design-sign-off.yaml')
+      .replace('enabled: false', `enabled: ${enabled}`)
+      .replace('lanes: [graduated, full]', `lanes: ${lanes}`);
+    writeFileSync(join(root, PATHS.GIT_WORKFLOW_DIR, 'design-sign-off.yaml'), yaml);
+  }
+
+  function freeze(root: string, dir: string): void {
+    writeFileSync(
+      join(root, featureFilePath(dir, 'specification')),
+      JSON.stringify({ frozen: { frozen_at: '2026-10-18T08:30:00.000Z' } }),
+    );
+  }
+
+  const post = (at: string, link = 'https://acme.test/PQD-12#1') => ({
+    target: 'jira',
+    link,
+    id: '1',
+    at,
+    version: 1,
+    digest: 'd',
+    author_digest: 'a',
+    detail_posted: true,
+    move_failed: false,
+  });
+
+  function record(over: Partial<HldRecord> = {}): HldRecord {
+    return { ...emptyHldRecord('PQD-12'), posts: [post('2026-10-18T08:40:00.000Z')], ...over };
+  }
+
+  it('AC-12: is null and never reads hld.json when sign-off is off or the lane is not listed', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-off';
+    openChange(root, S, 'full');
+    vi.mocked(readHld).mockClear();
+    const off = buildHudSnapshot(root, S, { now: NOW });
+    expect(off.signoff).toBeNull();
+    signOff(root, true, '[graduated]');
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff).toBeNull();
+    expect(vi.mocked(readHld)).not.toHaveBeenCalled();
+    expect(off.headline.text).not.toMatch(/sign-off/i);
+  });
+
+  it('AC-13, AC-18: reads pending before the freeze and writing after it while no hld.json exists', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-pending';
+    const dir = openChange(root, S, 'full');
+    signOff(root);
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff).toEqual({
+      state: 'pending',
+      ref: 'ORD-501',
+      posted_at: null,
+      checked_at: null,
+      link: null,
+    });
+    freeze(root, dir);
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff?.state).toBe('writing');
+    writeFileSync(join(root, featureFilePath(dir, 'hld')), '{ not json');
+    expect(() => buildHudSnapshot(root, S, { now: NOW })).not.toThrow();
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff?.state).toBe('writing');
+    writeFileSync(join(root, featureFilePath(dir, 'hld')), JSON.stringify({ state: 'checking' }));
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff?.state).toBe('writing');
+  });
+
+  it('FR-17: carries each stored state with its ref, post time, check time and link, never checking', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-states';
+    const dir = openChange(root, S, 'full');
+    signOff(root);
+    freeze(root, dir);
+    for (const state of [
+      'awaiting_sign_off',
+      'approved',
+      'changes_requested',
+      'skipped',
+      'not_posted',
+    ] as const) {
+      writeHld(root, dir, record({ state, checked_at: '2026-10-18T08:50:00.000Z' }));
+      expect(buildHudSnapshot(root, S, { now: NOW }).signoff).toEqual({
+        state,
+        ref: 'PQD-12',
+        posted_at: '2026-10-18T08:40:00.000Z',
+        checked_at: '2026-10-18T08:50:00.000Z',
+        link: 'https://acme.test/PQD-12#1',
+      });
+    }
+    writeHld(root, dir, record({ state: 'approved', approval_link: 'https://acme.test/ok' }));
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff?.link).toBe('https://acme.test/ok');
+  });
+
+  it('AC-20: waiting for sign-off is a caution headline naming the ref', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-waiting';
+    const dir = openChange(root, S, 'full');
+    signOff(root);
+    freeze(root, dir);
+    writeHld(root, dir, record());
+    expect(buildHudSnapshot(root, S, { now: NOW }).headline).toMatchObject({
+      row: 21,
+      tone: 'warn',
+      text: 'Waiting for sign-off on PQD-12',
+    });
+  });
+
+  it('AC-32: a re-posted design after changes requested reads waiting from the new post', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-repost';
+    const dir = openChange(root, S, 'full');
+    signOff(root);
+    freeze(root, dir);
+    writeHld(root, dir, record({ state: 'changes_requested' }));
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff?.state).toBe('changes_requested');
+    writeHld(
+      root,
+      dir,
+      record({
+        state: 'awaiting_sign_off',
+        posts: [
+          post('2026-10-18T08:40:00.000Z'),
+          post('2026-10-18T08:55:00.000Z', 'https://acme.test/v2'),
+        ],
+      }),
+    );
+    expect(buildHudSnapshot(root, S, { now: NOW }).signoff).toMatchObject({
+      state: 'awaiting_sign_off',
+      posted_at: '2026-10-18T08:55:00.000Z',
+      link: 'https://acme.test/v2',
+    });
+  });
+
+  it('INV-5: a design sign-off config that cannot be read leaves signoff null and logs it', () => {
+    const root = onboardedRoot();
+    const S = 'ses-signoff-broken';
+    openChange(root, S, 'full');
+    vi.mocked(loadGitWorkflow).mockImplementation(() => {
+      throw new Error('config unreadable');
+    });
+    try {
+      const snapshot = buildHudSnapshot(root, S, { now: NOW });
+      expect(snapshot.signoff).toBeNull();
+      expect(snapshot.active).toBe(true);
+    } finally {
+      vi.mocked(loadGitWorkflow).mockReset();
+    }
+    expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
+      'hud-snapshot (design sign-off): config unreadable',
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { subagentTitle } from './agents';
-import { formatStopwatch } from './cost';
+import { formatStopwatch, shortAge } from './cost';
 import { IDLE_LIVE, type LiveState } from './live';
 import type { Signal } from './palette';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
@@ -7,6 +7,13 @@ import type { PaqadHudSnapshot, PaqadTone } from './types';
 export const WAITING_FOR_ANSWER = 'Waiting for your answer';
 export const SUBAGENT_ROW = 7;
 export const NO_RECORD = 'Not yet. paqad has no record for this session.';
+export const SIGNOFF_ROW = 21;
+
+function checkedNote(snapshot: PaqadHudSnapshot, row: number, now: number): string | null {
+  if (row !== SIGNOFF_ROW || snapshot.signoff?.state !== 'awaiting_sign_off') return null;
+  const checked = Date.parse(snapshot.signoff.checked_at ?? '');
+  return Number.isFinite(checked) ? `checked ${shortAge(now - checked)} ago` : null;
+}
 
 export interface DesktopHeadline {
   row: number;
@@ -77,7 +84,7 @@ export function snapshotHeadline(
     live: running,
     text: head.text || NO_RECORD,
     word: head.word ?? null,
-    note: head.note ?? null,
+    note: head.note ?? checkedNote(snapshot, head.row ?? 0, now),
     gap: head.gap ?? null,
     clock: running && Number.isFinite(from) ? formatStopwatch(now - from) : null,
     activity: [],

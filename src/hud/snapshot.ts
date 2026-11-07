@@ -51,7 +51,7 @@ import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledg
 import { workflowCostSince } from '@/cost/session-cost.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import type { ResolvedGitWorkflow } from '@/git-workflow/types.js';
-import { LANES } from '@/core/types/routing.js';
+import { LANES, type Lane } from '@/core/types/routing.js';
 import { buildChangeTraceabilityMap } from '@/traceability/change-map.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { loadGitWorkflow } from '@/git-workflow/load.js';
@@ -89,6 +89,9 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
+import { designSignOffApplies, loadDesignSignOff } from '@/hld/applies.js';
+import { latestPost, readHld, type HldState } from '@/hld/store.js';
+
 import {
   type ChangeDiff,
   readChangeDiff,
@@ -563,6 +566,52 @@ export interface HudStartPoint {
   files_known: boolean;
 }
 
+export type HudSignoffState = 'pending' | 'writing' | HldState;
+
+export interface HudSignoff {
+  state: HudSignoffState;
+  ref: string | null;
+  posted_at: string | null;
+  checked_at: string | null;
+  link: string | null;
+}
+
+export function buildSignoff(
+  projectRoot: string,
+  dirName: string,
+  lane: string | null,
+  specJson: unknown,
+  issue: string | null,
+): HudSignoff | null {
+  let applies: boolean;
+  try {
+    applies = designSignOffApplies(loadDesignSignOff(projectRoot), lane as Lane | null);
+  } catch (error) {
+    logHudWriteError(projectRoot, 'design sign-off', error);
+    return null;
+  }
+  if (!applies) return null;
+  const record = readHld(projectRoot, dirName);
+  if (!record) {
+    const frozen = isTime(str(asRecord(asRecord(specJson)?.frozen)?.frozen_at));
+    return {
+      state: frozen ? 'writing' : 'pending',
+      ref: issue,
+      posted_at: null,
+      checked_at: null,
+      link: null,
+    };
+  }
+  const post = latestPost(record);
+  return {
+    state: record.state,
+    ref: record.ref || issue,
+    posted_at: post?.at ?? null,
+    checked_at: record.checked_at,
+    link: record.approval_link ?? post?.link ?? null,
+  };
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
@@ -602,6 +651,7 @@ export interface HudSnapshot {
   delivery_plan: HudDeliveryPlan | null;
   plan: HudPlanProgress | null;
   ship: HudShip | null;
+  signoff: HudSignoff | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
   evidence_expected: Array<{
@@ -1245,6 +1295,7 @@ export interface HudHeadlineInput {
   unproven?: readonly string[];
   verdictEarlier?: boolean;
   stageAgentLive?: boolean;
+  signoff?: HudSignoff | null;
 }
 
 export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
@@ -1548,6 +1599,10 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
       ...(running.started_at ? { clock_from: running.started_at } : {}),
     });
   }
+  if (input.signoff?.state === 'awaiting_sign_off') {
+    const ref = input.signoff.ref ?? 'this change';
+    return headlineRow(21, 'warn', `Waiting for sign-off on ${ref}`, 'Waiting for sign-off');
+  }
   if (work === 'pass' && input.checks !== 'green') {
     return headlineRow(
       13,
@@ -1630,6 +1685,7 @@ export function buildHudSnapshot(
       delivery_plan: buildDeliveryPlan(projectRoot, readPolicy(projectRoot), null),
       plan: null,
       ship: null,
+      signoff: null,
       verdict: null,
       receipt: null,
       evidence_expected: [],
@@ -1661,6 +1717,7 @@ export function buildHudSnapshot(
   const base =
     policy && !policy.branches.base_branch.includes('*') ? policy.branches.base_branch : null;
   const startPoint = readChangeStartPoint(projectRoot, dirName, base);
+  const signoff = buildSignoff(projectRoot, dirName, lane, specJson, record?.issue ?? null);
   const changeGit = readChangeGit(
     projectRoot,
     base,
@@ -1753,6 +1810,7 @@ export function buildHudSnapshot(
       unproven: unprovenLines(gates, verdict),
       verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),
       stageAgentLive: liveStageAgents(readFeatureStageUnit(projectRoot, dirName)).length > 0,
+      signoff,
     }),
     change: {
       dir: dirName,
@@ -1807,6 +1865,7 @@ export function buildHudSnapshot(
     delivery_plan: buildDeliveryPlan(projectRoot, policy, delivery),
     plan,
     ship,
+    signoff,
     verdict,
     receipt,
     evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),

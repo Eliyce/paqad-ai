@@ -256,7 +256,7 @@ describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the cha
   });
 });
 
-describe('#836 ship.diff: lines added and removed by the change (FR-1 to FR-7)', () => {
+describe('ship.diff: lines added and removed by the change (FR-1 to FR-7)', () => {
   const at = (root: string) => ({
     commit: git(root, 'rev-parse', 'HEAD'),
     worktree: null,

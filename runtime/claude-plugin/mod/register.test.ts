@@ -296,7 +296,7 @@ describe('the ship rail on each surface', () => {
     expect(svgs).toHaveLength(3);
     const alts = svgs.map((svg) => (svg as { props: { alt?: string } }).props.alt);
     expect(alts[0]).toMatch(/^Done\. Stage /);
-    expect(alts.at(-1)).toBe('Delivery PR #12 · 6 checks green.');
+    expect(alts.at(-1)).toBe(`Delivery PR #${12} · 6 checks green.`);
     const sizes = svgs.map(
       (svg) => (svg as { props: { width?: unknown; height?: unknown } }).props,
     );
@@ -1244,6 +1244,170 @@ const CLAIMED = {
     { at: '2026-10-18T08:42:00.000Z', kind: 'rules_loaded', count: 12 },
   ],
 };
+
+describe('Part C: the design sign-off stage in the Desktop band', () => {
+  const HOUR = 3_600_000;
+  const signed = (signoff: Record<string, unknown> | null) => ({
+    ...QUIET_501,
+    signoff,
+  });
+  const WAITING = {
+    state: 'awaiting_sign_off',
+    ref: 'PQD-12',
+    posted_at: new Date(NOW - 3 * HOUR).toISOString(),
+    checked_at: new Date(NOW - 10 * 60_000).toISOString(),
+    link: 'https://acme.test/PQD-12#1',
+  };
+  const signoffButton = (node: RenderNode) =>
+    everyElement(node).find((element) => keyOf(element) === 'paqad-signoff-button');
+  const stageAlt = (node: RenderNode) =>
+    String(
+      propsOf(
+        everyElement(node).find(
+          (element) => element.type === 'Svg' && String(propsOf(element).alt).includes('Stage '),
+        )!,
+      ).alt,
+    );
+
+  test('AC-15, AC-16: Check submits one prompt naming the ref, shows Checking… with no button, and clears when the turn ends', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(WAITING)) },
+      store: QUIET_STORE(),
+    });
+    const submitted = world.submitted;
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const waiting = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const check = signoffButton(waiting)!;
+    expect(textOf(check)).toBe('Check');
+    expect(propsOf(check).label).toBe('Check design sign-off for PQD-12');
+    expect(stageAlt(waiting)).toContain('Design sign-off: Waiting 3h. Check available.');
+    const box = everyElement(waiting).find((element) => keyOf(element) === 'paqad-signoff')!;
+    expect(propsOf(box)).toMatchObject({ position: 'absolute', top: 0 });
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.press({ key: 'paqad-signoff-button' }).catch(() => undefined);
+    await mounted.unmount();
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0]).toContain('PQD-12');
+    expect(submitted[0]).toContain('paqad-ai hld check-approval');
+    const checking = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(stageAlt(checking)).toContain('Design sign-off: Checking.');
+    expect(signoffButton(checking)).toBeUndefined();
+    await $.turn.complete({ text: '', reason: 'answer' } as never);
+    const after = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(after)!)).toBe('Check');
+  });
+
+  test('AC-16, INV-6: Checking… clears after 10 minutes, or as soon as checked_at moves past the press', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(WAITING)) },
+      store: QUIET_STORE(),
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))).toBeUndefined();
+    await clock.advance(10 * 60_000);
+    await clock.settle();
+    expect(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))).toBeDefined();
+    const again = await mountDesktop($, { bodyColumns: 93 });
+    await again.press({ key: 'paqad-signoff-button' });
+    await again.unmount();
+    world.put(
+      SNAPSHOT,
+      fileText(signed({ ...WAITING, checked_at: new Date(NOW + 11 * 60_000).toISOString() })),
+    );
+    await $.prompt.submit({ text: 'any news?' } as never);
+    await clock.settle();
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(stageAlt(drawn)).toContain('Waiting 3h');
+  });
+
+  test('AC-21: Copy design copies hld.md, reads Copied for 2 s, and hides with no design text', async ($, on) => {
+    const NOT_POSTED = { ...WAITING, state: 'not_posted', checked_at: null };
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(signed(NOT_POSTED)),
+        '.paqad/ledger/feature-evidence/dir-ord-501/hld.md': '# Design\nThe parts work together.\n',
+      },
+      store: QUIET_STORE(),
+    });
+    const copies: string[] = [];
+    on('ui.copy', ($, e) => {
+      copies.push(e.text);
+      return { value: { isCopied: true } } as never;
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(drawn)!)).toBe('Copy design');
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(copies).toEqual(['# Design\nThe parts work together.\n']);
+    expect(textOf(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))!)).toBe(
+      'Copied',
+    );
+    await clock.advance(2_000);
+    await clock.settle();
+    expect(textOf(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))!)).toBe(
+      'Copy design',
+    );
+    world.remove('.paqad/ledger/feature-evidence/dir-ord-501/hld.md');
+    world.put(SNAPSHOT, fileText(signed({ ...NOT_POSTED, ref: 'PQD-13' })));
+    await $.prompt.submit({ text: 'any news?' } as never);
+    await clock.settle();
+    const bare = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(signoffButton(bare)).toBeUndefined();
+    expect(stageAlt(bare)).toContain('Design sign-off: Not posted.');
+  });
+
+  test('AC-22: View on changes requested opens the Ledger with the design record link', async ($, on) => {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(signed({ ...WAITING, state: 'changes_requested' })),
+      },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(drawn)!)).toBe('View');
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(world.opened.at(-1)).toBe('paqad');
+    const ledger = await $.ui.render(pane('desktop'));
+    const link = everyElement(ledger).find(
+      (element) =>
+        element.type === 'Link' && propsOf(element).href === 'https://acme.test/PQD-12#1',
+    );
+    expect(link).toBeDefined();
+    expect(textOf(ledger)).toContain('Design sign-off for PQD-12: changes requested');
+  });
+
+  test('AC-12, INV-3: with no sign-off the band draws no Sign-off stage, words or button', async ($, on) => {
+    worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(null)) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(signoffButton(drawn)).toBeUndefined();
+    expect(
+      everyElement(drawn).find((element) => keyOf(element) === 'paqad-signoff'),
+    ).toBeUndefined();
+    expect(stageAlt(drawn)).not.toContain('sign-off');
+    const svgs = everyElement(drawn).filter((element) => element.type === 'Svg');
+    for (const svg of svgs) expect(String(propsOf(svg).source)).not.toContain('Sign-off');
+  });
+});
 
 describe('the Desktop Ledger', () => {
   test('AC-19, AC-34: opens on Trust with the subtitle, equal tabs, the tab rule, the stages with their steps and gates, the claims and the flags', async ($, on) => {
