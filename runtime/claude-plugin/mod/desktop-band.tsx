@@ -7,11 +7,13 @@ import {
   HIDDEN_WORDS,
   NEEDS_YOU_WORDS,
   READY_WORDS,
-  flagWords,
+  flagLabel,
   identityText,
   type DesktopBand,
   type IdentityView,
+  type SignoffAction,
 } from './desktop-view';
+import { SUBAGENT_PREFIX } from './agents';
 import { SIGNAL, lightColor } from './palette';
 import { liveHeadline, miniStages, strip } from './strip';
 
@@ -27,6 +29,7 @@ export interface BandActions {
   hideAlways: () => void;
   cancel: () => void;
   show: () => void;
+  signoff: (action: SignoffAction, surface?: unknown) => void;
 }
 
 type CardBand = Extract<DesktopBand, { kind: 'feature' | 'ready-feature' }>;
@@ -58,14 +61,11 @@ function controls(ui: D, actions: BandActions, minimised: boolean) {
 }
 
 function flags(ui: D, count: number, actions: BandActions) {
-  const { Text, Button } = ui;
+  const { Button } = ui;
   if (count === 0) return [];
   return [
-    <Text key="paqad-flag-mark" size="footnote" color={SIGNAL.caution}>
-      ⚑
-    </Text>,
     <Button plain dimColor key="paqad-flags" onPress={actions.flags}>
-      {flagWords(count)}
+      {flagLabel(count)}
     </Button>,
   ];
 }
@@ -81,6 +81,11 @@ function identityRow(ui: D, identity: IdentityView, actions: BandActions) {
         </Text>
       </Text>
       <Box flexGrow={1} />
+      {identity.cost ? (
+        <Text key="paqad-cost" size="footnote" dimColor>
+          {identity.cost}
+        </Text>
+      ) : null}
       {flags(ui, identity.flags, actions)}
       {controls(ui, actions, false)}
     </Box>
@@ -109,10 +114,12 @@ function messageRow(ui: D, band: CardBand, tick: number) {
   const { Text, Svg } = ui;
   const headline = band.headline;
   if (headline.live) {
+    const subagent = headline.text.startsWith(SUBAGENT_PREFIX);
     const drawn = liveHeadline({
       columns: band.strip.columns,
       signal: headline.signal,
-      text: headline.text,
+      text: subagent ? headline.text.slice(SUBAGENT_PREFIX.length) : headline.text,
+      ...(subagent ? { tag: 'SUBAGENT' } : {}),
       note: headline.note,
       clock: headline.clock,
       ...(band.strip.clockMs === undefined ? {} : { clockMs: band.strip.clockMs }),
@@ -144,15 +151,40 @@ function bodyRow(ui: D, band: CardBand) {
   );
 }
 
-function stripRow(ui: D, band: CardBand) {
+function signoffButton(ui: D, band: CardBand, actions: BandActions, last: boolean) {
+  const { Box, Button } = ui;
+  const view = band.signoff;
+  if (!view?.action || !view.label) return null;
+  const action = view.action;
+  return (
+    <Box key="paqad-signoff" position="absolute" top={0} right={last ? 1 : 2}>
+      <Button
+        key="paqad-signoff-button"
+        onPress={(press) => actions.signoff(action, press.surface)}
+      >
+        {view.label}
+      </Button>
+    </Box>
+  );
+}
+
+function stripRow(ui: D, band: CardBand, actions: BandActions) {
   const { Box, Svg } = ui;
+  const sections = strip(band.strip).sections;
   return (
     <Box key="paqad-strip" flexDirection="row">
-      {strip(band.strip).sections.map((cut) => (
-        <Box key={`paqad-strip-${cut.id}`} width={`${cut.percent}%`}>
-          <Svg source={cut.source} alt={band.stripAlts[cut.id]} />
-        </Box>
-      ))}
+      {sections.map((cut) =>
+        cut.grow ? (
+          <Box key={`paqad-strip-${cut.id}`} flexGrow={1} minWidth={0}>
+            <Svg source={cut.source} alt={band.stripAlts[cut.id]} />
+            {signoffButton(ui, band, actions, sections.length === 1)}
+          </Box>
+        ) : (
+          <Box key={`paqad-strip-${cut.id}`} flexShrink={0}>
+            <Svg source={cut.source} alt={band.stripAlts[cut.id]} width={cut.px} />
+          </Box>
+        ),
+      )}
     </Box>
   );
 }
@@ -196,7 +228,7 @@ function featureBand(ui: D, band: CardBand, tick: number, actions: BandActions) 
       {band.menu ? closeMenu(ui, actions) : null}
       {messageRow(ui, band, tick)}
       {bodyRow(ui, band)}
-      {stripRow(ui, band)}
+      {stripRow(ui, band, actions)}
     </Box>
   );
 }

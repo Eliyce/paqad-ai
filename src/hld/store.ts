@@ -40,6 +40,7 @@ export interface HldRecord {
   approved_at: string | null;
   approval_link: string | null;
   skip_reason: string | null;
+  checked_at: string | null;
 }
 
 export interface WaitingEntry {
@@ -70,6 +71,7 @@ export function emptyHldRecord(ref: string): HldRecord {
     approved_at: null,
     approval_link: null,
     skip_reason: null,
+    checked_at: null,
   };
 }
 
@@ -97,6 +99,7 @@ export function readHld(projectRoot: string, dirName: string): HldRecord | null 
       approved_at: typeof parsed.approved_at === 'string' ? parsed.approved_at : null,
       approval_link: typeof parsed.approval_link === 'string' ? parsed.approval_link : null,
       skip_reason: typeof parsed.skip_reason === 'string' ? parsed.skip_reason : null,
+      checked_at: typeof parsed.checked_at === 'string' ? parsed.checked_at : null,
     };
   } catch {
     return null;

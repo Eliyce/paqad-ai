@@ -98,7 +98,8 @@ describe('a fast-lane change that edits src, a root policy file, src again and t
       if (band.kind !== 'feature') continue;
       expect(band.headline.text).not.toBe('Syncing the docs');
       expect(band.strip.stages.map((stage) => stage.label)).toEqual(['Plan', 'Build', 'Checks']);
-      expect(band.strip.delivery[0]).toEqual({ label: 'Edit', state: 'run' });
+      expect(band.strip.deliveryValue).toBe('Editing');
+      expect(band.strip.deliveryTone).toBe('acc');
     }
 
     const turnEnd = {
@@ -131,9 +132,7 @@ describe('a fast-lane change that edits src, a root policy file, src again and t
     editAndDraw(root, 'src/a.ts', false);
     endStage(root, 'development', {}, { sessionId: SESSION, adapter: 'claude-code' });
     const { band } = editAndDraw(root, 'package.json', true);
-    expect(band.kind === 'feature' && band.strip.delivery[0]).toEqual({
-      label: 'Edit',
-      state: 'run',
-    });
+    expect(band.kind === 'feature' && band.strip.deliveryValue).toBe('Editing');
+    expect(band.kind === 'feature' && band.strip.deliveryTone).toBe('acc');
   });
 });

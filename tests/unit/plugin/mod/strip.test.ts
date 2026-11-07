@@ -20,15 +20,23 @@ import {
   meter,
   miniStages,
   nodeIcon,
+  DELIVERY_PX,
+  LABEL_MIN_PX,
+  STAGE_MIN_PX,
+  STAGE_NAME_X,
+  TABLE_PX,
+  buttonPx,
+  figureWords,
   seatsThatFit,
+  stageBarPx,
   strip,
-  stripAlt,
+  stripLayout,
   stripWidth,
   tabRule,
   tableRing,
   type Mark,
   type SeatState,
-  type ShipState,
+  type SignoffTone,
   type StageState,
   type StripInput,
 } from '../../../../runtime/claude-plugin/mod/strip.ts';
@@ -39,7 +47,6 @@ const STRIP_SOURCE = readFileSync(
 );
 
 const FULL = ['Intake', 'Plan', 'Spec', 'Build', 'Review', 'Checks', 'Docs', 'Deliver'];
-const STEPS = ['Edit', 'Commit', 'Push', 'PR', 'CI'];
 const INITIALS = ['SA', 'IA', 'DO', 'PO', 'AA', 'UF', 'QA'];
 
 function marks<S>(labels: readonly string[], states: readonly S[]): Array<Mark<S>> {
@@ -47,7 +54,6 @@ function marks<S>(labels: readonly string[], states: readonly S[]): Array<Mark<S
 }
 
 const stages = (...states: StageState[]) => marks(FULL, states);
-const steps = (...states: ShipState[]) => marks(STEPS, states);
 const seats = (...states: SeatState[]) => marks(INITIALS, states);
 
 const SETTLED: StripInput = {
@@ -56,10 +62,10 @@ const SETTLED: StripInput = {
   stageValue: 'All stages done',
   seats: seats('done', 'done', 'done', 'done', 'done', 'done', 'done'),
   chief: 'done',
-  tableValue: 'Spec approved',
-  delivery: steps('done', 'done', 'done', 'done', 'done'),
-  ci: null,
-  deliveryValue: 'PR #N merged',
+  tableValue: '',
+  deliveryValue: 'PR #N',
+  deliveryTone: 'ink',
+  deliveryFigures: null,
 };
 
 const draw = (over: Partial<StripInput> = {}) => strip({ ...SETTLED, ...over }).source;
@@ -73,24 +79,13 @@ function textX(source: string, text: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-const nodeCentres = (source: string) => [
-  ...new Set(numbers(source, /<circle [^>]*cx="([\d.]+)"[^>]*r="8.5"/g)),
-];
-
-function connectors(source: string): Array<[number, number]> {
-  return [
-    ...source.matchAll(
-      /<line class="(?:inks|faints)" x1="([\d.]+)" y1="25" x2="([\d.]+)" y2="25" stroke-width="1.2"/g,
-    ),
-  ].map((match) => [Number(match[1]), Number(match[2])]);
-}
-
 const PALETTE = new Set(
   [
     INK.ink,
     INK.inkDark,
     INK.muted,
     INK.mutedDark,
+    INK.mutedText,
     INK.headline,
     INK.headlineDark,
     ...Object.values(SIGNAL),
@@ -111,83 +106,133 @@ describe('the strip geometry', () => {
     expect(drawn.source).not.toContain('preserveAspectRatio');
   });
 
-  it('splits STAGE 40%, HIGH TABLE 26% and DELIVERY 34%, or 56% and 44% without a table', () => {
+  it('AC-9: High Table is a fixed 150 px, Delivery a fixed 190 px, and Stage takes the rest', () => {
+    expect([TABLE_PX, DELIVERY_PX, STAGE_MIN_PX, LABEL_MIN_PX]).toEqual([150, 190, 340, 40]);
     const withTable = draw();
-    expect(numbers(withTable, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([316.4, 522.1]);
-    expect(withTable).toContain('>HIGH TABLE</text>');
-    const without = draw({ seats: null });
-    expect(numbers(without, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([443]);
-    expect(without).not.toContain('HIGH TABLE');
-    expect(without).toContain('>STAGE</text>');
-    expect(without).toContain('>DELIVERY</text>');
+    expect(numbers(withTable, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([451, 601]);
+    expect(withTable).toContain('>DELIVERY</text>');
+    const sections = strip(SETTLED).sections;
+    expect(sections.map(({ id, px, grow }) => [id, px, grow])).toEqual([
+      ['stage', 451, true],
+      ['table', 150, false],
+      ['delivery', 190, false],
+    ]);
+    const without = strip({ ...SETTLED, seats: null });
+    expect(without.sections.map(({ id, px }) => [id, px])).toEqual([
+      ['stage', 601],
+      ['delivery', 190],
+    ]);
+    expect(without.source).not.toContain('HIGH TABLE');
   });
 
-  it('insets the last section 7 px so its value lines up with the close glyph', () => {
-    expect(textX(draw(), 'PR #N merged')).toBe(791 - 7);
-    expect(textX(draw({ seats: null, columns: 57 }), 'PR #N merged')).toBe(485 - 7);
-    expect(textX(draw(), 'All stages done')).toBe(316.4 - 18);
-  });
-
-  it('draws a section value only when the section is wider than 150 px', () => {
-    expect(draw({ columns: 93 })).toContain('>Spec approved</text>');
-    expect(draw({ columns: 57 })).not.toContain('Spec approved');
-    expect(draw({ stageValue: '' })).not.toContain('class="val ink" x="298.4"');
-  });
-
-  it('AC-11: stops every connector 4 px short of the nodes it joins', () => {
-    const source = draw({ seats: null });
-    const centres = nodeCentres(source);
-    expect(centres).toHaveLength(5);
-    const lines = connectors(source);
-    expect(lines).toHaveLength(4);
-    lines.forEach(([from, to], i) => {
-      expect(from).toBeCloseTo(centres[i]! + 8.5 + 4, 1);
-      expect(to).toBeCloseTo(centres[i + 1]! - 8.5 - 4, 1);
+  it('AC-9: High Table shows from 680 px, Delivery from 530 px, else Stage only', () => {
+    expect(stripLayout(679, true)).toEqual({ ids: ['stage', 'delivery'], px: [489, 190] });
+    expect(stripLayout(680, true)).toEqual({
+      ids: ['stage', 'table', 'delivery'],
+      px: [340, 150, 190],
     });
+    expect(stripLayout(680, false)).toEqual({ ids: ['stage', 'delivery'], px: [490, 190] });
+    expect(stripLayout(530, true)).toEqual({ ids: ['stage', 'delivery'], px: [340, 190] });
+    expect(stripLayout(529, true)).toEqual({ ids: ['stage'], px: [529] });
+    expect(strip({ ...SETTLED, columns: 66 }).sections.map((cut) => cut.id)).toEqual([
+      'stage',
+      'delivery',
+    ]);
+    expect(strip({ ...SETTLED, columns: 57 }).sections.map((cut) => cut.id)).toEqual(['stage']);
+    expect(strip({ ...SETTLED, columns: 130 }).sections.map((cut) => cut.id)).toEqual([
+      'stage',
+      'table',
+      'delivery',
+    ]);
+    const stageOnly = draw({ columns: 57 });
+    expect(stageOnly).not.toContain('DELIVERY');
+    expect(stageOnly).not.toContain('HIGH TABLE');
   });
 
-  it('AC-11: caps the node spacing at 96 px and insets the nodes 12 px from the section', () => {
-    const two = draw({ delivery: marks(['Edit', 'Commit'], ['done', 'todo'] as ShipState[]) });
-    const [first, second] = nodeCentres(two);
-    expect(second! - first!).toBeCloseTo(96, 1);
-    expect(first).toBeCloseTo(522.1 + 18 + 12 + 8.5, 1);
-    const one = draw({ delivery: marks(['Edit'], ['done'] as ShipState[]) });
-    expect(nodeCentres(one)).toHaveLength(1);
-    expect(connectors(one)).toEqual([]);
+  it('AC-9: stage labels draw from 40 px a bar, and below it only the bars draw', () => {
+    expect(stageBarPx(40 * 6 + 4 * 5, 6)).toBe(40);
+    expect(stageBarPx(39 * 6 + 4 * 5, 6)).toBe(39);
+    const labelled = (count: number, columns: number) => {
+      const labels = Array.from({ length: count }, (_, i) => `S${i}`);
+      const source = draw({
+        columns,
+        seats: null,
+        stages: marks(labels, labels.map(() => 'todo') as StageState[]),
+      });
+      return (source.match(/<text class="lbl mut"[^>]*>S\d+<\/text>/g) ?? []).length;
+    };
+    expect(labelled(6, 93)).toBe(6);
+    expect(labelled(12, 57)).toBe(0);
   });
 
-  it('AC-11: keeps the nodes round and the CI arc clear of its label', () => {
-    const source = draw({
-      delivery: steps('done', 'done', 'done', 'done', 'run'),
-      ci: 0.5,
-    });
-    expect(source).toMatch(/viewBox="0 0 791 52" width="791" height="52"/);
-    expect(source).not.toMatch(/<ellipse/);
-    const arc =
-      /<circle class="accs" cx="[\d.]+" cy="25" r="([\d.]+)" fill="none" stroke-width="([\d.]+)"/.exec(
-        source,
-      );
-    expect(arc).not.toBeNull();
-    const bottom = 25 + Number(arc![1]) + Number(arc![2]) / 2;
-    expect(bottom).toBeLessThan(47 - 9);
-    const length = 2 * Math.PI * Number(arc![1]);
-    expect(source).toContain(
-      `stroke-dasharray="${(length * 0.5).toFixed(1)} ${length.toFixed(1)}"`,
-    );
+  it('FR-14: the stage name draws right after the STAGE caption, at x0 + 44', () => {
+    expect(STAGE_NAME_X).toBe(44);
+    expect(textX(draw(), 'All stages done')).toBe(44);
+    expect(draw({ stageValue: '' })).not.toMatch(/class="val ink" x="44.0"/);
+    const long = draw({ columns: 57, stageValue: 'x'.repeat(200) });
+    expect(long).toContain('…</text>');
   });
 
-  it('draws only the stages and delivery steps it is given', () => {
+  it('draws only the stages it is given, and no delivery nodes', () => {
     const fast = draw({
       seats: null,
       stages: marks(['Plan', 'Build', 'Checks'], ['done', 'run', 'todo'] as StageState[]),
-      delivery: marks(['Edit'], ['run'] as ShipState[]),
     });
-    for (const label of ['Plan', 'Build', 'Checks', 'Edit']) {
+    for (const label of ['Plan', 'Build', 'Checks']) {
       expect(fast).toMatch(new RegExp(`[> ]${label}</text>`));
     }
-    for (const label of ['Intake', 'Spec', 'Review', 'Docs', 'Commit', 'CI']) {
+    for (const label of ['Intake', 'Spec', 'Review', 'Docs', 'Commit', 'CI', 'Edit']) {
       expect(fast).not.toMatch(new RegExp(`[> ]${label}</text>`));
     }
+    expect(fast).not.toMatch(/r="8.5"/);
+  });
+});
+
+describe('AC-8: Delivery is two lines of text', () => {
+  it('draws the state on line 1 at y = 29.3 in its tone, and no value beside the caption', () => {
+    const source = draw({ deliveryValue: 'Not pushed', deliveryTone: 'ink' });
+    expect(source).toContain(
+      '<text class="ink" x="619.0" y="29.3" style="font-size:12px;font-weight:500">Not pushed</text>',
+    );
+    expect(draw({ deliveryValue: 'CI failed', deliveryTone: 'fail' })).toContain(
+      '<text class="fail" x="619.0" y="29.3"',
+    );
+    expect(draw({ deliveryValue: 'Not started', deliveryTone: 'mut' })).toContain(
+      '<text class="mut" x="619.0" y="29.3"',
+    );
+  });
+
+  it('draws the commit count only on line 2, then the line figures in green and red', () => {
+    const source = draw({
+      deliveryValue: 'Not pushed',
+      deliveryFigures: { commits: 53, additions: 6375, deletions: 983 },
+    });
+    expect(source).toContain(
+      '<text x="619.0" y="47" style="font-size:10.5px" xml:space="preserve"><tspan class="mut">53 commits</tspan><tspan>  </tspan><tspan class="passt">+6,375</tspan><tspan> </tspan><tspan class="fail">−983</tspan></text>',
+    );
+    expect(source.match(/53 commits/g)).toHaveLength(1);
+    const one = draw({ deliveryFigures: { commits: 1, additions: 2, deletions: 0 } });
+    expect(one).toContain('>1 commit</tspan>');
+    const none = draw({ deliveryFigures: { commits: 0, additions: 2, deletions: 1 } });
+    expect(none).not.toContain('commit');
+    expect(draw({ deliveryFigures: { commits: 3, additions: 0, deletions: 0 } })).not.toContain(
+      'y="47" style="font-size:10.5px"',
+    );
+    expect(figureWords(null)).toBeNull();
+  });
+
+  it('AC-5: a partly counted figure shows the counted lines with a trailing +', () => {
+    const source = draw({
+      deliveryFigures: { commits: 0, additions: 500, deletions: 2, partial: true },
+    });
+    expect(source).toContain('<tspan class="passt">+500+</tspan>');
+  });
+
+  it('clips a long state, such as a long branch name, with an ellipsis inside the section', () => {
+    const source = draw({ deliveryValue: `Pushed · feat/${'x'.repeat(80)}` });
+    const line = /y="29.3"[^>]*>([^<]+)<\/text>/.exec(source)![1]!;
+    expect(line.endsWith('…')).toBe(true);
+    expect([...line].length * 6.8).toBeLessThanOrEqual(190 - 18 - 7);
   });
 });
 
@@ -201,12 +246,6 @@ describe('the High Table shows three seats and the chief', () => {
   const hairAt = (source: string) =>
     numbers(source, /<line class="hair" x1="([\d.]+)" y1="19"/g)[0]!;
 
-  const two = three.slice(0, 2);
-  const inner = (columns: number) => {
-    const width = stripWidth(columns);
-    return width * 0.66 - 18;
-  };
-
   it('AC-12: draws +N after the last shown seat, then the hairline and CA; seats that all fit draw no +N', () => {
     const source = draw({ columns: 93, seats: three, hiddenSeats: 8, chief: 'ruling' });
     expect(source).toMatch(
@@ -214,76 +253,73 @@ describe('the High Table shows three seats and the chief', () => {
     );
     expect(source).toContain('>CA</text>');
     expect(source.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(3);
-    const narrow = draw({ columns: 57, seats: two, hiddenSeats: 9, chief: 'ruling' });
-    expect(narrow).toContain('>+9</text>');
-    expect(narrow.match(/<text class="lbl mut"[^>]*>(SA|IA|DO)<\/text>/g)).toHaveLength(2);
-    expect(draw({ columns: 57, seats: three, hiddenSeats: 0 })).not.toMatch(/>\+\d+<\/text>/);
-    expect(draw({ columns: 57, seats: three })).not.toMatch(/>\+\d+<\/text>/);
+    expect(draw({ seats: three, hiddenSeats: 0 })).not.toMatch(/>\+\d+<\/text>/);
     expect(draw({ seats: three, hiddenSeats: 1 })).toContain('>+1</text>');
   });
 
-  it('shows three seats when the run fits the section, else two, switching at 66 columns', () => {
-    expect(seatsThatFit(57, 11, 3)).toBe(2);
-    expect(seatsThatFit(65, 11, 3)).toBe(2);
-    expect(seatsThatFit(66, 11, 3)).toBe(3);
-    expect(seatsThatFit(93, 11, 3)).toBe(3);
-    expect(seatsThatFit(57, 4, 3)).toBe(2);
-    expect(seatsThatFit(57, 3, 3)).toBe(3);
-    expect(seatsThatFit(57, 2, 3)).toBe(2);
-    expect(seatsThatFit(57, 1, 3)).toBe(1);
-    expect(seatsThatFit(57, 0, 3)).toBe(0);
+  it('three seats and +N always fit the 150 px section, whatever the band width', () => {
+    expect(seatsThatFit(11, 3)).toBe(3);
+    expect(seatsThatFit(4, 3)).toBe(3);
+    expect(seatsThatFit(3, 3)).toBe(3);
+    expect(seatsThatFit(2, 3)).toBe(2);
+    expect(seatsThatFit(1, 3)).toBe(1);
+    expect(seatsThatFit(0, 3)).toBe(0);
   });
 
-  for (const [columns, shown, hidden] of [
-    [57, two, 9],
-    [65, two, 9],
-    [66, three, 8],
-    [93, three, 8],
-    [57, three, 0],
-  ] as Array<[number, typeof three, number]>) {
-    it(`AC-14: at ${columns} columns with ${shown.length} seats, marks sit 22 px apart, +N one step on, and the chief 18 px clear of the divider`, () => {
-      const source = draw({ columns, seats: shown, hiddenSeats: hidden, chief: 'ruling' });
+  for (const columns of [80, 93, 130]) {
+    it(`AC-14: at ${columns} columns, marks sit 22 px apart, +N one step on, and the chief clear of the divider`, () => {
+      const source = draw({ columns, seats: three, hiddenSeats: 8, chief: 'ruling' });
       const centres = marksOf(source);
-      expect(centres).toHaveLength(shown.length + 1);
-      const seatsAt = centres.slice(0, shown.length);
+      expect(centres).toHaveLength(4);
+      const seatsAt = centres.slice(0, 3);
       const chief = centres.at(-1)!;
-      const plus = hidden > 0 ? textX(source, `\\+${hidden}`) : null;
-      const all = [...seatsAt, ...(plus === null ? [] : [plus]), chief];
-      for (let i = 1; i < all.length; i += 1) {
-        expect(all[i]! - all[i - 1]!).toBeGreaterThanOrEqual(22 - 0.05);
-      }
-      if (plus !== null) expect(plus - seatsAt.at(-1)!).toBeCloseTo(22, 1);
+      const plus = textX(source, '\\+8')!;
+      expect(plus - seatsAt.at(-1)!).toBeCloseTo(22, 1);
       const hair = hairAt(source);
-      expect(hair).toBeGreaterThan((plus ?? seatsAt.at(-1)!) + 6);
+      expect(hair).toBeGreaterThan(plus + 6);
       expect(chief - 5).toBeGreaterThan(hair);
-      const divider = stripWidth(columns) * 0.66;
-      expect(chief + 6).toBeLessThanOrEqual(inner(columns) + 0.05);
+      const divider = stripWidth(columns) - DELIVERY_PX;
       expect(divider - (chief + 6)).toBeGreaterThanOrEqual(18 - 0.05);
     });
   }
 
-  it('AC-15: cuts the strip into whole-percent sections that tile the width and keep every x', () => {
+  it('one seat with nothing hidden joins the chief with a connector, not the hairline', () => {
+    const one = draw({ seats: three.slice(0, 1), hiddenSeats: 0 });
+    const x0 = 451 + 18;
+    expect(one).toContain(
+      `<line class="faints" x1="${(x0 + 10).toFixed(1)}" y1="25" x2="${(x0 + 30).toFixed(1)}" y2="25" stroke-width="1.2" stroke-linecap="round"/>`,
+    );
+    expect(one).not.toMatch(/<line class="hair" x1="[\d.]+" y1="19"/);
+    expect(draw({ seats: three.slice(0, 1), hiddenSeats: 2 })).toMatch(
+      /<line class="hair" x1="[\d.]+" y1="19"/,
+    );
+    expect(draw({ seats: three.slice(0, 2) })).toMatch(/<line class="hair" x1="[\d.]+" y1="19"/);
+  });
+
+  it('Needs answers replaces the HIGH TABLE caption in the attention colour', () => {
+    const needs = draw({ tableValue: 'Needs answers', chief: 'needs' });
+    expect(needs).toContain('<text class="val att" x="469.0" y="9">Needs answers</text>');
+    expect(needs).not.toContain('HIGH TABLE');
+    expect(draw()).toContain('>HIGH TABLE</text>');
+    expect(draw({ tableValue: 'Seated' })).not.toContain('Seated');
+  });
+
+  it('cuts the strip into px sections that tile the width and keep every x', () => {
     for (const over of [
-      { columns: 57, seats: three.slice(0, 2), hiddenSeats: 9 },
+      { columns: 57 },
+      { columns: 66 },
       { columns: 93 },
       { columns: 93, seats: null },
     ] as Array<Partial<StripInput>>) {
       const drawn = strip({ ...SETTLED, ...over });
-      expect(drawn.sections.map((cut) => cut.percent)).toEqual(
-        over.seats === null ? [56, 44] : [40, 26, 34],
-      );
-      expect(drawn.sections.map((cut) => cut.id)).toEqual(
-        over.seats === null ? ['stage', 'delivery'] : ['stage', 'table', 'delivery'],
-      );
       let from = 0;
       for (const cut of drawn.sections) {
-        expect(Number.isInteger(cut.percent)).toBe(true);
         const box = /viewBox="([\d.]+) 0 ([\d.]+) 52" width="([\d.]+)" height="52"/.exec(
           cut.source,
         )!;
         expect(Number(box[1])).toBeCloseTo(from, 1);
         expect(Number(box[3])).toBe(Number(box[2]));
-        expect(Number(box[2])).toBeCloseTo((cut.percent / 100) * drawn.width, 1);
+        expect(Number(box[2])).toBeCloseTo(cut.px, 1);
         from += Number(box[2]);
         const texts = [...cut.source.matchAll(/<text [^>]*x="([\d.]+)"[^>]*>([^<]+)</g)];
         expect(texts.length).toBeGreaterThan(0);
@@ -298,12 +334,9 @@ describe('the High Table shows three seats and the chief', () => {
 
   it('draws each divider half a pixel inside its left section in the cuts, so the cut keeps it whole', () => {
     const drawn = strip(SETTLED);
-    expect(numbers(drawn.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([
-      316.4, 522.1,
-    ]);
     const [stage, table, delivery] = drawn.sections;
-    expect(numbers(stage!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([315.9]);
-    expect(numbers(table!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([521.6]);
+    expect(numbers(stage!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([450.5]);
+    expect(numbers(table!.source, /<line class="hair" x1="([\d.]+)" y1="1"/g)).toEqual([600.5]);
     expect(delivery!.source).not.toMatch(/<line class="hair" x1="[\d.]+" y1="1"/);
   });
 
@@ -407,19 +440,6 @@ describe('the strip marks', () => {
     expect(draw({ chief: 'done' })).toMatch(/<circle class="ink" cx="[\d.]+" cy="25" r="5"\/>/);
   });
 
-  it('draws delivery nodes done, running, failed and not yet, and no Merge node', () => {
-    const source = draw({
-      delivery: steps('done', 'run', 'fail', 'todo', 'todo'),
-      ci: null,
-    });
-    expect(source).toMatch(/<circle class="ink" [^>]*r="8.5" fill-opacity=".1"/);
-    expect(source).toMatch(/<g class="spin"><circle class="accs"/);
-    expect(source).toMatch(/<circle class="fails" [^>]*r="8.5"/);
-    expect(source).not.toMatch(/class="pass motion"/);
-    expect(source).not.toContain('>Merge</text>');
-    expect(source).toMatch(/<text class="lbl mut"[^>]*>PR<\/text>/);
-  });
-
   it('moves nothing when nothing is live', () => {
     const source = draw();
     expect(source).not.toContain('<animate');
@@ -436,20 +456,6 @@ describe('the strip marks', () => {
     expect(source).toContain('Tom &amp; &lt;Jerry&gt;');
     expect(source).toContain('&lt;Plan&gt;');
     expect(source).not.toContain('<Jerry>');
-  });
-
-  it('says the headline, the stage value and each section value in its alt text', () => {
-    expect(stripAlt('Building', { ...SETTLED, stageValue: 'Build' })).toBe(
-      'Building. Stage Build. High Table Spec approved. Delivery PR #N merged.',
-    );
-    expect(
-      stripAlt('Every stage is recorded. Waiting for the verdict.', {
-        stageValue: '',
-        seats: null,
-        tableValue: 'Seated',
-        deliveryValue: '',
-      }),
-    ).toBe('Every stage is recorded. Waiting for the verdict. Stage not started.');
   });
 });
 
@@ -501,13 +507,29 @@ describe('the live headline image', () => {
     expect(liveHeadline(HEAD).source).not.toContain('begin=');
   });
 
+  it('AC-11: a subagent tag draws the SUBAGENT pill with a breathing ring, no dot, and the title at x = 81', () => {
+    const source = headline({ tag: 'SUBAGENT', clockMs: 5_000 });
+    expect(source).toContain(
+      `<rect class="motion" x=".6" y="3.6" width="70" height="14.8" rx="7.4" fill="none" stroke="${SIGNAL.accent}" stroke-width="1.1"><animate attributeName="stroke-opacity" values=".25;1;.25" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" begin="-0.200s"/></rect>`,
+    );
+    expect(source).toContain(
+      `<rect class="still" x=".6" y="3.6" width="70" height="14.8" rx="7.4" fill="none" stroke="${SIGNAL.accent}" stroke-width="1.1" stroke-opacity=".55"/>`,
+    );
+    expect(source).toContain('font-size:8.5px;font-weight:600;letter-spacing:1px');
+    expect(source).toContain('>SUBAGENT</text>');
+    expect(source).not.toContain('<circle');
+    expect(source).toContain('<text x="81" y="17"><tspan class="ttl">Building</tspan>');
+    expect(headline()).toContain('<text x="20" y="17">');
+    expect(headline()).not.toContain('SUBAGENT');
+  });
+
   it('steps the dot through the breath values over 2.4 s in the signal colour', () => {
     const source = headline({ signal: 'accent' });
     expect(source).toContain(
-      `<circle class="motion" cx="6" cy="12" r="5.5" fill="${SIGNAL.accent}"><animate attributeName="opacity" values="1;0.8;0.55;0.4;0.55;0.8" dur="2.4s" calcMode="discrete" repeatCount="indefinite"`,
+      `<circle class="motion" cx="6" cy="11" r="5.5" fill="${SIGNAL.accent}"><animate attributeName="opacity" values="1;0.8;0.55;0.4;0.55;0.8" dur="2.4s" calcMode="discrete" repeatCount="indefinite"`,
     );
     expect(source).toContain(
-      `<circle class="still" cx="6" cy="12" r="5.5" fill="${SIGNAL.accent}"/>`,
+      `<circle class="still" cx="6" cy="11" r="5.5" fill="${SIGNAL.accent}"/>`,
     );
     expect(headline({ signal: 'pass' })).toContain(`fill="${SIGNAL.pass}"`);
   });
@@ -622,8 +644,7 @@ describe('AC-26: every colour comes from the palette', () => {
       draw({
         stages: stages('skip', 'done', 'run', 'paused', 'fail', 'todo', 'todo', 'todo'),
         seats: seats('done', 'writing', 'late', 'seated', 'done', 'done', 'done'),
-        delivery: steps('done', 'run', 'fail', 'todo', 'run'),
-        ci: 0.3,
+        deliveryFigures: { commits: 2, additions: 4, deletions: 1 },
       }),
       miniStages(['done', 'run', 'fail']),
       tableRing([{ label: 'SA', state: 'done', findings: 3 }], 'done'),
@@ -650,7 +671,9 @@ describe('AC-26: every colour comes from the palette', () => {
     const white = (source: string) =>
       [...source.matchAll(/([\w-]+)="#FFFFFF"/g)].map((match) => match[1]);
     expect(white(draw())).toEqual([]);
-    expect(white(draw({ delivery: steps('done', 'done', 'done', 'done', 'done') }))).toEqual([]);
+    expect(white(draw({ deliveryFigures: { commits: 2, additions: 4, deletions: 1 } }))).toEqual(
+      [],
+    );
     expect(
       white(
         draw({ stages: stages('skip', 'done', 'run', 'todo', 'todo', 'todo', 'todo', 'todo') }),
@@ -755,5 +778,96 @@ describe('finished stages turn green, and the strip glows once', () => {
     );
     expect(draw({ stages: allDone, clockMs: settledAt })).not.toContain('settle');
     expect(draw({ stages: allDone })).not.toContain('<animate');
+  });
+});
+
+describe('Part C: the sign-off words on the Stage caption row', () => {
+  const STATES: Array<[string, SignoffTone, string | null]> = [
+    ['Writing design', 'acct', null],
+    ['Waiting 3h', 'caut', 'Check'],
+    ['Checking…', 'acct', null],
+    ['Signed off', 'passt', null],
+    ['Changes requested', 'fail', 'View'],
+    ['Sign-off skipped', 'mutt', null],
+    ['Not posted', 'mutt', 'Copy design'],
+  ];
+
+  it('AC-23, FR-31: at the 340 px Stage minimum the words and button stay whole and the stage name truncates first', () => {
+    for (const [words, tone, button] of STATES) {
+      const source = strip({
+        ...SETTLED,
+        columns: 80,
+        stageValue: 'A very long stage name that cannot fit',
+        signoff: { words, tone, button },
+      }).sections[0]!.source;
+      expect(strip({ ...SETTLED, columns: 80 }).sections[0]!.px).toBe(340);
+      const end = 340 - 18 - (button ? buttonPx(button) : 0);
+      expect(source).toContain(
+        `<text class="val ${tone}" x="${end.toFixed(1)}" y="9" text-anchor="end">${words}</text>`,
+      );
+      const name = /<text class="val ink" x="44.0" y="9">([^<]*)<\/text>/.exec(source);
+      const nameEnd = 44 + (name ? [...name[1]!].length * 6 : 0);
+      expect(nameEnd).toBeLessThanOrEqual(end - [...words].length * 6);
+      if (name) expect(name[1]!.endsWith('…')).toBe(true);
+      expect(end - [...words].length * 6).toBeGreaterThan(44);
+    }
+  });
+
+  it('FR-22: draws words only, no icon, and nothing without a sign-off', () => {
+    const source = draw({ signoff: { words: 'Signed off', tone: 'passt', button: null } });
+    expect(source).toContain('class="val passt"');
+    expect(source).not.toMatch(/scale\(.45\)/);
+    expect(draw()).not.toMatch(/class="val (acct|caut|mutt)"/);
+  });
+
+  it('AC-25: every sign-off word colour reaches 4.5:1 on the light and dark band', () => {
+    const channel = (hex: string, at: number) => {
+      const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (hex: string) =>
+      0.2126 * channel(hex, 1) + 0.7152 * channel(hex, 3) + 0.0722 * channel(hex, 5);
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi! + 0.05) / (lo! + 0.05);
+    };
+    for (const colour of [
+      SIGNAL.accentText,
+      SIGNAL.cautionText,
+      SIGNAL.passText,
+      SIGNAL.fail,
+      INK.mutedText,
+    ]) {
+      expect(ratio(colour, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const colour of [
+      SIGNAL.accentTextDark,
+      SIGNAL.cautionDark,
+      SIGNAL.passDark,
+      SIGNAL.failDark,
+      INK.mutedDark,
+    ]) {
+      expect(ratio(colour, '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
+    }
+    const style = draw();
+    expect(style).toContain(
+      `.acct{fill:${SIGNAL.accentText}}.caut{fill:${SIGNAL.cautionText}}.mutt{fill:${INK.mutedText}}`,
+    );
+    expect(style).toContain(
+      `.acct{fill:${SIGNAL.accentTextDark}}.caut{fill:${SIGNAL.cautionDark}}.mutt{fill:${INK.mutedDark}}`,
+    );
+  });
+
+  it('AC-27: under reduced motion Checking… and a running Sign-off bar do not pulse', () => {
+    const source = draw({
+      stages: marks(['Plan', 'Spec', 'Sign-off'], ['done', 'done', 'run'] as StageState[]),
+      signoff: { words: 'Checking…', tone: 'acct', button: null },
+      clockMs: 0,
+    });
+    expect(source).toContain(
+      '@media (prefers-reduced-motion: reduce){.pulse,.spin{animation:none}.motion{display:none}}',
+    );
+    expect(source).toMatch(/<text class="val acct"[^>]*>Checking…<\/text>/);
+    expect(source).not.toMatch(/<text class="[^"]*(pulse|motion)[^"]*"[^>]*>Checking/);
   });
 });

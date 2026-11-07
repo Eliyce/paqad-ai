@@ -145,6 +145,11 @@ call, so a static reader sees it:
 - It shows each stage's run on the full lane: one footnote line in the Ledger with the recipe, the
   report and the turns, such as `review · proven · DONE · 44 turns`. The words and tones are in
   [hud.md](../../../instructions/design-system/hud.md).
+- It draws the Desktop strip with fixed High Table (150 px) and Delivery (190 px) sections that
+  hide on narrow bands, a two-line Delivery cell with the line figures from `ship.diff`, and a
+  Sign-off stage between Spec and Build when `snapshot.signoff` is set, with a Check, View or
+  Copy design button. The layout and words are in
+  [hud.md](../../../instructions/design-system/hud.md).
 - It keeps the headline on one line: `fitLine` in `shell.ts` cuts it with `…` to the band
   width on both surfaces.
 - It never answers a permission check of its own. Allow once lives in a `tool.call` hook on Edit,

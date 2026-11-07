@@ -366,6 +366,34 @@ describe('paqad-ai hld', () => {
     expect(pending).toHaveLength(1);
   });
 
+  it('AC-17: every check-approval run that writes hld.json records checked_at', () => {
+    post();
+    expect(readHld(root, dir)?.checked_at).toBeNull();
+    runHldCheckApproval(context('2026-10-31T09:00:00Z'), { replies: replies([]) });
+    expect(readHld(root, dir)).toMatchObject({
+      state: 'awaiting_sign_off',
+      checked_at: '2026-10-31T09:00:00.000Z',
+    });
+    runHldCheckApproval(context('2026-10-31T10:00:00Z'), {
+      replies: replies([reply('Please change the guest flow')]),
+    });
+    expect(readHld(root, dir)).toMatchObject({
+      state: 'changes_requested',
+      checked_at: '2026-10-31T10:00:00.000Z',
+    });
+  });
+
+  it('AC-17: an approval records checked_at too', () => {
+    post();
+    runHldCheckApproval(context('2026-10-31T11:00:00Z'), {
+      replies: replies([reply('LGTM', '2026-10-31T08:00:00Z')]),
+    });
+    expect(readHld(root, dir)).toMatchObject({
+      state: 'approved',
+      checked_at: '2026-10-31T11:00:00.000Z',
+    });
+  });
+
   it('AC-39: a later look stays waiting, is shown and raises no packet', () => {
     post();
     const result = runHldCheckApproval(context(), {

@@ -17,7 +17,7 @@ export const WORKFLOW_WORDS: Readonly<Record<string, string>> = {
 
 export const NO_WORKFLOW = 'no-workflow';
 export const FEATURE_ROUTE = 'feature-development';
-export const FEATURE_WORDS = 'Feature development';
+export const FEATURE_WORDS = 'Feature';
 const NO_CHANGE_YET = 'no-change-yet';
 
 export function workflowWords(name: string): string {

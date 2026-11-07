@@ -39,7 +39,12 @@ with the delivery ticket-move `on_hld_post` when `move_to_on_post` is set.
 6. `paqad-ai hld check-approval --replies <file> [--status <status>]` decides approved,
    changes requested (raises a `spec.change` decision) or still waiting. Running it again on an
    approved, skipped or changes-requested design leaves it as it is and raises no second
-   `spec.change` decision.
+   `spec.change` decision. Every run that writes `hld.json` records `checked_at`.
+7. Throughout, the Desktop HUD shows a `Sign-off` stage between Spec and Build (see "In the
+   HUD" below): `Writing design` once the spec is frozen, `Waiting <age>` with a `Check` Button
+   once the design is posted, `Checking…` after a press, then `Signed off` (Build runs) or
+   `Changes requested` (Spec runs again, with a `View` Button). A re-posted design returns it to
+   `Waiting <age>` from the new post.
 
 ## Verbs
 
@@ -68,9 +73,31 @@ not posted, as saved).
 Written only by the `hld` verbs. Fields: `state` (`awaiting_sign_off`, `approved`,
 `changes_requested`, `skipped`, `not_posted`), `ref`, `version`, `digest`, `posts[]`
 (`target`, `link`, `id`, `at`, `version`, `digest`, `author_digest`, `detail_posted`,
-`move_failed`), `approved_at`, `approval_link`, `skip_reason`. No names, emails, author ids or
+`move_failed`), `approved_at`, `approval_link`, `skip_reason`, `checked_at` (when
+`hld check-approval` last wrote the record; null in an older file). No names, emails, author ids or
 reply text: only a sha256 digest of the developer's author id. Waiting refs are also kept in
 `.paqad/session/hld-waiting.json` so SessionStart and UserPromptSubmit stay cheap.
+
+## In the HUD
+
+The HUD snapshot carries `signoff`: `null` unless `designSignOffApplies(config, lane)` is true
+for the change, so a team with sign-off off, or a lane not listed, sees nothing about it and
+`hld.json` is not read. When it applies, `signoff` is `{ state, ref, posted_at, checked_at,
+link }`, read only through `src/hld/store.ts` (`readHld`, `latestPost`) and
+`src/hld/applies.ts`. `state` is one of the five stored states, or `pending` (spec not frozen,
+no `hld.json`) or `writing` (spec frozen, no `hld.json`); a missing or unreadable `hld.json`
+reads as one of those two. `posted_at` and `link` come from the latest post, `link` preferring
+`approval_link`. While the state is `awaiting_sign_off` and no stage runs, the headline is the
+caution `Waiting for sign-off on <ref>` with `checked <age> ago` once `checked_at` is known.
+
+The band's `Check` Button submits a prompt asking the agent to read the replies with its
+connector and run `paqad-ai hld check-approval`; `Checking…` is band-only, never stored, and
+clears when `checked_at` moves past the press, the state changes, the turn ends or 10 minutes
+pass. `View` opens the Ledger's Trust tab, which links the design record. On `not_posted`,
+`Copy design` copies `hld.md` so the developer can paste it where the reviewer reads it; the
+agent then records the post with `paqad-ai hld posted`. The HUD never writes `hld.json` and never
+approves, skips or posts a design. The full drawing rules are in
+`docs/instructions/design-system/hud.md`.
 
 ## Approval rule
 
@@ -87,4 +114,6 @@ end at `.`, `!`, `?`, `;` or a line break. Such a reply counts as a request for 
 
 - `src/hld`
 - `src/cli/commands/hld.ts`
+- `src/hud/snapshot.ts` (`buildSignoff`)
+- `runtime/claude-plugin/mod` (the Sign-off stage, words and Button)
 - `runtime/base/skills/high-level-design`

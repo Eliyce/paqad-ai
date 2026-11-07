@@ -538,7 +538,16 @@ already finished, and the mod draws Paqad Getting Ready only for this reason.
   and merge this change's policy takes, and `plan` counts the plan steps and the steps built.
   `ship.files_changed` counts the files the change touched (one bounded git read), and
   `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same gh call that
-  reads the pull request. `ship.pr_title` is filled only from an older `delivery.json`: the
+  reads the pull request. `ship.diff` is `{ additions, deletions, partial }` from local git
+  (`readChangeDiff` in `src/hud/changed-files.ts`): `git diff --numstat` from the change's start
+  commit for the files the change touched, plus the lines of new untracked files. New files over
+  1 MB or with a NUL byte are skipped, and one snapshot reads at most 500 new files or 8 MB; past
+  that `partial` is true. Line counts are cached by size and modified time. `ship.diff` is `null`
+  with no start point or when git fails. `signoff` is the design sign-off stage (`buildSignoff`):
+  `null` when sign-off does not apply to the lane, else `{ state, ref, posted_at, checked_at,
+  link }` read from `hld.json`, with state `pending` or `writing` (spec frozen) before
+  `hld.json` exists. See [design sign-off](../../design-sign-off/index/summary.md).
+  `ship.pr_title` is filled only from an older `delivery.json`: the
   pull request title is free text from GitHub, so it is no longer read or written. Once the spec is frozen, `claims` adds one acceptance claim
   per automated criterion: its id, its then text and the test that proves it, from the change
   traceability map. `cost.live` is true while the turn is still being counted. Each field is `null`

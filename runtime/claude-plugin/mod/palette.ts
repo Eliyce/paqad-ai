@@ -3,6 +3,7 @@ export const INK = {
   inkDark: '#C2CBD0',
   muted: '#8E979D',
   mutedDark: '#97A1A7',
+  mutedText: '#6B747A',
   headline: '#1F2428',
   headlineDark: '#E8ECEE',
   hairOpacity: 0.28,
@@ -12,9 +13,12 @@ export const INK = {
 
 export const SIGNAL = {
   accent: '#F90093',
+  accentText: '#C80076',
+  accentTextDark: '#FF4DB2',
   attention: '#F37748',
   caution: '#C98A1B',
   cautionDark: '#E3B04B',
+  cautionText: '#8F6110',
   pass: '#2F8F6B',
   passDark: '#5FC29C',
   passText: '#26775A',

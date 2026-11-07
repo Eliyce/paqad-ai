@@ -250,6 +250,19 @@ function stagePart(ui: D, stage: TrustStage) {
   );
 }
 
+function signoffRow(ui: D, view: TrustView) {
+  const { Box, Text, Link } = ui;
+  if (!view.signoff) return null;
+  return (
+    <Box key="paqad-signoff-record" flexDirection="row" columnGap="sm">
+      <Text size="footnote">{view.signoff.words}</Text>
+      {view.signoff.link ? (
+        <Link href={view.signoff.link.href}>{view.signoff.link.text}</Link>
+      ) : null}
+    </Box>
+  );
+}
+
 function trustTab(ui: D, view: TrustView) {
   const { Box, Text } = ui;
   if (view.empty) {
@@ -257,6 +270,7 @@ function trustTab(ui: D, view: TrustView) {
   }
   return (
     <Box flexDirection="column" rowGap="xs">
+      {signoffRow(ui, view)}
       {view.stages.map((stage) => stagePart(ui, stage))}
       {view.note ? note(ui, view.note, 'paqad-trust-old') : null}
       {view.gates.map((gate) =>

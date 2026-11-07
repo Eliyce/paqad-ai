@@ -1,3 +1,4 @@
+import { fitLine } from './shell';
 import {
   BREATH,
   INK,
@@ -24,6 +25,25 @@ export interface TableSeat extends Mark<SeatState> {
   findings: number | null;
 }
 
+export type DeliveryTone = 'ink' | 'acc' | 'fail' | 'mut';
+
+export interface DeliveryFigures {
+  commits: number;
+  additions: number;
+  deletions: number;
+  partial?: boolean;
+}
+
+export type SignoffTone = 'acct' | 'caut' | 'passt' | 'fail' | 'mutt';
+
+export interface StripSignoff {
+  words: string;
+  tone: SignoffTone;
+  button: string | null;
+  ref?: string | null;
+  name?: string | null;
+}
+
 export interface StripInput {
   columns: number;
   stages: ReadonlyArray<Mark<StageState>>;
@@ -32,9 +52,10 @@ export interface StripInput {
   hiddenSeats?: number;
   chief: ChiefState;
   tableValue: string;
-  delivery: ReadonlyArray<Mark<ShipState>>;
-  ci: number | null;
   deliveryValue: string;
+  deliveryTone: DeliveryTone;
+  deliveryFigures: DeliveryFigures | null;
+  signoff?: StripSignoff | null;
   clockMs?: number;
   settledAtMs?: number | null;
 }
@@ -47,6 +68,7 @@ const SHEEN_MS = 2200;
 const SETTLE_MS = 2000;
 const TITLE_SHEEN_MS = 3600;
 const BREATH_MS = 2400;
+const TAG_BREATH_MS = 2400;
 
 function phase(clockMs: number | undefined, periodMs: number): string | null {
   if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
@@ -62,12 +84,19 @@ function begin(clockMs: number | undefined, periodMs: number): string {
 const STRIP_MIN_WIDTH = 480;
 const SECTION_PAD = 18;
 const RIGHT_INSET = 7;
-const VALUE_MIN_WIDTH = 150;
-const DELIVERY_INSET = 12;
 const NODE_RADIUS = 8.5;
-const NODE_SPACING = 96;
-const CONNECTOR_GAP = 4;
 const SEAT_SPACING = 22;
+export const TABLE_PX = 150;
+export const DELIVERY_PX = 190;
+export const STAGE_MIN_PX = 340;
+export const LABEL_MIN_PX = 40;
+export const STAGE_NAME_X = 44;
+const NEEDS_ANSWERS = 'Needs answers';
+const NEEDS_ANSWERS_MIN_PX = 75;
+const VALUE_CHAR_PX = 6;
+const STATUS_CHAR_PX = 6.8;
+const FIGURE_CHAR_PX = 6;
+const Y_STATUS = 29.3;
 const CHIEF_REACH = 31;
 const Y_CAP = 9;
 const Y_MARK = 25;
@@ -115,6 +144,7 @@ function css(clockMs?: number): string {
     `.pass{fill:${STATUS_B.done}}.passs{stroke:${STATUS_B.done}}`,
     `.passt{fill:${SIGNAL.passText}}`,
     `.fail{fill:${STATUS_B.failed}}.fails{stroke:${STATUS_B.failed}}`,
+    `.acct{fill:${SIGNAL.accentText}}.caut{fill:${SIGNAL.cautionText}}.mutt{fill:${INK.mutedText}}`,
     '.cap{font-size:8.5px;font-weight:600;letter-spacing:1.1px}',
     '.val{font-size:10.5px;font-weight:500}',
     '.lbl{font-size:9px}.cur{font-weight:650}',
@@ -124,6 +154,7 @@ function css(clockMs?: number): string {
     `.passt{fill:${SIGNAL.passDark}}`,
     `.fail{fill:${STATUS_B.failedDark}}.fails{stroke:${STATUS_B.failedDark}}`,
     `.cau{fill:${SIGNAL.cautionDark}}.caus{stroke:${SIGNAL.cautionDark}}`,
+    `.acct{fill:${SIGNAL.accentTextDark}}.caut{fill:${SIGNAL.cautionDark}}.mutt{fill:${INK.mutedDark}}`,
     '}',
     '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}',
     '@keyframes spin{to{transform:rotate(360deg)}}',
@@ -184,16 +215,8 @@ interface Section {
   last: boolean;
 }
 
-function section(
-  { x0, x1, inner, last }: Section,
-  cap: string,
-  value: string,
-  cut = false,
-): string {
-  let out = `<text class="cap mut" x="${fixed(x0)}" y="${Y_CAP}">${cap}</text>`;
-  if (value && inner - x0 > VALUE_MIN_WIDTH) {
-    out += `<text class="val ink" x="${fixed(inner)}" y="${Y_CAP}" text-anchor="end">${escapeXml(value)}</text>`;
-  }
+function section({ x0, x1, last }: Section, cap: string, cut = false): string {
+  let out = cap ? `<text class="cap mut" x="${fixed(x0)}" y="${Y_CAP}">${cap}</text>` : '';
   if (!last) {
     const at = fixed(cut ? x1 - 0.5 : x1);
     out += `<line class="hair" x1="${at}" y1="1" x2="${at}" y2="${STRIP_HEIGHT - 2}" stroke-width="1"/>`;
@@ -268,6 +291,13 @@ function settleGlow(bars: ReadonlyArray<{ x: number; w: number }>, y: number, at
   return `<g class="motion settle">${rects}</g>`;
 }
 
+const STAGE_GAP = 4;
+
+export function stageBarPx(room: number, bars: number): number {
+  const n = Math.max(1, bars);
+  return (room - STAGE_GAP * (n - 1)) / n;
+}
+
 function stageMarks(
   x0: number,
   x1: number,
@@ -275,9 +305,10 @@ function stageMarks(
   clockMs?: number,
   settle: string | null = null,
 ): string {
-  const gap = 4;
+  const gap = STAGE_GAP;
   const n = Math.max(1, stages.length);
-  const w = (x1 - x0 - gap * (n - 1)) / n;
+  const w = stageBarPx(x1 - x0, n);
+  const labels = w >= LABEL_MIN_PX;
   const y = Y_MARK - 1.5;
   const done = stages.flatMap(({ state }, i) =>
     state === 'done' ? [{ x: x0 + i * (w + gap), w }] : [],
@@ -294,6 +325,7 @@ function stageMarks(
             : LIVE_BAR_STATES.has(state)
               ? liveBar(x, w, y, i, state, clockMs)
               : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
+        if (!labels) return bar;
         return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${stageLabel(label, state)}</text>`;
       })
       .join('')
@@ -341,8 +373,11 @@ function tableMarks(
     out += `<text class="lbl mut" x="${fixed(x0 + 5 + seats.length * step)}" y="${Y_MARK + 3}" text-anchor="middle" style="font-weight:500">+${hidden}</text>`;
   }
   const sx = x0 + 5 + slots * step - step / 2 + 6;
-  out += `<line class="hair" x1="${fixed(sx)}" y1="${Y_MARK - 6}" x2="${fixed(sx)}" y2="${Y_MARK + 6}" stroke-width="1"/>`;
   const ccx = fixed(sx + 14);
+  out +=
+    seats.length === 1 && hidden === 0
+      ? `<line class="faints" x1="${fixed(x0 + 10)}" y1="${Y_MARK}" x2="${fixed(sx + 14 - 6)}" y2="${Y_MARK}" stroke-width="1.2" stroke-linecap="round"/>`
+      : `<line class="hair" x1="${fixed(sx)}" y1="${Y_MARK - 6}" x2="${fixed(sx)}" y2="${Y_MARK + 6}" stroke-width="1"/>`;
   out += chiefMark(chief, ccx);
   out += `<text class="lbl mut" x="${ccx}" y="${Y_LBL}" text-anchor="middle">CA</text>`;
   return out;
@@ -398,38 +433,6 @@ function icon(label: string, x: number, y: number, stroke: string): string {
   return `<g transform="translate(${fixed(x - 5)} ${fixed(y - 5)}) scale(.625)" fill="none" ${stroke} stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${GIT[label] ?? DOT_ICON}</g>`;
 }
 
-const NODE_LABEL: Readonly<Record<ShipState, string>> = {
-  done: 'ink',
-  run: 'acc cur',
-  fail: 'fail cur',
-  todo: 'mut',
-};
-
-function deliveryMarks(
-  x0: number,
-  x1: number,
-  steps: ReadonlyArray<Mark<ShipState>>,
-  ci: number | null,
-): string {
-  const r = NODE_RADIUS;
-  const n = steps.length;
-  const step = n > 1 ? Math.min(NODE_SPACING, (x1 - x0 - 2 * r) / (n - 1)) : 0;
-  const cx = (i: number) => x0 + r + i * step;
-  let out = '';
-  for (let i = 0; i < n - 1; i += 1) {
-    const next = steps[i + 1]!.state;
-    const reached = next === 'done' || next === 'run';
-    out += `<line class="${reached ? 'inks' : 'faints'}" x1="${fixed(cx(i) + r + CONNECTOR_GAP)}" y1="${Y_MARK}" x2="${fixed(cx(i + 1) - r - CONNECTOR_GAP)}" y2="${Y_MARK}" stroke-width="1.2" stroke-linecap="round"/>`;
-  }
-  steps.forEach(({ label, state }, i) => {
-    const x = fixed(cx(i));
-    const art = nodeArt(state, x, String(Y_MARK), r, shareOf(label, ci), 3);
-    out += art.ring + icon(label, cx(i), Y_MARK, art.stroke);
-    out += `<text class="lbl ${NODE_LABEL[state]}" x="${x}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
-  });
-  return out;
-}
-
 export function stripWidth(columns: number): number {
   return Math.max(STRIP_MIN_WIDTH, Math.round(columns * PX_PER_COLUMN));
 }
@@ -438,24 +441,115 @@ export type StripSectionId = 'stage' | 'table' | 'delivery';
 
 export interface StripSection {
   id: StripSectionId;
-  percent: number;
+  px: number;
+  grow: boolean;
   source: string;
+}
+
+export interface StripLayout {
+  ids: StripSectionId[];
+  px: number[];
+}
+
+export function stripLayout(width: number, table: boolean): StripLayout {
+  if (width < STAGE_MIN_PX + DELIVERY_PX) return { ids: ['stage'], px: [width] };
+  if (table && width >= STAGE_MIN_PX + DELIVERY_PX + TABLE_PX) {
+    return {
+      ids: ['stage', 'table', 'delivery'],
+      px: [width - TABLE_PX - DELIVERY_PX, TABLE_PX, DELIVERY_PX],
+    };
+  }
+  return { ids: ['stage', 'delivery'], px: [width - DELIVERY_PX, DELIVERY_PX] };
+}
+
+const WORDS_GAP_PX = 10;
+const BUTTON_PAD_COLUMNS = 3;
+
+export function buttonPx(label: string): number {
+  return ([...label].length + BUTTON_PAD_COLUMNS) * PX_PER_COLUMN + WORDS_GAP_PX;
+}
+
+function fitPx(text: string, px: number, charPx: number): string {
+  if (px < charPx) return '';
+  return fitLine(text, px / charPx);
+}
+
+function thousands(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+export function figureWords(figures: DeliveryFigures | null): {
+  commits: string;
+  additions: string;
+  deletions: string;
+} | null {
+  if (!figures || figures.additions + figures.deletions <= 0) return null;
+  const more = figures.partial ? '+' : '';
+  return {
+    commits:
+      figures.commits > 0
+        ? `${figures.commits} ${figures.commits === 1 ? 'commit' : 'commits'}`
+        : '',
+    additions: `+${thousands(figures.additions)}${more}`,
+    deletions: `−${thousands(figures.deletions)}`,
+  };
+}
+
+function deliveryLines(x0: number, inner: number, input: StripInput): string {
+  const room = inner - x0;
+  const status = fitPx(input.deliveryValue, room, STATUS_CHAR_PX);
+  let out = status
+    ? `<text class="${input.deliveryTone}" x="${fixed(x0)}" y="${Y_STATUS}" style="font-size:12px;font-weight:500">${escapeXml(status)}</text>`
+    : '';
+  const words = figureWords(input.deliveryFigures);
+  if (!words) return out;
+  const figures = `${words.additions} ${words.deletions}`;
+  const commits =
+    words.commits && (words.commits.length + 2 + figures.length) * FIGURE_CHAR_PX <= room
+      ? words.commits
+      : '';
+  const at = `x="${fixed(x0)}" y="${Y_LBL}" style="font-size:10.5px"`;
+  if (figures.length * FIGURE_CHAR_PX > room) {
+    const cut = fitPx(figures, room, FIGURE_CHAR_PX);
+    return `${out}<text class="mut" ${at}>${escapeXml(cut)}</text>`;
+  }
+  const lead = commits ? `<tspan class="mut">${escapeXml(commits)}</tspan><tspan>  </tspan>` : '';
+  out += `<text ${at} xml:space="preserve">${lead}<tspan class="passt">${escapeXml(words.additions)}</tspan><tspan> </tspan><tspan class="fail">${escapeXml(words.deletions)}</tspan></text>`;
+  return out;
 }
 
 function stripBody(
   input: StripInput,
+  ids: readonly StripSectionId[],
   sections: readonly Section[],
   cut: boolean,
 ): Record<StripSectionId, string> {
   const stage = sections[0]!;
-  const delivery = sections.at(-1)!;
   const settle = settlePhase(input.clockMs, input.settledAtMs);
   const body = { stage: '', table: '', delivery: '' };
-  body.stage = section(stage, 'STAGE', input.stageValue, cut);
+  body.stage = section(stage, 'STAGE', cut);
+  const signoff = input.signoff ?? null;
+  const wordsEnd = stage.inner - (signoff?.button ? buttonPx(signoff.button) : 0);
+  const wordsPx = signoff ? [...signoff.words].length * VALUE_CHAR_PX : 0;
+  if (signoff) {
+    body.stage += `<text class="val ${signoff.tone}" x="${fixed(wordsEnd)}" y="${Y_CAP}" text-anchor="end">${escapeXml(signoff.words)}</text>`;
+  }
+  const nameRoom =
+    (signoff ? wordsEnd - wordsPx - WORDS_GAP_PX : stage.inner) - (stage.x0 + STAGE_NAME_X);
+  const name = input.stageValue ? fitPx(input.stageValue, nameRoom, VALUE_CHAR_PX) : '';
+  if (name) {
+    body.stage += `<text class="val ink" x="${fixed(stage.x0 + STAGE_NAME_X)}" y="${Y_CAP}">${escapeXml(name)}</text>`;
+  }
   body.stage += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs, settle);
-  if (input.seats) {
-    const table = sections[1]!;
-    body.table = section(table, 'HIGH TABLE', input.tableValue, cut);
+  const tableAt = ids.indexOf('table');
+  if (input.seats && tableAt > 0) {
+    const table = sections[tableAt]!;
+    const needs =
+      input.tableValue === NEEDS_ANSWERS && table.inner - table.x0 >= NEEDS_ANSWERS_MIN_PX;
+    body.table = section(table, needs ? '' : 'HIGH TABLE', cut);
+    if (needs) {
+      body.table += `<text class="val att" x="${fixed(table.x0)}" y="${Y_CAP}">${NEEDS_ANSWERS}</text>`;
+    }
     body.table += tableMarks(
       table.x0,
       table.inner,
@@ -464,13 +558,12 @@ function stripBody(
       input.hiddenSeats ?? 0,
     );
   }
-  body.delivery = section(delivery, 'DELIVERY', input.deliveryValue, cut);
-  body.delivery += deliveryMarks(
-    delivery.x0 + DELIVERY_INSET,
-    delivery.inner - DELIVERY_INSET,
-    input.delivery,
-    input.ci,
-  );
+  const deliveryAt = ids.indexOf('delivery');
+  if (deliveryAt > 0) {
+    const delivery = sections[deliveryAt]!;
+    body.delivery = section(delivery, 'DELIVERY', cut);
+    body.delivery += deliveryLines(delivery.x0, delivery.inner, input);
+  }
   return body;
 }
 
@@ -478,15 +571,11 @@ function trim(n: number): number {
   return Number(n.toFixed(2));
 }
 
-function layout(
-  width: number,
-  table: boolean,
-): { percents: number[]; edges: number[]; sections: Section[] } {
-  const percents = table ? [40, 26, 34] : [56, 44];
+function layout(px: readonly number[]): { edges: number[]; sections: Section[] } {
   const edges = [0];
-  percents.forEach((percent, i) => edges.push(edges[i]! + (percent / 100) * width));
-  const sections: Section[] = percents.map((_, i) => {
-    const last = i === percents.length - 1;
+  px.forEach((width, i) => edges.push(edges[i]! + width));
+  const sections: Section[] = px.map((_, i) => {
+    const last = i === px.length - 1;
     const x1 = edges[i + 1]!;
     return {
       x0: edges[i]! + (i === 0 ? 0 : SECTION_PAD),
@@ -495,12 +584,11 @@ function layout(
       last,
     };
   });
-  return { percents, edges, sections };
+  return { edges, sections };
 }
 
-export function seatsThatFit(columns: number, seats: number, cap: number): number {
-  const table = layout(stripWidth(columns), true).sections[1]!;
-  const room = table.inner - table.x0 - CHIEF_REACH;
+export function seatsThatFit(seats: number, cap: number): number {
+  const room = TABLE_PX - 2 * SECTION_PAD - CHIEF_REACH;
   for (let shown = Math.min(cap, seats); shown > 1; shown -= 1) {
     const slots = shown + (seats > shown ? 1 : 0);
     if ((slots - 0.5) * SEAT_SPACING <= room) return shown;
@@ -515,23 +603,22 @@ export function strip(input: StripInput): {
   sections: StripSection[];
 } {
   const width = stripWidth(input.columns);
-  const ids: StripSectionId[] = input.seats
-    ? ['stage', 'table', 'delivery']
-    : ['stage', 'delivery'];
-  const { percents, edges, sections } = layout(width, input.seats !== null);
+  const { ids, px } = stripLayout(width, input.seats !== null);
+  const { edges, sections } = layout(px);
   const settle = settlePhase(input.clockMs, input.settledAtMs);
   const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
   const style = css(input.clockMs);
   const art = defs(live || settle !== null, live);
-  const whole = stripBody(input, sections, false);
-  const cuts = stripBody(input, sections, true);
+  const whole = stripBody(input, ids, sections, false);
+  const cuts = stripBody(input, ids, sections, true);
   return {
     source: svg(width, STRIP_HEIGHT, style + art + whole.stage + whole.table + whole.delivery),
     width,
     height: STRIP_HEIGHT,
     sections: ids.map((id, i) => ({
       id,
-      percent: percents[i]!,
+      px: trim(px[i]!),
+      grow: id === 'stage',
       source: svg(
         trim(edges[i + 1]! - edges[i]!),
         STRIP_HEIGHT,
@@ -550,6 +637,7 @@ export interface LiveHeadlineInput {
   note: string | null;
   clock: string | null;
   clockMs?: number;
+  tag?: string | null;
 }
 
 export const HEADLINE_HEIGHT = 24;
@@ -579,6 +667,15 @@ function breathValues(): string {
   );
 }
 
+function tagPill(tag: string, clockMs: number | undefined): string {
+  const shape = `x=".6" y="3.6" width="70" height="14.8" rx="7.4" fill="none" stroke="${SIGNAL.accent}" stroke-width="1.1"`;
+  return [
+    `<rect class="motion" ${shape}><animate attributeName="stroke-opacity" values=".25;1;.25" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1"${begin(clockMs, TAG_BREATH_MS)}/></rect>`,
+    `<rect class="still" ${shape} stroke-opacity=".55"/>`,
+    `<text x="35.6" y="14" text-anchor="middle" style="font-size:8.5px;font-weight:600;letter-spacing:1px" fill="${SIGNAL.accent}">${escapeXml(tag)}</text>`,
+  ].join('');
+}
+
 export function liveHeadline(input: LiveHeadlineInput): {
   source: string;
   width: number;
@@ -594,29 +691,20 @@ export function liveHeadline(input: LiveHeadlineInput): {
     `<animateTransform attributeName="gradientTransform" type="translate" values="-.3 0;1.3 0;1.3 0" keyTimes="0;.61;1" calcMode="spline" keySplines=".4 0 .2 1;0 0 1 1" dur="3.6s" repeatCount="indefinite"${begin(input.clockMs, TITLE_SHEEN_MS)}/>`,
     '</linearGradient></defs>',
   ].join('');
-  const dot = `cx="6" cy="12" r="5.5" fill="${colour}"`;
+  const dot = `cx="6" cy="11" r="5.5" fill="${colour}"`;
   const dots = [
     `<circle class="motion" ${dot}><animate attributeName="opacity" values="${breathValues()}" dur="2.4s" calcMode="discrete" repeatCount="indefinite"${begin(input.clockMs, BREATH_MS)}/></circle>`,
     `<circle class="still" ${dot}/>`,
   ].join('');
   const aside = (words: string | null) =>
     words ? `<tspan class="aside mut" dx="16">${escapeXml(words)}</tspan>` : '';
-  const line = `<text x="20" y="17"><tspan class="ttl">${escapeXml(input.text)}</tspan>${aside(input.note)}${aside(input.clock)}</text>`;
+  const tag = input.tag ? tagPill(input.tag, input.clockMs) : '';
+  const line = `<text x="${tag ? 81 : 20}" y="17"><tspan class="ttl">${escapeXml(input.text)}</tspan>${aside(input.note)}${aside(input.clock)}</text>`;
   return {
-    source: svg(width, HEADLINE_HEIGHT, headlineCss() + sheen + dots + line),
+    source: svg(width, HEADLINE_HEIGHT, headlineCss() + sheen + (tag || dots) + line),
     width,
     height: HEADLINE_HEIGHT,
   };
-}
-
-export function stripAlt(
-  headline: string,
-  input: Pick<StripInput, 'stageValue' | 'seats' | 'tableValue' | 'deliveryValue'>,
-): string {
-  const parts = [`${headline.replace(/\.$/, '')}.`, `Stage ${input.stageValue || 'not started'}.`];
-  if (input.seats && input.tableValue) parts.push(`High Table ${input.tableValue}.`);
-  if (input.deliveryValue) parts.push(`Delivery ${input.deliveryValue}.`);
-  return parts.join(' ');
 }
 
 export function miniStages(stages: readonly StageState[]): string {

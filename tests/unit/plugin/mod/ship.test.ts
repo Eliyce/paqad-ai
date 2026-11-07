@@ -23,8 +23,12 @@ import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/typ
 
 import { ticketRef } from '../../../shared/ticket-ref.js';
 
-import { deliveryView, stripOf } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
-import { strip } from '../../../../runtime/claude-plugin/mod/strip.ts';
+import {
+  deliveryStrip,
+  deliveryView,
+  stripOf,
+} from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { nodeIcon, strip } from '../../../../runtime/claude-plugin/mod/strip.ts';
 
 import { bandOf, blockLines, blockOf, layoutLines } from './band-text.ts';
 
@@ -136,7 +140,7 @@ describe('the ship rail (FR-15, FR-35)', () => {
     ]);
   });
 
-  it('AC-6: a merge commit never reads merged, and a merged PR leaves no merged note', () => {
+  it('a merge commit never reads merged, and a merged PR leaves no merged note', () => {
     expect(shipRail(parse(shipping({ merge_commit: 'release' }))).merged).toBe(false);
     const merged = shipRail(parse(shipping({ merged: true, pr_state: 'merged' })));
     expect(merged.steps.at(-1)!.label).toBe('CI');
@@ -340,7 +344,7 @@ describe("AC-10: merging is the owner's, so no surface draws a Merge step", () =
       const view = deliveryView(done);
       texts.push(...view.blocks.flatMap((block) => [block.title, block.sub ?? '', block.label]));
       const input = stripOf(done, 93);
-      texts.push(...input.delivery.map((mark) => `${mark.label} ${mark.state}`));
+      texts.push(...deliveryStrip(done).steps.map((mark) => `${mark.label} ${mark.state}`));
       texts.push(input.deliveryValue, input.stageValue);
       texts.push(strip(input).source.replace(/<style>.*<\/style>/, ''));
       for (const text of texts) {
@@ -369,14 +373,14 @@ describe("AC-10: merging is the owner's, so no surface draws a Merge step", () =
   });
 
   it('FR-28: CI pending with no count draws a still 30% arc, not a spinner', () => {
-    const input = stripOf(
+    const view = deliveryView(
       parse({
         ...shipping({ ci: { ...ci('pending', 0, 0), done: null, total: null } }),
         headline: DONE,
       }),
-      93,
     );
-    const source = strip(input).source.replace(/<style>.*<\/style>/, '');
+    const block = view.blocks.find((entry) => entry.label === 'CI')!;
+    const source = nodeIcon('CI', block.state, block.ci).replace(/<style>.*<\/style>/, '');
     expect(source).not.toMatch(/class="spin"/);
     expect(source).toMatch(/stroke-dasharray="[0-9.]+ [0-9.]+"/);
   });

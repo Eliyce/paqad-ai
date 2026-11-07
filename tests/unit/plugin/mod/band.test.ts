@@ -433,7 +433,7 @@ describe('the terminal line before a change opens', () => {
     const layout = layoutBand(ready(), size, context);
     expect(layout.kind).toBe('line');
     if (layout.kind !== 'line') return;
-    expect(rowText(layout.row)).toBe('paqad  Feature development · Getting ready');
+    expect(rowText(layout.row)).toBe('paqad  Feature · Getting ready');
   });
 
   it.each([

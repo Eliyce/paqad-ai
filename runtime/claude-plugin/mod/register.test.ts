@@ -296,12 +296,12 @@ describe('the ship rail on each surface', () => {
     expect(svgs).toHaveLength(3);
     const alts = svgs.map((svg) => (svg as { props: { alt?: string } }).props.alt);
     expect(alts[0]).toMatch(/^Done\. Stage /);
-    expect(alts.at(-1)).toBe('Delivery 6 of 6 checks green.');
-    for (const svg of svgs) {
-      const props = (svg as { props: { width?: unknown; height?: unknown } }).props;
-      expect(props.width).toBeUndefined();
-      expect(props.height).toBeUndefined();
-    }
+    expect(alts.at(-1)).toBe(`Delivery PR #${12} · 6 checks green.`);
+    const sizes = svgs.map(
+      (svg) => (svg as { props: { width?: unknown; height?: unknown } }).props,
+    );
+    expect(sizes.map((props) => props.width)).toEqual([undefined, 150, 190]);
+    for (const props of sizes) expect(props.height).toBeUndefined();
     expectDesktopSafe(desktop);
   });
 
@@ -683,7 +683,7 @@ describe('the Desktop band', () => {
     const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const text = textOf(drawn);
     expect(text).toStartWith(
-      'paqad   Feature development  ·  Full lane  ·  ORD-501  ·  1.3M tokens · ~$4.60',
+      'paqad   Feature  ·  Full lane  ·  ORD-5011.3M tokens · ~$4.60⚑ 1 flag',
     );
     expect(text).toContain('Safe to merge');
     const elements = everyElement(drawn);
@@ -691,16 +691,26 @@ describe('the Desktop band', () => {
     expect(svgs).toHaveLength(3);
     expect(String(propsOf(svgs[0]!).alt)).toStartWith('Safe to merge');
     expect(String(propsOf(svgs[1]!).alt)).toStartWith('High Table: ');
+    expect(svgs.map((svg) => propsOf(svg).width)).toEqual([undefined, 150, 190]);
     for (const svg of svgs) {
-      expect(propsOf(svg).width).toBeUndefined();
       expect(propsOf(svg).height).toBeUndefined();
       expect(propsOf(svg).isInteractive).toBeUndefined();
     }
+    const stripBoxes = elements.filter(
+      (element) =>
+        element.type === 'Box' && String(keyOf(element) ?? '').startsWith('paqad-strip-'),
+    );
     expect(
-      elements
-        .filter((element) => element.type === 'Box' && typeof propsOf(element).width === 'string')
-        .map((element) => propsOf(element).width),
-    ).toEqual(['40%', '26%', '34%']);
+      stripBoxes.map((element) => [
+        propsOf(element).flexGrow,
+        propsOf(element).minWidth,
+        propsOf(element).flexShrink,
+      ]),
+    ).toEqual([
+      [1, 0, undefined],
+      [undefined, undefined, 0],
+      [undefined, undefined, 0],
+    ]);
     expectDesktopSafe(drawn);
     expect(buttonKeys(drawn)).toEqual([
       'paqad-flags',
@@ -715,6 +725,45 @@ describe('the Desktop band', () => {
       expect(props.borderStyle).toBeUndefined();
       expect(props.backgroundColor).toBeUndefined();
     }
+  });
+
+  test('AC-9, AC-10, AC-28: a width change only redraws the sections, with no read, run or snapshot rebuild', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const sectionsAt = async (bodyColumns: number) => {
+      const drawn = await $.ui.render(band('desktop', { bodyColumns }));
+      return everyElement(drawn)
+        .filter((element) => element.type === 'Svg' && String(propsOf(element).alt).length > 0)
+        .filter((element) => !String(propsOf(element).source).includes('title-sheen'))
+        .map((element) => String(propsOf(element).alt));
+    };
+    expect(await sectionsAt(93)).toHaveLength(3);
+    const reads = world.reads.length;
+    const runs = world.runs.length;
+    const narrow = await sectionsAt(66);
+    expect(narrow).toHaveLength(2);
+    expect(narrow[0]).toContain('High Table: ');
+    const stageOnly = await sectionsAt(60);
+    expect(stageOnly).toHaveLength(1);
+    expect(stageOnly[0]).toContain('High Table: ');
+    expect(stageOnly[0]).toContain('Delivery ');
+    expect(await sectionsAt(130)).toHaveLength(3);
+    expect(world.reads.length).toBe(reads);
+    expect(world.runs.length).toBe(runs);
+  });
+
+  test('AC-11: the flag mark and words are one control that opens the flags', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const flags = everyElement(drawn).find((element) => keyOf(element) === 'paqad-flags')!;
+    expect(textOf(flags)).toBe('⚑ 1 flag');
+    expect(textOf(drawn)).not.toContain('so far');
   });
 
   test('AC-5: an unreadable record says so in coral and never reads idle', async ($, on) => {
@@ -756,7 +805,7 @@ describe('the Desktop band', () => {
     );
   });
 
-  test('AC-6: draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
+  test('draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1001,7 +1050,7 @@ describe('the Desktop band', () => {
     expect(world.store.get('band.minimised')).toBe(true);
     expect(await mounted.find({ key: 'paqad-expand' })).toBeDefined();
     const row = await $.ui.render(band('desktop'));
-    expect(textOf(row)).toStartWith('paqad   Feature development   ● Build · 2:00');
+    expect(textOf(row)).toStartWith('paqad   Feature   ● Build · 2:00');
     expect(buttonKeys(row)).toEqual(['paqad-ledger', 'paqad-expand', 'paqad-close']);
     await mounted.press({ key: 'paqad-expand' });
     await mounted.unmount();
@@ -1075,7 +1124,7 @@ describe('the Desktop band', () => {
     expect(drawnLines(await $.ui.render(pane('terminal')))).toContain('Trust (shown)');
   });
 
-  test('AC-15: another workflow gets one row with its cost, running while a turn is in flight', async ($, on) => {
+  test('another workflow gets one row with its cost, running while a turn is in flight', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1195,6 +1244,173 @@ const CLAIMED = {
     { at: '2026-10-18T08:42:00.000Z', kind: 'rules_loaded', count: 12 },
   ],
 };
+
+describe('Part C: the design sign-off stage in the Desktop band', () => {
+  const HOUR = 3_600_000;
+  const signed = (signoff: Record<string, unknown> | null) => ({
+    ...QUIET_501,
+    signoff,
+  });
+  const WAITING = {
+    state: 'awaiting_sign_off',
+    ref: 'PQD-12',
+    posted_at: new Date(NOW - 3 * HOUR).toISOString(),
+    checked_at: new Date(NOW - 10 * 60_000).toISOString(),
+    link: 'https://acme.test/PQD-12#1',
+  };
+  const signoffButton = (node: RenderNode) =>
+    everyElement(node).find((element) => keyOf(element) === 'paqad-signoff-button');
+  const stageAlt = (node: RenderNode) =>
+    String(
+      propsOf(
+        everyElement(node).find(
+          (element) => element.type === 'Svg' && String(propsOf(element).alt).includes('Stage '),
+        )!,
+      ).alt,
+    );
+
+  test('AC-15, AC-16, FR-33, NFR-2: two Check presses at once submit one prompt naming the ref, shows Checking… with no button, and clears when the turn ends', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(WAITING)) },
+      store: QUIET_STORE(),
+    });
+    const submitted = world.submitted;
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const waiting = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const check = signoffButton(waiting)!;
+    expect(textOf(check)).toBe('Check');
+    expect(stageAlt(waiting)).toContain(
+      'Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.',
+    );
+    const box = everyElement(waiting).find((element) => keyOf(element) === 'paqad-signoff')!;
+    expect(propsOf(box)).toMatchObject({ position: 'absolute', top: 0 });
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await Promise.all([
+      mounted.press({ key: 'paqad-signoff-button' }),
+      mounted.press({ key: 'paqad-signoff-button' }),
+    ]);
+    await mounted.unmount();
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0]).toContain('PQD-12');
+    expect(submitted[0]).toContain('paqad-ai hld check-approval');
+    const checking = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(stageAlt(checking)).toContain('Design sign-off for PQD-12: Checking.');
+    expect(signoffButton(checking)).toBeUndefined();
+    await $.turn.complete({ text: '', reason: 'answer' } as never);
+    const after = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(after)!)).toBe('Check');
+  });
+
+  test('AC-16, INV-6: Checking… clears after 10 minutes, or as soon as checked_at moves past the press', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(WAITING)) },
+      store: QUIET_STORE(),
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))).toBeUndefined();
+    await clock.advance(10 * 60_000);
+    await clock.settle();
+    expect(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))).toBeDefined();
+    const again = await mountDesktop($, { bodyColumns: 93 });
+    await again.press({ key: 'paqad-signoff-button' });
+    await again.unmount();
+    world.put(
+      SNAPSHOT,
+      fileText(signed({ ...WAITING, checked_at: new Date(NOW + 11 * 60_000).toISOString() })),
+    );
+    await $.prompt.submit({ text: 'any news?' } as never);
+    await clock.settle();
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(stageAlt(drawn)).toContain('Waiting 3h');
+  });
+
+  test('AC-21: Copy design copies hld.md, reads Copied for 2 s, and hides with no design text', async ($, on) => {
+    const NOT_POSTED = { ...WAITING, state: 'not_posted', checked_at: null };
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(signed(NOT_POSTED)),
+        '.paqad/ledger/feature-evidence/dir-ord-501/hld.md': '# Design\nThe parts work together.\n',
+      },
+      store: QUIET_STORE(),
+    });
+    const copies: string[] = [];
+    on('ui.copy', ($, e) => {
+      copies.push(e.text);
+      return { value: { isCopied: true } } as never;
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(drawn)!)).toBe('Copy design');
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(copies).toEqual(['# Design\nThe parts work together.\n']);
+    expect(textOf(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))!)).toBe(
+      'Copied',
+    );
+    await clock.advance(2_000);
+    await clock.settle();
+    expect(textOf(signoffButton(await $.ui.render(band('desktop', { bodyColumns: 93 })))!)).toBe(
+      'Copy design',
+    );
+    world.remove('.paqad/ledger/feature-evidence/dir-ord-501/hld.md');
+    world.put(SNAPSHOT, fileText(signed({ ...NOT_POSTED, ref: 'PQD-13' })));
+    await $.prompt.submit({ text: 'any news?' } as never);
+    await clock.settle();
+    const bare = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(signoffButton(bare)).toBeUndefined();
+    expect(stageAlt(bare)).toContain('Design sign-off for PQD-13: Not posted.');
+  });
+
+  test('AC-22: View on changes requested opens the Ledger with the design record link', async ($, on) => {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(signed({ ...WAITING, state: 'changes_requested' })),
+      },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(textOf(signoffButton(drawn)!)).toBe('View');
+    const mounted = await mountDesktop($, { bodyColumns: 93 });
+    await mounted.press({ key: 'paqad-signoff-button' });
+    await mounted.unmount();
+    expect(world.opened.at(-1)).toBe('paqad');
+    const ledger = await $.ui.render(pane('desktop'));
+    const link = everyElement(ledger).find(
+      (element) =>
+        element.type === 'Link' && propsOf(element).href === 'https://acme.test/PQD-12#1',
+    );
+    expect(link).toBeDefined();
+    expect(textOf(ledger)).toContain('Design sign-off for PQD-12: changes requested');
+  });
+
+  test('AC-12, INV-3: with no sign-off the band draws no Sign-off stage, words or button', async ($, on) => {
+    worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(null)) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    expect(signoffButton(drawn)).toBeUndefined();
+    expect(
+      everyElement(drawn).find((element) => keyOf(element) === 'paqad-signoff'),
+    ).toBeUndefined();
+    expect(stageAlt(drawn)).not.toContain('sign-off');
+    const svgs = everyElement(drawn).filter((element) => element.type === 'Svg');
+    for (const svg of svgs) expect(String(propsOf(svg).source)).not.toContain('Sign-off');
+  });
+});
 
 describe('the Desktop Ledger', () => {
   test('AC-19, AC-34: opens on Trust with the subtitle, equal tabs, the tab rule, the stages with their steps and gates, the claims and the flags', async ($, on) => {
@@ -2768,7 +2984,7 @@ describe('the rule stop answer on a denied edit', () => {
     ]);
   });
 
-  test('AC-2, AC-6: a question that throws after the first call keeps the deny and runs nothing', async ($, on) => {
+  test('a question that throws after the first call keeps the deny and runs nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('throw');
     expectDenied(await editCall($, gate));
@@ -2816,7 +3032,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(overrideRuns(world)).toHaveLength(2);
   });
 
-  test('AC-6: a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
+  test('a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     gate.answers = [];
     let ran = 0;
@@ -2902,7 +3118,7 @@ describe('the outcome line after an allowed-once retry', () => {
     }
   });
 
-  test('AC-15: an override that leaves no allowed-once mark shows the update toast, keeps the deny and retries nothing', async ($, on) => {
+  test('an override that leaves no allowed-once mark shows the update toast, keeps the deny and retries nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.marksAllowedOnce = false;
     world.answers.push('Allow once, recorded', 'No reason');
@@ -3588,7 +3804,7 @@ describe('the HUD follows CI while an open PR is pending', () => {
     });
   }
 
-  test('AC-6: one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
+  test('one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
     let release: () => void = () => {};
     world.runGate = new Promise<void>((done) => {
@@ -3883,7 +4099,7 @@ describe('live subagents in the band', () => {
     expect(propsOf(rows[2]!).size).toBe('footnote');
   });
 
-  test('AC-6: a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
+  test('a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);

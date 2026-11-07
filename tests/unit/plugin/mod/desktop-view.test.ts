@@ -7,6 +7,12 @@ import {
   stripAltText,
   stripAlts,
   CARD_ROWS,
+  CHECK_CEILING_MS,
+  checkPending,
+  signoffRecord,
+  signoffView,
+  stageStrip as stagesOf,
+  CONTROLS_COLUMNS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
   bandIsLive,
@@ -15,6 +21,7 @@ import {
   buildDesktopLedger,
   cardRows,
   costWords,
+  flagLabel,
   deliverySteps,
   deliveryStrip,
   desktopHeadline,
@@ -23,6 +30,7 @@ import {
   identityView,
   refusesTaskList,
   stageStrip,
+  stageWord,
   stripOf,
   tableStrip,
   taskListSentence,
@@ -31,6 +39,7 @@ import {
   type DesktopBandInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
+import { LABEL_MIN_PX, stageBarPx } from '../../../../runtime/claude-plugin/mod/strip.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   FAST_ORD_490,
@@ -303,23 +312,51 @@ describe('the identity row', () => {
   it('names the workflow, the lane, the change and the cost, only the parts that apply', () => {
     const full = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() }));
     expect(identityView(full)).toEqual({
-      parts: ['Feature development', 'Full lane', 'ORD-501', '1.3M tokens · ~$4.60'],
+      parts: ['Feature', 'Full lane', 'ORD-501'],
+      cost: '1.3M tokens · ~$4.60',
       flags: 1,
     });
-    expect(identityText(identityView(full))).toBe(
-      '   Feature development  ·  Full lane  ·  ORD-501  ·  1.3M tokens · ~$4.60',
-    );
+    expect(identityText(identityView(full))).toBe('   Feature  ·  Full lane  ·  ORD-501');
     const idle = parse(snapshot({ route: 'feature-development', lane: 'fast' }));
-    expect(identityView(idle)).toEqual({ parts: ['Feature development'], flags: 0 });
-    expect(identityView(open({ lane: 'sideways' })).parts).toEqual([
-      'Feature development',
-      'ORD-501',
-    ]);
+    expect(identityView(idle)).toEqual({ parts: ['Feature'], cost: null, flags: 0 });
+    expect(identityView(open({ lane: 'sideways' })).parts).toEqual(['Feature', 'ORD-501']);
   });
 
-  it('says so far while the turn is counted, whole session when it is, and tokens when unpriced', () => {
+  it('AC-7: drops the cost, then the lane, then the workflow as the row narrows; the chip stays', () => {
+    const full = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() }));
+    const wide = identityView(full, 93);
+    expect(wide).toEqual({
+      parts: ['Feature', 'Full lane', 'ORD-501'],
+      cost: '1.3M tokens · ~$4.60',
+      flags: 1,
+    });
+    const width = (view: typeof wide) =>
+      'paqad'.length +
+      identityText(view).length +
+      1 +
+      (view.cost ? view.cost.length + 1 : 0) +
+      flagLabel(view.flags).length +
+      1 +
+      CONTROLS_COLUMNS;
+    const fits = width(wide);
+    expect(identityView(full, fits)).toEqual(wide);
+    expect(identityView(full, fits - 1)).toEqual({
+      parts: ['Feature', 'Full lane', 'ORD-501'],
+      cost: null,
+      flags: 1,
+    });
+    const noCost = { parts: ['Feature', 'Full lane', 'ORD-501'], cost: null, flags: 1 };
+    expect(identityView(full, width(noCost) - 1).parts).toEqual(['Feature', 'ORD-501']);
+    const noLane = { parts: ['Feature', 'ORD-501'], cost: null, flags: 1 };
+    expect(identityView(full, width(noLane) - 1).parts).toEqual(['ORD-501']);
+    expect(identityView(full, 10)).toEqual({ parts: ['ORD-501'], cost: null, flags: 1 });
+    expect(flagLabel(1)).toBe('⚑ 1 flag');
+    expect(flagLabel(2)).toBe('⚑ 2 flags');
+  });
+
+  it('AC-7: never says so far while the turn is counted, whole session when it is, and tokens when unpriced', () => {
     const cost = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() })).cost!;
-    expect(costWords({ ...cost, live: true })).toBe('1.3M tokens so far · ~$4.60');
+    expect(costWords({ ...cost, live: true })).toBe('1.3M tokens · ~$4.60');
     expect(costWords({ ...cost, scope: 'whole-session' })).toBe('1.3M tokens · whole session');
     expect(costWords({ ...cost, usd: null })).toBe('1.3M tokens');
     expect(costWords(null)).toBeNull();
@@ -327,19 +364,20 @@ describe('the identity row', () => {
 });
 
 describe('AC-10, AC-29: the strip draws only what applies', () => {
-  it('draws the lane stages: all eight on graduated, full or unresolved, three on the fast lane', () => {
+  it('AC-11: draws the working stages: six on graduated, full or unresolved, three on the fast lane', () => {
     expect(stageStrip(open()).stages.map((mark) => mark.label)).toEqual([
-      'Intake',
       'Plan',
       'Spec',
       'Build',
       'Review',
       'Checks',
       'Docs',
-      'Deliver',
     ]);
-    expect(stageStrip(open({ lane: null })).stages).toHaveLength(8);
-    expect(stageStrip(open({ lane: 'graduated' })).stages).toHaveLength(8);
+    expect(stageStrip(open({ lane: null })).stages).toHaveLength(6);
+    expect(stageStrip(open({ lane: 'graduated' })).stages).toHaveLength(6);
+    expect(stageStrip(open({ lane_stages: undefined })).stages).toHaveLength(6);
+    expect(stageWord('ticket_intake')).toBe('Intake');
+    expect(stageWord('delivery')).toBe('Deliver');
     expect(stageStrip(parse(FAST_ORD_490)).stages).toEqual([
       { label: 'Plan', state: 'done' },
       { label: 'Build', state: 'run' },
@@ -379,7 +417,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(5);
   });
 
-  it('AC-6: before a change opens the stages and delivery are faint, with no table and no values', () => {
+  it('before a change opens the stages and delivery are faint, with no table and no values', () => {
     const idle = parse(
       snapshot({
         route: 'feature-development',
@@ -395,7 +433,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     );
     const strip = stripOf(idle, 93);
     expect(strip.stages.every((mark) => mark.state === 'todo')).toBe(true);
-    expect(strip.delivery).toEqual([{ label: 'Edit', state: 'todo' }]);
+    expect(deliveryStrip(idle).steps).toEqual([{ label: 'Edit', state: 'todo' }]);
     expect(strip.seats).toBeNull();
     expect([strip.stageValue, strip.tableValue, strip.deliveryValue]).toEqual(['', '', '']);
   });
@@ -410,7 +448,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
       }),
     );
     expect(pausedStrip.value).toBe('Build · paused');
-    expect(pausedStrip.stages[3]).toEqual({ label: 'Build', state: 'paused' });
+    expect(pausedStrip.stages[2]).toEqual({ label: 'Build', state: 'paused' });
     expect(
       stageStrip(open({ stages: stages({ development: 'running' }), last_block: { text: 'x' } }))
         .value,
@@ -434,8 +472,8 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(value({ stages: unreliable })).toBe('Plan marked: no recorded work');
     expect(value({ stages: stages({ checks: 'complete' }) })).toBe('Checks: no test run recorded');
     expect(value({ stages: stages({ review: 'inconclusive' }) })).toBe('Review inconclusive');
-    const skipped = stageStrip(open({ stages: stages({ ticket_intake: 'skipped' }) }));
-    expect(skipped.stages[0]).toEqual({ label: 'Intake', state: 'skip' });
+    const skipped = stageStrip(open({ stages: stages({ planning: 'skipped' }) }));
+    expect(skipped.stages[0]).toEqual({ label: 'Plan', state: 'skip' });
     const done = {
       ticket_intake: 'skipped',
       planning: 'complete',
@@ -456,29 +494,92 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(value({ stages: stages({ planning: 'complete' }) })).toBe('');
   });
 
-  it('R-4: says the delivery value, first match wins', () => {
-    const value = (over: Raw) => deliveryStrip(open(over)).value;
-    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(PR);
-    expect(
-      value({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
-    ).toBe('6 of 6 checks green');
-    expect(value({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toBe('PR closed');
-    expect(value({ ship: { ...PR_OPEN, pr_state: null } })).toBe('PR state unknown');
-    expect(value({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toBe(
+  it('AC-8: says the delivery state in its 15 rows, first match wins, with its colour', () => {
+    const line = (over: Raw) => {
+      const strip = deliveryStrip(open(over));
+      return [strip.value, strip.tone];
+    };
+    const green = { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 4, total: 4 } };
+    expect(line({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toEqual(['PR closed', 'fail']);
+    expect(line({ ship: { ...PR_OPEN, pr_state: null } })).toEqual(['PR state unknown', 'ink']);
+    expect(line({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toEqual([
       'CI failed',
-    );
-    expect(value({ ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } } })).toBe(
-      '3 of 6 checks green',
-    );
+      'fail',
+    ]);
+    expect(line({ ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } } })).toEqual([
+      `${PR} · CI running`,
+      'acc',
+    ]);
+    expect(line({ ship: green })).toEqual([`${PR} · 4 checks green`, 'ink']);
+    expect(line({ ship: { ...green, ci: { state: 'pass', done: null, total: null } } })).toEqual([
+      `${PR} · checks green`,
+      'ink',
+    ]);
+    expect(line({ ship: PR_OPEN })).toEqual([PR, 'ink']);
+    expect(line({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toEqual([PR, 'ink']);
     const noCi = { commit: true, push: true, pr: true, ci: false, merge: true, reason: 'No CI' };
-    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe(PR);
-    expect(value({ ship: PR_OPEN })).toBe(PR);
-    expect(value({ ship: { ...SHIP0, push: { state: 'failed' } } })).toBe('Push failed');
-    expect(value({ ship: { ...SHIP0, push: { state: 'pushed' } } })).toBe('Pushed');
-    expect(value({ ship: { ...SHIP0, commits: 1 } })).toBe('1 commit of yours');
-    expect(value({ ship: { ...SHIP0, commits: 2 } })).toBe('2 commits of yours');
-    expect(value({ stages: stages({ development: 'running' }) })).toBe('Editing');
-    expect(value({})).toBe('');
+    expect(line({ ship: green, delivery_plan: noCi })).toEqual([PR, 'ink']);
+    expect(
+      line({
+        ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } },
+        delivery_plan: noCi,
+      }),
+    ).toEqual([PR, 'ink']);
+    expect(line({ ship: { ...SHIP0, push: { state: 'failed' } } })).toEqual([
+      'Push failed',
+      'fail',
+    ]);
+    expect(line({ ship: { ...SHIP0, push: { state: 'pushed', branch: 'feat/x' } } })).toEqual([
+      'Pushed · feat/x',
+      'ink',
+    ]);
+    expect(line({ ship: { ...SHIP0, push: { state: 'pushed' } } })).toEqual(['Pushed', 'ink']);
+    const editOnly = {
+      commit: false,
+      push: false,
+      pr: false,
+      ci: false,
+      merge: false,
+      reason: null,
+    };
+    expect(line({ delivery_plan: editOnly })).toEqual(['Edit only · no commit', 'mut']);
+    expect(line({ delivery_plan: { ...editOnly, commit: true } })).toEqual([
+      'No push for this change',
+      'mut',
+    ]);
+    expect(line({ ship: { ...SHIP0, commits: 1 } })).toEqual(['Not pushed', 'ink']);
+    expect(line({ ship: { ...SHIP0, commits: 3 } })).toEqual(['Not pushed', 'ink']);
+    expect(line({ stages: stages({ development: 'running' }) })).toEqual(['Editing', 'acc']);
+    expect(line({ stages: stages({ development: 'complete' }) })).toEqual([
+      'Edited, not committed',
+      'ink',
+    ]);
+    expect(line({})).toEqual(['Not started', 'mut']);
+  });
+
+  it('AC-8: line 2 takes ship.diff first, then the PR figures, and is empty with no changed line', () => {
+    const figures = (ship: Raw) => deliveryStrip(open({ ship })).figures;
+    const diff = { additions: 6375, deletions: 983, partial: false };
+    expect(figures({ ...PR_OPEN, commits: 53, pr_additions: 1, pr_deletions: 1, diff })).toEqual({
+      commits: 53,
+      additions: 6375,
+      deletions: 983,
+      partial: false,
+    });
+    expect(figures({ ...PR_OPEN, commits: 2, pr_additions: 10, pr_deletions: 4 })).toEqual({
+      commits: 2,
+      additions: 10,
+      deletions: 4,
+    });
+    expect(figures({ ...SHIP0, commits: 2 })).toBeNull();
+    expect(
+      figures({
+        ...PR_OPEN,
+        pr_additions: 10,
+        pr_deletions: 4,
+        diff: { additions: 0, deletions: 0 },
+      }),
+    ).toBeNull();
   });
 
   it('R-4: draws each delivery node state, with the CI share only while CI runs', () => {
@@ -508,13 +609,13 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     );
   });
 
-  it('R-5: draws the High Table seats and chief with its value, and leaves a skipped table out', () => {
+  it('R-5: draws the High Table seats and chief, the only value being Needs answers, and leaves a skipped table out', () => {
     expect(tableStrip(open({ table: ord501Table('seated') }))).toMatchObject({
       chief: 'waiting',
-      value: 'Seated',
+      value: '',
     });
     const writing = tableStrip(open({ table: ord501Table('landing') }));
-    expect(writing.value).toBe('3 of 7 notes');
+    expect(writing.value).toBe('');
     expect(writing.seats).toEqual([
       { label: 'AA', state: 'writing' },
       { label: 'SA', state: 'writing' },
@@ -523,7 +624,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(writing.hidden).toBe(4);
     expect(tableStrip(open({ table: ord501Table('chief') }))).toMatchObject({
       chief: 'ruling',
-      value: 'Chief is ruling',
+      value: '',
     });
     expect(
       tableStrip(
@@ -532,13 +633,13 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     ).toMatchObject({ chief: 'needs', value: 'Needs answers' });
     expect(tableStrip(open({ table: ord501Table('ruled') }))).toMatchObject({
       chief: 'done',
-      value: 'Chief ruled',
+      value: '',
     });
     expect(
       tableStrip(
         open({ table: ord501Table('frozen'), stages: stages({ specification: 'complete' }) }),
       ),
-    ).toMatchObject({ value: 'Spec approved' });
+    ).toMatchObject({ value: '' });
     const late = ord501Table('frozen') as { seats: Raw[] };
     late.seats[0] = { ...late.seats[0], late: true };
     expect(tableStrip(open({ table: late })).seats?.[0]).toEqual({ label: 'PO', state: 'late' });
@@ -593,36 +694,55 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     const eleven = Array.from({ length: 11 }, (_, i) => seat(`role-${i}`, 'done', i));
     expect(table(eleven)).toMatchObject({ hidden: 8 });
     expect(table(eleven).seats).toHaveLength(3);
-    const narrow = tableStrip(open({ table: { ...ord501Table('ruled'), seats: eleven } }), 57);
-    expect(narrow.seats?.map((mark) => mark.label)).toEqual(
-      table(eleven)
-        .seats?.slice(0, 2)
-        .map((mark) => mark.label),
-    );
-    expect(narrow.hidden).toBe(9);
-    expect(
-      tableStrip(open({ table: { ...ord501Table('ruled'), seats: doneOnly.slice(0, 3) } }), 57)
-        .hidden,
-    ).toBe(0);
     const strip57 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 57);
-    expect(strip57.seats).toHaveLength(2);
+    expect(strip57.seats).toHaveLength(3);
     expect(stripAlts('Building', strip57).table).toBe(
-      'High Table: Chief is ruling, 11 seats, 2 shown.',
+      'High Table: chief ruling, 11 seats, 3 shown.',
     );
     const strip93 = stripOf(open({ table: { ...ord501Table('chief'), seats: eleven } }), 93);
     expect(stripAlts('Building', strip93).table).toBe(
-      'High Table: Chief is ruling, 11 seats, 3 shown.',
+      'High Table: chief ruling, 11 seats, 3 shown.',
     );
   });
 
   it('AC-23: names the shown count in the High Table alt, and each section says its own words', () => {
     const strip = stripOf(open({ table: ord501Table('chief') }), 93);
     expect(stripAlts('Building', { ...strip, hiddenSeats: 8 }).table).toBe(
-      'High Table: Chief is ruling, 11 seats, 3 shown.',
+      'High Table: chief ruling, 11 seats, 3 shown.',
     );
     expect(stripAlts('Building', { ...strip, hiddenSeats: 0 }).table).toBe(
-      'High Table: Chief is ruling, 3 seats.',
+      'High Table: chief ruling, 3 seats.',
     );
+    expect(stripAlts('Building', { ...strip, chief: 'done', hiddenSeats: 0 }).table).toBe(
+      'High Table: chief ruled, 3 seats.',
+    );
+    expect(stripAlts('Building', { ...strip, chief: 'waiting', hiddenSeats: 0 }).table).toBe(
+      'High Table: chief waiting, 3 seats.',
+    );
+    expect(
+      stripAlts('Building', {
+        ...strip,
+        chief: 'needs',
+        tableValue: 'Needs answers',
+        hiddenSeats: 1,
+      }).table,
+    ).toBe('High Table: Needs answers, 4 seats, 3 shown.');
+    const figures = { commits: 53, additions: 6375, deletions: 983 };
+    const ci = {
+      ...strip,
+      hiddenSeats: 0,
+      deliveryValue: `${PR} · CI running`,
+      deliveryFigures: figures,
+    };
+    expect(stripAlts('Building', ci).delivery).toBe(
+      `Delivery ${PR} · CI running. 53 commits, 6,375 lines added, 983 lines removed.`,
+    );
+    expect(stripAltText('Building', ci)).toContain(
+      `High Table: chief ruling, 3 seats. Delivery ${PR} · CI running. 53 commits, 6,375 lines added, 983 lines removed.`,
+    );
+    expect(
+      stripAlts('Building', { ...strip, deliveryValue: '', deliveryFigures: null }).delivery,
+    ).toBe('Delivery Not started.');
     const fast = band({ snapshot: parse(FAST_ORD_490) });
     expect(fast.kind === 'feature' && fast.stripAlts).toMatchObject({
       stage: 'Building. Stage Build. Plan done.',
@@ -950,7 +1070,7 @@ describe('Paqad Getting Ready', () => {
         ...over,
       }),
     );
-  const LABELS = ['Intake', 'Plan', 'Spec', 'Build', 'Review', 'Checks', 'Docs', 'Deliver'];
+  const LABELS = ['Plan', 'Spec', 'Build', 'Review', 'Checks', 'Docs'];
 
   function card(over: Partial<DesktopBandInput> = {}) {
     const drawn = band({ snapshot: ready(), ...over });
@@ -958,18 +1078,18 @@ describe('Paqad Getting Ready', () => {
     return drawn;
   }
 
-  it('AC-6: draws the card with the headline and 8 not-yet stages', () => {
+  it('draws the card with the headline and 6 not-yet stages', () => {
     const drawn = card();
     expect(drawn.mode).toBe('card');
     expect(drawn.headline).toMatchObject({ text: 'Paqad Getting Ready', live: false, clock: null });
     expect(GETTING_READY).toBe('Paqad Getting Ready');
     expect(drawn.strip.stages.map((mark) => mark.label)).toEqual(LABELS);
     expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
-    expect(new Set(drawn.strip.delivery.map((mark) => mark.state)).size).toBe(1);
+    expect(drawn.strip.deliveryFigures).toBeNull();
     expect(bandIsLive(drawn)).toBe(false);
   });
 
-  it('AC-6: a fast lane keeps all 8 stages not-yet', () => {
+  it('a fast lane keeps all 6 stages not-yet', () => {
     const drawn = card({ snapshot: ready({ lane: 'fast' }) });
     expect(drawn.strip.stages.map((mark) => mark.label)).toEqual(LABELS);
     expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
@@ -1007,18 +1127,18 @@ describe('Paqad Getting Ready', () => {
   });
 
   it('AC-26: the identity line carries the lane only when one is set', () => {
-    expect(identityText(card().identity)).toBe('   Feature development');
+    expect(identityText(card().identity)).toBe('   Feature');
     expect(identityText(card({ snapshot: ready({ lane: 'full' }) }).identity)).toBe(
-      '   Feature development  ·  Full lane',
+      '   Feature  ·  Full lane',
     );
   });
 
   it('AC-27: the words say it reads with the colour gone', () => {
     const drawn = card();
     expect(drawn.headlineAlt).toBe('Paqad Getting Ready.');
-    expect(drawn.alt).toBe('Paqad Getting Ready. Stage not started. Delivery not started.');
+    expect(drawn.alt).toBe('Paqad Getting Ready. Stage not started. Delivery Not started.');
     expect(drawn.stripAlts.stage).toContain('Stage not started');
-    expect(drawn.stripAlts.delivery).toBe('Delivery not started.');
+    expect(drawn.stripAlts.delivery).toBe('Delivery Not started.');
     expect(drawn.minimised.stages).toEqual(LABELS.map(() => 'todo'));
   });
 
@@ -1035,7 +1155,7 @@ describe('Paqad Getting Ready', () => {
     ).toEqual({ kind: 'no-change', words: 'No change is in progress.' });
   });
 
-  it('AC-6: minimised, closed and hidden are honoured, and unreadable wins', () => {
+  it('minimised, closed and hidden are honoured, and unreadable wins', () => {
     expect(card({ visibility: { ...SHOWN, minimised: true } }).mode).toBe('minimised');
     expect(band({ snapshot: ready(), visibility: { ...SHOWN, closed: true } })).toEqual({
       kind: 'closed',
@@ -1048,7 +1168,7 @@ describe('Paqad Getting Ready', () => {
     expect(band({ snapshot: ready(), unbound: true }).kind).toBe('unreadable');
   });
 
-  it('AC-6: a short or narrow window falls back to the minimised row and never clips', () => {
+  it('a short or narrow window falls back to the minimised row and never clips', () => {
     expect(card({ maxRows: cardRows(false) }).mode).toBe('card');
     expect(card({ maxRows: cardRows(false) - 1 }).mode).toBe('minimised');
     expect(card({ columns: 40 }).mode).toBe('card');
@@ -1060,5 +1180,152 @@ describe('Paqad Getting Ready', () => {
 
   it('AC-32: no snapshot yet still reads Ready', () => {
     expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
+  });
+});
+
+describe('Part C: the Sign-off stage, words and button', () => {
+  const HOUR = 3_600_000;
+  const WAITING = {
+    state: 'awaiting_sign_off',
+    ref: 'PQD-12',
+    posted_at: new Date(NOW - 3 * HOUR).toISOString(),
+    checked_at: new Date(NOW - 10 * 60_000).toISOString(),
+    link: 'https://acme.test/1',
+  };
+  const signed = (over: Raw = {}) => open({ signoff: { ...WAITING, ...over } });
+  const viewOf = (over: Raw = {}, extra: Partial<Parameters<typeof signoffView>[1]> = {}) =>
+    signoffView(signed(over).signoff, { now: NOW, design: true, ...extra })!;
+  const press = { ref: 'PQD-12', at: NOW - 60_000 };
+
+  it('AC-14: each shown state has its bar, words, colour and button', () => {
+    const row = (over: Raw, extra = {}) => {
+      const view = viewOf(over, extra);
+      return [view.state, view.bar, view.words, view.tone, view.label];
+    };
+    expect(row({ state: 'pending' })).toEqual(['pending', 'todo', null, null, null]);
+    expect(row({ state: 'writing' })).toEqual(['writing', 'run', 'Writing design', 'acct', null]);
+    expect(row({})).toEqual(['awaiting_sign_off', 'paused', 'Waiting 3h', 'caut', 'Check']);
+    expect(row({}, { check: press })).toEqual(['checking', 'paused', 'Checking…', 'acct', null]);
+    expect(row({ state: 'approved' })).toEqual(['approved', 'done', 'Signed off', 'passt', null]);
+    expect(row({ state: 'changes_requested' })).toEqual([
+      'changes_requested',
+      'todo',
+      'Changes requested',
+      'fail',
+      'View',
+    ]);
+    expect(row({ state: 'skipped' })).toEqual([
+      'skipped',
+      'skip',
+      'Sign-off skipped',
+      'mutt',
+      null,
+    ]);
+    expect(row({ state: 'not_posted' })).toEqual([
+      'not_posted',
+      'skip',
+      'Not posted',
+      'mutt',
+      'Copy design',
+    ]);
+    expect(viewOf({}).name).toBe('Check design sign-off for PQD-12');
+    const strip = stagesOf(
+      signed({ state: 'changes_requested' }),
+      IDLE_LIVE,
+      viewOf({ state: 'changes_requested' }),
+    );
+    expect(strip.stages.map((mark) => `${mark.label}:${mark.state}`)).toEqual([
+      'Plan:todo',
+      'Spec:run',
+      'Sign-off:todo',
+      'Build:todo',
+      'Review:todo',
+      'Checks:todo',
+      'Docs:todo',
+    ]);
+    expect(strip.value).toBe('Spec');
+    expect(stagesOf(signed(), IDLE_LIVE, viewOf({})).value).toBe('Sign-off');
+  });
+
+  it('AC-21: Copy design reads Copied for 2 s after a copy, and hides with no design text', () => {
+    expect(viewOf({ state: 'not_posted' }, { copiedAt: NOW - 1_000 }).label).toBe('Copied');
+    expect(viewOf({ state: 'not_posted' }, { copiedAt: NOW - 2_000 }).label).toBe('Copy design');
+    const bare = viewOf({ state: 'not_posted' }, { design: false });
+    expect([bare.words, bare.label, bare.action]).toEqual(['Not posted', null, null]);
+  });
+
+  it('AC-16, FR-21: Checking… shows only between a press and its clear event', () => {
+    const signoff = signed().signoff!;
+    expect(checkPending(signoff, press, NOW)).toBe(true);
+    expect(checkPending(signoff, null, NOW)).toBe(false);
+    expect(checkPending({ ...signoff, checked_at: new Date(NOW).toISOString() }, press, NOW)).toBe(
+      false,
+    );
+    expect(checkPending({ ...signoff, state: 'approved' }, press, NOW)).toBe(false);
+    expect(checkPending(signoff, press, press.at + CHECK_CEILING_MS)).toBe(false);
+    expect(checkPending(signoff, { ...press, ref: 'PQD-9' }, NOW)).toBe(false);
+  });
+
+  it('AC-13, AC-12: pending keeps the bar count through the freeze; no sign-off draws no stage, words or minimised bar', () => {
+    const pending = band({ snapshot: signed({ state: 'pending' }) });
+    const writing = band({ snapshot: signed({ state: 'writing' }) });
+    if (pending.kind !== 'feature' || writing.kind !== 'feature') throw new Error('no card');
+    expect(pending.strip.stages).toHaveLength(7);
+    expect(writing.strip.stages).toHaveLength(7);
+    expect(pending.strip.signoff).toBeUndefined();
+    expect(pending.minimised.stages).toHaveLength(7);
+    const off = band({ snapshot: open({ signoff: null }) });
+    if (off.kind !== 'feature') throw new Error('no card');
+    expect(off.signoff).toBeNull();
+    expect(off.strip.stages.map((mark) => mark.label)).not.toContain('Sign-off');
+    expect(off.strip.signoff).toBeUndefined();
+    expect(off.minimised.stages).toHaveLength(6);
+    expect(off.alt).not.toMatch(/sign-off/i);
+  });
+
+  it('AC-24 NFR-2: the strip alt text carries the status words, the ref and the button name', () => {
+    const drawn = band({ snapshot: signed() });
+    if (drawn.kind !== 'feature') throw new Error('no card');
+    const sentence =
+      'Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.';
+    expect(drawn.signoff?.name).toBe('Check design sign-off for PQD-12');
+    expect(drawn.stripAlts.stage).toContain(sentence);
+    expect(drawn.alt).toContain(sentence);
+    const approved = band({ snapshot: signed({ state: 'approved' }) });
+    if (approved.kind !== 'feature') throw new Error('no card');
+    expect(approved.alt).toContain('Design sign-off for PQD-12: Signed off.');
+  });
+
+  it('AC-33: 7 bars hide the labels where 6 bars still fit them', () => {
+    const room = 270;
+    expect(stageBarPx(room, 6)).toBeGreaterThanOrEqual(LABEL_MIN_PX);
+    expect(stageBarPx(room, 7)).toBeLessThan(LABEL_MIN_PX);
+    const withSignoff = stagesOf(signed(), IDLE_LIVE, viewOf({})).stages.length;
+    const without = stagesOf(open()).stages.length;
+    expect(stageBarPx(room, withSignoff) >= LABEL_MIN_PX).toBe(false);
+    expect(stageBarPx(room, without) >= LABEL_MIN_PX).toBe(true);
+  });
+
+  it('AC-20: waiting for sign-off is a caution headline with checked <age> ago', () => {
+    const headline = desktopHeadline(
+      open({
+        signoff: WAITING,
+        headline: { text: 'Waiting for sign-off on PQD-12', tone: 'warn', row: 21 },
+      }),
+      NOW,
+    );
+    expect(headline).toMatchObject({
+      signal: 'caution',
+      text: 'Waiting for sign-off on PQD-12',
+      note: 'checked 10m ago',
+    });
+  });
+
+  it('AC-22: the Ledger Trust tab names the sign-off and links the design record', () => {
+    expect(signoffRecord(signed({ state: 'changes_requested' }))).toEqual({
+      words: 'Design sign-off for PQD-12: changes requested',
+      link: { href: 'https://acme.test/1', text: 'Open the design record' },
+    });
+    expect(signoffRecord(open({ signoff: null }))).toBeNull();
   });
 });

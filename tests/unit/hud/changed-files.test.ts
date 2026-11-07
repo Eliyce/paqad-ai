@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,15 @@ import {
   writeFeatureDelivery,
 } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import { GIT_READ_TIMEOUT_MS, readChangeGit } from '@/hud/changed-files.js';
+import {
+  GIT_READ_TIMEOUT_MS,
+  NEW_FILE_MAX_BYTES,
+  NEW_FILES_PER_SNAPSHOT,
+  NUL_PROBE_BYTES,
+  clearChangeDiffCache,
+  readChangeDiff,
+  readChangeGit,
+} from '@/hud/changed-files.js';
 
 import {
   checkout,
@@ -26,11 +34,18 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...real, execFileSync: vi.fn(real.execFileSync) };
 });
 
+vi.mock('node:fs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs')>();
+  return { ...real, readSync: vi.fn(real.readSync) };
+});
+
 const realExec = vi.mocked(execFileSync).getMockImplementation()!;
 
 afterEach(() => {
   vi.mocked(execFileSync).mockImplementation(realExec);
   vi.mocked(execFileSync).mockClear();
+  vi.mocked(readSync).mockClear();
+  clearChangeDiffCache();
   cleanupScopeFixtures();
 });
 
@@ -238,5 +253,201 @@ describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the cha
     const delivery = readFeatureDelivery(root, dir);
     writeFeatureDelivery(root, dir, { ...delivery, start_worktree: null });
     expect(readChangeStartPoint(root, dir, 'main')?.worktree).toBeNull();
+  });
+});
+
+describe('ship.diff: lines added and removed by the change (FR-1 to FR-7)', () => {
+  const at = (root: string) => ({
+    commit: git(root, 'rev-parse', 'HEAD'),
+    worktree: null,
+    source: 'start_commit' as const,
+    base: null,
+  });
+  const diffOf = (root: string, start: ReturnType<typeof at>, files: string[]) =>
+    readChangeDiff(root, start, files, noError);
+  const gitCalls = (verb: string) =>
+    vi
+      .mocked(execFileSync)
+      .mock.calls.filter(([, args]) => Array.isArray(args) && args[0] === verb);
+
+  it('counts edited tracked files, uncommitted and committed, and new files from disk', () => {
+    const root = repoRoot();
+    writeFileSync(join(root, 'tracked.ts'), 'one\ntwo\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'tracked');
+    const start = at(root);
+    writeFileSync(join(root, 'tracked.ts'), 'one\nTWO\nthree\n');
+    commit(root, 'committed.ts', 'feat: committed');
+    writeFileSync(join(root, 'new.ts'), 'a\nb\nc\n');
+    writeFileSync(join(root, 'open.ts'), 'a\nb\nc');
+    writeFileSync(join(root, 'empty.ts'), '');
+    expect(
+      diffOf(root, start, ['committed.ts', 'empty.ts', 'new.ts', 'open.ts', 'tracked.ts']),
+    ).toEqual({ additions: 1 + 2 + 3 + 3, deletions: 1, partial: false });
+  });
+
+  it('AC-1: a tracked file edited and then reverted adds zero lines', () => {
+    const root = repoRoot();
+    writeFileSync(join(root, 'kept.ts'), 'one\ntwo\nthree\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'kept');
+    const start = at(root);
+    writeFileSync(join(root, 'kept.ts'), 'changed\n');
+    writeFileSync(join(root, 'kept.ts'), 'one\ntwo\nthree\n');
+    expect(diffOf(root, start, ['kept.ts'])).toEqual({
+      additions: 0,
+      deletions: 0,
+      partial: false,
+    });
+  });
+
+  it('AC-2: only an untracked file in the changed-files list counts', () => {
+    const root = repoRoot();
+    const start = at(root);
+    writeFileSync(join(root, 'listed.ts'), 'a\nb\n');
+    writeFileSync(join(root, 'stray.ts'), 'a\nb\nc\nd\n');
+    expect(diffOf(root, start, ['listed.ts'])).toEqual({
+      additions: 2,
+      deletions: 0,
+      partial: false,
+    });
+  });
+
+  it('AC-3: counts a 1 MiB file, skips a larger one and a NUL file without a full read', () => {
+    const root = repoRoot();
+    const start = at(root);
+    writeFileSync(join(root, 'exact.txt'), Buffer.alloc(NEW_FILE_MAX_BYTES, 0x0a));
+    writeFileSync(join(root, 'over.txt'), Buffer.alloc(NEW_FILE_MAX_BYTES + 1, 0x0a));
+    const binary = Buffer.alloc(NUL_PROBE_BYTES * 4, 0x0a);
+    binary[100] = 0;
+    writeFileSync(join(root, 'binary.bin'), binary);
+    expect(diffOf(root, start, ['binary.bin', 'exact.txt', 'over.txt'])).toEqual({
+      additions: NEW_FILE_MAX_BYTES,
+      deletions: 0,
+      partial: false,
+    });
+    const lengths = vi.mocked(readSync).mock.calls.map((call) => call[3] as number);
+    expect(lengths).toContain(NUL_PROBE_BYTES);
+    expect(lengths.reduce((sum, length) => sum + length, 0)).toBe(
+      NEW_FILE_MAX_BYTES + NUL_PROBE_BYTES,
+    );
+  });
+
+  it('counts a renamed and edited file once under its new name, and a binary change as 0', () => {
+    const root = repoRoot();
+    writeFileSync(join(root, 'old.ts'), 'a\nb\nc\nd\ne\nf\n');
+    writeFileSync(join(root, 'pic.bin'), Buffer.from([0, 1, 2, 3]));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'base');
+    const start = at(root);
+    git(root, 'mv', 'old.ts', 'new.ts');
+    writeFileSync(join(root, 'new.ts'), 'a\nb\nc\nd\ne\nf\ng\n');
+    writeFileSync(join(root, 'pic.bin'), Buffer.from([0, 9, 9, 9, 9]));
+    git(root, 'add', '-A');
+    expect(diffOf(root, start, ['new.ts', 'pic.bin'])).toEqual({
+      additions: 1,
+      deletions: 0,
+      partial: false,
+    });
+  });
+
+  it('leaves out .paqad, merged-in and dirty-at-start files through the changed-files list', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/diff', true);
+    const dir = openFeatureChange(root, 'ses-diff', {
+      adapter: 'claude-code',
+      title: 'diff change',
+      issue: null,
+      lane: 'full',
+    });
+    commit(root, 'mine.ts', 'feat: mine');
+    checkout(root, 'main');
+    commit(root, 'theirs.ts', 'feat: theirs');
+    checkout(root, 'feat/diff');
+    git(root, 'merge', '-q', '--no-edit', 'main');
+    const start = readChangeStartPoint(root, dir, 'main')!;
+    const listed = readChangeGit(root, 'main', noError, start)!.files;
+    expect(listed).toEqual(['mine.ts']);
+    expect(readChangeDiff(root, start, listed, noError)).toEqual({
+      additions: 1,
+      deletions: 0,
+      partial: false,
+    });
+  });
+
+  it('matches the changed-files list for a project in a subfolder of the repo', () => {
+    const root = repoRoot();
+    mkdirSync(join(root, 'app'));
+    const start = at(root);
+    writeFileSync(join(root, 'app', 'inner.ts'), 'x\ny\n');
+    writeFileSync(join(root, 'README.md'), 'changed above\n');
+    git(root, 'add', 'README.md');
+    expect(readChangeDiff(join(root, 'app'), start, ['inner.ts'], noError)).toEqual({
+      additions: 2,
+      deletions: 0,
+      partial: false,
+    });
+  });
+
+  it('AC-4: is null with no start point or file list, and null with onError when git fails', () => {
+    const root = repoRoot();
+    const start = at(root);
+    expect(readChangeDiff(root, null, ['a.ts'], noError)).toBeNull();
+    expect(readChangeDiff(root, start, null, noError)).toBeNull();
+    vi.mocked(execFileSync).mockImplementation(((command, args, options) => {
+      if (Array.isArray(args) && args[0] === 'diff') throw new Error('git timed out');
+      return realExec(command, args, options);
+    }) as typeof execFileSync);
+    const errors: unknown[] = [];
+    expect(readChangeDiff(root, start, ['a.ts'], (error) => errors.push(error))).toBeNull();
+    expect(errors.map((error) => (error as Error).message)).toEqual(['git timed out']);
+  });
+
+  it('FR-5: runs ls-files only when a listed path is missing from numstat, bounded by the timeout', () => {
+    const root = repoRoot();
+    const start = at(root);
+    writeFileSync(join(root, 'README.md'), 'edited\n');
+    diffOf(root, start, ['README.md']);
+    expect(gitCalls('ls-files')).toHaveLength(0);
+    for (const [, , options] of gitCalls('diff')) {
+      expect(options).toMatchObject({ timeout: GIT_READ_TIMEOUT_MS });
+    }
+    writeFileSync(join(root, 'gone.ts'), 'x\n');
+    diffOf(root, start, ['README.md', 'gone.ts']);
+    expect(gitCalls('ls-files')).toHaveLength(1);
+  });
+
+  it('FR-6: does not re-read an unchanged new file, and re-reads it after an edit', () => {
+    const root = repoRoot();
+    const start = at(root);
+    writeFileSync(join(root, 'cached.ts'), 'a\nb\n');
+    expect(diffOf(root, start, ['cached.ts'])?.additions).toBe(2);
+    const reads = vi.mocked(readSync).mock.calls.length;
+    expect(diffOf(root, start, ['cached.ts'])?.additions).toBe(2);
+    expect(vi.mocked(readSync).mock.calls.length).toBe(reads);
+    writeFileSync(join(root, 'cached.ts'), 'a\nb\nc\nd\ne\n');
+    expect(diffOf(root, start, ['cached.ts'])?.additions).toBe(5);
+  });
+
+  it('AC-5: past the per-snapshot cap the count is partial', () => {
+    const root = repoRoot();
+    const start = at(root);
+    mkdirSync(join(root, 'many'));
+    const names: string[] = [];
+    for (let index = 0; index < NEW_FILES_PER_SNAPSHOT + 3; index += 1) {
+      const name = `many/f${String(index).padStart(4, '0')}.ts`;
+      writeFileSync(join(root, name), 'line\n');
+      names.push(name);
+    }
+    expect(diffOf(root, start, names)).toEqual({
+      additions: NEW_FILES_PER_SNAPSHOT,
+      deletions: 0,
+      partial: true,
+    });
+    expect(diffOf(root, start, names)).toEqual({
+      additions: NEW_FILES_PER_SNAPSHOT + 3,
+      deletions: 0,
+      partial: false,
+    });
   });
 });

@@ -45,6 +45,10 @@ import {
   ANSWER_TOAST,
   bandIsLive,
   buildDesktopBand,
+  checkPending,
+  CHECK_CEILING_MS,
+  COPIED_MS,
+  signoffCheckPrompt,
   settleStart,
   settledChange,
   buildDesktopLedger,
@@ -53,6 +57,8 @@ import {
   refusesTaskList,
   taskListSentence,
   type DesktopBand,
+  type SignoffAction,
+  type SignoffCheck,
   type TableSitting,
 } from './desktop-view';
 import {
@@ -198,6 +204,15 @@ const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, f
 const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
 const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
 const liveAtom = atom({ plugin: 'paqad', key: 'live' } as const, IDLE_LIVE as LiveState);
+const signoffCheckAtom = atom(
+  { plugin: 'paqad', key: 'signoffCheck' } as const,
+  null as SignoffCheck | null,
+);
+const designTextAtom = atom({ plugin: 'paqad', key: 'designText' } as const, null as string | null);
+const copiedAtAtom = atom(
+  { plugin: 'paqad', key: 'designCopiedAt' } as const,
+  null as number | null,
+);
 const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
 const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
@@ -262,6 +277,7 @@ let heartbeat: Timer | null = null;
 let tickTimer: Timer | null = null;
 let desktopSession = false;
 let taskListRefused = false;
+let signoffChecking = false;
 const rawCalls = new Set<string>();
 
 interface CiWatch {
@@ -301,6 +317,84 @@ async function readText($: EngineInterface, path: string): Promise<string | null
   }
 }
 
+async function readDesignText(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<void> {
+  const dir = snapshot?.change?.dir;
+  const text =
+    live && dir && snapshot?.signoff?.state === 'not_posted'
+      ? await readText($, joinPath(live.root, `${FEATURE_EVIDENCE_DIR}/${dir}/hld.md`))
+      : null;
+  await update($, designTextAtom, () => (text && text.trim() !== '' ? text : null));
+}
+
+async function clearCheck($: EngineInterface, at: number): Promise<void> {
+  await update($, signoffCheckAtom, (press) => (press?.at === at ? null : (press ?? null)));
+}
+
+async function checkSignoff($: EngineInterface): Promise<void> {
+  if (signoffChecking) return;
+  signoffChecking = true;
+  try {
+    await checkSignoffOnce($);
+  } finally {
+    signoffChecking = false;
+  }
+}
+
+async function checkSignoffOnce($: EngineInterface): Promise<void> {
+  const signoff = (await read($, snapshotAtom))?.signoff ?? null;
+  if (signoff?.state !== 'awaiting_sign_off') return;
+  const now = await $.clock.now();
+  if (checkPending(signoff, await read($, signoffCheckAtom), now)) return;
+  const press: SignoffCheck = { ref: signoff.ref, at: now };
+  await update($, signoffCheckAtom, () => press);
+  await update($, nowAtom, () => now);
+  if (live && (await liveState($)).turnStartedAt === null) {
+    await moveLive($, (state) => promptSubmitted(state, now));
+    startTicker($);
+  }
+  await beat($);
+  $.clock.after(CHECK_CEILING_MS, () => void clearCheck($, press.at).then(() => refresh($)));
+  try {
+    await $.prompt.submit({ text: signoffCheckPrompt(signoff.ref) });
+  } catch {
+    await clearCheck($, press.at);
+  }
+  await refresh($);
+}
+
+async function copyDesign($: EngineInterface, surface: unknown): Promise<void> {
+  const text = await read($, designTextAtom);
+  if (!text) return;
+  const copied = await $.ui.copy({
+    text,
+    ...(typeof surface === 'string' ? { surface: surface as never } : {}),
+  });
+  if (!copied.isCopied) return;
+  const now = await $.clock.now();
+  await update($, nowAtom, () => now);
+  await update($, copiedAtAtom, () => now);
+  $.clock.after(COPIED_MS, () => void update($, copiedAtAtom, (at) => (at === now ? null : at)));
+}
+
+async function pressSignoff(
+  $: EngineInterface,
+  action: SignoffAction,
+  surface: unknown,
+): Promise<void> {
+  if (action === 'check') await checkSignoff($);
+  else if (action === 'view') await showLedger($, DEFAULT_PANE_TAB);
+  else await copyDesign($, surface);
+}
+
+async function endCheckWithTurn($: EngineInterface): Promise<void> {
+  const press = await read($, signoffCheckAtom);
+  const startedAt = (await liveState($)).turnStartedAt;
+  if (press && startedAt !== null && startedAt >= press.at) await clearCheck($, press.at);
+}
+
 async function existsSafe($: EngineInterface, path: string): Promise<boolean> {
   try {
     return await $.fs.exists(path);
@@ -336,6 +430,7 @@ async function refresh($: EngineInterface): Promise<void> {
       const watch = watchVerdict(verdictSeen, verdictKey(snapshot?.verdict));
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
+      if (changed) await readDesignText($, snapshot);
       if (changed) await landAllGreen($, snapshot);
       if (changed) await noteSettled($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
@@ -941,6 +1036,9 @@ async function desktopBandOf(
       await read($, closedAtom),
     ),
     menuOpen: (await read($, closingAtom)) === true,
+    signoffCheck: await read($, signoffCheckAtom),
+    design: (await read($, designTextAtom)) !== null,
+    copiedAt: await read($, copiedAtAtom),
     ...size,
   });
 }
@@ -1063,6 +1161,7 @@ function desktopActions($: EngineInterface): BandActions {
     }),
     cancel: act(() => closing(false)),
     show: act(() => showBand($, true)),
+    signoff: (action, surface) => act(() => pressSignoff($, action, surface))(),
   };
 }
 
@@ -1273,6 +1372,7 @@ export const register: Register = (on) => {
     heartbeat = null;
     stopTick();
     taskListRefused = false;
+    signoffChecking = false;
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
@@ -1375,7 +1475,10 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('turn.complete', async ($, e, next) => {
-    if (!e.agentId) await moveLive($, turnEnded);
+    if (!e.agentId) {
+      await endCheckWithTurn($);
+      await moveLive($, turnEnded);
+    }
     const result = await next(e);
     if (live) {
       await refresh($);

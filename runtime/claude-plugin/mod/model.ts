@@ -31,6 +31,8 @@ import type {
   PaqadScope,
   PaqadSeat,
   PaqadShipCommit,
+  PaqadSignoff,
+  PaqadSignoffState,
   PaqadSeatState,
   PaqadTone,
   PaqadTimelineEntry,
@@ -459,6 +461,39 @@ function readCiDetail(value: unknown): PaqadCi | null {
   };
 }
 
+const SIGNOFF_STATES: readonly PaqadSignoffState[] = [
+  'pending',
+  'writing',
+  'awaiting_sign_off',
+  'approved',
+  'changes_requested',
+  'skipped',
+  'not_posted',
+];
+
+export function readSignoff(value: unknown): PaqadSignoff | null {
+  const signoff = rec(value);
+  const state = signoff?.state;
+  if (!signoff || !SIGNOFF_STATES.includes(state as PaqadSignoffState)) return null;
+  return {
+    state: state as PaqadSignoffState,
+    ref: str(signoff.ref),
+    posted_at: str(signoff.posted_at),
+    checked_at: str(signoff.checked_at),
+    link: str(signoff.link),
+  };
+}
+
+export function readDiff(
+  value: unknown,
+): { additions: number; deletions: number; partial: boolean } | null {
+  const diff = rec(value);
+  const additions = num(diff?.additions);
+  const deletions = num(diff?.deletions);
+  if (additions === null || deletions === null) return null;
+  return { additions, deletions, partial: diff?.partial === true };
+}
+
 function readShipCommits(value: unknown): PaqadShipCommit[] {
   return each(value, (commit) => ({
     sha: str(commit.sha) ?? '',
@@ -841,6 +876,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           pr_files: num(ship.pr_files),
           pr_additions: num(ship.pr_additions),
           pr_deletions: num(ship.pr_deletions),
+          diff: readDiff(ship.diff),
           files_changed: num(ship.files_changed),
           ci_read_at: str(ship.ci_read_at),
           all_green: ship.all_green === true,
@@ -859,6 +895,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
         : null,
     receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
+    signoff: readSignoff(snap.signoff),
     ...(Array.isArray(snap.record_gaps) ? { record_gaps: strings(snap.record_gaps) } : {}),
     ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
     ...readRung(snap.rung),
@@ -889,6 +926,7 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     verdict: null,
     receipt: null,
     cost: null,
+    signoff: null,
     record_gaps: undefined,
     repairs: undefined,
     rung: undefined,

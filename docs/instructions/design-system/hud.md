@@ -27,6 +27,9 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 | `pass`          | `#2F8F6B`                          | `#5FC29C`                     | pass, done stage bars and their check, the one-time done glow                                   |
 | `passText`      | `#26775A`                          | `#5FC29C`                     | done stage label text only (5.43:1 on white; `pass` is 3.99:1, too faint for 9 px text)        |
 | `fail`          | `#D23B3B`                          | `#F08080`                     | fail                                                                                            |
+| `accentText`    | `#C80076` (5.65:1 on white)        | `#FF4DB2` (5.52:1 on #1E1E1E) | sign-off words in the accent hue (`Writing design`, `Checking…`); `accent` is 3.85:1         |
+| `cautionText`   | `#8F6110` (5.41:1 on white)        | `#E3B04B` (8.40:1)            | sign-off words in the caution hue (`Waiting 3h`); `caution` is 2.94:1                        |
+| `mutedText`     | `#6B747A` (4.77:1 on white)        | `#97A1A7` (6.33:1)            | muted sign-off words (`Sign-off skipped`, `Not posted`); `muted` is 2.97:1                  |
 | `onSignal`      | `#FFFFFF`                          | same                          | only on a solid signal: the High Table badge numbers, the running sheen                         |
 | `PX_PER_COLUMN` | `8.5`                              |                               | strip width = `bodyColumns × 8.5`                                                               |
 | `BREATH`        | alpha suffixes `FF CC 8C 66 8C CC` |                               | the live light, one step per 400 ms tick; the band headline dot steps through the same values  |
@@ -68,20 +71,28 @@ Each rule was a visible bug on Desktop before it became a rule.
 
 Four rows in `Box flexDirection="column" rowGap="xs"`, 6 rows high in every state, nothing around them.
 
-- **Identity row** (`Box` row, `alignItems="center"`, `columnGap="sm"`): one `Text` with `paqad`
-  (semibold) and a dim footnote run of the parts that apply, joined by `  ·  `: the workflow, the
-  lane (`Fast lane`, `Graduated lane`, `Full lane`), the change chip, and the cost
-  (`<tokens> tokens · ~$<usd>`, `<tokens> tokens · whole session`, or
-  `<tokens> tokens so far · ~$<usd>` while the turn is still being counted). Before any token
-  figure is known an open window reads `counting`, never a final 0. Then `Box flexGrow`,
-  then, only with open flags, an amber `⚑` `Text` and a plain dim `N flag(s)` Button, then the
-  bordered dim `Ledger` Button and the plain dim `−` and `×` Buttons.
+- **Identity row** (`Box` row, `alignItems="center"`, `columnGap="sm"`): one `Text
+  wrap="truncate-end"` with `paqad` (semibold) and a dim footnote run of the parts that apply,
+  joined by `  ·  `: the workflow (always `Feature`), the lane (`Fast lane`, `Graduated lane`,
+  `Full lane`) and the change chip. Then `Box flexGrow`, then the cost as a dim footnote `Text`
+  (`<tokens> tokens · ~$<usd>`, `<tokens> tokens · whole session`, never `so far`; before any
+  token figure is known it reads `Counting tokens`), then, only with open flags, one plain dim
+  Button `⚑ N flag(s)` (mark and words are one control and the whole of it opens the flags), then
+  the bordered dim `Ledger` Button and the plain dim `−` and `×` Buttons. When the row does not
+  fit, `identityView(snapshot, columns)` drops the cost first, then the lane, then the workflow;
+  the change chip, the flags and the controls never drop. It estimates the row in columns: the left
+  text, the cost, the flag words and 16 columns for `Ledger − ×`.
 - **Message row**: on static states (Done, Waiting for your answer, Inconclusive, Next) one
   `Text wrap="truncate-end"`: `●` (heading size, the signal colour) + the headline (heading,
   semibold) + a dim footnote note. On live states (a stage running, a subagent) one plain-image
   `Svg` with no width or height props, markup as wide as the strip and 24 high: the dot (r 5.5 at
-  6, 12, the signal colour), the title at x 20, baseline 17, 17 px, weight 600, in `headline`
-  with the title sheen, then the note and the clock `m:ss` as 12 px `muted` runs 16 px apart.
+  6, 11, centred on the title's capitals, the signal colour), the title at x 20, baseline 17,
+  17 px, weight 600, in `headline` with the title sheen, then the note and the clock `m:ss` as
+  12 px `muted` runs 16 px apart. While a subagent runs, an outlined pink `SUBAGENT` pill (8.5 px,
+  weight 600, letter-spacing 1 px, ring x .6, y 3.6, 70 × 14.8, rx 7.4, stroke 1.1) replaces the
+  dot, its ring breathes (`stroke-opacity` .25 to 1 over 2.4 s, phase from the shared clock, a
+  still ring at 55% under reduced motion), and the title starts at x 81 without the `Subagent: `
+  prefix; the alt text keeps `Subagent:`.
   Its `alt` says the whole sentence, the note and the clock in words
   (`Building. Running for 2 min 1 s.`).
 - **Body line**: the gap line's slot, one dim footnote `Text wrap="truncate-end"` with no indent,
@@ -92,47 +103,67 @@ Four rows in `Box flexDirection="column" rowGap="xs"`, 6 rows high in every stat
   record yet reads `No record yet for: Spec, Build`, and nothing shows here while a stage runs,
   because nothing has truly gone unrecorded yet. `paqad could not record ...` is kept for real
   record faults.
-- **Strip**: a `Box flexDirection="row"` of one plain-image `Svg` per section, each in a `Box`
-  at its whole-number width, no width or height props on the Svgs. Each section is a `viewBox` cut
-  of one layout whose markup width is `round(bodyColumns × 8.5)` with a minimum of 480, height
-  52, so every x is the same as in one image; a divider is drawn half a pixel inside its left
-  section so the cut keeps it whole. Caps baseline 9, marks centre 25, labels baseline 47. Each
-  section has its own `alt`.
-  - Sections STAGE 40% · HIGH TABLE 26% · DELIVERY 34%; without a High Table STAGE 56% ·
-    DELIVERY 44%. A 1 px hairline divides them with 18 px on each side. The last section's right
-    edge is inset 7 px.
-  - Each section has a cap (8.5 px, weight 600, letter-spacing 1.1 px, muted) on the left and a
-    value (10.5 px, weight 500, ink) on the right, drawn only when the section is wider than
-    150 px.
-  - STAGE: one bar per stage the snapshot's `lane_stages` names, with Intake and Deliver on every
-    lane but fast (graduated, full and unresolved: Intake, Plan, Spec, Build, Review, Checks, Docs,
-    Deliver; fast: Plan, Build, Checks). An older engine with no `lane_stages` gets the same lists
-    from the lane. Bars are 3 px tall, `rx 1.5`, 4 px
-    gaps, a 9 px label under each.
-  - HIGH TABLE (only when the table sat): at most 3 seats, fewer when they do not fit, ordered
-    writing, late, newest done, seated (ties keep roster order), r 4, 22 px apart, initials under
-    each (`SA IA DO PO AA UF QA`, or the first letters of other roles), then a quiet `+N` (9 px,
-    weight 500, `muted`) one step on for every seat not shown, a 12 px hairline, then the chief
-    r 5 labelled `CA`, which ends inside the section, 18 px clear of the divider. Three seats with
-    `+N` fit from 66 columns; below that the band shows two seats and `+N`. Three or fewer seats
-    that all fit draw no `+N`. The alt says how many are shown, and the Ledger's High Table tab
-    lists every seat.
-  - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
-    delivery plan (Edit, Commit, Push, PR, CI as they apply; merging is the owner's, so there is
-    no Merge node), spacing capped at 96 px, inset
-    12 px from both section edges. Edit is current while a file is being edited or any edit stage
-    (Build, Checks, Docs) runs, or while a file is really being edited once Build has been
-    reached (a review fix or a docs edit), and done once one of them has finished. An Edit or
-    Write during Plan or Spec (a plan template, the spec text) is not this change's code being
-    edited, so Edit is not current there. Connectors run between circles only, 4 px clear of each, 1.2 px
-    wide, ink when the next node is reached and faint otherwise.
+- **Strip**: a `Box flexDirection="row"` of one plain-image `Svg` per shown section. Each section
+  is a `viewBox` cut of one layout whose markup width is `round(bodyColumns × 8.5)` with a minimum
+  of 480, height 52, so every x is the same as in one image; a divider is drawn half a pixel inside
+  its left section so the cut keeps it whole. Caps baseline 9, marks centre 25, labels baseline 47.
+  Each section has its own `alt`.
+  - Fixed pixel layout (`stripLayout` in `strip.ts`, a pure function): HIGH TABLE is a fixed
+    150 px, DELIVERY a fixed 190 px, and STAGE takes the rest, with a 340 px minimum. In
+    `desktop-band.tsx` the Stage section sits in `Box flexGrow={1} minWidth={0}` with no Svg
+    width; High Table and Delivery sit in `Box flexShrink={0}` with `Svg width` 150 and 190.
+    A 1 px hairline divides the sections with 18 px on each side; the last section's right edge is
+    inset 7 px.
+  - Narrow bands hide whole sections, High Table first: 680 px and wider show Stage, High Table
+    and Delivery; 530 px and wider show Stage and Delivery; narrower shows Stage only. A width
+    change only recomputes this layout from the last snapshot; it never rebuilds the snapshot,
+    runs git or reads the disk. A hidden section's words move into the Stage alt text, and the
+    Ledger tabs still show all of it.
+  - Each section has a cap (8.5 px, weight 600, letter-spacing 1.1 px, muted) on the left and no
+    value text on its right.
+  - STAGE: the current stage name (10.5 px, weight 500, ink) draws right after the `STAGE` cap at
+    x0 + 44 and is cut with an ellipsis first when the row is short. One bar per working stage the
+    snapshot's `lane_stages` names: Intake and Deliver never draw on the strip (graduated, full and
+    unresolved: Plan, Spec, Build, Review, Checks, Docs; fast: Plan, Build, Checks), while
+    `stageWord`, Record and Trust still name them. An older engine with no `lane_stages` gets the
+    same lists from the lane. Bars are 3 px tall, `rx 1.5`, 4 px gaps, a 9 px label under each;
+    below 40 px a bar the labels hide and only the bars draw.
+  - Sign-off stage: when `snapshot.signoff` is not null (design sign-off applies to the change's
+    lane), a `Sign-off` bar sits between Spec and Build from the first turn (state `pending`, a
+    faint bar), so the bar count never changes during the change. The right end of the caption row
+    carries the status words and a small Button (see Sign-off status words below). When
+    `signoff` is null nothing about sign-off draws anywhere: no bar, words, Button, headline, or
+    minimised bar.
+  - HIGH TABLE (only when the table sat): at most 3 seats, ordered writing, late, newest done,
+    seated (ties keep roster order), r 4, 22 px apart, initials under each (`SA IA DO PO AA UF QA`,
+    or the first letters of other roles), then a quiet `+N` (9 px, weight 500, `muted`) one step on
+    for every seat not shown, a 12 px hairline, then the chief r 5 labelled `CA`. Three seats and
+    `+N` always fit the fixed 150 px. Three or fewer seats that all fit draw no `+N`. One seat with
+    nothing hidden draws a faint connector from the seat to the chief instead of the hairline. The
+    only value word is `Needs answers`, which replaces the `HIGH TABLE` cap in `attention` (the cap
+    stays when the section is narrower than 75 px). The alt says the chief's state and the seats
+    (`High Table: chief ruling, 11 seats, 3 shown.`), and the Ledger's High Table tab lists every
+    seat.
+  - DELIVERY: two lines of text under the cap, both from x0 and cut with an ellipsis inside the
+    section. Line 1 (baseline 29.3, 12 px, weight 500) is the delivery state, first match wins:
+    `PR closed` (fail), `PR state unknown`, `CI failed` (fail), `PR #N · CI running` (accent),
+    `PR #N · N checks green`, `PR #N · checks green`, `PR #N`, `Push failed` (fail),
+    `Pushed · <branch>`, `Edit only · no commit` (muted), `No push for this change` (muted),
+    `Not pushed`, `Editing` (accent), `Edited, not committed`, else `Not started` (muted); the CI
+    rows are skipped when the plan has no CI. Line 2 (baseline 47, 10.5 px) is the figures:
+    `53 commits  +6,375 −983`, the commit count in `muted` (left out at 0), additions in
+    `passText`, deletions with U+2212 in `fail`, en-US thousands. They come from `ship.diff`,
+    else the PR's additions and deletions, and the line is empty with no changed line. A partly
+    counted figure ends in `+` (`+500+`) and the alt says new files were partly counted. Green and
+    red line figures are a deliberate exception to "green and red only for pass and fail". The
+    node rail (Edit, Commit, Push, PR, CI) lives in the Ledger's Delivery tab only.
 - **Close menu**: pressing `×` adds an inline row under the identity row: footnote
   `Close the paqad band?`, bordered `Close for now` (this session), bordered `Hide always` (this
   project, across sessions) and plain dim `Cancel`.
 
 ### Minimised row
 
-One row: one `Text` of `paqad` (semibold), dim footnote `   Feature development   `, the light
+One row: one `Text` of `paqad` (semibold), dim footnote `   Feature   `, the light
 `● `, and footnote stage and clock (`Build · 3:01`; static states say their word); then a 64 × 4
 mini stage Svg of the lane's stages; `Box flexGrow`; dim footnote cost; `Ledger`, plain dim `⤢`
 (restores) and `×`.
@@ -164,7 +195,7 @@ yet say the work is a feature.
 Once the snapshot says the session is on the feature route and this session has written no row of
 any change since the current turn started (the scope reason `no-change-yet`), the band draws the
 normal feature card, so the first turn of feature work never looks idle. The identity row reads
-`Feature development`, plus the lane when one is recorded. The headline is `Paqad Getting Ready`
+`Feature`, plus the lane when one is recorded. The headline is `Paqad Getting Ready`
 with the idle light and no clock, every stage is grey, and nothing is flagged. It uses the same
 minimise and close controls, and it minimises by itself when fewer than 40 columns or too few rows
 are free. A route written before the prompt just sent belongs to the previous turn, so this card
@@ -279,7 +310,7 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
 | 6   | a decision packet of this change is pending                                      | attention       | no   | `Waiting for your answer`                                                                                 |
-| 7   | a subagent or background task is running                                         | accent          | yes  | `Subagent: <newest task's description>`, with a dim `N finished`; one dim line in the gap line's slot      |
+| 7   | a subagent or background task is running                                         | accent          | yes  | a pink `SUBAGENT` pill, then the newest task's description (the alt keeps `Subagent:`), with a dim `N finished`; one dim line in the gap line's slot      |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed on the open PR's current head                                          | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
@@ -290,6 +321,7 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 16  | the paqad work is done (see below)                                               | pass            | no   | `Done` (with a dim `not committed` when the edit is not committed)                                        |
 | 18  | a stage is done and one is not yet                                               | idle            | no   | `<last done stage> done. Next: <next mandatory stage>`                                                    |
 | 19  | nothing is done                                                                  | idle            | no   | `Next: Plan`                                                                                              |
+| 21  | design sign-off is waiting, no stage runs and no earlier row applies             | caution         | no   | `Waiting for sign-off on <ref>`, with the dim aside `checked <age> ago` once `checked_at` is known     |
 | 20  | every stage is recorded                                                          | idle            | no   | `Every stage is recorded. Waiting for the verdict.`                                                       |
 | 21  | paqad itself could not record part of the change                                 | dim             | no   | `paqad could not record ...` (paqad's gap, not the work's)                                                |
 
@@ -337,7 +369,7 @@ agents. With nothing running the normal headline and its rows come back.
 
 With paqad off nothing is drawn. The terminal keeps its own headline, except that its idle header
 says `Getting ready`. On the feature route with no change yet, the terminal draws one line in place
-of the card: `paqad  Feature development · Getting ready`. It draws nothing while the band is closed
+of the card: `paqad  Feature · Getting ready`. It draws nothing while the band is closed
 or hidden.
 
 ### Trust tab
@@ -397,6 +429,50 @@ The Trust tab shows the proof of the work, stage by stage.
 
 When every drawn stage is done the value is `All stages done`.
 
+#### Sign-off status words and button
+
+The Sign-off bar uses the existing bar states. The status words sit at the right end of the Stage
+caption row, 10.5 px, weight 500, words only and no icon, in a text-safe shade of their hue. The
+words end before the room kept for the Button, so they never overlap it, and the stage name is cut
+first on a short row. At the 340 px Stage minimum the `STAGE` cap, the longest words
+(`Changes requested`) and the longest Button (`Copy design`) fit.
+
+| State                         | Bar                    | Words                | Colour        | Button        |
+| ----------------------------- | ---------------------- | -------------------- | ------------- | ------------- |
+| `pending` (spec not frozen)   | not yet                | none                 | none          | none          |
+| `writing` (no design yet)     | running                | `Writing design`     | `accentText`  | none          |
+| `awaiting_sign_off`           | paused                 | `Waiting <age>`      | `cautionText` | `Check`       |
+| checking (band only)          | paused                 | `Checking…`          | `accentText`  | none          |
+| `approved`                    | done                   | `Signed off`         | `passText`    | none          |
+| `changes_requested`           | not yet, and Spec runs | `Changes requested`  | `fail`        | `View`        |
+| `skipped`                     | not required           | `Sign-off skipped`   | `mutedText`   | none          |
+| `not_posted`                  | not required           | `Not posted`         | `mutedText`   | `Copy design` |
+
+`<age>` is `shortAge`: the single largest whole unit (`<1m`, `59m`, `3h`, `2d`) since the latest
+post. `Signed off` stays for the rest of the change.
+
+The Button is a bordered native Button in a `Box position="absolute" top={0} right={2}` (`right={1}`
+when Stage is the only section) inside the Stage `Box`, so it sits over the right end of the
+caption row. It carries its words only, no `label` prop (R1), so the Stage alt text says the ref
+and the Button's full name instead
+(`Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.`).
+
+- `Check` submits one prompt with `$.prompt.submit({ text })` asking the agent to read the replies
+  with its connector and run `paqad-ai hld check-approval`. Because a plugin prompt skips the
+  plugin's own `prompt.submit` hook, the press moves the live turn state, beats and refreshes
+  itself. The band then shows `Checking…` with no Button. A second press while the first is
+  pending submits nothing. `Checking…` is never stored; it clears when `checked_at` moves past the
+  press, the state changes, the turn the press started ends, or 10 minutes pass, and the band
+  returns to `Waiting <age>` with `Check`.
+- `View` opens the Ledger on Trust, whose first line names the sign-off state and links the design
+  record (`Open the design record`).
+- `Copy design` copies the change's `hld.md` with `$.ui.copy({ text, surface })` and reads
+  `Copied` for 2 s. With no design text the Button hides.
+
+The HUD never approves, skips or posts a design.
+
+The Delivery step states below are the Ledger's Delivery tab rail.
+
 | Delivery step state | Node                                                                                                            |
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |
 | done                | ink ring on a 10% ink disc                                                                                      |
@@ -411,7 +487,8 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 ## Responsive
 
 - The band's `bodyColumns` runs from 57 to 93 on Desktop; the strip's markup width is
-  `round(bodyColumns × 8.5)` with a minimum of 480, and the image scales down to fit the slot.
+  `round(bodyColumns × 8.5)` with a minimum of 480. High Table shows from 680 px (80 columns),
+  Delivery from 530 px (63 columns); narrower bands draw Stage only.
 - Row cost: identity 1, message 1, body line 1, strip 3, so 6 rows in every state, plus 1 while
   the close menu is open. The subagent line takes the body line's slot and adds no row. Below
   that `maxRows` the minimised row is drawn instead; with the menu open and no room, the minimised
@@ -423,8 +500,13 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 
 - Every Svg carries an `alt` that states its facts in words: the live headline says the sentence,
   the note and the clock; the stage section says the headline, the stage value and the finished
-  stages (`Plan, Build, Checks done`); the High Table section says its value and seats
-  (`High Table: Chief is ruling, 11 seats, 3 shown.`); the delivery section says its value.
+  stages (`Plan, Build, Checks done`) and the sign-off words with the Button's action; the High
+  Table section says the chief's state and seats (`High Table: chief ruling, 11 seats, 3 shown.`);
+  the delivery section says its state and figures in words
+  (`Delivery Not pushed. 3 commits, 1,204 lines added, 96 lines removed.`). A hidden section's
+  sentence joins the Stage alt.
+- The sign-off words use text-safe shades (`accentText`, `cautionText`, `passText`, `fail`,
+  `mutedText`), each at least 4.5:1 on the light and dark band.
 - Done never relies on colour alone: the word `Done` and the check mark carry it. `passText` is
   at least 4.5:1 for the 9 px labels and `pass` at least 3:1 for bars and the check glyph.
 - Every state is said in words as well as by colour (WCAG 2.1 SC 1.4.1).
