@@ -24,7 +24,11 @@ import {
 import { NO_CHANGE } from './tabs';
 import {
   seatsThatFit,
+  stripLayout,
+  stripWidth,
   type ChiefState,
+  type DeliveryFigures,
+  type DeliveryTone,
   type Mark,
   type SeatState,
   type ShipState,
@@ -102,17 +106,19 @@ const OLD_ENGINE_FAST_STAGES = new Set(['planning', 'development', 'checks']);
 
 const BOOKEND_STAGES = new Set(['ticket_intake', 'delivery']);
 
+const WORKING_STAGES = FULL_STAGES.filter(([stage]) => !BOOKEND_STAGES.has(stage));
+
 export function laneStages(
   snapshot: Pick<PaqadHudSnapshot, 'lane' | 'lane_stages'>,
 ): ReadonlyArray<readonly [string, string]> {
   const fast = snapshot.lane === 'fast';
   const required = snapshot.lane_stages;
   if (!required) {
-    return fast ? FULL_STAGES.filter(([stage]) => OLD_ENGINE_FAST_STAGES.has(stage)) : FULL_STAGES;
+    return fast
+      ? FULL_STAGES.filter(([stage]) => OLD_ENGINE_FAST_STAGES.has(stage))
+      : WORKING_STAGES;
   }
-  return FULL_STAGES.filter(
-    ([stage]) => required.includes(stage) || (!fast && BOOKEND_STAGES.has(stage)),
-  );
+  return WORKING_STAGES.filter(([stage]) => required.includes(stage));
 }
 
 export function stageWord(stage: string): string {
@@ -146,29 +152,53 @@ function stillCounting(cost: NonNullable<PaqadHudSnapshot['cost']>): boolean {
 export function costWords(cost: PaqadHudSnapshot['cost']): string | null {
   if (!cost) return null;
   if (stillCounting(cost)) return COST_COUNTING;
-  const tokens = `${formatTokens(cost.tokens.total)} tokens${cost.live ? ' so far' : ''}`;
+  const tokens = `${formatTokens(cost.tokens.total)} tokens`;
   if (cost.scope === 'whole-session') return `${tokens} · whole session`;
   return cost.usd === null ? tokens : `${tokens} · ~${formatUsd(cost.usd)}`;
 }
 
 export interface IdentityView {
   parts: string[];
+  cost: string | null;
   flags: number;
 }
 
-export function identityView(snapshot: PaqadHudSnapshot): IdentityView {
+export const CONTROLS_COLUMNS = 16;
+const BRAND_COLUMNS = 'paqad'.length;
+const ROW_GAP_COLUMNS = 1;
+
+function identityColumns(parts: string[], cost: string | null, flags: number): number {
+  const left = BRAND_COLUMNS + identityText({ parts, cost: null, flags }).length;
+  const right =
+    (cost ? cost.length + ROW_GAP_COLUMNS : 0) +
+    (flags > 0 ? flagLabel(flags).length + ROW_GAP_COLUMNS : 0) +
+    CONTROLS_COLUMNS;
+  return left + ROW_GAP_COLUMNS + right;
+}
+
+export function identityView(
+  snapshot: PaqadHudSnapshot,
+  columns = Number.POSITIVE_INFINITY,
+): IdentityView {
   const active = snapshot.active;
   const lane = active && snapshot.lane ? (LANE_WORDS[snapshot.lane] ?? null) : null;
-  const parts = [
-    FEATURE_WORDS,
-    lane,
-    changeChip(snapshot),
-    active ? costWords(snapshot.cost) : null,
+  const chip = changeChip(snapshot);
+  const flags = active ? snapshot.flags.length : 0;
+  const cost = active ? costWords(snapshot.cost) : null;
+  const keep = (...parts: Array<string | null>) =>
+    parts.filter((part): part is string => part !== null);
+  const steps: IdentityView[] = [
+    { parts: keep(FEATURE_WORDS, lane, chip), cost, flags },
+    { parts: keep(FEATURE_WORDS, lane, chip), cost: null, flags },
+    { parts: keep(FEATURE_WORDS, chip), cost: null, flags },
   ];
-  return {
-    parts: parts.filter((part): part is string => part !== null),
-    flags: active ? snapshot.flags.length : 0,
-  };
+  return (
+    steps.find((step) => identityColumns(step.parts, step.cost, flags) <= columns) ?? {
+      parts: keep(chip),
+      cost: null,
+      flags,
+    }
+  );
 }
 
 export function identityText(identity: IdentityView): string {
@@ -177,6 +207,10 @@ export function identityText(identity: IdentityView): string {
 
 export function flagWords(flags: number): string {
   return plural(flags, 'flag', 'flags');
+}
+
+export function flagLabel(flags: number): string {
+  return `⚑ ${flagWords(flags)}`;
 }
 
 function paused(snapshot: PaqadHudSnapshot, live: LiveState): boolean {
@@ -249,12 +283,7 @@ const SEAT_ORDER: Readonly<Record<SeatState, number>> = {
   seated: 3,
 };
 
-const TABLE_VALUES: Readonly<Record<string, string>> = {
-  'chief is ruling': 'Chief is ruling',
-  'needs answers': 'Needs answers',
-  'spec approved': 'Spec approved',
-  'chief ruled': 'Chief ruled',
-};
+export const NEEDS_ANSWERS_WORDS = 'Needs answers';
 
 export function chiefState(snapshot: PaqadHudSnapshot): ChiefState {
   const table = snapshot.table;
@@ -281,15 +310,14 @@ function liveFirst(seats: readonly PaqadSeat[]): Array<Mark<SeatState>> {
     .map(({ seat, state }) => ({ label: roleInitials(seat.role), state }));
 }
 
-export function tableStrip(snapshot: PaqadHudSnapshot, columns = 93): TableStrip {
+export function tableStrip(snapshot: PaqadHudSnapshot): TableStrip {
   if (!showsTable(snapshot) || snapshot.table.skipped) {
     return { seats: null, chief: 'waiting', value: '', hidden: 0 };
   }
   const table = snapshot.table;
-  const status = tableStatus(snapshot, table);
-  const value = / standing$/.test(status) ? 'Seated' : (TABLE_VALUES[status] ?? status);
+  const value = tableStatus(snapshot, table) === 'needs answers' ? NEEDS_ANSWERS_WORDS : '';
   const seats = liveFirst(table.seats);
-  const shown = seatsThatFit(columns, seats.length, TABLE_SEATS_SHOWN);
+  const shown = seatsThatFit(seats.length, TABLE_SEATS_SHOWN);
   return {
     seats: seats.slice(0, shown),
     chief: chiefState(snapshot),
@@ -324,28 +352,63 @@ export interface DeliveryStrip {
   steps: Array<Mark<ShipState>>;
   ci: number | null;
   value: string;
+  tone: DeliveryTone;
+  figures: DeliveryFigures | null;
 }
 
-function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
-  if (!snapshot.active) return '';
+export interface DeliveryLine {
+  text: string;
+  tone: DeliveryTone;
+}
+
+export function deliveryValue(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+): DeliveryLine {
+  const line = (text: string, tone: DeliveryTone = 'ink'): DeliveryLine => ({ text, tone });
+  if (!snapshot.active) return line('', 'mut');
   const rail = shipRail(snapshot, live);
   const plan = snapshot.delivery_plan;
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
-  const prOpen = ship?.pr_state === 'open';
-  if (state('PR') === 'closed') return 'PR closed';
-  if (state('PR') === 'unknown') return 'PR state unknown';
-  if (state('CI') === 'failed') return 'CI failed';
-  if (rail.ci && plan?.ci !== false) return `${rail.ci.done} of ${rail.ci.total} checks green`;
-  if (prOpen || rail.merged) return prName(snapshot);
-  if (state('Push') === 'failed') return 'Push failed';
-  if (state('Push') === 'done') return 'Pushed';
-  if (plan && !plan.commit) return 'Edit only · no commit';
-  if (plan && !plan.push) return 'No push for this change';
-  const commits = ship?.commits ?? 0;
-  if (commits > 0) return `${plural(commits, 'commit', 'commits')} of yours`;
-  if (state('Edit') === 'current') return 'Editing';
-  return '';
+  const pr = prName(snapshot);
+  if (state('PR') === 'closed') return line('PR closed', 'fail');
+  if (state('PR') === 'unknown') return line('PR state unknown');
+  if (state('CI') === 'failed') return line('CI failed', 'fail');
+  if (plan?.ci !== false) {
+    if (state('CI') === 'current') return line(`${pr} · CI running`, 'acc');
+    if (state('CI') === 'done') {
+      return line(rail.ci ? `${pr} · ${rail.ci.done} checks green` : `${pr} · checks green`);
+    }
+  }
+  if (ship?.pr_state === 'open' || rail.merged) return line(pr);
+  if (state('Push') === 'failed') return line('Push failed', 'fail');
+  if (state('Push') === 'done') {
+    return line(ship?.push_branch ? `Pushed · ${ship.push_branch}` : 'Pushed');
+  }
+  if (plan && !plan.commit) return line('Edit only · no commit', 'mut');
+  if (plan && !plan.push) return line('No push for this change', 'mut');
+  if ((ship?.commits ?? 0) > 0) return line('Not pushed');
+  if (state('Edit') === 'current') return line('Editing', 'acc');
+  if (state('Edit') === 'done') return line('Edited, not committed');
+  return line('Not started', 'mut');
+}
+
+export function deliveryFigures(snapshot: PaqadHudSnapshot): DeliveryFigures | null {
+  const ship = snapshot.active ? snapshot.ship : null;
+  if (!ship) return null;
+  const commits = ship.commits ?? 0;
+  const figures = ship.diff
+    ? {
+        commits,
+        additions: ship.diff.additions,
+        deletions: ship.diff.deletions,
+        partial: ship.diff.partial,
+      }
+    : ship.pr_additions !== null && ship.pr_deletions !== null
+      ? { commits, additions: ship.pr_additions, deletions: ship.pr_deletions }
+      : null;
+  return figures && figures.additions + figures.deletions > 0 ? figures : null;
 }
 
 export function deliveryStrip(
@@ -358,10 +421,13 @@ export function deliveryStrip(
     state: SHIP_STATE[rail.steps.find((step) => step.label === label)?.state ?? 'todo'],
   }));
   const ciRunning = steps.some((step) => step.label === 'CI' && step.state === 'run');
+  const line = deliveryValue(snapshot, live);
   return {
     steps,
     ci: ciRunning && rail.ci ? rail.ci.done / rail.ci.total : null,
-    value: deliveryValue(snapshot, live),
+    value: line.text,
+    tone: line.tone,
+    figures: deliveryFigures(snapshot),
   };
 }
 
@@ -398,7 +464,7 @@ export function stripOf(
   settledAtMs: number | null = null,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
-  const table = tableStrip(snapshot, columns);
+  const table = tableStrip(snapshot);
   const delivery = deliveryStrip(snapshot, live);
   return {
     columns,
@@ -408,20 +474,49 @@ export function stripOf(
     hiddenSeats: table.hidden,
     chief: table.chief,
     tableValue: table.value,
-    delivery: delivery.steps,
-    ci: delivery.ci,
     deliveryValue: delivery.value,
+    deliveryTone: delivery.tone,
+    deliveryFigures: delivery.figures,
     ...(clockMs === undefined ? {} : { clockMs }),
     ...(settledAtMs === null ? {} : { settledAtMs }),
   };
+}
+
+const CHIEF_WORDS: Readonly<Record<ChiefState, string>> = {
+  waiting: 'chief waiting',
+  ruling: 'chief ruling',
+  needs: NEEDS_ANSWERS_WORDS,
+  done: 'chief ruled',
+};
+
+function tableSentence(strip: StripInput): string {
+  const shown = strip.seats?.length ?? 0;
+  const hidden = strip.hiddenSeats ?? 0;
+  const seats = `${plural(shown + hidden, 'seat', 'seats')}${hidden > 0 ? `, ${shown} shown` : ''}`;
+  return `High Table: ${strip.tableValue || CHIEF_WORDS[strip.chief]}, ${seats}.`;
+}
+
+function deliverySentence(strip: StripInput): string {
+  const parts = [`Delivery ${(strip.deliveryValue || 'Not started').replace(/\.$/, '')}.`];
+  const figures = strip.deliveryFigures;
+  if (figures && figures.additions + figures.deletions > 0) {
+    const words = [
+      ...(figures.commits > 0 ? [plural(figures.commits, 'commit', 'commits')] : []),
+      `${figures.additions.toLocaleString('en-US')} lines added`,
+      `${figures.deletions.toLocaleString('en-US')} lines removed`,
+    ];
+    parts.push(`${words.join(', ')}.`);
+    if (figures.partial) parts.push('New files were partly counted.');
+  }
+  return parts.join(' ');
 }
 
 export function stripAltText(text: string, strip: StripInput): string {
   const parts = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
   const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
   if (done.length > 0) parts.push(`${done.join(', ')} done.`);
-  if (strip.seats && strip.tableValue) parts.push(`High Table ${strip.tableValue}.`);
-  if (strip.deliveryValue) parts.push(`Delivery ${strip.deliveryValue}.`);
+  if (strip.seats) parts.push(tableSentence(strip));
+  parts.push(deliverySentence(strip));
   return parts.join(' ');
 }
 
@@ -441,14 +536,12 @@ export function stripAlts(text: string, strip: StripInput): StripAlts {
   const stage = [`${text.replace(/\.$/, '')}.`, `Stage ${strip.stageValue || 'not started'}.`];
   const done = strip.stages.filter((mark) => mark.state === 'done').map((mark) => mark.label);
   if (done.length > 0) stage.push(`${done.join(', ')} done.`);
-  const shown = strip.seats?.length ?? 0;
-  const hidden = strip.hiddenSeats ?? 0;
-  const seats = `${plural(shown + hidden, 'seat', 'seats')}${hidden > 0 ? `, ${shown} shown` : ''}`;
-  return {
-    stage: stage.join(' '),
-    table: `High Table: ${strip.tableValue ? `${strip.tableValue}, ` : ''}${seats}.`,
-    delivery: `Delivery ${strip.deliveryValue || 'not started'}.`,
-  };
+  const table = tableSentence(strip);
+  const delivery = deliverySentence(strip);
+  const shown = stripLayout(stripWidth(strip.columns), strip.seats !== null).ids;
+  if (strip.seats && !shown.includes('table')) stage.push(table);
+  if (!shown.includes('delivery')) stage.push(delivery);
+  return { stage: stage.join(' '), table, delivery };
 }
 
 export function headlineAlt(head: Pick<DesktopHeadline, 'text' | 'note' | 'clock'>): string {
@@ -579,7 +672,7 @@ const READY_HEADLINE: DesktopHeadline = {
 
 function readyIdentity(snapshot: PaqadHudSnapshot): IdentityView {
   const lane = snapshot.lane ? (LANE_WORDS[snapshot.lane] ?? null) : null;
-  return { parts: lane ? [FEATURE_WORDS, lane] : [FEATURE_WORDS], flags: 0 };
+  return { parts: lane ? [FEATURE_WORDS, lane] : [FEATURE_WORDS], cost: null, flags: 0 };
 }
 
 function readyFeatureBand(snapshot: PaqadHudSnapshot, input: DesktopBandInput): DesktopBand {
@@ -599,7 +692,7 @@ function readyFeatureBand(snapshot: PaqadHudSnapshot, input: DesktopBandInput): 
     headline: head,
     headlineAlt: headlineAlt(READY_HEADLINE),
     strip,
-    alt: `${stripAltText(GETTING_READY, strip)} Delivery not started.`,
+    alt: stripAltText(GETTING_READY, strip),
     stripAlts: stripAlts(GETTING_READY, strip),
     minimised: minimisedView(blank, head, stageStrip(blank, IDLE_LIVE)),
     activity: [],
@@ -635,7 +728,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
     menu: input.menuOpen,
-    identity: identityView(snapshot),
+    identity: identityView(snapshot, input.columns),
     headline: head,
     headlineAlt: headlineAlt(full),
     strip,

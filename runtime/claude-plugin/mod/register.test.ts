@@ -296,12 +296,12 @@ describe('the ship rail on each surface', () => {
     expect(svgs).toHaveLength(3);
     const alts = svgs.map((svg) => (svg as { props: { alt?: string } }).props.alt);
     expect(alts[0]).toMatch(/^Done\. Stage /);
-    expect(alts.at(-1)).toBe('Delivery 6 of 6 checks green.');
-    for (const svg of svgs) {
-      const props = (svg as { props: { width?: unknown; height?: unknown } }).props;
-      expect(props.width).toBeUndefined();
-      expect(props.height).toBeUndefined();
-    }
+    expect(alts.at(-1)).toBe('Delivery PR #12 · 6 checks green.');
+    const sizes = svgs.map(
+      (svg) => (svg as { props: { width?: unknown; height?: unknown } }).props,
+    );
+    expect(sizes.map((props) => props.width)).toEqual([undefined, 150, 190]);
+    for (const props of sizes) expect(props.height).toBeUndefined();
     expectDesktopSafe(desktop);
   });
 
@@ -683,7 +683,7 @@ describe('the Desktop band', () => {
     const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const text = textOf(drawn);
     expect(text).toStartWith(
-      'paqad   Feature development  ·  Full lane  ·  ORD-501  ·  1.3M tokens · ~$4.60',
+      'paqad   Feature  ·  Full lane  ·  ORD-5011.3M tokens · ~$4.60⚑ 1 flag',
     );
     expect(text).toContain('Safe to merge');
     const elements = everyElement(drawn);
@@ -691,16 +691,26 @@ describe('the Desktop band', () => {
     expect(svgs).toHaveLength(3);
     expect(String(propsOf(svgs[0]!).alt)).toStartWith('Safe to merge');
     expect(String(propsOf(svgs[1]!).alt)).toStartWith('High Table: ');
+    expect(svgs.map((svg) => propsOf(svg).width)).toEqual([undefined, 150, 190]);
     for (const svg of svgs) {
-      expect(propsOf(svg).width).toBeUndefined();
       expect(propsOf(svg).height).toBeUndefined();
       expect(propsOf(svg).isInteractive).toBeUndefined();
     }
+    const stripBoxes = elements.filter(
+      (element) =>
+        element.type === 'Box' && String(keyOf(element) ?? '').startsWith('paqad-strip-'),
+    );
     expect(
-      elements
-        .filter((element) => element.type === 'Box' && typeof propsOf(element).width === 'string')
-        .map((element) => propsOf(element).width),
-    ).toEqual(['40%', '26%', '34%']);
+      stripBoxes.map((element) => [
+        propsOf(element).flexGrow,
+        propsOf(element).minWidth,
+        propsOf(element).flexShrink,
+      ]),
+    ).toEqual([
+      [1, 0, undefined],
+      [undefined, undefined, 0],
+      [undefined, undefined, 0],
+    ]);
     expectDesktopSafe(drawn);
     expect(buttonKeys(drawn)).toEqual([
       'paqad-flags',
@@ -715,6 +725,45 @@ describe('the Desktop band', () => {
       expect(props.borderStyle).toBeUndefined();
       expect(props.backgroundColor).toBeUndefined();
     }
+  });
+
+  test('AC-9, AC-10, AC-28: a width change only redraws the sections, with no read, run or snapshot rebuild', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const sectionsAt = async (bodyColumns: number) => {
+      const drawn = await $.ui.render(band('desktop', { bodyColumns }));
+      return everyElement(drawn)
+        .filter((element) => element.type === 'Svg' && String(propsOf(element).alt).length > 0)
+        .filter((element) => !String(propsOf(element).source).includes('title-sheen'))
+        .map((element) => String(propsOf(element).alt));
+    };
+    expect(await sectionsAt(93)).toHaveLength(3);
+    const reads = world.reads.length;
+    const runs = world.runs.length;
+    const narrow = await sectionsAt(66);
+    expect(narrow).toHaveLength(2);
+    expect(narrow[0]).toContain('High Table: ');
+    const stageOnly = await sectionsAt(60);
+    expect(stageOnly).toHaveLength(1);
+    expect(stageOnly[0]).toContain('High Table: ');
+    expect(stageOnly[0]).toContain('Delivery ');
+    expect(await sectionsAt(130)).toHaveLength(3);
+    expect(world.reads.length).toBe(reads);
+    expect(world.runs.length).toBe(runs);
+  });
+
+  test('AC-11: the flag mark and words are one control that opens the flags', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const flags = everyElement(drawn).find((element) => keyOf(element) === 'paqad-flags')!;
+    expect(textOf(flags)).toBe('⚑ 1 flag');
+    expect(textOf(drawn)).not.toContain('so far');
   });
 
   test('AC-5: an unreadable record says so in coral and never reads idle', async ($, on) => {
@@ -1001,7 +1050,7 @@ describe('the Desktop band', () => {
     expect(world.store.get('band.minimised')).toBe(true);
     expect(await mounted.find({ key: 'paqad-expand' })).toBeDefined();
     const row = await $.ui.render(band('desktop'));
-    expect(textOf(row)).toStartWith('paqad   Feature development   ● Build · 2:00');
+    expect(textOf(row)).toStartWith('paqad   Feature   ● Build · 2:00');
     expect(buttonKeys(row)).toEqual(['paqad-ledger', 'paqad-expand', 'paqad-close']);
     await mounted.press({ key: 'paqad-expand' });
     await mounted.unmount();
