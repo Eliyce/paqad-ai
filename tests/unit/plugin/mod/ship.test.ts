@@ -140,7 +140,7 @@ describe('the ship rail (FR-15, FR-35)', () => {
     ]);
   });
 
-  it('AC-6: a merge commit never reads merged, and a merged PR leaves no merged note', () => {
+  it('a merge commit never reads merged, and a merged PR leaves no merged note', () => {
     expect(shipRail(parse(shipping({ merge_commit: 'release' }))).merged).toBe(false);
     const merged = shipRail(parse(shipping({ merged: true, pr_state: 'merged' })));
     expect(merged.steps.at(-1)!.label).toBe('CI');

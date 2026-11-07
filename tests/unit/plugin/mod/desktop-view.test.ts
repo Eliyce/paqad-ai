@@ -417,7 +417,7 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(5);
   });
 
-  it('AC-6: before a change opens the stages and delivery are faint, with no table and no values', () => {
+  it('before a change opens the stages and delivery are faint, with no table and no values', () => {
     const idle = parse(
       snapshot({
         route: 'feature-development',
@@ -1078,7 +1078,7 @@ describe('Paqad Getting Ready', () => {
     return drawn;
   }
 
-  it('AC-6: draws the card with the headline and 6 not-yet stages', () => {
+  it('draws the card with the headline and 6 not-yet stages', () => {
     const drawn = card();
     expect(drawn.mode).toBe('card');
     expect(drawn.headline).toMatchObject({ text: 'Paqad Getting Ready', live: false, clock: null });
@@ -1089,7 +1089,7 @@ describe('Paqad Getting Ready', () => {
     expect(bandIsLive(drawn)).toBe(false);
   });
 
-  it('AC-6: a fast lane keeps all 6 stages not-yet', () => {
+  it('a fast lane keeps all 6 stages not-yet', () => {
     const drawn = card({ snapshot: ready({ lane: 'fast' }) });
     expect(drawn.strip.stages.map((mark) => mark.label)).toEqual(LABELS);
     expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
@@ -1155,7 +1155,7 @@ describe('Paqad Getting Ready', () => {
     ).toEqual({ kind: 'no-change', words: 'No change is in progress.' });
   });
 
-  it('AC-6: minimised, closed and hidden are honoured, and unreadable wins', () => {
+  it('minimised, closed and hidden are honoured, and unreadable wins', () => {
     expect(card({ visibility: { ...SHOWN, minimised: true } }).mode).toBe('minimised');
     expect(band({ snapshot: ready(), visibility: { ...SHOWN, closed: true } })).toEqual({
       kind: 'closed',
@@ -1168,7 +1168,7 @@ describe('Paqad Getting Ready', () => {
     expect(band({ snapshot: ready(), unbound: true }).kind).toBe('unreadable');
   });
 
-  it('AC-6: a short or narrow window falls back to the minimised row and never clips', () => {
+  it('a short or narrow window falls back to the minimised row and never clips', () => {
     expect(card({ maxRows: cardRows(false) }).mode).toBe('card');
     expect(card({ maxRows: cardRows(false) - 1 }).mode).toBe('minimised');
     expect(card({ columns: 40 }).mode).toBe('card');
@@ -1283,14 +1283,17 @@ describe('Part C: the Sign-off stage, words and button', () => {
     expect(off.alt).not.toMatch(/sign-off/i);
   });
 
-  it('AC-24: the strip alt text carries the status words and the button action', () => {
+  it('AC-24 NFR-2: the strip alt text carries the status words, the ref and the button name', () => {
     const drawn = band({ snapshot: signed() });
     if (drawn.kind !== 'feature') throw new Error('no card');
-    expect(drawn.stripAlts.stage).toContain('Design sign-off: Waiting 3h. Check available.');
-    expect(drawn.alt).toContain('Design sign-off: Waiting 3h. Check available.');
+    const sentence =
+      'Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.';
+    expect(drawn.signoff?.name).toBe('Check design sign-off for PQD-12');
+    expect(drawn.stripAlts.stage).toContain(sentence);
+    expect(drawn.alt).toContain(sentence);
     const approved = band({ snapshot: signed({ state: 'approved' }) });
     if (approved.kind !== 'feature') throw new Error('no card');
-    expect(approved.alt).toContain('Design sign-off: Signed off.');
+    expect(approved.alt).toContain('Design sign-off for PQD-12: Signed off.');
   });
 
   it('AC-33: 7 bars hide the labels where 6 bars still fit them', () => {

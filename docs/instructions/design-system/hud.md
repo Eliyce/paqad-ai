@@ -453,8 +453,9 @@ post. `Signed off` stays for the rest of the change.
 
 The Button is a bordered native Button in a `Box position="absolute" top={0} right={2}` (`right={1}`
 when Stage is the only section) inside the Stage `Box`, so it sits over the right end of the
-caption row. It carries its words only, no `label` prop (R1), and the alt text names the action
-(`Design sign-off: Waiting 3h. Check available.`).
+caption row. It carries its words only, no `label` prop (R1), so the Stage alt text says the ref
+and the Button's full name instead
+(`Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.`).
 
 - `Check` submits one prompt with `$.prompt.submit({ text })` asking the agent to read the replies
   with its connector and run `paqad-ai hld check-approval`. Because a plugin prompt skips the

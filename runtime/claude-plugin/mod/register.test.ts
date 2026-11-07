@@ -805,7 +805,7 @@ describe('the Desktop band', () => {
     );
   });
 
-  test('AC-6: draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
+  test('draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1124,7 +1124,7 @@ describe('the Desktop band', () => {
     expect(drawnLines(await $.ui.render(pane('terminal')))).toContain('Trust (shown)');
   });
 
-  test('AC-15: another workflow gets one row with its cost, running while a turn is in flight', async ($, on) => {
+  test('another workflow gets one row with its cost, running while a turn is in flight', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1269,7 +1269,7 @@ describe('Part C: the design sign-off stage in the Desktop band', () => {
       ).alt,
     );
 
-  test('AC-15, AC-16: Check submits one prompt naming the ref, shows Checking… with no button, and clears when the turn ends', async ($, on) => {
+  test('AC-15, AC-16, FR-33, NFR-2: two Check presses at once submit one prompt naming the ref, shows Checking… with no button, and clears when the turn ends', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(signed(WAITING)) },
       store: QUIET_STORE(),
@@ -1280,18 +1280,22 @@ describe('Part C: the design sign-off stage in the Desktop band', () => {
     const waiting = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const check = signoffButton(waiting)!;
     expect(textOf(check)).toBe('Check');
-    expect(stageAlt(waiting)).toContain('Design sign-off: Waiting 3h. Check available.');
+    expect(stageAlt(waiting)).toContain(
+      'Design sign-off for PQD-12: Waiting 3h. Check button: Check design sign-off for PQD-12.',
+    );
     const box = everyElement(waiting).find((element) => keyOf(element) === 'paqad-signoff')!;
     expect(propsOf(box)).toMatchObject({ position: 'absolute', top: 0 });
     const mounted = await mountDesktop($, { bodyColumns: 93 });
-    await mounted.press({ key: 'paqad-signoff-button' });
-    await mounted.press({ key: 'paqad-signoff-button' }).catch(() => undefined);
+    await Promise.all([
+      mounted.press({ key: 'paqad-signoff-button' }),
+      mounted.press({ key: 'paqad-signoff-button' }),
+    ]);
     await mounted.unmount();
     expect(submitted).toHaveLength(1);
     expect(submitted[0]).toContain('PQD-12');
     expect(submitted[0]).toContain('paqad-ai hld check-approval');
     const checking = await $.ui.render(band('desktop', { bodyColumns: 93 }));
-    expect(stageAlt(checking)).toContain('Design sign-off: Checking.');
+    expect(stageAlt(checking)).toContain('Design sign-off for PQD-12: Checking.');
     expect(signoffButton(checking)).toBeUndefined();
     await $.turn.complete({ text: '', reason: 'answer' } as never);
     const after = await $.ui.render(band('desktop', { bodyColumns: 93 }));
@@ -1362,7 +1366,7 @@ describe('Part C: the design sign-off stage in the Desktop band', () => {
     await clock.settle();
     const bare = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     expect(signoffButton(bare)).toBeUndefined();
-    expect(stageAlt(bare)).toContain('Design sign-off: Not posted.');
+    expect(stageAlt(bare)).toContain('Design sign-off for PQD-13: Not posted.');
   });
 
   test('AC-22: View on changes requested opens the Ledger with the design record link', async ($, on) => {
@@ -2980,7 +2984,7 @@ describe('the rule stop answer on a denied edit', () => {
     ]);
   });
 
-  test('AC-2, AC-6: a question that throws after the first call keeps the deny and runs nothing', async ($, on) => {
+  test('a question that throws after the first call keeps the deny and runs nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.answers.push('throw');
     expectDenied(await editCall($, gate));
@@ -3028,7 +3032,7 @@ describe('the rule stop answer on a denied edit', () => {
     expect(overrideRuns(world)).toHaveLength(2);
   });
 
-  test('AC-6: a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
+  test('a failure beneath the hook runs the call once and asks nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     gate.answers = [];
     let ran = 0;
@@ -3114,7 +3118,7 @@ describe('the outcome line after an allowed-once retry', () => {
     }
   });
 
-  test('AC-15: an override that leaves no allowed-once mark shows the update toast, keeps the deny and retries nothing', async ($, on) => {
+  test('an override that leaves no allowed-once mark shows the update toast, keeps the deny and retries nothing', async ($, on) => {
     const { world, gate } = await ruleStopped($, on);
     world.marksAllowedOnce = false;
     world.answers.push('Allow once, recorded', 'No reason');
@@ -3800,7 +3804,7 @@ describe('the HUD follows CI while an open PR is pending', () => {
     });
   }
 
-  test('AC-6: one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
+  test('one refresh at a time, and a snapshot reload starts no second timer', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CI_WATCHED) } });
     let release: () => void = () => {};
     world.runGate = new Promise<void>((done) => {
@@ -4095,7 +4099,7 @@ describe('live subagents in the band', () => {
     expect(propsOf(rows[2]!).size).toBe('footnote');
   });
 
-  test('AC-6: a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
+  test('a subagent message that is only a system reminder never reaches the body line', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DONE_SNAPSHOT) } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);

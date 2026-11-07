@@ -40,6 +40,8 @@ export interface StripSignoff {
   words: string;
   tone: SignoffTone;
   button: string | null;
+  ref?: string | null;
+  name?: string | null;
 }
 
 export interface StripInput {

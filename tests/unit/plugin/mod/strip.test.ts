@@ -165,7 +165,7 @@ describe('the strip geometry', () => {
     expect(labelled(12, 57)).toBe(0);
   });
 
-  it('AC-14: the stage name draws right after the STAGE caption, at x0 + 44', () => {
+  it('FR-14: the stage name draws right after the STAGE caption, at x0 + 44', () => {
     expect(STAGE_NAME_X).toBe(44);
     expect(textX(draw(), 'All stages done')).toBe(44);
     expect(draw({ stageValue: '' })).not.toMatch(/class="val ink" x="44.0"/);
@@ -304,7 +304,7 @@ describe('the High Table shows three seats and the chief', () => {
     expect(draw({ tableValue: 'Seated' })).not.toContain('Seated');
   });
 
-  it('AC-15: cuts the strip into px sections that tile the width and keep every x', () => {
+  it('cuts the strip into px sections that tile the width and keep every x', () => {
     for (const over of [
       { columns: 57 },
       { columns: 66 },

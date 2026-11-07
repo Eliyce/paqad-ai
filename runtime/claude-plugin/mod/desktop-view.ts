@@ -616,7 +616,15 @@ export function stripOf(
     deliveryTone: delivery.tone,
     deliveryFigures: delivery.figures,
     ...(signoff?.words && signoff.tone
-      ? { signoff: { words: signoff.words, tone: signoff.tone, button: signoff.label } }
+      ? {
+          signoff: {
+            words: signoff.words,
+            tone: signoff.tone,
+            button: signoff.label,
+            ref: signoff.ref,
+            name: signoff.name,
+          },
+        }
       : {}),
     ...(clockMs === undefined ? {} : { clockMs }),
     ...(settledAtMs === null ? {} : { settledAtMs }),
@@ -640,8 +648,11 @@ function tableSentence(strip: StripInput): string {
 function signoffAlt(strip: StripInput): string | null {
   const signoff = strip.signoff;
   if (!signoff) return null;
-  const action = signoff.button ? ` ${signoff.button} available.` : '';
-  return `Design sign-off: ${signoff.words.replace(/…$/, '')}.${action}`;
+  const on = signoff.ref ? ` for ${signoff.ref}` : '';
+  const action = signoff.button
+    ? ` ${signoff.button} button: ${signoff.name ?? `${signoff.button} available`}.`
+    : '';
+  return `Design sign-off${on}: ${signoff.words.replace(/…$/, '')}.${action}`;
 }
 
 function deliverySentence(strip: StripInput): string {

@@ -277,6 +277,7 @@ let heartbeat: Timer | null = null;
 let tickTimer: Timer | null = null;
 let desktopSession = false;
 let taskListRefused = false;
+let signoffChecking = false;
 const rawCalls = new Set<string>();
 
 interface CiWatch {
@@ -333,6 +334,16 @@ async function clearCheck($: EngineInterface, at: number): Promise<void> {
 }
 
 async function checkSignoff($: EngineInterface): Promise<void> {
+  if (signoffChecking) return;
+  signoffChecking = true;
+  try {
+    await checkSignoffOnce($);
+  } finally {
+    signoffChecking = false;
+  }
+}
+
+async function checkSignoffOnce($: EngineInterface): Promise<void> {
   const signoff = (await read($, snapshotAtom))?.signoff ?? null;
   if (signoff?.state !== 'awaiting_sign_off') return;
   const now = await $.clock.now();
@@ -1361,6 +1372,7 @@ export const register: Register = (on) => {
     heartbeat = null;
     stopTick();
     taskListRefused = false;
+    signoffChecking = false;
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
