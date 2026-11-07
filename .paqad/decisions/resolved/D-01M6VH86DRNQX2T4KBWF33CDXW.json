@@ -1,0 +1,52 @@
+{
+  "id": "D-01M6VH86DRNQX2T4KBWF33CDXW",
+  "category": "intake.requirement",
+  "title": "Show an empty Sign-off step before the spec is signed off?",
+  "context": "When a change will need design sign-off (design-sign-off.yaml applies to its lane), the HUD strip gets a Sign-off step between Spec and Build. Before the spec is frozen there is no design yet. Planning proposes a 'pending' state: the Sign-off bar shows as not started, with no status words and no button, so the row of steps keeps the same length all the way through instead of growing from 6 to 7 bars at freeze. The request lists no state for this moment. (Grounded in docs/modules/design-sign-off/index/summary.md.)",
+  "options": [
+    {
+      "option_key": "pending",
+      "label": "Show an empty Sign-off step from the start, with no words and no button until the spec is signed off",
+      "one_line_preview": "Show an empty Sign-off step from the start, with no words and no button until the spec is signed off",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "at_freeze",
+      "label": "Show the Sign-off step only once the spec is signed off",
+      "one_line_preview": "Show the Sign-off step only once the spec is signed off",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pending",
+  "created_at": "2026-11-07T17:35:10.264Z",
+  "status": "resolved",
+  "change": "01M6VGEQDK70S72RC2FNQFS63Q",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier title asks when a stage appears in the HUD strip; the HUD titles cover first-turn wording and no-change turns, a different question."
+  },
+  "chosen": "pending",
+  "rationale": "Owner chose From the start (Recommended)",
+  "resolved_at": "2026-11-07T17:36:31.457Z",
+  "decision_id": "D-01M6VH86DRNQX2T4KBWF33CDXW",
+  "fingerprint": "sha256:e3cadac32644a984f442696792cd9ef1bc57986412898757a5299d9cab0fdea9",
+  "question": "Show an empty Sign-off step before the spec is signed off?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6VGEQDK70S72RC2FNQFS63Q",
+  "ttl_until": "2026-11-21T17:35:10.264Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pending",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-07T17:36:31.457Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose From the start (Recommended)"
+  }
+}

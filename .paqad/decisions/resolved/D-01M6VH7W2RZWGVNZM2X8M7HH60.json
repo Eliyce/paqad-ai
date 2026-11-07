@@ -1,0 +1,52 @@
+{
+  "id": "D-01M6VH7W2RZWGVNZM2X8M7HH60",
+  "category": "intake.requirement",
+  "title": "Show Checking... after a Check press on the band?",
+  "context": "After someone presses Check on the HUD band, the band can show 'Checking...' until the sign-off result comes back. Nothing on disk records the press, so Checking... would come only from the band's own memory of the press: it clears when the check result lands (checked_at moves past the press), the state changes, the turn ends, or after 10 minutes, then goes back to 'Waiting <age>' with the Check button, so it can never stick. Dropping it is simpler: the band shows 'Waiting <age>' until the result is in. The High Table recommends showing it. (Spec pipeline chief question, grounded in docs/modules/design-sign-off/index/summary.md.)",
+  "options": [
+    {
+      "option_key": "show",
+      "label": "Show Checking..., going back to Waiting with Check if no answer comes within 10 minutes",
+      "one_line_preview": "Show Checking..., going back to Waiting with Check if no answer comes within 10 minutes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "drop",
+      "label": "Drop Checking...: show Waiting until the result is in",
+      "one_line_preview": "Drop Checking...: show Waiting until the result is in",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "show",
+  "created_at": "2026-11-07T17:34:59.672Z",
+  "status": "resolved",
+  "change": "01M6VGEQDK70S72RC2FNQFS63Q",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier title asks about a sign-off check indicator; the closest HUD questions are about first-turn wording and no-change turns, which do not apply."
+  },
+  "chosen": "show",
+  "rationale": "Owner chose Show it (Recommended)",
+  "resolved_at": "2026-11-07T17:36:30.699Z",
+  "decision_id": "D-01M6VH7W2RZWGVNZM2X8M7HH60",
+  "fingerprint": "sha256:cf78d8aa9cac5d81d4a5eae736ce09152111ad7db15ab51d29c384e3f4cfdd15",
+  "question": "Show Checking... after a Check press on the band?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M6VGEQDK70S72RC2FNQFS63Q",
+  "ttl_until": "2026-11-21T17:34:59.672Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "show",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-07T17:36:30.699Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose Show it (Recommended)"
+  }
+}
