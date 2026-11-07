@@ -1280,7 +1280,6 @@ describe('Part C: the design sign-off stage in the Desktop band', () => {
     const waiting = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const check = signoffButton(waiting)!;
     expect(textOf(check)).toBe('Check');
-    expect(propsOf(check).label).toBe('Check design sign-off for PQD-12');
     expect(stageAlt(waiting)).toContain('Design sign-off: Waiting 3h. Check available.');
     const box = everyElement(waiting).find((element) => keyOf(element) === 'paqad-signoff')!;
     expect(propsOf(box)).toMatchObject({ position: 'absolute', top: 0 });

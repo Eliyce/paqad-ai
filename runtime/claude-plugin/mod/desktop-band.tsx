@@ -160,7 +160,6 @@ function signoffButton(ui: D, band: CardBand, actions: BandActions, last: boolea
     <Box key="paqad-signoff" position="absolute" top={0} right={last ? 1 : 2}>
       <Button
         key="paqad-signoff-button"
-        label={view.name ?? view.label}
         onPress={(press) => actions.signoff(action, press.surface)}
       >
         {view.label}
