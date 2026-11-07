@@ -21,6 +21,7 @@ import { readChangeDiff } from '@/hud/changed-files.js';
 import type { HudHighTable } from '@/hud/high-table-view.js';
 import {
   buildHudSnapshot,
+  writeHudSnapshotSafe,
   buildRecordEvents,
   buildShip,
   computeDeliveryPlan,
@@ -1118,5 +1119,21 @@ describe('Part C: the design sign-off in the snapshot', () => {
     expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
       'hud-snapshot (design sign-off): config unreadable',
     );
+  });
+});
+
+describe('AC-31, INV-5: a HUD read failure never blocks a hook', () => {
+  it('AC-31: a throwing ship.diff read leaves the hook write quiet, returning null and logging', () => {
+    const root = onboardedRoot();
+    const S = 'ses-hud-quiet';
+    openChange(root, S, 'full');
+    vi.mocked(readChangeDiff).mockImplementationOnce(() => {
+      throw new Error('diff exploded');
+    });
+    expect(() => writeHudSnapshotSafe(root, S, 'hook:post-tool-use')).not.toThrow();
+    expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
+      'diff exploded',
+    );
+    expect(writeHudSnapshotSafe(root, S, 'hook:post-tool-use')).not.toBeNull();
   });
 });
