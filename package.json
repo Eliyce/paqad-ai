@@ -116,12 +116,12 @@
     "prepublishOnly": "node scripts/release-sync.mjs prepublish"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.1",
-    "@inquirer/prompts": "^8.7.4",
+    "@huggingface/transformers": "^4.3.2",
+    "@inquirer/prompts": "^8.7.5",
     "ajv": "^8.20.0",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
-    "execa": "^10.1.1",
+    "execa": "^10.2.1",
     "fast-glob": "^3.3.3",
     "gifenc": "1.0.3",
     "handlebars": "^4.7.10",
