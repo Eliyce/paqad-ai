@@ -4,11 +4,64 @@ import { listUnjudgedDecisions, validateFromDecisions } from '@/rules-discovery/
 import { readJsonFile } from '@/rules-discovery/files.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
 import { absRunFile, isRunId, mintRunId } from '@/rules-discovery/paths.js';
+import {
+  checkResearch,
+  markResearched,
+  nextTargets,
+  readResearchFiles,
+  startResearch,
+  stopResearch,
+  writeCheckedSources,
+  type ResearchProgress,
+} from '@/rules-discovery/research.js';
+import type { StackInventory } from '@/rules-discovery/types.js';
 
 interface InventoryOptions {
   projectRoot: string;
   run?: string;
   json: boolean;
+}
+
+interface ResearchOptions {
+  projectRoot: string;
+  run: string;
+  offline: boolean;
+  done?: string;
+  stop: boolean;
+  check: boolean;
+}
+
+export function readRunInventory(projectRoot: string, runId: string): StackInventory | null {
+  const read = readJsonFile<StackInventory>(absRunFile(projectRoot, runId, 'inventory'));
+  if (read.state !== 'ok') {
+    refuse(`stack-inventory.json is ${read.state} in run ${runId}; run the inventory step first.`);
+    return null;
+  }
+  return read.value;
+}
+
+function researchReport(progress: ResearchProgress): void {
+  const next = nextTargets(progress);
+  const words: Record<ResearchProgress['state'], string> = {
+    'in-progress': `${progress.done.length} of ${progress.order.length} packages researched; next: ${next[0]?.name ?? 'none'}`,
+    'skipped-offline':
+      'research skipped: no network. The run goes on with decisions and existing rules.',
+    stopped: `research stopped with ${progress.unreached.length} package(s) not reached; say "discover rules" to continue from ${next[0]?.name ?? 'the first unreached package'}`,
+    done: `research covered all ${progress.order.length} packages`,
+  };
+  const privateNote =
+    progress.skipped_private.length === 0
+      ? ''
+      : ` ${progress.skipped_private.length} skipped: private.`;
+  say(`research — ${words[progress.state]}.${privateNote}`);
+  console.log(
+    JSON.stringify({
+      state: progress.state,
+      next: next.map((target) => target.name),
+      unreached: progress.unreached,
+      skipped_private: progress.skipped_private,
+    }),
+  );
 }
 
 interface DecisionsOptions {
@@ -82,6 +135,59 @@ export function registerRulesDiscoveryCommands(command: Command): void {
       }
       say(`${listed.length} resolved decision${listed.length === 1 ? '' : 's'} not yet judged.`);
       console.log(JSON.stringify({ decisions: listed }));
+    });
+
+  discovery
+    .command('research')
+    .description(
+      'Track sourced research per package: plan and resume, mark a package done, stop, or check the files',
+    )
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--offline', 'No network: skip research and go on with decisions and rules', false)
+    .option('--done <package>', 'Mark one package researched')
+    .option('--stop', 'Record that research stopped before every package was reached', false)
+    .option('--check', 'Check from-research.json and sources.json and mark old sources', false)
+    .action((options: ResearchOptions) => {
+      if (!validRunOption(options.run)) return;
+      const inventory = readRunInventory(options.projectRoot, options.run);
+      if (inventory === null) return;
+      try {
+        if (options.check) {
+          const files = readResearchFiles(options.projectRoot, options.run);
+          const checked = checkResearch({ ...files, inventory, now: new Date() });
+          if (checked.problems.length > 0) {
+            refuse(
+              `research has ${checked.problems.length} problem(s): ${checked.problems.join('; ')}`,
+            );
+            return;
+          }
+          writeCheckedSources(options.projectRoot, options.run, checked.sources);
+          say(
+            `research files are valid: ${files.ideas.length} idea(s), ${checked.sources.length} source(s).`,
+          );
+          return;
+        }
+        if (options.done !== undefined) {
+          const key = options.done.includes(':')
+            ? options.done
+            : (inventory.packages.find((pkg) => pkg.name === options.done)?.ecosystem ?? 'node') +
+              `:${options.done}`;
+          researchReport(markResearched(options.projectRoot, options.run, key));
+          return;
+        }
+        if (options.stop) {
+          researchReport(stopResearch(options.projectRoot, options.run));
+          return;
+        }
+        researchReport(
+          startResearch(options.projectRoot, options.run, inventory, {
+            offline: options.offline,
+          }),
+        );
+      } catch (error) {
+        refuse(error instanceof Error ? error.message : String(error));
+      }
     });
 
   command.addCommand(discovery);

@@ -1,0 +1,4 @@
+interface:
+  display_name: Rules Researcher
+  short_description: Researches current, sourced practice for each public package in the
+    stack inventory and writes rule ideas with dated sources for the run.

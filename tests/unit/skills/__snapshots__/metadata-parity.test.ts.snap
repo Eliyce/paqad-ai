@@ -1380,6 +1380,23 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
     "output_format": "json",
     "triggers": [],
   },
+  "runtime/base/skills/rules-researcher": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_id": {
+        "description": "The rules discovery run id whose folder receives from-research.json and sources.json.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rules-researcher",
+    "output_format": "json",
+    "triggers": [],
+  },
   "runtime/base/skills/scope-check": {
     "cache_key_inputs": [],
     "cacheable": false,

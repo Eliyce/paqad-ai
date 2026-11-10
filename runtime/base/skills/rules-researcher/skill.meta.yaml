@@ -1,0 +1,7 @@
+triggers: []
+cache_key_inputs: []
+input_schema:
+  run_id:
+    type: string
+    required: true
+    description: The rules discovery run id whose folder receives from-research.json and sources.json.

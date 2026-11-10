@@ -8,4 +8,5 @@ export const PARENT_CALLED_HELPERS: readonly string[] = [
   'documentation-sync-recipe',
   'checks-recipe',
   'rules-decision-miner',
+  'rules-researcher',
 ];
