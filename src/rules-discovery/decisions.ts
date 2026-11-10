@@ -63,7 +63,7 @@ export function listUnjudgedDecisions(projectRoot: string): UnjudgedDecision[] {
   return readResolvedPackets(projectRoot)
     .filter((packet) => packet.status === 'resolved' || packet.status === 'delegated')
     .filter((packet) => packet.rules_discovery === undefined)
-    .filter((packet) => (packet.category as string) !== RULES_PROPOSAL_CATEGORY)
+    .filter((packet) => packet.category !== RULES_PROPOSAL_CATEGORY)
     .map(toUnjudged)
     .sort((left, right) => left.id.localeCompare(right.id));
 }

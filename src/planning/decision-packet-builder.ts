@@ -153,6 +153,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'The agent now does this right without the skill. Retire the skill?';
     case 'authoring.override':
       return 'This skill skipped one of its checks. Add it unverified, kept in this project?';
+    case 'rules.proposal':
+      return 'Sign off the proposed rule changes?';
   }
 }
 
@@ -315,6 +317,7 @@ export function decisionOptionsForCategory(
     case 'authoring.improvement':
     case 'authoring.retirement':
     case 'authoring.override':
+    case 'rules.proposal':
       return { options: [] };
   }
 }

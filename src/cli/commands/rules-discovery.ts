@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import { listUnjudgedDecisions, validateFromDecisions } from '@/rules-discovery/decisions.js';
 import { readJsonFile } from '@/rules-discovery/files.js';
+import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
 import { absRunFile, isRunId, mintRunId } from '@/rules-discovery/paths.js';
 import {
@@ -14,6 +15,7 @@ import {
   writeCheckedSources,
   type ResearchProgress,
 } from '@/rules-discovery/research.js';
+import { ROW_VERDICTS, signoffQuestion, type Verdict } from '@/rules-discovery/proposal.js';
 import type { StackInventory } from '@/rules-discovery/types.js';
 
 interface InventoryOptions {
@@ -62,6 +64,36 @@ function researchReport(progress: ResearchProgress): void {
       skipped_private: progress.skipped_private,
     }),
   );
+}
+
+interface StepOptions {
+  projectRoot: string;
+  run: string;
+  expectRevision?: number;
+}
+
+interface ReviewOptions {
+  projectRoot: string;
+  run: string;
+  row: string;
+  verdict: string;
+  text?: string;
+}
+
+export function parseRevision(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`"${value}" is not a run revision`);
+  }
+  return parsed;
+}
+
+export function guarded(work: () => void): void {
+  try {
+    work();
+  } catch (error) {
+    refuse(error instanceof Error ? error.message : String(error));
+  }
 }
 
 interface DecisionsOptions {
@@ -189,6 +221,84 @@ export function registerRulesDiscoveryCommands(command: Command): void {
         refuse(error instanceof Error ? error.message : String(error));
       }
     });
+
+  discovery
+    .command('propose')
+    .description(
+      'Merge existing rules, decision ideas and research ideas into proposal.json and proposal.md',
+    )
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--expect-revision <n>', 'run.json revision the caller last read', parseRevision)
+    .action((options: StepOptions) => {
+      if (!validRunOption(options.run)) return;
+      guarded(() => {
+        const result = proposeStep(
+          options.projectRoot,
+          options.run,
+          new Date(),
+          options.expectRevision,
+        );
+        for (const row of result.stale) say(`stale — ${row.row_id}: ${row.why}.`);
+        if (result.current) {
+          say('propose — your rules are current: nothing to add, change or remove.');
+          return;
+        }
+        const open = result.proposal.rows.filter((row) => row.verdict === null).length;
+        say(
+          `propose — ${result.proposal.rows.length} row(s), ${result.proposal.folded.length} folded into existing rules, ${open} still need a verdict.`,
+        );
+      });
+    });
+
+  discovery
+    .command('review')
+    .description('Record a keep, edit or drop verdict for one proposal row')
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .requiredOption('--row <id>', 'Proposal row id (P-1, P-2, ...)')
+    .requiredOption('--verdict <verdict>', 'keep, edit, drop, keep_existing or take_new')
+    .option('--text <text>', 'New rule text for an edit verdict')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: ReviewOptions) => {
+      if (!validRunOption(options.run)) return;
+      const known = new Set<string>(Object.values(ROW_VERDICTS).flat());
+      if (!known.has(options.verdict)) {
+        refuse(`"${options.verdict}" is not a verdict.`);
+        return;
+      }
+      guarded(() => {
+        const proposal = reviewStep(
+          options.projectRoot,
+          options.run,
+          options.row,
+          options.verdict as Verdict,
+          options.text,
+        );
+        const open = proposal.rows.filter((row) => row.verdict === null).length;
+        say(`review — ${options.row} is ${options.verdict}; ${open} row(s) left.`);
+      });
+    });
+
+  discovery
+    .command('sign-off')
+    .description('Open the one rules.proposal decision bound to the hash of proposal.json')
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--expect-revision <n>', 'run.json revision the caller last read', parseRevision)
+    .action((options: StepOptions) => {
+      if (!validRunOption(options.run)) return;
+      guarded(() => {
+        const result = signoffStep(
+          options.projectRoot,
+          options.run,
+          new Date(),
+          options.expectRevision,
+        );
+        say(`sign-off — ${signoffQuestion(result.counts)} Decision ${result.decision_id}.`);
+        console.log(JSON.stringify(result));
+      });
+    });
+
 
   command.addCommand(discovery);
 }

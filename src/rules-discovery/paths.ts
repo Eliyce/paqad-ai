@@ -14,6 +14,7 @@ export const RUN_FILES = {
   fromResearch: 'from-research.json',
   research: 'research.json',
   sources: 'sources.json',
+  judgements: 'proposal-judgements.json',
   proposal: 'proposal.json',
   proposalMarkdown: 'proposal.md',
   apply: 'apply.json',

@@ -311,6 +311,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `authoring.improvement`
 - `authoring.retirement`
 - `authoring.override`
+- `rules.proposal`
 
 ## Evidence-armed pauses
 
