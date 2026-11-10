@@ -202,9 +202,21 @@ export function getLegacyCapabilities(
   return (profile?.stack_profile?.traits ?? []).filter(isCapability) as Capability[];
 }
 
+export interface StackPackageLists {
+  previous: readonly Pick<InstalledPackage, 'name' | 'ecosystem'>[] | undefined;
+  current: readonly Pick<InstalledPackage, 'name' | 'ecosystem'>[];
+}
+
+function directPackageNames(
+  packages: readonly Pick<InstalledPackage, 'name' | 'ecosystem'>[] | undefined,
+): Map<string, string> {
+  return new Map((packages ?? []).map((pkg) => [`${pkg.ecosystem}:${pkg.name}`, pkg.name]));
+}
+
 export function compareStackProfiles(
   previous: DetectedStackProfile | null,
   current: DetectedStackProfile,
+  packages?: StackPackageLists,
 ): StackDriftReport {
   if (previous === null) {
     return {
@@ -213,6 +225,8 @@ export function compareStackProfiles(
       previous_profile: null,
       current_profile: current,
       material_changes: [],
+      packages_added: [],
+      packages_removed: [],
       newly_active_rule_bands: [],
       newly_inactive_rule_bands: [],
       review_targets: [],
@@ -275,6 +289,25 @@ export function compareStackProfiles(
     });
   }
 
+  const packagesAdded: string[] = [];
+  const packagesRemoved: string[] = [];
+  if (packages !== undefined && packages.previous !== undefined) {
+    const before = directPackageNames(packages.previous);
+    const after = directPackageNames(packages.current);
+    for (const [key, name] of after) {
+      if (!before.has(key)) {
+        packagesAdded.push(name);
+        changes.push({ type: 'package-added', key: name, after: name });
+      }
+    }
+    for (const [key, name] of before) {
+      if (!after.has(key)) {
+        packagesRemoved.push(name);
+        changes.push({ type: 'package-removed', key: name, before: name });
+      }
+    }
+  }
+
   const reviewTargets = deriveReviewTargets(changes);
 
   return {
@@ -283,6 +316,8 @@ export function compareStackProfiles(
     previous_profile: previous,
     current_profile: current,
     material_changes: changes,
+    packages_added: packagesAdded.sort(),
+    packages_removed: packagesRemoved.sort(),
     newly_active_rule_bands: current.version_bands
       .filter((band) => !previousBands.has(band.package_name))
       .map((band) => band.name),
@@ -314,6 +349,11 @@ function deriveReviewTargets(changes: StackDriftChange[]): string[] {
       targets.add('docs/instructions/stack/**');
       targets.add('docs/modules/*/ui/**');
       targets.add('docs/instructions/tools/**');
+    }
+
+    if (change.type === 'package-added' || change.type === 'package-removed') {
+      targets.add('docs/instructions/stack/dependencies.md');
+      targets.add('docs/instructions/rules/**');
     }
 
     if (change.type === 'version-band-changed') {

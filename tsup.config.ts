@@ -25,6 +25,7 @@ export default defineConfig({
     'pipeline/dirty-baseline': 'src/pipeline/dirty-baseline.ts',
     'planning/ticket-ref-detect': 'src/planning/ticket-ref-detect.ts',
     'hld/session': 'src/hld/session.ts',
+    'rules-discovery/nudge': 'src/rules-discovery/nudge.ts',
     'delivery/commit-split': 'src/delivery/commit-split.ts',
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
     'feature-evidence/stage-ledger': 'src/feature-evidence/stage-ledger.ts',

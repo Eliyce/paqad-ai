@@ -79,3 +79,36 @@ describe('stack profile drift', () => {
     expect(drift.review_targets).toContain('docs/instructions/tools/**');
   });
 });
+
+describe('stack profile drift · packages', () => {
+  const profile = {
+    frameworks: [],
+    traits: [],
+    toolchains: [],
+    version_bands: [],
+    sources: [],
+  };
+  const pkg = (name: string) => ({ name, ecosystem: 'node' as const });
+
+  it('AC-16: reports direct packages added and removed, dev included, as drift', () => {
+    const drift = compareStackProfiles(profile, profile, {
+      previous: [pkg('react'), pkg('express')],
+      current: [pkg('react'), pkg('zod'), pkg('vitest')],
+    });
+    expect(drift.status).toBe('drift-detected');
+    expect(drift.packages_added).toEqual(['vitest', 'zod']);
+    expect(drift.packages_removed).toEqual(['express']);
+    expect(drift.material_changes.map((change) => change.type)).toEqual(
+      expect.arrayContaining(['package-added', 'package-removed']),
+    );
+  });
+
+  it('stays no-drift on the same packages and without a previous snapshot', () => {
+    expect(
+      compareStackProfiles(profile, profile, { previous: [pkg('a')], current: [pkg('a')] }).status,
+    ).toBe('no-drift');
+    expect(
+      compareStackProfiles(null, profile, { previous: undefined, current: [pkg('a')] }),
+    ).toMatchObject({ status: 'no-drift', packages_added: [] });
+  });
+});

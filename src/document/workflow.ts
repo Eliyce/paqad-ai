@@ -23,6 +23,7 @@ import type { RepositoryContext } from '@/core/types/repository.js';
 import { Detector } from '@/detection/detector.js';
 import { DesignTokenService, DesignTokensPlaceholderError } from '@/design-tokens/service.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
+import { StackSnapshotCache } from '@/introspection/cache.js';
 import {
   writeDetectionReport,
   writeOnboardingManifest,
@@ -385,6 +386,7 @@ export class DocumentationWorkflow {
     const progress = await this.tracker.load(options.projectRoot);
     await this.tracker.resetGeneratingEntries(options.projectRoot, progress);
 
+    const previousStackSnapshot = await new StackSnapshotCache().read(options.projectRoot);
     const detection = await this.detector.detect(options.projectRoot);
     const stackSnapshot = await this.introspector.snapshot(options.projectRoot);
     const routing = resolveEffectiveRouting(profile, detection, stackSnapshot, options.request);
@@ -422,7 +424,7 @@ export class DocumentationWorkflow {
     const stackDrift = await writeStackArtifacts(
       options.projectRoot,
       stackSnapshot,
-      stackSnapshot,
+      previousStackSnapshot,
       { writeHumanDocs: true },
     );
     const stackDocs = [

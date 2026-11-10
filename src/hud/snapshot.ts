@@ -111,6 +111,7 @@ import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 import { buildStageRun, stagesWithAgentRows } from './stage-run.js';
+import { rulesDriftHeadline } from '@/rules-discovery/nudge.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
@@ -1296,6 +1297,7 @@ export interface HudHeadlineInput {
   verdictEarlier?: boolean;
   stageAgentLive?: boolean;
   signoff?: HudSignoff | null;
+  rulesDrift?: string | null;
 }
 
 export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
@@ -1506,6 +1508,9 @@ function idleHeadline(input: HudHeadlineInput): HudHeadline {
   if (input.route && input.route !== 'no-workflow') {
     return { text: `Working on ${input.route.replace(/-/g, ' ')}.`, tone: 'working' };
   }
+  if (input.rulesDrift) {
+    return { text: input.rulesDrift, tone: 'warn' };
+  }
   return { text: 'Ready. No change in progress.', tone: 'neutral' };
 }
 
@@ -1667,6 +1672,7 @@ export function buildHudSnapshot(
         flags: [],
         paused: paused.length,
         decisions: decisions.pending,
+        rulesDrift: rulesDriftHeadline(projectRoot),
       }),
       change: null,
       paused,

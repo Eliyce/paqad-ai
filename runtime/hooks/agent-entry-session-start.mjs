@@ -70,12 +70,15 @@ async function main(input) {
   const output = mergeSessionStartOutput(
     mergeSessionStartOutput(
       mergeSessionStartOutput(
-        await missingStageAgentsOutput(projectRoot),
-        await teamConfigNotice(projectRoot),
+        mergeSessionStartOutput(
+          await missingStageAgentsOutput(projectRoot),
+          await teamConfigNotice(projectRoot),
+        ),
+        await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
       ),
-      await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
+      await designSignOffNotice(projectRoot),
     ),
-    await designSignOffNotice(projectRoot),
+    await rulesDriftNotice(projectRoot),
   );
   if (output) process.stdout.write(output);
 
@@ -130,6 +133,19 @@ async function designSignOffNotice(projectRoot) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendHooksLog(projectRoot, `session-start: design sign-off check skipped: ${message}`);
+    return null;
+  }
+}
+
+async function rulesDriftNotice(projectRoot) {
+  if (!isProjectOnboarded(projectRoot)) return null;
+  try {
+    const url = new URL('../../dist/rules-discovery/nudge.js', import.meta.url);
+    const { rulesDriftSessionStartText } = await import(url.href);
+    return rulesDriftSessionStartText(projectRoot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: rules drift check skipped: ${message}`);
     return null;
   }
 }

@@ -66,7 +66,9 @@ export interface StackDriftChange {
     | 'trait-added'
     | 'trait-removed'
     | 'version-band-changed'
-    | 'toolchain-changed';
+    | 'toolchain-changed'
+    | 'package-added'
+    | 'package-removed';
   key: string;
   before?: string;
   after?: string;
@@ -78,6 +80,8 @@ export interface StackDriftReport {
   previous_profile: DetectedStackProfile | null;
   current_profile: DetectedStackProfile;
   material_changes: StackDriftChange[];
+  packages_added?: string[];
+  packages_removed?: string[];
   newly_active_rule_bands: string[];
   newly_inactive_rule_bands: string[];
   review_targets: string[];

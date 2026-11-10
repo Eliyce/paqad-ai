@@ -20,7 +20,10 @@ export async function writeStackArtifacts(
   options: WriteStackArtifactsOptions = {},
 ): Promise<StackDriftReport> {
   const existingDrift = await readExistingDrift(projectRoot);
-  const computedDrift = compareStackProfiles(previousSnapshot?.profile ?? null, snapshot.profile);
+  const computedDrift = compareStackProfiles(previousSnapshot?.profile ?? null, snapshot.profile, {
+    previous: previousSnapshot?.packages,
+    current: snapshot.packages,
+  });
   const drift =
     computedDrift.status === 'no-drift' && existingDrift !== null ? existingDrift : computedDrift;
   const sanitizedSnapshot = sanitizeStackSnapshotRepository(projectRoot, snapshot);
