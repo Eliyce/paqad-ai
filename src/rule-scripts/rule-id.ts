@@ -4,7 +4,7 @@ const ID_PREFIX = 'RL-';
 const MIN_HEX = 4;
 const MAX_HEX = 12;
 
-const MARKER_RE = /<!--\s*@rule\s+(RL-[0-9a-f]+)\s*-->/i;
+const MARKER_RE = /<!--\s*@rule\s+(RL-[0-9a-f]+)(?:\s+discovered:([A-Za-z0-9._-]+))?\s*-->/i;
 
 export function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
@@ -22,19 +22,24 @@ export function parseRuleMarker(line: string): string | null {
   return `${ID_PREFIX}${m[1].slice(ID_PREFIX.length).toLowerCase()}`;
 }
 
+export function parseRuleMarkerRun(line: string): string | null {
+  return MARKER_RE.exec(line)?.[2] ?? null;
+}
+
 export function stripRuleMarker(line: string): { text: string; id: string | null } {
   const id = parseRuleMarker(line);
   const text = line.replace(MARKER_RE, '').trimEnd();
   return { text, id };
 }
 
-export function embedRuleMarker(line: string, id: string): string {
+export function embedRuleMarker(line: string, id: string, discovered?: string): string {
   const existing = parseRuleMarker(line);
-  if (existing === id) {
+  if (existing === id && (discovered === undefined || parseRuleMarkerRun(line) === discovered)) {
     return line;
   }
   const clean = line.replace(MARKER_RE, '').trimEnd();
-  return `${clean} <!-- @rule ${id} -->`;
+  const run = discovered === undefined ? '' : ` discovered:${discovered}`;
+  return `${clean} <!-- @rule ${id}${run} -->`;
 }
 
 export function mintRuleId(source: string, text: string, takenIds: ReadonlySet<string>): string {

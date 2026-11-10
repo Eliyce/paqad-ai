@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import { listUnjudgedDecisions, validateFromDecisions } from '@/rules-discovery/decisions.js';
+import { applyProposal, scriptableOffer } from '@/rules-discovery/apply.js';
 import { readJsonFile } from '@/rules-discovery/files.js';
 import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
@@ -299,6 +300,29 @@ export function registerRulesDiscoveryCommands(command: Command): void {
       });
     });
 
+  discovery
+    .command('apply')
+    .description(
+      'Write the signed-off proposal: add, edit and archive rules, tag decisions, move the baseline',
+    )
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--expect-revision <n>', 'run.json revision the caller last read', parseRevision)
+    .action((options: StepOptions) => {
+      if (!validRunOption(options.run)) return;
+      guarded(() => {
+        const report = applyProposal(options.projectRoot, options.run, {
+          expectedRevision: options.expectRevision,
+        });
+        say(
+          `apply — ${report.added} added, ${report.changed} changed, ${report.removed} removed, ${report.tagged} decision(s) tagged.`,
+        );
+        for (const row of report.refused) say(`refused — ${row.row_id}: ${row.why}.`);
+        const offer = scriptableOffer(report);
+        if (offer !== null) say(offer);
+        console.log(JSON.stringify(report));
+      });
+    });
 
   command.addCommand(discovery);
 }

@@ -144,8 +144,6 @@ The reasons below are not obvious from the code, grouped by file in `src/onboard
   `ENOSPC` becomes a clean framework error. pnpm passes a literal `--` to the script, which makes
   the test runner ignore later flags, so the structured reporter command omits it for pnpm. Laravel
   tests always run through Artisan, whose `--parallel` sets up the per-process databases.
-- **`rules-refresh.ts`.** Generated rule files are deleted before the rewrite, because they are
-  written skip-if-present; `module-map.yml` and `rule-script-map.yml` are project-owned and kept.
 - **`setup-plan.ts`.** paqad ships no installers: the plan only records the official commands and
   tracks each step's state. A step's prerequisite must be an earlier step.
 - **`worktree-include-writer.ts`.** Git copies paths listed in `.worktreeinclude` into new

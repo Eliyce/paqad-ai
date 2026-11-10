@@ -63,9 +63,25 @@ describe('ops job runner', () => {
       expect(isOpsAction('update')).toBe(false);
       expect(isOpsAction('refresh-stack')).toBe(false);
       expect(isOpsAction('regenerate-registries')).toBe(false);
+      expect(isOpsAction('refresh-rules')).toBe(false);
       expect(isOpsAction('')).toBe(false);
       expect(isOpsAction(42)).toBe(false);
       expect(isOpsAction(undefined)).toBe(false);
+    });
+  });
+
+  describe('AC-53 the full rule reset is gone from the dashboard', () => {
+    it('AC-53 offers no refresh-rules action and the Setup view has no Refresh the rules button', () => {
+      expect(OPS_ACTIONS as readonly string[]).not.toContain('refresh-rules');
+      expect(isOpsAction('refresh-rules')).toBe(false);
+      const view = readFileSync(join(process.cwd(), 'graph-ui/src/views/SetupView.tsx'), 'utf8');
+      expect(view).not.toContain('refresh-rules');
+      expect(view).not.toContain('Refresh the rules');
+      const types = readFileSync(
+        join(process.cwd(), 'graph-ui/src/lib/dashboard-types.ts'),
+        'utf8',
+      );
+      expect(types).not.toContain("'refresh-rules'");
     });
   });
 
@@ -218,12 +234,6 @@ describe('ops job runner', () => {
       expect(readAudit(root)).toContain('status="failed"');
     });
 
-    it('refresh-rules fails cleanly without a project profile', async () => {
-      const job = await run('refresh-rules');
-      expect(job.status).toBe('failed');
-      expect(job.error).toMatch(/No project profile found/);
-    });
-
     it('regenerate-docs completes with a skip note when tokens are missing', async () => {
       const job = await run('regenerate-docs');
       expect(job.status).toBe('done');
@@ -322,29 +332,6 @@ describe('ops job runner', () => {
       expect(job.status).toBe('done');
       expect(job.result).toMatchObject({ blocked: null, findings: 0 });
       expect(job.progress[0]).toContain('Reconciling module-map.yml against: src.');
-    });
-
-    it('refresh-rules regenerates the rule tree when a profile exists', async () => {
-      const profilePath = join(root, PATHS.PROJECT_PROFILE);
-      mkdirSync(dirname(profilePath), { recursive: true });
-      writeFileSync(
-        profilePath,
-        [
-          'project: { name: Demo, id: demo, description: Demo }',
-          'active_capabilities: [content]',
-          '',
-        ].join('\n'),
-      );
-
-      const job = await run('refresh-rules');
-      expect(job.status).toBe('done');
-      expect(job.result).toMatchObject({
-        deleted: expect.any(Number),
-        written: expect.any(Number),
-        preserved: [],
-      });
-      expect((job.result as { written: number }).written).toBeGreaterThan(0);
-      expect(existsSync(join(root, 'docs/instructions/rules'))).toBe(true);
     });
 
     it('refresh-context syncs the chunk index', async () => {

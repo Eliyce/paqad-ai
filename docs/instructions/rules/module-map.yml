@@ -91,7 +91,6 @@ modules:
         - OnboardingOrchestrator
         - OnboardingSelections
         - RagSelection
-        - RulesRefreshReport
         - UpdateCandidate
         - UpdateDiff
         - UpdateReport
@@ -130,7 +129,6 @@ modules:
         - migrateLegacyDecisionIds
         - normalizeEngineVersion
         - readOnboardingCheckpoint
-        - refreshProjectRules
         - removeObsoleteContractDocs
         - renderStackConfirmationSummary
         - resolveRagSelection

@@ -548,11 +548,6 @@ export function SetupView() {
               done="Healthy or not, the verdict is in the audit log."
             />
             <OpButton
-              action="refresh-rules"
-              label="Refresh the rules"
-              done="Refreshed. The rules match your packs again."
-            />
-            <OpButton
               action="compliance-check"
               label="Check spec compliance"
               done="Checked. The findings are in the audit log."

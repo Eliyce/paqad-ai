@@ -13,7 +13,6 @@ import {
 import { HealthChecker } from '@/health/index.js';
 import { reconcileModuleMap } from '@/module-map/reconciler.js';
 import { discoverSourceRoots } from '@/module-map/source-roots.js';
-import { refreshProjectRules } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
 import { describeCompletedUnits, readProgress } from '@/site-map/progress-store.js';
@@ -23,7 +22,6 @@ import { appendDashboardAudit } from './approvals.js';
 
 export const OPS_ACTIONS = [
   'reconcile',
-  'refresh-rules',
   'refresh-context',
   'rag-rebuild',
   'rag-clear',
@@ -95,20 +93,6 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
       sourceRoots: discovered.source_roots,
     });
     return { blocked: report.blocked, findings: report.findings.length, counts: report.counts };
-  },
-
-  'refresh-rules': async (_job, { projectRoot, progress }) => {
-    const profile = readProjectProfile(projectRoot);
-    if (profile === null) {
-      throw new Error('No project profile found. Run `paqad-ai onboard` before refreshing rules.');
-    }
-    progress('Regenerating docs/instructions/rules from the framework rule packs.');
-    const report = await refreshProjectRules(projectRoot, profile, { force: true });
-    return {
-      deleted: report.deleted.length,
-      written: report.written.length,
-      preserved: report.preserved,
-    };
   },
 
   'refresh-context': async (_job, { projectRoot, progress }) => {
