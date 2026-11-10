@@ -33,6 +33,12 @@ Source directories owned by this feature:
 - What state this feature writes.
 - Where that state is persisted (`.paqad/**`, project files, in-memory only).
 
+## Rules discovery baseline and nudge
+
+- Rules discovery keeps its own stack baseline in `.paqad/ledger/rules-discovery/baseline.json`. It is seeded once from `.paqad/stack-snapshot.json` and moves only when a rules discovery run applies a signed-off proposal or finds the rules current.
+- The SessionStart drift line compares the manifests against that baseline. The shown package set is remembered as a hash in the git-ignored `.paqad/rules-discovery-nudge.json`, so the line shows once per set.
+- `paqad-ai rules discovery docs` refreshes managed blocks in `overview.md`, `dependencies.md` and `versions.md` under `docs/instructions/stack/`, and keeps hand-written text outside the `<!-- paqad:stack:<name>:start -->` markers.
+
 ## Error Codes
 
 - Structured error IDs emitted by this feature.

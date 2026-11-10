@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { listUnjudgedDecisions, validateFromDecisions } from '@/rules-discovery/decisions.js';
 import { applyProposal, scriptableOffer } from '@/rules-discovery/apply.js';
 import { docsStep } from '@/rules-discovery/docs.js';
+import { reportLine, startRun, statusLines, writeRunReport } from '@/rules-discovery/session.js';
 import { readJsonFile } from '@/rules-discovery/files.js';
 import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
@@ -244,6 +245,7 @@ export function registerRulesDiscoveryCommands(command: Command): void {
         for (const row of result.stale) say(`stale — ${row.row_id}: ${row.why}.`);
         if (result.current) {
           say('propose — your rules are current: nothing to add, change or remove.');
+          say(reportLine(writeRunReport(options.projectRoot, options.run, 0)));
           return;
         }
         const open = result.proposal.rows.filter((row) => row.verdict === null).length;
@@ -341,9 +343,55 @@ export function registerRulesDiscoveryCommands(command: Command): void {
           options.expectRevision,
         );
         say(`docs — ${result.updated.length} stack doc(s) updated.`);
+        say(reportLine(result.report));
       } catch (error) {
         refuse(error instanceof Error ? error.message : String(error));
       }
+    });
+
+  discovery
+    .command('start')
+    .description('Open a rules discovery run, or resume the open one')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--fresh', 'Close the open run as abandoned and open a new one', false)
+    .option('--continue', 'Continue the open run even when it waits on its sign-off', false)
+    .action((options: { projectRoot: string; fresh: boolean; continue: boolean }) => {
+      guarded(() => {
+        const outcome = startRun(options.projectRoot, {
+          fresh: options.fresh,
+          continueOpen: options.continue,
+        });
+        if (outcome.state === 'broken') {
+          refuse(
+            `run ${outcome.run_id}: ${outcome.reason}. Start fresh with \`paqad-ai rules discovery start --fresh\`.`,
+          );
+          console.log(JSON.stringify(outcome));
+          return;
+        }
+        const record = outcome.record;
+        const words = {
+          opened: `opened run ${record.run_id}`,
+          resume: `resuming run ${record.run_id} at ${record.step}`,
+          choose: outcome.state === 'choose' ? outcome.question : '',
+        };
+        say(words[outcome.state]);
+        console.log(
+          JSON.stringify({
+            state: outcome.state,
+            run_id: record.run_id,
+            step: record.step,
+            revision: record.revision,
+          }),
+        );
+      });
+    });
+
+  discovery
+    .command('status')
+    .description('Print the open rules discovery run: id, step, status and timestamps')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { projectRoot: string }) => {
+      for (const line of statusLines(options.projectRoot)) say(line);
     });
 
   command.addCommand(discovery);

@@ -3,6 +3,7 @@ import { refreshStackDocsFromInventory } from '@/stack-docs/generator.js';
 import { advanceRun, readInventoryFile } from './flow.js';
 import { readResearchFiles } from './research.js';
 import { readRun } from './run-store.js';
+import { writeRunReport, type RunReport } from './session.js';
 
 export function researchNotes(projectRoot: string, runId: string): Map<string, string> {
   const notes = new Map<string, string>();
@@ -19,7 +20,7 @@ export async function docsStep(
   runId: string,
   now: Date = new Date(),
   expectedRevision?: number,
-): Promise<{ updated: string[] }> {
+): Promise<{ updated: string[]; report: RunReport }> {
   const run = readRun(projectRoot, runId);
   if (run.state !== 'ok' || run.record.status !== 'open' || run.record.step !== 'docs') {
     throw new Error(`run ${runId} is not waiting at the docs step`);
@@ -33,5 +34,8 @@ export async function docsStep(
           notes: researchNotes(projectRoot, runId),
         });
   advanceRun(projectRoot, runId, { step: 'done', status: 'done' }, expectedRevision, now);
-  return result;
+  return {
+    updated: result.updated,
+    report: writeRunReport(projectRoot, runId, result.updated.length),
+  };
 }

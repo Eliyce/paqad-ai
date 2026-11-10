@@ -180,6 +180,12 @@ Each outcome is one `paqad.decision-reuse` row, of kind `open`, `reuse`, `sugges
 `standing-set` or `standing-removed`. A suggestion row's outcome is `accepted`, `changed` or
 `none`. `decisionsReceiptLine` folds a change's rows into the receipt's `decisions:` line.
 
+## Rules proposal sign-off
+
+- Category `rules.proposal` has the options `sign_off` and `not_now`. Its context carries the sha256 of the run's `proposal.json`, and its `invalidation_watch` lists the rule files the proposal touches.
+- `paqad-ai rules discovery apply` refuses unless the decision is resolved `sign_off` and the hash still matches; `not_now` writes nothing.
+- Apply tags each source decision in `resolved/` with the optional `rules_discovery` field (`absorbed` with the rule id, or `not-a-rule` with the reason). The field is additive; every reader of resolved decisions ignores it.
+
 ## Attribution
 
 `inferAttribution` treats a top score of 0.5 or more as confident. A confident choice is applied

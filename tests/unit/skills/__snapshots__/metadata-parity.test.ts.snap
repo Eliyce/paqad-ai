@@ -1380,6 +1380,29 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
     "output_format": "json",
     "triggers": [],
   },
+  "runtime/base/skills/rules-discovery": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "The project whose rules and stack docs rules discovery keeps current.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "rules-discovery",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "rules-discovery",
+        ],
+      },
+    ],
+  },
   "runtime/base/skills/rules-proposer": {
     "cache_key_inputs": [],
     "cacheable": false,

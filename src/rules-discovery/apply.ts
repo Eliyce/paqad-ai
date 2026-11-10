@@ -72,7 +72,7 @@ export class ApplyRefusedError extends Error {
   }
 }
 
-function readJournal(projectRoot: string, runId: string): ApplyJournal {
+export function readApplyJournal(projectRoot: string, runId: string): ApplyJournal {
   const read = readJsonFile<ApplyJournal>(absRunFile(projectRoot, runId, 'apply'));
   if (read.state === 'ok' && typeof read.value.rows === 'object' && read.value.rows !== null) {
     return read.value;
@@ -249,7 +249,7 @@ export function applyProposal(
   if (run.state === 'ok' && run.record.step === 'sign_off') {
     advanceRun(projectRoot, runId, { step: 'apply' }, options.expectedRevision, now);
   }
-  const journal = readJournal(projectRoot, runId);
+  const journal = readApplyJournal(projectRoot, runId);
   for (const row of proposal.rows) {
     if (journal.rows[row.row_id] !== undefined) continue;
     const problem = rowWrites(row) === null ? null : targetProblem(row);
@@ -335,7 +335,7 @@ export function traceDiscoveredRule(projectRoot: string, ruleId: string): RuleTr
       if (runId === null) return null;
       const run = readRun(projectRoot, runId);
       const proposal = readProposal(projectRoot, runId);
-      const journal = readJournal(projectRoot, runId);
+      const journal = readApplyJournal(projectRoot, runId);
       const row = proposal?.rows.find((entry) => journal.rows[entry.row_id]?.rule_id === ruleId);
       const sources = readJsonFile<ResearchSource[]>(absRunFile(projectRoot, runId, 'sources'));
       const known = sources.state === 'ok' && Array.isArray(sources.value) ? sources.value : [];
