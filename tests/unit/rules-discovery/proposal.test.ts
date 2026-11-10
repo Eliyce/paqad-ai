@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -41,6 +41,21 @@ function decideAll(fp: FlowProject): void {
 }
 
 describe('rules proposal', () => {
+  it('AC-28 with research skipped offline the proposal still comes from decisions and existing rules', () => {
+    const fp = setup();
+    rmSync(absRunFile(fp.project.root, fp.runId, 'fromResearch'));
+    rmSync(absRunFile(fp.project.root, fp.runId, 'sources'));
+    const { proposal } = proposeStep(fp.project.root, fp.runId, NOW);
+    expect(proposal.rows.some((row) => row.origin === 'research')).toBe(false);
+    expect(proposal.rows.find((row) => row.idea_ids.includes('DI-2'))).toMatchObject({
+      origin: 'decisions',
+      change: 'new',
+    });
+    expect(proposal.rows.find((row) => row.change === 'removed')?.existing?.rule_id).toBe(
+      'RL-bbbb',
+    );
+  });
+
   it('AC-31 each row shows the rule, change, origin, target and how it can be checked', () => {
     const fp = setup();
     const { proposal } = proposeStep(fp.project.root, fp.runId, NOW);

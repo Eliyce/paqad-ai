@@ -50,7 +50,7 @@ function withMap(fp: FlowProject): void {
   });
 }
 
-function signedRun(choice: string = SIGN_OFF, judgements?: unknown): FlowProject {
+function signedRun(choice: string | null = SIGN_OFF, judgements?: unknown): FlowProject {
   const fp = flowProject();
   current = fp;
   withMap(fp);
@@ -67,6 +67,7 @@ function signedRun(choice: string = SIGN_OFF, judgements?: unknown): FlowProject
     );
   }
   const { decision_id } = signoffStep(fp.project.root, fp.runId, NOW);
+  if (choice === null) return fp;
   new DecisionStore(fp.project.root).resolve({
     decisionId: decision_id,
     humanResponse: {
@@ -97,6 +98,17 @@ describe('rules discovery apply', () => {
     expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(/not now/);
     expect(fp.read(RULE_FILE)).toBe(before);
     expect(existsSync(join(fp.project.root, RULES_DISCOVERY_BASELINE))).toBe(false);
+  });
+
+  it('AC-37 INV-1 apply refuses while the rules.proposal sign-off is still pending', () => {
+    const fp = signedRun(null);
+    const before = fp.read(RULE_FILE);
+    expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(ApplyRefusedError);
+    expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(/is pending/);
+    expect(fp.read(RULE_FILE)).toBe(before);
+    expect(existsSync(join(fp.project.root, NEW_FILE))).toBe(false);
+    expect(existsSync(join(fp.project.root, RULES_DISCOVERY_BASELINE))).toBe(false);
+    expect(runStep(fp)).toBe('sign_off');
   });
 
   it('AC-38 apply refuses when proposal.json changed after sign-off', () => {
