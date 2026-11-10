@@ -53,7 +53,8 @@ The reasons below are not obvious from the code of these commands and the shared
 - **`refresh.ts`.** A flagless refresh is a status-only no-op, because every target is opt-in. It
   never touches the design system (owned by the documentation workflow) and re-renders entry
   files only for adapters already present, so it never onboards a new provider. The differential
-  refresh reads the changed files straight from git.
+  refresh reads the changed files straight from git. Refresh has no full rule reset: rules are
+  kept current by the rules-discovery workflow, which changes them only after owner sign-off.
 - **Update and recipes.** On Codex, `update` writes the stage recipes to `.agents/skills/` from the running
   install, and a failure there does not stop the update. It cannot restore a recipe missing from the install
   itself: recipes come from that install, so the repair is to update the install first.

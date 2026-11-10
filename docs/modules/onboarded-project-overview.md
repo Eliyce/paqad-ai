@@ -228,7 +228,7 @@ without parallel subagents and the fast lane keep review, then documentation_syn
 
 ## 3. Full catalog: every skill and agent, by lifecycle phase
 
-This is the complete roster the framework ships into an onboarded repo: **48 base
+This is the complete roster the framework ships into an onboarded repo: **52 base
 skills, 32 coding skills, 12 security skills, 6 content skills, 22 agents.** Each
 links to its definition; "knows" lists the existing-codebase signals it actually
 consults. The authority for what exists remains
@@ -316,6 +316,13 @@ Expert personas: the two new pickable experts [QA Engineer](../../runtime/capabi
 - [`rule-script-generator`](../../runtime/base/skills/rule-script-generator/SKILL.md) — author `.mjs` checks validated against fixtures. Knows: instructions, source.
 - [`rule-script-reconciler`](../../runtime/base/skills/rule-script-reconciler/SKILL.md) — detect rules-as-scripts drift. Knows: instructions, source.
 - [`rule-script-runner`](../../runtime/base/skills/rule-script-runner/SKILL.md) — execute registered scripts diff-scoped in checks. Knows: instructions, source.
+
+### Rules discovery (rules-discovery workflow)
+Keeps the project rules and `docs/instructions/stack/` current: a SessionStart line nudges when the stack moved past the rules baseline; a run inventories rules, mines resolved decisions, researches current practice, proposes changes, applies them only after the owner signs off a `rules.proposal` decision, then refreshes the stack docs' managed blocks (`paqad-ai rules inventory`, `paqad-ai rules discovery …`, see [drift tracking](stack-detection-engine/features/drift-tracking/api.md)).
+- [`rules-discovery`](../../runtime/base/skills/rules-discovery/SKILL.md) — run the steps in order with one status line each. Knows: instructions, stack snapshot.
+- [`rules-decision-miner`](../../runtime/base/skills/rules-decision-miner/SKILL.md) — turn resolved decisions into rule ideas. Knows: decisions.
+- [`rules-researcher`](../../runtime/base/skills/rules-researcher/SKILL.md) — sourced, dated practice for the packages in use. Knows: manifests.
+- [`rules-proposer`](../../runtime/base/skills/rules-proposer/SKILL.md) — merge ideas into one proposal and open the sign-off. Knows: instructions.
 
 ### Security (pentest workflow + review)
 Entry skill: [`pentest`](../../runtime/capabilities/security/skills/pentest/SKILL.md), which runs the
