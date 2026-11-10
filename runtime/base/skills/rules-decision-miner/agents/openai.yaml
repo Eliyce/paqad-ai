@@ -1,0 +1,4 @@
+interface:
+  display_name: Rules Decision Miner
+  short_description: Judges each resolved decision not yet judged by rules discovery as a
+    rule idea or not a rule, and writes from-decisions.json for the run.

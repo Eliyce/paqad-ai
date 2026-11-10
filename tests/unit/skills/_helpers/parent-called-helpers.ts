@@ -7,4 +7,5 @@ export const PARENT_CALLED_HELPERS: readonly string[] = [
   'review-recipe',
   'documentation-sync-recipe',
   'checks-recipe',
+  'rules-decision-miner',
 ];

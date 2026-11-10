@@ -136,6 +136,15 @@ export interface DecisionPacket {
   invalidation_watch: string[];
   earlier_check?: EarlierCheck;
   suggestion?: DecisionSuggestion;
+  rules_discovery?: RulesDiscoveryTag;
+}
+
+export interface RulesDiscoveryTag {
+  status: 'absorbed' | 'not-a-rule';
+  run_id: string;
+  rule_id?: string;
+  reason?: string;
+  tagged_at: string;
 }
 
 export type DecisionCategoryTtlOverrides = Partial<Record<DecisionCategory, number>>;
