@@ -35,6 +35,7 @@ export const KNOB_CONSUMERS: Record<string, string> = {
   team_agents: 'full-lane team routing',
   analytics_instrumentation: 'analytics gate + classifier',
   site_map: 'site-map engine + workflow',
+  rules_discovery_private_packages: 'rules discovery (packages never researched on the web)',
   visual_evidence: 'visual-evidence capture (frontend trigger + gate + CLI)',
   visual_evidence_mode: 'visual-evidence gate (end-of-change enforcement)',
   lean_rules: 'context seam (rule injection)',

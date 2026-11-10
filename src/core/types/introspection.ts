@@ -7,6 +7,7 @@ export const STACK_ECOSYSTEMS = [
   'go',
   'rust',
   'dart',
+  'dotnet',
 ] as const;
 export type StackEcosystem = (typeof STACK_ECOSYSTEMS)[number];
 export type StackProfileSourceKind = 'manifest' | 'lockfile' | 'config' | 'heuristic' | 'fallback';
@@ -24,6 +25,7 @@ export interface InstalledPackage {
   ecosystem: StackEcosystem;
   is_dev: boolean;
   root?: string;
+  manifest?: string;
 }
 
 export interface StackSourceReference {

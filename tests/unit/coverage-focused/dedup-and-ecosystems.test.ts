@@ -103,9 +103,8 @@ describe('coverage dedup and ecosystems', () => {
           'pyproject.toml',
         ).packages,
       ).toEqual([
-        { name: 'dependencies', isDev: false },
-        { name: 'fastapi', isDev: false },
-        { name: 'uvicorn', isDev: false },
+        { name: 'fastapi', constraint: '>=0.115.0', isDev: false },
+        { name: 'uvicorn', constraint: '>=0.30.0', isDev: false },
       ]);
 
       expect(

@@ -1,7 +1,10 @@
 import type { InstalledPackage, ToolchainInfo } from '@/core/types/introspection.js';
 
+import fg from 'fast-glob';
+
 import { readProjectFile } from './shared.js';
 import { dartParser } from './dart.js';
+import { dotnetParser } from './dotnet.js';
 import { goParser } from './go.js';
 import { jvmParser } from './jvm.js';
 import { npmParser } from './node-npm.js';
@@ -70,6 +73,7 @@ export class EcosystemParserRegistry {
             locked_version: lockedVersions.get(pkg.name) ?? pkg.constraint ?? 'unknown',
             ecosystem: parser.ecosystem,
             is_dev: pkg.isDev ?? false,
+            manifest: manifest.filename,
           }))
           .sort((left, right) => left.name.localeCompare(right.name)),
       });
@@ -83,7 +87,7 @@ async function findFirstExistingFile(
   projectRoot: string,
   filenames: string[],
 ): Promise<{ filename: string; content: string } | null> {
-  for (const filename of filenames) {
+  for (const filename of expandManifestNames(projectRoot, filenames)) {
     const content = await readProjectFile(projectRoot, filename);
     if (content !== null) {
       return { filename, content };
@@ -91,6 +95,14 @@ async function findFirstExistingFile(
   }
 
   return null;
+}
+
+export function expandManifestNames(projectRoot: string, filenames: string[]): string[] {
+  return filenames.flatMap((filename) =>
+    filename.includes('*')
+      ? fg.sync(filename, { cwd: projectRoot, onlyFiles: true, deep: 1 }).sort()
+      : [filename],
+  );
 }
 
 export function createDefaultEcosystemParserRegistry(): EcosystemParserRegistry {
@@ -104,5 +116,6 @@ export function createDefaultEcosystemParserRegistry(): EcosystemParserRegistry 
     jvmParser,
     goParser,
     rustParser,
+    dotnetParser,
   ]);
 }
