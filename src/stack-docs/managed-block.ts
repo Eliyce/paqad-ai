@@ -26,6 +26,7 @@ export function escapeDocText(value: string): string {
   return value
     .replace(/\s+/g, ' ')
     .trim()
+    .replace(/\\/g, '\\\\')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

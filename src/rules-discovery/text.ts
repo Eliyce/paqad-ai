@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 
-const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g;
+const HTML_COMMENT_RE = /<!--[\s\S]*?(?:--!?>|$)/g;
 const STRAY_MARKER_RE = /@rule\s+RL-[0-9a-f]+(?:\s+discovered:\S+)?/gi;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function cleanDiscoveredText(input: string): string {
   return input
     .replace(HTML_COMMENT_RE, ' ')
-    .replace(/-->/g, ' ')
+    .replace(/--!?>/g, ' ')
     .replace(STRAY_MARKER_RE, ' ')
     .replace(/\s+/g, ' ')
     .trim()

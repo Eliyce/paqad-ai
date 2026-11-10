@@ -58,7 +58,7 @@ Gives the Developer / Operator rule ideas grounded in current practice for the s
     "id": "S-1",
     "fact": "safeParse returns a result instead of throwing",
     "origin": "https://zod.dev/?id=safeparse",
-    "date": "2026-11-10",
+    "date": "YYYY-MM-DD",
     "verified": "yes",
     "package": "zod",
     "version": "3.22"

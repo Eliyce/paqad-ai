@@ -18,7 +18,7 @@ const SHOWN_NAMES = 3;
 const NAME_FORMATS: Record<StackEcosystem, RegExp> = {
   node: /^(?:@[a-z0-9~-][a-z0-9._~-]*\/)?[a-z0-9~-][a-z0-9._~-]*$/,
   python: /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/,
-  php: /^[a-z0-9](?:[_.-]?[a-z0-9]+)*\/[a-z0-9](?:(?:[_.]|-{1,2})?[a-z0-9]+)*$/,
+  php: /^[a-z0-9]+(?:[_.-][a-z0-9]+)*\/[a-z0-9]+(?:(?:[_.]|-{1,2})[a-z0-9]+)*$/,
   go: /^[A-Za-z0-9][A-Za-z0-9._~/-]*$/,
   rust: /^[A-Za-z0-9_-]+$/,
   ruby: /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
