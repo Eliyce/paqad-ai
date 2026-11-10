@@ -22,7 +22,7 @@ import { listUnjudgedDecisions } from '@/rules-discovery/decisions.js';
 import { atomicWriteJson } from '@/rules-discovery/files.js';
 import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { RULES_DISCOVERY_BASELINE, absRunFile, runFilePath } from '@/rules-discovery/paths.js';
-import { readProposal } from '@/rules-discovery/proposal.js';
+import { readProposal, type ProposalRow, type Verdict } from '@/rules-discovery/proposal.js';
 import { readRun, updateRun } from '@/rules-discovery/run-store.js';
 import { NOT_NOW, SIGN_OFF } from '@/rules-discovery/signoff.js';
 
@@ -52,12 +52,24 @@ function withMap(fp: FlowProject): void {
   });
 }
 
-function signedRun(choice: string | null = SIGN_OFF, judgements?: unknown): FlowProject {
+interface SignedRunExtras {
+  verdictOf?: (row: ProposalRow) => Verdict;
+  fromDecisions?: unknown;
+}
+
+function signedRun(
+  choice: string | null = SIGN_OFF,
+  judgements?: unknown,
+  extras: SignedRunExtras = {},
+): FlowProject {
   const fp = flowProject();
   current = fp;
   withMap(fp);
   if (judgements !== undefined) {
     atomicWriteJson(absRunFile(fp.project.root, fp.runId, 'judgements'), judgements);
+  }
+  if (extras.fromDecisions !== undefined) {
+    atomicWriteJson(absRunFile(fp.project.root, fp.runId, 'fromDecisions'), extras.fromDecisions);
   }
   proposeStep(fp.project.root, fp.runId, NOW);
   for (const row of readProposal(fp.project.root, fp.runId)!.rows) {
@@ -65,7 +77,7 @@ function signedRun(choice: string | null = SIGN_OFF, judgements?: unknown): Flow
       fp.project.root,
       fp.runId,
       row.row_id,
-      row.change === 'conflict' ? 'take_new' : 'keep',
+      extras.verdictOf?.(row) ?? (row.change === 'conflict' ? 'take_new' : 'keep'),
     );
   }
   const { decision_id } = signoffStep(fp.project.root, fp.runId, NOW);
@@ -372,5 +384,90 @@ describe('AC-5 rules discovery apply edges', () => {
   it('AC-5: tracing an id no rule file carries finds nothing', () => {
     const fp = signedRun();
     expect(traceDiscoveredRule(fp.project.root, 'RL-0000')).toBeNull();
+  });
+});
+
+describe('AC-5 rules discovery apply verdicts and tags', () => {
+  it('AC-5: dropped rows are skipped, keep their rule id, and tag no decision', () => {
+    const fp = signedRun(SIGN_OFF, undefined, {
+      verdictOf: (row) => (row.change === 'conflict' ? 'keep_existing' : 'drop'),
+    });
+    const report = applyProposal(fp.project.root, fp.runId);
+    expect(report).toMatchObject({ added: 0, changed: 0, removed: 0, refused: [] });
+    const journal = readApplyJournal(fp.project.root, fp.runId);
+    const skipped = Object.values(journal.rows).filter((row) => row.write === 'skip');
+    expect(skipped.map((row) => row.rule_id).sort()).toEqual(
+      [null, null, 'RL-bbbb', 'RL-cccc'].sort(),
+    );
+    expect(packet(fp, 'D-2').rules_discovery).toBeUndefined();
+    expect(packet(fp, 'D-1').rules_discovery).toMatchObject({ rule_id: 'RL-aaaa' });
+    expect(fp.read(RULE_FILE)).toContain('RL-bbbb');
+  });
+
+  it('AC-5: a decision tagged by a written row is not retagged by a fold or a not-a-rule entry', () => {
+    const fp = signedRun(SIGN_OFF, undefined, {
+      fromDecisions: {
+        ideas: [
+          {
+            idea_id: 'DI-1',
+            text: 'Validate request bodies at the route boundary.',
+            why: 'twice',
+            source_decisions: ['D-1', 'D-2'],
+            scope: 'project',
+          },
+          {
+            idea_id: 'DI-2',
+            text: 'Log every request with a request id',
+            why: 'ops',
+            source_decisions: ['D-2'],
+            scope: 'project',
+          },
+        ],
+        not_rules: [{ id: 'D-2', reason: 'one file only' }],
+      },
+    });
+    applyProposal(fp.project.root, fp.runId, { now: NOW });
+    const logged = fp
+      .read(RULE_FILE)
+      .split('\n')
+      .find((line) => line.includes('request id'))!;
+    expect(packet(fp, 'D-2').rules_discovery).toMatchObject({
+      status: 'absorbed',
+      rule_id: parseRuleMarker(logged),
+    });
+    expect(packet(fp, 'D-1').rules_discovery).toMatchObject({ rule_id: 'RL-aaaa' });
+  });
+
+  it('AC-5: without an inventory the baseline stays put and the report names none', () => {
+    const fp = signedRun();
+    rmSync(absRunFile(fp.project.root, fp.runId, 'inventory'));
+    const report = applyProposal(fp.project.root, fp.runId, { now: NOW });
+    expect(report.baseline).toBeNull();
+    expect(readBaseline(fp.project.root)).toBeNull();
+    expect(runStep(fp)).toBe('docs');
+  });
+
+  it('AC-5: offers checks for several rules in the plural', () => {
+    const fp = signedRun();
+    const report = applyProposal(fp.project.root, fp.runId, { now: NOW });
+    expect(scriptableOffer({ ...report, scriptable: 2 })).toMatch(
+      /^2 new or changed rules could be checked by a script\./,
+    );
+  });
+
+  it('AC-5: a trace survives a lost run, journal and sources file', () => {
+    const fp = signedRun();
+    applyProposal(fp.project.root, fp.runId, { now: NOW });
+    const line = fp.read(NEW_FILE).split('\n')[0]!;
+    rmSync(absRunFile(fp.project.root, fp.runId, 'run'));
+    rmSync(absRunFile(fp.project.root, fp.runId, 'apply'));
+    writeFileSync(absRunFile(fp.project.root, fp.runId, 'sources'), '{"not":"a list"}');
+    expect(traceDiscoveredRule(fp.project.root, parseRuleMarker(line)!)).toEqual({
+      rule_id: parseRuleMarker(line),
+      run_id: fp.runId,
+      signoff_decision: null,
+      sources: [],
+      source_decisions: [],
+    });
   });
 });

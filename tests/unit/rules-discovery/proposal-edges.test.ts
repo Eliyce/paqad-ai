@@ -1,25 +1,44 @@
 import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { manifestPackageNames } from '@/rules-discovery/nudge.js';
+import { baselineLabel } from '@/rules-discovery/baseline.js';
+import { proposeStep } from '@/rules-discovery/flow.js';
+import {
+  computeRulesDriftNudge,
+  manifestPackageNames,
+  nudgeLine,
+} from '@/rules-discovery/nudge.js';
 import { atomicWriteJson } from '@/rules-discovery/files.js';
 import { absRunFile } from '@/rules-discovery/paths.js';
 import {
   buildProposal,
+  carryVerdicts,
+  mentionsPackage,
   proposalFileHash,
   readJudgements,
   readProposal,
+  setVerdict,
   staleRows,
   type BuildProposalInput,
   type ExistingRule,
 } from '@/rules-discovery/proposal.js';
-import { markResearched, readResearch, startResearch } from '@/rules-discovery/research.js';
-import { openRun } from '@/rules-discovery/run-store.js';
+import {
+  checkResearch,
+  markResearched,
+  planResearch,
+  readResearch,
+  startResearch,
+  stopResearch,
+  type ResearchIdea,
+} from '@/rules-discovery/research.js';
+import { openRun, readRun } from '@/rules-discovery/run-store.js';
+import { readSignoff, signedHash } from '@/rules-discovery/signoff.js';
 import type { StackInventory } from '@/rules-discovery/types.js';
 import { managedBlockMarkers, upsertManagedBlock } from '@/stack-docs/managed-block.js';
 
-import { TempProject } from './fixtures.js';
+import { TempProject, resolvedPacket } from './fixtures.js';
 import { NOW, pkg } from './flow-fixtures.js';
 
 const RULES = 'docs/instructions/rules/coding/api.md';
@@ -350,5 +369,211 @@ describe('AC-5 managed stack doc blocks', () => {
     const first = upsertManagedBlock('# Title\n', 'zod', 'old');
     const second = upsertManagedBlock(`${first}tail\n`, 'zod', 'new');
     expect(second).toBe(`# Title\n\n${begin}\nnew\n${end}\ntail\n`);
+  });
+});
+
+function inventoryOf(runId: string, packages: StackInventory['packages']): StackInventory {
+  return {
+    schema_version: 1,
+    generated_at: NOW.toISOString(),
+    run_id: runId,
+    packages,
+    frameworks: [],
+    manifests: ['package.json'],
+    manifests_looked_for: [],
+    compared_to: null,
+  };
+}
+
+describe('AC-5 proposal verdict edges', () => {
+  const proposal = buildProposal(
+    input({
+      decisions: {
+        ideas: [
+          {
+            idea_id: 'DI-1',
+            text: 'Log every request.',
+            why: 'x',
+            source_decisions: ['D-1'],
+            scope: 'project',
+          },
+          {
+            idea_id: 'DI-2',
+            text: 'Name files in kebab case.',
+            why: 'x',
+            source_decisions: ['D-2'],
+            scope: 'project',
+          },
+        ],
+        not_rules: [],
+      },
+    }),
+  );
+
+  it('AC-5: refuses a verdict for a row that does not exist', () => {
+    expect(() => setVerdict(proposal, 'P-9', 'keep')).toThrow('no proposal row P-9');
+  });
+
+  it('AC-5: refuses an edit with no text or only a comment', () => {
+    expect(() => setVerdict(proposal, 'P-1', 'edit')).toThrow(/edit needs the new rule text/);
+    expect(() => setVerdict(proposal, 'P-1', 'edit', '<!-- x -->')).toThrow(
+      /edit needs the new rule text/,
+    );
+  });
+
+  it('AC-5: carries earlier verdicts only to rows that match an earlier row', () => {
+    const decided = setVerdict(proposal, 'P-1', 'edit', 'Log every request with an id.');
+    const next = buildProposal(
+      input({
+        decisions: {
+          ideas: [
+            {
+              idea_id: 'DI-1',
+              text: 'Log every request.',
+              why: 'x',
+              source_decisions: ['D-1'],
+              scope: 'project',
+            },
+            {
+              idea_id: 'DI-3',
+              text: 'Keep handlers small.',
+              why: 'x',
+              source_decisions: ['D-3'],
+              scope: 'project',
+            },
+          ],
+          not_rules: [],
+        },
+      }),
+    );
+    const carried = carryVerdicts(decided, next);
+    expect(carried.rows.map((row) => [row.verdict, row.edited_text])).toEqual([
+      ['edit', 'Log every request with an id.'],
+      [null, null],
+    ]);
+  });
+
+  it('AC-5: never matches a package name shorter than three characters', () => {
+    expect(mentionsPackage('Use qs for query strings.', 'qs')).toBe(false);
+    expect(mentionsPackage('Use zod for input.', 'zod')).toBe(true);
+  });
+});
+
+describe('AC-5 proposing without an inventory', () => {
+  it('AC-5: proposes from decisions alone and leaves the baseline alone', () => {
+    const project = temp();
+    const run = openRun(project.root, NOW);
+    const result = proposeStep(project.root, run.run_id, NOW);
+    expect(result.current).toBe(true);
+    expect(readRun(project.root, run.run_id)).toMatchObject({ record: { status: 'done' } });
+  });
+
+  it('AC-5: labels a baseline with neither an inventory nor a seed by its own path', () => {
+    expect(
+      baselineLabel({
+        schema_version: 1,
+        source: 'run',
+        inventory: null,
+        run_id: null,
+        seeded_from: null,
+        updated_at: NOW.toISOString(),
+        packages: [],
+      }),
+    ).toBe('.paqad/ledger/rules-discovery/baseline.json');
+  });
+});
+
+describe('AC-5 research plan and checks', () => {
+  it('AC-5: plans a package once and falls back to its declared version', () => {
+    const plan = planResearch(
+      inventoryOf('rd-20261101-100000', [
+        { ...pkg('zod', 'unchanged'), installed: null },
+        { ...pkg('zod', 'unchanged'), manifest: 'web/package.json' },
+      ]),
+    );
+    expect(plan.order).toEqual([
+      { key: 'node:zod', name: 'zod', ecosystem: 'node', installed: '^1.0.0', reason: 'other' },
+    ]);
+  });
+
+  it('AC-5: an online run with nothing to research is done, and stopping needs a started run', () => {
+    const project = temp();
+    const run = openRun(project.root, NOW);
+    expect(() => stopResearch(project.root, run.run_id, NOW)).toThrow(/has not started/);
+    const progress = startResearch(project.root, run.run_id, inventoryOf(run.run_id, []), {
+      offline: false,
+      now: NOW,
+    });
+    expect(progress.state).toBe('done');
+    expect(stopResearch(project.root, run.run_id, NOW).state).toBe('done');
+  });
+
+  it('AC-5: stopping with packages left marks research stopped', () => {
+    const project = temp();
+    const run = openRun(project.root, NOW);
+    startResearch(project.root, run.run_id, inventoryOf(run.run_id, [pkg('zod', 'new')]), {
+      offline: false,
+    });
+    expect(stopResearch(project.root, run.run_id).state).toBe('stopped');
+  });
+
+  it('AC-5: names an idea with no package, version or sources and keeps a versionless source', () => {
+    const broken = { idea_id: 'RI-x', text: 'Something.', why: 'x' } as unknown as ResearchIdea;
+    const result = checkResearch({
+      ideas: [broken],
+      sources: [
+        {
+          id: 'S-1',
+          fact: 'fact',
+          origin: 'https://example.test/',
+          date: '2026-11-01',
+          verified: 'yes',
+          package: 'ghost',
+          version: undefined as unknown as string,
+        },
+      ],
+      inventory: inventoryOf('rd-20261101-100000', [{ ...pkg('zod', 'new'), installed: null }]),
+      now: NOW,
+    });
+    expect(result.problems).toEqual([
+      'RI-x names no package version',
+      'RI-x has no usable source with a link and a date read',
+    ]);
+    expect(result.sources.map((source) => [source.id, source.old])).toEqual([['S-1', false]]);
+  });
+});
+
+describe('AC-5 sign-off reading', () => {
+  it('AC-5: a packet without a proposal hash has no signed hash', () => {
+    expect(signedHash(resolvedPacket({ decision_id: 'D-1' }))).toBeNull();
+  });
+
+  it('AC-5: a resolved sign-off without a human answer reads as not now', () => {
+    const project = temp();
+    project.writeResolved(resolvedPacket({ decision_id: 'D-4', human_response: undefined }));
+    expect(readSignoff(project.root, 'D-4').state).toBe('not_now');
+  });
+});
+
+describe('AC-5 drift nudge edges', () => {
+  it('AC-5: reads a wildcard manifest such as a csproj', () => {
+    const project = temp();
+    project.write(
+      join('src', 'App.csproj'),
+      '<Project><ItemGroup><PackageReference Include="Serilog" Version="3.0.0" /></ItemGroup></Project>',
+    );
+    expect(manifestPackageNames(project.root)).toEqual([{ name: 'Serilog', ecosystem: 'dotnet' }]);
+  });
+
+  it('AC-5: names no packages when none can be shown', () => {
+    expect(nudgeLine(2, [], null)).toBe(
+      "Your rules may be behind: 2 new packages. Say 'discover rules' to update them.",
+    );
+  });
+
+  it('AC-5: says nothing when there is no baseline and no stack snapshot', () => {
+    const project = temp();
+    project.write('package.json', JSON.stringify({ dependencies: { zod: '^3.0.0' } }));
+    expect(computeRulesDriftNudge(project.root, NOW)).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import {
   matchesPrivatePattern,
   packageKey,
 } from '@/rules-discovery/inventory.js';
+import { RULES_DISCOVERY_BASELINE } from '@/rules-discovery/paths.js';
 import type { InventoryPackage, StackInventory } from '@/rules-discovery/types.js';
 
 const RUN = 'rd-20261110-120000';
@@ -306,5 +307,82 @@ describe('AC-5 inventory summary', () => {
     ).toBe(
       '1 packages from 2 manifests: 0 new, 1 version-changed, 1 removed against run rd-20261101-100000.',
     );
+  });
+});
+
+describe('AC-5 inventory edges', () => {
+  it('AC-5: reads lockfiles with no package block or no resolved line as sourceless', () => {
+    expect(lockfileSources('{}', 'package-lock.json').size).toBe(0);
+    expect(lockfileSources('"hono@^4.0.0":\n  version "4.0.5"\n', 'yarn.lock').size).toBe(0);
+  });
+
+  it('AC-5: a pubspec without a name and a go.mod without a module add no workspace name', async () => {
+    const root = project({
+      'pubspec.yaml': 'dependencies:\n  http: ^1.0.0\n',
+      'go.mod': 'require example.com/x v1.0.0\n',
+    });
+    const inv = await buildStackInventory({
+      projectRoot: root,
+      runId: RUN,
+      frameworks: [],
+      env: {},
+    });
+    expect(find(inv, 'http').private).toBe(false);
+    expect(find(inv, 'example.com/x').private).toBe(false);
+    expect(Date.parse(inv.generated_at)).not.toBeNaN();
+  });
+
+  it('AC-5: an empty constraint is unknown, never private, and lists one row per manifest', async () => {
+    const root = project({
+      'package.json': JSON.stringify({ dependencies: { zod: '' } }),
+      'web/package.json': JSON.stringify({ dependencies: { zod: '^3.0.0' } }),
+    });
+    const inv = await buildStackInventory({
+      projectRoot: root,
+      runId: RUN,
+      now: NOW,
+      frameworks: [],
+      env: {},
+    });
+    const rows = inv.packages.filter((pkg) => pkg.name === 'zod');
+    expect(rows.map((pkg) => [pkg.manifest, pkg.declared, pkg.private])).toEqual([
+      ['package.json', null, false],
+      ['web/package.json', '^3.0.0', false],
+    ]);
+  });
+
+  it('AC-5: an unknown version on either side does not count as a version change', async () => {
+    const root = project({
+      'package.json': JSON.stringify({
+        dependencies: { zod: '^3.0.0', hono: '^4.0.0', react: '^18.0.0' },
+      }),
+      'package-lock.json': JSON.stringify({
+        packages: { 'node_modules/hono': { version: '4.1.0' } },
+      }),
+      [RULES_DISCOVERY_BASELINE]: JSON.stringify({
+        schema_version: 1,
+        source: 'run',
+        inventory: null,
+        run_id: null,
+        seeded_from: null,
+        updated_at: NOW.toISOString(),
+        packages: [
+          { name: 'zod', ecosystem: 'node', declared: null, installed: '3.0.0', dev: false },
+          { name: 'hono', ecosystem: 'node', declared: '^4.0.0', installed: null, dev: false },
+          { name: 'react', ecosystem: 'node', declared: '^17.0.0', installed: null, dev: false },
+        ],
+      }),
+    });
+    const inv = await buildStackInventory({
+      projectRoot: root,
+      runId: RUN,
+      now: NOW,
+      frameworks: [],
+      env: {},
+    });
+    expect(find(inv, 'zod').status).toBe('unchanged');
+    expect(find(inv, 'hono').status).toBe('unchanged');
+    expect(find(inv, 'react').status).toBe('version-changed');
+    expect(inv.compared_to).toBe(RULES_DISCOVERY_BASELINE);
   });
 });
