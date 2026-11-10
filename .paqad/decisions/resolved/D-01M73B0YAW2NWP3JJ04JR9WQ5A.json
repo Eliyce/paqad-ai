@@ -1,0 +1,59 @@
+{
+  "id": "D-01M73B0YAW2NWP3JJ04JR9WQ5A",
+  "category": "intake.requirement",
+  "title": "Should rules discovery look up your own private or internal packages on the public web?",
+  "context": "Research looks up packages on the public web. Searching for a private package name tells outside search services that your company uses it, which can reveal internal projects.",
+  "options": [
+    {
+      "option_key": "public_only",
+      "label": "Skip private and internal packages; research public ones only",
+      "one_line_preview": "Skip private and internal packages; research public ones only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ask_per_run",
+      "label": "Ask once per run which private packages may be looked up",
+      "one_line_preview": "Ask once per run which private packages may be looked up",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "research_all",
+      "label": "Research every package, private ones included",
+      "one_line_preview": "Research every package, private ones included",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "public_only",
+  "created_at": "2026-11-10T18:20:16.604Z",
+  "status": "resolved",
+  "change": "01M73AE41TYA4MJPNJZS30HMPE",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "Scanned 73 earlier titles; none asks whether private package names may be searched on the public web. The search-package titles are about bundled dependencies, not research lookups."
+  },
+  "chosen": "public_only",
+  "rationale": "Owner chose: research public packages only",
+  "resolved_at": "2026-11-10T18:25:30.546Z",
+  "decision_id": "D-01M73B0YAW2NWP3JJ04JR9WQ5A",
+  "fingerprint": "sha256:2b62e13257f30355a29cbb87fe6928ec6e3e7c9ec37821833fdf711cd96751b4",
+  "question": "Should rules discovery look up your own private or internal packages on the public web?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M73AE41TYA4MJPNJZS30HMPE",
+  "ttl_until": "2026-11-24T18:20:16.604Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "public_only",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-10T18:25:30.546Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: research public packages only"
+  }
+}

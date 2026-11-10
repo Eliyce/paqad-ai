@@ -1,0 +1,59 @@
+{
+  "id": "D-01M73B0GXN9GAKYTBZXB0GH4W0",
+  "category": "intake.requirement",
+  "title": "How much research should one rules discovery run do?",
+  "context": "Issue 872 open question: research cap of 8 rule ideas per package; the qa-engineer found no stop point per run. More research finds more rule ideas but makes the review list longer and the run slower.",
+  "options": [
+    {
+      "option_key": "cap8_20pkgs",
+      "label": "Up to 8 ideas per package, and at most 20 packages per run, new and changed ones first",
+      "one_line_preview": "Up to 8 ideas per package, and at most 20 packages per run, new and changed ones first",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "cap8_all",
+      "label": "Up to 8 ideas per package, covering every package however long it takes",
+      "one_line_preview": "Up to 8 ideas per package, covering every package however long it takes",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "cap4_20pkgs",
+      "label": "Up to 4 ideas per package, and at most 20 packages per run, so reviews stay short",
+      "one_line_preview": "Up to 4 ideas per package, and at most 20 packages per run, so reviews stay short",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "cap8_20pkgs",
+  "created_at": "2026-11-10T18:20:02.869Z",
+  "status": "resolved",
+  "change": "01M73AE41TYA4MJPNJZS30HMPE",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "Scanned all 73 earlier titles; none asks about where rules discovery saves rules or how much research one run does."
+  },
+  "chosen": "cap8_all",
+  "rationale": "Owner chose: up to 8 ideas per package, every package, no package cap",
+  "resolved_at": "2026-11-10T18:25:29.295Z",
+  "decision_id": "D-01M73B0GXN9GAKYTBZXB0GH4W0",
+  "fingerprint": "sha256:ecec4153b748d365b89b3ca67ee3968bb939dfc52daa799637fad6a3d7698b43",
+  "question": "How much research should one rules discovery run do?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M73AE41TYA4MJPNJZS30HMPE",
+  "ttl_until": "2026-11-24T18:20:02.869Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "cap8_all",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-10T18:25:29.295Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: up to 8 ideas per package, every package, no package cap"
+  }
+}
