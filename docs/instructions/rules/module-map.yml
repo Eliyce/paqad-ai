@@ -91,7 +91,6 @@ modules:
         - OnboardingOrchestrator
         - OnboardingSelections
         - RagSelection
-        - RulesRefreshReport
         - UpdateCandidate
         - UpdateDiff
         - UpdateReport
@@ -130,7 +129,6 @@ modules:
         - migrateLegacyDecisionIds
         - normalizeEngineVersion
         - readOnboardingCheckpoint
-        - refreshProjectRules
         - removeObsoleteContractDocs
         - renderStackConfirmationSummary
         - resolveRagSelection
@@ -1633,6 +1631,20 @@ modules:
     sources:
       - runtime/base/rules
       - docs/instructions/rules
+
+  - slug: rules-discovery
+    name: Rules Discovery
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Keeps an onboarded project's rules and stack docs current: lists the
+      packages the project really uses, lists resolved decisions not yet
+      judged, keeps the run state and the stack baseline, applies a signed-off
+      rule proposal through the rule-scripts editor, and shows the session
+      drift line when new packages appear.
+    sources:
+      - src/rules-discovery
+      - src/cli/commands/rules-discovery.ts
 
   - slug: template-engine
     name: Template Engine

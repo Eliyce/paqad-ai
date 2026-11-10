@@ -1,0 +1,29 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: discover-rules
+label: Bring the project rules and stack docs up to date
+actor: developer
+goal: >-
+  The Developer / Operator keeps the rules and stack docs current with the packages the project
+  really uses, the decisions the team settled and sourced research.
+entry: node-cli-rules
+priority: medium
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-rules
+    action: Say "discover rules" (or follow the session drift line); paqad runs `paqad-ai rules discovery start`.
+    expect: A run opens, or the open run resumes at its step.
+  - surface: node-cli-rules
+    action: Run `paqad-ai rules inventory`, the decisions and research steps, then `paqad-ai rules discovery propose`.
+    expect: One proposal with new, changed and removed rules, each with its origin and target file.
+  - surface: node-cli-rules
+    action: Record keep, edit or drop per row and sign off the one `rules.proposal` decision.
+    expect: The decision asks "Sign off N new, M changed, K removed rules?".
+  - surface: node-cli-rules
+    action: Run `paqad-ai rules discovery apply`, then `paqad-ai rules discovery docs`.
+    expect: Rules written with their run marker, decisions tagged, baseline moved, stack docs refreshed.
+ends:
+  success: The rules and stack docs match the stack, and the drift line clears.
+  abandoned: The sign-off is answered not now, or a fresh run replaces the open one; no rule file changes.

@@ -53,6 +53,7 @@ import {
   type DecisionHumanResponse,
   type DecisionPacket,
   type DecisionStatus,
+  type RulesDiscoveryTag,
 } from './decision-packet.js';
 import { lintDecisionCopy } from './decision-copy.js';
 
@@ -397,6 +398,19 @@ export class DecisionStore {
     this.appendAudit('decision-expired', expired);
     recordDecisionExpired(this.projectRoot, expired.decision_id);
     return target;
+  }
+
+  tagRulesDiscovery(decisionId: string, tag: RulesDiscoveryTag): 'tagged' | 'already' | 'missing' {
+    const path = this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, decisionId);
+    if (!existsSync(path)) {
+      return 'missing';
+    }
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    if (raw.rules_discovery !== undefined) {
+      return 'already';
+    }
+    atomicWriteJson(path, { ...raw, rules_discovery: tag });
+    return 'tagged';
   }
 
   hasInvalidation(packet: DecisionPacket): boolean {

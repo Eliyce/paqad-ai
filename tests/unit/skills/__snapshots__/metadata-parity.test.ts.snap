@@ -1363,6 +1363,80 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/rules-decision-miner": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_id": {
+        "description": "The rules discovery run id whose folder receives from-decisions.json.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rules-decision-miner",
+    "output_format": "json",
+    "triggers": [],
+  },
+  "runtime/base/skills/rules-discovery": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "The project whose rules and stack docs rules discovery keeps current.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "rules-discovery",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "rules-discovery",
+        ],
+      },
+    ],
+  },
+  "runtime/base/skills/rules-proposer": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_id": {
+        "description": "The rules discovery run id whose ideas are merged into proposal.json.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rules-proposer",
+    "output_format": "json",
+    "triggers": [],
+  },
+  "runtime/base/skills/rules-researcher": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "run_id": {
+        "description": "The rules discovery run id whose folder receives from-research.json and sources.json.",
+        "required": true,
+        "type": "string",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "reasoning",
+    "name": "rules-researcher",
+    "output_format": "json",
+    "triggers": [],
+  },
   "runtime/base/skills/scope-check": {
     "cache_key_inputs": [],
     "cacheable": false,

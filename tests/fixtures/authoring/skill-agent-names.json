@@ -282,6 +282,26 @@
       "name": "rule-script-runner"
     },
     {
+      "path": "runtime/base/skills/rules-decision-miner/SKILL.md",
+      "folder": "rules-decision-miner",
+      "name": "rules-decision-miner"
+    },
+    {
+      "path": "runtime/base/skills/rules-discovery/SKILL.md",
+      "folder": "rules-discovery",
+      "name": "rules-discovery"
+    },
+    {
+      "path": "runtime/base/skills/rules-proposer/SKILL.md",
+      "folder": "rules-proposer",
+      "name": "rules-proposer"
+    },
+    {
+      "path": "runtime/base/skills/rules-researcher/SKILL.md",
+      "folder": "rules-researcher",
+      "name": "rules-researcher"
+    },
+    {
       "path": "runtime/base/skills/scope-check/SKILL.md",
       "folder": "scope-check",
       "name": "scope-check"

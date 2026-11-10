@@ -7,6 +7,8 @@ import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { compileRuleScripts } from '@/rule-scripts/compile.js';
 import { applyRuleOverride, recordEditOutcome } from '@/rule-scripts/override.js';
 
+import { registerRulesDiscoveryCommands } from './rules-discovery.js';
+
 export function createRulesCommand(): Command {
   const command = new Command('rules').description('Manage the rules-as-scripts enforcement map');
 
@@ -179,6 +181,8 @@ export function createRulesCommand(): Command {
       );
       console.log(JSON.stringify({ overridden: true, ...outcome.row, bundle: outcome.dirName }));
     });
+
+  registerRulesDiscoveryCommands(command);
 
   return command;
 }

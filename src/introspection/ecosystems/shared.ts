@@ -31,6 +31,13 @@ export function normalizeConstraint(value: unknown): string {
 
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
+    if (typeof record.path === 'string') {
+      return `path:${record.path}`;
+    }
+    if (typeof record.git === 'string' || (record.git && typeof record.git === 'object')) {
+      const git = record.git as string | { url?: unknown };
+      return `git:${typeof git === 'string' ? git : String(git.url ?? '')}`;
+    }
     if (typeof record.sdk === 'string') {
       return `sdk:${record.sdk}`;
     }

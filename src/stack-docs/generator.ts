@@ -8,6 +8,9 @@ import { compareStackProfiles, summarizeStack } from '@/core/stack-profile.js';
 import type { StackDriftReport, StackSnapshot } from '@/core/types/introspection.js';
 import { sanitizeStackSnapshotRepository } from '@/onboarding/manifest-writer.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
+import { capLine, cleanDiscoveredText } from '@/rules-discovery/text.js';
+
+import { escapeDocText, upsertManagedBlock } from './managed-block.js';
 
 export interface WriteStackArtifactsOptions {
   writeHumanDocs?: boolean;
@@ -20,7 +23,10 @@ export async function writeStackArtifacts(
   options: WriteStackArtifactsOptions = {},
 ): Promise<StackDriftReport> {
   const existingDrift = await readExistingDrift(projectRoot);
-  const computedDrift = compareStackProfiles(previousSnapshot?.profile ?? null, snapshot.profile);
+  const computedDrift = compareStackProfiles(previousSnapshot?.profile ?? null, snapshot.profile, {
+    previous: previousSnapshot?.packages,
+    current: snapshot.packages,
+  });
   const drift =
     computedDrift.status === 'no-drift' && existingDrift !== null ? existingDrift : computedDrift;
   const sanitizedSnapshot = sanitizeStackSnapshotRepository(projectRoot, snapshot);
@@ -329,4 +335,106 @@ async function readTemplate(
   } catch {
     return null;
   }
+}
+
+export const PURPOSE_MAX = 120;
+
+export interface InventoryDocPackage {
+  name: string;
+  ecosystem: string;
+  declared: string | null;
+  installed: string | null;
+  dev: boolean;
+  status: string;
+  description?: string;
+}
+
+export interface InventoryDocsInput {
+  packages: InventoryDocPackage[];
+  notes?: ReadonlyMap<string, string>;
+}
+
+export interface InventoryDocsResult {
+  updated: string[];
+}
+
+export function packagePurpose(pkg: InventoryDocPackage, note: string | undefined): string {
+  const raw = note ?? pkg.description ?? '';
+  return escapeDocText(capLine(cleanDiscoveredText(raw), PURPOSE_MAX));
+}
+
+function packageVersion(pkg: InventoryDocPackage): string {
+  return pkg.installed ?? pkg.declared ?? 'unknown';
+}
+
+function inventoryLine(pkg: InventoryDocPackage, notes: ReadonlyMap<string, string>): string {
+  const purpose = packagePurpose(
+    pkg,
+    notes.get(`${pkg.ecosystem}:${pkg.name}`) ?? notes.get(pkg.name),
+  );
+  const head = `- \`${escapeDocText(pkg.name)}\` ${escapeDocText(packageVersion(pkg))}${pkg.dev ? ' (dev)' : ''}`;
+  return purpose === '' ? head : `${head}: ${purpose}`;
+}
+
+function livePackages(packages: InventoryDocPackage[]): InventoryDocPackage[] {
+  return packages
+    .filter((pkg) => pkg.status !== 'removed')
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function versionsTable(packages: InventoryDocPackage[]): string {
+  const rows = packages.map(
+    (pkg) =>
+      `| ${escapeDocText(pkg.name)} | ${pkg.ecosystem} | ${escapeDocText(pkg.declared ?? '')} | ${escapeDocText(pkg.installed ?? '')} | ${pkg.dev ? 'yes' : 'no'} |`,
+  );
+  return [
+    '| Package | Ecosystem | Declared | Installed | Dev |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows,
+  ].join('\n');
+}
+
+export async function refreshStackDocsFromInventory(
+  projectRoot: string,
+  input: InventoryDocsInput,
+): Promise<InventoryDocsResult> {
+  const stackDir = join(projectRoot, PATHS.FRAMEWORK_STACK_DIR);
+  await mkdir(stackDir, { recursive: true });
+  const notes = input.notes ?? new Map<string, string>();
+  const live = livePackages(input.packages);
+  const lines = live.map((pkg) => inventoryLine(pkg, notes));
+  const list = lines.length === 0 ? '- None' : lines.join('\n');
+  const runtime = live.filter((pkg) => !pkg.dev).map((pkg) => inventoryLine(pkg, notes));
+  const dev = live.filter((pkg) => pkg.dev).map((pkg) => inventoryLine(pkg, notes));
+  const pages: Array<{ file: string; title: string; block: string; body: string }> = [
+    {
+      file: 'overview.md',
+      title: '# Stack Overview',
+      block: 'packages',
+      body: `## Packages\n\n${list}`,
+    },
+    {
+      file: 'dependencies.md',
+      title: '# Dependencies',
+      block: 'dependencies',
+      body: `## Runtime\n\n${runtime.length === 0 ? '- None' : runtime.join('\n')}\n\n## Dev\n\n${dev.length === 0 ? '- None' : dev.join('\n')}`,
+    },
+    { file: 'versions.md', title: '# Versions', block: 'versions', body: versionsTable(live) },
+  ];
+  const updated: string[] = [];
+  for (const page of pages) {
+    const path = join(stackDir, page.file);
+    let existing: string;
+    try {
+      existing = await readFile(path, 'utf8');
+    } catch {
+      existing = `${page.title}\n`;
+    }
+    const next = upsertManagedBlock(existing, page.block, page.body);
+    if (next !== existing) {
+      await writeFile(path, next);
+      updated.push(`${PATHS.FRAMEWORK_STACK_DIR}/${page.file}`);
+    }
+  }
+  return { updated };
 }

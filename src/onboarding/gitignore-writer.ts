@@ -16,7 +16,7 @@ const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
 
 const LEGACY_MARKER = '# paqad-ai';
 
-export const MANAGED_BLOCK_VERSION = 1;
+export const MANAGED_BLOCK_VERSION = 2;
 const MANAGED_BLOCK_VERSION_LINE = /^# managed_block_version:[ \t]*(\S+)[ \t]*\r?$/mu;
 
 const MANAGED_GITIGNORE_ENTRIES = [
@@ -48,6 +48,7 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'detection-report.json',
   'stack-snapshot.json',
   'stack-drift.json',
+  'rules-discovery-nudge.json',
   'doc-progress.json',
   'quality-baseline.json',
   'compiled-rules.json',

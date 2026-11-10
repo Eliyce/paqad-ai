@@ -1,0 +1,59 @@
+{
+  "id": "D-01M73B0XQZVWWTBXTY2AHDVSMJ",
+  "category": "intake.requirement",
+  "title": "What should happen to the existing reset that rewrites every rule from the paqad defaults?",
+  "context": "Today the full rule refresh (src/update/updater.ts, src/onboarding/rule-generator.ts) rewrites every rule, so rules the team signed off through rules discovery would be lost without warning.",
+  "options": [
+    {
+      "option_key": "keep_signed_off",
+      "label": "Keep the reset, but it keeps signed-off rules and resets only the default ones",
+      "one_line_preview": "Keep the reset, but it keeps signed-off rules and resets only the default ones",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "warn_first",
+      "label": "Keep the reset unchanged, but warn first and list the signed-off rules that will be lost",
+      "one_line_preview": "Keep the reset unchanged, but warn first and list the signed-off rules that will be lost",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove_reset",
+      "label": "Remove the reset; rules discovery becomes the only way to bring rules up to date",
+      "one_line_preview": "Remove the reset; rules discovery becomes the only way to bring rules up to date",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep_signed_off",
+  "created_at": "2026-11-10T18:20:15.999Z",
+  "status": "resolved",
+  "change": "01M73AE41TYA4MJPNJZS30HMPE",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "Scanned 73 earlier titles; none asks whether the full rule reset should keep signed-off rules. The closest (search package disclosure) is about dependency versions."
+  },
+  "chosen": "remove_reset",
+  "rationale": "Owner chose: remove the full rule reset; rules discovery is the only way to update rules",
+  "resolved_at": "2026-11-10T18:25:29.918Z",
+  "decision_id": "D-01M73B0XQZVWWTBXTY2AHDVSMJ",
+  "fingerprint": "sha256:d6f4e23e9cfdb723360d2a6aa81f10a5fe6370f1027f58f96537bfe670bc1bc0",
+  "question": "What should happen to the existing reset that rewrites every rule from the paqad defaults?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M73AE41TYA4MJPNJZS30HMPE",
+  "ttl_until": "2026-11-24T18:20:15.999Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "remove_reset",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-10T18:25:29.918Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: remove the full rule reset; rules discovery is the only way to update rules"
+  }
+}

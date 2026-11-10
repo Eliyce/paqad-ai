@@ -785,6 +785,20 @@ describe('runPromptRouteSeam with slash commands', () => {
     expect(classified).toBe(0);
   });
 
+  it.each(['discover rules', 'update our rules', 'audit our rules', 'are my rules out of date?'])(
+    'AC-1: routes "%s" to rules-discovery and names the route in the first status line',
+    async (request) => {
+      const result = await runPromptRouteSeam({
+        projectRoot: root,
+        request,
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      });
+      expect(result.routed).toBe('rules-discovery');
+      expect(result.narration).toContain('rules-discovery');
+    },
+  );
+
   it('routes /paqad-discover to discovery', async () => {
     const result = await runPromptRouteSeam({
       projectRoot: root,

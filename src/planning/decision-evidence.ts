@@ -152,6 +152,7 @@ export function defaultSimilarityFor(
     case 'authoring.improvement':
     case 'authoring.retirement':
     case 'authoring.override':
+    case 'rules.proposal':
       return 0.5;
   }
 }

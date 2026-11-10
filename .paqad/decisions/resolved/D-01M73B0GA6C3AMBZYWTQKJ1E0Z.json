@@ -1,0 +1,52 @@
+{
+  "id": "D-01M73B0GA6C3AMBZYWTQKJ1E0Z",
+  "category": "intake.requirement",
+  "title": "Where should newly signed-off project rules be saved?",
+  "context": "Issue 872 open question A-1. It decides where your team looks for its rules and which files a later reset must leave alone. Working default: docs/instructions/rules/project/<topic>.md.",
+  "options": [
+    {
+      "option_key": "topic_file",
+      "label": "One new file per topic in the project rules folder (the working default)",
+      "one_line_preview": "One new file per topic in the project rules folder (the working default)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "existing_file",
+      "label": "Added to the existing rule file each one relates to, with a new topic file only when none fits",
+      "one_line_preview": "Added to the existing rule file each one relates to, with a new topic file only when none fits",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "topic_file",
+  "created_at": "2026-11-10T18:20:02.247Z",
+  "status": "resolved",
+  "change": "01M73AE41TYA4MJPNJZS30HMPE",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "Scanned all 73 earlier titles; none asks about where rules discovery saves rules or how much research one run does."
+  },
+  "chosen": "existing_file",
+  "rationale": "Owner chose: append to the related existing rule file; new topic file only when none fits",
+  "resolved_at": "2026-11-10T18:25:28.702Z",
+  "decision_id": "D-01M73B0GA6C3AMBZYWTQKJ1E0Z",
+  "fingerprint": "sha256:35ba2ffe8daf0968dbafb956615b17116bf0ee396700092d858e1ba1f4da5130",
+  "question": "Where should newly signed-off project rules be saved?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M73AE41TYA4MJPNJZS30HMPE",
+  "ttl_until": "2026-11-24T18:20:02.247Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "existing_file",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-10T18:25:28.702Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: append to the related existing rule file; new topic file only when none fits"
+  }
+}

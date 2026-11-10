@@ -33,6 +33,7 @@ export const DECISION_CATEGORIES = [
   'authoring.improvement',
   'authoring.retirement',
   'authoring.override',
+  'rules.proposal',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -136,6 +137,15 @@ export interface DecisionPacket {
   invalidation_watch: string[];
   earlier_check?: EarlierCheck;
   suggestion?: DecisionSuggestion;
+  rules_discovery?: RulesDiscoveryTag;
+}
+
+export interface RulesDiscoveryTag {
+  status: 'absorbed' | 'not-a-rule';
+  run_id: string;
+  rule_id?: string;
+  reason?: string;
+  tagged_at: string;
 }
 
 export type DecisionCategoryTtlOverrides = Partial<Record<DecisionCategory, number>>;
@@ -179,6 +189,7 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'authoring.improvement': { create_new: false, reversibility: 'easy', ttl_days: 60 },
   'authoring.retirement': { create_new: false, reversibility: 'moderate', ttl_days: 60 },
   'authoring.override': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  'rules.proposal': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

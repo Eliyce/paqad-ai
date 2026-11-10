@@ -55,7 +55,7 @@ export function compositionForRoute(route: SessionRoute | null): ContextComposit
     return { loadRules: true, retrieves: true };
   }
   return {
-    loadRules: route.workflow === 'feature-development',
+    loadRules: route.workflow === 'feature-development' || route.workflow === 'rules-discovery',
     retrieves: route.workflow !== 'no-workflow',
   };
 }

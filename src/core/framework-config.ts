@@ -256,6 +256,16 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
       "Keeps a checked map of the app's screens and user journeys under docs/site-map/ for coding projects.",
   },
   {
+    key: 'rules_discovery_private_packages',
+    env: 'PAQAD_RULES_DISCOVERY_PRIVATE_PACKAGES',
+    type: 'string',
+    default: '',
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Package names or patterns (use * for any text) that rules discovery treats as private and never looks up on the web.',
+  },
+  {
     key: 'visual_evidence',
     env: 'PAQAD_VISUAL_EVIDENCE',
     type: 'boolean',
@@ -1689,7 +1699,7 @@ export function writeConfigsReadme(projectRoot: string): string {
   return path;
 }
 
-export const CATALOG_VERSION = 1;
+export const CATALOG_VERSION = 2;
 const CATALOG_VERSION_STAMP = '# catalog_version: ';
 
 export function generateConfigExample(): string {
@@ -1973,6 +1983,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'team_agents',
       'analytics_instrumentation',
       'site_map',
+      'rules_discovery_private_packages',
       'lean_rules',
       'feature_report',
       'metrics_enabled',

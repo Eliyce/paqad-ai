@@ -1,0 +1,4 @@
+interface:
+  display_name: Rules Discovery
+  short_description: Sequences the rules discovery steps for the Developer / Operator, one
+    status line per step, through sign-off, apply and the stack docs refresh.

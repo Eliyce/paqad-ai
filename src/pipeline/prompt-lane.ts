@@ -55,6 +55,7 @@ const ROUTE_REASON: Record<RoutedWorkflow, string> = {
   'rules-analyze': 'analysing which rules can become scripts',
   'root-cause-analysis': 'a post-incident root-cause analysis',
   discovery: 'shaping an uncertain idea into a practical next step — no code yet',
+  'rules-discovery': 'bringing the rules and stack docs up to date with the real stack',
   'no-workflow': 'just chatting — nothing to set up',
 };
 

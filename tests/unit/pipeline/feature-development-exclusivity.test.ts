@@ -22,6 +22,8 @@ const NON_FEATURE_DEV: RoutedWorkflow[] = ROUTED_WORKFLOWS.filter(
   (w) => w !== 'feature-development',
 );
 
+const NO_RULE_LOAD: RoutedWorkflow[] = NON_FEATURE_DEV.filter((w) => w !== 'rules-discovery');
+
 const roots: string[] = [];
 
 function write(path: string, body: string): void {
@@ -100,7 +102,12 @@ describe('feature-development exclusivity', () => {
     }
   });
 
-  it.each(NON_FEATURE_DEV)(
+  it('rules-discovery loads the rule contract but is not the heavy path', () => {
+    expect(compositionForRoute({ workflow: 'rules-discovery', query: '' }).loadRules).toBe(true);
+    expect(isFeatureDevelopmentRoute('rules-discovery')).toBe(false);
+  });
+
+  it.each(NO_RULE_LOAD)(
     '%s composes NO rule slice (no rules, no module-doc enforcement)',
     (workflow) => {
       expect(compositionForRoute({ workflow, query: '' }).loadRules).toBe(false);

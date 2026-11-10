@@ -183,7 +183,6 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | MANAGED_HEADER | `MANAGED_HEADER` | src/onboarding/decision-pause-contract-writer.ts | 2 |
 | ModuleMap | `interface ModuleMap` | src/onboarding/registry-generator.ts | 2 |
 | OnboardingOrchestrator | `OnboardingOrchestrator` | src/onboarding/orchestrator.ts | 2 |
-| refreshProjectRules | `refreshProjectRules( projectRoot: string, profile: ProjectProfile, options:` | src/onboarding/rules-refresh.ts | 2 |
 | removeObsoleteContractDocs | `removeObsoleteContractDocs(projectRoot: string): string[]` | src/onboarding/obsolete-cleanup.ts | 2 |
 | writeGitignore | `writeGitignore(projectRoot: string): void` | src/onboarding/gitignore-writer.ts | 2 |
 | appendAuditLog | `appendAuditLog( projectRoot: string, previous: string / null, updated: string, ): void` | src/update/audit.ts | 1 |

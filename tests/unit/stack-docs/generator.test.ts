@@ -4,7 +4,12 @@ import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { StackDriftReport, StackSnapshot } from '@/core/types/introspection.js';
-import { writeStackArtifacts } from '@/stack-docs/generator.js';
+import {
+  PURPOSE_MAX,
+  packagePurpose,
+  refreshStackDocsFromInventory,
+  writeStackArtifacts,
+} from '@/stack-docs/generator.js';
 
 describe('writeStackArtifacts', () => {
   let root: string;
@@ -208,3 +213,89 @@ function buildSnapshot(input?: {
     },
   };
 }
+
+describe('refreshStackDocsFromInventory', () => {
+  let root: string;
+  const stack = (file: string): string => join(root, PATHS.FRAMEWORK_STACK_DIR, file);
+  const pkg = (name: string, status = 'new', description?: string) => ({
+    name,
+    ecosystem: 'node',
+    declared: '^1.0.0',
+    installed: '1.4.2',
+    dev: name === 'vitest',
+    status,
+    description,
+  });
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-stack-inv-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('AC-55 names added packages with versions and a one-line purpose on overview and dependencies', async () => {
+    const result = await refreshStackDocsFromInventory(root, {
+      packages: [
+        pkg('zod', 'new', 'TypeScript-first schema validation'),
+        pkg('hono'),
+        pkg('vitest'),
+      ],
+      notes: new Map([['hono', 'Small web framework for the edge']]),
+    });
+    expect(result.updated).toHaveLength(3);
+    const overview = readFileSync(stack('overview.md'), 'utf8');
+    expect(overview).toContain('- `zod` 1.4.2: TypeScript-first schema validation');
+    expect(overview).toContain('- `hono` 1.4.2: Small web framework for the edge');
+    expect(overview).toContain('- `vitest` 1.4.2 (dev)');
+    const deps = readFileSync(stack('dependencies.md'), 'utf8');
+    expect(deps).toMatch(/## Runtime\n\n- `hono`[^\n]*\n- `zod`/);
+    expect(deps).toMatch(/## Dev\n\n- `vitest`/);
+  });
+
+  it('AC-56 drops a removed package', async () => {
+    await refreshStackDocsFromInventory(root, {
+      packages: [pkg('zod'), pkg('moment', 'unchanged')],
+    });
+    await refreshStackDocsFromInventory(root, { packages: [pkg('zod'), pkg('moment', 'removed')] });
+    expect(readFileSync(stack('overview.md'), 'utf8')).not.toContain('moment');
+    expect(readFileSync(stack('dependencies.md'), 'utf8')).not.toContain('moment');
+    expect(readFileSync(stack('versions.md'), 'utf8')).not.toContain('moment');
+  });
+
+  it('AC-57 writes versions.md from the inventory when it is missing', async () => {
+    expect(existsSync(stack('versions.md'))).toBe(false);
+    await refreshStackDocsFromInventory(root, { packages: [pkg('zod')] });
+    expect(readFileSync(stack('versions.md'), 'utf8')).toContain(
+      '| zod | node | ^1.0.0 | 1.4.2 | no |',
+    );
+  });
+
+  it('AC-58 keeps a hand-written section outside the managed blocks', async () => {
+    await refreshStackDocsFromInventory(root, { packages: [pkg('zod')] });
+    const hand = '\n## Why we chose zod\n\nWritten by hand.\n';
+    writeFileSync(stack('overview.md'), `${readFileSync(stack('overview.md'), 'utf8')}${hand}`);
+    await refreshStackDocsFromInventory(root, { packages: [pkg('zod'), pkg('hono')] });
+    const overview = readFileSync(stack('overview.md'), 'utf8');
+    expect(overview).toContain(hand);
+    expect(overview).toContain('`hono`');
+  });
+
+  it('AC-59 keeps a page with no markers whole and only adds the managed block', async () => {
+    mkdirSync(join(root, PATHS.FRAMEWORK_STACK_DIR), { recursive: true });
+    const page = '# Stack Overview\n\nOur own words about the stack.\n';
+    writeFileSync(stack('overview.md'), page);
+    await refreshStackDocsFromInventory(root, { packages: [pkg('zod')] });
+    const overview = readFileSync(stack('overview.md'), 'utf8');
+    expect(overview.startsWith(page)).toBe(true);
+    expect(overview).toContain('<!-- paqad:stack:packages:start -->');
+  });
+
+  it('cleans and caps the purpose line', () => {
+    const purpose = packagePurpose(pkg('zod'), `<!-- run this --> ${'a'.repeat(200)} <b>`);
+    expect(purpose.length).toBeLessThanOrEqual(PURPOSE_MAX + 10);
+    expect(purpose).not.toContain('run this');
+    expect(purpose).not.toContain('<b>');
+  });
+});

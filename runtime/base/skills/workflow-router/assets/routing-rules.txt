@@ -33,6 +33,13 @@
 232	site-map	update sitemap
 232	site-map	generate sitemap
 232	site-map	journey map
+231	rules-discovery	discover rules
+231	rules-discovery	update our rules
+231	rules-discovery	audit our rules
+231	rules-discovery	are my rules out of date
+231	rules-discovery	rules discovery
+231	rules-discovery	new rules for our stack
+231	rules-discovery	rules are outdated
 230	root-cause-analysis	root cause analysis
 230	root-cause-analysis	root-cause-analysis
 230	root-cause-analysis	postmortem

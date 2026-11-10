@@ -11,7 +11,7 @@ import {
 } from '@/pipeline/routed-workflow.js';
 
 describe('routed-workflow', () => {
-  it('exposes exactly the 12 routing outcomes', () => {
+  it('exposes exactly the 13 routing outcomes', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
       'project-question',
@@ -24,8 +24,16 @@ describe('routed-workflow', () => {
       'rules-analyze',
       'root-cause-analysis',
       'discovery',
+      'rules-discovery',
       'no-workflow',
     ]);
+  });
+
+  it('AC-5: maps rules-discovery to itself as a real, non-feature-dev, retrieving route', () => {
+    expect(CLASSIFICATION_WORKFLOWS).toContain('rules-discovery');
+    expect(resolveRoutedWorkflow('rules-discovery')).toBe('rules-discovery');
+    expect(isFeatureDevelopmentRoute('rules-discovery')).toBe(false);
+    expect(routeUsesRetrieval('rules-discovery')).toBe(true);
   });
 
   it('maps discovery to itself as a real, non-feature-dev, retrieving route', () => {

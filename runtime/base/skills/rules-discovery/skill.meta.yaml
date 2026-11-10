@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - rules-discovery
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: The project whose rules and stack docs rules discovery keeps current.

@@ -131,6 +131,25 @@ describe('DocumentationWorkflow', () => {
     expect(progress).toContain('pending_map_review');
   });
 
+  it('AC-16: reports a package added after the last documentation run as drift', async () => {
+    await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({
+        name: 'demo-app',
+        private: true,
+        dependencies: { vite: '^5.0.0', zod: '^3.22.0' },
+      }),
+    );
+    await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
+    const drift = JSON.parse(readFileSync(join(root, PATHS.STACK_DRIFT), 'utf8')) as {
+      status: string;
+      packages_added: string[];
+    };
+    expect(drift.status).toBe('drift-detected');
+    expect(drift.packages_added).toContain('zod');
+  });
+
   it('default run mode is foundation (does not generate docs/modules/**)', async () => {
     const result = await new DocumentationWorkflow().run({ projectRoot: root });
 

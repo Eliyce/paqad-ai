@@ -18,6 +18,13 @@ callable, and how strictness flags promote tasks to the full lane
 
 _This module has no enumerated features in the map; the module itself is the unit of work._
 
+## Rules discovery route
+
+- `rules-discovery` is a routed workflow that loads the rule contract and runs no rule-scripts at turn end. The `rules-discovery` skill sequences it.
+- Verbs: `paqad-ai rules inventory` and `paqad-ai rules discovery start | status | decisions | research | propose | review | sign-off | apply | docs`. They are separate from the top-level `paqad-ai discovery` command.
+- Each run keeps its files in `.paqad/ledger/rules-discovery/<run_id>/` (`run.json`, `stack-inventory.json`, `from-decisions.json`, `from-research.json`, `sources.json`, `proposal.json`, `proposal.md`, `apply.json`, `report.json`). Only a verb moves `run.json` to the next step, with an expected-revision check.
+- The step list is `RUN_STEPS` in `src/rules-discovery/run-store.ts`; it ships in the package, and nothing is written under `docs/instructions/workflows/`.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

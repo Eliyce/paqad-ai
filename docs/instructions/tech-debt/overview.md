@@ -26,6 +26,9 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M73HSVVWGQGKKHJMN1SVFTKF](TD-01M73HSVVWGQGKKHJMN1SVFTKF.md) (bug, low): Research plan can queue a package name that another manifest entry marks private
+- [TD-01M73HSTY0VSMV9F4D4722AWHW](TD-01M73HSTY0VSMV9F4D4722AWHW.md) (gap, low): Ordinary rule edits drop the discovered run from the rule marker
+- [TD-01M73HSSZQ9G7NXP5C4B84JFVZ](TD-01M73HSSZQ9G7NXP5C4B84JFVZ.md) (bug, low): Rules discovery apply rerun skips rule-script map sync for an already-written added rule
 - [TD-01M6SM2TXQ13W1WX63D9WDPME2](TD-01M6SM2TXQ13W1WX63D9WDPME2.md) (bug, low): An empty change fast-forwarded to main is judged on main's files
 - [TD-01M6SM2T7F9809WQHZ4EBGE2A8](TD-01M6SM2T7F9809WQHZ4EBGE2A8.md) (bug, low): A prompt queued during a running turn lets an older verdict word show in the band
 - [TD-01M6SM2SGVJDS3GMD4020TE3TD](TD-01M6SM2SGVJDS3GMD4020TE3TD.md) (gap, low): A session that moves to another change in the turn is judged on that change, not the one it edited

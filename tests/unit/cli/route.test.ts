@@ -72,6 +72,13 @@ describe('paqad-ai route set command', () => {
     });
   });
 
+  it('AC-5: accepts rules-discovery like any other workflow name', async () => {
+    const sessionId = resolveSessionId(root, SES);
+    await routeSet('rules-discovery', '--reason', 'the team wants its rules refreshed');
+    expect(process.exitCode).toBeUndefined();
+    expect(readWorkflowState(root, sessionId).active?.workflow).toBe('rules-discovery');
+  });
+
   describe('session-scoped refusal', () => {
     const OTHER = 'ses_cli_route_other';
     const TURN = '2026-03-01T10:00:00.000Z';

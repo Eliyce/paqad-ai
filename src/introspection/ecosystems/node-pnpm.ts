@@ -50,14 +50,15 @@ export const pnpmParser: EcosystemParser = {
       ecosystem: 'node',
       packages: Object.entries(parsed?.packages ?? {})
         .map(([key, value]) => {
-          const match = key.match(/^\/?(@?[^@/]+(?:\/[^@/]+)?)@/);
-          if (!match?.[1] || value.version === undefined) {
+          const match = key.match(/^\/?(@?[^@/]+(?:\/[^@/]+)?)@([^(@]+)?/);
+          const version = value.version ?? match?.[2];
+          if (!match?.[1] || version === undefined) {
             return null;
           }
 
           return {
             name: match[1],
-            version: value.version,
+            version,
           };
         })
         .filter((entry): entry is { name: string; version: string } => entry !== null)

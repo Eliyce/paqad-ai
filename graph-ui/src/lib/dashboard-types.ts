@@ -395,7 +395,6 @@ export interface RemovePackResult {
 
 export type OpsAction =
   | 'reconcile'
-  | 'refresh-rules'
   | 'refresh-context'
   | 'rag-rebuild'
   | 'rag-clear'

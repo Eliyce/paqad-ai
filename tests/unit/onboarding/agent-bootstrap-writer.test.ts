@@ -114,6 +114,7 @@ describe('agent router document', () => {
       'rules-analyze',
       'root-cause-analysis',
       'site-map',
+      'rules-discovery',
       'no workflow',
     ]) {
       expect(route).toContain(workflow);
@@ -134,7 +135,9 @@ describe('agent router document', () => {
     expect(loadSection).toContain('`docs/instructions/stack`');
     expect(loadSection).toContain('`docs/instructions/design-system`');
     expect(loadSection).not.toContain('docs/instructions/workflows');
-    expect(loadSection).toContain('Rules load only for `feature-development`');
+    expect(loadSection).toContain(
+      'Rules load only for `feature-development` and `rules-discovery`',
+    );
     expect(loadSection).toContain('`docs/instructions/rules`');
     expect(loadSection).toContain('run **no** rule-scripts');
   });
@@ -191,5 +194,17 @@ describe('agent router document', () => {
     expect(doc).toContain(DECISION_PAUSE_UI_NOTES['claude-code']);
     expect(DECISION_PAUSE_UI_NOTES['claude-code']).toContain('AskUserQuestion');
     expect(doc).toContain('Adapter:');
+  });
+});
+
+describe('agent router document · rules discovery', () => {
+  it('AC-4: lists 13 workflows with the rules-discovery line and says the other 11 load no rules', () => {
+    for (const doc of [buildAgentRouterDocument(), readFileSync(COMMITTED_ROUTER, 'utf8')]) {
+      expect(doc).toContain('pick **exactly one** of these 13 workflows');
+      expect(doc).toContain(
+        "**rules-discovery**: bring the project's rules and stack docs up to date: read the real stack, turn resolved decisions into rules, research the stack online, and propose a merged rule set for sign-off.",
+      );
+      expect(doc).toContain('The other 11 outcomes load **no** rules');
+    }
   });
 });

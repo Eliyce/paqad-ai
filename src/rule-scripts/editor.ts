@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
 import { collectRuleFiles } from './analyzer.js';
 import { loadRuleScriptMap } from './map.js';
@@ -12,6 +13,17 @@ import {
   ruleTextHash,
   stripRuleMarker,
 } from './rule-id.js';
+
+export interface RuleWriteOptions {
+  discovered?: string;
+}
+
+function writeRuleFile(abs: string, text: string): void {
+  mkdirSync(dirname(abs), { recursive: true });
+  const tmp = `${abs}.${process.pid}.tmp`;
+  writeFileSync(tmp, text, 'utf8');
+  renameWithRetrySync(tmp, abs);
+}
 
 function takenIds(projectRoot: string): Set<string> {
   const taken = new Set<string>();
@@ -52,12 +64,17 @@ function assertRuleSource(sourceRel: string): void {
   }
 }
 
-export function addRule(projectRoot: string, sourceRel: string, text: string): AddedRule {
+export function addRule(
+  projectRoot: string,
+  sourceRel: string,
+  text: string,
+  options: RuleWriteOptions = {},
+): AddedRule {
   assertRuleSource(sourceRel);
   const abs = join(projectRoot, sourceRel);
   const clean = cleanRuleText(text);
   const id = mintRuleId(sourceRel, clean, takenIds(projectRoot));
-  const bullet = embedRuleMarker(`- ${clean}`, id);
+  const bullet = embedRuleMarker(`- ${clean}`, id, options.discovered);
 
   let existing = '';
   try {
@@ -68,7 +85,7 @@ export function addRule(projectRoot: string, sourceRel: string, text: string): A
     }
   }
   const sep = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
-  writeFileSync(abs, `${existing}${sep}${bullet}\n`, 'utf8');
+  writeRuleFile(abs, `${existing}${sep}${bullet}\n`);
   return { id, source: sourceRel, text: clean, text_hash: ruleTextHash(clean) };
 }
 
@@ -93,6 +110,7 @@ export function editRuleText(
   projectRoot: string,
   ruleId: string,
   newText: string,
+  options: RuleWriteOptions = {},
 ): { source: string } | null {
   const located = locateRule(projectRoot, ruleId);
   if (!located) {
@@ -102,8 +120,12 @@ export function editRuleText(
   const indent = /^(\s*)/.exec(original)?.[1] ?? '';
   const marker = /^[-*]/.exec(stripRuleMarker(original).text.trim())?.[0] ?? '-';
   const clean = cleanRuleText(newText);
-  located.lines[located.line] = embedRuleMarker(`${indent}${marker} ${clean}`, ruleId);
-  writeFileSync(join(projectRoot, located.source), located.lines.join('\n'), 'utf8');
+  located.lines[located.line] = embedRuleMarker(
+    `${indent}${marker} ${clean}`,
+    ruleId,
+    options.discovered,
+  );
+  writeRuleFile(join(projectRoot, located.source), located.lines.join('\n'));
   return { source: located.source };
 }
 
@@ -113,6 +135,6 @@ export function removeRuleBullet(projectRoot: string, ruleId: string): { source:
     return null;
   }
   located.lines.splice(located.line, 1);
-  writeFileSync(join(projectRoot, located.source), located.lines.join('\n'), 'utf8');
+  writeRuleFile(join(projectRoot, located.source), located.lines.join('\n'));
   return { source: located.source };
 }

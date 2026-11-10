@@ -1,0 +1,4 @@
+interface:
+  display_name: Rules Proposer
+  short_description: Judges each rule idea against the existing rules, names its target
+    file, and walks the Developer / Operator through keep, edit or drop before sign-off.

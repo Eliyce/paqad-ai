@@ -9,6 +9,7 @@ const ECOSYSTEM_LANGUAGE: Record<StackEcosystem, string> = {
   go: 'Go',
   rust: 'Rust',
   dart: 'Dart',
+  dotnet: 'C#',
 };
 
 export function ecosystemToLanguage(ecosystem: StackEcosystem | null | undefined): string | null {
