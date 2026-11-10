@@ -248,6 +248,11 @@ describe('PreClassifier', () => {
       ['map our app', 'site-map'],
       ['analyze our rules', 'rules-analyze'],
       ['generate rule scripts', 'rules-generate'],
+      ['discover rules', 'rules-discovery'],
+      ['are my rules out of date?', 'rules-discovery'],
+      ['rules discovery please', 'rules-discovery'],
+      ['we need new rules for our stack', 'rules-discovery'],
+      ['our rules are outdated', 'rules-discovery'],
       ['what should my rough idea for exports become?', 'discovery'],
       ['help me shape an idea for onboarding', 'discovery'],
     ];
@@ -722,5 +727,51 @@ describe('PreClassifier · code requests that name a soft work noun', () => {
   ])('leaves "%s" unresolved, as before the about-work tiers', async (request) => {
     const result = await new PreClassifier(process.cwd()).classify({ request });
     expect(result.unresolved).toContain('workflow');
+  });
+});
+
+describe('PreClassifier · rules discovery stays apart from single-rule work', () => {
+  it('AC-2: a question about one existing rule routes to project-question', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    const result = await new PreClassifier(process.cwd()).classify({
+      request: 'what does our testing rule say?',
+    });
+    expect(result.resolved.workflow).toBe('project-question');
+  });
+
+  it.each(['show our rules', 'which rule blocked this', 'add rule no debugger'])(
+    'AC-3: "%s" does not route to rules-discovery',
+    async (request) => {
+      vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+        modules: [],
+        source: 'default',
+      });
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow).not.toBe('rules-discovery');
+    },
+  );
+
+  it('AC-3: the router table keeps "add rule no debugger" on rules-edit', () => {
+    const table = readFileSync(
+      join(process.cwd(), 'runtime/base/skills/workflow-router/assets/routing-rules.txt'),
+      'utf8',
+    )
+      .split('\n')
+      .filter((line) => line && !line.startsWith('#'))
+      .map((line) => {
+        const [priority, workflow, pattern] = line.split('\t');
+        return { priority: Number(priority), workflow, pattern };
+      });
+    const pick = (request: string): string | undefined =>
+      table
+        .filter((row) => request.toLowerCase().includes(row.pattern))
+        .sort((a, b) => b.priority - a.priority || b.pattern.length - a.pattern.length)[0]
+        ?.workflow;
+    expect(pick('add rule no debugger')).toBe('rules-edit');
+    expect(pick('discover rules')).toBe('rules-discovery');
+    expect(pick('are my rules out of date?')).toBe('rules-discovery');
   });
 });

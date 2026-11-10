@@ -96,6 +96,19 @@ const WORKFLOW_PATTERNS: WorkflowPattern[] = [
     ],
   },
   {
+    workflow: 'rules-discovery',
+    priority: 231,
+    patterns: [
+      'discover rules',
+      'update our rules',
+      'audit our rules',
+      'are my rules out of date',
+      'rules discovery',
+      'new rules for our stack',
+      'rules are outdated',
+    ],
+  },
+  {
     workflow: 'rules-generate',
     priority: 229,
     patterns: ['rules generate', 'generate rule scripts', 'generate the rule scripts'],

@@ -13,6 +13,7 @@ export const ROUTED_WORKFLOWS = [
   'rules-analyze',
   'root-cause-analysis',
   'discovery',
+  'rules-discovery',
   'no-workflow',
 ] as const;
 export type RoutedWorkflow = (typeof ROUTED_WORKFLOWS)[number];
@@ -52,6 +53,7 @@ const OUTCOME_BY_WORKFLOW: Record<ClassificationWorkflow, RoutedWorkflow> = {
   'rules-generate': 'rules-analyze',
   'root-cause-analysis': 'root-cause-analysis',
   discovery: 'discovery',
+  'rules-discovery': 'rules-discovery',
   writing: 'no-workflow',
   editing: 'no-workflow',
   planning: 'no-workflow',
