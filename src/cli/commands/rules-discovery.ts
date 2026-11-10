@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import { listUnjudgedDecisions, validateFromDecisions } from '@/rules-discovery/decisions.js';
 import { applyProposal, scriptableOffer } from '@/rules-discovery/apply.js';
+import { docsStep } from '@/rules-discovery/docs.js';
 import { readJsonFile } from '@/rules-discovery/files.js';
 import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
@@ -322,6 +323,27 @@ export function registerRulesDiscoveryCommands(command: Command): void {
         if (offer !== null) say(offer);
         console.log(JSON.stringify(report));
       });
+    });
+
+  discovery
+    .command('docs')
+    .description('Refresh the stack docs managed blocks from the run inventory and finish the run')
+    .requiredOption('--run <id>', 'Rules discovery run id')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--expect-revision <n>', 'run.json revision the caller last read', parseRevision)
+    .action(async (options: StepOptions) => {
+      if (!validRunOption(options.run)) return;
+      try {
+        const result = await docsStep(
+          options.projectRoot,
+          options.run,
+          new Date(),
+          options.expectRevision,
+        );
+        say(`docs — ${result.updated.length} stack doc(s) updated.`);
+      } catch (error) {
+        refuse(error instanceof Error ? error.message : String(error));
+      }
     });
 
   command.addCommand(discovery);
