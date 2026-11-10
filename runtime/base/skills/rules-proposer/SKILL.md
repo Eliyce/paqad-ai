@@ -58,6 +58,7 @@ Builds the one list the Developer / Operator signs off. Node does the merge, the
 
 ## Resources
 
+- `references/proposer-fixtures.md`: the fixed idea and rule pairs with their expected outcome.
 - `agents/openai.yaml`: agent interface metadata.
 - `paqad-ai rules discovery propose`, `review` and `sign-off`: the merge, verdict and sign-off verbs.
 - `rule-analyzer`: the check classification this skill reuses.

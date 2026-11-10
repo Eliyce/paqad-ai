@@ -55,5 +55,6 @@ Turns the team's settled decisions into rule ideas for the Developer / Operator.
 
 ## Resources
 
+- `references/judging-decisions.md`: how each decision is judged.
 - `agents/openai.yaml`: agent interface metadata.
 - `paqad-ai rules discovery decisions`: lists the decisions and checks `from-decisions.json`.

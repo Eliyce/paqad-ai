@@ -74,6 +74,7 @@ Gives the Developer / Operator rule ideas grounded in current practice for the s
 
 ## Resources
 
+- `references/source-rules.md`: which sources count and how ideas are capped.
 - `agents/openai.yaml`: agent interface metadata.
 - `runtime/base/agents/market-researcher.md`: the research protocol this skill follows.
 - `src/authoring/stages/sources.ts`: the sources table columns.
