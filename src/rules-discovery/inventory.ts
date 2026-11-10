@@ -5,7 +5,6 @@ import YAML from 'yaml';
 
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { DEFAULT_IGNORE_GLOBS, scanWorkingTree } from '@/core/fs/gitignore-scan.js';
-import { layeredConfigMap } from '@/core/framework-config.js';
 import type { StackEcosystem } from '@/core/types/introspection.js';
 import { goLocalReplacements } from '@/introspection/ecosystems/go.js';
 import { parseYarnLock } from '@/introspection/ecosystems/node-npm.js';
@@ -30,7 +29,6 @@ export interface BuildInventoryInput {
   runId: string;
   now?: Date;
   frameworks?: string[];
-  env?: NodeJS.ProcessEnv;
 }
 
 interface ManifestPick {
@@ -265,24 +263,6 @@ function workspacePackageNames(projectRoot: string, picks: ManifestPick[]): Set<
   return names;
 }
 
-export function readPrivatePatterns(
-  projectRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const raw = layeredConfigMap(projectRoot, env).get('rules_discovery_private_packages') ?? '';
-  return raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '');
-}
-
-export function matchesPrivatePattern(name: string, patterns: string[]): boolean {
-  return patterns.some((pattern) => {
-    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-    return new RegExp(`^${escaped}$`, 'i').test(name);
-  });
-}
-
 const SOURCE_EXTENSIONS: Partial<Record<StackEcosystem, string>> = {
   node: '{ts,tsx,js,jsx,mjs,cjs,vue,svelte}',
   python: 'py',
@@ -414,15 +394,12 @@ export async function buildStackInventory(input: BuildInventoryInput): Promise<S
   const picks = findManifests(input.projectRoot);
   const raw = picks.flatMap((pick) => readPackages(input.projectRoot, pick));
   const workspaceNames = workspacePackageNames(input.projectRoot, picks);
-  const patterns = readPrivatePatterns(input.projectRoot, input.env);
   const baseline = readOrSeedBaseline(input.projectRoot, now);
   const baselineMap = baseline === null ? null : baselineIndex(baseline);
   const counts = countImports(input.projectRoot, raw);
   const current: InventoryPackage[] = raw.map((pkg) => {
     const reason: PrivateReason | undefined =
-      pkg.privateReason ??
-      (workspaceNames.has(pkg.name) ? 'workspace-package' : undefined) ??
-      (matchesPrivatePattern(pkg.name, patterns) ? 'configured' : undefined);
+      pkg.privateReason ?? (workspaceNames.has(pkg.name) ? 'workspace-package' : undefined);
     const importCount = counts.get(packageKey(pkg)) ?? null;
     return {
       name: pkg.name,

@@ -170,11 +170,6 @@ export const TEAM_CONFIG_HOMES: Readonly<Record<string, TeamConfigHome>> = {
   minimum_version: home('paqad.yaml', 'updates.minimum_version'),
   version_check_interval_hours: home('paqad.yaml', 'updates.check_every_hours'),
   site_map: home('paqad.yaml', 'site_map.enabled'),
-  rules_discovery_private_packages: home(
-    'paqad.yaml',
-    'rules_discovery.private_packages',
-    COMMA_LIST,
-  ),
   hud_view: home('paqad.yaml', 'hud.band'),
   hud_chime: home('paqad.yaml', 'hud.chime'),
   plugin_migration: home('paqad.yaml', 'claude_code.plugin_migration'),

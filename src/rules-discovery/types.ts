@@ -3,12 +3,7 @@ import type { StackEcosystem } from '@/core/types/introspection.js';
 export type PackageStatus = 'new' | 'removed' | 'version-changed' | 'unchanged';
 
 export type PrivateReason =
-  | 'workspace-source'
-  | 'local-path'
-  | 'git-source'
-  | 'workspace-package'
-  | 'private-registry'
-  | 'configured';
+  'workspace-source' | 'local-path' | 'git-source' | 'workspace-package' | 'private-registry';
 
 export interface InventoryPackage {
   name: string;

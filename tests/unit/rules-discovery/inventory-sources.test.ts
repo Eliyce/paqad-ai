@@ -9,7 +9,6 @@ import {
   countImports,
   inventorySummary,
   lockfileSources,
-  matchesPrivatePattern,
   packageKey,
 } from '@/rules-discovery/inventory.js';
 import { RULES_DISCOVERY_BASELINE } from '@/rules-discovery/paths.js';
@@ -140,7 +139,6 @@ describe('AC-5 private packages from lockfile sources', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     expect(find(inv, 'forked')).toMatchObject({ private: true, private_reason: 'git-source' });
     expect(find(inv, 'local')).toMatchObject({ private: true, private_reason: 'local-path' });
@@ -169,7 +167,6 @@ describe('AC-5 private packages from lockfile sources', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     expect(find(inv, 'serde')).toMatchObject({ private: false, installed: '1.0.0' });
     expect(find(inv, 'acme')).toMatchObject({ private: true, private_reason: 'private-registry' });
@@ -189,7 +186,6 @@ describe('AC-5 private packages from lockfile sources', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     expect(find(inv, 'acme/app')).toMatchObject({
       private: true,
@@ -206,18 +202,11 @@ describe('AC-5 private packages from lockfile sources', () => {
     });
   });
 
-  it('AC-5: matches configured patterns case-insensitively and treats regex characters literally', () => {
-    expect(matchesPrivatePattern('ACME-billing', ['acme-*'])).toBe(true);
-    expect(matchesPrivatePattern('acmeXjs', ['acme.js'])).toBe(false);
-    expect(matchesPrivatePattern('acme.js', ['acme.js'])).toBe(true);
-    expect(matchesPrivatePattern('zod', [])).toBe(false);
-  });
-
   it('AC-5: detects frameworks when the caller passes none', async () => {
     const root = project({
       'package.json': JSON.stringify({ dependencies: { react: '^18.0.0' } }),
     });
-    const inv = await buildStackInventory({ projectRoot: root, runId: RUN, now: NOW, env: {} });
+    const inv = await buildStackInventory({ projectRoot: root, runId: RUN, now: NOW });
     expect(Array.isArray(inv.frameworks)).toBe(true);
     expect(inv.frameworks).toEqual([...inv.frameworks].sort());
   });
@@ -325,7 +314,6 @@ describe('AC-5 inventory edges', () => {
       projectRoot: root,
       runId: RUN,
       frameworks: [],
-      env: {},
     });
     expect(find(inv, 'http').private).toBe(false);
     expect(find(inv, 'example.com/x').private).toBe(false);
@@ -342,7 +330,6 @@ describe('AC-5 inventory edges', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     const rows = inv.packages.filter((pkg) => pkg.name === 'zod');
     expect(rows.map((pkg) => [pkg.manifest, pkg.declared, pkg.private])).toEqual([
@@ -378,7 +365,6 @@ describe('AC-5 inventory edges', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     expect(find(inv, 'zod').status).toBe('unchanged');
     expect(find(inv, 'hono').status).toBe('unchanged');

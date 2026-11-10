@@ -30,7 +30,7 @@ function project(files: Record<string, string>): string {
 }
 
 async function inventoryOf(root: string): Promise<StackInventory> {
-  return buildStackInventory({ projectRoot: root, runId: RUN, now: NOW, frameworks: [], env: {} });
+  return buildStackInventory({ projectRoot: root, runId: RUN, now: NOW, frameworks: [] });
 }
 
 function find(inv: StackInventory, name: string): InventoryPackage {
@@ -333,7 +333,7 @@ describe('rules inventory · no manifest (AC-10)', () => {
 });
 
 describe('rules inventory · private packages (AC-11)', () => {
-  it('AC-11: marks workspace, git, private-registry and configured packages private with a reason', async () => {
+  it('AC-11: marks workspace, git and private-registry packages private with a reason, and leaves name-alike packages public', async () => {
     const root = project({
       'package.json': JSON.stringify({
         name: 'root',
@@ -359,7 +359,6 @@ describe('rules inventory · private packages (AC-11)', () => {
           },
         },
       }),
-      '.paqad/configs/paqad.yaml': 'rules_discovery:\n  private_packages:\n    - acme-*\n',
     });
     const inv = await inventoryOf(root);
     expect(find(inv, '@acme/api')).toMatchObject({
@@ -375,10 +374,8 @@ describe('rules inventory · private packages (AC-11)', () => {
       private: true,
       private_reason: 'private-registry',
     });
-    expect(find(inv, 'acme-billing')).toMatchObject({
-      private: true,
-      private_reason: 'configured',
-    });
+    expect(find(inv, 'acme-billing')).toMatchObject({ private: false });
+    expect(find(inv, 'acme-billing').private_reason).toBeUndefined();
     expect(find(inv, 'zod')).toMatchObject({ private: false });
     expect(find(inv, 'zod').private_reason).toBeUndefined();
   });
@@ -411,7 +408,6 @@ describe('paqad-ai rules inventory', () => {
       runId: RUN,
       now: NOW,
       frameworks: [],
-      env: {},
     });
     const stored = JSON.parse(
       readFileSync(join(root, runFilePath(RUN, 'inventory')), 'utf8'),
