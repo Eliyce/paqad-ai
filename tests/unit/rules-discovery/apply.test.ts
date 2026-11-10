@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,8 @@ import { parseRuleMarker, parseRuleMarkerRun } from '@/rule-scripts/rule-id.js';
 import {
   ApplyRefusedError,
   applyProposal,
+  applyReport,
+  readApplyJournal,
   scriptableOffer,
   traceDiscoveredRule,
 } from '@/rules-discovery/apply.js';
@@ -21,7 +23,7 @@ import { atomicWriteJson } from '@/rules-discovery/files.js';
 import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
 import { RULES_DISCOVERY_BASELINE, absRunFile, runFilePath } from '@/rules-discovery/paths.js';
 import { readProposal } from '@/rules-discovery/proposal.js';
-import { readRun } from '@/rules-discovery/run-store.js';
+import { readRun, updateRun } from '@/rules-discovery/run-store.js';
 import { NOT_NOW, SIGN_OFF } from '@/rules-discovery/signoff.js';
 
 import { NOW, RULE_FILE, flowProject, type FlowProject } from './flow-fixtures.js';
@@ -271,5 +273,104 @@ describe('rules discovery apply', () => {
       ],
     });
     expect(traceDiscoveredRule(fp.project.root, 'RL-aaaa')).toBeNull();
+  });
+});
+
+describe('AC-5 rules discovery apply edges', () => {
+  it('AC-5: refuses a run whose run.json is gone', () => {
+    const fp = signedRun();
+    rmSync(absRunFile(fp.project.root, fp.runId, 'run'));
+    expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(
+      /has a missing run\.json; nothing was written/,
+    );
+  });
+
+  it('AC-5: refuses a run that already moved past apply', () => {
+    const fp = signedRun();
+    applyProposal(fp.project.root, fp.runId, { now: NOW });
+    expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(
+      /is open at docs; apply needs a run waiting at sign-off/,
+    );
+  });
+
+  it('AC-5: refuses a run that lost its sign-off decision', () => {
+    const fp = signedRun();
+    const run = readRun(fp.project.root, fp.runId);
+    if (run.state !== 'ok') throw new Error('run not readable');
+    updateRun(fp.project.root, fp.runId, run.record.revision, { signoff_decision: null }, NOW);
+    expect(() => applyProposal(fp.project.root, fp.runId, { now: NOW })).toThrow(
+      /has no sign-off decision; nothing was written/,
+    );
+  });
+
+  it('AC-5: an edit whose rule left the file is refused and a removal of a gone rule is noted', () => {
+    const fp = signedRun();
+    const path = join(fp.project.root, RULE_FILE);
+    writeFileSync(
+      path,
+      readFileSync(path, 'utf8')
+        .split('\n')
+        .filter((line) => !line.includes('RL-cccc') && !line.includes('RL-bbbb'))
+        .join('\n'),
+    );
+    const report = applyProposal(fp.project.root, fp.runId, { now: NOW });
+    expect(report.changed).toBe(0);
+    expect(report.refused).toEqual([
+      expect.objectContaining({ why: 'rule RL-cccc is no longer on disk' }),
+    ]);
+    const journal = readApplyJournal(fp.project.root, fp.runId);
+    expect(Object.values(journal.rows)).toContainEqual({
+      write: 'remove',
+      rule_id: 'RL-bbbb',
+      why: 'already removed',
+    });
+  });
+
+  it('AC-5: a rerun finds a rule it wrote before its journal entry was lost', () => {
+    const fp = signedRun();
+    expect(() =>
+      applyProposal(fp.project.root, fp.runId, {
+        now: NOW,
+        beforeWrite: (what) => {
+          if (what === 'tag:D-1') throw new Error('disk full');
+        },
+      }),
+    ).toThrow(/disk full/);
+    const journal = readApplyJournal(fp.project.root, fp.runId);
+    const added = Object.entries(journal.rows).filter(([, row]) => row.write === 'add');
+    for (const [rowId] of added) delete journal.rows[rowId];
+    atomicWriteJson(absRunFile(fp.project.root, fp.runId, 'apply'), journal);
+    const report = applyProposal(fp.project.root, fp.runId, { now: NOW });
+    expect(report.added).toBe(2);
+    expect(fp.read(RULE_FILE).match(/request id/g)).toHaveLength(1);
+    expect(fp.read(NEW_FILE).match(/zod/g)).toHaveLength(1);
+    const again = readApplyJournal(fp.project.root, fp.runId);
+    for (const [rowId, row] of added) expect(again.rows[rowId]?.rule_id).toBe(row.rule_id);
+  });
+
+  it('AC-5: a broken journal reads as empty and a refused row without a reason says refused', () => {
+    const fp = signedRun();
+    writeFileSync(absRunFile(fp.project.root, fp.runId, 'apply'), '{"rows": null}');
+    const journal = readApplyJournal(fp.project.root, fp.runId);
+    expect(journal).toEqual({
+      schema_version: 1,
+      run_id: fp.runId,
+      rows: {},
+      tagged: [],
+      finished_at: null,
+    });
+    const proposal = readProposal(fp.project.root, fp.runId)!;
+    const first = proposal.rows[0]!.row_id;
+    const report = applyReport(
+      proposal,
+      { ...journal, rows: { [first]: { write: 'refused', rule_id: null } } },
+      null,
+    );
+    expect(report.refused).toEqual([{ row_id: first, why: 'refused' }]);
+  });
+
+  it('AC-5: tracing an id no rule file carries finds nothing', () => {
+    const fp = signedRun();
+    expect(traceDiscoveredRule(fp.project.root, 'RL-0000')).toBeNull();
   });
 });
