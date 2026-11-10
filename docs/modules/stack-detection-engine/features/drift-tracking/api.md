@@ -21,5 +21,5 @@
   `docs/instructions/stack/` (`overview.md`, `dependencies.md`, `versions.md`) and keeps
   hand-written text outside them.
 
-Command source: `src/cli/commands/rules-discovery.ts`. The workflow is
-`docs/instructions/workflows/rules-discovery.yaml`.
+Command source: `src/cli/commands/rules-discovery.ts`. The step list is `RUN_STEPS` in
+`src/rules-discovery/run-store.ts`.

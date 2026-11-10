@@ -48,5 +48,5 @@ Keeps the project's rules and stack docs current for the Developer / Operator. I
 
 - `references/step-lines.md`: the status line for each step.
 - `agents/openai.yaml`: agent interface metadata.
-- `docs/instructions/workflows/rules-discovery.yaml`: the step list and run folder.
+- `paqad-ai rules discovery status`: the open run, its step and its run folder.
 - `rules-decision-miner`, `rules-researcher`, `rules-proposer`: the step skills.
