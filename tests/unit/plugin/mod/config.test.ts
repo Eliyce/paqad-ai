@@ -9,6 +9,7 @@ import {
   MIN_ENGINE,
   ancestorDirs,
   homeOf,
+  nextSessionRoot,
   decideStatus,
   isChimeOn,
   isEngineNewEnough,
@@ -254,5 +255,26 @@ describe('the hud_chime setting', () => {
     expect(
       isChimeOn({ ...base, teamConfigs: [{ name: '.config.example', text: 'hud_chime=true\n' }] }),
     ).toBe(false);
+  });
+});
+
+describe('nextSessionRoot', () => {
+  it('AC-3: retries the folder read on the next prompt after it failed at session start', async () => {
+    let calls = 0;
+    const readRoot = async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('folder read failed');
+      return '/work/app';
+    };
+    expect(await nextSessionRoot(true, null, readRoot)).toBeNull();
+    expect(await nextSessionRoot(true, null, readRoot)).toBe('/work/app');
+    expect(calls).toBe(2);
+  });
+
+  it('AC-3, AC-14: binds a moved folder, skips an unchanged one, and waits for session start', async () => {
+    const at = (root: string) => async () => root;
+    expect(await nextSessionRoot(true, '/work/app', at('/work/app'))).toBeNull();
+    expect(await nextSessionRoot(true, '/work/app', at('/work/other'))).toBe('/work/other');
+    expect(await nextSessionRoot(false, null, at('/work/app'))).toBeNull();
   });
 });

@@ -235,3 +235,18 @@ export function ancestorDirs(root: string, home: string | null = null): string[]
     dir = parent;
   }
 }
+
+export async function nextSessionRoot(
+  opened: boolean,
+  bound: string | null,
+  readRoot: () => Promise<string>,
+): Promise<string | null> {
+  if (!opened) return null;
+  let start: string;
+  try {
+    start = await readRoot();
+  } catch {
+    return null;
+  }
+  return start === bound ? null : start;
+}

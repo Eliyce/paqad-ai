@@ -38,7 +38,14 @@ import {
   subcommandOf,
   type RepoDecision,
 } from './commands';
-import { ancestorDirs, decideStatus, homeOf, isChimeOn, registersCommand } from './config';
+import {
+  ancestorDirs,
+  decideStatus,
+  homeOf,
+  isChimeOn,
+  nextSessionRoot,
+  registersCommand,
+} from './config';
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
@@ -285,6 +292,7 @@ let desktopSession = false;
 let taskListRefused = false;
 let signoffChecking = false;
 let boundStart: string | null = null;
+let sessionOpened = false;
 let homeDir: string | null = null;
 let missingTimer: Timer | null = null;
 let commandRegistered = false;
@@ -1450,14 +1458,8 @@ async function registerCommandOnce($: EngineInterface): Promise<void> {
 }
 
 async function followRoot($: EngineInterface): Promise<void> {
-  if (boundStart === null) return;
-  let start: string;
-  try {
-    start = await $.session.root();
-  } catch {
-    return;
-  }
-  if (start === boundStart) return;
+  const start = await nextSessionRoot(sessionOpened, boundStart, () => $.session.root());
+  if (start === null) return;
   await clearBinding($);
   try {
     await update($, statusAtom, () => null);
@@ -1474,6 +1476,7 @@ export const register: Register = (on) => {
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     boundStart = null;
+    sessionOpened = true;
     commandRegistered = false;
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
