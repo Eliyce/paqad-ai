@@ -15,6 +15,11 @@ import {
   CONTROLS_COLUMNS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
+  RECORD_MISSING,
+  RECORD_MISSING_HINT,
+  homeShortened,
+  middleTruncated,
+  recordMissingLine,
   bandIsLive,
   GETTING_READY,
   buildDesktopBand,
@@ -124,6 +129,22 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ unbound: true })).toMatchObject({ kind: 'unreadable', reason: 'session-id' });
     expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
     expect(band({ unavailable: true })).toMatchObject({ kind: 'feature' });
+  });
+
+  it('AC-4: a bound session with no record names the folder it looked in', () => {
+    expect(
+      band({ snapshot: null, missingRecord: { root: '/home/dev/code/app', home: '/home/dev' } }),
+    ).toEqual({
+      kind: 'missing',
+      line: `${RECORD_MISSING} ~/code/app`,
+      hint: RECORD_MISSING_HINT,
+    });
+    expect(band({ missingRecord: { root: '/work', home: null } })).toMatchObject({
+      kind: 'feature',
+    });
+    expect(
+      band({ snapshot: null, unbound: true, missingRecord: { root: '/w', home: null } }),
+    ).toMatchObject({ kind: 'unreadable' });
   });
 
   it('AC-25: a workflow band is never drawn from a snapshot older than the prompt just sent', () => {
@@ -1327,5 +1348,36 @@ describe('Part C: the Sign-off stage, words and button', () => {
       link: { href: 'https://acme.test/1', text: 'Open the design record' },
     });
     expect(signoffRecord(open({ signoff: null }))).toBeNull();
+  });
+});
+
+describe('AC-4: the record-missing path shortens home and truncates in the middle', () => {
+  it('shortens the home part to ~ only on a folder boundary', () => {
+    expect(homeShortened('/home/dev', '/home/dev')).toBe('~');
+    expect(homeShortened('/home/dev/app', '/home/dev')).toBe('~/app');
+    expect(homeShortened('/home/devx/app', '/home/dev')).toBe('/home/devx/app');
+    expect(homeShortened('C:\\Users\\u\\app', 'C:\\Users\\u')).toBe('~\\app');
+    expect(homeShortened('/work/app', null)).toBe('/work/app');
+  });
+
+  it('keeps the last folder name and cuts the middle, never the end', () => {
+    const path = '/very/long/path/that/goes/on/and/on/to/the-repo';
+    const cut = middleTruncated(path, 24);
+    expect([...cut].length).toBe(24);
+    expect(cut.endsWith('/the-repo')).toBe(true);
+    expect(cut.startsWith('/very')).toBe(true);
+    expect(cut).toContain('…');
+    expect(middleTruncated('/short', 24)).toBe('/short');
+  });
+
+  it('fits the narrow band and still shows the repo folder', () => {
+    const line = recordMissingLine(
+      '/home/dev/clients/acme/projects/2026/the-repo',
+      '/home/dev',
+      60,
+    );
+    expect(line.startsWith(RECORD_MISSING)).toBe(true);
+    expect(line.endsWith('/the-repo')).toBe(true);
+    expect([...line].length).toBeLessThanOrEqual(58);
   });
 });

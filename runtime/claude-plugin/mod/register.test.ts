@@ -805,6 +805,39 @@ describe('the Desktop band', () => {
     );
   });
 
+  test('AC-4: a bound session with no record says so after 30 s, and the record clears it', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED }, env: { HOME: '/home/dev' } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await clock.advance(29_000);
+    await clock.settle();
+    expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Ready');
+    await clock.advance(1_000);
+    await clock.settle();
+    const missing = textOf(await $.ui.render(band('desktop')));
+    expect(missing).toContain("paqad could not find this session's record at /work");
+    expect(missing).toContain('paqad-ai doctor');
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await clock.advance(5_000);
+    await clock.settle();
+    const found = textOf(await $.ui.render(band('desktop')));
+    expect(found).not.toContain('could not find');
+    expect(found).toContain('ORD-501');
+  });
+
+  test('AC-4: a record that appears at 29 s never shows the missing line', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await clock.advance(29_000);
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    for (let second = 0; second < 40; second += 1) {
+      await clock.advance(1_000);
+      await clock.settle();
+      expect(textOf(await $.ui.render(band('desktop')))).not.toContain('could not find');
+    }
+  });
+
   test('draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
@@ -1773,6 +1806,24 @@ describe('stand-downs: the mod registers nothing', () => {
       for (const surface of SURFACES) {
         expect(textOf(await $.ui.render(band(surface)))).not.toContain('paqad');
       }
+    });
+  }
+
+  const REASONS = [
+    ['not-onboarded', { files: {} }],
+    ['view-off', { files: { ...ONBOARDED }, env: { PAQAD_HUD_VIEW: 'false' } }],
+    ['remote', { files: { ...ONBOARDED }, env: { CLAUDE_CODE_REMOTE: 'true' } }],
+    ['disabled', { files: { ...ONBOARDED }, env: { PAQAD_DISABLED: '1' } }],
+    ['old-engine', { files: { ...ONBOARDED }, version: { version: '2.1.300', base: '2.1.300' } }],
+  ] as const;
+  for (const [reason, setup] of REASONS) {
+    test(`AC-15: the stand-down reason ${reason} is written to the debug log`, async ($, on) => {
+      const world = worldOf(on, setup);
+      await $.session.start(START);
+      expect(world.logs).toContainEqual({
+        text: `paqad HUD stands down at /work: ${reason}`,
+        to: 'debug',
+      });
     });
   }
 

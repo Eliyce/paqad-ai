@@ -190,6 +190,17 @@ Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`,
 `Ready` stays as the first word on screen, because at that point paqad has read nothing and cannot
 yet say the work is a feature.
 
+### Record-missing card
+
+When the HUD is bound and `<root>/.paqad/session/hud/<id>.json` still does not exist 30 s after
+binding, the Ready row gives way to a card: the identity row (`paqad` and the controls), then the
+body line `▲ paqad could not find this session's record at <root>` with the `▲` in the caution
+colour, then the dim footnote `Run paqad-ai doctor to see why.` In `<root>` the home part is
+shortened to `~`, and a path too long for the band is cut in the middle with `…`, so the last
+folder name stays visible at every width. A snapshot that appears before 30 s never shows the line,
+and one that appears later clears it within 5 s. When the HUD stands down instead of binding, the
+reason (`not-onboarded`, `old-engine`, `disabled`, `view-off` or `remote`) goes to the debug log.
+
 ### Paqad Getting Ready card
 
 Once the snapshot says the session is on the feature route and this session has written no row of

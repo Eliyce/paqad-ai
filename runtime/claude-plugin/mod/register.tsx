@@ -43,6 +43,7 @@ import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
   ANSWER_TOAST,
+  RECORD_WAIT_MS,
   bandIsLive,
   buildDesktopBand,
   checkPending,
@@ -188,6 +189,7 @@ const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
 const SETTLE_GLOW_MS = 2000;
 const HEARTBEAT_MS = 60_000;
+const RECORD_RECHECK_MS = 5_000;
 
 const statusAtom = atom({ plugin: 'paqad', key: 'status' } as const, null as PaqadStatus | null);
 const snapshotAtom = atom(
@@ -201,6 +203,10 @@ const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false
 const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
 const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
+const recordMissingAtom = atom(
+  { plugin: 'paqad', key: 'recordMissing' } as const,
+  null as { root: string; home: string | null } | null,
+);
 const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
 const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
 const liveAtom = atom({ plugin: 'paqad', key: 'live' } as const, IDLE_LIVE as LiveState);
@@ -279,6 +285,8 @@ let desktopSession = false;
 let taskListRefused = false;
 let signoffChecking = false;
 let boundStart: string | null = null;
+let homeDir: string | null = null;
+let missingTimer: Timer | null = null;
 let commandRegistered = false;
 const rawCalls = new Set<string>();
 
@@ -426,6 +434,7 @@ async function refresh($: EngineInterface): Promise<void> {
         : await read($, snapshotAtom);
       if (changed) {
         await update($, snapshotAtom, () => snapshot);
+        if (snapshot !== null) await update($, recordMissingAtom, () => null);
         const broken = snapshot === null && (text !== null || (await existsSafe($, path)));
         await update($, unavailableAtom, () => broken);
       }
@@ -688,7 +697,7 @@ function startTicker($: EngineInterface): void {
 async function readStatus(
   $: EngineInterface,
   start: string,
-): Promise<PaqadStatus & { root: string | null; chime: boolean }> {
+): Promise<PaqadStatus & { root: string | null; chime: boolean; home: string | null }> {
   const home = homeOf({
     HOME: await $.env.get('HOME'),
     USERPROFILE: await $.env.get('USERPROFILE'),
@@ -734,7 +743,12 @@ async function readStatus(
     paqadYaml,
     engine,
   });
-  return { ...status, root, chime: isChimeOn({ env, localConfig, teamConfigs, paqadYaml }) };
+  return {
+    ...status,
+    root,
+    home,
+    chime: isChimeOn({ env, localConfig, teamConfigs, paqadYaml }),
+  };
 }
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
@@ -1043,6 +1057,7 @@ async function desktopBandOf(
     ),
     menuOpen: (await read($, closingAtom)) === true,
     signoffCheck: await read($, signoffCheckAtom),
+    missingRecord: await read($, recordMissingAtom),
     design: (await read($, designTextAtom)) !== null,
     copiedAt: await read($, copiedAtAtom),
     ...size,
@@ -1310,6 +1325,23 @@ async function bind($: EngineInterface, root: string, chime: boolean): Promise<v
     heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
   } catch {}
   await refresh($);
+  try {
+    missingTimer = $.clock.after(RECORD_WAIT_MS, () => void checkRecord($));
+  } catch {}
+}
+
+async function checkRecord($: EngineInterface): Promise<void> {
+  missingTimer = null;
+  const at = live;
+  if (!at) return;
+  await refresh($);
+  try {
+    if (live !== at) return;
+    const missing =
+      (await read($, snapshotAtom)) === null && (await read($, unavailableAtom)) !== true;
+    await update($, recordMissingAtom, () => (missing ? { root: at.root, home: homeDir } : null));
+    if (missing) missingTimer = $.clock.after(RECORD_RECHECK_MS, () => void checkRecord($));
+  } catch {}
 }
 
 async function registerCommand($: EngineInterface): Promise<void> {
@@ -1375,7 +1407,12 @@ async function clearBinding($: EngineInterface): Promise<void> {
   ciPause = null;
   heartbeat?.cancel();
   heartbeat = null;
+  missingTimer?.cancel();
+  missingTimer = null;
   stopTick();
+  try {
+    await update($, recordMissingAtom, () => null);
+  } catch {}
 }
 
 async function resolveRoot(
@@ -1387,11 +1424,23 @@ async function resolveRoot(
   try {
     const found = await readStatus($, start);
     status = found;
+    homeDir = found.home;
     await update($, unboundAtom, () => false);
     await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));
-  } catch {}
+  } catch (error) {
+    await logDebug($, `paqad HUD could not read its status at ${start}: ${String(error)}`);
+  }
+  if (status && !status.on) {
+    await logDebug($, `paqad HUD stands down at ${start}: ${status.reason ?? 'not-onboarded'}`);
+  }
   if (status?.on && status.root) await bind($, status.root, status.chime);
   return status;
+}
+
+async function logDebug($: EngineInterface, text: string): Promise<void> {
+  try {
+    await $.ui.log(text, { to: 'debug' });
+  } catch {}
 }
 
 async function registerCommandOnce($: EngineInterface): Promise<void> {

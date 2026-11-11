@@ -43,7 +43,7 @@ import { visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
 import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
-import { fitLine } from './shell';
+import { ELLIPSIS, fitLine } from './shell';
 import {
   NOTHING_TO_PROVE,
   OLD_RECORD_NOTE,
@@ -77,6 +77,9 @@ export const UNREADABLE_WHY = {
   snapshot: 'The snapshot file is not valid.',
 } as const;
 export const GETTING_READY = 'Paqad Getting Ready';
+export const RECORD_MISSING = "paqad could not find this session's record at";
+export const RECORD_MISSING_HINT = 'Run paqad-ai doctor to see why.';
+export const RECORD_WAIT_MS = 30_000;
 export { FEATURE_WORDS };
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
@@ -766,6 +769,7 @@ export type DesktopBand =
   | { kind: 'none' }
   | { kind: 'ready' }
   | { kind: 'unreadable'; reason: Unreadable; headline: string }
+  | { kind: 'missing'; line: string; hint: string }
   | {
       kind: 'workflow';
       words: string;
@@ -792,6 +796,33 @@ export interface DesktopBandInput {
   signoffCheck?: SignoffCheck | null;
   design?: boolean;
   copiedAt?: number | null;
+  missingRecord?: { root: string; home: string | null } | null;
+}
+
+export function homeShortened(path: string, home: string | null): string {
+  if (home === null || home === '' || home === '/') return path;
+  if (path === home) return '~';
+  for (const separator of ['/', '\\']) {
+    if (path.startsWith(`${home}${separator}`)) return `~${path.slice(home.length)}`;
+  }
+  return path;
+}
+
+export function middleTruncated(text: string, max: number): string {
+  const chars = [...text];
+  const room = Math.max(1, Math.floor(max));
+  if (chars.length <= room) return text;
+  const cut = Math.max(chars.lastIndexOf('/'), chars.lastIndexOf('\\'));
+  const tailFrom =
+    cut >= 0 && chars.length - cut < room - 1 ? cut : chars.length - Math.ceil((room - 1) / 2);
+  const tail = chars.slice(tailFrom);
+  const head = chars.slice(0, Math.max(0, room - 1 - tail.length));
+  return `${head.join('')}${ELLIPSIS}${tail.join('')}`;
+}
+
+export function recordMissingLine(root: string, home: string | null, columns: number): string {
+  const room = columns - HEADLINE_INSET_COLUMNS - [...RECORD_MISSING].length - 1;
+  return `${RECORD_MISSING} ${middleTruncated(homeShortened(root, home), room)}`;
 }
 
 export function unreadableReason(input: {
@@ -871,6 +902,13 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
   const snapshot = input.snapshot;
+  if (!snapshot && input.missingRecord) {
+    return {
+      kind: 'missing',
+      line: recordMissingLine(input.missingRecord.root, input.missingRecord.home, input.columns),
+      hint: RECORD_MISSING_HINT,
+    };
+  }
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
   if (route) {

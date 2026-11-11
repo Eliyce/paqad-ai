@@ -318,6 +318,26 @@ function unreadableBand(
   );
 }
 
+function missingBand(ui: D, band: Extract<DesktopBand, { kind: 'missing' }>, actions: BandActions) {
+  const { Box, Text } = ui;
+  return (
+    <Box key="paqad-band" flexDirection="column" rowGap="xs">
+      <Box key="paqad-identity" flexDirection="row" alignItems="center" columnGap="sm">
+        <Text>{brand(ui)}</Text>
+        <Box flexGrow={1} />
+        {controls(ui, actions, false)}
+      </Box>
+      <Text wrap="truncate-end">
+        <Text color={SIGNAL.caution}>▲ </Text>
+        <Text>{band.line}</Text>
+      </Text>
+      <Text size="footnote" dimColor wrap="truncate-end">
+        {band.hint}
+      </Text>
+    </Box>
+  );
+}
+
 export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions: BandActions) {
   const { Text } = ui;
   switch (band.kind) {
@@ -332,6 +352,8 @@ export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions:
       );
     case 'unreadable':
       return unreadableBand(ui, band, actions);
+    case 'missing':
+      return missingBand(ui, band, actions);
     case 'workflow':
       return workflowBand(ui, band, tick, actions);
     case 'closed':
