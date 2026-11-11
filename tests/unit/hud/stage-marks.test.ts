@@ -9,6 +9,11 @@ import { isArtifactBearingStage } from '@/stage-evidence/index.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import { buildHudSnapshot, gapStages } from '@/hud/snapshot.js';
+import {
+  UNRECORDED_STAGES_PREFIX,
+  unrecordedStagesGap,
+  unrecordedStagesOf,
+} from '@/verification/verdict-kind.js';
 
 import { buildDesktopBand, stageStrip } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { parseSnapshot } from '../../../runtime/claude-plugin/mod/model.ts';
@@ -116,5 +121,30 @@ describe('AC-18: a checks helper that gave no report shows it in caution', () =>
       maxRows: 12,
     });
     expect(JSON.stringify(band)).toContain('Checks · helper gave no report');
+  });
+});
+
+describe("INV-5: the unrecorded-stages gap is read back with the writer's own words", () => {
+  const ALL = [
+    'ticket_intake',
+    'planning',
+    'specification',
+    'development',
+    'review',
+    'checks',
+    'documentation_sync',
+    'delivery',
+  ];
+
+  it('AC-9: every stage the writer names comes back from gapStages', () => {
+    const text = unrecordedStagesGap(ALL).text;
+    expect(text.startsWith(UNRECORDED_STAGES_PREFIX)).toBe(true);
+    expect(unrecordedStagesOf(text)).toEqual(ALL);
+    expect([...gapStages([text])].sort()).toEqual([...ALL].sort());
+    expect([...gapStages([unrecordedStagesGap(['review']).text])]).toEqual(['review']);
+  });
+
+  it('AC-9: any other gap text marks no stage', () => {
+    expect(gapStages(['Lane not recorded', 'Review missing'])).toEqual(new Set());
   });
 });

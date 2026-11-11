@@ -79,7 +79,7 @@ import {
   gateExpectedOnLane,
   type GateOwner,
 } from '@/core/types/verification.js';
-import { LANE_RECORD_GAP } from '@/verification/verdict-kind.js';
+import { LANE_RECORD_GAP, unrecordedStagesOf } from '@/verification/verdict-kind.js';
 
 import {
   gateIsJudged,
@@ -779,19 +779,8 @@ function withTrackRecords(
   };
 }
 
-const NO_RECORD_PREFIX = 'No record yet for: ';
-
 export function gapStages(gaps: readonly string[]): Set<string> {
-  const byWord = new Map(Object.entries(STAGE_WORDS).map(([stage, word]) => [word, stage]));
-  const stages = new Set<string>();
-  for (const gap of gaps) {
-    if (!gap.startsWith(NO_RECORD_PREFIX)) continue;
-    for (const word of gap.slice(NO_RECORD_PREFIX.length).split(',')) {
-      const stage = byWord.get(word.trim());
-      if (stage) stages.add(stage);
-    }
-  }
-  return stages;
+  return new Set(gaps.flatMap((gap) => unrecordedStagesOf(gap)));
 }
 
 function helperGaveNoReport(rows: readonly Record<string, unknown>[], stage: string): boolean {
