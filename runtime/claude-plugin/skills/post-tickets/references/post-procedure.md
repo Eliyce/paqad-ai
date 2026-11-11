@@ -14,9 +14,21 @@ lost reply from turning into a duplicate.
 - Bind the approval to the ticket-set digest. Any later edit to the set voids the approval and a
   new preview and approval are required.
 
-## 2. Epics first
+## 2. Existing epics are read, then epics first
 
-- Create each epic. Each carries the shared label `paqad-discovery`, the run label (the run ID in
+- For each epic the user chose to post under, the plan starts with a read-only `verify-E<n>`
+  operation and holds no create for it. Read the issue and record the result. It must exist, be of
+  the epic type and sit in the project. Every such read comes before the first create of any kind,
+  so a failed check leaves nothing half posted.
+- When a check fails, stop, name the failed check and offer two ways on: another epic or a new
+  epic (the step 4 question), or the export. A read that timed out or was refused is "could not
+  check the epic": never a pass, and never "the epic does not exist".
+- When the epic is done or closed, by the status it reports as finished, ask before the first
+  create unless that was already confirmed. A no creates nothing.
+- The existing epic is never created, edited, labelled, commented on, linked or moved. The preview
+  and the posted block show it on its own row as "not changed". Repeat the read on every resume
+  and retry; a retry finds the tickets already created by their run label and makes no second copy.
+- Create each new epic. Each carries the shared label `paqad-discovery`, the run label (the run ID in
   lowercase), and its item reference in the Sources section.
 - Keep the created key for each epic; a ticket's parent is a result reference to its epic's key.
 
@@ -24,6 +36,9 @@ lost reply from turning into a duplicate.
 
 - Create each ticket with its created epic as parent. If the connector refuses the parent
   parameter for an epic child, set the parent through the connector's additional fields.
+- Under an existing epic the parent is its literal key, through the same parent route, and the run
+  label goes on the tickets only. If the first create with that parent is refused, stop at that
+  ticket, create no ticket without its parent, never edit the epic, and offer the export.
 - Confirm the parent on read-back.
 
 ## 4. Links
@@ -66,6 +81,7 @@ lost reply from turning into a duplicate.
 
 The approved set can always be downloaded as Markdown and as CSV for the tracker importer, with
 columns Work type, Work item id, Summary, Description, Labels and Parent, and every epic row before
-its story rows. Offer this when the connector has no create action, has no write tools, or the user
+its story rows. An existing epic has no row; Parent holds its real key for its tickets, beside the
+in-file refs of a new epic's tickets, and the export note names the rows with the real key. Offer this when the connector has no create action, has no write tools, or the user
 has no create permission in the project. Tell the user that importing needs create-work-item
 permission in the project and the make-bulk-changes global permission.

@@ -80,8 +80,8 @@ an org admin.
 
 ## Unknowns that apply to ChatGPT web
 
-Applies here: U-1, U-2, U-3, U-4, U-7, U-8, U-9, U-10, U-11, U-14, U-15, U-16, U-17. Shared
-across more than one host: U-1, U-3, U-8, U-9, U-11, U-14, U-15, U-16.
+Applies here: U-1, U-2, U-3, U-4, U-7, U-8, U-9, U-10, U-11, U-14, U-15, U-16, U-17, U-20. Shared
+across more than one host: U-1, U-3, U-8, U-9, U-11, U-14, U-15, U-16, U-20.
 
 | Unknown | What to check | How to check on this host | Verdict | Evidence | If it fails |
 |---|---|---|---|---|---|
@@ -98,3 +98,4 @@ across more than one host: U-1, U-3, U-8, U-9, U-11, U-14, U-15, U-16.
 | U-15 (shared) | Can sprint IDs, the size field and past sprint totals be found through search and field metadata alone? | Query search and field metadata with no board tools; see what is reachable. | pending |  | Ask the user for the sprint name and capacity; skip derived capacity. |
 | U-16 (shared) | Does an edit in the Jira document format keep images and panels intact? | Edit a rich issue description and check whether images and panels survive. | pending |  | Never replace rich descriptions; always append a marked section or comment (EDT-7). |
 | U-17 | Does the Atlassian app expose edit and comment actions as well as create? | Inspect the Atlassian app's available actions for edit and comment, not only create. | pending |  | Refine and sprint changes on this host fall back to a list to apply by hand. |
+| U-20 (shared) | Can the connector list a project's epics and tickets, by a natural language search or a JQL search, with a field list? | Add the Atlassian app, search one project for its epics and then its stories, and note whether a field list is accepted. | pending |  | The idea journey grounds from the repository alone and drafts a new epic; the user can still name an epic key to check (GRD-17, PUB-9). |

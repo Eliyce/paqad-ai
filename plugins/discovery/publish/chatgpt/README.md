@@ -12,7 +12,10 @@ you connect, in plain business words.
   project documents to the chat. The plugin works with any repository. It gives its best answers
   when the repository has project documents, and still answers from the code when it does not.
 - Optional: a tracker connector such as the Jira connector, if you want the plugin to post tickets
-  for you. Without it, you can download the tickets as a file and add them to any tracker yourself.
+  for you or to work from the epics and tickets you already have. Without it, you can download the
+  tickets as a file and add them to any tracker yourself. With the Jira connector and no
+  repository, the plugin can still shape an idea from your existing tickets, which show what was
+  planned, not what is built.
 
 ## Install
 
@@ -45,10 +48,15 @@ directly:
 - It only reads. It never edits, runs or installs anything in your repository.
 - It reads the project documents and the code by names, and opens only a few files per answer. It
   never reads secrets, environment files or dependency folders.
+- When you shape an idea, it may also read existing epics and tickets in the one tracker project
+  you point it at: no more than 25 search results and 10 opened tickets in a run. It never reads
+  comments, attachments or people's names, and it never reads other projects.
 - It writes nothing outside its own working folder. Tickets reach your tracker only through the
-  tracker connector, and only after you approve them.
+  tracker connector, and only after you approve them. You can put them under a new epic or under
+  an epic that already exists; an existing epic is never changed.
 - The publisher runs no server and collects nothing. Your AI host processes what the plugin reads,
-  under the host's own terms, and your tracker receives only the ticket text you approve.
+  under the host's own terms, and your tracker receives search words taken from your idea and only
+  the ticket text you approve.
 - Every answer ends with one short source line, such as "paqad, from code only", so you know what
   the answer is based on.
 - When an answer is limited because the repository is not fully set up, the plugin may show one

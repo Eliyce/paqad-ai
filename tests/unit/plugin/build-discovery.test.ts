@@ -285,3 +285,87 @@ describe('discovery build configuration', () => {
     }
   });
 });
+
+describe('generated discovery skills after tracker grounding', () => {
+  const SOURCE = join(repoRoot, 'plugins', 'discovery');
+  const SOURCE_NAMES: Record<string, string> = {
+    discover: 'product-discovery',
+    ask: 'ask-project',
+    start: 'front-door',
+  };
+  const generated = readdirSync(SKILLS_DIR).filter(
+    (name) => !HAND_WRITTEN_SKILLS.includes(name) && statSync(join(SKILLS_DIR, name)).isDirectory(),
+  );
+  const flat = (path: string): string => readFileSync(path, 'utf8').split(/\s+/u).join(' ');
+
+  it('AC-44: every shared reference, asset and script matches its source byte for byte', () => {
+    expect(generated).toHaveLength(14);
+    const drift: string[] = [];
+    for (const skill of generated) {
+      const source = join(SOURCE, 'skills', SOURCE_NAMES[skill] ?? skill);
+      for (const part of ['references', 'assets', 'scripts']) {
+        const dir = join(SKILLS_DIR, skill, part);
+        if (!existsSync(dir)) continue;
+        for (const file of readdirSync(dir)) {
+          if (statSync(join(dir, file)).isDirectory()) continue;
+          const own = join(source, part, file);
+          if (part === 'references' && existsSync(own)) continue;
+          const from = existsSync(own) ? own : join(SOURCE, 'shared', part, file);
+          if (!existsSync(from) || !readFileSync(from).equals(readFileSync(join(dir, file)))) {
+            drift.push(`${skill}/${part}/${file}`);
+          }
+        }
+      }
+    }
+    expect(drift).toEqual([]);
+  });
+
+  it('AC-34: the word-for-word sentences and the epic question are in the generated copies', () => {
+    const connected = flat(join(SKILLS_DIR, 'get-connected', 'SKILL.md'));
+    expect(connected).toContain(
+      "No repository is connected, so I'll work from the tickets in your tracker. Tickets show what was planned or asked for, not what is built.",
+    );
+    expect(connected).toContain(
+      "I can't read a repository or the tracker from here, so there is nothing to ground this on. Attach the repository or its docs folder, or switch on the tracker connector, and I'll carry on.",
+    );
+    const decide = flat(join(SKILLS_DIR, 'decide-together', 'SKILL.md'));
+    expect(decide).toContain('Where should these tickets go?');
+    expect(decide).toContain(
+      "I can't read the tracker from here, so I can't check that epic. I'll draft a new epic instead, or you can connect the tracker and pick one.",
+    );
+  });
+
+  it('AC-15: each generated copy of the tracker reference holds the limits and the never-read list', () => {
+    const holders = generated.filter((skill) =>
+      existsSync(join(SKILLS_DIR, skill, 'references', 'ground-from-tracker.md')),
+    );
+    expect(holders.sort()).toEqual([
+      'check-tickets',
+      'decide-together',
+      'discover',
+      'get-connected',
+      'ground-in-project',
+      'shape-idea',
+    ]);
+    for (const skill of holders) {
+      const text = flat(join(SKILLS_DIR, skill, 'references', 'ground-from-tracker.md'));
+      for (const phrase of [
+        'at most 25',
+        'at most 10',
+        'key, type, summary, description, status, parent, labels, last updated',
+        "comments, attachments, work logs, people's names (assignee, reporter), other projects",
+        'I looked at the 25 closest tickets',
+      ]) {
+        expect(text, `${skill}: ${phrase}`).toContain(phrase);
+      }
+    }
+  });
+
+  it('AC-39: all fourteen generated voice copies carry the language rule', () => {
+    for (const skill of generated) {
+      expect(flat(join(SKILLS_DIR, skill, 'references', 'voice.md')), skill).toContain(
+        'Reply in the language the person writes in, and follow them if they switch.',
+      );
+    }
+  });
+});

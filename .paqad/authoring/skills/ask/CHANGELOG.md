@@ -1,5 +1,9 @@
 # ask
 
+## 1.2.0
+
+- evals: 11.11 points over the baseline; trigger validation score 1
+
 ## 1.1.0
 
 - evals: not measured; trigger: not measured; labels: unverified

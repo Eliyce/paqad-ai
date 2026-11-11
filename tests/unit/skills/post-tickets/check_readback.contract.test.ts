@@ -1,4 +1,7 @@
+import { describe } from 'vitest';
+
 import { describeContract } from '../_helpers/contract.js';
+import { EXISTING_EPIC_CASES, itMatchesExistingEpicOutput } from '../_helpers/existing-epic.js';
 
 describeContract({
   script: 'runtime/claude-plugin/skills/post-tickets/scripts/check_readback.py',
@@ -31,4 +34,17 @@ describeContract({
     },
     exit: 1,
   },
+});
+
+describe('AC-46: check_readback.py keeps its new-epic output and adds the existing epic outputs', () => {
+  itMatchesExistingEpicOutput(
+    'AC-33: check_readback takes the existing epic as neither missing nor extra',
+    'runtime/claude-plugin/skills/post-tickets/scripts/check_readback.py',
+    EXISTING_EPIC_CASES.checkReadback,
+  );
+  itMatchesExistingEpicOutput(
+    'AC-33: check_readback flags a ticket with another parent than the existing key',
+    'runtime/claude-plugin/skills/post-tickets/scripts/check_readback.py',
+    EXISTING_EPIC_CASES.checkReadbackWrongParent,
+  );
 });

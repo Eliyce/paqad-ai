@@ -260,11 +260,12 @@ def lint_ticket_set(ticket_set, denylist):
     issues = []
     for epic in ticket_set.get("epics", []):
         epic_ref = epic.get("ref", "?")
-        issues.extend(lint_item(
-            "epics[{0}]".format(epic_ref),
-            str(epic.get("title", "")),
-            str(epic.get("body_markdown", "")),
-            [], denylist))
+        if "existing_key" not in epic:
+            issues.extend(lint_item(
+                "epics[{0}]".format(epic_ref),
+                str(epic.get("title", "")),
+                str(epic.get("body_markdown", "")),
+                [], denylist))
         for ticket in epic.get("tickets", []):
             ticket_ref = ticket.get("ref", "?")
             issues.extend(lint_item(

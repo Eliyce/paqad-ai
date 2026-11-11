@@ -1,4 +1,7 @@
+import { describe } from 'vitest';
+
 import { describeContract } from '../_helpers/contract.js';
+import { EXISTING_EPIC_CASES, itMatchesExistingEpicOutput } from '../_helpers/existing-epic.js';
 
 describeContract({
   script: 'runtime/claude-plugin/skills/post-tickets/scripts/plan_posting.py',
@@ -21,4 +24,12 @@ describeContract({
       '{\n  "ticket_digest": "d20c3e8a92591a3dc692eec5ca8a5153cd15dbe64d62ce0998ca4608a7f037a1",\n  "link_action": "createIssueLink",\n  "links_by_hand": false,\n  "depends_on_lines": [],\n  "operations": [\n    {\n      "id": "create-E1",\n      "action": "createIssue",\n      "kind": "epic",\n      "item_ref": "E1",\n      "arguments": {\n        "project": "acme/shop",\n        "issuetype": "epic",\n        "summary": "Refunds for shoppers",\n        "description": "Shoppers can ask for their money back.",\n        "labels": [\n          "refunds",\n          "paqad-discovery"\n        ]\n      }\n    },\n    {\n      "id": "create-E1-T1",\n      "action": "createIssue",\n      "kind": "story",\n      "item_ref": "E1-T1",\n      "arguments": {\n        "project": "acme/shop",\n        "issuetype": "story",\n        "summary": "Ask for a refund",\n        "description": "## Goal\\nA shopper asks for a refund on a paid order.\\n\\nAs a shopper\\nI want to ask for a refund\\nSo that I get my money back",\n        "labels": [\n          "paqad-discovery"\n        ],\n        "parent": {\n          "$result": {\n            "operation": "create-E1",\n            "path": [\n              "key"\n            ]\n          }\n        }\n      }\n    },\n    {\n      "id": "create-E1-T2",\n      "action": "createIssue",\n      "kind": "story",\n      "item_ref": "E1-T2",\n      "arguments": {\n        "project": "acme/shop",\n        "issuetype": "story",\n        "summary": "Approve a refund",\n        "description": "## Goal\\nSupport approves a refund request.\\n\\nAs a support agent\\nI want to approve a request\\nSo that the shopper is paid back",\n        "labels": [\n          "paqad-discovery"\n        ],\n        "parent": {\n          "$result": {\n            "operation": "create-E1",\n            "path": [\n              "key"\n            ]\n          }\n        }\n      }\n    },\n    {\n      "id": "link-E1-T2-E1-T1",\n      "action": "createIssueLink",\n      "kind": "link",\n      "item_ref": "E1-T2->E1-T1",\n      "arguments": {\n        "type": "Depends",\n        "inward": {\n          "$result": {\n            "operation": "create-E1-T2",\n            "path": [\n              "key"\n            ]\n          }\n        },\n        "outward": {\n          "$result": {\n            "operation": "create-E1-T1",\n            "path": [\n              "key"\n            ]\n          }\n        }\n      }\n    },\n    {\n      "id": "read-back",\n      "action": "readBack",\n      "kind": "read_back",\n      "item_ref": "*",\n      "arguments": {\n        "keys": [\n          {\n            "$result": {\n              "operation": "create-E1",\n              "path": [\n                "key"\n              ]\n            }\n          },\n          {\n            "$result": {\n              "operation": "create-E1-T1",\n              "path": [\n                "key"\n              ]\n            }\n          },\n          {\n            "$result": {\n              "operation": "create-E1-T2",\n              "path": [\n                "key"\n              ]\n            }\n          }\n        ]\n      }\n    }\n  ]\n}\n',
   },
   invalid: { args: ['plan', '--state', 'missing.json'], exit: 1 },
+});
+
+describe('AC-46: plan_posting.py keeps its new-epic output and adds the existing epic outputs', () => {
+  itMatchesExistingEpicOutput(
+    'AC-29: plan_posting reads the existing epic first, creates no epic for it and parents its tickets by the literal key',
+    'runtime/claude-plugin/skills/post-tickets/scripts/plan_posting.py',
+    EXISTING_EPIC_CASES.planPosting,
+  );
 });

@@ -1,0 +1,457 @@
+# Tracker grounding scenarios: the idea journey grounds on existing epics and tickets, repository
+# first and tracker second, or the tracker alone when no repository is readable (GRD-17 to GRD-19),
+# learns terms from tickets (GRD-6) and replies in the person's language (TALK-16). They are
+# declarative, like s1.yml, and are NOT run in CI; the host eval runner executes them against the
+# built plugin, the fixture repository and the fixture tracker under tests/evals/ (CI-12).
+#
+# AC-76 to AC-82, AC-84 to AC-93 and AC-107 to AC-113 are conversation-shape acceptance scenarios,
+# each exercised by a scenario below. The file-level rules behind them (the shared
+# ground-from-tracker.md reference, its declarers, the record template fields and the fixture) are
+# checked by tests/scripts/test_tracker_grounding.py.
+#
+# Fixtures used here:
+#   none                            no repository attached.
+#   fixture-repo                    the ready fixture, with code.
+#   fixture-repo-code-only          real code, no paqad docs.
+#   fixture record before tracker grounding   tracker/record-before-tracker-grounding.json, a
+#                                   record with no grounding_sources.
+# The tracker field says what the fixture tracker (project SUB) allows in that scenario.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus the
+# tracker field. Properties are judged on meaning, never as a string list. Property vocabulary added
+# here (all provider-neutral, all checkable; the vocabulary of the other scenario files also applies):
+#   journey-carries-on               the journey does not stop and reaches the next step.
+#   tracker-only-sentence-once       the tracker-only sentence is said word for word, exactly once.
+#   tracker-only-sentence-not-repeated  the tracker-only sentence is not said a second time.
+#   source-line-from-the-tracker     the one source line is "paqad, from the tracker".
+#   source-line-combined             the one source line is the repository line plus the tracker.
+#   source-line-unchanged            the one source line is one of the three repository lines.
+#   repository-read-first            repository lines come first and no ticket line replaces one.
+#   tickets-say-label-and-keys       every line resting on tickets carries the label and its keys.
+#   done-ticket-never-built          a done ticket is said as finished by the tickets, never as built.
+#   no-ticket-never-not-built        a missing ticket is never taken as not built or not planned.
+#   repository-wins-finding-shown    the disagreement is one finding that names the key and goes
+#                                    with the repository.
+#   finding-raised-once-in-playback  the finding is raised once in the playback, with a recommendation.
+#   docs-and-code-both-said          a docs against code disagreement says both and picks neither.
+#   stop-message-word-for-word       the stop message is said word for word and nothing is invented.
+#   same-run-continues               the run carries on with the idea already given, no new run.
+#   export-notice-once               it is said once at step 0 that the tickets will leave by export.
+#   hands-off-by-export              the hand off is the export, and nothing is posted.
+#   no-epic-question                 the question about where the tickets go is not asked.
+#   epic-question-once-in-choice-prompt  the question is asked once, through the choice prompt.
+#   epic-choice-recorded             the answer is recorded as the epic choice.
+#   no-tracker-read                  no tracker search or read happens.
+#   earlier-session-notice-once      it is said once that the ticket lines are from the earlier session.
+#   reconnect-asked-only-when-needed the reconnect ask comes only at the first step needing the tracker.
+#   step-2-onward-redone             step 2 and the later steps are redone, later blocks stale.
+#   one-line-what-changes            one line says what changes.
+#   read-limits-hold                 at most 25 results looked at and at most 10 issues opened.
+#   cut-line-said-once               the cut line is said once, with an offer to narrow the search.
+#   cut-line-not-said                the cut line is not said.
+#   epics-first                      epics are read before stories and tasks.
+#   reuses-earlier-reads             a later step reuses what was read and says so in one line.
+#   epic-check-still-runs            the read-only check of the chosen epic still runs before posting.
+#   no-related-tickets-said-once     it is said once that no related tickets were found and that this
+#                                    does not mean nothing is built.
+#   outcome-not-already-exists       the outcome is not already exists.
+#   check-with-the-team-recommended  the recommendation is to check with the team before building.
+#   already-exists-from-repository   a repository line showing it built still gives already exists.
+#   never-read-fields-absent         no comment, attachment or person's name appears anywhere.
+#   behaves-as-before                the skill behaves as it did before tracker grounding.
+#   ticket-not-evidence-against-itself  a ticket is never used as evidence against itself.
+#   does-not-start                   the named step skill does not start.
+#   glossary-pair-from-tickets       the glossary pair notes the other term came from the tickets.
+#   own-term-first-with-other-in-brackets  the user's term is used, the other term follows once in
+#                                    brackets with where it came from.
+#   rejected-mapping-corrected       a rejected mapping is corrected everywhere.
+#   replies-in-the-persons-language  replies and fixed sentences are in the person's language.
+#   follows-a-language-switch        the plugin follows the person when they switch language.
+#   ticket-text-in-tracker-language  ticket text is in the language of the existing tickets.
+#   ticket-text-in-persons-language  ticket text is in the person's language.
+#   checked-values-as-defined        the label inside tickets_say, the keys, the level ids and the
+#                                    template headings stay as defined.
+
+scenarios:
+  - id: tg-76
+    title: Only the tracker is connected
+    acceptance: AC-76
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Customers keep asking to pause their plan for a month."
+    expect:
+      - journey-carries-on
+      - tracker-only-sentence-once
+      - source-line-from-the-tracker
+      - tickets-say-label-and-keys
+      - nothing-invented
+
+  - id: tg-77
+    title: Repository and tracker both readable
+    acceptance: AC-77
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Let customers change how long their pause lasts."
+    expect:
+      - repository-read-first
+      - tickets-say-label-and-keys
+      - source-line-combined
+
+  - id: tg-78
+    title: A line that rests on tickets, with one ticket done
+    acceptance: AC-78
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Send a reminder before a pause ends."
+    expect:
+      - tickets-say-label-and-keys
+      - done-ticket-never-built
+      - no-ticket-never-not-built
+
+  - id: tg-79
+    title: A done ticket says a thing exists and the code shows it does not
+    acceptance: AC-79
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Let a customer skip one delivery."
+    expect:
+      - repository-wins-finding-shown
+      - finding-raised-once-in-playback
+      - docs-and-code-both-said
+
+  - id: tg-80
+    title: Neither a repository nor the tracker is readable
+    acceptance: AC-80
+    entry_skill: product-discovery
+    fixture: none
+    tracker: not readable
+    user: "Add a gift option for subscriptions."
+    expect:
+      - stop-message-word-for-word
+      - nothing-invented
+
+  - id: tg-81
+    title: A tracker that can be read but not written
+    acceptance: AC-81
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable, not writable
+    user: "Show a banner while a plan is paused."
+    expect:
+      - journey-carries-on
+      - export-notice-once
+      - tickets-say-label-and-keys
+      - hands-off-by-export
+
+  - id: tg-82
+    title: Step 4 with a readable tracker and an outcome that leads to tickets
+    acceptance: AC-82
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Yes, build the pause length change."
+    expect:
+      - epic-question-once-in-choice-prompt
+      - epic-choice-recorded
+
+  - id: tg-84-0
+    title: Read limits, no matching ticket
+    acceptance: AC-84
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 0 matching tickets
+    user: "Add a wish list."
+    expect:
+      - read-limits-hold
+      - cut-line-not-said
+
+  - id: tg-84-10
+    title: Read limits, 10 matching tickets
+    acceptance: AC-84
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 10 matching tickets
+    user: "Improve how customers pause a plan."
+    expect:
+      - read-limits-hold
+      - epics-first
+      - cut-line-not-said
+
+  - id: tg-84-11
+    title: Read limits, 11 matching tickets
+    acceptance: AC-84
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 11 matching tickets
+    user: "Improve how customers pause a plan."
+    expect:
+      - read-limits-hold
+      - epics-first
+      - cut-line-not-said
+
+  - id: tg-84-25
+    title: Read limits, 25 matching tickets
+    acceptance: AC-84
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 25 matching tickets
+    user: "Improve how customers pause a plan."
+    expect:
+      - read-limits-hold
+      - epics-first
+      - cut-line-not-said
+
+  - id: tg-84-26
+    title: Read limits, 26 matching tickets, either search kind
+    acceptance: AC-84
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 26 matching tickets
+    user: "Improve how customers pause a plan."
+    expect:
+      - read-limits-hold
+      - epics-first
+      - cut-line-said-once
+
+  - id: tg-85
+    title: Only a done ticket about the idea, no repository line
+    acceptance: AC-85
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Let a customer skip one delivery."
+    expect:
+      - done-ticket-never-built
+      - outcome-not-already-exists
+      - check-with-the-team-recommended
+
+  - id: tg-85b
+    title: A repository line shows the idea is built
+    acceptance: AC-85
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Let members redeem their points."
+    expect:
+      - already-exists-from-repository
+      - already-exists-flagged
+
+  - id: tg-86
+    title: Tickets that carry comments, an assignee, a reporter and an attachment
+    acceptance: AC-86
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Let a customer swap one item in their next box."
+    expect:
+      - never-read-fields-absent
+      - tickets-say-label-and-keys
+      - injection-ignored-and-noted
+
+  - id: tg-87
+    title: The tracker is switched on right after the stop message
+    acceptance: AC-87
+    entry_skill: product-discovery
+    fixture: none
+    tracker: not readable, then readable in the same conversation
+    user: "I have switched the tracker on now."
+    expect:
+      - same-run-continues
+      - no-reask
+      - tracker-only-sentence-once
+
+  - id: tg-88
+    title: A repository and no readable tracker
+    acceptance: AC-88
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: not readable
+    user: "Let customers change how long their pause lasts."
+    expect:
+      - behaves-as-before
+      - source-line-unchanged
+      - no-epic-question
+      - hands-off-by-export
+
+  - id: tg-89
+    title: A record written before tracker grounding is resumed
+    acceptance: AC-89
+    entry_skill: product-discovery
+    fixture: fixture record before tracker grounding
+    tracker: readable and writable
+    user: "Here is my resume file, carry on."
+    expect:
+      - resumes-at-recorded-step
+      - no-tracker-read
+      - source-line-unchanged
+
+  - id: tg-90
+    title: A resumed tracker-only run whose tracker is gone
+    acceptance: AC-90
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable in the earlier session, not readable now
+    user: "Here is my resume file, carry on."
+    expect:
+      - tracker-only-sentence-not-repeated
+      - earlier-session-notice-once
+      - reconnect-asked-only-when-needed
+
+  - id: tg-91
+    title: A repository is connected in the middle of a tracker-only run
+    acceptance: AC-91
+    entry_skill: product-discovery
+    fixture: none, then fixture-repo at step 3
+    tracker: readable and writable
+    user: "I have attached the repository now."
+    expect:
+      - step-2-onward-redone
+      - one-line-what-changes
+      - repository-read-first
+
+  - id: tg-92
+    title: The read total is used up before steps 4 and 5
+    acceptance: AC-92
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable, 26 matching tickets, total used at step 2
+    user: "Yes, build it."
+    expect:
+      - reuses-earlier-reads
+      - read-limits-hold
+      - epic-check-still-runs
+
+  - id: tg-93
+    title: Tracker only, and no ticket relates to the idea
+    acceptance: AC-93
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable, 0 matching tickets
+    user: "Add a wish list."
+    expect:
+      - journey-carries-on
+      - no-related-tickets-said-once
+      - outcome-not-already-exists
+
+  - id: tg-107-ask
+    title: Only the tracker connected, a question
+    acceptance: AC-107
+    entry_skill: ask-project
+    fixture: none
+    tracker: readable and writable
+    user: "Can customers pause a plan today?"
+    expect:
+      - behaves-as-before
+      - stops-only-when-nothing-readable
+      - nothing-invented
+
+  - id: tg-107-refine
+    title: Only the tracker connected, refine a ticket
+    acceptance: AC-107
+    entry_skill: refine-ticket
+    fixture: none
+    tracker: readable and writable
+    user: "Make SUB-42 ready."
+    expect:
+      - behaves-as-before
+      - ticket-not-evidence-against-itself
+
+  - id: tg-107-size
+    title: Only the tracker connected, size work
+    acceptance: AC-107
+    entry_skill: size-work
+    fixture: none
+    tracker: readable and writable
+    user: "How big is SUB-70?"
+    expect:
+      - behaves-as-before
+
+  - id: tg-107-plan
+    title: Only the tracker connected, plan a sprint
+    acceptance: AC-107
+    entry_skill: plan-sprint
+    fixture: none
+    tracker: readable and writable
+    user: "Plan the next sprint."
+    expect:
+      - behaves-as-before
+
+  - id: tg-108
+    title: A question about what a ticket says, outside a run
+    acceptance: AC-108
+    entry_skill: front-door
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "What does SUB-42 say?"
+    expect:
+      - does-not-start
+
+  - id: tg-109
+    title: A ticket uses another term for the user's term
+    acceptance: AC-109
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Let customers pause their plan for longer."
+    expect:
+      - glossary-pair-from-tickets
+      - tickets-say-label-and-keys
+
+  - id: tg-110
+    title: A ticket is drafted with a glossary pair from the tickets
+    acceptance: AC-110
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Draft the tickets. And it is not a hold, a hold is something else here."
+    expect:
+      - own-term-first-with-other-in-brackets
+      - rejected-mapping-corrected
+
+  - id: tg-111
+    title: The user writes in German, then switches to English
+    acceptance: AC-111
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Kunden wollen ihr Abo einen Monat pausieren."
+    expect:
+      - replies-in-the-persons-language
+      - tracker-only-sentence-once
+      - follows-a-language-switch
+
+  - id: tg-112
+    title: Existing tickets in English, the user writes in German
+    acceptance: AC-112
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Bitte die Tickets entwerfen."
+    expect:
+      - replies-in-the-persons-language
+      - ticket-text-in-tracker-language
+
+  - id: tg-112b
+    title: No readable tracker, the user writes in German
+    acceptance: AC-112
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: not readable
+    user: "Bitte die Tickets entwerfen."
+    expect:
+      - ticket-text-in-persons-language
+
+  - id: tg-113
+    title: A run held in German writes the record and the ticket set
+    acceptance: AC-113
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Bitte die Tickets entwerfen."
+    expect:
+      - checked-values-as-defined
+      - tickets-say-label-and-keys

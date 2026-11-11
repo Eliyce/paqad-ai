@@ -60,6 +60,28 @@ the refusal of a piece with no user value. Each maps to a conversation-shape acc
 REQUIREMENTS.md section 13 (AC-68 to AC-74). AC-75 is script-proven by `test_user_stories.py` and
 carries no scenario. Its extra `host` field names whether the host has a choice prompt.
 
+`tracker-grounding.yml` holds the scenarios for the tracker as a grounding source (GRD-17 to
+GRD-19), the terms learned from tickets (GRD-6) and the person's language (TALK-16): the idea
+journey reads the repository first and existing epics and tickets second, or the tickets alone when
+no repository is readable, stops only when neither is readable, keeps "the tickets say" and the
+issue keys on every ticket line, lets the repository win a disagreement and holds the read limits.
+Each maps to a conversation-shape acceptance scenario in REQUIREMENTS.md section 13 (AC-76 to
+AC-82, AC-84 to AC-93 and AC-107 to AC-113). The read limits have one case each for 0, 10, 11, 25
+and 26 matching tickets. Its extra `tracker` field says what the fixture tracker allows. They read
+the fixture tracker in project `SUB`: the open epic `SUB-2`, the done epic `SUB-3`, the done ticket
+`SUB-80` that the code does not bear out, `SUB-81` with a comment, people's names and an attachment
+that must never be carried, `SUB-82` with another term for a pause, and a record with no
+`grounding_sources`. The file-level rules are checked by `test_tracker_grounding.py`.
+
+`existing-epic.yml` holds the scenarios for posting under an epic that already exists (PUB-9): the
+question at step 4, a typed key that fails its check, a tracker that cannot be read, a redraft and
+a changed choice, an idea that becomes two epics, a resumed run that leaves by export, a ticket
+that stands on its own, a done epic and a renamed epic. Each maps to a conversation-shape
+acceptance scenario in REQUIREMENTS.md section 13 (AC-94 to AC-97, AC-99, AC-100, AC-102, AC-104
+and AC-105). AC-83, AC-103 and AC-106 are script-proven by `test_posting.py` and carry no scenario;
+AC-101 is script-proven by `test_tickets.py`; AC-98 is script-proven by `test_record.py`. They read
+the open epic `SUB-2` and the done epic `SUB-3` in the fixture tracker.
+
 The conversation scenarios are declarative. They are authored now but are NOT run in CI until S3,
 when the host eval runner executes them against the built plugin, the fixture repository under
 `tests/evals/fixture-repo/`, and a fake tracker (CI-12, CI-13). Each scenario checks properties, not

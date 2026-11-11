@@ -21,6 +21,9 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "repository": "",
     "repository_state": "",
     "evidence_level": "",
+    "grounding_sources": ["repository"],
+    "tracker_readable": false,
+    "tracker_reads": { "results_looked_at": 0, "issues_opened": 0 },
     "tracker_kind": "jira",
     "project_key": "ABC",
     "epic_type": "Epic",
@@ -40,11 +43,12 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "constraints": ""
   },
   "glossary": [
-    { "user_term": "", "project_term": "" }
+    { "user_term": "", "project_term": "", "term_source": "docs" }
   ],
   "today": [
     { "area": "", "source_path": "", "evidence_level": "project-docs", "section_status": { "roles": "real", "rules": "template" } },
-    { "area": "", "source_path": "", "evidence_level": "code-only", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" }
+    { "area": "", "source_path": "", "evidence_level": "code-only", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" },
+    { "area": "", "evidence_level": "tracker-only", "tickets_say": "", "ticket_keys": [] }
   ],
   "playback": {
     "goal_first_playback": "",
@@ -54,7 +58,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "recommendation": ""
   },
   "decisions": [
-    { "id": "", "question": "", "choice": "", "by": "", "why": "" }
+    { "id": "", "question": "", "choice": "", "by": "", "why": "" },
+    { "id": "", "question": "Where should these tickets go?", "choice": "", "by": "", "why": "", "epic_choice": [ { "mode": "new" }, { "mode": "existing", "key": "ABC-7", "title": "" } ] }
   ],
   "assumptions": [
     { "id": "", "question": "", "default": "", "why": "" }
@@ -77,7 +82,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
   },
   "posted": {
     "issues": [
-      { "ref": "", "issue_key": "", "status": "created" }
+      { "ref": "", "issue_key": "", "status": "created" },
+      { "ref": "E2", "issue_key": "ABC-7", "status": "not changed" }
     ],
     "read_back": {}
   },
@@ -114,7 +120,14 @@ Each block below shows its fields. A block is empty until the step that owns it 
   sets all three at step 0, or the first docs-reading step sets them in a refine or size run; a
   switch the user asks for patches them. Setup sits outside the go-back chain, so they survive going
   back. None holds credentials (REC-6).
+- setup.grounding_sources lists the readable sources in reading order: ["repository", "tracker"],
+  ["repository"], ["tracker"] or []. A record without it is read as ["repository"].
+  setup.tracker_readable is true or false and sits beside the write check can_create. With no
+  readable repository setup.evidence_level is tracker-only. setup.tracker_reads notes how many
+  search results were looked at and how many issues were opened in the whole run.
 - idea is the step 1 output. glossary pairs the user's term with the project's term (GRD-6).
+  term_source says where the other term came from, docs or tickets; a pair without it is read as
+  from the docs.
 - today lists each related area, its source path, its evidence_level and per section whether it is
   real or template (GRD-4). The per-entry evidence_level (project-docs, docs-and-code or code-only)
   is the provenance of that entry, so a code-only or docs-and-code line keeps its level into playback
@@ -125,12 +138,23 @@ Each block below shows its fields. A block is empty until the step that owns it 
   evidence_level is code-only or docs-and-code. source_path then names where the area was found
   (docs/modules/<area>/ when the folder exists, otherwise the modules list or the code folder). Both
   code fields are left out when the code was not checked.
-- decisions records each settled choice with who decided and why. assumptions holds accepted
+- An entry may add tickets_say, one line in the plugin's own words that itself contains "the
+  tickets say", and ticket_keys, the list of issue keys it rests on (GRD-18). The line never copies
+  a description word for word and never holds a person's name, a contact detail, a link or a
+  secret-looking value. A tracker-only entry has evidence_level tracker-only and no source_path.
+  When the repository and the tickets disagree, the entry adds disagreement, the one-line finding
+  that names the issue key and ends "I'm going with the repository." In a run held in another
+  language these values keep their English label, keys and level ids.
+- decisions records each settled choice with who decided and why. The decision that answers
+  "Where should these tickets go?" adds epic_choice, a list with one choice per planned epic in
+  epic order: mode "new", or mode "existing" with the key and the title as read
+  (PUB-9). It sits inside the go-back chain, so it survives a redraft and a change to it marks
+  the ticket set, the readiness and the posting stale. assumptions holds accepted
   defaults, each labelled an assumption.
 - ticket_set_ref.digest is the sha256 of the canonical ticket set with the digest field excluded.
   Each approval is bound to that digest and any later edit voids it.
 - readiness.status is passed or open. posted.issues status is one of created, uncertain or not
-  applied; posted.read_back is an object keyed by issue reference. A fresh record seeds posted as an
+  applied, or not changed for an existing epic, which is never counted as created; posted.read_back is an object keyed by issue reference. A fresh record seeds posted as an
   empty object and step 6 is not satisfied until a real posting fills it, so an untouched record is
   never read as already posted.
 - existing, changes, sizing and sprint_plan are the existing-work blocks (refine, size and plan

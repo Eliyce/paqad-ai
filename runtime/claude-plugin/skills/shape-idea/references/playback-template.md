@@ -13,7 +13,10 @@ only the parts that apply; leave out an empty one rather than padding it.
 **What exists today.** A plain summary from the today block, including what the project documents
 could not confirm. Name the unknowns rather than guessing past them. Say an unknown area as not
 documented; never say or imply it is not built, and keep the label on every line from the code, for example
-"the code suggests members can earn points".
+"the code suggests members can earn points". Keep the label and the issue keys on every line from
+tickets, for example "the tickets say a pause option was asked for (ABC-12)". A ticket marked done
+is "the tickets say this was finished (ABC-12)", never built. When the repository and the tickets
+disagree, say the finding once and go with the repository.
 
 **Options.** Two or three realistic ways forward. They become the closing choice, asked through
 the host's choice prompt: each option a few words plus its trade-off in business terms only (time,

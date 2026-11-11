@@ -1,0 +1,58 @@
+{
+  "id": "D-01M75M6WCJQ4RCTVN54S7GB04R",
+  "category": "authoring.override",
+  "title": "The skill start cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "start is command-only (disable-model-invocation: true), so the model never invokes it and no description can pass the trigger test: 0.5 against a 0.9 bar. Every other gate ran for real; evals 88.9 percent new against 83.3 percent old. The owner approved this one skip in the session.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, start is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that start helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, start is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-11T15:39:17.266Z",
+  "status": "resolved",
+  "change": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M6M72VARPRNXT7ZJMWSW915C",
+      "D-01M6M72SNG0P5ZYKYVR3GGTXBE",
+      "D-01M6M72RTTS5WFSFP11Y38XCM0",
+      "D-01M6M72QZV3J4BG9E6ZYM10YAR"
+    ],
+    "none_reason": "The offered earlier answers are skips for other skills; the owner answered this one directly in the session."
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner chose Allow one skip (Recommended) in the question prompt: start is command-only and cannot pass the trigger test; every other gate ran for real.",
+  "resolved_at": "2026-11-11T15:39:56.649Z",
+  "decision_id": "D-01M75M6WCJQ4RCTVN54S7GB04R",
+  "fingerprint": "sha256:29f710b6540df99029b2a365a2d67585938954a2bddbc001d19e361c99937bc6",
+  "question": "The skill start cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "ttl_until": "2026-12-11T15:39:17.266Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T15:39:56.649Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose Allow one skip (Recommended) in the question prompt: start is command-only and cannot pass the trigger test; every other gate ran for real."
+  }
+}

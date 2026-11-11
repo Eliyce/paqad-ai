@@ -79,23 +79,25 @@ def expected_items(ticket_set):
     run_id = ticket_set.get("run_id", "")
     items = {}
     for epic in ticket_set.get("epics", []):
-        items[epic["ref"]] = {
-            "ref": epic["ref"],
-            "title": norm_title(epic.get("title")),
-            "type": norm_title(tracker.get("epic_type")),
-            "parent": "",
-            "labels": set(epic.get("labels", [])),
-            "links": set(),
-            "sources_ref": norm_ref("{0} / {1}".format(run_id, epic["ref"])),
-            "body": norm_text(epic.get("body_markdown")),
-        }
+        existing = "existing_key" in epic
+        if not existing:
+            items[epic["ref"]] = {
+                "ref": epic["ref"],
+                "title": norm_title(epic.get("title")),
+                "type": norm_title(tracker.get("epic_type")),
+                "parent": "",
+                "labels": set(epic.get("labels", [])),
+                "links": set(),
+                "sources_ref": norm_ref("{0} / {1}".format(run_id, epic["ref"])),
+                "body": norm_text(epic.get("body_markdown")),
+            }
         for ticket in epic.get("tickets", []):
             links = set(norm_ref(dep) for dep in ticket.get("depends_on", []) or [])
             items[ticket["ref"]] = {
                 "ref": ticket["ref"],
                 "title": norm_title(ticket.get("title")),
                 "type": norm_title(tracker.get("story_type")),
-                "parent": norm_ref(epic["ref"]),
+                "parent": norm_ref(epic["existing_key"] if existing else epic["ref"]),
                 "labels": set(),
                 "links": links,
                 "sources_ref": norm_ref("{0} / {1}".format(run_id, ticket["ref"])),
@@ -262,7 +264,9 @@ def compare(approved, created):
         else:
             matched += 1
 
-    extra = [ref for ref in actual if ref not in expected]
+    unchanged = {epic["existing_key"] for epic in approved.get("epics", [])
+                 if "existing_key" in epic}
+    extra = [ref for ref in actual if ref not in expected and ref not in unchanged]
     for ref in extra:
         differences.append(canonical.issue("EXTRA", str(ref), "Created issue not in the approved set."))
 

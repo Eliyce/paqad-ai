@@ -1,5 +1,7 @@
 # What paqad prints
 
+verified: 2026-11-11
+
 `paqad-ai hld` prints these lines itself. Show them to the developer as printed and
 don't rephrase them. `<ref>` is the ticket or channel, `<age>` is how long ago the design
 was posted, `<date>` is a day like 31 Oct.

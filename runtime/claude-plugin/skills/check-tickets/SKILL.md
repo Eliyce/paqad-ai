@@ -27,10 +27,15 @@ Check the drafted set three ways, then report readiness.
 2. Structure check. Run `scripts/check_ticket_set.py --ticket-set <ticket-set.json>`. It validates
    the set against the schema, recomputes the digest, and fails on a stale digest, an epic with no
    tickets, a ticket with no epic or in two epics, acceptance criteria (done_when) outside 2 to 8,
-   duplicate titles, a dependency pointing nowhere, or a dependency loop.
+   duplicate titles, a dependency pointing nowhere, or a dependency loop. Add `--record
+   <record.json>` so a set that no longer matches the recorded epic choice is refused. An existing
+   epic must keep its key, an empty body and no labels; its live title is free of the title rules.
 3. Duplicate search. Search the tracker for issues similar to each epic and ticket, by key phrases.
    Show the matches before anything is posted; the user decides through the host's choice prompt
-   whether a ticket is new, a duplicate, or extends an existing issue (AC-9). Read only.
+   whether a ticket is new, a duplicate, or extends an existing issue (AC-9). Read only. Never
+   flag a chosen existing epic as its own duplicate. Compare the new tickets with that epic's
+   current tickets, at most 25 and inside the run's read total
+   (`references/ground-from-tracker.md`); when the total is used up, reuse what was read and say so.
 4. Judgment checks. Apply `references/review-checklist.md`: each ticket serves its epic's goal, a
    developer would know when it is done, nothing in "what exists today" contradicts the docs, the
    split is sensible, no similar issue exists, and each ticket is a real user story
@@ -49,7 +54,8 @@ Do the same checks by hand:
   ticket has 2 to 8 Given/When/Then acceptance criteria; no two titles match; every dependency points
   to a ticket in the set or a real issue; no dependency loop.
 - Duplicate search, by hand: search the tracker for similar issues by key phrases and show the
-  matches before posting.
+  matches before posting. Leave a chosen existing epic out, and compare the new tickets with its
+  current tickets, at most 25.
 - Judgment, by hand: work through `references/review-checklist.md`, including the story shape
   (As a, I want, So that) from `references/user-stories.md`.
 

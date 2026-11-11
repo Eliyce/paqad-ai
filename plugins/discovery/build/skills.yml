@@ -47,10 +47,10 @@ privacy_policy_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/bl
 terms_of_service_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/TERMS.md"
 keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog, sprint-planning"
 short_description: "Ideas to ready tickets"
-long_description: "Paqad Product Discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, shape a rough idea into clear user-story epics and tickets, refine an existing ticket without losing its intent, get a size suggestion based on comparable finished work, and propose a sprint plan. Answers come from the repository's own documents and code. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files; it posts tickets to a tracker only through the tracker connector and only after you approve them."
+long_description: "Paqad Product Discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, shape a rough idea into clear user-story epics and tickets, refine an existing ticket without losing its intent, get a size suggestion based on comparable finished work, and propose a sprint plan. Answers come from the repository's own documents and code. When you shape an idea it may also read existing epics and tickets in the one tracker project you point it at, at most 25 search results and 10 opened tickets in a run, and it never reads comments, attachments or people's names. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files, or a tracker connector for shaping an idea from existing tickets; it posts tickets to a tracker only through the tracker connector and only after you approve them, under a new epic or an existing one that it never changes."
 category: "Productivity"
 default_prompts: "What does the checkout do today? | Turn this idea into tickets: let shoppers save a basket for later | Plan the next sprint"
-capabilities: "Answers questions about what the product does today, with sources | Shapes a rough idea into user-story epics and tickets | Refines an existing ticket without losing its intent | Suggests a size for work from comparable finished work | Proposes a sprint plan for the team to review | Posts approved tickets through your tracker connector"
+capabilities: "Answers questions about what the product does today, with sources | Shapes a rough idea into user-story epics and tickets | Refines an existing ticket without losing its intent | Suggests a size for work from comparable finished work | Proposes a sprint plan for the team to review | Posts approved tickets through your tracker connector | Works from existing epics and tickets in one tracker project, never comments or names | Posts under an epic that already exists without changing it"
 
 skills:
   - name: product-discovery
@@ -58,6 +58,7 @@ skills:
     imports:
       - references/voice.md
       - references/consulting.md
+      - references/ground-from-tracker.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py
@@ -81,6 +82,7 @@ skills:
       - references/evidence-levels.md
       - references/tracker-profiles-jira.md
       - references/tracker-profiles-github.md
+      - references/ground-from-tracker.md
       - scripts/check_onboarded.py
   - name: understand-idea
     publish: understand-idea
@@ -94,6 +96,8 @@ skills:
       - references/template-markers.md
       - references/connect-repository.md
       - references/evidence-levels.md
+      - references/tracker-profiles-jira.md
+      - references/ground-from-tracker.md
       - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
@@ -103,10 +107,12 @@ skills:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/evidence-levels.md
+      - references/ground-from-tracker.md
   - name: decide-together
     publish: decide-together
     imports:
       - references/voice.md
+      - references/ground-from-tracker.md
   - name: write-tickets
     publish: write-tickets
     imports:
@@ -120,6 +126,7 @@ skills:
       - references/voice.md
       - references/plain-language.md
       - references/user-stories.md
+      - references/ground-from-tracker.md
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets

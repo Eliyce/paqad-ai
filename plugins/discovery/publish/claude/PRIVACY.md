@@ -18,6 +18,19 @@ To answer, the plugin reads the files in the repository you point it at:
 - The source code by names (folder, route, page, action, model and test names), as the baseline for
   what exists, labelled as what the code suggests. It opens a small number of files per answer.
 
+When you shape an idea into tickets, the plugin may also read existing epics and tickets in the one
+tracker project you point it at, through the host's tracker connector and under your own access:
+
+- It looks at no more than 25 search results and opens no more than 10 tickets in a run.
+- It uses only the key, type, summary, description, status, parent, labels and last updated date.
+- It never reads comments, attachments, work logs or people's names (assignee, reporter), and it
+  never reads other projects.
+- Before posting under an epic you chose, it reads that one epic again to check it. It never
+  changes an existing epic.
+
+Only the idea journey does this. Asking a question, refining a ticket, sizing work and planning a
+sprint read the tracker only as they did before.
+
 It reads one repository per run, and it reads a file only to answer your question. The plugin and
 its publisher (Eliyce) run no server of their own and collect, store or receive none of your data.
 
@@ -48,8 +61,11 @@ only through the tools you already use:
   conversation and what the plugin reads from your repository, under the host's own terms and
   privacy policy.
 - **Your tracker.** When you approve a post, the ticket text you approved goes to your tracker (for
-  example Jira) through the host's tracker connector, under that tracker's own terms. Nothing else
-  is sent to the tracker, and nothing is sent without your approval.
+  example Jira) through the host's tracker connector, under that tracker's own terms. Nothing is
+  created or changed in the tracker without your approval. When the plugin reads existing epics and
+  tickets, search words taken from your idea are sent to the tracker. The ticket text it reads is
+  processed by your AI host and kept as short lines, in the plugin's own words, in the discovery
+  record in the working folder.
 - **The information link.** If you open the nudge link described below, your browser visits
   paqad.ai and sends only the static `src=discovery-plugin` tag in the address.
 
@@ -69,11 +85,13 @@ from this plugin. It is also disclosed in the project README.
 
 ## In short
 
-The plugin reads your repository to answer, keeps a never-read list it always honours, writes
+The plugin reads your repository to answer and, when you shape an idea, may read a limited number
+of existing epics and tickets in the one tracker project you point it at, never their comments,
+attachments or people's names. It keeps a never-read list it always honours, writes
 nothing outside its working folder, handles no tracker credentials of its own, and the one upgrade
 link carries only a static campaign tag with no user, repository or question data. Your AI host
-processes what the plugin reads, your tracker receives only the tickets you approve, and the
-publisher collects nothing.
+processes what the plugin reads, your tracker receives search words and only the tickets you
+approve, and the publisher collects nothing.
 
 ## Contact
 

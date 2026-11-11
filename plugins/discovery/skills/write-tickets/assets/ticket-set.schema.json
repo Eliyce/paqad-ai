@@ -45,16 +45,34 @@
       "required": ["ref", "title", "body_markdown", "labels", "tickets"],
       "properties": {
         "ref": { "type": "string", "pattern": "^E[0-9]+$" },
-        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1 },
         "body_markdown": { "type": "string" },
         "labels": {
           "type": "array",
           "items": { "type": "string" }
         },
+        "existing_key": {
+          "description": "Optional. The key of an epic that already exists in the tracker. The epic is never created or changed: the title is the live title as read, the body is the empty string and the labels are an empty list. The ref stays E<n>.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]+-[0-9]+$"
+        },
         "tickets": {
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/definitions/ticket" }
+        }
+      },
+      "if": { "required": ["existing_key"] },
+      "then": {
+        "properties": {
+          "body_markdown": { "const": "" },
+          "labels": { "maxItems": 0 }
+        }
+      },
+      "else": {
+        "properties": {
+          "title": { "maxLength": 80 },
+          "body_markdown": { "minLength": 1 }
         }
       }
     },

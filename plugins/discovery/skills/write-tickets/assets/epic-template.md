@@ -3,6 +3,10 @@
 Use these sections for every epic, in this order. Each epic is one outcome. Keep it in plain
 business words and follow the writing rules in `references/writing-rules.md`.
 
+An epic that already exists in the tracker is never drafted from this template. It keeps its key
+and its live title, with an empty body and no labels, and it is never created or changed. The goal,
+the why and the scope then go into each ticket under it.
+
 ## Title
 
 The outcome, not the activity. At most 80 characters.
@@ -18,7 +22,10 @@ The business reason, in the author's own words.
 ## What exists today
 
 A plain summary from the today block, including what the project documents could not confirm.
-Name the unknowns; do not fill them with a guess.
+Name the unknowns; do not fill them with a guess. A line that rests on existing tickets keeps "the
+tickets say" and its issue keys, for example "the tickets say this was finished (ABC-12)"; it is
+never written as built. Where the repository and the tickets disagree, write what the repository
+shows and name the disagreement in one line.
 
 ## In scope / Not in scope
 

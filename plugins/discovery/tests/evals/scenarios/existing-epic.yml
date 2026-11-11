@@ -1,0 +1,182 @@
+# Existing epic scenarios: at step 4 the product owner may put the new tickets under an epic that
+# already exists in the tracker, and that epic is read before posting and never changed (PUB-9).
+# They are declarative, like s1.yml, and are NOT run in CI; the host eval runner executes them
+# against the built plugin, the fixture repository and the fixture tracker under tests/evals/ (CI-12).
+#
+# AC-94 to AC-97, AC-99, AC-100, AC-102, AC-104 and AC-105 are conversation-shape acceptance
+# scenarios, each exercised by a scenario below. The plan, the read-back, the exports, the structure
+# check and the go-back rule behind them are proven by the unit suite and carry no scenario here.
+#
+# The fixture tracker (project SUB) holds the open epic SUB-2 and the done epic SUB-3. The tracker
+# field says what the tracker allows in that scenario.
+#
+# Schema: identical to tracker-grounding.yml (id, title, acceptance, entry_skill, fixture, tracker,
+# user, expect). Properties are judged on meaning, never as a string list. Property vocabulary added
+# here (all provider-neutral, all checkable; the vocabulary of the other scenario files also applies):
+#   epic-question-skipped            the question about where the tickets go is not asked.
+#   new-epic-line-said               one line says a new epic will be drafted and a key can be named.
+#   failed-check-named               the reply names which check on the typed key failed.
+#   same-question-again              the same question is asked again through the choice prompt.
+#   nothing-recorded-until-valid     no epic choice is recorded until a key passes.
+#   cannot-check-sentence-word-for-word  the cannot-check sentence is said word for word.
+#   new-epic-drafted                 a new epic is drafted.
+#   epic-choice-kept-on-redraft      a redraft keeps the choice and does not ask again.
+#   new-preview-and-approval-on-change  a changed choice brings the preview and the approval again.
+#   preview-shows-where-each-group-goes  each group of tickets shows the epic it goes under.
+#   single-group-can-be-moved        one group can be moved to another epic at the preview.
+#   one-choice-per-epic-in-order     the record holds one choice per planned epic, in epic order.
+#   export-carries-the-epic-key      the export holds the existing epic key as the parent.
+#   earlier-check-notice-once        one line says the epic was last checked in the earlier session
+#                                    and is not confirmed now.
+#   ticket-stands-on-its-own         the ticket carries the goal, the why and the scope itself.
+#   epic-line-shows-key-and-live-title  the Epic line shows the real key and the live title.
+#   existing-epic-not-changed        the existing epic is shown as not changed and is never written to.
+#   asks-before-posting-under-closed-epic  the user is asked before posting under a done epic.
+#   no-returns-to-the-epic-question  a no creates nothing and returns to the epic question.
+#   yes-not-asked-again-on-retry     a yes is kept, so a retry does not ask again.
+#   live-title-shown-and-used        the live title is shown in the preview and used on the tickets.
+#   title-change-said-in-one-line    the changed title is said in one line and is not a failure.
+
+scenarios:
+  - id: ee-94
+    title: No existing epic matches the idea
+    acceptance: AC-94
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable, no matching epic
+    user: "Yes, build the wish list."
+    expect:
+      - epic-question-skipped
+      - new-epic-line-said
+
+  - id: ee-95
+    title: A typed key that is not an epic
+    acceptance: AC-95
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Put them under SUB-42."
+    expect:
+      - failed-check-named
+      - same-question-again
+      - nothing-recorded-until-valid
+
+  - id: ee-95b
+    title: A typed key that does not exist
+    acceptance: AC-95
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Put them under SUB-999."
+    expect:
+      - failed-check-named
+      - same-question-again
+      - nothing-recorded-until-valid
+
+  - id: ee-96
+    title: The tracker cannot be read and the user names an epic
+    acceptance: AC-96
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: not readable
+    user: "Put them under SUB-2."
+    expect:
+      - cannot-check-sentence-word-for-word
+      - new-epic-drafted
+
+  - id: ee-97
+    title: A redraft after an existing epic was chosen
+    acceptance: AC-97
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Split the second ticket in two."
+    expect:
+      - epic-choice-kept-on-redraft
+      - no-reask
+      - nothing-posted-without-approval
+
+  - id: ee-97b
+    title: The choice itself is changed after approval
+    acceptance: AC-97
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Actually, make it a new epic."
+    expect:
+      - new-preview-and-approval-on-change
+      - nothing-posted-without-approval
+
+  - id: ee-99
+    title: An idea that becomes two epics
+    acceptance: AC-99
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Move the banner tickets under SUB-2 and keep the rest in a new epic."
+    expect:
+      - preview-shows-where-each-group-goes
+      - single-group-can-be-moved
+      - one-choice-per-epic-in-order
+      - new-preview-and-approval-on-change
+
+  - id: ee-100
+    title: A resumed run with an existing epic chosen and the tracker still unreadable
+    acceptance: AC-100
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable in the earlier session, not readable now
+    user: "I can't reconnect it, just give me the file."
+    expect:
+      - hands-off-by-export
+      - export-carries-the-epic-key
+      - earlier-check-notice-once
+      - nothing-posted-without-approval
+
+  - id: ee-102
+    title: A ticket drafted under an existing epic, read on its own
+    acceptance: AC-102
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Show me the first ticket in full."
+    expect:
+      - ticket-stands-on-its-own
+      - epic-line-shows-key-and-live-title
+      - existing-epic-not-changed
+
+  - id: ee-104
+    title: The chosen epic is done and the user says no
+    acceptance: AC-104
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable, chosen epic SUB-3 is done
+    user: "No, do not post under a closed epic."
+    expect:
+      - asks-before-posting-under-closed-epic
+      - no-returns-to-the-epic-question
+      - existing-epic-not-changed
+
+  - id: ee-104b
+    title: The chosen epic is done, the user says yes, and the run is retried
+    acceptance: AC-104
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable, chosen epic SUB-3 is done
+    user: "Yes, post under it anyway."
+    expect:
+      - asks-before-posting-under-closed-epic
+      - yes-not-asked-again-on-retry
+      - existing-epic-not-changed
+
+  - id: ee-105
+    title: The epic was renamed between the choice and posting
+    acceptance: AC-105
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable, SUB-2 renamed after step 4
+    user: "Post it."
+    expect:
+      - live-title-shown-and-used
+      - title-change-said-in-one-line
+      - existing-epic-not-changed

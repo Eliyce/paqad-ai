@@ -1,4 +1,7 @@
+import { describe } from 'vitest';
+
 import { describeContract } from '../_helpers/contract.js';
+import { EXISTING_EPIC_CASES, itMatchesExistingEpicOutput } from '../_helpers/existing-epic.js';
 
 describeContract({
   script: 'runtime/claude-plugin/skills/refine-ticket/scripts/check_prose.py',
@@ -27,4 +30,12 @@ describeContract({
     },
     exit: 1,
   },
+});
+
+describe('AC-46: check_prose.py keeps its new-epic output and adds the existing epic outputs', () => {
+  itMatchesExistingEpicOutput(
+    'AC-27: check_prose skips the live title of an existing epic and still lints its tickets',
+    'runtime/claude-plugin/skills/refine-ticket/scripts/check_prose.py',
+    EXISTING_EPIC_CASES.checkProse,
+  );
 });

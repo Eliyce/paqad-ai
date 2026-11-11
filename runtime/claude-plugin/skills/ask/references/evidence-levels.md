@@ -80,3 +80,12 @@ anything.
 The level is written to `setup.evidence_level` as one of `project-docs`, `docs-and-code` or
 `code-only`. Each today entry keeps its provenance, the Sources line carries the doc path or the
 code folder, tickets carry Sources, and in code-only mode the size confidence is lowered and said.
+
+## A run with no repository
+
+Only the idea journey reads existing tickets as a source, by the rules in the reference titled
+"Grounding from the tracker". A run with no readable repository has the level id `tracker-only`
+in `setup.evidence_level`. A record at that level is read with the lowest confidence and supports
+no claim about what is built. The nudge in such a run says that connecting the repository would
+let answers rest on what is built, not only on what was planned, with the same link and the same
+once per conversation rule.

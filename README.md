@@ -75,7 +75,8 @@ Then use it:
   `/paqad:size-work` and `/paqad:plan-sprint`. The idea journey uses the step skills
   `/paqad:get-connected`, `/paqad:understand-idea`, `/paqad:ground-in-project`,
   `/paqad:shape-idea`, `/paqad:decide-together`, `/paqad:write-tickets`, `/paqad:check-tickets`
-  and `/paqad:post-tickets` on its own.
+  and `/paqad:post-tickets` on its own. `/paqad:discover` can also ground an idea on Jira epics
+  and tickets and post new tickets under an existing epic without changing it.
 
 The product owner skills ship only in the plugin, not in the npm package.
 

@@ -1,0 +1,5 @@
+---
+'paqad-ai': minor
+---
+
+The discover journey can now work from Jira. With a repository connected it reads the repository first and the tickets second; with only Jira connected it grounds the idea on existing epics and tickets instead of stopping. Ticket-based lines say "the tickets say" with their keys, a ticket marked done is never told as built, and when the repository and the tickets disagree the repository wins and the disagreement is shown. Reading stays inside one project, with at most 25 tickets looked at and 10 opened in a run, and never touches comments, attachments, work logs or people's names. At the decide step the product owner can put the new tickets under an epic that already exists in Jira; that epic is checked first and never created, edited, labelled or moved, and a new `plan_posting.py resume` checks it again after a break. The glossary also learns terms from tickets, and replies follow the language the person writes in. `ask`, `refine-ticket`, `size-work` and `plan-sprint` do not read Jira as a source. The privacy text now says what is read from the tracker.
