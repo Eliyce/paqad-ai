@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M75DGS1H15VGN9KJ0MYFPXTN](TD-01M75DGS1H15VGN9KJ0MYFPXTN.md) (gap, low): Typed epic key read at step 4 is not placed inside or outside the run's read total
 - [TD-01M73HSVVWGQGKKHJMN1SVFTKF](TD-01M73HSVVWGQGKKHJMN1SVFTKF.md) (bug, low): Research plan can queue a package name that another manifest entry marks private
 - [TD-01M73HSTY0VSMV9F4D4722AWHW](TD-01M73HSTY0VSMV9F4D4722AWHW.md) (gap, low): Ordinary rule edits drop the discovered run from the rule marker
 - [TD-01M73HSSZQ9G7NXP5C4B84JFVZ](TD-01M73HSSZQ9G7NXP5C4B84JFVZ.md) (bug, low): Rules discovery apply rerun skips rule-script map sync for an already-written added rule
