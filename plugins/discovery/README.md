@@ -106,7 +106,8 @@ from the repo root to rebuild them into `runtime/claude-plugin/skills`.
 - `paqad-check-tickets` (source `check-tickets`) - step 5 checking: checks the tickets for gaps,
   duplicates, jargon and untestable outcomes, and searches the tracker for duplicates.
 - `paqad-post-tickets` (source `post-tickets`) - step 6: final preview, approval, create in order,
-  record receipts, reconcile, read back and report.
+  record receipts, reconcile, read back and report. On resume it checks every existing epic again
+  before any create.
 
 ## Layout at a glance
 
