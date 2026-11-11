@@ -1,6 +1,6 @@
 ---
 name: post-tickets
-description: "Chat and Claude Code: Step 6 of the discover journey: posts the approved tickets to the tracker or exports a CSV, links them and reads them back to confirm. Use when the journey directs it to step 6, not directly."
+description: "Chat and Claude Code: Step 6 of the discover journey: posts the approved tickets to the tracker or exports a CSV, links them and reads them back to confirm. At hand-off it also writes the short summary of the decision and the next action when the outcome is not a build (experiment, already exists, process change, defer or stop). Use when the journey directs it to step 6 or to the hand-off, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 

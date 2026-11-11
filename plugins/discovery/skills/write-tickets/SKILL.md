@@ -1,6 +1,6 @@
 ---
 name: write-tickets
-description: "Chat and Claude Code: Step 5 of the product-discovery journey: drafts epics and user-story tickets with Given/When/Then acceptance criteria into the ticket set and a preview. Use when the journey directs it to step 5, not directly."
+description: "Chat and Claude Code: Step 5 of the product-discovery journey: drafts epics and user-story tickets with Given/When/Then acceptance criteria into the ticket set and a preview. Also redrafts the ticket set and its preview when the person changes the draft during the journey, for example moving a group of tickets to a different epic or a new one, and asks for approval again. Use when the journey directs it to step 5 or back to it for a redraft, not directly."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
