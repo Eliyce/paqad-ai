@@ -1,0 +1,59 @@
+{
+  "id": "D-01M75Y5TQWY73FNSE0P2MFAJ6E",
+  "category": "intake.requirement",
+  "title": "Band after a closed change gets new commits on its PR",
+  "context": "Issue #887 B6/AC-10: after the close row the snapshot sets active false and the band shows the closed verdict and the PR. On the #884 run review fixes (8b5c7a1) landed two minutes after close. The spec must say what the band shows then.",
+  "options": [
+    {
+      "option_key": "closed-note",
+      "label": "Stay closed with the PR and say new commits came after close",
+      "one_line_preview": "Stay closed with the PR and say new commits came after close",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reopen",
+      "label": "Reopen the change as active",
+      "one_line_preview": "Reopen the change as active",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "closed-ignore",
+      "label": "Stay closed and ignore later commits",
+      "one_line_preview": "Stay closed and ignore later commits",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "closed-note",
+  "created_at": "2026-11-11T18:33:28.573Z",
+  "status": "resolved",
+  "change": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier packet covers commits landing after a change is closed; the nearest HUD titles are about turns with no change and first-turn blanks."
+  },
+  "chosen": "closed-note",
+  "rationale": "Owner: stay closed with PR, note commits after close.",
+  "resolved_at": "2026-11-11T18:46:30.256Z",
+  "decision_id": "D-01M75Y5TQWY73FNSE0P2MFAJ6E",
+  "fingerprint": "sha256:f4b8ab0f967cb713235ac8e65dd6c92d0888f0e3ed14f96dcd1282be95f3097d",
+  "question": "Band after a closed change gets new commits on its PR",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "ttl_until": "2026-11-25T18:33:28.573Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "closed-note",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T18:46:30.256Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: stay closed with PR, note commits after close."
+  }
+}
