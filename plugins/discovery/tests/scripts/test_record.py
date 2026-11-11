@@ -152,8 +152,6 @@ class InvalidationMapTest(RecordTestCase):
             self.assertNotIn(block, stale)
 
     def test_ac_24_changing_the_epic_choice_stales_the_ticket_set_readiness_and_posted(self):
-        # The epic choice lives in the decisions block, inside the go-back chain, so record.py
-        # needs no change: a new choice stales exactly what was drafted and posted from the old one.
         rec = self._init()
         existing = {"id": "epic-choice", "question": "Where should these tickets go?",
                     "epic_choice": [{"mode": "existing", "key": "ABC-7", "title": "Order history"}]}

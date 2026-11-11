@@ -26,9 +26,7 @@ describeContract({
   invalid: { args: ['--ticket-set', 'missing.json'], exit: 1 },
 });
 
-// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
-// below add the fixed outputs for a set that names an existing epic.
-describe('export_csv.py with an existing epic', () => {
+describe('AC-46: export_csv.py keeps its new-epic output and adds the existing epic outputs', () => {
   itMatchesExistingEpicOutput(
     'AC-33: export_csv writes an E1 row, no row for the existing epic, and the real key as Parent',
     'runtime/claude-plugin/skills/post-tickets/scripts/export_csv.py',

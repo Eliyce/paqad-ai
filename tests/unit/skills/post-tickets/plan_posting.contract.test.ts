@@ -26,9 +26,7 @@ describeContract({
   invalid: { args: ['plan', '--state', 'missing.json'], exit: 1 },
 });
 
-// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
-// below add the fixed outputs for a set that names an existing epic.
-describe('plan_posting.py with an existing epic', () => {
+describe('AC-46: plan_posting.py keeps its new-epic output and adds the existing epic outputs', () => {
   itMatchesExistingEpicOutput(
     'AC-29: plan_posting reads the existing epic first, creates no epic for it and parents its tickets by the literal key',
     'runtime/claude-plugin/skills/post-tickets/scripts/plan_posting.py',

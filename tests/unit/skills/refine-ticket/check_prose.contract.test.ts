@@ -32,9 +32,7 @@ describeContract({
   },
 });
 
-// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
-// below add the fixed outputs for a set that names an existing epic.
-describe('check_prose.py with an existing epic', () => {
+describe('AC-46: check_prose.py keeps its new-epic output and adds the existing epic outputs', () => {
   itMatchesExistingEpicOutput(
     'AC-27: check_prose skips the live title of an existing epic and still lints its tickets',
     'runtime/claude-plugin/skills/refine-ticket/scripts/check_prose.py',

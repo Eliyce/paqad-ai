@@ -268,7 +268,6 @@ class TrackerReferenceTest(BuiltCopies):
         self.assert_both_hold("shape-idea", ("SKILL.md",), [
             "A ticket line alone never gives that outcome, even for a ticket marked done",
             "recommend checking with the team before building again",
-            # The second case of the criterion: a repository line that shows it built still does.
             "a code-suggests line in the today block shows it exists",
             "recommend the already-exists outcome",
         ])
@@ -507,7 +506,6 @@ class RecordTemplateTest(BuiltCopies):
         ])
 
     def test_record_scripts_know_nothing_of_the_new_fields(self):
-        # INV-13: record.py and check_record.py gate block presence only and do not change.
         for script in ("record.py", "check_record.py", "check_onboarded.py"):
             text = read_text(SHARED_ROOT, "scripts", script)
             for word in ("grounding_sources", "tracker_readable", "tickets_say", "term_source"):

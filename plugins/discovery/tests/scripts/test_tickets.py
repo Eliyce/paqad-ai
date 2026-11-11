@@ -370,7 +370,6 @@ class ExistingEpicTicketSetTest(unittest.TestCase):
         self.assertEqual(self._codes(issues), ["SCHEMA"])
 
     def test_ac_46_a_set_without_existing_key_reports_exactly_what_it_did(self):
-        # INV-12: the new branches are reached only through existing_key.
         self.assertEqual(check_ticket_set.check(valid_set()), [])
         ticket_set = valid_set()
         ticket_set["epics"][1]["title"] = "Show refund status"

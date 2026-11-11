@@ -36,9 +36,7 @@ describeContract({
   },
 });
 
-// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
-// below add the fixed outputs for a set that names an existing epic.
-describe('check_readback.py with an existing epic', () => {
+describe('AC-46: check_readback.py keeps its new-epic output and adds the existing epic outputs', () => {
   itMatchesExistingEpicOutput(
     'AC-33: check_readback takes the existing epic as neither missing nor extra',
     'runtime/claude-plugin/skills/refine-ticket/scripts/check_readback.py',

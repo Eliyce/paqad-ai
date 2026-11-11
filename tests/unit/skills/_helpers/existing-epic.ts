@@ -1,7 +1,3 @@
-// Fixed outputs for a ticket set that mixes a new epic (E1) and an epic that already exists in
-// the tracker (E2, existing_key ABC-7). Generated once from the runtime copies of the discovery
-// scripts; the contract tests of every skill that ships one of these scripts run it against
-// these files and compare the output byte for byte.
 import { expect, it } from 'vitest';
 
 import { runScript } from './run-script.js';
@@ -80,7 +76,6 @@ export const EXISTING_EPIC_CASES = {
   },
 } satisfies Record<string, ExistingEpicCase>;
 
-/** Runs one generated script on the existing-epic files and expects the fixed output. */
 export function itMatchesExistingEpicOutput(
   name: string,
   script: string,

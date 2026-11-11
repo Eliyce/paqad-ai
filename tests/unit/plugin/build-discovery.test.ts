@@ -309,8 +309,6 @@ describe('generated discovery skills after tracker grounding', () => {
         for (const file of readdirSync(dir)) {
           if (statSync(join(dir, file)).isDirectory()) continue;
           const own = join(source, part, file);
-          // The build rewrites skill names inside a skill's own references, so those are not
-          // byte copies; the drift check in CI rebuilds and compares them.
           if (part === 'references' && existsSync(own)) continue;
           const from = existsSync(own) ? own : join(SOURCE, 'shared', part, file);
           if (!existsSync(from) || !readFileSync(from).equals(readFileSync(join(dir, file)))) {

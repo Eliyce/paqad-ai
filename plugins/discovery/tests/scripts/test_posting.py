@@ -908,7 +908,6 @@ class ExistingEpicPlanTest(unittest.TestCase):
                                       "create-E2-T1", "create-E2-T2"])
 
     def test_no_write_operation_ever_targets_the_existing_key(self):
-        # INV-2: the only operation on the key is the read. A ticket names it as parent only.
         on_key = [op for op in self.ops if op["arguments"].get("key") == EXISTING_KEY]
         self.assertEqual([op["id"] for op in on_key], ["verify-E2"])
         for op in self.ops:
@@ -1053,7 +1052,6 @@ class ExistingEpicRunTest(unittest.TestCase):
         self.assertEqual(plan_posting.record_receipt(state, "verify-E2", confirmed)["status"],
                          "verified")
         self.assertEqual(state["confirmed_done"], [EXISTING_KEY])
-        # The retry reads the epic again, with no answer attached: it passes without asking.
         again = plan_posting.record_receipt(state, "verify-E2", read_with(done=True))
         self.assertEqual((again["status"], again["done_confirmed"]), ("verified", True))
         self.assertEqual(state["confirmed_done"], [EXISTING_KEY])
@@ -1068,7 +1066,6 @@ class ExistingEpicRunTest(unittest.TestCase):
         self.assertNotIn("title_changed", same)
 
     def test_a_refused_first_create_under_the_existing_epic_stops_the_run(self):
-        # FR-63: no parentless tickets, and the epic is never edited to attach children.
         state = existing_state()
         plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
         for op in state["plan"]["operations"]:
@@ -1082,7 +1079,6 @@ class ExistingEpicRunTest(unittest.TestCase):
         self.assertNotIn("create-E2-T2", state["receipts"])
 
     def test_a_lost_reply_under_the_existing_epic_reconciles_without_a_second_copy(self):
-        # FR-65, INV-11: found by run label and item reference, the epic stays not changed.
         state = existing_state()
         plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
         for op in state["plan"]["operations"]:
@@ -1174,7 +1170,6 @@ class ExistingEpicExportTest(TempDirTestCase):
         parents = {row["Work item id"]: row["Parent"] for row in rows}
         self.assertEqual(parents["E1-T1"], "E1")
         self.assertEqual((parents["E2-T1"], parents["E2-T2"]), (EXISTING_KEY, EXISTING_KEY))
-        # NFR-7: the live title never opens a cell, because the epic has no row of its own.
         for row in rows:
             self.assertFalse(any(str(cell).startswith(LIVE_TITLE) for cell in row.values()))
 
