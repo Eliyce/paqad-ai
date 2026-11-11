@@ -59,7 +59,7 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
       kind: 'verify',
       agent: agentForWriter(ctx.adapter),
       event_status: ok ? 'completed' : 'failed',
-      note: `verdict=${verdict}; missing=[${fold.completeness.missing_stages.join(',')}]`,
+      note: `bundle=${verdict}; missing=[${fold.completeness.missing_stages.join(',')}]`,
     },
     ctx.now,
   );
