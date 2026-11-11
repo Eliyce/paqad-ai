@@ -101,6 +101,9 @@ export interface FoldedStage {
   state: StageState;
   started_at: string | null;
   ended_at: string | null;
+  first_started_at: string | null;
+  last_ended_at: string | null;
+  runs: number;
   duration_ms: number | null;
   duration_unreliable: boolean;
   evidence_source: StageEvidenceSource;

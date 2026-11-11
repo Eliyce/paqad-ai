@@ -11,7 +11,7 @@ import {
   shortAge,
 } from './cost';
 import { needsAnswers, roleInitials, tableStatus } from './instruments';
-import { stageSegments, type SegmentState } from './model';
+import { stageRuns, stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
 import {
@@ -607,10 +607,17 @@ export function stripOf(
   const stage = stageStrip(snapshot, live, signoff);
   const table = tableStrip(snapshot);
   const delivery = deliveryStrip(snapshot, live);
+  const running = snapshot.stages.find((entry) => entry.state === 'running');
+  const runs =
+    running && stage.value === stageWord(running.stage)
+      ? stageRuns(running, clockMs ?? null)
+      : null;
+  const short = runs ? `${stage.value} · ${runs.runs}` : null;
   return {
     columns,
     stages: stage.stages,
-    stageValue: stage.value,
+    stageValue: runs?.span ? `${short} · ${runs.span}` : (short ?? stage.value),
+    ...(short && runs?.span ? { stageValueShort: short } : {}),
     seats: table.seats,
     hiddenSeats: table.hidden,
     chief: table.chief,
@@ -1157,11 +1164,23 @@ export function signoffRecord(snapshot: PaqadHudSnapshot): SignoffRecord | null 
   };
 }
 
-export function trustView(snapshot: PaqadHudSnapshot): TrustView {
+export function trustView(snapshot: PaqadHudSnapshot, now: number | null = null): TrustView {
   const active = snapshot.active;
   const history = active ? ruleStopHistory(snapshot) : null;
   const proof = active ? (snapshot.proof ?? null) : [];
-  const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
+  const stages =
+    proof && proof.some(stageHasEvidence)
+      ? proof.map((entry) => {
+          const runs = stageRuns(
+            snapshot.stages.find((record) => record.stage === entry.stage),
+            now,
+          );
+          return {
+            ...trustStage(entry),
+            span: runs ? [runs.runs, runs.span].filter(Boolean).join(' · ') : null,
+          };
+        })
+      : [];
   const gates = active && proof === null ? oldRecordGates(snapshot) : [];
   const claims = claimsView(snapshot);
   const signoff = signoffRecord(snapshot);
@@ -1822,7 +1841,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     subtitle: ledgerSubtitle(snapshot),
     tabs,
     shown: tabs.find((tab) => tab.shown)!.id,
-    trust: trustView(snapshot),
+    trust: trustView(snapshot, input.now),
     table: tableView(snapshot, input.specText),
     delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),

@@ -48,6 +48,7 @@ export interface StripInput {
   columns: number;
   stages: ReadonlyArray<Mark<StageState>>;
   stageValue: string;
+  stageValueShort?: string;
   seats: ReadonlyArray<Mark<SeatState>> | null;
   hiddenSeats?: number;
   chief: ChiefState;
@@ -536,7 +537,11 @@ function stripBody(
   }
   const nameRoom =
     (signoff ? wordsEnd - wordsPx - WORDS_GAP_PX : stage.inner) - (stage.x0 + STAGE_NAME_X);
-  const name = input.stageValue ? fitPx(input.stageValue, nameRoom, VALUE_CHAR_PX) : '';
+  const value =
+    input.stageValueShort && [...input.stageValue].length * VALUE_CHAR_PX > nameRoom
+      ? input.stageValueShort
+      : input.stageValue;
+  const name = value ? fitPx(value, nameRoom, VALUE_CHAR_PX) : '';
   if (name) {
     body.stage += `<text class="val ink" x="${fixed(stage.x0 + STAGE_NAME_X)}" y="${Y_CAP}">${escapeXml(name)}</text>`;
   }

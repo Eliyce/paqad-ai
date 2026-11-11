@@ -66,6 +66,7 @@ export interface TrustStage {
   steps: TrustStep[];
   gates: TrustGateRow[];
   run: TrustRun | null;
+  span?: string | null;
 }
 
 export interface TrustRun {

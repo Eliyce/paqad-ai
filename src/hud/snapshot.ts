@@ -128,6 +128,9 @@ export interface HudStage {
   mandatory: boolean;
   started_at: string | null;
   ended_at: string | null;
+  first_started_at: string | null;
+  last_ended_at: string | null;
+  runs: number;
   duration_ms: number | null;
   duration_unreliable: boolean;
   agent: string | null;
@@ -765,6 +768,9 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
       mandatory: isLaneStage(fold.lane, stage.stage),
       started_at: stage.started_at,
       ended_at: stage.ended_at,
+      first_started_at: stage.first_started_at,
+      last_ended_at: stage.last_ended_at,
+      runs: stage.runs,
       duration_ms: stage.duration_ms,
       duration_unreliable: stage.duration_unreliable,
       agent: str(last?.agent),

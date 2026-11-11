@@ -440,6 +440,13 @@ The Trust tab shows the proof of the work, stage by stage.
 
 When every drawn stage is done the value is `All stages done`.
 
+A running stage that has run more than once shows its run count and its full span, from the first
+start to now, for example `Build · 5 runs · 8 h 0 min`. The span counts whole minutes, so it moves
+at most once a minute, and it is part of the strip image, never a live region. When the value does
+not fit, the span goes first and `Build · 5 runs` stays. A stage that ran once shows no run count.
+The headline clock still counts the active run. In the Ledger the stage heading carries the same
+`5 runs · 8 h 0 min`, with the span ending at the last end once the stage is done.
+
 #### Sign-off status words and button
 
 The Sign-off bar uses the existing bar states. The status words sit at the right end of the Stage

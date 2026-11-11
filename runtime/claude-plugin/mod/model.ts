@@ -815,6 +815,11 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           mandatory: stage.mandatory === true,
           started_at: str(stage.started_at),
           ended_at: str(stage.ended_at),
+          ...(stage.first_started_at !== undefined
+            ? { first_started_at: str(stage.first_started_at) }
+            : {}),
+          ...(stage.last_ended_at !== undefined ? { last_ended_at: str(stage.last_ended_at) } : {}),
+          ...(num(stage.runs) !== null ? { runs: num(stage.runs)! } : {}),
           duration_unreliable: stage.duration_unreliable === true,
           duration_ms: num(stage.duration_ms),
           agent: str(stage.agent),
@@ -1076,6 +1081,27 @@ export function stageSegments(snapshot: PaqadHudSnapshot | null): StageSegment[]
 }
 
 export { formatClock };
+
+export function spanText(ms: number): string {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+export interface StageRuns {
+  runs: string;
+  span: string | null;
+}
+
+export function stageRuns(stage: PaqadHudStage | undefined, now: number | null): StageRuns | null {
+  const runs = stage?.runs ?? 1;
+  if (!stage || runs <= 1) return null;
+  const first = Date.parse(stage.first_started_at ?? stage.started_at ?? '');
+  const last =
+    stage.state === 'running' ? (now ?? Number.NaN) : Date.parse(stage.last_ended_at ?? '');
+  const span = Number.isFinite(first) && Number.isFinite(last) ? spanText(last - first) : null;
+  return { runs: `${runs} runs`, span };
+}
 
 export function liveClock(segments: StageSegment[], now: number): string | null {
   const running = segments.find((segment) => segment.state === 'running');

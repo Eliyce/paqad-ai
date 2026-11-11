@@ -21,6 +21,9 @@ export type PaqadHudStage = {
   mandatory: boolean;
   started_at: string | null;
   ended_at: string | null;
+  first_started_at?: string | null;
+  last_ended_at?: string | null;
+  runs?: number;
   duration_unreliable: boolean;
   duration_ms: number | null;
   agent: string | null;
