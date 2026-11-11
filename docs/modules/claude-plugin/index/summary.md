@@ -30,6 +30,13 @@ plugin already puts them under `paqad:`. The source folders in `plugins/discover
 their own names (for example `front-door` builds to `start`, `product-discovery` to `discover`,
 `ask-project` to `ask`).
 
+The `discover` journey can ground an idea on Jira as well as the code: it reads the repository
+first and the tracker second, and reads the tracker alone when no repository is readable. Jira
+reads stay inside tight limits on epics and tickets. It can post new tickets under an existing
+Jira epic, which it never changes. The glossary also learns terms from the tickets it reads, and
+replies follow the language the person writes in. `ask`, `refine-ticket`, `size-work` and
+`plan-sprint` do not read Jira this way.
+
 The discovery skills ship only in the plugin. The npm package leaves them out (the `files`
 list in `package.json` excludes each generated skill folder), so npm users get the three
 developer skills only. There is no root `bin/`: the launcher lives in `dist/` and
