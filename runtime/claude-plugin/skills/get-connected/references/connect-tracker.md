@@ -20,7 +20,7 @@ idea; say once, before grounding starts, that the tickets will leave by export.
 Check that the connector offers a create-issue action for the target project and that the user can
 create issues there. If any of these is true, say which in plain words, name who usually fixes it,
 and offer the export fallback (PUB-8). Stop before drafting is wasted only when the tracker cannot
-be read either:
+be read as well:
 
 - the connector is not switched on
 - the connector exposes read tools but no write tools
