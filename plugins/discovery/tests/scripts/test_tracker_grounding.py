@@ -36,7 +36,8 @@ import build  # noqa: E402
 PLUGIN_NAME = "paqad-product-discovery"
 TRACKER_REFERENCE = "references/ground-from-tracker.md"
 JIRA_PROFILE = "references/tracker-profiles-jira.md"
-DECLARERS = {"get-connected", "ground-in-project", "shape-idea", "product-discovery"}
+DECLARERS = {"get-connected", "ground-in-project", "shape-idea", "product-discovery",
+             "decide-together", "check-tickets"}
 JIRA_PROFILE_DECLARERS = {
     "get-connected", "ground-in-project", "post-tickets", "refine-ticket", "size-work", "plan-sprint",
 }
@@ -60,6 +61,15 @@ FINDING = (
     "there is no pause action. I'm going with the repository."
 )
 CUT_LINE = "I looked at the 25 closest tickets"
+EPIC_QUESTION = "Where should these tickets go?"
+CANNOT_CHECK_SENTENCE = (
+    "I can't read the tracker from here, so I can't check that epic. "
+    "I'll draft a new epic instead, or you can connect the tracker and pick one."
+)
+EXPORT_NOTE = (
+    "Parent holds the existing epic key ABC-7. If your importer does not accept it, set the "
+    "parent with a bulk edit after the import."
+)
 FIELDS_READ = "key, type, summary, description, status, parent, labels, last updated"
 NEVER_READ = "comments, attachments, work logs, people's names (assignee, reporter), other projects"
 VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai|rovo", re.IGNORECASE)
@@ -588,6 +598,166 @@ class RequirementsV33Test(unittest.TestCase):
             rows = [line for line in text.split("\n") if line.startswith("| U-20")]
             self.assertEqual(len(rows), 1, host)
             self.assertIn("| pending |  |", rows[0], host)
+
+
+class ExistingEpicWordingTest(BuiltCopies):
+    """Part B: the epic question at step 4, the draft at step 5 and the hand off at step 6, as
+    worded in the skill sources and their built copies."""
+
+    def setUp(self):
+        self.text = read_text(SKILLS_ROOT, "product-discovery", "assets", "record-template.md")
+        self.record = json.loads(self.text[self.text.index("{"):self.text.rindex("}") + 1])
+
+    def test_ac_34_epic_question_and_cannot_check_sentence_word_for_word(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",),
+                              [EPIC_QUESTION, CANNOT_CHECK_SENTENCE])
+        self.assert_both_hold("post-tickets", ("SKILL.md",), [EXPORT_NOTE])
+        requirements = read_text(PROJECT_ROOT, "docs", "plugin-discovery", "REQUIREMENTS.md")
+        self.assertEqual(missing(requirements, [EPIC_QUESTION]), [])
+
+    def test_ac_19_the_question_is_asked_once_and_recorded_as_the_epic_choice(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "Only when the outcome leads to tickets and the tracker is a Jira project that can be "
+            'read, ask once, through the choice prompt: "Where should these tickets go?"',
+            '"A new epic" and up to three existing epics that match the idea',
+            '"Under ABC-7: <epic title>"',
+            "the recommended one marked with a short reason",
+            "Record the answer as `epic_choice`",
+            "ends the step without the question",
+            "A tracker with no epics, such as GitHub Issues, never gets it.",
+        ])
+        choices = [d["epic_choice"] for d in self.record["decisions"] if "epic_choice" in d]
+        self.assertEqual(choices, [[{"mode": "new"},
+                                    {"mode": "existing", "key": "ABC-7", "title": ""}]])
+
+    def test_ac_20_no_matching_epic_skips_the_question_with_one_line(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "When no existing epic matches the idea, skip the question and say in one line that a "
+            "new epic will be drafted and that an epic key can still be named.",
+        ])
+
+    def test_ac_21_a_typed_key_is_checked_and_nothing_is_recorded_until_it_passes(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "A typed key must look like a tracker key and its project part must equal "
+            "`setup.project_key` before any read.",
+            "Refuse a key from another project without opening the issue or showing its title.",
+            "say which check failed and ask the same question again",
+            "Record nothing until a key passes.",
+        ])
+
+    def test_ac_22_an_unreadable_tracker_drafts_a_new_epic(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "When the tracker cannot be read, a key cannot be checked. Say this and draft a new "
+            "epic: \"" + CANNOT_CHECK_SENTENCE + "\"",
+        ])
+
+    def test_ac_23_a_redraft_keeps_the_choice_and_a_change_brings_a_new_approval(self):
+        self.assert_both_hold("write-tickets", ("SKILL.md",), [
+            "A redraft keeps the recorded choice and does not ask again.",
+            "that changes the recorded choice, so show the preview again and ask for approval again",
+        ])
+        self.assert_both_hold("decide-together", ("references", "decision-template.md"), [
+            "a redraft keeps it, and changing it marks the ticket set, the readiness and the "
+            "posting stale, so the preview and the approval come again",
+        ])
+        self.assert_both_hold("check-tickets", ("SKILL.md",), [
+            "so a set that no longer matches the recorded epic choice is refused",
+        ])
+
+    def test_ac_25_one_choice_per_epic_and_a_single_group_can_be_moved(self):
+        self.assert_both_hold("decide-together", ("references", "decision-template.md"), [
+            "a list with one choice per planned epic, in epic order",
+            "One run may mix a new epic and an existing one.",
+        ])
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "The step 5 preview shows where each group of tickets goes, and the user may move a "
+            "single group there.",
+            "Moving a group changes the choice, so the preview and the approval are shown again.",
+        ])
+        self.assert_both_hold("write-tickets", ("SKILL.md",), [
+            "Each group shows where it goes: a new epic, or an existing epic on its own row marked "
+            '"not changed".',
+        ])
+
+    def test_ac_26_a_resumed_run_with_an_unreadable_tracker_leaves_by_export(self):
+        self.assert_both_hold("decide-together", ("references", "decision-template.md"), [
+            "On resume with the tracker no longer readable, keep the choice",
+            "the tickets leave by export with the epic key, and one line says the epic was last "
+            "checked in the earlier session and is not confirmed now",
+        ])
+        self.assert_both_hold("post-tickets", ("SKILL.md",), [
+            "On resume with an unreadable tracker, export with the key and say the epic was last "
+            "checked in the earlier session and is not confirmed now.",
+            "Nothing is created until every check passes.",
+        ])
+
+    def test_ac_28_a_ticket_under_an_existing_epic_stands_on_its_own(self):
+        self.assert_both_hold("write-tickets", ("SKILL.md",), [
+            "each ticket under it carries the goal, the why and the scope it needs in its own body",
+            "the title is the live title as read, never rewritten",
+            "gets `existing_key`, the live title, an empty `body_markdown` and an empty `labels` list",
+            "with the real key and title on its Epic line",
+        ])
+        self.assert_both_hold("write-tickets", ("assets", "ticket-template.md"), [
+            "Under an existing epic the Epic line shows the real key and the live title",
+            "`**Epic:** ABC-7 Order history`",
+        ])
+        self.assert_both_hold("write-tickets", ("assets", "epic-template.md"), [
+            "An epic that already exists in the tracker is never drafted from this template.",
+        ])
+
+    def test_ac_31_and_ac_32_the_post_skill_asks_first_and_uses_the_live_title(self):
+        self.assert_both_hold("post-tickets", ("SKILL.md",), [
+            "ask before the first create",
+            "A no creates nothing and goes back to the step 4 question.",
+            "say so in one line and use the live title on each ticket's Epic line before the "
+            "approval",
+            'A failed read is "could not check the epic", never "the epic does not exist".',
+            "the only operation on its key is the read",
+            'An existing epic sits on its own row marked "not changed".',
+            "never report a clean success",
+        ])
+        self.assert_both_hold("post-tickets", ("references", "post-procedure.md"), [
+            "Every such read comes before the first create of any kind",
+            "a retry finds the tickets already created by their run label and makes no second copy",
+        ])
+
+    def test_ac_17_later_steps_reuse_what_was_read(self):
+        self.assert_both_hold("decide-together", ("SKILL.md",), [
+            "When the total is used up, reuse what was read and say so in one line.",
+        ])
+        self.assert_both_hold("check-tickets", ("SKILL.md",), [
+            "Never flag a chosen existing epic as its own duplicate.",
+            "at most 25 and inside the run's read total",
+            "when the total is used up, reuse what was read and say so",
+        ])
+
+    def test_posted_block_shows_an_existing_epic_as_not_changed(self):
+        statuses = [row["status"] for row in self.record["posted"]["issues"]]
+        self.assertEqual(statuses, ["created", "not changed"])
+        self.assertEqual(missing(self.text, [
+            "or not changed for an existing epic, which is never counted as created",
+            "It sits inside the go-back chain, so it survives a redraft",
+        ]), [])
+
+    def test_existing_epic_scenarios_and_the_script_proven_rows(self):
+        sys.path.insert(0, os.path.join(REPO_ROOT, "tests", "evals"))
+        import run_parity
+        scenarios = run_parity.load_scenarios(os.path.join(SCENARIOS, "existing-epic.yml"))["scenarios"]
+        covered = {int(item["acceptance"].split("-")[1]) for item in scenarios}
+        self.assertEqual(covered, {94, 95, 96, 97, 99, 100, 102, 104, 105})
+        for item in scenarios:
+            for field in ("id", "title", "acceptance", "entry_skill", "fixture", "tracker", "user"):
+                self.assertNotIn(": ", str(item[field]), item["id"])
+        readme = read_text(SCENARIOS, "README.md")
+        self.assertEqual(missing(readme, [
+            "AC-83, AC-103 and AC-106 are script-proven by `test_posting.py`",
+            "AC-101 is script-proven by `test_tickets.py`",
+            "AC-98 is script-proven by `test_record.py`",
+        ]), [])
+        sys.path.insert(0, os.path.join(REPO_ROOT, "tests", "ci"))
+        import check_scenarios
+        self.assertEqual(check_scenarios.check(), [])
 
 
 class TrackerFixtureTest(unittest.TestCase):

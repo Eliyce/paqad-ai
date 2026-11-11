@@ -58,7 +58,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "recommendation": ""
   },
   "decisions": [
-    { "id": "", "question": "", "choice": "", "by": "", "why": "" }
+    { "id": "", "question": "", "choice": "", "by": "", "why": "" },
+    { "id": "", "question": "Where should these tickets go?", "choice": "", "by": "", "why": "", "epic_choice": [ { "mode": "new" }, { "mode": "existing", "key": "ABC-7", "title": "" } ] }
   ],
   "assumptions": [
     { "id": "", "question": "", "default": "", "why": "" }
@@ -81,7 +82,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
   },
   "posted": {
     "issues": [
-      { "ref": "", "issue_key": "", "status": "created" }
+      { "ref": "", "issue_key": "", "status": "created" },
+      { "ref": "E2", "issue_key": "ABC-7", "status": "not changed" }
     ],
     "read_back": {}
   },
@@ -143,12 +145,16 @@ Each block below shows its fields. A block is empty until the step that owns it 
   When the repository and the tickets disagree, the entry adds disagreement, the one-line finding
   that names the issue key and ends "I'm going with the repository." In a run held in another
   language these values keep their English label, keys and level ids.
-- decisions records each settled choice with who decided and why. assumptions holds accepted
+- decisions records each settled choice with who decided and why. The decision that answers
+  "Where should these tickets go?" adds epic_choice, a list with one choice per planned epic in
+  epic order: mode "new", or mode "existing" with the key and the title as read
+  (PUB-9). It sits inside the go-back chain, so it survives a redraft and a change to it marks
+  the ticket set, the readiness and the posting stale. assumptions holds accepted
   defaults, each labelled an assumption.
 - ticket_set_ref.digest is the sha256 of the canonical ticket set with the digest field excluded.
   Each approval is bound to that digest and any later edit voids it.
 - readiness.status is passed or open. posted.issues status is one of created, uncertain or not
-  applied; posted.read_back is an object keyed by issue reference. A fresh record seeds posted as an
+  applied, or not changed for an existing epic, which is never counted as created; posted.read_back is an object keyed by issue reference. A fresh record seeds posted as an
   empty object and step 6 is not satisfied until a real posting fills it, so an untouched record is
   never read as already posted.
 - existing, changes, sizing and sprint_plan are the existing-work blocks (refine, size and plan

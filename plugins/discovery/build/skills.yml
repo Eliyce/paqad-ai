@@ -112,6 +112,7 @@ skills:
     publish: decide-together
     imports:
       - references/voice.md
+      - references/ground-from-tracker.md
   - name: write-tickets
     publish: write-tickets
     imports:
@@ -125,6 +126,7 @@ skills:
       - references/voice.md
       - references/plain-language.md
       - references/user-stories.md
+      - references/ground-from-tracker.md
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets

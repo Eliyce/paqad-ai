@@ -45,7 +45,9 @@ first step and a recommendation.
 ## Step 4. Decide (decide-together)
 
 Purpose: settle the open choices one at a time, record each decision with who decided and why, and
-record accepted defaults as assumptions. Set the outcome (CON-8).
+record accepted defaults as assumptions. Set the outcome (CON-8). With a readable Jira project and
+an outcome that leads to tickets, ask once where the tickets should go, a new epic or an existing
+one, and record the epic choice.
 
 Exit condition: the `decisions` block has each decision, and the `outcome` block has the type,
 reason and next action.
@@ -53,7 +55,8 @@ reason and next action.
 ## Step 5. Draft and check (write-tickets, then check-tickets)
 
 Purpose: draft the epics and tickets, then check them for gaps, duplicates, jargon and untestable
-outcomes, fix, and check again.
+outcomes, fix, and check again. An existing epic is not drafted: its tickets carry the goal, the
+why and the scope, and the preview shows where each group goes.
 
 Exit condition: `ticket_set_ref` points to the ticket set with its digest and revision, and
 `readiness` records the checks as passed or lists what is still open.
@@ -61,11 +64,12 @@ Exit condition: `ticket_set_ref` points to the ticket set with its digest and re
 ## Step 6. Post (post-tickets)
 
 Purpose: recommend the outcome. For build: show the final set and, on an explicit "post it", create
-it in the tracker, read back and return the links. For any other outcome: give a short written
+it in the tracker, read back and return the links. An existing epic is read first and never
+changed; nothing is created until that check passes. For any other outcome: give a short written
 summary and offer to post a single tracker item if the user wants one.
 
-Exit condition: the `posted` block records each item as created, uncertain or not applied, with the
-read-back result.
+Exit condition: the `posted` block records each item as created, uncertain or not applied, an
+existing epic as not changed, with the read-back result.
 
 ## Going back: the invalidation map
 

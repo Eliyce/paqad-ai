@@ -21,6 +21,24 @@ Each decision has these fields:
 A decision is recorded only after the user actually chooses. A recommendation you offered is not
 a decision until they accept it.
 
+## The epic choice
+
+The answer to "Where should these tickets go?" is one more recorded decision, with one extra field,
+`epic_choice`: a list with one choice per planned epic, in epic order.
+
+| Choice | Shape |
+|---|---|
+| A new epic | `{ "mode": "new" }` |
+| An existing epic | `{ "mode": "existing", "key": "ABC-7", "title": "<title as read>" }` |
+
+It sits in the decisions block, inside the go-back chain: a redraft keeps it, and changing it marks
+the ticket set, the readiness and the posting stale, so the preview and the approval come again.
+One run may mix a new epic and an existing one. The existing epic is never created or changed.
+After a repository is connected in the middle of a run, the question is asked again with the
+earlier choice recommended. On resume with the tracker no longer readable, keep the choice; if the
+user does not reconnect, the tickets leave by export with the epic key, and one line says the epic
+was last checked in the earlier session and is not confirmed now.
+
 ## A recorded assumption
 
 When the user says "I don't know", offer a sensible default, label it as an assumption, and record

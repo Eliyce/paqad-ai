@@ -58,5 +58,9 @@ ticket in the language the tracker project's existing tickets use when they were
 the author's language, unless the author asks for another. The field labels and section headings
 above stay as written.
 
+Under an existing epic the Epic line shows the real key and the live title, for example
+`**Epic:** ABC-7 Order history`, and the ticket carries what a new epic body would have held: the
+goal and why it matters in "So that" and "What exists today", and the scope in "Not included".
+
 The ref stays E<n>-T<n>; the preview shows "E1-T1: title". Assignee is left empty unless the
 author names a person, who is then looked up through the tracker connector.

@@ -3,6 +3,10 @@
 Use these sections for every epic, in this order. Each epic is one outcome. Keep it in plain
 business words and follow the writing rules in `references/writing-rules.md`.
 
+An epic that already exists in the tracker is never drafted from this template. It keeps its key
+and its live title, with an empty body and no labels, and it is never created or changed. The goal,
+the why and the scope then go into each ticket under it.
+
 ## Title
 
 The outcome, not the activity. At most 80 characters.
