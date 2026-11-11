@@ -682,6 +682,16 @@ class PostingCliTest(TempDirTestCase):
         posted = self._load("state.json")["posted"]["issues"]
         self.assertEqual(posted, [{"ref": "E1", "issue_key": "ABC-1", "status": "created"}])
 
+    def test_resume_drops_the_verify_receipts_and_persists_the_state(self):
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        path = self._json("state.json", state)
+        code, out = _run_main(plan_posting, ["resume", "--state", path])
+        self.assertEqual((code, json.loads(out)), (0, {"verify_due": ["verify-E2"]}))
+        self.assertNotIn("verify-E2", self._load("state.json")["receipts"])
+        code, out = _run_main(plan_posting, ["next", "--state", path])
+        self.assertEqual(json.loads(out)["id"], "verify-E2")
+
     def test_reconcile_with_and_without_tracker_issues(self):
         path = self._state_file()
         _run_main(plan_posting, ["plan", "--state", path])
@@ -1019,14 +1029,35 @@ class ExistingEpicRunTest(unittest.TestCase):
             plan_posting.next_operation(state)
         self.assertIn("No approval", str(ctx.exception))
 
-    def test_a_claimed_verify_is_in_flight_until_its_read_is_recorded(self):
+    def test_a_verify_whose_reply_was_lost_is_read_again_not_reconciled(self):
         state = existing_state()
         self.assertEqual(plan_posting.claim(state)["id"], "verify-E2")
-        with self.assertRaises(ValueError) as ctx:
-            plan_posting.next_operation(state)
-        self.assertIn("Reconcile the pending operation", str(ctx.exception))
+        self.assertEqual(state["receipts"]["verify-E2"]["status"], "in_flight")
+        op, arguments = plan_posting.next_operation(state)
+        self.assertEqual((op["id"], arguments["key"]), ("verify-E2", EXISTING_KEY))
+        self.assertEqual(plan_posting.claim(state)["id"], "verify-E2")
         plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
         self.assertEqual(plan_posting.next_operation(state)[0]["id"], "create-E1")
+
+    def test_inv_11_a_verify_passed_in_an_earlier_session_is_due_again_on_resume(self):
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        claimed = plan_posting.claim(state)
+        self.assertEqual(claimed["id"], "create-E1")
+        plan_posting.record_receipt(state, "create-E1", {"status": "created",
+                                                         "result": {"key": "ABC-101"}})
+        self.assertEqual(plan_posting.resume(state), {"verify_due": ["verify-E2"]})
+        self.assertNotIn("verify-E2", state["receipts"])
+        self.assertEqual(state["receipts"]["create-E1"]["status"], "created")
+        self.assertEqual(plan_posting.claim(state)["id"], "verify-E2")
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        self.assertEqual(plan_posting.next_operation(state)[0]["id"], "create-E1-T1")
+
+    def test_inv_11_resume_brings_back_a_failed_verify_for_a_fresh_read(self):
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", {"status": "read_failed"})
+        plan_posting.resume(state)
+        self.assertEqual(plan_posting.next_operation(state)[0]["id"], "verify-E2")
 
     def test_ac_31_done_epic_asks_first_and_a_no_creates_nothing(self):
         state = existing_state()

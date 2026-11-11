@@ -17,7 +17,10 @@ verify comes before the first create of any kind, so a failed check leaves nothi
 host performs the read and records its result; this script judges it: the issue exists, is of the
 epic type and sits in the project. A read that failed is "could not check the epic", never "the epic
 does not exist". A done or closed epic needs a recorded yes before the first create. A verify is a
-read, so it can be recorded before the approval and again on every resume. Its tickets take the
+read, so it can be recorded before the approval and again on every resume. A verify left in flight
+by a lost reply is returned again by next, since the move is to read the epic again, not to
+reconcile. The resume command drops every verify receipt, so a check that passed in an earlier
+session never counts and every verify is due again before any create. Its tickets take the
 literal key as parent, and the posted block shows the epic as "not changed", never as created.
 
 Receipt lifecycle (PUB-5): an operation is claimed in_flight before any write; a reply records it
@@ -41,6 +44,7 @@ CLI (over a --state JSON file holding ticket_set, setup, connector, approval, re
   plan_posting.py claim     --state <state.json>
   plan_posting.py record    --state <state.json> --operation <id> --receipt <receipt.json>
   plan_posting.py reconcile --state <state.json> --operation <id> [--tracker-issues <found.json>]
+  plan_posting.py resume    --state <state.json>
 
 Run with --help to print the usage.
 """
@@ -297,6 +301,7 @@ def next_operation(state):
                 continue
             if status is not None and status != "in_flight":
                 raise ValueError(receipts[op["id"]].get("message", "Could not check the epic."))
+            return op, resolve(op["arguments"], receipts)
         if status == "not_applied" and op.get("existing_parent"):
             raise ValueError(
                 "Posting stopped at {0}: it could not be created under {1}. No ticket is created "
@@ -465,6 +470,18 @@ def reconcile(state, op_id, tracker_issues=None):
     }
 
 
+def resume(state):
+    """Start a resumed run: drop every verify receipt so each epic is read again before any
+    create. Returns the verify operations now due."""
+    receipts = state.setdefault("receipts", {})
+    due = []
+    for op in state.get("plan", {}).get("operations", []):
+        if op.get("kind") == "verify":
+            receipts.pop(op["id"], None)
+            due.append(op["id"])
+    return {"verify_due": due}
+
+
 def _write_state(path, state):
     Path(path).write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -472,7 +489,7 @@ def _write_state(path, state):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Plan and receipt the tracker posting run.")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("plan", "next", "claim", "record", "reconcile"):
+    for name in ("plan", "next", "claim", "record", "reconcile", "resume"):
         p = sub.add_parser(name)
         p.add_argument("--state", required=True, type=Path)
         if name == "record":
@@ -504,6 +521,11 @@ def main(argv=None):
     if args.command == "record":
         receipt = canonical.load(args.receipt)
         out = record_receipt(state, args.operation, receipt)
+        _write_state(args.state, state)
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "resume":
+        out = resume(state)
         _write_state(args.state, state)
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0

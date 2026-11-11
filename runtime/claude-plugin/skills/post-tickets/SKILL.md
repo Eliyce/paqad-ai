@@ -41,6 +41,8 @@ known tool-name variants.
      records the reply.
    - `scripts/plan_posting.py reconcile --state <state.json> --operation <id> [--tracker-issues
      <found.json>]` settles an uncertain write.
+   - `scripts/plan_posting.py resume --state <state.json>` starts a resumed run: every epic check
+     is due again before any create.
 
    The order is the read-only check of every existing epic first (`verify-E<n>`), then new epics,
    then each epic's tickets with their epic as parent (the created epic, or the literal key of an
@@ -53,12 +55,12 @@ known tool-name variants.
    "status", "done"}}`, `{"status": "not_found"}`, or `{"status": "read_failed", "reason"}` when
    the read timed out, was refused or the connector failed. Set `done` from the status the issue
    reports as finished, not from a status name. The read needs no approval; repeat it on every
-   resume and retry. Nothing is created until every check passes. When one fails, stop, say which
-   check failed (or that the epic could not be checked), and offer the two ways on: pick another
-   epic or a new epic, back at the step 4 question, or leave by export. A failed read is "could
-   not check the epic", never "the epic does not exist". When the epic is done or closed and that
-   was not confirmed at step 4, ask before the first create; record the answer with
-   `"done_confirmed": true` or `false`. A no creates nothing and goes back to the step 4 question.
+   resume and retry, and when its reply was lost, read again. Nothing is created until every check
+   passes. When one fails, stop, say which check failed (or that the epic could not be checked),
+   and offer the two ways on: pick another epic or a new epic, back at the step 4 question, or
+   leave by export. A failed read is "could not check the epic", never "the epic does not exist".
+   When the epic is done or closed and that was not confirmed at step 4, ask before the first
+   create; record the answer with `"done_confirmed": true` or `false`. A no creates nothing and goes back to the step 4 question.
 
    If the first ticket under an existing epic is refused with that parent, stop there: create no
    ticket without its parent, never edit the epic to attach tickets, and offer the export. If
