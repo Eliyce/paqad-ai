@@ -20,6 +20,10 @@ export function hudVerdictPath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}.verdict.json`);
 }
 
+export function hudVerdictAgreementPath(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}.verdict-agreement.json`);
+}
+
 export const HUD_COST_CACHE_SUFFIX = '.cost-cache.json';
 
 export function hudCostCachePath(projectRoot: string, sessionId: string): string {

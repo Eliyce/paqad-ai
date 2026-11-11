@@ -108,7 +108,12 @@ import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
-import { readHudVerdict, type HudVerdictRecord } from './receipt-file.js';
+import {
+  NO_VERDICT_RECORD,
+  readHudVerdict,
+  readVerdictAgreement,
+  type HudVerdictRecord,
+} from './receipt-file.js';
 import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 import { buildStageRun, stagesWithAgentRows } from './stage-run.js';
 import { rulesDriftHeadline } from '@/rules-discovery/nudge.js';
@@ -1762,6 +1767,9 @@ export function buildHudSnapshot(
   );
   const gatesExpected = expectedGateCodes(lane);
   const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
+  if (!verdict && readVerdictAgreement(projectRoot, sessionId).no_record) {
+    gaps.push(NO_VERDICT_RECORD);
+  }
   const questions = buildQuestions(projectRoot, dirName);
   const stageRows = readFeatureStageUnit(projectRoot, dirName);
   const ledgerHealth = readUnitFileHealth(projectRoot, featureFilePath(dirName, 'stageEvidence'));

@@ -133,7 +133,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 20 turns. Leave \`checks.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -182,7 +182,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits and \`rules-loaded.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -231,7 +231,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 30 turns. Leave the synced canonical docs. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -280,7 +280,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 100 turns. Leave \`plan.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -330,7 +330,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 70 turns. Leave \`review.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -380,7 +380,7 @@ No \`## Your recipe\` heading? Run the brief; still none, continue, reporting it
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`specification.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -424,7 +424,7 @@ You are the paqad **checks** stage agent. Your job: run the project checks and r
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 20 turns. Leave \`checks.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -516,7 +516,7 @@ You are the paqad **development** stage agent. Your job: implement the frozen sp
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits and \`rules-loaded.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -560,7 +560,7 @@ You are the paqad **documentation_sync** stage agent. Your job: sync the canonic
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 30 turns. Leave the synced canonical docs. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -652,7 +652,7 @@ You are the paqad **planning** stage agent. Your job: plan the change and record
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 100 turns. Leave \`plan.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -696,7 +696,7 @@ You are the paqad **review** stage agent. Your job: review the change and record
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 70 turns. Leave \`review.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 
@@ -740,7 +740,7 @@ You are the paqad **specification** stage agent. Your job: write and freeze the 
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 60 turns. Leave \`specification.json\`. Return its path and at most five lines.
-End with one line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
+Required last line: \`Status: DONE\`, \`Status: DONE_WITH_CONCERNS\` (name the concerns), \`Status: NEEDS_CONTEXT\` (name what you need) or \`Status: BLOCKED\`, with \`Decision needed:\`, \`Options:\` and, after a decision pause, \`paused: D-<id>\`.
 
 ## Stop when
 

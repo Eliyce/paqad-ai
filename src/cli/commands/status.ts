@@ -7,7 +7,9 @@ import { collectModuleHealth } from '@/dashboard/collectors/module-health.js';
 import { renderMarkdown } from '@/dashboard/markdown.js';
 import { buildReport } from '@/dashboard/report.js';
 import { moneyText } from '@/cost/prices.js';
-import { readHudVerdict, type HudVerdictReading } from '@/hud/receipt-file.js';
+import { NO_VERDICT_RECORD, readHudVerdict, type HudVerdictReading } from '@/hud/receipt-file.js';
+
+export { NO_VERDICT_RECORD };
 import { buildHudSnapshot, hudSessionId, type HudSnapshot } from '@/hud/snapshot.js';
 import { readDriftReport, driftReportHasFindings } from '@/module-map/reconciler.js';
 
@@ -19,8 +21,6 @@ interface StatusCommandOptions {
   verdict: boolean;
   session?: string;
 }
-
-export const NO_VERDICT_RECORD = 'no verdict record';
 
 export function renderVerdictText(reading: HudVerdictReading): string {
   if (reading.status !== 'found') return `${NO_VERDICT_RECORD}: ${reading.why}`;
