@@ -183,3 +183,15 @@ describe('the verdict word and the final message', () => {
     expect(decideVerdictAgreement({ ...base, message: 'done' }).kind).toBe('skip');
   });
 });
+
+describe('AC-11: the verdict check leaves every stage gate decision as it was', () => {
+  it('writes only its own agreement file and never touches the stage ledger', () => {
+    installVerdict();
+    stop('Safe to merge.');
+    stop('Inconclusive.');
+    expect(existsSync(join(root, '.paqad/ledger'))).toBe(false);
+    expect(existsSync(join(root, '.paqad/session/hud/ses-closed-run.verdict-agreement.json'))).toBe(
+      true,
+    );
+  });
+});
