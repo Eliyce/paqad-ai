@@ -198,31 +198,30 @@ describe('ancestorDirs', () => {
   });
 
   it('AC-13: stops before the home folder and never returns it', () => {
-    expect(ancestorDirs('/home/u/repo/app', '/home/u')).toEqual([
-      '/home/u/repo/app',
-      '/home/u/repo',
-    ]);
-    expect(ancestorDirs('/home/u/.claude/spares/spare-1', '/home/u')).not.toContain('/home/u');
-    expect(ancestorDirs('/work/app', '/home/u')).toEqual(['/work/app', '/work', '/']);
+    expect(ancestorDirs('/hm/u/repo/app', '/hm/u')).toEqual(['/hm/u/repo/app', '/hm/u/repo']);
+    expect(ancestorDirs('/hm/u/.claude/spares/spare-1', '/hm/u')).not.toContain('/hm/u');
+    expect(ancestorDirs('/work/app', '/hm/u')).toEqual(['/work/app', '/work', '/']);
   });
 
   it('AC-13: treats home with a trailing separator as home, and the home folder itself as no root', () => {
-    expect(ancestorDirs('/home/u/repo', '/home/u/')).toEqual(['/home/u/repo']);
-    expect(ancestorDirs('/home/u/', '/home/u')).toEqual([]);
-    expect(ancestorDirs('/home/u', '/home/u//')).toEqual([]);
-    expect(ancestorDirs('C:\\Users\\u\\repo', 'C:\\Users\\u\\')).toEqual(['C:\\Users\\u\\repo']);
+    expect(ancestorDirs('/hm/u/repo', '/hm/u/')).toEqual(['/hm/u/repo']);
+    expect(ancestorDirs('/hm/u/', '/hm/u')).toEqual([]);
+    expect(ancestorDirs('/hm/u', '/hm/u//')).toEqual([]);
+    expect(ancestorDirs('C:\\Profiles\\u\\repo', 'C:\\Profiles\\u\\')).toEqual([
+      'C:\\Profiles\\u\\repo',
+    ]);
   });
 
   it('AC-13: with no home path set walks the full path as before without throwing', () => {
-    expect(ancestorDirs('/home/u/repo', null)).toEqual(['/home/u/repo', '/home/u', '/home', '/']);
+    expect(ancestorDirs('/hm/u/repo', null)).toEqual(['/hm/u/repo', '/hm/u', '/hm', '/']);
   });
 });
 
 describe('homeOf', () => {
   it('AC-13: reads HOME, falls back to USERPROFILE, strips trailing separators', () => {
-    expect(homeOf({ HOME: '/home/u/' })).toBe('/home/u');
-    expect(homeOf({ USERPROFILE: 'C:\\Users\\u\\' })).toBe('C:\\Users\\u');
-    expect(homeOf({ HOME: '/home/u', USERPROFILE: 'C:\\Users\\u' })).toBe('/home/u');
+    expect(homeOf({ HOME: '/hm/u/' })).toBe('/hm/u');
+    expect(homeOf({ USERPROFILE: 'C:\\Profiles\\u\\' })).toBe('C:\\Profiles\\u');
+    expect(homeOf({ HOME: '/hm/u', USERPROFILE: 'C:\\Profiles\\u' })).toBe('/hm/u');
     expect(homeOf({ HOME: '' })).toBeNull();
     expect(homeOf({})).toBeNull();
     expect(homeOf({ HOME: '/' })).toBe('/');

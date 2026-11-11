@@ -806,7 +806,7 @@ describe('the Desktop band', () => {
   });
 
   test('AC-4: a bound session with no record says so after 30 s, and the record clears it', async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED }, env: { HOME: '/home/dev' } });
+    const world = worldOf(on, { files: { ...ONBOARDED }, env: { HOME: '/hm/dev' } });
     const clock = mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     await clock.advance(29_000);
@@ -1839,7 +1839,7 @@ describe('stand-downs: the mod registers nothing', () => {
 });
 
 describe('the HUD never takes the home folder as a project root', () => {
-  const HOME = '/home/dev';
+  const HOME = '/hm/dev';
   const SPARE = `${HOME}/.claude/spares/spare-1`;
   const HOME_ONBOARDED = { [`${HOME}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n' };
 
@@ -1869,7 +1869,7 @@ describe('the HUD never takes the home folder as a project root', () => {
 });
 
 describe('the HUD follows the session folder when it moves', () => {
-  const HOME = '/home/dev';
+  const HOME = '/hm/dev';
   const SPARE = `${HOME}/.claude/spares/spare-1`;
   const REPO = `${HOME}/code/app`;
   const OTHER = `${HOME}/code/plain`;

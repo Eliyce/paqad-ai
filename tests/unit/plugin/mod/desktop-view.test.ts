@@ -133,7 +133,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
 
   it('AC-4: a bound session with no record names the folder it looked in', () => {
     expect(
-      band({ snapshot: null, missingRecord: { root: '/home/dev/code/app', home: '/home/dev' } }),
+      band({ snapshot: null, missingRecord: { root: '/hm/dev/code/app', home: '/hm/dev' } }),
     ).toEqual({
       kind: 'missing',
       line: `${RECORD_MISSING} ~/code/app`,
@@ -1353,10 +1353,10 @@ describe('Part C: the Sign-off stage, words and button', () => {
 
 describe('AC-4: the record-missing path shortens home and truncates in the middle', () => {
   it('shortens the home part to ~ only on a folder boundary', () => {
-    expect(homeShortened('/home/dev', '/home/dev')).toBe('~');
-    expect(homeShortened('/home/dev/app', '/home/dev')).toBe('~/app');
-    expect(homeShortened('/home/devx/app', '/home/dev')).toBe('/home/devx/app');
-    expect(homeShortened('C:\\Users\\u\\app', 'C:\\Users\\u')).toBe('~\\app');
+    expect(homeShortened('/hm/dev', '/hm/dev')).toBe('~');
+    expect(homeShortened('/hm/dev/app', '/hm/dev')).toBe('~/app');
+    expect(homeShortened('/hm/devx/app', '/hm/dev')).toBe('/hm/devx/app');
+    expect(homeShortened('C:\\Profiles\\u\\app', 'C:\\Profiles\\u')).toBe('~\\app');
     expect(homeShortened('/work/app', null)).toBe('/work/app');
   });
 
@@ -1371,11 +1371,7 @@ describe('AC-4: the record-missing path shortens home and truncates in the middl
   });
 
   it('fits the narrow band and still shows the repo folder', () => {
-    const line = recordMissingLine(
-      '/home/dev/clients/acme/projects/2026/the-repo',
-      '/home/dev',
-      60,
-    );
+    const line = recordMissingLine('/hm/dev/clients/acme/projects/2026/the-repo', '/hm/dev', 60);
     expect(line.startsWith(RECORD_MISSING)).toBe(true);
     expect(line.endsWith('/the-repo')).toBe(true);
     expect([...line].length).toBeLessThanOrEqual(58);
