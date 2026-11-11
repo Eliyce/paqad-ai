@@ -8,6 +8,10 @@ Every epic row comes before its story rows, and each story's Parent is the paren
 item id (the epic ref). Labels are joined with spaces, since a Jira label holds no space; both the
 epic and the story rows carry their labels (PUB-4).
 
+An epic that carries existing_key already exists in the tracker (PUB-9): it gets no row, and the
+Parent of its stories is the existing key. --note prints the export note for such a set, naming the
+rows that hold a real key, and prints nothing for a set of new epics only.
+
 A Markdown table export (PUB-8) renders the same rows for a host that cannot import a CSV, chosen
 with --format markdown.
 
@@ -15,6 +19,7 @@ Standard library only. No network.
 
 CLI:
   export_csv.py --ticket-set <ticket-set.json> [--out <file>] [--format csv|markdown]
+  export_csv.py --ticket-set <ticket-set.json> --note
 
 With --out the export is written to that path (inside the working folder); otherwise it is printed
 to stdout. Exit 0 clean, 1 on error.
@@ -39,14 +44,16 @@ def rows(ticket_set):
     epic_type = tracker.get("epic_type", "Epic")
     story_type = tracker.get("story_type", "Story")
     for epic in ticket_set.get("epics", []):
-        yield {
-            "Work type": epic_type,
-            "Work item id": epic.get("ref", ""),
-            "Summary": epic.get("title", ""),
-            "Description": epic.get("body_markdown", ""),
-            "Labels": " ".join(epic.get("labels", []) or []),
-            "Parent": "",
-        }
+        existing = "existing_key" in epic
+        if not existing:
+            yield {
+                "Work type": epic_type,
+                "Work item id": epic.get("ref", ""),
+                "Summary": epic.get("title", ""),
+                "Description": epic.get("body_markdown", ""),
+                "Labels": " ".join(epic.get("labels", []) or []),
+                "Parent": "",
+            }
         for ticket in epic.get("tickets", []):
             yield {
                 "Work type": story_type,
@@ -54,8 +61,23 @@ def rows(ticket_set):
                 "Summary": ticket.get("title", ""),
                 "Description": ticket.get("body_markdown", ""),
                 "Labels": " ".join(ticket.get("labels", []) or []),
-                "Parent": epic.get("ref", ""),
+                "Parent": epic["existing_key"] if existing else epic.get("ref", ""),
             }
+
+
+def export_note(ticket_set):
+    """Return the export note for the existing epics of the set, one paragraph per epic, or the
+    empty string when every epic is new."""
+    lines = []
+    for epic in ticket_set.get("epics", []):
+        if "existing_key" not in epic:
+            continue
+        refs = ", ".join(ticket.get("ref", "") for ticket in epic.get("tickets", []))
+        lines.append(
+            "Parent holds the existing epic key {0}. If your importer does not accept it, set the "
+            "parent with a bulk edit after the import. Rows with this key: {1}.".format(
+                epic["existing_key"], refs))
+    return "".join(line + "\n" for line in lines)
 
 
 def to_csv(ticket_set):
@@ -92,9 +114,11 @@ def main(argv=None):
     parser.add_argument("--ticket-set", required=True, type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--format", choices=("csv", "markdown"), default="csv")
+    parser.add_argument("--note", action="store_true",
+                        help="Print the export note for existing epics instead of the export.")
     args = parser.parse_args(argv)
     ticket_set = canonical.load(args.ticket_set)
-    text = render(ticket_set, args.format)
+    text = export_note(ticket_set) if args.note else render(ticket_set, args.format)
     if args.out is not None:
         args.out.write_text(text, encoding="utf-8")
     else:

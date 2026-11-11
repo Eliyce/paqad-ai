@@ -151,6 +151,24 @@ class InvalidationMapTest(RecordTestCase):
         for block in ("idea", "today", "playback", "decisions", "ticket_set_ref") + self.OUTSIDE_CHAIN:
             self.assertNotIn(block, stale)
 
+    def test_ac_24_changing_the_epic_choice_stales_the_ticket_set_readiness_and_posted(self):
+        # The epic choice lives in the decisions block, inside the go-back chain, so record.py
+        # needs no change: a new choice stales exactly what was drafted and posted from the old one.
+        rec = self._init()
+        existing = {"id": "epic-choice", "question": "Where should these tickets go?",
+                    "epic_choice": [{"mode": "existing", "key": "ABC-7", "title": "Order history"}]}
+        record.apply_update(rec, 0, {"decisions": [existing]})
+        record.apply_update(rec, 1, {"ticket_set_ref": {"digest": "abc"},
+                                     "readiness": {"status": "passed"},
+                                     "posted": {"issues": [{"ref": "E1"}]}})
+        self.assertEqual(rec["stale"], [])
+        changed = dict(existing, epic_choice=[{"mode": "new"}])
+        record.apply_update(rec, 2, {"decisions": [changed]})
+        self.assertEqual(set(rec["stale"]), {"ticket_set_ref", "readiness", "posted"})
+        for block in ("idea", "today", "playback", "decisions") + self.OUTSIDE_CHAIN:
+            self.assertNotIn(block, rec["stale"])
+        self.assertIsNone(rec["approval"])
+
 
 class AssumptionsTest(RecordTestCase):
     def test_assumptions_block_stored(self):

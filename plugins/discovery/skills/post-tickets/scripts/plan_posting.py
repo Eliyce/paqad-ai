@@ -11,6 +11,15 @@ dependency links, then read-back. A child's parent and every link target is a re
 ({"$result": {"operation": <op id>, "path": ["key"]}}) resolved from the referenced create's
 verified receipt.
 
+An epic that carries existing_key already exists in the tracker and is never changed (PUB-9). The
+plan holds exactly one operation on its key, the read-only verify-E<n>, and no create for it. Every
+verify comes before the first create of any kind, so a failed check leaves nothing half posted. The
+host performs the read and records its result; this script judges it: the issue exists, is of the
+epic type and sits in the project. A read that failed is "could not check the epic", never "the epic
+does not exist". A done or closed epic needs a recorded yes before the first create. A verify is a
+read, so it can be recorded before the approval and again on every resume. Its tickets take the
+literal key as parent, and the posted block shows the epic as "not changed", never as created.
+
 Receipt lifecycle (PUB-5): an operation is claimed in_flight before any write; a reply records it
 created and writes the issue key into the posted block; a lost reply records it uncertain and
 stops dependent writes; reconcile searches by run label plus item reference and records created if
@@ -45,6 +54,9 @@ import canonical
 
 SHARED_LABEL = "paqad-discovery"
 SUCCESS = "created"
+VERIFIED = "verified"
+NOT_CHANGED = "not changed"
+WAYS_ON = ("No ticket was created. Pick another epic or a new epic, or leave by export.")
 
 
 def current_digest(ticket_set):
@@ -109,8 +121,25 @@ def build_plan(ticket_set, setup, connector):
     ticket_op_obj = {}
     created_refs = []
 
+    # The read-only check of every existing epic first, before any create (PUB-9).
+    existing = {}
+    for epic in ticket_set.get("epics", []):
+        if "existing_key" not in epic:
+            continue
+        existing[epic["ref"]] = epic["existing_key"]
+        operations.append({
+            "id": "verify-" + epic["ref"],
+            "action": "readIssue",
+            "kind": "verify",
+            "item_ref": epic["ref"],
+            "arguments": {"key": epic["existing_key"]},
+            "expect": {"project": project, "issuetype": epic_type},
+        })
+
     # Epics first.
     for epic in ticket_set.get("epics", []):
+        if epic["ref"] in existing:
+            continue
         op_id = "create-" + epic["ref"]
         epic_op[epic["ref"]] = op_id
         created_refs.append(op_id)
@@ -145,9 +174,12 @@ def build_plan(ticket_set, setup, connector):
                     "summary": ticket["title"],
                     "description": ticket.get("body_markdown", ""),
                     "labels": _labels([], run_label),
-                    "parent": _result_ref(epic_op[epic["ref"]]),
+                    "parent": (existing[epic["ref"]] if epic["ref"] in existing
+                               else _result_ref(epic_op[epic["ref"]])),
                 },
             }
+            if epic["ref"] in existing:
+                ticket_op_obj[ticket["ref"]]["existing_parent"] = existing[epic["ref"]]
             operations.append(ticket_op_obj[ticket["ref"]])
 
     # Then the dependency links (last before read-back). When the connector exposes a link action,
@@ -162,6 +194,10 @@ def build_plan(ticket_set, setup, connector):
                 # exists, by its literal key. Both are valid dependencies and are never skipped (INV-1).
                 if dep in ticket_op:
                     outward = _result_ref(ticket_op[dep])
+                elif dep in existing.values():
+                    raise ValueError(
+                        "depends_on names the existing epic {0}. An existing epic is never "
+                        "linked.".format(dep))
                 elif canonical.is_external_ref(dep):
                     outward = dep
                 else:
@@ -257,6 +293,16 @@ def next_operation(state):
     receipts = state.get("receipts", {})
     for op in plan["operations"]:
         status = receipts.get(op["id"], {}).get("status")
+        if op.get("kind") == "verify":
+            if status == VERIFIED:
+                continue
+            if status is not None and status != "in_flight":
+                raise ValueError(receipts[op["id"]].get("message", "Could not check the epic."))
+        if status == "not_applied" and op.get("existing_parent"):
+            raise ValueError(
+                "Posting stopped at {0}: it could not be created under {1}. No ticket is created "
+                "without its parent and the epic is not edited. Offer the export.".format(
+                    op["item_ref"], op["existing_parent"]))
         if status in (SUCCESS, "not_applied"):
             continue
         if status in ("in_flight", "uncertain"):
@@ -276,22 +322,101 @@ def claim(state):
 
 def _write_posted(state, op_id, receipt):
     op = _op(state, op_id)
-    if op.get("kind") not in ("epic", "story"):
+    if op.get("kind") not in ("epic", "story", "verify"):
         return
-    key = (receipt.get("result") or {}).get("key")
+    if op.get("kind") == "verify":
+        # An existing epic is shown as not changed, never as created (PUB-9).
+        key, status = op["arguments"]["key"], NOT_CHANGED
+    else:
+        key, status = (receipt.get("result") or {}).get("key"), SUCCESS
     posted = state.setdefault("posted", {"issues": [], "read_back": {}})
     issues = posted.setdefault("issues", [])
     for row in issues:
         if row.get("ref") == op.get("item_ref"):
             row["issue_key"] = key
-            row["status"] = SUCCESS
+            row["status"] = status
             return
-    issues.append({"ref": op.get("item_ref"), "issue_key": key, "status": SUCCESS})
+    issues.append({"ref": op.get("item_ref"), "issue_key": key, "status": status})
+
+
+def _epic_title(state, item_ref):
+    for epic in state.get("ticket_set", {}).get("epics", []):
+        if epic.get("ref") == item_ref:
+            return epic.get("title")
+    return None
+
+
+def judge_verify(state, op, receipt):
+    """Judge the host's read of an existing epic. Returns the stored receipt: verified when the
+    issue exists, is of the epic type and sits in the project; otherwise the failed check by name.
+    A read that itself failed is never a pass and never "the epic does not exist"."""
+    key = op["arguments"]["key"]
+    expect = op.get("expect", {})
+    result = receipt.get("result") if isinstance(receipt.get("result"), dict) else {}
+    stored = {"result": result}
+
+    def failed(check, why):
+        stored.update({
+            "status": "verify_failed", "failed_check": check,
+            "message": "Could not post under {0}: {1} {2}".format(key, why, WAYS_ON)})
+        return stored
+
+    if receipt.get("status") == "not_found":
+        return failed("exists", "the issue was not found.")
+    if receipt.get("status") != "read" or not result:
+        reason = receipt.get("reason") or "the tracker did not answer"
+        stored.update({
+            "status": "verify_failed", "failed_check": "read",
+            "message": "Could not check the epic {0}: the read itself failed ({1}). {2}".format(
+                key, reason, WAYS_ON)})
+        return stored
+    if result.get("issuetype") != expect.get("issuetype"):
+        return failed("epic_type", "it is not of the epic type {0}.".format(expect.get("issuetype")))
+    if result.get("project") != expect.get("project"):
+        return failed("project_key", "it is not in project {0}.".format(expect.get("project")))
+
+    title = _epic_title(state, op["item_ref"])
+    if result.get("summary") is not None and result.get("summary") != title:
+        # A changed title is not a failed check: the live title is used and the change is said.
+        stored["title_changed"] = {"from": title, "to": result.get("summary")}
+    if result.get("done"):
+        confirmed = state.setdefault("confirmed_done", [])
+        answer = receipt.get("done_confirmed")
+        if answer is True and key not in confirmed:
+            confirmed.append(key)
+        if key not in confirmed:
+            if answer is False:
+                stored.update({
+                    "status": "declined",
+                    "message": "Nothing was created under {0}: it is done or closed and the answer "
+                               "was no. Go back to where the tickets should go.".format(key)})
+            else:
+                stored.update({
+                    "status": "needs_confirmation",
+                    "message": "The epic {0} is done or closed. Ask before posting under "
+                               "it.".format(key)})
+            return stored
+        stored["done_confirmed"] = True
+    stored["status"] = VERIFIED
+    return stored
+
+
+def record_verify(state, op, receipt):
+    """Record the read of an existing epic. A read is not a write: it needs no claim and no
+    approval, and it is recorded again on every resume or retry."""
+    stored = judge_verify(state, op, receipt)
+    stored["recorded_at"] = canonical.now()
+    state.setdefault("receipts", {})[op["id"]] = stored
+    if stored["status"] == VERIFIED:
+        _write_posted(state, op["id"], stored)
+    return stored
 
 
 def record_receipt(state, op_id, receipt):
     """Record a receipt. created writes the issue key into posted; a created receipt is final."""
-    _op(state, op_id)  # validates the id
+    op = _op(state, op_id)  # validates the id
+    if op.get("kind") == "verify":
+        return record_verify(state, op, receipt)
     status = receipt.get("status")
     if status not in (SUCCESS, "uncertain", "not_applied"):
         raise ValueError("Receipt status must be created, uncertain or not_applied.")

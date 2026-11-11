@@ -813,5 +813,414 @@ class ExportCliTest(TempDirTestCase):
         self.assertIn("missing.json", err)
 
 
+EXISTING_KEY = "ABC-7"
+LIVE_TITLE = "Clearer orders"
+GOOD_READ = {"status": "read", "result": {
+    "key": EXISTING_KEY, "issuetype": "Epic", "project": "ABC", "summary": LIVE_TITLE,
+    "status": "In Progress", "done": False}}
+
+
+def mixed_set():
+    """posting_set with E1 a new epic and E2 an epic that already exists in the tracker."""
+    ts = posting_set()
+    epic = ts["epics"][1]
+    epic.update(existing_key=EXISTING_KEY, title=LIVE_TITLE, body_markdown="", labels=[])
+    return seal(ts)
+
+
+def existing_state(ticket_set=None, approved=True):
+    ts = ticket_set or mixed_set()
+    state = {
+        "ticket_set": ts, "setup": {"run_label": RUN_LABEL},
+        "connector": {"actions": ["createIssueLink"]}, "approval": None,
+        "receipts": {}, "posted": {"issues": [], "read_back": {}},
+    }
+    state["plan"] = plan_posting.build_plan(ts, state["setup"], state["connector"])
+    if approved:
+        state["approval"] = {"digest": plan_posting.current_digest(ts),
+                             "message_ref": "msg-42: post it"}
+    return state
+
+
+def read_with(**changes):
+    receipt = copy.deepcopy(GOOD_READ)
+    receipt["result"].update(changes)
+    return receipt
+
+
+def _sha(text):
+    import hashlib
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+class UnchangedOutputTest(unittest.TestCase):
+    """Spec AC-46, INV-12: for a set without existing_key the plan, both exports and the read-back
+    are byte for byte what they were before existing epics were supported. The hashes were taken
+    from the scripts as they stood before the change."""
+
+    def test_ac_46_plan_exports_and_read_back_are_byte_identical_for_new_epics(self):
+        ts = posting_set()
+        plan = plan_posting.build_plan(ts, {"run_label": RUN_LABEL}, {"actions": ["createIssueLink"]})
+        self.assertEqual(_sha(json.dumps(plan, indent=2, ensure_ascii=False)),
+                         "897d72080236367bc66ea21061710afd8e0e51f572de9ae98ea3132f622744f0")
+        self.assertEqual(_sha(export_csv.to_csv(ts)),
+                         "4485841c80c226dae31aa0650b4469394d57d9b20116d2fd3b547d04d2e157b2")
+        self.assertEqual(_sha(export_csv.to_markdown(ts)),
+                         "83f2420848764b0c3a601091156dd783d16cf1b19b1d87642a7bc21185ab3c74")
+        self.assertEqual(_sha(json.dumps(check_readback.compare(ts, []), sort_keys=True)),
+                         "db3fcd37947596dd87372fd7f977f9ba6616c96ebd680973d214fb4758cca83a")
+        self.assertEqual(export_csv.export_note(ts), "")
+
+
+class ExistingEpicPlanTest(unittest.TestCase):
+    """Spec AC-29 (REQUIREMENTS AC-83): no create for the existing epic, verify first, the literal
+    key as parent. FR-57, NFR-2: the only operation on the existing key is the read."""
+
+    def setUp(self):
+        self.plan = plan_posting.build_plan(mixed_set(), {"run_label": RUN_LABEL},
+                                            {"actions": ["createIssueLink"]})
+        self.ops = self.plan["operations"]
+        self.ids = [op["id"] for op in self.ops]
+
+    def test_ac_29_verify_comes_first_and_the_epic_is_never_created(self):
+        self.assertEqual(self.ids[0], "verify-E2")
+        self.assertNotIn("create-E2", self.ids)
+        self.assertIn("create-E1", self.ids)
+        verify = self.ops[0]
+        self.assertEqual((verify["action"], verify["kind"], verify["item_ref"]),
+                         ("readIssue", "verify", "E2"))
+        self.assertEqual(verify["arguments"], {"key": EXISTING_KEY})
+        self.assertEqual(verify["expect"], {"project": "ABC", "issuetype": "Epic"})
+
+    def test_ac_29_tickets_carry_the_literal_key_as_parent_and_the_run_label(self):
+        by_id = {op["id"]: op for op in self.ops}
+        for ref in ("E2-T1", "E2-T2"):
+            arguments = by_id["create-" + ref]["arguments"]
+            self.assertEqual(arguments["parent"], EXISTING_KEY)
+            self.assertEqual(arguments["labels"], ["paqad-discovery", RUN_LABEL])
+        self.assertEqual(by_id["create-E1-T1"]["arguments"]["parent"],
+                         {"$result": {"operation": "create-E1", "path": ["key"]}})
+
+    def test_ac_29_read_back_keys_leave_the_existing_epic_out(self):
+        keys = self.ops[-1]["arguments"]["keys"]
+        operations = [key["$result"]["operation"] for key in keys]
+        self.assertEqual(operations, ["create-E1", "create-E1-T1", "create-E1-T2", "create-E1-T3",
+                                      "create-E2-T1", "create-E2-T2"])
+
+    def test_no_write_operation_ever_targets_the_existing_key(self):
+        # INV-2: the only operation on the key is the read. A ticket names it as parent only.
+        on_key = [op for op in self.ops if op["arguments"].get("key") == EXISTING_KEY]
+        self.assertEqual([op["id"] for op in on_key], ["verify-E2"])
+        for op in self.ops:
+            if op["kind"] == "verify":
+                continue
+            self.assertNotIn(op["action"], ("readIssue",))
+            arguments = dict(op["arguments"])
+            if op["kind"] == "story":
+                arguments.pop("parent")
+            self.assertNotIn(EXISTING_KEY, json.dumps([arguments, op["id"], op["item_ref"]]), op["id"])
+            self.assertNotEqual(op["arguments"].get("summary"), LIVE_TITLE, op["id"])
+
+    def test_a_dependency_on_the_existing_epic_is_refused_not_linked(self):
+        ts = mixed_set()
+        ts["epics"][0]["tickets"][0]["depends_on"] = [EXISTING_KEY]
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.build_plan(seal(ts), {"run_label": RUN_LABEL}, {"actions": []})
+        self.assertIn("An existing epic is never linked", str(ctx.exception))
+
+    def test_every_verify_runs_before_the_first_create_in_a_mixed_run(self):
+        ts = mixed_set()
+        ts["epics"].insert(0, {"ref": "E3", "title": "Returns", "existing_key": "ABC-9",
+                               "body_markdown": "", "labels": [],
+                               "tickets": [ticket("E3-T1", "start a return")]})
+        plan = plan_posting.build_plan(seal(ts), {"run_label": RUN_LABEL}, {})
+        kinds = [op["kind"] for op in plan["operations"]]
+        self.assertEqual(kinds[:2], ["verify", "verify"])
+        self.assertNotIn("verify", kinds[2:])
+
+
+class ExistingEpicRunTest(unittest.TestCase):
+    """Spec AC-30, AC-31, AC-32 (REQUIREMENTS AC-103 to AC-105): the verify gate."""
+
+    def creates(self, state):
+        return [op_id for op_id, receipt in state["receipts"].items()
+                if op_id.startswith("create-") and receipt.get("status") == "created"]
+
+    def test_ac_29_full_run_posts_under_the_existing_epic_and_shows_it_not_changed(self):
+        state = existing_state()
+        op, _arguments = plan_posting.next_operation(state)
+        self.assertEqual(op["id"], "verify-E2")
+        stored = plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        self.assertEqual(stored["status"], "verified")
+        order, number = [], 0
+        while True:
+            try:
+                claimed = plan_posting.claim(state)
+            except ValueError:
+                break
+            order.append(claimed["id"])
+            if claimed["id"] == "read-back":
+                plan_posting.record_receipt(state, "read-back", {"status": "not_applied"})
+                continue
+            if claimed["id"].startswith("create-E2-"):
+                self.assertEqual(claimed["arguments"]["parent"], EXISTING_KEY)
+            number += 1
+            plan_posting.record_receipt(state, claimed["id"], {
+                "status": "created", "result": {"key": "ABC-{0}".format(100 + number)}})
+        self.assertNotIn("verify-E2", order)
+        posted = {row["ref"]: row for row in state["posted"]["issues"]}
+        self.assertEqual(posted["E2"], {"ref": "E2", "issue_key": EXISTING_KEY,
+                                        "status": "not changed"})
+        created = [ref for ref, row in posted.items() if row["status"] == "created"]
+        self.assertEqual(sorted(created), ["E1", "E1-T1", "E1-T2", "E1-T3", "E2-T1", "E2-T2"])
+
+    def test_ac_30_each_failed_check_blocks_every_create_and_leaves_posted_empty(self):
+        cases = (
+            ({"status": "not_found"}, "exists", "the issue was not found"),
+            (read_with(issuetype="Story"), "epic_type", "not of the epic type Epic"),
+            (read_with(project="XYZ", key="XYZ-7"), "project_key", "not in project ABC"),
+        )
+        for receipt, check, words in cases:
+            state = existing_state()
+            stored = plan_posting.record_receipt(state, "verify-E2", receipt)
+            self.assertEqual((stored["status"], stored["failed_check"]), ("verify_failed", check))
+            with self.assertRaises(ValueError) as ctx:
+                plan_posting.claim(state)
+            self.assertIn(words, str(ctx.exception))
+            self.assertIn("Pick another epic or a new epic, or leave by export", str(ctx.exception))
+            self.assertEqual(self.creates(state), [], check)
+            self.assertEqual(state["posted"]["issues"], [], check)
+
+    def test_a_failed_read_is_could_not_check_and_never_a_missing_epic(self):
+        for receipt in ({"status": "read_failed", "reason": "timed out"},
+                        {"status": "read_failed", "reason": "permission refused"},
+                        {"status": "read"}, {"status": "read", "result": "garbled"}, {}):
+            state = existing_state()
+            stored = plan_posting.record_receipt(state, "verify-E2", receipt)
+            self.assertEqual((stored["status"], stored["failed_check"]), ("verify_failed", "read"))
+            self.assertIn("Could not check the epic ABC-7: the read itself failed",
+                          stored["message"])
+            self.assertNotIn("not found", stored["message"])
+            with self.assertRaises(ValueError):
+                plan_posting.next_operation(state)
+            self.assertEqual(state["posted"]["issues"], [])
+
+    def test_a_failed_verify_can_be_read_again_and_then_passes(self):
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", {"status": "read_failed"})
+        stored = plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        self.assertEqual(stored["status"], "verified")
+        self.assertEqual(plan_posting.next_operation(state)[0]["id"], "create-E1")
+
+    def test_a_verify_is_a_read_and_needs_no_approval_or_claim(self):
+        state = existing_state(approved=False)
+        self.assertEqual(plan_posting.record_receipt(state, "verify-E2", GOOD_READ)["status"],
+                         "verified")
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.next_operation(state)
+        self.assertIn("No approval", str(ctx.exception))
+
+    def test_a_claimed_verify_is_in_flight_until_its_read_is_recorded(self):
+        state = existing_state()
+        self.assertEqual(plan_posting.claim(state)["id"], "verify-E2")
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.next_operation(state)
+        self.assertIn("Reconcile the pending operation", str(ctx.exception))
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        self.assertEqual(plan_posting.next_operation(state)[0]["id"], "create-E1")
+
+    def test_ac_31_done_epic_asks_first_and_a_no_creates_nothing(self):
+        state = existing_state()
+        stored = plan_posting.record_receipt(state, "verify-E2", read_with(done=True, status="Done"))
+        self.assertEqual(stored["status"], "needs_confirmation")
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.claim(state)
+        self.assertIn("Ask before posting under it", str(ctx.exception))
+        declined = read_with(done=True)
+        declined["done_confirmed"] = False
+        stored = plan_posting.record_receipt(state, "verify-E2", declined)
+        self.assertEqual(stored["status"], "declined")
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.claim(state)
+        self.assertIn("Go back to where the tickets should go", str(ctx.exception))
+        self.assertEqual(self.creates(state), [])
+        self.assertEqual(state["posted"]["issues"], [])
+
+    def test_ac_31_a_yes_is_recorded_so_a_retry_does_not_ask_again(self):
+        state = existing_state()
+        confirmed = read_with(done=True)
+        confirmed["done_confirmed"] = True
+        self.assertEqual(plan_posting.record_receipt(state, "verify-E2", confirmed)["status"],
+                         "verified")
+        self.assertEqual(state["confirmed_done"], [EXISTING_KEY])
+        # The retry reads the epic again, with no answer attached: it passes without asking.
+        again = plan_posting.record_receipt(state, "verify-E2", read_with(done=True))
+        self.assertEqual((again["status"], again["done_confirmed"]), ("verified", True))
+        self.assertEqual(state["confirmed_done"], [EXISTING_KEY])
+        self.assertEqual(plan_posting.next_operation(state)[0]["id"], "create-E1")
+
+    def test_ac_32_a_changed_title_is_reported_and_is_not_a_failed_check(self):
+        state = existing_state()
+        stored = plan_posting.record_receipt(state, "verify-E2", read_with(summary="Order history"))
+        self.assertEqual(stored["status"], "verified")
+        self.assertEqual(stored["title_changed"], {"from": LIVE_TITLE, "to": "Order history"})
+        same = plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        self.assertNotIn("title_changed", same)
+
+    def test_a_refused_first_create_under_the_existing_epic_stops_the_run(self):
+        # FR-63: no parentless tickets, and the epic is never edited to attach children.
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        for op in state["plan"]["operations"]:
+            if op["id"].startswith("create-E1"):
+                state["receipts"][op["id"]] = {"status": "created", "result": {"key": "ABC-50"}}
+        self.assertEqual(plan_posting.claim(state)["id"], "create-E2-T1")
+        plan_posting.record_receipt(state, "create-E2-T1", {"status": "not_applied"})
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.claim(state)
+        self.assertIn("could not be created under ABC-7", str(ctx.exception))
+        self.assertNotIn("create-E2-T2", state["receipts"])
+
+    def test_a_lost_reply_under_the_existing_epic_reconciles_without_a_second_copy(self):
+        # FR-65, INV-11: found by run label and item reference, the epic stays not changed.
+        state = existing_state()
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        for op in state["plan"]["operations"]:
+            if op["id"].startswith("create-E1"):
+                state["receipts"][op["id"]] = {"status": "created", "result": {"key": "ABC-50"}}
+        plan_posting.claim(state)
+        plan_posting.record_receipt(state, "create-E2-T1", {"status": "uncertain"})
+        plan_posting.record_receipt(state, "verify-E2", GOOD_READ)
+        found = [{"key": "ABC-61", "labels": [RUN_LABEL], "item_ref": "E2-T1", "parent": EXISTING_KEY}]
+        out = plan_posting.reconcile(state, "create-E2-T1", found)
+        self.assertEqual((out["status"], out["duplicate_created"]), ("created", False))
+        rows = {row["ref"]: row["status"] for row in state["posted"]["issues"]}
+        self.assertEqual(rows, {"E2": "not changed", "E2-T1": "created"})
+
+
+class ExistingEpicReadbackTest(unittest.TestCase):
+    """Spec AC-33 (REQUIREMENTS AC-106): one set with a new epic E1 and an existing epic E2."""
+
+    def created(self, ticket_set):
+        tracker = ticket_set["tracker"]
+        issues = []
+        for epic in ticket_set["epics"]:
+            existing = epic.get("existing_key")
+            if not existing:
+                issues.append({
+                    "ref": epic["ref"], "title": epic["title"], "type": tracker["epic_type"],
+                    "parent": "", "labels": list(epic["labels"]) + [RUN_LABEL], "links": [],
+                    "sources_ref": "{0} / {1}".format(ticket_set["run_id"], epic["ref"]),
+                    "body": epic["body_markdown"]})
+            for tk in epic["tickets"]:
+                issues.append({
+                    "ref": tk["ref"], "title": tk["title"], "type": tracker["story_type"],
+                    "parent": existing or epic["ref"], "labels": [RUN_LABEL],
+                    "links": [{"target": dep} for dep in tk["depends_on"]],
+                    "sources_ref": "{0} / {1}".format(ticket_set["run_id"], tk["ref"]),
+                    "body": tk["body_markdown"]})
+        return issues
+
+    def test_ac_33_new_epic_expected_existing_epic_neither_missing_nor_extra(self):
+        approved = mixed_set()
+        expected = check_readback.expected_items(approved)
+        self.assertIn("E1", expected)
+        self.assertNotIn("E2", expected)
+        self.assertEqual(expected["E2-T1"]["parent"], "abc-7")
+        self.assertEqual(expected["E1-T1"]["parent"], "e1")
+        self.assertEqual(check_readback.compare(approved, self.created(approved)), ("match", []))
+
+    def test_ac_33_existing_epic_in_the_read_back_is_never_extra(self):
+        approved = mixed_set()
+        for ref in ("E2", EXISTING_KEY):
+            created = self.created(approved) + [{"ref": ref, "title": "Someone renamed it",
+                                                 "type": "Epic", "labels": ["other"]}]
+            self.assertEqual(check_readback.compare(approved, created), ("match", []), ref)
+
+    def test_ac_33_a_ticket_with_a_different_parent_is_flagged(self):
+        approved = mixed_set()
+        created = self.created(approved)
+        for issue in created:
+            if issue["ref"] == "E2-T1":
+                issue["parent"] = "ABC-8"
+        status, differences = check_readback.compare(approved, created)
+        self.assertEqual(status, "partial")
+        self.assertEqual([(d["code"], d["path"]) for d in differences], [("DIFF", "E2-T1")])
+        self.assertIn("parent", differences[0]["message"])
+
+    def test_ac_32_read_back_accepts_the_key_the_tracker_returns_for_the_same_epic(self):
+        approved = mixed_set()
+        created = self.created(approved)
+        for issue in created:
+            if issue["parent"] == EXISTING_KEY:
+                issue["parent"] = " abc-7 "
+        self.assertEqual(check_readback.compare(approved, created), ("match", []))
+
+    def test_a_missing_new_epic_is_still_missing_and_an_unknown_issue_still_extra(self):
+        approved = mixed_set()
+        created = [issue for issue in self.created(approved) if issue["ref"] != "E1"]
+        created.append({"ref": "ZZ-1", "title": "Stray"})
+        codes = sorted((d["code"], d["path"]) for d in check_readback.compare(approved, created)[1])
+        self.assertEqual(codes, [("EXTRA", "ZZ-1"), ("MISSING", "E1")])
+
+
+class ExistingEpicExportTest(TempDirTestCase):
+    """Spec AC-29 and AC-33: CSV and Markdown share rows(), with no row for the existing epic."""
+
+    def test_ac_33_csv_has_an_e1_row_no_e2_row_and_the_real_key_as_parent(self):
+        rows = list(csv.DictReader(io.StringIO(export_csv.to_csv(mixed_set()))))
+        ids = [row["Work item id"] for row in rows]
+        self.assertEqual(ids, ["E1", "E1-T1", "E1-T2", "E1-T3", "E2-T1", "E2-T2"])
+        parents = {row["Work item id"]: row["Parent"] for row in rows}
+        self.assertEqual(parents["E1-T1"], "E1")
+        self.assertEqual((parents["E2-T1"], parents["E2-T2"]), (EXISTING_KEY, EXISTING_KEY))
+        # NFR-7: the live title never opens a cell, because the epic has no row of its own.
+        for row in rows:
+            self.assertFalse(any(str(cell).startswith(LIVE_TITLE) for cell in row.values()))
+
+    def test_ac_33_markdown_has_the_same_rows(self):
+        table = export_csv.to_markdown(mixed_set()).splitlines()[2:]
+        self.assertEqual([line.split(" | ")[1] for line in table],
+                         ["E1", "E1-T1", "E1-T2", "E1-T3", "E2-T1", "E2-T2"])
+        self.assertTrue(table[-1].endswith("| ABC-7 |"))
+
+    def test_ac_29_export_note_names_the_key_and_the_rows_that_hold_it(self):
+        note = export_csv.export_note(mixed_set())
+        self.assertEqual(
+            note,
+            "Parent holds the existing epic key ABC-7. If your importer does not accept it, set "
+            "the parent with a bulk edit after the import. Rows with this key: E2-T1, E2-T2.\n")
+
+    def test_cli_prints_the_note_and_nothing_for_a_set_of_new_epics(self):
+        path = self._json("mixed.json", mixed_set())
+        code, out = _run_main(export_csv, ["--ticket-set", path, "--note"])
+        self.assertEqual(code, 0)
+        self.assertIn("Parent holds the existing epic key ABC-7.", out)
+        path = self._json("new.json", posting_set())
+        self.assertEqual(_run_main(export_csv, ["--ticket-set", path, "--note"]), (0, ""))
+
+
+class ExistingEpicCliTest(TempDirTestCase):
+    """The host records its read of the existing epic as JSON through the record command."""
+
+    def test_plan_then_record_the_read_then_the_first_create(self):
+        state = existing_state()
+        state.pop("plan")
+        path = self._json("state.json", state)
+        code, out = _run_main(plan_posting, ["plan", "--state", path])
+        self.assertEqual(json.loads(out)["operations"][0]["id"], "verify-E2")
+        code, out = _run_main(plan_posting, ["next", "--state", path])
+        self.assertEqual(json.loads(out), {"id": "verify-E2", "action": "readIssue",
+                                           "arguments": {"key": EXISTING_KEY}})
+        receipt = self._json("read.json", GOOD_READ)
+        code, out = _run_main(plan_posting, ["record", "--state", path,
+                                             "--operation", "verify-E2", "--receipt", receipt])
+        self.assertEqual((code, json.loads(out)["status"]), (0, "verified"))
+        self.assertEqual(self._load("state.json")["posted"]["issues"],
+                         [{"ref": "E2", "issue_key": EXISTING_KEY, "status": "not changed"}])
+        code, out = _run_main(plan_posting, ["next", "--state", path])
+        self.assertEqual(json.loads(out)["id"], "create-E1")
+
+
 if __name__ == "__main__":
     unittest.main()
