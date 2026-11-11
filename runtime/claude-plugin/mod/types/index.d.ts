@@ -371,6 +371,7 @@ export type PaqadHudSnapshot = {
   start_point?: PaqadStartPoint | null;
   proof?: PaqadStageProof[];
   ledger_note?: string;
+  closed_change?: { closed_at: string; word: string | null; new_commits: number };
 };
 
 export type PaqadStartPoint = {

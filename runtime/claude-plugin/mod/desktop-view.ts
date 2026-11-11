@@ -245,7 +245,24 @@ function markedValue(snapshot: PaqadHudSnapshot, stage: string): string {
 }
 
 export const HELPER_NO_REPORT = 'helper gave no report';
+export const CHANGE_CLOSED = 'Change closed';
+export const NO_VERDICT_WORDS = 'no verdict record';
+export const DELIVERY_MISSING = 'Delivery missing';
+export const NEW_COMMITS_AFTER_CLOSE = 'new commits after close';
 export const SIGNOFF_LABEL = 'Sign-off';
+
+export function closedChangeBand(snapshot: PaqadHudSnapshot): DesktopBand | null {
+  const closed = snapshot.closed_change;
+  if (!closed) return null;
+  const number = snapshot.ship?.pr_number ?? null;
+  const href = snapshot.ship?.pr_url ?? null;
+  return {
+    kind: 'closed-change',
+    word: closed.word ?? NO_VERDICT_WORDS,
+    pr: number !== null && href ? { text: `PR #${number}`, href } : null,
+    note: closed.new_commits > 0 ? NEW_COMMITS_AFTER_CLOSE : null,
+  };
+}
 export const CHECK_CEILING_MS = 10 * 60_000;
 export const COPIED_MS = 2_000;
 
@@ -788,6 +805,12 @@ export type DesktopBand =
       cost: string;
     }
   | { kind: 'closed' | 'hidden'; needsYou: boolean }
+  | {
+      kind: 'closed-change';
+      word: string;
+      pr: { text: string; href: string | null } | null;
+      note: string | null;
+    }
   | ({ kind: 'feature' } & FeatureCard)
   | ({ kind: 'ready-feature' } & FeatureCard);
 
@@ -925,12 +948,14 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
     return workflowBand(snapshot, route, input.now, input.turnStartedAt);
   }
-  if (!snapshot.active && !readyFeatureRoute(snapshot)) return { kind: 'none' };
+  const closedChange = closedChangeBand(snapshot);
+  if (!snapshot.active && !readyFeatureRoute(snapshot) && !closedChange) return { kind: 'none' };
   const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
+  if (closedChange) return closedChange;
   if (!snapshot.active) {
     return routeFromEarlierTurn(snapshot, input.turnStartedAt)
       ? { kind: 'none' }
@@ -1550,7 +1575,9 @@ export function deliveryView(
   snapshot: PaqadHudSnapshot,
   live: LiveState = IDLE_LIVE,
 ): DeliveryView {
-  if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
+  if (!snapshot.active && !snapshot.closed_change) {
+    return { blocks: [], empty: 'Nothing to deliver yet.' };
+  }
   const strip = deliveryStrip(snapshot, live);
   const ship = snapshot.ship;
   return {

@@ -753,6 +753,19 @@ function readCommitGroup(value: unknown): PaqadCommitGroup | null {
   };
 }
 
+function readClosedChange(value: unknown): Pick<PaqadHudSnapshot, 'closed_change'> {
+  const closed = rec(value);
+  const at = str(closed?.closed_at);
+  if (!closed || !at) return {};
+  return {
+    closed_change: {
+      closed_at: at,
+      word: str(closed.word),
+      new_commits: num(closed.new_commits) ?? 0,
+    },
+  };
+}
+
 export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot | null {
   if (typeof text !== 'string' || text.trim() === '') return null;
   let raw: unknown;
@@ -910,6 +923,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     ...readStartPoint(snap.start_point),
     ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
     ...(typeof snap.ledger_note === 'string' ? { ledger_note: snap.ledger_note } : {}),
+    ...readClosedChange(snap.closed_change),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }

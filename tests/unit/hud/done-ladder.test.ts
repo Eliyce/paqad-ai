@@ -141,12 +141,13 @@ function prOn(root: string, dir: string, sha: string, ci: 'pass' | 'fail' | 'pen
 }
 
 describe('a finished change on the HUD', () => {
-  it('AC-1, AC-9: a passing run keeps the closed change on screen as finished and Done', () => {
+  it('AC-1, AC-9, AC-10: a passing run keeps the closed change on screen, closed, finished and Done', () => {
     const root = repoRoot();
     const dir = finishGreen(root);
     const snapshot = buildHudSnapshot(root, S);
     expect(snapshot.scope).toEqual({ qualified: true, reason: 'finished' });
-    expect(snapshot.active).toBe(true);
+    expect(snapshot.active).toBe(false);
+    expect(snapshot.closed_change?.word).toBe('Safe to merge');
     expect(snapshot.change?.dir).toBe(dir);
     expect(snapshot.verdict).toMatchObject({ kind: 'pass', change: dir });
     expect(snapshot.rung).toBe('done');

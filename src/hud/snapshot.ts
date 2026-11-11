@@ -681,6 +681,29 @@ export interface HudSnapshot {
   start_point?: HudStartPoint | null;
   proof?: HudStageProof[];
   ledger_note?: string;
+  closed_change?: HudClosedChange;
+}
+
+export interface HudClosedChange {
+  closed_at: string;
+  word: string | null;
+  new_commits: number;
+}
+
+export function closedChangeOf(
+  rows: readonly Record<string, unknown>[],
+  verdict: HudVerdictRecord | null,
+  commitTimes: Iterable<string>,
+): HudClosedChange | null {
+  let closedAt: string | null = null;
+  for (const row of rows) {
+    if (row.kind === 'open') closedAt = null;
+    if (row.kind === 'close') closedAt = rowRecordedAt(row as never) ?? null;
+  }
+  if (!closedAt) return null;
+  const closedMs = Date.parse(closedAt);
+  const newCommits = [...commitTimes].filter((at) => Date.parse(at) > closedMs).length;
+  return { closed_at: closedAt, word: verdict?.word ?? null, new_commits: newCommits };
 }
 
 function readJsonFile(path: string): unknown {
@@ -1831,6 +1854,11 @@ export function buildHudSnapshot(
     rules: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
     changedFiles,
   });
+  const closedChange = closedChangeOf(
+    stageRows as Record<string, unknown>[],
+    verdict,
+    changeGit?.commitTimes.values() ?? [],
+  );
   const flags = computeHudFlags({
     stages,
     gates,
@@ -1851,7 +1879,7 @@ export function buildHudSnapshot(
     generated_at: now().toISOString(),
     scope: { qualified: true, reason: scope.reason },
     workflow: null,
-    active: true,
+    active: closedChange === null,
     route,
     lane,
     lane_stages: laneStages(fold.lane),
@@ -1956,6 +1984,7 @@ export function buildHudSnapshot(
     ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
     ...(ladder.rung ? { rung: ladder.rung } : {}),
     ...(reading.stale ? { verdict_stale: true as const } : {}),
+    ...(closedChange ? { closed_change: closedChange } : {}),
     start_point: startPoint
       ? {
           source: startPoint.source,

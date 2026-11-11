@@ -190,6 +190,17 @@ Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`,
 `Ready` stays as the first word on screen, because at that point paqad has read nothing and cannot
 yet say the work is a feature.
 
+### Closed change row
+
+Once the change's ledger has a `close` row, the snapshot sets `active: false` and carries
+`closed_change` (`closed_at`, the verdict `word`, `new_commits`). The band draws one row:
+`paqad` (semibold), dim `   Change closed · `, the verdict word in semibold (or `no verdict record`
+when the verdict file is missing), then on the right the PR as a `Link` (`PR #<n>`, reachable by
+keyboard with the host's focus ring) and `Ledger`. With no `delivery.json` or no PR link it shows
+`▲ Delivery missing` instead, never done. When commits land after the close row the band stays
+closed and adds `▲ new commits after close` in the caution colour. The Ledger's Delivery tab keeps
+reading `delivery.json` for a closed change.
+
 ### Record-missing card
 
 When the HUD is bound and `<root>/.paqad/session/hud/<id>.json` still does not exist 30 s after
