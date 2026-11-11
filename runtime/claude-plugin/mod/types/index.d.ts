@@ -24,6 +24,8 @@ export type PaqadHudStage = {
   first_started_at?: string | null;
   last_ended_at?: string | null;
   runs?: number;
+  record_gap?: boolean;
+  no_report?: boolean;
   duration_unreliable: boolean;
   duration_ms: number | null;
   agent: string | null;

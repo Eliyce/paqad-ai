@@ -440,6 +440,12 @@ The Trust tab shows the proof of the work, stage by stage.
 
 When every drawn stage is done the value is `All stages done`.
 
+A stage the verdict record lists as having no record (`No record yet for: Checks`) is drawn marked,
+never done, with the value `Checks marked: no record`, so the strip, the gap line and the headline
+tell the same story. A stage whose helper returned no status line is drawn marked with the value
+`Checks · helper gave no report`. A marked label has no `✓`, so it differs from done by symbol as
+well as colour.
+
 A running stage that has run more than once shows its run count and its full span, from the first
 start to now, for example `Build · 5 runs · 8 h 0 min`. The span counts whole minutes, so it moves
 at most once a minute, and it is part of the strip image, never a live region. When the value does

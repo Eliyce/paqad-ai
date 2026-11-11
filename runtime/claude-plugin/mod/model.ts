@@ -820,6 +820,8 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             : {}),
           ...(stage.last_ended_at !== undefined ? { last_ended_at: str(stage.last_ended_at) } : {}),
           ...(num(stage.runs) !== null ? { runs: num(stage.runs)! } : {}),
+          ...(stage.record_gap === true ? { record_gap: true } : {}),
+          ...(stage.no_report === true ? { no_report: true } : {}),
           duration_unreliable: stage.duration_unreliable === true,
           duration_ms: num(stage.duration_ms),
           agent: str(stage.agent),
@@ -1047,6 +1049,12 @@ function outsideLane(stage: string, snapshot: PaqadHudSnapshot): boolean {
 
 function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapshot): SegmentState {
   if (!stage) return NOT_YET;
+  if (
+    (stage.record_gap || stage.no_report) &&
+    stage.state !== 'running' &&
+    stage.state !== 'failed'
+  )
+    return 'marked';
   switch (stage.state) {
     case 'complete':
     case 'redone':

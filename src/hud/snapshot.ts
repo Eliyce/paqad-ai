@@ -135,6 +135,8 @@ export interface HudStage {
   duration_unreliable: boolean;
   agent: string | null;
   proof_file: string | null;
+  record_gap?: true;
+  no_report?: true;
 }
 
 export type HudGateVerdict =
@@ -754,7 +756,37 @@ function withTrackRecords(
   };
 }
 
-function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): HudStage[] {
+const NO_RECORD_PREFIX = 'No record yet for: ';
+
+export function gapStages(gaps: readonly string[]): Set<string> {
+  const byWord = new Map(Object.entries(STAGE_WORDS).map(([stage, word]) => [word, stage]));
+  const stages = new Set<string>();
+  for (const gap of gaps) {
+    if (!gap.startsWith(NO_RECORD_PREFIX)) continue;
+    for (const word of gap.slice(NO_RECORD_PREFIX.length).split(',')) {
+      const stage = byWord.get(word.trim());
+      if (stage) stages.add(stage);
+    }
+  }
+  return stages;
+}
+
+function helperGaveNoReport(rows: readonly Record<string, unknown>[], stage: string): boolean {
+  const last = [...rows]
+    .reverse()
+    .find(
+      (row) =>
+        row.kind === STAGE_AGENT_KIND && row.stage === stage && row.event_status !== 'started',
+    );
+  return last !== undefined && (last.report_stated === false || last.report_source === 'none');
+}
+
+function buildStages(
+  projectRoot: string,
+  dirName: string,
+  fold: FoldedChange,
+  gapped: ReadonlySet<string> = new Set(),
+): HudStage[] {
   const rows = readFeatureStageUnit(projectRoot, dirName);
   return fold.stages.map((stage) => {
     const own = rows.filter((row) => row.stage === stage.stage);
@@ -775,6 +807,10 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
       duration_unreliable: stage.duration_unreliable,
       agent: str(last?.agent),
       proof_file: Array.isArray(artifacts) ? (str(artifacts[0]) ?? null) : null,
+      ...(gapped.has(stage.stage) ? { record_gap: true as const } : {}),
+      ...(helperGaveNoReport(rows as Record<string, unknown>[], stage.stage)
+        ? { no_report: true as const }
+        : {}),
     };
   });
 }
@@ -1724,7 +1760,12 @@ export function buildHudSnapshot(
   const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
   const fold = foldFeature(projectRoot, sessionId, dirName);
-  const stages = buildStages(projectRoot, dirName, fold);
+  const stages = buildStages(
+    projectRoot,
+    dirName,
+    fold,
+    gapStages(Array.isArray(verdict?.record_gaps) ? verdict.record_gaps : []),
+  );
   const gates = buildGates(projectRoot, dirName);
   const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
   const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;

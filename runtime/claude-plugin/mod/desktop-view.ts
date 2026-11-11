@@ -236,12 +236,15 @@ const STAGE_STATE: Readonly<Record<SegmentState, StageState>> = {
 function markedValue(snapshot: PaqadHudSnapshot, stage: string): string {
   const record = snapshot.stages.find((entry) => entry.stage === stage);
   const word = stageWord(stage);
+  if (record?.no_report) return `${word} · ${HELPER_NO_REPORT}`;
+  if (record?.record_gap) return `${word} marked: no record`;
   if (record?.duration_unreliable) return `${word} marked: no recorded work`;
   if (record?.state === 'inconclusive') return `${word} inconclusive`;
   if (stage === 'checks') return 'Checks: no test run recorded';
   return `${word} marked`;
 }
 
+export const HELPER_NO_REPORT = 'helper gave no report';
 export const SIGNOFF_LABEL = 'Sign-off';
 export const CHECK_CEILING_MS = 10 * 60_000;
 export const COPIED_MS = 2_000;
