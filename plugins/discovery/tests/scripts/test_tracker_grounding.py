@@ -234,8 +234,8 @@ class TrackerReferenceTest(BuiltCopies):
     def test_ac_2_repository_first_then_tickets_and_one_combined_source_line(self):
         self.assertEqual(missing(self.text, [
             '| yes | yes | `["repository", "tracker"]` | the repository\'s level |',
-            "The repository is always read first. Tracker lines are added second and never replace "
-            "a repository line.",
+            ("The repository is always read first. Tracker lines are added second and never replace "
+             "a repository line."),
             "Still exactly one short source line per answer.",
             "the repository line plus {0}".format(COMBINED_SUFFIX),
             '"paqad, from code only and the tracker"',
@@ -307,8 +307,8 @@ class TrackerReferenceTest(BuiltCopies):
         self.assert_both_hold("get-connected", ("SKILL.md",), [
             "Check the tracker for reading and for writing separately",
             "`setup.tracker_readable`",
-            "If the tracker is readable but not writable, do not stop: say once, before grounding "
-            "starts, that the tickets will leave by export, and carry on.",
+            ("If the tracker is readable but not writable, do not stop: say once, before grounding "
+             "starts, that the tickets will leave by export, and carry on."),
         ])
         self.assert_both_hold("get-connected", ("references", "connect-tracker.md"), [
             "A tracker that answers the read but refuses the write still grounds the idea",
@@ -419,8 +419,8 @@ class SharedPointersTest(unittest.TestCase):
             'the reference titled "Grounding from the tracker"',
             "`tracker-only`",
             "is read with the lowest confidence and supports no claim about what is built",
-            "connecting the repository would let answers rest on what is built, not only on what "
-            "was planned",
+            ("connecting the repository would let answers rest on what is built, not only on what "
+             "was planned"),
             "## The three levels",
         ] + list(LEVEL_IDS) + list(SOURCE_LINES)), [])
 
@@ -517,8 +517,8 @@ class TermsAndLanguageTest(BuiltCopies):
 
     def test_ac_38_first_use_shows_the_other_term_and_where_it_came_from(self):
         self.assert_both_hold("write-tickets", ("assets", "ticket-template.md"), [
-            "The first time the author's term appears, the other term follows in brackets with "
-            "where it came from",
+            ("The first time the author's term appears, the other term follows in brackets with "
+             "where it came from"),
             '"(called entry gate in the tickets)"',
         ])
         reference = read_text(REFERENCES, "ground-from-tracker.md")
@@ -621,8 +621,8 @@ class ExistingEpicWordingTest(BuiltCopies):
 
     def test_ac_19_the_question_is_asked_once_and_recorded_as_the_epic_choice(self):
         self.assert_both_hold("decide-together", ("SKILL.md",), [
-            "Only when the outcome leads to tickets and the tracker is a Jira project that can be "
-            'read, ask once, through the choice prompt: "Where should these tickets go?"',
+            ("Only when the outcome leads to tickets and the tracker is a Jira project that can be "
+             'read, ask once, through the choice prompt: "Where should these tickets go?"'),
             '"A new epic" and up to three existing epics that match the idea',
             '"Under ABC-7: <epic title>"',
             "the recommended one marked with a short reason",
@@ -642,8 +642,8 @@ class ExistingEpicWordingTest(BuiltCopies):
 
     def test_ac_21_a_typed_key_is_checked_and_nothing_is_recorded_until_it_passes(self):
         self.assert_both_hold("decide-together", ("SKILL.md",), [
-            "A typed key must look like a tracker key and its project part must equal "
-            "`setup.project_key` before any read.",
+            ("A typed key must look like a tracker key and its project part must equal "
+             "`setup.project_key` before any read."),
             "Refuse a key from another project without opening the issue or showing its title.",
             "say which check failed and ask the same question again",
             "Record nothing until a key passes.",
@@ -674,8 +674,8 @@ class ExistingEpicWordingTest(BuiltCopies):
             "One run may mix a new epic and an existing one.",
         ])
         self.assert_both_hold("decide-together", ("SKILL.md",), [
-            "The step 5 preview shows where each group of tickets goes, and the user may move a "
-            "single group there.",
+            ("The step 5 preview shows where each group of tickets goes, and the user may move a "
+             "single group there."),
             "Moving a group changes the choice, so the preview and the approval are shown again.",
         ])
         self.assert_both_hold("write-tickets", ("SKILL.md",), [
@@ -686,12 +686,12 @@ class ExistingEpicWordingTest(BuiltCopies):
     def test_ac_26_a_resumed_run_with_an_unreadable_tracker_leaves_by_export(self):
         self.assert_both_hold("decide-together", ("references", "decision-template.md"), [
             "On resume with the tracker no longer readable, keep the choice",
-            "the tickets leave by export with the epic key, and one line says the epic was last "
-            "checked in the earlier session and is not confirmed now",
+            ("the tickets leave by export with the epic key, and one line says the epic was last "
+             "checked in the earlier session and is not confirmed now"),
         ])
         self.assert_both_hold("post-tickets", ("SKILL.md",), [
-            "On resume with an unreadable tracker, export with the key and say the epic was last "
-            "checked in the earlier session and is not confirmed now.",
+            ("On resume with an unreadable tracker, export with the key and say the epic was last "
+             "checked in the earlier session and is not confirmed now."),
             "Nothing is created until every check passes.",
         ])
 
@@ -714,8 +714,8 @@ class ExistingEpicWordingTest(BuiltCopies):
         self.assert_both_hold("post-tickets", ("SKILL.md",), [
             "ask before the first create",
             "A no creates nothing and goes back to the step 4 question.",
-            "say so in one line and use the live title on each ticket's Epic line before the "
-            "approval",
+            ("say so in one line and use the live title on each ticket's Epic line before the "
+             "approval"),
             'A failed read is "could not check the epic", never "the epic does not exist".',
             "the only operation on its key is the read",
             'An existing epic sits on its own row marked "not changed".',
