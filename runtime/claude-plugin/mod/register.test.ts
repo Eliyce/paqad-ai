@@ -1787,6 +1787,36 @@ describe('stand-downs: the mod registers nothing', () => {
   });
 });
 
+describe('the HUD never takes the home folder as a project root', () => {
+  const HOME = '/home/dev';
+  const SPARE = `${HOME}/.claude/spares/spare-1`;
+  const HOME_ONBOARDED = { [`${HOME}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n' };
+
+  test('AC-2: a session whose only onboarded ancestor is home reports not onboarded and writes nothing there', async ($, on) => {
+    const world = worldOf(on, { files: HOME_ONBOARDED, root: SPARE, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    await $.prompt.submit({ text: 'go', origin: { kind: 'composer' } } as never);
+    expect(world.writes).toEqual([]);
+    expect(world.reads.filter((path) => path.startsWith(`${HOME}/.paqad/session`))).toEqual([]);
+    const answer = await $.command.run(command('status'));
+    expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+
+  test('AC-2: a session rooted at home itself is not onboarded, read through USERPROFILE too', async ($, on) => {
+    const world = worldOf(on, {
+      files: HOME_ONBOARDED,
+      root: `${HOME}/`,
+      env: { USERPROFILE: HOME },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: HOME });
+    expect(world.writes).toEqual([]);
+    const answer = await $.command.run(command('status'));
+    expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+});
+
 describe('the HUD binds first and falls back to /paqad-hud', () => {
   const PRODUCT_TAKEN = "it is the plugin's /paqad-product-discovery:paqad";
   const FILES = { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501), [RECEIPT]: RECEIPT_TEXT };

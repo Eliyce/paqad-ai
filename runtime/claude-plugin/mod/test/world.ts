@@ -9,6 +9,7 @@ export const HEARTBEAT = `.paqad/session/hud/${SESSION_ID}.live`;
 export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
+  root: string;
   files: Map<string, string>;
   store: Map<string, unknown>;
   closedPanes: string[];
@@ -74,6 +75,7 @@ function markAllowedOnce(world: World): void {
 
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const world: World = {
+    root: options.root ?? ROOT,
     files: new Map(Object.entries(options.files ?? {})),
     store: options.store ?? new Map(),
     closedPanes: [],
@@ -142,7 +144,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     };
   });
   on('env.get', ($, e) => ({ value: options.env?.[e.name] }));
-  on('session.root', () => ({ value: options.root ?? ROOT }));
+  on('session.root', () => ({ value: world.root }));
   on('session.id', () =>
     options.sessionId === null
       ? { deny: 'the session id is not available' }

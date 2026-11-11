@@ -38,7 +38,7 @@ import {
   subcommandOf,
   type RepoDecision,
 } from './commands';
-import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
+import { ancestorDirs, decideStatus, homeOf, isChimeOn, registersCommand } from './config';
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
@@ -685,10 +685,14 @@ function startTicker($: EngineInterface): void {
 
 async function readStatus(
   $: EngineInterface,
+  start: string,
 ): Promise<PaqadStatus & { root: string | null; chime: boolean }> {
-  const start = await $.session.root();
+  const home = homeOf({
+    HOME: await $.env.get('HOME'),
+    USERPROFILE: await $.env.get('USERPROFILE'),
+  });
   let root: string | null = null;
-  for (const dir of ancestorDirs(start)) {
+  for (const dir of ancestorDirs(start, home)) {
     if (await $.fs.exists(joinPath(dir, '.paqad/framework-path.txt'))) {
       root = dir;
       break;
@@ -1377,7 +1381,7 @@ export const register: Register = (on) => {
     setCommandName(COMMAND_NAMES[0]);
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
-      const found = await readStatus($);
+      const found = await readStatus($, await $.session.root());
       status = found;
       await update($, unboundAtom, () => false);
       await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));

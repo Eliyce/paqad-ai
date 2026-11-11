@@ -209,10 +209,24 @@ export function registersCommand(status: PaqadStatus): boolean {
   return status.on || status.reason === 'not-onboarded';
 }
 
-export function ancestorDirs(root: string): string[] {
+function withoutTrailingSeparator(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, '');
+  return trimmed === '' || /^[A-Za-z]:$/.test(trimmed) ? path : trimmed;
+}
+
+export function homeOf(env: { HOME?: string; USERPROFILE?: string }): string | null {
+  for (const value of [env.HOME, env.USERPROFILE]) {
+    if (typeof value === 'string' && value.trim() !== '') return withoutTrailingSeparator(value);
+  }
+  return null;
+}
+
+export function ancestorDirs(root: string, home: string | null = null): string[] {
+  const stop = home === null ? null : withoutTrailingSeparator(home);
   const dirs: string[] = [];
   let dir = root;
   for (;;) {
+    if (stop !== null && withoutTrailingSeparator(dir) === stop) return dirs;
     dirs.push(dir);
     const cut = Math.max(dir.lastIndexOf('/'), dir.lastIndexOf('\\'));
     if (cut < 0) return dirs;
