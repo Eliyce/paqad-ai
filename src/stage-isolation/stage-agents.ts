@@ -401,7 +401,7 @@ export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): s
     '## Report',
     '',
     `Keep it under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens and finish in at most ${def.maxTurns} turns. Leave ${def.artifact}. Return its path and at most five lines.`,
-    'Required last line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`, with `Decision needed:`, `Options:` and, after a decision pause, `paused: D-<id>`.',
+    'End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`, with `Decision needed:`, `Options:` and, after a decision pause, `paused: D-<id>`.',
     '',
     '## Stop when',
     '',

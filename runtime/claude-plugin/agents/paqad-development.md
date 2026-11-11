@@ -25,7 +25,7 @@ No `## Your recipe` heading? Run the brief; still none, continue, reporting its 
 ## Report
 
 Keep it under 2,000 tokens and finish in at most 170 turns. Leave the source and test edits and `rules-loaded.json`. Return its path and at most five lines.
-Required last line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`, with `Decision needed:`, `Options:` and, after a decision pause, `paused: D-<id>`.
+End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name what you need) or `Status: BLOCKED`, with `Decision needed:`, `Options:` and, after a decision pause, `paused: D-<id>`.
 
 ## Stop when
 
