@@ -52,7 +52,6 @@ const STAGE_WORDS: Readonly<Record<string, string>> = {
   delivery: 'Deliver',
 };
 
-/** The one prefix the unrecorded-stages gap is written with and read back by. */
 export const UNRECORDED_STAGES_PREFIX = 'No record yet for: ';
 
 export function unrecordedStagesGap(stages: readonly string[]): RecordGap {
@@ -63,7 +62,6 @@ export function unrecordedStagesGap(stages: readonly string[]): RecordGap {
   };
 }
 
-/** Reads the stage ids back out of an `unrecordedStagesGap` text; any other text gives none. */
 export function unrecordedStagesOf(text: string): string[] {
   if (!text.startsWith(UNRECORDED_STAGES_PREFIX)) return [];
   const byWord = new Map(Object.entries(STAGE_WORDS).map(([stage, word]) => [word, stage]));

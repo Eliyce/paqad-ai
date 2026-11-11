@@ -59,7 +59,7 @@ describe('AC-10: after the close row the band shows the change as closed', () =>
     const drawn = band(parseSnapshot(JSON.stringify(snapshot)));
     expect(drawn).toMatchObject({
       kind: 'closed-change',
-      pr: { text: 'PR #4242', href: PR.url },
+      pr: { text: `PR #${PR.number}`, href: PR.url },
       note: null,
     });
     expect(deliveryView(parseSnapshot(JSON.stringify(snapshot))!).empty).toBeNull();
@@ -95,7 +95,7 @@ describe('AC-19: commits after the close row keep the band closed with a note', 
     const later = { ...snapshot, closed_change: { ...snapshot.closed_change!, new_commits: 2 } };
     expect(band(later)).toMatchObject({
       kind: 'closed-change',
-      pr: { text: 'PR #4242' },
+      pr: { text: `PR #${PR.number}` },
       note: NEW_COMMITS_AFTER_CLOSE,
     });
   });

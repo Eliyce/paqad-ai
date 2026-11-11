@@ -479,7 +479,7 @@ describe('FR-11: the terminal row for a closed change', () => {
     const layout = bandOf(closedChange());
     expect(layout.kind).toBe('line');
     if (layout.kind !== 'line') return;
-    expect(rowText(layout.row)).toBe('paqad  Change closed · ● Safe to merge  PR #12');
+    expect(rowText(layout.row)).toBe(`paqad  Change closed · ● Safe to merge  PR #${PR.number}`);
     expect(layout.row.find((s) => s.text.includes('Safe to merge'))?.tone).toBe('good');
   });
 
