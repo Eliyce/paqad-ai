@@ -7,7 +7,8 @@ import { collectModuleHealth } from '@/dashboard/collectors/module-health.js';
 import { renderMarkdown } from '@/dashboard/markdown.js';
 import { buildReport } from '@/dashboard/report.js';
 import { moneyText } from '@/cost/prices.js';
-import { buildHudSnapshot, type HudSnapshot } from '@/hud/snapshot.js';
+import { readHudVerdict, type HudVerdictReading } from '@/hud/receipt-file.js';
+import { buildHudSnapshot, hudSessionId, type HudSnapshot } from '@/hud/snapshot.js';
 import { readDriftReport, driftReportHasFindings } from '@/module-map/reconciler.js';
 
 interface StatusCommandOptions {
@@ -15,7 +16,23 @@ interface StatusCommandOptions {
   projectRoot: string;
   failOnDrift: boolean;
   hud: boolean;
+  verdict: boolean;
   session?: string;
+}
+
+export const NO_VERDICT_RECORD = 'no verdict record';
+
+export function renderVerdictText(reading: HudVerdictReading): string {
+  if (reading.status !== 'found') return `${NO_VERDICT_RECORD}: ${reading.why}`;
+  const { record } = reading;
+  const lines = [record.word];
+  for (const reason of record.reasons ?? []) lines.push(`- ${reason}`);
+  for (const gap of record.record_gaps ?? []) lines.push(`- record gap: ${gap}`);
+  return lines.join('\n');
+}
+
+function sessionHint(options: StatusCommandOptions): string | null {
+  return options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
 }
 
 export function renderHudText(snapshot: HudSnapshot): string {
@@ -87,8 +104,13 @@ export function createStatusCommand(): Command {
       false,
     )
     .option(
+      '--verdict',
+      "Print the verdict word and its reasons from this session's HUD verdict record",
+      false,
+    )
+    .option(
       '--session <id>',
-      'Session id for --hud (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
+      'Session id for --hud or --verdict (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
     )
     .option(
       '--fail-on-drift',
@@ -105,11 +127,36 @@ export function createStatusCommand(): Command {
         process.exitCode = 2;
         return;
       }
-      if (options.hud) {
-        const snapshot = buildHudSnapshot(
+      if (options.verdict) {
+        const reading = readHudVerdict(
           projectRoot,
-          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+          hudSessionId(projectRoot, sessionHint(options)),
         );
+        const out =
+          fmt === 'json'
+            ? JSON.stringify(
+                reading.status === 'found'
+                  ? {
+                      status: 'found',
+                      path: reading.path,
+                      word: reading.record.word,
+                      kind: reading.record.kind,
+                      reasons: reading.record.reasons ?? [],
+                      record_gaps: reading.record.record_gaps ?? [],
+                      change: reading.record.change,
+                      written_at: reading.record.written_at,
+                    }
+                  : reading,
+                null,
+                2,
+              )
+            : renderVerdictText(reading);
+        process.stdout.write(`${out}\n`);
+        if (reading.status !== 'found') process.exitCode = 1;
+        return;
+      }
+      if (options.hud) {
+        const snapshot = buildHudSnapshot(projectRoot, sessionHint(options));
         const out = fmt === 'json' ? JSON.stringify(snapshot, null, 2) : renderHudText(snapshot);
         process.stdout.write(`${out}\n`);
         return;

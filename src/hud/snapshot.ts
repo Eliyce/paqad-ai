@@ -105,10 +105,10 @@ import {
   type LadderChecks,
 } from './done-ladder.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
-import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import { hudReceiptPath, hudSnapshotPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
-import type { HudVerdictRecord } from './receipt-file.js';
+import { readHudVerdict, type HudVerdictRecord } from './receipt-file.js';
 import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 import { buildStageRun, stagesWithAgentRows } from './stage-run.js';
 import { rulesDriftHeadline } from '@/rules-discovery/nudge.js';
@@ -1106,8 +1106,14 @@ function buildFindings(projectRoot: string, dirName: string): HudFindings | null
 }
 
 function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
-  const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
-  return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
+  const reading = readHudVerdict(projectRoot, sessionId);
+  return reading.status === 'found' ? reading.record : null;
+}
+
+export function hudSessionId(projectRoot: string, sessionHint: string | null): string {
+  return (
+    sessionHint?.trim() || readLedgerSessionId(projectRoot) || resolveSessionId(projectRoot, null)
+  );
 }
 
 const UNJUDGED_CHANGE_GAP = 'paqad could not record which change this verdict judged';
@@ -1638,8 +1644,7 @@ export function buildHudSnapshot(
   options: BuildHudSnapshotOptions = {},
 ): HudSnapshot {
   const now = options.now ?? (() => new Date());
-  const sessionId =
-    sessionHint?.trim() || readLedgerSessionId(projectRoot) || resolveSessionId(projectRoot, null);
+  const sessionId = hudSessionId(projectRoot, sessionHint);
   const workflow = readWorkflowState(projectRoot, sessionId);
   const route = workflow.active?.workflow ?? null;
   const paused = workflow.paused.map((entry) => ({

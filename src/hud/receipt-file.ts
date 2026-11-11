@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -23,6 +25,36 @@ export interface HudVerdictRecord {
   work_reasons?: string[];
   record_gaps?: string[];
   written_at: string;
+}
+
+export type HudVerdictReading =
+  | { status: 'found'; path: string; record: HudVerdictRecord }
+  | { status: 'missing' | 'unreadable'; path: string; why: string };
+
+export function readHudVerdict(projectRoot: string, sessionId: string): HudVerdictReading {
+  const path = hudVerdictPath(projectRoot, sessionId);
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    return { status: 'missing', path, why: `no verdict record at ${path}` };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { status: 'unreadable', path, why: `the verdict record at ${path} is not valid JSON` };
+  }
+  const record =
+    typeof parsed === 'object' && parsed !== null ? (parsed as HudVerdictRecord) : null;
+  if (record?.schema !== 'paqad.hud-verdict/1' || typeof record.word !== 'string') {
+    return {
+      status: 'unreadable',
+      path,
+      why: `the verdict record at ${path} is not a paqad.hud-verdict/1 record`,
+    };
+  }
+  return { status: 'found', path, record };
 }
 
 export interface WrittenHudReceipt {
