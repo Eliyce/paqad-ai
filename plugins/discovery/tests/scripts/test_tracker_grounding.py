@@ -760,6 +760,46 @@ class ExistingEpicWordingTest(BuiltCopies):
         self.assertEqual(check_scenarios.check(), [])
 
 
+class PublishedTextTest(unittest.TestCase):
+    """FR-81, FR-82: the privacy, terms, README and listing texts disclose the tracker reading."""
+
+    FILES = (("publish", "claude", "PRIVACY.md"), ("publish", "claude", "README.md"),
+             ("publish", "chatgpt", "README.md"), ("publish", "claude", "TERMS.md"), ("README.md",),
+             ("build", "skills.yml"))
+
+    def test_every_text_says_what_is_read_and_what_never_is(self):
+        for parts in self.FILES:
+            flat = normalised(read_text(REPO_ROOT, *parts))
+            self.assertIn("existing epics and tickets in the one tracker project you point it at",
+                          flat, parts)
+            self.assertRegex(flat, r"never (reads )?(their )?comments, attachments", parts)
+            self.assertIn("people's names", flat, parts)
+            self.assertNotIn(EM_DASH, flat, parts)
+            self.assertNotIn(EN_DASH, flat, parts)
+            self.assertNotIn("v3.3", flat, parts)
+
+    def test_privacy_states_the_limits_and_what_reaches_the_tracker(self):
+        text = read_text(REPO_ROOT, "publish", "claude", "PRIVACY.md")
+        self.assertNotIn("Nothing else is sent to the tracker", normalised(text))
+        self.assertEqual(missing(text, [
+            "no more than 25 search results and opens no more than 10 tickets in a run",
+            "key, type, summary, description, status, parent, labels and last updated date",
+            "search words taken from your idea are sent to the tracker",
+            "is processed by your AI host and kept as short lines",
+            "in the discovery record in the working folder",
+            "It never changes an existing epic.",
+            "only when you approve", "## Contact", "## Changes",
+            "## What the plugin reads", "## In short",
+        ]), [])
+
+    def test_listing_text_stays_inside_its_limits(self):
+        config = skills_config()
+        self.assertLessEqual(len(config["long_description"]), 4000)
+        capabilities = [item.strip() for item in config["capabilities"].split("|")]
+        self.assertLessEqual(len(capabilities), 20)
+        self.assertTrue(all(len(item) <= 120 for item in capabilities))
+
+
 class TrackerFixtureTest(unittest.TestCase):
     """FR-84: the fixture tracker gains epics and tickets, and a record from before the change."""
 

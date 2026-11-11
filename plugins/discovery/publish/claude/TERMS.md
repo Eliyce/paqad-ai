@@ -35,7 +35,9 @@ liable for any loss arising from use of the plugin, and your use is at your own 
 ## Data
 
 How the plugin handles data is described in the privacy policy that ships beside these terms. In
-short: the plugin reads your repository only to answer, keeps a never-read list, writes nothing
+short: the plugin reads your repository only to answer and, when you shape an idea, may read a
+limited number of existing epics and tickets in the one tracker project you point it at, never
+their comments, attachments or people's names. It keeps a never-read list, writes nothing
 outside its working folder, handles no tracker credentials of its own, and the publisher collects
 none of your data.
 

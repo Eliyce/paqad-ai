@@ -28,6 +28,14 @@ So the behaviour is disclosed and never a surprise under directory policy:
 - The plugin only reads: it reads the project documents and the code by names, honours a never-read
   list (secrets, environment files, `.paqad/` contents, `docs/instructions/rules/`, `.git/`,
   `vendor/`, `node_modules/`), and never edits, runs or installs anything.
+- The idea journey may also read existing epics and tickets in the one tracker project you point it
+  at, repository first and tickets second, or the tickets alone when no repository is readable. It
+  looks at no more than 25 search results and opens no more than 10 tickets in a run, uses only the
+  key, type, summary, description, status, parent, labels and last updated date, and never reads
+  comments, attachments, work logs, people's names or other projects. A line that rests on tickets
+  says "the tickets say" and names the keys, and its source line is "paqad, from the tracker" or
+  the repository's line plus " and the tracker". Tickets can be posted under an epic that already
+  exists; that epic is read to check it and is never changed.
 
 ## Status
 
@@ -81,12 +89,14 @@ from the repo root to rebuild them into `runtime/claude-plugin/skills`.
 - `paqad-size-work` (entry; source `size-work`) - gives advisory size suggestions for a piece of
   work, backed by comparables.
 - `paqad-plan-sprint` (entry; source `plan-sprint`) - proposes a sprint plan and assigns the work on approval.
-- `paqad-get-connected` (source `get-connected`) - step 0: confirms the repository is reachable,
-  detects its evidence level, the tracker is writable, and reads the tracker project's setup.
+- `paqad-get-connected` (source `get-connected`) - step 0: works out which sources are readable (the
+  repository first, the tracker second), detects the evidence level, checks whether the tracker is
+  writable, and reads the tracker project's setup.
 - `paqad-understand-idea` (source `understand-idea`) - step 1: one question at a time until the goal,
   who benefits, success and constraints are clear.
 - `paqad-ground-in-project` (source `ground-in-project`) - step 2: reads the project's documents in
-  order, finds related areas, and reports coverage and template sections.
+  order, finds related areas, and reports coverage and template sections; then reads existing epics
+  and tickets in the tracker project, inside the read limits, as what the tickets say.
 - `paqad-shape-idea` (source `shape-idea`) - step 3: plays the idea back, looks through the expert
   lenses, and offers options, a smaller first step and a recommendation.
 - `paqad-decide-together` (source `decide-together`) - step 4: settles the open choices one at a time
