@@ -22,6 +22,9 @@ blocks, never fresh invention. Story rules: `references/user-stories.md`.
 1. Draft each epic using `assets/epic-template.md`: an outcome title, a one-sentence goal, why it
    matters in the author's words, what exists today (including the unknowns), in scope and not in
    scope, how we will know it worked, the decisions made, the open questions, and the sources.
+   Follow the recorded `epic_choice`, one choice per epic in order. For an existing epic draft no
+   epic text: the title is the live title as read, never rewritten, and each ticket under it
+   carries the goal, the why and the scope it needs in its own body.
 2. Before drafting tickets, settle the intake (`references/user-stories.md`): the Implementation
    Target per ticket (API or UI; both means an API ticket then a UI ticket that depends on it), the
    Module Name from the today block, and any permission key, confirmed with the user through the
@@ -40,17 +43,23 @@ blocks, never fresh invention. Story rules: `references/user-stories.md`.
 5. Write the set into `ticket-set.json` in the shape fixed by `assets/ticket-set.schema.json`:
    run_id, revision, digest, tracker, and epics each holding their tickets. Each acceptance
    criterion becomes one done_when item. Carry the run label and the item reference (for example
-   `DR-20261005-7K2Q / E1-T2`) into each Sources section.
+   `DR-20261005-7K2Q / E1-T2`) into each Sources section. An existing epic keeps its `E<n>` ref
+   and gets `existing_key`, the live title, an empty `body_markdown` and an empty `labels` list.
+   A redraft keeps the recorded choice and does not ask again.
 6. Show a compact chat preview, one row per epic and ticket (ref, target, title), with the full text
    in a downloadable preview file (in chat only if asked or no file can be made). The ticket set is
-   the source of truth.
+   the source of truth. Each group shows where it goes: a new epic, or an existing epic on its own
+   row marked "not changed". The user may move one group; that changes the recorded choice, so
+   show the preview again and ask for approval again.
 
 ## If the checks cannot run
 
 No script; draft by hand with this checklist:
 
-- Every epic has all nine template sections, with "Not in scope" present even if it says nothing
-  is excluded yet, and no success number invented.
+- Every new epic has all nine template sections, with "Not in scope" present even if it says
+  nothing is excluded yet, and no success number invented. An existing epic has none of them: only
+  its key, its live title, an empty body and no labels, and each ticket under it carries the goal,
+  the why and the scope in its own body, with the real key and title on its Epic line.
 - Every ticket has exactly one parent epic, an Implementation Target of API or UI, a Module Name,
   and the As a, I want, So that block with a specific role and a real outcome.
 - Every ticket has 2 to 8 Given/When/Then acceptance criteria a tester could check without asking

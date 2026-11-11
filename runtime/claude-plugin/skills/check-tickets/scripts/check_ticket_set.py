@@ -14,12 +14,18 @@ Checks, in order:
   * no title is duplicated across the set;
   * every depends_on points at a ticket ref that exists in the set, OR at an external tracker issue
     (e.g. PROJ-123, resolved through canonical.is_external_ref) which is a valid dependency;
-  * the depends_on graph has no dependency cycle (depth-first, adapted from 0.2.0 ticket_errors).
+  * the depends_on graph has no dependency cycle (depth-first, adapted from 0.2.0 ticket_errors);
+  * an epic with existing_key (an epic that already exists in the tracker and is never changed)
+    carries a tracker key, an empty body and no labels, shares its key with no other epic, and is
+    free of the title length limit and the duplicate title check, because its title is the live
+    title as read;
+  * with --record, the existing_key values match the epic choice recorded in the decisions block,
+    in epic order, so a redraft cannot drop or change the chosen epic.
 
 Standard library only. No network. Read-only.
 
 CLI:
-  check_ticket_set.py --ticket-set <ticket-set.json>
+  check_ticket_set.py --ticket-set <ticket-set.json> [--record <record.json>]
 
 stdout: {"ok", "issues"}. Exit 0 clean, 1 on any failure.
 
@@ -41,7 +47,7 @@ EPIC_REF = re.compile(r"^E[0-9]+$")
 TICKET_REF = re.compile(r"^E[0-9]+-T[0-9]+$")
 TOP_LEVEL_KEYS = {"run_id", "revision", "digest", "tracker", "epics"}
 TRACKER_ALLOWED = {"kind", "project_key", "epic_type", "story_type"}
-EPIC_ALLOWED = {"ref", "title", "body_markdown", "labels", "tickets"}
+EPIC_ALLOWED = {"ref", "title", "body_markdown", "labels", "tickets", "existing_key"}
 TICKET_ALLOWED = {"ref", "title", "body_markdown", "done_when", "depends_on", "assignee_hint"}
 
 
@@ -66,6 +72,33 @@ def _bad_ref(ref, pattern, path):
         return [canonical.issue("BAD_REF", path + ".ref",
                                 "Ref does not match the required pattern: {0!r}.".format(ref))]
     return []
+
+
+def _is_existing(epic):
+    """True when the epic entry names an epic that already exists in the tracker."""
+    return "existing_key" in epic
+
+
+def _existing_epic_errors(epic, path):
+    """Return the shape errors of an epic with existing_key: a tracker key, the live title, an empty
+    body and no labels. The title length limit does not apply, the text is not ours."""
+    errors = []
+    key = epic.get("existing_key")
+    if not (isinstance(key, str) and canonical.TRACKER_REF.match(key)):
+        errors.append(canonical.issue(
+            "BAD_EXISTING_KEY", path + ".existing_key",
+            "existing_key is not a tracker key: {0!r}.".format(key)))
+    if not canonical.text(epic.get("title")):
+        errors.append(canonical.issue("SCHEMA", path + ".title", "Nonempty text required."))
+    if epic.get("body_markdown") != "":
+        errors.append(canonical.issue(
+            "EXISTING_EPIC_BODY", path + ".body_markdown",
+            "An existing epic is never rewritten: body_markdown must be the empty string."))
+    if epic.get("labels") != []:
+        errors.append(canonical.issue(
+            "EXISTING_EPIC_LABELS", path + ".labels",
+            "An existing epic is never labelled: labels must be an empty list."))
+    return errors
 
 
 def shape_errors(ticket_set):
@@ -99,13 +132,19 @@ def shape_errors(ticket_set):
             errors.append(canonical.issue("SCHEMA", p, "Expected an epic object."))
             continue
         errors.extend(_extra_props(epic, EPIC_ALLOWED, p))
-        for key in ("ref", "title", "body_markdown"):
-            if not canonical.text(epic.get(key)):
-                errors.append(canonical.issue("SCHEMA", p + "." + key, "Nonempty text required."))
-        errors.extend(_bad_ref(epic.get("ref"), EPIC_REF, p))
-        errors.extend(_title_too_long(epic.get("title"), p))
-        if not isinstance(epic.get("labels"), list):
-            errors.append(canonical.issue("SCHEMA", p + ".labels", "Expected a list of labels."))
+        if _is_existing(epic):
+            if not canonical.text(epic.get("ref")):
+                errors.append(canonical.issue("SCHEMA", p + ".ref", "Nonempty text required."))
+            errors.extend(_bad_ref(epic.get("ref"), EPIC_REF, p))
+            errors.extend(_existing_epic_errors(epic, p))
+        else:
+            for key in ("ref", "title", "body_markdown"):
+                if not canonical.text(epic.get(key)):
+                    errors.append(canonical.issue("SCHEMA", p + "." + key, "Nonempty text required."))
+            errors.extend(_bad_ref(epic.get("ref"), EPIC_REF, p))
+            errors.extend(_title_too_long(epic.get("title"), p))
+            if not isinstance(epic.get("labels"), list):
+                errors.append(canonical.issue("SCHEMA", p + ".labels", "Expected a list of labels."))
         tickets = epic.get("tickets")
         if not isinstance(tickets, list):
             errors.append(canonical.issue("SCHEMA", p + ".tickets", "Expected a list of tickets."))
@@ -164,6 +203,18 @@ def structure_errors(ticket_set):
                     "A ticket belongs to exactly one epic; this ref appears under two."))
             ticket_owner.setdefault(ref, epic_ref)
 
+    # Two epic entries may not name the same existing epic.
+    seen_keys = set()
+    for epic in epics:
+        if not _is_existing(epic):
+            continue
+        key = epic.get("existing_key")
+        if key in seen_keys:
+            errors.append(canonical.issue(
+                "DUPLICATE_EXISTING_KEY", "epics[{0}].existing_key".format(epic.get("ref")),
+                "Two epics name the same existing epic: {0}.".format(key)))
+        seen_keys.add(key)
+
     known_refs = set(r for r in ticket_refs if r is not None)
 
     # done_when length and depends_on targets.
@@ -184,10 +235,12 @@ def structure_errors(ticket_set):
                         "DANGLING_DEPENDENCY", "tickets[{0}].depends_on".format(ref),
                         "depends_on points at an unknown ticket: {0}.".format(dep)))
 
-    # Duplicate titles across the whole set (epics and tickets).
+    # Duplicate titles across the whole set (epics and tickets). The live title of an existing epic
+    # is not ours, so it is left out.
     titles = {}
     for epic in epics:
-        for label, item in [("epics[{0}]".format(epic.get("ref")), epic)] + [
+        own = [] if _is_existing(epic) else [("epics[{0}]".format(epic.get("ref")), epic)]
+        for label, item in own + [
                 ("tickets[{0}]".format(t.get("ref")), t) for t in epic.get("tickets", [])]:
             title = item.get("title")
             if isinstance(title, str):
@@ -211,21 +264,56 @@ def structure_errors(ticket_set):
     return errors
 
 
-def check(ticket_set):
+def recorded_epic_choice(record):
+    """Return the epic choice list held in the record's decisions block, or an empty list. The block
+    is a list of decisions, one of which carries epic_choice; an object form is read the same way."""
+    decisions = record.get("decisions") if isinstance(record, dict) else None
+    holders = decisions if isinstance(decisions, list) else [decisions]
+    for holder in holders:
+        if isinstance(holder, dict) and isinstance(holder.get("epic_choice"), list):
+            return holder["epic_choice"]
+    return []
+
+
+def epic_choice_errors(ticket_set, record):
+    """Return an EPIC_CHOICE_MISMATCH issue when the existing_key values of the set, in epic order,
+    are not the existing keys of the recorded epic choice. A missing choice counts as a new epic."""
+    chosen = [choice.get("key") if isinstance(choice, dict) and choice.get("mode") == "existing"
+              else None for choice in recorded_epic_choice(record)]
+    drafted = [epic.get("existing_key") for epic in ticket_set.get("epics", [])]
+    width = max(len(chosen), len(drafted))
+    chosen += [None] * (width - len(chosen))
+    drafted += [None] * (width - len(drafted))
+    errors = []
+    for index, (want, have) in enumerate(zip(chosen, drafted)):
+        if want != have:
+            errors.append(canonical.issue(
+                "EPIC_CHOICE_MISMATCH", "epics[{0}].existing_key".format(index),
+                "The set does not match the recorded epic choice: expected {0}, found {1}.".format(
+                    want or "a new epic", have or "a new epic")))
+    return errors
+
+
+def check(ticket_set, record=None):
     errors = shape_errors(ticket_set)
     if errors:
         return errors
     errors.extend(digest_errors(ticket_set))
     errors.extend(structure_errors(ticket_set))
+    if record is not None:
+        errors.extend(epic_choice_errors(ticket_set, record))
     return errors
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate a canonical ticket set.")
     parser.add_argument("--ticket-set", required=True, type=Path)
+    parser.add_argument("--record", type=Path,
+                        help="The discovery record, to compare the set with the recorded epic choice.")
     args = parser.parse_args(argv)
     ticket_set = canonical.load(args.ticket_set)
-    return canonical.result(check(ticket_set))
+    record = canonical.load(args.record) if args.record else None
+    return canonical.result(check(ticket_set, record))
 
 
 if __name__ == "__main__":

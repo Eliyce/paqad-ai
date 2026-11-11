@@ -1,4 +1,7 @@
+import { describe } from 'vitest';
+
 import { describeContract } from '../_helpers/contract.js';
+import { EXISTING_EPIC_CASES, itMatchesExistingEpicOutput } from '../_helpers/existing-epic.js';
 
 describeContract({
   script: 'runtime/claude-plugin/skills/post-tickets/scripts/export_csv.py',
@@ -21,4 +24,24 @@ describeContract({
       'Work type,Work item id,Summary,Description,Labels,Parent\r\nepic,E1,Refunds for shoppers,Shoppers can ask for their money back.,refunds,\r\nstory,E1-T1,Ask for a refund,"## Goal\nA shopper asks for a refund on a paid order.\n\nAs a shopper\nI want to ask for a refund\nSo that I get my money back",,E1\r\nstory,E1-T2,Approve a refund,"## Goal\nSupport approves a refund request.\n\nAs a support agent\nI want to approve a request\nSo that the shopper is paid back",,E1\r\n',
   },
   invalid: { args: ['--ticket-set', 'missing.json'], exit: 1 },
+});
+
+// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
+// below add the fixed outputs for a set that names an existing epic.
+describe('export_csv.py with an existing epic', () => {
+  itMatchesExistingEpicOutput(
+    'AC-33: export_csv writes an E1 row, no row for the existing epic, and the real key as Parent',
+    'runtime/claude-plugin/skills/post-tickets/scripts/export_csv.py',
+    EXISTING_EPIC_CASES.exportCsv,
+  );
+  itMatchesExistingEpicOutput(
+    'AC-33: export_csv writes the same rows as Markdown',
+    'runtime/claude-plugin/skills/post-tickets/scripts/export_csv.py',
+    EXISTING_EPIC_CASES.exportMarkdown,
+  );
+  itMatchesExistingEpicOutput(
+    'AC-29: export_csv prints the export note with the existing key and its rows',
+    'runtime/claude-plugin/skills/post-tickets/scripts/export_csv.py',
+    EXISTING_EPIC_CASES.exportNote,
+  );
 });

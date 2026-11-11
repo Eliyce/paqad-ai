@@ -19,9 +19,16 @@ the connector's own tool list.
 | add comment | Add a comment to an issue. |
 | create link | Create a dependency link between two issues. |
 | list link types | List the available link types and their inward and outward wording. |
-| read issue | Read an issue's full fields for read-back. |
-| search | Search issues, used for the duplicate search and for reconciling a lost reply. |
+| read issue | Read an issue's full fields for read-back, or an existing epic or ticket for grounding. |
+| search | Search issues, used for the duplicate search, for reconciling a lost reply and for finding existing epics and tickets for grounding. |
 | list fields for an issue type | Read the full field list of an issue type, to find custom field IDs. |
+
+## Reading existing epics and tickets
+
+Only the idea journey reads existing epics and tickets as a source. It uses the search and read
+issue actions, inside one project. The search may be a natural language search or a JQL search,
+whichever the connector offers, with the same limits. The limits and the wording rules are in the
+reference titled "Grounding from the tracker".
 
 ## Known tool-name variants (PUB-1)
 

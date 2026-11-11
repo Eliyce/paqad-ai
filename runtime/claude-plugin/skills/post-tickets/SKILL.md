@@ -26,7 +26,10 @@ known tool-name variants.
    stop. For anything other than build, give a short written summary of the decision and the next
    action, and offer to post it as a single tracker item if the user wants one.
 2. For a build, show the final set as a compact table in chat (one row per epic and ticket) plus a
-   full preview file. Put the full text in chat only if the user asks or no file can be made.
+   full preview file. Put the full text in chat only if the user asks or no file can be made. An
+   existing epic sits on its own row marked "not changed". Read it first (step 4, the verify
+   operation): show its live title, and when that differs from the title read earlier, say so in
+   one line and use the live title on each ticket's Epic line before the approval.
 3. Take the approval. Post only after an explicit "post it", bound to the ticket-set digest.
    "Looks good" is not approval. Any later edit to the set voids the approval and needs a new one.
 4. Build the ordered plan and post it. Where scripts can run, drive the run with these commands:
@@ -39,9 +42,28 @@ known tool-name variants.
    - `scripts/plan_posting.py reconcile --state <state.json> --operation <id> [--tracker-issues
      <found.json>]` settles an uncertain write.
 
-   The order is epics first, then each epic's tickets with the created epic as parent, then the
-   dependency links, then read-back. If the connector refuses the parent parameter for an epic
-   child, set the parent through its additional fields. When the connector exposes a link action,
+   The order is the read-only check of every existing epic first (`verify-E<n>`), then new epics,
+   then each epic's tickets with their epic as parent (the created epic, or the literal key of an
+   existing one), then the dependency links, then read-back. If the connector refuses the parent
+   parameter for an epic child, set the parent through its additional fields.
+
+   An existing epic is never created, edited, labelled, commented on, linked or moved: the only
+   operation on its key is the read. Do the read, then record what came back as the receipt of its
+   verify operation: `{"status": "read", "result": {"key", "issuetype", "project", "summary",
+   "status", "done"}}`, `{"status": "not_found"}`, or `{"status": "read_failed", "reason"}` when
+   the read timed out, was refused or the connector failed. Set `done` from the status the issue
+   reports as finished, not from a status name. The read needs no approval; repeat it on every
+   resume and retry. Nothing is created until every check passes. When one fails, stop, say which
+   check failed (or that the epic could not be checked), and offer the two ways on: pick another
+   epic or a new epic, back at the step 4 question, or leave by export. A failed read is "could
+   not check the epic", never "the epic does not exist". When the epic is done or closed and that
+   was not confirmed at step 4, ask before the first create; record the answer with
+   `"done_confirmed": true` or `false`. A no creates nothing and goes back to the step 4 question.
+
+   If the first ticket under an existing epic is refused with that parent, stop there: create no
+   ticket without its parent, never edit the epic to attach tickets, and offer the export. If
+   neither the parent on create nor the import puts the tickets under the epic, say plainly that
+   they are not under the epic yet and how to move them; never report a clean success. When the connector exposes a link action,
    create links only with it. When it exposes no link action, do not drop the dependencies: write
    each one as a "Depends on" text line in the ticket body or a comment, and ask the user to add
    the links by hand in the tracker (U-3). The plan marks this case with `links_by_hand` so the
@@ -60,7 +82,11 @@ known tool-name variants.
 7. Export fallback. At any point the approved set can be downloaded as Markdown and as CSV for the
    tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json> [--format csv|markdown]`.
    The format defaults to `csv`; add `--format markdown` for the Markdown export. Offer this when
-   the connector cannot create issues.
+   the connector cannot create issues. An existing epic gets no row and `Parent` holds its key.
+   Give the note from `scripts/export_csv.py --ticket-set <ticket-set.json> --note` with the file:
+   "Parent holds the existing epic key ABC-7. If your importer does not accept it, set the parent with a bulk edit after the import."
+   It also names the rows that hold the real key. On resume with an unreadable tracker, export
+   with the key and say the epic was last checked in the earlier session and is not confirmed now.
 8. When the tracker is GitHub, follow `references/tracker-profiles-github.md`: GitHub Issues is export
    only, so there is no posting step. Produce the Markdown export as the primary form, since GitHub has
    no native bulk CSV import, and map each epic to a tracking issue or a milestone and each dependency
@@ -72,8 +98,13 @@ When no tool can run the scripts, post by hand with this checklist:
 
 - Recommend the outcome; for a build, show the compact preview plus the full preview file.
 - Take an explicit "post it" bound to the digest; a later edit voids it.
-- Create in order: epics first, then tickets with the created epic as parent, then links with the
-  link action, then read-back. Use the additional-fields route if the parent parameter is refused.
+- Create in order: read every existing epic first, then new epics, then tickets with their epic as
+  parent, then links with the link action, then read-back. Use the additional-fields route if the
+  parent parameter is refused.
+- An existing epic: confirm it exists, is of the epic type and sits in the project before any
+  create; stop and name the failed check otherwise. Ask first when it is done or closed. Never
+  create, edit, label, comment on or link it. Show it as "not changed" in the preview and the
+  posted block.
 - When no link action is available, write each dependency as a "Depends on" text line in the ticket
   body or a comment and ask the user to add the links by hand; on read-back report that links may be
   absent, not as a failure.
@@ -86,5 +117,6 @@ When no tool can run the scripts, post by hand with this checklist:
 ## Output
 
 Fills the posted block of the discovery record: each issue with its item reference, its issue key,
-and its status (created, uncertain, or not applied), plus the read-back result. The links and any
+and its status (created, uncertain, or not applied; an existing epic is "not changed" and is never
+counted as created), plus the read-back result. The links and any
 difference are reported to the user in plain words.

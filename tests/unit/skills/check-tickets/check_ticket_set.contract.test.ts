@@ -1,4 +1,7 @@
+import { describe } from 'vitest';
+
 import { describeContract } from '../_helpers/contract.js';
+import { EXISTING_EPIC_CASES, itMatchesExistingEpicOutput } from '../_helpers/existing-epic.js';
 
 describeContract({
   script: 'runtime/claude-plugin/skills/check-tickets/scripts/check_ticket_set.py',
@@ -27,4 +30,19 @@ describeContract({
     },
     exit: 1,
   },
+});
+
+// AC-46: the fixed output above is for a set of new epics only and is unchanged. The cases
+// below add the fixed outputs for a set that names an existing epic.
+describe('check_ticket_set.py with an existing epic', () => {
+  itMatchesExistingEpicOutput(
+    'AC-27: check_ticket_set accepts an existing epic with a long live title',
+    'runtime/claude-plugin/skills/check-tickets/scripts/check_ticket_set.py',
+    EXISTING_EPIC_CASES.checkTicketSet,
+  );
+  itMatchesExistingEpicOutput(
+    'AC-27: check_ticket_set refuses a body and a label on an existing epic',
+    'runtime/claude-plugin/skills/check-tickets/scripts/check_ticket_set.py',
+    EXISTING_EPIC_CASES.checkTicketSetRefused,
+  );
 });
