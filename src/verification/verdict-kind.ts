@@ -52,12 +52,25 @@ const STAGE_WORDS: Readonly<Record<string, string>> = {
   delivery: 'Deliver',
 };
 
+export const UNRECORDED_STAGES_PREFIX = 'No record yet for: ';
+
 export function unrecordedStagesGap(stages: readonly string[]): RecordGap {
   return {
     code: 'unrecorded-mandatory-stages',
-    text: `No record yet for: ${stages.map((stage) => STAGE_WORDS[stage] ?? stage).join(', ')}`,
+    text: `${UNRECORDED_STAGES_PREFIX}${stages.map((stage) => STAGE_WORDS[stage] ?? stage).join(', ')}`,
     detail: null,
   };
+}
+
+export function unrecordedStagesOf(text: string): string[] {
+  if (!text.startsWith(UNRECORDED_STAGES_PREFIX)) return [];
+  const byWord = new Map(Object.entries(STAGE_WORDS).map(([stage, word]) => [word, stage]));
+  return text
+    .slice(UNRECORDED_STAGES_PREFIX.length)
+    .split(',')
+    .map((word) => word.trim())
+    .map((word) => byWord.get(word) ?? (word in STAGE_WORDS ? word : null))
+    .filter((stage): stage is string => stage !== null);
 }
 
 export function verdictParts(

@@ -83,9 +83,21 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
   High Table and the delivery steps that apply to this change. A live state has a light that
   breathes and a running clock; a settled one stays still. The close button asks inline: close for
   now, hide always, or cancel.
+- **The band finds the right folder.** The HUD looks for the project from the session's folder
+  upwards and stops before your home folder, so a session that starts outside the repo (a Desktop
+  spare session) never binds to the home folder. When the session's folder changes, the next prompt
+  binds to the new project, or the band goes away when the new folder is not set up. A bound band
+  with no session record after 30 s says `paqad could not find this session's record at <folder>`
+  and points to `paqad-ai doctor`, which warns when your home folder holds
+  `.paqad/framework-path.txt`.
+- **One verdict word.** `paqad-ai status --verdict` prints the session's verdict word and reasons.
+  The end-of-change receipt starts with that word; when the closing message names a different
+  word, the Stop hook holds it once and names the recorded word. After the change closes, the band
+  shows it as closed with the verdict word and the PR link, and adds `new commits after close` when
+  the PR gets more commits.
 - **The task list follows the stages.** On a feature change, each prompt reminds Claude of the
-  lane's stage list (Plan, Spec, Load rules, Build, Review, Checks, Docs; on the fast lane Plan,
-  Build, Checks). A task list that leaves them out is turned back once per turn with the same
+  lane's stage list (Plan, Spec, Build, Review, Checks, Docs, the same steps as the band; on the
+  fast lane Plan, Build, Checks). Loading the rules is a step paqad runs, not a task item. A task list that leaves them out is turned back once per turn with the same
   sentence.
 
 ## Glossary

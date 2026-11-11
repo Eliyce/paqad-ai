@@ -1,0 +1,17 @@
+{
+  "schema": "paqad.hud-verdict/1",
+  "session_id": "ses-closed-run",
+  "change": "closed-run-01M70000000000000000000000",
+  "word": "Inconclusive",
+  "kind": "inconclusive",
+  "passed": false,
+  "reasons": [
+    "code-tests-lint: No checks report on record — tests were not verified for this change."
+  ],
+  "work_kind": "inconclusive",
+  "work_reasons": [
+    "code-tests-lint: No checks report on record — tests were not verified for this change."
+  ],
+  "record_gaps": ["No record yet for: Checks"],
+  "written_at": "2026-11-11T16:20:00.000Z"
+}

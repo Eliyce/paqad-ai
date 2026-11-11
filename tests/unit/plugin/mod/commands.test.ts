@@ -306,3 +306,34 @@ describe('/paqad answers', () => {
     }
   });
 });
+
+describe('FR-11: /paqad status for a closed change', () => {
+  const PR_NUMBER = 12;
+  it('AC-10, AC-19: keeps the change and says it closed, with its verdict, PR and late commits', () => {
+    const closed = {
+      ...FULL_ORD_501,
+      active: false,
+      scope: { qualified: true, reason: 'finished' },
+      closed_change: {
+        closed_at: '2026-10-18T09:00:00.000Z',
+        word: 'Safe to merge',
+        new_commits: 1,
+      },
+      ship: {
+        ...(FULL_ORD_501.ship as object),
+        pr: { number: PR_NUMBER, url: 'https://example.test/pull/12', draft: false, head_sha: 'a' },
+      },
+    };
+    const text = run('status', closed);
+    expect(text).toContain('Change: #ORD-501 Add CSV export to the orders page.');
+    expect(text).toContain(
+      `Change closed: Safe to merge, PR #${PR_NUMBER}, new commits after close.`,
+    );
+    const bare = {
+      ...closed,
+      closed_change: { ...closed.closed_change, word: null, new_commits: 0 },
+      ship: null,
+    };
+    expect(run('status', bare)).toContain('Change closed: no verdict record, Delivery missing.');
+  });
+});

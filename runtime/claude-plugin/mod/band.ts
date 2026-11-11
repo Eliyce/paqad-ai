@@ -1,6 +1,12 @@
 import { formatTokens } from './cost';
 import './instruments';
 import { judgedHeadline } from './headline';
+import {
+  CHANGE_CLOSED,
+  DELIVERY_MISSING,
+  NEW_COMMITS_AFTER_CLOSE,
+  NO_VERDICT_WORDS,
+} from './desktop-view';
 import { buildBandView, type BandView } from './model';
 import {
   BAND_BODIES,
@@ -79,6 +85,42 @@ const VERDICT_TONE: Record<'pass' | 'fail' | 'inconclusive', PaqadTone> = {
   inconclusive: 'warn',
 };
 
+const VERDICT_MARK: Record<'pass' | 'fail' | 'inconclusive', string> = {
+  pass: '●',
+  fail: '✗',
+  inconclusive: '◐',
+};
+
+const CAUTION_MARK = '▲';
+
+export function closedChangeRow(snapshot: PaqadHudSnapshot, columns: number): BandRow | null {
+  const closed = snapshot.closed_change;
+  if (!closed) return null;
+  const kind = snapshot.verdict?.kind ?? null;
+  const word = closed.word ?? NO_VERDICT_WORDS;
+  const verdict: BandSegment =
+    closed.word && kind
+      ? { text: `${VERDICT_MARK[kind]} ${word}`, tone: VERDICT_TONE[kind] }
+      : closed.word
+        ? { text: word }
+        : { text: `${CAUTION_MARK} ${word}`, tone: 'warn' };
+  const number = snapshot.ship?.pr_number ?? null;
+  const pr: BandSegment =
+    number !== null && snapshot.ship?.pr_url
+      ? { text: `  PR #${number}` }
+      : { text: `  ${CAUTION_MARK} ${DELIVERY_MISSING}`, tone: 'warn' };
+  const row: BandRow = [
+    { text: 'paqad' },
+    { text: `  ${CHANGE_CLOSED} · `, dim: true },
+    verdict,
+    pr,
+  ];
+  if (closed.new_commits > 0) {
+    row.push({ text: `  ${CAUTION_MARK} ${NEW_COMMITS_AFTER_CLOSE}`, tone: 'warn' });
+  }
+  return truncateRow(row, columns);
+}
+
 export function allGreenNow(snapshot: PaqadHudSnapshot | null): boolean {
   return (
     snapshot?.active === true &&
@@ -138,6 +180,9 @@ export function layoutBand(
     return { kind: 'line', row: needsYouLine() };
   }
   if (snapshot && !snapshot.active) {
+    const shown = mode !== 'closed' && mode !== 'hidden';
+    const closedRow = shown ? closedChangeRow(snapshot, size.columns) : null;
+    if (closedRow) return { kind: 'line', row: closedRow };
     const drawsReady =
       mode !== 'closed' &&
       mode !== 'hidden' &&

@@ -106,6 +106,10 @@ the second.
 
 ## What the HUD mod touches
 
+The mod binds to the first folder above the session's folder that holds
+`.paqad/framework-path.txt`, stops before the home folder, and binds again when the session's
+folder changes (see the Claude Code adapter docs for the rule and the stand-down reasons).
+
 The HUD mod (`runtime/claude-plugin/mod/`) writes every value the plugin directory checks at the
 call, so a static reader sees it:
 

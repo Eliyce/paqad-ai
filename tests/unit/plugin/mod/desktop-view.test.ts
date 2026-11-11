@@ -15,6 +15,11 @@ import {
   CONTROLS_COLUMNS,
   TASK_LIST_SENTENCES,
   UNREADABLE,
+  RECORD_MISSING,
+  RECORD_MISSING_HINT,
+  homeShortened,
+  middleTruncated,
+  recordMissingLine,
   bandIsLive,
   GETTING_READY,
   buildDesktopBand,
@@ -124,6 +129,22 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ unbound: true })).toMatchObject({ kind: 'unreadable', reason: 'session-id' });
     expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
     expect(band({ unavailable: true })).toMatchObject({ kind: 'feature' });
+  });
+
+  it('AC-4: a bound session with no record names the folder it looked in', () => {
+    expect(
+      band({ snapshot: null, missingRecord: { root: '/hm/dev/code/app', home: '/hm/dev' } }),
+    ).toEqual({
+      kind: 'missing',
+      line: `${RECORD_MISSING} ~/code/app`,
+      hint: RECORD_MISSING_HINT,
+    });
+    expect(band({ missingRecord: { root: '/work', home: null } })).toMatchObject({
+      kind: 'feature',
+    });
+    expect(
+      band({ snapshot: null, unbound: true, missingRecord: { root: '/w', home: null } }),
+    ).toMatchObject({ kind: 'unreadable' });
   });
 
   it('AC-25: a workflow band is never drawn from a snapshot older than the prompt just sent', () => {
@@ -844,7 +865,7 @@ describe('AC-14: minimised, closed and hidden', () => {
 
 describe('AC-18: the task list carries the stages of the lane', () => {
   const call = (items: unknown[], extra: Raw = {}) => ({ items, ...extra });
-  const full = ['Plan the change', 'Spec', 'Load rules', 'Build it', 'Review', 'Checks', 'Docs'];
+  const full = ['Plan the change', 'Spec', 'Build it', 'Review', 'Checks', 'Docs'];
 
   it('passes the stage words as item openings in order, with any other items around them', () => {
     expect(refusesTaskList('full', call(full.map((content) => ({ content }))))).toBe(false);
@@ -882,7 +903,7 @@ describe('AC-18: the task list carries the stages of the lane', () => {
     expect(taskListSentence('fast')).toBe(TASK_LIST_SENTENCES.fast);
     expect(taskListSentence('full')).toBe(TASK_LIST_SENTENCES.full);
     expect(taskListSentence(null)).toBe(
-      'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+      'paqad task list: Plan, Spec, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
     );
     expect(TASK_LIST_SENTENCES.fast).toBe(
       'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
@@ -1327,5 +1348,32 @@ describe('Part C: the Sign-off stage, words and button', () => {
       link: { href: 'https://acme.test/1', text: 'Open the design record' },
     });
     expect(signoffRecord(open({ signoff: null }))).toBeNull();
+  });
+});
+
+describe('AC-4: the record-missing path shortens home and truncates in the middle', () => {
+  it('shortens the home part to ~ only on a folder boundary', () => {
+    expect(homeShortened('/hm/dev', '/hm/dev')).toBe('~');
+    expect(homeShortened('/hm/dev/app', '/hm/dev')).toBe('~/app');
+    expect(homeShortened('/hm/devx/app', '/hm/dev')).toBe('/hm/devx/app');
+    expect(homeShortened('C:\\Profiles\\u\\app', 'C:\\Profiles\\u')).toBe('~\\app');
+    expect(homeShortened('/work/app', null)).toBe('/work/app');
+  });
+
+  it('keeps the last folder name and cuts the middle, never the end', () => {
+    const path = '/very/long/path/that/goes/on/and/on/to/the-repo';
+    const cut = middleTruncated(path, 24);
+    expect([...cut].length).toBe(24);
+    expect(cut.endsWith('/the-repo')).toBe(true);
+    expect(cut.startsWith('/very')).toBe(true);
+    expect(cut).toContain('…');
+    expect(middleTruncated('/short', 24)).toBe('/short');
+  });
+
+  it('fits the narrow band and still shows the repo folder', () => {
+    const line = recordMissingLine('/hm/dev/clients/acme/projects/2026/the-repo', '/hm/dev', 60);
+    expect(line.startsWith(RECORD_MISSING)).toBe(true);
+    expect(line.endsWith('/the-repo')).toBe(true);
+    expect([...line].length).toBeLessThanOrEqual(58);
   });
 });

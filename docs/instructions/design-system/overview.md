@@ -34,6 +34,9 @@ paqad-ai's primary surface is a CLI. The only UI surface is the embedded `graph-
 - On the terminal, every state is said in words and by a mark of its own shape (`●` done, `▸`
   running, `○` not yet, `–` not required, `✗` failed, `◐` marked), so nothing is told by colour
   alone. The terminal keeps these marks, its controls and their one-letter hotkeys.
+- A closed change is drawn on both surfaces. On the terminal it is one line: `Change closed ·`, the
+  verdict word behind its mark in its named tone (or `▲ no verdict record`), the PR (or
+  `▲ Delivery missing`) and `▲ new commits after close` when set; see hud.md "Closed change row".
 - On Desktop, the band's strip and the Ledger's rings, nodes, meters and rules are plain-image
   `Svg` art drawn in the HUD palette (`runtime/claude-plugin/mod/palette.ts`), and the Desktop
   drawing rules R1 to R16 apply. Tokens, components, patterns and the rules are in

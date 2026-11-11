@@ -29,7 +29,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ADAPTER = process.argv[2] || undefined;
 
 const TASK_LIST_SENTENCES = {
-  full: 'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+  full: 'paqad task list: Plan, Spec, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
   fast: 'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
 };
 

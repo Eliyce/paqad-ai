@@ -21,6 +21,11 @@ export type PaqadHudStage = {
   mandatory: boolean;
   started_at: string | null;
   ended_at: string | null;
+  first_started_at?: string | null;
+  last_ended_at?: string | null;
+  runs?: number;
+  record_gap?: boolean;
+  no_report?: boolean;
   duration_unreliable: boolean;
   duration_ms: number | null;
   agent: string | null;
@@ -366,6 +371,7 @@ export type PaqadHudSnapshot = {
   start_point?: PaqadStartPoint | null;
   proof?: PaqadStageProof[];
   ledger_note?: string;
+  closed_change?: { closed_at: string; word: string | null; new_commits: number };
 };
 
 export type PaqadStartPoint = {
@@ -391,6 +397,7 @@ declare module 'claude-code' {
       paneOpen: boolean;
       unavailable: boolean;
       unbound: boolean;
+      recordMissing: { root: string; home: string | null } | null;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;

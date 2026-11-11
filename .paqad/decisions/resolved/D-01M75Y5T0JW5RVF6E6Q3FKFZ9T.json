@@ -1,0 +1,59 @@
+{
+  "id": "D-01M75Y5T0JW5RVF6E6Q3FKFZ9T",
+  "category": "intake.requirement",
+  "title": "Closing message when the verdict record is missing or unreadable",
+  "context": "Issue #887 B1: the Stop hook holds the closing message once when it names a different verdict word than <root>/.paqad/session/hud/<session>.verdict.json. The High Table found no rule for when that file is missing or cannot be read. This decides whether a broken record can ever stop the session, or whether the chat can close without the record backing it.",
+  "options": [
+    {
+      "option_key": "pass-log",
+      "label": "Let it through and write the reason to the debug log",
+      "one_line_preview": "Let it through and write the reason to the debug log",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold-once",
+      "label": "Hold it once and ask for the verdict to be rerun",
+      "one_line_preview": "Hold it once and ask for the verdict to be rerun",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "pass-band",
+      "label": "Let it through, and the band shows 'no verdict record'",
+      "one_line_preview": "Let it through, and the band shows 'no verdict record'",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pass-band",
+  "created_at": "2026-11-11T18:33:27.826Z",
+  "status": "resolved",
+  "change": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier packet asks how the Stop hook treats a missing or unreadable verdict record; the HUD titles cover other band states."
+  },
+  "chosen": "pass-band",
+  "rationale": "Owner: a broken record never stops the session; the band shows the gap.",
+  "resolved_at": "2026-11-11T18:46:29.478Z",
+  "decision_id": "D-01M75Y5T0JW5RVF6E6Q3FKFZ9T",
+  "fingerprint": "sha256:ac076f748809be75b617b100f354c784cd6cfd7447666889539624151c07d2c0",
+  "question": "Closing message when the verdict record is missing or unreadable",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "ttl_until": "2026-11-25T18:33:27.826Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pass-band",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T18:46:29.478Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: a broken record never stops the session; the band shows the gap."
+  }
+}

@@ -79,7 +79,7 @@ import {
   gateExpectedOnLane,
   type GateOwner,
 } from '@/core/types/verification.js';
-import { LANE_RECORD_GAP } from '@/verification/verdict-kind.js';
+import { LANE_RECORD_GAP, unrecordedStagesOf } from '@/verification/verdict-kind.js';
 
 import {
   gateIsJudged,
@@ -105,10 +105,15 @@ import {
   type LadderChecks,
 } from './done-ladder.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
-import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import { hudReceiptPath, hudSnapshotPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
-import type { HudVerdictRecord } from './receipt-file.js';
+import {
+  NO_VERDICT_RECORD,
+  readHudVerdict,
+  readVerdictAgreement,
+  type HudVerdictRecord,
+} from './receipt-file.js';
 import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 import { buildStageRun, stagesWithAgentRows } from './stage-run.js';
 import { rulesDriftHeadline } from '@/rules-discovery/nudge.js';
@@ -123,10 +128,15 @@ export interface HudStage {
   mandatory: boolean;
   started_at: string | null;
   ended_at: string | null;
+  first_started_at: string | null;
+  last_ended_at: string | null;
+  runs: number;
   duration_ms: number | null;
   duration_unreliable: boolean;
   agent: string | null;
   proof_file: string | null;
+  record_gap?: true;
+  no_report?: true;
 }
 
 export type HudGateVerdict =
@@ -671,6 +681,29 @@ export interface HudSnapshot {
   start_point?: HudStartPoint | null;
   proof?: HudStageProof[];
   ledger_note?: string;
+  closed_change?: HudClosedChange;
+}
+
+export interface HudClosedChange {
+  closed_at: string;
+  word: string | null;
+  new_commits: number;
+}
+
+export function closedChangeOf(
+  rows: readonly Record<string, unknown>[],
+  verdict: HudVerdictRecord | null,
+  commitTimes: Iterable<string>,
+): HudClosedChange | null {
+  let closedAt: string | null = null;
+  for (const row of rows) {
+    if (row.kind === 'open') closedAt = null;
+    if (row.kind === 'close') closedAt = rowRecordedAt(row as never) ?? null;
+  }
+  if (!closedAt) return null;
+  const closedMs = Date.parse(closedAt);
+  const newCommits = [...commitTimes].filter((at) => Date.parse(at) > closedMs).length;
+  return { closed_at: closedAt, word: verdict?.word ?? null, new_commits: newCommits };
 }
 
 function readJsonFile(path: string): unknown {
@@ -746,7 +779,26 @@ function withTrackRecords(
   };
 }
 
-function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): HudStage[] {
+export function gapStages(gaps: readonly string[]): Set<string> {
+  return new Set(gaps.flatMap((gap) => unrecordedStagesOf(gap)));
+}
+
+function helperGaveNoReport(rows: readonly Record<string, unknown>[], stage: string): boolean {
+  const last = [...rows]
+    .reverse()
+    .find(
+      (row) =>
+        row.kind === STAGE_AGENT_KIND && row.stage === stage && row.event_status !== 'started',
+    );
+  return last !== undefined && (last.report_stated === false || last.report_source === 'none');
+}
+
+function buildStages(
+  projectRoot: string,
+  dirName: string,
+  fold: FoldedChange,
+  gapped: ReadonlySet<string> = new Set(),
+): HudStage[] {
   const rows = readFeatureStageUnit(projectRoot, dirName);
   return fold.stages.map((stage) => {
     const own = rows.filter((row) => row.stage === stage.stage);
@@ -760,10 +812,17 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
       mandatory: isLaneStage(fold.lane, stage.stage),
       started_at: stage.started_at,
       ended_at: stage.ended_at,
+      first_started_at: stage.first_started_at,
+      last_ended_at: stage.last_ended_at,
+      runs: stage.runs,
       duration_ms: stage.duration_ms,
       duration_unreliable: stage.duration_unreliable,
       agent: str(last?.agent),
       proof_file: Array.isArray(artifacts) ? (str(artifacts[0]) ?? null) : null,
+      ...(gapped.has(stage.stage) ? { record_gap: true as const } : {}),
+      ...(helperGaveNoReport(rows as Record<string, unknown>[], stage.stage)
+        ? { no_report: true as const }
+        : {}),
     };
   });
 }
@@ -1106,8 +1165,14 @@ function buildFindings(projectRoot: string, dirName: string): HudFindings | null
 }
 
 function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
-  const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
-  return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
+  const reading = readHudVerdict(projectRoot, sessionId);
+  return reading.status === 'found' ? reading.record : null;
+}
+
+export function hudSessionId(projectRoot: string, sessionHint: string | null): string {
+  return (
+    sessionHint?.trim() || readLedgerSessionId(projectRoot) || resolveSessionId(projectRoot, null)
+  );
 }
 
 const UNJUDGED_CHANGE_GAP = 'paqad could not record which change this verdict judged';
@@ -1638,8 +1703,7 @@ export function buildHudSnapshot(
   options: BuildHudSnapshotOptions = {},
 ): HudSnapshot {
   const now = options.now ?? (() => new Date());
-  const sessionId =
-    sessionHint?.trim() || readLedgerSessionId(projectRoot) || resolveSessionId(projectRoot, null);
+  const sessionId = hudSessionId(projectRoot, sessionHint);
   const workflow = readWorkflowState(projectRoot, sessionId);
   const route = workflow.active?.workflow ?? null;
   const paused = workflow.paused.map((entry) => ({
@@ -1708,7 +1772,12 @@ export function buildHudSnapshot(
   const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
   const fold = foldFeature(projectRoot, sessionId, dirName);
-  const stages = buildStages(projectRoot, dirName, fold);
+  const stages = buildStages(
+    projectRoot,
+    dirName,
+    fold,
+    gapStages(Array.isArray(verdict?.record_gaps) ? verdict.record_gaps : []),
+  );
   const gates = buildGates(projectRoot, dirName);
   const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
   const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
@@ -1757,6 +1826,9 @@ export function buildHudSnapshot(
   );
   const gatesExpected = expectedGateCodes(lane);
   const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
+  if (!verdict && readVerdictAgreement(projectRoot, sessionId).no_record) {
+    gaps.push(NO_VERDICT_RECORD);
+  }
   const questions = buildQuestions(projectRoot, dirName);
   const stageRows = readFeatureStageUnit(projectRoot, dirName);
   const ledgerHealth = readUnitFileHealth(projectRoot, featureFilePath(dirName, 'stageEvidence'));
@@ -1771,6 +1843,11 @@ export function buildHudSnapshot(
     rules: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
     changedFiles,
   });
+  const closedChange = closedChangeOf(
+    stageRows as Record<string, unknown>[],
+    verdict,
+    changeGit?.commitTimes.values() ?? [],
+  );
   const flags = computeHudFlags({
     stages,
     gates,
@@ -1791,7 +1868,7 @@ export function buildHudSnapshot(
     generated_at: now().toISOString(),
     scope: { qualified: true, reason: scope.reason },
     workflow: null,
-    active: true,
+    active: closedChange === null,
     route,
     lane,
     lane_stages: laneStages(fold.lane),
@@ -1896,6 +1973,7 @@ export function buildHudSnapshot(
     ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
     ...(ladder.rung ? { rung: ladder.rung } : {}),
     ...(reading.stale ? { verdict_stale: true as const } : {}),
+    ...(closedChange ? { closed_change: closedChange } : {}),
     start_point: startPoint
       ? {
           source: startPoint.source,

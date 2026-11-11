@@ -9,6 +9,10 @@ import { closeActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import { computeDoneLadder, type DoneLadderInput } from '@/hud/done-ladder.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
 
+import { layoutBand, rowText } from '../../../runtime/claude-plugin/mod/band.ts';
+import { IDLE_LIVE } from '../../../runtime/claude-plugin/mod/live.ts';
+import { parseSnapshot } from '../../../runtime/claude-plugin/mod/model.ts';
+
 import {
   checkout,
   cleanupScopeFixtures,
@@ -141,15 +145,25 @@ function prOn(root: string, dir: string, sha: string, ci: 'pass' | 'fail' | 'pen
 }
 
 describe('a finished change on the HUD', () => {
-  it('AC-1, AC-9: a passing run keeps the closed change on screen as finished and Done', () => {
+  it('AC-1, AC-9, AC-10: a passing run keeps the closed change on the terminal band, finished and Done', () => {
     const root = repoRoot();
     const dir = finishGreen(root);
     const snapshot = buildHudSnapshot(root, S);
     expect(snapshot.scope).toEqual({ qualified: true, reason: 'finished' });
-    expect(snapshot.active).toBe(true);
+    expect(snapshot.active).toBe(false);
+    expect(snapshot.closed_change?.word).toBe('Safe to merge');
     expect(snapshot.change?.dir).toBe(dir);
     expect(snapshot.verdict).toMatchObject({ kind: 'pass', change: dir });
     expect(snapshot.rung).toBe('done');
+    const band = layoutBand(
+      parseSnapshot(JSON.stringify(snapshot)),
+      { columns: 120, maxRows: 12 },
+      { now: Date.now(), live: IDLE_LIVE },
+    );
+    expect(band.kind).toBe('line');
+    if (band.kind === 'line') {
+      expect(rowText(band.row)).toContain('Change closed · ● Safe to merge');
+    }
   });
 
   it('AC-20: an inconclusive close stays on screen with its inconclusive result and no rung', () => {

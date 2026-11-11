@@ -26,6 +26,9 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M767T3APNPYSG9SCAV5BVB4C](TD-01M767T3APNPYSG9SCAV5BVB4C.md) (bug, low): Four tests depend on the host: cloud-session env and running as root
+- [TD-01M762N3V114W1N2KH4467AFX7](TD-01M762N3V114W1N2KH4467AFX7.md) (bug, low): Spec review detectors flag defined AC/FR ids as dangling and 'absorbed by' lines as a contradiction
+- [TD-01M75Y09ZCG1RR11VR2WD6N2N3](TD-01M75Y09ZCG1RR11VR2WD6N2N3.md) (bug, medium): Renaming the branch mid-change orphans the active change
 - [TD-01M75DGS1H15VGN9KJ0MYFPXTN](TD-01M75DGS1H15VGN9KJ0MYFPXTN.md) (gap, low): Typed epic key read at step 4 is not placed inside or outside the run's read total
 - [TD-01M73HSVVWGQGKKHJMN1SVFTKF](TD-01M73HSVVWGQGKKHJMN1SVFTKF.md) (bug, low): Research plan can queue a package name that another manifest entry marks private
 - [TD-01M73HSTY0VSMV9F4D4722AWHW](TD-01M73HSTY0VSMV9F4D4722AWHW.md) (gap, low): Ordinary rule edits drop the discovered run from the rule marker
@@ -128,7 +131,7 @@ Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, new
 - [TD-01M620JJV8ZAXHJ5XVSRNXWZT3](TD-01M620JJV8ZAXHJ5XVSRNXWZT3.md) (debt, low): The HUD's askedCalls set grows by every permission prompt and is never pruned
 - [TD-01M620JHFSGZA47GPHC90GW7RG](TD-01M620JHFSGZA47GPHC90GW7RG.md) (gap, low): The allowed_once mark and the outcome line are local state the agent can write directly
 - [TD-01M61S8PK7DH82AZ5M2JAR853B](TD-01M61S8PK7DH82AZ5M2JAR853B.md) (bug, low): module-map.yml has no last_updated_at, so InstructionsDocsStructureGate rejects it
-- [TD-01M61S8MPPFR7YXT3TRC458B71](TD-01M61S8MPPFR7YXT3TRC458B71.md) (debt, low): Host task-list order (Plan, Spec, Load rules, Build, Review, Checks, Docs) does not show review and documentation sync side by side
+- [TD-01M61S8MPPFR7YXT3TRC458B71](TD-01M61S8MPPFR7YXT3TRC458B71.md) (debt, low): Host task-list order (Plan, Spec, Build, Review, Checks, Docs) does not show review and documentation sync side by side
 - [TD-01M61HS7NMY1VRWSS20DFGZ8P7](TD-01M61HS7NMY1VRWSS20DFGZ8P7.md) (follow-up, low): Correct the plugin-directory issue text that still says ^@ (FR-12)
 - [TD-01M61HS58RN3KXZJC8SCT3VETP](TD-01M61HS58RN3KXZJC8SCT3VETP.md) (follow-up, low): Write the SubagentStart/Stop-on-resume observation into the one-development-agent issue (FR-57)
 - [TD-01M61HS3CPS1RWVF61QYS7NSW9](TD-01M61HS3CPS1RWVF61QYS7NSW9.md) (follow-up, low): Regenerate .paqad/.config.example so it lists spec_grounding_budget_ms (FR-39)

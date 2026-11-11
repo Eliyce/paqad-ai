@@ -190,6 +190,35 @@ Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`,
 `Ready` stays as the first word on screen, because at that point paqad has read nothing and cannot
 yet say the work is a feature.
 
+### Closed change row
+
+Once the change's ledger has a `close` row, the snapshot sets `active: false` and carries
+`closed_change` (`closed_at`, the verdict `word`, `new_commits`). The band draws one row:
+`paqad` (semibold), dim `   Change closed · `, the verdict word in semibold (or `no verdict record`
+when the verdict file is missing), then on the right the PR as a `Link` (`PR #<n>`, reachable by
+keyboard with the host's focus ring) and `Ledger`. With no `delivery.json` or no PR link it shows
+`▲ Delivery missing` instead, never done. When commits land after the close row the band stays
+closed and adds `▲ new commits after close` in the caution colour. The Ledger's Delivery tab keeps
+reading `delivery.json` for a closed change.
+
+The terminal draws the same row as one line: `paqad`, dim `  Change closed · `, the verdict word
+behind its mark in the verdict's named tone (`●` good, `✗` bad, `◐` warn), or `▲ no verdict record`
+in warn, then `PR #<n>` (or `▲ Delivery missing` in warn) and, when commits landed after the close,
+`▲ new commits after close` in warn. It is cut with `…` at the band width, and it is not drawn while
+the band is closed or hidden. `/paqad status` keeps the change and branch lines for a closed change
+and adds `Change closed: <word>, PR #<n>[, new commits after close].`
+
+### Record-missing card
+
+When the HUD is bound and `<root>/.paqad/session/hud/<id>.json` still does not exist 30 s after
+binding, the Ready row gives way to a card: the identity row (`paqad` and the controls), then the
+body line `▲ paqad could not find this session's record at <root>` with the `▲` in the caution
+colour, then the dim footnote `Run paqad-ai doctor to see why.` In `<root>` the home part is
+shortened to `~`, and a path too long for the band is cut in the middle with `…`, so the last
+folder name stays visible at every width. A snapshot that appears before 30 s never shows the line,
+and one that appears later clears it within 5 s. When the HUD stands down instead of binding, the
+reason (`not-onboarded`, `old-engine`, `disabled`, `view-off` or `remote`) goes to the debug log.
+
 ### Paqad Getting Ready card
 
 Once the snapshot says the session is on the feature route and this session has written no row of
@@ -428,6 +457,19 @@ The Trust tab shows the proof of the work, stage by stage.
 | not yet                                     | faint                    | muted     |                    |
 
 When every drawn stage is done the value is `All stages done`.
+
+A stage the verdict record lists as having no record (`No record yet for: Checks`) is drawn marked,
+never done, with the value `Checks marked: no record`, so the strip, the gap line and the headline
+tell the same story. A stage whose helper returned no status line is drawn marked with the value
+`Checks · helper gave no report`. A marked label has no `✓`, so it differs from done by symbol as
+well as colour.
+
+A running stage that has run more than once shows its run count and its full span, from the first
+start to now, for example `Build · 5 runs · 8 h 0 min`. The span counts whole minutes, so it moves
+at most once a minute, and it is part of the strip image, never a live region. When the value does
+not fit, the span goes first and `Build · 5 runs` stays. A stage that ran once shows no run count.
+The headline clock still counts the active run. In the Ledger the stage heading carries the same
+`5 runs · 8 h 0 min`, with the span ending at the last end once the stage is done.
 
 #### Sign-off status words and button
 

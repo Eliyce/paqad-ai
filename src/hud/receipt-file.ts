@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -9,7 +11,12 @@ import {
   type VerdictParts,
 } from '@/verification/verdict-kind.js';
 
-import { hudReceiptPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import {
+  hudReceiptPath,
+  hudVerdictAgreementPath,
+  hudVerdictPath,
+  writeFileAtomic,
+} from './files.js';
 
 export interface HudVerdictRecord {
   schema: 'paqad.hud-verdict/1';
@@ -23,6 +30,81 @@ export interface HudVerdictRecord {
   work_reasons?: string[];
   record_gaps?: string[];
   written_at: string;
+}
+
+export const NO_VERDICT_RECORD = 'no verdict record';
+
+export const HUD_VERDICT_WORDS: readonly string[] = Object.values(PAQAD_VERDICT);
+
+export function verdictSessionId(projectRoot: string, hostSessionId: string | null): string {
+  return resolveSessionId(projectRoot, hostSessionId);
+}
+
+export interface VerdictAgreementState {
+  blocked_changes: string[];
+  no_record: { why: string; at: string } | null;
+}
+
+export function readVerdictAgreement(
+  projectRoot: string,
+  sessionId: string,
+): VerdictAgreementState {
+  const empty: VerdictAgreementState = { blocked_changes: [], no_record: null };
+  try {
+    const parsed = JSON.parse(
+      readFileSync(hudVerdictAgreementPath(projectRoot, sessionId), 'utf8'),
+    ) as Partial<VerdictAgreementState> | null;
+    if (typeof parsed !== 'object' || parsed === null) return empty;
+    const blocked = Array.isArray(parsed.blocked_changes)
+      ? parsed.blocked_changes.filter((entry): entry is string => typeof entry === 'string')
+      : [];
+    const noRecord =
+      parsed.no_record && typeof parsed.no_record.why === 'string' ? parsed.no_record : null;
+    return { blocked_changes: blocked, no_record: noRecord };
+  } catch {
+    return empty;
+  }
+}
+
+export function writeVerdictAgreement(
+  projectRoot: string,
+  sessionId: string,
+  state: VerdictAgreementState,
+): void {
+  writeFileAtomic(
+    hudVerdictAgreementPath(projectRoot, sessionId),
+    `${JSON.stringify(state, null, 2)}\n`,
+  );
+}
+
+export type HudVerdictReading =
+  | { status: 'found'; path: string; record: HudVerdictRecord }
+  | { status: 'missing' | 'unreadable'; path: string; why: string };
+
+export function readHudVerdict(projectRoot: string, sessionId: string): HudVerdictReading {
+  const path = hudVerdictPath(projectRoot, sessionId);
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    return { status: 'missing', path, why: `no verdict record at ${path}` };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { status: 'unreadable', path, why: `the verdict record at ${path} is not valid JSON` };
+  }
+  const record =
+    typeof parsed === 'object' && parsed !== null ? (parsed as HudVerdictRecord) : null;
+  if (record?.schema !== 'paqad.hud-verdict/1' || typeof record.word !== 'string') {
+    return {
+      status: 'unreadable',
+      path,
+      why: `the verdict record at ${path} is not a paqad.hud-verdict/1 record`,
+    };
+  }
+  return { status: 'found', path, record };
 }
 
 export interface WrittenHudReceipt {
@@ -44,7 +126,7 @@ export function writeHudReceipt(
   if (verdict.applicable === false || (verdict.kind === undefined && verdict.gates.length === 0)) {
     return null;
   }
-  const sessionId = resolveSessionId(projectRoot, hostSessionId);
+  const sessionId = verdictSessionId(projectRoot, hostSessionId);
   const kind = verdict.kind ?? verdictKindFor(verdict.gates);
   const record: HudVerdictRecord = {
     schema: 'paqad.hud-verdict/1',

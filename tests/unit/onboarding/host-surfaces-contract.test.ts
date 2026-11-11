@@ -41,7 +41,7 @@ describe('host surfaces and decision preview in the router', () => {
       next.startsWith(`${HOST_SURFACES_PARAGRAPH}\n\n**Which channels actually render.**`),
     ).toBe(true);
 
-    const stageList = '(Plan, Spec, Load rules, Build, Review, Checks, Docs)';
+    const stageList = '(Plan, Spec, Build, Review, Checks, Docs)';
     const fastLane =
       'On the fast lane there are no isolated stages, so the task list shows Plan, Build, Checks only.';
     expect(HOST_SURFACES_PARAGRAPH.indexOf(fastLane)).toBeGreaterThan(

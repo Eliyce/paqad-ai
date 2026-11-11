@@ -1,0 +1,59 @@
+{
+  "id": "D-01M762QQ5PCQSQJ9GEQRMD59SC",
+  "category": "authoring.override",
+  "title": "Stage-agent Report line reword: how to clear the agent check",
+  "context": "Build reworded one line in the six stage-helper agent files (Report section: 'End with one line:' became 'Required last line:') via src/stage-isolation/stage-agents.ts. The bundle-completeness gate requires each changed agent to pass the 8-gate authoring flow (paqad-ai agent improve ... release) before delivery.",
+  "options": [
+    {
+      "option_key": "revert",
+      "label": "Revert the one-line reword so no agent file changes; the router already tells the orchestrator what to do when a helper gives no status line",
+      "one_line_preview": "Revert the one-line reword so no agent file changes; the router already tells the orchestrator what to do when a helper gives no status line",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "override",
+      "label": "Record an owner override for the six agents (generated-only wording edit) and release them",
+      "one_line_preview": "Record an owner override for the six agents (generated-only wording edit) and release them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "improve",
+      "label": "Run the full agent improve flow (8 gates) for all six agents",
+      "one_line_preview": "Run the full agent improve flow (8 gates) for all six agents",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "revert",
+  "created_at": "2026-11-11T19:53:09.046Z",
+  "status": "resolved",
+  "change": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier question about clearing the agent authoring check for a generated wording edit."
+  },
+  "chosen": "revert",
+  "rationale": "Owner: restore the six agent files; no-report handling stays in the router and band.",
+  "resolved_at": "2026-11-11T20:40:56.389Z",
+  "decision_id": "D-01M762QQ5PCQSQJ9GEQRMD59SC",
+  "fingerprint": "sha256:780e864aa93ee5dd04f7670d8a9b07c56d961dea98f31d8f31801addd312fed2",
+  "question": "Stage-agent Report line reword: how to clear the agent check",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "ttl_until": "2026-12-11T19:53:09.046Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "revert",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T20:40:56.389Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: restore the six agent files; no-report handling stays in the router and band."
+  }
+}

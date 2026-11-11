@@ -753,6 +753,19 @@ function readCommitGroup(value: unknown): PaqadCommitGroup | null {
   };
 }
 
+function readClosedChange(value: unknown): Pick<PaqadHudSnapshot, 'closed_change'> {
+  const closed = rec(value);
+  const at = str(closed?.closed_at);
+  if (!closed || !at) return {};
+  return {
+    closed_change: {
+      closed_at: at,
+      word: str(closed.word),
+      new_commits: num(closed.new_commits) ?? 0,
+    },
+  };
+}
+
 export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot | null {
   if (typeof text !== 'string' || text.trim() === '') return null;
   let raw: unknown;
@@ -815,6 +828,13 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           mandatory: stage.mandatory === true,
           started_at: str(stage.started_at),
           ended_at: str(stage.ended_at),
+          ...(stage.first_started_at !== undefined
+            ? { first_started_at: str(stage.first_started_at) }
+            : {}),
+          ...(stage.last_ended_at !== undefined ? { last_ended_at: str(stage.last_ended_at) } : {}),
+          ...(num(stage.runs) !== null ? { runs: num(stage.runs)! } : {}),
+          ...(stage.record_gap === true ? { record_gap: true } : {}),
+          ...(stage.no_report === true ? { no_report: true } : {}),
           duration_unreliable: stage.duration_unreliable === true,
           duration_ms: num(stage.duration_ms),
           agent: str(stage.agent),
@@ -903,6 +923,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     ...readStartPoint(snap.start_point),
     ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
     ...(typeof snap.ledger_note === 'string' ? { ledger_note: snap.ledger_note } : {}),
+    ...readClosedChange(snap.closed_change),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }
@@ -1042,6 +1063,12 @@ function outsideLane(stage: string, snapshot: PaqadHudSnapshot): boolean {
 
 function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapshot): SegmentState {
   if (!stage) return NOT_YET;
+  if (
+    (stage.record_gap || stage.no_report) &&
+    stage.state !== 'running' &&
+    stage.state !== 'failed'
+  )
+    return 'marked';
   switch (stage.state) {
     case 'complete':
     case 'redone':
@@ -1076,6 +1103,27 @@ export function stageSegments(snapshot: PaqadHudSnapshot | null): StageSegment[]
 }
 
 export { formatClock };
+
+export function spanText(ms: number): string {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+export interface StageRuns {
+  runs: string;
+  span: string | null;
+}
+
+export function stageRuns(stage: PaqadHudStage | undefined, now: number | null): StageRuns | null {
+  const runs = stage?.runs ?? 1;
+  if (!stage || runs <= 1) return null;
+  const first = Date.parse(stage.first_started_at ?? stage.started_at ?? '');
+  const last =
+    stage.state === 'running' ? (now ?? Number.NaN) : Date.parse(stage.last_ended_at ?? '');
+  const span = Number.isFinite(first) && Number.isFinite(last) ? spanText(last - first) : null;
+  return { runs: `${runs} runs`, span };
+}
 
 export function liveClock(segments: StageSegment[], now: number): string | null {
   const running = segments.find((segment) => segment.state === 'running');

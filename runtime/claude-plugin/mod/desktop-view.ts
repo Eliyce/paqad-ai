@@ -11,7 +11,7 @@ import {
   shortAge,
 } from './cost';
 import { needsAnswers, roleInitials, tableStatus } from './instruments';
-import { stageSegments, type SegmentState } from './model';
+import { stageRuns, stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
 import {
@@ -43,7 +43,7 @@ import { visibilityMode, type BandVisibility } from './visibility';
 import { waitingOnHuman } from './attention';
 import { WAITING_FOR_ANSWER, snapshotHeadline, type DesktopHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
-import { fitLine } from './shell';
+import { ELLIPSIS, fitLine } from './shell';
 import {
   NOTHING_TO_PROVE,
   OLD_RECORD_NOTE,
@@ -77,6 +77,9 @@ export const UNREADABLE_WHY = {
   snapshot: 'The snapshot file is not valid.',
 } as const;
 export const GETTING_READY = 'Paqad Getting Ready';
+export const RECORD_MISSING = "paqad could not find this session's record at";
+export const RECORD_MISSING_HINT = 'Run paqad-ai doctor to see why.';
+export const RECORD_WAIT_MS = 30_000;
 export { FEATURE_WORDS };
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
@@ -233,13 +236,33 @@ const STAGE_STATE: Readonly<Record<SegmentState, StageState>> = {
 function markedValue(snapshot: PaqadHudSnapshot, stage: string): string {
   const record = snapshot.stages.find((entry) => entry.stage === stage);
   const word = stageWord(stage);
+  if (record?.no_report) return `${word} · ${HELPER_NO_REPORT}`;
+  if (record?.record_gap) return `${word} marked: no record`;
   if (record?.duration_unreliable) return `${word} marked: no recorded work`;
   if (record?.state === 'inconclusive') return `${word} inconclusive`;
   if (stage === 'checks') return 'Checks: no test run recorded';
   return `${word} marked`;
 }
 
+export const HELPER_NO_REPORT = 'helper gave no report';
+export const CHANGE_CLOSED = 'Change closed';
+export const NO_VERDICT_WORDS = 'no verdict record';
+export const DELIVERY_MISSING = 'Delivery missing';
+export const NEW_COMMITS_AFTER_CLOSE = 'new commits after close';
 export const SIGNOFF_LABEL = 'Sign-off';
+
+export function closedChangeBand(snapshot: PaqadHudSnapshot): DesktopBand | null {
+  const closed = snapshot.closed_change;
+  if (!closed) return null;
+  const number = snapshot.ship?.pr_number ?? null;
+  const href = snapshot.ship?.pr_url ?? null;
+  return {
+    kind: 'closed-change',
+    word: closed.word ?? NO_VERDICT_WORDS,
+    pr: number !== null && href ? { text: `PR #${number}`, href } : null,
+    note: closed.new_commits > 0 ? NEW_COMMITS_AFTER_CLOSE : null,
+  };
+}
 export const CHECK_CEILING_MS = 10 * 60_000;
 export const COPIED_MS = 2_000;
 
@@ -604,10 +627,17 @@ export function stripOf(
   const stage = stageStrip(snapshot, live, signoff);
   const table = tableStrip(snapshot);
   const delivery = deliveryStrip(snapshot, live);
+  const running = snapshot.stages.find((entry) => entry.state === 'running');
+  const runs =
+    running && stage.value === stageWord(running.stage)
+      ? stageRuns(running, clockMs ?? null)
+      : null;
+  const short = runs ? `${stage.value} · ${runs.runs}` : null;
   return {
     columns,
     stages: stage.stages,
-    stageValue: stage.value,
+    stageValue: runs?.span ? `${short} · ${runs.span}` : (short ?? stage.value),
+    ...(short && runs?.span ? { stageValueShort: short } : {}),
     seats: table.seats,
     hiddenSeats: table.hidden,
     chief: table.chief,
@@ -766,6 +796,7 @@ export type DesktopBand =
   | { kind: 'none' }
   | { kind: 'ready' }
   | { kind: 'unreadable'; reason: Unreadable; headline: string }
+  | { kind: 'missing'; line: string; hint: string }
   | {
       kind: 'workflow';
       words: string;
@@ -774,6 +805,12 @@ export type DesktopBand =
       cost: string;
     }
   | { kind: 'closed' | 'hidden'; needsYou: boolean }
+  | {
+      kind: 'closed-change';
+      word: string;
+      pr: { text: string; href: string | null } | null;
+      note: string | null;
+    }
   | ({ kind: 'feature' } & FeatureCard)
   | ({ kind: 'ready-feature' } & FeatureCard);
 
@@ -792,6 +829,33 @@ export interface DesktopBandInput {
   signoffCheck?: SignoffCheck | null;
   design?: boolean;
   copiedAt?: number | null;
+  missingRecord?: { root: string; home: string | null } | null;
+}
+
+export function homeShortened(path: string, home: string | null): string {
+  if (home === null || home === '' || home === '/') return path;
+  if (path === home) return '~';
+  for (const separator of ['/', '\\']) {
+    if (path.startsWith(`${home}${separator}`)) return `~${path.slice(home.length)}`;
+  }
+  return path;
+}
+
+export function middleTruncated(text: string, max: number): string {
+  const chars = [...text];
+  const room = Math.max(1, Math.floor(max));
+  if (chars.length <= room) return text;
+  const cut = Math.max(chars.lastIndexOf('/'), chars.lastIndexOf('\\'));
+  const tailFrom =
+    cut >= 0 && chars.length - cut < room - 1 ? cut : chars.length - Math.ceil((room - 1) / 2);
+  const tail = chars.slice(tailFrom);
+  const head = chars.slice(0, Math.max(0, room - 1 - tail.length));
+  return `${head.join('')}${ELLIPSIS}${tail.join('')}`;
+}
+
+export function recordMissingLine(root: string, home: string | null, columns: number): string {
+  const room = columns - HEADLINE_INSET_COLUMNS - [...RECORD_MISSING].length - 1;
+  return `${RECORD_MISSING} ${middleTruncated(homeShortened(root, home), room)}`;
 }
 
 export function unreadableReason(input: {
@@ -871,18 +935,27 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
   const snapshot = input.snapshot;
+  if (!snapshot && input.missingRecord) {
+    return {
+      kind: 'missing',
+      line: recordMissingLine(input.missingRecord.root, input.missingRecord.home, input.columns),
+      hint: RECORD_MISSING_HINT,
+    };
+  }
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
   if (route) {
     if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
     return workflowBand(snapshot, route, input.now, input.turnStartedAt);
   }
-  if (!snapshot.active && !readyFeatureRoute(snapshot)) return { kind: 'none' };
+  const closedChange = closedChangeBand(snapshot);
+  if (!snapshot.active && !readyFeatureRoute(snapshot) && !closedChange) return { kind: 'none' };
   const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
+  if (closedChange) return closedChange;
   if (!snapshot.active) {
     return routeFromEarlierTurn(snapshot, input.turnStartedAt)
       ? { kind: 'none' }
@@ -1119,11 +1192,23 @@ export function signoffRecord(snapshot: PaqadHudSnapshot): SignoffRecord | null 
   };
 }
 
-export function trustView(snapshot: PaqadHudSnapshot): TrustView {
+export function trustView(snapshot: PaqadHudSnapshot, now: number | null = null): TrustView {
   const active = snapshot.active;
   const history = active ? ruleStopHistory(snapshot) : null;
   const proof = active ? (snapshot.proof ?? null) : [];
-  const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
+  const stages =
+    proof && proof.some(stageHasEvidence)
+      ? proof.map((entry) => {
+          const runs = stageRuns(
+            snapshot.stages.find((record) => record.stage === entry.stage),
+            now,
+          );
+          return {
+            ...trustStage(entry),
+            span: runs ? [runs.runs, runs.span].filter(Boolean).join(' · ') : null,
+          };
+        })
+      : [];
   const gates = active && proof === null ? oldRecordGates(snapshot) : [];
   const claims = claimsView(snapshot);
   const signoff = signoffRecord(snapshot);
@@ -1490,7 +1575,9 @@ export function deliveryView(
   snapshot: PaqadHudSnapshot,
   live: LiveState = IDLE_LIVE,
 ): DeliveryView {
-  if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
+  if (!snapshot.active && !snapshot.closed_change) {
+    return { blocks: [], empty: 'Nothing to deliver yet.' };
+  }
   const strip = deliveryStrip(snapshot, live);
   const ship = snapshot.ship;
   return {
@@ -1784,7 +1871,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     subtitle: ledgerSubtitle(snapshot),
     tabs,
     shown: tabs.find((tab) => tab.shown)!.id,
-    trust: trustView(snapshot),
+    trust: trustView(snapshot, input.now),
     table: tableView(snapshot, input.specText),
     delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),
@@ -1803,12 +1890,12 @@ export function ledgerIsLive(ledger: DesktopLedger): boolean {
 export const UPDATE_PLAN_TOOL = 'mcp__ccd_turn__update_plan';
 
 export const TASK_LIST_SENTENCES = {
-  full: 'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+  full: 'paqad task list: Plan, Spec, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
   fast: 'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
 } as const;
 
 const TASK_WORDS = {
-  full: ['plan', 'spec', 'load rules', 'build', 'review', 'checks', 'docs'],
+  full: ['plan', 'spec', 'build', 'review', 'checks', 'docs'],
   fast: ['plan', 'build', 'checks'],
 } as const;
 

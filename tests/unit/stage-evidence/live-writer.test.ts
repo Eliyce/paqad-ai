@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   classifyStage,
+  helperEditStage,
   recordLiveStageEdit,
   recordLiveStageEdits,
   recordMarkedStage,
@@ -110,6 +111,62 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     expect(start).toHaveLength(1);
     expect(start[0]?.evidence_source).toBe('live-mark');
     expect(typeof start[0]?.recorded_at).toBe('string');
+  });
+
+  it('AC-8: a test edit by the development helper stays under development and never opens checks', () => {
+    const now = clock();
+    seedPreCode(now);
+    for (const agent of ['paqad-development', 'paqad:paqad-development']) {
+      const stage = recordLiveStageEdit({
+        projectRoot: root,
+        sessionId: SES,
+        toolName: 'Edit',
+        targetPath: 'tests/foo.test.ts',
+        agent,
+        now,
+      });
+      expect(stage).toBe('development');
+    }
+    expect(kinds('stage_start', 'checks')).toHaveLength(0);
+    expect(kinds('stage_start', 'development')).toHaveLength(1);
+  });
+
+  it('AC-8: a test edit by the orchestrator still opens checks', () => {
+    const now = clock();
+    seedPreCode(now);
+    for (const agent of [undefined, 'orchestrator']) {
+      expect(
+        recordLiveStageEdit({
+          projectRoot: root,
+          sessionId: SES,
+          toolName: 'Edit',
+          targetPath: 'tests/foo.test.ts',
+          ...(agent ? { agent } : {}),
+          now,
+        }),
+      ).toBe('checks');
+    }
+    expect(kinds('stage_start', 'checks')).toHaveLength(1);
+  });
+
+  it('AC-8: an agent outside the stage-helper list uses the file-type rule', () => {
+    const now = clock();
+    seedPreCode(now);
+    for (const agent of ['paqad-expert', 'my-own-agent']) {
+      expect(
+        recordLiveStageEdit({
+          projectRoot: root,
+          sessionId: SES,
+          toolName: 'Edit',
+          targetPath: 'tests/foo.test.ts',
+          agent,
+          now,
+        }),
+      ).toBe('checks');
+    }
+    expect(helperEditStage('paqad-checks', 'development')).toBe('checks');
+    expect(helperEditStage('paqad-documentation-sync', 'development')).toBe('documentation_sync');
+    expect(helperEditStage(undefined, 'checks')).toBe('checks');
   });
 
   it('AC-2: a later edit stage starts without ending the earlier edit stage', () => {

@@ -13,6 +13,7 @@ import { agentForWriter } from './agent-identity.js';
 import { endStage, openStageEvidence, startStage } from './recorder.js';
 import { liveStageAgents, stageAgentIdentity, startedByAnotherAgent } from './stage-agent-holds.js';
 import { startedAfterLastEnd } from './fold.js';
+import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 import {
   isEditStage,
   isKnownStage,
@@ -117,10 +118,16 @@ export function liveStageToStart(
   return !isEditStage(stage) || stageIsOpen(rows, stage) ? null : stage;
 }
 
+export function helperEditStage(agent: string | undefined, fileStage: StageId): StageId {
+  const helper = agent ? stageForAgentName(stripPluginAgentNamespace(agent)) : null;
+  return helper ? (helper as StageId) : fileStage;
+}
+
 export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
   const { projectRoot, targetPath, now } = input;
-  const classified = classifyStage(targetPath, projectRoot);
-  if (!classified) return null;
+  const fileStage = classifyStage(targetPath, projectRoot);
+  if (!fileStage) return null;
+  const classified = helperEditStage(input.agent, fileStage);
 
   try {
     const sessionId = resolveSessionId(projectRoot, input.sessionId);

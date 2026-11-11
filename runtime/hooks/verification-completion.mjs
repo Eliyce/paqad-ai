@@ -11,7 +11,9 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
-import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
+import { loadPaqadApi, runVerificationBackstop } from '../scripts/verify-backstop.mjs';
+import { logHookDebug, logHookFailure } from './lib/hook-log.mjs';
+import { checkVerdictAgreement } from './lib/verdict-agreement.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 import { refreshCostFromHook } from './lib/cost-refresh.mjs';
 
@@ -48,6 +50,7 @@ async function main() {
   }
 
   const transcriptText = resolveCompletionTranscriptText(input, ADAPTER) || null;
+  const held = [];
   const code = await runVerificationBackstop({
     origin: 'hook-completion',
     softFail: true,
@@ -55,10 +58,32 @@ async function main() {
     hostSessionId: sessionIdFromStdin(input),
     loopActive: stopHookActiveFromStdin(input),
     transcriptText,
+    stdout: { write: (chunk) => held.push(String(chunk)) },
   });
+  const agreement =
+    held.length === 0 && !isPaqadDisabled(projectRoot) ? await verdictAgreement(projectRoot) : null;
+  if (agreement) held.push(`${JSON.stringify(agreement)}\n`);
+  for (const chunk of held) process.stdout.write(chunk);
   await refreshCostFromHook(input, 'verification-completion');
   await refreshHudFromHook(input, 'verification-completion');
   process.exit(code);
+}
+
+async function verdictAgreement(projectRoot) {
+  try {
+    const api = await loadPaqadApi();
+    return checkVerdictAgreement({
+      api,
+      projectRoot,
+      stdin: input,
+      hostSessionId: sessionIdFromStdin(input),
+      loopActive: stopHookActiveFromStdin(input),
+      log: (note) => logHookDebug(projectRoot, 'verification-completion:verdict', note),
+    });
+  } catch (error) {
+    logHookFailure(projectRoot, 'verification-completion:verdict', error);
+    return null;
+  }
 }
 
 function nextStageNudge(stage) {

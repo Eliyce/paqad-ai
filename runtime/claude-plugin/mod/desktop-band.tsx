@@ -1,7 +1,9 @@
 import type { Elements } from 'claude-code';
 
 import {
+  CHANGE_CLOSED,
   CLOSED_WORDS,
+  DELIVERY_MISSING,
   CLOSE_MENU_QUESTION,
   FEATURE_WORDS,
   HIDDEN_WORDS,
@@ -318,6 +320,53 @@ function unreadableBand(
   );
 }
 
+function closedChangeBand(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'closed-change' }>,
+  actions: BandActions,
+) {
+  const { Box, Text, Link, Button } = ui;
+  return (
+    <Box key="paqad-band" flexDirection="row" alignItems="center" columnGap="sm">
+      <Text size="footnote" wrap="truncate-end">
+        {brand(ui)}
+        <Text dimColor>{`   ${CHANGE_CLOSED} · `}</Text>
+        <Text weight="semibold">{band.word}</Text>
+        {band.note ? <Text color={SIGNAL.caution}>{`   ▲ ${band.note}`}</Text> : null}
+      </Text>
+      <Box flexGrow={1} />
+      {band.pr?.href ? (
+        <Link href={band.pr.href}>{band.pr.text}</Link>
+      ) : (
+        <Text size="footnote">{`▲ ${DELIVERY_MISSING}`}</Text>
+      )}
+      <Button dimColor key="paqad-closed-ledger" onPress={actions.ledger}>
+        Ledger
+      </Button>
+    </Box>
+  );
+}
+
+function missingBand(ui: D, band: Extract<DesktopBand, { kind: 'missing' }>, actions: BandActions) {
+  const { Box, Text } = ui;
+  return (
+    <Box key="paqad-band" flexDirection="column" rowGap="xs">
+      <Box key="paqad-identity" flexDirection="row" alignItems="center" columnGap="sm">
+        <Text>{brand(ui)}</Text>
+        <Box flexGrow={1} />
+        {controls(ui, actions, false)}
+      </Box>
+      <Text wrap="truncate-end">
+        <Text color={SIGNAL.caution}>▲ </Text>
+        <Text>{band.line}</Text>
+      </Text>
+      <Text size="footnote" dimColor wrap="truncate-end">
+        {band.hint}
+      </Text>
+    </Box>
+  );
+}
+
 export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions: BandActions) {
   const { Text } = ui;
   switch (band.kind) {
@@ -332,6 +381,10 @@ export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions:
       );
     case 'unreadable':
       return unreadableBand(ui, band, actions);
+    case 'missing':
+      return missingBand(ui, band, actions);
+    case 'closed-change':
+      return closedChangeBand(ui, band, actions);
     case 'workflow':
       return workflowBand(ui, band, tick, actions);
     case 'closed':

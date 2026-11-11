@@ -8,6 +8,8 @@ import { isPaqadDisabled } from '../../../../runtime/hooks/lib/paqad-disabled.mj
 import {
   MIN_ENGINE,
   ancestorDirs,
+  homeOf,
+  nextSessionRoot,
   decideStatus,
   isChimeOn,
   isEngineNewEnough,
@@ -194,6 +196,36 @@ describe('ancestorDirs', () => {
   ])('%s', (root, dirs) => {
     expect(ancestorDirs(root)).toEqual(dirs);
   });
+
+  it('AC-13: stops before the home folder and never returns it', () => {
+    expect(ancestorDirs('/hm/u/repo/app', '/hm/u')).toEqual(['/hm/u/repo/app', '/hm/u/repo']);
+    expect(ancestorDirs('/hm/u/.claude/spares/spare-1', '/hm/u')).not.toContain('/hm/u');
+    expect(ancestorDirs('/work/app', '/hm/u')).toEqual(['/work/app', '/work', '/']);
+  });
+
+  it('AC-13: treats home with a trailing separator as home, and the home folder itself as no root', () => {
+    expect(ancestorDirs('/hm/u/repo', '/hm/u/')).toEqual(['/hm/u/repo']);
+    expect(ancestorDirs('/hm/u/', '/hm/u')).toEqual([]);
+    expect(ancestorDirs('/hm/u', '/hm/u//')).toEqual([]);
+    expect(ancestorDirs('C:\\Profiles\\u\\repo', 'C:\\Profiles\\u\\')).toEqual([
+      'C:\\Profiles\\u\\repo',
+    ]);
+  });
+
+  it('AC-13: with no home path set walks the full path as before without throwing', () => {
+    expect(ancestorDirs('/hm/u/repo', null)).toEqual(['/hm/u/repo', '/hm/u', '/hm', '/']);
+  });
+});
+
+describe('homeOf', () => {
+  it('AC-13: reads HOME, falls back to USERPROFILE, strips trailing separators', () => {
+    expect(homeOf({ HOME: '/hm/u/' })).toBe('/hm/u');
+    expect(homeOf({ USERPROFILE: 'C:\\Profiles\\u\\' })).toBe('C:\\Profiles\\u');
+    expect(homeOf({ HOME: '/hm/u', USERPROFILE: 'C:\\Profiles\\u' })).toBe('/hm/u');
+    expect(homeOf({ HOME: '' })).toBeNull();
+    expect(homeOf({})).toBeNull();
+    expect(homeOf({ HOME: '/' })).toBe('/');
+  });
 });
 
 describe('the hud_chime setting', () => {
@@ -222,5 +254,26 @@ describe('the hud_chime setting', () => {
     expect(
       isChimeOn({ ...base, teamConfigs: [{ name: '.config.example', text: 'hud_chime=true\n' }] }),
     ).toBe(false);
+  });
+});
+
+describe('nextSessionRoot', () => {
+  it('AC-3: retries the folder read on the next prompt after it failed at session start', async () => {
+    let calls = 0;
+    const readRoot = async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('folder read failed');
+      return '/work/app';
+    };
+    expect(await nextSessionRoot(true, null, readRoot)).toBeNull();
+    expect(await nextSessionRoot(true, null, readRoot)).toBe('/work/app');
+    expect(calls).toBe(2);
+  });
+
+  it('AC-3, AC-14: binds a moved folder, skips an unchanged one, and waits for session start', async () => {
+    const at = (root: string) => async () => root;
+    expect(await nextSessionRoot(true, '/work/app', at('/work/app'))).toBeNull();
+    expect(await nextSessionRoot(true, '/work/app', at('/work/other'))).toBe('/work/other');
+    expect(await nextSessionRoot(false, null, at('/work/app'))).toBeNull();
   });
 });

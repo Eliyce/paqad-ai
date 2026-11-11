@@ -75,6 +75,7 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[], lane: Stage
 
   const startedAt = start ? rowRecordedAt(start) : null;
   const endedAt = end ? rowRecordedAt(end) : null;
+  const firstStart = events.find((row) => row.kind === 'stage_start');
   let durationMs: number | null = null;
   let unreliable = false;
   if (startedAt && endedAt) {
@@ -93,6 +94,9 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[], lane: Stage
         : deriveState(stage, events, start, end),
     started_at: startedAt,
     ended_at: endedAt,
+    first_started_at: firstStart ? rowRecordedAt(firstStart) : null,
+    last_ended_at: lastEnd ? rowRecordedAt(lastEnd) : null,
+    runs: events.filter((row) => row.kind === 'stage_start').length,
     duration_ms: durationMs,
     duration_unreliable: unreliable,
     evidence_source: coerceEvidenceSource((end ?? start)?.evidence_source),

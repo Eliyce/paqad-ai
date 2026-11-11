@@ -583,6 +583,18 @@ existing code is open.`), so the band shows findings only as a count in the flag
   cache: it uses the hook's session id when it has one and never rewrites the cache.
 - **Stands down** in a project that was never onboarded and while paqad is disabled.
 - **Read it** with `paqad-ai status --hud` (text) or `--hud --format json` (the object).
+  `paqad-ai status --verdict` prints the session's verdict word and reasons from
+  `<session>.verdict.json` through `readHudVerdict`, the one reader the Stop hook also uses.
+- **Closed and repeated stages.** After a `close` row the snapshot has `active: false` and a
+  `closed_change` block (closed time, verdict word, commits after close). Each stage keeps
+  `runs`, `first_started_at` and `last_ended_at`, so a stage that ran five times shows its run count
+  and full span. A stage named in the verdict's record gaps carries `record_gap`, and one whose
+  stage helper gave no status line carries `no_report`; both draw marked, never done.
+- **Close notes.** The close row reads `closed; bundle=complete|incomplete` and the verify row
+  `bundle=<state>; missing=[...]`; older rows with `verdict=` still read.
+- **Helper edits.** An edit by a stage helper (an agent name `stageForAgentName` knows) is recorded
+  under that helper's stage; the file-type rule (a test edit means checks) applies to the
+  orchestrator and to any other agent.
 
 ### The HUD band in Claude Code
 

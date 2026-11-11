@@ -106,7 +106,7 @@ export function closeVerifiedChange(projectRoot: string, input: CloseVerifiedCha
         kind: 'close',
         agent: agentForWriter(input.adapter),
         event_status: 'completed',
-        note: `closed; verdict=${input.verdict}`,
+        note: `closed; bundle=${input.verdict}`,
       },
       input.now,
     );

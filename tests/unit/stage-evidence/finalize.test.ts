@@ -521,8 +521,67 @@ describe('finalizeStageEvidence', () => {
     closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: result!.verdict });
     const close = readFeatureStageUnit(root, dirName).filter((row) => row.kind === 'close');
     expect(close).toHaveLength(1);
-    expect(close[0]!.note).toBe(`closed; verdict=${result!.verdict}`);
+    expect(close[0]!.note).toBe(`closed; bundle=${result!.verdict}`);
     expect(currentFeature(root, sessionId)).toBeNull();
+  });
+
+  it('AC-7: the close row and the verify note read bundle= and never verdict=', () => {
+    const sessionId = 'ses_bundle_note';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
+        sessionId,
+        dirName,
+        adapter: 'claude-code',
+      });
+    }
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+      deferClose: true,
+    });
+    closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: result!.verdict });
+    const rows = readFeatureStageUnit(root, dirName);
+    const notes = rows
+      .filter((row) => row.kind === 'close' || row.kind === 'verify')
+      .map((row) => String(row.note));
+    expect(notes.length).toBeGreaterThanOrEqual(2);
+    expect(notes.find((note) => note.startsWith('closed;'))).toBe(
+      `closed; bundle=${result!.verdict}`,
+    );
+    expect(notes.some((note) => note.startsWith(`bundle=${result!.verdict}; missing=`))).toBe(true);
+    for (const note of notes) expect(note).not.toContain('verdict=');
+  });
+
+  it('AC-7: a ledger holding the old closed; verdict=complete row still reads', () => {
+    const sessionId = 'ses_old_note';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    appendFeatureStageRow(root, sessionId, dirName, {
+      kind: 'verify',
+      event_status: 'completed',
+      note: 'verdict=complete; missing=[]',
+    });
+    appendFeatureStageRow(root, sessionId, dirName, {
+      kind: 'close',
+      event_status: 'completed',
+      note: 'closed; verdict=complete',
+    });
+    const rows = readFeatureStageUnit(root, dirName);
+    expect(rows.map((row) => row.note)).toContain('closed; verdict=complete');
+    expect(rows.map((row) => row.note)).toContain('verdict=complete; missing=[]');
+    closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: 'complete' });
+    expect(readFeatureStageUnit(root, dirName).filter((row) => row.kind === 'close')).toHaveLength(
+      1,
+    );
   });
 
   it('closeVerifiedChange is a no-op when no change is active', () => {

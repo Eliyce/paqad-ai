@@ -1,0 +1,66 @@
+{
+  "id": "D-01M75Y5VDNQ8T66PBW0JEJ4Z7S",
+  "category": "architecture-path",
+  "title": "Which modules own the #887 HUD fix",
+  "context": "Module attribution was deferred from planning (inferencer best 0.13). Part B (src/hud snapshot fold, verdict, stage-evidence finalize close row, stage-agent edit attribution) is documented under feature-evidence; Part A (runtime/claude-plugin/mod root walk and rebind) is documented under claude-plugin; doctor (A4) lives in cli-health/cli-lifecycle. The chosen modules decide where the docs and health ledger record this change.",
+  "options": [
+    {
+      "option_key": "fe-plugin",
+      "label": "feature-evidence (primary) and claude-plugin",
+      "one_line_preview": "feature-evidence (primary) and claude-plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fe-only",
+      "label": "feature-evidence only",
+      "one_line_preview": "feature-evidence only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fe-plugin-health",
+      "label": "feature-evidence, claude-plugin and cli-health",
+      "one_line_preview": "feature-evidence, claude-plugin and cli-health",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "verification",
+      "label": "verification (primary) and claude-plugin",
+      "one_line_preview": "verification (primary) and claude-plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fe-plugin",
+  "created_at": "2026-11-11T18:33:29.269Z",
+  "status": "resolved",
+  "change": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "D-01M6QKXA0TPTX2RCF3Q3W04V6V assigned new src/hld code to a new module; this change edits existing HUD, plugin and stage-evidence code, so that reason does not carry over."
+  },
+  "chosen": "fe-plugin",
+  "rationale": "Owner: feature-evidence primary plus claude-plugin.",
+  "resolved_at": "2026-11-11T18:46:30.982Z",
+  "decision_id": "D-01M75Y5VDNQ8T66PBW0JEJ4Z7S",
+  "fingerprint": "sha256:169938032e002e2ba470ea33003131c68dc6eaceb48fa26f9f200a5bf6f6acbd",
+  "question": "Which modules own the #887 HUD fix",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M75XJ2H6FDK6B37W5PKVH9N2",
+  "ttl_until": "2027-02-09T18:33:29.269Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fe-plugin",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T18:46:30.982Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: feature-evidence primary plus claude-plugin."
+  }
+}

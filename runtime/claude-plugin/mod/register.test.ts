@@ -805,6 +805,39 @@ describe('the Desktop band', () => {
     );
   });
 
+  test('AC-4: a bound session with no record says so after 30 s, and the record clears it', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED }, env: { HOME: '/hm/dev' } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await clock.advance(29_000);
+    await clock.settle();
+    expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Ready');
+    await clock.advance(1_000);
+    await clock.settle();
+    const missing = textOf(await $.ui.render(band('desktop')));
+    expect(missing).toContain("paqad could not find this session's record at /work");
+    expect(missing).toContain('paqad-ai doctor');
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await clock.advance(5_000);
+    await clock.settle();
+    const found = textOf(await $.ui.render(band('desktop')));
+    expect(found).not.toContain('could not find');
+    expect(found).toContain('ORD-501');
+  });
+
+  test('AC-4: a record that appears at 29 s never shows the missing line', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await clock.advance(29_000);
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    for (let second = 0; second < 40; second += 1) {
+      await clock.advance(1_000);
+      await clock.settle();
+      expect(textOf(await $.ui.render(band('desktop')))).not.toContain('could not find');
+    }
+  });
+
   test('draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
@@ -1776,6 +1809,24 @@ describe('stand-downs: the mod registers nothing', () => {
     });
   }
 
+  const REASONS = [
+    ['not-onboarded', { files: {} }],
+    ['view-off', { files: { ...ONBOARDED }, env: { PAQAD_HUD_VIEW: 'false' } }],
+    ['remote', { files: { ...ONBOARDED }, env: { CLAUDE_CODE_REMOTE: 'true' } }],
+    ['disabled', { files: { ...ONBOARDED }, env: { PAQAD_DISABLED: '1' } }],
+    ['old-engine', { files: { ...ONBOARDED }, version: { version: '2.1.300', base: '2.1.300' } }],
+  ] as const;
+  for (const [reason, setup] of REASONS) {
+    test(`AC-15: the stand-down reason ${reason} is written to the debug log`, async ($, on) => {
+      const world = worldOf(on, setup);
+      await $.session.start(START);
+      expect(world.logs).toContainEqual({
+        text: `paqad HUD stands down at /work: ${reason}`,
+        to: 'debug',
+      });
+    });
+  }
+
   test('a project never onboarded keeps /paqad alone, to say so', async ($, on) => {
     const world = worldOf(on, { files: {} });
     mock.clock(on, { now: NOW });
@@ -1784,6 +1835,114 @@ describe('stand-downs: the mod registers nothing', () => {
     expect(textOf(await $.ui.render(band('terminal')))).not.toContain('paqad');
     const answer = await $.command.run(command('status'));
     expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+});
+
+describe('the HUD never takes the home folder as a project root', () => {
+  const HOME = '/hm/dev';
+  const SPARE = `${HOME}/.claude/spares/spare-1`;
+  const HOME_ONBOARDED = { [`${HOME}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n' };
+
+  test('AC-2: a session whose only onboarded ancestor is home reports not onboarded and writes nothing there', async ($, on) => {
+    const world = worldOf(on, { files: HOME_ONBOARDED, root: SPARE, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    await $.prompt.submit({ text: 'go', origin: { kind: 'composer' } } as never);
+    expect(world.writes).toEqual([]);
+    expect(world.reads.filter((path) => path.startsWith(`${HOME}/.paqad/session`))).toEqual([]);
+    const answer = await $.command.run(command('status'));
+    expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+
+  test('AC-2: a session rooted at home itself is not onboarded, read through USERPROFILE too', async ($, on) => {
+    const world = worldOf(on, {
+      files: HOME_ONBOARDED,
+      root: `${HOME}/`,
+      env: { USERPROFILE: HOME },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: HOME });
+    expect(world.writes).toEqual([]);
+    const answer = await $.command.run(command('status'));
+    expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+});
+
+describe('the HUD follows the session folder when it moves', () => {
+  const HOME = '/hm/dev';
+  const SPARE = `${HOME}/.claude/spares/spare-1`;
+  const REPO = `${HOME}/code/app`;
+  const OTHER = `${HOME}/code/plain`;
+  const HOME_ONBOARDED = { [`${HOME}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n' };
+  const REPO_ONBOARDED = {
+    [`${REPO}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n',
+    [`${REPO}/${SNAPSHOT}`]: fileText(FULL_ORD_501),
+  };
+  const PROMPT = { text: 'go', origin: { kind: 'composer' } } as never;
+  const configReads = (world: World) =>
+    world.reads.filter((path) => path.endsWith('.paqad/.config')).length;
+
+  test('AC-1: a spare session claimed into an onboarded repo writes the repo heartbeat on the first prompt', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...HOME_ONBOARDED, ...REPO_ONBOARDED },
+      root: SPARE,
+      env: { HOME },
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    expect(world.writes).toEqual([]);
+    world.root = REPO;
+    await $.prompt.submit(PROMPT);
+    await clock.advance(2_000);
+    expect(world.writes.map((write) => write.path)).toContain(`${REPO}/${HEARTBEAT}`);
+    expect(world.writes.some((write) => write.path.startsWith(`${HOME}/.paqad/`))).toBe(false);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+  });
+
+  test('AC-3: a folder that changes before the first turn binds on turn.start', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: SPARE, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    world.root = REPO;
+    await $.turn.start({ turnId: 't1' } as never);
+    expect(world.writes.map((write) => write.path)).toEqual([`${REPO}/${HEARTBEAT}`]);
+    expect(world.reads).toContain(`${REPO}/${SNAPSHOT}`);
+  });
+
+  test('AC-14: an unchanged folder runs no root search', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: REPO, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: REPO });
+    const before = configReads(world);
+    await $.prompt.submit(PROMPT);
+    await $.turn.start({ turnId: 't1' } as never);
+    expect(configReads(world)).toBe(before);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('AC-14: a move to a folder that is not onboarded stands down, then a move back rebinds', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: REPO, env: { HOME } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: REPO });
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+    world.root = OTHER;
+    await $.prompt.submit(PROMPT);
+    const beats = world.writes.length;
+    await clock.advance(180_000);
+    await clock.settle();
+    expect(world.writes).toHaveLength(beats);
+    for (const surface of SURFACES) {
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('paqad');
+    }
+    expect((await $.command.run(command('status'))).text).toBe(
+      'paqad is not active here: this project was never onboarded.',
+    );
+    world.root = REPO;
+    await $.prompt.submit(PROMPT);
+    expect(world.writes.length).toBeGreaterThan(beats);
+    expect(world.writes.at(-1)!.path).toBe(`${REPO}/${HEARTBEAT}`);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+    expect(world.runs).toEqual([]);
   });
 });
 
@@ -2475,7 +2634,6 @@ const FULL_PLAN = planItems(
   'Read the ticket',
   'Plan the change',
   'Spec: freeze it',
-  'Load rules',
   'Build the export',
   'Review',
   'Checks',
@@ -2506,7 +2664,7 @@ describe('the task list carries the stages (AC-18)', () => {
     expect(await updatePlan($, bad)).not.toHaveProperty('deny');
     await $.prompt.submit({ text: 'again' } as never);
     const outOfOrder = {
-      items: planItems('Spec', 'Plan', 'Load rules', 'Build', 'Review', 'Checks', 'Docs'),
+      items: planItems('Spec', 'Plan', 'Build', 'Review', 'Checks', 'Docs'),
     };
     expect(await updatePlan($, outOfOrder)).toMatchObject({ deny: TASK_LIST_SENTENCES.full });
   });

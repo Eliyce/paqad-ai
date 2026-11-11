@@ -188,6 +188,7 @@ function stageHeading(ui: D, stage: TrustStage) {
       <Box flexGrow={1}>
         <Text size="caption" weight="semibold" dimColor>
           {stage.words.toUpperCase()}
+          {stage.span ? <Text weight="regular">{`  ·  ${stage.span}`}</Text> : null}
         </Text>
       </Box>
       {stage.mark ? doneWord(ui, stage) : word(ui, stage.word, stage.tone)}
