@@ -555,9 +555,15 @@ class TermsAndLanguageTest(BuiltCopies):
         ])
         reference = read_text(REFERENCES, "ground-from-tracker.md")
         self.assertEqual(missing(reference, [
-            "Write ticket text in the language of the tickets already read, unless the user asks "
-            "for another.",
+            "Write ticket text in the language of the tickets already read, otherwise in the "
+            "person's language, unless the person asks for another.",
         ]), [])
+
+    def test_ac_42_the_label_is_translated_in_replies_and_tickets_and_kept_in_the_record(self):
+        self.assert_both_hold("ground-in-project", ("references", "ground-from-tracker.md"), [
+            "In another language, replies and tickets give the label in that language with the "
+            "same meaning, and the record value keeps the English words.",
+        ])
 
 
 class RequirementsV33Test(unittest.TestCase):
