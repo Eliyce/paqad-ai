@@ -50,7 +50,7 @@ These rows are copied from `runtime/claude-plugin/skills/post-tickets/references
 and a test keeps them the same:
 
 | add comment | Add a comment to an issue. |
-| read issue | Read an issue's full fields for read-back. |
+| read issue | Read an issue's full fields for read-back, or an existing epic or ticket for grounding. |
 
 ## Author mapping
 
