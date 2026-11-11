@@ -58,6 +58,7 @@ skills:
     imports:
       - references/voice.md
       - references/consulting.md
+      - references/ground-from-tracker.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py
@@ -81,6 +82,7 @@ skills:
       - references/evidence-levels.md
       - references/tracker-profiles-jira.md
       - references/tracker-profiles-github.md
+      - references/ground-from-tracker.md
       - scripts/check_onboarded.py
   - name: understand-idea
     publish: understand-idea
@@ -94,6 +96,8 @@ skills:
       - references/template-markers.md
       - references/connect-repository.md
       - references/evidence-levels.md
+      - references/tracker-profiles-jira.md
+      - references/ground-from-tracker.md
       - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
@@ -103,6 +107,7 @@ skills:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/evidence-levels.md
+      - references/ground-from-tracker.md
   - name: decide-together
     publish: decide-together
     imports:

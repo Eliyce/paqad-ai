@@ -23,7 +23,8 @@ said. Raise conflicts kindly (`references/challenge-guide.md`).
    what exists today (including what the docs could not confirm), the options with their
    trade-offs in business terms, a smaller first step where it helps, and a recommendation. Call
    an area the documents do not cover not documented; never say or imply it is not built. Code
-   lines keep "the code suggests" ("What the documents prove" in `references/paqad-docs-map.md`). Evidence stays at its level, with
+   lines keep "the code suggests" ("What the documents prove" in `references/paqad-docs-map.md`).
+   Ticket lines keep "the tickets say" and their issue keys (`references/ground-from-tracker.md`). Evidence stays at its level, with
    the run's one source line (`references/evidence-levels.md`). End with the sources line, then the
    closing question through the choice prompt.
 2. Look through the expert lenses (`references/expert-lenses.md`): customer value and experience,
@@ -37,8 +38,12 @@ said. Raise conflicts kindly (`references/challenge-guide.md`).
    success condition that would justify going further.
 5. If the idea already exists as a documented capability, or a code-suggests line in the today block
    shows it exists, say so with the source (keeping "the code suggests" on code lines), recommend the
-   already-exists outcome and draft nothing more unless asked.
-6. Label every suggestion as one; nothing enters the record until accepted. Respect an informed
+   already-exists outcome and draft nothing more unless asked. A ticket line alone never gives
+   that outcome, even for a ticket marked done: say "the tickets say this was finished" with the
+   key, and recommend checking with the team before building again.
+6. Raise a disagreement between the repository and the tickets once, as a challenge with a
+   recommendation: the repository wins, and the finding names the issue key.
+7. Label every suggestion as one; nothing enters the record until accepted. Respect an informed
    choice; revisit it only for new evidence.
 
 ## If the checks cannot run
@@ -55,7 +60,10 @@ No script; shape by hand with this checklist:
 - Where the idea is large or uncertain, a smaller first release or experiment with a success
   condition is offered.
 - If the idea already exists, that is said with the source and the already-exists outcome is
-  recommended.
+  recommended. A ticket line alone, even a done ticket, never gives that outcome: recommend
+  checking with the team first.
+- Ticket lines keep "the tickets say" and their keys. A disagreement between the repository and
+  the tickets is raised once, and the repository wins.
 - "What the documents prove" (`references/paqad-docs-map.md`) by hand: call an area the today block
   does not document not documented; never say or imply it is not built. Code lines keep "the code
   suggests".

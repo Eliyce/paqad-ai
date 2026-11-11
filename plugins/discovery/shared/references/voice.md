@@ -44,6 +44,8 @@ a style preference.
   next action is never hidden above the sources.
 - Talk like a person. Natural, warm, and direct, the way a trusted colleague speaks in a
   meeting. No headings or bullet walls for a two-line answer, no emoji, no sign-offs.
+- The person's language. Reply in the language the person writes in, and follow them if they
+  switch. Give the plugin's fixed sentences in that language with the same meaning.
 - Remind every skill. Every SKILL.md opens with a short "How to talk" block that points to this
   file, so the rules are in front of the model at every step, not only at the start.
 - Previews stay compact. Larger outputs are shown in chat as a compact table, one row per item.

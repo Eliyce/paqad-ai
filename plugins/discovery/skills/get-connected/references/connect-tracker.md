@@ -2,15 +2,25 @@
 
 verified: 2026-11-02
 
-Confirm the tracker can be written to, and read the project's setup, by capability (PLG-7). Resolve
+Confirm whether the tracker can be read and whether it can be written to, as two separate checks,
+and read the project's setup, by capability (PLG-7). Resolve
 each action from what the connector exposes; do not hard-code a tool name. This skill handles no
 credentials and no connector authorization: those stay with the user or their admin.
 
-## Confirm write access first (PUB-7)
+## Check read access for grounding
+
+Run one read-only search in the target project. If it answers, the tracker is readable: store
+`setup.tracker_readable` as true and add the tracker to `setup.grounding_sources`. If the read is
+refused or the connector is off, store false and try no other route. Never create, edit or delete
+an issue to test access. A tracker that answers the read but refuses the write still grounds the
+idea; say once, before grounding starts, that the tickets will leave by export.
+
+## Confirm write access (PUB-7)
 
 Check that the connector offers a create-issue action for the target project and that the user can
-create issues there. If any of these is true, stop before drafting is wasted, say which in plain
-words, name who usually fixes it, and offer the export fallback (PUB-8):
+create issues there. If any of these is true, say which in plain words, name who usually fixes it,
+and offer the export fallback (PUB-8). Stop before drafting is wasted only when the tracker cannot
+be read either:
 
 - the connector is not switched on
 - the connector exposes read tools but no write tools

@@ -28,7 +28,9 @@ spaces. Keep it in plain business words and follow `references/writing-rules.md`
 **Depends on:** E1-T1, ABC-12    (or "**Depends on:** none")
 
 **What exists today**
-Only the part relevant to this ticket, including the unknowns.
+Only the part relevant to this ticket, including the unknowns. A line from existing tickets keeps
+"the tickets say" and its issue keys, and is never written as built. The repository wins a
+disagreement with the tickets.
 
 **Not included**
 Required.
@@ -49,6 +51,12 @@ The document paths, then the run label and item reference, for example DR-202610
 | Depends on | `depends_on` refs |
 | The whole layout above | `body_markdown` |
 | A person the author names | `assignee_hint` |
+
+The first time the author's term appears, the other term follows in brackets with where it came
+from: "(called entry gate in the project docs)" or "(called entry gate in the tickets)". Write the
+ticket in the language the tracker project's existing tickets use when they were read, otherwise in
+the author's language, unless the author asks for another. The field labels and section headings
+above stay as written.
 
 The ref stays E<n>-T<n>; the preview shows "E1-T1: title". Assignee is left empty unless the
 author names a person, who is then looked up through the tracker connector.

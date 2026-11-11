@@ -9,11 +9,13 @@ whether to carry on, and never mention the record.
 
 ## Step 0. Get connected (get-connected)
 
-Purpose: confirm the project documents are reachable and onboarded, and the tracker can be written
-to. Read the tracker project's setup.
+Purpose: work out which sources can be read, the repository first and the tracker second, and
+whether the tracker can be written to. Read the tracker project's setup. With only the tracker
+readable the journey carries on from existing epics and tickets; with neither it stops.
 
-Exit condition: the `setup` block is filled (tracker kind, project key, issue types, required
-fields, link types, size and sprint field ids, can-create, run label).
+Exit condition: the `setup` block is filled (the readable sources in order, tracker kind, project
+key, issue types, required fields, link types, size and sprint field ids, tracker-readable,
+can-create, run label).
 
 ## Step 1. Your idea (understand-idea)
 
@@ -25,10 +27,12 @@ Exit condition: the `idea` block has goal, who_benefits, success and constraints
 ## Step 2. What exists today (ground-in-project)
 
 Purpose: read the project documents in reading order, find the related areas, report what they do,
-what is unknown and anything that conflicts.
+what is unknown and anything that conflicts. When the tracker is a source, read its existing epics
+and tickets second, inside the read limits, as what the tickets say.
 
 Exit condition: the `today` block lists each related area with its source path and, per section,
-whether it is real or template.
+whether it is real or template. A ticket line carries its label and issue keys, and a disagreement
+between the repository and the tickets is recorded as a finding, with the repository winning.
 
 ## Step 3. Shape it (shape-idea)
 
@@ -76,6 +80,9 @@ by one, mark the dependents stale, and keep every block not listed.
 | decisions | ticket_set_ref, readiness, posted |
 | ticket_set_ref | readiness, posted |
 | readiness | posted |
+
+Setup sits outside this map. When a repository is connected in the middle of a tracker-only run,
+patch `setup` and rewrite `today`, so step 2 onward is redone like a repository switch.
 
 run, setup, glossary and assumptions are not dependents of a goal change, so an unrelated decision
 survives a goal change. A required block that is present but stale counts as not satisfied, so the

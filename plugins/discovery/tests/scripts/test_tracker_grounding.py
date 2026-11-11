@@ -1,0 +1,579 @@
+#!/usr/bin/env python3
+"""Tracker grounding (v3.3): the idea journey reads existing epics and tickets as a source.
+
+Covers the file-level, automated acceptance criteria of tracker grounding and posting under an
+existing epic: the new shared reference ground-from-tracker.md, its exact declarers and
+byte-identical build copies, the tracker-only level id, the source lines, the "the tickets say"
+label, the word-for-word sentences, the record template fields, the terms learned from tickets,
+the language rule in voice.md, and the REQUIREMENTS.md v3.3 edits. Each wording test reads the
+source and the built copy. The test names carry the spec criterion they prove as ac_<n>; the
+REQUIREMENTS.md rows are named AC-76 and up.
+
+Standard library only (Python 3.9+). No network. Reads the source tree; writes only under a
+temporary folder.
+"""
+
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
+import unittest
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SKILLS_ROOT = os.path.join(REPO_ROOT, "skills")
+SHARED_ROOT = os.path.join(REPO_ROOT, "shared")
+REFERENCES = os.path.join(SHARED_ROOT, "references")
+BUILD_DIR = os.path.join(REPO_ROOT, "build")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(REPO_ROOT))
+for extra_path in (BUILD_DIR, os.path.join(SHARED_ROOT, "scripts")):
+    if extra_path not in sys.path:
+        sys.path.insert(0, extra_path)
+
+import build  # noqa: E402
+
+PLUGIN_NAME = "paqad-product-discovery"
+TRACKER_REFERENCE = "references/ground-from-tracker.md"
+JIRA_PROFILE = "references/tracker-profiles-jira.md"
+DECLARERS = {"get-connected", "ground-in-project", "shape-idea", "product-discovery"}
+JIRA_PROFILE_DECLARERS = {
+    "get-connected", "ground-in-project", "post-tickets", "refine-ticket", "size-work", "plan-sprint",
+}
+UNCHANGED_SKILLS = ("ask-project", "refine-ticket", "size-work", "plan-sprint")
+TRACKER_ONLY = "tracker-only"
+LEVEL_IDS = ("project-docs", "docs-and-code", "code-only")
+SOURCE_LINES = ("paqad, from project docs", "paqad, from docs and code", "paqad, from code only")
+TRACKER_SOURCE_LINE = "paqad, from the tracker"
+COMBINED_SUFFIX = '" and the tracker"'
+LABEL = "the tickets say"
+TRACKER_ONLY_SENTENCE = (
+    "No repository is connected, so I'll work from the tickets in your tracker. "
+    "Tickets show what was planned or asked for, not what is built."
+)
+STOP_SENTENCE = (
+    "I can't read a repository or the tracker from here, so there is nothing to ground this on. "
+    "Attach the repository or its docs folder, or switch on the tracker connector, and I'll carry on."
+)
+FINDING = (
+    "The tickets say customers can pause a subscription (ABC-12, done), but the code suggests "
+    "there is no pause action. I'm going with the repository."
+)
+CUT_LINE = "I looked at the 25 closest tickets"
+FIELDS_READ = "key, type, summary, description, status, parent, labels, last updated"
+NEVER_READ = "comments, attachments, work logs, people's names (assignee, reporter), other projects"
+VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai|rovo", re.IGNORECASE)
+EM_DASH, EN_DASH = chr(0x2014), chr(0x2013)
+MAX_REFERENCE_LINES = 100
+MAX_GET_CONNECTED_BODY = 150
+
+
+def read_text(*parts):
+    with open(os.path.join(*parts), "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def read_bytes(path):
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+def normalised(text):
+    return " ".join(text.split())
+
+
+def missing(text, phrases):
+    flat = normalised(text)
+    return [phrase for phrase in phrases if phrase not in flat]
+
+
+def skills_config():
+    return build.parse_skills_yml(read_text(BUILD_DIR, "skills.yml"))
+
+
+def declared_imports():
+    return {skill["name"]: list(skill["imports"]) for skill in skills_config()["skills"]}
+
+
+def published_name_map():
+    return {skill["name"]: build.published_name(skill) for skill in skills_config()["skills"]}
+
+
+def body_lines(skill_text):
+    """Lines of a SKILL.md after its front matter."""
+    parts = skill_text.split("---", 2)
+    return parts[2].strip("\n").split("\n")
+
+
+class BuiltCopies(unittest.TestCase):
+    """Builds the plugin once into a temporary folder, so each wording test can read the source and
+    the built copy of the same file."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"), version="0.0.0")
+        cls.built_skills = os.path.join(cls.tmp, "dist", "plugins", PLUGIN_NAME, "skills")
+        cls.names = published_name_map()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def both(self, skill, *parts):
+        """The source text and the built text of one skill file, shared references included."""
+        source_path = os.path.join(SKILLS_ROOT, skill, *parts)
+        if not os.path.exists(source_path):
+            source_path = os.path.join(SHARED_ROOT, *parts)
+        built_path = os.path.join(self.built_skills, self.names[skill], *parts)
+        return read_text(source_path), read_text(built_path)
+
+    def assert_both_hold(self, skill, parts, phrases):
+        for label, text in zip(("source", "built"), self.both(skill, *parts)):
+            self.assertEqual(missing(text, phrases), [], "{0} {1} {2}".format(skill, parts, label))
+
+
+class TrackerReferenceTest(BuiltCopies):
+    """FR-32: ground-from-tracker.md is the one home of the tracker grounding rules."""
+
+    def setUp(self):
+        self.path = os.path.join(REFERENCES, "ground-from-tracker.md")
+        self.text = read_text(self.path)
+
+    def test_ac_34_reference_is_under_the_line_cap_with_its_verified_line(self):
+        lines = self.text.rstrip("\n").split("\n")
+        self.assertLess(len(lines), MAX_REFERENCE_LINES)
+        self.assertRegex(self.text, r"(?m)^verified: \d{4}-\d{2}-\d{2}$")
+        self.assertNotIn(EM_DASH, self.text)
+        self.assertNotIn(EN_DASH, self.text)
+        self.assertIsNone(VENDOR_PATTERN.search(self.text))
+
+    def test_ac_34_both_word_for_word_sentences_in_source_and_built_copy(self):
+        for skill in sorted(DECLARERS):
+            self.assert_both_hold(skill, ("references", "ground-from-tracker.md"),
+                                  [TRACKER_ONLY_SENTENCE, STOP_SENTENCE])
+        self.assert_both_hold("get-connected", ("SKILL.md",), [TRACKER_ONLY_SENTENCE, STOP_SENTENCE])
+
+    def test_ac_34_get_connected_body_stays_within_150_lines(self):
+        for text in self.both("get-connected", "SKILL.md"):
+            self.assertLessEqual(len(body_lines(text)), MAX_GET_CONNECTED_BODY)
+
+    def test_ac_15_limits_fields_never_read_list_and_cut_line(self):
+        phrases = ["at most 25", "at most 10", FIELDS_READ, NEVER_READ, CUT_LINE,
+                   "one, `setup.project_key`", "epics first, then stories and tasks"]
+        for skill in sorted(DECLARERS):
+            self.assert_both_hold(skill, ("references", "ground-from-tracker.md"), phrases)
+
+    def test_ac_16_either_search_kind_keeps_epics_first_inside_one_cap(self):
+        self.assertEqual(missing(self.text, [
+            "The search may be a natural language search or a JQL search, with the same limits.",
+            "A JQL search always carries the project clause and puts the epic type first",
+            "sort natural language results by type afterwards",
+            "say so once",
+            "Never fetch a second page.",
+        ]), [])
+
+    def test_ac_17_a_used_up_total_is_reused_and_the_epic_check_still_runs(self):
+        self.assertEqual(missing(self.text, [
+            "one total across every step that reads the tracker",
+            "Only the read-only check of a chosen epic before posting is allowed on top.",
+            "a later step reuses what was read, makes no new lookup and says so in one line",
+        ]), [])
+
+    def test_ac_18_nothing_related_carries_on_and_never_means_not_built(self):
+        self.assertEqual(missing(self.text, [
+            "say once that no related tickets were found and that this does not mean nothing is built",
+            "lower the confidence and carry on",
+            "No ticket about something never means it is not built and never means it was not planned.",
+        ]), [])
+
+    def test_ac_1_tracker_only_run_carries_on_with_its_own_source_line(self):
+        self.assertEqual(missing(self.text, [
+            '| no | yes | `["tracker"]` | `tracker-only` |',
+            "say once at step 0",
+            'Tracker only: "{0}"'.format(TRACKER_SOURCE_LINE),
+        ]), [])
+        self.assert_both_hold("get-connected", ("SKILL.md",), [
+            "set `setup.evidence_level` to `tracker-only` and say once",
+            "skip `scripts/check_onboarded.py`",
+        ])
+        self.assert_both_hold("ground-in-project", ("SKILL.md",), [
+            "With no readable repository, skip steps 1 to 4 and `scripts/check_onboarded.py`",
+        ])
+
+    def test_ac_1_no_repository_branch_sits_before_the_onboarded_check(self):
+        text = read_text(SKILLS_ROOT, "ground-in-project", "SKILL.md")
+        self.assertLess(text.index("With no readable repository"),
+                        text.index("Run\n   `scripts/check_onboarded.py` first"))
+
+    def test_ac_2_repository_first_then_tickets_and_one_combined_source_line(self):
+        self.assertEqual(missing(self.text, [
+            '| yes | yes | `["repository", "tracker"]` | the repository\'s level |',
+            "The repository is always read first. Tracker lines are added second and never replace "
+            "a repository line.",
+            "Still exactly one short source line per answer.",
+            "the repository line plus {0}".format(COMBINED_SUFFIX),
+            '"paqad, from code only and the tracker"',
+        ]), [])
+        self.assert_both_hold("ground-in-project", ("SKILL.md",), [
+            "When the tracker is a source, read it second",
+            "A ticket line never replaces a repository line.",
+        ])
+
+    def test_ac_3_ticket_lines_keep_the_label_and_keys_everywhere(self):
+        self.assertEqual(missing(self.text, [
+            'Every line that rests on tickets contains "{0}" and names the issue keys.'.format(LABEL),
+            "the today block, the playback, ticket text, the preview",
+            'A ticket marked done is "the tickets say this was finished (ABC-12)".',
+            "It is never reported as built",
+        ]), [])
+        carriers = (
+            ("ground-in-project", ("SKILL.md",)),
+            ("shape-idea", ("SKILL.md",)),
+            ("shape-idea", ("references", "playback-template.md")),
+            ("write-tickets", ("assets", "epic-template.md")),
+            ("write-tickets", ("assets", "ticket-template.md")),
+            ("check-tickets", ("references", "review-checklist.md")),
+            ("product-discovery", ("assets", "record-template.md")),
+        )
+        for skill, parts in carriers:
+            self.assert_both_hold(skill, parts, [LABEL])
+
+    def test_ac_4_a_done_ticket_alone_never_gives_already_exists(self):
+        self.assert_both_hold("shape-idea", ("SKILL.md",), [
+            "A ticket line alone never gives that outcome, even for a ticket marked done",
+            "recommend checking with the team before building again",
+            # The second case of the criterion: a repository line that shows it built still does.
+            "a code-suggests line in the today block shows it exists",
+            "recommend the already-exists outcome",
+        ])
+        self.assertEqual(missing(self.text, [
+            'on its own it never gives the "already exists" outcome',
+        ]), [])
+
+    def test_ac_6_repository_wins_and_docs_against_code_still_picks_neither(self):
+        self.assertEqual(missing(self.text, [FINDING, "The repository wins.",
+                                             "Raise it once in the playback"]), [])
+        self.assert_both_hold("shape-idea", ("references", "challenge-guide.md"),
+                              [FINDING, "an issue key"])
+        self.assert_both_hold("ground-in-project", ("SKILL.md",),
+                              ["the repository wins", "I'm going with the repository."])
+        docs_map = read_text(REFERENCES, "paqad-docs-map.md")
+        self.assertEqual(missing(docs_map, ["The docs say ..., but the code suggests ..."]), [])
+        self.assertEqual(missing(self.text, ["docs against code still says both and picks neither"]), [])
+
+    def test_ac_7_neither_readable_stops_with_the_message_and_invents_nothing(self):
+        self.assertEqual(missing(self.text, [
+            '| no | no | `[]` | not set, the journey stops |',
+            "Neither readable, say this, invent nothing and stop: \"" + STOP_SENTENCE,
+        ]), [])
+        self.assert_both_hold("get-connected", ("SKILL.md",),
+                              ["If neither is readable, say this, invent nothing and stop"])
+
+    def test_ac_8_connecting_a_source_after_the_stop_carries_on_with_the_same_idea(self):
+        self.assertEqual(missing(self.text, [
+            "When the user then connects either one in the same conversation, check step 0 again "
+            "and carry on with the idea already given.",
+        ]), [])
+        self.assert_both_hold("product-discovery", ("SKILL.md",), [
+            "check step 0 again and carry on with the idea already given. Start no new run.",
+        ])
+
+    def test_ac_9_readable_but_not_writable_grounds_and_leaves_by_export(self):
+        self.assert_both_hold("get-connected", ("SKILL.md",), [
+            "Check the tracker for reading and for writing separately",
+            "`setup.tracker_readable`",
+            "If the tracker is readable but not writable, do not stop: say once, before grounding "
+            "starts, that the tickets will leave by export, and carry on.",
+        ])
+        self.assert_both_hold("get-connected", ("references", "connect-tracker.md"), [
+            "A tracker that answers the read but refuses the write still grounds the idea",
+            "Never create, edit or delete an issue to test access.",
+            "try no other route",
+        ])
+
+    def test_ac_10_a_repository_only_run_keeps_its_three_source_lines(self):
+        levels = read_text(REFERENCES, "evidence-levels.md")
+        self.assertEqual(missing(levels, SOURCE_LINES + LEVEL_IDS), [])
+        self.assertEqual(missing(self.text, ["Repository only: unchanged.",
+                                             '| yes | no | `["repository"]` | the repository\'s level |']), [])
+
+    def test_ac_11_a_record_without_grounding_sources_is_repository_only(self):
+        self.assertEqual(missing(self.text, [
+            'A record with no `setup.grounding_sources` is read as `["repository"]`.',
+        ]), [])
+        self.assert_both_hold("ground-in-project", ("SKILL.md",),
+                              ["A record with no such list is repository only."])
+        self.assert_both_hold("product-discovery", ("SKILL.md",),
+                              ["A record with no `setup.grounding_sources` is repository only."])
+
+    def test_ac_12_resume_keeps_tracker_lines_and_asks_to_reconnect_late(self):
+        self.assertEqual(missing(self.text, [
+            "On resume, tracker lines are a snapshot.",
+            "say once that they are from the earlier session",
+            "ask to reconnect only at a later step that needs to read or write the tracker",
+            "Do not repeat the tracker-only sentence.",
+        ]), [])
+        self.assert_both_hold("product-discovery", ("SKILL.md",), [
+            "say once that they are from the earlier session",
+            "ask to reconnect only at the first later step that needs to read or write the tracker",
+            "Do not say the tracker-only sentence again.",
+        ])
+
+    def test_ac_13_a_repository_connected_mid_run_redoes_step_2_onward(self):
+        self.assertEqual(missing(self.text, [
+            "A repository connected in the middle of a tracker-only run is a repository switch",
+            "redo step 2 onward and say in one line what changes",
+        ]), [])
+        self.assert_both_hold("product-discovery", ("SKILL.md",), [
+            "rewrite the today block so step 2 onward is redone, and say in one line what changes",
+        ])
+        self.assert_both_hold("product-discovery", ("references", "journey.md"), [
+            "patch `setup` and rewrite `today`, so step 2 onward is redone like a repository switch",
+            "| today | playback, decisions, ticket_set_ref, readiness, posted |",
+        ])
+
+
+class DeclarersTest(BuiltCopies):
+    """FR-33, FR-34: the exact declarers name the reference and ship a byte-identical copy."""
+
+    def test_exact_declarers_name_the_reference(self):
+        declared = declared_imports()
+        declarers = {skill for skill, imports in declared.items() if TRACKER_REFERENCE in imports}
+        self.assertEqual(declarers, DECLARERS)
+        for skill in sorted(DECLARERS):
+            self.assertIn(TRACKER_REFERENCE, read_text(SKILLS_ROOT, skill, "SKILL.md"), skill)
+
+    def test_jira_profile_declarers(self):
+        declared = declared_imports()
+        declarers = {skill for skill, imports in declared.items() if JIRA_PROFILE in imports}
+        self.assertEqual(declarers, JIRA_PROFILE_DECLARERS)
+        self.assertIn(JIRA_PROFILE, read_text(SKILLS_ROOT, "ground-in-project", "SKILL.md"))
+
+    def test_shipped_byte_identical_to_exactly_the_declarers(self):
+        source = read_bytes(os.path.join(SHARED_ROOT, *TRACKER_REFERENCE.split("/")))
+        published = {self.names[name] for name in DECLARERS}
+        for skill in sorted(os.listdir(self.built_skills)):
+            built = os.path.join(self.built_skills, skill, *TRACKER_REFERENCE.split("/"))
+            if skill in published:
+                self.assertEqual(read_bytes(built), source, skill)
+            else:
+                self.assertFalse(os.path.exists(built), skill)
+
+    def test_undeclared_mention_fails_the_build(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        source = os.path.join(tmp, "source")
+        for sub in ("skills", "shared", "build", "publish"):
+            shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(source, sub))
+        with open(os.path.join(source, "skills", "plan-sprint", "SKILL.md"), "a",
+                  encoding="utf-8") as handle:
+            handle.write("\nSee " + TRACKER_REFERENCE + ".\n")
+        with self.assertRaises(build.BuildError) as ctx:
+            build.build(source, os.path.join(tmp, "dist"), version="0.0.0")
+        self.assertIn(TRACKER_REFERENCE, str(ctx.exception))
+
+    def test_skills_that_keep_todays_behaviour_do_not_read_tickets_as_a_source(self):
+        declared = declared_imports()
+        for skill in UNCHANGED_SKILLS:
+            text = read_text(SKILLS_ROOT, skill, "SKILL.md")
+            self.assertNotIn(TRACKER_REFERENCE, declared[skill], skill)
+            self.assertNotIn("ground-from-tracker", text, skill)
+            self.assertNotIn(LABEL, text, skill)
+            self.assertNotIn(TRACKER_ONLY, text, skill)
+
+
+class SharedPointersTest(unittest.TestCase):
+    """FR-35 to FR-37: the two older shared references point at the new one by its title."""
+
+    def test_evidence_levels_points_by_title_and_keeps_its_three_levels(self):
+        text = read_text(REFERENCES, "evidence-levels.md")
+        self.assertLessEqual(len(text.rstrip("\n").split("\n")), MAX_REFERENCE_LINES)
+        self.assertNotIn("ground-from-tracker", text)
+        self.assertEqual(missing(text, [
+            "Only the idea journey reads existing tickets as a source",
+            'the reference titled "Grounding from the tracker"',
+            "`tracker-only`",
+            "is read with the lowest confidence and supports no claim about what is built",
+            "connecting the repository would let answers rest on what is built, not only on what "
+            "was planned",
+            "## The three levels",
+        ] + list(LEVEL_IDS) + list(SOURCE_LINES)), [])
+
+    def test_jira_profile_names_the_grounding_read(self):
+        text = read_text(REFERENCES, "tracker-profiles-jira.md")
+        self.assertLessEqual(len(text.rstrip("\n").split("\n")), MAX_REFERENCE_LINES)
+        self.assertNotIn("ground-from-tracker", text)
+        self.assertEqual(missing(text, [
+            "Only the idea journey reads existing epics and tickets as a source.",
+            "The search may be a natural language search or a JQL search",
+            "for finding existing epics and tickets for grounding",
+            "or an existing epic or ticket for grounding",
+        ]), [])
+
+    def test_docs_map_keeps_seven_rows_and_github_profile_is_untouched(self):
+        docs_map = read_text(REFERENCES, "paqad-docs-map.md")
+        rows = re.findall(r"(?m)^\| \d+ \|", docs_map)
+        self.assertEqual(len(rows), 7)
+        self.assertNotIn(LABEL, docs_map)
+        self.assertIn("export only", read_text(REFERENCES, "tracker-profiles-github.md"))
+        self.assertNotIn(LABEL, read_text(REFERENCES, "connect-repository.md"))
+
+
+class RecordTemplateTest(BuiltCopies):
+    """FR-27, FR-72, NFR-6: the new record fields are shaped by the record template only."""
+
+    def setUp(self):
+        self.text = read_text(SKILLS_ROOT, "product-discovery", "assets", "record-template.md")
+        self.record = json.loads(self.text[self.text.index("{"):self.text.rindex("}") + 1])
+
+    def test_setup_carries_the_source_order_and_the_read_state(self):
+        setup = self.record["setup"]
+        self.assertEqual(setup["grounding_sources"], ["repository"])
+        self.assertIs(setup["tracker_readable"], False)
+        self.assertEqual(sorted(setup["tracker_reads"]), ["issues_opened", "results_looked_at"])
+        self.assertIn("can_create", setup)
+        self.assertEqual(missing(self.text, [
+            'A record without it is read as ["repository"].',
+            "setup.tracker_readable is true or false and sits beside the write check can_create",
+            "setup.evidence_level is tracker-only",
+        ]), [])
+
+    def test_ac_3_tracker_entry_has_the_label_fields_and_no_source_path(self):
+        entries = [entry for entry in self.record["today"]
+                   if entry["evidence_level"] == TRACKER_ONLY]
+        self.assertEqual(len(entries), 1)
+        entry = entries[0]
+        self.assertIn("tickets_say", entry)
+        self.assertEqual(entry["ticket_keys"], [])
+        self.assertNotIn("source_path", entry)
+        self.assertTrue(all("evidence_level" in item for item in self.record["today"]))
+        self.assertEqual(missing(self.text, [
+            'tickets_say, one line in the plugin\'s own words that itself contains "the tickets say"',
+            "ticket_keys, the list of issue keys it rests on",
+            "A tracker-only entry has evidence_level tracker-only and no source_path.",
+            "never copies a description word for word",
+        ]), [])
+
+    def test_ac_6_a_disagreement_is_a_finding_on_the_today_entry(self):
+        self.assert_both_hold("product-discovery", ("assets", "record-template.md"), [
+            "the entry adds disagreement, the one-line finding that names the issue key and ends "
+            "\"I'm going with the repository.\"",
+        ])
+
+    def test_ac_37_glossary_pair_notes_that_the_term_came_from_the_tickets(self):
+        self.assertEqual(self.record["glossary"][0]["term_source"], "docs")
+        self.assertEqual(missing(self.text, [
+            "term_source says where the other term came from, docs or tickets",
+            "a pair without it is read as from the docs",
+        ]), [])
+        self.assert_both_hold("ground-in-project", ("SKILL.md",), [
+            'Pair a term the tickets use for the user\'s term in the glossary, with `term_source` '
+            '"tickets".',
+        ])
+
+    def test_ac_42_checked_values_stay_as_defined_in_another_language(self):
+        self.assert_both_hold("product-discovery", ("assets", "record-template.md"), [
+            "In a run held in another language these values keep their English label, keys and "
+            "level ids.",
+        ])
+        self.assert_both_hold("write-tickets", ("assets", "ticket-template.md"), [
+            "The field labels and section headings above stay as written.",
+        ])
+
+    def test_record_scripts_know_nothing_of_the_new_fields(self):
+        # INV-13: record.py and check_record.py gate block presence only and do not change.
+        for script in ("record.py", "check_record.py", "check_onboarded.py"):
+            text = read_text(SHARED_ROOT, "scripts", script)
+            for word in ("grounding_sources", "tracker_readable", "tickets_say", "term_source"):
+                self.assertNotIn(word, text, script)
+
+
+class TermsAndLanguageTest(BuiltCopies):
+    """Part C: terms learned from tickets, and the person's language."""
+
+    def test_ac_38_first_use_shows_the_other_term_and_where_it_came_from(self):
+        self.assert_both_hold("write-tickets", ("assets", "ticket-template.md"), [
+            "The first time the author's term appears, the other term follows in brackets with "
+            "where it came from",
+            '"(called entry gate in the tickets)"',
+        ])
+        reference = read_text(REFERENCES, "ground-from-tracker.md")
+        self.assertEqual(missing(reference, [
+            'The user\'s term still wins: "(called entry gate in the tickets)" follows its first use.',
+        ]), [])
+        requirements = read_text(PROJECT_ROOT, "docs", "plugin-discovery", "REQUIREMENTS.md")
+        self.assertEqual(missing(requirements, [
+            "A rejected mapping is corrected everywhere.",
+            '"(called entry gate in the tickets)"',
+        ]), [])
+
+    def test_ac_39_voice_carries_the_language_rule_in_every_built_skill(self):
+        rule = [
+            "Reply in the language the person writes in, and follow them if they switch.",
+            "Give the plugin's fixed sentences in that language with the same meaning.",
+        ]
+        voice = read_text(REFERENCES, "voice.md")
+        self.assertEqual(missing(voice, rule), [])
+        self.assertLessEqual(len(voice.rstrip("\n").split("\n")), MAX_REFERENCE_LINES)
+        self.assertNotIn(EM_DASH, voice)
+        self.assertNotIn(EN_DASH, voice)
+        self.assertIsNone(VENDOR_PATTERN.search(voice))
+        built = sorted(os.listdir(self.built_skills))
+        self.assertEqual(len(built), 14)
+        for skill in built:
+            copy = os.path.join(self.built_skills, skill, "references", "voice.md")
+            self.assertEqual(read_bytes(copy), voice.encode("utf-8"), skill)
+
+    def test_ac_41_ticket_text_follows_the_language_of_the_existing_tickets(self):
+        self.assert_both_hold("write-tickets", ("assets", "ticket-template.md"), [
+            "Write the ticket in the language the tracker project's existing tickets use when they "
+            "were read, otherwise in the author's language, unless the author asks for another.",
+        ])
+        reference = read_text(REFERENCES, "ground-from-tracker.md")
+        self.assertEqual(missing(reference, [
+            "Write ticket text in the language of the tickets already read, unless the user asks "
+            "for another.",
+        ]), [])
+
+
+class RequirementsV33Test(unittest.TestCase):
+    """FR-78 to FR-80: REQUIREMENTS.md is v3.3 with the new ids, the acceptance rows from AC-76 on
+    and no em or en dash, and no README carries the version."""
+
+    def setUp(self):
+        self.text = read_text(PROJECT_ROOT, "docs", "plugin-discovery", "REQUIREMENTS.md")
+
+    def test_markers_present_and_no_dash(self):
+        markers = ["v3.3", "V-30", "OD-23", "GRD-17", "GRD-18", "GRD-19", "PUB-9", "U-20",
+                   "TALK-16", TRACKER_ONLY_SENTENCE, STOP_SENTENCE, FINDING, TRACKER_SOURCE_LINE,
+                   CUT_LINE, "`existing_key`", "`setup.grounding_sources`", "`tracker_readable`"]
+        self.assertEqual(missing(self.text, markers), [])
+        self.assertNotIn(EM_DASH, self.text)
+        self.assertNotIn(EN_DASH, self.text)
+
+    def test_new_acceptance_rows_present(self):
+        for number in range(76, 114):
+            self.assertIn("| AC-{0} |".format(number), self.text, number)
+
+    def test_old_wording_is_gone_and_the_docs_against_code_rule_stays(self):
+        self.assertNotIn("tracker only for step 6", self.text)
+        self.assertIn(
+            '"The docs say ..., but the code suggests ...", and neither is picked as fact.',
+            normalised(self.text))
+
+    def test_no_readme_carries_the_version(self):
+        for parts in (("README.md",), ("publish", "claude", "README.md"),
+                      ("publish", "chatgpt", "README.md")):
+            self.assertNotIn("v3.3", read_text(REPO_ROOT, *parts), parts)
+
+    def test_every_host_file_holds_the_new_unknown_as_pending(self):
+        for host in ("claude", "chatgpt", "codex"):
+            text = read_text(REPO_ROOT, "hosts", host + ".md")
+            rows = [line for line in text.split("\n") if line.startswith("| U-20")]
+            self.assertEqual(len(rows), 1, host)
+            self.assertIn("| pending |  |", rows[0], host)
+
+
+if __name__ == "__main__":
+    unittest.main()

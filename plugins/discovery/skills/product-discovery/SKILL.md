@@ -1,6 +1,6 @@
 ---
 name: product-discovery
-description: "Chat and Claude Code: Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix (\"customers keep calling to pause\", \"add an export button\", \"clean up checkout\"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record silently so the work can be resumed later, and lets the user go back a step at any time."
+description: "Chat and Claude Code: Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix (\"customers keep calling to pause\", \"add an export button\", \"clean up checkout\"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents and, when a tracker is connected, its existing epics and tickets: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record silently so the work can be resumed later, and lets the user go back a step at any time."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
@@ -76,6 +76,18 @@ The user can return to an earlier step any time ("actually, the goal is differen
 those. Say in one line what changes ("Changing the goal, so I'll redo what exists today and the
 shaping; the refund decision stays.").
 
+## Sources and the tracker
+
+The journey grounds on whatever is readable, the repository first and the tracker second
+(`references/ground-from-tracker.md`). With only the tracker it works from existing epics and
+tickets; with neither it stops. A record with no `setup.grounding_sources` is repository only.
+
+- A repository connected in the middle of a tracker-only run is a repository switch: patch `setup`,
+  rewrite the today block so step 2 onward is redone, and say in one line what changes, including
+  that the playback and the decisions will be confirmed again.
+- After the stop sentence, when the user connects a repository or the tracker in the same
+  conversation, check step 0 again and carry on with the idea already given. Start no new run.
+
 ## Side questions
 
 Answer a side question with sources and stay at the current step; never advance or change the
@@ -87,6 +99,10 @@ Never offer the record at the end of a step. Only when the user wants to stop an
 offer a resume file in plain words without naming its format (or the chat summary to copy). A new
 chat with it attached resumes at the recorded step and asks nothing already answered: read it,
 confirm the step in one line, continue.
+
+Tracker lines in a resumed record are a snapshot. If the tracker is no longer readable, keep them,
+say once that they are from the earlier session, and ask to reconnect only at the first later step
+that needs to read or write the tracker. Do not say the tracker-only sentence again.
 
 ## If the checks cannot run
 

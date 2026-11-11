@@ -18,6 +18,9 @@ readiness.
 3. **Is anything in "what exists today" contradicted by the docs?** Compare each ticket's "what
    exists today" against the today block and the project documents. A claim the docs contradict,
    or that rests on a template section the docs could not confirm, is flagged rather than kept.
+   A line that rests on existing tickets must keep "the tickets say" and its issue keys, and must
+   not call a done ticket built. Where the repository and the tickets disagree, the repository
+   wins: flag a ticket that states the tickets' side as fact.
 4. **Is the split sensible?** The epics and tickets should break the work along natural lines, not
    too big to finish and not split so finely that the pieces only make sense together. Recommend a
    merge or a split where it reads wrong.
