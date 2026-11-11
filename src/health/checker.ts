@@ -44,6 +44,7 @@ import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { SchemaValidator, type SchemaValidationIssue } from '@/validators/validator.js';
 import { gitWorkflowHealth } from './git-workflow-check.js';
 import { runningVersionHealth } from './running-version-check.js';
+import { homeProjectHealth } from './home-project-check.js';
 import { teamConfigHealth } from './team-config-check.js';
 import {
   inspectProviderEntryBootstrapPointer,
@@ -56,6 +57,7 @@ const SENTINEL_DIR = '.paqad/.agent-entry-loaded.d';
 
 export interface HealthCheckerOptions {
   managedSettingsPaths?: string[];
+  homeDir?: string;
 }
 
 export class HealthChecker {
@@ -110,6 +112,7 @@ export class HealthChecker {
       ...gitWorkflowHealth(projectRoot),
       ...runningVersionHealth(projectRoot),
       ...teamConfigHealth(projectRoot),
+      ...homeProjectHealth(this.options.homeDir),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
