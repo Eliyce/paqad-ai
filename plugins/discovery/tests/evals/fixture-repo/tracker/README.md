@@ -4,6 +4,11 @@ Invented tracker content for testing only. None of these tickets, sprints, keys,
 are real; they exist so the S1b conversation scenarios (refine-ticket, size-work, plan-sprint) have
 a stable board to read against when the host eval runner stands up a fake tracker in S3.
 
+The idea journey also reads this board as a grounding source, in the one project `SUB`. The newer
+tickets carry a `type` (`Epic` or `Story`); the older epic `SUB-1` is marked by its `epic` label.
+`record-before-tracker-grounding.json` is not tracker content: it is a discovery record with no
+`grounding_sources`, for the resume scenario that must read it as repository only.
+
 The fake tracker reads two files:
 
 - `tickets.json` holds the board's tickets, each with a `key`, `summary`, `description`, `labels`,
@@ -28,5 +33,14 @@ Some tickets are deliberately shaped to exercise one scenario each:
 - `SUB-60` is really three pieces of work under epic `SUB-1` (AC-33).
 - `SUB-20`, `SUB-21`, `SUB-22`, `ORD-15` are finished and sized, as size-work comparables (AC-35).
 - `DEX-30` has no size and `DEX-31` depends on an unfinished ticket outside the sprint (AC-39).
+- `SUB-2` is an open epic about pauses, the existing epic the idea journey can post under, and
+  `SUB-3` is an epic that is already done, for the ask before posting under a closed epic.
+- `SUB-80` is marked done and says a customer can skip one delivery, while the fixture code has no
+  skip action. It is the done ticket that disagrees with the code: the repository wins, and with no
+  repository the ticket alone never means the thing is built.
+- `SUB-81` carries a comment, an assignee, a reporter, an attachment and a work log, and its
+  description holds a sentence that tries to direct the reader. None of those names or that text
+  may reach the today block, the playback or a drafted ticket.
+- `SUB-82` calls a pause a hold, the other term the glossary learns from the tickets.
 - `LOY-12` is about loyalty, an area with code but no notes, and its own text claims the area is not
   built yet. It is the ticket for the refine and size evidence scenarios (AC-61).

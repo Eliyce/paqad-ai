@@ -1,0 +1,50 @@
+{
+  "run": {
+    "run_id": "DR-20261015-4HQ2",
+    "revision": 3,
+    "step": 2,
+    "updated_at": "2026-10-15T09:30:00+00:00",
+    "mode": "build"
+  },
+  "setup": {
+    "repository": "fixture-repo",
+    "repository_state": "ready",
+    "evidence_level": "project-docs",
+    "tracker_kind": "jira",
+    "project_key": "SUB",
+    "epic_type": "Epic",
+    "story_type": "Story",
+    "issue_types": ["Epic", "Story"],
+    "required_fields": {},
+    "link_types": [],
+    "size_field_id": null,
+    "sprint_field_id": null,
+    "can_create": true,
+    "run_label": "dr-20261015-4hq2"
+  },
+  "idea": {
+    "goal": "Customers can change how long their pause lasts.",
+    "who_benefits": "Customers with a paused plan",
+    "success": "Fewer calls to support about pause dates",
+    "constraints": "Within the allowed pause limit"
+  },
+  "glossary": [
+    { "user_term": "pause", "project_term": "pause" }
+  ],
+  "today": [
+    { "area": "subscriptions", "source_path": "docs/modules/subscriptions/index/summary.md", "evidence_level": "project-docs", "section_status": { "roles": "real", "rules": "real" } }
+  ],
+  "playback": {},
+  "decisions": [],
+  "assumptions": [],
+  "outcome": {},
+  "ticket_set_ref": {},
+  "readiness": {},
+  "posted": {},
+  "existing": [],
+  "changes": {},
+  "sizing": {},
+  "sprint_plan": {},
+  "stale": [],
+  "approval": null
+}

@@ -66,6 +66,21 @@ VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai|rovo", re.IG
 EM_DASH, EN_DASH = chr(0x2014), chr(0x2013)
 MAX_REFERENCE_LINES = 100
 MAX_GET_CONNECTED_BODY = 150
+FIXTURE_ROOT = os.path.join(REPO_ROOT, "tests", "evals", "fixture-repo")
+SCENARIOS = os.path.join(REPO_ROOT, "tests", "evals", "scenarios")
+LOY_12_BYTES = """    {
+      "key": "LOY-12",
+      "summary": "Let members gift points",
+      "description": "Loyalty is not built yet, so this is a brand new area. Members should be able to gift points to another member.",
+      "labels": ["loyalty"],
+      "parent": null,
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-28T10:00:00Z"
+    }
+"""
 
 
 def read_text(*parts):
@@ -573,6 +588,115 @@ class RequirementsV33Test(unittest.TestCase):
             rows = [line for line in text.split("\n") if line.startswith("| U-20")]
             self.assertEqual(len(rows), 1, host)
             self.assertIn("| pending |  |", rows[0], host)
+
+
+class TrackerFixtureTest(unittest.TestCase):
+    """FR-84: the fixture tracker gains epics and tickets, and a record from before the change."""
+
+    def setUp(self):
+        self.raw = read_text(FIXTURE_ROOT, "tracker", "tickets.json")
+        self.tickets = {ticket["key"]: ticket for ticket in json.loads(self.raw)["tickets"]}
+
+    def test_ac_5_fixture_holds_never_read_content_and_loy_12_is_byte_stable(self):
+        ticket = self.tickets["SUB-81"]
+        for field in ("comments", "assignee", "reporter", "attachments", "worklogs"):
+            self.assertTrue(ticket[field], field)
+        self.assertIn(LOY_12_BYTES, self.raw)
+        skills = ("ground-in-project", "shape-idea", "write-tickets", "check-tickets")
+        names = [ticket["assignee"], ticket["reporter"], ticket["comments"][0]["body"]]
+        for skill in skills:
+            for root, _dirs, files in os.walk(os.path.join(SKILLS_ROOT, skill)):
+                for name in files:
+                    if name.endswith(".md"):
+                        text = read_text(root, name)
+                        for value in names:
+                            self.assertNotIn(value, text, name)
+        reference = read_text(REFERENCES, "ground-from-tracker.md")
+        self.assertEqual(missing(reference, [
+            "Use only those eight, whatever comes back. Never quote, store or carry anything else.",
+            "Never carry a person's name, a contact detail, a link or a secret-looking value.",
+        ]), [])
+
+    def test_fixture_has_an_open_epic_a_done_epic_and_a_done_ticket_the_code_does_not_bear_out(self):
+        self.assertEqual(self.tickets["SUB-2"]["type"], "Epic")
+        self.assertEqual(self.tickets["SUB-3"]["status"], "Done")
+        self.assertEqual(self.tickets["SUB-80"]["status"], "Done")
+        for root, _dirs, files in os.walk(os.path.join(FIXTURE_ROOT, "app")):
+            for name in files:
+                self.assertNotIn("skip", read_text(root, name).lower(), name)
+        self.assertIn("hold", self.tickets["SUB-82"]["summary"])
+        readme = read_text(FIXTURE_ROOT, "tracker", "README.md")
+        for key in ("SUB-2", "SUB-3", "SUB-80", "SUB-81", "SUB-82"):
+            self.assertIn(key, readme, key)
+
+    def test_ac_11_fixture_record_has_no_grounding_sources_and_still_passes_the_record_check(self):
+        import check_record
+        path = os.path.join(FIXTURE_ROOT, "tracker", "record-before-tracker-grounding.json")
+        record = json.loads(read_text(path))
+        self.assertNotIn("grounding_sources", record["setup"])
+        self.assertNotIn("tracker_readable", record["setup"])
+        self.assertTrue(all("tickets_say" not in entry for entry in record["today"]))
+        self.assertEqual(record["run"]["step"], 2)
+        self.assertEqual(check_record.check(record), [])
+
+
+class TrackerScenariosTest(unittest.TestCase):
+    """FR-84, NFR-15: the conversation rows are covered by scenarios the coverage check counts."""
+
+    def setUp(self):
+        self.path = os.path.join(SCENARIOS, "tracker-grounding.yml")
+        self.raw = read_text(self.path)
+        sys.path.insert(0, os.path.join(REPO_ROOT, "tests", "evals"))
+        import run_parity
+        self.scenarios = run_parity.load_scenarios(self.path)["scenarios"]
+
+    def covered(self):
+        return {int(scenario["acceptance"].split("-")[1]) for scenario in self.scenarios}
+
+    def test_every_part_a_and_part_c_row_has_a_scenario(self):
+        expected = set(range(76, 83)) | set(range(84, 94)) | set(range(107, 114))
+        self.assertEqual(self.covered(), expected)
+
+    def test_ac_10_repository_only_scenario_expects_no_new_sentence_and_no_epic_question(self):
+        scenario = [item for item in self.scenarios if item["id"] == "tg-88"][0]
+        self.assertEqual(scenario["tracker"], "not readable")
+        for word in ("behaves-as-before", "source-line-unchanged", "no-epic-question",
+                     "hands-off-by-export"):
+            self.assertIn(word, scenario["expect"])
+
+    def test_read_limit_cases_cover_0_10_11_25_and_26(self):
+        ids = {item["id"] for item in self.scenarios if item["acceptance"] == "AC-84"}
+        self.assertEqual(ids, {"tg-84-0", "tg-84-10", "tg-84-11", "tg-84-25", "tg-84-26"})
+
+    def test_every_property_is_defined_and_no_value_holds_a_colon_space(self):
+        header = [line for line in self.raw.split("\n") if line.startswith("#")]
+        defined = {line.lstrip("#").split()[0] for line in header if line.lstrip("#").strip()}
+        known = set()
+        for name in os.listdir(SCENARIOS):
+            if name.endswith(".yml"):
+                for line in read_text(SCENARIOS, name).split("\n"):
+                    if line.startswith("#") and line.lstrip("#").strip():
+                        known.add(line.lstrip("#").split()[0])
+        for scenario in self.scenarios:
+            for field in ("id", "title", "acceptance", "entry_skill", "fixture", "tracker", "user"):
+                self.assertNotIn(": ", str(scenario[field]), scenario["id"])
+            for word in scenario["expect"]:
+                self.assertIn(word, known, scenario["id"])
+        for word in ("tracker-only-sentence-once", "repository-wins-finding-shown",
+                     "read-limits-hold", "never-read-fields-absent"):
+            self.assertIn(word, defined)
+
+    def test_repo_selection_gains_no_row(self):
+        text = read_text(SCENARIOS, "repo-selection.yml")
+        for number in range(76, 114):
+            self.assertNotIn("AC-{0}".format(number), text)
+
+    def test_readme_names_the_file_and_its_rows(self):
+        readme = read_text(SCENARIOS, "README.md")
+        self.assertEqual(missing(readme, [
+            "`tracker-grounding.yml`",
+            "AC-76 to AC-82, AC-84 to AC-93 and AC-107 to AC-113",
+        ]), [])
 
 
 if __name__ == "__main__":
