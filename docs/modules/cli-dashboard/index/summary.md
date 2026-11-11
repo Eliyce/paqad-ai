@@ -15,7 +15,7 @@ printed report can never disagree.
 
 ```
 paqad-ai dashboard [--port <n>] [--host <addr>] [--no-open] [--no-watch] [--read-only] [--quiet]
-paqad-ai status [--json]
+paqad-ai status [--json] [--verdict]
 ```
 
 | Flag (`dashboard`) | Default | Meaning |
@@ -28,7 +28,10 @@ paqad-ai status [--json]
 | `--quiet` | off | Suppress non-essential stdout. |
 
 `status` prints the same report as Markdown (default) or `--json` for piping
-into an agent or another tool.
+into an agent or another tool. `status --verdict` prints the verdict word and its reasons
+from this session's HUD verdict record (session from `--session`, `SE_SESSION` or
+`CLAUDE_SESSION_ID`); with no record it says so and why, so a closing message can be checked
+against the recorded verdict.
 
 ## The management rule (load-bearing)
 

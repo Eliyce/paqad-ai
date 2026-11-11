@@ -84,6 +84,10 @@ The reasons below are not obvious from the code of these commands and the shared
 - **`program.ts` and `index.ts`.** The verbs that move a change refresh the HUD snapshot when they
   finish, best-effort. `index.ts` re-exports the runtime-root helper so a dist test can prove the
   CLI bundle resolves the same root as the one the Stop hook imports.
+- **`status.ts`.** `status --verdict` prints the verdict word and reasons from this session's HUD
+  verdict record, or says there is no record and why. `doctor` warns, never fixes, when the home
+  folder holds `~/.paqad/framework-path.txt`, because the HUD then binds to the home folder; paqad
+  never deletes that file.
 - **`ui/banner.ts`.** A path too long for the frame is printed under it, because `pad()` never
   truncates. Codex loads project hooks only once the `.codex/` layer is trusted, so onboarding
   prints the one-time `/hooks` step.

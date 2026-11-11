@@ -100,6 +100,13 @@ backfill is used in the same way. `next_action` then says one of these:
   `scripts/stage-benchmark.mjs` measures a sample of runs, and `scripts/skill-consumer-scan.mjs` lists
   each base skill with its consumers.
 
+## A closing message and the recorded verdict
+
+At Stop, a closing message whose verdict word differs from the change's recorded verdict is held
+(`runtime/hooks/lib/verdict-agreement.mjs`), so the message is corrected to match the record; the
+check only reads and never writes the stage ledger. `paqad-ai status --verdict` prints the recorded
+verdict. The host task list reads Plan, Spec, Build, Review, Checks, Docs, matching the HUD band.
+
 ## A stage agent and an earlier answer
 
 A stage agent that opens a decision and gets `earlier_check` scans the titles, reads up to 5 with
