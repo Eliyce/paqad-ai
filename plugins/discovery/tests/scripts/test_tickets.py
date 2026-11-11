@@ -293,5 +293,184 @@ class CheckTicketSetTest(unittest.TestCase):
         self.assertIn("SCHEMA", self._codes(check_ticket_set.check({"epics": "not a list"})))
 
 
+def existing_epic_set():
+    """The valid set with E2 turned into an epic that already exists in the tracker."""
+    ticket_set = valid_set()
+    epic = ticket_set["epics"][1]
+    epic["existing_key"] = "ABC-7"
+    epic["title"] = "Order history"
+    epic["body_markdown"] = ""
+    epic["labels"] = []
+    return seal(ticket_set)
+
+
+class ExistingEpicTicketSetTest(unittest.TestCase):
+    """Spec AC-27 (REQUIREMENTS AC-101): the structure check on a set with existing_key."""
+
+    def _codes(self, issues):
+        return sorted({i["code"] for i in issues})
+
+    def _with(self, change):
+        ticket_set = existing_epic_set()
+        change(ticket_set["epics"][1], ticket_set)
+        return check_ticket_set.check(seal(ticket_set))
+
+    def test_ac_27_valid_existing_epic_set_passes(self):
+        self.assertEqual(check_ticket_set.check(existing_epic_set()), [])
+
+    def test_ac_27_key_that_is_not_a_tracker_key_is_refused(self):
+        for bad in ("#123", "abc-7", "", 7, None):
+            issues = self._with(lambda epic, _set, bad=bad: epic.update(existing_key=bad))
+            self.assertEqual(self._codes(issues), ["BAD_EXISTING_KEY"], bad)
+
+    def test_ac_27_existing_epic_with_zero_tickets_is_refused(self):
+        issues = self._with(lambda epic, _set: epic.update(tickets=[]))
+        self.assertEqual(self._codes(issues), ["EMPTY_EPIC"])
+
+    def test_ac_27_two_epics_with_the_same_existing_key_are_refused(self):
+        def change(_epic, ticket_set):
+            first = ticket_set["epics"][0]
+            first.update(existing_key="ABC-7", body_markdown="", labels=[])
+        issues = self._with(change)
+        self.assertEqual(self._codes(issues), ["DUPLICATE_EXISTING_KEY"])
+        self.assertEqual(issues[0]["path"], "epics[E2].existing_key")
+
+    def test_ac_27_non_empty_body_is_refused(self):
+        issues = self._with(lambda epic, _set: epic.update(body_markdown="## Goal\nRewritten."))
+        self.assertEqual(self._codes(issues), ["EXISTING_EPIC_BODY"])
+
+    def test_ac_27_any_label_is_refused(self):
+        issues = self._with(lambda epic, _set: epic.update(labels=["paqad-discovery"]))
+        self.assertEqual(self._codes(issues), ["EXISTING_EPIC_LABELS"])
+        issues = self._with(lambda epic, _set: epic.pop("labels"))
+        self.assertEqual(self._codes(issues), ["EXISTING_EPIC_LABELS"])
+
+    def test_ac_27_missing_title_or_bad_ref_is_still_refused(self):
+        issues = self._with(lambda epic, _set: epic.update(title="  "))
+        self.assertEqual(self._codes(issues), ["SCHEMA"])
+        issues = self._with(lambda epic, _set: epic.update(ref=""))
+        self.assertEqual(self._codes(issues), ["BAD_REF", "SCHEMA"])
+
+    def test_ac_27_long_live_title_is_accepted(self):
+        issues = self._with(lambda epic, _set: epic.update(title="L" * 200))
+        self.assertEqual(issues, [])
+
+    def test_ac_27_live_title_equal_to_a_ticket_title_is_accepted(self):
+        issues = self._with(lambda epic, _set: epic.update(title="Search past orders"))
+        self.assertEqual(issues, [])
+
+    def test_ac_27_new_epic_in_the_same_set_keeps_the_cap_and_the_duplicate_check(self):
+        issues = self._with(lambda _epic, ticket_set: ticket_set["epics"][0].update(title="N" * 81))
+        self.assertEqual(self._codes(issues), ["TITLE_TOO_LONG"])
+        issues = self._with(
+            lambda _epic, ticket_set: ticket_set["epics"][0].update(title="Show refund status"))
+        self.assertEqual(self._codes(issues), ["DUPLICATE_TITLE"])
+        issues = self._with(
+            lambda _epic, ticket_set: ticket_set["epics"][0].update(body_markdown=""))
+        self.assertEqual(self._codes(issues), ["SCHEMA"])
+
+    def test_ac_46_a_set_without_existing_key_reports_exactly_what_it_did(self):
+        # INV-12: the new branches are reached only through existing_key.
+        self.assertEqual(check_ticket_set.check(valid_set()), [])
+        ticket_set = valid_set()
+        ticket_set["epics"][1]["title"] = "Show refund status"
+        self.assertEqual(check_ticket_set.check(seal(ticket_set)), [{
+            "code": "DUPLICATE_TITLE", "path": "epics[E2]",
+            "message": "Title is duplicated across the set: Show refund status."}])
+
+
+class EpicChoiceMatchTest(unittest.TestCase):
+    """FR-54, spec AC-23: a redraft cannot silently drop or change the chosen epic."""
+
+    CHOICE = [{"mode": "new"}, {"mode": "existing", "key": "ABC-7", "title": "Order history"}]
+
+    def record(self, choice, as_object=False):
+        if as_object:
+            return {"decisions": {"epic_choice": choice}}
+        return {"decisions": [{"id": "D1", "question": "", "choice": "", "by": "", "why": ""},
+                              {"id": "epic-choice", "epic_choice": choice}]}
+
+    def _codes(self, issues):
+        return sorted({i["code"] for i in issues})
+
+    def test_ac_23_set_that_matches_the_recorded_choice_passes(self):
+        for as_object in (False, True):
+            record = self.record(self.CHOICE, as_object)
+            self.assertEqual(check_ticket_set.check(existing_epic_set(), record), [])
+
+    def test_ac_23_redraft_that_drops_the_chosen_epic_is_refused(self):
+        issues = check_ticket_set.check(valid_set(), self.record(self.CHOICE))
+        self.assertEqual(self._codes(issues), ["EPIC_CHOICE_MISMATCH"])
+        self.assertEqual(issues[0]["path"], "epics[1].existing_key")
+        self.assertIn("expected ABC-7, found a new epic", issues[0]["message"])
+
+    def test_ac_23_redraft_that_changes_the_key_is_refused(self):
+        choice = [{"mode": "new"}, {"mode": "existing", "key": "ABC-9", "title": "Other"}]
+        issues = check_ticket_set.check(existing_epic_set(), self.record(choice))
+        self.assertEqual(self._codes(issues), ["EPIC_CHOICE_MISMATCH"])
+
+    def test_existing_key_with_no_recorded_choice_is_refused(self):
+        for record in ({}, {"decisions": []}, {"decisions": [{"id": "D1"}]}, {"decisions": None}):
+            issues = check_ticket_set.check(existing_epic_set(), record)
+            self.assertEqual(self._codes(issues), ["EPIC_CHOICE_MISMATCH"], record)
+
+    def test_a_choice_for_an_epic_the_set_no_longer_holds_is_refused(self):
+        choice = self.CHOICE + [{"mode": "existing", "key": "ABC-8", "title": "Third"}, "junk"]
+        issues = check_ticket_set.check(existing_epic_set(), self.record(choice))
+        self.assertEqual([i["path"] for i in issues], ["epics[2].existing_key"])
+
+    def test_new_only_set_with_new_only_choice_passes_and_no_record_skips_the_check(self):
+        record = self.record([{"mode": "new"}])
+        self.assertEqual(check_ticket_set.check(valid_set(), record), [])
+        self.assertEqual(check_ticket_set.check(existing_epic_set()), [])
+
+    def test_cli_reads_the_record(self):
+        import contextlib
+        import io
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            set_path = os.path.join(folder, "ticket-set.json")
+            record_path = os.path.join(folder, "record.json")
+            with open(set_path, "w", encoding="utf-8") as handle:
+                json.dump(valid_set(), handle)
+            with open(record_path, "w", encoding="utf-8") as handle:
+                json.dump(self.record(self.CHOICE), handle)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = check_ticket_set.main(["--ticket-set", set_path, "--record", record_path])
+            self.assertEqual(code, 1)
+            self.assertEqual(json.loads(out.getvalue())["issues"][0]["code"], "EPIC_CHOICE_MISMATCH")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = check_ticket_set.main(["--ticket-set", set_path])
+            self.assertEqual(code, 0)
+
+
+class ExistingEpicProseTest(unittest.TestCase):
+    """FR-53: the prose check skips the title and body of an existing epic and lints its tickets."""
+
+    def test_existing_epic_text_is_skipped(self):
+        ticket_set = existing_epic_set()
+        ticket_set["epics"][1]["title"] = "Leverage the getOrders() flow \u2014 phase 2"
+        issues = check_prose.lint_ticket_set(ticket_set, DENYLIST)
+        self.assertEqual([i for i in issues if i["path"].startswith("epics[E2]")], [])
+
+    def test_the_same_title_on_a_new_epic_is_still_flagged(self):
+        ticket_set = valid_set()
+        ticket_set["epics"][1]["title"] = "Leverage the getOrders() flow \u2014 phase 2"
+        issues = check_prose.lint_ticket_set(ticket_set, DENYLIST)
+        self.assertTrue([i for i in issues if i["path"].startswith("epics[E2]")])
+
+    def test_tickets_under_an_existing_epic_are_still_linted(self):
+        ticket_set = existing_epic_set()
+        ticket_set["epics"][1]["tickets"][0]["title"] = "Search orders \u2014 fast"
+        issues = check_prose.lint_ticket_set(ticket_set, DENYLIST)
+        self.assertTrue([i for i in issues if i["path"].startswith("tickets[E2-T1]")])
+
+    def test_ac_46_a_set_without_existing_key_lints_exactly_as_before(self):
+        self.assertEqual(check_prose.lint_ticket_set(valid_set(), DENYLIST), [])
+
+
 if __name__ == "__main__":
     unittest.main()
