@@ -258,6 +258,29 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   drawing, Desktop tests follow the Desktop design, and one test per scene mounts the band and every
   Ledger tab on Desktop and presses every control; `test/world.ts` and `test/fixtures.ts` are
   test-only and not shipped.
+- **Root resolution.** `readStatus` walks `ancestorDirs(root, home)` from `$.session.root()`
+  and binds to the first folder with `.paqad/framework-path.txt`. The walk stops before the home
+  folder (`$.env.get('HOME')`, then `USERPROFILE`, trailing separators stripped, compared as
+  literal paths) and never returns it, so a session rooted at home is not onboarded; with neither
+  set the walk runs to `/`. On `prompt.submit` and `turn.start` the mod reads `$.session.root()`
+  once and, only when it changed, runs `readStatus` again: it rebinds to the new root, or stands
+  down (heartbeat stopped, band gone). It never runs git for this.
+- **Stand-down reasons and the missing record.** A stand-down writes
+  `paqad HUD stands down at <root>: <reason>` (`not-onboarded`, `old-engine`, `disabled`,
+  `view-off`, `remote`) to the debug log. A bound HUD with no `<root>/.paqad/session/hud/<id>.json`
+  30 s after binding draws `paqad could not find this session's record at <root>` with a hint to
+  run `paqad-ai doctor`, and rechecks every 5 s until the snapshot appears.
+- **Snapshot fields it reads.** `active` is false once the change's ledger has a `close` row; the
+  snapshot then carries `closed_change` (`closed_at`, `word`, `new_commits`) and the band draws the
+  closed row. Each stage carries `runs`, `first_started_at` and `last_ended_at` beside
+  `started_at` and `ended_at`, plus `record_gap` and `no_report` flags that draw the stage marked.
+  A snapshot without these fields still reads.
+- **Verdict agreement.** `verification-completion.mjs` reads the verdict file through
+  `readHudVerdict` (the reader `paqad-ai status --verdict` uses) after the backstop writes it. When
+  the main thread's final message carries a different verdict word it blocks once per change
+  (never with `stop_hook_active`, never on a subagent stop) with the file's word and reasons. A
+  missing or unreadable file lets the stop through, logs why to `.paqad/logs/hook-debug.log` and
+  shows `no verdict record` in the gap line.
 - **It only shows and asks.** Every check stays a hook in `hooks.json`, so the mod being off,
   blocked or broken changes no hook's decision. It reads only `.paqad/`, writes only its own
   heartbeat, calls no model or network, and starts a process only through `paqad-cli.ts` for the
@@ -448,8 +471,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `CLAUDE_CODE_SESSION_ID` that Claude Code exports counts as an explicit session in `stage` and
   `lane` commands, while an id from the shared cache alone still does not move the route.
 - **Task list.** On a feature-development prompt the prompt gate prints the lane's task-list
-  sentence next to the `SE_SESSION` line (Plan, Spec, Load rules, Build, Review, Checks, Docs; the
-  fast lane Plan, Build, Checks). The mod's `tool.call` hook on `mcp__ccd_turn__update_plan`
+  sentence next to the `SE_SESSION` line (Plan, Spec, Build, Review, Checks, Docs, the band strip's
+  steps in the same order; the fast lane Plan, Build, Checks). The mod's `tool.call` hook on `mcp__ccd_turn__update_plan`
   refuses, once per turn and only on the feature route, a list with items whose openings miss the
   lane's stage words in order, answering with the same sentence; `advance`, `done` and `start` calls
   always pass, and a new prompt resets the turn.
