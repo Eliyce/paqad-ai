@@ -391,6 +391,7 @@ declare module 'claude-code' {
       paneOpen: boolean;
       unavailable: boolean;
       unbound: boolean;
+      recordMissing: { root: string; home: string | null } | null;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;
