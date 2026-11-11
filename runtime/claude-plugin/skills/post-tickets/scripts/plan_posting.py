@@ -121,7 +121,6 @@ def build_plan(ticket_set, setup, connector):
     ticket_op_obj = {}
     created_refs = []
 
-    # The read-only check of every existing epic first, before any create (PUB-9).
     existing = {}
     for epic in ticket_set.get("epics", []):
         if "existing_key" not in epic:
@@ -325,7 +324,6 @@ def _write_posted(state, op_id, receipt):
     if op.get("kind") not in ("epic", "story", "verify"):
         return
     if op.get("kind") == "verify":
-        # An existing epic is shown as not changed, never as created (PUB-9).
         key, status = op["arguments"]["key"], NOT_CHANGED
     else:
         key, status = (receipt.get("result") or {}).get("key"), SUCCESS
@@ -377,7 +375,6 @@ def judge_verify(state, op, receipt):
 
     title = _epic_title(state, op["item_ref"])
     if result.get("summary") is not None and result.get("summary") != title:
-        # A changed title is not a failed check: the live title is used and the change is said.
         stored["title_changed"] = {"from": title, "to": result.get("summary")}
     if result.get("done"):
         confirmed = state.setdefault("confirmed_done", [])
@@ -414,7 +411,7 @@ def record_verify(state, op, receipt):
 
 def record_receipt(state, op_id, receipt):
     """Record a receipt. created writes the issue key into posted; a created receipt is final."""
-    op = _op(state, op_id)  # validates the id
+    op = _op(state, op_id)
     if op.get("kind") == "verify":
         return record_verify(state, op, receipt)
     status = receipt.get("status")

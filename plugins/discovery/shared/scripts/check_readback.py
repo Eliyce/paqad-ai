@@ -79,8 +79,6 @@ def expected_items(ticket_set):
     run_id = ticket_set.get("run_id", "")
     items = {}
     for epic in ticket_set.get("epics", []):
-        # An epic with existing_key already exists in the tracker: it is not a created item, and
-        # each of its tickets expects the existing key as parent (PUB-9).
         existing = "existing_key" in epic
         if not existing:
             items[epic["ref"]] = {
@@ -266,7 +264,6 @@ def compare(approved, created):
         else:
             matched += 1
 
-    # An existing epic is never extra, whether the read-back names it by its ref or by its key.
     unchanged = set()
     for epic in approved.get("epics", []):
         if "existing_key" in epic:

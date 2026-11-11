@@ -203,7 +203,6 @@ def structure_errors(ticket_set):
                     "A ticket belongs to exactly one epic; this ref appears under two."))
             ticket_owner.setdefault(ref, epic_ref)
 
-    # Two epic entries may not name the same existing epic.
     seen_keys = set()
     for epic in epics:
         if not _is_existing(epic):
@@ -235,8 +234,6 @@ def structure_errors(ticket_set):
                         "DANGLING_DEPENDENCY", "tickets[{0}].depends_on".format(ref),
                         "depends_on points at an unknown ticket: {0}.".format(dep)))
 
-    # Duplicate titles across the whole set (epics and tickets). The live title of an existing epic
-    # is not ours, so it is left out.
     titles = {}
     for epic in epics:
         own = [] if _is_existing(epic) else [("epics[{0}]".format(epic.get("ref")), epic)]

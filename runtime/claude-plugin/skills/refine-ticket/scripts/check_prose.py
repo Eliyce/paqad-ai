@@ -260,8 +260,6 @@ def lint_ticket_set(ticket_set, denylist):
     issues = []
     for epic in ticket_set.get("epics", []):
         epic_ref = epic.get("ref", "?")
-        # An epic with existing_key already exists in the tracker: its title is the live title as
-        # read and its body is empty, so the text is not ours to lint. Its tickets still are.
         if "existing_key" not in epic:
             issues.extend(lint_item(
                 "epics[{0}]".format(epic_ref),
