@@ -264,10 +264,8 @@ def compare(approved, created):
         else:
             matched += 1
 
-    unchanged = set()
-    for epic in approved.get("epics", []):
-        if "existing_key" in epic:
-            unchanged.update((epic["ref"], epic["existing_key"]))
+    unchanged = {epic["existing_key"] for epic in approved.get("epics", [])
+                 if "existing_key" in epic}
     extra = [ref for ref in actual if ref not in expected and ref not in unchanged]
     for ref in extra:
         differences.append(canonical.issue("EXTRA", str(ref), "Created issue not in the approved set."))

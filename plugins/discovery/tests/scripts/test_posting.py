@@ -1128,10 +1128,17 @@ class ExistingEpicReadbackTest(unittest.TestCase):
 
     def test_ac_33_existing_epic_in_the_read_back_is_never_extra(self):
         approved = mixed_set()
-        for ref in ("E2", EXISTING_KEY):
-            created = self.created(approved) + [{"ref": ref, "title": "Someone renamed it",
-                                                 "type": "Epic", "labels": ["other"]}]
-            self.assertEqual(check_readback.compare(approved, created), ("match", []), ref)
+        created = self.created(approved) + [{"ref": EXISTING_KEY, "title": "Someone renamed it",
+                                             "type": "Epic", "labels": ["other"]}]
+        self.assertEqual(check_readback.compare(approved, created), ("match", []))
+
+    def test_ac_33_an_issue_created_under_the_existing_epic_ref_is_extra(self):
+        approved = mixed_set()
+        created = self.created(approved) + [{"ref": "E2", "title": "Order history",
+                                             "type": "Epic", "labels": [RUN_LABEL]}]
+        status, differences = check_readback.compare(approved, created)
+        self.assertEqual(status, "partial")
+        self.assertEqual([(d["code"], d["path"]) for d in differences], [("EXTRA", "E2")])
 
     def test_ac_33_a_ticket_with_a_different_parent_is_flagged(self):
         approved = mixed_set()
