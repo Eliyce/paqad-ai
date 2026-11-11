@@ -1,0 +1,59 @@
+{
+  "id": "D-01M75M658YG77E8XWVFX0BJ79B",
+  "category": "authoring.override",
+  "title": "Skip the trigger gate (S6) for the start skill",
+  "context": "start is command-only (disable-model-invocation: true), so the model never invokes it and no description can pass the trigger test: validation 0.5 against a 0.9 bar. Every other gate ran for real; evals passed at 88.9 percent new against 83.3 percent old.",
+  "options": [
+    {
+      "option_key": "skip",
+      "label": "Skip S6 for start only, every other gate stays real",
+      "one_line_preview": "Skip S6 for start only, every other gate stays real",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "flag",
+      "label": "Remove the command-only flag",
+      "one_line_preview": "Remove the command-only flag",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "leave",
+      "label": "Leave start unreleased",
+      "one_line_preview": "Leave start unreleased",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "skip",
+  "created_at": "2026-11-11T15:38:53.598Z",
+  "status": "resolved",
+  "change": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier question is about skipping a gate for a command-only skill."
+  },
+  "chosen": "skip",
+  "rationale": "Owner chose Allow one skip (Recommended) in the question prompt: start is command-only and cannot pass the trigger test.",
+  "resolved_at": "2026-11-11T15:39:01.546Z",
+  "decision_id": "D-01M75M658YG77E8XWVFX0BJ79B",
+  "fingerprint": "sha256:82b619223a997b838311d640e793c70c8dada625f4fd5e9ccb21556b45186037",
+  "question": "Skip the trigger gate (S6) for the start skill",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "ttl_until": "2026-12-11T15:38:53.598Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "skip",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T15:39:01.546Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose Allow one skip (Recommended) in the question prompt: start is command-only and cannot pass the trigger test."
+  }
+}

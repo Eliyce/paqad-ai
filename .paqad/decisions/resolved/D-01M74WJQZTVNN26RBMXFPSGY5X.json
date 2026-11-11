@@ -1,0 +1,52 @@
+{
+  "id": "D-01M74WJQZTVNN26RBMXFPSGY5X",
+  "category": "workflow-or-tool",
+  "title": "The build helper for issue 884 was stopped before it reported. How should the change go on?",
+  "context": "All eight planned commits are on the branch feat/discovery-jira-source-existing-epic and nothing is pushed. The helper was stopped during a test run, so there are no test results. The end-of-turn check also found comments left in the new and changed test files (rule RL-3059), which the build helper has to remove. Skill records, changeset, review, checks and the PR are not done.",
+  "options": [
+    {
+      "option_key": "resume",
+      "label": "Resume the build helper: remove the comments, finish the tests, report, then go on to review",
+      "one_line_preview": "Resume the build helper: remove the comments, finish the tests, report, then go on to review",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold",
+      "label": "Keep the change paused as it is",
+      "one_line_preview": "Keep the change paused as it is",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "resume",
+  "created_at": "2026-11-11T08:46:20.154Z",
+  "status": "resolved",
+  "change": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier question is about a stage helper stopped by the person mid run; nothing looks close."
+  },
+  "chosen": "resume",
+  "rationale": "Owner said \"continue\" after the build helper was stopped.",
+  "resolved_at": "2026-11-11T13:22:55.165Z",
+  "decision_id": "D-01M74WJQZTVNN26RBMXFPSGY5X",
+  "fingerprint": "sha256:0abe21d8d2265d9446b0075f717a2dfb5dd614453ae82a810fd3db67f94951ef",
+  "question": "The build helper for issue 884 was stopped before it reported. How should the change go on?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M74RZSDZGPCR87Y1SCXNRYQR",
+  "ttl_until": "2026-11-18T08:46:20.154Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "resume",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-11T13:22:55.165Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said \"continue\" after the build helper was stopped."
+  }
+}
