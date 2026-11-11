@@ -455,3 +455,54 @@ describe('the terminal line before a change opens', () => {
     expect(layoutBand(closed, size, context)).toEqual({ kind: 'none' });
   });
 });
+
+describe('FR-11: the terminal row for a closed change', () => {
+  const PR = { number: 12, url: 'https://example.test/pull/12', draft: false, head_sha: 'a' };
+  const closedChange = (
+    over: Record<string, unknown> = {},
+    ship: unknown = { ...(FULL_ORD_501.ship as object), pr: PR },
+  ) => ({
+    ...FULL_ORD_501,
+    active: false,
+    scope: { qualified: true, reason: 'finished' },
+    verdict: { kind: 'pass', word: 'Safe to merge', reasons: [], change: 'x', stale: false },
+    closed_change: {
+      closed_at: '2026-10-18T09:00:00.000Z',
+      word: 'Safe to merge',
+      new_commits: 0,
+      ...over,
+    },
+    ship,
+  });
+
+  it('AC-10: draws one line with the verdict word, its mark and tone, and the PR', () => {
+    const layout = bandOf(closedChange());
+    expect(layout.kind).toBe('line');
+    if (layout.kind !== 'line') return;
+    expect(rowText(layout.row)).toBe('paqad  Change closed · ● Safe to merge  PR #12');
+    expect(layout.row.find((s) => s.text.includes('Safe to merge'))?.tone).toBe('good');
+  });
+
+  it('AC-10, AC-19: says no verdict record, Delivery missing and new commits after close in words', () => {
+    const layout = bandOf(closedChange({ word: null, new_commits: 2 }, null));
+    expect(layoutLines(layout)).toEqual([
+      'paqad  Change closed · ▲ no verdict record  ▲ Delivery missing  ▲ new commits after close',
+    ]);
+    if (layout.kind !== 'line') return;
+    expect(layout.row.filter((s) => s.text.includes('▲')).every((s) => s.tone === 'warn')).toBe(
+      true,
+    );
+  });
+
+  it('AC-10: draws nothing once the band is closed or hidden', () => {
+    const snap = parseSnapshot(fileText(closedChange()));
+    const ctx = { now: NOW, live: IDLE_LIVE };
+    const size = { columns: 120, maxRows: 12 };
+    for (const visibility of [
+      { minimised: false, closed: true, hidden: false },
+      { minimised: false, closed: false, hidden: true },
+    ]) {
+      expect(layoutBand(snap, size, ctx, visibility).kind).toBe('none');
+    }
+  });
+});

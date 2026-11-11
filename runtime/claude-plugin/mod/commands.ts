@@ -8,6 +8,12 @@ import {
   stageSegments,
   type BandView,
 } from './model';
+import {
+  CHANGE_CLOSED,
+  DELIVERY_MISSING,
+  NEW_COMMITS_AFTER_CLOSE,
+  NO_VERDICT_WORDS,
+} from './desktop-view';
 import { shipRail, STEP_WORDS } from './ship';
 import { hiddenReply, SHOWN_AGAIN } from './visibility';
 import { linesText, recordLines, shipsLines, trustLines } from './tabs';
@@ -93,17 +99,30 @@ function overview(snapshot: PaqadHudSnapshot, now: number): string {
   return [stateLine(view), stageLine(view), shipLine(snapshot), view.cost, help()].join('\n');
 }
 
+function closedStatusLine(
+  snapshot: PaqadHudSnapshot,
+  closed: NonNullable<PaqadHudSnapshot['closed_change']>,
+): string {
+  const number = snapshot.ship?.pr_number ?? null;
+  const parts = [`${CHANGE_CLOSED}: ${closed.word ?? NO_VERDICT_WORDS}`];
+  parts.push(number !== null && snapshot.ship?.pr_url ? `PR #${number}` : DELIVERY_MISSING);
+  if (closed.new_commits > 0) parts.push(NEW_COMMITS_AFTER_CLOSE);
+  return `${parts.join(', ')}.`;
+}
+
 function status(snapshot: PaqadHudSnapshot, now: number): string {
   const view = buildBandView(snapshot, now);
   const lines = [stateLine(view)];
   if (snapshot.active && view.note) lines.push(`Note: ${view.note}.`);
   if (snapshot.active && view.gap) lines.push(`${view.gap}.`);
   const change = snapshot.change;
-  if (snapshot.active && change) {
+  const closed = !snapshot.active ? snapshot.closed_change : undefined;
+  if ((snapshot.active || closed) && change) {
     const name = [change.issue ? `#${change.issue}` : null, change.title].filter(Boolean).join(' ');
     lines.push(`Change: ${name || change.id || 'untitled'}.`);
     if (change.branch) lines.push(`Branch: ${change.branch}.`);
   }
+  if (closed) lines.push(closedStatusLine(snapshot, closed));
   if (snapshot.lane) {
     lines.push(`Lane: ${snapshot.lane}${snapshot.lane_reason ? `, ${snapshot.lane_reason}` : ''}.`);
   }

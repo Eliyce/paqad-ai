@@ -201,6 +201,13 @@ keyboard with the host's focus ring) and `Ledger`. With no `delivery.json` or no
 closed and adds `▲ new commits after close` in the caution colour. The Ledger's Delivery tab keeps
 reading `delivery.json` for a closed change.
 
+The terminal draws the same row as one line: `paqad`, dim `  Change closed · `, the verdict word
+behind its mark in the verdict's named tone (`●` good, `✗` bad, `◐` warn), or `▲ no verdict record`
+in warn, then `PR #<n>` (or `▲ Delivery missing` in warn) and, when commits landed after the close,
+`▲ new commits after close` in warn. It is cut with `…` at the band width, and it is not drawn while
+the band is closed or hidden. `/paqad status` keeps the change and branch lines for a closed change
+and adds `Change closed: <word>, PR #<n>[, new commits after close].`
+
 ### Record-missing card
 
 When the HUD is bound and `<root>/.paqad/session/hud/<id>.json` still does not exist 30 s after
