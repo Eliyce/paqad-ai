@@ -278,6 +278,8 @@ let tickTimer: Timer | null = null;
 let desktopSession = false;
 let taskListRefused = false;
 let signoffChecking = false;
+let boundStart: string | null = null;
+let commandRegistered = false;
 const rawCalls = new Set<string>();
 
 interface CiWatch {
@@ -1359,35 +1361,76 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
   });
 }
 
+async function clearBinding($: EngineInterface): Promise<void> {
+  live = null;
+  await moveLive($, turnEnded);
+  lastText = undefined;
+  verdictSeen = undefined;
+  chimeOn = false;
+  rawCalls.clear();
+  ticker?.cancel();
+  ticker = null;
+  agentsWorking = [];
+  stopCiWatch();
+  ciPause = null;
+  heartbeat?.cancel();
+  heartbeat = null;
+  stopTick();
+}
+
+async function resolveRoot(
+  $: EngineInterface,
+  start: string,
+): Promise<Awaited<ReturnType<typeof readStatus>> | null> {
+  boundStart = start;
+  let status: Awaited<ReturnType<typeof readStatus>> | null = null;
+  try {
+    const found = await readStatus($, start);
+    status = found;
+    await update($, unboundAtom, () => false);
+    await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));
+  } catch {}
+  if (status?.on && status.root) await bind($, status.root, status.chime);
+  return status;
+}
+
+async function registerCommandOnce($: EngineInterface): Promise<void> {
+  if (commandRegistered) return;
+  commandRegistered = true;
+  await registerCommand($);
+}
+
+async function followRoot($: EngineInterface): Promise<void> {
+  if (boundStart === null) return;
+  let start: string;
+  try {
+    start = await $.session.root();
+  } catch {
+    return;
+  }
+  if (start === boundStart) return;
+  await clearBinding($);
+  try {
+    await update($, statusAtom, () => null);
+  } catch {}
+  const status = await resolveRoot($, start);
+  if (status && registersCommand(status)) await registerCommandOnce($);
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
-    live = null;
-    await moveLive($, turnEnded);
-    lastText = undefined;
-    verdictSeen = undefined;
-    chimeOn = false;
-    rawCalls.clear();
-    ticker?.cancel();
-    ticker = null;
-    agentsWorking = [];
-    stopCiWatch();
-    ciPause = null;
-    heartbeat?.cancel();
-    heartbeat = null;
-    stopTick();
+    await clearBinding($);
     taskListRefused = false;
     signoffChecking = false;
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
+    boundStart = null;
+    commandRegistered = false;
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
-      const found = await readStatus($, await $.session.root());
-      status = found;
-      await update($, unboundAtom, () => false);
-      await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));
+      status = await resolveRoot($, await $.session.root());
     } catch {}
-    if (status?.on && status.root) await bind($, status.root, status.chime);
-    if (status && registersCommand(status)) await registerCommand($);
+    if (status && registersCommand(status)) await registerCommandOnce($);
     return next(e);
   });
 
@@ -1401,6 +1444,7 @@ export const register: Register = (on) => {
   );
 
   on('prompt.submit', async ($, e, next) => {
+    await followRoot($);
     taskListRefused = false;
     if (live) {
       const now = await $.clock.now();
@@ -1462,6 +1506,7 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('turn.start', async ($, e, next) => {
+    await followRoot($);
     if (live && !e.agentId) {
       const now = await $.clock.now();
       await moveLive($, (state) => turnStarted(state, e.turnId, now));

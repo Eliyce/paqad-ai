@@ -1817,6 +1817,84 @@ describe('the HUD never takes the home folder as a project root', () => {
   });
 });
 
+describe('the HUD follows the session folder when it moves', () => {
+  const HOME = '/home/dev';
+  const SPARE = `${HOME}/.claude/spares/spare-1`;
+  const REPO = `${HOME}/code/app`;
+  const OTHER = `${HOME}/code/plain`;
+  const HOME_ONBOARDED = { [`${HOME}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n' };
+  const REPO_ONBOARDED = {
+    [`${REPO}/.paqad/framework-path.txt`]: '~/.paqad-ai/current\n',
+    [`${REPO}/${SNAPSHOT}`]: fileText(FULL_ORD_501),
+  };
+  const PROMPT = { text: 'go', origin: { kind: 'composer' } } as never;
+  const configReads = (world: World) =>
+    world.reads.filter((path) => path.endsWith('.paqad/.config')).length;
+
+  test('AC-1: a spare session claimed into an onboarded repo writes the repo heartbeat on the first prompt', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...HOME_ONBOARDED, ...REPO_ONBOARDED },
+      root: SPARE,
+      env: { HOME },
+    });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    expect(world.writes).toEqual([]);
+    world.root = REPO;
+    await $.prompt.submit(PROMPT);
+    await clock.advance(2_000);
+    expect(world.writes.map((write) => write.path)).toContain(`${REPO}/${HEARTBEAT}`);
+    expect(world.writes.some((write) => write.path.startsWith(`${HOME}/.paqad/`))).toBe(false);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+  });
+
+  test('AC-3: a folder that changes before the first turn binds on turn.start', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: SPARE, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: SPARE });
+    world.root = REPO;
+    await $.turn.start({ turnId: 't1' } as never);
+    expect(world.writes.map((write) => write.path)).toEqual([`${REPO}/${HEARTBEAT}`]);
+    expect(world.reads).toContain(`${REPO}/${SNAPSHOT}`);
+  });
+
+  test('AC-14: an unchanged folder runs no root search', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: REPO, env: { HOME } });
+    mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: REPO });
+    const before = configReads(world);
+    await $.prompt.submit(PROMPT);
+    await $.turn.start({ turnId: 't1' } as never);
+    expect(configReads(world)).toBe(before);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('AC-14: a move to a folder that is not onboarded stands down, then a move back rebinds', async ($, on) => {
+    const world = worldOf(on, { files: { ...REPO_ONBOARDED }, root: REPO, env: { HOME } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start({ ...START, cwd: REPO });
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+    world.root = OTHER;
+    await $.prompt.submit(PROMPT);
+    const beats = world.writes.length;
+    await clock.advance(180_000);
+    await clock.settle();
+    expect(world.writes).toHaveLength(beats);
+    for (const surface of SURFACES) {
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('paqad');
+    }
+    expect((await $.command.run(command('status'))).text).toBe(
+      'paqad is not active here: this project was never onboarded.',
+    );
+    world.root = REPO;
+    await $.prompt.submit(PROMPT);
+    expect(world.writes.length).toBeGreaterThan(beats);
+    expect(world.writes.at(-1)!.path).toBe(`${REPO}/${HEARTBEAT}`);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+    expect(world.runs).toEqual([]);
+  });
+});
+
 describe('the HUD binds first and falls back to /paqad-hud', () => {
   const PRODUCT_TAKEN = "it is the plugin's /paqad-product-discovery:paqad";
   const FILES = { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501), [RECEIPT]: RECEIPT_TEXT };
