@@ -865,7 +865,7 @@ describe('AC-14: minimised, closed and hidden', () => {
 
 describe('AC-18: the task list carries the stages of the lane', () => {
   const call = (items: unknown[], extra: Raw = {}) => ({ items, ...extra });
-  const full = ['Plan the change', 'Spec', 'Load rules', 'Build it', 'Review', 'Checks', 'Docs'];
+  const full = ['Plan the change', 'Spec', 'Build it', 'Review', 'Checks', 'Docs'];
 
   it('passes the stage words as item openings in order, with any other items around them', () => {
     expect(refusesTaskList('full', call(full.map((content) => ({ content }))))).toBe(false);
@@ -903,7 +903,7 @@ describe('AC-18: the task list carries the stages of the lane', () => {
     expect(taskListSentence('fast')).toBe(TASK_LIST_SENTENCES.fast);
     expect(taskListSentence('full')).toBe(TASK_LIST_SENTENCES.full);
     expect(taskListSentence(null)).toBe(
-      'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+      'paqad task list: Plan, Spec, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
     );
     expect(TASK_LIST_SENTENCES.fast).toBe(
       'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',

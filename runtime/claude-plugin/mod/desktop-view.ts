@@ -1890,12 +1890,12 @@ export function ledgerIsLive(ledger: DesktopLedger): boolean {
 export const UPDATE_PLAN_TOOL = 'mcp__ccd_turn__update_plan';
 
 export const TASK_LIST_SENTENCES = {
-  full: 'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+  full: 'paqad task list: Plan, Spec, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
   fast: 'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
 } as const;
 
 const TASK_WORDS = {
-  full: ['plan', 'spec', 'load rules', 'build', 'review', 'checks', 'docs'],
+  full: ['plan', 'spec', 'build', 'review', 'checks', 'docs'],
   fast: ['plan', 'build', 'checks'],
 } as const;
 

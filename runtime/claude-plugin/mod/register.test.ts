@@ -2634,7 +2634,6 @@ const FULL_PLAN = planItems(
   'Read the ticket',
   'Plan the change',
   'Spec: freeze it',
-  'Load rules',
   'Build the export',
   'Review',
   'Checks',
@@ -2665,7 +2664,7 @@ describe('the task list carries the stages (AC-18)', () => {
     expect(await updatePlan($, bad)).not.toHaveProperty('deny');
     await $.prompt.submit({ text: 'again' } as never);
     const outOfOrder = {
-      items: planItems('Spec', 'Plan', 'Load rules', 'Build', 'Review', 'Checks', 'Docs'),
+      items: planItems('Spec', 'Plan', 'Build', 'Review', 'Checks', 'Docs'),
     };
     expect(await updatePlan($, outOfOrder)).toMatchObject({ deny: TASK_LIST_SENTENCES.full });
   });
