@@ -58,7 +58,7 @@ STOP_SENTENCE = (
 )
 FINDING = (
     "The tickets say customers can pause a subscription (ABC-12, done), but the code suggests "
-    "there is no pause action. I'm going with the repository."
+    "there is no pause action. I'm going with the code and docs."
 )
 CUT_LINE = "I looked at the 25 closest tickets"
 EPIC_QUESTION = "Where should these tickets go?"
@@ -281,7 +281,7 @@ class TrackerReferenceTest(BuiltCopies):
         self.assert_both_hold("shape-idea", ("references", "challenge-guide.md"),
                               [FINDING, "an issue key"])
         self.assert_both_hold("ground-in-project", ("SKILL.md",),
-                              ["the repository wins", "I'm going with the repository."])
+                              ["the repository wins", "I'm going with the code and docs."])
         docs_map = read_text(REFERENCES, "paqad-docs-map.md")
         self.assertEqual(missing(docs_map, ["The docs say ..., but the code suggests ..."]), [])
         self.assertEqual(missing(self.text, ["docs against code still says both and picks neither"]), [])
@@ -482,7 +482,7 @@ class RecordTemplateTest(BuiltCopies):
     def test_ac_6_a_disagreement_is_a_finding_on_the_today_entry(self):
         self.assert_both_hold("product-discovery", ("assets", "record-template.md"), [
             "the entry adds disagreement, the one-line finding that names the issue key and ends "
-            "\"I'm going with the repository.\"",
+            "\"I'm going with the code and docs.\"",
         ])
 
     def test_ac_37_glossary_pair_notes_that_the_term_came_from_the_tickets(self):
@@ -1011,6 +1011,54 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn('"ticket_key_scan": { "lines_read": 0, "jira_prefixes": [{ "prefix": "ABC", '
                       '"count": 0 }], "github_refs": 0 }', template)
         self.assertIn("never the examples, branch names or commit text", self.flat)
+
+
+TICKETS_ONLY_SENTENCE = "the tickets say this was planned; I can't see it in the code or docs"
+DIFFER_ENDING = "I'm going with the code and docs."
+
+
+class CompareStepTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.ground = normalised(read_text(REPO_ROOT, "skills", "ground-in-project", "SKILL.md"))
+        cls.shape = normalised(read_text(REPO_ROOT, "skills", "shape-idea", "SKILL.md"))
+        cls.tracker = normalised(read_text(REFERENCES, "ground-from-tracker.md"))
+        cls.consulting = normalised(read_text(REFERENCES, "consulting.md"))
+        cls.expect = scenario_expectations("compare.yml")
+
+    def test_ac36_the_playback_opens_with_the_comparison_lines(self):
+        self.assertIn("open the playback with them, before any question: the agree, tickets only, "
+                      "repository only and differ lines", self.shape)
+        self.assertTrue({"comparison-lines-first", "comparison-recorded"} <= self.expect["AC-126"])
+
+    def test_ac37_each_mark_has_its_line(self):
+        for mark in ("`agree`", "`tickets_only`", "`repository_only`", "`differ`"):
+            self.assertIn(mark, self.ground)
+        self.assertIn(TICKETS_ONLY_SENTENCE, self.ground)
+        self.assertIn(DIFFER_ENDING, self.ground)
+        self.assertIn("`today[].comparison`", self.ground)
+        self.assertIn("tickets-only-sentence", self.expect["AC-127"])
+        self.assertIn("differ-ends-code-and-docs", self.expect["AC-128"])
+        self.assertIn("agree-line", self.expect["AC-126"])
+        self.assertIn("repository-only-line", self.expect["AC-126"])
+
+    def test_ac38_one_source_runs_show_no_comparison(self):
+        self.assertIn("With only one of the two sources, mark nothing", self.ground)
+        self.assertIn("With no marks show no comparison lines and no empty heading; in a "
+                      "tickets-only run label each fact as from the tickets", self.shape)
+        self.assertTrue({"no-comparison-lines", "facts-labelled-tickets"} <= self.expect["AC-129"])
+
+    def test_ac39_code_and_docs_are_the_truth_over_the_tickets(self):
+        for text in (self.tracker, self.consulting):
+            self.assertIn("never drives a recommendation against", text)
+            self.assertIn("never overrides it", text.replace("never overrides the code", "never overrides it"))
+        self.assertIn("When the code or `docs/modules` is readable it is the source of truth",
+                      self.tracker)
+        self.assertIn(DIFFER_ENDING, self.tracker)
+        self.assertNotIn("I'm going with the repository.", self.tracker + self.ground + self.shape)
+        self.assertIn("recommendation that follows the code and docs, never the tickets",
+                      self.shape)
+        self.assertIn("fact-follows-code-and-docs", self.expect["AC-128"])
 
 if __name__ == "__main__":
     unittest.main()

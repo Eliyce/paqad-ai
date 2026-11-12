@@ -222,5 +222,33 @@ class TicketKeyScanTest(unittest.TestCase):
         rec["setup"] = "not a block"
         self.assertEqual(check_record.scan_issues(rec), [])
 
+
+class ComparisonTest(unittest.TestCase):
+    def _record(self, *marks):
+        rec = record.new_record(run_id="DR-20261005-7K2Q", mode="build")
+        rec["setup"] = {"tracker_kind": "jira", "can_create": True}
+        rec["today"] = [{"area": "a{0}".format(i), "comparison": mark}
+                        for i, mark in enumerate(marks)]
+        return rec
+
+    def test_ac40_the_four_marks_pass(self):
+        rec = self._record("agree", "tickets_only", "repository_only", "differ")
+        self.assertEqual(check_record.check(rec, step=0), [])
+        self.assertEqual(record.COMPARISON_VALUES,
+                         ("agree", "tickets_only", "repository_only", "differ"))
+
+    def test_ac40_any_other_mark_fails_naming_the_entry(self):
+        issues = check_record.check(self._record("agree", "same", None), step=0)
+        self.assertEqual([issue["path"] for issue in issues],
+                         ["today[1] -> comparison", "today[2] -> comparison"])
+        self.assertEqual({issue["code"] for issue in issues}, {"COMPARISON"})
+
+    def test_ac40_an_older_record_without_comparison_still_passes(self):
+        rec = self._record()
+        rec["today"] = [{"area": "returns", "source_path": "x"}, "not an entry"]
+        self.assertEqual(check_record.check(rec, step=0), [])
+        rec["today"] = "not a list"
+        self.assertEqual(check_record.comparison_issues(rec), [])
+
 if __name__ == "__main__":
     unittest.main()

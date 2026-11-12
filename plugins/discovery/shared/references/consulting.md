@@ -14,6 +14,10 @@ through the host's choice prompt (see `voice.md`, Choices in the choice prompt).
 matters is one short clause at most, and only when it is not obvious. "I don't know" is always
 accepted: offer a sensible default, say plainly that it is an assumption, and record it as one.
 
+The code and `docs/modules` are the truth whenever either is readable, for every area and every
+step. Tickets only add what was planned or asked for: a ticket never overrides the code or docs,
+never changes what they show and never drives a recommendation against them.
+
 ## CON-2. Extract before asking
 
 Use what the user already said and what the documents say before asking anything. Ask only about

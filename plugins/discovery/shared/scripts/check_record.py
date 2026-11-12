@@ -53,6 +53,23 @@ def prefix_ok(entry):
     )
 
 
+def comparison_issues(rec):
+    today = rec.get("today")
+    if not isinstance(today, list):
+        return []
+    issues = []
+    for index, entry in enumerate(today):
+        if not isinstance(entry, dict) or "comparison" not in entry:
+            continue
+        if entry["comparison"] not in record.COMPARISON_VALUES:
+            issues.append(canonical.issue(
+                "COMPARISON",
+                "today[{0}] -> comparison".format(index),
+                "comparison must be one of {0}.".format(", ".join(record.COMPARISON_VALUES)),
+            ))
+    return issues
+
+
 def scan_issues(rec):
     setup = rec.get("setup")
     scan = setup.get("ticket_key_scan") if isinstance(setup, dict) else None
@@ -88,7 +105,7 @@ def check(rec, step=None):
             issues.append(canonical.issue("MISSING", path, "Required block is missing or empty."))
         elif block in stale:
             issues.append(canonical.issue("STALE", path, "Required block is stale and must be redone."))
-    return issues + scan_issues(rec)
+    return issues + scan_issues(rec) + comparison_issues(rec)
 
 
 def main(argv=None):

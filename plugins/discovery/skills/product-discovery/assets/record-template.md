@@ -50,7 +50,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
   "today": [
     { "area": "", "source_path": "", "evidence_level": "project-docs", "section_status": { "roles": "real", "rules": "template" } },
     { "area": "", "source_path": "", "evidence_level": "code-only", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" },
-    { "area": "", "evidence_level": "tracker-only", "tickets_say": "", "ticket_keys": [] }
+    { "area": "", "evidence_level": "tracker-only", "tickets_say": "", "ticket_keys": [] },
+    { "area": "", "source_path": "", "evidence_level": "project-docs", "tickets_say": "", "ticket_keys": [], "comparison": "differ" }
   ],
   "playback": {
     "goal_first_playback": "",
@@ -150,7 +151,9 @@ Each block below shows its fields. A block is empty until the step that owns it 
   a description word for word and never holds a person's name, a contact detail, a link or a
   secret-looking value. A tracker-only entry has evidence_level tracker-only and no source_path.
   When the repository and the tickets disagree, the entry adds disagreement, the one-line finding
-  that names the issue key and ends "I'm going with the repository." In a run held in another
+  that names the issue key and ends "I'm going with the code and docs." When both the repository
+  and the tickets were read, comparison marks the entry agree, tickets_only, repository_only or
+  differ; it is left out otherwise, and check_record.py refuses any other value. In a run held in another
   language these values keep their English label, keys and level ids.
 - decisions records each settled choice with who decided and why. The decision that answers
   "Where should these tickets go?" adds epic_choice, a list with one choice per planned epic in
