@@ -40,6 +40,13 @@ Capture the main journeys for `install`. Each flow should call out:
   `.paqad/stack-snapshot.json`, `docs/instructions/registries/*`).
 - Downstream workflows that this feature unblocks.
 
+## Warnings
+
+- When the paqad discovery plugin is installed next to the paqad plugin, `install` adds one warning: both are
+  named paqad, so Claude Code may run the hooks of only one and stage checks can stop. The fix is to
+  remove paqad discovery, because the paqad plugin already has discover and ask. `paqad-ai doctor` reports
+  the same thing.
+
 ## Error States
 
 - User-visible failures and the message contract.

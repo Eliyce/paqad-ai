@@ -56,6 +56,10 @@ Capture the main journeys for `update`. Each flow should call out:
 - When the hooks folder is tracked, or is husky's `.husky/_`, update gives the exact lines to add instead of changing it. With husky those go in `.husky/commit-msg` and `.husky/pre-push`. Lines an older paqad added to `.husky/_` never ran, don't count as installed, and a husky reinstall wipes them. The check
   is skipped in a terminal where `paqad-ai` isn't on the PATH, so someone with only the plugin who
   commits from a plain terminal gets no check.
+- When the paqad discovery plugin is installed next to the paqad plugin, `update` adds one warning: both are
+  named paqad, so Claude Code may run the hooks of only one and stage checks can stop. The fix is to
+  remove paqad discovery, because the paqad plugin already has discover and ask. `paqad-ai doctor` reports
+  the same thing.
 - The move only goes forward. There is no command to go back to the old files; a bad release is
   fixed by the next one, with `PAQAD_DISABLED=1` on an affected machine in the meantime.
 - `update` removes paqad's own old stage instructions and read paths from
