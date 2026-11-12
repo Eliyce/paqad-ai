@@ -1060,5 +1060,47 @@ class CompareStepTest(unittest.TestCase):
                       self.shape)
         self.assertIn("fact-follows-code-and-docs", self.expect["AC-128"])
 
+
+UNREADABLE_SENTENCE = (
+    "GitHub is connected, but I can't read any repositories through it from here. I'll work from "
+    "the tickets for now. To use the code and docs, attach the repository or its docs folder."
+)
+
+
+class UnreadableConnectorTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read_text(GET_CONNECTED, "SKILL.md")
+        cls.reference = read_text(REFERENCES, "connect-repository.md")
+        cls.expect = scenario_expectations("step-zero.yml")
+
+    def test_ac41_the_sentence_is_said_once_and_the_run_goes_on_tracker_only(self):
+        for text in (self.skill, self.reference):
+            self.assertEqual(text.count(UNREADABLE_SENTENCE), 1)
+            self.assertIn("`connector-unreadable`", text)
+        self.assertLessEqual(len(self.reference.splitlines()), 100)
+        self.assertIn("carry on tracker only", normalised(self.skill))
+        self.assertTrue({"unreadable-sentence-once", "state-connector-unreadable",
+                         "carries-on-tracker-only"} <= self.expect["AC-130"])
+        template = read_text(REPO_ROOT, "skills", "product-discovery", "assets",
+                             "record-template.md")
+        self.assertIn("connector-unreadable", template)
+
+    def test_ac42_a_readable_connector_never_hears_the_sentence(self):
+        self.assertIn("offers no list or read action", normalised(self.skill))
+        self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
+                        <= self.expect["AC-131"])
+
+    def test_ac43_sign_in_or_rate_limit_failures_are_not_unreadable(self):
+        self.assertIn("A read that fails on sign-in or a rate limit is not this case",
+                      normalised(self.skill))
+        self.assertIn("not a sign-in or rate-limit failure", normalised(self.reference))
+        self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
+                        <= self.expect["AC-132"])
+
+    def test_ac44_no_tracker_either_stops_with_nothing_readable(self):
+        self.assertIn("With no readable tracker either, say nothing can be read", normalised(self.skill))
+        self.assertIn("nothing-readable-stop", self.expect["AC-133"])
+
 if __name__ == "__main__":
     unittest.main()

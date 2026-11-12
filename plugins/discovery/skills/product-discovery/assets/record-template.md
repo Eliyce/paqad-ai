@@ -116,7 +116,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
 - setup comes from the step 0 tracker and project discovery (PUB-1). run_label is the run id in
   lowercase.
 - setup.repository is the chosen repository's name as the tool or attachment shows it (empty when
-  none is shown), and setup.repository_state is ready or partly-ready. setup.evidence_level is the
+  none is shown), and setup.repository_state is ready, partly-ready, or connector-unreadable when a
+  repository connector is on but offers no list or read action (the run then goes on tracker only). setup.evidence_level is the
   level the repository was read at, one of project-docs, docs-and-code or code-only
   (references/evidence-levels.md); project-docs maps to the ready state, docs-and-code to
   partly-ready, and code-only to a repository with reachable code but no paqad docs. get-connected

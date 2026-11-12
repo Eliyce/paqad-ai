@@ -25,7 +25,12 @@ order in `setup.grounding_sources` (`references/ground-from-tracker.md`).
    docs-and-code (partly ready): carry on, say its message once and name the areas without a summary
    as not documented. code-only (not set up, with reachable code): carry on from code by names, as
    what the code suggests. Stop only when nothing is readable. Store the choice in `setup.repository`, its state in `setup.repository_state`,
-   and the level in `setup.evidence_level`.
+   and the level in `setup.evidence_level`. When a repository connector is switched on but offers no
+   list or read action, say this once and carry on tracker only, with `setup.repository_state`
+   `connector-unreadable`:
+   "GitHub is connected, but I can't read any repositories through it from here. I'll work from the tickets for now. To use the code and docs, attach the repository or its docs folder."
+   A read that fails on sign-in or a rate limit is not this case and never gets that sentence. With
+   no readable tracker either, say nothing can be read, as in step 3, and stop.
 2. Find the Jira project from the repository, before any tracker read. With no readable repository
    skip this and ask which project to use. With the repository connector's list actions, resolved by
    capability, read up to 100 branch names and the subjects of the last 50 commits on the default

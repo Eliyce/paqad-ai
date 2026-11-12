@@ -31,6 +31,15 @@
 #   no-unreadable-sentence         the unreadable-connector sentence is not said.
 #   tracker-kind-github            setup.tracker_kind is github and the hand off is export only.
 #   scan-skipped                   no branch or commit list is read.
+#
+# AC-130 to AC-133 are conversation-shape acceptance scenarios for a repository connector that is
+# on but cannot read, each exercised by a scenario below. Their connector field is one plain scalar:
+# no tools, readable, sign-in fails or rate limited.
+#   unreadable-sentence-once       the unreadable-connector sentence is said word for word, once.
+#   state-connector-unreadable     setup.repository_state is connector-unreadable.
+#   state-not-connector-unreadable setup.repository_state is not connector-unreadable.
+#   carries-on-tracker-only        the run goes on from the tickets.
+#   nothing-readable-stop          says nothing can be read and how to attach or connect, and stops.
 
 scenarios:
   - id: ac-115
@@ -205,3 +214,66 @@ scenarios:
       - scan-skipped
       - asks-which-project
       - no-broad-tracker-search
+
+  - id: ac-130
+    title: Connector on with no list or read action, tracker readable
+    acceptance: AC-130
+    entry_skill: product-discovery
+    fixture: none
+    connector: no tools
+    trackers:
+      - jira
+    user: "Shoppers want to save a basket for later."
+    expect:
+      - unreadable-sentence-once
+      - state-connector-unreadable
+      - carries-on-tracker-only
+
+  - id: ac-131
+    title: Connector that can read
+    acceptance: AC-131
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    connector: readable
+    trackers:
+      - jira
+    user: "Shoppers want to save a basket for later."
+    expect:
+      - no-unreadable-sentence
+      - state-not-connector-unreadable
+
+  - id: ac-132
+    title: Connector read fails on sign-in
+    acceptance: AC-132
+    entry_skill: product-discovery
+    fixture: none
+    connector: sign-in fails
+    trackers:
+      - jira
+    user: "Shoppers want to save a basket for later."
+    expect:
+      - no-unreadable-sentence
+      - state-not-connector-unreadable
+
+  - id: ac-132b
+    title: Connector read is rate limited
+    acceptance: AC-132
+    entry_skill: product-discovery
+    fixture: none
+    connector: rate limited
+    trackers:
+      - jira
+    user: "Shoppers want to save a basket for later."
+    expect:
+      - no-unreadable-sentence
+      - state-not-connector-unreadable
+
+  - id: ac-133
+    title: Connector unreadable and no tracker
+    acceptance: AC-133
+    entry_skill: product-discovery
+    fixture: none
+    connector: no tools
+    user: "Shoppers want to save a basket for later."
+    expect:
+      - nothing-readable-stop

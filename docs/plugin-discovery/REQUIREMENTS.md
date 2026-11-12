@@ -779,6 +779,10 @@ Use the fixture repository and invented content only.
 | AC-127 | The tickets show something the code and docs do not | The entry is marked `tickets_only` and says "the tickets say this was planned; I can't see it in the code or docs" |
 | AC-128 | A ticket claims something the code or `docs/modules` contradicts | The entry is marked `differ`, says what the ticket claimed with its key and ends "I'm going with the code and docs."; the today fact and the recommendation follow the code and docs |
 | AC-129 | A repository-only run, or a tickets-only run | The playback shows no comparison lines and no empty heading; in the tickets-only run each fact is labelled as from the tickets |
+| AC-130 | A repository connector shows connected but offers no list or read action, and the tracker is readable | "GitHub is connected, but I can't read any repositories through it from here. I'll work from the tickets for now. To use the code and docs, attach the repository or its docs folder." is said once, `setup.repository_state` is `connector-unreadable` and the run carries on tracker only |
+| AC-131 | A repository connector that can read | The unreadable-connector sentence is never said and `setup.repository_state` is not `connector-unreadable` |
+| AC-132 | A repository read fails on sign-in or a rate limit | It is not recorded as `connector-unreadable` and the unreadable-connector sentence is not said |
+| AC-133 | An unreadable repository connector and no readable tracker | Discovery says nothing can be read and how to attach the repository or connect the tracker, and starts no silent tracker-only run |
 
 ---
 
