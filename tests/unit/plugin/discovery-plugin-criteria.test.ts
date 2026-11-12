@@ -47,12 +47,16 @@ const CRITERIA: Array<[string, string, string[]]> = [
   [
     'AC-9',
     'the published start skill says the one plugin sentence once and offers ask or discover',
-    ['test_build_flags.TargetBuildTest.test_ac8_ac9_discovery_start_says_the_sentence_once_and_offers_ask_or_discover'],
+    [
+      'test_build_flags.TargetBuildTest.test_ac8_ac9_discovery_start_says_the_sentence_once_and_offers_ask_or_discover',
+    ],
   ],
   [
     'AC-10',
     'both plugin manifests are named paqad and the marketplace keeps its name',
-    ['test_build.ListingManifestTest.test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name'],
+    [
+      'test_build.ListingManifestTest.test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name',
+    ],
   ],
   [
     'AC-19',
@@ -62,7 +66,9 @@ const CRITERIA: Array<[string, string, string[]]> = [
   [
     'AC-20',
     'one clear ticket prefix is recommended after one check read',
-    ['test_tracker_grounding.StepZeroProjectScanTest.test_ac20_one_clear_prefix_is_recommended_with_the_sentence_after_one_check'],
+    [
+      'test_tracker_grounding.StepZeroProjectScanTest.test_ac20_one_clear_prefix_is_recommended_with_the_sentence_after_one_check',
+    ],
   ],
   [
     'AC-21',
@@ -120,17 +126,23 @@ const CRITERIA: Array<[string, string, string[]]> = [
   [
     'AC-28',
     'a failed check read asks for the project without a broad search',
-    ['test_tracker_grounding.StepZeroProjectScanTest.test_ac28_a_failed_check_read_asks_without_a_broad_search'],
+    [
+      'test_tracker_grounding.StepZeroProjectScanTest.test_ac28_a_failed_check_read_asks_without_a_broad_search',
+    ],
   ],
   [
     'AC-29',
     'every project prompt offers a different project',
-    ['test_tracker_grounding.StepZeroProjectScanTest.test_ac29_every_prompt_offers_a_different_project'],
+    [
+      'test_tracker_grounding.StepZeroProjectScanTest.test_ac29_every_prompt_offers_a_different_project',
+    ],
   ],
   [
     'AC-31',
     'a list that is cut short still scans the lines it read',
-    ['test_tracker_grounding.StepZeroProjectScanTest.test_ac31_a_cut_short_list_still_scans_the_lines_read'],
+    [
+      'test_tracker_grounding.StepZeroProjectScanTest.test_ac31_a_cut_short_list_still_scans_the_lines_read',
+    ],
   ],
   [
     'AC-33',
@@ -148,7 +160,9 @@ const CRITERIA: Array<[string, string, string[]]> = [
   [
     'AC-36',
     'the playback opens with the comparison lines',
-    ['test_tracker_grounding.CompareStepTest.test_ac36_the_playback_opens_with_the_comparison_lines'],
+    [
+      'test_tracker_grounding.CompareStepTest.test_ac36_the_playback_opens_with_the_comparison_lines',
+    ],
   ],
   [
     'AC-37',
@@ -181,17 +195,23 @@ const CRITERIA: Array<[string, string, string[]]> = [
   [
     'AC-42',
     'a readable repository connector never hears the unreadable sentence',
-    ['test_tracker_grounding.UnreadableConnectorTest.test_ac42_a_readable_connector_never_hears_the_sentence'],
+    [
+      'test_tracker_grounding.UnreadableConnectorTest.test_ac42_a_readable_connector_never_hears_the_sentence',
+    ],
   ],
   [
     'AC-43',
     'a sign-in or rate limit failure is not an unreadable connector',
-    ['test_tracker_grounding.UnreadableConnectorTest.test_ac43_sign_in_or_rate_limit_failures_are_not_unreadable'],
+    [
+      'test_tracker_grounding.UnreadableConnectorTest.test_ac43_sign_in_or_rate_limit_failures_are_not_unreadable',
+    ],
   ],
   [
     'AC-45',
     'the Jira project never comes from a broad tracker search',
-    ['test_tracker_grounding.StepZeroProjectScanTest.test_ac45_the_project_never_comes_from_a_broad_search'],
+    [
+      'test_tracker_grounding.StepZeroProjectScanTest.test_ac45_the_project_never_comes_from_a_broad_search',
+    ],
   ],
   [
     'AC-48',
