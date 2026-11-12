@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "ground-in-project",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:3d6d355c093845567b390bf78d7736c63b85725fbd85cbdf672240a4572317e2",
+  "folder_hash": "sha256:b6a3762cd6d406b603a93d842093c15db4be5beb65c27408afca00ecad06a215",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -25,13 +25,14 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.9861,
-    "pass_rate_without": 0.5833,
-    "delta_points": 40.28,
-    "token_multiple": 0.951,
+    "iterations": 2,
+    "pass_rate_with": 0.9292,
+    "pass_rate_without": 0.5764,
+    "delta_points": 35.28,
+    "token_multiple": 1.298,
     "models": [
-      "claude-haiku-5-5"
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
     ],
     "claude_version": null,
     "checks_not_measured": [],
@@ -48,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.732978,
+    "S6": 4.025232,
     "source": "host-usage"
   },
   "overrides": [],

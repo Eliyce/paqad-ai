@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "discover",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:83195a8fe09ab95ec51d08a6f45143a2cdda6e69604de77594d3ea874e2e6ea6",
+  "folder_hash": "sha256:df4b630a99ae4bb2cdfc69cf7916a05978656eb2a70b4dce91c0716c28395469",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -25,11 +25,11 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.8672,
-    "pass_rate_without": 0.5224,
-    "delta_points": 34.48,
-    "token_multiple": 1.098,
+    "iterations": 2,
+    "pass_rate_with": 0.8068,
+    "pass_rate_without": 0.5278,
+    "delta_points": 27.9,
+    "token_multiple": 1.027,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
@@ -49,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.026957,
+    "S6": 3.175516,
     "source": "host-usage"
   },
   "overrides": [],

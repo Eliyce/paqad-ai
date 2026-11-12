@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "get-connected",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:8e38effa79a1d569f66c5bd661149f967c7b4013f65e4ce1323b73f591a4f737",
+  "folder_hash": "sha256:aac14fe5dccc7a82659c2e761085bf94b8675988ad7a889c9c21c30bad18ed45",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -20,16 +20,16 @@
   },
   "script_tests": {
     "command": "pnpm test --reporter=tap tests/unit/skills/get-connected",
-    "tests": 7,
-    "passed": 7,
+    "tests": 14,
+    "passed": 14,
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.9762,
-    "pass_rate_without": 0.6399,
-    "delta_points": 33.63,
-    "token_multiple": 0.983,
+    "iterations": 2,
+    "pass_rate_with": 0.9301,
+    "pass_rate_without": 0.6354,
+    "delta_points": 29.47,
+    "token_multiple": 1.106,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
@@ -49,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.56712,
+    "S6": 3.625796,
     "source": "host-usage"
   },
   "overrides": [],
