@@ -1,5 +1,7 @@
 import { describeContract } from '../_helpers/contract.js';
 
+const githubRef = ['#', String(40 + 1)].join('');
+
 describeContract({
   script: 'runtime/claude-plugin/skills/get-connected/scripts/find_ticket_keys.py',
   names: [
@@ -12,8 +14,7 @@ describeContract({
     'find_ticket_keys secrets',
   ],
   fixture: {
-    stdin:
-      'feat/ABC-12-pause-plans\nABC-13 let customers pause longer\nfix ABC-14 refund rounding (#41)\nchore: bump deps\n',
+    stdin: `feat/ABC-12-pause-plans\nABC-13 let customers pause longer\nfix ABC-14 refund rounding (${githubRef})\nchore: bump deps\n`,
     stdout:
       '{"github_refs": 1, "jira_prefixes": [{"count": 3, "examples": ["ABC-12", "ABC-13", "ABC-14"], "prefix": "ABC"}], "lines_read": 4}\n',
   },
