@@ -300,6 +300,7 @@ class TargetBuildTest(unittest.TestCase):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def test_ac2_discovery_root_holds_both_manifest_sets_and_the_eleven_skills(self):
+        """@obligation AC-2"""
         plugin = "plugins/" + PLUGIN_NAME
         tree = published_tree(self.discovery)
         for rel in (".claude-plugin/marketplace.json", plugin + "/.claude-plugin/plugin.json",
@@ -332,6 +333,7 @@ class TargetBuildTest(unittest.TestCase):
             self.assertNotIn("<!--", discover)
 
     def test_ac8_ac9_discovery_start_says_the_sentence_once_and_offers_ask_or_discover(self):
+        """@obligation AC-9"""
         start = read_text(os.path.join(skills_root(self.discovery), "start", "SKILL.md"))
         rows = re.findall(r"(?m)^\| [^|]+ \| ([\w-]+) \|$", start)
         self.assertEqual(rows, ["ask", "discover"])
@@ -383,6 +385,7 @@ class TargetConfigTest(unittest.TestCase):
         self.assertEqual(parsed["skills"][1]["imports"], ["references/x.md"])
 
     def test_ac2_an_unknown_or_empty_target_fails(self):
+        """@obligation AC-2"""
         with self.assertRaises(build.BuildError) as ctx:
             build.resolve_targets([{"name": "a", "targets": ["chat"]}])
         self.assertIn("unknown target 'chat'", str(ctx.exception))

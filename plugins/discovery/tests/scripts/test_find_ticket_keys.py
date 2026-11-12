@@ -30,6 +30,7 @@ def shaped(*pairs, github_refs=0):
 
 class ScanTest(unittest.TestCase):
     def test_ac22_mixed_case_branches_are_uppercased(self):
+        """@obligation AC-22"""
         result = find_ticket_keys.scan([
             "feature/abc-120-x",
             "fix/Abc-121-y",
@@ -40,6 +41,7 @@ class ScanTest(unittest.TestCase):
         self.assertEqual(result["lines_read"], 3)
 
     def test_ac22_every_ignored_prefix_is_dropped(self):
+        """@obligation AC-22"""
         lines = ["bump utf-8 handling", "iso-8601 dates", "sha-256 digest", "http-2 client",
                  "https-443 port", "rfc-7231 parsing", "cve-2024 fix", "v-2 api"]
         result = find_ticket_keys.scan(lines)
@@ -49,12 +51,14 @@ class ScanTest(unittest.TestCase):
             self.assertIn(prefix, find_ticket_keys.IGNORED_PREFIXES)
 
     def test_ac26_ties_go_to_the_prefix_on_the_newer_line(self):
+        """@obligation AC-22 AC-26"""
         result = find_ticket_keys.scan(["OLD-1 later", "NEW-1 first", "OLD-2", "NEW-2"])
         self.assertEqual(counts(result), [("OLD", 2), ("NEW", 2)])
         result = find_ticket_keys.scan(["NEW-1", "OLD-1", "OLD-2", "NEW-2"])
         self.assertEqual(counts(result), [("NEW", 2), ("OLD", 2)])
 
     def test_ac22_github_only_refs_are_counted_apart(self):
+        """@obligation AC-22"""
         result = find_ticket_keys.scan(["Fix the export (#123)", "Merge pull request #45 from x",
                                         "issue #7 and #8", "colour &#39; entity"])
         self.assertEqual(result["jira_prefixes"], [])
@@ -72,6 +76,7 @@ class ScanTest(unittest.TestCase):
         self.assertEqual(result["jira_prefixes"][0]["count"], 5)
 
     def test_ac25_version_words_stay_below_the_floor(self):
+        """@obligation AC-25"""
         result = find_ticket_keys.scan(["upgrade to node-18", "react-19 bump", "es-2020 target",
                                         "build for win-32"])
         self.assertTrue(all(entry["count"] < 3 for entry in result["jira_prefixes"]))
@@ -80,12 +85,14 @@ class ScanTest(unittest.TestCase):
 
 class VerdictTest(unittest.TestCase):
     def test_ac23_the_clear_prefix_rule(self):
+        """@obligation AC-23"""
         self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", 3), ("XYZ", 1))), "clear")
         self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", 2))), "ask")
         self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", 6), ("XYZ", 3))), "clear")
         self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", 5), ("XYZ", 3))), "several")
 
     def test_ac24_one_prefix_with_one_or_two_hits_is_asked(self):
+        """@obligation AC-24"""
         for hits in (1, 2):
             self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", hits))), "ask")
         self.assertEqual(find_ticket_keys.verdict(shaped(("ABC", 3))), "clear")

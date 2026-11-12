@@ -193,11 +193,13 @@ class TicketKeyScanTest(unittest.TestCase):
         return rec
 
     def test_ac27_a_scan_with_counts_only_passes(self):
+        """@obligation AC-27"""
         scan = {"lines_read": 12, "jira_prefixes": [{"prefix": "ABC", "count": 5}],
                 "github_refs": 2}
         self.assertEqual(check_record.check(self._record(scan), step=0), [])
 
     def test_ac27_a_scan_carrying_examples_or_text_is_refused(self):
+        """@obligation AC-27"""
         bad = [
             {"lines_read": 1, "jira_prefixes": [{"prefix": "ABC", "count": 1,
                                                  "examples": ["ABC-1"]}], "github_refs": 0},
@@ -217,6 +219,7 @@ class TicketKeyScanTest(unittest.TestCase):
             self.assertIn("never examples, branch names or commit text", issues[0]["message"])
 
     def test_ac40_a_record_without_the_new_setup_fields_still_passes(self):
+        """@obligation AC-40"""
         self.assertEqual(check_record.check(self._record(), step=0), [])
         rec = self._record()
         rec["setup"] = "not a block"
@@ -232,18 +235,21 @@ class ComparisonTest(unittest.TestCase):
         return rec
 
     def test_ac40_the_four_marks_pass(self):
+        """@obligation AC-40"""
         rec = self._record("agree", "tickets_only", "repository_only", "differ")
         self.assertEqual(check_record.check(rec, step=0), [])
         self.assertEqual(record.COMPARISON_VALUES,
                          ("agree", "tickets_only", "repository_only", "differ"))
 
     def test_ac40_any_other_mark_fails_naming_the_entry(self):
+        """@obligation AC-40"""
         issues = check_record.check(self._record("agree", "same", None), step=0)
         self.assertEqual([issue["path"] for issue in issues],
                          ["today[1] -> comparison", "today[2] -> comparison"])
         self.assertEqual({issue["code"] for issue in issues}, {"COMPARISON"})
 
     def test_ac40_an_older_record_without_comparison_still_passes(self):
+        """@obligation AC-40"""
         rec = self._record()
         rec["today"] = [{"area": "returns", "source_path": "x"}, "not an entry"]
         self.assertEqual(check_record.check(rec, step=0), [])

@@ -938,6 +938,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         cls.expect = scenario_expectations("step-zero.yml")
 
     def test_ac20_one_clear_prefix_is_recommended_with_the_sentence_after_one_check(self):
+        """@obligation AC-20"""
         self.assertEqual(self.skill.count(PROJECT_SENTENCE), 1)
         self.assertEqual(missing(self.skill, [
             "at least 3 hits and at least twice the next",
@@ -952,23 +953,27 @@ class StepZeroProjectScanTest(unittest.TestCase):
                          "no-broad-tracker-search", "key-source-repository"} <= self.expect["AC-115"])
 
     def test_ac21_no_keys_asks_and_records_asked(self):
+        """@obligation AC-21"""
         self.assertIn("Nothing found, nothing read or no list actions: ask which Jira project to use",
                       self.flat)
         self.assertIn("`asked` otherwise", self.flat)
         self.assertTrue({"asks-which-project", "key-source-asked"} <= self.expect["AC-116"])
 
     def test_ac24_ac25_a_prefix_below_the_floor_is_a_plain_choice(self):
+        """@obligation AC-24 AC-25"""
         self.assertIn("Fewer than 3 hits: recommend nothing; ask which Jira project to use, with "
                       "the prefixes found as plain choices plus a different project", self.flat)
         self.assertTrue({"prefix-as-plain-choice", "asks-which-project"} <= self.expect["AC-117"])
 
     def test_ac28_a_failed_check_read_asks_without_a_broad_search(self):
+        """@obligation AC-25 AC-28"""
         self.assertIn("If that one read fails (not found, renamed or not visible), say once why and "
                       "ask instead", self.flat)
         self.assertIn("Never search the tracker broadly to pick a project", self.flat)
         self.assertTrue({"reason-said-once", "no-broad-tracker-search"} <= self.expect["AC-118"])
 
     def test_ac29_every_prompt_offers_a_different_project(self):
+        """@obligation AC-29"""
         self.assertGreaterEqual(self.flat.count("a different project"), 3)
         self.assertIn("Every prompt offers a different project", normalised(self.tracker))
         for ac in ("AC-115", "AC-117", "AC-119"):
@@ -980,6 +985,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn("jira-named-once-with-choice", self.expect["AC-120"])
 
     def test_ac31_a_cut_short_list_still_scans_the_lines_read(self):
+        """@obligation AC-31"""
         self.assertIn("A list that errors or is cut short still counts: scan the lines read and "
                       "record `lines_read`; ask only when nothing was read", self.flat)
         self.assertIn("A failed list read never makes the repository unreadable", self.flat)
@@ -991,11 +997,13 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn("tracker-kind-github", self.expect["AC-122"])
 
     def test_ac33_no_repository_skips_the_scan(self):
+        """@obligation AC-33"""
         self.assertIn("With no readable repository skip this and ask which project to use",
                       self.flat)
         self.assertTrue({"scan-skipped", "asks-which-project"} <= self.expect["AC-123"])
 
     def test_ac45_the_project_never_comes_from_a_broad_search(self):
+        """@obligation AC-45"""
         for ac in ("AC-115", "AC-116", "AC-118", "AC-119", "AC-120", "AC-122", "AC-123"):
             self.assertIn("no-broad-tracker-search", self.expect[ac], ac)
         self.assertIn("Never search the tracker broadly to find the project",
@@ -1005,6 +1013,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn("If the checks cannot run, do the same by hand", normalised(self.tracker))
 
     def test_ac27_the_record_keeps_counts_only(self):
+        """@obligation AC-27"""
         template = read_text(REPO_ROOT, "skills", "product-discovery", "assets",
                              "record-template.md")
         self.assertIn('"project_key_source"', template)
@@ -1027,11 +1036,13 @@ class CompareStepTest(unittest.TestCase):
         cls.expect = scenario_expectations("compare.yml")
 
     def test_ac36_the_playback_opens_with_the_comparison_lines(self):
+        """@obligation AC-36"""
         self.assertIn("open the playback with them, before any question: the agree, tickets only, "
                       "repository only and differ lines", self.shape)
         self.assertTrue({"comparison-lines-first", "comparison-recorded"} <= self.expect["AC-126"])
 
     def test_ac37_each_mark_has_its_line(self):
+        """@obligation AC-37"""
         for mark in ("`agree`", "`tickets_only`", "`repository_only`", "`differ`"):
             self.assertIn(mark, self.ground)
         self.assertIn(TICKETS_ONLY_SENTENCE, self.ground)
@@ -1043,6 +1054,7 @@ class CompareStepTest(unittest.TestCase):
         self.assertIn("repository-only-line", self.expect["AC-126"])
 
     def test_ac38_one_source_runs_show_no_comparison(self):
+        """@obligation AC-38"""
         self.assertIn("With only one of the two sources, mark nothing", self.ground)
         self.assertIn("With no marks show no comparison lines and no empty heading; in a "
                       "tickets-only run label each fact as from the tickets", self.shape)
@@ -1075,6 +1087,7 @@ class UnreadableConnectorTest(unittest.TestCase):
         cls.expect = scenario_expectations("step-zero.yml")
 
     def test_ac41_the_sentence_is_said_once_and_the_run_goes_on_tracker_only(self):
+        """@obligation AC-41"""
         for text in (self.skill, self.reference):
             self.assertEqual(text.count(UNREADABLE_SENTENCE), 1)
             self.assertIn("`connector-unreadable`", text)
@@ -1087,11 +1100,13 @@ class UnreadableConnectorTest(unittest.TestCase):
         self.assertIn("connector-unreadable", template)
 
     def test_ac42_a_readable_connector_never_hears_the_sentence(self):
+        """@obligation AC-42"""
         self.assertIn("offers no list or read action", normalised(self.skill))
         self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
                         <= self.expect["AC-131"])
 
     def test_ac43_sign_in_or_rate_limit_failures_are_not_unreadable(self):
+        """@obligation AC-43"""
         self.assertIn("A read that fails on sign-in or a rate limit is not this case",
                       normalised(self.skill))
         self.assertIn("not a sign-in or rate-limit failure", normalised(self.reference))

@@ -323,6 +323,7 @@ class HostBranchTest(unittest.TestCase):
                 )
 
     def test_ac48_directory_branch_keeps_every_skill_of_the_paqad_target(self):
+        """@obligation AC-48"""
         paqad = os.path.join(self.tmp, "paqad")
         build.build(REPO_ROOT, paqad, target="paqad")
         expected = self._skills_relpaths(paqad)
@@ -455,6 +456,7 @@ class ListingManifestTest(unittest.TestCase):
             self.assertTrue(plugin[key], key)
 
     def test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name(self):
+        """@obligation AC-10"""
         plugin_rel = ("plugins", PLUGIN_NAME)
         for root in ((), ("hosts", "claude"), ("hosts", "codex")):
             for parts in (plugin_rel + (".claude-plugin", "plugin.json"),
@@ -476,6 +478,7 @@ class ListingManifestTest(unittest.TestCase):
         self.assertEqual(root_plugin, claude_plugin)
 
     def test_ac48_directory_package_keeps_its_manifest_name(self):
+        """@obligation AC-48"""
         directory = self.manifest("hosts", "chatgpt-directory", "plugins", PLUGIN_NAME,
                                   "plugin.json")
         self.assertEqual(directory["name"], PLUGIN_NAME)
@@ -593,6 +596,7 @@ class PublishFilesTest(unittest.TestCase):
             )
 
     def test_ac19_readmes_open_with_the_one_plugin_sentence(self):
+        """@obligation AC-19"""
         sentence = "Use this plugin or the paqad plugin, not both. paqad already includes discover and ask."
         guide = read_text(os.path.join(REPO_ROOT, "README.md"))
         for text in (read_text(os.path.join(self.dist, "README.md")), self.readme, guide):

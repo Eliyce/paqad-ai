@@ -438,6 +438,7 @@ class BusinessDocsFirstTest(unittest.TestCase):
             self.assertNotIn("technical notes", text, skill)
 
     def test_ac35_code_settles_what_the_business_notes_cannot(self):
+        """@obligation AC-35"""
         self.assertIn("when the business notes cannot settle a fact", self.rows[4])
         self.assertIn("at most 5 files", self.rows[4])
         self.assertIn("what the code suggests", self.rows[4])
@@ -447,6 +448,7 @@ class BusinessDocsFirstTest(unittest.TestCase):
                           "at most 5 files per area, as what the code suggests.", text, skill)
 
     def test_ac34_ac35_the_fixture_and_scenarios_cover_both_cases(self):
+        """@obligation AC-35"""
         technical = os.path.join(REPO_ROOT, "tests", "evals", "fixture-repo", "docs", "modules",
                                  "orders", "features", "send-to-sap", "technical.md")
         self.assertIn("17 minutes", read_text(technical))
