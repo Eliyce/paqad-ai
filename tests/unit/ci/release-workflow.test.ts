@@ -230,7 +230,9 @@ describe('the release workflow publishes the plugin', () => {
       const needs = results('skipped');
       expect(evaluate(inSync.if!, needs)).toBe(true);
       expect(evaluate(discoveryStep().if!, needs)).toBe(false);
-      const check = inSync.steps.find((step) => step.run === 'node scripts/release-sync.mjs check')!;
+      const check = inSync.steps.find(
+        (step) => step.run === 'node scripts/release-sync.mjs check',
+      )!;
       expect(check.if).toBeUndefined();
     });
 
