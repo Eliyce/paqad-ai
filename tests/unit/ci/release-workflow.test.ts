@@ -16,6 +16,7 @@ type Step = {
   with?: Record<string, string | number>;
 };
 type Job = {
+  'runs-on'?: string;
   needs?: string | string[];
   if?: string;
   outputs?: Record<string, string>;
@@ -401,6 +402,7 @@ describe('the release workflow publishes the discovery plugin', () => {
     expect(version.env).toEqual({ RELEASED_VERSION: '${{ needs.release.outputs.version }}' });
     const python = discovery.steps.find((step) => step.uses?.startsWith('actions/setup-python'));
     expect(python?.with).toEqual({ 'python-version': '3.9' });
+    expect(discovery['runs-on']).toBe('ubuntu-24.04');
     expect(discovery.steps.indexOf(discoveryToken)).toBe(0);
     for (const step of discovery.steps) {
       expect(step.if).toBeUndefined();

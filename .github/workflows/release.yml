@@ -187,7 +187,7 @@ jobs:
     name: Publish the discovery plugin
     needs: release
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
