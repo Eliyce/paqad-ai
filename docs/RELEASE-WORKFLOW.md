@@ -325,10 +325,24 @@ in [the claude-plugin module doc](modules/claude-plugin/index/summary.md).
   not the published one, builds, and pushes the plugin with `PAQAD_PLUGIN_PUSH_TOKEN`. Because the
   gate reads facts, any later run on `main`, including a manual `workflow_dispatch`, ships a
   plugin that is behind npm.
-- Plugin lag: the `plugin-in-sync` job runs after `release`, `publish-plugin` and `tags`, and
+- Discovery plugin: `publish-discovery-plugin` runs after `release` with the same guards, builds
+  `python3 plugins/discovery/build/build.py --version "$VERSION" --target discovery` on Python
+  3.9, and replaces everything but `.git` in `Eliyce/paqad-product-discovery-plugin` with the dist
+  root (without `dist/hosts/`), commits `paqad-product-discovery v<version>`, pushes `main` and tags
+  `v<version>`. A re-run for the same version commits nothing and skips the existing tag; it never
+  force-pushes, and npm is never rolled back. `PAQAD_PLUGIN_PUSH_TOKEN` needs write access to
+  `Eliyce/paqad-product-discovery-plugin` as well as `Eliyce/paqad-claude-plugin` (owner action);
+  without it the job fails with "PAQAD_PLUGIN_PUSH_TOKEN is not set or cannot push to
+  Eliyce/paqad-product-discovery-plugin. Give it write access, then re-run this job."
+- Plugin lag: the `plugin-in-sync` job runs after `release`, `publish-plugin`,
+  `publish-discovery-plugin` and `tags`, and
   [`.github/workflows/plugin-sync-check.yml`](../.github/workflows/plugin-sync-check.yml) runs
   daily at 06:00 UTC. Both run `node scripts/release-sync.mjs check`, which fails red when npm
-  `latest` is newer than the newest `v*` tag in the plugin repo.
+  `latest` is newer than the newest `v*` tag in the plugin repo. When `publish-discovery-plugin`
+  ran (it is skipped on a run that publishes nothing), `plugin-in-sync` then runs
+  `node scripts/release-sync.mjs discovery-check`, which fails when the discovery repo has no
+  `v<latest>` tag, when either marketplace file at that tag carries another version, or when the
+  tree carries `hooks/`, `agents/`, `commands/`, `bin/` or an MCP file.
 
 ### Branch protection (`main`)
 

@@ -1,13 +1,14 @@
-# Paqad Product Discovery
+# paqad discovery
 
-Paqad Product Discovery helps you understand a product and plan work on it, without reading code.
-Ask what the product does today, turn an idea into clear tickets, improve a ticket you already have,
-get a size estimate for a piece of work, or plan the next sprint. Answers come from the repository
-you connect, in plain business words.
+Use this plugin or the paqad plugin, not both. paqad already includes discover and ask.
+
+paqad discovery helps you understand a product and plan work on it, without reading code. Ask what
+the product does today, or turn an idea into clear user-story tickets. Answers come from the
+repository you connect, its business documents first and then its code, in plain business words.
 
 ## What you need
 
-- Claude with code execution turned on.
+- Claude with code execution turned on, or Codex.
 - A repository added to the chat. The plugin works with any repository. It gives its best answers
   when the repository has project documents, and still answers from the code when it does not.
 - Optional: the Jira connector, if you want the plugin to post tickets for you or to work from the
@@ -17,31 +18,35 @@ you connect, in plain business words.
 
 ## Install
 
-- From the Claude plugin directory: find Paqad Product Discovery and select Install.
-- In Claude Code: run `/plugin marketplace add Eliyce/paqad-product-discovery-plugin`, then
-  `/plugin install paqad-product-discovery@paqad-product-discovery`.
+In Claude Desktop:
+
+1. Open Customize, then Plugins.
+2. Select + Add, then Add marketplace.
+3. Type `Eliyce/paqad-product-discovery-plugin` and select Sync.
+4. Install paqad-product-discovery.
+
+In Codex:
+
+1. Run `codex plugin marketplace add Eliyce/paqad-product-discovery-plugin`.
+2. Install paqad-product-discovery from the Plugins list.
+3. To update later, run `codex plugin marketplace upgrade`.
 
 ## How to start
 
-Start with `/start` and say what you want. It sends you to the right skill. You can also call a skill
-directly:
+Start with `/paqad:start` and say what you want. It sends you to the right skill. You can also call
+a skill directly:
 
-| Skill | What it does |
+| Command | What it does |
 |---|---|
-| `/start` | The front door. Tell it what you want and it picks the right skill for you. |
-| `ask` | Answers a question about what the product does today, with its sources. |
-| `discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
-| `refine-ticket` | Improves an existing ticket and changes it only when you approve. |
-| `size-work` | Suggests a size for a piece of work, based on similar past work. |
-| `plan-sprint` | Proposes a sprint plan and assigns the work when you approve. |
+| `/paqad:start` | The front door. Tell it what you want and it picks the right skill for you. |
+| `/paqad:ask` | Answers a question about what the product does today, with its sources. |
+| `/paqad:discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
 
 ## Example prompts
 
-- `/start what does the checkout do today?`
-- `Turn this idea into tickets: let shoppers save a basket for later`
-- `Refine PROJ-123`
-- `Size this work: add a gift message at checkout`
-- `Plan the next sprint`
+- `/paqad:start what does the checkout do today?`
+- `/paqad:ask how are returns handled today?`
+- `/paqad:discover let shoppers save a basket for later`
 
 ## What it reads and writes
 

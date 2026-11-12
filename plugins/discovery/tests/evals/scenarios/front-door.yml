@@ -1,0 +1,47 @@
+# Front door scenarios for the discovery plugin build, which ships only ask and discover. They are
+# declarative, like s1.yml, and are NOT run in CI; the host eval runner executes them against the
+# discovery target build (build.py --target discovery) and the fixture repository (CI-12).
+#
+# AC-114 is a conversation-shape acceptance scenario, exercised by the scenarios below. The built
+# start text behind it is checked by tests/scripts/test_build_flags.py.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect).
+# Property vocabulary added here (all provider-neutral, all checkable):
+#   paqad-plugin-sentence-once   "Refining, sizing and sprint planning are in the paqad plugin, not
+#                                this one." is said word for word, exactly once.
+#   routes-nowhere-else          no other capability is started for the request.
+#   offers-ask-or-discover       the reply ends by offering ask or discover as the next step.
+
+scenarios:
+  - id: fd-114-refine
+    title: The discovery start is asked to refine a ticket
+    acceptance: AC-114
+    entry_skill: front-door
+    fixture: fixture-repo
+    user: "Refine PROJ-123 so it is ready"
+    expect:
+      - paqad-plugin-sentence-once
+      - routes-nowhere-else
+      - offers-ask-or-discover
+
+  - id: fd-114-size
+    title: The discovery start is asked to size work
+    acceptance: AC-114
+    entry_skill: front-door
+    fixture: fixture-repo
+    user: "Size this work: add a gift message at checkout"
+    expect:
+      - paqad-plugin-sentence-once
+      - routes-nowhere-else
+      - offers-ask-or-discover
+
+  - id: fd-114-sprint
+    title: The discovery start is asked to plan a sprint
+    acceptance: AC-114
+    entry_skill: front-door
+    fixture: fixture-repo
+    user: "Plan the next sprint"
+    expect:
+      - paqad-plugin-sentence-once
+      - routes-nowhere-else
+      - offers-ask-or-discover

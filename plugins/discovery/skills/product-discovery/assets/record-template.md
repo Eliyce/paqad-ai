@@ -26,6 +26,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "tracker_reads": { "results_looked_at": 0, "issues_opened": 0 },
     "tracker_kind": "jira",
     "project_key": "ABC",
+    "project_key_source": "repository",
+    "ticket_key_scan": { "lines_read": 0, "jira_prefixes": [{ "prefix": "ABC", "count": 0 }], "github_refs": 0 },
     "epic_type": "Epic",
     "story_type": "Story",
     "issue_types": [],
@@ -48,7 +50,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
   "today": [
     { "area": "", "source_path": "", "evidence_level": "project-docs", "section_status": { "roles": "real", "rules": "template" } },
     { "area": "", "source_path": "", "evidence_level": "code-only", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" },
-    { "area": "", "evidence_level": "tracker-only", "tickets_say": "", "ticket_keys": [] }
+    { "area": "", "evidence_level": "tracker-only", "tickets_say": "", "ticket_keys": [] },
+    { "area": "", "source_path": "", "evidence_level": "project-docs", "tickets_say": "", "ticket_keys": [], "comparison": "differ" }
   ],
   "playback": {
     "goal_first_playback": "",
@@ -113,7 +116,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
 - setup comes from the step 0 tracker and project discovery (PUB-1). run_label is the run id in
   lowercase.
 - setup.repository is the chosen repository's name as the tool or attachment shows it (empty when
-  none is shown), and setup.repository_state is ready or partly-ready. setup.evidence_level is the
+  none is shown), and setup.repository_state is ready, partly-ready, or connector-unreadable when a
+  repository connector is on but offers no list or read action (the run then goes on tracker only). setup.evidence_level is the
   level the repository was read at, one of project-docs, docs-and-code or code-only
   (references/evidence-levels.md); project-docs maps to the ready state, docs-and-code to
   partly-ready, and code-only to a repository with reachable code but no paqad docs. get-connected
@@ -125,6 +129,11 @@ Each block below shows its fields. A block is empty until the step that owns it 
   setup.tracker_readable is true or false and sits beside the write check can_create. With no
   readable repository setup.evidence_level is tracker-only. setup.tracker_reads notes how many
   search results were looked at and how many issues were opened in the whole run.
+- setup.project_key_source is repository when the person took the project recommended from the
+  branch names and commit subjects at step 0, and asked when they named it or chose a different
+  one. setup.ticket_key_scan holds counts only: lines_read, each Jira prefix with its count, and
+  github_refs. It never holds examples, branch names or commit text; check_record.py refuses a
+  scan that does. Both are left out when no repository was read. A record without them is valid.
 - idea is the step 1 output. glossary pairs the user's term with the project's term (GRD-6).
   term_source says where the other term came from, docs or tickets; a pair without it is read as
   from the docs.
@@ -143,7 +152,9 @@ Each block below shows its fields. A block is empty until the step that owns it 
   a description word for word and never holds a person's name, a contact detail, a link or a
   secret-looking value. A tracker-only entry has evidence_level tracker-only and no source_path.
   When the repository and the tickets disagree, the entry adds disagreement, the one-line finding
-  that names the issue key and ends "I'm going with the repository." In a run held in another
+  that names the issue key and ends "I'm going with the code and docs." When both the repository
+  and the tickets were read, comparison marks the entry agree, tickets_only, repository_only or
+  differ; it is left out otherwise, and check_record.py refuses any other value. In a run held in another
   language these values keep their English label, keys and level ids.
 - decisions records each settled choice with who decided and why. The decision that answers
   "Where should these tickets go?" adds epic_choice, a list with one choice per planned epic in

@@ -5,8 +5,8 @@ Standard library only (Python 3.9+). No network. Reads name, description, licens
 text, plus the directory listing scalars, from build/skills.yml and from nowhere else. The version
 comes from --version, or else from the repository package.json two levels above the source root.
 The build copies each skill plus its declared shared imports into dist/, and generates all four manifests
-from those values so no two manifests can disagree (PLG-11). The Claude branch alone also gets
-listing manifests (author, homepage, repository, keywords, display name and the documentation,
+from those values so no two manifests can disagree (PLG-11). The Claude branch and the dist root,
+which is the published plugin repository, also get listing manifests (author, homepage, repository, keywords, display name and the documentation,
 support and privacy links) plus the publish files README.md, LICENSE and PRIVACY.md (PLG-12).
 The ChatGPT directory branch (dist/hosts/chatgpt-directory) is a native Agent Plugins package: a
 root plugin.json with $schema and extensions.com.openai.interface, the same skills tree, a README,
@@ -48,6 +48,12 @@ REQUIRED_SCALARS = ("name", "description", "license", "display_name")
 # compatibility key sits on its own front-matter line.
 HOST_LABEL_PREFIXES = ("Chat and Claude Code: ", "Claude Code: ")
 HOST_LABEL_MODES = ("strip", "keep")
+
+TARGETS = ("discovery", "paqad")
+DEFAULT_TARGET = "discovery"
+CHATGPT_DIRECTORY_TARGET = "paqad"
+ONLY_OPEN = re.compile(r"^\s*<!-- only: ([\w-]+) -->\s*$")
+ONLY_CLOSE = re.compile(r"^\s*<!-- /only -->\s*$")
 
 # The ChatGPT directory branch key under dist/hosts/ (PLG-12), named once so the build, the zip
 # packer and the pre-submission check all point at the same folder.
@@ -266,6 +272,7 @@ def _unquote(value):
 def _parse_skills_list(lines, i, n):
     skills = []
     current = None
+    list_key = "imports"
     while i < n:
         raw = lines[i]
         stripped = raw.strip()
@@ -282,11 +289,22 @@ def _parse_skills_list(lines, i, n):
                 raise BuildError(
                     "skills.yml line {0}: expected '- name: <skill>'".format(i + 1)
                 )
-            current = {"name": _unquote(value), "publish": None, "imports": []}
+            current = {"name": _unquote(value), "publish": None, "imports": [], "targets": None}
+            list_key = "imports"
             skills.append(current)
             i += 1
             continue
         if indent == 4 and stripped == "imports:":
+            list_key = "imports"
+            i += 1
+            continue
+        if indent == 4 and stripped == "targets:":
+            if current is None:
+                raise BuildError(
+                    "skills.yml line {0}: targets before any skill".format(i + 1)
+                )
+            list_key = "targets"
+            current["targets"] = []
             i += 1
             continue
         if indent == 4 and stripped.startswith("publish:"):
@@ -300,7 +318,7 @@ def _parse_skills_list(lines, i, n):
         if indent == 6 and stripped.startswith("- "):
             if current is None:
                 raise BuildError("skills.yml line {0}: import before any skill".format(i + 1))
-            current["imports"].append(_unquote(stripped[2:]))
+            current[list_key].append(_unquote(stripped[2:]))
             i += 1
             continue
         raise BuildError("skills.yml line {0}: unexpected content {1!r}".format(i + 1, raw))
@@ -333,6 +351,68 @@ def parse_skills_yml(text):
         config[key] = _unquote(value)
         i += 1
     return config
+
+
+def resolve_targets(skills):
+    for skill in skills:
+        if skill.get("targets") is None:
+            skill["targets"] = list(TARGETS)
+            continue
+        if not skill["targets"]:
+            raise BuildError(
+                "skills.yml skill '{0}' lists no target under targets".format(skill["name"])
+            )
+        for target in skill["targets"]:
+            if target not in TARGETS:
+                raise BuildError(
+                    "skills.yml skill '{0}' has unknown target '{1}'; use one of {2}".format(
+                        skill["name"], target, ", ".join(TARGETS)
+                    )
+                )
+
+
+def check_target(target):
+    if target not in TARGETS:
+        raise BuildError(
+            "--target must be one of {0}, got {1!r}".format(", ".join(TARGETS), target)
+        )
+
+
+def target_config(config, target):
+    check_target(target)
+    selected = dict(config)
+    selected["skills"] = [skill for skill in config["skills"] if target in skill["targets"]]
+    return selected
+
+
+def apply_target_blocks(text, target, where):
+    out = []
+    block = None
+    for number, line in enumerate(text.splitlines(True), 1):
+        opened = ONLY_OPEN.match(line)
+        if opened:
+            if block is not None:
+                raise BuildError(
+                    "{0} line {1}: an only block opens inside another".format(where, number)
+                )
+            if opened.group(1) not in TARGETS:
+                raise BuildError(
+                    "{0} line {1}: unknown only target '{2}'".format(where, number, opened.group(1))
+                )
+            block = opened.group(1)
+            continue
+        if ONLY_CLOSE.match(line):
+            if block is None:
+                raise BuildError(
+                    "{0} line {1}: '<!-- /only -->' closes no only block".format(where, number)
+                )
+            block = None
+            continue
+        if block is None or block == target:
+            out.append(line)
+    if block is not None:
+        raise BuildError("{0}: an only block for '{1}' is never closed".format(where, block))
+    return "".join(out)
 
 
 def published_name(skill):
@@ -543,6 +623,7 @@ def load_config(skills_yml_path, version=None):
     if not config.get("skills"):
         raise BuildError("skills.yml declares no skills")
     check_unique_published_names(config["skills"])
+    resolve_targets(config["skills"])
     if version is not None:
         if not str(version).strip():
             raise BuildError("--version is empty")
@@ -612,6 +693,7 @@ def write_json(path, data, sort_keys=True):
 
 def build_manifests(config):
     name = config["name"]
+    manifest_name = config.get("manifest_name") or name
     version = config["version"]
     description = config["description"]
     license_id = config["license"]
@@ -631,13 +713,13 @@ def build_manifests(config):
         ],
     }
     plugin_manifest = {
-        "name": name,
+        "name": manifest_name,
         "version": version,
         "description": description,
         "license": license_id,
     }
     openai_manifest = {
-        "name": name,
+        "name": manifest_name,
         "version": version,
         "description": description,
         "license": license_id,
@@ -729,13 +811,15 @@ def copy_publish_files(source_root, branch_root, host, name):
             shutil.copyfile(source, target)
 
 
-def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
+def emit_host_branches(source_root, dist_root, config, combined_plugin_dir, all_skills,
+                       host_labels="strip"):
     """Emit the per-host branches under dist/hosts/<host>/ from the one source (PLG-12).
 
     Reuses build_manifests() so every branch's manifests are generated from the same name, version
     and description as the combined dist (PLG-11), and reuses copy_tree() to copy the already
     assembled combined skills tree into each branch so every branch's skills tree is byte-identical
-    to the combined dist. The combined dist/ root is left untouched. Each branch then gets its
+    to the combined dist, except the ChatGPT directory branch, which always carries every skill
+    built for CHATGPT_DIRECTORY_TARGET. The combined dist/ root is left untouched. Each branch then gets its
     host's publish files (HOST_PUBLISH_FILES): the Claude and ChatGPT directory branches.
     """
     name = config["name"]
@@ -753,7 +837,20 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
     for host in sorted(HOST_BRANCHES):
         branch_root = os.path.join(dist_root, HOSTS_DIR, host)
         branch_plugin = plugin_dir_path(branch_root, name)
-        copy_tree(combined_skills, os.path.join(branch_plugin, "skills"))
+        if host == CHATGPT_DIRECTORY_HOST:
+            directory_skills = [
+                skill for skill in all_skills if CHATGPT_DIRECTORY_TARGET in skill["targets"]
+            ]
+            assemble_skills(
+                source_root,
+                os.path.join(branch_plugin, "skills"),
+                directory_skills,
+                all_skills,
+                CHATGPT_DIRECTORY_TARGET,
+                host_labels,
+            )
+        else:
+            copy_tree(combined_skills, os.path.join(branch_plugin, "skills"))
         for rel_template, which in HOST_BRANCHES[host]:
             rel = rel_template.format(plugins=PLUGINS_DIR, name=name)
             write_json(
@@ -764,17 +861,21 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
         copy_publish_files(source_root, branch_root, host, name)
 
 
-def rewrite_markdown_names(skill_dir, name_map):
-    """Apply rewrite_skill_md to every markdown file in a built skill except SKILL.md."""
+def finish_markdown(skill_dir, name_map, target, host_labels):
+    skill_md = os.path.join(skill_dir, "SKILL.md")
     for dirpath, dirnames, filenames in os.walk(skill_dir):
         dirnames.sort()
         for name in sorted(filenames):
             path = os.path.join(dirpath, name)
-            if not name.endswith(".md") or path == os.path.join(skill_dir, "SKILL.md"):
+            if not name.endswith(".md"):
                 continue
             with open(path, "r", encoding="utf-8") as handle:
                 text = handle.read()
-            rewritten = rewrite_skill_md(text, name_map)
+            where = os.path.relpath(path, os.path.dirname(skill_dir)).replace(os.sep, "/")
+            rewritten = apply_target_blocks(text, target, where)
+            rewritten = rewrite_skill_md(rewritten, name_map)
+            if path == skill_md and host_labels == "strip":
+                rewritten = strip_host_labels(rewritten)
             if rewritten != text:
                 with open(path, "w", encoding="utf-8") as handle:
                     handle.write(rewritten)
@@ -783,30 +884,11 @@ def rewrite_markdown_names(skill_dir, name_map):
 # --------------------------------------------------------------------------- build
 
 
-def build(source_root, dist_root, version=None, host_labels="strip"):
-    if host_labels not in HOST_LABEL_MODES:
-        raise BuildError(
-            "--host-labels must be one of {0}, got {1!r}".format(
-                ", ".join(HOST_LABEL_MODES), host_labels
-            )
-        )
-    skills_yml = os.path.join(source_root, "build", "skills.yml")
-    config = load_config(skills_yml, version)
-    name = config["name"]
+def assemble_skills(source_root, skills_dir, skills, all_skills, target, host_labels):
     shared_root = os.path.join(source_root, "shared")
     shared_files = list_shared_files(shared_root)
-
-    plugin_dir = plugin_dir_path(dist_root, name)
-
-    # The source-folder -> published-name map, built once from the one source of truth, so the
-    # SKILL.md rewrite renames the front-matter name: and every sibling reference consistently.
-    name_map = {skill["name"]: published_name(skill) for skill in config["skills"]}
-
-    # Clean the dist tree so removed inputs never linger; stays deterministic.
-    if os.path.isdir(dist_root):
-        shutil.rmtree(dist_root)
-
-    for skill in config["skills"]:
+    name_map = {skill["name"]: published_name(skill) for skill in all_skills}
+    for skill in skills:
         skill_name = skill["name"]
         declared = list(skill["imports"])
         src_skill = os.path.join(source_root, "skills", skill_name)
@@ -828,20 +910,8 @@ def build(source_root, dist_root, version=None, host_labels="strip"):
                 )
             )
 
-        dst_skill = os.path.join(plugin_dir, "skills", published_name(skill))
+        dst_skill = os.path.join(skills_dir, published_name(skill))
         copy_tree(src_skill, dst_skill)
-
-        # Rewrite the copied SKILL.md so its front-matter name: equals the published folder name
-        # (PLG-3) and every sibling reference reads the published name. SKILL.md text only; the
-        # manifest JSON is generated separately and is never rewritten.
-        dst_skill_md = os.path.join(dst_skill, "SKILL.md")
-        with open(dst_skill_md, "r", encoding="utf-8") as handle:
-            dst_skill_md_text = handle.read()
-        rewritten = rewrite_skill_md(dst_skill_md_text, name_map)
-        if host_labels == "strip":
-            rewritten = strip_host_labels(rewritten)
-        with open(dst_skill_md, "w", encoding="utf-8") as handle:
-            handle.write(rewritten)
 
         for shared_rel in declared:
             if shared_rel not in shared_files:
@@ -854,19 +924,45 @@ def build(source_root, dist_root, version=None, host_labels="strip"):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copyfile(src, dst)
 
-        # Sibling references in the skill's other markdown (its references, assets and the
-        # copied shared references) read the published names too, so every hand-off points at a
-        # skill that ships.
-        rewrite_markdown_names(dst_skill, name_map)
+        finish_markdown(dst_skill, name_map, target, host_labels)
 
-    marketplace, plugin_manifest, openai_manifest = build_manifests(config)
-    write_json(os.path.join(dist_root, ".claude-plugin", "marketplace.json"), marketplace)
+
+def build(source_root, dist_root, version=None, host_labels="strip", target=DEFAULT_TARGET):
+    if host_labels not in HOST_LABEL_MODES:
+        raise BuildError(
+            "--host-labels must be one of {0}, got {1!r}".format(
+                ", ".join(HOST_LABEL_MODES), host_labels
+            )
+        )
+    check_target(target)
+    skills_yml = os.path.join(source_root, "build", "skills.yml")
+    full_config = load_config(skills_yml, version)
+    config = target_config(full_config, target)
+    all_skills = full_config["skills"]
+    name = config["name"]
+    plugin_dir = plugin_dir_path(dist_root, name)
+
+    if os.path.isdir(dist_root):
+        shutil.rmtree(dist_root)
+
+    assemble_skills(
+        source_root,
+        os.path.join(plugin_dir, "skills"),
+        config["skills"],
+        all_skills,
+        target,
+        host_labels,
+    )
+
+    marketplace, _, openai_manifest = build_manifests(config)
+    claude_marketplace, claude_plugin = build_claude_listing_manifests(config)
+    write_json(os.path.join(dist_root, ".claude-plugin", "marketplace.json"), claude_marketplace)
     write_json(os.path.join(dist_root, ".agents", "plugins", "marketplace.json"), marketplace)
-    write_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), plugin_manifest)
+    write_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), claude_plugin)
     write_json(os.path.join(plugin_dir, "plugin.json"), openai_manifest)
+    copy_publish_files(source_root, dist_root, "claude", name)
 
-    # Per-host branches under dist/hosts/ (PLG-12). The combined dist/ root above is unchanged.
-    emit_host_branches(source_root, dist_root, config, plugin_dir)
+    emit_host_branches(source_root, dist_root, config, plugin_dir, all_skills, host_labels)
 
     return dist_root
 
@@ -889,10 +985,23 @@ def main(argv=None):
         help="strip (default) removes the host label prefix and compatibility line from each "
         "built SKILL.md; keep leaves them for the paqad Claude plugin",
     )
+    parser.add_argument(
+        "--target",
+        choices=TARGETS,
+        default=DEFAULT_TARGET,
+        help="discovery (default) builds the published discovery plugin; paqad builds every "
+        "skill for the paqad plugin",
+    )
     args = parser.parse_args(argv)
     dist_root = args.dist or os.path.join(args.source, "dist")
     try:
-        build(args.source, dist_root, version=args.version, host_labels=args.host_labels)
+        build(
+            args.source,
+            dist_root,
+            version=args.version,
+            host_labels=args.host_labels,
+            target=args.target,
+        )
     except BuildError as exc:
         sys.stderr.write("build failed: {0}\n".format(exc))
         return 1

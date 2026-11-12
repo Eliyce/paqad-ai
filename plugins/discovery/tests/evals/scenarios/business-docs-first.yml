@@ -1,0 +1,47 @@
+# Business docs first scenarios: discovery reads the modules list, the area summaries and the
+# business notes, then the code when the business notes cannot settle a fact, and never reads
+# technical.md. They are declarative, like s1.yml, and are NOT run in CI; the host eval runner
+# executes them against the built plugin and the fixture repository under tests/evals/fixture-repo
+# (CI-12), whose orders send-to-sap area carries a technical.md that only a wrong run would quote.
+#
+# AC-124 and AC-125 are conversation-shape acceptance scenarios, each exercised by a scenario below.
+# The reading order itself is checked by tests/scripts/test_evidence_rules.py.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect).
+# Property vocabulary added here (all provider-neutral, all checkable):
+#   no-technical-md-read     no technical.md is opened, and the 17 minute retry window is not quoted.
+#   business-notes-cited     the Sources line names the business.md the answer rests on.
+#   code-read-by-names       the area without a business note is read from code, names first, at
+#                            most 5 files.
+#   code-suggests-line       that area's fact is said as "the code suggests".
+
+scenarios:
+  - id: bd-124-ask
+    title: A question about sending orders to SAP
+    acceptance: AC-124
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "What happens when SAP does not answer an order?"
+    expect:
+      - no-technical-md-read
+      - business-notes-cited
+
+  - id: bd-124-idea
+    title: An idea that touches sending orders to SAP
+    acceptance: AC-124
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    user: "Finance wants to see which orders SAP has not confirmed yet."
+    expect:
+      - no-technical-md-read
+      - business-notes-cited
+
+  - id: bd-125
+    title: An idea in an area with no business note
+    acceptance: AC-125
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    user: "Let members gift loyalty points to each other."
+    expect:
+      - code-read-by-names
+      - code-suggests-line

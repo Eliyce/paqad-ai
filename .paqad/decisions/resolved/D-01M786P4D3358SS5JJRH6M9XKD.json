@@ -1,0 +1,58 @@
+{
+  "id": "D-01M786P4D3358SS5JJRH6M9XKD",
+  "category": "authoring.override",
+  "title": "The skill plan-sprint cannot run its S5 check. Add it unverified, kept in this project?",
+  "context": "Since S5 last passed, only the shared copies of the record checker scripts (scripts/check_record.py and scripts/record.py, which now accept the ticket key scan counts and the comparison marks) changed; its own SKILL.md is unchanged. S3 and S4 were rerun and passed, and S4 runs those script tests. The owner chose to skip the S5 rerun for this skill.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, plan-sprint is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that plan-sprint helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, plan-sprint is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-12T15:40:40.227Z",
+  "status": "resolved",
+  "change": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M786N434JHAZ4V44GQFPRWZ8",
+      "D-01M6HKDTDNE98E9WV73ZXARNTR",
+      "D-01M786P0YCZZKXPS6SAGGPAVTS",
+      "D-01M6M72V1Y3MBB0FNCKZEJVGAZ",
+      "D-01M6M72SCRWY1Q593W5VDTCAXW"
+    ],
+    "none_reason": "The earlier answers cover other skills (pentest and the stage recipes) skipped for other reasons; none is this owner call on a shared reading-guide change."
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+  "resolved_at": "2026-11-12T15:40:40.809Z",
+  "decision_id": "D-01M786P4D3358SS5JJRH6M9XKD",
+  "fingerprint": "sha256:8d8df904cb051034e6666c10428bcdd6c00e73de943ceb7efac508770bcd0647",
+  "question": "The skill plan-sprint cannot run its S5 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "ttl_until": "2026-12-12T15:40:40.227Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-12T15:40:40.809Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)"
+  }
+}

@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "refine-ticket",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:28bee77bc2f2b61dc86284432191ed3f82f79461b4e3363668263d4d16916fa7",
+  "folder_hash": "sha256:6bf34a4ae13e582caf0974d17b1bf0b32cabdfbb6c81ce81c9fd1926adc332e9",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -52,7 +52,25 @@
     "S6": 3.230071,
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S5",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:44.348Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:46.168Z"
+    }
+  ],
+  "decisions": [
+    "D-01M786P7VH35XSQB3T0N67RSBF",
+    "D-01M786P9M6VA352415E0SWZZEH"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }

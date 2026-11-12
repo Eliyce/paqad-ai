@@ -14,7 +14,11 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
-import { describeFrameworkLink } from '@/health/plugin-install.js';
+import {
+  DISCOVERY_CLASH_MESSAGE,
+  describeFrameworkLink,
+  discoveryPluginClash,
+} from '@/health/plugin-install.js';
 import { describeClaudeInstall } from '@/install/plugin-migration.js';
 import { RagService } from '@/rag/service.js';
 import { FileVectorIndex } from '@/rag/vector-index.js';
@@ -91,6 +95,7 @@ export class HealthChecker {
       this.checkTrackedSentinels(projectRoot),
       this.checkFrameworkInstall(),
       this.checkClaudeInstall(projectRoot),
+      ...this.checkDiscoveryClash(),
       this.checkSchemaVersion(projectRoot),
       this.checkBrokenScaffold(projectRoot),
       this.checkUiDocs(projectRoot, modules),
@@ -734,6 +739,19 @@ export class HealthChecker {
     return line.level === 'warning'
       ? warn('Claude Code install', line.detail, line.remediation ?? '')
       : pass('Claude Code install', line.detail);
+  }
+
+  private checkDiscoveryClash(): HealthCheckResult[] {
+    const home = this.options.homeDir;
+    return discoveryPluginClash(home === undefined ? {} : { home })
+      ? [
+          fail(
+            'Claude plugins',
+            DISCOVERY_CLASH_MESSAGE,
+            'Remove paqad discovery in Claude: Customize, Plugins.',
+          ),
+        ]
+      : [];
   }
 
   private checkFrameworkInstall(): HealthCheckResult {

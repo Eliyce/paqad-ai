@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "start",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:44f0dd9f7fe65dcdffa06e0d9c53bf2ebbd42daaa2c144748313a8390319997e",
+  "folder_hash": "sha256:147ac99ca49e1f94e4a8a22811888dccd62a3edf9ad3c986790b9818552eff44",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -25,11 +25,11 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
+    "iterations": 2,
     "pass_rate_with": 0.8889,
     "pass_rate_without": 0.8333,
     "delta_points": 5.56,
-    "token_multiple": 1.469,
+    "token_multiple": 1.01,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
@@ -40,7 +40,7 @@
   },
   "trigger": {
     "validation_score": 0.5,
-    "description_chars": 640,
+    "description_chars": 568,
     "batch": "not-offered"
   },
   "performance": {

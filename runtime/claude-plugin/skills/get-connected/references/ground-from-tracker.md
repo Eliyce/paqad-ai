@@ -42,9 +42,8 @@ clause and puts the epic type first; sort natural language results by type after
 | Fields read | key, type, summary, description, status, parent, labels, last updated |
 | Never read | comments, attachments, work logs, people's names (assignee, reporter), other projects |
 
-- The 25 and the 10 are one total across every step that reads the tracker: grounding, the epic
-  list and the comparison with a chosen epic's current tickets. Only the read-only check of a
-  chosen epic before posting is allowed on top.
+- The 25 and the 10 are one total across every step that reads the tracker, the epic list included.
+  Only the read-only check of a chosen epic before posting is allowed on top.
 - Ask for those eight fields where the connector takes a field list. Use only those eight,
   whatever comes back. Never quote, store or carry anything else.
 - Drop a result that is not an issue, and a result from another project, unopened and unquoted.
@@ -76,18 +75,19 @@ clause and puts the epic type first; sort natural language results by type after
 
 ## When the repository and the tickets disagree
 
-The repository wins. Show the disagreement as a finding in the today block, in this shape: "The
-tickets say customers can pause a subscription (ABC-12, done), but the code suggests there is no
-pause action. I'm going with the repository." Raise it once in the playback, with a recommendation.
-This is for repository against tracker only: docs against code still says both and picks neither.
+The repository wins. When the code or `docs/modules` is readable it is the source of truth: a
+ticket never overrides it, never changes a today fact, never drives a recommendation against it,
+and only adds intent. Show the differ line: "The tickets say customers can pause a subscription
+(ABC-12, done), but the code suggests there is no pause action. I'm going with the code and docs."
+Raise it once in the playback; docs against code still says both and picks neither.
 
 ## The source line
 
 Still exactly one short source line per answer. Repository only: unchanged. Tracker only: "paqad,
-from the tracker". Both: the repository line plus " and the tracker", for example "paqad, from
-code only and the tracker"; drop " and the tracker" when no ticket line was produced. The nudge in
-a tracker-only run says that connecting the repository would let answers rest on what is built,
-not only on what was planned, with the same link and the same once per conversation rule.
+from the tracker". Both: the repository line plus " and the tracker", for example "paqad, from code
+only and the tracker"; drop " and the tracker" when no ticket line was produced. The nudge in a
+tracker-only run says that connecting the repository would let answers rest on what is built, not
+only on what was planned (same link, once per conversation).
 
 ## Mid-run and resume
 

@@ -8,8 +8,9 @@ below starts as the token `pending` and a person fills it in after installing.
 
 ## Manual install
 
-1. Build the distribution: run `python3 build/build.py` and push the generated `dist/` to the
-   private distribution repository.
+1. The release job `publish-discovery-plugin` builds the distribution (`build/build.py --target
+   discovery`) and pushes the dist root, without `dist/hosts/`, to
+   `Eliyce/paqad-product-discovery-plugin` on every paqad-ai release. There is no manual push.
 2. One-time, as an org owner (Team or Enterprise): in org settings, add the distribution
    repository and set its availability level. Owners may turn off member self-add and
    distribute centrally.

@@ -166,8 +166,8 @@ class DocsMapSectionTest(unittest.TestCase):
 
     def test_reading_order_messages_and_length(self):
         rows = table_rows(self.text)
-        self.assertEqual(len(rows), 7)
-        self.assertTrue(rows[6].startswith("| 7 | Source code | Automatically"))
+        self.assertEqual(len(rows), 5)
+        self.assertTrue(rows[4].startswith("| 5 | Source code | Automatically"))
         self.assertNotIn(OLD_ROW_7, normalised(self.text))
         for row in rows:
             self.assertNotIn("requirement", row.lower())
@@ -229,7 +229,7 @@ class DocsMapBuildTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
-        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"))
+        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"), target="paqad")
         cls.skills_root = os.path.join(cls.tmp, "dist", "plugins", PLUGIN_NAME, "skills")
 
     @classmethod
@@ -326,12 +326,12 @@ class RequirementsTest(unittest.TestCase):
         self.assertNotIn(EM_DASH, self.text)
         self.assertNotIn(EN_DASH, self.text)
 
-    def test_ask_8_row_7_and_amended_grd_8_to_11(self):
+    def test_ask_8_row_5_and_amended_grd_8_to_11(self):
         lines = [line for line in self.text.splitlines() if line.startswith("- **ASK-8.**")]
         self.assertEqual(len(lines), 1)
         self.assertIn("MUST", lines[0])
         self.assertNotIn("may look", lines[0])
-        rows = [line for line in self.text.splitlines() if line.startswith("| 7 | Source code |")]
+        rows = [line for line in self.text.splitlines() if line.startswith("| 5 | Source code |")]
         self.assertEqual(len(rows), 1)
         self.assertNotIn("Only if attached", rows[0])
         self.assertIn("Automatically", rows[0])
@@ -407,6 +407,72 @@ class EvidenceScenariosTest(unittest.TestCase):
             for prop in properties:
                 self.assertIn(prop, by_id[scenario_id]["expect"], scenario_id)
 
+
+
+TECHNICAL_RULE = "Never read `technical.md` for discovery; read the code instead."
+
+
+class BusinessDocsFirstTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.docs_map = read_text(SHARED_ROOT, "references", "paqad-docs-map.md")
+        cls.rows = table_rows(cls.docs_map)
+
+    def test_ac34_technical_md_and_the_overviews_leave_the_reading_order(self):
+        self.assertEqual([row.split("|")[2].strip() for row in self.rows], [
+            "`docs/instructions/registries/modules.md`",
+            "`docs/modules/<module>/index/summary.md` for each candidate",
+            "`docs/modules/<module>/features/<feature>/business.md`",
+            "`docs/site-map/` (if present: `app-map.yaml`, `docs/site-map/journeys/`)",
+            "Source code",
+        ])
+        self.assertIn("The main source.", self.rows[2])
+        self.assertIn(TECHNICAL_RULE, normalised(self.docs_map))
+        for row in self.rows:
+            self.assertNotIn("technical.md", row)
+            self.assertNotIn("architecture", row)
+            self.assertNotIn("stack/overview", row)
+        for skill in ("ground-in-project", "ask-project"):
+            text = normalised(read_text(REPO_ROOT, "skills", skill, "SKILL.md"))
+            self.assertGreaterEqual(text.count("Never read `technical.md`"), 2, skill)
+            self.assertNotIn("technical notes", text, skill)
+
+    def test_ac35_code_settles_what_the_business_notes_cannot(self):
+        """@obligation AC-35"""
+        self.assertIn("when the business notes cannot settle a fact", self.rows[4])
+        self.assertIn("at most 5 files", self.rows[4])
+        self.assertIn("what the code suggests", self.rows[4])
+        for skill in ("ground-in-project", "ask-project"):
+            text = normalised(read_text(REPO_ROOT, "skills", skill, "SKILL.md"))
+            self.assertIn("When the business notes cannot settle a fact, read the code by names, "
+                          "at most 5 files per area, as what the code suggests.", text, skill)
+
+    def test_ac34_ac35_the_fixture_and_scenarios_cover_both_cases(self):
+        """@obligation AC-35"""
+        technical = os.path.join(REPO_ROOT, "tests", "evals", "fixture-repo", "docs", "modules",
+                                 "orders", "features", "send-to-sap", "technical.md")
+        self.assertIn("17 minutes", read_text(technical))
+        evals = os.path.join(REPO_ROOT, "tests", "evals")
+        if evals not in sys.path:
+            sys.path.insert(0, evals)
+        import run_parity
+        scenarios = run_parity.load_scenarios(
+            os.path.join(evals, "scenarios", "business-docs-first.yml"))["scenarios"]
+        expect = {}
+        for scenario in scenarios:
+            expect.setdefault(scenario["acceptance"], set()).update(scenario["expect"])
+        self.assertIn("no-technical-md-read", expect["AC-124"])
+        self.assertLessEqual({"code-read-by-names", "code-suggests-line"}, expect["AC-125"])
+
+    def test_ac14_refine_and_size_share_the_one_docs_map(self):
+        config = build.parse_skills_yml(read_text(BUILD_DIR, "skills.yml"))
+        holders = sorted(skill["name"] for skill in config["skills"]
+                         if "references/paqad-docs-map.md" in skill["imports"])
+        self.assertIn("refine-ticket", holders)
+        self.assertIn("size-work", holders)
+        maps = [name for name in os.listdir(os.path.join(SHARED_ROOT, "references"))
+                if "docs-map" in name]
+        self.assertEqual(maps, ["paqad-docs-map.md"])
 
 if __name__ == "__main__":
     unittest.main()

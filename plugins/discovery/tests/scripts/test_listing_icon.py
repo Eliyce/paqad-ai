@@ -61,14 +61,17 @@ class ListingIconTest(unittest.TestCase):
     def test_claude_plugin_folder_carries_the_icon(self):
         self.assertEqual(read_bytes(os.path.join(self.claude, *ICON_REL)), read_bytes(SOURCE))
 
-    def test_other_branches_and_the_combined_root_carry_no_icon(self):
-        for root in (self.dist, os.path.join(self.dist, "hosts", "chatgpt"),
+    def test_other_branches_carry_no_icon(self):
+        for root in (os.path.join(self.dist, "hosts", "chatgpt"),
                      os.path.join(self.dist, "hosts", "codex"),
                      os.path.join(self.dist, "hosts", "chatgpt-directory")):
             for dirpath, _, names in os.walk(root):
-                if dirpath.startswith(self.claude):
-                    continue
                 self.assertNotIn("icon.png", names, dirpath)
+
+    def test_ac5_the_published_root_carries_the_claude_icon(self):
+        icon = os.path.join(self.dist, "plugins", "paqad-product-discovery", ".claude-plugin",
+                            "icon.png")
+        self.assertEqual(read_bytes(icon), read_bytes(SOURCE))
 
     def test_logo_png_is_only_in_the_chatgpt_directory_branch(self):
         directory = os.path.join(self.dist, "hosts", "chatgpt-directory")

@@ -31,6 +31,60 @@ REQUIRED = record.REQUIRED
 MODE_REQUIRED = record.MODE_REQUIRED
 present = record.present
 
+SCAN_KEYS = {"lines_read", "jira_prefixes", "github_refs"}
+PREFIX_KEYS = {"prefix", "count"}
+SCAN_PATH = "setup -> ticket_key_scan"
+SCAN_MESSAGE = (
+    "The ticket key scan holds counts only: lines_read, each prefix with its count, and "
+    "github_refs, never examples, branch names or commit text."
+)
+
+
+def is_count(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def prefix_ok(entry):
+    return (
+        isinstance(entry, dict)
+        and set(entry) == PREFIX_KEYS
+        and isinstance(entry["prefix"], str)
+        and is_count(entry["count"])
+    )
+
+
+def comparison_issues(rec):
+    today = rec.get("today")
+    if not isinstance(today, list):
+        return []
+    issues = []
+    for index, entry in enumerate(today):
+        if not isinstance(entry, dict) or "comparison" not in entry:
+            continue
+        if entry["comparison"] not in record.COMPARISON_VALUES:
+            issues.append(canonical.issue(
+                "COMPARISON",
+                "today[{0}] -> comparison".format(index),
+                "comparison must be one of {0}.".format(", ".join(record.COMPARISON_VALUES)),
+            ))
+    return issues
+
+
+def scan_issues(rec):
+    setup = rec.get("setup")
+    scan = setup.get("ticket_key_scan") if isinstance(setup, dict) else None
+    if scan is None:
+        return []
+    valid = (
+        isinstance(scan, dict)
+        and set(scan) == SCAN_KEYS
+        and is_count(scan["lines_read"])
+        and is_count(scan["github_refs"])
+        and isinstance(scan["jira_prefixes"], list)
+        and all(prefix_ok(entry) for entry in scan["jira_prefixes"])
+    )
+    return [] if valid else [canonical.issue("SCAN", SCAN_PATH, SCAN_MESSAGE)]
+
 
 def check(rec, step=None):
     """Return the list of issues for the given step (run.step by default)."""
@@ -51,7 +105,7 @@ def check(rec, step=None):
             issues.append(canonical.issue("MISSING", path, "Required block is missing or empty."))
         elif block in stale:
             issues.append(canonical.issue("STALE", path, "Required block is stale and must be redone."))
-    return issues
+    return issues + scan_issues(rec) + comparison_issues(rec)
 
 
 def main(argv=None):

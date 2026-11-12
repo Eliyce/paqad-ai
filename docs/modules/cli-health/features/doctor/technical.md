@@ -167,3 +167,15 @@ Source directories owned by this feature:
   and inlines no contract; an older fat entry file (with a Decision Pause Contract or a "paqad in
   your chat" section) is flagged so a refresh restores the stub. Every entry file must carry the
   same fallback clause so a missing or disabled paqad never breaks the host.
+
+## Discovery plugin next to the paqad plugin
+
+`discoveryPluginClash` in `src/health/plugin-install.ts` reads only files: an
+`installed_plugins.json` key starting `paqad-product-discovery@`, or a folder under the Claude
+config `plugins/synced/` whose `.claude-plugin/plugin.json` is named `paqad` with no `hooks`,
+together with the paqad plugin (`paqad@eliyce`, or a synced `paqad` folder with hooks). Missing or
+unreadable files mean not installed. When both are present doctor adds a failing "Claude plugins"
+check with the one sentence in `DISCOVERY_CLASH_MESSAGE`; otherwise it adds no row. `paqad-ai update`,
+`paqad-ai install` (on stderr, after its JSON result) and `paqad-ai onboard` print the same sentence
+as a warning. It never relies on a paqad hook. The
+same clash in Codex is not detected while paqad ships no Codex plugin named `paqad`.

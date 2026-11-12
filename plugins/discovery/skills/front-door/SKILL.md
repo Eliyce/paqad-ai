@@ -1,6 +1,6 @@
 ---
 name: front-door
-description: "Chat and Claude Code: One place to start for product work, routing you to the capability that fits. Use it when you want to ask about the product, shape an idea, refine a ticket, size work, or plan a sprint and you want a single place to begin (\"help me with this ticket\", \"I have an idea\", \"what can you do here?\", \"where do I start?\"). It reads what you are after, names the capability that handles it, and hands you straight to it behind the scenes, so you only have to remember one entry. It is a thin router: it does no drafting, keeps no record, and writes nothing to the tracker itself; the capability it hands you to does that work."
+description: "Chat and Claude Code: One place to start for product work, routing you to the capability that fits. Use it when you want help with product work and a single place to begin (\"help me with this ticket\", \"I have an idea\", \"what can you do here?\", \"where do I start?\"). It reads what you are after, names the capability that handles it, and hands you straight to it behind the scenes, so you only have to remember one entry. It is a thin router: it does no drafting, keeps no record, and writes nothing to the tracker itself; the capability it hands you to does that work."
 compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 disable-model-invocation: true
 ---
@@ -37,9 +37,18 @@ without asking again.
 |---|---|
 | Ask about the product: what it is, what it does, how something works today | ask-project |
 | Shape an idea, a problem or a change into tickets or another sensible outcome | product-discovery |
+<!-- only: paqad -->
 | Refine a single existing ticket so it is ready | refine-ticket |
 | Size work: estimate the effort on existing tickets | size-work |
 | Plan a sprint from ready, sized tickets | plan-sprint |
+<!-- /only -->
+<!-- only: discovery -->
+
+When the user asks to get an existing ticket ready, to estimate effort or to plan upcoming work,
+say this once, word for word, and route nowhere else:
+"Refining, sizing and sprint planning are in the paqad plugin, not this one."
+Then offer ask-project or product-discovery as the next step in one short line.
+<!-- /only -->
 
 ## Output
 

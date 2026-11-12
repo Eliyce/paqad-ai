@@ -6,9 +6,9 @@ describes what the plugin actually does, nothing more.
 
 ## What the plugin is
 
-The plugin helps a business user ask what a product does, shape an idea into tickets, refine a
-ticket, size work and plan a sprint. It runs inside an AI chat host you already use. It only reads;
-it never edits, runs or installs anything in your repository.
+The plugin helps a business user ask what a product does and shape an idea into tickets. It runs
+inside an AI chat host you already use. It only reads; it never edits, runs or installs anything in
+your repository.
 
 ## What the plugin reads
 
@@ -28,8 +28,7 @@ tracker project you point it at, through the host's tracker connector and under 
 - Before posting under an epic you chose, it reads that one epic again to check it. It never
   changes an existing epic.
 
-Only the idea journey does this. Asking a question, refining a ticket, sizing work and planning a
-sprint read the tracker only as they did before.
+Only the idea journey does this. Asking a question reads the tracker only as it did before.
 
 It reads one repository per run, and it reads a file only to answer your question. The plugin and
 its publisher (Eliyce) run no server of their own and collect, store or receive none of your data.
@@ -47,7 +46,7 @@ The plugin keeps a never-read list and honours it in every mode:
 ## What the plugin writes
 
 The plugin writes nothing outside its own working folder. Within a run it keeps a discovery record
-(your choices, the areas found, the draft tickets and sizes) in the working folder so the
+(your choices, the areas found and the draft tickets) in the working folder so the
 conversation can carry on. It does not write into your source code. Posting tickets to a tracker
 goes through the host's tracker connector, and only when you approve the post; the plugin handles
 no tracker credentials itself.

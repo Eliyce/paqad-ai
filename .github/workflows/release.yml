@@ -183,9 +183,92 @@ jobs:
             git push --quiet origin "refs/tags/v${VERSION}"
           fi
 
+  publish-discovery-plugin:
+    name: Publish the discovery plugin
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check the discovery plugin push token
+        id: token
+        env:
+          PAQAD_PLUGIN_PUSH_TOKEN: ${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}
+        run: |
+          MESSAGE="PAQAD_PLUGIN_PUSH_TOKEN is not set or cannot push to Eliyce/paqad-product-discovery-plugin. Give it write access, then re-run this job."
+          if [ -z "$PAQAD_PLUGIN_PUSH_TOKEN" ]; then
+            echo "::error::${MESSAGE}"
+            exit 1
+          fi
+          CAN_PUSH="$(curl -fsS -H "Authorization: Bearer ${PAQAD_PLUGIN_PUSH_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/Eliyce/paqad-product-discovery-plugin | jq -r '.permissions.push // false' || echo false)"
+          if [ "$CAN_PUSH" != "true" ]; then
+            echo "::error::${MESSAGE}"
+            exit 1
+          fi
+
+      - name: Checkout the released commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Check the checkout is the released version
+        env:
+          RELEASED_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$RELEASED_VERSION" ]; then
+            echo "::error::package.json at the released commit is ${VERSION}, but npm published ${RELEASED_VERSION}."
+            exit 1
+          fi
+
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
+      - name: Push the discovery plugin to Eliyce/paqad-product-discovery-plugin
+        env:
+          PAQAD_PLUGIN_PUSH_TOKEN: ${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}
+        run: |
+          set -eu
+          MESSAGE="PAQAD_PLUGIN_PUSH_TOKEN is not set or cannot push to Eliyce/paqad-product-discovery-plugin. Give it write access, then re-run this job."
+          fail() {
+            echo "::error::${MESSAGE}"
+            exit 1
+          }
+          VERSION="$(node -p "require('./package.json').version")"
+          DIST="${RUNNER_TEMP}/discovery"
+          python3 plugins/discovery/build/build.py --version "$VERSION" --target discovery --dist "$DIST"
+          git -c init.defaultBranch=main clone --quiet "https://x-access-token:${PAQAD_PLUGIN_PUSH_TOKEN}@github.com/Eliyce/paqad-product-discovery-plugin.git" discovery-repo || fail
+          if git -C discovery-repo ls-remote --exit-code --heads origin main > /dev/null; then
+            git -C discovery-repo checkout --quiet -B main origin/main
+          else
+            git -C discovery-repo symbolic-ref HEAD refs/heads/main
+          fi
+          find discovery-repo -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R "${DIST}/." discovery-repo/
+          rm -rf discovery-repo/hosts
+          cd discovery-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The discovery plugin tree is unchanged at v${VERSION}; nothing to commit."
+          else
+            git commit --quiet -m "paqad-product-discovery v${VERSION}"
+            git push --quiet origin "HEAD:refs/heads/main" || fail
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
+            echo "Tag v${VERSION} already exists on Eliyce/paqad-product-discovery-plugin."
+          else
+            git tag "v${VERSION}"
+            git push --quiet origin "refs/tags/v${VERSION}" || fail
+          fi
+
   plugin-in-sync:
     name: Plugin matches npm
-    needs: [release, publish-plugin, tags]
+    needs: [release, publish-plugin, publish-discovery-plugin, tags]
     if: always() && needs.release.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -201,3 +284,7 @@ jobs:
 
       - name: Fail when the plugin is behind npm
         run: node scripts/release-sync.mjs check
+
+      - name: Fail when the discovery plugin is behind npm
+        if: needs.publish-discovery-plugin.result != 'skipped'
+        run: node scripts/release-sync.mjs discovery-check

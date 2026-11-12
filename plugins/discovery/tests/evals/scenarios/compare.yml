@@ -1,0 +1,82 @@
+# Compare scenarios: when the repository lines and the ticket lines are both in the today block,
+# ground-in-project marks each area agree, tickets_only, repository_only or differ, and the step 3
+# playback opens with those lines before any question. The code and docs/modules are the truth;
+# tickets only add intent. They are declarative, like s1.yml, and are NOT run in CI; the host eval
+# runner executes them against the built plugin, the fixture repository and the fixture tracker
+# under tests/evals/ (CI-12).
+#
+# AC-126 to AC-129 are conversation-shape acceptance scenarios, each exercised by a scenario below.
+# The comparison values themselves are script-proven by test_check_record.py.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus the
+# tracker field of tracker-grounding.yml.
+# Property vocabulary added here (all provider-neutral, all checkable):
+#   comparison-lines-first     the playback opens with the comparison lines before any question.
+#   comparison-recorded        each compared entry carries today[].comparison with its mark.
+#   agree-line                 an area both sources show carries agree.
+#   tickets-only-sentence      "the tickets say this was planned; I can't see it in the code or
+#                              docs" is said for a tickets_only area.
+#   repository-only-line       an area only the code or docs show carries repository_only.
+#   differ-ends-code-and-docs  the differ line names the key, says what the ticket claimed and ends
+#                              "I'm going with the code and docs."
+#   fact-follows-code-and-docs the today fact and the recommendation follow the code and docs.
+#   no-comparison-lines        no comparison line and no empty comparison heading is shown.
+#   facts-labelled-tickets     every fact is labelled as from the tickets.
+
+scenarios:
+  - id: cmp-126
+    title: Repository and ticket lines in one run
+    acceptance: AC-126
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Customers want to pause a subscription for a month."
+    expect:
+      - comparison-lines-first
+      - comparison-recorded
+      - agree-line
+      - repository-only-line
+
+  - id: cmp-127
+    title: The tickets show a plan the code and docs do not
+    acceptance: AC-127
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Members want to gift loyalty points."
+    expect:
+      - tickets-only-sentence
+      - comparison-recorded
+
+  - id: cmp-128
+    title: A ticket claims something the code contradicts
+    acceptance: AC-128
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: readable and writable
+    user: "Customers want to pause a subscription for a month."
+    expect:
+      - differ-ends-code-and-docs
+      - fact-follows-code-and-docs
+      - comparison-recorded
+
+  - id: cmp-129-repository
+    title: A repository-only run
+    acceptance: AC-129
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    tracker: not readable
+    user: "Customers want to pause a subscription for a month."
+    expect:
+      - no-comparison-lines
+
+  - id: cmp-129-tickets
+    title: A tickets-only run
+    acceptance: AC-129
+    entry_skill: product-discovery
+    fixture: none
+    tracker: readable and writable
+    user: "Customers want to pause a subscription for a month."
+    expect:
+      - no-comparison-lines
+      - facts-labelled-tickets

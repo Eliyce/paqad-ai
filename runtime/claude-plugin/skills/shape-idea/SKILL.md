@@ -19,7 +19,10 @@ in the record. Say the status on entry ("Step 3 of 6: shaping the idea.").
 Shape the idea, do not just repeat it, working only from the idea and today blocks and what the user
 said. Raise conflicts kindly (`references/challenge-guide.md`).
 
-1. Play the idea back, goal first. Use the shape in `references/playback-template.md`: the goal,
+1. When the today block carries `comparison` marks, open the playback with them, before any
+   question: the agree, tickets only, repository only and differ lines, one line each, with the
+   wording from step 2. With no marks show no comparison lines and no empty heading; in a
+   tickets-only run label each fact as from the tickets. Then play the idea back, goal first. Use the shape in `references/playback-template.md`: the goal,
    what exists today (including what the docs could not confirm), the options with their
    trade-offs in business terms, a smaller first step where it helps, and a recommendation. Call
    an area the documents do not cover not documented; never say or imply it is not built. Code
@@ -41,8 +44,9 @@ said. Raise conflicts kindly (`references/challenge-guide.md`).
    already-exists outcome and draft nothing more unless asked. A ticket line alone never gives
    that outcome, even for a ticket marked done: say "the tickets say this was finished" with the
    key, and recommend checking with the team before building again.
-6. Raise a disagreement between the repository and the tickets once, as a challenge with a
-   recommendation: the repository wins, and the finding names the issue key.
+6. Raise a disagreement between the code or docs and the tickets once, as a challenge with a
+   recommendation that follows the code and docs, never the tickets; the differ line names the
+   issue key and ends "I'm going with the code and docs."
 7. Label every suggestion as one; nothing enters the record until accepted. Respect an informed
    choice; revisit it only for new evidence.
 

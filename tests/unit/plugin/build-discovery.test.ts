@@ -173,6 +173,11 @@ describe('scripts/build-discovery.mjs', () => {
     ).toThrow(BuildDiscoveryError);
   });
 
+  it('AC-6: the paqad plugin build passes --target paqad with --host-labels keep', () => {
+    const script = readFileSync(SCRIPT, 'utf8');
+    expect(script).toMatch(/'--host-labels',\s+'keep',\s+'--target',\s+'paqad',/);
+  });
+
   it('AC-55: the ci script runs every gate the checks stage records', () => {
     const { ci } = (
       JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {

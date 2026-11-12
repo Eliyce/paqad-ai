@@ -29,6 +29,7 @@ type UpdateSummaryInput = Pick<
   skipped: readonly unknown[];
   team_setup_notes?: readonly string[];
   git_workflow_notes?: readonly string[];
+  plugin_notes?: readonly string[];
 };
 
 const MANUAL_DETAILS_COMMAND = 'paqad-ai update --json';
@@ -76,6 +77,7 @@ export function formatUpdateReportLines(
     ...formatUpdateSummary(report, detailsCommand),
     ...(report.team_setup_notes ?? []),
     ...(report.git_workflow_notes ?? []),
+    ...(report.plugin_notes ?? []).map((note) => `Warning: ${note}`),
   ];
 }
 

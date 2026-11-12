@@ -1,0 +1,66 @@
+{
+  "id": "D-01M781NBRCEHB7WMM2RV0Y379R",
+  "category": "intake.requirement",
+  "title": "Reaching engineers who have the old discovery plugin next to paqad",
+  "context": "Engineers who already installed the old discovery plugin (3.2.0) next to paqad can lose their stage checks after the next update, because the update renames it to paqad. Doctor and update catch it only when someone runs them. How should we reach these people? This decides whether the rename ships in this release and how much outreach happens first.",
+  "options": [
+    {
+      "option_key": "release-note",
+      "label": "Release note and changeset warning only; doctor and update catch the rest",
+      "one_line_preview": "Release note and changeset warning only; doctor and update catch the rest",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "notice-and-testers",
+      "label": "Also put a notice at the top of the discovery repo README and tell known testers directly before the release",
+      "one_line_preview": "Also put a notice at the top of the discovery repo README and tell known testers directly before the release",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "hold-rename",
+      "label": "Hold the rename for one release: first ship the old plugin with a warning, then rename",
+      "one_line_preview": "Hold the rename for one release: first ship the old plugin with a warning, then rename",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "No one uses the discovery plugin today, so no outreach: rename now, no extra notice.",
+      "one_line_preview": "No one uses the discovery plugin today, so no outreach: rename now, no extra notice.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "notice-and-testers",
+  "created_at": "2026-11-12T14:12:52.108Z",
+  "status": "resolved",
+  "change": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "The closest earlier answer (D-01M6JXAEWHXVNPJZRT2EPQE4DE) was about telling teams about tracked-file changes; here an update can silently stop stage checks, so its reason does not carry over."
+  },
+  "chosen": "other",
+  "rationale": "Owner: no one is using it at all, so no need.",
+  "resolved_at": "2026-11-12T14:26:25.731Z",
+  "decision_id": "D-01M781NBRCEHB7WMM2RV0Y379R",
+  "fingerprint": "sha256:e9a3df8a6bfdac446781c34aed804c4e46993e5e1ed5f191a6ac37822127d5b7",
+  "question": "Reaching engineers who have the old discovery plugin next to paqad",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "ttl_until": "2026-11-26T14:12:52.108Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-12T14:26:25.731Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: no one is using it at all, so no need."
+  }
+}

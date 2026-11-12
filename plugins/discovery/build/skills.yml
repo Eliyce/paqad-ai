@@ -11,6 +11,14 @@
 # files into the skill and fails if a SKILL.md references a shared file it did not
 # declare here (PLG-10).
 #
+# A skill may also list its build targets under targets, written like imports. build.py --target
+# discovery|paqad builds only the skills that list that target; a skill with no targets list is
+# built for both. An unknown target fails the build.
+#
+# manifest_name is the name the two plugin manifests (Claude and Codex) carry, so commands read
+# /paqad:discover. name stays the repository, marketplace and plugin folder name, and the ChatGPT
+# directory package keeps it as its manifest name.
+#
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
 # imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
 # avoid any third-party dependency.
@@ -34,9 +42,10 @@
 # capabilities holds 1 to 20 entries of at most 120 characters. build.py checks every limit.
 
 name: paqad-product-discovery
-description: "Ask what a product does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in the repository's docs and code."
+manifest_name: paqad
+description: "Ask what a product does and shape ideas into user-story tickets, grounded in the repository's business docs and code."
 license: MIT
-display_name: "Paqad Product Discovery"
+display_name: "paqad discovery"
 author: "Eliyce"
 author_email: "haider@eliyce.com"
 repository: "https://github.com/Eliyce/paqad-product-discovery-plugin"
@@ -45,12 +54,12 @@ documentation_url: "https://github.com/Eliyce/paqad-product-discovery-plugin#rea
 support_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/issues"
 privacy_policy_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/PRIVACY.md"
 terms_of_service_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/TERMS.md"
-keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog, sprint-planning"
+keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog"
 short_description: "Ideas to ready tickets"
-long_description: "Paqad Product Discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, shape a rough idea into clear user-story epics and tickets, refine an existing ticket without losing its intent, get a size suggestion based on comparable finished work, and propose a sprint plan. Answers come from the repository's own documents and code. When you shape an idea it may also read existing epics and tickets in the one tracker project you point it at, at most 25 search results and 10 opened tickets in a run, and it never reads comments, attachments or people's names. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files, or a tracker connector for shaping an idea from existing tickets; it posts tickets to a tracker only through the tracker connector and only after you approve them, under a new epic or an existing one that it never changes."
+long_description: "paqad discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, or shape a rough idea into clear user-story epics and tickets. Answers come from the repository's own business documents first and then its code. When you shape an idea it may also read existing epics and tickets in the one tracker project you point it at, at most 25 search results and 10 opened tickets in a run, and it never reads comments, attachments or people's names. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files, or a tracker connector for shaping an idea from existing tickets; it posts tickets to a tracker only through the tracker connector and only after you approve them, under a new epic or an existing one that it never changes."
 category: "Productivity"
-default_prompts: "What does the checkout do today? | Turn this idea into tickets: let shoppers save a basket for later | Plan the next sprint"
-capabilities: "Answers questions about what the product does today, with sources | Shapes a rough idea into user-story epics and tickets | Refines an existing ticket without losing its intent | Suggests a size for work from comparable finished work | Proposes a sprint plan for the team to review | Posts approved tickets through your tracker connector | Works from existing epics and tickets in one tracker project, never comments or names | Posts under an epic that already exists without changing it"
+default_prompts: "What does the checkout do today? | Turn this idea into tickets: let shoppers save a basket for later | How are returns handled today?"
+capabilities: "Answers questions about what the product does today, with sources | Shapes a rough idea into user-story epics and tickets | Posts approved tickets through your tracker connector | Works from existing epics and tickets in one tracker project, never comments or names | Posts under an epic that already exists without changing it"
 
 skills:
   - name: product-discovery
@@ -84,6 +93,7 @@ skills:
       - references/tracker-profiles-github.md
       - references/ground-from-tracker.md
       - scripts/check_onboarded.py
+      - scripts/find_ticket_keys.py
   - name: understand-idea
     publish: understand-idea
     imports:
@@ -139,6 +149,8 @@ skills:
       - scripts/check_readback.py
   - name: refine-ticket
     publish: refine-ticket
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/writing-rules.md
@@ -154,6 +166,8 @@ skills:
       - scripts/check_readback.py
   - name: size-work
     publish: size-work
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -165,6 +179,8 @@ skills:
       - scripts/check_record.py
   - name: plan-sprint
     publish: plan-sprint
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md

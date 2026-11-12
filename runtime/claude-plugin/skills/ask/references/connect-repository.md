@@ -2,10 +2,10 @@
 
 verified: 2026-11-02
 
-Get the project in front of you by capability, not by host (GRD-3). Work only from what you
-actually read, and name anything you need but cannot reach. The evidence level you reach, the
-source line and the upgrade nudge are defined once in `evidence-levels.md`; detect the
-level there and answer at the best level the repository allows.
+Get the project in front of you by capability, not by host (GRD-3). Work only from what you read,
+and name what you need but cannot reach. The evidence level, the source line and the upgrade nudge
+are defined in `evidence-levels.md`; detect the level there and answer at the best level the
+repository allows.
 
 ## By capability
 
@@ -34,16 +34,19 @@ Settle which repository to read before reading anything else, and ask about it a
   exactly one as recommended, with a one-clause reason. Use the host's choice prompt when it fits
   every repository; otherwise a short table in the reply with the columns repository and level. Keep
   the question under about 40 words plus its choices.
-- Nothing to list. When no tool can list repositories, or it lists none, ask to attach or upload as
-  above. Invent nothing.
+- Nothing to list. No tool lists repositories, or it lists none: ask to attach or upload. Invent nothing.
+- Connected but unreadable. A connector that is on but offers no list or read action (not a sign-in
+  or rate-limit failure). In the idea journey only: say this once, go on tracker only, record
+  `setup.repository_state` as `connector-unreadable`; with no tracker, say nothing is readable.
+  > GitHub is connected, but I can't read any repositories through it from here. I'll work from the tickets for now. To use the code and docs, attach the repository or its docs folder.
+- Outside the idea journey, never go on tracker only: read no tickets, ask for the repository, stop.
 
 Work out the marks with the onboarded check below, only for the repositories shown, and read
 nothing else before the user chooses. A repository whose files cannot be read (no read tool, or a
 read fails) is not checked. A repository with readable code is always at least from code only, so it
-is ranked and recommendable; the only unrecommendable state is not checked.
-
-Recommend the most recently active richest repository: from project docs first, then from docs and
-code, then from code only, then not checked. A code-only repository is recommendable.
+is ranked and recommendable; the only unrecommendable state is not checked. Recommend the most
+recently active richest repository: from project docs first, then from docs and code, then from code
+only, then not checked. A code-only repository is recommendable.
 
 ## Remembering the choice
 
@@ -64,10 +67,9 @@ The check reads the modules list, `docs/instructions/registries/modules.md`, and
 summaries, `docs/modules/<area>/index/summary.md` for each folder under `docs/modules/` (a folder
 whose name starts with a dot is not an area). A file that is empty, holds only whitespace or cannot
 be read counts as missing. Where the check script ships with the skill, run it; otherwise do it by
-hand: list the `docs/modules` folders, read each `docs/modules/<area>/index/summary.md`, then look for
-the modules list.
-Its output names the evidence level; its not-set-up output is read as the code-only level, not a
-stop.
+hand: list the `docs/modules` folders, read each `docs/modules/<area>/index/summary.md`, then look
+for the modules list. Its output names the evidence level; its not-set-up output is read as the
+code-only level, not a stop.
 
 | State | Evidence level | What to do |
 |---|---|---|

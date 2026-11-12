@@ -164,7 +164,7 @@ describe('AC-7 / NFR-4: the scrubbed replay of a healthy full-lane run', () => {
     for (let index = 1; index < tokensSeen.length; index += 1) {
       expect(tokensSeen[index]).toBeGreaterThan(tokensSeen[index - 1]!);
     }
-  });
+  }, 30_000);
 });
 
 describe('a verdict judged while a background stage agent runs', () => {

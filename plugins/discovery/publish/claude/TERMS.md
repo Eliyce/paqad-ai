@@ -6,8 +6,8 @@ describe the plugin as it actually works, nothing more.
 
 ## What the plugin is
 
-The plugin helps a business user ask what a product does, shape an idea into tickets, refine a
-ticket, size work and plan a sprint. It runs inside an AI chat host you already use. It only reads
+The plugin helps a business user ask what a product does and shape an idea into tickets. It runs
+inside an AI chat host you already use. It only reads
 your repository; it never edits, runs or installs anything in it.
 
 ## Acceptable use
@@ -21,8 +21,8 @@ approve.
 ## What you are responsible for
 
 - The repositories and trackers you connect, and your permission to use them.
-- Reviewing every ticket, size and sprint plan before you approve a post. The plugin proposes; you
-  decide. Nothing is posted to a tracker without your explicit approval.
+- Reviewing every ticket before you approve a post. The plugin proposes; you decide. Nothing is
+  posted to a tracker without your explicit approval.
 - Your use of the plugin's output. It is a drafting and planning aid, not professional advice, and
   it can be wrong or incomplete.
 

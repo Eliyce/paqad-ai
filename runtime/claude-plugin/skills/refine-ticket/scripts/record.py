@@ -46,6 +46,8 @@ BLOCKS = ("setup", "idea", "glossary", "today", "playback", "decisions",
 # "ticket_set_ref -> posted" and "readiness -> posted" separately; this chain reconciles those
 # rows and keeps the safe over-invalidation (INV-11) that a ticket_set_ref change also staled
 # readiness.
+COMPARISON_VALUES = ("agree", "tickets_only", "repository_only", "differ")
+
 CHAIN = ("idea", "today", "playback", "decisions", "ticket_set_ref", "readiness", "posted")
 
 # The required blocks for each journey step (8.5 Record row). Build mode only (INV-1).

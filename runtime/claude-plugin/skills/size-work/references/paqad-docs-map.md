@@ -11,11 +11,12 @@ as the point is answered. Never read runtime state, the rules folder, secrets or
 |---|---|---|
 | 1 | `docs/instructions/registries/modules.md` | The map: every module, its plain name, its layer and its features. With no modules list (partly ready), build the map from the `docs/modules` folder names and their summaries. |
 | 2 | `docs/modules/<module>/index/summary.md` for each candidate | What the area is for. |
-| 3 | `docs/modules/<module>/features/<feature>/business.md` | Roles, flows and business rules. The main grounding source. |
+| 3 | `docs/modules/<module>/features/<feature>/business.md` | Roles, flows and business rules. The main source. |
 | 4 | `docs/site-map/` (if present: `app-map.yaml`, `docs/site-map/journeys/`) | Screens, navigation and journeys. |
-| 5 | `docs/instructions/architecture/overview.md`, `docs/instructions/stack/overview.md` | Only for cross-cutting constraints. Never quoted in ticket text. |
-| 6 | `docs/modules/<module>/features/<feature>/technical.md` | Only to settle a fact that the business notes cannot. Never quoted in ticket text. |
-| 7 | Source code | Automatically, for an area the question needs that the documents do not cover (no summary, template text, or no document), when the code is reachable. Names first, then at most 5 files for that area. Reported as what the code suggests (GRD-11). |
+| 5 | Source code | Automatically, when the business notes cannot settle a fact, or for an area the question needs that the documents do not cover (no summary, template text, or no document), when the code is reachable. Names first, then at most 5 files for that area. Reported as what the code suggests (GRD-11). Never quoted in ticket text. |
+
+Never read `technical.md` for discovery; read the code instead. The architecture and stack
+overviews are not in the reading order either.
 
 Detect the level first (GRD-1). An empty or whitespace-only file counts as missing.
 

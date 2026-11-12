@@ -1,8 +1,12 @@
 # paqad-product-discovery
 
-Source for the paqad-product-discovery plugin: a set of skills that help ask what a product
-does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in
-the target repository's docs and code. The plugin works on any
+Use this plugin or the paqad plugin, not both. paqad already includes discover and ask.
+
+Source for the paqad discovery plugin (manifest name `paqad`, commands `/paqad:discover`,
+`/paqad:ask` and `/paqad:start`): a set of skills that help ask what a product does and shape ideas
+into user-story tickets, grounded in the target repository's business docs and code. The same
+source also builds the skills of the paqad plugin, which adds refine-ticket, size-work and
+plan-sprint (`build/build.py --target paqad`). The plugin works on any
 repository at the best evidence level it can reach (from project docs, from docs and code, or
 from code only); it never refuses a repository that has readable code. This repository is the
 plugin source and build; it is not itself a product repo the plugin answers questions about.
@@ -64,48 +68,58 @@ The product spec is [docs/plugin-discovery/REQUIREMENTS.md](../../docs/plugin-di
 
 ## The skills
 
-Fourteen skills, built from one source. Six are entry points a user can invoke directly; the
-rest run as the `paqad-discover` journey directs them. Each skill's source folder keeps its
-unprefixed name and the user-visible name is the `paqad-` published name applied at build time
-(approach B); start from the `/paqad` front door and it routes you to the right entry skill.
-Published name shown first, source folder in parentheses.
+Fourteen skills, built from one source into two plugins. `build/build.py --target discovery|paqad`
+picks the set: a skill that lists `targets` in `build/skills.yml` ships only in those, and a skill
+with no list ships in both.
 
-Inside the one `paqad` Claude plugin the same skills ship under short names, invoked as
+- The discovery plugin (`--target discovery`, display name "paqad discovery") ships eleven: the
+  `start` front door, `discover`, `ask` and the eight journey steps. `refine-ticket`, `size-work`
+  and `plan-sprint` are not in it.
+- The paqad Claude plugin (`--target paqad`) ships all fourteen. The ChatGPT directory package is
+  built from this target too.
+
+Both Claude and Codex manifests carry the name `paqad`, so every skill is invoked as
 `/paqad:<short name>`: `start` (front door), `discover`, `ask`, `refine-ticket`, `size-work`,
 `plan-sprint`, `get-connected`, `understand-idea`, `ground-in-project`, `shape-idea`,
-`decide-together`, `write-tickets`, `check-tickets`, `post-tickets`. Run `pnpm build:discovery`
-from the repo root to rebuild them into `runtime/claude-plugin/skills`.
+`decide-together`, `write-tickets`, `check-tickets`, `post-tickets`. Each skill's source folder
+keeps its own name. Run `pnpm build:discovery` from the repo root to rebuild the paqad plugin's
+copy into `runtime/claude-plugin/skills`. Don't install the discovery plugin next to the paqad
+plugin: both are named `paqad`, and `paqad-ai doctor`, `install` and `update` warn when they find
+both.
 
-- `/paqad` (entry; source `front-door`) - the front door: routes an ask, discover, refine-ticket,
+Short name first, source folder in parentheses. Entry skills can be invoked directly; the rest run
+as the `discover` journey directs them.
+
+- `start` (entry; source `front-door`) - the front door: routes an ask, discover, refine-ticket,
   size-work or plan-sprint intent to the matching entry skill behind the scenes.
-- `paqad-discover` (entry; source `product-discovery`) - coordinates the idea journey: step order,
+- `discover` (entry; source `product-discovery`) - coordinates the idea journey: step order,
   the record (kept silently), resume on request, going back, side questions, the consulting stance,
   and plain status at every step.
-- `paqad-ask` (entry; source `ask-project`) - answers a business question from the target repository
+- `ask` (entry; source `ask-project`) - answers a business question from the target repository
   at the best evidence level (project docs, docs and code, or code only), with sources and a source
   line, and can hand the answer into the idea journey.
-- `paqad-refine-ticket` (entry; source `refine-ticket`) - refines an existing ticket field by field,
+- `refine-ticket` (entry, paqad plugin only; source `refine-ticket`) - refines an existing ticket field by field,
   applying each change only on approval.
-- `paqad-size-work` (entry; source `size-work`) - gives advisory size suggestions for a piece of
+- `size-work` (entry, paqad plugin only; source `size-work`) - gives advisory size suggestions for a piece of
   work, backed by comparables.
-- `paqad-plan-sprint` (entry; source `plan-sprint`) - proposes a sprint plan and assigns the work on approval.
-- `paqad-get-connected` (source `get-connected`) - step 0: works out which sources are readable (the
+- `plan-sprint` (entry, paqad plugin only; source `plan-sprint`) - proposes a sprint plan and assigns the work on approval.
+- `get-connected` (source `get-connected`) - step 0: works out which sources are readable (the
   repository first, the tracker second), detects the evidence level, checks whether the tracker is
   writable, and reads the tracker project's setup.
-- `paqad-understand-idea` (source `understand-idea`) - step 1: one question at a time until the goal,
+- `understand-idea` (source `understand-idea`) - step 1: one question at a time until the goal,
   who benefits, success and constraints are clear.
-- `paqad-ground-in-project` (source `ground-in-project`) - step 2: reads the project's documents in
+- `ground-in-project` (source `ground-in-project`) - step 2: reads the project's documents in
   order, finds related areas, and reports coverage and template sections; then reads existing epics
   and tickets in the tracker project, inside the read limits, as what the tickets say.
-- `paqad-shape-idea` (source `shape-idea`) - step 3: plays the idea back, looks through the expert
+- `shape-idea` (source `shape-idea`) - step 3: plays the idea back, looks through the expert
   lenses, and offers options, a smaller first step and a recommendation.
-- `paqad-decide-together` (source `decide-together`) - step 4: settles the open choices one at a time
+- `decide-together` (source `decide-together`) - step 4: settles the open choices one at a time
   and records each decision.
-- `paqad-write-tickets` (source `write-tickets`) - step 5 drafting: produces the canonical ticket set
+- `write-tickets` (source `write-tickets`) - step 5 drafting: produces the canonical ticket set
   of user stories with Given/When/Then acceptance criteria, and a readable preview.
-- `paqad-check-tickets` (source `check-tickets`) - step 5 checking: checks the tickets for gaps,
+- `check-tickets` (source `check-tickets`) - step 5 checking: checks the tickets for gaps,
   duplicates, jargon and untestable outcomes, and searches the tracker for duplicates.
-- `paqad-post-tickets` (source `post-tickets`) - step 6: final preview, approval, create in order,
+- `post-tickets` (source `post-tickets`) - step 6: final preview, approval, create in order,
   record receipts, reconcile, read back and report. On resume it checks every existing epic again
   before any create.
 
@@ -197,7 +211,7 @@ OpenAI's documented rules, so it is necessary, not sufficient. The upload steps 
 The plugin is packaged for claude.ai, ChatGPT, and Codex, but S1 claims no automated host
 verdict. The cross-host unknowns (U-1..U-17) are recorded MANUALLY in
 `hosts/{claude,chatgpt,codex}.md`: install the plugin on each host, exercise the real skills
-(ask a question with `paqad-ask`, or start from the `/paqad` front door and start an idea with
-`paqad-discover`), run the listed
+(ask a question with `/paqad:ask`, or start from the `/paqad:start` front door and start an idea with
+`/paqad:discover`), run the listed
 checks, and fill in each verdict (every verdict starts as `pending`). "Packaged" is not
 "verified"; host verification is complete only once those harnesses are filled in.

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -127,6 +127,44 @@ export function pluginLoadState(
   const entries = Array.isArray(value) ? value : [value];
   if (!entries.some((entry) => entryLoadsHere(entry, projectRoot))) return 'absent';
   return pluginSwitchedOn(projectRoot, env, home) ? 'live' : 'absent';
+}
+
+export const DISCOVERY_PLUGIN_PREFIX = 'paqad-product-discovery@';
+
+export const DISCOVERY_CLASH_MESSAGE =
+  'The paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Remove paqad discovery: the paqad plugin already has discover and ask.';
+
+function childFolders(dir: string): string[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(dir, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+function syncedPaqadManifests(configDir: string): Record<string, unknown>[] {
+  const folders = childFolders(join(configDir, 'plugins', 'synced'));
+  return [...folders, ...folders.flatMap(childFolders)]
+    .map((folder) => readJsonFile(join(folder, '.claude-plugin', 'plugin.json')))
+    .filter(isRecord)
+    .filter((manifest) => manifest.name === 'paqad');
+}
+
+export function discoveryPluginClash(options: PluginLoadOptions = {}): boolean {
+  const env = options.env ?? process.env;
+  const configDir = claudeConfigDir(env, options.home ?? homedir());
+  const installed = readJsonFile(join(configDir, 'plugins', 'installed_plugins.json'));
+  const keys =
+    isRecord(installed) && isRecord(installed.plugins) ? Object.keys(installed.plugins) : [];
+  const synced = syncedPaqadManifests(configDir);
+  const discovery =
+    keys.some((key) => key.startsWith(DISCOVERY_PLUGIN_PREFIX)) ||
+    synced.some((manifest) => manifest.hooks === undefined);
+  const engineering =
+    keys.includes(PLUGIN_ID) || synced.some((manifest) => manifest.hooks !== undefined);
+  return discovery && engineering;
 }
 
 export function readPackageVersion(dir: string): string | null {

@@ -74,8 +74,18 @@ The source is `plugins/discovery`. Its builder is `plugins/discovery/build/build
   for the other hosts.
 - `--version` sets the version. Without it the build reads the version from the repository
   `package.json`.
+- `--target paqad|discovery` picks the skill set. `paqad` builds all 14 skills, including
+  `refine-ticket`, `size-work` and `plan-sprint`, for this plugin. `discovery` (the default) builds
+  the separately published discovery plugin with only discover, its step skills, ask and `start`,
+  whose front door then routes only to ask and discover.
 
-Run `pnpm build:discovery` (which runs `scripts/build-discovery.mjs`). It builds the skills,
+The discovery target is published on every release by the `publish-discovery-plugin` job to a
+second repository, `Eliyce/paqad-product-discovery-plugin`, for Claude and Codex. Its manifests
+are named `paqad` with the display name "paqad discovery", so it must not be installed next to
+this plugin; `paqad-ai doctor` fails when both are installed. The ChatGPT directory package keeps
+every skill and its own name.
+
+Run `pnpm build:discovery` (which runs `scripts/build-discovery.mjs`, passing `--target paqad`). It builds the skills,
 then replaces the generated skill folders in `runtime/claude-plugin/skills/` and leaves
 `onboard`, `join` and `dashboard` alone. The generated skills are committed.
 

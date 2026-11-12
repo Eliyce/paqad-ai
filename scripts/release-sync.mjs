@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 export const PACKAGE_NAME = 'paqad-ai';
 export const PLUGIN_REMOTE = 'https://github.com/Eliyce/paqad-claude-plugin.git';
+export const DISCOVERY_REMOTE = 'https://github.com/Eliyce/paqad-product-discovery-plugin.git';
+export const DISCOVERY_REPO = 'Eliyce/paqad-product-discovery-plugin';
+export const DISCOVERY_MARKETPLACES = [
+  '.claude-plugin/marketplace.json',
+  '.agents/plugins/marketplace.json',
+];
+const DISCOVERY_FORBIDDEN = new Set([
+  'hooks',
+  'agents',
+  'commands',
+  'bin',
+  '.mcp.json',
+  'mcp.json',
+  '.app.json',
+]);
 
 const RELEASE_VERSION = /^\d+\.\d+\.\d+$/;
 
@@ -483,6 +499,41 @@ export function pluginLag() {
   return { latest, newest: newest ?? null, behind: !newest || compareVersions(latest, newest) > 0 };
 }
 
+function marketplaceVersions(dir, rel) {
+  try {
+    const data = JSON.parse(readFileSync(join(dir, rel), 'utf8'));
+    return Array.isArray(data.plugins) ? data.plugins.map((entry) => entry?.version) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function discoveryInSync(version, remote = DISCOVERY_REMOTE) {
+  const tag = `v${version}`;
+  if (!remoteHasTag(remote, tag)) return [`${DISCOVERY_REPO} has no tag ${tag}.`];
+  const dir = mkdtempSync(join(tmpdir(), 'paqad-discovery-'));
+  try {
+    mustExec('git', ['clone', '--quiet', '--depth', '1', '--branch', tag, remote, dir]);
+    const problems = mustExec('git', ['-C', dir, 'ls-files'])
+      .split('\n')
+      .filter((rel) => rel.split('/').some((part) => DISCOVERY_FORBIDDEN.has(part)))
+      .map(
+        (rel) => `${DISCOVERY_REPO} at ${tag} ships ${rel}; the discovery plugin is skills only.`,
+      );
+    for (const rel of DISCOVERY_MARKETPLACES) {
+      const versions = marketplaceVersions(dir, rel);
+      if (versions.length === 0 || versions.some((found) => found !== version)) {
+        problems.push(
+          `${DISCOVERY_REPO} ${rel} at ${tag} carries version ${versions.join(', ') || 'none'}, not ${version}.`,
+        );
+      }
+    }
+    return problems;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function isDirectRun() {
   return (
     process.argv[1] !== undefined &&
@@ -540,8 +591,16 @@ function main(command) {
     console.log(`The plugin is at ${lag.newest}, matching npm latest ${lag.latest}.`);
     return 0;
   }
+  if (command === 'discovery-check') {
+    const latest = npmLatest();
+    const problems = discoveryInSync(latest);
+    for (const problem of problems) console.log(`::error::${problem}`);
+    if (problems.length > 0) return 1;
+    console.log(`The discovery plugin is at v${latest}, matching npm latest.`);
+    return 0;
+  }
   console.error(
-    'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish|scope>',
+    'Usage: node scripts/release-sync.mjs <state|tags|check|discovery-check|ci-green|prepublish|scope>',
   );
   return 1;
 }
