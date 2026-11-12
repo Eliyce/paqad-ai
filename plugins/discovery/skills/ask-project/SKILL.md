@@ -22,6 +22,10 @@ product, project or an attached repository is, does or which areas it has. You m
 Choose the repository and get its documents as in `references/connect-repository.md`. Once chosen,
 ask nothing more about which repository unless the user asks to switch.
 
+Tickets are never a source here. With no repository, docs or code readable, stop and ask the user to
+attach or connect the repository or its docs folder, even when a tracker such as Jira is connected:
+make no tracker call and never answer how the product works from tickets.
+
 ## What it does
 
 1. Detect the evidence level first (`references/evidence-levels.md`), running

@@ -1113,6 +1113,21 @@ class UnreadableConnectorTest(unittest.TestCase):
         self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
                         <= self.expect["AC-132"])
 
+    def test_ac41_only_the_idea_journey_goes_on_tracker_only_and_ask_stops(self):
+        """@obligation AC-41"""
+        ask = normalised(read_text(SKILLS_ROOT, "ask-project", "SKILL.md"))
+        reference = normalised(self.reference)
+        self.assertIn("In the idea journey only: say this once, go on tracker only", reference)
+        self.assertIn("Outside the idea journey, never go on tracker only: read no tickets, ask for "
+                      "the repository, stop.", reference)
+        self.assertIn("Tickets are never a source here.", ask)
+        self.assertIn("stop and ask the user to attach or connect the repository or its docs "
+                      "folder, even when a tracker such as Jira is connected", ask)
+        self.assertIn("make no tracker call and never answer how the product works from tickets",
+                      ask)
+        self.assertNotIn(UNREADABLE_SENTENCE, ask)
+        self.assertIn("carry on tracker only", normalised(self.skill))
+
     def test_ac44_no_tracker_either_stops_with_nothing_readable(self):
         self.assertIn("With no readable tracker either, say nothing can be read", normalised(self.skill))
         self.assertIn("nothing-readable-stop", self.expect["AC-133"])

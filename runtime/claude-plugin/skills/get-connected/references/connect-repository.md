@@ -36,17 +36,17 @@ Settle which repository to read before reading anything else, and ask about it a
   the question under about 40 words plus its choices.
 - Nothing to list. No tool lists repositories, or it lists none: ask to attach or upload. Invent nothing.
 - Connected but unreadable. A connector that is on but offers no list or read action (not a sign-in
-  or rate-limit failure): say this once, go on tracker only, record `setup.repository_state` as
-  `connector-unreadable`; with no tracker, say nothing is readable.
+  or rate-limit failure). In the idea journey only: say this once, go on tracker only, record
+  `setup.repository_state` as `connector-unreadable`; with no tracker, say nothing is readable.
   > GitHub is connected, but I can't read any repositories through it from here. I'll work from the tickets for now. To use the code and docs, attach the repository or its docs folder.
+- Outside the idea journey, never go on tracker only: read no tickets, ask for the repository, stop.
 
 Work out the marks with the onboarded check below, only for the repositories shown, and read
 nothing else before the user chooses. A repository whose files cannot be read (no read tool, or a
 read fails) is not checked. A repository with readable code is always at least from code only, so it
-is ranked and recommendable; the only unrecommendable state is not checked.
-
-Recommend the most recently active richest repository: from project docs first, then from docs and
-code, then from code only, then not checked. A code-only repository is recommendable.
+is ranked and recommendable; the only unrecommendable state is not checked. Recommend the most
+recently active richest repository: from project docs first, then from docs and code, then from code
+only, then not checked. A code-only repository is recommendable.
 
 ## Remembering the choice
 
