@@ -285,7 +285,7 @@ export class OnboardingOrchestrator {
       throw translateDiskFullError(error);
     }
     cleanupLegacyMcpFiles(options.projectRoot);
-    bootstrapFramework(options.projectRoot);
+    onboardingWarnings.push(...(bootstrapFramework(options.projectRoot).warnings ?? []));
     try {
       const codeIndex = await buildCodeKnowledgeIndex(options.projectRoot);
       if (validateCodeKnowledgeIndex(codeIndex).valid) {

@@ -175,6 +175,7 @@ Source directories owned by this feature:
 config `plugins/synced/` whose `.claude-plugin/plugin.json` is named `paqad` with no `hooks`,
 together with the paqad plugin (`paqad@eliyce`, or a synced `paqad` folder with hooks). Missing or
 unreadable files mean not installed. When both are present doctor adds a failing "Claude plugins"
-check with the one sentence in `DISCOVERY_CLASH_MESSAGE`; otherwise it adds no row. `paqad-ai update`
-and `paqad-ai install` print the same sentence as a warning. It never relies on a paqad hook. The
+check with the one sentence in `DISCOVERY_CLASH_MESSAGE`; otherwise it adds no row. `paqad-ai update`,
+`paqad-ai install` (on stderr, after its JSON result) and `paqad-ai onboard` print the same sentence
+as a warning. It never relies on a paqad hook. The
 same clash in Codex is not detected while paqad ships no Codex plugin named `paqad`.

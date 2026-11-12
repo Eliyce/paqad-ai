@@ -2,12 +2,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createInstallCommand } from '@/cli/commands/install.js';
 import { formatUpdateReportLines } from '@/cli/commands/update.js';
 import { HealthChecker } from '@/health/checker.js';
 import { DISCOVERY_CLASH_MESSAGE } from '@/health/plugin-install.js';
 import { bootstrapFramework } from '@/install/bootstrap.js';
+import { OnboardingOrchestrator } from '@/onboarding';
 import { FrameworkUpdater } from '@/update/index.js';
 
 let home: string;
@@ -81,4 +83,31 @@ describe('AC-16: doctor, update and install name the discovery plugin clash', ()
     installBoth();
     expect(bootstrapFramework(project).warnings).toEqual([DISCOVERY_CLASH_MESSAGE]);
   });
+
+  it('AC-16: the install command prints the sentence as a warning line only on a clash', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await createInstallCommand().parseAsync(['node', 'install', '--project-root', project]);
+      expect(error).not.toHaveBeenCalledWith(`Warning: ${DISCOVERY_CLASH_MESSAGE}`);
+      installBoth();
+      await createInstallCommand().parseAsync(['node', 'install', '--project-root', project]);
+      expect(error).toHaveBeenCalledWith(`Warning: ${DISCOVERY_CLASH_MESSAGE}`);
+      expect(JSON.parse(String(log.mock.calls.at(-1)?.[0])).warnings).toEqual([
+        DISCOVERY_CLASH_MESSAGE,
+      ]);
+    } finally {
+      error.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it('AC-16: onboarding carries the sentence in its warnings on a clash', async () => {
+    installBoth();
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot: project,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+    expect(output.warnings).toContain(DISCOVERY_CLASH_MESSAGE);
+  }, 60_000);
 });

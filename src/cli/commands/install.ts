@@ -9,5 +9,6 @@ export function createInstallCommand(): Command {
     .action((options: { projectRoot: string }) => {
       const result = bootstrapFramework(options.projectRoot);
       console.log(JSON.stringify(result, null, 2));
+      for (const warning of result.warnings ?? []) console.error(`Warning: ${warning}`);
     });
 }
