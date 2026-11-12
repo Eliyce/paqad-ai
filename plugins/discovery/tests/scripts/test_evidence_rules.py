@@ -462,7 +462,7 @@ class BusinessDocsFirstTest(unittest.TestCase):
         for scenario in scenarios:
             expect.setdefault(scenario["acceptance"], set()).update(scenario["expect"])
         self.assertIn("no-technical-md-read", expect["AC-124"])
-        self.assertTrue({"code-read-by-names", "code-suggests-line"} <= expect["AC-125"])
+        self.assertLessEqual({"code-read-by-names", "code-suggests-line"}, expect["AC-125"])
 
     def test_ac14_refine_and_size_share_the_one_docs_map(self):
         config = build.parse_skills_yml(read_text(BUILD_DIR, "skills.yml"))

@@ -949,28 +949,28 @@ class StepZeroProjectScanTest(unittest.TestCase):
             "resolved by capability",
         ]), [])
         self.assertIn("scripts/find_ticket_keys.py", declared_imports()["get-connected"])
-        self.assertTrue({"project-sentence-once", "only-one-project-check-read",
-                         "no-broad-tracker-search", "key-source-repository"} <= self.expect["AC-115"])
+        self.assertLessEqual({"project-sentence-once", "only-one-project-check-read",
+                         "no-broad-tracker-search", "key-source-repository"}, self.expect["AC-115"])
 
     def test_ac21_no_keys_asks_and_records_asked(self):
         """@obligation AC-21"""
         self.assertIn("Nothing found, nothing read or no list actions: ask which Jira project to use",
                       self.flat)
         self.assertIn("`asked` otherwise", self.flat)
-        self.assertTrue({"asks-which-project", "key-source-asked"} <= self.expect["AC-116"])
+        self.assertLessEqual({"asks-which-project", "key-source-asked"}, self.expect["AC-116"])
 
     def test_ac24_ac25_a_prefix_below_the_floor_is_a_plain_choice(self):
         """@obligation AC-24 AC-25"""
         self.assertIn("Fewer than 3 hits: recommend nothing; ask which Jira project to use, with "
                       "the prefixes found as plain choices plus a different project", self.flat)
-        self.assertTrue({"prefix-as-plain-choice", "asks-which-project"} <= self.expect["AC-117"])
+        self.assertLessEqual({"prefix-as-plain-choice", "asks-which-project"}, self.expect["AC-117"])
 
     def test_ac28_a_failed_check_read_asks_without_a_broad_search(self):
         """@obligation AC-25 AC-28"""
         self.assertIn("If that one read fails (not found, renamed or not visible), say once why and "
                       "ask instead", self.flat)
         self.assertIn("Never search the tracker broadly to pick a project", self.flat)
-        self.assertTrue({"reason-said-once", "no-broad-tracker-search"} <= self.expect["AC-118"])
+        self.assertLessEqual({"reason-said-once", "no-broad-tracker-search"}, self.expect["AC-118"])
 
     def test_ac29_every_prompt_offers_a_different_project(self):
         """@obligation AC-29"""
@@ -989,7 +989,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn("A list that errors or is cut short still counts: scan the lines read and "
                       "record `lines_read`; ask only when nothing was read", self.flat)
         self.assertIn("A failed list read never makes the repository unreadable", self.flat)
-        self.assertTrue({"scan-on-lines-read", "no-unreadable-sentence"} <= self.expect["AC-121"])
+        self.assertLessEqual({"scan-on-lines-read", "no-unreadable-sentence"}, self.expect["AC-121"])
 
     def test_ac32_github_refs_only_follow_the_github_profile(self):
         self.assertIn("Only GitHub refs such as `#123`: set `setup.tracker_kind` to `github` and "
@@ -1000,7 +1000,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         """@obligation AC-33"""
         self.assertIn("With no readable repository skip this and ask which project to use",
                       self.flat)
-        self.assertTrue({"scan-skipped", "asks-which-project"} <= self.expect["AC-123"])
+        self.assertLessEqual({"scan-skipped", "asks-which-project"}, self.expect["AC-123"])
 
     def test_ac45_the_project_never_comes_from_a_broad_search(self):
         """@obligation AC-45"""
@@ -1039,7 +1039,7 @@ class CompareStepTest(unittest.TestCase):
         """@obligation AC-36"""
         self.assertIn("open the playback with them, before any question: the agree, tickets only, "
                       "repository only and differ lines", self.shape)
-        self.assertTrue({"comparison-lines-first", "comparison-recorded"} <= self.expect["AC-126"])
+        self.assertLessEqual({"comparison-lines-first", "comparison-recorded"}, self.expect["AC-126"])
 
     def test_ac37_each_mark_has_its_line(self):
         """@obligation AC-37"""
@@ -1058,7 +1058,7 @@ class CompareStepTest(unittest.TestCase):
         self.assertIn("With only one of the two sources, mark nothing", self.ground)
         self.assertIn("With no marks show no comparison lines and no empty heading; in a "
                       "tickets-only run label each fact as from the tickets", self.shape)
-        self.assertTrue({"no-comparison-lines", "facts-labelled-tickets"} <= self.expect["AC-129"])
+        self.assertLessEqual({"no-comparison-lines", "facts-labelled-tickets"}, self.expect["AC-129"])
 
     def test_ac39_code_and_docs_are_the_truth_over_the_tickets(self):
         for text in (self.tracker, self.consulting):
@@ -1093,8 +1093,8 @@ class UnreadableConnectorTest(unittest.TestCase):
             self.assertIn("`connector-unreadable`", text)
         self.assertLessEqual(len(self.reference.splitlines()), 100)
         self.assertIn("carry on tracker only", normalised(self.skill))
-        self.assertTrue({"unreadable-sentence-once", "state-connector-unreadable",
-                         "carries-on-tracker-only"} <= self.expect["AC-130"])
+        self.assertLessEqual({"unreadable-sentence-once", "state-connector-unreadable",
+                         "carries-on-tracker-only"}, self.expect["AC-130"])
         template = read_text(REPO_ROOT, "skills", "product-discovery", "assets",
                              "record-template.md")
         self.assertIn("connector-unreadable", template)
@@ -1102,16 +1102,16 @@ class UnreadableConnectorTest(unittest.TestCase):
     def test_ac42_a_readable_connector_never_hears_the_sentence(self):
         """@obligation AC-42"""
         self.assertIn("offers no list or read action", normalised(self.skill))
-        self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
-                        <= self.expect["AC-131"])
+        self.assertLessEqual({"no-unreadable-sentence", "state-not-connector-unreadable"},
+                        self.expect["AC-131"])
 
     def test_ac43_sign_in_or_rate_limit_failures_are_not_unreadable(self):
         """@obligation AC-43"""
         self.assertIn("A read that fails on sign-in or a rate limit is not this case",
                       normalised(self.skill))
         self.assertIn("not a sign-in or rate-limit failure", normalised(self.reference))
-        self.assertTrue({"no-unreadable-sentence", "state-not-connector-unreadable"}
-                        <= self.expect["AC-132"])
+        self.assertLessEqual({"no-unreadable-sentence", "state-not-connector-unreadable"},
+                        self.expect["AC-132"])
 
     def test_ac41_only_the_idea_journey_goes_on_tracker_only_and_ask_stops(self):
         """@obligation AC-41"""
