@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "shape-idea",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:87b42874e5c9dfec90bdf83ae337b93c9098eb52f7e75850715c24fabb467ac2",
+  "folder_hash": "sha256:23a25e8fec35daf0eadfce90b9832a4106ec486c9c44bafca1ac0fd7c31335fc",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -25,11 +25,11 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.9757,
-    "pass_rate_without": 0.6875,
-    "delta_points": 28.82,
-    "token_multiple": 0.999,
+    "iterations": 2,
+    "pass_rate_with": 0.9653,
+    "pass_rate_without": 0.6667,
+    "delta_points": 29.86,
+    "token_multiple": 1.062,
     "models": [
       "claude-haiku-5-5",
       "claude-sonnet-5-5"
@@ -49,7 +49,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.736758,
+    "S6": 4.009103,
     "source": "host-usage"
   },
   "overrides": [],
