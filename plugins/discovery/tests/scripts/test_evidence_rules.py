@@ -326,12 +326,12 @@ class RequirementsTest(unittest.TestCase):
         self.assertNotIn(EM_DASH, self.text)
         self.assertNotIn(EN_DASH, self.text)
 
-    def test_ask_8_row_7_and_amended_grd_8_to_11(self):
+    def test_ask_8_row_5_and_amended_grd_8_to_11(self):
         lines = [line for line in self.text.splitlines() if line.startswith("- **ASK-8.**")]
         self.assertEqual(len(lines), 1)
         self.assertIn("MUST", lines[0])
         self.assertNotIn("may look", lines[0])
-        rows = [line for line in self.text.splitlines() if line.startswith("| 7 | Source code |")]
+        rows = [line for line in self.text.splitlines() if line.startswith("| 5 | Source code |")]
         self.assertEqual(len(rows), 1)
         self.assertNotIn("Only if attached", rows[0])
         self.assertIn("Automatically", rows[0])
