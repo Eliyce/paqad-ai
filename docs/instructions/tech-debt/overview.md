@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M786DVZPA4QDXBME6PGR4HBN](TD-01M786DVZPA4QDXBME6PGR4HBN.md) (gap, medium): Criteria mapping does not read Python test names or docstrings
 - [TD-01M7859TVCDA6A80X2VFSHJA2J](TD-01M7859TVCDA6A80X2VFSHJA2J.md) (follow-up, low): ChatGPT directory listing text no longer names the refine, size and sprint skills it still ships
 - [TD-01M767T3APNPYSG9SCAV5BVB4C](TD-01M767T3APNPYSG9SCAV5BVB4C.md) (bug, low): Four tests depend on the host: cloud-session env and running as root
 - [TD-01M762N3V114W1N2KH4467AFX7](TD-01M762N3V114W1N2KH4467AFX7.md) (bug, low): Spec review detectors flag defined AC/FR ids as dangling and 'absorbed by' lines as a contradiction
