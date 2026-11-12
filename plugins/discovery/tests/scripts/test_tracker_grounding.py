@@ -435,10 +435,10 @@ class SharedPointersTest(unittest.TestCase):
             "or an existing epic or ticket for grounding",
         ]), [])
 
-    def test_docs_map_keeps_seven_rows_and_github_profile_is_untouched(self):
+    def test_docs_map_keeps_five_rows_and_github_profile_is_untouched(self):
         docs_map = read_text(REFERENCES, "paqad-docs-map.md")
         rows = re.findall(r"(?m)^\| \d+ \|", docs_map)
-        self.assertEqual(len(rows), 7)
+        self.assertEqual(len(rows), 5)
         self.assertNotIn(LABEL, docs_map)
         self.assertIn("export only", read_text(REFERENCES, "tracker-profiles-github.md"))
         self.assertNotIn(LABEL, read_text(REFERENCES, "connect-repository.md"))

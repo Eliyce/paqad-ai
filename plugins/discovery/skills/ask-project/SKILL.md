@@ -34,7 +34,8 @@ ask nothing more about which repository unless the user asks to switch.
 2. Find the related areas with `scripts/find_related.py --registry <modules.md> --query "<the
    question>"` when ready, or `scripts/find_related.py --modules-dir docs/modules --query "<the
    question>"` when partly ready. Read only what the question needs, in the order in
-   `references/paqad-docs-map.md` (GRD-2), and stop once answered.
+   `references/paqad-docs-map.md` (GRD-2): business notes first, then the code when they cannot
+   settle a fact, and stop once answered. Never read `technical.md`; read the code instead.
 3. Overview questions (ASK-9). When the question asks what the product or project is, what it does
    or what areas it has, or what an attached repository is, answer with a table of areas: the
    area's plain name and one line on what it does, then one Sources line. Ready: one row per module
@@ -83,7 +84,9 @@ Do the same by hand:
   features overlap the question. Partly ready: pick them from the folder names and summary text
   instead (the find-related step).
 - Read those modules' `index/summary.md`, then the relevant `business.md`, in reading order, only
-  as far as the question needs.
+  as far as the question needs. When the business notes cannot settle a fact, read the code by
+  names, at most 5 files per area, as what the code suggests. Never read `technical.md`; read the
+  code instead.
 - For each section you rely on, check it against the template phrases in
   `references/template-markers.md`. A section that still holds any of those phrases is a blank
   template: treat it as unknown, not as fact (the placeholder step).

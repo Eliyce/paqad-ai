@@ -773,6 +773,8 @@ Use the fixture repository and invented content only.
 | AC-121 | The branch list works and the commit list errors | The scan runs on the branch names read, `lines_read` is recorded, and the unreadable-connector sentence is not said |
 | AC-122 | The branch names and commit subjects carry only `#123` refs | `setup.tracker_kind` is `github` and the hand off is export only |
 | AC-123 | No repository is attached | The scan is skipped and step 0 asks which project to use |
+| AC-124 | The repository has `business.md` files and a `technical.md` for the same area | Discovery grounds and answers from the business notes and reads no `technical.md`; the retry window that only `technical.md` holds is never quoted |
+| AC-125 | An area the idea needs has no business note | That area is read from code, names first and at most 5 files, and said as "the code suggests" |
 
 ---
 
