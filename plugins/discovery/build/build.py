@@ -5,8 +5,8 @@ Standard library only (Python 3.9+). No network. Reads name, description, licens
 text, plus the directory listing scalars, from build/skills.yml and from nowhere else. The version
 comes from --version, or else from the repository package.json two levels above the source root.
 The build copies each skill plus its declared shared imports into dist/, and generates all four manifests
-from those values so no two manifests can disagree (PLG-11). The Claude branch alone also gets
-listing manifests (author, homepage, repository, keywords, display name and the documentation,
+from those values so no two manifests can disagree (PLG-11). The Claude branch and the dist root,
+which is the published plugin repository, also get listing manifests (author, homepage, repository, keywords, display name and the documentation,
 support and privacy links) plus the publish files README.md, LICENSE and PRIVACY.md (PLG-12).
 The ChatGPT directory branch (dist/hosts/chatgpt-directory) is a native Agent Plugins package: a
 root plugin.json with $schema and extensions.com.openai.interface, the same skills tree, a README,
@@ -693,6 +693,7 @@ def write_json(path, data, sort_keys=True):
 
 def build_manifests(config):
     name = config["name"]
+    manifest_name = config.get("manifest_name") or name
     version = config["version"]
     description = config["description"]
     license_id = config["license"]
@@ -712,13 +713,13 @@ def build_manifests(config):
         ],
     }
     plugin_manifest = {
-        "name": name,
+        "name": manifest_name,
         "version": version,
         "description": description,
         "license": license_id,
     }
     openai_manifest = {
-        "name": name,
+        "name": manifest_name,
         "version": version,
         "description": description,
         "license": license_id,
@@ -953,11 +954,13 @@ def build(source_root, dist_root, version=None, host_labels="strip", target=DEFA
         host_labels,
     )
 
-    marketplace, plugin_manifest, openai_manifest = build_manifests(config)
-    write_json(os.path.join(dist_root, ".claude-plugin", "marketplace.json"), marketplace)
+    marketplace, _, openai_manifest = build_manifests(config)
+    claude_marketplace, claude_plugin = build_claude_listing_manifests(config)
+    write_json(os.path.join(dist_root, ".claude-plugin", "marketplace.json"), claude_marketplace)
     write_json(os.path.join(dist_root, ".agents", "plugins", "marketplace.json"), marketplace)
-    write_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), plugin_manifest)
+    write_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), claude_plugin)
     write_json(os.path.join(plugin_dir, "plugin.json"), openai_manifest)
+    copy_publish_files(source_root, dist_root, "claude", name)
 
     emit_host_branches(source_root, dist_root, config, plugin_dir, all_skills, host_labels)
 

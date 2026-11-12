@@ -125,15 +125,16 @@ class BuildOutputTest(unittest.TestCase):
             plugin["description"],
         )
         # The two plugin manifests agree directly.
+        self.assertEqual(name, "paqad")
         for manifest in (plugin, openai):
             self.assertEqual(manifest["name"], name)
             self.assertEqual(manifest["version"], version)
             self.assertEqual(manifest["description"], description)
         # The marketplace manifests carry the same identity in their single plugin entry.
         for marketplace in (claude_mp, agents_mp):
-            self.assertEqual(marketplace["name"], name)
+            self.assertEqual(marketplace["name"], PLUGIN_NAME)
             entry = marketplace["plugins"][0]
-            self.assertEqual(entry["name"], name)
+            self.assertEqual(entry["name"], PLUGIN_NAME)
             self.assertEqual(entry["version"], version)
             self.assertEqual(entry["description"], description)
 
@@ -429,9 +430,7 @@ class ListingManifestTest(unittest.TestCase):
         marketplace, plugin_manifest, openai_manifest = build.build_manifests(self.config)
         plugin_rel = ("plugins", PLUGIN_NAME)
         return [
-            ((".claude-plugin", "marketplace.json"), marketplace),
             ((".agents", "plugins", "marketplace.json"), marketplace),
-            (plugin_rel + (".claude-plugin", "plugin.json"), plugin_manifest),
             (plugin_rel + ("plugin.json",), openai_manifest),
             (("hosts", "chatgpt", ".claude-plugin", "marketplace.json"), marketplace),
             (("hosts", "chatgpt") + plugin_rel + (".claude-plugin", "plugin.json"), plugin_manifest),
@@ -446,14 +445,54 @@ class ListingManifestTest(unittest.TestCase):
         self.assertEqual(plugin["author"], {"name": "Eliyce", "email": "haider@eliyce.com"})
         self.assertEqual(plugin["keywords"], [
             "product-discovery", "product-management", "user-stories", "tickets", "jira",
-            "backlog", "sprint-planning"])
-        self.assertEqual(plugin["displayName"], "Paqad Product Discovery")
+            "backlog"])
+        self.assertEqual(plugin["displayName"], "paqad discovery")
         for key in ("homepage", "repository", "documentationUrl", "supportUrl", "privacyPolicyUrl",
                     "termsOfServiceUrl"):
             self.assertTrue(plugin[key].startswith(PUBLIC_REPO), key)
         self.assertNotIn("paqad" + ".dev", json.dumps(plugin))
         for key in ("name", "version", "description"):
             self.assertTrue(plugin[key], key)
+
+    def test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name(self):
+        plugin_rel = ("plugins", PLUGIN_NAME)
+        for root in ((), ("hosts", "claude"), ("hosts", "codex")):
+            for parts in (plugin_rel + (".claude-plugin", "plugin.json"),
+                          plugin_rel + ("plugin.json",)):
+                path = os.path.join(self.dist, *(root + parts))
+                if os.path.exists(path):
+                    self.assertEqual(read_json(path)["name"], "paqad", path)
+        root_plugin = self.manifest(*(plugin_rel + (".claude-plugin", "plugin.json")))
+        self.assertEqual(root_plugin["displayName"], "paqad discovery")
+        for parts in ((".claude-plugin", "marketplace.json"),
+                      (".agents", "plugins", "marketplace.json")):
+            marketplace = self.manifest(*parts)
+            self.assertEqual(marketplace["name"], PLUGIN_NAME)
+            self.assertEqual(marketplace["plugins"][0]["name"], PLUGIN_NAME)
+            self.assertEqual(marketplace["plugins"][0]["source"], "./plugins/" + PLUGIN_NAME)
+        self.assertTrue(os.path.isdir(os.path.join(self.dist, *plugin_rel)))
+        claude_mp, claude_plugin = build.build_claude_listing_manifests(self.config)
+        self.assertEqual(self.manifest(".claude-plugin", "marketplace.json"), claude_mp)
+        self.assertEqual(root_plugin, claude_plugin)
+
+    def test_ac48_directory_package_keeps_its_manifest_name(self):
+        directory = self.manifest("hosts", "chatgpt-directory", "plugins", PLUGIN_NAME,
+                                  "plugin.json")
+        self.assertEqual(directory["name"], PLUGIN_NAME)
+
+    def test_ac4_marketplace_descriptions_name_no_refine_size_or_sprint(self):
+        words = re.compile(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b")
+        for parts in ((".claude-plugin", "marketplace.json"),
+                      (".agents", "plugins", "marketplace.json")):
+            marketplace = self.manifest(*parts)
+            texts = [marketplace["plugins"][0]["description"]]
+            texts.append(marketplace.get("metadata", {}).get("description", ""))
+            for text in texts:
+                self.assertIsNone(words.search(text), parts)
+        for key in ("description", "long_description", "keywords"):
+            self.assertIsNone(words.search(str(self.config[key])), key)
+        for entry in self.config["default_prompts"] + self.config["capabilities"]:
+            self.assertIsNone(words.search(entry), entry)
 
     def test_claude_marketplace_has_owner_email_and_description(self):
         marketplace = self.manifest("hosts", "claude", ".claude-plugin", "marketplace.json")
@@ -537,12 +576,37 @@ class PublishFilesTest(unittest.TestCase):
             )
 
     def test_only_the_claude_branch_carries_publish_files(self):
-        roots = (self.dist, os.path.join(self.dist, "hosts", "chatgpt"),
+        roots = (os.path.join(self.dist, "hosts", "chatgpt"),
                  os.path.join(self.dist, "hosts", "codex"))
         for root in roots:
             for _, target in self.targets():
                 self.assertFalse(os.path.exists(os.path.join(root, *target.split("/"))),
                                  "{0} in {1}".format(target, root))
+
+    def test_ac5_the_dist_root_carries_the_publish_files_of_the_claude_branch(self):
+        for source, target in self.targets() + [
+                ("publish/claude/icon.png", self.plugin_rel + "/.claude-plugin/icon.png")]:
+            self.assertEqual(
+                read_bytes(os.path.join(self.dist, *target.split("/"))),
+                read_bytes(os.path.join(REPO_ROOT, *source.split("/"))),
+                target,
+            )
+
+    def test_ac19_readmes_open_with_the_one_plugin_sentence(self):
+        sentence = "Use this plugin or the paqad plugin, not both. paqad already includes discover and ask."
+        guide = read_text(os.path.join(REPO_ROOT, "README.md"))
+        for text in (read_text(os.path.join(self.dist, "README.md")), self.readme, guide):
+            lines = [line for line in text.splitlines() if line.strip() and not line.startswith("# ")]
+            self.assertEqual(lines[0], sentence)
+        for command in ("/paqad:discover", "/paqad:ask", "/paqad:start"):
+            self.assertIn("`{0}`".format(command), self.readme)
+        for phrase in ("Customize", "Plugins", "+ Add", "Add marketplace",
+                       "`Eliyce/paqad-product-discovery-plugin`", "Sync",
+                       "`codex plugin marketplace add Eliyce/paqad-product-discovery-plugin`",
+                       "`codex plugin marketplace upgrade`"):
+            self.assertIn(phrase, self.readme)
+        words = re.compile(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b")
+        self.assertIsNone(words.search(self.readme))
 
     def test_readme_is_an_end_user_guide(self):
         self.assertGreaterEqual(len(self.readme.split()), 40)
@@ -550,11 +614,10 @@ class PublishFilesTest(unittest.TestCase):
         examples = examples[:examples.index("\n## ", 1)]
         prompts = re.findall(r"^- `([^`]+)`$", examples, re.MULTILINE)
         self.assertGreaterEqual(len(prompts), 3)
-        self.assertTrue(any(prompt.startswith("/start ") for prompt in prompts))
+        self.assertTrue(any(prompt.startswith("/paqad:start ") for prompt in prompts))
         positions = [self.readme.index("`{0}`".format(skill)) for skill in (
-            "/start", "ask", "discover", "refine-ticket", "size-work",
-            "plan-sprint")]
-        self.assertEqual(positions[0], min(positions), "/start must come first")
+            "/paqad:start", "/paqad:ask", "/paqad:discover")]
+        self.assertEqual(positions[0], min(positions), "/paqad:start must come first")
         for phrase in ("code execution", "repository", "Jira connector", "## Install",
                        self.config["support_url"], self.config["privacy_policy_url"],
                        self.config["author_email"], "src=discovery-plugin"):
@@ -731,6 +794,22 @@ class DeterminismTest(unittest.TestCase):
             with open(os.path.join(dist_b, rel), "rb") as handle:
                 bytes_b = handle.read()
             self.assertEqual(bytes_a, bytes_b, "differs: {0}".format(rel))
+
+
+    def test_ac5_two_discovery_builds_match_including_the_root_publish_files(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        dist_a = os.path.join(tmp, "a")
+        dist_b = os.path.join(tmp, "b")
+        self.assertEqual(build.main(["--dist", dist_a, "--target", "discovery"]), 0)
+        self.assertEqual(build.main(["--dist", dist_b]), 0)
+        paths = list_relpaths(dist_a)
+        self.assertEqual(paths, list_relpaths(dist_b))
+        for rel in ("README.md", "LICENSE", "PRIVACY.md", "TERMS.md"):
+            self.assertIn(rel, paths)
+        for rel in sorted(paths):
+            self.assertEqual(read_bytes(os.path.join(dist_a, rel)),
+                             read_bytes(os.path.join(dist_b, rel)), rel)
 
 
 class UndeclaredImportTest(unittest.TestCase):

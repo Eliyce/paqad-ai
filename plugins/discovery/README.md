@@ -1,8 +1,12 @@
 # paqad-product-discovery
 
-Source for the paqad-product-discovery plugin: a set of skills that help ask what a product
-does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in
-the target repository's docs and code. The plugin works on any
+Use this plugin or the paqad plugin, not both. paqad already includes discover and ask.
+
+Source for the paqad discovery plugin (manifest name `paqad`, commands `/paqad:discover`,
+`/paqad:ask` and `/paqad:start`): a set of skills that help ask what a product does and shape ideas
+into user-story tickets, grounded in the target repository's business docs and code. The same
+source also builds the skills of the paqad plugin, which adds refine-ticket, size-work and
+plan-sprint (`build/build.py --target paqad`). The plugin works on any
 repository at the best evidence level it can reach (from project docs, from docs and code, or
 from code only); it never refuses a repository that has readable code. This repository is the
 plugin source and build; it is not itself a product repo the plugin answers questions about.
