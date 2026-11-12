@@ -1,0 +1,58 @@
+{
+  "id": "D-01M786NZ7HW2E27M58HX0YE02D",
+  "category": "authoring.override",
+  "title": "The skill check-tickets cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "Since S6 last passed, only the shared tracker reading guide (references/ground-from-tracker.md, copied into every discovery skill) changed; its own SKILL.md and scripts are unchanged. S3 and S4 were rerun and passed. The owner chose to skip the S6 rerun for this skill.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, check-tickets is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that check-tickets helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, check-tickets is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-12T15:40:34.930Z",
+  "status": "resolved",
+  "change": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M786N434JHAZ4V44GQFPRWZ8",
+      "D-01M75M6WCJQ4RCTVN54S7GB04R",
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M6M72VARPRNXT7ZJMWSW915C",
+      "D-01M6M72SNG0P5ZYKYVR3GGTXBE"
+    ],
+    "none_reason": "The earlier answers cover other skills (pentest and the stage recipes) skipped for other reasons; none is this owner call on a shared reading-guide change."
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+  "resolved_at": "2026-11-12T15:40:35.504Z",
+  "decision_id": "D-01M786NZ7HW2E27M58HX0YE02D",
+  "fingerprint": "sha256:ed359edece6c70b4ebaf4855a40241f3998981d0f4ba262e300a27c9adee344a",
+  "question": "The skill check-tickets cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "ttl_until": "2026-12-12T15:40:34.930Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-12T15:40:35.504Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)"
+  }
+}

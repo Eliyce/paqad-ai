@@ -1,0 +1,58 @@
+{
+  "id": "D-01M786P9M6VA352415E0SWZZEH",
+  "category": "authoring.override",
+  "title": "The skill refine-ticket cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "Since S6 last passed, only shared reading guides (references/connect-repository.md and references/paqad-docs-map.md, copied into every discovery skill) and the shared record checker scripts (scripts/check_record.py, scripts/record.py) changed; its own SKILL.md is unchanged. S3 and S4 were rerun and passed. The owner chose to skip the S6 rerun for this skill.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, refine-ticket is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that refine-ticket helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, refine-ticket is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-12T15:40:45.574Z",
+  "status": "resolved",
+  "change": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M786P7VH35XSQB3T0N67RSBF",
+      "D-01M786NZ7HW2E27M58HX0YE02D",
+      "D-01M75M6WCJQ4RCTVN54S7GB04R",
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M786P6441AXCMSP66SWM10JW"
+    ],
+    "none_reason": "The earlier answers cover other skills (pentest and the stage recipes) skipped for other reasons; none is this owner call on a shared reading-guide change."
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+  "resolved_at": "2026-11-12T15:40:46.168Z",
+  "decision_id": "D-01M786P9M6VA352415E0SWZZEH",
+  "fingerprint": "sha256:e1204a0d6c68bcbd64ebb57c2687049ab2e342ad888c564edb37aa482890af36",
+  "question": "The skill refine-ticket cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M77Y10DBA2ZPCGAA0GTC0QF4",
+  "ttl_until": "2026-12-12T15:40:45.574Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-12T15:40:46.168Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)"
+  }
+}

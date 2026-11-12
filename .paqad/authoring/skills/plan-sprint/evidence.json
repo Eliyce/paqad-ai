@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "plan-sprint",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:91d43b07379d801a1dfa17af6455e8b3a6cc5055b4a6d2316c9af273ae8620fb",
+  "folder_hash": "sha256:0ea1c0aaa56d7cc93d94205b6f3c709b8f997cb6622b7f871fb42782043e4901",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -52,7 +52,25 @@
     "S6": 3.096766,
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S5",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:40.809Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:42.578Z"
+    }
+  ],
+  "decisions": [
+    "D-01M786P4D3358SS5JJRH6M9XKD",
+    "D-01M786P6441AXCMSP66SWM10JW"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }

@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "decide-together",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:38a278eeaf7efdc5339812b2b29da889f3e328f859ee1f80a5dcb9b07598fc29",
+  "folder_hash": "sha256:67f00ee663bfa55cdf430c1aac8d5954cc026a88f446a50aa307c30336890d12",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -52,7 +52,25 @@
     "S6": 3.084218,
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S5",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:37.268Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:39.026Z"
+    }
+  ],
+  "decisions": [
+    "D-01M786P0YCZZKXPS6SAGGPAVTS",
+    "D-01M786P2N6Y5VENCDPDWZCGSFX"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }

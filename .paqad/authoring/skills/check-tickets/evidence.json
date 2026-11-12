@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "skill": "check-tickets",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "host": "codex-cli",
-  "folder_hash": "sha256:6da048874041ece8f2a4d82155f900f2410fe6c884f0c0617196f890b8f4824d",
+  "folder_hash": "sha256:d82dfad6b1555f98d09e1159be0de55e8ba91135fd65a78f448ff19e3307f3a7",
   "baseline": {
     "runs": 3,
     "passed": null,
@@ -51,7 +51,25 @@
     "S6": 3.084596,
     "source": "host-usage"
   },
-  "overrides": [],
-  "decisions": [],
-  "labels": []
+  "overrides": [
+    {
+      "gate": "S5",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:22.270Z"
+    },
+    {
+      "gate": "S6",
+      "reason": "Owner in chat 2026-11-12: Full rerun for 5, override 6 (only the shared reading-guide text changed)",
+      "by": "human",
+      "at": "2026-11-12T15:40:35.504Z"
+    }
+  ],
+  "decisions": [
+    "D-01M786N434JHAZ4V44GQFPRWZ8",
+    "D-01M786NZ7HW2E27M58HX0YE02D"
+  ],
+  "labels": [
+    "unverified"
+  ]
 }
