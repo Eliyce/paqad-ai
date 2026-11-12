@@ -1,5 +1,9 @@
 # get-connected
 
+## 1.3.0
+
+- evals: 32.44 points over the baseline; trigger validation score 1
+
 ## 1.2.0
 
 - evals: 29.47 points over the baseline; trigger validation score 1

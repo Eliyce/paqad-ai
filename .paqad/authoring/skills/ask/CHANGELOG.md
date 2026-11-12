@@ -1,5 +1,9 @@
 # ask
 
+## 1.4.0
+
+- evals: 6.66 points over the baseline; trigger validation score 1
+
 ## 1.3.0
 
 - evals: -10.83 points over the baseline; trigger validation score 1
