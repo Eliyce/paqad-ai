@@ -21,6 +21,10 @@ broadly to find the project.
 If the checks cannot run, do the same by hand: count the prefixes in the branch names and commit
 subjects you can see, apply the same thresholds, and ask when none reaches 3 hits.
 
+Either way, record only the counts in `setup.ticket_key_scan` (`lines_read`, each prefix with its
+count, `github_refs`). Drop the script's `examples` list before recording; the record check
+refuses a scan that holds example keys, branch names or commit text.
+
 ## Check read access for grounding
 
 Run one read-only search in the target project. If it answers, the tracker is readable: store

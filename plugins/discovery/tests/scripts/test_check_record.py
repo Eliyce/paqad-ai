@@ -218,6 +218,33 @@ class TicketKeyScanTest(unittest.TestCase):
             self.assertEqual([issue["code"] for issue in issues], ["SCAN"], scan)
             self.assertIn("never examples, branch names or commit text", issues[0]["message"])
 
+    def test_ac27_the_scan_output_passes_once_its_examples_are_dropped(self):
+        """@obligation AC-27"""
+        import find_ticket_keys
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            find_ticket_keys.main([], io.StringIO("feature/abc-1\nABC-2 x\nABC-3 y\n"))
+        scan = json.loads(out.getvalue())
+        self.assertEqual([issue["code"] for issue in check_record.check(self._record(scan), step=0)],
+                         ["SCAN"])
+        for entry in scan["jira_prefixes"]:
+            entry.pop("examples")
+        self.assertEqual(check_record.check(self._record(scan), step=0), [])
+
+    def test_ac27_the_skill_and_reference_say_to_drop_examples_before_recording(self):
+        """@obligation AC-27"""
+        folder = os.path.join(REPO_ROOT, "skills", "get-connected")
+        with open(os.path.join(folder, "SKILL.md"), "r", encoding="utf-8") as handle:
+            skill = " ".join(handle.read().split())
+        with open(os.path.join(folder, "references", "connect-tracker.md"), "r",
+                  encoding="utf-8") as handle:
+            tracker = " ".join(handle.read().split())
+        self.assertIn("Drop each prefix's `examples` list before recording", skill)
+        self.assertIn("Record only the counts in `setup.ticket_key_scan`, never the example keys.",
+                      skill)
+        self.assertIn("Drop the script's `examples` list before recording", tracker)
+        self.assertIn("Either way, record only the counts in `setup.ticket_key_scan`", tracker)
+
     def test_ac40_a_record_without_the_new_setup_fields_still_passes(self):
         """@obligation AC-40"""
         self.assertEqual(check_record.check(self._record(), step=0), [])

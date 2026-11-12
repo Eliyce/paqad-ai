@@ -35,8 +35,9 @@ order in `setup.grounding_sources` (`references/ground-from-tracker.md`).
    skip this and ask which project to use. With the repository connector's list actions, resolved by
    capability, read up to 100 branch names and the subjects of the last 50 commits on the default
    branch, newest first, and pipe them one per line to `scripts/find_ticket_keys.py`. Store only its
-   counts in `setup.ticket_key_scan`: `lines_read`, each prefix with its count, and `github_refs`;
-   never the examples, branch names or commit text. Then, by the top prefix's hits:
+   counts in `setup.ticket_key_scan`: `lines_read`, each prefix with its count, and `github_refs`.
+   Drop each prefix's `examples` list before recording; never store examples, branch names or
+   commit text, or the record check refuses the scan. Then, by the top prefix's hits:
    - One clear prefix (at least 3 hits and at least twice the next): set `setup.tracker_kind` to
      `jira`, check that project with one read, then recommend it in one choice prompt, with a
      different project as the other option, saying, with ABC the prefix found:
@@ -97,7 +98,7 @@ for the tracker-only sentence, or the stop sentence when the tracker cannot be r
 
 Pick the Jira project by hand as in `references/connect-tracker.md`: count the ticket key prefixes
 in the branch names and commit subjects you can see, with the same thresholds, and ask when none
-reaches 3 hits.
+reaches 3 hits. Record only the counts in `setup.ticket_key_scan`, never the example keys.
 
 Then do the tracker checks by hand (PUB-1 and PUB-7):
 

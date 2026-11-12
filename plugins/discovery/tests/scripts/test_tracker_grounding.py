@@ -1019,7 +1019,7 @@ class StepZeroProjectScanTest(unittest.TestCase):
         self.assertIn('"project_key_source"', template)
         self.assertIn('"ticket_key_scan": { "lines_read": 0, "jira_prefixes": [{ "prefix": "ABC", '
                       '"count": 0 }], "github_refs": 0 }', template)
-        self.assertIn("never the examples, branch names or commit text", self.flat)
+        self.assertIn("never store examples, branch names or commit text", self.flat)
 
 
 TICKETS_ONLY_SENTENCE = "the tickets say this was planned; I can't see it in the code or docs"
