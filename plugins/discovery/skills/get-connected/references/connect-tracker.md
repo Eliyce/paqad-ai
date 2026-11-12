@@ -7,6 +7,20 @@ and read the project's setup, by capability (PLG-7). Resolve
 each action from what the connector exposes; do not hard-code a tool name. This skill handles no
 credentials and no connector authorization: those stay with the user or their admin.
 
+## Choose the Jira project from the repository
+
+Before any tracker read, read up to 100 branch names and the last 50 commit subjects on the default
+branch through the repository connector's list actions, and count the ticket key prefixes (keys
+like ABC-123, in any case; never UTF, ISO, SHA, HTTP, HTTPS, RFC, CVE or V). A prefix with at least
+3 hits and at least twice the next one is clear: check that project with one read and recommend it
+in one choice prompt. At least 3 hits but less than twice the next: one choice prompt, most hits
+first. Fewer than 3 hits, nothing read or no repository: ask which project to use. Only `#123`
+refs: the tracker is GitHub. Every prompt offers a different project. Never search the tracker
+broadly to find the project.
+
+If the checks cannot run, do the same by hand: count the prefixes in the branch names and commit
+subjects you can see, apply the same thresholds, and ask when none reaches 3 hits.
+
 ## Check read access for grounding
 
 Run one read-only search in the target project. If it answers, the tracker is readable: store

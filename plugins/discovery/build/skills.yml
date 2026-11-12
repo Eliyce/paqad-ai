@@ -93,6 +93,7 @@ skills:
       - references/tracker-profiles-github.md
       - references/ground-from-tracker.md
       - scripts/check_onboarded.py
+      - scripts/find_ticket_keys.py
   - name: understand-idea
     publish: understand-idea
     imports:

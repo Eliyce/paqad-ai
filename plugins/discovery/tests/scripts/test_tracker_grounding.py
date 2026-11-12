@@ -913,5 +913,104 @@ class TrackerScenariosTest(unittest.TestCase):
         ]), [])
 
 
+
+PROJECT_SENTENCE = (
+    "Your branches and commits mostly mention ABC tickets, so I'll use the ABC project in Jira."
+)
+GET_CONNECTED = os.path.join(REPO_ROOT, "skills", "get-connected")
+
+
+def scenario_expectations(file_name):
+    evals = os.path.join(REPO_ROOT, "tests", "evals")
+    if evals not in sys.path:
+        sys.path.insert(0, evals)
+    import run_parity
+    scenarios = run_parity.load_scenarios(os.path.join(SCENARIOS, file_name))["scenarios"]
+    return {scenario["acceptance"]: set(scenario["expect"]) for scenario in scenarios}
+
+
+class StepZeroProjectScanTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read_text(GET_CONNECTED, "SKILL.md")
+        cls.tracker = read_text(GET_CONNECTED, "references", "connect-tracker.md")
+        cls.flat = normalised(cls.skill)
+        cls.expect = scenario_expectations("step-zero.yml")
+
+    def test_ac20_one_clear_prefix_is_recommended_with_the_sentence_after_one_check(self):
+        self.assertEqual(self.skill.count(PROJECT_SENTENCE), 1)
+        self.assertEqual(missing(self.skill, [
+            "at least 3 hits and at least twice the next",
+            "check that project with one read",
+            "one choice prompt",
+            "scripts/find_ticket_keys.py",
+            "up to 100 branch names and the subjects of the last 50 commits",
+            "resolved by capability",
+        ]), [])
+        self.assertIn("scripts/find_ticket_keys.py", declared_imports()["get-connected"])
+        self.assertTrue({"project-sentence-once", "only-one-project-check-read",
+                         "no-broad-tracker-search", "key-source-repository"} <= self.expect["AC-115"])
+
+    def test_ac21_no_keys_asks_and_records_asked(self):
+        self.assertIn("Nothing found, nothing read or no list actions: ask which Jira project to use",
+                      self.flat)
+        self.assertIn("`asked` otherwise", self.flat)
+        self.assertTrue({"asks-which-project", "key-source-asked"} <= self.expect["AC-116"])
+
+    def test_ac24_ac25_a_prefix_below_the_floor_is_a_plain_choice(self):
+        self.assertIn("Fewer than 3 hits: recommend nothing; ask which Jira project to use, with "
+                      "the prefixes found as plain choices plus a different project", self.flat)
+        self.assertTrue({"prefix-as-plain-choice", "asks-which-project"} <= self.expect["AC-117"])
+
+    def test_ac28_a_failed_check_read_asks_without_a_broad_search(self):
+        self.assertIn("If that one read fails (not found, renamed or not visible), say once why and "
+                      "ask instead", self.flat)
+        self.assertIn("Never search the tracker broadly to pick a project", self.flat)
+        self.assertTrue({"reason-said-once", "no-broad-tracker-search"} <= self.expect["AC-118"])
+
+    def test_ac29_every_prompt_offers_a_different_project(self):
+        self.assertGreaterEqual(self.flat.count("a different project"), 3)
+        self.assertIn("Every prompt offers a different project", normalised(self.tracker))
+        for ac in ("AC-115", "AC-117", "AC-119"):
+            self.assertIn("offers-a-different-project", self.expect[ac], ac)
+
+    def test_ac30_jira_keys_with_only_github_connected_offer_the_choice(self):
+        self.assertIn("name that Jira project once and let the person choose: connect Jira now, or "
+                      "carry on with GitHub and export the tickets", self.flat)
+        self.assertIn("jira-named-once-with-choice", self.expect["AC-120"])
+
+    def test_ac31_a_cut_short_list_still_scans_the_lines_read(self):
+        self.assertIn("A list that errors or is cut short still counts: scan the lines read and "
+                      "record `lines_read`; ask only when nothing was read", self.flat)
+        self.assertIn("A failed list read never makes the repository unreadable", self.flat)
+        self.assertTrue({"scan-on-lines-read", "no-unreadable-sentence"} <= self.expect["AC-121"])
+
+    def test_ac32_github_refs_only_follow_the_github_profile(self):
+        self.assertIn("Only GitHub refs such as `#123`: set `setup.tracker_kind` to `github` and "
+                      "follow `references/tracker-profiles-github.md`", self.flat)
+        self.assertIn("tracker-kind-github", self.expect["AC-122"])
+
+    def test_ac33_no_repository_skips_the_scan(self):
+        self.assertIn("With no readable repository skip this and ask which project to use",
+                      self.flat)
+        self.assertTrue({"scan-skipped", "asks-which-project"} <= self.expect["AC-123"])
+
+    def test_ac45_the_project_never_comes_from_a_broad_search(self):
+        for ac in ("AC-115", "AC-116", "AC-118", "AC-119", "AC-120", "AC-122", "AC-123"):
+            self.assertIn("no-broad-tracker-search", self.expect[ac], ac)
+        self.assertIn("Never search the tracker broadly to find the project",
+                      normalised(self.tracker))
+        hand = self.skill[self.skill.index("## If the checks cannot run"):]
+        self.assertIn("with the same thresholds", normalised(hand))
+        self.assertIn("If the checks cannot run, do the same by hand", normalised(self.tracker))
+
+    def test_ac27_the_record_keeps_counts_only(self):
+        template = read_text(REPO_ROOT, "skills", "product-discovery", "assets",
+                             "record-template.md")
+        self.assertIn('"project_key_source"', template)
+        self.assertIn('"ticket_key_scan": { "lines_read": 0, "jira_prefixes": [{ "prefix": "ABC", '
+                      '"count": 0 }], "github_refs": 0 }', template)
+        self.assertIn("never the examples, branch names or commit text", self.flat)
+
 if __name__ == "__main__":
     unittest.main()

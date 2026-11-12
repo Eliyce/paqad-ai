@@ -183,5 +183,44 @@ class ModeAwareCheckTest(CheckRecordTestCase):
         self.assertIs(check_record.MODE_REQUIRED, record.MODE_REQUIRED)
 
 
+
+class TicketKeyScanTest(unittest.TestCase):
+    def _record(self, scan=None):
+        rec = record.new_record(run_id="DR-20261005-7K2Q", mode="build")
+        rec["setup"] = {"tracker_kind": "jira", "can_create": True}
+        if scan is not None:
+            rec["setup"]["ticket_key_scan"] = scan
+        return rec
+
+    def test_ac27_a_scan_with_counts_only_passes(self):
+        scan = {"lines_read": 12, "jira_prefixes": [{"prefix": "ABC", "count": 5}],
+                "github_refs": 2}
+        self.assertEqual(check_record.check(self._record(scan), step=0), [])
+
+    def test_ac27_a_scan_carrying_examples_or_text_is_refused(self):
+        bad = [
+            {"lines_read": 1, "jira_prefixes": [{"prefix": "ABC", "count": 1,
+                                                 "examples": ["ABC-1"]}], "github_refs": 0},
+            {"lines_read": 1, "jira_prefixes": [], "github_refs": 0,
+             "branches": ["feature/abc-1"]},
+            {"lines_read": 1, "jira_prefixes": [], "github_refs": 0, "commits": ["ABC-1 fix"]},
+            {"lines_read": "1", "jira_prefixes": [], "github_refs": 0},
+            {"lines_read": 1, "jira_prefixes": "ABC", "github_refs": 0},
+            {"lines_read": 1, "jira_prefixes": [{"prefix": "ABC", "count": True}],
+             "github_refs": 0},
+            {"lines_read": 1, "jira_prefixes": [["ABC", 1]], "github_refs": -1},
+            ["not", "a", "scan"],
+        ]
+        for scan in bad:
+            issues = check_record.check(self._record(scan), step=0)
+            self.assertEqual([issue["code"] for issue in issues], ["SCAN"], scan)
+            self.assertIn("never examples, branch names or commit text", issues[0]["message"])
+
+    def test_ac40_a_record_without_the_new_setup_fields_still_passes(self):
+        self.assertEqual(check_record.check(self._record(), step=0), [])
+        rec = self._record()
+        rec["setup"] = "not a block"
+        self.assertEqual(check_record.scan_issues(rec), [])
+
 if __name__ == "__main__":
     unittest.main()

@@ -764,6 +764,15 @@ Use the fixture repository and invented content only.
 | AC-112 | The tracker's existing tickets are in one language and the user writes in another | Ticket text is in the language of the existing tickets unless the user asks for another; with no readable tracker it is in the user's language |
 | AC-113 | A run held in another language writes the record and the ticket set | `tickets_say` still contains "the tickets say", and issue keys, level ids and the template section headings are as defined |
 | AC-114 | The discovery plugin's `start` is asked to refine a ticket, size work or plan a sprint | It says "Refining, sizing and sprint planning are in the paqad plugin, not this one." exactly once, routes nowhere else and offers `ask` or `discover` as the next step |
+| AC-115 | The repository's branch names and commit subjects mostly carry `ABC-` keys | Step 0 says "Your branches and commits mostly mention ABC tickets, so I'll use the ABC project in Jira." in one choice prompt that also offers a different project; the only tracker read before the choice is the one project check; no broad tracker search; `setup.project_key_source` is `repository` |
+| AC-116 | The branch names and commit subjects carry no ticket keys | Step 0 asks which Jira project to use and records `setup.project_key_source` as `asked` |
+| AC-117 | One prefix with only 1 or 2 hits, or version words such as `node-18` | Nothing is recommended; step 0 asks with the prefix as a plain choice plus a different project |
+| AC-118 | The recommended project's one check read fails | Step 0 says once why and asks which Jira project to use, never searching the tracker broadly |
+| AC-119 | Several prefixes with close counts | One choice prompt, most hits first, the top one recommended, plus a different project |
+| AC-120 | The keys point clearly to a Jira project but only GitHub is connected | The Jira project is named once and the person chooses between connecting Jira now and carrying on with GitHub, exporting the tickets |
+| AC-121 | The branch list works and the commit list errors | The scan runs on the branch names read, `lines_read` is recorded, and the unreadable-connector sentence is not said |
+| AC-122 | The branch names and commit subjects carry only `#123` refs | `setup.tracker_kind` is `github` and the hand off is export only |
+| AC-123 | No repository is attached | The scan is skipped and step 0 asks which project to use |
 
 ---
 
