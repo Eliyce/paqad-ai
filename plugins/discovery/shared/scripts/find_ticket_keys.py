@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""Count Jira key prefixes and GitHub refs in branch names and commit subjects read from stdin.
+
+Run with --help to print the usage.
+"""
 
 import argparse
 import json
