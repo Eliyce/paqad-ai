@@ -137,7 +137,7 @@ class BuiltCopies(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
-        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"), version="0.0.0")
+        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"), version="0.0.0", target="paqad")
         cls.built_skills = os.path.join(cls.tmp, "dist", "plugins", PLUGIN_NAME, "skills")
         cls.names = published_name_map()
 

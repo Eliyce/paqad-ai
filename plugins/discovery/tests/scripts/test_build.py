@@ -149,10 +149,13 @@ class BuildOutputTest(unittest.TestCase):
         # AC-5: the OpenAI manifest skills list equals the published names and contains "start".
         openai = read_json(self._manifest_paths()["openai"])
         skills = openai["extensions"]["com.openai"]["skills"]
-        config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        config = build.target_config(
+            build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml")), "discovery")
         expected = [build.published_name(skill) for skill in config["skills"]]
         self.assertEqual(skills, expected)
         self.assertIn("start", skills)
+        for name in ("refine-ticket", "size-work", "plan-sprint"):
+            self.assertNotIn(name, skills)
 
     def test_voice_copied_into_each_skill(self):
         skills_root = os.path.join(self.plugin_dir, "skills")
@@ -204,7 +207,8 @@ class HostBranchTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.dist = os.path.join(self.tmp, "dist")
         build.build(REPO_ROOT, self.dist)
-        self.config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        self.config = build.target_config(
+            build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml")), "discovery")
         self.combined_plugin = os.path.join(self.dist, "plugins", PLUGIN_NAME)
 
     def _branch_root(self, host):
@@ -293,6 +297,8 @@ class HostBranchTest(unittest.TestCase):
         combined = self._skills_relpaths(self.dist)
         self.assertTrue(combined, "combined dist has no skills tree")
         for host in HOSTS:
+            if host == "chatgpt-directory":
+                continue
             branch_skills = self._skills_relpaths(self._branch_root(host))
             self.assertEqual(
                 branch_skills, combined, "branch {0} skills set differs".format(host)
@@ -314,6 +320,23 @@ class HostBranchTest(unittest.TestCase):
                     branch_bytes,
                     "branch {0} skill file differs: {1}".format(host, rel),
                 )
+
+    def test_ac48_directory_branch_keeps_every_skill_of_the_paqad_target(self):
+        paqad = os.path.join(self.tmp, "paqad")
+        build.build(REPO_ROOT, paqad, target="paqad")
+        expected = self._skills_relpaths(paqad)
+        branch = self._branch_root("chatgpt-directory")
+        self.assertEqual(self._skills_relpaths(branch), expected)
+        for rel in sorted(expected):
+            self.assertEqual(
+                read_bytes(os.path.join(branch, "plugins", PLUGIN_NAME, "skills", rel)),
+                read_bytes(os.path.join(paqad, "plugins", PLUGIN_NAME, "skills", rel)),
+                rel,
+            )
+        skills = os.listdir(os.path.join(branch, "plugins", PLUGIN_NAME, "skills"))
+        self.assertEqual(len(skills), 14)
+        for name in ("refine-ticket", "size-work", "plan-sprint"):
+            self.assertIn(name, skills)
 
     def test_branch_manifests_match_the_single_source(self):
         marketplace, plugin_manifest, openai_manifest = build.build_manifests(self.config)
@@ -390,7 +413,8 @@ class ListingManifestTest(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         cls.dist = os.path.join(cls.tmp, "dist")
         build.build(REPO_ROOT, cls.dist)
-        cls.config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        cls.config = build.target_config(
+            build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml")), "discovery")
         cls.claude = os.path.join(cls.dist, "hosts", "claude")
 
     @classmethod
@@ -743,7 +767,7 @@ class SharedRepositoryFilesTest(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
         cls.dist = os.path.join(cls.tmp, "dist")
-        build.build(REPO_ROOT, cls.dist)
+        build.build(REPO_ROOT, cls.dist, target="paqad")
         cls.skills_root = os.path.join(cls.dist, "plugins", PLUGIN_NAME, "skills")
 
     @classmethod

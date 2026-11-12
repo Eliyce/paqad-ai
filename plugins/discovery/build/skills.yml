@@ -11,6 +11,10 @@
 # files into the skill and fails if a SKILL.md references a shared file it did not
 # declare here (PLG-10).
 #
+# A skill may also list its build targets under targets, written like imports. build.py --target
+# discovery|paqad builds only the skills that list that target; a skill with no targets list is
+# built for both. An unknown target fails the build.
+#
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
 # imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
 # avoid any third-party dependency.
@@ -139,6 +143,8 @@ skills:
       - scripts/check_readback.py
   - name: refine-ticket
     publish: refine-ticket
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/writing-rules.md
@@ -154,6 +160,8 @@ skills:
       - scripts/check_readback.py
   - name: size-work
     publish: size-work
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -165,6 +173,8 @@ skills:
       - scripts/check_record.py
   - name: plan-sprint
     publish: plan-sprint
+    targets:
+      - paqad
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md

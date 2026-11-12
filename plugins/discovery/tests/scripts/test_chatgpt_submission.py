@@ -43,6 +43,8 @@ def setUpModule():
     STATE["tmp"] = tempfile.mkdtemp()
     STATE["dist"] = os.path.join(STATE["tmp"], "dist")
     build.build(REPO_ROOT, STATE["dist"])
+    STATE["paqad_dist"] = os.path.join(STATE["tmp"], "paqad")
+    build.build(REPO_ROOT, STATE["paqad_dist"], target="paqad")
     STATE["config"] = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
     STATE["package"] = package_chatgpt.default_package_dir(STATE["dist"], STATE["config"])
 
@@ -170,7 +172,7 @@ class PackageLayoutTest(TempCase):
         self.assertEqual(sorted(os.listdir(os.path.join(package, "skills"))), expected)
 
     def test_skills_and_publish_files_are_byte_identical_to_their_sources(self):
-        combined = os.path.join(STATE["dist"], "plugins", PLUGIN_NAME, "skills")
+        combined = os.path.join(STATE["paqad_dist"], "plugins", PLUGIN_NAME, "skills")
         branch = os.path.join(STATE["package"], "skills")
         self.assertEqual(list_relpaths(branch), list_relpaths(combined))
         for rel in list_relpaths(combined):

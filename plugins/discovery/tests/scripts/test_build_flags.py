@@ -118,8 +118,8 @@ class LabelledSourceCase(unittest.TestCase):
             label_skill_md(os.path.join(cls.source, "skills", name, "SKILL.md"))
         cls.keep = os.path.join(cls.tmp, "keep")
         cls.strip = os.path.join(cls.tmp, "strip")
-        build.build(cls.source, cls.keep, version="1.2.3", host_labels="keep")
-        build.build(cls.source, cls.strip, version="1.2.3")
+        build.build(cls.source, cls.keep, version="1.2.3", host_labels="keep", target="paqad")
+        build.build(cls.source, cls.strip, version="1.2.3", target="paqad")
 
     @classmethod
     def tearDownClass(cls):
@@ -190,7 +190,7 @@ class ShortNamesTest(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
         cls.dist = os.path.join(cls.tmp, "dist")
-        build.build(REPO_ROOT, cls.dist)
+        build.build(REPO_ROOT, cls.dist, target="paqad")
         cls.config = build.load_config(os.path.join(BUILD_DIR, "skills.yml"))
 
     @classmethod
@@ -228,7 +228,8 @@ class ShortNamesTest(unittest.TestCase):
             self.assertEqual(sorted(built), sorted(sources), skill["name"])
             for rel, data in sources.items():
                 if rel.endswith(".md"):
-                    expected = build.rewrite_skill_md(data.decode("utf-8"), name_map)
+                    expected = build.apply_target_blocks(data.decode("utf-8"), "paqad", rel)
+                    expected = build.rewrite_skill_md(expected, name_map)
                     if rel == "SKILL.md":
                         expected = build.strip_host_labels(expected)
                     self.assertEqual(built[rel].decode("utf-8"), expected, rel)
@@ -260,6 +261,177 @@ class ShortNamesTest(unittest.TestCase):
                 self.assertTrue(os.path.isfile(os.path.join(folder, rel)), (name, rel))
         for rel, data in list_files(root).items():
             self.assertNotIn(b"plugins/discovery/", data, rel)
+
+
+DISCOVERY_NAMES = (
+    "ask", "check-tickets", "decide-together", "discover", "get-connected", "ground-in-project",
+    "post-tickets", "shape-idea", "start", "understand-idea", "write-tickets",
+)
+PAQAD_ONLY = ("refine-ticket", "size-work", "plan-sprint")
+FRONT_DOOR_SENTENCE = "Refining, sizing and sprint planning are in the paqad plugin, not this one."
+TODAY_ROUTES = (
+    "| Ask about the product: what it is, what it does, how something works today | ask |\n"
+    "| Shape an idea, a problem or a change into tickets or another sensible outcome | discover |\n"
+    "| Refine a single existing ticket so it is ready | refine-ticket |\n"
+    "| Size work: estimate the effort on existing tickets | size-work |\n"
+    "| Plan a sprint from ready, sized tickets | plan-sprint |\n"
+    "\n## Output\n"
+)
+FORBIDDEN_PARTS = ("hooks", "agents", "commands", "bin", ".mcp.json", "mcp.json", ".app.json")
+RUNTIME_SKILLS = os.path.join(CHECKOUT_ROOT, "runtime", "claude-plugin", "skills")
+HAND_WRITTEN = ("onboard", "join", "dashboard")
+
+
+def published_tree(dist):
+    return {rel: data for rel, data in list_files(dist).items() if not rel.startswith("hosts/")}
+
+
+class TargetBuildTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        cls.discovery = os.path.join(cls.tmp, "discovery")
+        cls.paqad = os.path.join(cls.tmp, "paqad")
+        build.build(REPO_ROOT, cls.discovery)
+        build.build(REPO_ROOT, cls.paqad, host_labels="keep", target="paqad")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_ac2_discovery_root_holds_both_manifest_sets_and_the_eleven_skills(self):
+        plugin = "plugins/" + PLUGIN_NAME
+        tree = published_tree(self.discovery)
+        for rel in (".claude-plugin/marketplace.json", plugin + "/.claude-plugin/plugin.json",
+                    ".agents/plugins/marketplace.json", plugin + "/plugin.json"):
+            self.assertIn(rel, tree)
+        self.assertEqual(sorted(os.listdir(skills_root(self.discovery))), sorted(DISCOVERY_NAMES))
+        for rel in tree:
+            for part in rel.split("/"):
+                self.assertNotIn(part, FORBIDDEN_PARTS, rel)
+
+    def test_ac4_published_root_names_no_paqad_only_skill(self):
+        pattern = re.compile(r"(?<![\w-])(?:" + "|".join(PAQAD_ONLY) + r")(?![\w-])")
+        for rel, data in published_tree(self.discovery).items():
+            for part in rel.split("/"):
+                self.assertNotIn(part, PAQAD_ONLY, rel)
+            self.assertIsNone(pattern.search(data.decode("utf-8", "replace")), rel)
+        openai = read_json(os.path.join(self.discovery, "plugins", PLUGIN_NAME, "plugin.json"))
+        self.assertEqual(sorted(openai["extensions"]["com.openai"]["skills"]),
+                         sorted(DISCOVERY_NAMES))
+        start = read_text(os.path.join(skills_root(self.discovery), "start", "SKILL.md"))
+        self.assertEqual(start.count(FRONT_DOOR_SENTENCE), 1)
+        rest = start.replace(FRONT_DOOR_SENTENCE, "")
+        self.assertIsNone(re.search(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b", rest))
+
+    def test_ac8_ac9_discovery_start_says_the_sentence_once_and_offers_ask_or_discover(self):
+        start = read_text(os.path.join(skills_root(self.discovery), "start", "SKILL.md"))
+        rows = re.findall(r"(?m)^\| [^|]+ \| ([\w-]+) \|$", start)
+        self.assertEqual(rows, ["ask", "discover"])
+        after = start[start.index(FRONT_DOOR_SENTENCE):]
+        self.assertIn("offer ask or discover as the next step", after)
+        self.assertIn("route nowhere else", start)
+        self.assertNotIn("<!--", start)
+
+    def test_ac7_paqad_start_keeps_the_five_routes_of_today(self):
+        start = read_text(os.path.join(skills_root(self.paqad), "start", "SKILL.md"))
+        self.assertIn(TODAY_ROUTES, start)
+        self.assertNotIn("<!--", start)
+        self.assertNotIn(FRONT_DOOR_SENTENCE, start)
+        self.assertIn("disable-model-invocation: true", start)
+        front = start.split("\n---", 1)[0]
+        self.assertIsNone(re.search(r"(?i)\b(?:refine|size|sprint)\b", front))
+
+    def test_ac6_runtime_skills_equal_a_fresh_paqad_build(self):
+        built = list_files(skills_root(self.paqad, "claude"))
+        runtime = {rel: data for rel, data in list_files(RUNTIME_SKILLS).items()
+                   if rel.split("/")[0] not in HAND_WRITTEN}
+        self.assertEqual(sorted(built), sorted(runtime))
+        for rel, data in built.items():
+            self.assertEqual(runtime[rel], data, rel)
+        self.assertEqual(sorted({rel.split("/")[0] for rel in runtime}), sorted(SHORT_NAMES))
+
+    def test_ac4_paqad_target_keeps_every_skill_on_every_host(self):
+        for host in (None, "claude", "codex"):
+            self.assertEqual(sorted(os.listdir(skills_root(self.paqad, host))), sorted(SHORT_NAMES))
+
+
+class TargetConfigTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_ac2_targets_parse_like_imports_and_default_to_both(self):
+        config = build.load_config(os.path.join(BUILD_DIR, "skills.yml"), "1.0.0")
+        targets = {skill["name"]: skill["targets"] for skill in config["skills"]}
+        for name in PAQAD_ONLY:
+            self.assertEqual(targets[name], ["paqad"])
+        self.assertEqual(targets["front-door"], ["discovery", "paqad"])
+        parsed = build.parse_skills_yml(
+            "skills:\n  - name: a\n    targets:\n      - paqad\n    imports:\n"
+            "      - references/voice.md\n  - name: b\n      - references/x.md\n")
+        self.assertEqual(parsed["skills"][0]["targets"], ["paqad"])
+        self.assertEqual(parsed["skills"][0]["imports"], ["references/voice.md"])
+        self.assertIsNone(parsed["skills"][1]["targets"])
+        self.assertEqual(parsed["skills"][1]["imports"], ["references/x.md"])
+
+    def test_ac2_an_unknown_or_empty_target_fails(self):
+        with self.assertRaises(build.BuildError) as ctx:
+            build.resolve_targets([{"name": "a", "targets": ["chat"]}])
+        self.assertIn("unknown target 'chat'", str(ctx.exception))
+        with self.assertRaises(build.BuildError) as ctx:
+            build.resolve_targets([{"name": "a", "targets": []}])
+        self.assertIn("lists no target", str(ctx.exception))
+        with self.assertRaises(build.BuildError):
+            build.parse_skills_yml("skills:\n    targets:\n")
+        with self.assertRaises(build.BuildError) as ctx:
+            build.build(REPO_ROOT, os.path.join(self.tmp, "d"), version="1", target="chat")
+        self.assertIn("--target", str(ctx.exception))
+        source = os.path.join(self.tmp, "source")
+        copy_source(source)
+        skills_yml = os.path.join(source, "build", "skills.yml")
+        write_text(skills_yml, read_text(skills_yml).replace("      - paqad\n", "      - chat\n", 1))
+        self.assertEqual(build.main(["--source", source, "--dist", os.path.join(self.tmp, "x"),
+                                     "--version", "1"]), 1)
+
+    def test_ac2_main_takes_the_target(self):
+        dist = os.path.join(self.tmp, "dist")
+        self.assertEqual(build.main(["--dist", dist, "--version", "1", "--target", "paqad"]), 0)
+        self.assertEqual(sorted(os.listdir(skills_root(dist))), sorted(SHORT_NAMES))
+
+
+class TargetBlockTest(unittest.TestCase):
+    TEXT = ("a\n<!-- only: paqad -->\np\n<!-- /only -->\n<!-- only: discovery -->\nd\n"
+            "<!-- /only -->\nz\n")
+
+    def test_ac7_blocks_keep_the_active_target_and_lose_every_marker(self):
+        self.assertEqual(build.apply_target_blocks(self.TEXT, "paqad", "x"), "a\np\nz\n")
+        self.assertEqual(build.apply_target_blocks(self.TEXT, "discovery", "x"), "a\nd\nz\n")
+        self.assertEqual(build.apply_target_blocks("plain\n", "paqad", "x"), "plain\n")
+
+    def test_ac7_unclosed_nested_stray_or_unknown_blocks_fail(self):
+        cases = (
+            ("<!-- only: paqad -->\nx\n", "never closed"),
+            ("<!-- only: paqad -->\n<!-- only: discovery -->\n<!-- /only -->\n", "inside"),
+            ("x\n<!-- /only -->\n", "closes no only block"),
+            ("<!-- only: chat -->\n<!-- /only -->\n", "unknown only target"),
+        )
+        for text, message in cases:
+            with self.assertRaises(build.BuildError) as ctx:
+                build.apply_target_blocks(text, "paqad", "start/SKILL.md")
+            self.assertIn(message, str(ctx.exception))
+            self.assertIn("start/SKILL.md", str(ctx.exception))
+
+    def test_ac7_a_broken_block_in_a_skill_fails_the_build(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        source = os.path.join(tmp, "source")
+        copy_source(source)
+        skill_md = os.path.join(source, "skills", "ask-project", "SKILL.md")
+        write_text(skill_md, read_text(skill_md) + "\n<!-- only: paqad -->\n")
+        with self.assertRaises(build.BuildError) as ctx:
+            build.build(source, os.path.join(tmp, "dist"), version="1")
+        self.assertIn("ask/SKILL.md", str(ctx.exception))
 
 
 class VersionTest(unittest.TestCase):

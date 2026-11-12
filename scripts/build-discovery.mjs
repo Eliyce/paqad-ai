@@ -107,6 +107,8 @@ export function buildDiscovery({ root = repoRoot, probe } = {}) {
         distRoot,
         '--host-labels',
         'keep',
+        '--target',
+        'paqad',
         '--version',
         version,
       ],

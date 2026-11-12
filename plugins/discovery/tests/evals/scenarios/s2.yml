@@ -48,9 +48,6 @@ manual_hosts:
 entry_skills:
   - discover
   - ask
-  - refine-ticket
-  - size-work
-  - plan-sprint
   - start
 
 parity_dimensions:

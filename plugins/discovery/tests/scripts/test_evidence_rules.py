@@ -229,7 +229,7 @@ class DocsMapBuildTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
-        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"))
+        build.build(REPO_ROOT, os.path.join(cls.tmp, "dist"), target="paqad")
         cls.skills_root = os.path.join(cls.tmp, "dist", "plugins", PLUGIN_NAME, "skills")
 
     @classmethod

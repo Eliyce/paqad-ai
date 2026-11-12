@@ -763,6 +763,7 @@ Use the fixture repository and invented content only.
 | AC-111 | The user writes in a language other than English | The reply and the plugin's word-for-word sentences are in that language with the same meaning, and the plugin follows a switch |
 | AC-112 | The tracker's existing tickets are in one language and the user writes in another | Ticket text is in the language of the existing tickets unless the user asks for another; with no readable tracker it is in the user's language |
 | AC-113 | A run held in another language writes the record and the ticket set | `tickets_say` still contains "the tickets say", and issue keys, level ids and the template section headings are as defined |
+| AC-114 | The discovery plugin's `start` is asked to refine a ticket, size work or plan a sprint | It says "Refining, sizing and sprint planning are in the paqad plugin, not this one." exactly once, routes nowhere else and offers `ask` or `discover` as the next step |
 
 ---
 
