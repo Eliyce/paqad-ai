@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   classifyFrameworkCopy,
+  DISCOVERY_CLASH_MESSAGE,
   describeFrameworkLink,
+  discoveryPluginClash,
   frameworkLinkHome,
   isPluginInstalled,
   pluginLoadState,
@@ -191,5 +193,82 @@ describe('AC-6: pluginLoadState reads whether the plugin loads for this repo', (
     );
     expect(pluginLoadState(null, { home: root, env: {} })).toBe('unknown');
     expect(pluginLoadState(null, { home: root, env: { CLAUDE_CONFIG_DIR: config } })).toBe('live');
+  });
+});
+
+describe('discoveryPluginClash', () => {
+  const S2 =
+    'The paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Remove paqad discovery: the paqad plugin already has discover and ask.';
+
+  function installed(configDir: string, keys: string[]): void {
+    mkdirSync(join(configDir, 'plugins'), { recursive: true });
+    const plugins = Object.fromEntries(keys.map((key) => [key, [{ scope: 'user' }]]));
+    writeFileSync(
+      join(configDir, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins }),
+    );
+  }
+
+  function synced(configDir: string, rel: string, manifest: Record<string, unknown>): void {
+    const dir = join(configDir, 'plugins', 'synced', rel, '.claude-plugin');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest));
+  }
+
+  const configDir = () => join(root, '.claude');
+
+  it('AC-16: keeps the one sentence word for word', () => {
+    expect(DISCOVERY_CLASH_MESSAGE).toBe(S2);
+  });
+
+  it('AC-16: finds the discovery plugin installed next to the paqad plugin', () => {
+    installed(configDir(), ['paqad@eliyce', 'paqad-product-discovery@paqad-product-discovery']);
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(true);
+  });
+
+  it('AC-17: finds a synced folder named paqad without hooks next to the paqad plugin', () => {
+    installed(configDir(), ['paqad@eliyce']);
+    synced(configDir(), 'account/paqad-product-discovery', { name: 'paqad', version: '2.0.0' });
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(true);
+  });
+
+  it('AC-17: a synced paqad folder with hooks counts as the paqad plugin', () => {
+    synced(configDir(), 'account/paqad', { name: 'paqad', hooks: './hooks.json' });
+    synced(configDir(), 'discovery', { name: 'paqad' });
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(true);
+  });
+
+  it('AC-18: only the paqad plugin, only the discovery plugin or the old discovery name is no clash', () => {
+    installed(configDir(), ['paqad@eliyce']);
+    synced(configDir(), 'account/paqad', { name: 'paqad', hooks: './hooks.json' });
+    synced(configDir(), 'account/old', { name: 'paqad-product-discovery' });
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+    rmSync(configDir(), { recursive: true, force: true });
+    installed(configDir(), ['paqad-product-discovery@paqad-product-discovery']);
+    synced(configDir(), 'account/discovery', { name: 'paqad' });
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+  });
+
+  it('AC-18: missing or unreadable files mean not installed and never throw', () => {
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+    mkdirSync(join(configDir(), 'plugins', 'synced', 'account', 'x', '.claude-plugin'), {
+      recursive: true,
+    });
+    writeFileSync(join(configDir(), 'plugins', 'installed_plugins.json'), 'not json');
+    writeFileSync(
+      join(configDir(), 'plugins', 'synced', 'account', 'x', '.claude-plugin', 'plugin.json'),
+      '{',
+    );
+    writeFileSync(join(configDir(), 'plugins', 'synced', 'stray-file'), 'x');
+    expect(() => discoveryPluginClash({ home: root, env: {} })).not.toThrow();
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+  });
+
+  it('AC-16: reads the Claude config folder from CLAUDE_CONFIG_DIR', () => {
+    const custom = join(root, 'custom');
+    installed(custom, ['paqad@eliyce', 'paqad-product-discovery@paqad-product-discovery']);
+    expect(
+      discoveryPluginClash({ home: join(root, 'nobody'), env: { CLAUDE_CONFIG_DIR: custom } }),
+    ).toBe(true);
   });
 });

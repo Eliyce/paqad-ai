@@ -41,7 +41,12 @@ import { syncGitWorkflow } from '@/git-workflow/sync.js';
 import { GIT_WORKFLOW_FILES } from '@/git-workflow/types.js';
 import { lastAppliedPath } from '@/git-workflow/last-applied.js';
 import { installGitHooks, trackedWorkflowHookAdvice } from '@/feature-evidence/git-hooks.js';
-import { isPluginInstalled, pluginLoadState } from '@/health/plugin-install.js';
+import {
+  DISCOVERY_CLASH_MESSAGE,
+  discoveryPluginClash,
+  isPluginInstalled,
+  pluginLoadState,
+} from '@/health/plugin-install.js';
 import { projectWiresLiveNpmHooks } from '@/install/plugin-migration.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { LEGACY_MCP_OUTPUT_PATHS } from '@/mcp/config-manager.js';
@@ -101,6 +106,7 @@ export interface UpdateReport {
   config_keys_pruned: string[];
   team_setup_notes?: string[];
   git_workflow_notes?: string[];
+  plugin_notes?: string[];
 }
 
 export interface FrameworkUpdaterOptions {
@@ -360,6 +366,7 @@ export class FrameworkUpdater {
       config_keys_pruned: configKeysPruned,
       team_setup_notes: teamSetup?.notes ?? [],
       git_workflow_notes: gitWorkflowNotes,
+      ...(discoveryPluginClash() ? { plugin_notes: [DISCOVERY_CLASH_MESSAGE] } : {}),
     };
   }
 

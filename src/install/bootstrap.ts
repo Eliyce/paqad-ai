@@ -17,7 +17,11 @@ import { setEngineLogger } from '@/core/logger-registry.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { ensureSchemaMarkerSync } from '@/core/schema-version.js';
 import type { EngineLogger } from '@/core/types/logger.js';
-import { pluginLoadState } from '@/health/plugin-install.js';
+import {
+  DISCOVERY_CLASH_MESSAGE,
+  discoveryPluginClash,
+  pluginLoadState,
+} from '@/health/plugin-install.js';
 import { VERSION } from '@/index.js';
 import {
   resolveFrameworkInstallPath,
@@ -29,6 +33,7 @@ export interface InstallResult {
   framework_home: string;
   project_root: string;
   version: string;
+  warnings?: string[];
 }
 
 export interface BootstrapOptions {
@@ -63,6 +68,7 @@ export function bootstrapFramework(projectRoot: string, options?: BootstrapOptio
     framework_home: frameworkHome,
     project_root: projectRoot,
     version: VERSION,
+    ...(discoveryPluginClash() ? { warnings: [DISCOVERY_CLASH_MESSAGE] } : {}),
   };
 }
 
