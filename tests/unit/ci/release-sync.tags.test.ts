@@ -110,7 +110,7 @@ describe.skipIf(process.platform === 'win32')('release-sync check', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      'Usage: node scripts/release-sync.mjs <state|tags|check|ci-green|prepublish|scope>',
+      'Usage: node scripts/release-sync.mjs <state|tags|check|discovery-check|ci-green|prepublish|scope>',
     );
   });
 });

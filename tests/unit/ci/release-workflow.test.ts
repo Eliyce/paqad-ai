@@ -195,9 +195,10 @@ describe('the release workflow publishes the plugin', () => {
   });
 
   it('fails red, never skips, when the plugin is behind npm', () => {
-    expect(inSync.needs).toEqual(['release', 'publish-plugin', 'tags']);
+    expect(inSync.needs).toEqual(['release', 'publish-plugin', 'publish-discovery-plugin', 'tags']);
     expect(inSync.if).toBe("always() && needs.release.result == 'success'");
-    expect(inSync.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs check');
+    expect(inSync.steps.map((step) => step.run)).toContain('node scripts/release-sync.mjs check');
+    expect(inSync.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs discovery-check');
     const daily = parse(readFileSync('.github/workflows/plugin-sync-check.yml', 'utf8')) as {
       on: { schedule: { cron: string }[] };
       jobs: Record<string, Job>;
@@ -309,6 +310,154 @@ describe('the release workflow publishes the plugin', () => {
       const missing = join(tempDir('paqad-release-missing-'), 'absent.git');
       const result = runPush(builtWorkspace('1.2.3'), missing);
       expect(result.status).not.toBe(0);
+    },
+  );
+});
+
+const DISCOVERY_URL = 'github.com/Eliyce/paqad-product-discovery-plugin.git';
+const DISCOVERY_MESSAGE =
+  'PAQAD_PLUGIN_PUSH_TOKEN is not set or cannot push to Eliyce/paqad-product-discovery-plugin. Give it write access, then re-run this job.';
+const discovery = workflow.jobs['publish-discovery-plugin']!;
+const discoveryToken = discovery.steps.find((step) => step.id === 'token')!;
+const discoveryPush = discovery.steps.at(-1)!;
+
+function discoveryWorkspace(version: string): string {
+  const root = tempDir('paqad-discovery-ws-');
+  write(root, 'package.json', JSON.stringify({ name: 'paqad-ai', version }));
+  for (const part of ['build', 'skills', 'shared', 'publish']) {
+    cpSync(resolve('plugins/discovery', part), join(root, 'plugins/discovery', part), {
+      recursive: true,
+      filter: (source) => !source.includes('__pycache__'),
+    });
+  }
+  return root;
+}
+
+function runDiscoveryPush(workspace: string, remote: string, token = 'a-token') {
+  return spawnSync('bash', ['-c', discoveryPush.run!], {
+    cwd: workspace,
+    encoding: 'utf8',
+    env: {
+      PATH: process.env.PATH,
+      HOME: workspace,
+      RUNNER_TEMP: tempDir('paqad-runner-'),
+      PYTHONDONTWRITEBYTECODE: '1',
+      PAQAD_PLUGIN_PUSH_TOKEN: token,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: `url.file://${remote}.insteadOf`,
+      GIT_CONFIG_VALUE_0: `https://x-access-token:${token}@${DISCOVERY_URL}`,
+    },
+  });
+}
+
+describe('the release workflow publishes the discovery plugin', () => {
+  it('AC-1: runs after release with the publish-plugin guards and the released checkout', () => {
+    expect(discovery.needs).toBe('release');
+    expect(discovery.if).toBe("needs.release.outputs.published == 'true'");
+    expect(discovery.permissions).toEqual({ contents: 'read' });
+    const checkout = discovery.steps.find((step) => step.uses?.startsWith('actions/checkout'));
+    expect(checkout?.with).toEqual({ ref: '${{ needs.release.outputs.sha }}' });
+    const version = discovery.steps[discovery.steps.indexOf(checkout!) + 1]!;
+    expect(version.run).toBe(versionStep.run);
+    expect(version.env).toEqual({ RELEASED_VERSION: '${{ needs.release.outputs.version }}' });
+    const python = discovery.steps.find((step) => step.uses?.startsWith('actions/setup-python'));
+    expect(python?.with).toEqual({ 'python-version': '3.9' });
+    expect(discovery.steps.indexOf(discoveryToken)).toBe(0);
+    for (const step of discovery.steps) {
+      expect(step.if).toBeUndefined();
+      expect(step.run ?? '').not.toContain('secrets.');
+      if (step.env?.PAQAD_PLUGIN_PUSH_TOKEN !== undefined) {
+        expect(step.env.PAQAD_PLUGIN_PUSH_TOKEN).toBe('${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}');
+      }
+    }
+  });
+
+  it('AC-13: checks write access before cloning and names the token and the repo in one sentence', () => {
+    const check = discoveryToken.run!;
+    expect(check).toContain(DISCOVERY_MESSAGE);
+    expect(check).toContain('.permissions.push');
+    expect(check).not.toContain('git clone');
+    expect(discoveryPush.run!).toContain(DISCOVERY_MESSAGE);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'AC-13: an empty token fails the job with exactly the sentence',
+    () => {
+      const empty = spawnSync('bash', ['-c', discoveryToken.run!], {
+        env: { PATH: process.env.PATH, PAQAD_PLUGIN_PUSH_TOKEN: '' },
+        encoding: 'utf8',
+      });
+      expect(empty.status).toBe(1);
+      expect(empty.stdout).toBe(`::error::${DISCOVERY_MESSAGE}\n`);
+    },
+  );
+
+  it('AC-14: builds the discovery target, pushes the dist root without hosts and never force-pushes', () => {
+    const push = discoveryPush.run!;
+    expect(push).toContain(
+      'python3 plugins/discovery/build/build.py --version "$VERSION" --target discovery --dist "$DIST"',
+    );
+    expect(push).toContain('rm -rf discovery-repo/hosts');
+    expect(push).toContain(DISCOVERY_URL);
+    expect(push).toContain('git commit --quiet -m "paqad-product-discovery v${VERSION}"');
+    expect(push).not.toMatch(/--force|push -f|\+refs/);
+    expect(push.indexOf('set -eu')).toBe(0);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'AC-15: creates main and the tag on an empty repo, then commits nothing on a re-run',
+    () => {
+      const remote = join(tempDir('paqad-discovery-remote-'), 'discovery.git');
+      git(dirname(remote), ['init', '--quiet', '--bare', remote]);
+      const workspace = discoveryWorkspace('1.2.3');
+
+      const first = runDiscoveryPush(workspace, remote);
+      expect(first.status, first.stdout + first.stderr).toBe(0);
+      expect(git(remote, ['for-each-ref', '--format=%(refname)'])).toBe(
+        ['refs/heads/main', 'refs/tags/v1.2.3'].join('\n'),
+      );
+      const files = git(remote, ['ls-tree', '-r', '--name-only', 'main']).split('\n');
+      expect(files.some((file) => file.startsWith('hosts/'))).toBe(false);
+      for (const file of [
+        'README.md',
+        '.claude-plugin/marketplace.json',
+        '.agents/plugins/marketplace.json',
+        'plugins/paqad-product-discovery/.claude-plugin/plugin.json',
+        'plugins/paqad-product-discovery/plugin.json',
+      ]) {
+        expect(files).toContain(file);
+      }
+      for (const file of ['.claude-plugin/marketplace.json', '.agents/plugins/marketplace.json']) {
+        const marketplace = JSON.parse(git(remote, ['show', `main:${file}`])) as {
+          plugins: { version: string }[];
+        };
+        expect(marketplace.plugins[0]!.version).toBe('1.2.3');
+      }
+      expect(git(remote, ['log', '-1', '--format=%s', 'main'])).toBe(
+        'paqad-product-discovery v1.2.3',
+      );
+
+      rmSync(join(workspace, 'discovery-repo'), { recursive: true, force: true });
+      const again = runDiscoveryPush(workspace, remote);
+      expect(again.status, again.stderr).toBe(0);
+      expect(again.stdout).toContain(
+        'The discovery plugin tree is unchanged at v1.2.3; nothing to commit.',
+      );
+      expect(again.stdout).toContain(
+        'Tag v1.2.3 already exists on Eliyce/paqad-product-discovery-plugin.',
+      );
+      expect(git(remote, ['rev-list', '--count', 'main'])).toBe('1');
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'AC-13: a clone that cannot reach the repo prints the same sentence',
+    () => {
+      const missing = join(tempDir('paqad-discovery-missing-'), 'absent.git');
+      const result = runDiscoveryPush(discoveryWorkspace('1.2.3'), missing);
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain(`::error::${DISCOVERY_MESSAGE}`);
     },
   );
 });

@@ -8,11 +8,14 @@ below starts as the token `pending` and a person fills it in after installing.
 
 ## Manual install
 
-1. Build the distribution: run `python3 build/build.py` and push the generated `dist/` to the
-   distribution repository.
+1. The release job `publish-discovery-plugin` builds the distribution (`build/build.py --target
+   discovery`) and pushes the dist root, without `dist/hosts/`, to
+   `Eliyce/paqad-product-discovery-plugin` on every paqad-ai release. There is no manual push.
 2. Prerequisite: Codex installed and signed in.
-3. Each user (or their admin) adds the distribution repo as a local marketplace in Codex, read
-   through `.agents/plugins/marketplace.json`; or installs from the shared plugin directory.
+3. Each user (or their admin) runs `codex plugin marketplace add
+   Eliyce/paqad-product-discovery-plugin`, read through `.agents/plugins/marketplace.json`, then
+   installs paqad-product-discovery from the Plugins list; `codex plugin marketplace upgrade`
+   updates it.
 4. Codex works inside a local checkout, so it reads `docs/` from disk. The plugin only reads
    the repository; it never edits it.
 5. For posting, the user adds an Atlassian connection to Codex.
