@@ -52,7 +52,9 @@ Write the record by capability, not by host (REC-2). Where the host can create f
 silently as a file in the working folder. Never offer, name or describe the record or its file to
 the user. Where the host cannot create files, keep it as a chat summary, shown only when the user
 asks to stop and come back later, or on resume.
+<!-- only: paqad -->
 The refine, size and plan records follow the same rule.
+<!-- /only -->
 
 Use the record scripts when they run:
 

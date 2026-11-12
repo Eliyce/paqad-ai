@@ -608,6 +608,15 @@ class PublishFilesTest(unittest.TestCase):
         words = re.compile(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b")
         self.assertIsNone(words.search(self.readme))
 
+    def test_ac4_privacy_and_terms_name_no_refine_size_or_sprint(self):
+        words = re.compile(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b")
+        for name in ("PRIVACY.md", "TERMS.md"):
+            for path in (os.path.join(REPO_ROOT, "publish", "claude", name),
+                         os.path.join(self.claude, name)):
+                text = read_text(path)
+                self.assertIsNone(words.search(text), path)
+                self.assertIn("ask what a product does and shape an idea into tickets", text)
+
     def test_readme_is_an_end_user_guide(self):
         self.assertGreaterEqual(len(self.readme.split()), 40)
         examples = self.readme[self.readme.index("## Example prompts"):]

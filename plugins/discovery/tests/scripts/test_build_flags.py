@@ -324,6 +324,13 @@ class TargetBuildTest(unittest.TestCase):
         rest = start.replace(FRONT_DOOR_SENTENCE, "")
         self.assertIsNone(re.search(r"(?i)\b(?:refin\w*|siz(?:e|ing)\w*|sprints?)\b", rest))
 
+    def test_ac4_discover_names_the_refine_size_and_plan_records_only_in_paqad(self):
+        sentence = "The refine, size and plan records follow the same rule."
+        for root, count in ((self.discovery, 0), (self.paqad, 1)):
+            discover = read_text(os.path.join(skills_root(root), "discover", "SKILL.md"))
+            self.assertEqual(discover.count(sentence), count, root)
+            self.assertNotIn("<!--", discover)
+
     def test_ac8_ac9_discovery_start_says_the_sentence_once_and_offers_ask_or_discover(self):
         start = read_text(os.path.join(skills_root(self.discovery), "start", "SKILL.md"))
         rows = re.findall(r"(?m)^\| [^|]+ \| ([\w-]+) \|$", start)
