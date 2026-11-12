@@ -207,6 +207,42 @@ describe('the release workflow publishes the plugin', () => {
     expect(daily.jobs.check!.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs check');
   });
 
+  describe('AC-3: the discovery check runs only when the discovery job ran', () => {
+    const results = (discovery: string) => ({
+      release: 'success',
+      'publish-plugin': discovery,
+      'publish-discovery-plugin': discovery,
+      tags: discovery,
+    });
+    const evaluate = (expression: string, needs: Record<string, string>): boolean =>
+      expression.split('&&').every((part) => {
+        const term = part.trim();
+        if (term === 'always()') return true;
+        const match = /^needs\.([\w-]+)\.result (==|!=) '(\w+)'$/.exec(term);
+        if (!match) throw new Error(`unsupported expression: ${term}`);
+        const equal = needs[match[1]!] === match[3];
+        return match[2] === '==' ? equal : !equal;
+      });
+    const discoveryStep = () =>
+      inSync.steps.find((step) => step.run === 'node scripts/release-sync.mjs discovery-check')!;
+
+    it('AC-3: a release run that publishes nothing stays green and skips the discovery check', () => {
+      const needs = results('skipped');
+      expect(evaluate(inSync.if!, needs)).toBe(true);
+      expect(evaluate(discoveryStep().if!, needs)).toBe(false);
+      const check = inSync.steps.find((step) => step.run === 'node scripts/release-sync.mjs check')!;
+      expect(check.if).toBeUndefined();
+    });
+
+    it('AC-3: a release run that published runs the discovery check, even when the push failed', () => {
+      for (const outcome of ['success', 'failure']) {
+        const needs = results(outcome);
+        expect(evaluate(inSync.if!, needs)).toBe(true);
+        expect(evaluate(discoveryStep().if!, needs)).toBe(true);
+      }
+    });
+  });
+
   it.skipIf(process.platform === 'win32')(
     'fails the version check when the checkout is not the released version',
     () => {

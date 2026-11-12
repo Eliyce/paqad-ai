@@ -286,4 +286,5 @@ jobs:
         run: node scripts/release-sync.mjs check
 
       - name: Fail when the discovery plugin is behind npm
+        if: needs.publish-discovery-plugin.result != 'skipped'
         run: node scripts/release-sync.mjs discovery-check

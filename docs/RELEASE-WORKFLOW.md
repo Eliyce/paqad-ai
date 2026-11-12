@@ -338,7 +338,8 @@ in [the claude-plugin module doc](modules/claude-plugin/index/summary.md).
   `publish-discovery-plugin` and `tags`, and
   [`.github/workflows/plugin-sync-check.yml`](../.github/workflows/plugin-sync-check.yml) runs
   daily at 06:00 UTC. Both run `node scripts/release-sync.mjs check`, which fails red when npm
-  `latest` is newer than the newest `v*` tag in the plugin repo. `plugin-in-sync` then runs
+  `latest` is newer than the newest `v*` tag in the plugin repo. When `publish-discovery-plugin`
+  ran (it is skipped on a run that publishes nothing), `plugin-in-sync` then runs
   `node scripts/release-sync.mjs discovery-check`, which fails when the discovery repo has no
   `v<latest>` tag, when either marketplace file at that tag carries another version, or when the
   tree carries `hooks/`, `agents/`, `commands/`, `bin/` or an MCP file.
