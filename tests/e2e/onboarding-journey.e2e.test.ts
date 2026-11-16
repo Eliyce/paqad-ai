@@ -18,15 +18,18 @@ import { readRun } from '@/onboarding/journey/run-store.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 
-import { moduleMap, tempRoot, writeFile } from '../unit/onboarding/journey/fixtures/journey.js';
+import { T0, moduleMap, tempRoot, writeFile } from '../unit/onboarding/journey/fixtures/journey.js';
 
 const DISCOVERY = 'rd-20990101-000000';
 
 describe('the onboarding journey end to end with a stub agent', () => {
   let root: string;
+  let ticks: number;
+  const clock = (): Date => new Date(Date.parse(T0) + ticks++ * 1000);
 
   beforeEach(() => {
     root = tempRoot('paqad-journey-e2e-');
+    ticks = 0;
     vi.stubEnv('SE_SESSION', 'claude-session');
     setupRun.mockImplementation(async () => {
       writeFile(root, '.paqad/framework-path.txt', '/opt/paqad-ai\n');
@@ -71,7 +74,9 @@ describe('the onboarding journey end to end with a stub agent', () => {
       (line: string) => void lines.push(`ERR ${String(line)}`),
     );
     process.exitCode = undefined;
-    await createOnboardingCommand().parseAsync([...args, '--project-root', root], { from: 'user' });
+    await createOnboardingCommand({ now: clock }).parseAsync([...args, '--project-root', root], {
+      from: 'user',
+    });
     const code = Number(process.exitCode ?? 0);
     process.exitCode = undefined;
     vi.restoreAllMocks();
@@ -136,7 +141,7 @@ describe('the onboarding journey end to end with a stub agent', () => {
       '**▸ paqad** · Step 5 of 8 · Researching rules for your stack · 0 of 3',
     );
     const dir = `.paqad/ledger/rules-discovery/${DISCOVERY}`;
-    const at = new Date(Date.now() + 1000).toISOString();
+    const at = clock().toISOString();
     writeFile(
       root,
       `${dir}/run.json`,
@@ -212,7 +217,7 @@ describe('the onboarding journey end to end with a stub agent', () => {
 
     await verb('stage', 'start', 'rule_scripts');
     writeFile(root, '.paqad/compiled-rules.json', '{}');
-    const later = new Date(Date.now() + 60_000);
+    const later = clock();
     utimesSync(join(root, '.paqad/compiled-rules.json'), later, later);
     await verb('unit', 'rule_scripts', 'batch-1');
     await verb('stage', 'end', 'rule_scripts');

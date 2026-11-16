@@ -53,7 +53,9 @@ interface RootOptions {
   json?: boolean;
 }
 
-const now = (): Date => new Date();
+const systemClock = (): Date => new Date();
+let clock: () => Date = systemClock;
+const now = (): Date => clock();
 
 function emit(options: RootOptions, value: unknown, text: string): void {
   console.log(options.json ? JSON.stringify(value, null, 2) : text);
@@ -527,7 +529,12 @@ function addAbandon(command: Command): void {
   );
 }
 
-export function createOnboardingCommand(): Command {
+export interface OnboardingCommandDeps {
+  now?: () => Date;
+}
+
+export function createOnboardingCommand(deps: OnboardingCommandDeps = {}): Command {
+  clock = deps.now ?? systemClock;
   const command = new Command('onboarding').description(
     'Run the onboarding journey step by step (driven by an AI tool)',
   );
