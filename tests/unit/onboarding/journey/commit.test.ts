@@ -3,7 +3,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { answerCommit } from '../../../../src/onboarding/journey/commit.js';
+import {
+  KEPT_FOR_REVIEW,
+  answerCommit,
+  planCommit,
+} from '../../../../src/onboarding/journey/commit.js';
 import { fileSha256 } from '../../../../src/onboarding/journey/preflight.js';
 import { readRun, updateRun } from '../../../../src/onboarding/journey/run-store.js';
 import { ONBOARDING_STAGES } from '../../../../src/onboarding/journey/stages.js';
@@ -93,5 +97,126 @@ describe('the commit question', () => {
     expect(() => answerCommit(root, { kind: 'branch', branch: 'whatever' }, clockAt(5))).toThrow(
       /pattern/u,
     );
+  });
+});
+
+describe('the commit plan and its refusals (AC-8)', () => {
+  let root: string;
+  const hash = (rel: string) => fileSha256(join(root, rel))!;
+
+  beforeEach(() => {
+    root = tempRoot('paqad-commit-plan-');
+    gitRepo(root);
+    writeFile(root, 'docs/kept.md', 'v1\n');
+    writeFile(root, 'docs/head.md', 'head\n');
+    writeFile(root, '.gitignore', 'docs/ignored.md\n');
+    git(root, 'add', '.');
+    git(root, 'commit', '-q', '-m', 'init');
+    seedRun(root);
+    updateRun(root, (draft) => {
+      for (const stage of ONBOARDING_STAGES) draft.stages[stage.id] = { status: 'done' };
+    });
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('leaves out the allow list, secrets, deleted files, edited baseline pages, dirty-before files and ignored files', () => {
+    writeFile(root, '.claude/settings.local.json', '{}\n');
+    writeFile(root, 'docs/deploy.pem', 'key\n');
+    writeFile(root, 'docs/gone.md', 'x\n');
+    writeFile(root, 'docs/kept.md', 'edited by a person\n');
+    writeFile(root, 'docs/head.md', 'dirty before onboarding\n');
+    writeFile(root, 'docs/ignored.md', 'ignored\n');
+    writeFile(root, 'docs/new.md', 'new\n');
+    writeFile(root, 'docs/clean.md', 'clean\n');
+    writeFile(root, 'docs/other.md', 'edited, not written by onboarding\n');
+    git(root, 'add', 'docs/clean.md');
+    git(root, 'commit', '-q', '-m', 'clean');
+    const written = Object.fromEntries(
+      [
+        '.claude/settings.local.json',
+        'docs/deploy.pem',
+        'docs/gone.md',
+        'docs/kept.md',
+        'docs/head.md',
+        'docs/ignored.md',
+        'docs/new.md',
+        'docs/clean.md',
+      ].map((rel) => [rel, hash(rel)]),
+    );
+    rmSync(join(root, 'docs/gone.md'));
+    writeFile(root, '.paqad/onboarding/choices.jsonl', '{}\n');
+    updateRun(root, (draft) => {
+      draft.written = { ...written, '../escape.md': 'x' };
+      draft.docs_baseline = { 'docs/kept.md': 'before', 'docs/other.md': 'before' };
+      draft.baseline = { 'docs/head.md': 'dirty-before', 'docs/clean.md': hash('docs/clean.md') };
+    });
+    const plan = planCommit(root, readRun(root)!);
+    expect(plan.include).toEqual([
+      '.paqad/onboarding/choices.jsonl',
+      'docs/clean.md',
+      'docs/new.md',
+    ]);
+    expect(Object.fromEntries(plan.left_out.map((item) => [item.path, item.reason]))).toEqual({
+      '.claude/settings.local.json': 'local allow list, never committed',
+      '../escape.md': 'outside the files onboarding may commit',
+      'docs/deploy.pem': 'looks like a secret',
+      'docs/gone.md': 'no longer exists',
+      'docs/kept.md': KEPT_FOR_REVIEW,
+      'docs/head.md': 'already had changes before onboarding started',
+      'docs/ignored.md': 'git-ignored',
+      'docs/other.md': KEPT_FOR_REVIEW,
+      '.paqad/onboarding/journey.json': 'not written by onboarding',
+    });
+  });
+
+  it('commits from a detached HEAD with the given message, then refuses a second commit', () => {
+    writeFile(root, 'docs/new.md', 'new\n');
+    updateRun(root, (draft) => void (draft.written = { 'docs/new.md': hash('docs/new.md') }));
+    git(root, 'checkout', '-q', '--detach');
+    const record = answerCommit(
+      root,
+      { kind: 'branch', branch: true, message: 'docs(#1): add the paqad onboarding docs' },
+      clockAt(5),
+    );
+    expect(git(root, 'log', '-1', '--format=%s').trim()).toBe(
+      'docs(#1): add the paqad onboarding docs',
+    );
+    expect(record.committed).toEqual(['docs/new.md']);
+    expect(() => answerCommit(root, { kind: 'later' }, clockAt(6))).toThrow(
+      'The onboarding changes are already committed.',
+    );
+  });
+
+  it('goes back to a detached HEAD when the commit fails', () => {
+    writeFile(root, 'docs/new.md', 'new\n');
+    updateRun(root, (draft) => void (draft.written = { 'docs/new.md': hash('docs/new.md') }));
+    const head = git(root, 'rev-parse', 'HEAD').trim();
+    git(root, 'checkout', '-q', '--detach');
+    writeFile(root, '.hooks/pre-commit', '#!/bin/sh\nexit 1\n');
+    chmodSync(join(root, '.hooks/pre-commit'), 0o755);
+    git(root, 'config', 'core.hooksPath', '.hooks');
+    expect(() => answerCommit(root, { kind: 'branch', branch: true }, clockAt(5))).toThrow(
+      `went back to ${head}`,
+    );
+    expect(git(root, 'rev-parse', 'HEAD').trim()).toBe(head);
+    expect(git(root, 'branch', '--list').trim()).toMatch(/HEAD detached/u);
+  });
+
+  it('refuses a message that breaks the team pattern and a commit with nothing onboarding wrote', () => {
+    expect(() =>
+      answerCommit(root, { kind: 'branch', branch: true, message: 'wip' }, clockAt(5)),
+    ).toThrow('Pass --message "<subject>" and --ticket <id>.');
+    expect(() => answerCommit(root, { kind: 'branch', branch: true }, clockAt(5))).toThrow(
+      'There is nothing onboarding wrote that can be committed.',
+    );
+    expect(readRun(root)?.commit).toBeUndefined();
+  });
+
+  it('a degraded Wrap up may still answer later', () => {
+    updateRun(root, (draft) => void (draft.stages.finish = { status: 'degraded' }));
+    expect(answerCommit(root, { kind: 'later' }, clockAt(5)).answer).toBe('later');
   });
 });
