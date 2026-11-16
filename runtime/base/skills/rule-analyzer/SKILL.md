@@ -1,6 +1,6 @@
 ---
 name: rule-analyzer
-description: 'Classifies every rule under docs/instructions/rules as deterministic, heuristic or unverifiable, embeds stable RL-hash markers, spots rules already enforced by existing tools and rule conflicts, and writes a draft rule-script-map.yml through src/rule-scripts/apply.ts. Use when the user asks to analyze rules, after several rule edits, or before generating rule scripts on a fresh project.'
+description: Classifies every rule under docs/instructions/rules as deterministic, heuristic or unverifiable, embeds stable RL-hash markers, spots rules already enforced by existing tools and rule conflicts, and writes a draft rule-script-map.yml through src/rule-scripts/apply.ts. Use when the user asks to analyze rules, asks whether any rules contradict each other or wants conflicting rules found and flagged, asks which rules a linter or tsconfig already enforces, after several rule edits, or before generating rule scripts on a fresh project.
 metadata:
   model_tier: medium
   cacheable: 'false'
