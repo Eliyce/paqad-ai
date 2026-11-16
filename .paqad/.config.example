@@ -1,5 +1,5 @@
 # paqad framework configuration — catalog of every knob (.paqad/.config.example)
-# catalog_version: 2
+# catalog_version: 3
 #
 # The reference for personal overrides: every setting, with its default, a one-line
 # explanation and its PAQAD_* env equivalent, grouped by its team YAML file. This
@@ -40,8 +40,8 @@
 # Plays a short chime in the Claude Code plugin once each verdict lands. (env: PAQAD_HUD_CHIME)
 # hud_chime=false
 # paqad.yaml: claude_code.plugin_migration
-# Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. (env: PAQAD_PLUGIN_MIGRATION)
-# plugin_migration=off
+# Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. On by default; set claude_install_mode=settings to stay on npm. (env: PAQAD_PLUGIN_MIGRATION)
+# plugin_migration=on
 # paqad.yaml: claude_code.install_mode
 # How this project installs paqad into Claude Code, where auto follows the plugin migration switch, plugin forces the plugin and settings keeps the npm hooks. (env: PAQAD_CLAUDE_INSTALL_MODE)
 # claude_install_mode=auto
