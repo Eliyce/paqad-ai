@@ -16,6 +16,7 @@ import {
 } from '@/hud/change-scope.js';
 import { hudVerdictPath } from '@/hud/files.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { readSessionControl, writeSessionControl } from '@/feature-evidence/session-control.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 
 import {
@@ -508,5 +509,25 @@ describe('the HUD reads saved files only', () => {
     expect(reader).not.toMatch(network);
     expect(reader.match(/execFileSync\('[^']+'/g)).toEqual(["execFileSync('git'"]);
     expect(reader).toContain('timeout: GIT_READ_TIMEOUT_MS');
+  });
+});
+
+describe('an adopted change this session never wrote in (B5 adoption effect)', () => {
+  it('AC-16: reads as no-change-yet (Getting ready), never no-row-this-episode', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, 'ses-owner');
+    runStage(root, 'ses-owner', 'planning');
+    writeSessionControl(root, { ...readSessionControl(root, S), active: dir });
+    setRoute(root, S, 'feature-development', later().toISOString());
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S).reason).toBe('no-change-yet');
+  });
+
+  it('AC-16: a change this session wrote in before the episode still reads no-row-this-episode', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
   });
 });

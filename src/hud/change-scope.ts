@@ -73,7 +73,11 @@ export function qualifyHudChange(
     !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
     !stageStillRunning(projectRoot, dir)
   ) {
-    return { dir: null, reason: 'no-row-this-episode' };
+    // A change this session adopted and never wrote a row in is not "hidden this episode": it
+    // reads as Getting ready, so a new feature turn never draws nothing (B5 adoption effect).
+    return sessionWroteInEpisode(projectRoot, sessionId, dir, null)
+      ? { dir: null, reason: 'no-row-this-episode' }
+      : { dir: null, reason: 'no-change-yet' };
   }
   return { dir, reason: 'qualified' };
 }
