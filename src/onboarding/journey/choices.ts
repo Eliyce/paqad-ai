@@ -56,3 +56,11 @@ export function unreviewedAutoDecisionIds(projectRoot: string): Set<string> {
   }
   return ids;
 }
+
+export function reviewedAutoDecisionIds(projectRoot: string): Set<string> {
+  const ids = new Set<string>();
+  for (const row of readChoices(projectRoot)) {
+    if (row.by === AUTO_RESPONDER && row.decision_id && row.reviewed) ids.add(row.decision_id);
+  }
+  return ids;
+}

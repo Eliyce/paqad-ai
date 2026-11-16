@@ -12,6 +12,7 @@ import {
   startRun,
   startStage,
 } from '@/onboarding/journey/actions.js';
+import { autoDecide } from '@/onboarding/journey/auto-decide.js';
 import { nextStep } from '@/onboarding/journey/briefs.js';
 import { appendChoice, markChoicesReviewed, readChoices } from '@/onboarding/journey/choices.js';
 import { chooseStack, detectProject } from '@/onboarding/journey/detect.js';
@@ -339,6 +340,24 @@ function addNext(command: Command): void {
   );
 }
 
+function addDecide(command: Command): void {
+  rootOption(
+    command
+      .command('decide')
+      .description('Answer a decision the journey opened with its recommended option')
+      .argument('<id>'),
+  ).action((id: string, options: RootOptions) =>
+    runVerb(options.projectRoot, () => {
+      const decided = autoDecide(options.projectRoot, id, now);
+      emit(
+        options,
+        decided,
+        `**▸ paqad** · ${id} answered with ${decided.chosen_option_key} (recorded as ${decided.choice.id}).`,
+      );
+    }),
+  );
+}
+
 function addStatus(command: Command): void {
   rootOption(command.command('status').description('Show where the journey is')).action(
     (options: RootOptions) =>
@@ -429,6 +448,7 @@ export function createOnboardingCommand(): Command {
   addStage(command);
   addUnit(command);
   addProgress(command);
+  addDecide(command);
   addStatus(command);
   addChoices(command);
   addResume(command);
