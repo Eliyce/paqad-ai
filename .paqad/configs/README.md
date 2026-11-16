@@ -50,6 +50,7 @@ overrides everything. Both accept the values below as well as the older values.
 | `updates.minimum_version` | `latest` | text | The lowest paqad version this project runs on, where latest always tracks the newest version. | `minimum_version` | `PAQAD_MINIMUM_VERSION` |
 | `updates.check_every_hours` | `12` | a number | How many hours pass between background checks for a newer paqad version. | `version_check_interval_hours` | `PAQAD_VERSION_CHECK_INTERVAL_HOURS` |
 | `site_map.enabled` | `false` | true \| false | Keeps a checked map of the app's screens and user journeys under docs/site-map/ for coding projects. | `site_map` | `PAQAD_SITE_MAP` |
+| `rules_discovery.private_packages` | `[]` | a list | Package names or patterns (use * for any text) that rules discovery treats as private and never looks up on the web. | `rules_discovery_private_packages` | `PAQAD_RULES_DISCOVERY_PRIVATE_PACKAGES` |
 | `hud.band` | `true` | true \| false | Shows the paqad status band above the prompt in the Claude Code plugin, along with the /paqad command. | `hud_view` | `PAQAD_HUD_VIEW` |
 | `hud.chime` | `false` | true \| false | Plays a short chime in the Claude Code plugin once each verdict lands. | `hud_chime` | `PAQAD_HUD_CHIME` |
 | `claude_code.plugin_migration` | `off` | on \| off | Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. | `plugin_migration` | `PAQAD_PLUGIN_MIGRATION` |
