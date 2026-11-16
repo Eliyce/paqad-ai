@@ -16,6 +16,7 @@ export interface ScriptEntry {
   scope: ScriptScope;
   last_validated_at: string;
   fixtures_passed: boolean;
+  warn_until_reviewed?: boolean;
 }
 
 export interface RuleEntry {

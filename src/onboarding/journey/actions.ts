@@ -10,6 +10,7 @@ import { foldJourney, foldStage } from './fold.js';
 import { readModuleUnits } from './modules.js';
 import { fileSha256 } from './preflight.js';
 import { checkEndGate, checkStartGate } from './proof.js';
+import { flagJourneyRuleChecks, ruleIds } from './rule-checks.js';
 import { createRun, emptyStages, readRun, requireRun, updateRun } from './run-store.js';
 import { MODULE_REGISTRIES_UNIT, PROJECT_DOC_AREAS, stageDefinition } from './stages.js';
 import type { JourneyRun, StageId } from './types.js';
@@ -105,6 +106,7 @@ export function startStage(
         ...(input.planned !== undefined ? { planned: input.planned } : {}),
       };
       draft.status = 'running';
+      if (stage === 'rules_discovery') draft.rules_before = ruleIds(projectRoot);
     },
     { expectedRevision: run.revision, now },
   );
@@ -126,9 +128,23 @@ export function endStage(
   );
   if (!gate.ok) throw new JourneyRefusal(gate.message);
   const at = now().toISOString();
+  const flagged =
+    stage === 'rule_scripts' ? flagJourneyRuleChecks(projectRoot, run.rules_before ?? []) : [];
+  if (flagged.length > 0) {
+    appendChoice(projectRoot, {
+      ts: at,
+      run_id: run.run_id,
+      stage,
+      kind: 'rule_checks_warn_only',
+      choice: flagged.join(', '),
+      reason: 'checks for rules the journey added only warn until a person reviews them',
+      by: 'paqad-onboarding',
+    });
+  }
   const saved = updateRun(
     projectRoot,
     (draft) => {
+      if (flagged.length > 0) draft.rule_checks_flagged = flagged;
       draft.stages[stage] = {
         ...draft.stages[stage],
         status: gate.degraded.length > 0 ? 'degraded' : 'done',

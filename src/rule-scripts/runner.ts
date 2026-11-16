@@ -29,6 +29,7 @@ export interface ScriptRunResult {
   findings: Finding[];
   skipped?: string;
   warning?: string;
+  warn_until_reviewed?: boolean;
 }
 
 export interface RunFilter {
@@ -261,6 +262,7 @@ function resultFor(job: ScriptJob, run: ExecuteResult): ScriptRunResult {
     kind: job.script.kind,
     findings: run.report?.findings ?? [],
     ...(run.warning ? { warning: run.warning } : {}),
+    ...(job.script.warn_until_reviewed ? { warn_until_reviewed: true } : {}),
   };
 }
 
@@ -272,6 +274,9 @@ function finishRun(opts: RunOptions, prepared: PreparedRun, results: ScriptRunRe
     .filter((r) => r.kind === 'heuristic' && !r.skipped)
     .reduce((n, r) => n + r.findings.length, 0);
   const skipped = results.filter((r) => r.skipped).length;
+  const blockingFindings = results
+    .filter((r) => r.kind === 'deterministic' && !r.skipped && !r.warn_until_reviewed)
+    .reduce((n, r) => n + r.findings.length, 0);
 
   const report: RunReport = {
     generated_at: prepared.now,
@@ -282,7 +287,7 @@ function finishRun(opts: RunOptions, prepared: PreparedRun, results: ScriptRunRe
     ...(prepared.filter ? { filter: prepared.filter } : {}),
     results,
     counts: { deterministic, heuristic, skipped },
-    blocking: opts.mode === 'strict' && deterministic > 0,
+    blocking: opts.mode === 'strict' && blockingFindings > 0,
   };
 
   writeReport(opts.projectRoot, prepared.reportFile, report);

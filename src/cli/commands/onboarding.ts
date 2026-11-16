@@ -14,11 +14,12 @@ import {
 } from '@/onboarding/journey/actions.js';
 import { autoDecide } from '@/onboarding/journey/auto-decide.js';
 import { nextStep } from '@/onboarding/journey/briefs.js';
-import { appendChoice, markChoicesReviewed, readChoices } from '@/onboarding/journey/choices.js';
+import { appendChoice, readChoices } from '@/onboarding/journey/choices.js';
 import { chooseStack, detectProject } from '@/onboarding/journey/detect.js';
 import { JourneyRefusal } from '@/onboarding/journey/errors.js';
 import { writeAllowList } from '@/onboarding/journey/permissions.js';
 import { runPreflight } from '@/onboarding/journey/preflight.js';
+import { reviewChoices } from '@/onboarding/journey/rule-checks.js';
 import { applySetupStage } from '@/onboarding/journey/setup.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { requireRun, updateRun } from '@/onboarding/journey/run-store.js';
@@ -381,7 +382,7 @@ function addChoices(command: Command): void {
             options.review === true || options.review === 'all'
               ? 'all'
               : list(String(options.review));
-          const marked = markChoicesReviewed(root, ids, now);
+          const marked = reviewChoices(root, ids, now);
           emit(options, marked, `**▸ paqad** · Marked ${marked.length} choice(s) reviewed.`);
           return;
         }

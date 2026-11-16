@@ -85,6 +85,8 @@ export interface JourneyRun {
   stages: Record<StageId, StageRecord>;
   written: Record<string, string>;
   setup_hashes: Record<string, string>;
+  rules_before?: string[];
+  rule_checks_flagged?: string[];
   baseline: Record<string, string | null>;
   detection?: DetectionRecord;
   setup?: SetupRecord;
