@@ -76,12 +76,12 @@ function proveSetup(ctx: ProofContext): ProofItem[] {
   return [
     item(
       'setup_result',
-      fresh && (setup?.generated_files.length ?? 0) > 0,
+      fresh && setup.generated_files.length > 0,
       'Run `onboarding setup` in this run.',
     ),
     item(
       'no_step_failures',
-      fresh && (setup?.step_failures.length ?? 1) === 0,
+      fresh && setup.step_failures.length === 0,
       'Setup reported failed steps; run `onboarding setup --compile-only` after fixing them.',
     ),
     item(
@@ -150,7 +150,7 @@ function latestDiscoveryRunId(ctx: ProofContext): string | null {
     const read = readDiscoveryRun(ctx.projectRoot, id);
     return read.state === 'ok' && read.record.updated_at >= since;
   });
-  return fresh.length === 0 ? null : (fresh[fresh.length - 1] ?? null);
+  return fresh.at(-1) ?? null;
 }
 
 function proveRulesDiscovery(ctx: ProofContext): ProofItem[] {
