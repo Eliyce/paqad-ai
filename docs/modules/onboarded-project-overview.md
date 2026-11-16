@@ -80,7 +80,7 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
 
 On Claude Code, onboarding also writes team files the lead commits: a portable
 `.claude/settings.json` (plugin marketplace keys plus hooks that run `.paqad/hook.mjs`), the
-launcher itself and the 8 stage agents. A teammate or a cloud session that clones the repo then gets
+launcher itself and the 13 paqad agents. A teammate or a cloud session that clones the repo then gets
 the same stages and checks with no command to run; the launcher uses the installed plugin, the npm
 install, or a copy it fetches once into `~/.paqad-ai/team-plugin`. `team_bootstrap_enabled=false`
 turns this off.

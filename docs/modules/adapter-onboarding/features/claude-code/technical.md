@@ -153,14 +153,14 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
   onboard and update both call, against the real project root: the team keys in
   `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
-  `runtime/templates/team-bootstrap/hook.mjs`, and the 8 stage agents in `.claude/agents/paqad-*.md`
+  `runtime/templates/team-bootstrap/hook.mjs`, and the 13 paqad agents (6 stage, 2 High Table, 5 onboarding) in `.claude/agents/paqad-*.md`
   with the managed marker. It runs whether or not the plugin is installed on the lead's machine.
 - **Where stage agents come from.** paqad's Claude Code stage and High Table agents ship in
   `runtime/claude-plugin/agents/*.md`, generated from `src/stage-isolation/stage-agents.ts` by
   `node scripts/build-plugin-manifest.mjs` and checked for drift in CI; never hand-edit them. The
   user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
   npm-only users keep their stage agents. Codex keeps its written agents. With team setup on, the
-  repo also commits the 8 agents in `.claude/agents/`, because a Claude Code cloud session loads no
+  repo also commits the 13 agents in `.claude/agents/`, because a Claude Code cloud session loads no
   plugin but does load committed agent files. A laptop with the plugin then lists both
   `paqad:paqad-<name>` and `paqad-<name>`; the orchestrator dispatches the first and falls back to
   the second. The plugin counts as installed only when `pluginLoadState`
