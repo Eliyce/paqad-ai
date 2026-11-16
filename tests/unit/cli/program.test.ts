@@ -38,6 +38,8 @@ describe('createProgram', () => {
       'module-map',
       'onboard',
       'onboarding',
+      'security-review',
+      'design-review',
       'new',
       'setup',
       'join',
