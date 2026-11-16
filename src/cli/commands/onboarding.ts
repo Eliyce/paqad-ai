@@ -100,7 +100,7 @@ function rootOption(command: Command): Command {
 }
 
 interface StartOptions extends RootOptions {
-  providers?: string;
+  providers: string;
   session?: string;
   allowList: string;
   asked?: boolean;
@@ -130,7 +130,7 @@ async function startVerb(options: StartOptions): Promise<void> {
   const run = startRun(
     root,
     {
-      providers: list(options.providers ?? 'claude-code'),
+      providers: list(options.providers),
       session,
       allowList,
       asked: options.fromTray ? 'tray' : 'agent-attested',
