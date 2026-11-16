@@ -23,6 +23,7 @@ import {
   isSyncedRoot,
   managedPolicyBlockReason,
   maybeMigrateToPlugin,
+  MIN_CLAUDE_VERSION,
   type MigrationDeps,
   type MigrationRecord,
   migrationLockDir,
@@ -46,6 +47,8 @@ import {
   versionAtLeast,
   writeMigrationState,
 } from '@/install/plugin-migration.js';
+
+import { MIN_ENGINE } from '../../../runtime/claude-plugin/mod/config.ts';
 
 let home: string;
 let projectRoot: string;
@@ -73,7 +76,7 @@ function baseDeps(over: Partial<MigrationDeps> = {}): MigrationDeps {
     home,
     now: () => new Date('2026-10-17T12:00:00Z'),
     version: '1.96.1',
-    claudeVersion: () => '2.1.300',
+    claudeVersion: () => '2.1.301',
     runClaudeInstall: () => ({ ok: true }),
     bundledClaude: () => null,
     managedSettingsPaths: [],
@@ -602,7 +605,7 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     const runClaudeInstall = vi.fn(() => ({ ok: true }));
     const r = maybeMigrateToPlugin(
       projectRoot,
-      baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall }),
+      baseDeps({ claudeVersion: () => '2.1.301', runClaudeInstall }),
     );
     expect(r).toMatchObject({ state: 'installed', path: 'cli' });
     expect(runClaudeInstall).toHaveBeenCalledOnce();
@@ -629,7 +632,7 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
     const before = readFileSync(userSettings(), 'utf8');
     const runClaudeInstall = vi.fn(() => ({ ok: true }));
-    const deps = baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall });
+    const deps = baseDeps({ claudeVersion: () => '2.1.301', runClaudeInstall });
     expect(maybeMigrateToPlugin(projectRoot, deps)).toMatchObject({
       state: 'declined',
       reason: 'user-opted-out',
@@ -712,7 +715,7 @@ describe('runClaudePluginInstall (Path A, B2)', () => {
 describe('maybeMigrateToPlugin — Path A result is checked (B2)', () => {
   function pathADeps(exec: ClaudeExec, log: (m: string) => void): MigrationDeps {
     return baseDeps({
-      claudeVersion: () => '2.1.300',
+      claudeVersion: () => '2.1.301',
       runClaudeInstall: (h, env) => runClaudePluginInstall(h, env, exec, log),
       log,
     });
@@ -1126,7 +1129,7 @@ describe('automatic rollback is retryable (B3)', () => {
     });
     const r = maybeMigrateToPlugin(
       projectRoot,
-      baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall }),
+      baseDeps({ claudeVersion: () => '2.1.301', runClaudeInstall }),
     );
     expect(r).toMatchObject({ state: 'installed', path: 'cli' });
     expect(runClaudeInstall).toHaveBeenCalledOnce();
@@ -1881,5 +1884,129 @@ describe('sessions before Claude Code installs the plugin do not count', () => {
     expect(doctorLine(home, projectRoot, {})).toBe(
       'npm (moving to the plugin: waiting for the plugin to load in a new session)',
     );
+  });
+});
+
+describe('team repos get the user-scope install, every opt-out still holds (AC-2, AC-3, AC-4)', () => {
+  function projectSettings(file: 'settings.json' | 'settings.local.json', on: boolean): void {
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude', file),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': on } }),
+    );
+  }
+
+  it('AC-2: a team repo that turns the plugin on gets the user-scope install', () => {
+    manifestClaudeCode();
+    projectSettings('settings.json', true);
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ runClaudeInstall }));
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(runClaudeInstall).toHaveBeenCalledOnce();
+    expect(readMigrationState(home)?.reason).not.toBe('project-turns-plugin-on');
+  });
+
+  it('AC-2: an older project-turns-plugin-on skip retries at once', () => {
+    manifestClaudeCode();
+    projectSettings('settings.json', true);
+    writeMigrationState(home, {
+      state: 'skipped',
+      reason: 'project-turns-plugin-on',
+      attempts: 0,
+      version: '1.96.0',
+      last_attempt_at: '2026-10-17T11:59:00Z',
+    });
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(r.state).toBe('installed');
+  });
+
+  it('AC-6: the plugin already installed at user scope is a no-op install', () => {
+    manifestClaudeCode();
+    projectSettings('settings.json', true);
+    mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+    writeFileSync(
+      join(home, '.claude', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'paqad@eliyce': [{ scope: 'user' }] } }),
+    );
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    maybeMigrateToPlugin(projectRoot, baseDeps({ runClaudeInstall }));
+    expect(runClaudeInstall).not.toHaveBeenCalled();
+  });
+
+  const optOuts: {
+    name: string;
+    reason: string;
+    env?: NodeJS.ProcessEnv;
+    setup?: () => void;
+    policy?: boolean;
+  }[] = [
+    {
+      name: 'user enabledPlugins false',
+      reason: 'user-opted-out',
+      setup: () => {
+        mkdirSync(join(home, '.claude'), { recursive: true });
+        writeFileSync(
+          join(home, '.claude', 'settings.json'),
+          JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }),
+        );
+      },
+    },
+    {
+      name: 'settings.local.json false',
+      reason: 'local-opted-out',
+      setup: () => projectSettings('settings.local.json', false),
+    },
+    {
+      name: 'claude_install_mode=settings',
+      reason: 'install-mode-settings',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on', PAQAD_CLAUDE_INSTALL_MODE: 'settings' },
+    },
+    { name: 'managed policy', reason: 'managed-policy', policy: true },
+    { name: 'CI', reason: 'ci-or-headless', env: { PAQAD_PLUGIN_MIGRATION: 'on', CI: '1' } },
+    {
+      name: 'cloud session',
+      reason: 'cloud-session',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on', CLAUDE_CODE_REMOTE: 'true' },
+    },
+  ];
+
+  it.each(optOuts)('AC-3: $name spawns no install and records $reason', (row) => {
+    manifestClaudeCode();
+    projectSettings('settings.json', true);
+    row.setup?.();
+    const managedSettingsPaths: string[] = [];
+    if (row.policy) {
+      const policy = join(home, 'managed-settings.json');
+      writeFileSync(policy, JSON.stringify({ disableAllHooks: true }));
+      managedSettingsPaths.push(policy);
+    }
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({
+        runClaudeInstall,
+        managedSettingsPaths,
+        ...(row.env ? { env: row.env } : {}),
+      }),
+    );
+    expect(runClaudeInstall).not.toHaveBeenCalled();
+    expect(r.reason).toBe(row.reason);
+    expect(readMigrationState(home)?.reason).toBe(row.reason);
+  });
+
+  it('AC-4: Claude Code 2.1.300 skips below the minimum and 2.1.301 installs', () => {
+    manifestClaudeCode();
+    const old = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ claudeVersion: () => '2.1.300', bundledClaude: () => null }),
+    );
+    expect(old.reason).toBe('claude-too-old:2.1.300');
+    rmSync(migrationStatePath(home), { force: true });
+    const ok = maybeMigrateToPlugin(projectRoot, baseDeps({ claudeVersion: () => '2.1.301' }));
+    expect(ok.state).toBe('installed');
+  });
+
+  it('AC-4: the migration minimum equals the HUD mod MIN_ENGINE', () => {
+    expect(MIN_CLAUDE_VERSION).toBe(MIN_ENGINE);
   });
 });

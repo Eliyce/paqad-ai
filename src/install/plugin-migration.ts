@@ -43,7 +43,7 @@ const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 180_000;
 const UNINSTALL_TIMEOUT_MS = 120_000;
 
-export const MIN_CLAUDE_VERSION = '2.1.295';
+export const MIN_CLAUDE_VERSION = '2.1.301';
 
 export type MigrationState =
   'pending' | 'installed' | 'done' | 'failed' | 'rolled-back' | 'declined' | 'skipped';
@@ -157,6 +157,16 @@ export function isSyncedRoot(root: string | undefined): boolean {
 
 export function isPluginPresent(home: string): boolean {
   return isPluginInstalledRecord(home) || readPluginSeen(home) !== null;
+}
+
+function isPluginPresentForUser(home: string): boolean {
+  const entries = installedPluginEntries(join(home, '.claude'));
+  if (entries.length > 0 && !entries.some(isUserScopeEntry)) return readPluginSeenSynced(home);
+  return isPluginPresent(home);
+}
+
+function readPluginSeenSynced(home: string): boolean {
+  return isSyncedRoot(readPluginSeen(home)?.root);
 }
 
 function isPluginInstalledRecord(home: string): boolean {
@@ -274,6 +284,7 @@ const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'install-mode-settings',
   'no-claude-code-provider',
   'ci-or-headless',
+  'cloud-session',
   PROJECT_TURNS_PLUGIN_ON_REASON,
 ]);
 
@@ -365,7 +376,7 @@ export function undoViaSettings(home: string): void {
 
 export { versionAtLeast };
 
-interface ResolvedDeps {
+export interface ResolvedDeps {
   env: NodeJS.ProcessEnv;
   home: string;
   now: () => Date;
@@ -485,27 +496,10 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
     return { state: installed.state, path: installed.path, reason: installed.reason };
   }
 
-  const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
-
-  if (cfg.install_mode === 'settings') {
-    return record(deps, prior, { state: 'skipped', reason: 'install-mode-settings' });
-  }
-  if (cfg.migration !== 'on' && cfg.install_mode !== 'plugin') {
-    return record(deps, prior, { state: 'skipped', reason: 'migration-off' });
-  }
-  if (!projectTargetsClaudeCode(projectRoot)) {
-    return record(deps, prior, { state: 'skipped', reason: 'no-claude-code-provider' });
-  }
-  if (projectTurnsPluginOn(projectRoot)) {
-    if (prior?.reason !== PROJECT_TURNS_PLUGIN_ON_REASON) {
-      deps.log(
-        'this project turns the plugin on in .claude/settings.json; user-scope move not needed',
-      );
-    }
-    return record(deps, prior, { state: 'skipped', reason: PROJECT_TURNS_PLUGIN_ON_REASON });
-  }
-  if (isCiOrHeadless(deps.env)) {
-    return record(deps, prior, { state: 'skipped', reason: 'ci-or-headless' });
+  const optOut = migrationOptOut(projectRoot, deps);
+  if (optOut !== null) {
+    if (optOut.state === 'declined') deps.log(`plugin turned off (${optOut.reason}); not installing`);
+    return record(deps, prior, optOut);
   }
   if (!retryAllowed(prior, deps.now())) {
     return { state: prior?.state ?? 'skipped', reason: 'retry-not-due' };
@@ -518,7 +512,7 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
       attempts: (prior?.attempts ?? 0) + 1,
     });
   }
-  if (isPluginPresent(deps.home)) {
+  if (isPluginPresentForUser(deps.home)) {
     return recordPresentPlugin(deps, prior);
   }
   if (!acquireLock(deps.home)) {
@@ -529,6 +523,33 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   } finally {
     releaseLock(deps.home);
   }
+}
+
+export interface MigrationOptOut {
+  state: 'declined' | 'skipped';
+  reason: string;
+}
+
+export function migrationOptOut(projectRoot: string, deps: ResolvedDeps): MigrationOptOut | null {
+  if (userDisabledPlugin(deps.home)) return { state: 'declined', reason: 'user-opted-out' };
+  if (pluginOptedOutLocally(projectRoot)) return { state: 'declined', reason: 'local-opted-out' };
+  const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
+  if (cfg.install_mode === 'settings') return { state: 'skipped', reason: 'install-mode-settings' };
+  if (cfg.migration !== 'on' && cfg.install_mode !== 'plugin') {
+    return { state: 'skipped', reason: 'migration-off' };
+  }
+  if (!projectTargetsClaudeCode(projectRoot)) {
+    return { state: 'skipped', reason: 'no-claude-code-provider' };
+  }
+  if (isCiOrHeadless(deps.env)) return { state: 'skipped', reason: 'ci-or-headless' };
+  if (isCloudSession(deps.env)) return { state: 'skipped', reason: CLOUD_SESSION_REASON };
+  return null;
+}
+
+const CLOUD_SESSION_REASON = 'cloud-session';
+
+function isCloudSession(env: NodeJS.ProcessEnv): boolean {
+  return env.CLAUDE_CODE_REMOTE?.trim().toLowerCase() === 'true';
 }
 
 function recordPresentPlugin(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {

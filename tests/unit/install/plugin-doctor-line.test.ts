@@ -192,7 +192,7 @@ describe('the Claude Code install line says what is installed', () => {
       env: { PAQAD_PLUGIN_MIGRATION: 'on' },
       home,
       now: () => new Date('2026-10-17T12:00:00Z'),
-      claudeVersion: () => '2.1.300',
+      claudeVersion: () => '2.1.301',
       runClaudeInstall: () => ({ ok: false, reason: 'cli-install-failed:exit' }),
       managedSettingsPaths: [],
       log: () => {},
