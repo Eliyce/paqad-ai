@@ -329,3 +329,57 @@ describe('plugin rollback with no claude to run', () => {
     ).toContain('paqad could not turn the plugin off.');
   });
 });
+
+describe('AC-31: the doctor reads the plugin version entry that applies to this repo (#827)', () => {
+  function entryFor(version: string, scope: string, projectPath?: string) {
+    return { scope, installPath: pluginRoot(version), ...(projectPath ? { projectPath } : {}) };
+  }
+
+  it('AC-31: passes on this repo current project entry and ignores another repo older entry', () => {
+    const other = mkdtempSync(join(tmpdir(), 'paqad-doctor-other-'));
+    writeInstalledPlugins({
+      version: 2,
+      plugins: {
+        'paqad@eliyce': [
+          entryFor('1.90.0', 'project', other),
+          entryFor('1.99.4', 'local', projectRoot),
+        ],
+      },
+    });
+    expect(readInstalledPluginVersion(home, {}, projectRoot)).toBe('1.99.4');
+    const result = describeClaudeInstall(
+      home,
+      projectRoot,
+      {},
+      {
+        managedSettingsPaths: [],
+        cliEntry: PLUGIN_CLI,
+        version: '1.99.4',
+      },
+    );
+    expect(result.level).toBe('pass');
+    expect(result.detail).toContain('plugin v1.99.4');
+    rmSync(other, { recursive: true, force: true });
+  });
+
+  it('AC-31: shows the user entry version when only a user entry exists', () => {
+    writeInstalledPlugins({
+      version: 2,
+      plugins: { 'paqad@eliyce': [entryFor('1.98.0', 'user')] },
+    });
+    expect(readInstalledPluginVersion(home, {}, projectRoot)).toBe('1.98.0');
+  });
+
+  it('AC-31: shows no version when only another repo has an entry', () => {
+    const other = mkdtempSync(join(tmpdir(), 'paqad-doctor-other-'));
+    writeInstalledPlugins({
+      version: 2,
+      plugins: { 'paqad@eliyce': [entryFor('1.90.0', 'project', other)] },
+    });
+    const copy = join(home, '.claude', 'plugins', 'data', 'paqad-eliyce', 'runtime');
+    mkdirSync(copy, { recursive: true });
+    writeFileSync(join(copy, 'version'), '1.90.0\n');
+    expect(readInstalledPluginVersion(home, {}, projectRoot)).toBeNull();
+    rmSync(other, { recursive: true, force: true });
+  });
+});

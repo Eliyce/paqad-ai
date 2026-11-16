@@ -50,7 +50,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function canonicalRoot(path: string): string {
+export function canonicalRoot(path: string): string {
   let full: string;
   try {
     full = realpathSync.native(path);
@@ -65,17 +65,24 @@ function claudeConfigDir(env: NodeJS.ProcessEnv, home: string): string {
   return env.CLAUDE_CONFIG_DIR || join(home, '.claude');
 }
 
-function entryLoadsHere(entry: unknown, projectRoot: string | null): boolean {
+export type EntryScopeMatch = 'this-project' | 'user' | 'elsewhere';
+
+export function entryScopeMatch(entry: unknown, projectRoot: string | null): EntryScopeMatch {
+  if (!isRecord(entry)) return 'elsewhere';
+  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
+  if (scope !== 'project' && scope !== 'local') return 'user';
+  return projectRoot !== null &&
+    typeof entry.projectPath === 'string' &&
+    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
+    ? 'this-project'
+    : 'elsewhere';
+}
+
+export function entryLoadsHere(entry: unknown, projectRoot: string | null): boolean {
   if (!isRecord(entry)) return false;
   const path = entry.installPath;
   if (typeof path !== 'string' || path.trim() === '' || !existsSync(path)) return false;
-  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
-  if (scope !== 'project' && scope !== 'local') return true;
-  return (
-    projectRoot !== null &&
-    typeof entry.projectPath === 'string' &&
-    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
-  );
+  return entryScopeMatch(entry, projectRoot) !== 'elsewhere';
 }
 
 function pluginSwitchedOn(

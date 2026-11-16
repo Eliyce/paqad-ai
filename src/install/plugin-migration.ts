@@ -21,6 +21,7 @@ import { VERSION } from '@/index.js';
 
 import {
   classifyFrameworkCopy,
+  entryScopeMatch,
   PLUGIN_ID,
   pluginLoadState,
   pluginOptedOutLocally,
@@ -980,7 +981,7 @@ export function describeClaudeInstall(
     projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
   const installedRecord = isPluginInstalledRecord(home);
   if (installedRecord && !userDisabledPlugin(home) && !hasNpmCopy(home, env, options)) {
-    return withPluginVersion('plugin', home, env, options);
+    return withPluginVersion('plugin', home, env, options, projectRoot);
   }
   if (
     isSyncedRoot(readPluginSeen(home)?.root) ||
@@ -993,7 +994,7 @@ export function describeClaudeInstall(
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
     const detail = `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix()}`;
     return installedRecord
-      ? withPluginVersion(detail, home, env, options)
+      ? withPluginVersion(detail, home, env, options, projectRoot)
       : { detail, level: 'pass' };
   }
   if (record.state === 'installed') {
@@ -1020,7 +1021,7 @@ function describeProjectPlugin(
   if (pluginLoadState(projectRoot, { env, home }) !== 'live') {
     return { detail: PROJECT_PLUGIN_WAITING_DETAIL, level: 'pass' };
   }
-  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options);
+  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options, projectRoot);
   if (line.level === 'warning' || !userDisabledPlugin(home)) return line;
   return { ...line, level: 'warning', remediation: USER_SWITCH_OVERRIDDEN_FIX };
 }
@@ -1052,8 +1053,9 @@ function withPluginVersion(
   home: string,
   env: NodeJS.ProcessEnv,
   options: ClaudeInstallLineOptions,
+  projectRoot?: string,
 ): ClaudeInstallLine {
-  const plugin = readInstalledPluginVersion(home, env);
+  const plugin = readInstalledPluginVersion(home, env, projectRoot);
   if (plugin === null) return { detail, level: 'pass' };
   const own = options.version ?? VERSION;
   const line = `${detail}; plugin v${plugin}, paqad-ai v${own}`;
@@ -1062,12 +1064,28 @@ function withPluginVersion(
     : { detail: line, level: 'warning', remediation: VERSION_MISMATCH_FIX };
 }
 
+/** The entry Claude Code would load in this repo: this repo's local/project entry, else the
+ *  user entry. Entries written for other repos never apply here (#827). */
+function entriesThatApplyHere(
+  entries: Record<string, unknown>[],
+  projectRoot: string | undefined,
+): Record<string, unknown>[] {
+  const root = projectRoot ?? null;
+  const here = entries.filter((entry) => entryScopeMatch(entry, root) === 'this-project');
+  const user = entries.filter((entry) => entryScopeMatch(entry, root) === 'user');
+  return [...here, ...user];
+}
+
 export function readInstalledPluginVersion(
   home: string,
   env: NodeJS.ProcessEnv = process.env,
+  projectRoot?: string,
 ): string | null {
   const configDir = claudeConfigDir(home, env);
-  for (const entry of installedPluginEntries(configDir)) {
+  const entries = installedPluginEntries(configDir);
+  const applying = entriesThatApplyHere(entries, projectRoot);
+  if (entries.length > 0 && applying.length === 0) return null;
+  for (const entry of applying) {
     const installPath = typeof entry.installPath === 'string' ? entry.installPath : null;
     const fromRoot = installPath === null ? null : readPackageVersion(installPath);
     if (fromRoot !== null) return fromRoot;
