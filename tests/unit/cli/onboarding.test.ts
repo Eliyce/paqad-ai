@@ -3,11 +3,18 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ONBOARDING_VERBS, createOnboardingCommand } from '../../../src/cli/commands/onboarding.js';
+import {
+  ONBOARDING_VERBS,
+  createOnboardingCommand,
+  runVerb,
+} from '../../../src/cli/commands/onboarding.js';
+import { Detector } from '../../../src/detection/detector.js';
+import { fileSha256 } from '../../../src/onboarding/journey/preflight.js';
 import { readChoices } from '../../../src/onboarding/journey/choices.js';
 import { readEvents } from '../../../src/onboarding/journey/events.js';
 import { readRun, updateRun } from '../../../src/onboarding/journey/run-store.js';
 
+import { git, gitRepo } from '../onboarding/journey/fixtures/git.js';
 import { moduleMap, tempRoot, writeFile } from '../onboarding/journey/fixtures/journey.js';
 
 describe('paqad-ai onboarding verbs', () => {
@@ -253,5 +260,137 @@ describe('paqad-ai onboarding verbs', () => {
     expect(view().uncommitted_note).toContain('paqad-ai onboarding commit --branch');
     const refused = await run('commit');
     expect(refused.code).toBe(1);
+  });
+  it('INV-22: a plain thrown value still reaches the person and the view', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((line: string) => void errors.push(line));
+    await runVerb(root, () => {
+      throw 'the disk is full';
+    });
+    expect(process.exitCode).toBe(1);
+    expect(errors).toEqual(['**▸ paqad** · the disk is full']);
+    expect(view().refusal).toBe('the disk is full');
+  });
+
+  it('AC-5: refuses a step name that is not one of the eight', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    const refused = await run('stage', 'start', 'skip_docs');
+    expect(refused.code).toBe(1);
+    expect(refused.errors.join('\n')).toContain('Unknown step "skip_docs".');
+  });
+
+  it('FR-27: the owner session falls back to the Claude session id, then to unknown', async () => {
+    vi.stubEnv('SE_SESSION', undefined);
+    vi.stubEnv('CLAUDE_SESSION_ID', 'claude-1');
+    await run('start', '--asked', '--allow-list', 'no');
+    expect(readRun(root)?.owner_session).toBe('claude-1');
+    rmSync(join(root, '.paqad'), { recursive: true, force: true });
+    vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+    await run('start', '--asked', '--allow-list', 'no');
+    expect(readRun(root)?.owner_session).toBe('unknown');
+  });
+
+  it('NFR-9: attaching to a journey with every step done says it resumed at the end', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    updateRun(root, (draft) => {
+      for (const id of Object.keys(draft.stages) as Array<keyof typeof draft.stages>) {
+        draft.stages[id] = { status: 'done' };
+      }
+    });
+    const again = await run('start', '--asked', '--allow-list', 'no');
+    expect(again.lines.join('\n')).toContain('resumed it at the end');
+  });
+
+  it('FR-3: detect records a confident stack', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    vi.spyOn(Detector.prototype, 'detect').mockResolvedValue({
+      detected_stack: 'react',
+      confidence: 'high',
+      detected_capabilities: [],
+      signals: [],
+    } as never);
+    const lines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));
+    await createOnboardingCommand().parseAsync(['detect', '--project-root', root], {
+      from: 'user',
+    });
+    expect(lines).toEqual(['**▸ paqad** · Detected react.']);
+    expect(readRun(root)?.detection?.stack).toBe('react');
+  });
+
+  it('records the planned count, an agent claim and a unit, and resumes from the env session', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    markDone('detect', 'setup');
+    await run('stage', 'start', 'project_docs', '--planned', '3');
+    expect(readRun(root)?.stages.project_docs.planned).toBe(3);
+    const claimed = await run('unit', 'project_docs', 'stack', '--claim', 'paqad-onboarding-docs');
+    expect(claimed.lines).toEqual(['**▸ paqad** · paqad-onboarding-docs starts stack.']);
+    expect(readEvents(root).at(-1)).toMatchObject({ kind: 'agent_start', unit: 'stack' });
+    const refused = await run('unit', 'project_docs', 'stack', '--install-check', 'x.mjs');
+    expect(refused.errors.join('\n')).toContain('--install-check is only for step 7');
+    vi.stubEnv('SE_SESSION', undefined);
+    const resumed = await run('resume');
+    expect(resumed.lines.join('\n')).toContain('Resumed at project_docs, starting with stack.');
+    markDone('project_docs');
+    expect((await run('resume')).lines).toEqual(['**▸ paqad** · Resumed at module_docs.']);
+  });
+
+  it('FR-12: reviews choices by id and says when none are recorded', async () => {
+    const empty = await run('choices');
+    expect(empty.lines).toEqual(['No choices recorded.']);
+    await run('start', '--asked', '--allow-list', 'no');
+    await run('choose-stack', 'react', '--reason', 'vite');
+    const marked = await run('choices', '--review', 'C-2');
+    expect(marked.lines).toEqual(['**▸ paqad** · Marked 1 choice(s) reviewed.']);
+    const listed = await run('choices');
+    expect(listed.lines.join('\n')).toMatch(/C-1 ○ start/u);
+    expect(listed.lines.join('\n')).toMatch(/C-2 ✓ detect · stack: react/u);
+  });
+
+  it('AC-8: commit --branch with a ticket and message commits and lists what it left out', async () => {
+    gitRepo(root);
+    writeFile(root, 'README.md', '# app\n');
+    git(root, 'add', '.');
+    git(root, 'commit', '-q', '-m', 'init');
+    await run('start', '--asked', '--allow-list', 'no');
+    writeFile(root, 'docs/stack/overview.md', '# Stack\n');
+    updateRun(root, (draft) => {
+      for (const id of Object.keys(draft.stages) as Array<keyof typeof draft.stages>) {
+        draft.stages[id] = { status: 'done' };
+      }
+      draft.written = {
+        'docs/stack/overview.md': fileSha256(join(root, 'docs/stack/overview.md'))!,
+      };
+    });
+    const answered = await run(
+      'commit',
+      '--branch',
+      '--ticket',
+      '1',
+      '--message',
+      'docs(#1): add the paqad onboarding docs',
+    );
+    expect(answered.code).toBe(0);
+    const text = answered.lines.join('\n');
+    expect(text).toMatch(/Committed 2 files on .+\. Nothing was pushed\./u);
+    expect(text).toContain('left out: .paqad/onboarding/journey.json (not written by onboarding)');
+    expect(git(root, 'log', '-1', '--format=%s').trim()).toBe(
+      'docs(#1): add the paqad onboarding docs',
+    );
+    expect((await run('resume')).errors.join('\n')).toContain('nothing to resume');
+  });
+
+  it('AC-8: a typed branch name that breaks the team pattern is refused', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    updateRun(root, (draft) => {
+      for (const id of Object.keys(draft.stages) as Array<keyof typeof draft.stages>) {
+        draft.stages[id] = { status: 'done' };
+      }
+    });
+    const refused = await run('commit', '--branch', 'whatever');
+    expect(refused.code).toBe(1);
+    expect(refused.errors.join('\n')).toContain('The branch name "whatever" does not follow');
+    expect((await run('resume')).lines).toEqual(['**▸ paqad** · Resumed at the end.']);
   });
 });

@@ -219,6 +219,39 @@ describe('step 7 installs staged checks through the onboarding unit verb', () =>
     ).toBe(true);
   });
 
+  it('`unit --install-check` exits 2 for a check that needs a missing tool and 1 for a failing one', async () => {
+    const cli = async () => {
+      const lines: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));
+      process.exitCode = undefined;
+      await createOnboardingCommand({ now: clockAt(5) }).parseAsync(
+        ['unit', 'rule_scripts', RULE, '--install-check', STAGED, '--project-root', root],
+        { from: 'user' },
+      );
+      const code = process.exitCode;
+      process.exitCode = undefined;
+      return { code, text: lines.join('\n') };
+    };
+    stageCheck(root, 'ok;\n');
+    expect(await cli()).toEqual({
+      code: 1,
+      text: `**▸ paqad** · Not installed: the check for ${RULE} failed its header or fixtures.`,
+    });
+    writeFile(
+      root,
+      STAGED,
+      SCRIPT.replace(
+        '// runtime: node',
+        '// runtime: node\n// requires: {"binaries":["paqad-no-such-binary-xyz"]}',
+      ),
+    );
+    expect(await cli()).toEqual({
+      code: 2,
+      text: `**▸ paqad** · Not installed: the check for ${RULE} needs a tool that is missing.`,
+    });
+    expect(readEvents(root).some((event) => event.unit === RULE)).toBe(false);
+  });
+
   it('keeps .paqad/scripts/rules/ closed to the scripts agent and opens the staging folder', () => {
     const blocked = (target: string) =>
       stageAgentWriteDecision({
