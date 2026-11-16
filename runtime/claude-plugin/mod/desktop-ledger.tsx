@@ -18,6 +18,7 @@ import {
   type WordTone,
   type WorkflowLedger,
 } from './desktop-view';
+import { NOT_COMMITTED, type JourneyLedger } from './journey-ledger';
 import { SIGNAL, STATUS_B, signalColor } from './palette';
 import { hairline, meter, nodeIcon, tabRule, tableRing } from './strip';
 import type { PaqadPaneTab } from './types';
@@ -585,6 +586,72 @@ function workflowPane(ui: D, view: WorkflowLedger) {
   );
 }
 
+function journeyResults(ui: D, ledger: JourneyLedger) {
+  const { Box, Text } = ui;
+  const results = ledger.results;
+  return (
+    <Box flexDirection="column" rowGap="xs">
+      {results.lines.map((line, index) => (
+        <Text key={`paqad-result-${index}`} size="footnote">
+          {line}
+        </Text>
+      ))}
+      {heading(ui, 'FILES')}
+      {results.files.map((file) =>
+        row(ui, `paqad-result-file-${file.label}`, file.label, coded(ui, null, file.path)),
+      )}
+      {results.notCommitted.length > 0 ? heading(ui, NOT_COMMITTED.toUpperCase()) : null}
+      {results.notCommitted.map((path) => (
+        <Text key={`paqad-left-out-${path}`} size="footnote" mono>
+          {path}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+function journeyCost(ui: D, ledger: JourneyLedger) {
+  const { Box } = ui;
+  return (
+    <Box flexDirection="column" rowGap="xs">
+      {costBlock(ui, ledger.cost.total, ledger.cost.money, [ledger.cost.note])}
+      {ledger.cost.stages.length > 0 ? heading(ui, 'BY STEP') : null}
+      {bars(ui, 'journey-stage', ledger.cost.stages)}
+    </Box>
+  );
+}
+
+function journeyBody(ui: D, ledger: JourneyLedger) {
+  const { Box } = ui;
+  switch (ledger.shown) {
+    case 'record':
+      return recordTab(ui, ledger.choices);
+    case 'ships':
+      return journeyResults(ui, ledger);
+    case 'cost':
+      return journeyCost(ui, ledger);
+    default:
+      return (
+        <Box flexDirection="column" rowGap="xs">
+          {ledger.stages.map((stage) => stagePart(ui, stage))}
+        </Box>
+      );
+  }
+}
+
+function journeyPane(ui: D, ledger: JourneyLedger, actions: LedgerActions) {
+  const { Box } = ui;
+  return (
+    <Box flexDirection="column">
+      {note(ui, ledger.subtitle, 'paqad-subtitle')}
+      {tabsRow(ui, ledger.tabs, actions)}
+      <Box key={`paqad-body-onboarding-${ledger.shown}`} flexDirection="column" marginTop={1}>
+        {journeyBody(ui, ledger)}
+      </Box>
+    </Box>
+  );
+}
+
 function body(
   ui: D,
   ledger: Extract<DesktopLedger, { kind: 'feature' }>,
@@ -622,6 +689,7 @@ export function drawDesktopLedger(
     return <Box flexDirection="column">{light(ui, ledger.light)}</Box>;
   }
   if (ledger.kind === 'workflow') return workflowPane(ui, ledger.view);
+  if (ledger.kind === 'onboarding') return journeyPane(ui, ledger.ledger, actions);
   return (
     <Box flexDirection="column">
       {note(ui, ledger.subtitle, 'paqad-subtitle')}

@@ -144,6 +144,8 @@ export interface JourneyViewStage {
     eta_minutes: number | null;
   } | null;
   gaps: string[];
+  started_at?: string | null;
+  ended_at?: string | null;
 }
 
 export interface JourneyView {
@@ -161,6 +163,8 @@ export interface JourneyView {
   uncommitted_note: string | null;
   refusal: string | null;
   estimate?: string;
+  planned?: { modules: number | null; packages: number | null; rules: number | null };
+  left_out?: Array<{ path: string; reason: string }>;
 }
 
 export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';

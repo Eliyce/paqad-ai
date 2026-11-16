@@ -42,6 +42,7 @@ describe('the HUD mod source', () => {
         'headline.ts',
         'instruments.ts',
         'journey-card.ts',
+        'journey-ledger.ts',
         'journey-model.ts',
         'live.ts',
         'onboard-tray.tsx',

@@ -263,6 +263,20 @@ nothing.
 
 The Ledger shows four tabs while onboarding: `Stages` (each step with its proof and units),
 `Choices` (choices.jsonl, reviewed or not), `Results` (the report) and `Cost` (the existing meter).
+It reads `view.json` and `choices.jsonl` (`journey-ledger.ts`) on both surfaces, under the subtitle
+`What happened, with proof · Onboarding`:
+
+- **Stages:** a capitals heading per step with its right word: `✓ Done 41 min`, `Running 14:03`,
+  `Stopped` or `Interrupted`, `Done, offline` or `Done, kept your git workflow` for a gap, `Not
+  yet`. Step lines carry the sub-progress (`7 of 23 · billing`), the finished count (`23 of 23
+  modules · docs/modules/`), each gap's footnote, and `Resume picks up at <unit>` after a stop.
+- **Choices:** one row per choice, newest first, in local time: `<step> · <kind> · <choice> ·
+  review: paqad-ai onboarding choices`, or `reviewed` once it is.
+- **Results:** the counts, the choices made for you, the gaps, links to `report.md`,
+  `module-map.yml` and `rule-script-map.yml`, and `Not committed: you were editing these` with the
+  files the commit left out.
+- **Cost:** the journey's token total and estimate, then one meter per step. Tokens are not split by
+  step, so the meters show the time each step took, and the note says so.
 The band retires when the commit question is answered; a declined commit leaves the uncommitted
 note on the finish screen for that run. No new palette tokens are added.
 

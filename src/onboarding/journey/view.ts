@@ -52,6 +52,8 @@ export interface ViewStage {
   mark: string;
   sub_progress: ViewSubProgress | null;
   gaps: DegradedCode[];
+  started_at: string | null;
+  ended_at: string | null;
 }
 
 export interface ViewGap {
@@ -78,6 +80,7 @@ export interface JourneyView {
   button: 'Resume' | 'Commit' | null;
   celebrate: boolean;
   uncommitted_note: string | null;
+  left_out: Array<{ path: string; reason: string }>;
   refusal: string | null;
 }
 
@@ -268,6 +271,8 @@ export function buildView(
       sub_progress:
         run && fold ? subProgress(run, events, stage, fold.stages[stage.id], now) : null,
       gaps: run ? [...(run.stages[stage.id].degraded ?? [])] : [],
+      started_at: run?.stages[stage.id].started_at ?? null,
+      ended_at: run?.stages[stage.id].ended_at ?? null,
     };
   });
   const gaps: ViewGap[] = stages.flatMap((stage) =>
@@ -315,6 +320,7 @@ export function buildView(
           : null,
     celebrate: status === 'done' && gaps.length === 0,
     uncommitted_note: uncommitted,
+    left_out: [...(run?.commit?.left_out ?? [])],
     refusal: options.refusal ?? null,
   };
 }

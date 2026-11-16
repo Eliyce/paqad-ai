@@ -49,6 +49,13 @@ import {
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
+  JOURNEY_CHOICES_PATH,
+  buildJourneyLedger,
+  journeyPaneView,
+  parseChoices,
+  type JourneyLedger,
+} from './journey-ledger';
+import {
   BIND_WATCH_MS,
   JOURNEY_RUN_PATH,
   JOURNEY_VIEW_PATH,
@@ -86,6 +93,7 @@ import {
   refusesTaskList,
   taskListSentence,
   type DesktopBand,
+  type DesktopLedger,
   type SignoffAction,
   type SignoffCheck,
   type TableSitting,
@@ -1235,6 +1243,20 @@ async function journeyViewOf($: EngineInterface): Promise<JourneyView | null> {
   return parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
 }
 
+async function journeyLedgerOf(
+  $: EngineInterface,
+  tab: PaqadPaneTab | null,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<JourneyLedger | null> {
+  const root = live?.root ?? null;
+  const view = await journeyViewOf($);
+  const now = (await read($, nowAtom)) ?? 0;
+  if (root === null || view === null || !journeyBandShown(view, now)) return null;
+  const choices = parseChoices(await readText($, joinPath(root, JOURNEY_CHOICES_PATH)));
+  const workflow = snapshot?.workflow?.name === 'onboarding' ? snapshot.workflow : null;
+  return buildJourneyLedger({ view, choices, tab, workflow, now });
+}
+
 async function journeyBandOf(
   $: EngineInterface,
   size: { columns: number },
@@ -1769,18 +1791,25 @@ export const register: Register = (on) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
+    const journey = await journeyLedgerOf(
+      $,
+      await read($, paneTabAtom),
+      await read($, snapshotAtom),
+    );
     if (e.surface === 'desktop') {
       const snapshot = await read($, snapshotAtom);
       const tab = await read($, paneTabAtom);
-      const ledger = buildDesktopLedger({
-        snapshot,
-        unbound: (await read($, unboundAtom)) === true,
-        unavailable: (await read($, unavailableAtom)) === true,
-        tab,
-        now: (await read($, nowAtom)) ?? 0,
-        specText: tab === 'table' ? await specTextOf($, snapshot) : null,
-        live: await liveState($),
-      });
+      const ledger: DesktopLedger = journey
+        ? { kind: 'onboarding', ledger: journey }
+        : buildDesktopLedger({
+            snapshot,
+            unbound: (await read($, unboundAtom)) === true,
+            unavailable: (await read($, unavailableAtom)) === true,
+            tab,
+            now: (await read($, nowAtom)) ?? 0,
+            specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+            live: await liveState($),
+          });
       return drawDesktopLedger(
         $.ui.resolve(e) as Elements['desktop'],
         ledger,
@@ -1791,11 +1820,13 @@ export const register: Register = (on) => {
         ledgerActions($),
       );
     }
-    const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
-      seat: await read($, tableSeatAtom),
-      now: await read($, nowAtom),
-      columns: e.props.bodyColumns,
-    });
+    const view = journey
+      ? journeyPaneView(journey)
+      : buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
+          seat: await read($, tableSeatAtom),
+          now: await read($, nowAtom),
+          columns: e.props.bodyColumns,
+        });
     const ui = $.ui.resolve(e);
     const { Box, Text, Button } = ui;
     const Link = 'Link' in ui ? ui.Link : null;
