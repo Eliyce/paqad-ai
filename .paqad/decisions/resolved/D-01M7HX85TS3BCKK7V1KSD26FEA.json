@@ -1,0 +1,63 @@
+{
+  "id": "D-01M7HX85TS3BCKK7V1KSD26FEA",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-onboarding-analyze asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:5f223eb28f10af122c5f56295e6be131341338c4d223745867329c771de5f55f.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-onboarding-analyze keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-onboarding-analyze before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow",
+  "created_at": "2026-11-16T10:08:10.074Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+      "D-01M6RXZMDMD1RDYDCW252GMSRT",
+      "D-01M6N7M9A6DDK70GJ6TKMS8A5E",
+      "D-01M6N7M9005K176F5EAPJH8K36",
+      "D-01M6N7M8NJ7WXYBC2V3WFH34TN"
+    ]
+  },
+  "suggestion": {
+    "earlier_id": "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+    "option_key": "allow",
+    "reason": "Same question for a sibling onboarding agent; the owner approved Bash for all onboarding agents in chat.",
+    "at": "2026-11-16T10:08:55.549Z"
+  },
+  "chosen": "allow",
+  "rationale": "Owner approved Bash for the onboarding agents in chat: they run paqad onboarding verbs and the analyzer scripts; writes stay confined by the write guard.",
+  "resolved_at": "2026-11-16T10:08:56.951Z",
+  "decision_id": "D-01M7HX85TS3BCKK7V1KSD26FEA",
+  "fingerprint": "sha256:ba87251fdd070083870c31e547e786e486d36eafbe266693f60b83e17faf88a8",
+  "question": "The agent paqad-onboarding-analyze asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Same question for a sibling onboarding agent; the owner approved Bash for all onboarding agents in chat.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:08:10.074Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:08:56.951Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved Bash for the onboarding agents in chat: they run paqad onboarding verbs and the analyzer scripts; writes stay confined by the write guard."
+  }
+}
