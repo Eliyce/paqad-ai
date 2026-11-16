@@ -232,3 +232,39 @@ describe('the read-only write guard behaves the same on Windows', () => {
     expect(allowed('paqad-expert', '/tmp/scratch.txt')).toBe(false);
   });
 });
+
+describe('onboarding agents may silence output into the null devices', () => {
+  const agent = 'paqad-onboarding-docs';
+
+  it('allows /dev/null, /dev/stdout and /dev/stderr even after a cd paqad cannot resolve', () => {
+    for (const command of [
+      'ls docs 2>/dev/null',
+      'ls docs >/dev/null 2>&1',
+      'ls docs &>/dev/null',
+      'echo hi > /dev/stdout',
+      'echo oops 2> /dev/stderr',
+      'cd "$(git rev-parse --show-toplevel)" && ls docs 2>/dev/null',
+      'cd && grep -r x docs > /dev/null',
+    ]) {
+      expect({ command, blocked: bash(agent, command).blocked }).toEqual({
+        command,
+        blocked: false,
+      });
+    }
+  });
+
+  it('keeps every other write outside the allowed folders refused', () => {
+    for (const command of [
+      'echo x > /etc/passwd',
+      'echo x > /dev/sda',
+      'echo x > src/index.ts',
+      'cd "$X" && echo x > notes.md',
+      'echo x > /dev/null/../../etc/passwd',
+    ]) {
+      expect({ command, blocked: bash(agent, command).blocked }).toEqual({
+        command,
+        blocked: true,
+      });
+    }
+  });
+});

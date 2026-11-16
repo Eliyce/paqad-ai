@@ -399,9 +399,10 @@ export function writeAllowed(
   write: BashWrite,
   host: WriteHost = defaultHost(),
 ): boolean {
-  if (write.target === null || write.cwd === null || write.target === '') return false;
+  if (write.target === null || write.target === '') return false;
   const target = write.target.replace(/^~(?=\/|$)/u, host.home ?? '~');
   if (isDeviceTarget(target)) return true;
+  if (write.cwd === null) return false;
   const { path } = host;
   const abs = path.resolve(write.cwd, target);
   if (isDeviceTarget(abs)) return true;
