@@ -27,6 +27,7 @@ decisions/events.jsonl
 detection-report.json
 stack-snapshot.json
 stack-drift.json
+rules-discovery-nudge.json
 doc-progress.json
 quality-baseline.json
 compiled-rules.json
