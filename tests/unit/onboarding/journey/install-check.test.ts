@@ -123,6 +123,73 @@ describe('step 7 installs staged checks through the onboarding unit verb', () =>
     expect(() => install()).toThrow('never rewrites an existing check');
   });
 
+  it('FR-24: refuses when step 7 or the journey is not running, and a wrong kind or scope', () => {
+    stageCheck(root);
+    const call = (input: Partial<Parameters<typeof installStagedCheck>[1]>) =>
+      installStagedCheck(
+        root,
+        { staged: STAGED, ruleId: RULE, kind: 'deterministic', scope: 'changed-files', ...input },
+        clockAt(5),
+      );
+    expect(() => call({ kind: 'ai' })).toThrow('Use --kind deterministic or heuristic, not ai.');
+    expect(() => call({ scope: 'repo' })).toThrow('Use --scope changed-files or whole-tree');
+    updateRun(root, (draft) => void (draft.status = 'paused'));
+    expect(() => call({})).toThrow('Step 7 (Write the rule checks) is not running.');
+    updateRun(root, (draft) => {
+      draft.status = 'running';
+      draft.stages.rule_scripts = { status: 'done' };
+    });
+    expect(() => call({})).toThrow('Step 7 (Write the rule checks) is not running.');
+  });
+
+  it('FR-24: refuses a staged file that is not .mjs or is missing, a missing map and an unknown rule', () => {
+    expect(() => install(`${STAGED_CHECKS_ROOT}coding/no-debugger.js`)).toThrow(
+      'Stage the check as a .mjs file',
+    );
+    expect(() => install()).toThrow(`The staged check ${STAGED} does not exist.`);
+    stageCheck(root);
+    expect(() =>
+      installStagedCheck(
+        root,
+        { staged: STAGED, ruleId: 'RL-none', kind: 'heuristic', scope: 'whole-tree' },
+        clockAt(5),
+      ),
+    ).toThrow('Rule RL-none is not in the rule-script map.');
+    rmSync(join(root, 'docs/instructions/rules/rule-script-map.yml'));
+    expect(() => install()).toThrow('The rule-script map is missing; run step 6 first.');
+  });
+
+  it('installs again over a byte-identical check instead of refusing', () => {
+    stageCheck(root);
+    writeFile(root, INSTALLED, SCRIPT);
+    expect(install()).toMatchObject({ installed: true, path: INSTALLED });
+  });
+
+  it('defers a check whose header needs a binary this machine lacks', () => {
+    stageCheck(root);
+    writeFile(
+      root,
+      STAGED,
+      SCRIPT.replace(
+        '// runtime: node',
+        '// runtime: node\n// requires: {"binaries":["paqad-no-such-binary-xyz"]}',
+      ),
+    );
+    const result = install();
+    expect(result).toMatchObject({ installed: false, deferred: true });
+    expect(result.fixtures.missing_binaries).toEqual(['paqad-no-such-binary-xyz']);
+    expect(existsSync(join(root, INSTALLED))).toBe(false);
+  });
+
+  it('keeps a check with a broken header staged and names the header errors', () => {
+    stageCheck(root);
+    writeFile(root, STAGED, SCRIPT.replace('// @paqad-rule-script\n', ''));
+    const result = install();
+    expect(result.installed).toBe(false);
+    expect(result.header_errors?.length).toBeGreaterThan(0);
+    expect(existsSync(join(root, INSTALLED))).toBe(false);
+  });
+
   it('`unit rule_scripts <rule> --install-check` installs the check and records the unit', async () => {
     stageCheck(root);
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
