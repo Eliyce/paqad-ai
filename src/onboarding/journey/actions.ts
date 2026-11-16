@@ -330,7 +330,7 @@ export function resumeRun(projectRoot: string, session: string | null, now: Cloc
   if (run.status === 'done')
     throw new JourneyRefusal('This onboarding journey is finished; there is nothing to resume.');
   const at = now().toISOString();
-  const handover = session !== null && session !== run.owner_session;
+  const handoverTo = session !== null && session !== run.owner_session ? session : null;
   const current = foldJourney(run, readEvents(projectRoot, run.run_id), { now }).current;
   const modules = current === 'module_docs' ? readModuleUnits(projectRoot) : null;
   const saved = updateRun(
@@ -338,7 +338,7 @@ export function resumeRun(projectRoot: string, session: string | null, now: Cloc
     (draft) => {
       draft.status = 'running';
       delete draft.abandoned_at;
-      if (handover && session) draft.owner_session = session;
+      if (handoverTo !== null) draft.owner_session = handoverTo;
       if (current && draft.stages[current].status === 'failed') {
         draft.stages[current] = { ...draft.stages[current], status: 'running' };
         delete draft.stages[current].failure;
@@ -352,12 +352,12 @@ export function resumeRun(projectRoot: string, session: string | null, now: Cloc
     },
     { expectedRevision: run.revision, now },
   );
-  if (handover) {
+  if (handoverTo !== null) {
     appendEvent(projectRoot, {
       ts: at,
       run_id: run.run_id,
       kind: 'handover',
-      session: session ?? undefined,
+      session: handoverTo,
       note: `from ${run.owner_session}`,
     });
   }
@@ -376,7 +376,7 @@ export function resumeRun(projectRoot: string, session: string | null, now: Cloc
         currentSourceHashes: hashes,
       }).units_todo
     : [];
-  return { run: saved, stage: current, units_todo: todo, handover };
+  return { run: saved, stage: current, units_todo: todo, handover: handoverTo !== null };
 }
 
 export function abandonRun(projectRoot: string, now: Clock): { run: JourneyRun; kept: string[] } {
