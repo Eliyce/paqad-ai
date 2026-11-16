@@ -349,7 +349,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     env: 'PAQAD_PLUGIN_MIGRATION',
     type: 'enum',
     enumValues: PLUGIN_MIGRATION_MODES,
-    default: 'off',
+    default: 'on',
     group: 'app',
     section: 'Claude Code plugin migration',
     comment:
@@ -1699,7 +1699,7 @@ export function writeConfigsReadme(projectRoot: string): string {
   return path;
 }
 
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 const CATALOG_VERSION_STAMP = '# catalog_version: ';
 
 export function generateConfigExample(): string {
