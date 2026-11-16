@@ -14,6 +14,8 @@ import {
   startStage,
 } from '@/onboarding/journey/actions.js';
 import { autoDecide } from '@/onboarding/journey/auto-decide.js';
+import { answerCommit, type CommitAnswer } from '@/onboarding/journey/commit.js';
+import { finishJourney, rebuildRagInBackground } from '@/onboarding/journey/finish.js';
 import { nextStep } from '@/onboarding/journey/briefs.js';
 import { appendChoice, readChoices } from '@/onboarding/journey/choices.js';
 import { chooseStack, detectProject } from '@/onboarding/journey/detect.js';
@@ -413,6 +415,81 @@ function addChoices(command: Command): void {
     );
 }
 
+function addFinish(command: Command): void {
+  rootOption(
+    command
+      .command('finish')
+      .description('Step 8: build search, write the report and end the step'),
+  ).action((options: RootOptions) =>
+    runVerb(options.projectRoot, () => {
+      const report = finishJourney(options.projectRoot, { rag: rebuildRagInBackground }, now);
+      emit(
+        options,
+        report,
+        `**▸ paqad** · Onboarding finished. Report: .paqad/onboarding/report.md. Ask: "Commit these changes on a new branch?"`,
+      );
+    }),
+  );
+}
+
+interface CommitOptions extends RootOptions {
+  branch?: string | boolean;
+  later?: boolean;
+  no?: boolean;
+  ticket?: string;
+  message?: string;
+}
+
+function commitAnswerOf(options: CommitOptions): CommitAnswer {
+  const given = [options.branch !== undefined, options.later === true, options.no === true].filter(
+    Boolean,
+  );
+  if (given.length !== 1) {
+    throw new JourneyRefusal(
+      "Pass the person's answer: exactly one of --branch [name], --later or --no.",
+    );
+  }
+  if (options.later) return { kind: 'later' };
+  if (options.no) return { kind: 'no' };
+  return {
+    kind: 'branch',
+    branch: typeof options.branch === 'string' ? options.branch : true,
+    ...(options.ticket ? { ticket: options.ticket } : {}),
+    ...(options.message ? { message: options.message } : {}),
+  };
+}
+
+function addCommit(command: Command): void {
+  rootOption(
+    command.command('commit').description("Record the person's answer to the commit question"),
+  )
+    .option(
+      '--branch [name]',
+      'Commit on a new branch (the name follows branches.yaml when omitted)',
+    )
+    .option('--later', 'Leave the changes uncommitted for now')
+    .option('--no', 'Do not commit')
+    .option('--ticket <id>', 'Ticket for the branch and commit names')
+    .option('--message <subject>', 'Commit subject when the team pattern needs one')
+    .action((options: CommitOptions) =>
+      runVerb(options.projectRoot, () => {
+        const record = answerCommit(options.projectRoot, commitAnswerOf(options), now);
+        const left =
+          record.left_out?.map((item) => `  left out: ${item.path} (${item.reason})`) ?? [];
+        emit(
+          options,
+          record,
+          record.answer === 'branch'
+            ? [
+                `**▸ paqad** · Committed ${record.committed?.length ?? 0} files on ${record.branch}. Nothing was pushed.`,
+                ...left,
+              ].join('\n')
+            : '**▸ paqad** · Changes left uncommitted. Commit them later with `paqad-ai onboarding commit --branch`.',
+        );
+      }),
+    );
+}
+
 function addResume(command: Command): void {
   rootOption(
     command.command('resume').description('Resume a stopped, paused or interrupted journey'),
@@ -464,6 +541,8 @@ export function createOnboardingCommand(): Command {
   addDecide(command);
   addStatus(command);
   addChoices(command);
+  addFinish(command);
+  addCommit(command);
   addResume(command);
   addAbandon(command);
   return command;

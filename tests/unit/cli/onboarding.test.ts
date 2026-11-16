@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createOnboardingCommand } from '../../../src/cli/commands/onboarding.js';
+import { ONBOARDING_VERBS, createOnboardingCommand } from '../../../src/cli/commands/onboarding.js';
 import { readChoices } from '../../../src/onboarding/journey/choices.js';
 import { readEvents } from '../../../src/onboarding/journey/events.js';
 import { readRun, updateRun } from '../../../src/onboarding/journey/run-store.js';
@@ -200,5 +200,58 @@ describe('paqad-ai onboarding verbs', () => {
     await run('start', '--asked', '--allow-list', 'no');
     const next = await run('next');
     expect(next.lines.join('\n')).toContain('onboarding stage start detect');
+  });
+
+  it('AC-1: exposes exactly the fifteen onboarding verbs', () => {
+    expect(ONBOARDING_VERBS).toHaveLength(15);
+    expect(
+      createOnboardingCommand()
+        .commands.map((command) => command.name())
+        .sort(),
+    ).toEqual([...ONBOARDING_VERBS].sort());
+  });
+
+  it.each([
+    ['detect', ['detect']],
+    ['choose-stack', ['choose-stack', 'cobol', '--reason', 'x']],
+    ['setup', ['setup']],
+    ['next', ['next']],
+    ['stage', ['stage', 'start', 'module_docs']],
+    ['unit', ['unit', 'module_docs', 'auth']],
+    ['progress', ['progress', 'rules_analyze', '1', '2']],
+    ['decide', ['decide', 'D-01J000000000000000000000Z9']],
+    ['status', ['status']],
+    ['choices', ['choices']],
+    ['resume', ['resume']],
+    ['finish', ['finish']],
+    ['commit', ['commit', '--later']],
+    ['abandon', ['abandon']],
+  ])('AC-1 INV-22: %s rewrites view.json, keeping step state on a refusal', async (_verb, args) => {
+    await run('start', '--asked', '--allow-list', 'no');
+    writeFile(root, '.paqad/onboarding/view.json', '{"marker":true}');
+    const before = readRun(root)?.stages;
+    const result = await run(...args);
+    const written = view();
+    expect(written).not.toHaveProperty('marker');
+    expect(written.stages).toHaveLength(8);
+    if (result.code !== 0) {
+      expect(written.refusal).toBeTruthy();
+      expect(readRun(root)?.stages).toEqual(before);
+    }
+  });
+
+  it('AC-20: commit --no is read as the answer no', async () => {
+    await run('start', '--asked', '--allow-list', 'no');
+    updateRun(root, (draft) => {
+      for (const id of Object.keys(draft.stages) as Array<keyof typeof draft.stages>) {
+        draft.stages[id] = { status: 'done' };
+      }
+    });
+    const answered = await run('commit', '--no');
+    expect(answered.code).toBe(0);
+    expect(readRun(root)?.commit?.answer).toBe('no');
+    expect(view().uncommitted_note).toContain('paqad-ai onboarding commit --branch');
+    const refused = await run('commit');
+    expect(refused.code).toBe(1);
   });
 });
