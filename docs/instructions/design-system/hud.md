@@ -184,6 +184,68 @@ Module docs, Root-cause analysis, Rules analysis), then a pink breathing `● ` 
 turns; `Box flexGrow`; dim footnote cost (`counting` while tokens are unknown); and `Ledger`. No
 strip, no `−` and no `×`. With no workflow nothing is drawn.
 
+### Onboarding band
+
+While `.paqad/onboarding/journey.json` exists, the band reads `.paqad/onboarding/view.json` and
+draws the feature-development card with the workflow word `Onboarding` in the identity row and the
+minimised row. Nothing else changes in the card's shape. The view is session-independent, so the
+band draws before `.paqad/framework-path.txt` exists.
+
+- **Strip:** eight bars with the labels `Read`, `Set up`, `Docs`, `Modules`, `Research`, `Triage`,
+  `Checks`, `Wrap up`, in that order, from `ONBOARDING_STAGES`. `Triage` is the one label not taken
+  from the step name; it maps to "Check which rules can be automated".
+- **Sub-progress:** the running bar's value is the view's words, for example `Modules · 7 of 23 ·
+  billing`. With no plan count yet the value is the step label alone: no `N of M` and no ETA. The
+  ETA appears in the note only after 3 units are done; under 680 px it moves into the note row.
+- **Two static bar states**, outside `LIVE_BAR_STATES` and never animated, added to the shared
+  `StageState` and unused by feature development:
+  - **stopped** (`✗`): `caution` bar, `cautionText` label, value `<Step> stopped`.
+  - **done with a gap** (`◐`): `caution` bar with the label in `passText`, value `<Step> · <gap>`.
+  - The asking state (the commit question) uses the existing `attention` coral with no motion.
+- **Caption-row button:** one bordered text button on the strip caption row, keyboard-reachable with
+  a visible focus ring: `Resume` while the journey is paused or stopped, `Commit` while the commit
+  question is open. `Commit` only submits the prompt; it never answers the question, and the
+  headline shows `Waiting for your answer` while the question is open.
+- **Todo labels** use `mutedText` (`#6B747A`) instead of `#8E979D`, so the 9 px labels meet WCAG 2.2
+  1.4.3. Feature-development bars keep their colours.
+- **Alt text** names each step with its state in words, for example `Read done, Set up done, Docs
+  done, Modules running 7 of 23, 4 not started`, matching the terminal card's `✓ ▸ ○ ✗ ◐` marks, so
+  no state relies on colour alone.
+
+#### Onboarding headline rows
+
+| #   | When                                        | Signal    | Headline                                                       |
+| --- | ------------------------------------------- | --------- | -------------------------------------------------------------- |
+| O1  | a step failed or the run is interrupted     | caution   | `Stopped at step N · <step> · Resume to continue`              |
+| O2  | a step is running                           | accent    | `Step N of 8 · <running phrase> · <sub-progress>`              |
+| O3  | the commit question is open                 | attention | `Commit these changes on a new branch? Waiting for your answer` |
+| O4  | between steps                               | muted     | `Next: step N of 8 · <step>`                                   |
+| O5  | done, or done with gaps                     | pass      | `Onboarding done` or `Onboarding done with N gaps`             |
+| O6  | not started                                 | muted     | `Onboarding has not started`                                   |
+| P   | paused (mod only, from abandon)             | caution   | `Paused at step N · <step> · Resume to continue`               |
+| S   | stalled (mod only, no heartbeat for 20 min) | caution   | same as O1                                                     |
+
+While an onboarding step runs, headline row 7 (subagent or background task) is skipped: the
+onboarding agents are the step itself, so the O2 words stay. Each gap has its own footnote and
+next-action line under the card. The all-green toast and the settle glow stay off whenever a gap
+exists ("Done with 1 gap"), and the finish effects play once per `run_id`.
+
+#### Tray (State A)
+
+`/paqad onboard` on a project never onboarded opens a tray above the prompt: the question `Which AI
+tools does your team use?`, one row per tool (each row starts with its `Text`), `Claude Code` ticked,
+tools that need npm drawn as `– <Tool> · needs npm` and announced as unavailable, the pre-ticked row
+`Let it work without stopping to ask`, `Start onboarding` and `Not now`. With no tool ticked the
+start slot shows the visible text `Tick at least one AI tool`. `Not now` closes the tray and writes
+nothing.
+
+#### Ledger tabs and retirement
+
+The Ledger shows four tabs while onboarding: `Stages` (each step with its proof and units),
+`Choices` (choices.jsonl, reviewed or not), `Results` (the report) and `Cost` (the existing meter).
+The band retires when the commit question is answered; a declined commit leaves the uncommitted
+note on the finish screen for that run. No new palette tokens are added.
+
 ### Ready row
 
 Before the first snapshot is read: `paqad` (semibold) + dim footnote `   Ready`, and no Ledger.
