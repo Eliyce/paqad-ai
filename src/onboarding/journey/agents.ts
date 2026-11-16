@@ -108,6 +108,36 @@ export function buildOnboardingAgentBody(def: OnboardingAgentDef): string {
   ].join('\n');
 }
 
+export const ONBOARDING_AGENT_TYPE = /^(?:paqad:)?paqad-onboarding-/u;
+
+function agentName(agentType: string): string {
+  return agentType.trim().replace(/^paqad:/u, '');
+}
+
+export function recordOnboardingAgentStart(
+  projectRoot: string,
+  agentType: unknown,
+  agentId: unknown,
+  now: () => Date = () => new Date(),
+): boolean {
+  if (typeof agentType !== 'string' || typeof agentId !== 'string' || agentId.trim() === '') {
+    return false;
+  }
+  const agent = agentName(agentType);
+  const def = onboardingAgent(agent);
+  const run = readRun(projectRoot);
+  if (def === null || run === null) return false;
+  appendEvent(projectRoot, {
+    ts: now().toISOString(),
+    run_id: run.run_id,
+    kind: 'agent_bind',
+    stage: def.stage,
+    agent,
+    agent_id: agentId.trim(),
+  });
+  return true;
+}
+
 export function recordOnboardingAgentStop(
   projectRoot: string,
   agentType: unknown,
@@ -115,7 +145,7 @@ export function recordOnboardingAgentStop(
   now: () => Date = () => new Date(),
 ): boolean {
   if (typeof agentType !== 'string') return false;
-  const agent = agentType.trim().replace(/^paqad:/u, '');
+  const agent = agentName(agentType);
   const def = onboardingAgent(agent);
   const run = readRun(projectRoot);
   if (def === null || run === null) return false;

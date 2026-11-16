@@ -14,6 +14,8 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { seedRun } from '../onboarding/journey/fixtures/journey.js';
+
 const HOOK = join(process.cwd(), 'runtime/hooks/stage-agent-start.mjs');
 const COMPLETION_HOOK = join(process.cwd(), 'runtime/hooks/stage-agent-completion.mjs');
 const CLI = join(process.cwd(), 'dist/cli/index.js');
@@ -322,6 +324,28 @@ describe('stage-agent-start.mjs', () => {
     expect(hookLog(root)).toEqual([
       expect.stringContaining('stage-agent-start: stood-down agent=agent_dev_1 reason=passive'),
     ]);
+  });
+
+  it('AC-21 AC-16: an onboarding agent gets no stage brief, a marker and an agent_bind row', async () => {
+    const root = onboard(tempRoot());
+    seedRun(root);
+    const result = await runHook(
+      root,
+      stagePayload({ agent_id: 'agent_mod_1', agent_type: 'paqad:paqad-onboarding-modules' }),
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(markers(root)).toHaveLength(1);
+    const events = readFileSync(join(root, '.paqad', 'onboarding', 'events.jsonl'), 'utf8');
+    expect(JSON.parse(events.trim().split('\n').at(-1)!)).toMatchObject({
+      kind: 'agent_bind',
+      agent: 'paqad-onboarding-modules',
+      agent_id: 'agent_mod_1',
+      stage: 'module_docs',
+    });
+    expect(
+      hookLog(root).some((line) => line.includes('onboarding agent=agent_mod_1 recorded')),
+    ).toBe(true);
   });
 
   it('is executable and shipped as a tsup-built entry', () => {

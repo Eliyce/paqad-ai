@@ -100,6 +100,7 @@ export type JourneyEventKind =
   | 'unit_kept'
   | 'progress'
   | 'agent_start'
+  | 'agent_bind'
   | 'agent_stop'
   | 'handover'
   | 'heartbeat';
@@ -116,6 +117,7 @@ export interface JourneyEvent {
   total?: number;
   session?: string;
   agent?: string;
+  agent_id?: string;
   action?: string;
   note?: string;
 }

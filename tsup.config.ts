@@ -30,6 +30,7 @@ export default defineConfig({
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
     'feature-evidence/stage-ledger': 'src/feature-evidence/stage-ledger.ts',
     'stage-isolation/stage-handback': 'src/stage-isolation/stage-handback.ts',
+    'onboarding/journey/agents': 'src/onboarding/journey/agents.ts',
     'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
     'stage-isolation/agent-availability': 'src/stage-isolation/agent-availability.ts',
     'stage-isolation/bash-write-guard': 'src/stage-isolation/bash-write-guard.ts',

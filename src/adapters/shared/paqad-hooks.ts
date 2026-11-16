@@ -54,6 +54,12 @@ export const PAQAD_STAGE_AGENT_MATCHER = '^(paqad:)?paqad-';
 export const PAQAD_STAGE_HELPER_MATCHER =
   '^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$';
 
+export const PAQAD_ONBOARDING_AGENT_MATCHER =
+  '^(paqad:)?paqad-onboarding-(docs|modules|rules|analyze|scripts)$';
+
+export const PAQAD_SUBAGENT_START_MATCHER =
+  '^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync|onboarding-(docs|modules|rules|analyze|scripts))$';
+
 export const PAQAD_SKILL_READ_MATCHER = 'Skill|Read';
 
 export const PAQAD_AGENT_TOOL_MATCHER = 'Agent|Task';
@@ -95,7 +101,7 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
-    subagentStartMatcher: PAQAD_STAGE_HELPER_MATCHER,
+    subagentStartMatcher: PAQAD_SUBAGENT_START_MATCHER,
     postReadMatcher: PAQAD_SKILL_READ_MATCHER,
     postAgentMatcher: PAQAD_AGENT_TOOL_MATCHER,
     anySubagentMatcher: PAQAD_ANY_SUBAGENT_MATCHER,

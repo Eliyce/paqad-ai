@@ -4,7 +4,16 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { claimUnit } from '@/onboarding/journey/actions.js';
-import { ONBOARDING_AGENTS, recordOnboardingAgentStop } from '@/onboarding/journey/agents.js';
+import {
+  ONBOARDING_AGENTS,
+  recordOnboardingAgentStart,
+  recordOnboardingAgentStop,
+} from '@/onboarding/journey/agents.js';
+import {
+  PAQAD_STAGE_HELPER_MATCHER,
+  PAQAD_SUBAGENT_START_MATCHER,
+} from '@/adapters/shared/paqad-hooks.js';
+import { stageHelperStage } from '@/stage-isolation/stage-brief.js';
 import { readEvents } from '@/onboarding/journey/events.js';
 import { updateRun } from '@/onboarding/journey/run-store.js';
 import { stageAgentWriteDecision } from '@/stage-isolation/bash-write-guard.js';
@@ -110,5 +119,36 @@ describe('onboarding stage agents', () => {
       action: 'max_turns',
     });
     expect(recordOnboardingAgentStop(root, 'paqad-development', 'done', clockAt(5))).toBe(false);
+  });
+
+  it('AC-21 AC-16: SubagentStart matches every onboarding agent and records its agent id', () => {
+    const start = new RegExp(PAQAD_SUBAGENT_START_MATCHER);
+    for (const agent of ONBOARDING_AGENTS) {
+      expect(start.test(agent.agentName), agent.agentName).toBe(true);
+      expect(start.test(`paqad:${agent.agentName}`), agent.agentName).toBe(true);
+      expect(stageHelperStage(agent.agentName), agent.agentName).toBeNull();
+    }
+    expect(start.test('paqad-development')).toBe(true);
+    expect(start.test('paqad-onboarding-unknown')).toBe(false);
+    expect(new RegExp(PAQAD_STAGE_HELPER_MATCHER).test('paqad-onboarding-docs')).toBe(false);
+    expect(
+      recordOnboardingAgentStart(root, 'paqad:paqad-onboarding-modules', 'agent_m1', clockAt(4)),
+    ).toBe(true);
+    expect(readEvents(root).find((event) => event.kind === 'agent_bind')).toMatchObject({
+      agent: 'paqad-onboarding-modules',
+      agent_id: 'agent_m1',
+      stage: 'module_docs',
+    });
+    expect(recordOnboardingAgentStart(root, 'paqad-onboarding-docs', '', clockAt(4))).toBe(false);
+    expect(recordOnboardingAgentStart(root, 'paqad-planning', 'agent_p', clockAt(4))).toBe(false);
+  });
+
+  it('AC-21: the plugin hooks.json and tsup ship what the onboarding hooks import', () => {
+    const hooks = JSON.parse(
+      readFileSync(join(process.cwd(), 'runtime/claude-plugin/hooks.json'), 'utf8'),
+    ) as { hooks: Record<string, Array<{ matcher?: string }>> };
+    expect(hooks.hooks.SubagentStart?.[0]?.matcher).toBe(PAQAD_SUBAGENT_START_MATCHER);
+    const tsup = readFileSync(join(process.cwd(), 'tsup.config.ts'), 'utf8');
+    expect(tsup).toContain("'onboarding/journey/agents': 'src/onboarding/journey/agents.ts'");
   });
 });
