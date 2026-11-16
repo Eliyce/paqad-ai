@@ -40,7 +40,7 @@
 # Plays a short chime in the Claude Code plugin once each verdict lands. (env: PAQAD_HUD_CHIME)
 # hud_chime=false
 # paqad.yaml: claude_code.plugin_migration
-# Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. On by default; set claude_install_mode=settings to stay on npm. (env: PAQAD_PLUGIN_MIGRATION)
+# Moves existing npm Claude Code users to the paqad plugin in the background with npm kept as the fallback, is on by default, and claude_install_mode=settings keeps a project on npm. (env: PAQAD_PLUGIN_MIGRATION)
 # plugin_migration=on
 # paqad.yaml: claude_code.install_mode
 # How this project installs paqad into Claude Code, where auto follows the plugin migration switch, plugin forces the plugin and settings keeps the npm hooks. (env: PAQAD_CLAUDE_INSTALL_MODE)

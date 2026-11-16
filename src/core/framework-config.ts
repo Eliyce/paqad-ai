@@ -353,7 +353,7 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     group: 'app',
     section: 'Claude Code plugin migration',
     comment:
-      'Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. On by default; set claude_install_mode=settings to stay on npm.',
+      'Moves existing npm Claude Code users to the paqad plugin in the background with npm kept as the fallback, is on by default, and claude_install_mode=settings keeps a project on npm.',
   },
   {
     key: 'claude_install_mode',
