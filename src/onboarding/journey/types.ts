@@ -1,4 +1,3 @@
-
 export const STAGE_IDS = [
   'detect',
   'setup',
@@ -26,14 +25,14 @@ export type StageRunsIn = 'cli' | 'agent';
 
 export interface StageDefinition {
   id: StageId;
-    index: number;
-    name: string;
-    label: string;
-    running: string;
-    workflow: string;
+  index: number;
+  name: string;
+  label: string;
+  running: string;
+  workflow: string;
   runs_in: StageRunsIn;
-    agent: string | null;
-    unit: { one: string; many: string } | null;
+  agent: string | null;
+  unit: { one: string; many: string } | null;
   allowed_degraded: readonly DegradedCode[];
 }
 
@@ -43,8 +42,8 @@ export interface StageRecord {
   ended_at?: string;
   degraded?: DegradedCode[];
   failure?: string;
-    plan?: string[];
-    planned?: number;
+  plan?: string[];
+  planned?: number;
 }
 
 export interface DetectionRecord {
@@ -80,18 +79,18 @@ export interface JourneyRun {
   owner_session: string;
   providers: string[];
   allow_list: boolean;
-    asked: 'tray' | 'agent-attested';
+  asked: 'tray' | 'agent-attested';
   created_at: string;
   updated_at: string;
   stages: Record<StageId, StageRecord>;
-    written: Record<string, string>;
-    setup_hashes: Record<string, string>;
-    baseline: Record<string, string | null>;
+  written: Record<string, string>;
+  setup_hashes: Record<string, string>;
+  baseline: Record<string, string | null>;
   detection?: DetectionRecord;
   setup?: SetupRecord;
   commit?: CommitRecord;
   abandoned_at?: string;
-    last_refusal?: string | null;
+  last_refusal?: string | null;
 }
 
 export type JourneyEventKind =
@@ -110,24 +109,25 @@ export interface JourneyEvent {
   kind: JourneyEventKind;
   stage?: StageId;
   unit?: string;
-    outputs?: Record<string, string>;
-    source_hash?: string;
+  outputs?: Record<string, string>;
+  source_hash?: string;
   done?: number;
   total?: number;
   session?: string;
   agent?: string;
-    action?: string;
+  action?: string;
   note?: string;
 }
 
 export interface ChoiceRow {
+  id: string;
   ts: string;
   run_id: string;
   stage: StageId | 'start';
   kind: string;
   choice: string;
   reason: string;
-    by: 'paqad-onboarding' | 'tray' | 'agent-attested' | 'person';
+  by: 'paqad-onboarding' | 'tray' | 'agent-attested' | 'person';
   decision_id?: string;
   details?: Record<string, unknown>;
   reviewed?: boolean;
