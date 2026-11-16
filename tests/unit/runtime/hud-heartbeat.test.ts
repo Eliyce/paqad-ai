@@ -60,6 +60,9 @@ function gate(sessionId = SESSION, adapter?: string): string {
       ...NO_CONTEXT_REFRESH_ENV,
       CLAUDE_PROJECT_DIR: root,
       CLAUDE_CODE_REMOTE: '',
+      CI: '',
+      PAQAD_HEADLESS: '',
+      CLAUDE_CODE_ENTRYPOINT: '',
     },
     input: JSON.stringify({ prompt: '', session_id: sessionId }),
   }).toString('utf8');
