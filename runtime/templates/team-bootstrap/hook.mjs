@@ -194,6 +194,13 @@ export function readYamlScalar(text, path) {
 const TEAM_YAML_HOMES = {
   paqad_enable: ['enabled'],
   team_bootstrap_enabled: ['team_bootstrap', 'enabled'],
+  plugin_migration: ['claude_code', 'plugin_migration'],
+  claude_install_mode: ['claude_code', 'install_mode'],
+};
+
+const TEAM_YAML_ENUMS = {
+  plugin_migration: ['on', 'off'],
+  claude_install_mode: ['auto', 'plugin', 'settings'],
 };
 
 function readTeamYamlKey(projectRoot, key) {
@@ -206,7 +213,9 @@ function readTeamYamlKey(projectRoot, key) {
     return undefined;
   }
   const raw = readYamlScalar(text, path);
-  return raw !== undefined && BOOLEAN_WORDS.indexOf(lower(raw)) !== -1 ? raw : undefined;
+  if (raw === undefined) return undefined;
+  if (TEAM_YAML_ENUMS[key] !== undefined) return raw;
+  return BOOLEAN_WORDS.indexOf(lower(raw)) !== -1 ? raw : undefined;
 }
 
 export function readLayeredKey(projectRoot, key, envName, env) {
@@ -732,12 +741,37 @@ function migrationSettled(home) {
   return MIGRATION_SETTLED.indexOf(state) !== -1;
 }
 
+function enumKey(projectRoot, key, envName, env, fallback) {
+  const raw = readLayeredKey(projectRoot, key, envName, env);
+  const value = raw === undefined ? '' : raw.trim();
+  return TEAM_YAML_ENUMS[key].indexOf(value) !== -1 ? value : fallback;
+}
+
+function isCiOrHeadless(env) {
+  return (
+    (typeof env.CI === 'string' && env.CI !== '') ||
+    (typeof env.PAQAD_HEADLESS === 'string' && env.PAQAD_HEADLESS !== '') ||
+    env.CLAUDE_CODE_ENTRYPOINT === 'sdk-cli'
+  );
+}
+
+export function migrationRuledOut(projectRoot, env) {
+  if (isRemote(env)) return 'cloud-session';
+  if (isCiOrHeadless(env)) return 'ci-or-headless';
+  const mode = enumKey(projectRoot, 'claude_install_mode', 'PAQAD_CLAUDE_INSTALL_MODE', env, 'auto');
+  if (mode === 'settings') return 'install-mode-settings';
+  const migration = enumKey(projectRoot, 'plugin_migration', 'PAQAD_PLUGIN_MIGRATION', env, 'on');
+  if (migration !== 'on' && mode !== 'plugin') return 'migration-off';
+  return null;
+}
+
 export function copyCliPath(home) {
   return join(teamPluginRoot(home), 'dist', 'cli', 'index.js');
 }
 
 export function maybeStartPluginMigration(ctx) {
-  if (ctx.script !== 'agent-entry-session-start.mjs' || isRemote(ctx.env)) return false;
+  if (ctx.script !== 'agent-entry-session-start.mjs') return false;
+  if (migrationRuledOut(ctx.projectRoot, ctx.env) !== null) return false;
   if (migrationSettled(ctx.home)) return false;
   const cli = copyCliPath(ctx.home);
   if (!existsSync(cli)) return false;

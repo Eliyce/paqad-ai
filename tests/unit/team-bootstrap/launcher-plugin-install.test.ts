@@ -64,6 +64,39 @@ describe('AC-7: the copy route starts the plugin install in the background', () 
     expect(existsSync(join(sandbox.project, '.paqad', 'session', 'plugin-migrate.d'))).toBe(false);
   });
 
+  it.each([
+    ['CI', { CI: 'true' }],
+    ['headless', { PAQAD_HEADLESS: '1' }],
+    ['SDK entry point', { CLAUDE_CODE_ENTRYPOINT: 'sdk-cli' }],
+    ['install mode settings from the environment', { PAQAD_CLAUDE_INSTALL_MODE: 'settings' }],
+    ['migration turned off from the environment', { PAQAD_PLUGIN_MIGRATION: 'off' }],
+  ])('AC-3: does not start it when the opt-out %s rules it out', async (_name, env) => {
+    const { captured } = await sessionStart('s-optout', env as NodeJS.ProcessEnv);
+    expect(captured.detached).toEqual([]);
+    expect(existsSync(join(sandbox.project, '.paqad', 'session', 'plugin-migrate.d'))).toBe(false);
+  });
+
+  it.each([
+    ['team yaml install mode settings', 'configs/paqad.yaml', 'claude_code:\n  install_mode: settings\n'],
+    ['team yaml migration off', 'configs/paqad.yaml', 'claude_code:\n  plugin_migration: off\n'],
+    ['local config install mode settings', '.config', 'claude_install_mode=settings\n'],
+    ['local config migration off', '.config', 'plugin_migration=off\n'],
+  ])('AC-3: does not start it when the project sets %s', async (_name, file, body) => {
+    const path = join(sandbox.project, '.paqad', file);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, body);
+    const { captured } = await sessionStart('s-optout-file');
+    expect(captured.detached).toEqual([]);
+  });
+
+  it('AC-3: still starts it when migration is off but the install mode forces the plugin', async () => {
+    const { captured } = await sessionStart('s-forced', {
+      PAQAD_PLUGIN_MIGRATION: 'off',
+      PAQAD_CLAUDE_INSTALL_MODE: 'plugin',
+    });
+    expect(captured.detached).toHaveLength(1);
+  });
+
   it.each(['installed', 'done', 'declined', 'rolled-back'])(
     'does not start it once the migration is %s',
     async (state) => {
