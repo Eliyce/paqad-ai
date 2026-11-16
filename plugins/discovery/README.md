@@ -2,8 +2,8 @@
 
 Use this plugin or the paqad plugin, not both. paqad already includes discover and ask.
 
-Source for the paqad discovery plugin (manifest name `paqad`, commands `/paqad:discover`,
-`/paqad:ask` and `/paqad:start`): a set of skills that help ask what a product does and shape ideas
+Source for the paqad discovery plugin (manifest name `paqad-discovery`, commands
+`/paqad-discovery:discover`, `/paqad-discovery:ask` and `/paqad-discovery:start`): a set of skills that help ask what a product does and shape ideas
 into user-story tickets, grounded in the target repository's business docs and code. The same
 source also builds the skills of the paqad plugin, which adds refine-ticket, size-work and
 plan-sprint (`build/build.py --target paqad`). The plugin works on any
@@ -78,14 +78,15 @@ with no list ships in both.
 - The paqad Claude plugin (`--target paqad`) ships all fourteen. The ChatGPT directory package is
   built from this target too.
 
-Both Claude and Codex manifests carry the name `paqad`, so every skill is invoked as
+The discovery plugin's Claude and Codex manifests carry the name `paqad-discovery`, so its skills
+are invoked as `/paqad-discovery:<short name>`; in the paqad plugin the same skills are
 `/paqad:<short name>`: `start` (front door), `discover`, `ask`, `refine-ticket`, `size-work`,
 `plan-sprint`, `get-connected`, `understand-idea`, `ground-in-project`, `shape-idea`,
 `decide-together`, `write-tickets`, `check-tickets`, `post-tickets`. Each skill's source folder
 keeps its own name. Run `pnpm build:discovery` from the repo root to rebuild the paqad plugin's
-copy into `runtime/claude-plugin/skills`. Don't install the discovery plugin next to the paqad
-plugin: both are named `paqad`, and `paqad-ai doctor`, `install` and `update` warn when they find
-both.
+copy into `runtime/claude-plugin/skills`. You still need only one of the two plugins. An old
+discovery plugin still named `paqad` clashes with the paqad plugin, and `paqad-ai doctor`,
+`install` and `update` warn when they find both: update or remove it.
 
 Short name first, source folder in parentheses. Entry skills can be invoked directly; the rest run
 as the `discover` journey directs them.
@@ -211,7 +212,7 @@ OpenAI's documented rules, so it is necessary, not sufficient. The upload steps 
 The plugin is packaged for claude.ai, ChatGPT, and Codex, but S1 claims no automated host
 verdict. The cross-host unknowns (U-1..U-17) are recorded MANUALLY in
 `hosts/{claude,chatgpt,codex}.md`: install the plugin on each host, exercise the real skills
-(ask a question with `/paqad:ask`, or start from the `/paqad:start` front door and start an idea with
-`/paqad:discover`), run the listed
+(ask a question with `/paqad-discovery:ask`, or start from the `/paqad-discovery:start` front door
+and start an idea with `/paqad-discovery:discover`), run the listed
 checks, and fill in each verdict (every verdict starts as `pending`). "Packaged" is not
 "verified"; host verification is complete only once those harnesses are filled in.

@@ -33,20 +33,20 @@ In Codex:
 
 ## How to start
 
-Start with `/paqad:start` and say what you want. It sends you to the right skill. You can also call
-a skill directly:
+Start with `/paqad-discovery:start` and say what you want. It sends you to the right skill. You can
+also call a skill directly:
 
 | Command | What it does |
 |---|---|
-| `/paqad:start` | The front door. Tell it what you want and it picks the right skill for you. |
-| `/paqad:ask` | Answers a question about what the product does today, with its sources. |
-| `/paqad:discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
+| `/paqad-discovery:start` | The front door. Tell it what you want and it picks the right skill for you. |
+| `/paqad-discovery:ask` | Answers a question about what the product does today, with its sources. |
+| `/paqad-discovery:discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
 
 ## Example prompts
 
-- `/paqad:start what does the checkout do today?`
-- `/paqad:ask how are returns handled today?`
-- `/paqad:discover let shoppers save a basket for later`
+- `/paqad-discovery:start what does the checkout do today?`
+- `/paqad-discovery:ask how are returns handled today?`
+- `/paqad-discovery:discover let shoppers save a basket for later`
 
 ## What it reads and writes
 

@@ -54,10 +54,10 @@ describe('discovery plugin tests that prove the plugin, project scan and busines
     TIMEOUT,
   );
   it(
-    'AC-10: both plugin manifests are named paqad and the marketplace keeps its name',
+    'AC-33: both plugin manifests are named paqad-discovery and the marketplace keeps its name',
     () =>
       runPluginTests([
-        'test_build.ListingManifestTest.test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name',
+        'test_build.ListingManifestTest.test_ac33_both_plugin_manifests_are_named_paqad_discovery_and_the_marketplace_keeps_its_name',
       ]),
     TIMEOUT,
   );

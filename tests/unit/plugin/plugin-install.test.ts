@@ -198,7 +198,7 @@ describe('AC-6: pluginLoadState reads whether the plugin loads for this repo', (
 
 describe('discoveryPluginClash', () => {
   const S2 =
-    'The paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Remove paqad discovery: the paqad plugin already has discover and ask.';
+    'An old paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Update paqad discovery to the release named paqad-discovery, or remove it: the paqad plugin already has discover and ask.';
 
   function installed(configDir: string, keys: string[]): void {
     mkdirSync(join(configDir, 'plugins'), { recursive: true });
@@ -262,6 +262,42 @@ describe('discoveryPluginClash', () => {
     writeFileSync(join(configDir(), 'plugins', 'synced', 'stray-file'), 'x');
     expect(() => discoveryPluginClash({ home: root, env: {} })).not.toThrow();
     expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+  });
+
+  function installedAt(configDir: string, manifestName: string): void {
+    const installPath = join(root, 'cache', manifestName);
+    mkdirSync(join(installPath, '.claude-plugin'), { recursive: true });
+    writeFileSync(
+      join(installPath, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name: manifestName }),
+    );
+    mkdirSync(join(configDir, 'plugins'), { recursive: true });
+    writeFileSync(
+      join(configDir, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({
+        version: 2,
+        plugins: {
+          'paqad@eliyce': [{ scope: 'user' }],
+          'paqad-product-discovery@paqad-product-discovery': [{ scope: 'user', installPath }],
+        },
+      }),
+    );
+  }
+
+  it('AC-34: the renamed paqad-discovery plugin next to paqad is no clash', () => {
+    installedAt(configDir(), 'paqad-discovery');
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+    rmSync(configDir(), { recursive: true, force: true });
+    installed(configDir(), ['paqad@eliyce']);
+    synced(configDir(), 'account/paqad-product-discovery', { name: 'paqad-discovery' });
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(false);
+  });
+
+  it('AC-34: an old discovery plugin still named paqad is a clash with the update or remove remedy', () => {
+    installedAt(configDir(), 'paqad');
+    expect(discoveryPluginClash({ home: root, env: {} })).toBe(true);
+    expect(DISCOVERY_CLASH_MESSAGE).toContain('Update paqad discovery');
+    expect(DISCOVERY_CLASH_MESSAGE).toContain('or remove it');
   });
 
   it('AC-16: reads the Claude config folder from CLAUDE_CONFIG_DIR', () => {

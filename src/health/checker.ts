@@ -15,6 +15,7 @@ import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
 import {
+  DISCOVERY_CLASH_FIX,
   DISCOVERY_CLASH_MESSAGE,
   describeFrameworkLink,
   discoveryPluginClash,
@@ -778,7 +779,7 @@ export class HealthChecker {
           fail(
             'Claude plugins',
             DISCOVERY_CLASH_MESSAGE,
-            'Remove paqad discovery in Claude: Customize, Plugins.',
+            DISCOVERY_CLASH_FIX,
           ),
         ]
       : [];
