@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { appendHookLog, logHookFailure } from './hook-log.mjs';
@@ -18,6 +19,9 @@ export const HUD_NOT_ATTACHED_NOTE =
 
 export const HUD_NOT_ATTACHED_FIX =
   'Install or turn on the paqad plugin (`claude plugin install paqad@eliyce --scope user`), then type /reload-plugins.';
+
+export const PLUGIN_RELOAD_LINE =
+  'paqad installed its Claude Code plugin: type /reload-plugins to see the HUD now, or it shows next session.';
 
 export const QUIET_NARRATION_LINE =
   '[paqad] The paqad HUD is live in this session and shows each stage as it runs, so skip the per-stage ▸ paqad lines. Keep the route line and the receipt.';
@@ -173,6 +177,40 @@ export function recordHudAttachment(projectRoot, sessionId, options = {}) {
     return `[paqad] ${HUD_NOT_ATTACHED_NOTE} ${HUD_NOT_ATTACHED_FIX}\n`;
   } catch (error) {
     logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'recording the HUD attachment');
+    return '';
+  }
+}
+
+export function pluginMigrateMarkPath(projectRoot, sessionId) {
+  return join(projectRoot, '.paqad', 'session', 'plugin-migrate.d', safeSessionId(sessionId));
+}
+
+function migrationInstalledAt(home) {
+  try {
+    const record = JSON.parse(
+      readFileSync(join(home, '.paqad-ai', 'plugin-migration.json'), 'utf8'),
+    );
+    if (record?.state !== 'installed' && record?.state !== 'done') return null;
+    const at = Date.parse(String(record.installed_at ?? ''));
+    return Number.isFinite(at) ? at : null;
+  } catch {
+    return null;
+  }
+}
+
+export function pluginReloadLine(projectRoot, sessionId, options = {}) {
+  const env = options.env ?? process.env;
+  const now = options.now ?? Date.now();
+  const home = options.home ?? homedir();
+  if (typeof sessionId !== 'string' || sessionId.trim() === '' || isCloudSession(env)) return '';
+  try {
+    const started = mtimeOf(pluginMigrateMarkPath(projectRoot, sessionId));
+    if (started === null || existsSync(heartbeatPath(projectRoot, sessionId))) return '';
+    const installedAt = migrationInstalledAt(home);
+    if (installedAt === null || installedAt < started - 1000) return '';
+    return noteOnce(projectRoot, sessionId, 'reload', now) ? `[paqad] ${PLUGIN_RELOAD_LINE}\n` : '';
+  } catch (error) {
+    logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'noting the plugin reload line');
     return '';
   }
 }

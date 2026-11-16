@@ -16,11 +16,14 @@ import {
   CLOUD_HUD_LINE,
   HEARTBEAT_WINDOW_MS,
   HUD_NOT_ATTACHED_NOTE,
+  PLUGIN_RELOAD_LINE,
   QUIET_NARRATION_LINE,
   SNAPSHOT_FRESH_MS,
   cloudHudLine,
   heartbeatIsFresh,
   heartbeatPath,
+  pluginMigrateMarkPath,
+  pluginReloadLine,
   quietNarration,
   recordHudAttachment,
   snapshotIsFresh,
@@ -242,5 +245,89 @@ describe('HUD not attached is recorded once per session (W5)', () => {
     expect(cloudHudLine(root, S, LOCAL, NOW)).toBe('');
     expect(cloudHudLine(root, S, cloud, NOW)).toBe(`[paqad] ${CLOUD_HUD_LINE}\n`);
     expect(cloudHudLine(root, S, cloud, NOW)).toBe('');
+  });
+});
+
+describe('AC-7: the reload line after a mid-session plugin install', () => {
+  let home: string;
+  const T = Date.UTC(2026, 10, 16, 12, 0, 0);
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'paqad-reload-home-'));
+  });
+  afterEach(() => removeTempProject(home));
+
+  function markStarted(sessionId: string, at: number): void {
+    const path = pluginMigrateMarkPath(root, sessionId);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, new Date(at).toISOString());
+    utimesSync(path, new Date(at), new Date(at));
+  }
+
+  function migration(state: string, installedAt?: number): void {
+    mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+    writeFileSync(
+      join(home, '.paqad-ai', 'plugin-migration.json'),
+      JSON.stringify({
+        state,
+        attempts: 1,
+        version: '1',
+        ...(installedAt === undefined ? {} : { installed_at: new Date(installedAt).toISOString() }),
+      }),
+    );
+  }
+
+  const line = (sessionId = SESSION, env: NodeJS.ProcessEnv = {}): string =>
+    pluginReloadLine(root, sessionId, { home, env, now: T + 60_000 });
+
+  it('says type /reload-plugins once after the install this session started', () => {
+    markStarted(SESSION, T);
+    migration('installed', T + 30_000);
+    expect(line()).toBe(`[paqad] ${PLUGIN_RELOAD_LINE}\n`);
+    expect(PLUGIN_RELOAD_LINE).toContain(
+      'type /reload-plugins to see the HUD now, or it shows next session',
+    );
+    expect(line()).toBe('');
+  });
+
+  it('says nothing once the band has drawn', () => {
+    markStarted(SESSION, T);
+    migration('installed', T + 30_000);
+    beat(SESSION, T + 40_000);
+    expect(line()).toBe('');
+  });
+
+  it('says nothing while the install has not finished, failed, or predates this session', () => {
+    markStarted(SESSION, T);
+    expect(line()).toBe('');
+    migration('failed');
+    expect(line()).toBe('');
+    migration('installed', T - 3_600_000);
+    expect(line()).toBe('');
+  });
+
+  it('says nothing when this session started no install, or in a cloud session', () => {
+    migration('installed', T + 30_000);
+    expect(line()).toBe('');
+    markStarted(SESSION, T);
+    expect(line(SESSION, { CLAUDE_CODE_REMOTE: 'true' })).toBe('');
+    expect(line('')).toBe('');
+  });
+
+  it('the prompt gate carries the line on the next prompt', () => {
+    markStarted(SESSION, Date.now() - 60_000);
+    migration('installed', Date.now() - 30_000);
+    const out = execFileSync('node', [PROMPT_GATE], {
+      env: {
+        ...process.env,
+        ...NO_CONTEXT_REFRESH_ENV,
+        HOME: home,
+        USERPROFILE: home,
+        CLAUDE_PROJECT_DIR: root,
+        CLAUDE_CODE_REMOTE: '',
+      },
+      input: JSON.stringify({ prompt: '', session_id: SESSION }),
+    }).toString('utf8');
+    expect(out).toContain(PLUGIN_RELOAD_LINE);
   });
 });

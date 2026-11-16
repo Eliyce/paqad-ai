@@ -26,8 +26,8 @@ const PINS = {
   catalog: { version: 2, hash: '8352f4da963c7b9456442af9d60028d4fa7a306bc2687c746429460b0ed3be72' },
   readme: { version: 2, hash: '698344fc5e51804d4483ddb58062800ae69c3b793dd6f102ba43159927b6ebe5' },
   launcher: {
-    version: 1,
-    hash: 'c85bc81248d747c461b81f18784fa5e06fff08a8b1ba1721dcb61f189f745ab9',
+    version: 2,
+    hash: '63a87342d0a66287ecddcc1c0370f8ebf6cd3faded9d3a7c2e7231198e138928',
   },
   block: { version: 3, hash: '461c0655ad844b8c5bbd00204e06753d0655bf910f35b97ae72e0a235aacea00' },
 };

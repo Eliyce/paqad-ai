@@ -21,7 +21,12 @@ import {
   readLayeredKey,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
-import { cloudHudLine, quietNarration, recordHudAttachment } from './lib/hud-heartbeat.mjs';
+import {
+  cloudHudLine,
+  pluginReloadLine,
+  quietNarration,
+  recordHudAttachment,
+} from './lib/hud-heartbeat.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -161,11 +166,10 @@ async function main(stdin) {
   const sessionId = sessionIdFromStdin(stdin);
   // Read before this prompt refreshes the snapshot: a snapshot that existed and is fresh while
   // the HUD heartbeat is not means the HUD is not attached (W5); a cloud session gets one line.
-  const hudNotes = `${cloudHudLine(projectRoot, sessionId, process.env)}${recordHudAttachment(
+  const hudNotes = `${cloudHudLine(projectRoot, sessionId, process.env)}${pluginReloadLine(
     projectRoot,
     sessionId,
-    { adapter: ADAPTER },
-  )}`;
+  )}${recordHudAttachment(projectRoot, sessionId, { adapter: ADAPTER })}`;
   const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
     let firstRouteBuf = hudNotes;

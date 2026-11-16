@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const LAUNCHER_REVISION = 1;
+export const LAUNCHER_REVISION = 2;
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
@@ -385,6 +385,10 @@ export function noticePath(projectRoot, sid) {
   return join(sessionDir(projectRoot, 'team-bootstrap-notice.d'), sid);
 }
 
+export function pluginMigrateMarkPath(projectRoot, sid) {
+  return join(sessionDir(projectRoot, 'plugin-migrate.d'), sid);
+}
+
 export function pluginClaimPath(projectRoot, sid) {
   return join(sessionDir(projectRoot, 'plugin-active.d'), sid);
 }
@@ -720,6 +724,46 @@ function isRemote(env) {
   return lower(env.CLAUDE_CODE_REMOTE) === 'true';
 }
 
+const MIGRATION_SETTLED = ['installed', 'done', 'declined', 'rolled-back'];
+
+function migrationSettled(home) {
+  const parsed = readJson(join(home, '.paqad-ai', 'plugin-migration.json'));
+  const state = parsed && typeof parsed.state === 'string' ? parsed.state : '';
+  return MIGRATION_SETTLED.indexOf(state) !== -1;
+}
+
+export function copyCliPath(home) {
+  return join(teamPluginRoot(home), 'dist', 'cli', 'index.js');
+}
+
+export function maybeStartPluginMigration(ctx) {
+  if (ctx.script !== 'agent-entry-session-start.mjs' || isRemote(ctx.env)) return false;
+  if (migrationSettled(ctx.home)) return false;
+  const cli = copyCliPath(ctx.home);
+  if (!existsSync(cli)) return false;
+  try {
+    ctx.deps.spawnDetached(
+      process.execPath,
+      [cli, 'plugin', 'migrate', '--project-root', ctx.projectRoot],
+      { detached: true, stdio: 'ignore', windowsHide: true, env: ctx.env },
+    );
+  } catch (error) {
+    logLine(ctx.projectRoot, 'plugin install not started (' + errorCode(error) + ')', ctx);
+    return false;
+  }
+  if (ctx.sid) {
+    try {
+      const mark = pluginMigrateMarkPath(ctx.projectRoot, ctx.sid);
+      mkdirSync(dirname(mark), { recursive: true });
+      writeFileSync(mark, new Date(ctx.deps.now()).toISOString() + '\n');
+    } catch (error) {
+      logLine(ctx.projectRoot, 'plugin install mark not written (' + errorCode(error) + ')', ctx);
+    }
+  }
+  logLine(ctx.projectRoot, 'plugin install started in the background', ctx);
+  return true;
+}
+
 function copyEnv(env, home) {
   const out = Object.assign({}, env, {
     CLAUDE_PLUGIN_ROOT: teamPluginRoot(home),
@@ -845,6 +889,7 @@ function sessionStart(ctx) {
     decided = installAtSessionStart(ctx);
   }
   writeRoute(ctx.projectRoot, ctx.sid, decided, ctx);
+  if (decided.route === 'copy') maybeStartPluginMigration(ctx);
   if (ctx.script === 'agent-entry-session-start.mjs' || !ctx.sid) {
     logLine(
       ctx.projectRoot,
