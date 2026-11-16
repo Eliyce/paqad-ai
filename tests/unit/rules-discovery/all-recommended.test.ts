@@ -129,5 +129,39 @@ describe('rules discovery review --all-recommended', () => {
         ruleFile,
       );
     });
+
+    async function review(...args: string[]) {
+      const lines: string[] = [];
+      const errors: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(String(line)));
+      vi.spyOn(console, 'error').mockImplementation((line: string) => void errors.push(line));
+      process.exitCode = undefined;
+      await createRulesCommand().parseAsync(
+        ['discovery', 'review', '--run', RUN, ...args, '--project-root', root],
+        { from: 'user' },
+      );
+      const code = Number(process.exitCode ?? 0);
+      process.exitCode = undefined;
+      vi.restoreAllMocks();
+      return { lines, errors, code };
+    }
+
+    it('INV-11: one row still needs --row and a known --verdict, and records it', async () => {
+      const file = `.paqad/ledger/rules-discovery/${RUN}/proposal.json`;
+      writeFile(root, file, JSON.stringify(proposal([row('P-1', 'new'), row('P-2', 'new')])));
+      const missing = await review('--row', 'P-1');
+      expect(missing.code).toBe(1);
+      expect(missing.errors.join('\n')).toContain(
+        'review needs --row and --verdict, or --all-recommended.',
+      );
+      expect((await review('--verdict', 'keep')).code).toBe(1);
+      const unknown = await review('--row', 'P-1', '--verdict', 'maybe');
+      expect(unknown.errors.join('\n')).toContain('"maybe" is not a verdict.');
+      const kept = await review('--row', 'P-1', '--verdict', 'keep');
+      expect(kept.code).toBe(0);
+      expect(kept.lines.join('\n')).toContain('review — P-1 is keep; 1 row(s) left.');
+      const saved = JSON.parse(readFileSync(join(root, file), 'utf8')) as Proposal;
+      expect(saved.rows.map((entry) => entry.verdict)).toEqual(['keep', null]);
+    });
   });
 });
