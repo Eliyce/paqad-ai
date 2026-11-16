@@ -226,6 +226,13 @@ describe('stage-agent turn limits and Report sections', () => {
     'paqad-expert': 20,
     'paqad-chief-architect': 30,
   };
+  const ONBOARDING_TURNS: Record<string, number> = {
+    'paqad-onboarding-docs': 60,
+    'paqad-onboarding-modules': 40,
+    'paqad-onboarding-rules': 80,
+    'paqad-onboarding-analyze': 60,
+    'paqad-onboarding-scripts': 80,
+  };
 
   it('sets maxTurns per the issue table on every stage and High Table agent', () => {
     const defs = [...MANDATORY_STAGE_AGENTS, ...HIGH_TABLE_AGENTS];
@@ -235,7 +242,7 @@ describe('stage-agent turn limits and Report sections', () => {
   it('AC-9: every rendered agent carries maxTurns, a token maximum, the artifact and a Status line', () => {
     for (const agent of renderStageAgentFiles('claude-code')) {
       const name = agent.name.replace(/\.md$/u, '');
-      expect(agent.content).toContain(`\nmaxTurns: ${TURNS[name]}\n`);
+      expect(agent.content).toContain(`\nmaxTurns: ${TURNS[name] ?? ONBOARDING_TURNS[name]}\n`);
       const report = agent.content.slice(agent.content.indexOf('\n## Report\n'));
       expect(report).toContain(`under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens`);
       for (const status of STAGE_REPORT_STATUSES) expect(report).toContain(`\`Status: ${status}\``);

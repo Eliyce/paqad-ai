@@ -31,6 +31,8 @@ async function main(input) {
       return 0;
     }
 
+    if (await recordOnboardingStop(projectRoot, payload)) return 0;
+
     const transcriptText = resolveCompletionTranscriptText(input, ADAPTER) || '';
 
     if (await sendBack(projectRoot, payload, transcriptText)) return 0;
@@ -79,6 +81,19 @@ async function main(input) {
     /* v8 ignore next */
     return 0;
   }
+}
+
+async function recordOnboardingStop(projectRoot, payload) {
+  const agentType = typeof payload?.agent_type === 'string' ? payload.agent_type : '';
+  if (!/^(paqad:)?paqad-onboarding-/u.test(agentType)) return false;
+  try {
+    const url = new URL('../../dist/onboarding/journey/agents.js', import.meta.url);
+    const { recordOnboardingAgentStop } = await import(url.href);
+    recordOnboardingAgentStop(projectRoot, agentType, 'returned');
+  } catch {
+    return true;
+  }
+  return true;
 }
 
 async function sendBack(projectRoot, payload, transcriptText) {

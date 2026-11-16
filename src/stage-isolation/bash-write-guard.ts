@@ -2,6 +2,14 @@ import { tmpdir } from 'node:os';
 import * as nodePath from 'node:path';
 import { resolve } from 'node:path';
 
+import {
+  MODULE_AGENT,
+  ONBOARDING_DENIED_ROOTS,
+  ONBOARDING_WRITE_ROOTS,
+  claimedModuleSlugs,
+  onboardingAgent,
+} from '@/onboarding/journey/agents.js';
+
 import { unresolvedStageAgent } from './must-not-judge.js';
 import { isHighTableAgent, stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
 
@@ -18,6 +26,21 @@ export interface ReadOnlyAgentScope {
   agent: string;
   allowedRoots: readonly string[];
   allowTempDir: boolean;
+  deniedRoots?: readonly string[];
+}
+
+export function onboardingAgentScope(
+  agentType: unknown,
+  projectRoot: string,
+): ReadOnlyAgentScope | null {
+  if (typeof agentType !== 'string') return null;
+  const agent = stripPluginAgentNamespace(agentType.trim());
+  if (onboardingAgent(agent) === null) return null;
+  const allowedRoots =
+    agent === MODULE_AGENT
+      ? claimedModuleSlugs(projectRoot).map((slug) => `docs/modules/${slug}/`)
+      : ONBOARDING_WRITE_ROOTS;
+  return { agent, allowedRoots, allowTempDir: true, deniedRoots: ONBOARDING_DENIED_ROOTS };
 }
 
 export function readOnlyAgentScope(agentType: unknown): ReadOnlyAgentScope | null {
@@ -378,6 +401,7 @@ export function writeAllowed(
   const root = path.resolve(projectRoot);
   if (under(path, abs, root)) {
     const rel = path.relative(root, abs).split(path.sep).join('/');
+    if ((scope.deniedRoots ?? []).some((denied) => `${rel}/`.startsWith(denied))) return false;
     return scope.allowedRoots.some((allowed) => `${rel}/`.startsWith(allowed));
   }
   if (!scope.allowTempDir) return false;
@@ -404,6 +428,8 @@ const EDIT_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'NotebookEdit'
 const ALLOW: StageAgentWriteDecision = { blocked: false, agent: null, target: null };
 
 function scopeFor(input: StageAgentWriteInput): ReadOnlyAgentScope | null {
+  const onboarding = onboardingAgentScope(input.agentType, input.projectRoot);
+  if (onboarding !== null) return onboarding;
   const scope = readOnlyAgentScope(input.agentType);
   if (scope !== null || input.toolName !== 'Bash') return scope;
   const unresolved = unresolvedStageAgent(input.agentType);
@@ -433,6 +459,13 @@ export function stageAgentWriteDecision(input: StageAgentWriteInput): StageAgent
 }
 
 export function formatStageAgentWriteSummary(decision: StageAgentWriteDecision): string {
+  if (decision.agent !== null && onboardingAgent(decision.agent) !== null) {
+    return (
+      `**▸ paqad** · write blocked: \`${decision.agent}\` writes only its onboarding docs\n` +
+      `> 🔴 Needs your attention — \`${decision.agent}\` tried to write ${decision.target === null ? 'a file paqad cannot resolve' : `\`${decision.target}\``}. ` +
+      'Onboarding agents write only under docs/ and .paqad/ (never paqad controls), and a module agent only under its own docs/modules/<slug>/.'
+    );
+  }
   const scope = readOnlyAgentScope(decision.agent);
   const where =
     scope === null

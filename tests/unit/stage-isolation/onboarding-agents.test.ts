@@ -1,0 +1,114 @@
+import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { claimUnit } from '@/onboarding/journey/actions.js';
+import { ONBOARDING_AGENTS, recordOnboardingAgentStop } from '@/onboarding/journey/agents.js';
+import { readEvents } from '@/onboarding/journey/events.js';
+import { updateRun } from '@/onboarding/journey/run-store.js';
+import { stageAgentWriteDecision } from '@/stage-isolation/bash-write-guard.js';
+import { unresolvedStageAgent } from '@/stage-isolation/must-not-judge.js';
+
+import { at, clockAt, seedRun, tempRoot } from '../onboarding/journey/fixtures/journey.js';
+
+describe('onboarding stage agents', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = tempRoot('paqad-onboarding-agents-');
+    seedRun(root);
+    updateRun(root, (draft) => {
+      draft.stages.detect = { status: 'done' };
+      draft.stages.setup = { status: 'done' };
+      draft.stages.project_docs = { status: 'done' };
+      draft.stages.module_docs = { status: 'running', started_at: at(1) };
+    });
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function decide(agentType: string, toolName: string, target: string): boolean {
+    return stageAgentWriteDecision({
+      projectRoot: root,
+      agentType,
+      toolName,
+      ...(toolName === 'Bash'
+        ? { command: `echo x > ${target}` }
+        : { targets: [join(root, target)] }),
+    }).blocked;
+  }
+
+  it('INV-18: onboarding agents may write docs/instructions/** and .paqad/ but not source', () => {
+    expect(decide('paqad-onboarding-docs', 'Write', 'docs/instructions/stack/overview.md')).toBe(
+      false,
+    );
+    expect(decide('paqad:paqad-onboarding-analyze', 'Bash', '.paqad/tmp/batch.json')).toBe(false);
+    expect(decide('paqad-onboarding-docs', 'Edit', 'src/index.ts')).toBe(true);
+    expect(decide('paqad-onboarding-docs', 'Bash', 'src/index.ts')).toBe(true);
+  });
+
+  it('INV-4: the .paqad grant excludes paqad controls', () => {
+    for (const target of [
+      '.paqad/.config',
+      '.paqad/configs/git-workflow/branches.yaml',
+      '.paqad/decisions/pending/D-1.json',
+      '.paqad/scripts/rules/coding/a.mjs',
+      '.paqad/onboarding/journey.json',
+    ]) {
+      expect(decide('paqad-onboarding-rules', 'Write', target), target).toBe(true);
+    }
+  });
+
+  it('AC-16 NFR-13: a module agent writes only under the module folder it claimed', () => {
+    claimUnit(root, 'module_docs', 'billing', 'paqad-onboarding-modules', clockAt(2));
+    expect(decide('paqad-onboarding-modules', 'Write', 'docs/modules/billing/summary.md')).toBe(
+      false,
+    );
+    expect(decide('paqad-onboarding-modules', 'Write', 'docs/modules/auth/summary.md')).toBe(true);
+    expect(decide('paqad-onboarding-modules', 'Write', '.claude/settings.json')).toBe(true);
+    expect(decide('paqad-onboarding-modules', 'Bash', 'src/billing.ts')).toBe(true);
+  });
+
+  it('onboarding agents are resolved, so the fail-closed gate does not deny them', () => {
+    for (const agent of ONBOARDING_AGENTS) expect(unresolvedStageAgent(agent.agentName)).toBeNull();
+    expect(unresolvedStageAgent('paqad-onboarding-unknown')).toBe('paqad-onboarding-unknown');
+  });
+
+  it('INV-19: only the rules agent has network tools; none can ask the person', () => {
+    for (const agent of ONBOARDING_AGENTS) {
+      expect(agent.claudeTools).not.toContain('AskUserQuestion');
+      const network =
+        agent.claudeTools.includes('WebFetch') || agent.claudeTools.includes('WebSearch');
+      expect(network, agent.agentName).toBe(agent.agentName === 'paqad-onboarding-rules');
+    }
+    expect(
+      ONBOARDING_AGENTS.find((a) => a.agentName === 'paqad-onboarding-docs')?.claudeTools,
+    ).toBe('Read, Edit, Write, Grep, Glob, Bash');
+  });
+
+  it('INV-17 FR-22: the shipped docs agent is its own file, scoped to step 3, without the stage protocol', () => {
+    const file = readFileSync(
+      join(process.cwd(), 'runtime/claude-plugin/agents/paqad-onboarding-docs.md'),
+      'utf8',
+    );
+    expect(file).toContain('only during step 3');
+    expect(file).not.toContain('paqad-ai stage begin documentation_sync');
+    expect(file).toContain('## Report');
+  });
+
+  it('AC-21: the SubagentStop judge records agent_stop without a feature handback', () => {
+    expect(
+      recordOnboardingAgentStop(root, 'paqad:paqad-onboarding-docs', 'max_turns', clockAt(5)),
+    ).toBe(true);
+    const stop = readEvents(root).find((event) => event.kind === 'agent_stop');
+    expect(stop).toMatchObject({
+      agent: 'paqad-onboarding-docs',
+      stage: 'project_docs',
+      action: 'max_turns',
+    });
+    expect(recordOnboardingAgentStop(root, 'paqad-development', 'done', clockAt(5))).toBe(false);
+  });
+});

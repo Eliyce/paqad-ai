@@ -273,6 +273,25 @@ export function recordUnit(
   );
 }
 
+export function claimUnit(
+  projectRoot: string,
+  stage: StageId,
+  unit: string,
+  agent: string,
+  now: Clock,
+): void {
+  const run = requireRun(projectRoot);
+  assertRunning(run, stage);
+  appendEvent(projectRoot, {
+    ts: now().toISOString(),
+    run_id: run.run_id,
+    kind: 'agent_start',
+    stage,
+    unit,
+    agent,
+  });
+}
+
 export function recordProgress(
   projectRoot: string,
   stage: StageId,

@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 import {
   abandonRun,
+  claimUnit,
   endStage,
   failStage,
   heartbeat,
@@ -287,13 +288,24 @@ function addUnit(command: Command): void {
     .option('--outputs <paths>', 'Comma-separated files the unit wrote')
     .option('--kept', 'Keep a module whose source is unchanged since its docs were written')
     .option('--source-hash <sha>', 'The module source hash a kept unit matches')
+    .option('--claim <agent>', 'Record that an agent starts this unit, before dispatching it')
     .action(
       (
         step: string,
         unit: string,
-        options: RootOptions & { outputs?: string; kept?: boolean; sourceHash?: string },
+        options: RootOptions & {
+          outputs?: string;
+          kept?: boolean;
+          sourceHash?: string;
+          claim?: string;
+        },
       ) =>
         runVerb(options.projectRoot, () => {
+          if (options.claim) {
+            claimUnit(options.projectRoot, stageArg(step), unit, options.claim, now);
+            emit(options, { step, unit }, `**▸ paqad** · ${options.claim} starts ${unit}.`);
+            return;
+          }
           recordUnit(
             options.projectRoot,
             stageArg(step),

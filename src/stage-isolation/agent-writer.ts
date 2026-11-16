@@ -9,6 +9,11 @@ import {
 } from '@/authoring/package/agent-render.js';
 import { resolveStageAgentSettings, type StageAgentSetting } from '@/core/framework-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
+import {
+  ONBOARDING_AGENTS,
+  buildOnboardingAgentBody,
+  type OnboardingAgentDef,
+} from '@/onboarding/journey/agents.js';
 
 import {
   HIGH_TABLE_AGENTS,
@@ -70,6 +75,17 @@ function highTableAgentContext(def: HighTableAgentDef): Record<string, unknown> 
   };
 }
 
+function onboardingAgentContext(def: OnboardingAgentDef): Record<string, unknown> {
+  return {
+    agentName: def.agentName,
+    description: def.description,
+    tools: def.claudeTools,
+    maxTurns: def.maxTurns,
+    model: 'inherit',
+    body: buildOnboardingAgentBody(def),
+  };
+}
+
 function allAgentContexts(
   adapter: string,
   settings: Record<string, StageAgentSetting> = resolveStageAgentSettings(),
@@ -82,6 +98,10 @@ function allAgentContexts(
     ...HIGH_TABLE_AGENTS.map((def) => ({
       agentName: def.agentName,
       context: highTableAgentContext(def),
+    })),
+    ...(adapter === CLAUDE_CODE_ADAPTER ? ONBOARDING_AGENTS : []).map((def) => ({
+      agentName: def.agentName,
+      context: onboardingAgentContext(def),
     })),
   ];
 }
