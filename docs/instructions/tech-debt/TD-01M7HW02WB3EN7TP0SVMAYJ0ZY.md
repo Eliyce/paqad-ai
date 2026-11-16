@@ -3,7 +3,7 @@ id: "TD-01M7HW02WB3EN7TP0SVMAYJ0ZY"
 title: "Onboarding agents can write .paqad/onboarding/events.jsonl directly and forge unit or agent_bind rows"
 kind: "gap"
 severity: "medium"
-status: "open"
+status: "closed"
 files:
   - "src/onboarding/journey/agents.ts"
 found_in:
@@ -15,7 +15,7 @@ session: "2186460c-1786-5c20-a493-5758cd0ebc53"
 created_at: "2026-11-16T09:46:16.211Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "Fixed in 568add6: events.jsonl and view.json are in the write-guard denied roots and the allow-list deny entries."
 ---
 
 ## What

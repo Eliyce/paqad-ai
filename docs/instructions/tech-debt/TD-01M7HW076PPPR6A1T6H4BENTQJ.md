@@ -3,7 +3,7 @@ id: "TD-01M7HW076PPPR6A1T6H4BENTQJ"
 title: "onboarding commit checks out the new branch before committing, with no rollback if the commit fails"
 kind: "gap"
 severity: "low"
-status: "open"
+status: "closed"
 files:
   - "src/onboarding/journey/commit.ts"
 found_in:
@@ -15,7 +15,7 @@ session: "2186460c-1786-5c20-a493-5758cd0ebc53"
 created_at: "2026-11-16T09:46:20.609Z"
 reopened_at: null
 issue: null
-closed_reason: null
+closed_reason: "Fixed in e719683: a failed commit unstages, returns to the original branch and deletes the new one."
 ---
 
 ## What

@@ -26,11 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
-- [TD-01M7HW076PPPR6A1T6H4BENTQJ](TD-01M7HW076PPPR6A1T6H4BENTQJ.md) (gap, low): onboarding commit checks out the new branch before committing, with no rollback if the commit fails
 - [TD-01M7HW063AWE0K12ZWX2G6NDQR](TD-01M7HW063AWE0K12ZWX2G6NDQR.md) (gap, low): Journey rules_before snapshot comes from the rule-script map, so pre-existing rules not yet mapped are treated as journey-added
-- [TD-01M7HW04YWFXKHH677W8RAB4VK](TD-01M7HW04YWFXKHH677W8RAB4VK.md) (gap, low): onboarding decide auto-answers any pending packet opened after the journey started, including other sessions' packets
 - [TD-01M7HW03VCA49HDN3PRQJNC5H7](TD-01M7HW03VCA49HDN3PRQJNC5H7.md) (gap, medium): onboarding commit verb cannot tell a person's answer from an agent's on hosts without the ask permission
-- [TD-01M7HW02WB3EN7TP0SVMAYJ0ZY](TD-01M7HW02WB3EN7TP0SVMAYJ0ZY.md) (gap, medium): Onboarding agents can write .paqad/onboarding/events.jsonl directly and forge unit or agent_bind rows
 - [TD-01M7HW01TYSNWVG7TY7ADVV9RM](TD-01M7HW01TYSNWVG7TY7ADVV9RM.md) (gap, medium): Plugin mod register.tsx is outside every tsc project, so its onboarding wiring is not type-checked
 - [TD-01M7HW00SZFV68XB41JFRN6TX6](TD-01M7HW00SZFV68XB41JFRN6TX6.md) (gap, medium): Onboarding module agents bind to module folders in claim order, not by the slug in their brief
 - [TD-01M78CKCYKZZW0RXAF6152NXX8](TD-01M78CKCYKZZW0RXAF6152NXX8.md) (bug, medium): Planning recipe fix makes the stage order check fail
