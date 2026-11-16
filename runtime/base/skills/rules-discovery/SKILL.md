@@ -1,6 +1,7 @@
 ---
 name: rules-discovery
-description: 'Run rules discovery for the Developer / Operator: open or resume a run, then call the inventory, decisions, research, propose and review, sign-off, apply and docs steps in order with one short status line per step. Use when the router picks the rules-discovery workflow ("discover rules", "update our rules", "audit our rules", "are my rules out of date?").'
+description: >-
+  Runs rules discovery, the rules-discovery workflow, for the Developer / Operator: reads the real stack, turns resolved decisions into rules, researches the stack online, proposes a merged rule set for sign-off, then applies it and refreshes the stack docs, one short status line per step. Use when someone says "discover rules", "update our rules", "audit our rules" or "are my rules out of date?", when rules went stale after an upgrade or a package change, when a rules discovery run should be resumed, or when an onboarding journey brief says to follow the rules-discovery steps. Not for turning rules into scripts (rule-analyzer), editing one rule (rule-editor) or checking dependencies for security advisories.
 metadata:
   model_tier: medium
   cacheable: 'false'
@@ -35,7 +36,15 @@ Keeps the project's rules and stack docs current for the Developer / Operator. I
 
 ## Onboarding Journey
 
-When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+When the brief you were given says "Onboarding journey says auto-recommended.", run the same steps without asking the Developer / Operator anything. The journey adds new rules only; existing rules stay exactly as they are.
+
+1. Start: on `choose`, rerun with `--continue`; for a stale or broken run, rerun with `--fresh`.
+2. Research: record each researched package with `paqad-ai onboarding unit rules_discovery <package>` as soon as it is done. With no network, research runs offline: that is a gap (research run offline), not a failure, so go on to propose. Research stopped before every package is the other allowed gap (research stopped). Name the gap in your report so the step ends with `--degraded research_offline` or `--degraded research_stopped`, as the brief says.
+3. Review: run `paqad-ai rules discovery review --run <run_id> --all-recommended`, never a verdict per row. It keeps new rows and drops changed and removed rows, which it lists for review instead of applying. Never give a changed or removed row keep, edit or take_new. If it refuses because a row would remove or rewrite an existing rule, stop and report its line.
+4. Sign-off: answer the `rules.proposal` decision with `paqad-ai onboarding decide <decision-id>`. If decide says the decision has no recommended option, stop and report it so a person answers.
+5. Apply and docs run as usual. The final line also lists each changed or removed row held for review and any research gap.
+
+Without that line, ask as you always do. Outside the journey that means a verdict per row, the sign-off asked of the person, and no `paqad-ai onboarding` verbs.
 
 ## Output Contract
 
