@@ -342,7 +342,8 @@ function namesStageOfOpenChange(
 const RUNNING_CHANGE_REASON = 'the change open in this session is still running';
 const RESUME_REASON = 'you asked to pick the paused change back up';
 
-const RESUME_INTENT_RE = /^\s*(?:please\s+)?(?:continue|resume|carry\s+on)\b/i;
+const RESUME_INTENT_RE =
+  /^\s*(?:please\s+)?(?:continue|resume|carry\s+on)(?:\s+(?:with\s+)?(?:the|this|that|my|our)\s+(?:paused\s+)?(?:change|feature|work|task))?(?:\s+please)?\s*[.!]*\s*$/i;
 
 const QUESTION_LEAD_RE =
   /^\s*(?:what|why|how|when|where|which|who|whose|does|do|did|is|are|was|were|can|could|should|would|will|has|have|explain|tell me)\b/i;

@@ -1244,6 +1244,31 @@ describe('runPromptRouteSeam — workflow switches keep a running or paused chan
     },
   );
 
+  it.each([
+    'continue the change',
+    'continue the feature',
+    'Please resume.',
+    'carry on with the change',
+  ])('AC-24: "%s" also resumes the paused change', async (prompt) => {
+    pausedChange();
+    const result = await seam(prompt, 'project-question');
+    expect(result.routed).toBe('feature-development');
+    expect(result.resumed).toMatchObject({ changeKey: 'sess#1' });
+  });
+
+  it.each(['resume the dev server', 'continue reading the logs', 'carry on deploying to staging'])(
+    'AC-24: "%s" names another object and does not resume the paused change',
+    async (prompt) => {
+      const sessionId = pausedChange();
+      const result = await seam(prompt, 'project-question');
+      expect(result.routed).toBe('project-question');
+      expect(result.resumed).toBeNull();
+      expect(readWorkflowState(root, sessionId).paused).toMatchObject([
+        { workflow: 'feature-development', changeKey: 'sess#1' },
+      ]);
+    },
+  );
+
   it('AC-25: "continue" with nothing paused routes per the classifier and opens no change', async () => {
     const sessionId = resolveSessionId(root, SESSION);
     const result = await seam('continue', 'project-question');
