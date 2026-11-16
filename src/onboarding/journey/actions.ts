@@ -8,6 +8,7 @@ import { JourneyRefusal } from './errors.js';
 import { appendEvent, readEvents } from './events.js';
 import { foldJourney, foldStage } from './fold.js';
 import { readModuleUnits } from './modules.js';
+import { normalizeOutputPath } from './paths.js';
 import { fileSha256 } from './preflight.js';
 import { checkEndGate, checkStartGate } from './proof.js';
 import { flagJourneyRuleChecks, ruleIds } from './rule-checks.js';
@@ -248,9 +249,10 @@ export function recordUnit(
     }
   }
   const outputs: Record<string, string> = {};
-  for (const rel of input.outputs) {
+  for (const raw of input.outputs) {
+    const rel = normalizeOutputPath(projectRoot, raw);
     const hash = fileSha256(join(projectRoot, rel));
-    if (hash === null) throw new JourneyRefusal(`The output ${rel} does not exist.`);
+    if (hash === null) throw new JourneyRefusal(`The output ${raw} does not exist.`);
     outputs[rel] = hash;
   }
   const at = now().toISOString();

@@ -9,6 +9,7 @@ import { loadGitWorkflow } from '@/git-workflow/load.js';
 
 import type { Clock } from './actions.js';
 import { JourneyRefusal } from './errors.js';
+import { isCleanRepoPath } from './paths.js';
 import { SETTINGS_LOCAL } from './permissions.js';
 import { dirtyPaths, fileSha256 } from './preflight.js';
 import { requireRun, updateRun } from './run-store.js';
@@ -63,6 +64,7 @@ function headHash(projectRoot: string, path: string): string | null {
 }
 
 function inAllowedSet(run: JourneyRun, path: string): boolean {
+  if (!isCleanRepoPath(path)) return false;
   return (
     path.startsWith('docs/') ||
     (COMMITTABLE_JOURNEY_FILES as readonly string[]).includes(path) ||
