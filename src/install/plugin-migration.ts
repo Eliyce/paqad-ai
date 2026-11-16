@@ -22,6 +22,7 @@ import { VERSION } from '@/index.js';
 import {
   classifyFrameworkCopy,
   entryScopeMatch,
+  installedPluginsFileFormat,
   PLUGIN_ID,
   pluginLoadState,
   pluginOptedOutLocally,
@@ -948,6 +949,18 @@ export const VERSION_MISMATCH_FIX =
 export const PROJECT_PLUGIN_DETAIL = 'plugin (turned on by this project)';
 export const PROJECT_PLUGIN_WAITING_DETAIL =
   'npm (this project turns the plugin on; waiting for Claude Code to install it)';
+export const INSTALL_PLUGIN_FIX =
+  'Run `claude plugin install paqad@eliyce --scope user`, then type /reload-plugins in Claude Code to show the HUD.';
+export const PLUGIN_BLOCKED_FIX =
+  "Ask IT to allow the paqad@eliyce plugin in the managed policy. paqad's checks keep running from npm meanwhile.";
+export const WAITING_FOR_LOAD_FIX =
+  'Type /reload-plugins in Claude Code, or start a new session, so the plugin loads and the HUD shows.';
+export const MIGRATION_WAITING_DETAIL =
+  'npm (migration installed: waiting for Claude Code to install the plugin)';
+export const UNKNOWN_PLUGIN_FORMAT_DETAIL =
+  "npm (Claude Code's installed_plugins.json has an unknown plugin file format, so paqad cannot tell whether the plugin is loaded)";
+export const UNKNOWN_PLUGIN_FORMAT_FIX =
+  'Run `claude plugin list` to check that paqad@eliyce is installed, then run `paqad-ai doctor` again.';
 export const LOCAL_OPT_OUT_DETAIL =
   'npm (plugin turned off for you in .claude/settings.local.json)';
 export const USER_SWITCH_OVERRIDDEN_FIX =
@@ -965,7 +978,9 @@ export function describeClaudeInstall(
   if (policy === 'hooks-blocked') {
     return { detail: HOOKS_BLOCKED_DETAIL, level: 'warning', remediation: HOOKS_BLOCKED_FIX };
   }
-  if (policy === 'plugin-blocked') return { detail: PLUGIN_BLOCKED_DETAIL, level: 'pass' };
+  if (policy === 'plugin-blocked') {
+    return { detail: PLUGIN_BLOCKED_DETAIL, level: 'warning', remediation: PLUGIN_BLOCKED_FIX };
+  }
   if (
     projectRoot !== undefined &&
     projectTurnsPluginOn(projectRoot) &&
@@ -1000,12 +1015,15 @@ export function describeClaudeInstall(
   if (record.state === 'installed') {
     if (!installedRecord) {
       return {
-        detail: 'npm (migration installed: waiting for Claude Code to install the plugin)',
-        level: 'pass',
+        detail: MIGRATION_WAITING_DETAIL,
+        level: 'warning',
+        remediation: INSTALL_PLUGIN_FIX,
       };
     }
     const fresh = isPluginSeenFresh(withSeededInstalledAt(record), readPluginSeen(home));
-    return { detail: fresh ? 'npm (migration installed)' : WAITING_FOR_LOAD_DETAIL, level: 'pass' };
+    return fresh
+      ? { detail: 'npm (migration installed)', level: 'pass' }
+      : { detail: WAITING_FOR_LOAD_DETAIL, level: 'warning', remediation: WAITING_FOR_LOAD_FIX };
   }
   const reason = record.reason ? `: ${record.reason}` : '';
   return { detail: `npm (migration ${record.state}${reason})`, level: 'pass' };
@@ -1018,8 +1036,20 @@ function describeProjectPlugin(
   options: ClaudeInstallLineOptions,
 ): ClaudeInstallLine {
   if (pluginOptedOutLocally(projectRoot)) return { detail: LOCAL_OPT_OUT_DETAIL, level: 'pass' };
-  if (pluginLoadState(projectRoot, { env, home }) !== 'live') {
-    return { detail: PROJECT_PLUGIN_WAITING_DETAIL, level: 'pass' };
+  const state = pluginLoadState(projectRoot, { env, home });
+  if (state === 'unknown' && installedPluginsFileFormat({ env, home }) === 'unknown') {
+    return {
+      detail: UNKNOWN_PLUGIN_FORMAT_DETAIL,
+      level: 'warning',
+      remediation: UNKNOWN_PLUGIN_FORMAT_FIX,
+    };
+  }
+  if (state !== 'live') {
+    return {
+      detail: PROJECT_PLUGIN_WAITING_DETAIL,
+      level: 'warning',
+      remediation: INSTALL_PLUGIN_FIX,
+    };
   }
   const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options, projectRoot);
   if (line.level === 'warning' || !userDisabledPlugin(home)) return line;

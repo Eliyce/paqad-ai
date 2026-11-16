@@ -136,6 +136,21 @@ export function pluginLoadState(
   return pluginSwitchedOn(projectRoot, env, home) ? 'live' : 'absent';
 }
 
+export type InstalledPluginsFormat = 'missing' | 'known' | 'unknown';
+
+/** Claude Code owns installed_plugins.json: a missing file is "not installed", a file whose shape
+ *  paqad does not know is reported as an unknown format, never as "plugin not loaded" (NFR-5). */
+export function installedPluginsFileFormat(
+  options: PluginLoadOptions = {},
+): InstalledPluginsFormat {
+  const env = options.env ?? process.env;
+  const home = options.home ?? homedir();
+  const path = join(claudeConfigDir(env, home), 'plugins', 'installed_plugins.json');
+  if (!existsSync(path)) return 'missing';
+  const parsed = readJsonFile(path);
+  return isRecord(parsed) && parsed.version === 2 && isRecord(parsed.plugins) ? 'known' : 'unknown';
+}
+
 export const DISCOVERY_PLUGIN_PREFIX = 'paqad-product-discovery@';
 
 export const DISCOVERY_CLASH_MESSAGE =

@@ -9,8 +9,13 @@ import {
   type ClaudeInstallLineOptions,
   describeClaudeInstall,
   maybeMigrateToPlugin,
+  INSTALL_PLUGIN_FIX,
+  MIGRATION_WAITING_DETAIL,
+  PLUGIN_BLOCKED_FIX,
   pluginSeenPath,
   readInstalledPluginVersion,
+  UNKNOWN_PLUGIN_FORMAT_DETAIL,
+  WAITING_FOR_LOAD_FIX,
   rollbackPlugin,
   runClaudePluginUninstall,
   writeMigrationState,
@@ -82,14 +87,15 @@ describe('the Claude Code install line under a managed policy', () => {
       "A managed policy blocks paqad's hooks, so paqad's checks don't run here.",
     );
   });
-  it('says the plugin is blocked when enabledPlugins is false or the marketplace list is strict', () => {
+  it('AC-30: warns that the plugin is blocked when enabledPlugins is false or the marketplace list is strict', () => {
     for (const policy of [
       { enabledPlugins: { 'paqad@eliyce': false } },
       { strictKnownMarketplaces: [{ repo: 'other/repo' }] },
     ]) {
       expect(line({ managedSettingsPaths: [writePolicy(policy)] })).toEqual({
         detail: 'plugin blocked by policy; paqad stays on npm',
-        level: 'pass',
+        level: 'warning',
+        remediation: PLUGIN_BLOCKED_FIX,
       });
     }
   });
@@ -161,7 +167,10 @@ describe('the Claude Code install line says what is installed', () => {
       installed_at: '2026-10-17T12:00:00Z',
     });
     writeInstalledPlugins({ 'paqad@eliyce': {} });
-    const waiting = line().detail;
+    const waitingLine = line();
+    expect(waitingLine.level).toBe('warning');
+    expect(waitingLine.remediation).toBe(WAITING_FOR_LOAD_FIX);
+    const waiting = waitingLine.detail;
     expect(waiting).toBe(
       'npm (moving to the plugin: waiting for the plugin to load in a new session)',
     );
@@ -381,5 +390,43 @@ describe('AC-31: the doctor reads the plugin version entry that applies to this 
     writeFileSync(join(copy, 'version'), '1.90.0\n');
     expect(readInstalledPluginVersion(home, {}, projectRoot)).toBeNull();
     rmSync(other, { recursive: true, force: true });
+  });
+});
+
+describe('AC-30: every plugin-not-loaded state is a warning with a remediation', () => {
+  it('AC-30: migration installed but Claude Code has not installed the plugin warns', () => {
+    writeMigrationState(home, { state: 'installed', path: 'cli', attempts: 1, version: '1' });
+    expect(line()).toEqual({
+      detail: MIGRATION_WAITING_DETAIL,
+      level: 'warning',
+      remediation: INSTALL_PLUGIN_FIX,
+    });
+  });
+});
+
+describe('AC-32: an unknown installed_plugins.json shape never throws', () => {
+  it('AC-32: names an unknown plugin file format instead of plugin not loaded', () => {
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude', 'settings.json'),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': true } }),
+    );
+    for (const shape of ['not json', JSON.stringify({ version: 3, plugins: [] }), '[]']) {
+      mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+      writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), shape);
+      const result = describeClaudeInstall(
+        home,
+        projectRoot,
+        {},
+        {
+          managedSettingsPaths: [],
+          cliEntry: NPM_CLI,
+          version: '1.99.4',
+        },
+      );
+      expect(result.detail).toBe(UNKNOWN_PLUGIN_FORMAT_DETAIL);
+      expect(result.level).toBe('warning');
+      expect(() => readInstalledPluginVersion(home, {}, projectRoot)).not.toThrow();
+    }
   });
 });

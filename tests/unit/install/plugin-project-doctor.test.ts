@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { pluginOptedOutLocally, projectTurnsPluginOn } from '@/health/plugin-install.js';
-import { describeClaudeInstall } from '@/install/plugin-migration.js';
+import { describeClaudeInstall, INSTALL_PLUGIN_FIX } from '@/install/plugin-migration.js';
 
 import {
   installPlugin,
@@ -96,11 +96,12 @@ describe('the doctor line in a repo that commits the plugin', () => {
     });
   });
 
-  it('says it waits for Claude Code when the project turns the plugin on but it is not installed', () => {
+  it('AC-30: warns it waits for Claude Code when the project turns the plugin on but it is not installed', () => {
     turnPluginOn(projectSettingsPath(world), true);
     expect(doctor()).toEqual({
       detail: 'npm (this project turns the plugin on; waiting for Claude Code to install it)',
-      level: 'pass',
+      level: 'warning',
+      remediation: INSTALL_PLUGIN_FIX,
     });
   });
 
