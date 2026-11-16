@@ -6,7 +6,7 @@ import {
   MODULE_AGENT,
   ONBOARDING_DENIED_ROOTS,
   ONBOARDING_WRITE_ROOTS,
-  claimedModuleSlugs,
+  moduleAgentWriteRoots,
   onboardingAgent,
 } from '@/onboarding/journey/agents.js';
 
@@ -32,14 +32,13 @@ export interface ReadOnlyAgentScope {
 export function onboardingAgentScope(
   agentType: unknown,
   projectRoot: string,
+  agentId?: unknown,
 ): ReadOnlyAgentScope | null {
   if (typeof agentType !== 'string') return null;
   const agent = stripPluginAgentNamespace(agentType.trim());
   if (onboardingAgent(agent) === null) return null;
   const allowedRoots =
-    agent === MODULE_AGENT
-      ? claimedModuleSlugs(projectRoot).map((slug) => `docs/modules/${slug}/`)
-      : ONBOARDING_WRITE_ROOTS;
+    agent === MODULE_AGENT ? moduleAgentWriteRoots(projectRoot, agentId) : ONBOARDING_WRITE_ROOTS;
   return { agent, allowedRoots, allowTempDir: true, deniedRoots: ONBOARDING_DENIED_ROOTS };
 }
 
@@ -412,6 +411,7 @@ export function writeAllowed(
 export interface StageAgentWriteInput {
   projectRoot: string;
   agentType: unknown;
+  agentId?: unknown;
   toolName?: string;
   command?: unknown;
   targets?: readonly string[];
@@ -428,7 +428,7 @@ const EDIT_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'NotebookEdit'
 const ALLOW: StageAgentWriteDecision = { blocked: false, agent: null, target: null };
 
 function scopeFor(input: StageAgentWriteInput): ReadOnlyAgentScope | null {
-  const onboarding = onboardingAgentScope(input.agentType, input.projectRoot);
+  const onboarding = onboardingAgentScope(input.agentType, input.projectRoot, input.agentId);
   if (onboarding !== null) return onboarding;
   const scope = readOnlyAgentScope(input.agentType);
   if (scope !== null || input.toolName !== 'Bash') return scope;

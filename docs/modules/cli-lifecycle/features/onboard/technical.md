@@ -117,8 +117,11 @@ file `src/cli/commands/onboarding.ts` only parses flags and calls the core.
 - **Agents** (`agents.ts`): the `paqad-onboarding-*` agents write only under `docs/` and `.paqad/`,
   never paqad's controls (`.paqad/.config`, `.paqad/configs/`, decisions, rule scripts,
   `journey.json`). A module agent writes only under the `docs/modules/<slug>/` it was claimed for
-  with `unit module_docs <slug> --claim paqad-onboarding-modules`. Their SubagentStop records
-  `agent_stop` instead of the feature handback.
+  with `unit module_docs <slug> --claim paqad-onboarding-modules`. SubagentStart records an
+  `agent_bind` row with the agent id; a module agent is bound to the oldest claimed module no
+  other agent holds, so claim each module just before dispatching its agent, in the same order.
+  The write guard reads that binding by agent id, so one module agent cannot write into another
+  open module's folder. Their SubagentStop records `agent_stop` instead of the feature handback.
 - **Setup** (`setup.ts`): runs the orchestrator with `interactive: false` and the index deferred,
   records `written{}` from `generated_files` and the git-workflow hashes, and `--compile-only`
   re-runs the compile steps the orchestrator now reports as structured `step_failures`.

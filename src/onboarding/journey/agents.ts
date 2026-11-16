@@ -85,6 +85,32 @@ export function claimedModuleSlugs(projectRoot: string): string[] {
   return [...open.keys()];
 }
 
+export function moduleAgentBindings(projectRoot: string): Map<string, string | null> {
+  const bound = new Map<string, string | null>();
+  for (const event of readEvents(projectRoot)) {
+    if (event.kind !== 'agent_bind' || event.agent !== MODULE_AGENT || !event.agent_id) continue;
+    bound.set(event.agent_id, event.unit ?? null);
+  }
+  return bound;
+}
+
+function nextUnboundModule(projectRoot: string): string | null {
+  const taken = new Set(moduleAgentBindings(projectRoot).values());
+  return claimedModuleSlugs(projectRoot).find((slug) => !taken.has(slug)) ?? null;
+}
+
+export function moduleAgentWriteRoots(projectRoot: string, agentId?: unknown): string[] {
+  const claimed = claimedModuleSlugs(projectRoot);
+  const bound = moduleAgentBindings(projectRoot);
+  const id = typeof agentId === 'string' ? agentId.trim() : '';
+  if (id !== '' && bound.has(id)) {
+    const slug = bound.get(id) ?? null;
+    return slug !== null && claimed.includes(slug) ? [`docs/modules/${slug}/`] : [];
+  }
+  const taken = new Set(bound.values());
+  return claimed.filter((slug) => !taken.has(slug)).map((slug) => `docs/modules/${slug}/`);
+}
+
 export function buildOnboardingAgentBody(def: OnboardingAgentDef): string {
   return [
     `You are the paqad onboarding agent for one step of the onboarding journey. ${def.job}`,
@@ -127,6 +153,7 @@ export function recordOnboardingAgentStart(
   const def = onboardingAgent(agent);
   const run = readRun(projectRoot);
   if (def === null || run === null) return false;
+  const unit = agent === MODULE_AGENT ? nextUnboundModule(projectRoot) : null;
   appendEvent(projectRoot, {
     ts: now().toISOString(),
     run_id: run.run_id,
@@ -134,6 +161,7 @@ export function recordOnboardingAgentStart(
     stage: def.stage,
     agent,
     agent_id: agentId.trim(),
+    ...(unit !== null ? { unit } : {}),
   });
   return true;
 }

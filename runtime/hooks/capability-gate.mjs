@@ -87,6 +87,7 @@ function parsePayload(input) {
       toolUseId: typeof payload?.tool_use_id === 'string' ? payload.tool_use_id : undefined,
       toolInput: payload?.tool_input,
       agentType: typeof payload?.agent_type === 'string' ? payload.agent_type : undefined,
+      agentId: typeof payload?.agent_id === 'string' ? payload.agent_id : undefined,
     };
   } catch {
     /* v8 ignore next 2 */
