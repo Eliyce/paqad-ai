@@ -39,7 +39,7 @@ function stage(root: string, name: string, end = true): void {
   if (end) endStage(root, name, { artifactPaths: [] }, { sessionId: S, adapter: 'claude-code' });
 }
 
-describe('the HUD follows every workflow switch in one session (#902)', () => {
+describe('the HUD follows every workflow switch in one session', () => {
   it('AC-26: question, RCA, a corrected misroute, question, continue: no turn is blank', async () => {
     const root = repoRoot('fix/x');
     const rows: Array<Row | 'blank'> = [];

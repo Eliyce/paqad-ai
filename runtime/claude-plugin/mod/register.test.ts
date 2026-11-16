@@ -4413,7 +4413,7 @@ describe('W3: the HUD binds on the first prompt when session.start never fired',
   });
 });
 
-describe('the HUD follows every workflow switch in one session (#902)', () => {
+describe('the HUD follows every workflow switch in one session', () => {
   const refresh = async ($: Parameters<Parameters<typeof test>[1]>[0]) => {
     await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
   };

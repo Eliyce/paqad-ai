@@ -4,7 +4,7 @@ import { createStageCommand } from '@/cli/commands/stage.js';
 import * as recorder from '@/stage-evidence/recorder.js';
 import { cleanupScopeFixtures, repoRoot } from '../hud/scope-fixtures.js';
 
-describe('stage start prints the real refusal (B5, #825)', () => {
+describe('stage start prints the real refusal (B5)', () => {
   let root: string;
 
   beforeEach(() => {

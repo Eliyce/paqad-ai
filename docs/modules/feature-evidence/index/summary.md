@@ -1144,7 +1144,7 @@ obvious from their code, grouped by file.
   batch is stored. High Table rows are written after the verb's own record, so a failed row is
   reported on stderr and never changes the result.
 
-### Scope rows and freshness (#902)
+### Scope rows and freshness
 
 An adopted change reads "Getting ready"; a resumed change draws its full band. A closed, other-branch or paused change draws a short plain row with the reason word first, and adding a scope reason without a row fails the type check. A snapshot counts as fresh for 15 minutes; when it is fresh but the mod heartbeat is not, the state is "HUD not attached" and `doctor` warns. In cloud sessions the HUD stays off by design (mods are never drawn there).
 

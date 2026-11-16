@@ -841,7 +841,7 @@ describe('a marked start beside another running stage agent', () => {
   });
 });
 
-describe('recordMarkedStage returns its reason (B5, #825)', () => {
+describe('recordMarkedStage returns its reason (B5)', () => {
   it('AC-20: names an unknown stage as unknown-stage and a writer failure as error', () => {
     expect(
       recordMarkedStage(join(tmpdir(), 'paqad-unused'), {

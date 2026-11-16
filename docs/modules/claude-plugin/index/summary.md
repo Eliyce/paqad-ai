@@ -200,7 +200,7 @@ call, so a static reader sees it:
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
 
-## Reaching every user (#902)
+## Reaching every user
 
 - The discovery plugin is named `paqad-discovery`; its commands are `/paqad-discovery:*`. The clash check reads the name from the installed manifest, and its fix says to update or remove the clashing copy.
 - The mod binds on the first `prompt.submit` or `turn.start` since `/resume`, `/clear` and `/branch` fire no `session.start`; a new session id rebinds it. Desktop is learned from the first event carrying surface `desktop`.

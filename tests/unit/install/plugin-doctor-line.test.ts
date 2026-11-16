@@ -339,7 +339,7 @@ describe('plugin rollback with no claude to run', () => {
   });
 });
 
-describe('AC-31: the doctor reads the plugin version entry that applies to this repo (#827)', () => {
+describe('AC-31: the doctor reads the plugin version entry that applies to this repo', () => {
   function entryFor(version: string, scope: string, projectPath?: string) {
     return { scope, installPath: pluginRoot(version), ...(projectPath ? { projectPath } : {}) };
   }
