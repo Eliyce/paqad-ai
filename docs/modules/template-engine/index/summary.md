@@ -64,7 +64,7 @@ page via `create module documentation`.
 
 ## Team bootstrap hook
 
-The team-bootstrap launcher template (`runtime/templates/team-bootstrap/hook.mjs`, `LAUNCHER_REVISION` 2) runs the hidden `paqad-ai plugin migrate` in the background from its copy route at session start on a local machine (never in a remote session), unless the migration state is already settled (`installed`, `done`, `declined`, `rolled-back`). A per-session mark keeps it, and the one-time reload line, to once per session.
+The team-bootstrap launcher template (`runtime/templates/team-bootstrap/hook.mjs`, `LAUNCHER_REVISION` 2) runs the hidden `paqad-ai plugin migrate` in the background from its copy route at session start on a local machine, unless the migration state is already settled (`installed`, `done`, `declined`, `rolled-back`) or a cheap check of the project's opt-outs already rules it out: a remote session, CI or headless (`CI`, `PAQAD_HEADLESS`, `CLAUDE_CODE_ENTRYPOINT=sdk-cli`), `claude_install_mode=settings`, or `plugin_migration=off` without `claude_install_mode=plugin`. A per-session mark keeps it, and the one-time reload line, to once per session.
 
 ## Related
 
