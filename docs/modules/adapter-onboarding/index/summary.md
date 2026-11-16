@@ -16,7 +16,7 @@ onboarding configures every supported platform.
 
 ## Features
 
-- [Claude Code (CLAUDE.md)](../features/claude-code/business.md)
+- [Claude Code (CLAUDE.md)](../features/claude-code/business.md) (also installs the five `paqad-onboarding-*` journey agents; see its technical.md)
 - [Codex CLI (AGENTS.md)](../features/codex-cli/business.md)
 - [Google Antigravity (ANTIGRAVITY.md)](../features/antigravity/business.md)
 - [Gemini CLI (GEMINI.md)](../features/gemini-cli/business.md)

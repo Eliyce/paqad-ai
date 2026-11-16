@@ -13,6 +13,8 @@ a project's framework footprint without re-running full onboarding.
 - `src/cli/commands/join.ts`
 - `src/cli/commands/new-project.ts`
 - `src/cli/commands/onboard.ts`
+- `src/cli/commands/onboarding.ts`
+- `src/onboarding/journey/`
 - `src/cli/commands/refresh.ts`
 - `src/cli/commands/setup.ts`
 - `src/cli/commands/managed-settings.ts`
@@ -25,7 +27,7 @@ a project's framework footprint without re-running full onboarding.
 - [paqad-ai managed-settings and paqad-ai hook](../features/managed-settings/business.md)
 - [paqad-ai join](../features/join/business.md)
 - [paqad-ai new project](../features/new-project/business.md)
-- [paqad-ai onboard](../features/onboard/business.md)
+- [paqad-ai onboard](../features/onboard/business.md) (also covers `paqad-ai onboarding`, the staged onboarding journey that `/paqad:onboard` drives step by step with a HUD card; see [api](../features/onboard/api.md))
 - [paqad-ai refresh](../features/refresh/business.md)
 - [paqad-ai setup](../features/setup/business.md)
 - [paqad-ai update](../features/update/business.md)
