@@ -109,7 +109,7 @@ The root package and graph-ui both run Vitest 5.
 | typescript | node | ^5.9.0 | 5.9.3 | yes |
 | typescript | node | ^6.0.3 | 6.0.3 | yes |
 | typescript-eslint | node | ^8.72.1 | 8.72.1 | yes |
-| vite | node | ^6.4.5 | 6.4.5 | yes |
+| vite | node | ^6.4.6 | 6.4.6 | yes |
 | vitest | node | ^5.0.5 | 5.0.5 | yes |
 | vitest | node | ^5.1.0 | 5.1.0 | yes |
 | yaml | node | ^2.9.0 | 2.9.0 | no |
