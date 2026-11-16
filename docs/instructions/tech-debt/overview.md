@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M7JWDAK6FDY8RH19K57RW3M6](TD-01M7JWDAK6FDY8RH19K57RW3M6.md) (follow-up, low): Review-run CLI edge contracts: commander errors under --json, stage start on stopped or done stage, now taken before lock
+- [TD-01M7JWD9QC3WNW70BE44FKHPV2](TD-01M7JWD9QC3WNW70BE44FKHPV2.md) (follow-up, low): Parity test for FINISH_SCREEN_MS and STALL_MS across src/review-runs and the HUD mod
 - [TD-01M7JFBV6MV43F8X0K3QA822K9](TD-01M7JFBV6MV43F8X0K3QA822K9.md) (bug, low): one-chain-per-session hook test runs out of memory under the parallel unit suite
 - [TD-01M7JFBT25N8EYXPR9NEZ1EPK8](TD-01M7JFBT25N8EYXPR9NEZ1EPK8.md) (follow-up, medium): A local plugin opt-out in one repo stops the background plugin install on every repo of the machine
 - [TD-01M7HW063AWE0K12ZWX2G6NDQR](TD-01M7HW063AWE0K12ZWX2G6NDQR.md) (gap, low): Journey rules_before snapshot comes from the rule-script map, so pre-existing rules not yet mapped are treated as journey-added
