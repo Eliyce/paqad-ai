@@ -343,7 +343,11 @@ describe('other workflows get one status entry and no band', () => {
       await $.session.start(START);
       const idle = await $.ui.render(band(surface));
       expect(cardOf(idle)).toBeUndefined();
-      expect(linesOf(idle)).toEqual(['paqad · question · 84K tokens · ~$0.05']);
+      // AC-39: the engine composes the test world's own blank AbovePrompt part after paqad's, so
+      // count paqad's part only: the band itself is one row.
+      expect(linesOf(idle).filter((line) => line.trim() !== '')).toEqual([
+        'paqad · question · 84K tokens · ~$0.05',
+      ]);
       await $.prompt.submit({ text: 'what is this?' } as never);
       await clock.advance(42_000);
       await clock.settle();
