@@ -16,7 +16,7 @@ const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
 
 const LEGACY_MARKER = '# paqad-ai';
 
-export const MANAGED_BLOCK_VERSION = 2;
+export const MANAGED_BLOCK_VERSION = 3;
 const MANAGED_BLOCK_VERSION_LINE = /^# managed_block_version:[ \t]*(\S+)[ \t]*\r?$/mu;
 
 const MANAGED_GITIGNORE_ENTRIES = [

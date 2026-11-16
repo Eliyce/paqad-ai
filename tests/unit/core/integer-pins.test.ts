@@ -29,7 +29,7 @@ const PINS = {
     version: 1,
     hash: 'c85bc81248d747c461b81f18784fa5e06fff08a8b1ba1721dcb61f189f745ab9',
   },
-  block: { version: 2, hash: '1edc024fa0e02b8b6c9cd27367bba5368fa784fba4bafa3e287c72d8af09e43d' },
+  block: { version: 3, hash: '461c0655ad844b8c5bbd00204e06753d0655bf910f35b97ae72e0a235aacea00' },
 };
 
 describe('a file changes only with its integer', () => {
