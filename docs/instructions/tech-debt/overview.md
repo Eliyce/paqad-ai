@@ -30,6 +30,11 @@ Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, new
 - [TD-01M7HW03VCA49HDN3PRQJNC5H7](TD-01M7HW03VCA49HDN3PRQJNC5H7.md) (gap, medium): onboarding commit verb cannot tell a person's answer from an agent's on hosts without the ask permission
 - [TD-01M7HW01TYSNWVG7TY7ADVV9RM](TD-01M7HW01TYSNWVG7TY7ADVV9RM.md) (gap, medium): Plugin mod register.tsx is outside every tsc project, so its onboarding wiring is not type-checked
 - [TD-01M7HW00SZFV68XB41JFRN6TX6](TD-01M7HW00SZFV68XB41JFRN6TX6.md) (gap, medium): Onboarding module agents bind to module folders in claim order, not by the slug in their brief
+- [TD-01M7HJ2GJ7F2YZTA92JRA8AYF4](TD-01M7HJ2GJ7F2YZTA92JRA8AYF4.md) (bug, low): Ctrl+C at an interactive prompt prints a stack trace
+- [TD-01M7HJ2G1Z5SD55CS1C0T2KS4W](TD-01M7HJ2G1Z5SD55CS1C0T2KS4W.md) (bug, medium): engines.node allows Node versions commander 15 does not support
+- [TD-01M7HJ2FHNXQ3P20G2C1PEQ4YJ](TD-01M7HJ2FHNXQ3P20G2C1PEQ4YJ.md) (gap, medium): graph-ui is never type-checked or linted
+- [TD-01M7HJ2F1R6ABPYFW1HFRYF9Z3](TD-01M7HJ2F1R6ABPYFW1HFRYF9Z3.md) (bug, medium): Dashboard markdown preview renders marked output without sanitizing it
+- [TD-01M7HJ2076N8YXBEG6BHYNP79M](TD-01M7HJ2076N8YXBEG6BHYNP79M.md) (bug, medium): Rules discovery apply writes rules after Verify and topic files with no trigger
 - [TD-01M78CKCYKZZW0RXAF6152NXX8](TD-01M78CKCYKZZW0RXAF6152NXX8.md) (bug, medium): Planning recipe fix makes the stage order check fail
 - [TD-01M786DVZPA4QDXBME6PGR4HBN](TD-01M786DVZPA4QDXBME6PGR4HBN.md) (gap, medium): Criteria mapping does not read Python test names or docstrings
 - [TD-01M7859TVCDA6A80X2VFSHJA2J](TD-01M7859TVCDA6A80X2VFSHJA2J.md) (follow-up, low): ChatGPT directory listing text no longer names the refine, size and sprint skills it still ships

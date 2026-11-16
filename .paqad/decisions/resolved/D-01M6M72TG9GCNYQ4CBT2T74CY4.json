@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, 4 Nov 2026: skip. paqad loads the recipe itself and it has no triggers, so a trigger test measures nothing."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Lets one skill or agent through an authoring check once; not a lasting practice.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

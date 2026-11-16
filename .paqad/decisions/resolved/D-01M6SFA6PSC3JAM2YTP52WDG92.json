@@ -48,5 +48,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose this: keep AC-8 verbatim; one local exception to NFR-1 so a message starting with develop or develops is not read as a question, the same as add and fix."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Resolves a contradiction inside one frozen spec.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

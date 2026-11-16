@@ -1,6 +1,7 @@
 {
   "fingerprints": {
-    "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d": "D-01M6EQXSB7HNH2T28N6S7B1P5G"
+    "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d": "D-01M6EQXSB7HNH2T28N6S7B1P5G",
+    "sha256:f06ac79e306bcaedcd17917458b7ace4f227e83f304343c04b584f80d431c16c": "D-01M7HGWWWH6CC6PEYRAAF7Z84J"
   },
   "decisions": {
     "D-01M5ER46TG4V66PTAHS7DJV7RB": {
@@ -37,6 +38,18 @@
       "option_keys": [
         "make-new",
         "reuse-existing"
+      ]
+    },
+    "D-01M7HGWWWH6CC6PEYRAAF7Z84J": {
+      "decision_id": "D-01M7HGWWWH6CC6PEYRAAF7Z84J",
+      "fingerprint": "sha256:f06ac79e306bcaedcd17917458b7ace4f227e83f304343c04b584f80d431c16c",
+      "category": "rules.proposal",
+      "chosen_option_key": "sign_off",
+      "responded_at": "2026-11-16T06:32:30.440Z",
+      "status": "resolved",
+      "option_keys": [
+        "not_now",
+        "sign_off"
       ]
     }
   }

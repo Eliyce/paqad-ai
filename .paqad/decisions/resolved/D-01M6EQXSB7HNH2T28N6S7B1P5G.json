@@ -51,5 +51,11 @@
     "responded_by": "paqad-decision-cli",
     "carry_over_scope": "session",
     "note": "Owner: keep the one scratch plan draft; the trigger was a scratch file outside the repo"
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Kept one scratch draft for one moment.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

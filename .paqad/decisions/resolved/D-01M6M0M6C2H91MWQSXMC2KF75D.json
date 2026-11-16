@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner's answer of 4 November 2026, recorded in issue 841 row D1, which says these are final and not to be asked again."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks how to proceed on one change.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

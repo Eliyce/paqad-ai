@@ -42,5 +42,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose one-click after the replay test; replaces the earlier intent-only answer D-01M6RBZW9BZ73S12GZZQMBD4MF."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks a path or owner for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

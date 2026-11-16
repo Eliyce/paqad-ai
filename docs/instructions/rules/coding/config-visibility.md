@@ -84,3 +84,5 @@ cannot drift. Three independent parsers resolve the disabled signal, the TS pred
 `tests/unit/core/config-parser-parity.test.ts`. `paqad-ai enable`/`disable` and the dashboard config surface read and
 write the config layer (`.paqad/.config` and the team YAML files), not the profile. `doctor` runs a `team-config` check
 for missing files, invalid values, unknown settings and old `.config.*` files.
+- A per-developer setting or rollback writes only to a git-ignored local file (such as .claude/settings.local.json or .paqad/.config) and never rewrites a tracked team file. <!-- @rule RL-1d98 discovered:rd-20261116-061901 -->
+- Remove a setting from the registry, the schema and the docs when no code reads it, instead of keeping it for later. <!-- @rule RL-ac9d discovered:rd-20261116-061901 -->

@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose to retire it: the no-skill test passed 3 of 3 and the script already hands agents the method."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Retires one skill.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

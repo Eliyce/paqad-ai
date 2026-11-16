@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, relayed by the orchestrator: \"I want to remove all, but I want to make sure code is ready the yaml\". Follow-up: \"Remove line, say so\". Remove all 11 from the registry, TEAM_CONFIG_HOMES, schemas, defaults, README and KNOB_CONSUMERS. Update deletes a live line once, names it, and doctor stays quiet afterwards. YAML already holding them keeps loading with no error."
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-ac9d",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

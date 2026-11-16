@@ -1,0 +1,64 @@
+{
+  "decision_id": "D-01M7HGWWWH6CC6PEYRAAF7Z84J",
+  "fingerprint": "sha256:f06ac79e306bcaedcd17917458b7ace4f227e83f304343c04b584f80d431c16c",
+  "category": "rules.proposal",
+  "question": "Sign off 97 new, 0 changed, 0 removed rules?",
+  "context": "Rules discovery run rd-20261116-061901. Every row of .paqad/ledger/rules-discovery/rd-20261116-061901/proposal.md has a verdict; its full text is the set you sign off. proposal.json sha256: f06ac79e306bcaedcd17917458b7ace4f227e83f304343c04b584f80d431c16c",
+  "options": [
+    {
+      "option_key": "sign_off",
+      "label": "Take these rule changes",
+      "one_line_preview": "If you pick this, paqad writes the signed-off rules and tags their decisions.",
+      "trade_off": "You give up: nothing beyond the rule changes listed in the proposal.",
+      "evidence": {
+        "file": ".paqad/ledger/rules-discovery/rd-20261116-061901/proposal.md"
+      }
+    },
+    {
+      "option_key": "not_now",
+      "label": "Keep the rules unchanged",
+      "one_line_preview": "If you pick this, no rule file changes and the proposal waits for you.",
+      "trade_off": "You give up: the new rules until you come back to the proposal.",
+      "evidence": {}
+    }
+  ],
+  "confidence": 0.5,
+  "requested_by": "rules-discovery",
+  "task_session_id": "rules-discovery:rd-20261116-061901",
+  "linked_requirements": [],
+  "created_at": "2026-11-16T06:32:17.550Z",
+  "status": "resolved",
+  "ttl_until": "2026-12-16T06:32:17.550Z",
+  "invalidation_watch": [
+    "docs/instructions/rules/_shared/documentation.md",
+    "docs/instructions/rules/_shared/security.md",
+    "docs/instructions/rules/_shared/skill-authoring.md",
+    "docs/instructions/rules/_shared/testing.md",
+    "docs/instructions/rules/coding/code-quality.md",
+    "docs/instructions/rules/coding/config-visibility.md",
+    "docs/instructions/rules/coding/cross-provider-parity.md",
+    "docs/instructions/rules/coding/stacks/_shared/ci-cd.md",
+    "docs/instructions/rules/coding/stacks/react/architecture.md",
+    "docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md",
+    "docs/instructions/rules/coding/stacks/react/conventions.md",
+    "docs/instructions/rules/coding/stacks/react/foundation.md",
+    "docs/instructions/rules/coding/stacks/react/performance.md",
+    "docs/instructions/rules/coding/stacks/react/security.md",
+    "docs/instructions/rules/coding/stacks/react/ui-safety.md",
+    "docs/instructions/rules/project/cli-runtime.md",
+    "docs/instructions/rules/project/codemirror.md",
+    "docs/instructions/rules/project/graph-rendering.md",
+    "docs/instructions/rules/project/model-providers.md",
+    "docs/instructions/rules/project/tailwind.md",
+    "docs/instructions/rules/project/toolchain.md"
+  ],
+  "human_response": {
+    "chosen_option_key": "sign_off",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T06:32:30.440Z",
+    "responded_by": "paqad-decision-cli",
+    "carry_over_scope": "session",
+    "note": "Owner's opening request: Rules discover, Accept all changes"
+  }
+}

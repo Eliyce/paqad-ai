@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, 5 Nov 2026: Do not fix the HUD but continue."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Changes the spec of one change.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

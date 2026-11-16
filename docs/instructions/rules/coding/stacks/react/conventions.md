@@ -9,6 +9,9 @@ Loads when you write React components and hooks.
 - List every reactive value a `useEffect` reads in its dependency array, and fix a missing dependency rather than disabling `react-hooks/exhaustive-deps`. <!-- @rule RL-1c65 -->
 - Compute a derived value during render instead of storing a redundant copy in state that an effect has to resync. <!-- @rule RL-7888 -->
 - Treat state as immutable: build a new object or array (spread, `map`, `filter`) instead of mutating the current value before `setState`. <!-- @rule RL-6881 -->
+- marked.parse is called with { async: false } (or through a typed helper that returns string) instead of casting its result with `as string`. <!-- @rule RL-487a discovered:rd-20261116-061901 -->
+- Type annotations use React.JSX (or an import from react) rather than the global JSX namespace. <!-- @rule RL-b235 discovered:rd-20261116-061901 -->
+- Every useRef call passes an initial value (null or undefined at minimum). <!-- @rule RL-1c7c discovered:rd-20261116-061901 -->
 
 ## Verify
 

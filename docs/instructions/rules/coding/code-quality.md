@@ -10,6 +10,8 @@ How the code you add should read and behave. Loads for code changes.
 - Remove any dead code, commented-out block, or unused import you introduce. <!-- @rule RL-e3e4 -->
 - Resolve every shared value (filesystem path, runtime or package root, config, client) through its one canonical helper; if none exists, add one and route all callers through it. MUST NOT hand-copy or re-derive that logic locally. A divergent copy ships a silent bug. Grep for an existing resolver before you write a new one. <!-- @rule RL-3210 -->
 - Surface a failed lookup as an error. MUST NOT return a guessed default or treat an empty result as success when results were expected. <!-- @rule RL-2b5e -->
+- An error thrown inside a catch block, including the project's custom Error subclasses, passes the caught error as `cause`, and `preserve-caught-error` lists those subclasses in `errorClassNames`. <!-- @rule RL-0d9b discovered:rd-20261116-061901 -->
+- After YAML.parseDocument() on file content, doc.errors is checked before the document's contents are read, edited or written back. <!-- @rule RL-18e7 discovered:rd-20261116-061901 -->
 
 ## Verify
 

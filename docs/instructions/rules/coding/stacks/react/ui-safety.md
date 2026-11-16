@@ -8,3 +8,4 @@ Loads when you build data-driven or interactive React views. Sharpens `_shared/d
 - Confirm a destructive or irreversible action with the user before you run it. <!-- @rule RL-37b9 -->
 - Use a real `<button>` or `<a>` for clicks and navigation (not a click-handled `<div>`), associate a label with every input, and keep a visible focus state. <!-- @rule RL-7ed1 -->
 - Keep a working back path after a route change and re-apply route guards. MUST NOT strand the user on a protected or 404 route with no way out. <!-- @rule RL-fad7 -->
+- Every Command.Item sets an explicit value that is unique within its Command (for example prefixed with the item's id) instead of relying on text content. <!-- @rule RL-9912 discovered:rd-20261116-061901 -->

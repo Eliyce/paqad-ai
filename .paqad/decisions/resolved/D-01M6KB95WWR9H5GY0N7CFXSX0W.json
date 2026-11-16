@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, relayed by the orchestrator: \"Accept and document\". State the limit in the advice and docs; the orchestrator files the follow-up issue."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Settles a requirement for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }
