@@ -107,7 +107,8 @@ file `src/cli/commands/onboarding.ts` only parses flags and calls the core.
   states with `✓ ▸ ○ ✗ ◐` marks, sub-progress words, the alt text, the ETA (only after 3 units) and
   the Resume or Commit button. It needs no session, so the HUD can draw it before setup finishes.
 - **Decisions** (`auto-decide.ts`): `decide` records "no earlier answer fits" when the earlier check
-  is required, then resolves the packet as delegated by `paqad-onboarding`. Decision reuse,
+  is required, then resolves (only packets this journey opened, per a `decision_open` event; an
+  unnamed session's packets count, another named session's are refused) the packet as delegated by `paqad-onboarding`. Decision reuse,
   precedents, earlier-answer candidates and the rules decision miner skip those answers until the
   matching choices row is reviewed, which keeps a second reuse store out of the journey.
 - **Rule checks** (`rule-checks.ts`): when step 7 ends, scripts of rules added since step 5 started
@@ -116,19 +117,30 @@ file `src/cli/commands/onboarding.ts` only parses flags and calls the core.
   `onboarding:`, so a re-analysis does not undo the journey's marks.
 - **Agents** (`agents.ts`): the `paqad-onboarding-*` agents write only under `docs/` and `.paqad/`,
   never paqad's controls (`.paqad/.config`, `.paqad/configs/`, decisions, rule scripts,
-  `journey.json`). A module agent writes only under the `docs/modules/<slug>/` it was claimed for
+  `journey.json`, `events.jsonl`, `view.json`), and never a docs page listed in `docs_baseline`
+  (pages that existed before onboarding). The allow list denies the journey ledger files too, and
+  allows skill scripts in the form `Bash(node <install>/runtime/base/skills/*)`. Redirects to
+  `/dev/null`, `/dev/stdout` and `/dev/stderr` pass the guard. Briefs tell agents to run
+  `paqad-ai` verbs bare. Step 7 checks are staged under `.paqad/tmp/onboarding/scripts/` and
+  installed with `unit rule_scripts <id> --install-check <staged.mjs> --kind --scope`, which never
+  overwrites an existing check; the step 7 proof reads the `rules-compile` row of the rule-script
+  audit log. Unit output paths are normalized; `..`, paths outside the root and symlink escapes
+  are refused. A module agent writes only under the `docs/modules/<slug>/` it was claimed for
   with `unit module_docs <slug> --claim paqad-onboarding-modules`. SubagentStart records an
   `agent_bind` row with the agent id; a module agent is bound to the oldest claimed module no
   other agent holds, so claim each module just before dispatching its agent, in the same order.
   The write guard reads that binding by agent id, so one module agent cannot write into another
   open module's folder. Their SubagentStop records `agent_stop` instead of the feature handback.
 - **Setup** (`setup.ts`): runs the orchestrator with `interactive: false` and the index deferred,
-  records `written{}` from `generated_files` and the git-workflow hashes, and `--compile-only`
+  records `written{}` from `generated_files` and the git-workflow hashes (answers passed as a temp
+  file path), and `--compile-only`
   re-runs the compile steps the orchestrator now reports as structured `step_failures`.
 - **Wrap up** (`finish.ts`, `commit.ts`): the report lists gaps, kept pages, rule changes for
   review, new rule checks and the allow list. The commit stages only `written{}` files whose sha256
   still matches, inside the allowed set, never git-ignored files or likely secrets, and never files
-  that were already dirty before the journey; it branches from HEAD and never pushes.
+  that were already dirty before the journey; `docs_baseline` pages that changed are kept for
+  review, not committed. It branches from HEAD, returns to the original branch if the commit
+  fails, and never pushes.
 - **Routing and hooks**: "onboard paqad", "continue paqad onboarding" and "resume paqad onboarding"
   route to `onboarding`; while a journey is open the docs, module-docs and rules workflows fold
   under it. The Stop hook nudges the owner session once between steps. The entry sentinel ignores
