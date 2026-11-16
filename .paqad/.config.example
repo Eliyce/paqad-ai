@@ -1,5 +1,5 @@
 # paqad framework configuration — catalog of every knob (.paqad/.config.example)
-# catalog_version: 1
+# catalog_version: 2
 #
 # The reference for personal overrides: every setting, with its default, a one-line
 # explanation and its PAQAD_* env equivalent, grouped by its team YAML file. This
@@ -30,6 +30,9 @@
 # paqad.yaml: site_map.enabled
 # Keeps a checked map of the app's screens and user journeys under docs/site-map/ for coding projects. (env: PAQAD_SITE_MAP)
 # site_map=false
+# paqad.yaml: rules_discovery.private_packages
+# Package names or patterns (use * for any text) that rules discovery treats as private and never looks up on the web. (env: PAQAD_RULES_DISCOVERY_PRIVATE_PACKAGES)
+# rules_discovery_private_packages=
 # paqad.yaml: hud.band
 # Shows the paqad status band above the prompt in the Claude Code plugin, along with the /paqad command. (env: PAQAD_HUD_VIEW)
 # hud_view=true
