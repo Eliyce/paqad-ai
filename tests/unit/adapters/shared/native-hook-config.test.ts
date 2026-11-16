@@ -18,6 +18,7 @@ import {
   NATIVE_HOOK_EVENTS,
   PAQAD_HOOK_EVENT_ORDER,
   PAQAD_STAGE_HELPER_MATCHER,
+  PAQAD_SUBAGENT_START_MATCHER,
   rendersFullHookChain,
   type RenderedHook,
 } from '@/adapters/shared/paqad-hooks.js';
@@ -101,13 +102,13 @@ describe('paqad-hooks command builders', () => {
     expect(subagent?.command).toMatch(/ codex-cli$/);
   });
 
-  it('claude-code renders one SubagentStart seed hook with the stage-helper matcher and a timeout, before SubagentStop', () => {
+  it('claude-code renders one SubagentStart seed hook with the stage-helper and onboarding agent matcher and a timeout, before SubagentStop', () => {
     const chain = buildHostHookChain('claude-code', ENV);
     const starts = chain.filter((hook) => hook.nativeEvent === 'SubagentStart');
     expect(starts).toEqual([
       {
         nativeEvent: 'SubagentStart',
-        matcher: PAQAD_STAGE_HELPER_MATCHER,
+        matcher: PAQAD_SUBAGENT_START_MATCHER,
         command: 'node "/fake/home/.paqad-ai/current/hooks/stage-agent-start.mjs"',
         timeout: 10,
       },
@@ -127,7 +128,7 @@ describe('paqad-hooks command builders', () => {
   it('the plugin chain carries the same SubagentStart entry and keeps SubagentStop last before the skill PostToolUse entry', () => {
     const chain = buildPluginHookChain(ENV);
     const start = chain.find((hook) => hook.nativeEvent === 'SubagentStart');
-    expect(start?.matcher).toBe(PAQAD_STAGE_HELPER_MATCHER);
+    expect(start?.matcher).toBe(PAQAD_SUBAGENT_START_MATCHER);
     expect(start?.timeout).toBe(10);
     expect(start?.command).toContain('stage-agent-start.mjs');
     expect(distinctEvents(chain).slice(-2)).toEqual(['SubagentStop', 'PostToolUse']);
