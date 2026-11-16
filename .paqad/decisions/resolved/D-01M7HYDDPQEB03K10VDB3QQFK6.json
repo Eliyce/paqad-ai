@@ -1,0 +1,63 @@
+{
+  "id": "D-01M7HYDDPQEB03K10VDB3QQFK6",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:93f380a927bcee11de210f838e4b8e64f4048ef002abfbfc85d3c208af6841ae.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-onboarding-docs keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-onboarding-docs before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow",
+  "created_at": "2026-11-16T10:28:30.552Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M7HXQJCS9SNZ7VZD7443JVF3",
+      "D-01M7HY2XT0AHP7ZMVWHDEK6JC3",
+      "D-01M7HXXF7S06SG73WSAVNGHJ4A",
+      "D-01M7HX85TS3BCKK7V1KSD26FEA",
+      "D-01M6RXZMDMD1RDYDCW252GMSRT"
+    ]
+  },
+  "suggestion": {
+    "earlier_id": "D-01M7HXQJCS9SNZ7VZD7443JVF3",
+    "option_key": "allow",
+    "reason": "Same agent and same Bash power, re-asked only because one Report sentence was added; the owner approved Bash for the onboarding agents in chat.",
+    "at": "2026-11-16T10:33:33.544Z"
+  },
+  "chosen": "allow",
+  "rationale": "Owner approved Bash for the onboarding agents in chat; same power as D-01M7HXQJCS9SNZ7VZD7443JVF3 on the text with the added Leave line.",
+  "resolved_at": "2026-11-16T10:33:35.096Z",
+  "decision_id": "D-01M7HYDDPQEB03K10VDB3QQFK6",
+  "fingerprint": "sha256:6a339336f5e33a7d228bbea6c7d1a0c98059bd6c28e49bde602ff911d30517a5",
+  "question": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Same agent and same Bash power, re-asked only because one Report sentence was added; the owner approved Bash for the onboarding agents in chat.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:28:30.552Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:33:35.096Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved Bash for the onboarding agents in chat; same power as D-01M7HXQJCS9SNZ7VZD7443JVF3 on the text with the added Leave line."
+  }
+}
