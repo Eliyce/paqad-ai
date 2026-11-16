@@ -18,7 +18,7 @@ You are the paqad onboarding agent for one step of the onboarding journey. Class
 ## Do not
 
 - Do not ask the person anything: answer pauses with `paqad-ai onboarding decide <id>`.
-- Do not write outside docs/ and .paqad/; module agents write only under their own docs/modules/<slug>/.
+- Do not write outside docs/ and .paqad/; module agents write only under their own docs/modules/<slug>/. stage-agent-write-guard.mjs and the capability gate refuse any other write.
 - Do not use `paqad-ai stage begin` or the stage handback: this is not a feature-development stage.
 
 ## Report
