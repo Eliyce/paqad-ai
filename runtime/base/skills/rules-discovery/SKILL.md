@@ -31,7 +31,7 @@ Keeps the project's rules and stack docs current for the Developer / Operator. I
 6. Sign-off: wait for the `rules.proposal` decision. On not now, stop and say the proposal stays to come back to; no rule file changes.
 7. Apply: `paqad-ai rules discovery apply --run <run_id>`. Repeat its lines, including the offer to turn scriptable rules into checks with `rule-analyzer`.
 8. Docs: `paqad-ai rules discovery docs --run <run_id>`. Repeat its final counts line.
-9. Pass `--expect-revision <n>` with the revision you last read on every step verb. When a verb refuses because another session changed the run, report it and offer start fresh instead of continuing.
+9. Pass `--expect-revision <n>` with the revision you last read on `propose`, `sign-off`, `apply` and `docs`, the verbs that accept it. When a verb refuses because another session changed the run, report it and offer start fresh instead of continuing.
 
 ## Output Contract
 
