@@ -19,6 +19,9 @@ steps:
   - surface: node-cli-update
     action: On the first session with no plugin and no npm install, the launcher shows the setup line and waits while it fetches the plugin copy.
     expect: "`Setting up paqad for this repo (one time).` on a laptop, or `Setting up paqad for this cloud session.` in cloud; a failed setup says once that checks are off for the session."
+  - surface: node-cli-update
+    action: On a local machine, a session on the launcher's own copy starts the paqad plugin install for the user in the background, never in cloud and never holding up a hook.
+    expect: "Once the install finishes mid-session, one line says once to type /reload-plugins to see the HUD now, or it shows next session."
   - surface: node-cli-join
     action: The first prompt runs through the entry gate; optionally the teammate runs `paqad-ai join` for the code index, detection report and quality baseline.
     expect: Stages and checks enforced as for the lead; join writes no tracked file.
