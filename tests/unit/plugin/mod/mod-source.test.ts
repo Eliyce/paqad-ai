@@ -41,6 +41,7 @@ describe('the HUD mod source', () => {
         'desktop-view.ts',
         'headline.ts',
         'instruments.ts',
+        'journey-model.ts',
         'live.ts',
         'onboard-tray.tsx',
         'model.ts',

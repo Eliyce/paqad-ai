@@ -13,6 +13,7 @@ export const WORKFLOW_WORDS: Readonly<Record<string, string>> = {
   'module-documentation': 'module docs',
   'root-cause-analysis': 'root-cause analysis',
   'rules-analyze': 'rules analysis',
+  onboarding: 'onboarding',
 };
 
 export const NO_WORKFLOW = 'no-workflow';

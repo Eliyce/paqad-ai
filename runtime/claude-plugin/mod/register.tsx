@@ -48,6 +48,7 @@ import {
 } from './config';
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
+import { JOURNEY_RUN_PATH } from './journey-model';
 import {
   drawOnboardTray,
   initialTray,
@@ -723,10 +724,14 @@ async function readStatus(
     USERPROFILE: await $.env.get('USERPROFILE'),
   });
   let root: string | null = null;
+  let journeyRoot: string | null = null;
   for (const dir of ancestorDirs(start, home)) {
     if (await $.fs.exists(joinPath(dir, '.paqad/framework-path.txt'))) {
       root = dir;
       break;
+    }
+    if (journeyRoot === null && (await $.fs.exists(joinPath(dir, JOURNEY_RUN_PATH)))) {
+      journeyRoot = dir;
     }
   }
   const teamConfigs: Array<{ name: string; text: string }> = [];
@@ -757,6 +762,7 @@ async function readStatus(
   };
   const status = decideStatus({
     onboarded: root !== null,
+    journey: journeyRoot !== null,
     env,
     localConfig,
     teamConfigs,
@@ -765,7 +771,7 @@ async function readStatus(
   });
   return {
     ...status,
-    root,
+    root: root ?? journeyRoot,
     home,
     chime: isChimeOn({ env, localConfig, teamConfigs, paqadYaml }),
   };
