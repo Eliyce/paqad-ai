@@ -50,7 +50,15 @@ export function renderHudText(snapshot: HudSnapshot): string {
   if (snapshot.decisions.pending.length > 0) {
     lines.push(`decisions waiting: ${snapshot.decisions.pending.length}`);
   }
+  if (snapshot.review) lines.push(...renderReviewLines(snapshot.review));
   return lines.join('\n');
+}
+
+export function renderReviewLines(review: NonNullable<HudSnapshot['review']>): string[] {
+  const lines = [`${review.word}: ${review.headline.text}`];
+  if (review.leads_note) lines.push(review.leads_note);
+  for (const gap of review.gaps) lines.push(`gap: ${gap.stage} · ${gap.say}`);
+  return lines;
 }
 
 function renderOnboardingText(onboarding: NonNullable<HudSnapshot['onboarding']>): string {
