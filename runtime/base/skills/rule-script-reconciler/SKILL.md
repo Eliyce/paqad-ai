@@ -49,6 +49,10 @@ Any code except `RS-CACHE-INVALID` blocks `feature-development` per the project'
    - `RS-SCRIPT-STALE` / `RS-FIXTURE-FAIL` → "Regenerate scripts for `RL-…`?"
 3. Apply the chosen resolution through `rule-editor` or `rule-script-generator`. Never edit the map directly.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - `.paqad/scripts/rules/.cache/drift.json` written with findings + counts + `blocked`.

@@ -56,6 +56,10 @@ If any modules have low confidence, call them out explicitly in the final messag
 5. Update `.paqad/doc-progress.json` with `moduleDocStage: complete`.
 6. Run `scripts/list-orphan-module-dirs.sh` and report any orphans under `## Orphaned Directories`. Do not delete them.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - Match `assets/output.template.md`: `## Workflow Status`, `## Completed Stages`, `## Blocked Stages` headings.

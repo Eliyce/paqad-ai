@@ -1,0 +1,9 @@
+triggers:
+  - workflow:
+      - onboarding
+cache_key_inputs: []
+input_schema:
+  project_root:
+    type: path
+    required: false
+    description: The project the onboarding journey sets up. Defaults to cwd.

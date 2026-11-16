@@ -110,7 +110,7 @@ function hasOpenStart(rows: readonly SessionLedgerRow[], stage: string): boolean
   return open;
 }
 
-interface ContentSlot {
+export interface ContentSlot {
   name: string;
   full: string;
   kept: number;

@@ -227,6 +227,11 @@
       "name": "module-map-reconciler"
     },
     {
+      "path": "runtime/base/skills/onboarding-journey/SKILL.md",
+      "folder": "onboarding-journey",
+      "name": "onboarding-journey"
+    },
+    {
       "path": "runtime/base/skills/performance-regression-estimator/SKILL.md",
       "folder": "performance-regression-estimator",
       "name": "performance-regression-estimator"

@@ -33,6 +33,10 @@ Keeps the project's rules and stack docs current for the Developer / Operator. I
 8. Docs: `paqad-ai rules discovery docs --run <run_id>`. Repeat its final counts line.
 9. Pass `--expect-revision <n>` with the revision you last read on every step verb. When a verb refuses because another session changed the run, report it and offer start fresh instead of continuing.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - One status line per step, prefixed `**▸ paqad** · rules discovery ·`.

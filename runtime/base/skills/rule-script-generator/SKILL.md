@@ -50,6 +50,10 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
    Deletes any `.mjs` + `__fixtures__/` under `.paqad/scripts/rules/` not referenced by an active map rule. Archived rules' scripts survive one cycle, then this prunes them.
 7. Present the `## Generation Summary`: scripts accepted, scripts rejected (with reasons), over-flag warnings, pruned files. Tell the user the next prompt (`feature-development` will now enforce them).
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - Accepted scripts written under `.paqad/scripts/rules/...` with their `__fixtures__/`.

@@ -32,6 +32,10 @@ Builds the one list the Developer / Operator signs off. Node does the merge, the
 6. Show the rows from `proposal.md`, four per question, asking Keep, Edit or Drop for each. A conflict row offers keep existing, take new or edit. For Edit, ask for the new rule text. Record every answer with `paqad-ai rules discovery review --run <run_id> --row <P-n> --verdict <keep|edit|drop|keep_existing|take_new> [--text "<rule>"]`; the verb refuses an edit that repeats another row.
 7. When every row has a verdict, run `paqad-ai rules discovery sign-off --run <run_id>` and repeat its line: it opens the one `rules.proposal` decision, "Sign off N new, M changed, K removed rules?", bound to the hash of `proposal.json`.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 ```json

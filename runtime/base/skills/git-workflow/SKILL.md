@@ -81,6 +81,10 @@ propose a long-lived `develop` branch for a new project.
 In `change.json`, `value: null` removes a branch type or a ticket source. It is an error
 for any other key, because settings are never removed.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - The six files under `.paqad/configs/git-workflow/`, valid, written only by the

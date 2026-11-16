@@ -55,6 +55,10 @@ It writes a draft `docs/instructions/rules/rule-script-map.yml`. **The user revi
    where `classifications.json` is `[{ "id", "verifiability": { "kind", "reason"? }, "enforced_by": [] }, ...]`.
 6. Present the `## Analysis Summary` block and tell the user to review the map, then type `generate rule scripts`.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - Every rule bullet under `docs/instructions/rules/**` carries an `<!-- @rule RL-<hash> -->` marker.

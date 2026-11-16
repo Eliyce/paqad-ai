@@ -331,6 +331,10 @@ Both mints go through `paqad-ai decision create` — never hand-authored — car
    `paqad-ai decision resolve <id> <chosen> [rationale]` (or `--other "<text>"` for a write-in). A hand-picked sequential `D-{N}` is rejected, so parallel branches never collide.
 4. Only after the resolved file exists may implementation continue. Commit the resolved packet with the change it justifies (the delivery workflow), so a reviewer and future `git blame` can see why. Commit `.paqad/decisions/standing-answers.json` with it when a rule was added or removed.
 
+## Onboarding journey
+
+While the onboarding journey runs and its brief says "Onboarding journey says auto-recommended.", a packet the journey opened is answered with its recommended option through `paqad-ai onboarding decide <id>`, never asked. That answer is recorded in `.paqad/onboarding/choices.jsonl` and is not reused as "same as last time" until a person marks it reviewed. Outside the journey, ask as above.
+
 ## Per-adapter UI
 
 Use the row that matches the `Adapter:` value in the entry file that pointed you to this bootstrap.
