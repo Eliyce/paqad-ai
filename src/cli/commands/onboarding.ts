@@ -18,6 +18,8 @@ import { chooseStack, detectProject } from '@/onboarding/journey/detect.js';
 import { JourneyRefusal } from '@/onboarding/journey/errors.js';
 import { writeAllowList } from '@/onboarding/journey/permissions.js';
 import { runPreflight } from '@/onboarding/journey/preflight.js';
+import { applySetupStage } from '@/onboarding/journey/setup.js';
+import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { requireRun, updateRun } from '@/onboarding/journey/run-store.js';
 import { isStageId } from '@/onboarding/journey/stages.js';
 import type { StageId } from '@/onboarding/journey/types.js';
@@ -220,6 +222,25 @@ function addChooseStack(command: Command): void {
     );
 }
 
+function addSetup(command: Command): void {
+  rootOption(command.command('setup').description('Step 2: set up paqad without questions'))
+    .option('--compile-only', 'Only re-run the rule compile steps after a compile failure')
+    .action((options: RootOptions & { compileOnly?: boolean }) =>
+      runVerb(options.projectRoot, async () => {
+        const setup = await applySetupStage(
+          options.projectRoot,
+          { compileOnly: options.compileOnly === true, runner: new OnboardingOrchestrator() },
+          now,
+        );
+        emit(
+          options,
+          setup,
+          `**▸ paqad** · Set up paqad: ${setup.generated_files.length} files, ${setup.step_failures.length} failed step(s).`,
+        );
+      }),
+    );
+}
+
 function addStage(command: Command): void {
   const stage = command.command('stage').description('Start, end or fail a step');
   rootOption(stage.command('start').argument('<step>'))
@@ -403,6 +424,7 @@ export function createOnboardingCommand(): Command {
   addStart(command);
   addDetect(command);
   addChooseStack(command);
+  addSetup(command);
   addNext(command);
   addStage(command);
   addUnit(command);

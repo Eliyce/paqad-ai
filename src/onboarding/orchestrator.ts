@@ -25,7 +25,11 @@ import { nodePackageManager } from '@/checks/prerequisites.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { ActiveCapability, Capability, Stack } from '@/core/types/domain.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
-import type { OnboardingOutput, OnboardingPreviewResult } from '@/core/types/onboarding.js';
+import type {
+  OnboardingOutput,
+  OnboardingPreviewResult,
+  OnboardingStepFailure,
+} from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
@@ -86,6 +90,7 @@ import {
   enableRagDuringOnboarding,
   RAG_ENGINE_INSTALLING_LINE,
   ragEngineInstallingInBackground,
+  ragIndexDeferred,
   resolveRagSelection,
   type RagSelection,
 } from './rag-onboarding.js';
@@ -112,6 +117,50 @@ export interface OnboardingOptions {
   workspacePolicy?: {
     project_creation_disabled?: boolean;
   };
+}
+
+export interface CompiledOnboardingRules {
+  compiledRulesPath: string;
+  step_failures: OnboardingStepFailure[];
+  warnings: string[];
+}
+
+function failureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown error';
+}
+
+export async function compileOnboardingRules(
+  projectRoot: string,
+): Promise<CompiledOnboardingRules> {
+  const stepFailures: OnboardingStepFailure[] = [];
+  const warnings: string[] = [];
+  try {
+    if (isRuleScriptMapStale(projectRoot)) {
+      compileRuleScripts(projectRoot);
+    }
+  } catch (error) {
+    stepFailures.push({ step: 'rule_script_map', message: failureMessage(error) });
+    warnings.push(
+      `Rule-script map compilation failed during onboarding: ${failureMessage(error)}.`,
+    );
+  }
+  let compiledRulesPath = join(projectRoot, PATHS.COMPILED_RULES);
+  try {
+    if (await isCompiledRulesStale(projectRoot)) {
+      const compiledRules = await compileRules(projectRoot);
+      compiledRulesPath = await writeCompiledRules(projectRoot, compiledRules);
+    }
+  } catch (error) {
+    stepFailures.push({ step: 'planning_rules', message: failureMessage(error) });
+    warnings.push(`Planning rule compilation failed during onboarding: ${failureMessage(error)}.`);
+  }
+  try {
+    await writeRuleContext(projectRoot);
+  } catch (error) {
+    stepFailures.push({ step: 'rule_context', message: failureMessage(error) });
+    warnings.push(`Rule context generation failed during onboarding: ${failureMessage(error)}.`);
+  }
+  return { compiledRulesPath, step_failures: stepFailures, warnings };
 }
 
 export class OnboardingOrchestrator {
@@ -300,33 +349,9 @@ export class OnboardingOrchestrator {
     }
     removeObsoleteContractDocs(options.projectRoot);
     onboardingWarnings.push(...removeObsoleteWorkflowRules(options.projectRoot));
-    try {
-      if (isRuleScriptMapStale(options.projectRoot)) {
-        compileRuleScripts(options.projectRoot);
-      }
-    } catch (error) {
-      onboardingWarnings.push(
-        `Rule-script map compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
-    try {
-      if (await isCompiledRulesStale(options.projectRoot)) {
-        const compiledRules = await compileRules(options.projectRoot);
-        compiledRulesPath = await writeCompiledRules(options.projectRoot, compiledRules);
-      }
-    } catch (error) {
-      onboardingWarnings.push(
-        `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    try {
-      await writeRuleContext(options.projectRoot);
-    } catch (error) {
-      onboardingWarnings.push(
-        `Rule context generation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
+    const compiled = await compileOnboardingRules(options.projectRoot);
+    const compiledRulesPath = compiled.compiledRulesPath;
+    onboardingWarnings.push(...compiled.warnings);
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       adapter: adapters[0],
       providers: adapters,
@@ -367,6 +392,7 @@ export class OnboardingOrchestrator {
       kept_files: writeResult.skipped,
       drift_review_targets: drift.review_targets,
       reverted_framework_values: revertedFrameworkValues,
+      step_failures: compiled.step_failures,
     };
 
     options.onPhase1Complete?.(phase1Output);
@@ -380,7 +406,7 @@ export class OnboardingOrchestrator {
       persistRagConfig(options.projectRoot, profile.intelligence);
     }
 
-    if (ragSelection?.enabled && ragSelection.provider) {
+    if (ragSelection?.enabled && ragSelection.provider && !ragIndexDeferred(ragSelection)) {
       if (ragEngineInstallingInBackground(options.projectRoot, ragSelection)) {
         onboardingWarnings.push(RAG_ENGINE_INSTALLING_LINE);
       } else {
