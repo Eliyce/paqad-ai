@@ -94,9 +94,12 @@ function stageState(run: JourneyRun, id: StageId): ViewStageState {
   return status === 'not_started' ? 'todo' : status;
 }
 
-function unitTimes(run: JourneyRun, events: readonly JourneyEvent[], id: StageId): number[] {
-  const startedAt = run.stages[id].started_at;
-  if (!startedAt) return [];
+function unitTimes(
+  run: JourneyRun,
+  events: readonly JourneyEvent[],
+  id: StageId,
+  startedAt: string,
+): number[] {
   return events
     .filter(
       (event) =>
@@ -117,7 +120,7 @@ function etaMinutes(
   if (fold.total === null || fold.done < ETA_MIN_UNITS || fold.done >= fold.total) return null;
   const startedAt = run.stages[fold.id].started_at;
   if (!startedAt) return null;
-  const times = unitTimes(run, events, fold.id);
+  const times = unitTimes(run, events, fold.id, startedAt);
   const last = times.length > 0 ? Math.max(...times) : now.getTime();
   const perUnit = (last - new Date(startedAt).getTime()) / fold.done;
   return Math.max(1, Math.round((perUnit * (fold.total - fold.done)) / 60_000));
