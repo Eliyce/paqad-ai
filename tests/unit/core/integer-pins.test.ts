@@ -27,7 +27,7 @@ const PINS = {
   readme: { version: 3, hash: '02a9a711cbed8c47c6944a00079a835ec800dff52ba25030e90d776438fa5a34' },
   launcher: {
     version: 2,
-    hash: '63a87342d0a66287ecddcc1c0370f8ebf6cd3faded9d3a7c2e7231198e138928',
+    hash: 'cc1382d270005e2ebf776766b235b8563c2654cf20519d8a6f17aec9862d32cc',
   },
   block: { version: 3, hash: '461c0655ad844b8c5bbd00204e06753d0655bf910f35b97ae72e0a235aacea00' },
 };
