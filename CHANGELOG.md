@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.130.0
+
+### Minor Changes
+
+- c454f3a: Security reviews and design reviews now show their progress in the HUD. Each review has eight stages, and the band, the terminal card and `paqad-ai status` show which stage it is in, how it ended, and a Resume button when it stopped. A review that confirmed nothing is never shown as green, and leads that were not confirmed never raise the alarm. The workflow band now says Security review and Design review instead of Pentest and Design test. New commands `paqad-ai security-review` and `paqad-ai design-review` record the stages, findings and gaps.
+
 ## 1.129.0
 
 ### Minor Changes
