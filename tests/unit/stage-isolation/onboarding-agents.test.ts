@@ -126,7 +126,6 @@ describe('onboarding stage agents', () => {
     });
     expect(formatStageAgentWriteSummary(blocked)).toContain('docs/modules/auth/summary.md');
 
-    // An agent with no start row may not write into a folder another agent holds.
     expect(decide(agent, 'Write', 'docs/modules/auth/summary.md', 'agent_unknown')).toBe(true);
     expect(decide(agent, 'Write', 'docs/modules/auth/summary.md')).toBe(true);
   });
