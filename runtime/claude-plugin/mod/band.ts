@@ -125,7 +125,6 @@ export function closedChangeRow(snapshot: PaqadHudSnapshot, columns: number): Ba
   return truncateRow(row, columns);
 }
 
-/** The one row the feature route draws for each scope reason when no change is live (FR-10). */
 export function featureScopeLine(snapshot: PaqadHudSnapshot, columns: number): BandRow {
   const row = featureScopeRow(snapshot);
   if (row.kind === 'band' || row.kind === 'ready') {

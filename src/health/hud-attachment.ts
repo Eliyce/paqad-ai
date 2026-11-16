@@ -1,8 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Twins of runtime/hooks/lib/hud-heartbeat.mjs, which the prompt gate reads; a test pins every
- *  value equal, so the doctor and the session note say the same words (FR-15, FR-16, NFR-2). */
 export const HEARTBEAT_WINDOW_MS = 120_000;
 export const SNAPSHOT_FRESH_MS = 15 * 60_000;
 export const CLOUD_HUD_LINE =
@@ -50,7 +48,6 @@ function latestSession(projectRoot: string, now: number): string | null {
   return latest?.id ?? null;
 }
 
-/** The latest Claude Code session of the last day, read the way the prompt gate reads it. */
 export function readHudAttachment(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -73,7 +70,6 @@ export function readHudAttachment(
   return { state: 'attached', sessionId };
 }
 
-/** The note the prompt gate wrote, or the shared words when the doctor found it on its own. */
 export function unattachedNote(projectRoot: string, sessionId: string): string {
   try {
     const record = JSON.parse(

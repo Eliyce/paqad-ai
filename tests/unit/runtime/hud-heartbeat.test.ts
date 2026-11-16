@@ -167,7 +167,7 @@ describe('the prompt gate and the heartbeat', () => {
 
   it('AC-43: is byte-identical with another session heartbeat, a stale one or none', () => {
     hudSnapshot(SESSION, QUALIFIED);
-    expect(gate()).toContain('HUD not attached'); // AC-28: said once, on the first such prompt
+    expect(gate()).toContain('HUD not attached');
     const none = gate();
     beat('ses-other', Date.now());
     expect(gate()).toBe(none);
@@ -191,7 +191,7 @@ describe('the prompt gate and the heartbeat', () => {
   });
 });
 
-describe('HUD not attached is recorded once per session (W5)', () => {
+describe('AC-28: HUD not attached is recorded once per session (W5)', () => {
   const NOW = Date.parse('2026-10-18T09:00:00.000Z');
   const LOCAL = { CLAUDE_CODE_REMOTE: '' } as NodeJS.ProcessEnv;
   const S = 'ses-unattached';

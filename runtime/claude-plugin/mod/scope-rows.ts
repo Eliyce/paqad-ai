@@ -1,8 +1,5 @@
 import type { PaqadHudSnapshot } from './types';
 
-/** Every reason paqad's snapshot gives for the feature route's scope. It mirrors HudScopeReason in
- *  src/hud/change-scope.ts; a test pins the two lists equal, and FEATURE_SCOPE_ROWS below is a
- *  Record over it, so a new reason without a row fails the type check (FR-10, INV-3). */
 export const FEATURE_SCOPE_REASONS = [
   'qualified',
   'finished',
@@ -51,7 +48,6 @@ function isFeatureScopeReason(reason: string): reason is FeatureScopeReason {
   return (FEATURE_SCOPE_REASONS as readonly string[]).includes(reason);
 }
 
-/** The row the feature route draws for a snapshot with no live change: never nothing. */
 export function featureScopeRow(snapshot: PaqadHudSnapshot): FeatureScopeRow {
   if (snapshot.closed_change) return { kind: 'closed' };
   const reason = snapshot.scope?.reason ?? 'no-change-yet';
@@ -59,8 +55,6 @@ export function featureScopeRow(snapshot: PaqadHudSnapshot): FeatureScopeRow {
   return row.kind === 'band' ? READY : row;
 }
 
-/** The reason word leads each row, so a narrow terminal truncating from the end keeps it, and
- *  the meaning is carried by text, never by colour or a symbol alone (NFR-3). */
 export function scopeRowWords(row: Exclude<FeatureScopeRow, { kind: 'band' | 'ready' }>): {
   word: string;
   words: string;

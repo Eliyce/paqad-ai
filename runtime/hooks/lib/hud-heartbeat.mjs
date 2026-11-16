@@ -6,11 +6,8 @@ import { appendHookLog, logHookFailure } from './hook-log.mjs';
 
 export const HEARTBEAT_WINDOW_MS = 120_000;
 
-/** How long a session's HUD snapshot counts as fresh: the hooks rewrite it on every prompt. */
 export const SNAPSHOT_FRESH_MS = 15 * 60_000;
 
-/** The cloud line: Claude Code never draws a mod in a cloud session (W2). One shared source for
- *  the prompt gate, the doctor (pinned equal by a test) and the mod's remote stand-down. */
 export const CLOUD_HUD_LINE =
   "The paqad HUD cannot draw in a cloud session: Claude Code shows no plugin view there. paqad's checks still run.";
 
@@ -117,7 +114,6 @@ function mtimeOf(path) {
   }
 }
 
-/** The one freshness helper for the prompt gate and the doctor (FR-15, NFR-2). */
 export function snapshotIsFresh(projectRoot, sessionId, now = Date.now()) {
   if (typeof sessionId !== 'string' || sessionId.trim() === '') return false;
   const modified = mtimeOf(hudSnapshotPath(projectRoot, sessionId));
@@ -126,7 +122,6 @@ export function snapshotIsFresh(projectRoot, sessionId, now = Date.now()) {
   return age >= 0 && age <= SNAPSHOT_FRESH_MS;
 }
 
-/** Writes a once-per-session marker; true the first time only. */
 function noteOnce(projectRoot, sessionId, what, now) {
   const path = notedPath(projectRoot, sessionId, what);
   if (existsSync(path)) return false;
@@ -135,7 +130,6 @@ function noteOnce(projectRoot, sessionId, what, now) {
   return true;
 }
 
-/** The cloud line for the first prompt of a cloud session, once; '' otherwise (AC-8). */
 export function cloudHudLine(projectRoot, sessionId, env = process.env, now = Date.now()) {
   if (!isCloudSession(env) || typeof sessionId !== 'string' || sessionId.trim() === '') return '';
   try {
@@ -146,12 +140,6 @@ export function cloudHudLine(projectRoot, sessionId, env = process.env, now = Da
   }
 }
 
-/**
- * Records "HUD not attached" for a local Claude Code session whose snapshot existed before this
- * prompt and is fresh while the HUD heartbeat is not: one hooks.log line and one
- * <session>.unattached record, written once per session and cleared once a heartbeat appears.
- * Call it before this prompt refreshes the snapshot. Returns the note line the first time.
- */
 export function recordHudAttachment(projectRoot, sessionId, options = {}) {
   const env = options.env ?? process.env;
   const now = options.now ?? Date.now();

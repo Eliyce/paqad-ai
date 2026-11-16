@@ -242,9 +242,6 @@ export interface SessionBinding {
   sessionId: string | null;
 }
 
-/** The root to bind now, or null when the session is already bound there. It needs no
- *  session.start: /resume, /clear, /branch and a late load fire none, so the first prompt.submit
- *  or turn.start binds (W3). A new session id at the same root (after /clear) binds again. */
 export async function nextSessionRoot(
   bound: SessionBinding | null,
   readBinding: () => Promise<SessionBinding>,

@@ -10,7 +10,6 @@ export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
   root: string;
-  /** The session id Claude Code reports now; a test changes it to model /clear or /branch. */
   sessionId: string | null;
   files: Map<string, string>;
   store: Map<string, unknown>;

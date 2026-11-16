@@ -58,8 +58,6 @@ function help(): string {
   return `Try ${listed.slice(0, -1).join(', ')} or ${listed.at(-1)}.`;
 }
 
-/** The cloud line: Claude Code never draws a mod in a cloud session. The prompt gate and doctor
- *  say the same words (runtime/hooks/lib/hud-heartbeat.mjs, pinned equal by a test). */
 export const CLOUD_HUD_LINE =
   "The paqad HUD cannot draw in a cloud session: Claude Code shows no plugin view there. paqad's checks still run.";
 

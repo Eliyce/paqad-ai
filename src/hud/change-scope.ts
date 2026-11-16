@@ -32,7 +32,6 @@ export type HudScopeReason = (typeof HUD_SCOPE_REASONS)[number];
 export interface HudChangeScope {
   dir: string | null;
   reason: HudScopeReason;
-  /** The branch the change was opened on, for the other-branch row. */
   branch?: string | null;
 }
 
@@ -78,13 +77,9 @@ export function qualifyHudChange(
     !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
     !stageStillRunning(projectRoot, dir)
   ) {
-    // A change this session adopted and never wrote a row in is not "hidden this episode": it
-    // reads as Getting ready, so a new feature turn never draws nothing (B5 adoption effect).
     if (!sessionWroteInEpisode(projectRoot, sessionId, dir, null)) {
       return { dir: null, reason: 'no-change-yet' };
     }
-    // A change this session worked on in an earlier feature episode and resumed now draws its
-    // full band with the stage strip before any new row is written (D2 band-on-resume).
     if (resumedFeatureEpisode(projectRoot, sessionId, start)) return { dir, reason: 'qualified' };
     return { dir: null, reason: 'no-row-this-episode' };
   }
@@ -132,8 +127,6 @@ function finishedChange(
     : none;
 }
 
-/** A change closed before this turn started is the last turn's news: a new feature turn draws
- *  Getting ready for the next change, not the closed one (AC-27). */
 function closedBeforeTurn(projectRoot: string, dir: string, turnStartedAt: string | null): boolean {
   const turnMs = turnStartedAt === null ? NaN : Date.parse(turnStartedAt);
   if (Number.isNaN(turnMs)) return false;

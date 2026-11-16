@@ -1604,14 +1604,10 @@ async function currentBinding($: EngineInterface): Promise<{
   return { root, sessionId: await sessionIdOf($) };
 }
 
-/** Desktop is learned from the first event that carries surface desktop; a render hook only sets
- *  this in-memory flag, since it never writes state. */
 function learnSurface(event: unknown): void {
   if ((event as { surface?: unknown }).surface === 'desktop') desktopSession = true;
 }
 
-/** The one idempotent bind, keyed on the session id: session.start, the first prompt.submit and
- *  the first turn.start all call it, and it binds only when the root or session id moved. */
 async function followRoot($: EngineInterface): Promise<void> {
   const bound = boundStart === null ? null : { root: boundStart, sessionId: boundSessionId };
   let current: { root: string; sessionId: string | null } | null = null;

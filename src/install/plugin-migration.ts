@@ -498,7 +498,8 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
 
   const optOut = migrationOptOut(projectRoot, deps);
   if (optOut !== null) {
-    if (optOut.state === 'declined') deps.log(`plugin turned off (${optOut.reason}); not installing`);
+    if (optOut.state === 'declined')
+      deps.log(`plugin turned off (${optOut.reason}); not installing`);
     return record(deps, prior, optOut);
   }
   if (!retryAllowed(prior, deps.now())) {
@@ -1115,8 +1116,6 @@ function withPluginVersion(
     : { detail: line, level: 'warning', remediation: VERSION_MISMATCH_FIX };
 }
 
-/** The entry Claude Code would load in this repo: this repo's local/project entry, else the
- *  user entry. Entries written for other repos never apply here (#827). */
 function entriesThatApplyHere(
   entries: Record<string, unknown>[],
   projectRoot: string | undefined,

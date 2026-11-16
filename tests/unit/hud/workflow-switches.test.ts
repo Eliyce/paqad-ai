@@ -16,7 +16,6 @@ const S = 'ses-workflow-switches';
 
 type Row = 'status row' | 'band with stage strip' | 'band' | 'getting ready' | 'closed row';
 
-/** What the mod draws for a snapshot, in the words of AC-26 and AC-27. */
 function rowOf(snapshot: HudSnapshot): Row | 'blank' {
   const route = snapshot.route;
   if (route === null || route === 'no-workflow') return 'blank';

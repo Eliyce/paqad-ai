@@ -29,8 +29,6 @@ function correctedState(state: WorkflowState, target: RoutedWorkflow): WorkflowS
   };
 }
 
-/** A correction is a route turn of its own, stamped at the turn it corrects, so the corrected
- *  workflow's episode starts with that turn and rows written after the hook's misroute qualify. */
 function appendCorrectionTurn(
   root: string,
   sessionId: string,
@@ -114,17 +112,12 @@ export function announceRouteSwitch(
   }
 }
 
-/** How long the hooks' ledger-session cache counts as this session's id for a route switch. The
- *  hooks rewrite it on every prompt, so an older cache belongs to an idle or finished session. */
 export const LEDGER_SESSION_RECENT_MS = 60 * 60 * 1000;
 
 export const NO_SESSION_LINE =
   '**▸ paqad** · no session was identified, so the route stays as it is. Set SE_SESSION to ' +
   'this session id to move it.';
 
-/** The session a stage start or lane set may switch the route for, in the hooks' order: the env
- *  hint (SE_SESSION, CLAUDE_SESSION_ID, CLAUDE_CODE_SESSION_ID), else the ledger-session cache
- *  when it is recent and the hooks wrote route turns for that session in this root (D6). */
 export function routeSwitchSession(
   root: string,
   sessionHint: string | null,
@@ -143,8 +136,6 @@ export function routeSwitchSession(
   return readRouteTurns(root, cached).length > 0 ? cached : null;
 }
 
-/** Switches the route only for the session routeSwitchSession found before the command wrote
- *  anything (a stage write refreshes the cache, so it must be read first). */
 export function announceRouteSwitchFor(
   root: string,
   sessionId: string,

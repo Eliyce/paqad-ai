@@ -138,8 +138,6 @@ export function pluginLoadState(
 
 export type InstalledPluginsFormat = 'missing' | 'known' | 'unknown';
 
-/** Claude Code owns installed_plugins.json: a missing file is "not installed", a file whose shape
- *  paqad does not know is reported as an unknown format, never as "plugin not loaded" (NFR-5). */
 export function installedPluginsFileFormat(
   options: PluginLoadOptions = {},
 ): InstalledPluginsFormat {

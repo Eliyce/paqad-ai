@@ -69,7 +69,6 @@ const SENTINEL_DIR = '.paqad/.agent-entry-loaded.d';
 export interface HealthCheckerOptions {
   managedSettingsPaths?: string[];
   homeDir?: string;
-  /** The clock the HUD attachment check reads; tests inject it. */
   now?: () => number;
 }
 
@@ -751,8 +750,6 @@ export class HealthChecker {
       : pass('Claude Code install', line.detail);
   }
 
-  /** W5: a local session whose snapshot is fresh while the HUD never beat warns; a cloud
-   *  session says, as information, that the HUD cannot draw there (W2). */
   private checkHudAttached(projectRoot: string): HealthCheckResult {
     const name = 'Claude Code HUD';
     const attachment = readHudAttachment(
@@ -775,13 +772,7 @@ export class HealthChecker {
   private checkDiscoveryClash(): HealthCheckResult[] {
     const home = this.options.homeDir;
     return discoveryPluginClash(home === undefined ? {} : { home })
-      ? [
-          fail(
-            'Claude plugins',
-            DISCOVERY_CLASH_MESSAGE,
-            DISCOVERY_CLASH_FIX,
-          ),
-        ]
+      ? [fail('Claude plugins', DISCOVERY_CLASH_MESSAGE, DISCOVERY_CLASH_FIX)]
       : [];
   }
 

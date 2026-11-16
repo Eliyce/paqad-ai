@@ -44,7 +44,6 @@ export function logHookDebug(projectRoot, hook, note) {
 
 export const HOOKS_LOG = 'hooks.log';
 
-/** One line in .paqad/logs/hooks.log, the log `paqad-ai doctor` and the HUD tests read. */
 export function appendHookLog(projectRoot, note) {
   try {
     const logsDir = join(projectRoot, '.paqad', 'logs');

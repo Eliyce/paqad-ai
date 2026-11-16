@@ -164,8 +164,6 @@ async function main(stdin) {
   }
 
   const sessionId = sessionIdFromStdin(stdin);
-  // Read before this prompt refreshes the snapshot: a snapshot that existed and is fresh while
-  // the HUD heartbeat is not means the HUD is not attached (W5); a cloud session gets one line.
   const hudNotes = `${cloudHudLine(projectRoot, sessionId, process.env)}${pluginReloadLine(
     projectRoot,
     sessionId,

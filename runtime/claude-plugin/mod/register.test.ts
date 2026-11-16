@@ -337,14 +337,12 @@ const QUESTION = {
 
 describe('other workflows get one status entry and no band', () => {
   for (const surface of TERMINAL) {
-    test(`a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
+    test(`AC-39: a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
       const clock = mock.clock(on, { now: NOW });
       await $.session.start(START);
       const idle = await $.ui.render(band(surface));
       expect(cardOf(idle)).toBeUndefined();
-      // AC-39: the engine composes the test world's own blank AbovePrompt part after paqad's, so
-      // count paqad's part only: the band itself is one row.
       expect(linesOf(idle).filter((line) => line.trim() !== '')).toEqual([
         'paqad · question · 84K tokens · ~$0.05',
       ]);
