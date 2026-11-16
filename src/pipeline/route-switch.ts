@@ -3,6 +3,7 @@ import { clearPendingLane } from '@/stage-evidence/pending-lane.js';
 
 import { appendRouteOverride, type RouteOverrideSource } from './route-override-log.js';
 import { isFeatureDevelopmentRoute, type RoutedWorkflow } from './routed-workflow.js';
+import { appendRouteTurn } from './route-turns.js';
 import { readSessionRoute, writeSessionRoute } from './session-route.js';
 import { readWorkflowState, writeWorkflowState, type WorkflowState } from './workflow-state.js';
 
@@ -23,17 +24,41 @@ function correctedState(state: WorkflowState, target: RoutedWorkflow): WorkflowS
   };
 }
 
+/** A correction is a route turn of its own, stamped at the turn it corrects, so the corrected
+ *  workflow's episode starts with that turn and rows written after the hook's misroute qualify. */
+function appendCorrectionTurn(
+  root: string,
+  sessionId: string,
+  target: RoutedWorkflow,
+  turnStartedAt: string | undefined,
+  now: () => Date,
+): void {
+  try {
+    appendRouteTurn(root, sessionId, {
+      at: turnStartedAt ?? now().toISOString(),
+      workflow: target,
+    });
+  } catch (error) {
+    appendHooksLog(
+      root,
+      `route-turns: append failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 export function writeRouteCorrection(
   root: string,
   sessionId: string,
   target: RoutedWorkflow,
   audit: { source?: RouteOverrideSource; reason?: string } = {},
+  now: () => Date = () => new Date(),
 ): RoutedWorkflow | null {
   const state = readWorkflowState(root, sessionId);
   const priorRoute = readSessionRoute(root, sessionId);
   const hookLabel = state.active?.workflow ?? priorRoute?.workflow ?? null;
 
   writeWorkflowState(root, sessionId, correctedState(state, target));
+  appendCorrectionTurn(root, sessionId, target, state.turn_started_at, now);
   writeSessionRoute(
     root,
     {
