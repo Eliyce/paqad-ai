@@ -16,7 +16,7 @@ reported as "none".
 | Rules on the base branch             | `gh api repos/{owner}/{repo}/rules/branches/{base}`           | 403 or 404: `unknown` line, never "no rules" |
 | CI target branches                   | `pull_request:` `branches:` in `.github/workflows/*.yml`      | none                                         |
 | Code owners                          | `.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`         | none                                         |
-| PR template                          | `.github/pull_request_template.md` and the other usual places | `.paqad/templates/pr-body.md`                |
+| PR template (external project files) | `.github/pull_request_template.md` and the other usual places | `.paqad/templates/pr-body.md`                |
 
 ## Thresholds
 

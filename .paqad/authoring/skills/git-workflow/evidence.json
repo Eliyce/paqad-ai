@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "git-workflow",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:4cca7119b967a014d228a9ba8996776cfff0a169a8060ad7ac83db7c9f098fd3",
+  "folder_hash": "sha256:78ed11c68333b7e0c471ae1fd0485d7d621738e92656ff5ba14450dafdb2ef61",
   "baseline": {
     "runs": 3,
-    "passed": 0,
+    "passed": null,
     "verdict": "needed"
   },
   "sources": {
-    "count": 15,
-    "non_model": 15,
+    "count": 17,
+    "non_model": 17,
     "kind": "repo"
   },
   "lint": {
@@ -26,26 +26,17 @@
   },
   "benchmark": {
     "iterations": 2,
-    "pass_rate_with": 0.2315,
-    "pass_rate_without": 0.125,
-    "delta_points": 10.65,
-    "token_multiple": null,
+    "pass_rate_with": 0.8611,
+    "pass_rate_without": 0.8167,
+    "delta_points": 4.44,
+    "token_multiple": 0.953,
     "models": [
-      "haiku",
-      "sonnet"
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
     ],
-    "claude_version": "2.1.302",
-    "checks_not_measured": [
-      {
-        "check": "token-multiple",
-        "reason": "tokens: unavailable on claude-plugin-eval"
-      },
-      {
-        "check": "cache-hit",
-        "reason": "tokens: unavailable on claude-plugin-eval"
-      }
-    ],
-    "source": "claude-plugin-eval"
+    "claude_version": "2.1.325",
+    "checks_not_measured": [],
+    "source": "subagent-dispatch"
   },
   "trigger": {
     "validation_score": 1,
@@ -53,12 +44,12 @@
     "batch": "not-offered"
   },
   "performance": {
-    "tokens": "unavailable",
-    "source": "claude-plugin-eval"
+    "tokens": "measured",
+    "source": "subagent-dispatch"
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 3.501,
+    "S6": 14.3323,
     "source": "host-usage"
   },
   "overrides": [],
