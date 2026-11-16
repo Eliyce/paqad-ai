@@ -488,9 +488,12 @@ describe('isPluginPresent / isSyncedRoot (Parts 2.6 + 9)', () => {
 });
 
 describe('maybeMigrateToPlugin — skip conditions (Part 2)', () => {
-  it('skips when migration is off (default)', () => {
+  it('skips when migration is off', () => {
     manifestClaudeCode();
-    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ env: {} }));
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ env: { PAQAD_PLUGIN_MIGRATION: 'off' } }),
+    );
     expect(r).toEqual({ state: 'skipped', reason: 'migration-off' });
   });
   it('skips when install mode is settings, even with migration on', () => {
