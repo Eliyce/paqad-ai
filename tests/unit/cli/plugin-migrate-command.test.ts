@@ -45,6 +45,9 @@ describe('AC-7: paqad-ai plugin migrate (hidden)', () => {
   it('runs the migration with every opt-out: a cloud session records its skip and installs nothing', async () => {
     process.env.PAQAD_PLUGIN_MIGRATION = 'on';
     process.env.CLAUDE_CODE_REMOTE = 'true';
+    delete process.env.CI;
+    delete process.env.PAQAD_HEADLESS;
+    delete process.env.CLAUDE_CODE_ENTRYPOINT;
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await migrate();
     expect(JSON.parse(readFileSync(statePath(), 'utf8'))).toMatchObject({
