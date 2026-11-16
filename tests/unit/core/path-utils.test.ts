@@ -7,8 +7,20 @@ import {
   stripTrailingChars,
   toPosixPath,
   toProjectRelativePath,
+  toSlashPath,
   trimEdgeChars,
 } from '@/core/path-utils.js';
+
+describe('toSlashPath', () => {
+  it('turns Windows backslashes into forward slashes on every OS and keeps the drive letter', () => {
+    expect(toSlashPath('C:\\Users\\dev\\paqad-ai')).toBe('C:/Users/dev/paqad-ai');
+    expect(toSlashPath('\\opt\\paqad-ai')).toBe('/opt/paqad-ai');
+  });
+
+  it('leaves a forward-slash path unchanged', () => {
+    expect(toSlashPath('/opt/paqad-ai/runtime')).toBe('/opt/paqad-ai/runtime');
+  });
+});
 
 describe('toPosixPath', () => {
   it('joins path segments with forward slashes', () => {

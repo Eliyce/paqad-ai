@@ -1,7 +1,8 @@
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toSlashPath } from '@/core/path-utils.js';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 import { fitToCeiling, type ContentSlot } from '@/stage-isolation/stage-begin.js';
 
@@ -39,11 +40,11 @@ export function installDir(projectRoot: string): string {
 }
 
 function skillScripts(projectRoot: string, skill: string): string {
-  return join(installDir(projectRoot), 'runtime/base/skills', skill, 'scripts');
+  return posix.join(toSlashPath(installDir(projectRoot)), 'runtime/base/skills', skill, 'scripts');
 }
 
 export function gitWorkflowAnswersPath(): string {
-  return join(tmpdir(), 'paqad-onboarding-git-workflow-answers.json');
+  return posix.join(toSlashPath(tmpdir()), 'paqad-onboarding-git-workflow-answers.json');
 }
 
 function gitWorkflowLine(projectRoot: string, run: JourneyRun): string {

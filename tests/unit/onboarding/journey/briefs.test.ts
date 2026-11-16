@@ -97,6 +97,22 @@ describe('onboarding stage briefs', () => {
     expect(brief).toContain('/opt/paqad-ai/runtime/base/skills/rule-analyzer/scripts');
   });
 
+  it('names a Windows install dir with forward slashes and its drive letter', () => {
+    writeFile(root, '.paqad/framework-path.txt', 'C:\\Program Files\\paqad-ai\n');
+    runningAt('rules_analyze');
+    const analyze = nextStep(root, clockAt(2)).brief;
+    expect(analyze).toContain(
+      'Run the rule analyzer scripts from C:/Program Files/paqad-ai/runtime/base/skills/rule-analyzer/scripts.',
+    );
+    expect(analyze).not.toContain('\\');
+    runningAt('rule_scripts');
+    expect(nextStep(root, clockAt(2)).brief).toContain(
+      'scripts in C:/Program Files/paqad-ai/runtime/base/skills/rule-script-generator/scripts',
+    );
+    expect(gitWorkflowAnswersPath()).not.toContain('\\');
+    expect(gitWorkflowAnswersPath()).toMatch(/\/paqad-onboarding-git-workflow-answers\.json$/u);
+  });
+
   it('stays under the 27k ceiling with a very long list of units', () => {
     const slugs = Array.from({ length: 3000 }, (_, i) => `module-with-a-long-name-${i}`);
     writeFile(root, 'docs/instructions/rules/module-map.yml', moduleMap(slugs.slice(0, 2)));
