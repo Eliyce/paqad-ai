@@ -49,6 +49,14 @@ interface RawPackage {
   privateReason?: PrivateReason;
 }
 
+export const MANIFEST_IGNORE_GLOBS = [
+  ...DEFAULT_IGNORE_GLOBS,
+  '**/fixtures/**',
+  '**/__fixtures__/**',
+  '**/fixture/**',
+  '**/testdata/**',
+];
+
 const PUBLIC_REGISTRY_HOSTS: Partial<Record<StackEcosystem, string[]>> = {
   node: ['registry.npmjs.org', 'registry.yarnpkg.com', 'registry.npmmirror.com'],
   rust: ['github.com/rust-lang/crates.io-index', 'index.crates.io'],
@@ -70,7 +78,7 @@ export function findManifests(projectRoot: string): ManifestPick[] {
   const files = scanWorkingTree(
     projectRoot,
     names.map((name) => `**/${name}`),
-    DEFAULT_IGNORE_GLOBS,
+    MANIFEST_IGNORE_GLOBS,
   );
   return files.flatMap((manifest): ManifestPick[] => {
     const candidates = parsers.filter((parser) =>
@@ -115,10 +123,10 @@ function readPackages(projectRoot: string, pick: ManifestPick): RawPackage[] {
   const manifest = pick.parser.parseManifest(content, basename(pick.manifest));
   const lockContent =
     pick.lockfile === null ? null : readFileSync(join(projectRoot, pick.lockfile), 'utf8');
-  const locked = new Map<string, string>();
+  const locked = new Map<string, string[]>();
   if (lockContent !== null && pick.lockfile !== null) {
     for (const entry of pick.parser.parseLockfile(lockContent, basename(pick.lockfile)).packages) {
-      locked.set(entry.name, entry.version);
+      locked.set(entry.name, [...(locked.get(entry.name) ?? []), entry.version]);
     }
   }
   const lockSources =
@@ -137,12 +145,44 @@ function readPackages(projectRoot: string, pick: ManifestPick): RawPackage[] {
       name: pkg.name,
       ecosystem: pick.parser.ecosystem,
       declared,
-      installed: knownVersion(locked.get(pkg.name)),
+      installed: knownVersion(pickLockedVersion(locked.get(pkg.name) ?? [], declared)),
       manifest: pick.manifest,
       dev: pkg.isDev ?? false,
       ...(reason === undefined ? {} : { privateReason: reason }),
     };
   });
+}
+
+export function pickLockedVersion(versions: string[], declared: string | null): string | null {
+  if (versions.length <= 1) {
+    return versions[0] ?? null;
+  }
+  const major = declaredMajor(declared);
+  const matching = major === null ? [] : versions.filter((version) => majorOf(version) === major);
+  const pool = matching.length > 0 ? matching : versions;
+  return [...pool].sort(compareVersions).at(-1) ?? null;
+}
+
+function declaredMajor(declared: string | null): number | null {
+  const match = /^\s*[\^~=v]?\s*(\d+)/.exec(declared ?? '');
+  return match === null ? null : Number(match[1]);
+}
+
+function majorOf(version: string): number | null {
+  const match = /^v?(\d+)/.exec(version);
+  return match === null ? null : Number(match[1]);
+}
+
+function compareVersions(left: string, right: string): number {
+  const parts = (version: string): number[] =>
+    (/^v?(\d+(?:\.\d+)*)/.exec(version)?.[1] ?? '').split('.').map(Number);
+  const a = parts(left);
+  const b = parts(right);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 function sourceReason(declared: string | null): PrivateReason | undefined {

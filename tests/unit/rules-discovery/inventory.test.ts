@@ -10,6 +10,7 @@ import { readBaseline } from '@/rules-discovery/baseline.js';
 import {
   buildStackInventory,
   inventorySummary,
+  pickLockedVersion,
   writeStackInventory,
 } from '@/rules-discovery/inventory.js';
 import { RULES_DISCOVERY_BASELINE, runFilePath } from '@/rules-discovery/paths.js';
@@ -217,6 +218,55 @@ describe('rules inventory · lockfiles, workspaces and dev deps (AC-7)', () => {
     });
     expect(find(inv, 'react').manifest).toBe('packages/web/package.json');
     expect(find(inv, 'vitest')).toMatchObject({ dev: true, installed: null });
+  });
+});
+
+describe('rules inventory · fixture manifests and repeated lock entries', () => {
+  it('skips manifests inside fixture folders and reads the rest', async () => {
+    const inv = await inventoryOf(
+      project({
+        'package.json': JSON.stringify({ dependencies: { zod: '^3.22.0' } }),
+        'tests/fixtures/laravel/composer.json': JSON.stringify({
+          require: { 'laravel/framework': '^12.0' },
+        }),
+        'evals/fixture/project/package.json': JSON.stringify({ dependencies: { hono: '^4.0.0' } }),
+        'src/__fixtures__/package.json': JSON.stringify({ dependencies: { react: '^18.0.0' } }),
+        'pkg/testdata/go.mod': 'module example.com/x\n',
+        'packages/web/package.json': JSON.stringify({ dependencies: { vue: '^3.0.0' } }),
+      }),
+    );
+    expect(inv.manifests).toEqual(['package.json', 'packages/web/package.json']);
+    expect(inv.packages.map((pkg) => pkg.name).sort()).toEqual(['vue', 'zod']);
+  });
+
+  it('reports the locked version that matches the declared major when a lockfile repeats a package', async () => {
+    const inv = await inventoryOf(
+      project({
+        'package.json': JSON.stringify({ dependencies: { commander: '^15.0.0' } }),
+        'pnpm-lock.yaml': [
+          "lockfileVersion: '9.0'",
+          'packages:',
+          '  commander@15.0.0:',
+          '    resolution: {integrity: sha512-a}',
+          '  commander@4.1.1:',
+          '    resolution: {integrity: sha512-b}',
+          '',
+        ].join('\n'),
+      }),
+    );
+    expect(find(inv, 'commander').installed).toBe('15.0.0');
+  });
+
+  it.each([
+    [['15.0.0', '4.1.1'], '^15.0.0', '15.0.0'],
+    [['4.1.1', '15.0.0', '15.2.1'], '~15.0.0', '15.2.1'],
+    [['2.0.0', '3.1.0'], '>=2.0.0', '3.1.0'],
+    [['2.0.0', '3.1.0'], '^9.0.0', '3.1.0'],
+    [['2.0.0', '3.1.0'], null, '3.1.0'],
+    [['1.2.3'], '^9.0.0', '1.2.3'],
+    [[], '^1.0.0', null],
+  ] as const)('picks from %j declared %s as %s', (versions, declared, expected) => {
+    expect(pickLockedVersion([...versions], declared)).toBe(expected);
   });
 });
 

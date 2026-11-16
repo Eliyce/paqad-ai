@@ -96,6 +96,9 @@
     "source": "hooks/lib/transcript.mjs"
   },
   {
+    "source": "hooks/lib/verdict-agreement.mjs"
+  },
+  {
     "source": "hooks/lib/yaml-scalar.mjs"
   },
   {

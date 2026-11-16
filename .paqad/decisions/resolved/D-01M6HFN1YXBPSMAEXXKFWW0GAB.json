@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner approved in chat (2026-11-03): allow Bash for paqad-checks and paqad-specification and re-release them."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Grants one agent its tool powers during authoring; configuration, not a rule.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

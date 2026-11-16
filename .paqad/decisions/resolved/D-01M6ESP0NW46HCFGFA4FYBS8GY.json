@@ -42,5 +42,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner: per-dev opt-out in git-ignored .claude/settings.local.json, said plainly"
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-1d98",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

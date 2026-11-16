@@ -8,3 +8,6 @@ Loads for a Vite single-page app. See `environment.md` for env-var handling; thi
 - Reference static assets via `import` or the `public/` directory so Vite fingerprints and rewrites their URLs. MUST NOT hard-code a `/src/...` path that breaks in the production build. <!-- @rule RL-d38b -->
 - Configure path aliases once in `vite.config.ts` and mirror them in `tsconfig` `paths`; do not maintain a divergent alias set. <!-- @rule RL-3221 -->
 - Verify a change against the production build (`vite build` + `vite preview`), not only the dev server, when you touch plugins, aliases, or asset handling. Dev and prod resolve modules differently. <!-- @rule RL-80d8 -->
+- The app mounts with createRoot from react-dom/client and never uses ReactDOM.render, hydrate, findDOMNode or unmountComponentAtNode. <!-- @rule RL-9393 discovered:rd-20261116-061901 -->
+- A .tsx file that exports React components exports nothing else except simple constants; helper functions live in a separate non-component module. <!-- @rule RL-3da5 discovered:rd-20261116-061901 -->
+- Web workers in graph-ui are created only as `new Worker(new URL('<literal path>', import.meta.url), { type: 'module' })` with the URL and options written inline as literals. <!-- @rule RL-b612 discovered:rd-20261116-061901 -->

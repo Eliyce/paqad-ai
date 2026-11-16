@@ -48,5 +48,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner said \"continue\" after the build helper was stopped."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks how to proceed on one change.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose this; the release gate keeps one record per skill name."
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-4862",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

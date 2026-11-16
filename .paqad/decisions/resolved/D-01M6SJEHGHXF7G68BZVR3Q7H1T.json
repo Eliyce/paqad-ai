@@ -55,5 +55,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose this: clear a leftover turnId when a new prompt arrives, so turn.start keeps the prompt stamp. Event order and the guard stay as they are."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Resolves a contradiction inside one frozen spec.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

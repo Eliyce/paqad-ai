@@ -1,5 +1,5 @@
 # >>> paqad-ai managed (do not edit between markers) >>>
-# managed_block_version: 1
+# managed_block_version: 2
 .agent-entry-loaded
 .agent-entry-loaded.d/
 framework-version.txt
@@ -27,6 +27,7 @@ decisions/events.jsonl
 detection-report.json
 stack-snapshot.json
 stack-drift.json
+rules-discovery-nudge.json
 doc-progress.json
 quality-baseline.json
 compiled-rules.json

@@ -49,5 +49,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "The owner first picked the issue as written, then replaced that with reuse by intent. Correction: the context says 19 pairs; the measured number is 22."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks a path or owner for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

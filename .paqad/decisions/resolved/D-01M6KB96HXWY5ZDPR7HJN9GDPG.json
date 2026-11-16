@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, relayed by the orchestrator: \"Keep words, one per hook\". Keep the issue sentences, list only the missing lines, one per hook. Name .husky/commit-msg and .husky/pre-push only if a real husky run proves them; that run happens in development before item 4 is coded."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Settles a requirement for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

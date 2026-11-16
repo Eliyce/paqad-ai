@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner: allow setup programs and say so in the README."
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-b809",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

@@ -7,3 +7,7 @@ Loads when you set up React state, data, and composition.
 - Read a changing external (non-React) value with `useSyncExternalStore`, not a manual subscription inside `useEffect`. <!-- @rule RL-2050 -->
 - Drive a controlled input from React state. MUST NOT mix an uncontrolled DOM read (`ref.current.value`) with a controlled `value` prop on the same input. <!-- @rule RL-ab79 -->
 - Prefer composition (`children`, render props) over deep prop drilling or a premature higher-order component. <!-- @rule RL-8690 -->
+- Function components take ref as a regular prop and do not use forwardRef. <!-- @rule RL-5091 discovered:rd-20261116-061901 -->
+- Context is provided by rendering <SomeContext value={...}> rather than <SomeContext.Provider>. <!-- @rule RL-cc42 discovered:rd-20261116-061901 -->
+- Ref callbacks use a block body and return nothing or a cleanup function, never an implicit expression value. <!-- @rule RL-ca0e discovered:rd-20261116-061901 -->
+- Function components set prop defaults with destructuring default parameters, never defaultProps or propTypes. <!-- @rule RL-452c discovered:rd-20261116-061901 -->

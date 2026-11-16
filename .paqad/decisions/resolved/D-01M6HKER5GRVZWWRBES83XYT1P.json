@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose: allow an explicit empty trigger list for a helper only its parent calls. A missing triggers key still fails."
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-0d7b",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }
