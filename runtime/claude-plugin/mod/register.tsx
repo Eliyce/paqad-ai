@@ -49,6 +49,14 @@ import {
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
+  drawOnboardTray,
+  initialTray,
+  toggleTray,
+  traySubmitText,
+  type TrayActions,
+  type TrayState,
+} from './onboard-tray';
+import {
   ANSWER_TOAST,
   RECORD_WAIT_MS,
   bandIsLive,
@@ -204,6 +212,10 @@ const snapshotAtom = atom(
   null as PaqadHudSnapshot | null,
 );
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
+const onboardPendingAtom = atom(
+  { plugin: 'paqad', key: 'onboardPending' } as const,
+  null as TrayState | null,
+);
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
 const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
@@ -1389,7 +1401,7 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
   const sub = subcommandOf(args);
   if (status?.on && at && sub === 'show') await showBand($, true);
   if (status?.on && at && sub === 'hide') await setHidden($, true);
-  return runPaqadCommand({
+  const answer = runPaqadCommand({
     ...(status?.on && at && sub === 'decisions'
       ? { repoDecisions: await readRepoDecisions($, at.root) }
       : {}),
@@ -1399,6 +1411,22 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
     receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
     now: await $.clock.now(),
   });
+  if (answer.onboard) await update($, onboardPendingAtom, () => initialTray(false));
+  return { text: answer.text };
+}
+
+function trayActions($: EngineInterface, state: TrayState): TrayActions {
+  return {
+    toggle: (key) => void update($, onboardPendingAtom, () => toggleTray(state, key)),
+    dismiss: () => void update($, onboardPendingAtom, () => null),
+    start: () =>
+      void (async () => {
+        const text = traySubmitText(state, (await $.session.id()) ?? 'unknown');
+        if (text === null) return;
+        await update($, onboardPendingAtom, () => null);
+        await $.prompt.submit({ text });
+      })(),
+  };
 }
 
 async function clearBinding($: EngineInterface): Promise<void> {
@@ -1590,6 +1618,18 @@ export const register: Register = (on) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
+    const tray = await read($, onboardPendingAtom);
+    if (tray && !status?.on && e.surface === 'desktop' && !e.props.hasSurvey) {
+      const engine = await next(e);
+      const ui = $.ui.resolve(e) as Elements['desktop'];
+      const { Box } = ui;
+      return (
+        <Box flexDirection="column">
+          {drawOnboardTray(ui, tray, trayActions($, tray))}
+          {isBlank(engine) ? null : (engine as RenderElement)}
+        </Box>
+      );
+    }
     if (!status?.on || e.props.hasSurvey) return next(e);
     if (e.surface === 'desktop') {
       const band = await desktopBandOf($, {

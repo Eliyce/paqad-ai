@@ -33,7 +33,12 @@
     "./runtime/claude-plugin/agents/paqad-checks.md",
     "./runtime/claude-plugin/agents/paqad-documentation-sync.md",
     "./runtime/claude-plugin/agents/paqad-expert.md",
-    "./runtime/claude-plugin/agents/paqad-chief-architect.md"
+    "./runtime/claude-plugin/agents/paqad-chief-architect.md",
+    "./runtime/claude-plugin/agents/paqad-onboarding-docs.md",
+    "./runtime/claude-plugin/agents/paqad-onboarding-modules.md",
+    "./runtime/claude-plugin/agents/paqad-onboarding-rules.md",
+    "./runtime/claude-plugin/agents/paqad-onboarding-analyze.md",
+    "./runtime/claude-plugin/agents/paqad-onboarding-scripts.md"
   ],
   "skills": "./runtime/claude-plugin/skills",
   "types": "./runtime/claude-plugin/mod/types/index.d.ts",

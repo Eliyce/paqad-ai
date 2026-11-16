@@ -411,6 +411,7 @@ declare module 'claude-code' {
       signoffCheck: { ref: string | null; at: number } | null;
       designText: string | null;
       designCopiedAt: number | null;
+      onboardPending: { ticked: string[]; allowList: boolean; npmAvailable: boolean } | null;
     };
   }
 }

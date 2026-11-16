@@ -212,9 +212,19 @@ function receipt(text: string | null): string {
   return body ? body : NO_RECEIPT;
 }
 
-export function runPaqadCommand(input: CommandInput): { text: string } {
-  if (input.standDown) return { text: notActiveText(input.standDown) };
+export const ONBOARD_TRAY_TEXT =
+  'Pick the AI tools your team uses in the tray above the prompt, then Start onboarding.';
+export const ALREADY_ONBOARDED_TEXT =
+  'paqad is already set up here. Say "resume paqad onboarding" to continue an open journey.';
+
+export function runPaqadCommand(input: CommandInput): { text: string; onboard?: boolean } {
   const sub = subcommandOf(input.args);
+  if (sub === 'onboard') {
+    if (input.standDown === 'not-onboarded') return { text: ONBOARD_TRAY_TEXT, onboard: true };
+    if (input.standDown) return { text: notActiveText(input.standDown) };
+    return { text: ALREADY_ONBOARDED_TEXT };
+  }
+  if (input.standDown) return { text: notActiveText(input.standDown) };
   if (sub === 'receipt') return { text: receipt(input.receipt) };
   if (sub === 'show') return { text: SHOWN_AGAIN };
   if (sub === 'hide') return { text: hiddenReply() };

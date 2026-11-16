@@ -19,7 +19,6 @@ export function allowListEntries(installDir: string): AllowListEntries {
   return {
     allow: [
       'Bash(paqad-ai:*)',
-      'Bash(npx paqad-ai:*)',
       `Bash(node ${skills}/:*)`,
       'Edit(docs/**)',
       'Write(docs/**)',
@@ -38,7 +37,7 @@ export function allowListEntries(installDir: string): AllowListEntries {
       'Edit(.paqad/onboarding/journey.json)',
       'Write(.paqad/onboarding/journey.json)',
     ],
-    ask: ['Bash(paqad-ai onboarding commit:*)', 'Bash(npx paqad-ai onboarding commit:*)'],
+    ask: ['Bash(paqad-ai onboarding commit:*)'],
   };
 }
 
