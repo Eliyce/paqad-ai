@@ -59,11 +59,14 @@ import {
   BIND_WATCH_MS,
   JOURNEY_RUN_PATH,
   JOURNEY_VIEW_PATH,
+  REVIEW_VIEW_PATHS,
   STALL_MS,
   isOnboardingCommand,
   journeyBand,
   journeyBandShown,
+  journeyHeartbeat,
   journeyPrompt,
+  newestShown,
   parseJourneyView,
   rebindNeeded,
   type JourneyView,
@@ -1233,7 +1236,8 @@ function desktopActions($: EngineInterface): BandActions {
     cancel: act(() => closing(false)),
     show: act(() => showBand($, true)),
     signoff: (action, surface) => act(() => pressSignoff($, action, surface))(),
-    journey: (button) => act(() => $.prompt.submit({ text: journeyPrompt(button) }))(),
+    journey: (button, prompt) =>
+      act(() => $.prompt.submit({ text: prompt ?? journeyPrompt(button) }))(),
   };
 }
 
@@ -1241,6 +1245,21 @@ async function journeyViewOf($: EngineInterface): Promise<JourneyView | null> {
   const root = live?.root ?? null;
   if (root === null) return null;
   return parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
+}
+
+async function bandViewOf($: EngineInterface): Promise<JourneyView | null> {
+  const now = (await read($, nowAtom)) ?? 0;
+  const onboarding = await journeyViewOf($);
+  if (journeyBandShown(onboarding, now)) return onboarding;
+  const root = live?.root ?? null;
+  const route = (await read($, snapshotAtom))?.route ?? null;
+  if (root === null || route === null || !(route in REVIEW_VIEW_PATHS)) return onboarding;
+  const reviews = await Promise.all(
+    Object.values(REVIEW_VIEW_PATHS).map(async (path) =>
+      parseJourneyView(await readText($, joinPath(root, path))),
+    ),
+  );
+  return newestShown(reviews, now) ?? onboarding;
 }
 
 async function journeyLedgerOf(
@@ -1261,11 +1280,12 @@ async function journeyBandOf(
   $: EngineInterface,
   size: { columns: number },
 ): Promise<DesktopBand | null> {
-  const view = await journeyViewOf($);
+  const view = await bandViewOf($);
   const now = (await read($, nowAtom)) ?? 0;
   if (!journeyBandShown(view, now) || view === null) return null;
-  const heartbeat = view.generated_at ? Date.parse(view.generated_at) : now;
-  const stalled = now - heartbeat > STALL_MS;
+  const beat = journeyHeartbeat(view);
+  const heartbeat = Number.isFinite(beat) ? beat : now;
+  const stalled = view.status === 'running' && now - heartbeat > STALL_MS;
   return {
     kind: 'onboarding',
     model: journeyBand(view, { columns: size.columns, stalled }),
@@ -1807,7 +1827,7 @@ export const register: Register = (on) => {
         turnStartedAt: (await liveState($)).turnStartedAt,
         unavailable: (await read($, unavailableAtom)) === true,
         live: await liveState($),
-        journey: await journeyViewOf($),
+        journey: await bandViewOf($),
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },

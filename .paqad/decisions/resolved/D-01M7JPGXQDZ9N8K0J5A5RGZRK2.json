@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7JPGXQDZ9N8K0J5A5RGZRK2",
+  "category": "intake.requirement",
+  "title": "Review finish while some stages never ran",
+  "context": "If a security or design review is marked finished while some of its eight stages were neither done nor skipped, the summary could claim a clean result for work that never ran. Decide whether finish counts each never-run stage as a gap or refuses until every stage is done or skipped.",
+  "options": [
+    {
+      "option_key": "gap",
+      "label": "Count each stage that never ran as a gap and let the review finish",
+      "one_line_preview": "Count each stage that never ran as a gap and let the review finish",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "refuse",
+      "label": "Refuse to finish until every stage is done or skipped",
+      "one_line_preview": "Refuse to finish until every stage is done or skipped",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "gap",
+  "created_at": "2026-11-16T17:29:51.086Z",
+  "status": "resolved",
+  "change": "01M7JNJYXQNY74YJVH6NMP87YT",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "The only close title (D-01M6KB95755B9AQNTK09RGBSAG) is about a release being finished before merge, not about a review run finishing over stages that never ran."
+  },
+  "chosen": "gap",
+  "rationale": "Owner chose: count each never-run stage as a gap; finish does not refuse.",
+  "resolved_at": "2026-11-16T17:58:48.566Z",
+  "decision_id": "D-01M7JPGXQDZ9N8K0J5A5RGZRK2",
+  "fingerprint": "sha256:3e45939dd42a7ffde7ac5775f7fe37286a1f01092a04a7587c45a89dbd80824e",
+  "question": "Review finish while some stages never ran",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7JNJYXQNY74YJVH6NMP87YT",
+  "ttl_until": "2026-11-30T17:29:51.086Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "gap",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T17:58:48.566Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: count each never-run stage as a gap; finish does not refuse."
+  }
+}

@@ -3215,6 +3215,17 @@ modules:
         - summarizeDetection
         - writeDetection
 
+  - slug: review-runs
+    name: Review Runs
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The staged run store and journey-shaped view for the security review
+      and the design review, driven by the security-review and design-review
+      verbs and drawn by the HUD and status.
+    sources:
+      - src/review-runs
+      - src/cli/commands/review-run.ts
   - slug: pentest-engine
     name: Pentest Engine (12 Skills)
     layer: framework-internals

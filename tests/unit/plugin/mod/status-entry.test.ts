@@ -36,9 +36,9 @@ describe('the status entry for other workflows (FR-44, AC-40)', () => {
     expect(
       statusEntryLine('codebase-health', workflow({ tokens: 1_240_000, usd: 0.71 }), 42_000),
     ).toBe('paqad · codebase health · running 0:42 · 1.2M tokens · ~$0.71');
-    expect(statusEntryLine('pentest', null, null)).toBe('paqad · pentest · counting');
+    expect(statusEntryLine('pentest', null, null)).toBe('paqad · security review · counting');
     expect(statusEntryLine('pentest', workflow({ tokens: null }), null)).toBe(
-      'paqad · pentest · counting',
+      'paqad · security review · counting',
     );
     expect(workflowCost(workflow({ usd: null }))).toBe('84K tokens');
     expect(workflowWords('made-up-flow')).toBe('made up flow');

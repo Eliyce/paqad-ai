@@ -42,7 +42,18 @@ Docs are help, not truth. Any disagreement between docs and reality produces a `
 
 Progress is tracked in `.paqad/design-test/runs/<run_id>/progress.json` (same shape as pentest). The workflow is resumable: if a step is already marked `completed` with the same input hash, skip it.
 
+### Record the run for the HUD
+
+The HUD shows this run as the **Design review**. Record it only through `paqad-ai design-review`; read `references/review-stages.md` before `start` for the stage map, severity map, proof rule and gap steps.
+
+- `start` once before Step 0; continue a stopped run with `resume`, never a second `start`.
+- Run the eight stages in order (`scope`, `map`, `code`, `screens`, `tasks`, `judge`, `confirm`, `report`): `stage <id> start` before the work, `done` after it, `skip` when none of it can run.
+- `finding` for each finding and lead as you write it; `gap` for each blocked check.
+- End every run with `finish` after Step 5, or `abandon` on a hard stop. A refusal never stops the review.
+
 ### Step 0: readiness-gate
+
+Stage: `scope`. On **Missing**, run `paqad-ai design-review gap missing-design-docs --stage scope --say "<words>" --stop` before the decision pause. After `create documentation`, `paqad-ai design-review resume` (never a second `start`) drops that gap once the docs exist; then `stage scope done`. If the owner declines, `abandon`.
 
 Grade `docs/instructions/design-system/` before any other step runs. The `design-system-coverage` skill produces the tier; it is always the first skill and gates everything else (analog of `stride-threat-model`).
 
@@ -54,6 +65,8 @@ Grade `docs/instructions/design-system/` before any other step runs. The `design
 | **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages: explicit opt-in only.                  |
 
 ### Step 1: collect-context
+
+Stage: `map` (helpers 2, 3 and 8 run in `code`).
 
 - Load `docs/instructions/design-system/**` → the contract.
 - Derive component inventory from **AST scan of `src/components/**`** + Storybook stories if present. **Do not derive from `docs/modules/\*/ui/**`**: instead audit those docs against the derived inventory.
@@ -74,6 +87,8 @@ Skills run **in this order** (`design-system-coverage` gates everything else, li
 
 ### Step 2: run-project-scripts
 
+Stage: `code`, through Step 2.5.
+
 Five scripts, run in parallel, **shipped inside paqad-ai** (not seeded into the project: see "Footprint policy" below):
 
 1. `runtime/scripts/design/scan-tokens.sh`: AST/grep for hard-coded design values
@@ -88,37 +103,7 @@ Artefacts → `.paqad/design-test/runs/<run_id>/artifacts/`.
 
 For each suspected finding category, emit `docs/design-test/<timestamp>-local-playbook.md` with a Playwright snippet per category: same "break locally first" pattern pentest uses with curl. **Templates only, never auto-executed.** Categories: contrast probe, focus-ring probe, motion respect, touch-target probe, token-leak probe.
 
-Example playbook entries:
-
-```ts
-// contrast probe: assert text/bg pair meets WCAG-2.2-1.4.3 (4.5:1)
-import { test, expect } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
-test('contrast on /pricing', async ({ page }) => {
-  await page.goto('/pricing');
-  const results = await new AxeBuilder({ page }).withTags(['wcag2aa']).analyze();
-  expect(results.violations.filter((v) => v.id === 'color-contrast')).toEqual([]);
-});
-
-// focus-ring probe: keyboard reach must produce a visible focus outline
-test('focus ring visible on primary button', async ({ page }) => {
-  await page.goto('/');
-  await page.keyboard.press('Tab');
-  const outline = await page
-    .locator(':focus-visible')
-    .evaluate((el) => getComputedStyle(el).outlineWidth);
-  expect(outline).not.toBe('0px');
-});
-
-// token-leak probe: computed color must resolve to a declared token
-test('button bg = color.primary.500', async ({ page }) => {
-  await page.goto('/');
-  const bg = await page
-    .locator('button.primary')
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(bg).toBe('rgb(26, 115, 232)'); // declared in tokens.md as color.primary.500
-});
-```
+Read `references/local-playbook.md` before writing the playbook: it holds one example entry per probe.
 
 ### Step 3: live-validation (Playwright phase)
 
@@ -132,11 +117,15 @@ Equivalent of pentest's live-validation step. The runner brings up the app via `
 - **Asset budget**: fonts loaded match `tokens.md`; no extra families
 - **Performance budget**: LCP / CLS / INP vs declared budgets (only if `patterns.md` has a perf budget)
 
-If the app can't be reached → record `blocked_checks` and proceed (identical to pentest behavior).
+Stages: `screens`, then `tasks` (state sweep, a11y dynamic, performance budget).
+
+If the app can't be reached → record `blocked_checks` and `gap app-unreachable --stage screens`, skip `screens` and `tasks`, and proceed (identical to pentest behavior).
 
 Skills consulted in this step: `accessibility-review`, `responsive-review`, `motion-review`, `state-coverage-review` (all keyed to the live walk's evidence).
 
 ### Step 4: synthesize-findings
+
+Stages: `judge` (grade, set severity), then `confirm` (write each `DT-XXXX` finding, record it with `finding`).
 
 Reuse `finding-normalizer`; the DT category vocabulary lives in its `assets/vocabulary.txt`. Stable `DT-XXXX` IDs. Each finding:
 
@@ -152,6 +141,8 @@ Reuse `finding-normalizer`; the DT category vocabulary lives in its `assets/voca
 `token` findings default to **high** severity (raises visibility of hard-coded design values from day one). `documentation-drift` defaults to medium; rises to high if drift is in the contract itself (token declared in `tokens.md` never used, or used in code but not declared).
 
 ### Step 5: write-report
+
+Stage: `report`, then `finish`.
 
 - `docs/design-test/<timestamp>.md`: human report
 - `docs/design-test/<timestamp>.json`: machine sidecar (so `design-retest` preserves IDs)
@@ -238,6 +229,7 @@ Retest mode rules:
 - `runtime-checks.ts` is a `.ts` file (Playwright is a Node API), run via `tsx` shipped as a paqad-ai dep.
 - Stack-specific behavior is **framework code** inside the runners, they read the project's `package.json`, `playwright.config.ts`, `tailwind.config.*`, CSS-in-JS imports, and branch internally. One runner, many stacks.
 - Outputs land in the project (`docs/design-test/*`, `.paqad/design-test/runs/*`): work products, not infrastructure. Same pattern as pentest.
+- HUD run state: `.paqad/reviews/design/`, written only through `paqad-ai design-review`.
 
 ### What Is and Isn't Project-Tunable
 
@@ -271,7 +263,7 @@ Retest mode rules:
 
 ## Escalate / Stop Conditions
 
-- Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.
+- Never skip steps. If a script is unavailable, record it in `blocked_checks` and as a `design-review gap`, and proceed.
 - Do not run destructive operations (no writes to the live database, no mutations via the API). The Playwright walk is read-only.
 - Always write both the `.md` report and the `.json` sidecar; the `design-retest` workflow depends on the sidecar to preserve `DT-XXXX` IDs.
 - The local design playbook (Step 2.5) is **generated only**: never execute it automatically.
@@ -282,4 +274,6 @@ Retest mode rules:
 
 - Helper skills, in the order the Procedure calls them: `design-system-coverage`, `token-conformance-review`, `component-conformance-review`, `state-coverage-review`, `accessibility-review`, `responsive-review`, `motion-review`, `copy-and-ia-review`, `finding-normalizer`.
 - `references/helper-map.md`: read it when you need to see which helper a step calls.
+- `references/local-playbook.md`: example playbook entries for Step 2.5.
+- `references/review-stages.md`: read it before `paqad-ai design-review start`: the stage map, severity map, proof rule and gap steps.
 - `agents/openai.yaml`

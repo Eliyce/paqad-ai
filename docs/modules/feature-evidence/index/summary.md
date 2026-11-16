@@ -1209,6 +1209,13 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
 journey is open (running, paused, failed or abandoned): run id, status, headline, status line, alt
 text and one label, state and mark per step, built from the journey view.
 
+## Reviews in the HUD snapshot
+
+`hudReview` (`src/hud/snapshot.ts`), read after `hudOnboarding`, adds a `review` block built from
+the security or design review view (see `review-runs`). An open onboarding journey wins. A review
+is carried while its run is open and for 30 minutes after it finished or was abandoned, one shared
+window with onboarding; with both reviews shown, the later `updated_at` wins.
+
 ## Source Footprint
 
 - `src/feature-evidence`

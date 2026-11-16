@@ -8,9 +8,13 @@ export const JOURNEY_VIEW_PATH = '.paqad/onboarding/view.json';
 export const JOURNEY_RUN_PATH = '.paqad/onboarding/journey.json';
 export const NARROW_COLUMNS = 680;
 export const STALL_MS = 20 * 60 * 1000;
+export const REVIEW_VIEW_PATHS: Readonly<Record<string, string>> = {
+  pentest: '.paqad/reviews/security/view.json',
+  'design-test': '.paqad/reviews/design/view.json',
+};
 
 export type JourneyRow = 'O1' | 'O2' | 'O3' | 'O4' | 'O5' | 'O6' | 'P' | 'S';
-export type JourneySignal = 'caution' | 'accent' | 'attention' | 'muted' | 'pass';
+export type JourneySignal = 'caution' | 'accent' | 'attention' | 'muted' | 'pass' | 'fail';
 
 export function parseJourneyView(text: string | null): JourneyView | null {
   if (!text) return null;
@@ -31,7 +35,22 @@ const STATE_OF: Readonly<Record<JourneyStageState, StageState>> = {
   done: 'done',
   degraded: 'gap',
   failed: 'stopped',
+  skipped: 'skip',
+  gap: 'gap',
 };
+
+export function isReviewView(view: JourneyView | null): boolean {
+  return typeof view?.word === 'string';
+}
+
+export function journeyWord(view: JourneyView): string {
+  return view.word ?? ONBOARDING_WORD;
+}
+
+export function journeyHeartbeat(view: JourneyView): number {
+  const at = view.updated_at ?? view.generated_at;
+  return at ? Date.parse(at) : Number.NaN;
+}
 
 export function journeyMarks(view: JourneyView, asking: boolean): Array<Mark<StageState>> {
   return view.stages.map((stage) => ({
@@ -43,6 +62,7 @@ export function journeyMarks(view: JourneyView, asking: boolean): Array<Mark<Sta
 export function stageValue(stage: JourneyViewStage): string {
   if (stage.state === 'failed') return `${stage.label} stopped`;
   if (stage.state === 'degraded') return `${stage.label} · ${stage.gaps.join(', ')}`;
+  if (stage.state === 'skipped') return `${stage.label} skipped`;
   const words = stage.sub_progress?.words;
   return words ? `${stage.label} · ${words}` : stage.label;
 }
@@ -62,7 +82,24 @@ const SIGNAL_OF: Readonly<Record<string, JourneySignal>> = {
   O6: 'muted',
 };
 
+function reviewHeadline(view: JourneyView, stalled: boolean): JourneyHeadline {
+  if (stalled && view.status === 'running') {
+    const current = view.stages.find((stage) => stage.id === view.current);
+    return {
+      row: 'S',
+      text: `Stopped at stage ${current?.index ?? '?'} · ${current?.name ?? ''} · Resume to continue`,
+      signal: 'caution',
+    };
+  }
+  return {
+    row: view.headline.row as JourneyRow,
+    text: view.headline.text,
+    signal: view.headline.signal ?? 'muted',
+  };
+}
+
 export function journeyHeadline(view: JourneyView, stalled: boolean): JourneyHeadline {
+  if (isReviewView(view)) return reviewHeadline(view, stalled);
   if (view.status === 'paused') {
     return { row: 'P', text: view.headline.text, signal: 'caution' };
   }
@@ -93,7 +130,8 @@ export function journeyEta(view: JourneyView, columns: number): JourneyNote {
 }
 
 export interface JourneyBandModel {
-  word: typeof ONBOARDING_WORD;
+  word: string;
+  review: boolean;
   runId: string | null;
   headline: JourneyHeadline;
   marks: Array<Mark<StageState>>;
@@ -104,6 +142,8 @@ export interface JourneyBandModel {
   gaps: JourneyView['gaps'];
   celebrate: boolean;
   note: string | null;
+  prompt: string | null;
+  leads: string | null;
 }
 
 export function journeyBand(
@@ -116,22 +156,34 @@ export function journeyBand(
     view.stages.find((stage) => stage.state === 'running' || stage.state === 'failed') ??
     view.stages.find((stage) => stage.id === view.current) ??
     null;
-  const allDone = view.stages.every(
-    (stage) => stage.state === 'done' || stage.state === 'degraded',
+  const review = isReviewView(view);
+  const allDone = view.stages.every((stage) =>
+    review
+      ? stage.state === 'done' || stage.state === 'skipped' || stage.state === 'gap'
+      : stage.state === 'done' || stage.state === 'degraded',
   );
   const button = headline.row === 'S' ? 'Resume' : view.button;
   return {
-    word: ONBOARDING_WORD,
+    word: journeyWord(view),
+    review,
     runId: view.run_id,
     headline,
     marks: journeyMarks(view, asking),
-    value: allDone ? 'All steps done' : focus ? stageValue(focus) : '',
+    value: allDone
+      ? review
+        ? 'All stages done'
+        : 'All steps done'
+      : focus
+        ? stageValue(focus)
+        : '',
     alt: view.alt,
     button,
     eta: journeyEta(view, input.columns),
     gaps: view.gaps,
-    celebrate: view.celebrate && view.gaps.length === 0,
+    celebrate: !review && view.celebrate && view.gaps.length === 0,
     note: view.refusal ?? view.uncommitted_note,
+    prompt: button ? journeyPrompt(button, view) : null,
+    leads: view.leads_note ?? null,
   };
 }
 
@@ -143,15 +195,34 @@ export const FINISH_SCREEN_MS = 30 * 60 * 1000;
 export const RESUME_PROMPT = 'resume paqad onboarding';
 export const COMMIT_PROMPT = 'Ask me the paqad onboarding commit question now.';
 
+const REVIEW_ENDED: ReadonlySet<string> = new Set(['finished', 'abandoned']);
+
 export function journeyBandShown(view: JourneyView | null, nowMs: number): boolean {
+  if (view !== null && isReviewView(view)) {
+    if (!REVIEW_ENDED.has(view.status)) return true;
+    const ended = view.finished_at ? Date.parse(view.finished_at) : Number.NaN;
+    return Number.isFinite(ended) && nowMs - ended < FINISH_SCREEN_MS;
+  }
   if (view === null || view.status === 'not_started') return false;
   if (view.status !== 'done' && view.status !== 'done_with_gaps') return true;
   const at = view.generated_at ? Date.parse(view.generated_at) : Number.NaN;
   return Number.isFinite(at) && nowMs - at <= FINISH_SCREEN_MS;
 }
 
-export function journeyPrompt(button: 'Resume' | 'Commit'): string {
-  return button === 'Resume' ? RESUME_PROMPT : COMMIT_PROMPT;
+export function journeyPrompt(button: 'Resume' | 'Commit', view?: JourneyView): string {
+  if (button === 'Resume') return view?.resume_prompt ?? RESUME_PROMPT;
+  return COMMIT_PROMPT;
+}
+
+export function newestShown(
+  views: ReadonlyArray<JourneyView | null>,
+  nowMs: number,
+): JourneyView | null {
+  const shown = views.filter(
+    (view): view is JourneyView => view !== null && journeyBandShown(view, nowMs),
+  );
+  shown.sort((a, b) => (journeyHeartbeat(b) || 0) - (journeyHeartbeat(a) || 0));
+  return shown[0] ?? null;
 }
 
 export const ONBOARDING_COMMAND = /\bpaqad-ai\s+onboard(?:ing)?\b/u;

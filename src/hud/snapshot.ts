@@ -1,6 +1,9 @@
 import { readEvents as readJourneyEvents } from '@/onboarding/journey/events.js';
 import { readRun as readJourneyRun } from '@/onboarding/journey/run-store.js';
 import { buildView as buildJourneyView } from '@/onboarding/journey/view.js';
+import { REVIEW_KIND_IDS, REVIEW_KINDS, type ReviewKind } from '@/review-runs/kinds.js';
+import { readReviewRun, readReviewView } from '@/review-runs/store.js';
+import { buildReviewView, reviewShown, type ReviewView } from '@/review-runs/view.js';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -635,8 +638,28 @@ export interface HudOnboarding {
   stages: Array<{ label: string; state: string; mark: string }>;
 }
 
+export interface HudReview {
+  kind: ReviewView['kind'];
+  route: string;
+  word: string;
+  run_id: string;
+  status: ReviewView['status'];
+  headline: ReviewView['headline'];
+  status_line: string | null;
+  alt: string;
+  stages: Array<{ label: string; state: string; mark: string }>;
+  findings: ReviewView['findings'];
+  leads: number;
+  leads_note: string | null;
+  gaps: Array<{ code: string; stage: string; say: string }>;
+  resume_prompt: string;
+  updated_at: string;
+  finished_at: string | null;
+}
+
 export interface HudSnapshot {
   onboarding?: HudOnboarding | null;
+  review?: HudReview | null;
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
@@ -1730,15 +1753,59 @@ export function hudOnboarding(projectRoot: string, now: () => Date): HudOnboardi
   };
 }
 
+function reviewViewOf(projectRoot: string, kind: ReviewKind, now: () => Date): ReviewView | null {
+  try {
+    const run = readReviewRun(projectRoot, kind);
+    if (run !== null) return buildReviewView(kind, run, { now });
+  } catch (error) {
+    logHudWriteError(projectRoot, `${kind.verb} run`, error);
+  }
+  return readReviewView(projectRoot, kind);
+}
+
+export function hudReview(projectRoot: string, now: () => Date): HudReview | null {
+  const nowMs = now().getTime();
+  const shown = REVIEW_KIND_IDS.map((id) => reviewViewOf(projectRoot, REVIEW_KINDS[id], now))
+    .filter((view): view is ReviewView => view !== null && reviewShown(view, nowMs))
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  const view = shown[0];
+  if (!view) return null;
+  return {
+    kind: view.kind,
+    route: view.route,
+    word: view.word,
+    run_id: view.run_id,
+    status: view.status,
+    headline: view.headline,
+    status_line: view.status_line,
+    alt: view.alt,
+    stages: view.stages.map((stage) => ({
+      label: stage.label,
+      state: stage.state,
+      mark: stage.mark,
+    })),
+    findings: view.findings,
+    leads: view.leads,
+    leads_note: view.leads_note,
+    gaps: view.gaps.map((gap) => ({ code: gap.code, stage: gap.stage, say: gap.say })),
+    resume_prompt: view.resume_prompt,
+    updated_at: view.updated_at,
+    finished_at: view.finished_at,
+  };
+}
+
 export function buildHudSnapshot(
   projectRoot: string,
   sessionHint: string | null,
   options: BuildHudSnapshotOptions = {},
 ): HudSnapshot {
+  const now = options.now ?? (() => new Date());
   const snapshot = buildHudSnapshotForRoute(projectRoot, sessionHint, options);
-  const onboarding = hudOnboarding(projectRoot, options.now ?? (() => new Date()));
-  if (onboarding === null) return snapshot;
-  return { ...snapshot, route: 'onboarding', onboarding };
+  const onboarding = hudOnboarding(projectRoot, now);
+  if (onboarding !== null) return { ...snapshot, route: 'onboarding', onboarding };
+  const review = hudReview(projectRoot, now);
+  if (review === null) return snapshot;
+  return { ...snapshot, review };
 }
 
 function buildHudSnapshotForRoute(

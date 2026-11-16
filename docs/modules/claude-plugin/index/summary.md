@@ -200,6 +200,14 @@ call, so a static reader sees it:
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
 
+### Review bands
+
+The journey band model and card body are generalised: they draw the onboarding view and the
+security and design review views, taking the identity word, the eight labels, the continue words
+and the resume prompt from the view. Onboarding views carry no word and keep their defaults. The
+workflow band words for the routes `pentest` and `design-test` read Security review and Design
+review. See `docs/instructions/design-system/hud.md`, Review bands.
+
 ## Reaching every user
 
 - The discovery plugin is named `paqad-discovery`; its commands are `/paqad-discovery:*`. The clash check reads the name from the installed manifest, and its fix says to update or remove the clashing copy.

@@ -26,6 +26,8 @@ export const HUD_REFRESH_VERBS: readonly string[] = [
   'debt promote',
   'debt close',
   'onboarding',
+  'security-review',
+  'design-review',
 ];
 
 export function isHudRefreshVerb(commandPath: string): boolean {
