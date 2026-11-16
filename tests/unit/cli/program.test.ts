@@ -37,6 +37,7 @@ describe('createProgram', () => {
       'module-health',
       'module-map',
       'onboard',
+      'onboarding',
       'new',
       'setup',
       'join',
