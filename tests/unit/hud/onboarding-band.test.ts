@@ -29,7 +29,11 @@ function texts(node: unknown): string[] {
 }
 
 (globalThis as { React?: unknown }).React = {
-  createElement: (type: unknown, props: Record<string, unknown> | null, ...children: unknown[]) => ({
+  createElement: (
+    type: unknown,
+    props: Record<string, unknown> | null,
+    ...children: unknown[]
+  ) => ({
     type,
     props: { ...(props ?? {}), children },
   }),

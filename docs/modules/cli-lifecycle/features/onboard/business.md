@@ -49,3 +49,32 @@ Capture the main journeys for `onboard`. Each flow should call out:
 ## Glossary
 
 - Define terms a stakeholder might not know (e.g. *pack*, *capability*, *adapter*, *module map*).
+
+## The onboarding journey
+
+In an AI tool, "onboard paqad" (or the `/paqad onboard` tray in Claude Code) runs the whole setup
+as one journey. The person answers one question: which AI tools the team uses (Claude Code ticked)
+and whether to let it work without stopping to ask (ticked). Then eight steps run in order, none
+skipped: Read your project, Set up paqad, Write the project docs, Write the module docs, Research
+rules for your stack, Check which rules can be automated, Write the rule checks, Wrap up.
+
+- No questions in between: every pause takes its recommended answer and is written to
+  `.paqad/onboarding/choices.jsonl`. Those answers are not reused as "same as last time" until a
+  person marks them reviewed with `paqad-ai onboarding choices --review`.
+- Step 3 only adds project doc pages that are missing. Existing pages stay byte-identical and are
+  listed for review in the report. Existing rules are never changed or removed; suggested changes
+  are listed for review.
+- Rule checks for rules the journey added only warn until a person reviews them, so a first
+  onboarding never turns CI red.
+- A stop keeps progress: resume starts again at the first unfinished unit of the step that stopped.
+  Another ticked AI tool may resume the journey; that is recorded as a hand-over.
+- Only these gaps let the next step start: research run offline, research stopped before all
+  packages, git workflow kept, stack mismatch noted and search index off.
+- At the end the person sees a summary and one question, "Commit these changes on a new branch?",
+  which is never answered automatically. Declining leaves the files uncommitted.
+- The local allow list in `.claude/settings.local.json` stays after onboarding; the report says how
+  to remove it.
+- A plain terminal `paqad-ai onboard` behaves as before and, after a first onboarding, prints one
+  line pointing to "onboard paqad" in the ticked AI tools that have skills. When a journey is open
+  it points to resume instead. AI tools without skills (Aider, Copilot, Junie, AI Assistant) are
+  unchanged.

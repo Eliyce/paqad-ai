@@ -1,0 +1,42 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: onboarding-journey
+label: Onboard a repository in one click as an eight-step journey
+actor: developer
+goal: Set paqad up with one question, eight steps that run without stopping, and one commit question.
+entry: node-cli-onboard
+priority: high
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-onboard
+    action: Say "onboard paqad" in an AI tool, or use the /paqad onboard tray, and answer which AI tools the team uses.
+    expect: The journey starts with the allow list chosen and the answer recorded in choices.jsonl.
+  - surface: node-cli-onboard
+    action: Step 1, Read your project.
+    expect: A stack from STACKS is recorded with its reason.
+  - surface: node-cli-onboard
+    action: Step 2, Set up paqad.
+    expect: Entry files, hooks, skills, rules and the profile are written with search on.
+  - surface: node-cli-onboard
+    action: Step 3, Write the project docs.
+    expect: Missing project doc pages are added; existing pages stay as they are.
+  - surface: node-cli-onboard
+    action: Step 4, Write the module docs.
+    expect: Every module in module-map.yml has its docs.
+  - surface: node-cli-onboard
+    action: Step 5, Research rules for your stack.
+    expect: New rules are added; changes to existing rules are listed for review.
+  - surface: node-cli-onboard
+    action: Step 6, Check which rules can be automated.
+    expect: Every rule is marked deterministic, heuristic or unverifiable.
+  - surface: node-cli-onboard
+    action: Step 7, Write the rule checks.
+    expect: Checks are registered and only warn until a person reviews them.
+  - surface: node-cli-onboard
+    action: Step 8, Wrap up.
+    expect: The search index, the report and the commit question "Commit these changes on a new branch?".
+ends:
+  success: The person answers the commit question after all eight steps end Done or Done with a gap.
+  abandoned: The journey was left Paused or Stopped.

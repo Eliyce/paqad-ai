@@ -39,6 +39,12 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - What state this feature writes.
 - Where that state is persisted (`.paqad/**`, project files, in-memory only).
 
+- **Onboarding band:** while `.paqad/onboarding/journey.json` exists, `hud.band` reads
+  `.paqad/onboarding/view.json` and draws the Onboarding band (`journey-model.ts`,
+  `desktop-band.tsx`): the workflow word, the eight-step strip, the headline row, the alt text and a
+  Resume or Commit button that only submits a prompt. The HUD binds to a project with a journey
+  even before `framework-path.txt` exists. The finish screen stays for 30 minutes after the end.
+
 ## Error Codes
 
 - Structured error IDs emitted by this feature.
@@ -114,6 +120,11 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   hooks. `omitClaudeMd` needs 2.1.271 or later, and `effort` (in agent files and on the Agent
   tool) needs 2.1.292 or later. paqad does no version check: an older build ignores a key it does
   not know, and a helper with no brief follows its fallback line and loads the framework as before.
+
+- **`/paqad onboard` tray:** on a project never onboarded, `/paqad onboard` opens a tray above the
+  prompt (`onboard-tray.tsx`, the `onboardPending` atom): Claude Code ticked, tools that need npm
+  shown as unavailable, "Let it work without stopping to ask" ticked. Start onboarding submits
+  `/paqad:onboard <tools> --session <id> --allow-list yes|no`; Not now writes nothing.
 
 ## Hook chain
 
