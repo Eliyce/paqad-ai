@@ -49,6 +49,12 @@ import { SchemaValidator, type SchemaValidationIssue } from '@/validators/valida
 import { gitWorkflowHealth } from './git-workflow-check.js';
 import { runningVersionHealth } from './running-version-check.js';
 import { homeProjectHealth } from './home-project-check.js';
+import {
+  CLOUD_HUD_LINE,
+  HUD_NOT_ATTACHED_FIX,
+  readHudAttachment,
+  unattachedNote,
+} from './hud-attachment.js';
 import { teamConfigHealth } from './team-config-check.js';
 import {
   inspectProviderEntryBootstrapPointer,
@@ -62,6 +68,8 @@ const SENTINEL_DIR = '.paqad/.agent-entry-loaded.d';
 export interface HealthCheckerOptions {
   managedSettingsPaths?: string[];
   homeDir?: string;
+  /** The clock the HUD attachment check reads; tests inject it. */
+  now?: () => number;
 }
 
 export class HealthChecker {
@@ -95,6 +103,7 @@ export class HealthChecker {
       this.checkTrackedSentinels(projectRoot),
       this.checkFrameworkInstall(),
       this.checkClaudeInstall(projectRoot),
+      this.checkHudAttached(projectRoot),
       ...this.checkDiscoveryClash(),
       this.checkSchemaVersion(projectRoot),
       this.checkBrokenScaffold(projectRoot),
@@ -739,6 +748,27 @@ export class HealthChecker {
     return line.level === 'warning'
       ? warn('Claude Code install', line.detail, line.remediation ?? '')
       : pass('Claude Code install', line.detail);
+  }
+
+  /** W5: a local session whose snapshot is fresh while the HUD never beat warns; a cloud
+   *  session says, as information, that the HUD cannot draw there (W2). */
+  private checkHudAttached(projectRoot: string): HealthCheckResult {
+    const name = 'Claude Code HUD';
+    const attachment = readHudAttachment(
+      projectRoot,
+      process.env,
+      this.options.now?.() ?? Date.now(),
+    );
+    switch (attachment.state) {
+      case 'cloud':
+        return info(name, CLOUD_HUD_LINE);
+      case 'no-session':
+        return pass(name, 'no Claude Code session in the last day');
+      case 'attached':
+        return pass(name, 'attached: the HUD drew the latest session');
+      case 'unattached':
+        return warn(name, unattachedNote(projectRoot, attachment.sessionId), HUD_NOT_ATTACHED_FIX);
+    }
   }
 
   private checkDiscoveryClash(): HealthCheckResult[] {

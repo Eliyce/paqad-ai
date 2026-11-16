@@ -136,7 +136,10 @@ describe('/paqad while the mod stands down', () => {
   it.each([
     ['not-onboarded', 'paqad is not active here: this project was never onboarded.'],
     ['view-off', 'paqad is not active here: the paqad HUD is turned off in the plugin settings.'],
-    ['remote', 'paqad is not active here: this session runs in the cloud.'],
+    [
+      'remote',
+      "The paqad HUD cannot draw in a cloud session: Claude Code shows no plugin view there. paqad's checks still run.",
+    ],
     ['disabled', 'paqad is not active here: paqad is turned off for this project.'],
     ['old-engine', 'paqad is not active here: this Claude Code is older than 2.1.301.'],
   ] as const)('%s', (reason: PaqadStandDown, text) => {

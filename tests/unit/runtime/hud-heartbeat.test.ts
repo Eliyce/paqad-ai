@@ -1,16 +1,30 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  CLOUD_HUD_LINE,
   HEARTBEAT_WINDOW_MS,
+  HUD_NOT_ATTACHED_NOTE,
   QUIET_NARRATION_LINE,
+  SNAPSHOT_FRESH_MS,
+  cloudHudLine,
   heartbeatIsFresh,
   heartbeatPath,
   quietNarration,
+  recordHudAttachment,
+  snapshotIsFresh,
+  unattachedPath,
 } from '../../../runtime/hooks/lib/hud-heartbeat.mjs';
 
 import { NO_CONTEXT_REFRESH_ENV, removeTempProject } from './temp-project.js';
@@ -38,7 +52,12 @@ const QUALIFIED = { active: true, scope: { qualified: true, reason: 'qualified' 
 function gate(sessionId = SESSION, adapter?: string): string {
   const args = adapter ? [PROMPT_GATE, adapter] : [PROMPT_GATE];
   return execFileSync('node', args, {
-    env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: root },
+    env: {
+      ...process.env,
+      ...NO_CONTEXT_REFRESH_ENV,
+      CLAUDE_PROJECT_DIR: root,
+      CLAUDE_CODE_REMOTE: '',
+    },
     input: JSON.stringify({ prompt: '', session_id: sessionId }),
   }).toString('utf8');
 }
@@ -145,6 +164,7 @@ describe('the prompt gate and the heartbeat', () => {
 
   it('AC-43: is byte-identical with another session heartbeat, a stale one or none', () => {
     hudSnapshot(SESSION, QUALIFIED);
+    expect(gate()).toContain('HUD not attached'); // AC-28: said once, on the first such prompt
     const none = gate();
     beat('ses-other', Date.now());
     expect(gate()).toBe(none);
@@ -165,5 +185,62 @@ describe('the prompt gate and the heartbeat', () => {
     const none = gate(SESSION, 'codex-cli');
     beat(SESSION, Date.now());
     expect(gate(SESSION, 'codex-cli')).toBe(none);
+  });
+});
+
+describe('HUD not attached is recorded once per session (W5)', () => {
+  const NOW = Date.parse('2026-10-18T09:00:00.000Z');
+  const LOCAL = { CLAUDE_CODE_REMOTE: '' } as NodeJS.ProcessEnv;
+  const S = 'ses-unattached';
+
+  function snapshotAt(at: number): void {
+    hudSnapshot(S, { scope: { qualified: false } });
+    const path = join(root, '.paqad/session/hud', `${S}.json`);
+    utimesSync(path, new Date(at), new Date(at));
+  }
+
+  const record = (now: number) => recordHudAttachment(root, S, { env: LOCAL, now });
+
+  it('AC-28: a just-fresh snapshot and a missing heartbeat write one record and one hooks.log line', () => {
+    snapshotAt(NOW - SNAPSHOT_FRESH_MS);
+    expect(snapshotIsFresh(root, S, NOW)).toBe(true);
+    expect(record(NOW)).toContain(HUD_NOT_ATTACHED_NOTE);
+    expect(existsSync(unattachedPath(root, S))).toBe(true);
+    expect(record(NOW + 1_000)).toBe('');
+    const log = readFileSync(join(root, '.paqad/logs/hooks.log'), 'utf8');
+    expect(log.split(HUD_NOT_ATTACHED_NOTE)).toHaveLength(2);
+  });
+
+  it('AC-28: a just-stale heartbeat counts as missing, a heartbeat at the edge clears the record', () => {
+    snapshotAt(NOW - 1_000);
+    beat(S, NOW - HEARTBEAT_WINDOW_MS - 1);
+    expect(record(NOW)).toContain('HUD not attached');
+    beat(S, NOW - HEARTBEAT_WINDOW_MS);
+    expect(record(NOW)).toBe('');
+    expect(existsSync(unattachedPath(root, S))).toBe(false);
+  });
+
+  it('AC-28: a just-stale snapshot, or none, records nothing', () => {
+    expect(record(NOW)).toBe('');
+    snapshotAt(NOW - SNAPSHOT_FRESH_MS - 1);
+    expect(record(NOW)).toBe('');
+    expect(existsSync(unattachedPath(root, S))).toBe(false);
+  });
+
+  it('AC-28: cloud, headless and other adapters record nothing', () => {
+    snapshotAt(NOW - 1_000);
+    expect(recordHudAttachment(root, S, { env: { CLAUDE_CODE_REMOTE: 'true' }, now: NOW })).toBe(
+      '',
+    );
+    expect(recordHudAttachment(root, S, { env: { CI: '1' }, now: NOW })).toBe('');
+    expect(recordHudAttachment(root, S, { env: LOCAL, now: NOW, adapter: 'codex-cli' })).toBe('');
+    expect(existsSync(unattachedPath(root, S))).toBe(false);
+  });
+
+  it('AC-8: the cloud line is said once per cloud session and never locally', () => {
+    const cloud = { CLAUDE_CODE_REMOTE: 'true' } as NodeJS.ProcessEnv;
+    expect(cloudHudLine(root, S, LOCAL, NOW)).toBe('');
+    expect(cloudHudLine(root, S, cloud, NOW)).toBe(`[paqad] ${CLOUD_HUD_LINE}\n`);
+    expect(cloudHudLine(root, S, cloud, NOW)).toBe('');
   });
 });

@@ -41,3 +41,17 @@ export function logHookDebug(projectRoot, hook, note) {
     return false;
   }
 }
+
+export const HOOKS_LOG = 'hooks.log';
+
+/** One line in .paqad/logs/hooks.log, the log `paqad-ai doctor` and the HUD tests read. */
+export function appendHookLog(projectRoot, note) {
+  try {
+    const logsDir = join(projectRoot, '.paqad', 'logs');
+    mkdirSync(logsDir, { recursive: true });
+    appendFileSync(join(logsDir, HOOKS_LOG), `${new Date().toISOString()} ${note}\n`);
+    return true;
+  } catch {
+    return false;
+  }
+}
