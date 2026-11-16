@@ -1,3 +1,9 @@
+# Graph Rendering
+
+How graph-ui draws and lays out graphs with sigma, graphology, ForceAtlas2 and dagre. Found by rules discovery from each package's own docs.
+
+<!-- trigger: graph-ui/** -->
+
 - Every Sigma instance created in a React effect is terminated with `sigma.kill()` in that effect's cleanup and never reused afterwards. <!-- @rule RL-fcda discovered:rd-20261116-061901 -->
 - Transient display state (search/selection highlighting, dimming, hover) is applied through sigma's nodeReducer/edgeReducer settings, not by overwriting the nodes' `color` attributes in the graphology graph. <!-- @rule RL-edcc discovered:rd-20261116-061901 -->
 - Code does not call `sigma.refresh()` right after graphology mutations; refresh/scheduleRefresh is used only when state read by a reducer changes outside the graph. <!-- @rule RL-33da discovered:rd-20261116-061901 -->

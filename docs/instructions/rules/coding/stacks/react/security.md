@@ -9,6 +9,7 @@ Loads when you write React UI that handles data, links, or auth. Sharpens `_shar
 - Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies, not `localStorage`, which any injected script can read. <!-- @rule RL-d38a -->
 - Add `rel="noopener noreferrer"` to every `target="_blank"` link to an external origin, to prevent reverse-tabnabbing. <!-- @rule RL-73ed -->
 - Parse data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use. MUST NOT assume the shape. <!-- @rule RL-0c81 -->
+- The graph-ui Vite dev server must not be exposed to the network: vite.config.ts and the dev scripts set no server.host / --host, no server.allowedHosts: true and no server.cors: true. <!-- @rule RL-1734 discovered:rd-20261116-061901 -->
 
 ## Verify
 
@@ -20,4 +21,3 @@ git grep -n 'target="_blank"' -- '*.tsx' '*.jsx' | grep -v noopener
 # Auth tokens in localStorage:
 git grep -nE 'localStorage\.(set|get)Item\([^)]*(token|jwt|auth)' -- '*.ts' '*.tsx'
 ```
-- The graph-ui Vite dev server must not be exposed to the network: vite.config.ts and the dev scripts set no server.host / --host, no server.allowedHosts: true and no server.cors: true. <!-- @rule RL-1734 discovered:rd-20261116-061901 -->

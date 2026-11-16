@@ -10,6 +10,9 @@ Baseline security rules for every change, in every stack. These always load. A s
 - Enforce authentication and authorization on every non-public entry point, and default to deny when a check is missing. <!-- @rule RL-7530 -->
 - Grant each integration, token, and file or database handle the least privilege it needs. <!-- @rule RL-f83c -->
 - Confirm a destructive or irreversible operation with the user before you run it. <!-- @rule RL-5e26 -->
+- Plugin and mod code starts the paqad program only from the plugin root through paqadProgram, never from PATH, and records nothing when that path is missing. <!-- @rule RL-d61d discovered:rd-20261116-061901 -->
+- execa calls do not pass shell: true; command strings from config are split with parseCommandString() and run as file + args. <!-- @rule RL-5c21 discovered:rd-20261116-061901 -->
+- YAML parse calls never set maxAliasCount: -1 or uniqueKeys: false. <!-- @rule RL-7619 discovered:rd-20261116-061901 -->
 
 ## Verify
 
@@ -20,6 +23,3 @@ Baseline security rules for every change, in every stack. These always load. A s
 git grep -nE '(SELECT|INSERT|UPDATE|DELETE)\b.*\+\s*[a-zA-Z_]' -- '*.ts' '*.tsx' '*.js'
 # Auth-on-every-entry-point and destructive-op confirmation are manual review against the rules above.
 ```
-- Plugin and mod code starts the paqad program only from the plugin root through paqadProgram, never from PATH, and records nothing when that path is missing. <!-- @rule RL-d61d discovered:rd-20261116-061901 -->
-- execa calls do not pass shell: true; command strings from config are split with parseCommandString() and run as file + args. <!-- @rule RL-5c21 discovered:rd-20261116-061901 -->
-- YAML parse calls never set maxAliasCount: -1 or uniqueKeys: false. <!-- @rule RL-7619 discovered:rd-20261116-061901 -->

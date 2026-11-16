@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-04T15:04:09.004Z
-rule_files_hash: sha256-eec78c39f4a7d3ebb1b33ac2a872fe1c56236dca364a0fa71649e0a9295f033f
+generated_at: 2026-11-16T06:52:06.232Z
+rule_files_hash: sha256-c897d3bc2e6c9214dbe0c72256ac1394cdd3254c185c4b008b3f378f48da1dd1
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -146,6 +146,14 @@ rules:
     verifiability:
       kind: unverifiable
       reason: Whether glossary terms match code names is judgment-dependent.
+    enforced_by: []
+    scripts: []
+  - id: RL-b809
+    source: docs/instructions/rules/_shared/documentation.md
+    text: When an optional dependency runs its own install scripts or brings extra packages, say so plainly in the README.
+    text_hash: 9e3af7e82e0f8476e02f5022b8e69f9f784814c02b08109b7562151f96fe57c0
+    verifiability:
+      kind: heuristic
     enforced_by: []
     scripts: []
   - id: RL-356d
@@ -370,6 +378,30 @@ rules:
     verifiability:
       kind: unverifiable
       reason: Confirming destructive ops with the user cannot be scripted.
+    enforced_by: []
+    scripts: []
+  - id: RL-d61d
+    source: docs/instructions/rules/_shared/security.md
+    text: Plugin and mod code starts the paqad program only from the plugin root through paqadProgram, never from PATH, and records nothing when that path is missing.
+    text_hash: ac8fbdce5d20c7c1f656042aa60b59f1b32dcc8f5de91d31fed7c46c7dde5efc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5c21
+    source: docs/instructions/rules/_shared/security.md
+    text: "execa calls do not pass shell: true; command strings from config are split with parseCommandString() and run as file + args."
+    text_hash: 2e066f9c4aad3487bc9e1626f3c87a4e38b54388a664393e1ec327a88803b063
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7619
+    source: docs/instructions/rules/_shared/security.md
+    text: "YAML parse calls never set maxAliasCount: -1 or uniqueKeys: false."
+    text_hash: 13669c0a6c7cd54a303b0e273d0effeaaae61ddec2966b10cff2f2c6abb18e28
+    verifiability:
+      kind: heuristic
     enforced_by: []
     scripts: []
   - id: RL-70a6
@@ -780,6 +812,14 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:04.374Z
         fixtures_passed: true
+  - id: RL-0d7b
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: A skill declares at least one trigger; only a helper skill that just its parent skill calls may declare an explicit empty triggers list, and a missing triggers key fails.
+    text_hash: 5ee1cb97cf5193eee88ccc56c9b74cebff3f243cf3c9aea46edcdf0588b5248f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-7557
     source: docs/instructions/rules/_shared/testing.md
     text: Add or update a test for every behavior change, in the same change. Untested behavior is unfinished behavior.
@@ -859,6 +899,22 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:06.730Z
         fixtures_passed: true
+  - id: RL-2592
+    source: docs/instructions/rules/_shared/testing.md
+    text: Prove every bug fix with a test that fails before the fix and passes after it.
+    text_hash: a36ee0ed73ef3b42ad2469b82ca14ec442ecc0466a0334454638598b72611597
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f307
+    source: docs/instructions/rules/_shared/testing.md
+    text: Every `.resolves`/`.rejects` assertion is awaited or returned, and vi.mock/vi.unmock/vi.hoisted are called only at module top level.
+    text_hash: 1ee83b48eb933a18de986a79b6cbad4860a6e8c1430b847633e56da5cae87eb7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-5cfc
     source: docs/instructions/rules/coding/agent-entry-files.md
     text: An entry file MUST NOT name a `docs/instructions` or `docs/modules` load order. That order lives only behind the enablement gate, which is what makes a disabled project load zero framework docs on every provider.
@@ -1052,6 +1108,22 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:12.319Z
         fixtures_passed: true
+  - id: RL-0d9b
+    source: docs/instructions/rules/coding/code-quality.md
+    text: An error thrown inside a catch block, including the project's custom Error subclasses, passes the caught error as `cause`, and `preserve-caught-error` lists those subclasses in `errorClassNames`.
+    text_hash: 136fdfe842f11a60216dd1c528e1624d50be443cf8691af0024f5e6237bb905d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-18e7
+    source: docs/instructions/rules/coding/code-quality.md
+    text: After YAML.parseDocument() on file content, doc.errors is checked before the document's contents are read, edited or written back.
+    text_hash: 8f8f821749d8287af6921709e119456ee9f943ed5aaca12703edaeb490973bd5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-7744
     source: docs/instructions/rules/coding/code-review.md
     text: Weight correctness, regressions, and verification gaps above style nits.
@@ -1229,6 +1301,22 @@ rules:
       reason: Reconcile-not-reset on re-onboard is a runtime behavior.
     enforced_by: []
     scripts: []
+  - id: RL-1d98
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: A per-developer setting or rollback writes only to a git-ignored local file (such as .claude/settings.local.json or .paqad/.config) and never rewrites a tracked team file.
+    text_hash: b69bdc993b841b1a956979297c7138feafcc853b4ddb127fde6c3c24078ff3cd
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ac9d
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: Remove a setting from the registry, the schema and the docs when no code reads it, instead of keeping it for later.
+    text_hash: 2d3d28389fdec4c4937ce0a599c1ba6f709674223148ac26bcea71b82cf3ac73
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-4562
     source: docs/instructions/rules/coding/cross-platform-hooks.md
     text: Wire only Node (`.mjs`) hooks into a generated host config. MUST NOT add a new `.sh` hook; move mechanical shell-gate work into a cross-platform `.mjs` instead.
@@ -1354,6 +1442,14 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:17.915Z
         fixtures_passed: true
+  - id: RL-4862
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Every skill name is unique across runtime/base/skills and every shipped plugin (Claude and Codex), because the release check keeps one record per skill name.
+    text_hash: e31b44dbe9335277a2a3a947c5688c74f530ef693fbd14675d3fda0d5b5f8356
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-7c89
     source: docs/instructions/rules/coding/feature-development.md
     text: '"build X", "make X", "create X", "add X", "implement X", "wire up X"'
@@ -1913,6 +2009,22 @@ rules:
     enforced_by:
       - paqad:pentest
     scripts: []
+  - id: RL-6c4f
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: graph-ui must resolve vite to 6.4.6 or later (never 6.4.5 or below) in graph-ui/pnpm-lock.yaml.
+    text_hash: e6e1b0b621ba3b6a88c3b8307b02d5b5fce5d2e58c50812a6bcd8d2437fec6f9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2a0d
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: graph-ui TypeScript must be type-checked with `tsc --noEmit -p graph-ui` (in its build script or in CI) because `vite build` only transpiles.
+    text_hash: 0c8c31f3126c19e9a6964d3155e99037b03dfd2e2a5dc68f684f92b33ba088f5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-08ab
     source: docs/instructions/rules/coding/stacks/_shared/git.md
     text: Commit one coherent change at a time, with a message that says why, not only what.
@@ -2015,6 +2127,14 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:23.337Z
         fixtures_passed: true
+  - id: RL-60b1
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: Any component that calls useReactFlow or useStore outside a node renderer is a child of a <ReactFlowProvider> rendered by a parent component.
+    text_hash: 5c93fde022f4f79732f20f9c016e0f0335ca88208a1e1fbef4468328b95b7196
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-0041
     source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
     text: "Bootstrap the app in one entry (`main.tsx`): mount with `createRoot` and wrap the tree in routers and providers there, not scattered across components."
@@ -2092,6 +2212,30 @@ rules:
     verifiability:
       kind: unverifiable
       reason: Verifying against the prod build is a process step.
+    enforced_by: []
+    scripts: []
+  - id: RL-9393
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: The app mounts with createRoot from react-dom/client and never uses ReactDOM.render, hydrate, findDOMNode or unmountComponentAtNode.
+    text_hash: 1197b8d56f90ecc7245c42a0b23a2be6fa87ac59393670899e62925345365089
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3da5
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: A .tsx file that exports React components exports nothing else except simple constants; helper functions live in a separate non-component module.
+    text_hash: 866886b19208cb875ccc4df48c16191d34c948445cec7e9b71bbf61ed81810ac
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b612
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: "Web workers in graph-ui are created only as `new Worker(new URL('<literal path>', import.meta.url), { type: 'module' })` with the URL and options written inline as literals."
+    text_hash: 1d3034c173eb009985c5e8c804f5c4482718687e5f016d11ce57e46a40d3e853
+    verifiability:
+      kind: heuristic
     enforced_by: []
     scripts: []
   - id: RL-635d
@@ -2187,6 +2331,30 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:28.589Z
         fixtures_passed: true
+  - id: RL-487a
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: "marked.parse is called with { async: false } (or through a typed helper that returns string) instead of casting its result with `as string`."
+    text_hash: 09824221f0427f8c17a0b286626174e3a1eb8ea98b49c33fe55b061ef7959979
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b235
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Type annotations use React.JSX (or an import from react) rather than the global JSX namespace.
+    text_hash: c7d513c0719819210ec941fb9b98c3f195d968cea82b9fcc4e5b36de2bd9b83f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1c7c
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Every useRef call passes an initial value (null or undefined at minimum).
+    text_hash: c0655887bebb043d7f9d51be4351f4648a396e63446f11f7fff284239bdb2977
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-ea2e
     source: docs/instructions/rules/coding/stacks/react/documentation.md
     text: When a change adds, removes, or renames a route, update the route table in the owning module's docs under `docs/modules/<module>/` so it matches the router config.
@@ -2373,6 +2541,38 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:34.484Z
         fixtures_passed: true
+  - id: RL-5091
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Function components take ref as a regular prop and do not use forwardRef.
+    text_hash: e2bd67bed89c14912e95f9b26ad91c9c0a270aa56c895e8e180e807e63a21270
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-cc42
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Context is provided by rendering <SomeContext value={...}> rather than <SomeContext.Provider>.
+    text_hash: 449cf48e0f19e26002ae8f1a14bd610fa398f5298a36046de79501ccc8e9c5a9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ca0e
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Ref callbacks use a block body and return nothing or a cleanup function, never an implicit expression value.
+    text_hash: 8a7e32670ba97dc40b71806608a82a320edc5c9f8d52950f89b79da33d07a8a7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-452c
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Function components set prop defaults with destructuring default parameters, never defaultProps or propTypes.
+    text_hash: 84036cd03ba414a33a0bd2ef67083c722655d2e5fceb41f0ee8efba932c3d3fa
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-d478
     source: docs/instructions/rules/coding/stacks/react/localization.md
     text: Render user-facing copy through the project's i18n library (`react-i18next`, `react-intl`, `next-intl`) via translation keys. MUST NOT hard-code a display string in JSX.
@@ -2573,6 +2773,46 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:40.315Z
         fixtures_passed: true
+  - id: RL-eb85
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: A store selector that builds a new object or array (object literal, map, filter, slice) is wrapped in useShallow from zustand/shallow.
+    text_hash: d759f2bc09ec5a216a6bd40da93189b993904a06a79b105a72c7bc5b415615d7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-91ad
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: No store hook is called with a custom equality function as a second argument; use useShallow, or createWithEqualityFn from zustand/traditional where equality is truly needed.
+    text_hash: 48e0e0dcd6e6c42004b21b58d10ce62f5623abddb3cac132dec84f9d162bf6e6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b575
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Callbacks and object props passed to <ReactFlow> are module constants or wrapped in useCallback/useMemo, never inline arrow functions or object literals.
+    text_hash: 3a39a9719946f548d91a452faa56e8bca7daf0cd68d207c4359285688b0c39ae
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-01f1
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: The nodeTypes and edgeTypes objects are declared at module scope (or in useMemo with an empty dependency list), and custom node components are declared outside the rendering component or wrapped in React.memo.
+    text_hash: 54a6620adde52d424fd6e5ebb4df4a8d84638db23ce2a5189544b61498cccbf7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bc1f
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Components rendered inside a flow select narrow fields from useStore (for example the zoom value) and never subscribe to the whole nodes or edges array.
+    text_hash: 2b9362053e4edb4a0c1a3d8b58c9bd5bcd2599b5b2e2251761b746eef151d594
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-7f59
     source: docs/instructions/rules/coding/stacks/react/security.md
     text: Render user text as children so React escapes it. MUST NOT pass unsanitized HTML to `dangerouslySetInnerHTML`; when HTML is unavoidable, sanitize it with `DOMPurify` first.
@@ -2666,6 +2906,14 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:43.274Z
         fixtures_passed: true
+  - id: RL-1734
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: "The graph-ui Vite dev server must not be exposed to the network: vite.config.ts and the dev scripts set no server.host / --host, no server.allowedHosts: true and no server.cors: true."
+    text_hash: f215bc14bfec07460e2f79ccb85cf6ca3c533495f34cf4e043ac5d494050211d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-2aca
     source: docs/instructions/rules/coding/stacks/react/testing.md
     text: "Test components with React Testing Library on Vitest: render the component and assert on what the user sees and does, not on internal state."
@@ -2828,6 +3076,14 @@ rules:
       reason: Keeping a working back path and re-applying guards is judgment-dependent.
     enforced_by: []
     scripts: []
+  - id: RL-9912
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: Every Command.Item sets an explicit value that is unique within its Command (for example prefixed with the item's id) instead of relying on text content.
+    text_hash: d9310a79630f44f752c5a7c45d2f2e7519227767453b7006bcd429fff8be4207
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-2432
     source: docs/instructions/rules/content/attribution.md
     text: Attribute every externally-derived fact, metric, or claim whose source you know.
@@ -2972,258 +3228,130 @@ rules:
       reason: Pulling accurate technical detail is judgment-dependent.
     enforced_by: []
     scripts: []
-  - id: RL-2592
-    source: docs/instructions/rules/_shared/testing.md
-    text: Prove every bug fix with a test that fails before the fix and passes after it.
-    text_hash: a36ee0ed73ef3b42ad2469b82ca14ec442ecc0466a0334454638598b72611597
+  - id: RL-abe7
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: package.json engines.node is at least ">=22.12.0" while commander 15 is a dependency.
+    text_hash: 7e62b4d4558546086ab7afc8a3442f27eebc50f46d90dbae9d2598f575f84a64
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-1d98
-    source: docs/instructions/rules/coding/config-visibility.md
-    text: A per-developer setting or rollback writes only to a git-ignored local file (such as .claude/settings.local.json or .paqad/.config) and never rewrites a tracked team file.
-    text_hash: b69bdc993b841b1a956979297c7138feafcc853b4ddb127fde6c3c24078ff3cd
+  - id: RL-9ac7
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: The CLI entry calls program.parseAsync(), never program.parse(), because action handlers are async.
+    text_hash: 01e77814ee2a373de794093a13127a9aeda769727f6a1080bb9ae2d1708857cb
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-d61d
-    source: docs/instructions/rules/_shared/security.md
-    text: Plugin and mod code starts the paqad program only from the plugin root through paqadProgram, never from PATH, and records nothing when that path is missing.
-    text_hash: ac8fbdce5d20c7c1f656042aa60b59f1b32dcc8f5de91d31fed7c46c7dde5efc
+  - id: RL-74dc
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: When a command defines both --foo and --no-foo, the default value is set explicitly on the option instead of relying on an implicit true.
+    text_hash: f62e3dd0ffb3e805811948f4e21e15a66be658d94f3fda7de104f1c73a77ab6e
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-4862
-    source: docs/instructions/rules/coding/cross-provider-parity.md
-    text: Every skill name is unique across runtime/base/skills and every shipped plugin (Claude and Codex), because the release check keeps one record per skill name.
-    text_hash: e31b44dbe9335277a2a3a947c5688c74f530ef693fbd14675d3fda0d5b5f8356
+  - id: RL-184f
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Code does not call cmd.storeOptionsAsProperties() or cmd.combineFlagAndOptionalValue().
+    text_hash: 62dd38ab480eb15b0649d855ca6aeae52e0ab6e8803edd37ddf9bf569fa87090
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-0d7b
-    source: docs/instructions/rules/_shared/skill-authoring.md
-    text: A skill declares at least one trigger; only a helper skill that just its parent skill calls may declare an explicit empty triggers list, and a missing triggers key fails.
-    text_hash: 5ee1cb97cf5193eee88ccc56c9b74cebff3f243cf3c9aea46edcdf0588b5248f
+  - id: RL-46d8
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: A user pressing Ctrl+C at any @inquirer/prompts prompt is handled by catching the ExitPromptError (by error.name) and exiting cleanly, either at each call site or once around program.parseAsync().
+    text_hash: 4811e09b5a8610a6b00d2d0acb1acf91714a0f06d15531c2aca78168321897d8
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-ac9d
-    source: docs/instructions/rules/coding/config-visibility.md
-    text: Remove a setting from the registry, the schema and the docs when no code reads it, instead of keeping it for later.
-    text_hash: 2d3d28389fdec4c4937ce0a599c1ba6f709674223148ac26bcea71b82cf3ac73
+  - id: RL-4917
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Text written to process.stderr is styled with chalkStderr (or a colour function chosen from supportsColorStderr), not the default chalk instance.
+    text_hash: 45ae3643147918c2d38045da0565592a0aa3b68b93e2a1e8bfde8e1fd365c110
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b809
-    source: docs/instructions/rules/_shared/documentation.md
-    text: When an optional dependency runs its own install scripts or brings extra packages, say so plainly in the README.
-    text_hash: 9e3af7e82e0f8476e02f5022b8e69f9f784814c02b08109b7562151f96fe57c0
+  - id: RL-980e
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: execa calls to network-bound or long-running tools (gh, git clone, npm install, npx) set a timeout option.
+    text_hash: acf645f4ed1d0b4bc907d600ce3a23452683b3e4ad551e475af4fcb7fd192d00
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-487a
-    source: docs/instructions/rules/coding/stacks/react/conventions.md
-    text: "marked.parse is called with { async: false } (or through a typed helper that returns string) instead of casting its result with `as string`."
-    text_hash: 09824221f0427f8c17a0b286626174e3a1eb8ea98b49c33fe55b061ef7959979
+  - id: RL-884a
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Node ChildProcess APIs (.on, .once, .send, .ref, .unref) on an execa subprocess are reached through subprocess.nodeChildProcess.
+    text_hash: 4df3ebf3d659ff72625d7b3d9524382db40c19b786aac12056401c75b8a50ab6
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-eb85
-    source: docs/instructions/rules/coding/stacks/react/performance.md
-    text: A store selector that builds a new object or array (object literal, map, filter, slice) is wrapped in useShallow from zustand/shallow.
-    text_hash: d759f2bc09ec5a216a6bd40da93189b993904a06a79b105a72c7bc5b415615d7
+  - id: RL-271a
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Variable path segments interpolated into fast-glob patterns (module names, directory names) are passed through fg.escapePath() first.
+    text_hash: 8f9634338f9b732f5698931a929635f155a46f2547440158f61f25cda782ebe7
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-91ad
-    source: docs/instructions/rules/coding/stacks/react/performance.md
-    text: No store hook is called with a custom equality function as a second argument; use useShallow, or createWithEqualityFn from zustand/traditional where equality is truly needed.
-    text_hash: 48e0e0dcd6e6c42004b21b58d10ce62f5623abddb3cac132dec84f9d162bf6e6
+  - id: RL-f6f8
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: fast-glob results are sorted before they are written to output, hashed, or used where order matters.
+    text_hash: bfad70f172fb4154b49eff34cb5b7498fc17b7982411a20fd25080d0bafd2aae
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b575
-    source: docs/instructions/rules/coding/stacks/react/performance.md
-    text: Callbacks and object props passed to <ReactFlow> are module constants or wrapped in useCallback/useMemo, never inline arrow functions or object literals.
-    text_hash: 3a39a9719946f548d91a452faa56e8bca7daf0cd68d207c4359285688b0c39ae
+  - id: RL-69ca
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Every fast-glob call passes an explicit cwd instead of relying on process.cwd().
+    text_hash: 5a610e787c607d5a3f1a29183a2dec8f63549bce1c0d04291c55bf455c889ed2
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-01f1
-    source: docs/instructions/rules/coding/stacks/react/performance.md
-    text: The nodeTypes and edgeTypes objects are declared at module scope (or in useMemo with an empty dependency list), and custom node components are declared outside the rendering component or wrapped in React.memo.
-    text_hash: 54a6620adde52d424fd6e5ebb4df4a8d84638db23ce2a5189544b61498cccbf7
+  - id: RL-4eb1
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Paths that are persisted (JSON/YAML/Markdown artifacts) or compared as strings are built with pathe, not node:path.
+    text_hash: 2c0046de834f71cbaa359f7206a5e63f10b8fbe4adcb815805d9960583f605be
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-bc1f
-    source: docs/instructions/rules/coding/stacks/react/performance.md
-    text: Components rendered inside a flow select narrow fields from useStore (for example the zoom value) and never subscribe to the whole nodes or edges array.
-    text_hash: 2b9362053e4edb4a0c1a3d8b58c9bd5bcd2599b5b2e2251761b746eef151d594
+  - id: RL-5e00
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Code does not use minimatch makeRe(), Minimatch#regexp or the MMRegExp type.
+    text_hash: 968850335541cff5e8c7a4e64087096b359bf27d652f029d132ba2016120211b
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-60b1
-    source: docs/instructions/rules/coding/stacks/react/architecture.md
-    text: Any component that calls useReactFlow or useStore outside a node renderer is a child of a <ReactFlowProvider> rendered by a parent component.
-    text_hash: 5c93fde022f4f79732f20f9c016e0f0335ca88208a1e1fbef4468328b95b7196
+  - id: RL-9eaf
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: Paths passed to Minimatch.match() are normalized to forward slashes before matching.
+    text_hash: 6a8ca880f98838df488ad418f4886ba5950e7b1b388106f2f9afeded18ad8ccf
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-9912
-    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
-    text: Every Command.Item sets an explicit value that is unique within its Command (for example prefixed with the item's id) instead of relying on text content.
-    text_hash: d9310a79630f44f752c5a7c45d2f2e7519227767453b7006bcd429fff8be4207
+  - id: RL-f3f9
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: "Handlebars templates that render non-HTML output (Markdown, TOML, YAML, scripts) are compiled with noEscape: true, and values are escaped for the target format by an explicit helper."
+    text_hash: fa55dadca958e09d76598403ade1ecc6402e9e51ddaa499a2a38e01000ff2dc6
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-5091
-    source: docs/instructions/rules/coding/stacks/react/foundation.md
-    text: Function components take ref as a regular prop and do not use forwardRef.
-    text_hash: e2bd67bed89c14912e95f9b26ad91c9c0a270aa56c895e8e180e807e63a21270
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-cc42
-    source: docs/instructions/rules/coding/stacks/react/foundation.md
-    text: Context is provided by rendering <SomeContext value={...}> rather than <SomeContext.Provider>.
-    text_hash: 449cf48e0f19e26002ae8f1a14bd610fa398f5298a36046de79501ccc8e9c5a9
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-ca0e
-    source: docs/instructions/rules/coding/stacks/react/foundation.md
-    text: Ref callbacks use a block body and return nothing or a cleanup function, never an implicit expression value.
-    text_hash: 8a7e32670ba97dc40b71806608a82a320edc5c9f8d52950f89b79da33d07a8a7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-452c
-    source: docs/instructions/rules/coding/stacks/react/foundation.md
-    text: Function components set prop defaults with destructuring default parameters, never defaultProps or propTypes.
-    text_hash: 84036cd03ba414a33a0bd2ef67083c722655d2e5fceb41f0ee8efba932c3d3fa
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-9393
-    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
-    text: The app mounts with createRoot from react-dom/client and never uses ReactDOM.render, hydrate, findDOMNode or unmountComponentAtNode.
-    text_hash: 1197b8d56f90ecc7245c42a0b23a2be6fa87ac59393670899e62925345365089
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-b235
-    source: docs/instructions/rules/coding/stacks/react/conventions.md
-    text: Type annotations use React.JSX (or an import from react) rather than the global JSX namespace.
-    text_hash: c7d513c0719819210ec941fb9b98c3f195d968cea82b9fcc4e5b36de2bd9b83f
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-1c7c
-    source: docs/instructions/rules/coding/stacks/react/conventions.md
-    text: Every useRef call passes an initial value (null or undefined at minimum).
-    text_hash: c0655887bebb043d7f9d51be4351f4648a396e63446f11f7fff284239bdb2977
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-3da5
-    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
-    text: A .tsx file that exports React components exports nothing else except simple constants; helper functions live in a separate non-component module.
-    text_hash: 866886b19208cb875ccc4df48c16191d34c948445cec7e9b71bbf61ed81810ac
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-6c4f
-    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
-    text: graph-ui must resolve vite to 6.4.6 or later (never 6.4.5 or below) in graph-ui/pnpm-lock.yaml.
-    text_hash: e6e1b0b621ba3b6a88c3b8307b02d5b5fce5d2e58c50812a6bcd8d2437fec6f9
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-1734
-    source: docs/instructions/rules/coding/stacks/react/security.md
-    text: "The graph-ui Vite dev server must not be exposed to the network: vite.config.ts and the dev scripts set no server.host / --host, no server.allowedHosts: true and no server.cors: true."
-    text_hash: f215bc14bfec07460e2f79ccb85cf6ca3c533495f34cf4e043ac5d494050211d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-2a0d
-    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
-    text: graph-ui TypeScript must be type-checked with `tsc --noEmit -p graph-ui` (in its build script or in CI) because `vite build` only transpiles.
-    text_hash: 0c8c31f3126c19e9a6964d3155e99037b03dfd2e2a5dc68f684f92b33ba088f5
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-b612
-    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
-    text: "Web workers in graph-ui are created only as `new Worker(new URL('<literal path>', import.meta.url), { type: 'module' })` with the URL and options written inline as literals."
-    text_hash: 1d3034c173eb009985c5e8c804f5c4482718687e5f016d11ce57e46a40d3e853
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-8872
-    source: docs/instructions/rules/project/tailwind.md
-    text: Tailwind class names in graph-ui source are always written as complete literal strings (map props to full class strings), never built by interpolation such as `bg-${tone}-600`.
-    text_hash: 21574269e251330f837adf8ba027c854f4e720a3c2b17b00ff1006f860019a1f
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-2ebd
-    source: docs/instructions/rules/project/tailwind.md
-    text: Color tokens that `:root[data-theme='dark']` overrides in graph-ui/src/index.css are declared in a plain `@theme` block, never in `@theme inline`.
-    text_hash: 3b55f7c8be8cb07416d0365cb06efeb9ed7e005c7b49b7b6b1c878d31ba0a54b
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-c18e
-    source: docs/instructions/rules/project/tailwind.md
-    text: If any `dark:` utility is used in graph-ui, index.css first declares `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` so the variant follows the app's data-theme toggle instead of prefers-color-scheme.
-    text_hash: 1373dfd55e9b690e07b546706cd8164130194fd8c2fcc76996c9ef594cdfcf5e
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-9a60
-    source: docs/instructions/rules/project/tailwind.md
-    text: Plain CSS variables that should not become utilities go in `:root`, and only design tokens meant to produce utility classes go in a top-level `@theme` block (never nested under a selector or media query).
-    text_hash: c3f37c1e6ddc30c67c2c74e6956a5874603c5240af90e6a104650e6666516e8a
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-3791
-    source: docs/instructions/rules/project/tailwind.md
-    text: Tailwind is wired into graph-ui only through the `tailwindcss()` plugin from @tailwindcss/vite in vite.config.ts plus `@import 'tailwindcss'` in index.css, with no postcss.config.* or tailwind.config.* file.
-    text_hash: 9afcdffa2c47772ca52f8213f4ebb4e55696c836269175bd1f1e4ca78dd805c8
+  - id: RL-3991
+    source: docs/instructions/rules/project/cli-runtime.md
+    text: "Handlebars.compile is called with strict: true so a template referencing a missing field throws instead of rendering an empty string."
+    text_hash: 266c8d98f251cbe467d7f8195bad5dab692f1324efb9b55daa57ea74fabebf9d
     verifiability:
       kind: heuristic
     enforced_by: []
@@ -3332,6 +3460,110 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
+  - id: RL-0fcf
+    source: docs/instructions/rules/project/model-providers.md
+    text: "Any code that wraps an openai SDK call in its own retry loop constructs the client with maxRetries: 0 (or drops the custom loop), so 429/5xx/connection errors are not retried by both layers."
+    text_hash: 470a1e1b9487ea3aa1e86508220543383610f9f4ab6b3d94316690c92cd4cc08
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1ae2
+    source: docs/instructions/rules/project/model-providers.md
+    text: Every new OpenAI({...}) client sets an explicit timeout suited to the call (for example tens of seconds for embeddings), never relying on the 10-minute default.
+    text_hash: 0aee26640e6aba6b5c469c4a22013ab83906bae6cc4a18135271e500ef703a26
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bdd4
+    source: docs/instructions/rules/project/model-providers.md
+    text: openai errors are classified with the SDK error classes (OpenAI.APIError and subclasses such as AuthenticationError, PermissionDeniedError, RateLimitError, APIConnectionError) from the loaded module, not by duck-typing a status property or matching the message text.
+    text_hash: 1fb9f861ea907a2a3281b76f52ee9a0581b2c20932b40c31d65af674fa2b9e85
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-033a
+    source: docs/instructions/rules/project/model-providers.md
+    text: When an openai call fails, the surfaced EmbeddingProviderError message or log includes the SDK's err.requestID (x-request-id) so failures can be reported to OpenAI.
+    text_hash: 5349c1bd885917c9157231c768a874dbfadef25489a24f24002b05d0ed5b4752
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c813
+    source: docs/instructions/rules/project/model-providers.md
+    text: Every pipeline() and AutoTokenizer.from_pretrained() call that may download from the Hub passes a pinned revision (a commit SHA), not the default 'main'.
+    text_hash: 08c7a2876ec8fe653a0c53679484c5385eb6900b888af7300df281d6ef84c919
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b588
+    source: docs/instructions/rules/project/model-providers.md
+    text: Every load of @huggingface/transformers models or tokenizers (embeddings, reranker, tokenizer cache) points the cache at ~/.paqad/models, via env.cacheDir set in one shared loader or the per-call cache_dir option, never relying on whichever caller happened to load first.
+    text_hash: 95e77ef3228e047346a8ae58d4657450e2e6064ea2d608fb16f921cb81b2952d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d254
+    source: docs/instructions/rules/project/model-providers.md
+    text: Every pipeline() call passes an explicit dtype (the repo's 'q8'), so the quantization never falls back to environment defaults.
+    text_hash: ccec4a9d9d762efc6d08397e3c60a5b9534150a89c713d9d99e8ad11a38b0e37
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fff5
+    source: docs/instructions/rules/project/model-providers.md
+    text: A cached transformers pipeline that is evicted or reset (provider cache clear, load failure) is released with await pipeline.dispose() before its reference is dropped.
+    text_hash: f4b385ef005835aa1f51c2cf9410c09b0e9ecf9aa2cbfea7c852756c9cee0c64
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8872
+    source: docs/instructions/rules/project/tailwind.md
+    text: Tailwind class names in graph-ui source are always written as complete literal strings (map props to full class strings), never built by interpolation such as `bg-${tone}-600`.
+    text_hash: 21574269e251330f837adf8ba027c854f4e720a3c2b17b00ff1006f860019a1f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2ebd
+    source: docs/instructions/rules/project/tailwind.md
+    text: Color tokens that `:root[data-theme='dark']` overrides in graph-ui/src/index.css are declared in a plain `@theme` block, never in `@theme inline`.
+    text_hash: 3b55f7c8be8cb07416d0365cb06efeb9ed7e005c7b49b7b6b1c878d31ba0a54b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c18e
+    source: docs/instructions/rules/project/tailwind.md
+    text: If any `dark:` utility is used in graph-ui, index.css first declares `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` so the variant follows the app's data-theme toggle instead of prefers-color-scheme.
+    text_hash: 1373dfd55e9b690e07b546706cd8164130194fd8c2fcc76996c9ef594cdfcf5e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9a60
+    source: docs/instructions/rules/project/tailwind.md
+    text: Plain CSS variables that should not become utilities go in `:root`, and only design tokens meant to produce utility classes go in a top-level `@theme` block (never nested under a selector or media query).
+    text_hash: c3f37c1e6ddc30c67c2c74e6956a5874603c5240af90e6a104650e6666516e8a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3791
+    source: docs/instructions/rules/project/tailwind.md
+    text: Tailwind is wired into graph-ui only through the `tailwindcss()` plugin from @tailwindcss/vite in vite.config.ts plus `@import 'tailwindcss'` in index.css, with no postcss.config.* or tailwind.config.* file.
+    text_hash: 9afcdffa2c47772ca52f8213f4ebb4e55696c836269175bd1f1e4ca78dd805c8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-493a
     source: docs/instructions/rules/project/toolchain.md
     text: No tsconfig*.json sets `ignoreDeprecations`; options deprecated in TypeScript 6 are migrated instead of silenced.
@@ -3392,14 +3624,6 @@ rules:
     source: docs/instructions/rules/project/toolchain.md
     text: No source file contains an `/* eslint-env */` comment.
     text_hash: c9e899988dc6c4f44082c7a482c14dcf506f8460959244fa89fbc62ff6687d83
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-0d9b
-    source: docs/instructions/rules/coding/code-quality.md
-    text: An error thrown inside a catch block, including the project's custom Error subclasses, passes the caught error as `cause`, and `preserve-caught-error` lists those subclasses in `errorClassNames`.
-    text_hash: 136fdfe842f11a60216dd1c528e1624d50be443cf8691af0024f5e6237bb905d
     verifiability:
       kind: heuristic
     enforced_by: []
@@ -3476,14 +3700,6 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-f307
-    source: docs/instructions/rules/_shared/testing.md
-    text: Every `.resolves`/`.rejects` assertion is awaited or returned, and vi.mock/vi.unmock/vi.hoisted are called only at module top level.
-    text_hash: 1ee83b48eb933a18de986a79b6cbad4860a6e8c1430b847633e56da5cae87eb7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
   - id: RL-b200
     source: docs/instructions/rules/project/toolchain.md
     text: In each package.json, @vitest/coverage-v8 and vitest use the identical version specifier.
@@ -3528,222 +3744,6 @@ rules:
     source: docs/instructions/rules/project/toolchain.md
     text: Only one changelog generator is installed, and it is the one named in .changeset/config.json `changelog` (with a `repo` option if it is changelog-github).
     text_hash: adb5c05cc86544f6ac2f7f2116eeb4a43596d4d5e04c75c239b850b65abf6a50
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-abe7
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: package.json engines.node is at least ">=22.12.0" while commander 15 is a dependency.
-    text_hash: 7e62b4d4558546086ab7afc8a3442f27eebc50f46d90dbae9d2598f575f84a64
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-9ac7
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: The CLI entry calls program.parseAsync(), never program.parse(), because action handlers are async.
-    text_hash: 01e77814ee2a373de794093a13127a9aeda769727f6a1080bb9ae2d1708857cb
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-74dc
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: When a command defines both --foo and --no-foo, the default value is set explicitly on the option instead of relying on an implicit true.
-    text_hash: f62e3dd0ffb3e805811948f4e21e15a66be658d94f3fda7de104f1c73a77ab6e
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-184f
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Code does not call cmd.storeOptionsAsProperties() or cmd.combineFlagAndOptionalValue().
-    text_hash: 62dd38ab480eb15b0649d855ca6aeae52e0ab6e8803edd37ddf9bf569fa87090
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-46d8
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: A user pressing Ctrl+C at any @inquirer/prompts prompt is handled by catching the ExitPromptError (by error.name) and exiting cleanly, either at each call site or once around program.parseAsync().
-    text_hash: 4811e09b5a8610a6b00d2d0acb1acf91714a0f06d15531c2aca78168321897d8
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-4917
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Text written to process.stderr is styled with chalkStderr (or a colour function chosen from supportsColorStderr), not the default chalk instance.
-    text_hash: 45ae3643147918c2d38045da0565592a0aa3b68b93e2a1e8bfde8e1fd365c110
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-5c21
-    source: docs/instructions/rules/_shared/security.md
-    text: "execa calls do not pass shell: true; command strings from config are split with parseCommandString() and run as file + args."
-    text_hash: 2e066f9c4aad3487bc9e1626f3c87a4e38b54388a664393e1ec327a88803b063
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-980e
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: execa calls to network-bound or long-running tools (gh, git clone, npm install, npx) set a timeout option.
-    text_hash: acf645f4ed1d0b4bc907d600ce3a23452683b3e4ad551e475af4fcb7fd192d00
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-884a
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Node ChildProcess APIs (.on, .once, .send, .ref, .unref) on an execa subprocess are reached through subprocess.nodeChildProcess.
-    text_hash: 4df3ebf3d659ff72625d7b3d9524382db40c19b786aac12056401c75b8a50ab6
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-271a
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Variable path segments interpolated into fast-glob patterns (module names, directory names) are passed through fg.escapePath() first.
-    text_hash: 8f9634338f9b732f5698931a929635f155a46f2547440158f61f25cda782ebe7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-f6f8
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: fast-glob results are sorted before they are written to output, hashed, or used where order matters.
-    text_hash: bfad70f172fb4154b49eff34cb5b7498fc17b7982411a20fd25080d0bafd2aae
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-69ca
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Every fast-glob call passes an explicit cwd instead of relying on process.cwd().
-    text_hash: 5a610e787c607d5a3f1a29183a2dec8f63549bce1c0d04291c55bf455c889ed2
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-4eb1
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Paths that are persisted (JSON/YAML/Markdown artifacts) or compared as strings are built with pathe, not node:path.
-    text_hash: 2c0046de834f71cbaa359f7206a5e63f10b8fbe4adcb815805d9960583f605be
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-5e00
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Code does not use minimatch makeRe(), Minimatch#regexp or the MMRegExp type.
-    text_hash: 968850335541cff5e8c7a4e64087096b359bf27d652f029d132ba2016120211b
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-9eaf
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: Paths passed to Minimatch.match() are normalized to forward slashes before matching.
-    text_hash: 6a8ca880f98838df488ad418f4886ba5950e7b1b388106f2f9afeded18ad8ccf
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-18e7
-    source: docs/instructions/rules/coding/code-quality.md
-    text: After YAML.parseDocument() on file content, doc.errors is checked before the document's contents are read, edited or written back.
-    text_hash: 8f8f821749d8287af6921709e119456ee9f943ed5aaca12703edaeb490973bd5
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-7619
-    source: docs/instructions/rules/_shared/security.md
-    text: "YAML parse calls never set maxAliasCount: -1 or uniqueKeys: false."
-    text_hash: 13669c0a6c7cd54a303b0e273d0effeaaae61ddec2966b10cff2f2c6abb18e28
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-f3f9
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: "Handlebars templates that render non-HTML output (Markdown, TOML, YAML, scripts) are compiled with noEscape: true, and values are escaped for the target format by an explicit helper."
-    text_hash: fa55dadca958e09d76598403ade1ecc6402e9e51ddaa499a2a38e01000ff2dc6
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-3991
-    source: docs/instructions/rules/project/cli-runtime.md
-    text: "Handlebars.compile is called with strict: true so a template referencing a missing field throws instead of rendering an empty string."
-    text_hash: 266c8d98f251cbe467d7f8195bad5dab692f1324efb9b55daa57ea74fabebf9d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-0fcf
-    source: docs/instructions/rules/project/model-providers.md
-    text: "Any code that wraps an openai SDK call in its own retry loop constructs the client with maxRetries: 0 (or drops the custom loop), so 429/5xx/connection errors are not retried by both layers."
-    text_hash: 470a1e1b9487ea3aa1e86508220543383610f9f4ab6b3d94316690c92cd4cc08
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-1ae2
-    source: docs/instructions/rules/project/model-providers.md
-    text: Every new OpenAI({...}) client sets an explicit timeout suited to the call (for example tens of seconds for embeddings), never relying on the 10-minute default.
-    text_hash: 0aee26640e6aba6b5c469c4a22013ab83906bae6cc4a18135271e500ef703a26
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-bdd4
-    source: docs/instructions/rules/project/model-providers.md
-    text: openai errors are classified with the SDK error classes (OpenAI.APIError and subclasses such as AuthenticationError, PermissionDeniedError, RateLimitError, APIConnectionError) from the loaded module, not by duck-typing a status property or matching the message text.
-    text_hash: 1fb9f861ea907a2a3281b76f52ee9a0581b2c20932b40c31d65af674fa2b9e85
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-033a
-    source: docs/instructions/rules/project/model-providers.md
-    text: When an openai call fails, the surfaced EmbeddingProviderError message or log includes the SDK's err.requestID (x-request-id) so failures can be reported to OpenAI.
-    text_hash: 5349c1bd885917c9157231c768a874dbfadef25489a24f24002b05d0ed5b4752
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-c813
-    source: docs/instructions/rules/project/model-providers.md
-    text: Every pipeline() and AutoTokenizer.from_pretrained() call that may download from the Hub passes a pinned revision (a commit SHA), not the default 'main'.
-    text_hash: 08c7a2876ec8fe653a0c53679484c5385eb6900b888af7300df281d6ef84c919
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-b588
-    source: docs/instructions/rules/project/model-providers.md
-    text: Every load of @huggingface/transformers models or tokenizers (embeddings, reranker, tokenizer cache) points the cache at ~/.paqad/models, via env.cacheDir set in one shared loader or the per-call cache_dir option, never relying on whichever caller happened to load first.
-    text_hash: 95e77ef3228e047346a8ae58d4657450e2e6064ea2d608fb16f921cb81b2952d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-d254
-    source: docs/instructions/rules/project/model-providers.md
-    text: Every pipeline() call passes an explicit dtype (the repo's 'q8'), so the quantization never falls back to environment defaults.
-    text_hash: ccec4a9d9d762efc6d08397e3c60a5b9534150a89c713d9d99e8ad11a38b0e37
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-fff5
-    source: docs/instructions/rules/project/model-providers.md
-    text: A cached transformers pipeline that is evicted or reset (provider cache clear, load failure) is released with await pipeline.dispose() before its reference is dropped.
-    text_hash: f4b385ef005835aa1f51c2cf9410c09b0e9ecf9aa2cbfea7c852756c9cee0c64
     verifiability:
       kind: heuristic
     enforced_by: []

@@ -1,3 +1,9 @@
+# Tailwind
+
+How graph-ui wires and writes Tailwind CSS 4. Found by rules discovery from each package's own docs.
+
+<!-- trigger: graph-ui/** -->
+
 - Tailwind class names in graph-ui source are always written as complete literal strings (map props to full class strings), never built by interpolation such as `bg-${tone}-600`. <!-- @rule RL-8872 discovered:rd-20261116-061901 -->
 - Color tokens that `:root[data-theme='dark']` overrides in graph-ui/src/index.css are declared in a plain `@theme` block, never in `@theme inline`. <!-- @rule RL-2ebd discovered:rd-20261116-061901 -->
 - If any `dark:` utility is used in graph-ui, index.css first declares `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` so the variant follows the app's data-theme toggle instead of prefers-color-scheme. <!-- @rule RL-c18e discovered:rd-20261116-061901 -->

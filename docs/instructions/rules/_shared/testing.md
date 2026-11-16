@@ -10,6 +10,8 @@ Baseline testing rules for every change, in every stack. These always load. A st
 - Assert on observable behavior and outputs, not on private fields or internal call order. <!-- @rule RL-5dc4 -->
 - When code resolves a real shipped resource (a pack, template, runtime root, or bundled asset), add a test that loads the real resource and asserts a non-empty, expected result, so a wrong path fails loudly instead of returning an empty set that reads as "nothing here". <!-- @rule RL-1dc7 -->
 - Run the narrowest relevant suite while iterating, then run the full gate (`pnpm ci`) before you call the work done, and hold the project's coverage bar. <!-- @rule RL-312d -->
+- Prove every bug fix with a test that fails before the fix and passes after it. <!-- @rule RL-2592 discovered:rd-20261116-061901 -->
+- Every `.resolves`/`.rejects` assertion is awaited or returned, and vi.mock/vi.unmock/vi.hoisted are called only at module top level. <!-- @rule RL-f307 discovered:rd-20261116-061901 -->
 
 ## Verify
 
@@ -21,5 +23,3 @@ pnpm ci
 # Determinism smell — flag real time/network/randomness reached from test files (review each hit):
 git grep -nE '\b(Date\.now|Math\.random|fetch|new Date\(\))\b' -- 'tests/**' '**/*.test.ts'
 ```
-- Prove every bug fix with a test that fails before the fix and passes after it. <!-- @rule RL-2592 discovered:rd-20261116-061901 -->
-- Every `.resolves`/`.rejects` assertion is awaited or returned, and vi.mock/vi.unmock/vi.hoisted are called only at module top level. <!-- @rule RL-f307 discovered:rd-20261116-061901 -->

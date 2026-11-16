@@ -8,6 +8,7 @@ paqad ships one behavior to the 10+ host agents in `ADAPTER_TYPES` (claude-code,
 - Point a completion hook that must never block at the record-only script (`runtime/hooks/verification-record.mjs`) — today only Gemini `AfterAgent`, which requires pure JSON on stdout and cannot accept a blocking Stop decision. A host that documents the same blocking `Stop` semantics as Claude (Codex) renders the real `verification-completion.mjs` instead. MUST NOT point a blocking-capable host at the record-only script, nor a JSON-only host at the blocking one. <!-- @rule RL-5616 -->
 - When an adapter overrides `generateConfig`/`installHooks` to emit a host config file, write the real file the host executes and send the base `installHooks` sidecar metadata to a paqad-internal path (for example `.codex/settings.hooks.json`), so the two never collide. <!-- @rule RL-f117 -->
 - MUST NOT close a host-trigger gap by editing a prose entry file (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`) or its template under `runtime/templates/agent-configs/`. Host triggers belong in the hook layer, invisible to the user. <!-- @rule RL-dbc2 -->
+- Every skill name is unique across runtime/base/skills and every shipped plugin (Claude and Codex), because the release check keeps one record per skill name. <!-- @rule RL-4862 discovered:rd-20261116-061901 -->
 
 ## Verify
 
@@ -16,4 +17,3 @@ tests/unit/adapters/completion-hook-parity.test.ts asserts every hook-wired host
 its native config and NOT in its entry file. A capability without such a test is treated as
 single-host until one exists.
 ```
-- Every skill name is unique across runtime/base/skills and every shipped plugin (Claude and Codex), because the release check keeps one record per skill name. <!-- @rule RL-4862 discovered:rd-20261116-061901 -->

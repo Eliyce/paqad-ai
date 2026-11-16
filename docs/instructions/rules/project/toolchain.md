@@ -1,3 +1,9 @@
+# Toolchain
+
+Build, lint, format, test and release tool settings: TypeScript, ESLint, Prettier, markdownlint, tsup, Vitest and Changesets. Found by rules discovery from each package's own docs.
+
+<!-- trigger: ** -->
+
 - No tsconfig*.json sets `ignoreDeprecations`; options deprecated in TypeScript 6 are migrated instead of silenced. <!-- @rule RL-493a discovered:rd-20261116-061901 -->
 - The root tsconfig.json lists its ambient type packages explicitly in `compilerOptions.types` (for example ["node"]) instead of relying on auto-inclusion. <!-- @rule RL-5589 discovered:rd-20261116-061901 -->
 - No tsconfig uses `baseUrl`, `moduleResolution` node/node10/classic, `outFile`, `target: es5`, or sets `esModuleInterop`/`allowSyntheticDefaultImports` to false. <!-- @rule RL-df8b discovered:rd-20261116-061901 -->

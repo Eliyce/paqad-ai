@@ -1,3 +1,9 @@
+# Model Providers
+
+How the openai and @huggingface/transformers clients are set up, retried and cached. Found by rules discovery from each package's own docs.
+
+<!-- trigger: ** -->
+
 - Any code that wraps an openai SDK call in its own retry loop constructs the client with maxRetries: 0 (or drops the custom loop), so 429/5xx/connection errors are not retried by both layers. <!-- @rule RL-0fcf discovered:rd-20261116-061901 -->
 - Every new OpenAI({...}) client sets an explicit timeout suited to the call (for example tens of seconds for embeddings), never relying on the 10-minute default. <!-- @rule RL-1ae2 discovered:rd-20261116-061901 -->
 - openai errors are classified with the SDK error classes (OpenAI.APIError and subclasses such as AuthenticationError, PermissionDeniedError, RateLimitError, APIConnectionError) from the loaded module, not by duck-typing a status property or matching the message text. <!-- @rule RL-bdd4 discovered:rd-20261116-061901 -->

@@ -1,3 +1,9 @@
+# CLI Runtime
+
+How the CLI uses its runtime packages: commander, prompts, chalk, execa, fast-glob, pathe, minimatch and handlebars. Found by rules discovery from each package's own docs.
+
+<!-- trigger: ** -->
+
 - package.json engines.node is at least ">=22.12.0" while commander 15 is a dependency. <!-- @rule RL-abe7 discovered:rd-20261116-061901 -->
 - The CLI entry calls program.parseAsync(), never program.parse(), because action handlers are async. <!-- @rule RL-9ac7 discovered:rd-20261116-061901 -->
 - When a command defines both --foo and --no-foo, the default value is set explicitly on the option instead of relying on an implicit true. <!-- @rule RL-74dc discovered:rd-20261116-061901 -->
