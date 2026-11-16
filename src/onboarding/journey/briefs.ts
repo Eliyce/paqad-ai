@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -40,6 +41,10 @@ function skillScripts(projectRoot: string, skill: string): string {
   return join(installDir(projectRoot), 'runtime/base/skills', skill, 'scripts');
 }
 
+export function gitWorkflowAnswersPath(): string {
+  return join(tmpdir(), 'paqad-onboarding-git-workflow-answers.json');
+}
+
 function gitWorkflowLine(projectRoot: string, run: JourneyRun): string {
   const now = gitWorkflowHashes(projectRoot);
   const same =
@@ -47,7 +52,7 @@ function gitWorkflowLine(projectRoot: string, run: JourneyRun): string {
     Object.entries(run.setup_hashes).every(([path, hash]) => now[path] === hash) &&
     Object.keys(now).length === Object.keys(run.setup_hashes).length;
   return same
-    ? 'Git workflow: the files are untouched since setup, so apply the recommended workflow with `paqad-ai git-workflow setup --apply {} --overwrite` and record each choice as not confirmed.'
+    ? `Git workflow: the files are untouched since setup, so write the empty answers \`{}\` to ${gitWorkflowAnswersPath()} (outside the repo), apply the recommended workflow with \`paqad-ai git-workflow setup --apply ${gitWorkflowAnswersPath()} --overwrite\` and record each choice as not confirmed.`
     : 'Git workflow: the files changed since setup, so keep them as they are and do not run git-workflow setup.';
 }
 

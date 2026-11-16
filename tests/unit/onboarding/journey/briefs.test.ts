@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildDecisionPauseContractBody } from '../../../../src/onboarding/decision-pause-contract-writer.js';
-import { AUTO_SIGNAL, BRIEF_CEILING, nextStep } from '../../../../src/onboarding/journey/briefs.js';
+import {
+  AUTO_SIGNAL,
+  BRIEF_CEILING,
+  gitWorkflowAnswersPath,
+  nextStep,
+} from '../../../../src/onboarding/journey/briefs.js';
 import { updateRun } from '../../../../src/onboarding/journey/run-store.js';
 import { gitWorkflowHashes } from '../../../../src/onboarding/journey/setup.js';
 import { ONBOARDING_STAGES } from '../../../../src/onboarding/journey/stages.js';
@@ -68,7 +73,12 @@ describe('onboarding stage briefs', () => {
     updateRun(root, (draft) => {
       draft.setup_hashes = gitWorkflowHashes(root);
     });
-    expect(nextStep(root, clockAt(2)).brief).toContain('git-workflow setup --apply {} --overwrite');
+    const brief = nextStep(root, clockAt(2)).brief;
+    const answers = gitWorkflowAnswersPath();
+    expect(answers.startsWith(root)).toBe(false);
+    expect(brief).toContain(`write the empty answers \`{}\` to ${answers}`);
+    expect(brief).toContain(`git-workflow setup --apply ${answers} --overwrite`);
+    expect(brief).not.toContain('--apply {}');
   });
 
   it('the analyze brief batches by 25 with progress calls and absolute script paths', () => {
