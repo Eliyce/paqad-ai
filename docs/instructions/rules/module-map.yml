@@ -42,6 +42,7 @@ modules:
       - src/cli/commands/install.ts
       - src/cli/commands/join.ts
       - src/cli/commands/onboard.ts
+      - src/cli/commands/onboarding.ts
       - src/cli/commands/refresh.ts
       - src/cli/commands/update.ts
       - src/cli/commands/managed-settings.ts
@@ -52,7 +53,7 @@ modules:
         sources: [src/cli/commands/install.ts, src/install]
       - slug: onboard
         name: paqad-ai onboard
-        sources: [src/cli/commands/onboard.ts, src/onboarding]
+        sources: [src/cli/commands/onboard.ts, src/cli/commands/onboarding.ts, src/onboarding]
       - slug: join
         name: paqad-ai join
         sources: [src/cli/commands/join.ts]
