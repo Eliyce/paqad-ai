@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner, relayed by the orchestrator: \"No body is using this now or updated so we can remove it fully, I do not want to pollute the file\". Overrules the plan and the chief recommendation. No frozen literal in .config.example or hook.mjs. Protection against released versions is knowingly dropped; new code uses catalog_version, the launcher revision and schema_version."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks a path or owner for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner approved in chat (2026-11-03): override S5 for planning and docs sync; the new and old agents score the same, so #828 caused no regression; weaknesses filed as tech debt."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Lets one skill or agent through an authoring check once; not a lasting practice.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

@@ -58,5 +58,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose a test that fails before the fix"
+  },
+  "rules_discovery": {
+    "status": "absorbed",
+    "run_id": "rd-20261116-061901",
+    "rule_id": "RL-2592",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

@@ -1,0 +1,5 @@
+- The CodeMirror editor's accessible name is set on its content element with `EditorView.contentAttributes.of({ 'aria-label': ... })`, and the host wrapper div carries no `role="textbox"` or aria-label of its own. <!-- @rule RL-644f discovered:rd-20261116-061901 -->
+- Every `new EditorView(...)` created in a React effect is destroyed with `view.destroy()` in that effect's cleanup. <!-- @rule RL-85fe discovered:rd-20261116-061901 -->
+- External value changes are pushed into an existing editor with `view.dispatch({ changes })`, not with `view.setState(...)` or by recreating the view. <!-- @rule RL-0bcd discovered:rd-20261116-061901 -->
+- Editor configuration that changes at runtime (such as the language) is held in a `Compartment` and changed with `compartment.reconfigure(...)` dispatched as an effect. <!-- @rule RL-c83e discovered:rd-20261116-061901 -->
+- graph-ui/pnpm-lock.yaml resolves exactly one version of @codemirror/state. <!-- @rule RL-2844 discovered:rd-20261116-061901 -->

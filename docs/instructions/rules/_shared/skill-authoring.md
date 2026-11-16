@@ -83,3 +83,4 @@ Every script has a spec at `tests/unit/skills/<skill>.test.ts` that references i
 ```
 
 When in doubt, copy the shape of an existing peer skill rather than inventing a new one. The `coverage-completeness` meta-test is the enforcement. MUST NOT bypass it.
+- A skill declares at least one trigger; only a helper skill that just its parent skill calls may declare an explicit empty triggers list, and a missing triggers key fails. <!-- @rule RL-0d7b discovered:rd-20261116-061901 -->

@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner approved in chat (2026-11-03): S2 fails only on name shadowing against paqad's own generated Codex form ~/.codex/agents/<name>.toml of the same agent; overlap score is clean."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Lets one skill or agent through an authoring check once; not a lasting practice.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

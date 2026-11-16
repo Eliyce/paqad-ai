@@ -50,5 +50,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner chose to run the real check instead of skipping it, so no override is recorded."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Lets one skill or agent through an authoring check once; not a lasting practice.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

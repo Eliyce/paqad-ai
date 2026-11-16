@@ -19,3 +19,5 @@ pnpm lint
 # Candidate duplicate root/path derivations to route through a helper (review each hit):
 git grep -nE '(os\.homedir\(\)|process\.cwd\(\)|__dirname)' -- 'src/**/*.ts'
 ```
+- An error thrown inside a catch block, including the project's custom Error subclasses, passes the caught error as `cause`, and `preserve-caught-error` lists those subclasses in `errorClassNames`. <!-- @rule RL-0d9b discovered:rd-20261116-061901 -->
+- After YAML.parseDocument() on file content, doc.errors is checked before the document's contents are read, edited or written back. <!-- @rule RL-18e7 discovered:rd-20261116-061901 -->

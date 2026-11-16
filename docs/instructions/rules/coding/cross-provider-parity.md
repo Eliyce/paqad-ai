@@ -16,3 +16,4 @@ tests/unit/adapters/completion-hook-parity.test.ts asserts every hook-wired host
 its native config and NOT in its entry file. A capability without such a test is treated as
 single-host until one exists.
 ```
+- Every skill name is unique across runtime/base/skills and every shipped plugin (Claude and Codex), because the release check keeps one record per skill name. <!-- @rule RL-4862 discovered:rd-20261116-061901 -->

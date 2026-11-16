@@ -20,3 +20,6 @@ git grep -nE 'key=\{[^}]*\bindex\b' -- '*.tsx' '*.jsx'
 # React.FC usage:
 git grep -nE ':\s*React\.FC\b' -- '*.tsx'
 ```
+- marked.parse is called with { async: false } (or through a typed helper that returns string) instead of casting its result with `as string`. <!-- @rule RL-487a discovered:rd-20261116-061901 -->
+- Type annotations use React.JSX (or an import from react) rather than the global JSX namespace. <!-- @rule RL-b235 discovered:rd-20261116-061901 -->
+- Every useRef call passes an initial value (null or undefined at minimum). <!-- @rule RL-1c7c discovered:rd-20261116-061901 -->

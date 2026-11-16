@@ -21,3 +21,5 @@ pnpm ci
 # Determinism smell — flag real time/network/randomness reached from test files (review each hit):
 git grep -nE '\b(Date\.now|Math\.random|fetch|new Date\(\))\b' -- 'tests/**' '**/*.test.ts'
 ```
+- Prove every bug fix with a test that fails before the fix and passes after it. <!-- @rule RL-2592 discovered:rd-20261116-061901 -->
+- Every `.resolves`/`.rejects` assertion is awaited or returned, and vi.mock/vi.unmock/vi.hoisted are called only at module top level. <!-- @rule RL-f307 discovered:rd-20261116-061901 -->

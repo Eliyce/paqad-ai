@@ -43,5 +43,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner read the rules, the calls made without them and the weak spots, then confirmed: this is the real sign-off for the frozen spec."
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Settles a requirement for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }

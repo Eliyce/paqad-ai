@@ -1,0 +1,8 @@
+- Every Sigma instance created in a React effect is terminated with `sigma.kill()` in that effect's cleanup and never reused afterwards. <!-- @rule RL-fcda discovered:rd-20261116-061901 -->
+- Transient display state (search/selection highlighting, dimming, hover) is applied through sigma's nodeReducer/edgeReducer settings, not by overwriting the nodes' `color` attributes in the graphology graph. <!-- @rule RL-edcc discovered:rd-20261116-061901 -->
+- Code does not call `sigma.refresh()` right after graphology mutations; refresh/scheduleRefresh is used only when state read by a reducer changes outside the graph. <!-- @rule RL-33da discovered:rd-20261116-061901 -->
+- Nodes built from API data are added with `mergeNode` or behind a `hasNode` guard, never with a bare `addNode` loop over external ids. <!-- @rule RL-7ea6 discovered:rd-20261116-061901 -->
+- ForceAtlas2 never runs on the main thread: `forceAtlas2.assign` is only called inside a web worker (or the library's worker layout is used), and that worker is terminated/killed on unmount. <!-- @rule RL-110c discovered:rd-20261116-061901 -->
+- Synchronous `forceAtlas2.assign` calls always pass an explicit bounded `iterations` and `settings` from `forceAtlas2.inferSettings(graph)` (or tuned settings). <!-- @rule RL-5572 discovered:rd-20261116-061901 -->
+- Every node passed to dagre's `setNode` has numeric `width` and `height`, and laid-out coordinates are converted from dagre's center point (x - width/2, y - height/2) before use as top-left positions. <!-- @rule RL-31cf discovered:rd-20261116-061901 -->
+- Every dagre `setEdge` call passes a label object (at least `{}`), or the graph calls `setDefaultEdgeLabel(() => ({}))` before edges are added. <!-- @rule RL-d883 discovered:rd-20261116-061901 -->

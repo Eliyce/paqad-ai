@@ -20,3 +20,4 @@ git grep -n 'target="_blank"' -- '*.tsx' '*.jsx' | grep -v noopener
 # Auth tokens in localStorage:
 git grep -nE 'localStorage\.(set|get)Item\([^)]*(token|jwt|auth)' -- '*.ts' '*.tsx'
 ```
+- The graph-ui Vite dev server must not be exposed to the network: vite.config.ts and the dev scripts set no server.host / --host, no server.allowedHosts: true and no server.cors: true. <!-- @rule RL-1734 discovered:rd-20261116-061901 -->

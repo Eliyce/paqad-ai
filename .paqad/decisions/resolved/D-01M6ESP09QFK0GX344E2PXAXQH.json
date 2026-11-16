@@ -42,5 +42,11 @@
     "responded_by": "human",
     "carry_over_scope": "task",
     "note": "Owner: the project already turns the plugin on; record it as done via the project and log it"
+  },
+  "rules_discovery": {
+    "status": "not-a-rule",
+    "run_id": "rd-20261116-061901",
+    "reason": "Picks a path or owner for one change or issue.",
+    "tagged_at": "2026-11-16T06:32:35.136Z"
   }
 }
