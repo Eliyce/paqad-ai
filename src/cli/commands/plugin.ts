@@ -1,8 +1,12 @@
 import { Command } from 'commander';
 
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
+
 import {
+  maybeMigrateToPlugin,
   recordMigrationSession,
   rollbackPlugin,
+  runClaudeInstallWith,
   runClaudePluginUninstall,
 } from '@/install/plugin-migration.js';
 
@@ -30,6 +34,20 @@ export function createPluginCommand(): Command {
       await recordMigrationSession(
         { source: options.source, sessionId: options.session },
         { runClaudeUninstall: runClaudePluginUninstall },
+      );
+    });
+
+  command
+    .command('migrate', { hidden: true })
+    .description('Move this machine to the Claude Code plugin now (used by the team launcher)')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((options: { projectRoot: string }) => {
+      const result = maybeMigrateToPlugin(options.projectRoot, {
+        runClaudeInstall: runClaudeInstallWith,
+      });
+      appendHooksLog(
+        options.projectRoot,
+        `plugin install: ${result.state}${result.reason ? ` (${result.reason})` : ''}`,
       );
     });
 

@@ -58,6 +58,9 @@ function help(): string {
   return `Try ${listed.slice(0, -1).join(', ')} or ${listed.at(-1)}.`;
 }
 
+export const CLOUD_HUD_LINE =
+  "The paqad HUD cannot draw in a cloud session: Claude Code shows no plugin view there. paqad's checks still run.";
+
 const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
   'view-off': 'the paqad HUD is turned off in the plugin settings',
   'not-onboarded': 'this project was never onboarded',
@@ -67,6 +70,7 @@ const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
 };
 
 export function notActiveText(reason: PaqadStandDown): string {
+  if (reason === 'remote') return CLOUD_HUD_LINE;
   return `paqad is not active here: ${STAND_DOWN_WORDS[reason]}.`;
 }
 

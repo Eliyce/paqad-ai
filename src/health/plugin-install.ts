@@ -50,7 +50,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function canonicalRoot(path: string): string {
+export function canonicalRoot(path: string): string {
   let full: string;
   try {
     full = realpathSync.native(path);
@@ -65,17 +65,24 @@ function claudeConfigDir(env: NodeJS.ProcessEnv, home: string): string {
   return env.CLAUDE_CONFIG_DIR || join(home, '.claude');
 }
 
-function entryLoadsHere(entry: unknown, projectRoot: string | null): boolean {
+export type EntryScopeMatch = 'this-project' | 'user' | 'elsewhere';
+
+export function entryScopeMatch(entry: unknown, projectRoot: string | null): EntryScopeMatch {
+  if (!isRecord(entry)) return 'elsewhere';
+  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
+  if (scope !== 'project' && scope !== 'local') return 'user';
+  return projectRoot !== null &&
+    typeof entry.projectPath === 'string' &&
+    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
+    ? 'this-project'
+    : 'elsewhere';
+}
+
+export function entryLoadsHere(entry: unknown, projectRoot: string | null): boolean {
   if (!isRecord(entry)) return false;
   const path = entry.installPath;
   if (typeof path !== 'string' || path.trim() === '' || !existsSync(path)) return false;
-  const scope = typeof entry.scope === 'string' ? entry.scope : 'user';
-  if (scope !== 'project' && scope !== 'local') return true;
-  return (
-    projectRoot !== null &&
-    typeof entry.projectPath === 'string' &&
-    canonicalRoot(entry.projectPath) === canonicalRoot(projectRoot)
-  );
+  return entryScopeMatch(entry, projectRoot) !== 'elsewhere';
 }
 
 function pluginSwitchedOn(
@@ -129,10 +136,28 @@ export function pluginLoadState(
   return pluginSwitchedOn(projectRoot, env, home) ? 'live' : 'absent';
 }
 
+export type InstalledPluginsFormat = 'missing' | 'known' | 'unknown';
+
+export function installedPluginsFileFormat(
+  options: PluginLoadOptions = {},
+): InstalledPluginsFormat {
+  const env = options.env ?? process.env;
+  const home = options.home ?? homedir();
+  const path = join(claudeConfigDir(env, home), 'plugins', 'installed_plugins.json');
+  if (!existsSync(path)) return 'missing';
+  const parsed = readJsonFile(path);
+  return isRecord(parsed) && parsed.version === 2 && isRecord(parsed.plugins) ? 'known' : 'unknown';
+}
+
 export const DISCOVERY_PLUGIN_PREFIX = 'paqad-product-discovery@';
 
+export const DISCOVERY_PLUGIN_NAME = 'paqad-discovery';
+
 export const DISCOVERY_CLASH_MESSAGE =
-  'The paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Remove paqad discovery: the paqad plugin already has discover and ask.';
+  'An old paqad discovery plugin is installed next to the paqad plugin. Both are named paqad, so Claude Code may run the hooks of only one, and your stage checks can stop. Update paqad discovery to the release named paqad-discovery, or remove it: the paqad plugin already has discover and ask.';
+
+export const DISCOVERY_CLASH_FIX =
+  'Update paqad discovery, or remove it in Claude: Customize, Plugins.';
 
 function childFolders(dir: string): string[] {
   try {
@@ -152,15 +177,27 @@ function syncedPaqadManifests(configDir: string): Record<string, unknown>[] {
     .filter((manifest) => manifest.name === 'paqad');
 }
 
+function installedDiscoveryNamedPaqad(plugins: Record<string, unknown>): boolean {
+  return Object.entries(plugins)
+    .filter(([key]) => key.startsWith(DISCOVERY_PLUGIN_PREFIX))
+    .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+    .some((entry) => {
+      const installPath = isRecord(entry) ? entry.installPath : undefined;
+      if (typeof installPath !== 'string') return true;
+      const manifest = readJsonFile(join(installPath, '.claude-plugin', 'plugin.json'));
+      return !isRecord(manifest) || manifest.name !== DISCOVERY_PLUGIN_NAME;
+    });
+}
+
 export function discoveryPluginClash(options: PluginLoadOptions = {}): boolean {
   const env = options.env ?? process.env;
   const configDir = claudeConfigDir(env, options.home ?? homedir());
   const installed = readJsonFile(join(configDir, 'plugins', 'installed_plugins.json'));
-  const keys =
-    isRecord(installed) && isRecord(installed.plugins) ? Object.keys(installed.plugins) : [];
+  const plugins = isRecord(installed) && isRecord(installed.plugins) ? installed.plugins : {};
+  const keys = Object.keys(plugins);
   const synced = syncedPaqadManifests(configDir);
   const discovery =
-    keys.some((key) => key.startsWith(DISCOVERY_PLUGIN_PREFIX)) ||
+    installedDiscoveryNamedPaqad(plugins) ||
     synced.some((manifest) => manifest.hooks === undefined);
   const engineering =
     keys.includes(PLUGIN_ID) || synced.some((manifest) => manifest.hooks !== undefined);

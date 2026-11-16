@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
@@ -295,11 +295,11 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   it('records a script-minted start then end for a marked stage', () => {
     const now = clock();
     expect(
-      recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now }),
+      recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now }).ok,
     ).toBe(true);
-    expect(recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now })).toBe(
-      true,
-    );
+    expect(
+      recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now }).ok,
+    ).toBe(true);
     const dir = currentFeature(root, SES)!;
     const rows = readFeatureStageUnit(root, dir);
     expect(
@@ -309,7 +309,9 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   });
 
   it('ignores an unknown stage token (no row, returns false)', () => {
-    expect(recordMarkedStage(root, { sessionId: SES, stage: 'bogus', phase: 'start' })).toBe(false);
+    expect(recordMarkedStage(root, { sessionId: SES, stage: 'bogus', phase: 'start' }).ok).toBe(
+      false,
+    );
     expect(currentFeature(root, SES)).toBeNull();
   });
 
@@ -325,7 +327,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
         title: 'Route first workflows',
         issue: '339',
         now: () => new Date(Date.now() + 11_000),
-      }),
+      }).ok,
     ).toBe(true);
     const titled = currentFeature(root, SES)!;
     expect(titled.startsWith('339-route-first-workflows-')).toBe(true);
@@ -411,9 +413,9 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
       false,
     );
 
-    expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now })).toBe(
-      true,
-    );
+    expect(
+      recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now }).ok,
+    ).toBe(true);
     const after = readFeatureStageUnit(root, dir);
     expect(after.some((r) => r.kind === 'stage_end' && r.stage === 'documentation_sync')).toBe(
       true,
@@ -432,7 +434,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
         title: 'fresh feature',
         issue: '380',
         now,
-      }),
+      }).ok,
     ).toBe(true);
     const dir = currentFeature(root, SES)!;
     const rows = readFeatureStageUnit(root, dir);
@@ -444,12 +446,12 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   it('returns false (never throws) when the ledger write itself fails', () => {
     const fileRoot = join(tmpdir(), `paqad-marked-file-${SES}-${process.pid}`);
     writeFileSync(fileRoot, 'not a directory');
-    expect(recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'start' })).toBe(
-      false,
-    );
-    expect(recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'end' })).toBe(
-      false,
-    );
+    expect(
+      recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'start' }).ok,
+    ).toBe(false);
+    expect(
+      recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'end' }).ok,
+    ).toBe(false);
     rmSync(fileRoot, { force: true });
   });
 });
@@ -765,7 +767,7 @@ describe('a marked start beside another running stage agent', () => {
         phase: 'start',
         agentId: 'd1',
         now,
-      }),
+      }).ok,
     ).toBe(true);
     expect(reviewEnds(dir)).toHaveLength(0);
     expect(liveStageAgents(readFeatureStageUnit(root, dir)).map((h) => h.agentId)).toEqual(['r1']);
@@ -836,5 +838,50 @@ describe('a marked start beside another running stage agent', () => {
       now,
     });
     expect(reviewEnds(dir)).toHaveLength(1);
+  });
+});
+
+describe('recordMarkedStage returns its reason (B5)', () => {
+  it('AC-20: names an unknown stage as unknown-stage and a writer failure as error', () => {
+    expect(
+      recordMarkedStage(join(tmpdir(), 'paqad-unused'), {
+        sessionId: 'ses_reason',
+        stage: 'nonsense',
+        phase: 'start',
+      }),
+    ).toEqual({ ok: false, reason: 'unknown-stage', message: 'unknown stage "nonsense"' });
+    const fileRoot = join(tmpdir(), `paqad-marked-reason-${process.pid}`);
+    writeFileSync(fileRoot, 'not a directory');
+    const failed = recordMarkedStage(fileRoot, {
+      sessionId: 'ses_reason',
+      stage: 'planning',
+      phase: 'start',
+    });
+    expect(failed.ok).toBe(false);
+    expect(failed.ok ? null : failed.reason).toBe('error');
+    rmSync(fileRoot, { force: true });
+  });
+
+  it('AC-20: a writer failure that is not an Error still returns its text as the message', async () => {
+    vi.resetModules();
+    vi.doMock('@/stage-evidence/recorder.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@/stage-evidence/recorder.js')>()),
+      endStage: () => {
+        throw 'the ledger refused the row';
+      },
+    }));
+    try {
+      const fresh = await import('@/stage-evidence/live-writer.js');
+      expect(
+        fresh.recordMarkedStage(join(tmpdir(), 'paqad-unused'), {
+          sessionId: 'ses_reason',
+          stage: 'planning',
+          phase: 'end',
+        }),
+      ).toEqual({ ok: false, reason: 'error', message: 'the ledger refused the row' });
+    } finally {
+      vi.doUnmock('@/stage-evidence/recorder.js');
+      vi.resetModules();
+    }
   });
 });

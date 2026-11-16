@@ -190,10 +190,9 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ snapshot: parse(snapshot()) })).toEqual({ kind: 'none' });
   });
 
-  it('the feature route draws nothing without the no-change-yet reason', () => {
+  it('AC-16: the feature route draws Getting ready, never nothing, without a live change', () => {
     const idle = parse(snapshot({ route: 'feature-development' }));
-    expect(band({ snapshot: idle })).toEqual({ kind: 'none' });
-    expect(band({ snapshot: { ...open(), active: false } })).toEqual({ kind: 'none' });
+    expect(band({ snapshot: idle }).kind).toBe('ready-feature');
   });
 
   it('row 3: a question waiting for you leads the snapshot row', () => {
@@ -1116,14 +1115,44 @@ describe('Paqad Getting Ready', () => {
     expect(new Set(drawn.strip.stages.map((mark) => mark.state))).toEqual(new Set(['todo']));
   });
 
-  it('AC-24: every other reason, or no scope, draws nothing', () => {
-    for (const reason of ['closed', 'other-branch', 'no-row-this-episode', 'no-active-change']) {
-      const other = ready({ scope: { qualified: false, reason } });
-      expect(band({ snapshot: other })).toEqual({ kind: 'none' });
+  it('AC-16: each scope reason draws its defined Desktop row, never nothing', () => {
+    expect(band({ snapshot: ready({ scope: { qualified: false, reason: 'closed' } }) })).toEqual({
+      kind: 'scope-row',
+      reason: 'closed',
+      word: 'Change closed',
+      words: '',
+    });
+    expect(
+      band({
+        snapshot: ready({ scope: { qualified: false, reason: 'other-branch', branch: 'fix/x' } }),
+      }),
+    ).toEqual({
+      kind: 'scope-row',
+      reason: 'other-branch',
+      word: 'Other branch',
+      words: 'The change is on branch fix/x',
+    });
+    expect(
+      band({
+        snapshot: ready({
+          scope: { qualified: false, reason: 'no-row-this-episode' },
+          paused: [{ workflow: 'feature-development', lane: 'full' }],
+        }),
+      }),
+    ).toEqual({
+      kind: 'scope-row',
+      reason: 'paused',
+      word: 'Paused',
+      words: 'A change is paused. Say "continue" to pick it up.',
+    });
+    for (const reason of ['no-row-this-episode', 'no-active-change', 'not-feature-route']) {
+      expect(band({ snapshot: ready({ scope: { qualified: false, reason } }) }).kind, reason).toBe(
+        'ready-feature',
+      );
     }
     const raw = snapshot({ route: 'feature-development', active: false });
     delete (raw as Raw).scope;
-    expect(band({ snapshot: parse(raw) })).toEqual({ kind: 'none' });
+    expect(band({ snapshot: parse(raw) }).kind).toBe('ready-feature');
   });
 
   it('AC-24: a non-feature route never draws it, whatever the reason', () => {

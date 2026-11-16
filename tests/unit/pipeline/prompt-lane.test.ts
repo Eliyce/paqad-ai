@@ -22,6 +22,7 @@ import {
   readPendingKind,
   readPendingLane,
 } from '@/stage-evidence/pending-lane.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
@@ -1153,5 +1154,132 @@ describe('route truth during a running feature change (hud-live-run-truth)', () 
     expect(result.lane).toBe('full');
     expect(result.narration).toContain('full lane');
     expect(result.narration).not.toContain('graduated lane');
+  });
+});
+
+describe('runPromptRouteSeam — workflow switches keep a running or paused change (B3, B6)', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-route-switches-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function seam(request: string, workflow?: ClassificationResult['workflow']) {
+    return runPromptRouteSeam(
+      { projectRoot: root, request, sessionId: SESSION, adapter: ADAPTER },
+      workflow === undefined ? {} : { classify: async () => classificationWith(workflow) },
+    );
+  }
+
+  function runningChange(): string {
+    const sessionId = resolveSessionId(root, SESSION);
+    const dirName = openFeatureChange(root, sessionId, {
+      adapter: ADAPTER,
+      title: 'running change',
+      issue: '902',
+    });
+    startStage(root, 'development', { sessionId, dirName, adapter: ADAPTER });
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+    });
+    return sessionId;
+  }
+
+  function pausedChange(): string {
+    const sessionId = resolveSessionId(root, SESSION);
+    openFeatureChange(root, sessionId, { adapter: ADAPTER, title: 'paused change', issue: '902' });
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'project-question' },
+      paused: [{ workflow: 'feature-development', changeKey: 'sess#1', lane: 'full' }],
+    });
+    return sessionId;
+  }
+
+  it.each(['root-cause-analysis', 'discovery', 'pentest'] as const)(
+    'AC-18: a running stage keeps feature-development for a prompt classified %s',
+    async (workflow) => {
+      const sessionId = runningChange();
+      const result = await seam('find the root cause of the failing build', workflow);
+      expect(result.routed).toBe('feature-development');
+      expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
+    },
+  );
+
+  it('AC-18: an explicit slash command for another workflow still routes as typed', async () => {
+    runningChange();
+    const slash = Object.entries(SLASH_COMMAND_ROUTES).find(
+      ([, route]) => route !== undefined && route !== 'feature-development',
+    )!;
+    const result = await seam(`/${slash[0]}`);
+    expect(result.routed).toBe(slash[1]);
+  });
+
+  it('AC-23: a plain question naming a stage while a change is paused stays a question', async () => {
+    const sessionId = pausedChange();
+    const result = await seam('what does the review stage check?', 'project-question');
+    expect(result.routed).toBe('project-question');
+    const state = readWorkflowState(root, sessionId);
+    expect(state.active?.workflow).toBe('project-question');
+    expect(state.paused).toMatchObject([{ workflow: 'feature-development', changeKey: 'sess#1' }]);
+  });
+
+  it.each(['continue', 'resume', 'carry on'])(
+    'AC-24: "%s" resumes the same paused change with the resumed narration',
+    async (prompt) => {
+      const sessionId = pausedChange();
+      const result = await seam(prompt, 'project-question');
+      expect(result.routed).toBe('feature-development');
+      expect(result.resumed).toMatchObject({
+        workflow: 'feature-development',
+        changeKey: 'sess#1',
+      });
+      expect(result.narration).toContain('resumed');
+      expect(readWorkflowState(root, sessionId).paused).toEqual([{ workflow: 'project-question' }]);
+      expect(listFeatureDirs(root)).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    'continue the change',
+    'continue the feature',
+    'Please resume.',
+    'carry on with the change',
+  ])('AC-24: "%s" also resumes the paused change', async (prompt) => {
+    pausedChange();
+    const result = await seam(prompt, 'project-question');
+    expect(result.routed).toBe('feature-development');
+    expect(result.resumed).toMatchObject({ changeKey: 'sess#1' });
+  });
+
+  it.each(['resume the dev server', 'continue reading the logs', 'carry on deploying to staging'])(
+    'AC-24: "%s" names another object and does not resume the paused change',
+    async (prompt) => {
+      const sessionId = pausedChange();
+      const result = await seam(prompt, 'project-question');
+      expect(result.routed).toBe('project-question');
+      expect(result.resumed).toBeNull();
+      expect(readWorkflowState(root, sessionId).paused).toMatchObject([
+        { workflow: 'feature-development', changeKey: 'sess#1' },
+      ]);
+    },
+  );
+
+  it('AC-25: "continue" with nothing paused routes per the classifier and opens no change', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const result = await seam('continue', 'project-question');
+    expect(result.routed).toBe('project-question');
+    expect(readSessionControl(root, sessionId).active).toBeNull();
+  });
+
+  it('AC-25: a question while a change is running (not paused) keeps the feature band', async () => {
+    const sessionId = runningChange();
+    const result = await seam('what does this project do?', 'project-question');
+    expect(result.routed).toBe('feature-development');
+    expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
   });
 });

@@ -21,6 +21,8 @@ import { VERSION } from '@/index.js';
 
 import {
   classifyFrameworkCopy,
+  entryScopeMatch,
+  installedPluginsFileFormat,
   PLUGIN_ID,
   pluginLoadState,
   pluginOptedOutLocally,
@@ -41,7 +43,7 @@ const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 180_000;
 const UNINSTALL_TIMEOUT_MS = 120_000;
 
-export const MIN_CLAUDE_VERSION = '2.1.295';
+export const MIN_CLAUDE_VERSION = '2.1.301';
 
 export type MigrationState =
   'pending' | 'installed' | 'done' | 'failed' | 'rolled-back' | 'declined' | 'skipped';
@@ -155,6 +157,16 @@ export function isSyncedRoot(root: string | undefined): boolean {
 
 export function isPluginPresent(home: string): boolean {
   return isPluginInstalledRecord(home) || readPluginSeen(home) !== null;
+}
+
+function isPluginPresentForUser(home: string): boolean {
+  const entries = installedPluginEntries(join(home, '.claude'));
+  if (entries.length > 0 && !entries.some(isUserScopeEntry)) return readPluginSeenSynced(home);
+  return isPluginPresent(home);
+}
+
+function readPluginSeenSynced(home: string): boolean {
+  return isSyncedRoot(readPluginSeen(home)?.root);
 }
 
 function isPluginInstalledRecord(home: string): boolean {
@@ -272,6 +284,7 @@ const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'install-mode-settings',
   'no-claude-code-provider',
   'ci-or-headless',
+  'cloud-session',
   PROJECT_TURNS_PLUGIN_ON_REASON,
 ]);
 
@@ -363,7 +376,7 @@ export function undoViaSettings(home: string): void {
 
 export { versionAtLeast };
 
-interface ResolvedDeps {
+export interface ResolvedDeps {
   env: NodeJS.ProcessEnv;
   home: string;
   now: () => Date;
@@ -483,27 +496,11 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
     return { state: installed.state, path: installed.path, reason: installed.reason };
   }
 
-  const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
-
-  if (cfg.install_mode === 'settings') {
-    return record(deps, prior, { state: 'skipped', reason: 'install-mode-settings' });
-  }
-  if (cfg.migration !== 'on' && cfg.install_mode !== 'plugin') {
-    return record(deps, prior, { state: 'skipped', reason: 'migration-off' });
-  }
-  if (!projectTargetsClaudeCode(projectRoot)) {
-    return record(deps, prior, { state: 'skipped', reason: 'no-claude-code-provider' });
-  }
-  if (projectTurnsPluginOn(projectRoot)) {
-    if (prior?.reason !== PROJECT_TURNS_PLUGIN_ON_REASON) {
-      deps.log(
-        'this project turns the plugin on in .claude/settings.json; user-scope move not needed',
-      );
-    }
-    return record(deps, prior, { state: 'skipped', reason: PROJECT_TURNS_PLUGIN_ON_REASON });
-  }
-  if (isCiOrHeadless(deps.env)) {
-    return record(deps, prior, { state: 'skipped', reason: 'ci-or-headless' });
+  const optOut = migrationOptOut(projectRoot, deps);
+  if (optOut !== null) {
+    if (optOut.state === 'declined')
+      deps.log(`plugin turned off (${optOut.reason}); not installing`);
+    return record(deps, prior, optOut);
   }
   if (!retryAllowed(prior, deps.now())) {
     return { state: prior?.state ?? 'skipped', reason: 'retry-not-due' };
@@ -516,7 +513,7 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
       attempts: (prior?.attempts ?? 0) + 1,
     });
   }
-  if (isPluginPresent(deps.home)) {
+  if (isPluginPresentForUser(deps.home)) {
     return recordPresentPlugin(deps, prior);
   }
   if (!acquireLock(deps.home)) {
@@ -527,6 +524,33 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   } finally {
     releaseLock(deps.home);
   }
+}
+
+export interface MigrationOptOut {
+  state: 'declined' | 'skipped';
+  reason: string;
+}
+
+export function migrationOptOut(projectRoot: string, deps: ResolvedDeps): MigrationOptOut | null {
+  if (userDisabledPlugin(deps.home)) return { state: 'declined', reason: 'user-opted-out' };
+  if (pluginOptedOutLocally(projectRoot)) return { state: 'declined', reason: 'local-opted-out' };
+  const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
+  if (cfg.install_mode === 'settings') return { state: 'skipped', reason: 'install-mode-settings' };
+  if (cfg.migration !== 'on' && cfg.install_mode !== 'plugin') {
+    return { state: 'skipped', reason: 'migration-off' };
+  }
+  if (!projectTargetsClaudeCode(projectRoot)) {
+    return { state: 'skipped', reason: 'no-claude-code-provider' };
+  }
+  if (isCiOrHeadless(deps.env)) return { state: 'skipped', reason: 'ci-or-headless' };
+  if (isCloudSession(deps.env)) return { state: 'skipped', reason: CLOUD_SESSION_REASON };
+  return null;
+}
+
+const CLOUD_SESSION_REASON = 'cloud-session';
+
+function isCloudSession(env: NodeJS.ProcessEnv): boolean {
+  return env.CLAUDE_CODE_REMOTE?.trim().toLowerCase() === 'true';
 }
 
 function recordPresentPlugin(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
@@ -947,6 +971,18 @@ export const VERSION_MISMATCH_FIX =
 export const PROJECT_PLUGIN_DETAIL = 'plugin (turned on by this project)';
 export const PROJECT_PLUGIN_WAITING_DETAIL =
   'npm (this project turns the plugin on; waiting for Claude Code to install it)';
+export const INSTALL_PLUGIN_FIX =
+  'Run `claude plugin install paqad@eliyce --scope user`, then type /reload-plugins in Claude Code to show the HUD.';
+export const PLUGIN_BLOCKED_FIX =
+  "Ask IT to allow the paqad@eliyce plugin in the managed policy. paqad's checks keep running from npm meanwhile.";
+export const WAITING_FOR_LOAD_FIX =
+  'Type /reload-plugins in Claude Code, or start a new session, so the plugin loads and the HUD shows.';
+export const MIGRATION_WAITING_DETAIL =
+  'npm (migration installed: waiting for Claude Code to install the plugin)';
+export const UNKNOWN_PLUGIN_FORMAT_DETAIL =
+  "npm (Claude Code's installed_plugins.json has an unknown plugin file format, so paqad cannot tell whether the plugin is loaded)";
+export const UNKNOWN_PLUGIN_FORMAT_FIX =
+  'Run `claude plugin list` to check that paqad@eliyce is installed, then run `paqad-ai doctor` again.';
 export const LOCAL_OPT_OUT_DETAIL =
   'npm (plugin turned off for you in .claude/settings.local.json)';
 export const USER_SWITCH_OVERRIDDEN_FIX =
@@ -964,7 +1000,9 @@ export function describeClaudeInstall(
   if (policy === 'hooks-blocked') {
     return { detail: HOOKS_BLOCKED_DETAIL, level: 'warning', remediation: HOOKS_BLOCKED_FIX };
   }
-  if (policy === 'plugin-blocked') return { detail: PLUGIN_BLOCKED_DETAIL, level: 'pass' };
+  if (policy === 'plugin-blocked') {
+    return { detail: PLUGIN_BLOCKED_DETAIL, level: 'warning', remediation: PLUGIN_BLOCKED_FIX };
+  }
   if (
     projectRoot !== undefined &&
     projectTurnsPluginOn(projectRoot) &&
@@ -980,7 +1018,7 @@ export function describeClaudeInstall(
     projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
   const installedRecord = isPluginInstalledRecord(home);
   if (installedRecord && !userDisabledPlugin(home) && !hasNpmCopy(home, env, options)) {
-    return withPluginVersion('plugin', home, env, options);
+    return withPluginVersion('plugin', home, env, options, projectRoot);
   }
   if (
     isSyncedRoot(readPluginSeen(home)?.root) ||
@@ -993,18 +1031,21 @@ export function describeClaudeInstall(
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
     const detail = `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix()}`;
     return installedRecord
-      ? withPluginVersion(detail, home, env, options)
+      ? withPluginVersion(detail, home, env, options, projectRoot)
       : { detail, level: 'pass' };
   }
   if (record.state === 'installed') {
     if (!installedRecord) {
       return {
-        detail: 'npm (migration installed: waiting for Claude Code to install the plugin)',
-        level: 'pass',
+        detail: MIGRATION_WAITING_DETAIL,
+        level: 'warning',
+        remediation: INSTALL_PLUGIN_FIX,
       };
     }
     const fresh = isPluginSeenFresh(withSeededInstalledAt(record), readPluginSeen(home));
-    return { detail: fresh ? 'npm (migration installed)' : WAITING_FOR_LOAD_DETAIL, level: 'pass' };
+    return fresh
+      ? { detail: 'npm (migration installed)', level: 'pass' }
+      : { detail: WAITING_FOR_LOAD_DETAIL, level: 'warning', remediation: WAITING_FOR_LOAD_FIX };
   }
   const reason = record.reason ? `: ${record.reason}` : '';
   return { detail: `npm (migration ${record.state}${reason})`, level: 'pass' };
@@ -1017,10 +1058,22 @@ function describeProjectPlugin(
   options: ClaudeInstallLineOptions,
 ): ClaudeInstallLine {
   if (pluginOptedOutLocally(projectRoot)) return { detail: LOCAL_OPT_OUT_DETAIL, level: 'pass' };
-  if (pluginLoadState(projectRoot, { env, home }) !== 'live') {
-    return { detail: PROJECT_PLUGIN_WAITING_DETAIL, level: 'pass' };
+  const state = pluginLoadState(projectRoot, { env, home });
+  if (state === 'unknown' && installedPluginsFileFormat({ env, home }) === 'unknown') {
+    return {
+      detail: UNKNOWN_PLUGIN_FORMAT_DETAIL,
+      level: 'warning',
+      remediation: UNKNOWN_PLUGIN_FORMAT_FIX,
+    };
   }
-  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options);
+  if (state !== 'live') {
+    return {
+      detail: PROJECT_PLUGIN_WAITING_DETAIL,
+      level: 'warning',
+      remediation: INSTALL_PLUGIN_FIX,
+    };
+  }
+  const line = withPluginVersion(PROJECT_PLUGIN_DETAIL, home, env, options, projectRoot);
   if (line.level === 'warning' || !userDisabledPlugin(home)) return line;
   return { ...line, level: 'warning', remediation: USER_SWITCH_OVERRIDDEN_FIX };
 }
@@ -1052,8 +1105,9 @@ function withPluginVersion(
   home: string,
   env: NodeJS.ProcessEnv,
   options: ClaudeInstallLineOptions,
+  projectRoot?: string,
 ): ClaudeInstallLine {
-  const plugin = readInstalledPluginVersion(home, env);
+  const plugin = readInstalledPluginVersion(home, env, projectRoot);
   if (plugin === null) return { detail, level: 'pass' };
   const own = options.version ?? VERSION;
   const line = `${detail}; plugin v${plugin}, paqad-ai v${own}`;
@@ -1062,12 +1116,26 @@ function withPluginVersion(
     : { detail: line, level: 'warning', remediation: VERSION_MISMATCH_FIX };
 }
 
+function entriesThatApplyHere(
+  entries: Record<string, unknown>[],
+  projectRoot: string | undefined,
+): Record<string, unknown>[] {
+  const root = projectRoot ?? null;
+  const here = entries.filter((entry) => entryScopeMatch(entry, root) === 'this-project');
+  const user = entries.filter((entry) => entryScopeMatch(entry, root) === 'user');
+  return [...here, ...user];
+}
+
 export function readInstalledPluginVersion(
   home: string,
   env: NodeJS.ProcessEnv = process.env,
+  projectRoot?: string,
 ): string | null {
   const configDir = claudeConfigDir(home, env);
-  for (const entry of installedPluginEntries(configDir)) {
+  const entries = installedPluginEntries(configDir);
+  const applying = entriesThatApplyHere(entries, projectRoot);
+  if (entries.length > 0 && applying.length === 0) return null;
+  for (const entry of applying) {
     const installPath = typeof entry.installPath === 'string' ? entry.installPath : null;
     const fromRoot = installPath === null ? null : readPackageVersion(installPath);
     if (fromRoot !== null) return fromRoot;

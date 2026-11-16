@@ -640,7 +640,7 @@ export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
-  scope: { qualified: boolean; reason: HudScopeReason };
+  scope: { qualified: boolean; reason: HudScopeReason; branch?: string | null };
   workflow: HudWorkflow | null;
   active: boolean;
   route: string | null;
@@ -1765,7 +1765,11 @@ function buildHudSnapshotForRoute(
       schema: HUD_SNAPSHOT_SCHEMA,
       session_id: sessionId,
       generated_at: now().toISOString(),
-      scope: { qualified: false, reason: scope.reason },
+      scope: {
+        qualified: false,
+        reason: scope.reason,
+        ...(scope.branch === undefined ? {} : { branch: scope.branch }),
+      },
       workflow: buildWorkflow(projectRoot, sessionId, workflow),
       active: false,
       route,

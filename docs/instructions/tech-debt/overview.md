@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M7JFBV6MV43F8X0K3QA822K9](TD-01M7JFBV6MV43F8X0K3QA822K9.md) (bug, low): one-chain-per-session hook test runs out of memory under the parallel unit suite
+- [TD-01M7JFBT25N8EYXPR9NEZ1EPK8](TD-01M7JFBT25N8EYXPR9NEZ1EPK8.md) (follow-up, medium): A local plugin opt-out in one repo stops the background plugin install on every repo of the machine
 - [TD-01M7HW063AWE0K12ZWX2G6NDQR](TD-01M7HW063AWE0K12ZWX2G6NDQR.md) (gap, low): Journey rules_before snapshot comes from the rule-script map, so pre-existing rules not yet mapped are treated as journey-added
 - [TD-01M7HW03VCA49HDN3PRQJNC5H7](TD-01M7HW03VCA49HDN3PRQJNC5H7.md) (gap, medium): onboarding commit verb cannot tell a person's answer from an agent's on hosts without the ask permission
 - [TD-01M7HW01TYSNWVG7TY7ADVV9RM](TD-01M7HW01TYSNWVG7TY7ADVV9RM.md) (gap, medium): Plugin mod register.tsx is outside every tsc project, so its onboarding wiring is not type-checked

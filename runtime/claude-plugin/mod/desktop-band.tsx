@@ -457,6 +457,14 @@ export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions:
     case 'closed':
     case 'hidden':
       return closedBand(ui, band, actions);
+    case 'scope-row':
+      return (
+        <Text key="paqad-band" wrap="truncate-end">
+          {brand(ui)}
+          <Text size="footnote">{`   ${band.word}`}</Text>
+          {band.words ? <Text size="footnote" dimColor>{` · ${band.words}`}</Text> : null}
+        </Text>
+      );
     case 'feature':
     case 'ready-feature':
       return featureBand(ui, band, tick, actions);

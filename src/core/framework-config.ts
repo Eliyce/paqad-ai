@@ -349,11 +349,11 @@ const BASE_CONFIG_SPECS: readonly BaseConfigSpec[] = [
     env: 'PAQAD_PLUGIN_MIGRATION',
     type: 'enum',
     enumValues: PLUGIN_MIGRATION_MODES,
-    default: 'off',
+    default: 'on',
     group: 'app',
     section: 'Claude Code plugin migration',
     comment:
-      'Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback.',
+      'Moves existing npm Claude Code users to the paqad plugin in the background with npm kept as the fallback, is on by default, and claude_install_mode=settings keeps a project on npm.',
   },
   {
     key: 'claude_install_mode',
@@ -1699,7 +1699,7 @@ export function writeConfigsReadme(projectRoot: string): string {
   return path;
 }
 
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 const CATALOG_VERSION_STAMP = '# catalog_version: ';
 
 export function generateConfigExample(): string {

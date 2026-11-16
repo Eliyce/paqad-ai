@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -30,7 +28,7 @@ beforeEach(() => {
 afterEach(() => world.cleanup());
 
 describe('the plugin move in a repo that commits the plugin', () => {
-  it('skips the user-scope move, logs it once and leaves the user settings alone', () => {
+  it('AC-2: a project-scope install still gets the user-scope install', () => {
     installPlugin(world, 'project');
     turnPluginOn(projectSettingsPath(world), true);
     let installs = 0;
@@ -40,26 +38,29 @@ describe('the plugin move in a repo that commits the plugin', () => {
         return { ok: true };
       },
     });
-    expect(maybeMigrateToPlugin(world.projectRoot, deps)).toEqual({
-      state: 'skipped',
-      reason: 'project-turns-plugin-on',
+    expect(maybeMigrateToPlugin(world.projectRoot, deps)).toMatchObject({
+      state: 'installed',
+      path: 'cli',
     });
-    expect(maybeMigrateToPlugin(world.projectRoot, deps).reason).toBe('project-turns-plugin-on');
-    expect(installs).toBe(0);
-    expect(existsSync(userSettingsPath(world))).toBe(false);
-    expect(lines).toEqual([
-      'this project turns the plugin on in .claude/settings.json; user-scope move not needed',
-    ]);
+    expect(installs).toBe(1);
+    expect(readMigrationState(world.home)?.reason).toBeUndefined();
   });
 
-  it('runs the move again once the project stops committing the plugin', () => {
+  it('AC-2: a repo that commits the plugin gets the move without waiting for a retry', () => {
     turnPluginOn(projectSettingsPath(world), true);
-    const deps = migrationDeps(world, lines);
-    maybeMigrateToPlugin(world.projectRoot, deps);
-    const skipped = readMigrationState(world.home);
-    expect(retryAllowed(skipped, new Date('2026-11-02T12:00:00Z'))).toBe(true);
-    turnPluginOn(projectSettingsPath(world), false);
-    expect(maybeMigrateToPlugin(world.projectRoot, deps).state).toBe('installed');
+    writeRecord(world, {
+      state: 'skipped',
+      reason: 'project-turns-plugin-on',
+      attempts: 0,
+      version: '1.116.0',
+      last_attempt_at: '2026-11-01T00:00:00.000Z',
+    });
+    expect(retryAllowed(readMigrationState(world.home), new Date('2026-11-01T00:01:00Z'))).toBe(
+      true,
+    );
+    expect(maybeMigrateToPlugin(world.projectRoot, migrationDeps(world, lines)).state).toBe(
+      'installed',
+    );
   });
 
   it('writes a log line when the plugin is already present and only the settings are written', () => {
@@ -77,7 +78,7 @@ describe('the plugin move in a repo that commits the plugin', () => {
     expect(maybeMigrateToPlugin(world.projectRoot, migrationDeps(world, lines)).state).toBe(
       'declined',
     );
-    expect(lines).toEqual(['plugin already present; not turned on (declined: user-opted-out)']);
+    expect(lines).toEqual(['plugin turned off (user-opted-out); not installing']);
   });
 });
 

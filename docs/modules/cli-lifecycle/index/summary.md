@@ -94,6 +94,10 @@ The reasons below are not obvious from the code of these commands and the shared
   truncates. Codex loads project hooks only once the `.codex/` layer is trusted, so onboarding
   prints the one-time `/hooks` step.
 
+### Plugin migration defaults
+
+`plugin_migration` is on by default and the minimum Claude Code is the mod's `MIN_ENGINE` (2.1.301), so the plugin's hooks never arrive without its HUD. Team repos get the user-scope install too, and old `project-turns-plugin-on` records retry at once. Opt-outs: plugin off in user or local settings, `claude_install_mode=settings`, managed policy, CI or headless, and cloud. On a local machine the launcher's copy route runs the hidden `plugin migrate` in the background; the one-time reload line shows once per session. `doctor` reports a snapshot fresh for 15 minutes with a stale heartbeat as "HUD not attached" and warns.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

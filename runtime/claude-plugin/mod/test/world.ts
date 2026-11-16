@@ -10,6 +10,7 @@ export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
   root: string;
+  sessionId: string | null;
   files: Map<string, string>;
   store: Map<string, unknown>;
   closedPanes: string[];
@@ -76,6 +77,7 @@ function markAllowedOnce(world: World): void {
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const world: World = {
     root: options.root ?? ROOT,
+    sessionId: options.sessionId === null ? null : (options.sessionId ?? SESSION_ID),
     files: new Map(Object.entries(options.files ?? {})),
     store: options.store ?? new Map(),
     closedPanes: [],
@@ -146,9 +148,9 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('env.get', ($, e) => ({ value: options.env?.[e.name] }));
   on('session.root', () => ({ value: world.root }));
   on('session.id', () =>
-    options.sessionId === null
+    world.sessionId === null
       ? { deny: 'the session id is not available' }
-      : { value: options.sessionId ?? SESSION_ID },
+      : { value: world.sessionId },
   );
   on('session.version', () => ({
     value: options.version ?? { version: '2.1.302', base: '2.1.302' },

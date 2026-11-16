@@ -176,6 +176,10 @@ in this page disagrees with the map, the **map wins**. To change this page:
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).
 3. Review the regenerated business + technical pages per feature.
 
+## Route switches and the HUD
+
+The running-change rule covers every non-feature route except slash commands; a question asked while a change is paused stays a question. The ledger-session cache counts for a route switch only when it is recent and was written for this project root. A route correction is recorded as its own route turn, stamped at the corrected turn. `stage start` on a change it does not own prints the real ownership message with the `--title` hint and exits 1.
+
 ## Related
 
 - Module registry: [`docs/instructions/registries/modules.md`](../../../instructions/registries/modules.md)

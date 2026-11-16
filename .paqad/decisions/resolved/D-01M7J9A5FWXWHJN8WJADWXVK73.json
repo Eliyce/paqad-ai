@@ -1,0 +1,59 @@
+{
+  "id": "D-01M7J9A5FWXWHJN8WJADWXVK73",
+  "category": "architecture-path",
+  "title": "Module attribution for #902 (planning left it provisional)",
+  "context": "Extractor found no candidates; inferencer top match claude-plugin (0.185). The plan already attributes each step to its module: cli-lifecycle, cli-health, claude-plugin, feature-evidence, feature-development-workflow, template-engine, adapter-onboarding.",
+  "options": [
+    {
+      "option_key": "per-step",
+      "label": "Primary module claude-plugin; each step keeps the module the plan gave it",
+      "one_line_preview": "Primary module claude-plugin; each step keeps the module the plan gave it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "claude-plugin-only",
+      "label": "Attribute the whole change to claude-plugin",
+      "one_line_preview": "Attribute the whole change to claude-plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Owner names a different primary module",
+      "one_line_preview": "Owner names a different primary module",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "per-step",
+  "created_at": "2026-11-16T13:38:58.172Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "D-01M75Y5VDNQ8T66PBW0JEJ4Z7S chose feature-evidence plus claude-plugin for #887, a narrower change; #902 also spans install, doctor and launcher modules, so that reason does not carry over cleanly."
+  },
+  "chosen": "per-step",
+  "rationale": "Developer chose claude-plugin primary, per-step modules",
+  "resolved_at": "2026-11-16T13:59:14.510Z",
+  "decision_id": "D-01M7J9A5FWXWHJN8WJADWXVK73",
+  "fingerprint": "sha256:9ecee1e8f65de4250e4d61cb564a60e9da9f557e2a91c8114cab1321b3ccfd38",
+  "question": "Module attribution for #902 (planning left it provisional)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2027-02-14T13:38:58.172Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "per-step",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:59:14.510Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose claude-plugin primary, per-step modules"
+  }
+}

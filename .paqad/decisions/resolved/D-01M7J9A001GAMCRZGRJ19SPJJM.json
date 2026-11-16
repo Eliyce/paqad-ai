@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7J9A001GAMCRZGRJ19SPJJM",
+  "category": "ux-pattern",
+  "title": "D1: after the automatic plugin install, show a one-time /reload-plugins line or wait for the next session",
+  "context": "On a local machine the plugin installs in the background (update, or the team launcher copy route). Live test: typing /reload-plugins after the install makes the HUD draw in that same session; otherwise it appears next session. Cloud is excluded (no mod draws there).",
+  "options": [
+    {
+      "option_key": "reload-line",
+      "label": "Show one line once: type /reload-plugins to see the HUD now, or it shows next session",
+      "one_line_preview": "Show one line once: type /reload-plugins to see the HUD now, or it shows next session",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "next-session",
+      "label": "No line; the HUD appears in the next session",
+      "one_line_preview": "No line; the HUD appears in the next session",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "reload-line",
+  "created_at": "2026-11-16T13:38:52.546Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier answer covers telling the user to reload plugins after a background install."
+  },
+  "chosen": "reload-line",
+  "rationale": "Developer chose one reload line after a background install",
+  "resolved_at": "2026-11-16T13:50:08.161Z",
+  "decision_id": "D-01M7J9A001GAMCRZGRJ19SPJJM",
+  "fingerprint": "sha256:fdddd6daf598bccedfdc552f5ff06fe495d16db698391b382c72fabef4965450",
+  "question": "D1: after the automatic plugin install, show a one-time /reload-plugins line or wait for the next session",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2026-12-16T13:38:52.546Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reload-line",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:08.161Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose one reload line after a background install"
+  }
+}

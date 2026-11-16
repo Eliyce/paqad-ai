@@ -152,7 +152,7 @@ describe('paqad-ai lane command', () => {
       expect(readRouteOverrides(root, SES)).toEqual([]);
     });
 
-    it('AC-18: CLAUDE_CODE_SESSION_ID counts as explicit and moves the route', async () => {
+    it('AC-18, AC-21: CLAUDE_CODE_SESSION_ID alone moves the route on lane set', async () => {
       vi.stubEnv('SE_SESSION', undefined);
       vi.stubEnv('CLAUDE_SESSION_ID', undefined);
       vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);

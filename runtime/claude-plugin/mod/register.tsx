@@ -325,7 +325,7 @@ let desktopSession = false;
 let taskListRefused = false;
 let signoffChecking = false;
 let boundStart: string | null = null;
-let sessionOpened = false;
+let boundSessionId: string | null = null;
 let homeDir: string | null = null;
 let missingTimer: Timer | null = null;
 let commandRegistered = false;
@@ -1588,9 +1588,35 @@ async function registerCommandOnce($: EngineInterface): Promise<void> {
   await registerCommand($);
 }
 
+async function sessionIdOf($: EngineInterface): Promise<string | null> {
+  try {
+    return (await $.session.id()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function currentBinding($: EngineInterface): Promise<{
+  root: string;
+  sessionId: string | null;
+}> {
+  const root = await $.session.root();
+  return { root, sessionId: await sessionIdOf($) };
+}
+
+function learnSurface(event: unknown): void {
+  if ((event as { surface?: unknown }).surface === 'desktop') desktopSession = true;
+}
+
 async function followRoot($: EngineInterface): Promise<void> {
-  const start = await nextSessionRoot(sessionOpened, boundStart, () => $.session.root());
+  const bound = boundStart === null ? null : { root: boundStart, sessionId: boundSessionId };
+  let current: { root: string; sessionId: string | null } | null = null;
+  const start = await nextSessionRoot(bound, async () => {
+    current = await currentBinding($);
+    return current;
+  });
   if (start === null) return;
+  boundSessionId = (current as { sessionId: string | null } | null)?.sessionId ?? null;
   await clearBinding($);
   try {
     await update($, statusAtom, () => null);
@@ -1601,17 +1627,31 @@ async function followRoot($: EngineInterface): Promise<void> {
 
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
+    learnSurface(e);
+    let current: { root: string; sessionId: string | null } | null = null;
+    try {
+      current = await currentBinding($);
+    } catch {}
+    if (
+      current !== null &&
+      boundStart !== null &&
+      current.root === boundStart &&
+      current.sessionId === boundSessionId
+    ) {
+      await recheckRoot($);
+      return next(e);
+    }
     await clearBinding($);
     taskListRefused = false;
     signoffChecking = false;
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     boundStart = null;
-    sessionOpened = true;
+    boundSessionId = current?.sessionId ?? null;
     commandRegistered = false;
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
-      status = await resolveRoot($, await $.session.root());
+      if (current !== null) status = await resolveRoot($, current.root);
     } catch {}
     if (status && registersCommand(status)) await registerCommandOnce($);
     return next(e);
@@ -1627,6 +1667,7 @@ export const register: Register = (on) => {
   );
 
   on('prompt.submit', async ($, e, next) => {
+    learnSurface(e);
     await followRoot($);
     if (!live) await recheckRoot($);
     taskListRefused = false;
@@ -1694,6 +1735,7 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('turn.start', async ($, e, next) => {
+    learnSurface(e);
     await followRoot($);
     if (live && !e.agentId) {
       const now = await $.clock.now();
@@ -1726,6 +1768,7 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    learnSurface(e);
     const status = await read($, statusAtom);
     const tray = await read($, onboardPendingAtom);
     if (tray && !status?.on && e.surface === 'desktop' && !e.props.hasSurvey) {

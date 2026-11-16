@@ -237,17 +237,23 @@ export function ancestorDirs(root: string, home: string | null = null): string[]
   }
 }
 
+export interface SessionBinding {
+  root: string;
+  sessionId: string | null;
+}
+
 export async function nextSessionRoot(
-  opened: boolean,
-  bound: string | null,
-  readRoot: () => Promise<string>,
+  bound: SessionBinding | null,
+  readBinding: () => Promise<SessionBinding>,
 ): Promise<string | null> {
-  if (!opened) return null;
-  let start: string;
+  let current: SessionBinding;
   try {
-    start = await readRoot();
+    current = await readBinding();
   } catch {
     return null;
   }
-  return start === bound ? null : start;
+  if (bound !== null && current.root === bound.root && current.sessionId === bound.sessionId) {
+    return null;
+  }
+  return current.root;
 }

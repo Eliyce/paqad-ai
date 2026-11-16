@@ -16,8 +16,9 @@
 # built for both. An unknown target fails the build.
 #
 # manifest_name is the name the two plugin manifests (Claude and Codex) carry, so commands read
-# /paqad:discover. name stays the repository, marketplace and plugin folder name, and the ChatGPT
-# directory package keeps it as its manifest name.
+# /paqad-discovery:discover and never clash with the paqad plugin. name stays the repository,
+# marketplace and plugin folder name, and the ChatGPT directory package keeps it as its manifest
+# name.
 #
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
 # imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
@@ -42,7 +43,7 @@
 # capabilities holds 1 to 20 entries of at most 120 characters. build.py checks every limit.
 
 name: paqad-product-discovery
-manifest_name: paqad
+manifest_name: paqad-discovery
 description: "Ask what a product does and shape ideas into user-story tickets, grounded in the repository's business docs and code."
 license: MIT
 display_name: "paqad discovery"

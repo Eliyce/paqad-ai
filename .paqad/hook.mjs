@@ -18,7 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const LAUNCHER_REVISION = 1;
+export const LAUNCHER_REVISION = 2;
 export const PLUGIN_REPO_URL = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 export const PLUGIN_ID = 'paqad@eliyce';
 export const SETUP_LINE_LAPTOP = 'Setting up paqad for this repo (one time).';
@@ -194,6 +194,13 @@ export function readYamlScalar(text, path) {
 const TEAM_YAML_HOMES = {
   paqad_enable: ['enabled'],
   team_bootstrap_enabled: ['team_bootstrap', 'enabled'],
+  plugin_migration: ['claude_code', 'plugin_migration'],
+  claude_install_mode: ['claude_code', 'install_mode'],
+};
+
+const TEAM_YAML_ENUMS = {
+  plugin_migration: ['on', 'off'],
+  claude_install_mode: ['auto', 'plugin', 'settings'],
 };
 
 function readTeamYamlKey(projectRoot, key) {
@@ -206,7 +213,9 @@ function readTeamYamlKey(projectRoot, key) {
     return undefined;
   }
   const raw = readYamlScalar(text, path);
-  return raw !== undefined && BOOLEAN_WORDS.indexOf(lower(raw)) !== -1 ? raw : undefined;
+  if (raw === undefined) return undefined;
+  if (TEAM_YAML_ENUMS[key] !== undefined) return raw;
+  return BOOLEAN_WORDS.indexOf(lower(raw)) !== -1 ? raw : undefined;
 }
 
 export function readLayeredKey(projectRoot, key, envName, env) {
@@ -383,6 +392,10 @@ export function routeRecordPath(projectRoot, sid) {
 
 export function noticePath(projectRoot, sid) {
   return join(sessionDir(projectRoot, 'team-bootstrap-notice.d'), sid);
+}
+
+export function pluginMigrateMarkPath(projectRoot, sid) {
+  return join(sessionDir(projectRoot, 'plugin-migrate.d'), sid);
 }
 
 export function pluginClaimPath(projectRoot, sid) {
@@ -720,6 +733,71 @@ function isRemote(env) {
   return lower(env.CLAUDE_CODE_REMOTE) === 'true';
 }
 
+const MIGRATION_SETTLED = ['installed', 'done', 'declined', 'rolled-back'];
+
+function migrationSettled(home) {
+  const parsed = readJson(join(home, '.paqad-ai', 'plugin-migration.json'));
+  const state = parsed && typeof parsed.state === 'string' ? parsed.state : '';
+  return MIGRATION_SETTLED.indexOf(state) !== -1;
+}
+
+function enumKey(projectRoot, key, envName, env, fallback) {
+  const raw = readLayeredKey(projectRoot, key, envName, env);
+  const value = raw === undefined ? '' : raw.trim();
+  return TEAM_YAML_ENUMS[key].indexOf(value) !== -1 ? value : fallback;
+}
+
+function isCiOrHeadless(env) {
+  return (
+    (typeof env.CI === 'string' && env.CI !== '') ||
+    (typeof env.PAQAD_HEADLESS === 'string' && env.PAQAD_HEADLESS !== '') ||
+    env.CLAUDE_CODE_ENTRYPOINT === 'sdk-cli'
+  );
+}
+
+export function migrationRuledOut(projectRoot, env) {
+  if (isRemote(env)) return 'cloud-session';
+  if (isCiOrHeadless(env)) return 'ci-or-headless';
+  const mode = enumKey(projectRoot, 'claude_install_mode', 'PAQAD_CLAUDE_INSTALL_MODE', env, 'auto');
+  if (mode === 'settings') return 'install-mode-settings';
+  const migration = enumKey(projectRoot, 'plugin_migration', 'PAQAD_PLUGIN_MIGRATION', env, 'on');
+  if (migration !== 'on' && mode !== 'plugin') return 'migration-off';
+  return null;
+}
+
+export function copyCliPath(home) {
+  return join(teamPluginRoot(home), 'dist', 'cli', 'index.js');
+}
+
+export function maybeStartPluginMigration(ctx) {
+  if (ctx.script !== 'agent-entry-session-start.mjs') return false;
+  if (migrationRuledOut(ctx.projectRoot, ctx.env) !== null) return false;
+  if (migrationSettled(ctx.home)) return false;
+  const cli = copyCliPath(ctx.home);
+  if (!existsSync(cli)) return false;
+  try {
+    ctx.deps.spawnDetached(
+      process.execPath,
+      [cli, 'plugin', 'migrate', '--project-root', ctx.projectRoot],
+      { detached: true, stdio: 'ignore', windowsHide: true, env: ctx.env },
+    );
+  } catch (error) {
+    logLine(ctx.projectRoot, 'plugin install not started (' + errorCode(error) + ')', ctx);
+    return false;
+  }
+  if (ctx.sid) {
+    try {
+      const mark = pluginMigrateMarkPath(ctx.projectRoot, ctx.sid);
+      mkdirSync(dirname(mark), { recursive: true });
+      writeFileSync(mark, new Date(ctx.deps.now()).toISOString() + '\n');
+    } catch (error) {
+      logLine(ctx.projectRoot, 'plugin install mark not written (' + errorCode(error) + ')', ctx);
+    }
+  }
+  logLine(ctx.projectRoot, 'plugin install started in the background', ctx);
+  return true;
+}
+
 function copyEnv(env, home) {
   const out = Object.assign({}, env, {
     CLAUDE_PLUGIN_ROOT: teamPluginRoot(home),
@@ -845,6 +923,7 @@ function sessionStart(ctx) {
     decided = installAtSessionStart(ctx);
   }
   writeRoute(ctx.projectRoot, ctx.sid, decided, ctx);
+  if (decided.route === 'copy') maybeStartPluginMigration(ctx);
   if (ctx.script === 'agent-entry-session-start.mjs' || !ctx.sid) {
     logLine(
       ctx.projectRoot,

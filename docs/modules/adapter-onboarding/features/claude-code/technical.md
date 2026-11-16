@@ -160,8 +160,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `node scripts/build-plugin-manifest.mjs` and checked for drift in CI; never hand-edit them. The
   user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
   npm-only users keep their stage agents. Codex keeps its written agents. With team setup on, the
-  repo also commits the 13 agents in `.claude/agents/`, because a Claude Code cloud session loads no
-  plugin but does load committed agent files. A laptop with the plugin then lists both
+  repo also commits the 13 agents in `.claude/agents/`, because a Claude Code cloud session does not
+  install a plugin the repo turns on, and draws no plugin HUD, but does load committed agent files. A laptop with the plugin then lists both
   `paqad:paqad-<name>` and `paqad-<name>`; the orchestrator dispatches the first and falls back to
   the second. The plugin counts as installed only when `pluginLoadState`
   (`src/health/plugin-install.ts`) reads a version 2 `installed_plugins.json` entry that exists on

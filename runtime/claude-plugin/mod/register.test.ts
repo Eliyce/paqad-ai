@@ -337,13 +337,15 @@ const QUESTION = {
 
 describe('other workflows get one status entry and no band', () => {
   for (const surface of TERMINAL) {
-    test(`a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
+    test(`AC-39: a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
       const clock = mock.clock(on, { now: NOW });
       await $.session.start(START);
       const idle = await $.ui.render(band(surface));
       expect(cardOf(idle)).toBeUndefined();
-      expect(linesOf(idle)).toEqual(['paqad · question · 84K tokens · ~$0.05']);
+      expect(linesOf(idle).filter((line) => line.trim() !== '')).toEqual([
+        'paqad · question · 84K tokens · ~$0.05',
+      ]);
       await $.prompt.submit({ text: 'what is this?' } as never);
       await clock.advance(42_000);
       await clock.settle();
@@ -427,6 +429,11 @@ describe('minimise, close and hide', () => {
       expect(textOf(await $.ui.render(band(surface)))).toContain(
         'Closed for this session · /paqad show',
       );
+      const newSession = (id: string) => {
+        world.sessionId = id;
+        world.put(`.paqad/session/hud/${id}.json`, fileText(FULL_ORD_501));
+      };
+      newSession('ses_next_1');
       await $.session.start(START);
       expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
       world.answers.push('Hide always');
@@ -434,6 +441,7 @@ describe('minimise, close and hide', () => {
       await mounted.press({ key: 'paqad-close' });
       await mounted.unmount();
       expect(world.store.get('band.hidden:/work')).toBe(true);
+      newSession('ses_next_2');
       await $.session.start(START);
       expect(textOf(await $.ui.render(band(surface)))).toContain('Hidden always · /paqad show');
       const reopen = await mountBand($, surface);
@@ -838,14 +846,14 @@ describe('the Desktop band', () => {
     }
   });
 
-  test('draws Ready before the first snapshot, Paqad Getting Ready once routed, and nothing without that reason', async ($, on) => {
+  test('AC-16: draws Ready before the first snapshot, then Paqad Getting Ready once routed, never nothing', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Ready');
     world.put(SNAPSHOT, fileText(snapshot({ route: 'feature-development' })));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('paqad');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Paqad Getting Ready');
     world.put(
       SNAPSHOT,
       fileText(
@@ -4338,5 +4346,141 @@ describe("the CI watch runs only the plugin's own binary", () => {
       await clock.settle();
     }
     expect(refreshRuns(world)).toEqual([]);
+  });
+});
+
+describe('W3: the HUD binds on the first prompt when session.start never fired', () => {
+  const PROMPT = { text: 'go', origin: { kind: 'composer' } } as never;
+
+  test('AC-9: no session.start, then prompt.submit binds, writes the .live heartbeat and draws the band', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.prompt.submit(PROMPT);
+    await clock.advance(2_000);
+    expect(world.writes.map((write) => write.path)).toContain(HEARTBEAT);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('paqad');
+  });
+
+  test('AC-9: no session.start, then turn.start binds and writes the heartbeat', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.turn.start({ text: 'go', turnId: 'turn-1' } as never);
+    expect(world.writes.map((write) => write.path)).toContain(HEARTBEAT);
+  });
+
+  for (const [ac, label] of [
+    ['AC-10', '/clear'],
+    ['AC-11', '/resume'],
+    ['AC-12', '/branch'],
+  ] as const) {
+    test(`${ac}: after ${label} (a new session id, no session.start) the next prompt binds and redraws`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      const clock = mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      world.sessionId = 'ses_after_switch';
+      world.put('.paqad/session/hud/ses_after_switch.json', fileText(FULL_ORD_501));
+      await $.prompt.submit(PROMPT);
+      await clock.advance(2_000);
+      expect(world.writes.map((write) => write.path)).toContain(
+        '.paqad/session/hud/ses_after_switch.live',
+      );
+      const text = textOf(await $.ui.render(band('terminal')));
+      expect(text).toContain('paqad');
+      expect(text.trim()).not.toBe('');
+    });
+  }
+
+  test('AC-13: session.start, prompt.submit, turn.start and a reload session.start keep the live band', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(OTHER_WORKFLOW) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit(PROMPT);
+    await $.turn.start({ text: 'go', turnId: 'turn-1' } as never);
+    await clock.advance(42_000);
+    await clock.settle();
+    await $.session.start(START);
+    expect(linesOf(await $.ui.render(band('terminal')))[0]).toContain('running 0:42');
+  });
+
+  test('AC-14: a Desktop session first seen in an AbovePrompt render settles on the Desktop layout', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.prompt.submit(PROMPT);
+    const first = await $.ui.render(band('desktop'));
+    expect(textOf(first)).toContain('paqad');
+    const second = await $.ui.render(band('desktop'));
+    expect(textOf(second)).toContain('paqad');
+  });
+});
+
+describe('the HUD follows every workflow switch in one session', () => {
+  const refresh = async ($: Parameters<Parameters<typeof test>[1]>[0]) => {
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+  };
+  const question = snapshot({ ...OTHER_WORKFLOW });
+  const rca = snapshot({
+    ...OTHER_WORKFLOW,
+    route: 'root-cause-analysis',
+    workflow: null,
+  });
+
+  test('AC-26: question, RCA, corrected misroute, question, continue draw status, status, band, status, band', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(question) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const drawn: string[] = [];
+    const draw = async () => {
+      const node = await $.ui.render(band('terminal', { bodyColumns: 120 }));
+      const text = textOf(node);
+      expect(text).toContain('paqad');
+      drawn.push(cardOf(node) ? 'band' : 'status row');
+    };
+    await draw();
+    world.put(SNAPSHOT, fileText(rca));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(question));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    await draw();
+    expect(drawn).toEqual(['status row', 'status row', 'band', 'status row', 'band']);
+  });
+
+  test('AC-27: a closed change shows its closed row, the next shows Getting ready then its band', async ($, on) => {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(
+          snapshot({
+            route: 'feature-development',
+            active: false,
+            scope: { qualified: false, reason: 'closed' },
+          }),
+        ),
+      },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('Change closed');
+    world.put(
+      SNAPSHOT,
+      fileText(
+        snapshot({
+          route: 'feature-development',
+          active: false,
+          scope: { qualified: false, reason: 'no-change-yet' },
+        }),
+      ),
+    );
+    await refresh($);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('Getting ready');
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    expect(cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })))).toBeDefined();
   });
 });

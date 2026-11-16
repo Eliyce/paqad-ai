@@ -16,19 +16,23 @@ import { readHeadRef } from '@/rag/git-state.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 
-export type HudScopeReason =
-  | 'qualified'
-  | 'finished'
-  | 'no-active-change'
-  | 'no-change-yet'
-  | 'closed'
-  | 'other-branch'
-  | 'not-feature-route'
-  | 'no-row-this-episode';
+export const HUD_SCOPE_REASONS = [
+  'qualified',
+  'finished',
+  'no-active-change',
+  'no-change-yet',
+  'closed',
+  'other-branch',
+  'not-feature-route',
+  'no-row-this-episode',
+] as const;
+
+export type HudScopeReason = (typeof HUD_SCOPE_REASONS)[number];
 
 export interface HudChangeScope {
   dir: string | null;
   reason: HudScopeReason;
+  branch?: string | null;
 }
 
 export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = Object.fromEntries(
@@ -63,7 +67,7 @@ export function qualifyHudChange(
   const head = readHeadRef(projectRoot);
   const recorded = featureBranch(projectRoot, dir);
   if (head.detached || (recorded !== null && recorded !== head.branch)) {
-    return { dir: null, reason: 'other-branch' };
+    return { dir: null, reason: 'other-branch', branch: recorded };
   }
   const start =
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ??
@@ -73,9 +77,25 @@ export function qualifyHudChange(
     !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
     !stageStillRunning(projectRoot, dir)
   ) {
+    if (!sessionWroteInEpisode(projectRoot, sessionId, dir, null)) {
+      return { dir: null, reason: 'no-change-yet' };
+    }
+    if (resumedFeatureEpisode(projectRoot, sessionId, start)) return { dir, reason: 'qualified' };
     return { dir: null, reason: 'no-row-this-episode' };
   }
   return { dir, reason: 'qualified' };
+}
+
+function resumedFeatureEpisode(
+  projectRoot: string,
+  sessionId: string,
+  start: string | null,
+): boolean {
+  if (start === null) return false;
+  const startMs = Date.parse(start);
+  return readRouteTurns(projectRoot, sessionId).some(
+    (turn) => turn.workflow === 'feature-development' && Date.parse(turn.at) < startMs,
+  );
 }
 
 function stageStillRunning(projectRoot: string, dirName: string): boolean {
@@ -92,7 +112,7 @@ function finishedChange(
   const head = readHeadRef(projectRoot);
   if (head.detached) return none;
   const dir = sessionReattachableFeature(projectRoot, sessionId, head.branch);
-  if (dir) {
+  if (dir && !closedBeforeTurn(projectRoot, dir, turnStartedAt)) {
     const start =
       episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
     if (
@@ -105,6 +125,17 @@ function finishedChange(
   return noChangeYet(projectRoot, sessionId, turnStartedAt)
     ? { dir: null, reason: 'no-change-yet' }
     : none;
+}
+
+function closedBeforeTurn(projectRoot: string, dir: string, turnStartedAt: string | null): boolean {
+  const turnMs = turnStartedAt === null ? NaN : Date.parse(turnStartedAt);
+  if (Number.isNaN(turnMs)) return false;
+  let closedMs = NaN;
+  for (const row of readFeatureStageUnit(projectRoot, dir)) {
+    if (row.kind === 'open') closedMs = NaN;
+    if (row.kind === 'close') closedMs = rowTime(row);
+  }
+  return !Number.isNaN(closedMs) && closedMs < turnMs;
 }
 
 function noChangeYet(

@@ -41,3 +41,16 @@ export function logHookDebug(projectRoot, hook, note) {
     return false;
   }
 }
+
+export const HOOKS_LOG = 'hooks.log';
+
+export function appendHookLog(projectRoot, note) {
+  try {
+    const logsDir = join(projectRoot, '.paqad', 'logs');
+    mkdirSync(logsDir, { recursive: true });
+    appendFileSync(join(logsDir, HOOKS_LOG), `${new Date().toISOString()} ${note}\n`);
+    return true;
+  } catch {
+    return false;
+  }
+}

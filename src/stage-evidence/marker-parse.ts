@@ -131,7 +131,7 @@ function recordMarkers(input: MarkerParseInput): Marker[] {
           artifactPaths: normalizedArtifact ? [normalizedArtifact] : undefined,
           adapter: input.adapter,
           now: input.now,
-        })
+        }).ok
       ) {
         seen.add(key);
         recorded.push({ stage, phase, artifactPath });

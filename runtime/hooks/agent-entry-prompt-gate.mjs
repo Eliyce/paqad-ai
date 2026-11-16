@@ -21,7 +21,12 @@ import {
   readLayeredKey,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
-import { quietNarration } from './lib/hud-heartbeat.mjs';
+import {
+  cloudHudLine,
+  pluginReloadLine,
+  quietNarration,
+  recordHudAttachment,
+} from './lib/hud-heartbeat.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -159,9 +164,13 @@ async function main(stdin) {
   }
 
   const sessionId = sessionIdFromStdin(stdin);
+  const hudNotes = `${cloudHudLine(projectRoot, sessionId, process.env)}${pluginReloadLine(
+    projectRoot,
+    sessionId,
+  )}${recordHudAttachment(projectRoot, sessionId, { adapter: ADAPTER })}`;
   const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
-    let firstRouteBuf = '';
+    let firstRouteBuf = hudNotes;
     await emitRoute(stdin, projectRoot, (text) => (firstRouteBuf += text), `${FIRST_GUESS_LINE}\n`);
     await refreshForHumanPrompt(stdin, projectRoot, sessionId);
     const message = directive(state, entryFile(), sentinelRelative(sessionId));
@@ -181,7 +190,7 @@ async function main(stdin) {
   let contextBuf = '';
   emitContext(stdin, projectRoot, (text) => (contextBuf += text), { stripRules });
   const nudge = specPipelineNudge(readLayeredKey, projectRoot, process.env, route);
-  const after = `${nudge ? `${nudge}\n` : ''}${quietNarration(projectRoot, sessionId, ADAPTER)}`;
+  const after = `${hudNotes}${nudge ? `${nudge}\n` : ''}${quietNarration(projectRoot, sessionId, ADAPTER)}`;
   emitInjection(fitHookOutput(routeBuf, contextBuf, after));
   return 0;
 }

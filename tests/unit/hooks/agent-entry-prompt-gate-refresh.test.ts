@@ -74,11 +74,12 @@ function runGate(
   projectRoot: string,
   prompt: string,
   sessionId: string,
+  env: NodeJS.ProcessEnv = {},
 ): { status: number; stdout: string } {
   try {
     const stdout = execFileSync('node', [harness.hook], {
       input: JSON.stringify({ prompt, session_id: sessionId }),
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot, ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return { status: 0, stdout: stdout.toString('utf8') };
@@ -192,6 +193,39 @@ describe.skipIf(process.platform === 'win32')(
       } finally {
         rmSync(bare.pkg, { recursive: true, force: true });
       }
+    });
+
+    it('AC-8: a cloud session gets one plain HUD line on its first prompt and none after', () => {
+      const cloud = { CLAUDE_CODE_REMOTE: 'true' };
+      const first = runGate(harness, projectRoot, 'add a logout button', 'ses-cloud', cloud);
+      expect(first.status).toBe(0);
+      const line =
+        "The paqad HUD cannot draw in a cloud session: Claude Code shows no plugin view there. paqad's checks still run.";
+      expect(first.stdout.split(line)).toHaveLength(2);
+      freshSentinel(projectRoot, 'ses-cloud');
+      const second = runGate(harness, projectRoot, 'and a login button', 'ses-cloud', cloud);
+      expect(second.stdout).not.toContain(line);
+      expect(existsSync(join(projectRoot, '.paqad/session/hud/ses-cloud.unattached'))).toBe(false);
+    });
+
+    it('AC-28: a local session with a fresh snapshot and no heartbeat records HUD not attached once', () => {
+      const local = {
+        CLAUDE_CODE_REMOTE: '',
+        CI: '',
+        PAQAD_HEADLESS: '',
+        CLAUDE_CODE_ENTRYPOINT: 'cli',
+      };
+      const hud = join(projectRoot, '.paqad/session/hud');
+      mkdirSync(hud, { recursive: true });
+      writeFileSync(join(hud, 'ses-local.json'), '{"scope":{"qualified":false}}');
+      freshSentinel(projectRoot, 'ses-local');
+      const first = runGate(harness, projectRoot, 'what does this do?', 'ses-local', local);
+      expect(first.stdout).toContain('HUD not attached');
+      expect(existsSync(join(hud, 'ses-local.unattached'))).toBe(true);
+      const second = runGate(harness, projectRoot, 'and that?', 'ses-local', local);
+      expect(second.stdout).not.toContain('HUD not attached');
+      const log = readFileSync(join(projectRoot, '.paqad/logs/hooks.log'), 'utf8');
+      expect(log.split('HUD not attached')).toHaveLength(2);
     });
 
     it('AC-58: with dist missing a human prompt is not blocked and spawns no refresh', async () => {

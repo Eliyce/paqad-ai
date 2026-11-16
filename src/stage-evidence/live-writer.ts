@@ -248,8 +248,13 @@ function closeOpenStagesForMarkedStart(
   }
 }
 
-export function recordMarkedStage(projectRoot: string, input: MarkedStageInput): boolean {
-  if (!isKnownStage(input.stage)) return false;
+export type MarkedStageResult =
+  { ok: true } | { ok: false; reason: 'unknown-stage' | 'error'; message: string };
+
+export function recordMarkedStage(projectRoot: string, input: MarkedStageInput): MarkedStageResult {
+  if (!isKnownStage(input.stage)) {
+    return { ok: false, reason: 'unknown-stage', message: `unknown stage "${input.stage}"` };
+  }
   const ctx = {
     sessionId: input.sessionId,
     sessionSource: input.sessionSource,
@@ -277,8 +282,12 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
     } else {
       endStage(projectRoot, input.stage, { artifactPaths: input.artifactPaths ?? [] }, ctx);
     }
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'error',
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 }

@@ -125,7 +125,7 @@ class BuildOutputTest(unittest.TestCase):
             plugin["description"],
         )
         # The two plugin manifests agree directly.
-        self.assertEqual(name, "paqad")
+        self.assertEqual(name, "paqad-discovery")
         for manifest in (plugin, openai):
             self.assertEqual(manifest["name"], name)
             self.assertEqual(manifest["version"], version)
@@ -455,15 +455,15 @@ class ListingManifestTest(unittest.TestCase):
         for key in ("name", "version", "description"):
             self.assertTrue(plugin[key], key)
 
-    def test_ac10_both_plugin_manifests_are_named_paqad_and_the_marketplace_keeps_its_name(self):
-        """@obligation AC-10"""
+    def test_ac33_both_plugin_manifests_are_named_paqad_discovery_and_the_marketplace_keeps_its_name(self):
+        """@obligation AC-10 AC-33"""
         plugin_rel = ("plugins", PLUGIN_NAME)
         for root in ((), ("hosts", "claude"), ("hosts", "codex")):
             for parts in (plugin_rel + (".claude-plugin", "plugin.json"),
                           plugin_rel + ("plugin.json",)):
                 path = os.path.join(self.dist, *(root + parts))
                 if os.path.exists(path):
-                    self.assertEqual(read_json(path)["name"], "paqad", path)
+                    self.assertEqual(read_json(path)["name"], "paqad-discovery", path)
         root_plugin = self.manifest(*(plugin_rel + (".claude-plugin", "plugin.json")))
         self.assertEqual(root_plugin["displayName"], "paqad discovery")
         for parts in ((".claude-plugin", "marketplace.json"),
@@ -602,7 +602,8 @@ class PublishFilesTest(unittest.TestCase):
         for text in (read_text(os.path.join(self.dist, "README.md")), self.readme, guide):
             lines = [line for line in text.splitlines() if line.strip() and not line.startswith("# ")]
             self.assertEqual(lines[0], sentence)
-        for command in ("/paqad:discover", "/paqad:ask", "/paqad:start"):
+        for command in ("/paqad-discovery:discover", "/paqad-discovery:ask",
+                        "/paqad-discovery:start"):
             self.assertIn("`{0}`".format(command), self.readme)
         for phrase in ("Customize", "Plugins", "+ Add", "Add marketplace",
                        "`Eliyce/paqad-product-discovery-plugin`", "Sync",
@@ -627,10 +628,10 @@ class PublishFilesTest(unittest.TestCase):
         examples = examples[:examples.index("\n## ", 1)]
         prompts = re.findall(r"^- `([^`]+)`$", examples, re.MULTILINE)
         self.assertGreaterEqual(len(prompts), 3)
-        self.assertTrue(any(prompt.startswith("/paqad:start ") for prompt in prompts))
+        self.assertTrue(any(prompt.startswith("/paqad-discovery:start ") for prompt in prompts))
         positions = [self.readme.index("`{0}`".format(skill)) for skill in (
-            "/paqad:start", "/paqad:ask", "/paqad:discover")]
-        self.assertEqual(positions[0], min(positions), "/paqad:start must come first")
+            "/paqad-discovery:start", "/paqad-discovery:ask", "/paqad-discovery:discover")]
+        self.assertEqual(positions[0], min(positions), "/paqad-discovery:start must come first")
         for phrase in ("code execution", "repository", "Jira connector", "## Install",
                        self.config["support_url"], self.config["privacy_policy_url"],
                        self.config["author_email"], "src=discovery-plugin"):

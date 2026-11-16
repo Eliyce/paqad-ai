@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7J9A1JPXFC8F8AMS4329QV0",
+  "category": "workflow-or-tool",
+  "title": "D3: may any non-feature prompt pause a running feature stage",
+  "context": "Code keeps a running change only for question, docs and no-workflow prompts; an RCA or discovery prompt pauses it, contradicting hud.md ('A feature change that is running keeps its band'). Explicit slash commands route as typed in both options.",
+  "options": [
+    {
+      "option_key": "always-keep",
+      "label": "Every non-feature route keeps a running change (slash commands excepted); code follows hud.md",
+      "one_line_preview": "Every non-feature route keeps a running change (slash commands excepted); code follows hud.md",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "documented-list",
+      "label": "Allow a documented list of routes to pause a running stage; hud.md and code updated to match",
+      "one_line_preview": "Allow a documented list of routes to pause a running stage; hud.md and code updated to match",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "always-keep",
+  "created_at": "2026-11-16T13:38:54.166Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier answer decided which routes may pause a running feature stage."
+  },
+  "chosen": "always-keep",
+  "rationale": "Developer chose to always keep a running change",
+  "resolved_at": "2026-11-16T13:50:09.894Z",
+  "decision_id": "D-01M7J9A1JPXFC8F8AMS4329QV0",
+  "fingerprint": "sha256:362735b1dfea311be34fae98af7233f4bb44f86dd2af2fd9795da602c0b1fbbf",
+  "question": "D3: may any non-feature prompt pause a running feature stage",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2026-11-23T13:38:54.166Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "always-keep",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:09.894Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose to always keep a running change"
+  }
+}

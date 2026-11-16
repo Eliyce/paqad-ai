@@ -16,6 +16,8 @@ import { STAGE_MARK } from '../../../../runtime/claude-plugin/mod/instruments.ts
 import { buildDesktopBand } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
+import { FEATURE_SCOPE_REASONS } from '../../../../runtime/claude-plugin/mod/scope-rows.ts';
+import { HUD_SCOPE_REASONS } from '@/hud/change-scope.js';
 import {
   BAND_BODIES,
   cardRows,
@@ -84,12 +86,12 @@ describe('the band shell', () => {
     expect(changeChip(null)).toBeNull();
   });
 
-  it('idles with only the header before the first read, and draws nothing until a change opens', () => {
+  it('idles with only the header before the first read, and draws a defined row on the feature route', () => {
     expect(bandLines(null)).toEqual(['paqad  Getting ready | – Minimise  × Close']);
     expect(
       bandOf({ ...FULL_ORD_501, scope: { qualified: false, reason: 'other-branch' } }).kind,
-    ).toBe('none');
-    expect(bandOf({ ...FULL_ORD_501, active: false }).kind).toBe('none');
+    ).toBe('line');
+    expect(bandOf({ ...FULL_ORD_501, active: false }).kind).toBe('line');
     expect(bandOf(snapshot()).kind).toBe('none');
     expect(bandOf({ ...snapshot(), route: 'no-workflow' }).kind).toBe('none');
     expect(bandLines(PAUSED)).toEqual(['paqad · question · counting']);
@@ -450,10 +452,81 @@ describe('the terminal line before a change opens', () => {
     });
   });
 
-  it('AC-26: any other reason stays none', () => {
+  it('AC-16: closed without closed_change data draws the Change closed row', () => {
     const closed = ready({ scope: { qualified: false, reason: 'closed' } });
-    expect(layoutBand(closed, size, context)).toEqual({ kind: 'none' });
+    const layout = layoutBand(closed, size, context);
+    expect(layout.kind).toBe('line');
+    if (layout.kind !== 'line') return;
+    expect(rowText(layout.row)).toBe('paqad  Change closed');
   });
+
+  it('AC-16: other-branch names the branch the change is on', () => {
+    const other = ready({ scope: { qualified: false, reason: 'other-branch', branch: 'fix/x' } });
+    const layout = layoutBand(other, size, context);
+    expect(layout.kind).toBe('line');
+    if (layout.kind !== 'line') return;
+    expect(rowText(layout.row)).toBe('paqad  Other branch · The change is on branch fix/x');
+  });
+
+  it('AC-16: no-row-this-episode with a paused change says how to pick it up', () => {
+    const paused = ready({
+      scope: { qualified: false, reason: 'no-row-this-episode' },
+      paused: [{ workflow: 'feature-development', lane: 'full' }],
+    });
+    const layout = layoutBand(paused, size, context);
+    expect(layout.kind).toBe('line');
+    if (layout.kind !== 'line') return;
+    expect(rowText(layout.row)).toBe(
+      'paqad  Paused · A change is paused. Say "continue" to pick it up.',
+    );
+  });
+
+  it('AC-16: an adopted change never written here, and no-row-this-episode without a pause, draw Getting ready', () => {
+    for (const reason of ['no-change-yet', 'no-row-this-episode', 'no-active-change']) {
+      const layout = layoutBand(ready({ scope: { qualified: false, reason } }), size, context);
+      expect(layout.kind, reason).toBe('line');
+      if (layout.kind !== 'line') return;
+      expect(rowText(layout.row), reason).toBe('paqad  Feature · Getting ready');
+    }
+  });
+
+  it('AC-16: every scope reason has a row and the list matches the snapshot reasons (INV-3)', () => {
+    expect([...FEATURE_SCOPE_REASONS].sort()).toEqual([...HUD_SCOPE_REASONS].sort());
+    for (const reason of HUD_SCOPE_REASONS) {
+      const layout = layoutBand(ready({ scope: { qualified: false, reason } }), size, context);
+      expect(layout.kind, reason).not.toBe('none');
+    }
+  });
+
+  it.each([60, 80, 120])(
+    'AC-44: at %i columns each reason word stays visible, truncated from the end',
+    (columns) => {
+      const rows: Array<[Record<string, unknown>, string]> = [
+        [{ scope: { qualified: false, reason: 'closed' } }, 'Change closed'],
+        [
+          { scope: { qualified: false, reason: 'other-branch', branch: 'feature/a-long-name' } },
+          'Other branch',
+        ],
+        [
+          {
+            scope: { qualified: false, reason: 'no-row-this-episode' },
+            paused: [{ workflow: 'feature-development', lane: 'full' }],
+          },
+          'Paused',
+        ],
+        [{ scope: { qualified: false, reason: 'no-change-yet' } }, 'Getting ready'],
+      ];
+      for (const [over, word] of rows) {
+        const layout = layoutBand(ready(over), { columns, maxRows: 12 }, context);
+        expect(layout.kind).toBe('line');
+        if (layout.kind !== 'line') return;
+        const text = rowText(layout.row);
+        expect([...text].length).toBeLessThanOrEqual(columns);
+        expect(text).toContain(word);
+        expect(text.startsWith('paqad  ')).toBe(true);
+      }
+    },
+  );
 });
 
 describe('FR-11: the terminal row for a closed change', () => {

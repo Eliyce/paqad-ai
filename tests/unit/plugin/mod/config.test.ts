@@ -258,22 +258,36 @@ describe('the hud_chime setting', () => {
 });
 
 describe('nextSessionRoot', () => {
-  it('AC-3: retries the folder read on the next prompt after it failed at session start', async () => {
+  const at =
+    (root: string, sessionId: string | null = 's1') =>
+    async () => ({ root, sessionId });
+
+  it('AC-3: retries the folder read on the next prompt after it failed', async () => {
     let calls = 0;
-    const readRoot = async () => {
+    const readBinding = async () => {
       calls += 1;
       if (calls === 1) throw new Error('folder read failed');
-      return '/work/app';
+      return { root: '/work/app', sessionId: 's1' };
     };
-    expect(await nextSessionRoot(true, null, readRoot)).toBeNull();
-    expect(await nextSessionRoot(true, null, readRoot)).toBe('/work/app');
+    expect(await nextSessionRoot(null, readBinding)).toBeNull();
+    expect(await nextSessionRoot(null, readBinding)).toBe('/work/app');
     expect(calls).toBe(2);
   });
 
-  it('AC-3, AC-14: binds a moved folder, skips an unchanged one, and waits for session start', async () => {
-    const at = (root: string) => async () => root;
-    expect(await nextSessionRoot(true, '/work/app', at('/work/app'))).toBeNull();
-    expect(await nextSessionRoot(true, '/work/app', at('/work/other'))).toBe('/work/other');
-    expect(await nextSessionRoot(false, null, at('/work/app'))).toBeNull();
+  it('AC-9: binds with no session start, skips an unchanged binding, and follows a moved folder', async () => {
+    expect(await nextSessionRoot(null, at('/work/app'))).toBe('/work/app');
+    const bound = { root: '/work/app', sessionId: 's1' };
+    expect(await nextSessionRoot(bound, at('/work/app'))).toBeNull();
+    expect(await nextSessionRoot(bound, at('/work/other'))).toBe('/work/other');
+  });
+
+  it('AC-10, AC-11, AC-12: a new session id at the same root binds again', async () => {
+    const bound = { root: '/work/app', sessionId: 's1' };
+    expect(await nextSessionRoot(bound, at('/work/app', 's2'))).toBe('/work/app');
+  });
+
+  it('AC-13: the same session id and root never bind twice', async () => {
+    const bound = { root: '/work/app', sessionId: null };
+    expect(await nextSessionRoot(bound, at('/work/app', null))).toBeNull();
   });
 });

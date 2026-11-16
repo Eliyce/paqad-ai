@@ -53,7 +53,7 @@ overrides everything. Both accept the values below as well as the older values.
 | `rules_discovery.private_packages` | `[]` | a list | Package names or patterns (use * for any text) that rules discovery treats as private and never looks up on the web. | `rules_discovery_private_packages` | `PAQAD_RULES_DISCOVERY_PRIVATE_PACKAGES` |
 | `hud.band` | `true` | true \| false | Shows the paqad status band above the prompt in the Claude Code plugin, along with the /paqad command. | `hud_view` | `PAQAD_HUD_VIEW` |
 | `hud.chime` | `false` | true \| false | Plays a short chime in the Claude Code plugin once each verdict lands. | `hud_chime` | `PAQAD_HUD_CHIME` |
-| `claude_code.plugin_migration` | `off` | on \| off | Moves existing npm Claude Code users to the paqad plugin in the background, with npm kept as the fallback. | `plugin_migration` | `PAQAD_PLUGIN_MIGRATION` |
+| `claude_code.plugin_migration` | `on` | on \| off | Moves existing npm Claude Code users to the paqad plugin in the background with npm kept as the fallback, is on by default, and claude_install_mode=settings keeps a project on npm. | `plugin_migration` | `PAQAD_PLUGIN_MIGRATION` |
 | `claude_code.install_mode` | `auto` | auto \| plugin \| settings | How this project installs paqad into Claude Code, where auto follows the plugin migration switch, plugin forces the plugin and settings keeps the npm hooks. | `claude_install_mode` | `PAQAD_CLAUDE_INSTALL_MODE` |
 
 ### `models.yaml`

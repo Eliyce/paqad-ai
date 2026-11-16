@@ -25,7 +25,7 @@ import type { FeatureAuthoringLaneRaise, FeatureLaneMove } from '@/feature-evide
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { addedLinesSince } from '@/pipeline/git-paths.js';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
-import { announceRouteSwitch } from '@/pipeline/route-switch.js';
+import { announceRouteSwitchFor, routeSwitchSession } from '@/pipeline/route-switch.js';
 import {
   explicitSessionHint,
   keepingLedgerSessionCache,
@@ -427,6 +427,7 @@ export function createStageCommand(): Command {
       }
       const root = options.projectRoot;
       const sessionHint = explicitSessionHint(options.session);
+      const routeSession = routeSwitchSession(root, sessionHint);
       const sessionId = resolveSessionId(root, sessionHint);
       const sessionSource = sessionHint?.trim() ? 'env' : 'cache';
       let artifactPaths: string[] | undefined;
@@ -486,10 +487,12 @@ export function createStageCommand(): Command {
         agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
         agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
       });
-      if (!recorded) {
+      if (!recorded.ok) {
         console.error(
-          `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
-            `Stages, in order: ${STAGE_ORDER.join(', ')}`,
+          recorded.reason === 'unknown-stage'
+            ? `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
+                `Stages, in order: ${STAGE_ORDER.join(', ')}`
+            : `**▸ paqad** · could not record "${stage} ${phase}" — ${recorded.message}`,
         );
         process.exitCode = 1;
         return;
@@ -499,8 +502,8 @@ export function createStageCommand(): Command {
       if (raised.grown) console.log(laneRaisedLine(raised.grown));
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
-      if (phase === 'start' && sessionSource === 'env' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
-        announceRouteSwitch(root, sessionId, 'stage-start');
+      if (phase === 'start' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
+        announceRouteSwitchFor(root, sessionId, routeSession, 'stage-start');
       }
       console.log(
         JSON.stringify({
