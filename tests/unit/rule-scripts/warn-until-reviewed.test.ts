@@ -4,9 +4,12 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { appendChoice, markChoicesReviewed, readChoices } from '@/onboarding/journey/choices.js';
 import {
   clearJourneyRuleCheckFlags,
   flagJourneyRuleChecks,
+  reviewChoices,
+  ruleIds,
 } from '@/onboarding/journey/rule-checks.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
@@ -115,5 +118,62 @@ describe('journey-added rule checks warn until reviewed', () => {
         .some((s) => s.warn_until_reviewed),
     ).toBe(false);
     expect(strictRun(root, 'JOURNEY\n').blocking).toBe(true);
+  });
+});
+
+describe('journey rule-check flags stay idempotent and follow the review (AC-10)', () => {
+  const choice = (root: string, kind: string) =>
+    appendChoice(root, {
+      ts: '2026-05-29T00:00:00Z',
+      run_id: 'run-1',
+      stage: 'rule_scripts',
+      kind,
+      choice: 'x',
+      reason: 'y',
+      by: 'paqad-onboarding',
+    });
+  const flagged = (root: string) =>
+    loadRuleScriptMap(root)
+      ?.rules.flatMap((rule) => rule.scripts)
+      .some((s) => s.warn_until_reviewed) ?? false;
+  const clock = () => new Date('2026-05-30T00:00:00Z');
+
+  it('lists rule ids, and changes nothing without a map or when the flags are already right', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'paqad-warn-empty-'));
+    roots.push(empty);
+    expect(ruleIds(empty)).toEqual([]);
+    expect(flagJourneyRuleChecks(empty, [])).toEqual([]);
+    expect(clearJourneyRuleCheckFlags(empty)).toEqual([]);
+
+    const { root, existing, added } = setup();
+    expect(ruleIds(root)).toEqual([existing, added]);
+    expect(clearJourneyRuleCheckFlags(root)).toEqual([]);
+    expect(flagJourneyRuleChecks(root, [existing])).toEqual([added]);
+    expect(flagJourneyRuleChecks(root, [existing])).toEqual([]);
+  });
+
+  it('reviewing a warn-only choice clears the flags; reviewing another choice keeps them', () => {
+    const { root, existing } = setup();
+    flagJourneyRuleChecks(root, [existing]);
+    const other = choice(root, 'rag');
+    const warn = choice(root, 'rule_checks_warn_only');
+    expect(reviewChoices(root, [other.id], clock).map((row) => row.id)).toEqual([other.id]);
+    expect(flagged(root)).toBe(true);
+    expect(reviewChoices(root, [warn.id], clock)).toMatchObject([
+      { id: warn.id, reviewed: true, reviewed_at: '2026-05-30T00:00:00.000Z' },
+    ]);
+    expect(flagged(root)).toBe(false);
+    expect(reviewChoices(root, 'all', clock)).toEqual([]);
+  });
+
+  it('marks choices reviewed with the real clock and writes an empty file when there are none', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-warn-choices-'));
+    roots.push(root);
+    expect(markChoicesReviewed(root, 'all')).toEqual([]);
+    expect(readChoices(root)).toEqual([]);
+    const row = choice(root, 'rag');
+    const [marked] = markChoicesReviewed(root, 'all');
+    expect(marked?.id).toBe(row.id);
+    expect(Number.isNaN(Date.parse(marked!.reviewed_at!))).toBe(false);
   });
 });
