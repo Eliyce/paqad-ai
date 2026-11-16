@@ -42,7 +42,7 @@ export const DOCS_AGENT_BODY = [
   '- Do not ask the person anything: there is no AskUserQuestion tool, and `paqad-ai onboarding decide <id>` answers a pause.',
   '- Do not rewrite an existing page: there is no Edit tool, and stage-agent-write-guard.mjs and the capability gate refuse a write to a docs page that existed before onboarding started.',
   '- Do not write outside docs/ and .paqad/: stage-agent-write-guard.mjs and the capability gate refuse any other write.',
-  '- Do not research online: there is no WebFetch or WebSearch tool.',
+  '- Do not research online: there is no WebFetch or WebSearch tool, and package research belongs to step 5 through `paqad-ai rules discovery research`.',
   '- Do not use `paqad-ai stage begin` or the stage handback: this is not a feature-development stage.',
   '',
   '## Example',

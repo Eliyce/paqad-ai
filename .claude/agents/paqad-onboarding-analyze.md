@@ -36,7 +36,7 @@ When blocked, write `Status: BLOCKED`, then `Decision needed:` with what stops y
 ## Do not
 
 - Do not ask the person anything: you have no AskUserQuestion tool; answer pauses with `paqad-ai onboarding decide <id>`.
-- Do not change rule text: you have no Edit tool, and only write-map.mjs writes the map.
+- Do not change rule text: you have no Edit tool, only write-map.mjs writes the map, and rule text changes only through `paqad-ai rules discovery apply` after sign-off.
 - Do not write outside docs/ and .paqad/: stage-agent-write-guard.mjs and the capability gate refuse any other write.
 - Do not use `paqad-ai stage begin` or the stage handback: this is not a feature-development stage.
 
