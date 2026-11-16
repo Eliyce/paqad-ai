@@ -1199,7 +1199,11 @@ Version 2 stays a frozen schema branch beside it, and every reader accepts both.
   no package script, and its `@/` imports do not resolve under plain Node, so it has to run through
   vitest or a bundler, as `tests/unit/scripts/backfill-stage-reports.test.ts` does. The fold exposes those
   rows as `repaired_reports`, and `stage report` uses them when the agent's own row states no report.
+## Onboarding in the HUD snapshot
 
+`hudOnboarding` (`src/hud/snapshot.ts`) adds an `onboarding` block to the HUD snapshot while a
+journey is open (running, paused, failed or abandoned): run id, status, headline, status line, alt
+text and one label, state and mark per step, built from the journey view.
 
 ## Source Footprint
 

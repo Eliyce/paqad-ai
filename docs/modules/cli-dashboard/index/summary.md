@@ -142,6 +142,10 @@ The reasons below are not obvious from the code, grouped by file in `src/dashboa
   while the `evidence.jsonl` lines it covers still hash to its `evidence_sha256`. Exports and
   snapshots are self-contained HTML (inline styles, no scripts) so they render with the server
   stopped. A skipped gate is grey, never the amber "needs a look".
+- **`status.ts` and the onboarding journey.** While an onboarding journey is open (running,
+  paused, failed or abandoned), the plain-text `paqad-ai status` prints the journey instead of the
+  feature card: `paqad · Onboarding · <headline>`, one `<mark> <label>` line per step, then the
+  alt text that names every step's state in words.
 
 ## Authority
 

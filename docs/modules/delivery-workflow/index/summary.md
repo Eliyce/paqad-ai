@@ -224,6 +224,10 @@ error, and stamps `.last-applied.json`. `paqad-ai doctor` runs a `git-workflow` 
   type, so a `type:` or `kind:` label is used, else "Issue".
 - **`registry.ts`.** The host provider counts as connected only when the CLI is available and the
   real git remote matches the configured host kind.
+- **The git-workflow skill in the onboarding journey.** When the brief says "Onboarding journey
+  says auto-recommended.", the skill asks nothing and takes the safe default its `Git workflow:`
+  line names. It never accepts `changed_outside` files, opens no decision and never asks to commit,
+  because the journey asks its one commit question at Wrap up.
 
 ## Features
 
