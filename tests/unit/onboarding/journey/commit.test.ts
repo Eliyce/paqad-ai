@@ -1,4 +1,5 @@
-import { rmSync } from 'node:fs';
+import { chmodSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -72,6 +73,20 @@ describe('the commit question', () => {
   it('INV-7: refuses before Wrap up is done', () => {
     updateRun(root, (draft) => void (draft.stages.finish = { status: 'running' }));
     expect(() => answerCommit(root, { kind: 'later' }, clockAt(5))).toThrow('after step 8');
+  });
+
+  it('goes back to the original branch and deletes the new one when the commit fails', () => {
+    writeFile(root, '.hooks/pre-commit', '#!/bin/sh\necho "hook says no" >&2\nexit 1\n');
+    chmodSync(join(root, '.hooks/pre-commit'), 0o755);
+    git(root, 'config', 'core.hooksPath', '.hooks');
+    expect(() => answerCommit(root, { kind: 'branch', branch: true }, clockAt(5))).toThrow(
+      /went back to main.*hook says no/u,
+    );
+    expect(git(root, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('main');
+    expect(git(root, 'branch', '--list').trim()).toBe('* main');
+    expect(git(root, 'diff', '--cached', '--name-only').trim()).toBe('');
+    expect(readRun(root)?.commit).toBeUndefined();
+    expect(readRun(root)?.status).not.toBe('done');
   });
 
   it('refuses a typed branch name that breaks the team pattern', () => {

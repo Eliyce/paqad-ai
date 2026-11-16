@@ -141,6 +141,57 @@ function branchAndMessage(projectRoot: string, answer: Extract<CommitAnswer, { k
   return { branch, message };
 }
 
+function currentRef(projectRoot: string): { ref: string; detached: boolean } {
+  try {
+    return {
+      ref: git(projectRoot, ['symbolic-ref', '-q', '--short', 'HEAD']).trim(),
+      detached: false,
+    };
+  } catch {
+    return { ref: git(projectRoot, ['rev-parse', 'HEAD']).trim(), detached: true };
+  }
+}
+
+function gitQuietly(projectRoot: string, args: string[]): void {
+  try {
+    git(projectRoot, args);
+  } catch {
+    return;
+  }
+}
+
+function failureText(error: unknown): string {
+  const stderr = (error as { stderr?: unknown }).stderr;
+  const text = typeof stderr === 'string' && stderr.trim() !== '' ? stderr : String(error);
+  return text.trim().split('\n').slice(-3).join(' ');
+}
+
+function commitOnNewBranch(
+  projectRoot: string,
+  branch: string,
+  message: string,
+  include: readonly string[],
+): void {
+  const original = currentRef(projectRoot);
+  git(projectRoot, ['checkout', '-b', branch, 'HEAD']);
+  try {
+    git(projectRoot, ['add', '--', ...include]);
+    git(projectRoot, ['commit', '-m', message, '--', ...include]);
+  } catch (error) {
+    gitQuietly(projectRoot, ['reset', '-q', '--', ...include]);
+    gitQuietly(
+      projectRoot,
+      original.detached
+        ? ['checkout', '-q', '--detach', original.ref]
+        : ['checkout', '-q', original.ref],
+    );
+    gitQuietly(projectRoot, ['branch', '-D', branch]);
+    throw new JourneyRefusal(
+      `The commit failed, so onboarding went back to ${original.ref} and left the files uncommitted: ${failureText(error)}`,
+    );
+  }
+}
+
 export function answerCommit(projectRoot: string, answer: CommitAnswer, now: Clock): CommitRecord {
   const run = requireRun(projectRoot);
   const finish = run.stages.finish.status;
@@ -157,9 +208,7 @@ export function answerCommit(projectRoot: string, answer: CommitAnswer, now: Clo
     const plan = planCommit(projectRoot, run);
     if (plan.include.length === 0)
       throw new JourneyRefusal('There is nothing onboarding wrote that can be committed.');
-    git(projectRoot, ['checkout', '-b', branch, 'HEAD']);
-    git(projectRoot, ['add', '--', ...plan.include]);
-    git(projectRoot, ['commit', '-m', message, '--', ...plan.include]);
+    commitOnNewBranch(projectRoot, branch, message, plan.include);
     record = {
       ...record,
       branch,
