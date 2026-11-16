@@ -1,4 +1,7 @@
 import type { Mark, StageState } from './strip';
+import type { JourneyStageState, JourneyView, JourneyViewStage } from './types';
+
+export type { JourneyStageState, JourneyView, JourneyViewStage };
 
 export const ONBOARDING_WORD = 'Onboarding';
 export const JOURNEY_VIEW_PATH = '.paqad/onboarding/view.json';
@@ -6,43 +9,8 @@ export const JOURNEY_RUN_PATH = '.paqad/onboarding/journey.json';
 export const NARROW_COLUMNS = 680;
 export const STALL_MS = 20 * 60 * 1000;
 
-export type JourneyStageState = 'todo' | 'running' | 'done' | 'degraded' | 'failed';
 export type JourneyRow = 'O1' | 'O2' | 'O3' | 'O4' | 'O5' | 'O6' | 'P' | 'S';
 export type JourneySignal = 'caution' | 'accent' | 'attention' | 'muted' | 'pass';
-
-export interface JourneyViewStage {
-  id: string;
-  index: number;
-  name: string;
-  label: string;
-  running: string;
-  state: JourneyStageState;
-  mark: string;
-  sub_progress: {
-    done: number;
-    total: number | null;
-    current: string | null;
-    words: string;
-    eta_minutes: number | null;
-  } | null;
-  gaps: string[];
-}
-
-export interface JourneyView {
-  generated_at?: string;
-  run_id: string | null;
-  status: string;
-  headline: { row: string; text: string };
-  status_line: string | null;
-  stages: JourneyViewStage[];
-  current: string | null;
-  alt: string;
-  gaps: Array<{ code: string; stage: string; footnote: string; next_action: string }>;
-  button: 'Resume' | 'Commit' | null;
-  celebrate: boolean;
-  uncommitted_note: string | null;
-  refusal: string | null;
-}
 
 export function parseJourneyView(text: string | null): JourneyView | null {
   if (!text) return null;

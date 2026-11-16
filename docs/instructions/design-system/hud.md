@@ -230,6 +230,26 @@ onboarding agents are the step itself, so the O2 words stay. Each gap has its ow
 next-action line under the card. The all-green toast and the settle glow stay off whenever a gap
 exists ("Done with 1 gap"), and the finish effects play once per `run_id`.
 
+#### Terminal card
+
+In the terminal the band is a rounded card drawn before any route check: `layoutBand` checks the
+journey view first and uses the `onboarding` entry in `BAND_BODIES` (`journey-card.ts`). The card
+tone follows the state: working `suggestion`, paused or the commit question `permission`, done
+`success`, done with a gap `warning`, stopped `error`.
+
+- **Identity row:** `paqad  Onboarding · Step 4 of 8`, the onboarding token cost when known, then
+  `Proof`, `– Minimise` and `× Close`.
+- **State line:** `▸ Writing the module docs  7 of 23 · billing` while a step runs; `● Paused before
+  <step> · say "continue paqad onboarding"`; `✗ <step> stopped at 8 of 23 · say "continue paqad
+  onboarding"` (also for a run with no heartbeat for 20 min); `● Waiting for your answer · commit
+  these changes on a new branch?`; `✓ Onboarding done`; `◐ Onboarding done with 1 gap`.
+- **Cells:** stageInstrument's two-row cells, the `STAGE_MARK` (`✓ ▸ ○ ✗ ◐`) above the label. At
+  110 columns or more the eight cells sit in one row; below that they wrap four and four.
+- **Note row:** the ETA (only after 3 units), the commit line `Commit on a new branch? answer above,
+  or run paqad-ai onboarding commit`, the gap footnotes, or the uncommitted note.
+- **Footer:** `Ledger` (opens the onboarding Ledger) and the journey estimate.
+- Minimised, the card is one line: `paqad  Onboarding · Step 4 of 8  ▸ Writing the module docs`.
+
 #### Tray (State A)
 
 `/paqad onboard` on a project never onboarded opens a tray above the prompt: the question `Which AI

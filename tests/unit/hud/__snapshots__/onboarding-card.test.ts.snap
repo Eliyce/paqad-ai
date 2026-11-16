@@ -1,0 +1,87 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11 AC-12: running at 120 columns draws one card with the eight two-row cells 1`] = `
+[
+  "paqad  Onboarding · Step 4 of 8 | Proof  – Minimise  × Close",
+  "▸ Writing the module docs  7 of 23 · billing",
+  "✓ ✓ ✓ ▸ ○ ○ ○ ○",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "about 48 min left",
+  "Ledger | about 2 to 3 hours",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: below 110 columns the cells wrap four and four 1`] = `
+[
+  "paqad  Onboarding · Step 4 of 8 | Proof  – Minimise  × Close",
+  "▸ Writing the module docs  7 of 23 · billing",
+  "✓ ✓ ✓ ▸",
+  "Read Set up Docs Modules",
+  "Steps 5 to 8",
+  "○ ○ ○ ○",
+  "Research Triage Checks Wrap up",
+  "about 48 min left",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 1`] = `
+[
+  "paqad  Onboarding · Step 4 of 8 | Proof  – Minimise  × Close",
+  "● Paused before Write the module docs · say "continue paqad onboarding"",
+  "✓ ✓ ✓ ○ ○ ○ ○ ○",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Ledger | about 1 to 2 hours",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 2`] = `
+[
+  "paqad  Onboarding · Step 4 of 8 | Proof  – Minimise  × Close",
+  "✗ Write the module docs stopped · say "continue paqad onboarding"",
+  "✓ ✓ ✓ ✗ ○ ○ ○ ○",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Ledger | about 1 to 2 hours",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 3`] = `
+[
+  "paqad  Onboarding · Step 4 of 8 | Proof  – Minimise  × Close",
+  "✗ Write the module docs stopped · say "continue paqad onboarding"",
+  "✓ ✓ ✓ ▸ ○ ○ ○ ○",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Ledger | about 1 to 2 hours",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 4`] = `
+[
+  "paqad  Onboarding · done | Proof  – Minimise  × Close",
+  "● Waiting for your answer · commit these changes on a new branch?",
+  "✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Commit on a new branch? answer above, or run paqad-ai onboarding commit",
+  "Ledger | about 1 to 2 hours",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 5`] = `
+[
+  "paqad  Onboarding · done | Proof  – Minimise  × Close",
+  "✓ Onboarding done · committed",
+  "✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Ledger | ",
+]
+`;
+
+exports[`AC-11 AC-13: the onboarding terminal card > AC-11: paused, stopped, stalled, question, done and done with a gap each draw their line and tone 6`] = `
+[
+  "paqad  Onboarding · done with gaps | Proof  – Minimise  × Close",
+  "◐ Onboarding done with 1 gap",
+  "✓ ✓ ✓ ✓ ◐ ✓ ✓ ✓",
+  "Read Set up Docs Modules Research Triage Checks Wrap up",
+  "Rules research ran offline, so rules come only from your project and past decisions.",
+  "Ledger | ",
+]
+`;

@@ -59,6 +59,7 @@ import {
   journeyPrompt,
   parseJourneyView,
   rebindNeeded,
+  type JourneyView,
 } from './journey-model';
 import {
   drawOnboardTray,
@@ -1228,13 +1229,17 @@ function desktopActions($: EngineInterface): BandActions {
   };
 }
 
+async function journeyViewOf($: EngineInterface): Promise<JourneyView | null> {
+  const root = live?.root ?? null;
+  if (root === null) return null;
+  return parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
+}
+
 async function journeyBandOf(
   $: EngineInterface,
   size: { columns: number },
 ): Promise<DesktopBand | null> {
-  const root = live?.root ?? null;
-  if (root === null) return null;
-  const view = parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
+  const view = await journeyViewOf($);
   const now = (await read($, nowAtom)) ?? 0;
   if (!journeyBandShown(view, now) || view === null) return null;
   const heartbeat = view.generated_at ? Date.parse(view.generated_at) : now;
@@ -1737,6 +1742,7 @@ export const register: Register = (on) => {
         turnStartedAt: (await liveState($)).turnStartedAt,
         unavailable: (await read($, unavailableAtom)) === true,
         live: await liveState($),
+        journey: await journeyViewOf($),
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },

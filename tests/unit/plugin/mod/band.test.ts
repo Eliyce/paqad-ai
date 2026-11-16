@@ -104,8 +104,8 @@ describe('the band shell', () => {
     }
   });
 
-  it('registers only the feature-development body, and the shell holds no body code', () => {
-    expect(Object.keys(BAND_BODIES)).toEqual(['feature-development']);
+  it('AC-11: registers the feature-development and onboarding bodies, and the shell holds no body code', () => {
+    expect(Object.keys(BAND_BODIES).sort()).toEqual(['feature-development', 'onboarding']);
   });
 });
 
