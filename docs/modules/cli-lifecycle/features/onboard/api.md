@@ -67,7 +67,7 @@ and shows the refusal.
 | `next` | Prints the brief for what to do now (under 27,000 characters). |
 | `stage start\|end\|fail <step> [--degraded <codes>] [--planned <n>] [--reason <text>]` | Ordered start gate, proof-checked end gate, closed gap list. There is no skip. |
 | `unit <step> <unit> [--outputs <files>] [--kept --source-hash <sha>] [--claim <agent>]` | Records one finished unit (or claims a module for a module agent). Each output path is normalized and refused when it holds `..`, lies outside the project root or escapes through a symlink. |
-| `unit rule_scripts <id> --install-check <staged.mjs> --kind <kind> --scope <scope>` | Step 7: installs a check the scripts agent staged under `.paqad/tmp/onboarding/scripts/`; never overwrites an existing check. |
+| `unit rule_scripts <id> --install-check <staged.mjs> --kind <kind> --scope <scope>` | Step 7: `--kind` is `deterministic` or `heuristic`, `--scope` is `changed-files`, `whole-tree`, `git-diff` or `git-history`. Proves and installs a check the scripts agent staged under `.paqad/tmp/onboarding/scripts/`; never overwrites an existing check. |
 | `progress <step> <done> <total>` | Batch progress (step 6 records it every 25 rules). |
 | `decide <decision-id>` | Answers only a packet this journey opened (a `decision_open` event; packets of an unnamed session count, packets of another named session are refused) with its recommended option, recorded in choices.jsonl. |
 | `status [--json]` | The headline and the step states in words. |

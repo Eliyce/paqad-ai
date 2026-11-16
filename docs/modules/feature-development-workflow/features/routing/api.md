@@ -6,7 +6,7 @@ Routing has no HTTP surface. Its API is two CLI verbs and a few exported functio
 
 ## CLI: `paqad-ai route set <workflow>`
 
-Sets this session's active route to `<workflow>`, one of: `feature-development`, `project-question`, `documentation-update`, `module-documentation`, `pentest`, `design-test`, `codebase-health`, `site-map`, `rules-analyze`, `root-cause-analysis`, `discovery`, `no-workflow`.
+Sets this session's active route to `<workflow>`, one of: `feature-development`, `project-question`, `documentation-update`, `module-documentation`, `pentest`, `design-test`, `codebase-health`, `site-map`, `rules-analyze`, `root-cause-analysis`, `discovery`, `rules-discovery`, `onboarding`, `no-workflow` (`ROUTED_WORKFLOWS`: 13 real workflows plus `no-workflow`). The `onboarding` route is picked by phrases such as "onboard paqad" and "continue paqad onboarding"; `routeWhileOnboarding` folds `documentation-update`, `module-documentation`, `rules-discovery` and `rules-analyze` into `onboarding` while a journey is open.
 
 | Flag | Meaning |
 |---|---|
