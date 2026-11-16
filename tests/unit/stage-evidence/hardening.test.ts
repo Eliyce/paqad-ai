@@ -107,7 +107,9 @@ describe('stage-evidence hardening edges', () => {
       event_status: 'started',
       evidence_source: 'live-mark',
     });
-    expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start' })).toBe(true);
+    expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start' }).ok).toBe(
+      true,
+    );
     const rows = readFeatureStageUnit(root, dirName);
     expect(rows.some((row) => row.kind === 'stage_start' && row.stage === 'review')).toBe(true);
     expect(

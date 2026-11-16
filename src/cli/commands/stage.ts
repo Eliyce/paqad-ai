@@ -486,10 +486,12 @@ export function createStageCommand(): Command {
         agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
         agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
       });
-      if (!recorded) {
+      if (!recorded.ok) {
         console.error(
-          `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
-            `Stages, in order: ${STAGE_ORDER.join(', ')}`,
+          recorded.reason === 'unknown-stage'
+            ? `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
+                `Stages, in order: ${STAGE_ORDER.join(', ')}`
+            : `**▸ paqad** · could not record "${stage} ${phase}" — ${recorded.message}`,
         );
         process.exitCode = 1;
         return;
