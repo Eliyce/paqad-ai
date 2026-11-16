@@ -141,7 +141,7 @@ describe('what the lead is told', () => {
     const report = syncTeamSetup(root, {});
     expect(teamFilesToCommit(root, report)).toEqual([...report.written].sort());
     expect(report.written).toContain(TEAM_LAUNCHER_PATH);
-    expect(report.written).toHaveLength(9);
+    expect(report.written).toHaveLength(14);
   });
 
   it('says nothing to commit when the team setup is off and names files it kept', () => {
