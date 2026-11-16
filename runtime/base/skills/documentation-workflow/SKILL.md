@@ -58,7 +58,11 @@ If any modules have low confidence, call them out explicitly in the final messag
 
 ## Onboarding Journey
 
-When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+Follow this section only when the brief you were given contains the line "Onboarding journey says auto-recommended." Without that line, ask as you always do. Outside the journey, run no `paqad-ai onboarding` command. With the line, run the stage your brief names without stopping to ask:
+
+1. Answer each pause, the git workflow decision included, with its recommended option: `paqad-ai onboarding decide <decision-id>`.
+2. Write only the pages that are missing. A page that already exists stays byte-identical: do not append to it, reformat it or correct it, and keep existing rules as they are. Name each kept page under `## Completed Stages` as kept for review, with any concern you found in it.
+3. Record each unit as soon as it is done, with the files you wrote: `paqad-ai onboarding unit project_docs <area> --outputs <files>` for a Stage 1 doc area, `paqad-ai onboarding unit module_docs <slug> --outputs <files>` for a Stage 2 module.
 
 ## Output Contract
 
@@ -73,6 +77,10 @@ When the brief you were given says "Onboarding journey says auto-recommended.", 
 - Ask when manifests and the stored onboarding profile disagree on stack or capability context.
 - Do not skip a stage silently because a partial doc already exists.
 - Do not invent module names when the map is present, use the map.
+
+## Gotchas
+
+- During the onboarding journey, `paqad-ai onboarding decide` refuses a decision opened before the journey and a decision with no recommended option. Do not ask the person and do not pick an option yourself: name that decision under `## Blocked Stages` and stop, so a person answers it.
 
 ## Resources
 
