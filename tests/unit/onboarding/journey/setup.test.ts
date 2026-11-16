@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import type { OnboardingOutput } from '../../../../src/core/types/onboarding.js'
 import { readChoices } from '../../../../src/onboarding/journey/choices.js';
 import {
   applySetupStage,
+  gitWorkflowHashes,
   journeyHosts,
   setupOptions,
 } from '../../../../src/onboarding/journey/setup.js';
@@ -104,6 +105,56 @@ describe('setup stage', () => {
     await expect(applySetupStage(root, { compileOnly: false, runner }, clockAt(3))).rejects.toThrow(
       'Start step 2',
     );
+  });
+
+  it('FR-16: keeps relative generated paths, skips a file that is gone and defaults step failures', async () => {
+    writeFile(root, 'docs/a.md', 'a');
+    const runner = {
+      run: async () => {
+        const out = output(['docs/a.md', 'docs\\gone.md']);
+        delete (out as Partial<OnboardingOutput>).step_failures;
+        return out;
+      },
+    };
+    const setup = await applySetupStage(root, { compileOnly: false, runner }, clockAt(3));
+    expect(setup.generated_files).toEqual(['docs/a.md', 'docs/gone.md']);
+    expect(setup.step_failures).toEqual([]);
+    expect(Object.keys(readRun(root)!.written)).toEqual(['docs/a.md']);
+  });
+
+  it('hashes git-workflow files in nested folders and skips what is not a plain file', () => {
+    writeFile(root, '.paqad/configs/git-workflow/branches.yaml', 'a');
+    writeFile(root, '.paqad/configs/git-workflow/hooks/commit.yaml', 'b');
+    mkdirSync(join(root, '.paqad/configs/git-workflow/empty'));
+    symlinkSync('/dev/null', join(root, '.paqad/configs/git-workflow/device-link'));
+    expect(Object.keys(gitWorkflowHashes(root)).sort()).toEqual([
+      '.paqad/configs/git-workflow/branches.yaml',
+      '.paqad/configs/git-workflow/hooks/commit.yaml',
+    ]);
+  });
+
+  it('refuses setup options with no stack and sets the content domain for a content stack', () => {
+    const run = readRun(root)!;
+    expect(() => setupOptions(root, { ...run, detection: undefined })).toThrow(
+      'Step 1 (Read your project) has no stack recorded.',
+    );
+    const content = setupOptions(root, {
+      ...run,
+      detection: { ...run.detection!, stack: 'short-video', capabilities: [] },
+    });
+    expect(content.selections?.domain).toBe('content');
+    expect(setupOptions(root, run).selections?.domain).toBe('coding');
+  });
+
+  it('--compile-only re-runs the rule compile and keeps the earlier setup files', async () => {
+    const runner = { run: async () => output(['CLAUDE.md']) };
+    writeFile(root, 'CLAUDE.md', '# entry');
+    await applySetupStage(root, { compileOnly: false, runner }, clockAt(3));
+    const again = await applySetupStage(root, { compileOnly: true, runner }, clockAt(4));
+    expect(again.completed_at).toBe(at(4));
+    expect(again.generated_files).toEqual(['CLAUDE.md']);
+    expect(Array.isArray(again.step_failures)).toBe(true);
+    expect(readRun(root)!.setup?.completed_at).toBe(at(4));
   });
 
   it('AC-17 FR-28: only ticked hosts with a skills folder run the journey', () => {
