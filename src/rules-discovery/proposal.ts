@@ -349,6 +349,41 @@ export function setVerdict(
   };
 }
 
+export const RECOMMENDED_VERDICT: Record<RowChange, Verdict> = {
+  new: 'keep',
+  changed: 'drop',
+  removed: 'drop',
+  conflict: 'keep_existing',
+};
+
+export interface RecommendedVerdicts {
+  proposal: Proposal;
+  filled: string[];
+  listed_for_review: Array<{ row_id: string; change: RowChange; text: string }>;
+}
+
+export function applyRecommendedVerdicts(proposal: Proposal): RecommendedVerdicts {
+  const filled: string[] = [];
+  const rows = proposal.rows.map((row) => {
+    if (row.verdict !== null) return row;
+    filled.push(row.row_id);
+    return { ...row, verdict: RECOMMENDED_VERDICT[row.change], edited_text: null };
+  });
+  const unsafe = rows.filter((row) => {
+    const write = rowWrites(row);
+    return write === 'remove' || write === 'edit';
+  });
+  if (unsafe.length > 0) {
+    throw new Error(
+      `rows ${unsafe.map((row) => row.row_id).join(', ')} would remove or rewrite an existing rule; --all-recommended only adds rules`,
+    );
+  }
+  const listed = rows
+    .filter((row) => row.change === 'changed' || row.change === 'removed')
+    .map((row) => ({ row_id: row.row_id, change: row.change, text: finalText(row) }));
+  return { proposal: { ...proposal, rows }, filled, listed_for_review: listed };
+}
+
 export function rowsWithoutVerdict(proposal: Proposal): string[] {
   return proposal.rows.filter((row) => row.verdict === null).map((row) => row.row_id);
 }

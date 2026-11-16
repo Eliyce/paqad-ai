@@ -5,7 +5,12 @@ import { applyProposal, scriptableOffer } from '@/rules-discovery/apply.js';
 import { docsStep } from '@/rules-discovery/docs.js';
 import { reportLine, startRun, statusLines, writeRunReport } from '@/rules-discovery/session.js';
 import { readJsonFile } from '@/rules-discovery/files.js';
-import { proposeStep, reviewStep, signoffStep } from '@/rules-discovery/flow.js';
+import {
+  proposeStep,
+  reviewAllRecommendedStep,
+  reviewStep,
+  signoffStep,
+} from '@/rules-discovery/flow.js';
 import { inventorySummary, writeStackInventory } from '@/rules-discovery/inventory.js';
 import { absRunFile, isRunId, mintRunId } from '@/rules-discovery/paths.js';
 import {
@@ -78,9 +83,10 @@ interface StepOptions {
 interface ReviewOptions {
   projectRoot: string;
   run: string;
-  row: string;
-  verdict: string;
+  row?: string;
+  verdict?: string;
   text?: string;
+  allRecommended?: boolean;
 }
 
 export function parseRevision(value: string): number {
@@ -259,27 +265,40 @@ export function registerRulesDiscoveryCommands(command: Command): void {
     .command('review')
     .description('Record a keep, edit or drop verdict for one proposal row')
     .requiredOption('--run <id>', 'Rules discovery run id')
-    .requiredOption('--row <id>', 'Proposal row id (P-1, P-2, ...)')
-    .requiredOption('--verdict <verdict>', 'keep, edit, drop, keep_existing or take_new')
+    .option('--row <id>', 'Proposal row id (P-1, P-2, ...)')
+    .option('--verdict <verdict>', 'keep, edit, drop, keep_existing or take_new')
     .option('--text <text>', 'New rule text for an edit verdict')
+    .option(
+      '--all-recommended',
+      'Fill every row without a verdict with the safe recommendation (new keep, changed and removed drop, conflict keep_existing)',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: ReviewOptions) => {
       if (!validRunOption(options.run)) return;
+      if (options.allRecommended) {
+        guarded(() => {
+          const result = reviewAllRecommendedStep(options.projectRoot, options.run);
+          say(
+            `review — filled ${result.filled.length} row(s) with the recommendation; ${result.listed_for_review.length} changed or removed row(s) listed for review, not applied.`,
+          );
+        });
+        return;
+      }
+      if (options.row === undefined || options.verdict === undefined) {
+        refuse('review needs --row and --verdict, or --all-recommended.');
+        return;
+      }
       const known = new Set<string>(Object.values(ROW_VERDICTS).flat());
       if (!known.has(options.verdict)) {
         refuse(`"${options.verdict}" is not a verdict.`);
         return;
       }
+      const row = options.row;
+      const verdict = options.verdict as Verdict;
       guarded(() => {
-        const proposal = reviewStep(
-          options.projectRoot,
-          options.run,
-          options.row,
-          options.verdict as Verdict,
-          options.text,
-        );
+        const proposal = reviewStep(options.projectRoot, options.run, row, verdict, options.text);
         const open = proposal.rows.filter((row) => row.verdict === null).length;
-        say(`review — ${options.row} is ${options.verdict}; ${open} row(s) left.`);
+        say(`review — ${row} is ${verdict}; ${open} row(s) left.`);
       });
     });
 

@@ -6,6 +6,7 @@ import { readFromDecisions } from './decisions.js';
 import { readJsonFile } from './files.js';
 import { absRunFile } from './paths.js';
 import {
+  applyRecommendedVerdicts,
   buildProposal,
   carryVerdicts,
   isNothingToPropose,
@@ -19,6 +20,7 @@ import {
   staleRows,
   writeProposal,
   type Proposal,
+  type RecommendedVerdicts,
   type Verdict,
 } from './proposal.js';
 import { readResearchFiles } from './research.js';
@@ -126,6 +128,14 @@ export function reviewStep(
   const next = setVerdict(proposal, rowId, verdict, editedText);
   writeProposal(projectRoot, next);
   return next;
+}
+
+export function reviewAllRecommendedStep(projectRoot: string, runId: string): RecommendedVerdicts {
+  const proposal = readProposal(projectRoot, runId);
+  if (proposal === null) throw new Error(`run ${runId} has no proposal yet`);
+  const result = applyRecommendedVerdicts(proposal);
+  writeProposal(projectRoot, result.proposal);
+  return result;
 }
 
 export interface SignoffResult {

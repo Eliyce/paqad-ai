@@ -53,6 +53,9 @@ export function buildSignoffPacket(input: {
       },
     ],
     confidence: 0.5,
+    recommendation: SIGN_OFF,
+    recommendation_reason:
+      'Every row already has a verdict, and signing off writes only the rows you kept.',
     requested_by: 'rules-discovery',
     task_session_id: signoffTaskId(runId),
     linked_requirements: [],
