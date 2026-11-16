@@ -1,7 +1,7 @@
 import { formatTokens } from './cost';
 import './instruments';
 import { journeyHeader, journeyLine, journeyStalled } from './journey-card';
-import { ONBOARDING_WORD, journeyBandShown, type JourneyView } from './journey-model';
+import { journeyBandShown, journeyWord, type JourneyView } from './journey-model';
 import { judgedHeadline } from './headline';
 import {
   CHANGE_CLOSED,
@@ -186,7 +186,7 @@ export function layoutJourney(
   if (mode === 'closed' || mode === 'hidden') {
     const hint = closedLine(mode, buildBandView(snapshot, context.now, context.live)).slice(1);
     const reopen: BandSegment = {
-      text: `${BRAND} · ${ONBOARDING_WORD} ▸`,
+      text: `${BRAND} · ${journeyWord(journey)} ▸`,
       action: 'reopen',
       hotkey: CONTROL_HOTKEYS.reopen,
       key: 'paqad-reopen',

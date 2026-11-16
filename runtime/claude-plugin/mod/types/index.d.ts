@@ -126,7 +126,14 @@ export type PaqadHighTable = {
   credits: Array<{ line: string; roles: string[] }>;
 };
 
-export type JourneyStageState = 'todo' | 'running' | 'done' | 'degraded' | 'failed';
+export type JourneyStageState =
+  | 'todo'
+  | 'running'
+  | 'done'
+  | 'degraded'
+  | 'failed'
+  | 'skipped'
+  | 'gap';
 
 export interface JourneyViewStage {
   id: string;
@@ -152,12 +159,18 @@ export interface JourneyView {
   generated_at?: string;
   run_id: string | null;
   status: string;
-  headline: { row: string; text: string };
+  headline: { row: string; text: string; signal?: 'muted' | 'accent' | 'caution' | 'fail' };
   status_line: string | null;
   stages: JourneyViewStage[];
   current: string | null;
   alt: string;
-  gaps: Array<{ code: string; stage: string; footnote: string; next_action: string }>;
+  gaps: Array<{
+    code: string;
+    stage: string;
+    footnote: string;
+    next_action: string;
+    say?: string;
+  }>;
   button: 'Resume' | 'Commit' | null;
   celebrate: boolean;
   uncommitted_note: string | null;
@@ -165,6 +178,15 @@ export interface JourneyView {
   estimate?: string;
   planned?: { modules: number | null; packages: number | null; rules: number | null };
   left_out?: Array<{ path: string; reason: string }>;
+  kind?: string;
+  route?: string;
+  word?: string;
+  updated_at?: string;
+  finished_at?: string | null;
+  leads?: number;
+  leads_note?: string | null;
+  resume_prompt?: string;
+  continue_words?: string;
 }
 
 export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';

@@ -16,7 +16,7 @@ import {
   type SignoffAction,
 } from './desktop-view';
 import { SUBAGENT_PREFIX } from './agents';
-import { SIGNAL, lightColor } from './palette';
+import { SIGNAL, lightColor, signalColor } from './palette';
 import { liveHeadline, miniStages, strip } from './strip';
 
 type D = Elements['desktop'];
@@ -32,7 +32,7 @@ export interface BandActions {
   cancel: () => void;
   show: () => void;
   signoff: (action: SignoffAction, surface?: unknown) => void;
-  journey?: (button: 'Resume' | 'Commit') => void;
+  journey?: (button: 'Resume' | 'Commit', prompt?: string | null) => void;
 }
 
 type CardBand = Extract<DesktopBand, { kind: 'feature' | 'ready-feature' }>;
@@ -370,6 +370,24 @@ function missingBand(ui: D, band: Extract<DesktopBand, { kind: 'missing' }>, act
 
 type JourneyBand = Extract<DesktopBand, { kind: 'onboarding' }>;
 
+function reviewDot(ui: D, band: JourneyBand) {
+  const { Text } = ui;
+  const signal = band.model.headline.signal;
+  if (!band.model.review) return null;
+  if (signal === 'muted') {
+    return (
+      <Text key="paqad-review-dot" size="footnote" dimColor>
+        ●{' '}
+      </Text>
+    );
+  }
+  return (
+    <Text key="paqad-review-dot" size="footnote" color={signalColor(signal)}>
+      ●{' '}
+    </Text>
+  );
+}
+
 function journeyStrip(band: JourneyBand) {
   return strip({
     columns: band.columns,
@@ -394,6 +412,7 @@ function onboardingBand(ui: D, band: JourneyBand, actions: BandActions) {
         <Text wrap="truncate-end">
           {brand(ui)}
           <Text size="footnote" dimColor>{`   ${model.word}   `}</Text>
+          {reviewDot(ui, band)}
           <Text size="footnote">{model.headline.text}</Text>
         </Text>
         <Box flexGrow={1} />
@@ -408,7 +427,11 @@ function onboardingBand(ui: D, band: JourneyBand, actions: BandActions) {
           </Box>
         ))}
         {press && actions.journey ? (
-          <Button bordered key="paqad-journey-button" onPress={() => actions.journey?.(press)}>
+          <Button
+            bordered
+            key="paqad-journey-button"
+            onPress={() => actions.journey?.(press, model.prompt)}
+          >
             {press}
           </Button>
         ) : null}
@@ -418,11 +441,26 @@ function onboardingBand(ui: D, band: JourneyBand, actions: BandActions) {
           {model.eta.eta}
         </Text>
       ) : null}
-      {model.gaps.map((gap) => (
-        <Text key={`paqad-gap-${gap.code}`} size="footnote">
-          {`▲ ${gap.footnote} ${gap.next_action}`}
+      {model.gaps.map((gap, at) =>
+        model.review ? (
+          <Text
+            key={`paqad-gap-${gap.stage}-${gap.code}-${at}`}
+            size="footnote"
+            wrap="truncate-end"
+          >
+            {`▲ ${gap.footnote}`}
+          </Text>
+        ) : (
+          <Text key={`paqad-gap-${gap.code}`} size="footnote">
+            {`▲ ${gap.footnote} ${gap.next_action}`}
+          </Text>
+        ),
+      )}
+      {model.leads ? (
+        <Text key="paqad-journey-leads" size="footnote" dimColor>
+          {model.leads}
         </Text>
-      ))}
+      ) : null}
       {model.note ? (
         <Text key="paqad-journey-note" size="footnote" dimColor>
           {model.note}

@@ -1,8 +1,12 @@
 import { STAGE_MARK } from './instruments';
 import {
-  ONBOARDING_WORD,
   STALL_MS,
+  isReviewView,
   journeyBand,
+  journeyHeadline,
+  journeyHeartbeat,
+  journeyWord,
+  type JourneySignal,
   type JourneyStageState,
   type JourneyView,
   type JourneyViewStage,
@@ -37,19 +41,35 @@ const CELL_STATE: Readonly<Record<JourneyStageState, SegmentState>> = {
   todo: 'not yet',
   failed: 'failed',
   degraded: 'marked',
+  skipped: 'not required',
+  gap: 'marked',
+};
+
+const REVIEW_TONE: Readonly<Record<JourneySignal, PaqadTone>> = {
+  fail: 'bad',
+  caution: 'warn',
+  accent: 'working',
+  muted: 'neutral',
+  attention: 'needs-you',
+  pass: 'neutral',
 };
 
 export function journeyStalled(view: JourneyView, now: number): boolean {
   if (view.status !== 'running') return false;
-  const at = view.generated_at ? Date.parse(view.generated_at) : Number.NaN;
+  const at = journeyHeartbeat(view);
   return Number.isFinite(at) && now - at > STALL_MS;
 }
 
 function stopped(view: JourneyView, stalled: boolean): boolean {
-  return view.status === 'stopped' || (stalled && view.status === 'running');
+  return (
+    view.status === 'stopped' ||
+    (isReviewView(view) && view.status === 'abandoned') ||
+    (stalled && view.status === 'running')
+  );
 }
 
 export function journeyCardTone(view: JourneyView, stalled: boolean): PaqadTone {
+  if (isReviewView(view)) return REVIEW_TONE[journeyHeadline(view, stalled).signal];
   if (stopped(view, stalled)) return 'bad';
   if (view.status === 'paused' || view.status === 'asking_commit') return 'needs-you';
   if (view.status === 'done_with_gaps') return 'warn';
@@ -65,14 +85,43 @@ export function focusStage(view: JourneyView): JourneyViewStage | null {
   );
 }
 
+function reviewStepWords(view: JourneyView): string {
+  if (view.status === 'finished') return 'done';
+  if (view.status === 'not_started') return 'not started';
+  const focus = focusStage(view);
+  return focus ? `Stage ${focus.index} of ${view.stages.length}` : 'not started';
+}
+
 export function journeyStepWords(view: JourneyView): string {
+  if (isReviewView(view)) return reviewStepWords(view);
   if (view.status === 'done' || view.status === 'asking_commit') return 'done';
   if (view.status === 'done_with_gaps') return 'done with gaps';
   const focus = focusStage(view);
   return focus ? `Step ${focus.index} of ${view.stages.length}` : 'not started';
 }
 
+function reviewStateLine(view: JourneyView, stalled: boolean): BandRow {
+  const focus = focusStage(view);
+  const headline = journeyHeadline(view, stalled);
+  if (stopped(view, stalled)) {
+    return [
+      { text: `▲ ${focus?.name ?? ''} stopped · ${view.continue_words ?? ''}`, tone: 'warn' },
+    ];
+  }
+  if (view.status === 'running' && focus) return [{ text: `▸ ${focus.running}`, tone: 'working' }];
+  if (view.status === 'finished') {
+    const tone = REVIEW_TONE[headline.signal];
+    return [
+      tone === 'neutral'
+        ? { text: `● ${headline.text}`, dim: true }
+        : { text: `● ${headline.text}`, tone },
+    ];
+  }
+  return [{ text: `○ ${headline.text}`, dim: true }];
+}
+
 export function journeyStateLine(view: JourneyView, stalled: boolean): BandRow {
+  if (isReviewView(view)) return reviewStateLine(view, stalled);
   const focus = focusStage(view);
   const name = focus?.name ?? '';
   const sub = focus?.sub_progress ?? null;
@@ -95,6 +144,10 @@ export function journeyStateLine(view: JourneyView, stalled: boolean): BandRow {
 }
 
 export function journeyNote(view: JourneyView, columns: number, stalled: boolean): string | null {
+  if (isReviewView(view)) {
+    const parts = [...view.gaps.map((gap) => `▲ ${gap.footnote}`), view.leads_note ?? ''];
+    return parts.filter((part) => part !== '').join('  ·  ') || null;
+  }
   if (view.status === 'asking_commit') return COMMIT_LATER;
   if (view.status === 'done_with_gaps') {
     return view.gaps.map((gap) => gap.footnote).join(' ') || null;
@@ -123,11 +176,12 @@ export function journeyHeader(
   view: JourneyView,
   stalled: boolean,
 ): ShellHeader {
-  const workflow = snapshot?.workflow?.name === ONBOARDING_ROUTE ? snapshot.workflow : null;
+  const route = view.route ?? ONBOARDING_ROUTE;
+  const workflow = snapshot?.workflow?.name === route ? snapshot.workflow : null;
   return {
     tone: journeyCardTone(view, stalled),
     chip: null,
-    headline: `${ONBOARDING_WORD} · ${journeyStepWords(view)}`,
+    headline: `${journeyWord(view)} · ${journeyStepWords(view)}`,
     note: null,
     gap: null,
     activity: [],
@@ -142,7 +196,7 @@ export function journeyLine(view: JourneyView, stalled: boolean): BandRow {
   const tone = journeyCardTone(view, stalled);
   return [
     { text: BRAND, tone, opens: 'trust', key: 'paqad-brand' },
-    { text: `  ${ONBOARDING_WORD} · ${journeyStepWords(view)}  `, dim: true },
+    { text: `  ${journeyWord(view)} · ${journeyStepWords(view)}  `, dim: true },
     ...journeyStateLine(view, stalled),
   ];
 }
@@ -171,13 +225,19 @@ export function onboardingBody(_snapshot: PaqadHudSnapshot | null, context: Body
           },
           {
             key: 'paqad-onboarding-steps-more',
-            title: [{ text: `Steps ${WRAP_CELLS + 1} to ${cells.length}`, dim: true }],
+            title: [
+              {
+                text: `${isReviewView(view) ? 'Stages' : 'Steps'} ${WRAP_CELLS + 1} to ${cells.length}`,
+                dim: true,
+              },
+            ],
             cells: cells.slice(WRAP_CELLS),
             svg: null,
             note: noteRow,
           },
         ];
-  const done = view.status === 'done' || view.status === 'done_with_gaps';
+  const done =
+    view.status === 'done' || view.status === 'done_with_gaps' || view.status === 'finished';
   return {
     blocks,
     footer: {
