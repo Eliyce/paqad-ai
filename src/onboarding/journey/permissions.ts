@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 
+import { toSlashPath } from '@/core/path-utils.js';
 import { writeFileAtomic } from '@/hud/files.js';
 
 import { readTextOrNull } from './io.js';
@@ -15,7 +16,7 @@ export interface AllowListEntries {
 }
 
 export function allowListEntries(installDir: string): AllowListEntries {
-  const skills = join(installDir, 'runtime/base/skills');
+  const skills = posix.join(toSlashPath(installDir), 'runtime/base/skills');
   return {
     allow: [
       'Bash(paqad-ai:*)',

@@ -76,4 +76,11 @@ describe('onboarding allow list', () => {
     expect(scripts).toEqual([`Bash(node ${INSTALL}/runtime/base/skills/*)`]);
     expect(scripts[0]).not.toContain(':*');
   });
+
+  it('INV-5: a Windows install dir keeps its drive letter and uses forward slashes', () => {
+    const scripts = allowListEntries('C:\\Users\\dev\\paqad-ai').allow.filter((entry) =>
+      entry.startsWith('Bash(node '),
+    );
+    expect(scripts).toEqual(['Bash(node C:/Users/dev/paqad-ai/runtime/base/skills/*)']);
+  });
 });
