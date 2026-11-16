@@ -36,6 +36,10 @@ export function allowListEntries(installDir: string): AllowListEntries {
       'Write(.paqad/scripts/rules/**)',
       'Edit(.paqad/onboarding/journey.json)',
       'Write(.paqad/onboarding/journey.json)',
+      'Edit(.paqad/onboarding/events.jsonl)',
+      'Write(.paqad/onboarding/events.jsonl)',
+      'Edit(.paqad/onboarding/view.json)',
+      'Write(.paqad/onboarding/view.json)',
     ],
     ask: ['Bash(paqad-ai onboarding commit:*)'],
   };

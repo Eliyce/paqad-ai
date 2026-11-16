@@ -60,6 +60,8 @@ describe('onboarding allow list', () => {
       '.paqad/decisions/**',
       '.paqad/scripts/rules/**',
       '.paqad/onboarding/journey.json',
+      '.paqad/onboarding/events.jsonl',
+      '.paqad/onboarding/view.json',
     ]) {
       expect(entries.deny).toContain(`Write(${path})`);
       expect(entries.deny).toContain(`Edit(${path})`);

@@ -79,6 +79,26 @@ describe('onboarding stage agents', () => {
     }
   });
 
+  it('INV-4: no onboarding agent writes the journey ledger; only the CLI does', () => {
+    for (const agent of ONBOARDING_AGENTS) {
+      for (const target of [
+        '.paqad/onboarding/events.jsonl',
+        '.paqad/onboarding/journey.json',
+        '.paqad/onboarding/view.json',
+      ]) {
+        for (const tool of ['Edit', 'Write', 'Bash']) {
+          expect(
+            decide(agent.agentName, tool, target),
+            `${agent.agentName} ${tool} ${target}`,
+          ).toBe(true);
+        }
+      }
+      expect(decide(agent.agentName, 'Write', '.paqad/onboarding/notes.md')).toBe(
+        agent.agentName === 'paqad-onboarding-modules',
+      );
+    }
+  });
+
   it('AC-16 NFR-13: a module agent writes only under the module folder it claimed', () => {
     claimUnit(root, 'module_docs', 'billing', 'paqad-onboarding-modules', clockAt(2));
     expect(decide('paqad-onboarding-modules', 'Write', 'docs/modules/billing/summary.md')).toBe(

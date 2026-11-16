@@ -65,6 +65,8 @@ export const ONBOARDING_DENIED_ROOTS: readonly string[] = [
   '.paqad/decisions/',
   '.paqad/scripts/rules/',
   '.paqad/onboarding/journey.json/',
+  '.paqad/onboarding/events.jsonl/',
+  '.paqad/onboarding/view.json/',
 ];
 
 export const MODULE_AGENT = 'paqad-onboarding-modules';
