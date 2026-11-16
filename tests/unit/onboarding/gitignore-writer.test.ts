@@ -63,6 +63,20 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('scripts/rules/.history/');
   });
 
+  it('FR-17: ignores the journey run state and keeps choices.jsonl and the report committable', () => {
+    writeGitignore(projectRoot);
+
+    const lines = read(projectRoot, '.paqad/.gitignore')
+      .split('\n')
+      .filter((line) => !line.startsWith('#'));
+    expect(lines).toContain('onboarding/journey.json');
+    expect(lines).toContain('onboarding/events.jsonl');
+    expect(lines).toContain('onboarding/view.json');
+    expect(lines.some((line) => line.includes('choices.jsonl'))).toBe(false);
+    expect(lines.some((line) => line.startsWith('onboarding/report'))).toBe(false);
+    expect(lines).not.toContain('onboarding/');
+  });
+
   it('AC-5: ignores the per-machine lock directory', () => {
     writeGitignore(projectRoot);
 
