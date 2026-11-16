@@ -340,11 +340,13 @@ helpers below in order and `pentest-retest` as its Retest mode through `retest-v
 [`retest-verification`](../../runtime/capabilities/security/skills/retest-verification/SKILL.md),
 plus the base skill [`finding-normalizer`](../../runtime/base/skills/finding-normalizer/SKILL.md)
 and the [security-auditor](../../runtime/capabilities/security/agents/security-auditor.md) agent.
-Backed by [`pentest-engine`](pentest-engine/index/summary.md). Knows: docs/modules, source, tests.
+Backed by [`pentest-engine`](pentest-engine/index/summary.md). Its eight stages show in the HUD as the
+Security review, through [`review-runs`](review-runs/index/summary.md). Knows: docs/modules, source, tests.
 
 ### UI / design (design-test workflow)
 Entry skill: [`design-test`](../../runtime/capabilities/coding/skills/design-test/SKILL.md), which runs
-the review helpers below in order and `design-retest` as its Retest mode. Helpers and related skills:
+the review helpers below in order and `design-retest` as its Retest mode. Its eight stages show in the HUD
+as the Design review, through [`review-runs`](review-runs/index/summary.md). Helpers and related skills:
 [`design-system-coverage`](../../runtime/capabilities/coding/skills/design-system-coverage/SKILL.md),
 [`token-conformance-review`](../../runtime/capabilities/coding/skills/token-conformance-review/SKILL.md),
 [`component-conformance-review`](../../runtime/capabilities/coding/skills/component-conformance-review/SKILL.md),

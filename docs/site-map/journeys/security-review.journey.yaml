@@ -1,0 +1,42 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: security-review
+label: Run a security review and follow its eight stages in the HUD
+actor: developer
+goal: See which of the eight stages the security review is in and how it ended, without opening the report folder.
+entry: node-cli-onboard
+priority: medium
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-onboard
+    action: Ask paqad for a security review; the skill runs paqad-ai security-review start.
+    expect: The band shows Security review with eight todo stages and the not-started headline.
+  - surface: node-cli-onboard
+    action: Stage 1, Scope.
+    expect: The Scope bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 2, Map.
+    expect: The Map bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 3, Scan.
+    expect: The Scan bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 4, Threats.
+    expect: The Threats bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 5, Hunt.
+    expect: The Hunt bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 6, Confirm.
+    expect: The Confirm bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 7, Sweep.
+    expect: The Sweep bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: Stage 8, Report.
+    expect: The Report bar runs, then shows done, skipped or a gap.
+  - surface: node-cli-onboard
+    action: The review finishes, or stops and the person presses Resume.
+    expect: The headline names the confirmed findings or gaps, never green when nothing was confirmed, and Resume submits continue paqad security review.

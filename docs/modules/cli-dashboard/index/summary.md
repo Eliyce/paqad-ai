@@ -28,7 +28,9 @@ paqad-ai status [--json] [--verdict]
 | `--quiet` | off | Suppress non-essential stdout. |
 
 `status` prints the same report as Markdown (default) or `--json` for piping
-into an agent or another tool. `status --verdict` prints the verdict word and its reasons
+into an agent or another tool. When a security or design review is
+shown in the HUD, `status` also prints `<Word>: <headline>` (for example `Security review: Stage 4
+of 8 · ...`) with the lead count and gaps, and `status --json` carries the same review object. `status --verdict` prints the verdict word and its reasons
 from this session's HUD verdict record (session from `--session`, `SE_SESSION` or
 `CLAUDE_SESSION_ID`); with no record it says so and why, so a closing message can be checked
 against the recorded verdict.

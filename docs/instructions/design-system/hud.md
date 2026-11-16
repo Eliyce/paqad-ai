@@ -178,7 +178,7 @@ un-minimises. Hide always stays until the person presses Show or runs `/paqad sh
 ### Workflow band
 
 Every route other than feature development draws one row: one `Text` of `paqad` (semibold), the dim
-footnote workflow words (Question, Discovery, Codebase health, Pentest, Design test, Site map, Docs,
+footnote workflow words (Question, Discovery, Codebase health, Security review, Design review, Site map, Docs,
 Module docs, Root-cause analysis, Rules analysis), then a pink breathing `● ` with footnote
 `running · m:ss` while the workflow's turn is in flight, or a dim muted `●` with dim `idle` between
 turns; `Box flexGrow`; dim footnote cost (`counting` while tokens are unknown); and `Ledger`. No
@@ -279,6 +279,44 @@ It reads `view.json` and `choices.jsonl` (`journey-ledger.ts`) on both surfaces,
   step, so the meters show the time each step took, and the note says so.
 The band retires when the commit question is answered; a declined commit leaves the uncommitted
 note on the finish screen for that run. No new palette tokens are added.
+
+### Review bands
+
+The security review (route `pentest`) and the design review (route `design-test`) draw the same
+journey band and card as onboarding, read from `.paqad/reviews/security/view.json` or
+`.paqad/reviews/design/view.json`. The identity word is `Security review` or `Design review`, and
+the eight labels, the continue words and the resume prompt come from the view. There is no second
+band component. The band still draws from `view.json` alone when `run.json` is gone.
+
+- **Strips:** eight bars each. Security review: `Scope`, `Map`, `Scan`, `Threats`, `Hunt`,
+  `Confirm`, `Sweep`, `Report`. Design review: `Scope`, `Map`, `Code`, `Screens`, `Tasks`, `Judge`,
+  `Confirm`, `Report`. A skipped stage draws the not-required bar and its alt text says `skipped`.
+  A stage with a gap draws the gap bar.
+- **Open-run headlines:** no stage started yet, muted, `Security review has not started` (or
+  `Design review has not started`); running, accent, `Stage N of 8 · <running phrase>`; between
+  stages, muted, `Next: stage N of 8 · <stage>`; stopped, abandoned or stalled, caution,
+  `Stopped at stage N · <stage> · Resume to continue`. A running stage with no write for 20
+  minutes counts as stalled, never as running forever.
+- **Finished-run headlines,** first match wins: a confirmed critical or high finding, fail,
+  `N serious findings confirmed`; other confirmed findings, caution, `N findings confirmed`; gaps,
+  caution, `Done with N gaps`; nothing confirmed, muted, `No finding confirmed`. Counts use real
+  singular and plural words (`1 finding confirmed`, `Done with 1 gap`). Gaps under a winning row
+  show as footnotes. A finish counts every stage never run as a `not-run` gap.
+- **Tones:** nothing confirmed is never green: the band dot is muted, the terminal card is neutral,
+  and the all-green toast and settle glow stay off. Leads show only as a dim neutral footnote
+  (`2 leads, not confirmed`) and never raise the fail or caution tone. The card tone follows the
+  headline: fail is error, caution is warning, accent is suggestion, muted is neutral.
+- **Abandoned:** never shows a finished headline; it shows the stopped row with Resume for 30
+  minutes after the abandon, then hides.
+- **Resume:** the onboarding caption-row button, bordered, keyboard reachable, with a focus ring.
+  It shows while the run is stopped, abandoned or stalled and submits only that review's prompt,
+  `continue paqad security review` or `continue paqad design review`.
+- **Terminal card:** identity row `paqad  Security review · Stage 4 of 8`, cells in one row at 110
+  columns or more and four and four below, todo labels muted, a footer `Ledger` button, and the
+  one-line minimised form `paqad  Security review · Stage 4 of 8  ▸ <running phrase>`.
+- **Which band wins:** an open onboarding journey wins over any review. A review shows while its run
+  is open and for 30 minutes after it finished or was abandoned, the same window onboarding uses.
+  With both reviews shown, the one updated last wins.
 
 ### Ready row
 
