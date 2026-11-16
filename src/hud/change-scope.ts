@@ -117,7 +117,7 @@ function finishedChange(
   const head = readHeadRef(projectRoot);
   if (head.detached) return none;
   const dir = sessionReattachableFeature(projectRoot, sessionId, head.branch);
-  if (dir) {
+  if (dir && !closedBeforeTurn(projectRoot, dir, turnStartedAt)) {
     const start =
       episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
     if (
@@ -130,6 +130,19 @@ function finishedChange(
   return noChangeYet(projectRoot, sessionId, turnStartedAt)
     ? { dir: null, reason: 'no-change-yet' }
     : none;
+}
+
+/** A change closed before this turn started is the last turn's news: a new feature turn draws
+ *  Getting ready for the next change, not the closed one (AC-27). */
+function closedBeforeTurn(projectRoot: string, dir: string, turnStartedAt: string | null): boolean {
+  const turnMs = turnStartedAt === null ? NaN : Date.parse(turnStartedAt);
+  if (Number.isNaN(turnMs)) return false;
+  let closedMs = NaN;
+  for (const row of readFeatureStageUnit(projectRoot, dir)) {
+    if (row.kind === 'open') closedMs = NaN;
+    if (row.kind === 'close') closedMs = rowTime(row);
+  }
+  return !Number.isNaN(closedMs) && closedMs < turnMs;
 }
 
 function noChangeYet(

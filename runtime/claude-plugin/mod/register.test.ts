@@ -4414,3 +4414,75 @@ describe('W3: the HUD binds on the first prompt when session.start never fired',
     expect(textOf(second)).toContain('paqad');
   });
 });
+
+describe('the HUD follows every workflow switch in one session (#902)', () => {
+  const refresh = async ($: Parameters<Parameters<typeof test>[1]>[0]) => {
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+  };
+  const question = snapshot({ ...OTHER_WORKFLOW });
+  const rca = snapshot({
+    ...OTHER_WORKFLOW,
+    route: 'root-cause-analysis',
+    workflow: null,
+  });
+
+  test('AC-26: question, RCA, corrected misroute, question, continue draw status, status, band, status, band', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(question) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const drawn: string[] = [];
+    const draw = async () => {
+      const node = await $.ui.render(band('terminal', { bodyColumns: 120 }));
+      const text = textOf(node);
+      expect(text).toContain('paqad');
+      drawn.push(cardOf(node) ? 'band' : 'status row');
+    };
+    await draw();
+    world.put(SNAPSHOT, fileText(rca));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(question));
+    await refresh($);
+    await draw();
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    await draw();
+    expect(drawn).toEqual(['status row', 'status row', 'band', 'status row', 'band']);
+  });
+
+  test('AC-27: a closed change shows its closed row, the next shows Getting ready then its band', async ($, on) => {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(
+          snapshot({
+            route: 'feature-development',
+            active: false,
+            scope: { qualified: false, reason: 'closed' },
+          }),
+        ),
+      },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('Change closed');
+    world.put(
+      SNAPSHOT,
+      fileText(
+        snapshot({
+          route: 'feature-development',
+          active: false,
+          scope: { qualified: false, reason: 'no-change-yet' },
+        }),
+      ),
+    );
+    await refresh($);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('Getting ready');
+    world.put(SNAPSHOT, fileText(FULL_ORD_501));
+    await refresh($);
+    expect(cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })))).toBeDefined();
+  });
+});
