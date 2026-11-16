@@ -200,6 +200,13 @@ call, so a static reader sees it:
 
 `tests/unit/plugin/mod/mod-source.test.ts` guards each of these on the source text.
 
+## Reaching every user (#902)
+
+- The discovery plugin is named `paqad-discovery`; its commands are `/paqad-discovery:*`. The clash check reads the name from the installed manifest, and its fix says to update or remove the clashing copy.
+- The mod binds on the first `prompt.submit` or `turn.start` since `/resume`, `/clear` and `/branch` fire no `session.start`; a new session id rebinds it. Desktop is learned from the first event carrying surface `desktop`.
+- Cloud sessions never draw mods (Claude Code docs), so the HUD stays off there by design. One shared plain line explains it and is used by the prompt gate, doctor and the mod's remote stand-down.
+- An `installed_plugins.json` of an unknown shape is reported as an unknown format, not as missing.
+
 ## Plugin options
 
 The manifest declares two `userConfig` options, `openai_api_key` and `cohere_api_key`, each a

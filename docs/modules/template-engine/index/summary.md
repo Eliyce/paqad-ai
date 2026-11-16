@@ -62,6 +62,10 @@ page via `create module documentation`.
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).
 3. Review the regenerated business + technical pages per feature.
 
+## Team bootstrap hook (#902)
+
+The team-bootstrap launcher template (`runtime/templates/team-bootstrap/hook.mjs`, `LAUNCHER_REVISION` 2) runs the hidden `paqad-ai plugin migrate` in the background from its copy route at session start on a local machine (never in a remote session), unless the migration state is already settled (`installed`, `done`, `declined`, `rolled-back`). A per-session mark keeps it, and the one-time reload line, to once per session.
+
 ## Related
 
 - Module registry: [`docs/instructions/registries/modules.md`](../../../instructions/registries/modules.md)
