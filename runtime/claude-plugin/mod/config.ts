@@ -237,17 +237,26 @@ export function ancestorDirs(root: string, home: string | null = null): string[]
   }
 }
 
+export interface SessionBinding {
+  root: string;
+  sessionId: string | null;
+}
+
+/** The root to bind now, or null when the session is already bound there. It needs no
+ *  session.start: /resume, /clear, /branch and a late load fire none, so the first prompt.submit
+ *  or turn.start binds (W3). A new session id at the same root (after /clear) binds again. */
 export async function nextSessionRoot(
-  opened: boolean,
-  bound: string | null,
-  readRoot: () => Promise<string>,
+  bound: SessionBinding | null,
+  readBinding: () => Promise<SessionBinding>,
 ): Promise<string | null> {
-  if (!opened) return null;
-  let start: string;
+  let current: SessionBinding;
   try {
-    start = await readRoot();
+    current = await readBinding();
   } catch {
     return null;
   }
-  return start === bound ? null : start;
+  if (bound !== null && current.root === bound.root && current.sessionId === bound.sessionId) {
+    return null;
+  }
+  return current.root;
 }
