@@ -49,7 +49,7 @@ Always load these and treat them as the canonical contract for documentation and
 
 **Loading the rules is required and recorded.** Reading the applicable rule text is not optional and not on trust: after you have read the "Loaded rule text" section, run `paqad-ai rules load` (it prints the full text of the rules that apply to your changed files and writes `rules-loaded.json` into the feature bundle). paqad **blocks your first source edit** until that record exists, and the completion check **fails** a feature-development change whose applicable rules were never loaded — the same way a missing plan or spec fails. If you began editing on a non-feature route, `paqad-ai rules load` still works (it reads the compiled rules directly), so run it and re-try the edit. The record attests that the rules were loaded and acknowledged, not that they were comprehended.
 
-**RAG** (when `rag_enabled`): all 12 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
+**RAG** (when `rag_enabled`): all 13 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
 
 When you work inside a specific module, also load that module's documentation under `docs/modules/` as those rules direct.
 
