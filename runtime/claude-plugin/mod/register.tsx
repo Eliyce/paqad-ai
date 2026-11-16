@@ -48,7 +48,15 @@ import {
 } from './config';
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
-import { JOURNEY_RUN_PATH } from './journey-model';
+import {
+  JOURNEY_RUN_PATH,
+  JOURNEY_VIEW_PATH,
+  STALL_MS,
+  journeyBand,
+  journeyBandShown,
+  journeyPrompt,
+  parseJourneyView,
+} from './journey-model';
 import {
   drawOnboardTray,
   initialTray,
@@ -1068,6 +1076,8 @@ async function desktopBandOf(
   $: EngineInterface,
   size: { columns: number; maxRows: number },
 ): Promise<DesktopBand> {
+  const journey = await journeyBandOf($, size);
+  if (journey !== null) return journey;
   const snapshot = await read($, snapshotAtom);
   return buildDesktopBand({
     snapshot,
@@ -1209,6 +1219,25 @@ function desktopActions($: EngineInterface): BandActions {
     cancel: act(() => closing(false)),
     show: act(() => showBand($, true)),
     signoff: (action, surface) => act(() => pressSignoff($, action, surface))(),
+    journey: (button) => act(() => $.prompt.submit({ text: journeyPrompt(button) }))(),
+  };
+}
+
+async function journeyBandOf(
+  $: EngineInterface,
+  size: { columns: number },
+): Promise<DesktopBand | null> {
+  const root = live?.root ?? null;
+  if (root === null) return null;
+  const view = parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
+  const now = (await read($, nowAtom)) ?? 0;
+  if (!journeyBandShown(view, now) || view === null) return null;
+  const heartbeat = view.generated_at ? Date.parse(view.generated_at) : now;
+  const stalled = now - heartbeat > STALL_MS;
+  return {
+    kind: 'onboarding',
+    model: journeyBand(view, { columns: size.columns, stalled }),
+    columns: size.columns,
   };
 }
 

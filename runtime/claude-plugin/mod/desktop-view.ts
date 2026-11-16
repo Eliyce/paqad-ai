@@ -1,3 +1,4 @@
+import type { JourneyBandModel } from './journey-model';
 import { ACTIVITY_LINES } from './agents';
 import { changeChip } from './band';
 import {
@@ -794,6 +795,7 @@ export interface FeatureCard {
 
 export type DesktopBand =
   | { kind: 'none' }
+  | { kind: 'onboarding'; model: JourneyBandModel; columns: number }
   | { kind: 'ready' }
   | { kind: 'unreadable'; reason: Unreadable; headline: string }
   | { kind: 'missing'; line: string; hint: string }

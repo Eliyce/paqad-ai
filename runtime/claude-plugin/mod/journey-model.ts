@@ -4,6 +4,7 @@ export const ONBOARDING_WORD = 'Onboarding';
 export const JOURNEY_VIEW_PATH = '.paqad/onboarding/view.json';
 export const JOURNEY_RUN_PATH = '.paqad/onboarding/journey.json';
 export const NARROW_COLUMNS = 680;
+export const STALL_MS = 20 * 60 * 1000;
 
 export type JourneyStageState = 'todo' | 'running' | 'done' | 'degraded' | 'failed';
 export type JourneyRow = 'O1' | 'O2' | 'O3' | 'O4' | 'O5' | 'O6' | 'P' | 'S';
@@ -28,6 +29,7 @@ export interface JourneyViewStage {
 }
 
 export interface JourneyView {
+  generated_at?: string;
   run_id: string | null;
   status: string;
   headline: { row: string; text: string };
@@ -167,4 +169,19 @@ export function journeyBand(
 
 export function skipsSubagentRow(view: JourneyView | null): boolean {
   return view !== null && view.stages.some((stage) => stage.state === 'running');
+}
+
+export const FINISH_SCREEN_MS = 30 * 60 * 1000;
+export const RESUME_PROMPT = 'resume paqad onboarding';
+export const COMMIT_PROMPT = 'Ask me the paqad onboarding commit question now.';
+
+export function journeyBandShown(view: JourneyView | null, nowMs: number): boolean {
+  if (view === null || view.status === 'not_started') return false;
+  if (view.status !== 'done' && view.status !== 'done_with_gaps') return true;
+  const at = view.generated_at ? Date.parse(view.generated_at) : Number.NaN;
+  return Number.isFinite(at) && nowMs - at <= FINISH_SCREEN_MS;
+}
+
+export function journeyPrompt(button: 'Resume' | 'Commit'): string {
+  return button === 'Resume' ? RESUME_PROMPT : COMMIT_PROMPT;
 }
