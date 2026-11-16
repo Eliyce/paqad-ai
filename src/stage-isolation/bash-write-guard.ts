@@ -8,6 +8,7 @@ import {
   ONBOARDING_WRITE_ROOTS,
   moduleAgentWriteRoots,
   onboardingAgent,
+  preexistingDocsPages,
 } from '@/onboarding/journey/agents.js';
 
 import { unresolvedStageAgent } from './must-not-judge.js';
@@ -27,6 +28,7 @@ export interface ReadOnlyAgentScope {
   allowedRoots: readonly string[];
   allowTempDir: boolean;
   deniedRoots?: readonly string[];
+  deniedFiles?: ReadonlySet<string>;
 }
 
 export function onboardingAgentScope(
@@ -39,7 +41,13 @@ export function onboardingAgentScope(
   if (onboardingAgent(agent) === null) return null;
   const allowedRoots =
     agent === MODULE_AGENT ? moduleAgentWriteRoots(projectRoot, agentId) : ONBOARDING_WRITE_ROOTS;
-  return { agent, allowedRoots, allowTempDir: true, deniedRoots: ONBOARDING_DENIED_ROOTS };
+  return {
+    agent,
+    allowedRoots,
+    allowTempDir: true,
+    deniedRoots: ONBOARDING_DENIED_ROOTS,
+    deniedFiles: new Set(preexistingDocsPages(projectRoot, agent)),
+  };
 }
 
 export function readOnlyAgentScope(agentType: unknown): ReadOnlyAgentScope | null {
@@ -401,6 +409,7 @@ export function writeAllowed(
   if (under(path, abs, root)) {
     const rel = path.relative(root, abs).split(path.sep).join('/');
     if ((scope.deniedRoots ?? []).some((denied) => `${rel}/`.startsWith(denied))) return false;
+    if (scope.deniedFiles?.has(rel)) return false;
     return scope.allowedRoots.some((allowed) => `${rel}/`.startsWith(allowed));
   }
   if (!scope.allowTempDir) return false;
@@ -463,7 +472,7 @@ export function formatStageAgentWriteSummary(decision: StageAgentWriteDecision):
     return (
       `**▸ paqad** · write blocked: \`${decision.agent}\` writes only its onboarding docs\n` +
       `> 🔴 Needs your attention — \`${decision.agent}\` tried to write ${decision.target === null ? 'a file paqad cannot resolve' : `\`${decision.target}\``}. ` +
-      'Onboarding agents write only under docs/ and .paqad/ (never paqad controls), and a module agent only under its own docs/modules/<slug>/.'
+      'Onboarding agents write only under docs/ and .paqad/ (never paqad controls), and a module agent only under its own docs/modules/<slug>/. The docs and module agents only add missing pages: a docs page that existed before onboarding started is kept as it is.'
     );
   }
   const scope = readOnlyAgentScope(decision.agent);

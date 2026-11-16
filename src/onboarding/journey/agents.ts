@@ -68,6 +68,17 @@ export const ONBOARDING_DENIED_ROOTS: readonly string[] = [
 ];
 
 export const MODULE_AGENT = 'paqad-onboarding-modules';
+export const DOCS_AGENT = 'paqad-onboarding-docs';
+const PAGE_GUARDED_AGENTS: ReadonlySet<string> = new Set([DOCS_AGENT, MODULE_AGENT]);
+
+export function preexistingDocsPages(projectRoot: string, agent: string): string[] {
+  if (!PAGE_GUARDED_AGENTS.has(agent)) return [];
+  try {
+    return Object.keys(readRun(projectRoot)?.docs_baseline ?? {});
+  } catch {
+    return [];
+  }
+}
 
 export function onboardingAgent(name: string): OnboardingAgentDef | null {
   return ONBOARDING_AGENTS.find((agent) => agent.agentName === name) ?? null;

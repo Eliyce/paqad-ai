@@ -24,6 +24,13 @@ const COMMITTABLE_JOURNEY_FILES = [
 const SECRET =
   /(^|\/)(\.env[^/]*|[^/]*\.(pem|key|p12|pfx)|id_(rsa|ed25519|ecdsa)[^/]*|secrets?\.[^/]+)$/u;
 
+export const KEPT_FOR_REVIEW = 'kept for review: the page existed before onboarding and changed';
+
+function changedBaselinePage(run: JourneyRun, path: string, now: string | null): boolean {
+  const before = run.docs_baseline?.[path];
+  return before !== undefined && now !== before;
+}
+
 export type CommitAnswer =
   | { kind: 'branch'; branch: string | true; ticket?: string; message?: string }
   | { kind: 'later' }
@@ -88,6 +95,7 @@ export function planCommit(projectRoot: string, run: JourneyRun): CommitPlan {
       leftOut.push({ path, reason: 'outside the files onboarding may commit' });
     else if (SECRET.test(path)) leftOut.push({ path, reason: 'looks like a secret' });
     else if (now === null) leftOut.push({ path, reason: 'no longer exists' });
+    else if (changedBaselinePage(run, path, now)) leftOut.push({ path, reason: KEPT_FOR_REVIEW });
     else if (now !== hash && !(COMMITTABLE_JOURNEY_FILES as readonly string[]).includes(path)) {
       leftOut.push({ path, reason: 'changed since onboarding wrote it' });
     } else if (path in run.baseline && run.baseline[path] !== headHash(projectRoot, path)) {
@@ -97,7 +105,9 @@ export function planCommit(projectRoot: string, run: JourneyRun): CommitPlan {
   }
   const others = new Set([...Object.keys(run.baseline), ...dirtyPaths(projectRoot)]);
   for (const path of [...others].sort()) {
-    if (candidates[path] === undefined) leftOut.push({ path, reason: 'not written by onboarding' });
+    if (candidates[path] !== undefined) continue;
+    const changed = changedBaselinePage(run, path, fileSha256(join(projectRoot, path)));
+    leftOut.push({ path, reason: changed ? KEPT_FOR_REVIEW : 'not written by onboarding' });
   }
   return { include, left_out: leftOut };
 }

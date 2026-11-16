@@ -24,6 +24,7 @@ export interface StartInput {
   allowList: boolean;
   asked: 'tray' | 'agent-attested';
   baseline: Record<string, string | null>;
+  docsBaseline?: Record<string, string>;
 }
 
 export function validateProviders(providers: readonly string[]): string[] {
@@ -55,6 +56,7 @@ export function startRun(projectRoot: string, input: StartInput, now: Clock): Jo
     written: {},
     setup_hashes: {},
     baseline: input.baseline,
+    docs_baseline: input.docsBaseline ?? {},
   });
   appendChoice(projectRoot, {
     ts: at,

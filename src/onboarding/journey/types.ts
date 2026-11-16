@@ -88,6 +88,7 @@ export interface JourneyRun {
   rules_before?: string[];
   rule_checks_flagged?: string[];
   baseline: Record<string, string | null>;
+  docs_baseline?: Record<string, string>;
   detection?: DetectionRecord;
   setup?: SetupRecord;
   commit?: CommitRecord;

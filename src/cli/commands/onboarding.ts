@@ -132,6 +132,7 @@ async function startVerb(options: StartOptions): Promise<void> {
       allowList,
       asked: options.fromTray ? 'tray' : 'agent-attested',
       baseline: preflight.baseline,
+      docsBaseline: preflight.docs_baseline,
     },
     now,
   );

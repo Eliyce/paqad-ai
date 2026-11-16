@@ -75,7 +75,11 @@ function listMarkdown(root: string, rel: string): string[] {
 
 export function existingPagesKept(projectRoot: string, run: JourneyRun): string[] {
   return listMarkdown(projectRoot, 'docs')
-    .filter((path) => !path.startsWith('docs/modules/') && run.written[path] === undefined)
+    .filter(
+      (path) =>
+        !path.startsWith('docs/modules/') &&
+        (run.written[path] === undefined || run.docs_baseline?.[path] !== undefined),
+    )
     .sort();
 }
 

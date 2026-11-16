@@ -15,7 +15,7 @@ export interface PreflightInput {
 }
 
 export type PreflightResult =
-  | { kind: 'ok'; baseline: Record<string, string | null> }
+  | { kind: 'ok'; baseline: Record<string, string | null>; docs_baseline: Record<string, string> }
   | { kind: 'attach'; run: JourneyRun }
   | { kind: 'refused'; message: string; foreign_packets: string[] };
 
@@ -60,6 +60,40 @@ export function baselineOfDirty(projectRoot: string): Record<string, string | nu
   return baseline;
 }
 
+function walkFiles(root: string, rel: string): string[] {
+  try {
+    return readdirSync(join(root, rel), { withFileTypes: true }).flatMap((entry) => {
+      const child = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) return walkFiles(root, child);
+      return entry.isFile() ? [child] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function docsFiles(projectRoot: string): string[] {
+  try {
+    const output = execFileSync(
+      'git',
+      ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', 'docs'],
+      { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    return output.split('\0').filter((path) => path.startsWith('docs/'));
+  } catch {
+    return walkFiles(projectRoot, 'docs');
+  }
+}
+
+export function docsBaseline(projectRoot: string): Record<string, string> {
+  const baseline: Record<string, string> = {};
+  for (const path of [...new Set(docsFiles(projectRoot))].sort()) {
+    const hash = fileSha256(join(projectRoot, path));
+    if (hash !== null) baseline[path] = hash;
+  }
+  return baseline;
+}
+
 export function runPreflight(projectRoot: string, input: PreflightInput): PreflightResult {
   const existing = readRun(projectRoot);
   if (existing && OPEN_STATUSES.has(existing.status)) return { kind: 'attach', run: existing };
@@ -79,5 +113,9 @@ export function runPreflight(projectRoot: string, input: PreflightInput): Prefli
       foreign_packets: packets,
     };
   }
-  return { kind: 'ok', baseline: baselineOfDirty(projectRoot) };
+  return {
+    kind: 'ok',
+    baseline: baselineOfDirty(projectRoot),
+    docs_baseline: docsBaseline(projectRoot),
+  };
 }
