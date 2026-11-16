@@ -535,7 +535,11 @@ describe('the stage enforcement guardrails', () => {
         const events = Object.keys(parsed.hooks);
         expect(events.indexOf(SEED_EVENT)).toBe(events.indexOf('SubagentStop') - 1);
         expect(flatten({ [SEED_EVENT]: parsed.hooks[SEED_EVENT]! })).toEqual([
-          { event: SEED_EVENT, matcher: PAQAD_SUBAGENT_START_MATCHER, hook: 'stage-agent-start.mjs' },
+          {
+            event: SEED_EVENT,
+            matcher: PAQAD_SUBAGENT_START_MATCHER,
+            hook: 'stage-agent-start.mjs',
+          },
         ]);
         expectOnlyTheActivationEntry(parsed.hooks);
         parsed.hooks = withoutSeedHook(parsed.hooks);
