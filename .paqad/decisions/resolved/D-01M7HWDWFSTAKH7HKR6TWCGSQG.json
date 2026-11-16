@@ -1,0 +1,63 @@
+{
+  "id": "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:e0787c0aef09ff610ef571870f3e7ec2febdc2161ffeae4f48d165be920a3ea3.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-onboarding-docs keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-onboarding-docs before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow",
+  "created_at": "2026-11-16T09:53:48.538Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M6RXZMDMD1RDYDCW252GMSRT",
+      "D-01M6N7M9A6DDK70GJ6TKMS8A5E",
+      "D-01M6N7M9005K176F5EAPJH8K36",
+      "D-01M6N7M8NJ7WXYBC2V3WFH34TN",
+      "D-01M6N7M8BDCHG4ZD3GV12H1KHA"
+    ]
+  },
+  "suggestion": {
+    "earlier_id": "D-01M6N7M9A6DDK70GJ6TKMS8A5E",
+    "option_key": "allow",
+    "reason": "Same kind of question: a paqad stage agent that can only do its job through paqad commands; the owner approved Bash for the onboarding agents in chat.",
+    "at": "2026-11-16T10:00:46.507Z"
+  },
+  "chosen": "allow",
+  "rationale": "Owner approved Bash for the onboarding agents: they record units and decisions through paqad-ai onboarding verbs; writes stay confined by the write guard.",
+  "resolved_at": "2026-11-16T10:00:47.374Z",
+  "decision_id": "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+  "fingerprint": "sha256:6a339336f5e33a7d228bbea6c7d1a0c98059bd6c28e49bde602ff911d30517a5",
+  "question": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Same kind of question: a paqad stage agent that can only do its job through paqad commands; the owner approved Bash for the onboarding agents in chat.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T09:53:48.538Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:00:47.374Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved Bash for the onboarding agents: they record units and decisions through paqad-ai onboarding verbs; writes stay confined by the write guard."
+  }
+}

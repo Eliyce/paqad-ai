@@ -1,0 +1,64 @@
+{
+  "id": "D-01M7HWW2QDRJE16ZN3G73CVFTP",
+  "category": "authoring.override",
+  "title": "The agent paqad-onboarding-scripts cannot run its S2 check. Add it unverified, kept in this project?",
+  "context": "The only S2 clash is paqad's own generated copy of this same agent in ~/.claude/agents (managed marker); no description or tool overlap with any other agent.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-onboarding-scripts is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-onboarding-scripts helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-onboarding-scripts is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Withdrawn: no override. The owner chose to remove paqad's generated ~/.claude/agents copies so S2 passes and the agent stays verified.",
+      "one_line_preview": "Withdrawn: no override. The owner chose to remove paqad's generated ~/.claude/agents copies so S2 passes and the agent stays verified.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-16T10:01:33.677Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M6N2VXAN0CXF96TGBSN1VR32",
+      "D-01M6N2VW5AEE73458CF7SAHX5Z",
+      "D-01M6N2VV0G7JZXR6JYTZV7RXKE",
+      "D-01M6N2VRKBD8PV3K0WKCD7E4Y2",
+      "D-01M6N2VP90745HRPDN8TF540MG"
+    ],
+    "none_reason": "First S2 shadowing override for the onboarding agents"
+  },
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-11-16T10:06:06.651Z",
+  "decision_id": "D-01M7HWW2QDRJE16ZN3G73CVFTP",
+  "fingerprint": "sha256:7295d7536da34c0b8072882eee84b906bfc06f722bff37dd31afac177fc87482",
+  "question": "The agent paqad-onboarding-scripts cannot run its S2 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:01:33.677Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:06:06.651Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

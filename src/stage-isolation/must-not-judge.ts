@@ -1,3 +1,4 @@
+import { onboardingAgent } from '@/onboarding/journey/agents.js';
 import {
   MANDATORY_STAGE_AGENTS,
   isHighTableAgent,
@@ -93,6 +94,7 @@ export function unresolvedStageAgent(agentType: unknown): string | null {
   const name = stripPluginAgentNamespace(agentType.trim());
   if (!name.startsWith('paqad-')) return null;
   if (isHighTableAgent(name) || stageForAgentName(name) !== null) return null;
+  if (onboardingAgent(name) !== null) return null;
   return name;
 }
 

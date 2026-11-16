@@ -1041,6 +1041,29 @@ exports[`skill metadata parse parity (AC-3) > parses every paqad skill to the sa
       },
     ],
   },
+  "runtime/base/skills/onboarding-journey": {
+    "cache_key_inputs": [],
+    "cacheable": false,
+    "file": "",
+    "input_schema": {
+      "project_root": {
+        "description": "The project the onboarding journey sets up. Defaults to cwd.",
+        "required": false,
+        "type": "path",
+      },
+    },
+    "max_lines": 300,
+    "model_tier": "medium",
+    "name": "onboarding-journey",
+    "output_format": "markdown",
+    "triggers": [
+      {
+        "workflow": [
+          "onboarding",
+        ],
+      },
+    ],
+  },
   "runtime/base/skills/performance-regression-estimator": {
     "cache_key_inputs": [],
     "cacheable": false,

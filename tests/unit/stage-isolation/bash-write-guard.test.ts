@@ -11,6 +11,7 @@ import {
   bashWrites,
   formatStageAgentWriteSummary,
   readOnlyAgentScope,
+  shownWriteTarget,
   stageAgentWriteDecision,
   writeAllowed,
   type WriteHost,
@@ -230,5 +231,67 @@ describe('the read-only write guard behaves the same on Windows', () => {
       });
     }
     expect(allowed('paqad-expert', '/tmp/scratch.txt')).toBe(false);
+  });
+
+  it('names a blocked Windows project path relative to the root with forward slashes', () => {
+    const shown = (target: string | null, cwd: string | null = project) =>
+      shownWriteTarget(project, { target, cwd }, win32);
+    expect(shown('D:\\a\\repo\\docs\\modules\\auth\\summary.md')).toBe(
+      'docs/modules/auth/summary.md',
+    );
+    expect(shown('docs\\modules\\auth\\summary.md')).toBe('docs/modules/auth/summary.md');
+    expect(shown('summary.md', 'D:\\a\\repo\\docs')).toBe('docs/summary.md');
+    expect(
+      formatStageAgentWriteSummary({
+        blocked: true,
+        agent: 'paqad-onboarding-modules',
+        target: shown('D:\\a\\repo\\docs\\modules\\auth\\summary.md'),
+      }),
+    ).toContain('`docs/modules/auth/summary.md`');
+  });
+
+  it('keeps a path outside the project, the root itself and an unresolved target as written', () => {
+    const shown = (target: string | null, cwd: string | null = project) =>
+      shownWriteTarget(project, { target, cwd }, win32);
+    expect(shown('C:\\Windows\\x.txt')).toBe('C:\\Windows\\x.txt');
+    expect(shown('D:\\a\\repo')).toBe('D:\\a\\repo');
+    expect(shown(null)).toBeNull();
+    expect(shown('x.txt', null)).toBe('x.txt');
+  });
+});
+
+describe('onboarding agents may silence output into the null devices', () => {
+  const agent = 'paqad-onboarding-docs';
+
+  it('allows /dev/null, /dev/stdout and /dev/stderr even after a cd paqad cannot resolve', () => {
+    for (const command of [
+      'ls docs 2>/dev/null',
+      'ls docs >/dev/null 2>&1',
+      'ls docs &>/dev/null',
+      'echo hi > /dev/stdout',
+      'echo oops 2> /dev/stderr',
+      'cd "$(git rev-parse --show-toplevel)" && ls docs 2>/dev/null',
+      'cd && grep -r x docs > /dev/null',
+    ]) {
+      expect({ command, blocked: bash(agent, command).blocked }).toEqual({
+        command,
+        blocked: false,
+      });
+    }
+  });
+
+  it('keeps every other write outside the allowed folders refused', () => {
+    for (const command of [
+      'echo x > /etc/passwd',
+      'echo x > /dev/sda',
+      'echo x > src/index.ts',
+      'cd "$X" && echo x > notes.md',
+      'echo x > /dev/null/../../etc/passwd',
+    ]) {
+      expect({ command, blocked: bash(agent, command).blocked }).toEqual({
+        command,
+        blocked: true,
+      });
+    }
   });
 });

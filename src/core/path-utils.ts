@@ -4,6 +4,15 @@ export function toPosixPath(path: string): string {
   return path.split(sep).join('/');
 }
 
+/**
+ * A path for text an agent runs or a host matches, with forward slashes on
+ * every OS. Unlike toPosixPath it converts backslashes whatever the running
+ * OS, and keeps a Windows drive letter, so `C:\paqad` reads `C:/paqad`.
+ */
+export function toSlashPath(path: string): string {
+  return path.replace(/\\/gu, '/');
+}
+
 export function stripTrailingChars(value: string, chars: string): string {
   let end = value.length;
   while (end > 0 && chars.includes(value[end - 1]!)) {

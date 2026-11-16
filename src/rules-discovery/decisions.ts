@@ -1,3 +1,4 @@
+import { journeyAnswerReusable } from '@/planning/decision-store.js';
 import { readResolvedPackets } from '@/planning/decision-precedents.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 
@@ -60,8 +61,10 @@ export function toUnjudged(packet: DecisionPacket): UnjudgedDecision {
 }
 
 export function listUnjudgedDecisions(projectRoot: string): UnjudgedDecision[] {
+  const reusable = journeyAnswerReusable(projectRoot);
   return readResolvedPackets(projectRoot)
     .filter((packet) => packet.status === 'resolved' || packet.status === 'delegated')
+    .filter(reusable)
     .filter((packet) => packet.rules_discovery === undefined)
     .filter((packet) => packet.category !== RULES_PROPOSAL_CATEGORY)
     .map(toUnjudged)

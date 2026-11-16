@@ -159,7 +159,7 @@ describe('the strip geometry', () => {
         seats: null,
         stages: marks(labels, labels.map(() => 'todo') as StageState[]),
       });
-      return (source.match(/<text class="lbl mut"[^>]*>S\d+<\/text>/g) ?? []).length;
+      return (source.match(/<text class="lbl mutt?"[^>]*>S\d+<\/text>/g) ?? []).length;
     };
     expect(labelled(6, 93)).toBe(6);
     expect(labelled(12, 57)).toBe(0);

@@ -5,6 +5,7 @@ import process from 'node:process';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import {
   hookStandsDown,
+  onboardingJourneyExists,
   isPaqadDisabled,
   parseHookPayload,
   resolveProjectRoot,
@@ -32,6 +33,12 @@ async function main() {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
   if (hookStandsDown(parseHookPayload(input))) {
+    if (onboardingJourneyExists(projectRoot)) await nudgeOnboarding(projectRoot);
+    process.exit(0);
+    return;
+  }
+
+  if (!isPaqadDisabled(projectRoot) && (await nudgeOnboarding(projectRoot))) {
     process.exit(0);
     return;
   }
@@ -88,6 +95,21 @@ async function verdictAgreement(projectRoot) {
 
 function nextStageNudge(stage) {
   return `paqad: the last stage of this change ended and ${stage.replace(/_/g, ' ')} has not started. Start it, or open a decision if the change waits on the person.`;
+}
+
+async function nudgeOnboarding(projectRoot) {
+  if (stopHookActiveFromStdin(input)) return false;
+  try {
+    const url = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
+    const { onboardingStopNudge } = await import(url.href);
+    const nudge = onboardingStopNudge(projectRoot, sessionIdFromStdin(input));
+    if (!nudge) return false;
+    process.stdout.write(`${JSON.stringify({ decision: 'block', reason: nudge })}\n`);
+    return true;
+  } catch (error) {
+    logHookFailure(projectRoot, 'verification-completion:onboarding', error);
+    return false;
+  }
 }
 
 async function deferredForBackgroundStage(projectRoot) {

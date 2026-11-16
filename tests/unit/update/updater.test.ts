@@ -1201,7 +1201,7 @@ describe('FrameworkUpdater', () => {
       expect(ignored('.agents/skills/our-skill/SKILL.md')).toBe(false);
     });
 
-    it('writes six Claude and six Codex stage agents, plus the two High Table agents, under the user home', async () => {
+    it('writes six Claude and six Codex stage agents, the two High Table agents and the five Claude onboarding agents, under the user home', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
       const claudeAgents = join(userHome, '.claude/agents');
@@ -1217,6 +1217,11 @@ describe('FrameworkUpdater', () => {
         'paqad-development.md',
         'paqad-documentation-sync.md',
         'paqad-expert.md',
+        'paqad-onboarding-analyze.md',
+        'paqad-onboarding-docs.md',
+        'paqad-onboarding-modules.md',
+        'paqad-onboarding-rules.md',
+        'paqad-onboarding-scripts.md',
         'paqad-planning.md',
         'paqad-review.md',
         'paqad-specification.md',

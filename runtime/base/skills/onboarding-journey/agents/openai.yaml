@@ -1,0 +1,4 @@
+interface:
+  display_name: Onboarding Journey
+  short_description: Runs paqad onboarding as eight steps for the Developer / Operator, one
+    status line per step, ending with the commit question.

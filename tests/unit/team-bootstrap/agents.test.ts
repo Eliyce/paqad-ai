@@ -59,10 +59,10 @@ function legacyCopies(): { name: string; content: string }[] {
 }
 
 describe("the stage agents in the repo's .claude/agents", () => {
-  it('AC-1: a team setup with it on writes the 8 stage agents with the managed marker', () => {
+  it('AC-1: a team setup with it on writes the 6 stage, 2 High Table and 5 onboarding agents with the managed marker', () => {
     const report = syncTeamSetup(root, {});
     const rendered = renderStageAgentFiles('claude-code');
-    expect(rendered).toHaveLength(8);
+    expect(rendered).toHaveLength(13);
     for (const { name, content } of rendered) {
       expect(readFileSync(join(agentsDir(), name), 'utf8')).toBe(withManagedMarker(content));
       expect(report.written).toContain(`.claude/agents/${name}`);
@@ -102,7 +102,7 @@ describe("the stage agents in the repo's .claude/agents", () => {
     const report = syncTeamSetup(root, {});
     expect(lstatSync(join(agentsDir(), first!.name)).isDirectory()).toBe(true);
     expect(report.kept).toContain(`.claude/agents/${first!.name}`);
-    expect(report.written.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(7);
+    expect(report.written.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(12);
   });
 
   it('a team setup with it on rewrites an older paqad copy', () => {
@@ -124,11 +124,11 @@ describe("the stage agents in the repo's .claude/agents", () => {
     for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
     const report = syncTeamSetup(root, OFF);
     expect(readdirSync(agentsDir())).toEqual([]);
-    expect(report.removed.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(8);
+    expect(report.removed.filter((path) => path.startsWith('.claude/agents/'))).toHaveLength(13);
     const manifest = JSON.parse(readFileSync(manifestPath(), 'utf8')) as {
       removed_stage_agents: { path: string; reason: string }[];
     };
-    expect(manifest.removed_stage_agents).toHaveLength(8);
+    expect(manifest.removed_stage_agents).toHaveLength(13);
     expect(new Set(manifest.removed_stage_agents.map((entry) => entry.reason))).toEqual(
       new Set(['legacy-stamp']),
     );
@@ -137,7 +137,7 @@ describe("the stage agents in the repo's .claude/agents", () => {
   it('removes stamped copies and writes no manifest when the project has none', () => {
     for (const agent of legacyCopies()) writeAgent(agent.name, agent.content);
     const result = migrateProjectStageAgents(root);
-    expect(result.removed).toHaveLength(8);
+    expect(result.removed).toHaveLength(13);
     expect(readdirSync(agentsDir())).toEqual([]);
     expect(existsSync(manifestPath())).toBe(false);
   });

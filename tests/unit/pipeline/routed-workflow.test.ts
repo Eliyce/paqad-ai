@@ -11,7 +11,7 @@ import {
 } from '@/pipeline/routed-workflow.js';
 
 describe('routed-workflow', () => {
-  it('exposes exactly the 13 routing outcomes', () => {
+  it('exposes exactly the 14 routing outcomes, 13 real workflows plus no-workflow', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
       'project-question',
@@ -25,6 +25,7 @@ describe('routed-workflow', () => {
       'root-cause-analysis',
       'discovery',
       'rules-discovery',
+      'onboarding',
       'no-workflow',
     ]);
   });

@@ -14,7 +14,8 @@ const skillsDir = join(repoRoot, 'runtime', 'claude-plugin', 'skills');
 const CLAUDE_CODE_SKILLS = ['onboard', 'join', 'dashboard'] as const;
 
 const FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK: Record<(typeof CLAUDE_CODE_SKILLS)[number], string> = {
-  onboard: 'You are the project lead setting paqad up for the whole team.',
+  onboard:
+    'You are the project lead setting paqad up for the whole team. This skill only opens the journey; the eight steps live in the `paqad-ai onboarding` verbs and the `onboarding-journey` skill.',
   join: 'The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.',
   dashboard: 'The dashboard is a local web app for this project. It never leaves the machine.',
 };

@@ -1,3 +1,4 @@
+import { journeyAnswerReusable } from '@/planning/decision-store.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -124,7 +125,10 @@ function compareBestFirst(left: EarlierQuestion, right: EarlierQuestion): number
 
 function eligiblePackets(projectRoot: string, query: EarlierTitleQuery): DecisionPacket[] {
   const now = (query.now ?? new Date()).getTime();
-  const offered = readResolvedPackets(projectRoot).filter((packet) => mayBeOffered(packet, query));
+  const reusable = journeyAnswerReusable(projectRoot);
+  const offered = readResolvedPackets(projectRoot).filter(
+    (packet) => reusable(packet) && mayBeOffered(packet, query),
+  );
   return newestOfEachQuestion(offered).filter((packet) => Date.parse(packet.ttl_until) >= now);
 }
 

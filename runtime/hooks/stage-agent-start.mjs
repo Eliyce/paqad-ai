@@ -40,6 +40,26 @@ async function recordStart(projectRoot, payload) {
   } catch {}
 }
 
+const ONBOARDING_AGENT = /^(?:paqad:)?paqad-onboarding-/u;
+
+async function startOnboardingAgent(projectRoot, payload) {
+  const agent = logKey(payload.agent_id);
+  try {
+    const { recordOnboardingAgentStart } = await importDist('onboarding/journey/agents.js');
+    const recorded = recordOnboardingAgentStart(projectRoot, payload.agent_type, payload.agent_id);
+    stampAgentEntryMarker(projectRoot, payload.agent_id);
+    appendHooksLog(
+      projectRoot,
+      `${LOG_PREFIX}: onboarding agent=${agent} ${recorded ? 'recorded' : 'no open journey'}`,
+    );
+  } catch (error) {
+    appendHooksLog(
+      projectRoot,
+      `${LOG_PREFIX}: onboarding agent=${agent} not recorded: ${errorMessage(error)}`,
+    );
+  }
+}
+
 async function seed(projectRoot, payload) {
   const agent = logKey(payload.agent_id);
   let stage = 'unknown';
@@ -101,6 +121,10 @@ async function main(input) {
       return;
     }
     if (!payload || typeof payload !== 'object') {
+      return;
+    }
+    if (typeof payload.agent_type === 'string' && ONBOARDING_AGENT.test(payload.agent_type)) {
+      await startOnboardingAgent(projectRoot, payload);
       return;
     }
     await seed(projectRoot, payload);

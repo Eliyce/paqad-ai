@@ -2,6 +2,15 @@ import { tmpdir } from 'node:os';
 import * as nodePath from 'node:path';
 import { resolve } from 'node:path';
 
+import {
+  MODULE_AGENT,
+  ONBOARDING_DENIED_ROOTS,
+  ONBOARDING_WRITE_ROOTS,
+  moduleAgentWriteRoots,
+  onboardingAgent,
+  preexistingDocsPages,
+} from '@/onboarding/journey/agents.js';
+
 import { unresolvedStageAgent } from './must-not-judge.js';
 import { isHighTableAgent, stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
 
@@ -18,6 +27,27 @@ export interface ReadOnlyAgentScope {
   agent: string;
   allowedRoots: readonly string[];
   allowTempDir: boolean;
+  deniedRoots?: readonly string[];
+  deniedFiles?: ReadonlySet<string>;
+}
+
+export function onboardingAgentScope(
+  agentType: unknown,
+  projectRoot: string,
+  agentId?: unknown,
+): ReadOnlyAgentScope | null {
+  if (typeof agentType !== 'string') return null;
+  const agent = stripPluginAgentNamespace(agentType.trim());
+  if (onboardingAgent(agent) === null) return null;
+  const allowedRoots =
+    agent === MODULE_AGENT ? moduleAgentWriteRoots(projectRoot, agentId) : ONBOARDING_WRITE_ROOTS;
+  return {
+    agent,
+    allowedRoots,
+    allowTempDir: true,
+    deniedRoots: ONBOARDING_DENIED_ROOTS,
+    deniedFiles: new Set(preexistingDocsPages(projectRoot, agent)),
+  };
 }
 
 export function readOnlyAgentScope(agentType: unknown): ReadOnlyAgentScope | null {
@@ -369,15 +399,18 @@ export function writeAllowed(
   write: BashWrite,
   host: WriteHost = defaultHost(),
 ): boolean {
-  if (write.target === null || write.cwd === null || write.target === '') return false;
+  if (write.target === null || write.target === '') return false;
   const target = write.target.replace(/^~(?=\/|$)/u, host.home ?? '~');
   if (isDeviceTarget(target)) return true;
+  if (write.cwd === null) return false;
   const { path } = host;
   const abs = path.resolve(write.cwd, target);
   if (isDeviceTarget(abs)) return true;
   const root = path.resolve(projectRoot);
   if (under(path, abs, root)) {
     const rel = path.relative(root, abs).split(path.sep).join('/');
+    if ((scope.deniedRoots ?? []).some((denied) => `${rel}/`.startsWith(denied))) return false;
+    if (scope.deniedFiles?.has(rel)) return false;
     return scope.allowedRoots.some((allowed) => `${rel}/`.startsWith(allowed));
   }
   if (!scope.allowTempDir) return false;
@@ -388,6 +421,7 @@ export function writeAllowed(
 export interface StageAgentWriteInput {
   projectRoot: string;
   agentType: unknown;
+  agentId?: unknown;
   toolName?: string;
   command?: unknown;
   targets?: readonly string[];
@@ -404,6 +438,8 @@ const EDIT_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'NotebookEdit'
 const ALLOW: StageAgentWriteDecision = { blocked: false, agent: null, target: null };
 
 function scopeFor(input: StageAgentWriteInput): ReadOnlyAgentScope | null {
+  const onboarding = onboardingAgentScope(input.agentType, input.projectRoot, input.agentId);
+  if (onboarding !== null) return onboarding;
   const scope = readOnlyAgentScope(input.agentType);
   if (scope !== null || input.toolName !== 'Bash') return scope;
   const unresolved = unresolvedStageAgent(input.agentType);
@@ -429,10 +465,39 @@ export function stageAgentWriteDecision(input: StageAgentWriteInput): StageAgent
   }
   const denied = writes.find((write) => !writeAllowed(scope, input.projectRoot, write));
   if (denied === undefined) return { blocked: false, agent: scope.agent, target: null };
-  return { blocked: true, agent: scope.agent, target: denied.target };
+  return {
+    blocked: true,
+    agent: scope.agent,
+    target: shownWriteTarget(input.projectRoot, denied),
+  };
+}
+
+/**
+ * The blocked target as the person reads it: a path inside the project is
+ * shown relative to the project root with forward slashes on every OS, so a
+ * Windows `C:\repo\docs\a.md` reads `docs/a.md`. A path outside the project
+ * is shown as written.
+ */
+export function shownWriteTarget(
+  projectRoot: string,
+  write: BashWrite,
+  path: typeof nodePath.posix = nodePath,
+): string | null {
+  if (write.target === null || write.cwd === null) return write.target;
+  const root = path.resolve(projectRoot);
+  const abs = path.resolve(write.cwd, write.target);
+  if (!under(path, abs, root) || abs === root) return write.target;
+  return path.relative(root, abs).split(path.sep).join('/');
 }
 
 export function formatStageAgentWriteSummary(decision: StageAgentWriteDecision): string {
+  if (decision.agent !== null && onboardingAgent(decision.agent) !== null) {
+    return (
+      `**▸ paqad** · write blocked: \`${decision.agent}\` writes only its onboarding docs\n` +
+      `> 🔴 Needs your attention — \`${decision.agent}\` tried to write ${decision.target === null ? 'a file paqad cannot resolve' : `\`${decision.target}\``}. ` +
+      'Onboarding agents write only under docs/ and .paqad/ (never paqad controls), and a module agent only under its own docs/modules/<slug>/. The docs and module agents only add missing pages: a docs page that existed before onboarding started is kept as it is.'
+    );
+  }
   const scope = readOnlyAgentScope(decision.agent);
   const where =
     scope === null

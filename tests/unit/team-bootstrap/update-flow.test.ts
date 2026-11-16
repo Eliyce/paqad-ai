@@ -241,10 +241,10 @@ describe('AC-24: no home path reaches a tracked file', () => {
       projectRoot: root,
       selections: { domain: 'coding', stack: 'laravel', providers: ['claude-code'] },
     });
-    expect(tracked()).toHaveLength(11);
+    expect(tracked()).toHaveLength(16);
     assertClean();
     await new FrameworkUpdater().run(root);
-    expect(tracked()).toHaveLength(11);
+    expect(tracked()).toHaveLength(16);
     assertClean();
   }, 120_000);
 });

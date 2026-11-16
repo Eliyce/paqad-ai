@@ -36,6 +36,7 @@ function sessionHint(options: StatusCommandOptions): string | null {
 }
 
 export function renderHudText(snapshot: HudSnapshot): string {
+  if (snapshot.onboarding) return renderOnboardingText(snapshot.onboarding);
   const lines = [`paqad · ${snapshot.headline.text}`];
   if (snapshot.change) {
     const lane = snapshot.lane ? ` · ${snapshot.lane} lane` : '';
@@ -49,6 +50,13 @@ export function renderHudText(snapshot: HudSnapshot): string {
   if (snapshot.decisions.pending.length > 0) {
     lines.push(`decisions waiting: ${snapshot.decisions.pending.length}`);
   }
+  return lines.join('\n');
+}
+
+function renderOnboardingText(onboarding: NonNullable<HudSnapshot['onboarding']>): string {
+  const lines = [`paqad · Onboarding · ${onboarding.headline}`];
+  for (const stage of onboarding.stages) lines.push(`${stage.mark} ${stage.label}`);
+  lines.push(onboarding.alt);
   return lines.join('\n');
 }
 

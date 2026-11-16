@@ -56,6 +56,7 @@ const ROUTE_REASON: Record<RoutedWorkflow, string> = {
   'root-cause-analysis': 'a post-incident root-cause analysis',
   discovery: 'shaping an uncertain idea into a practical next step — no code yet',
   'rules-discovery': 'bringing the rules and stack docs up to date with the real stack',
+  onboarding: 'setting up paqad as one eight-step onboarding journey',
   'no-workflow': 'just chatting — nothing to set up',
 };
 

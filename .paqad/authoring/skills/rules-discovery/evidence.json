@@ -1,0 +1,57 @@
+{
+  "schema_version": "1",
+  "skill": "rules-discovery",
+  "version": "1.1.0",
+  "host": "claude-code",
+  "folder_hash": "sha256:6d5c1bb0c89179bc859f7d0cf78fcb0c30abdf4d7ce112e823f8db0fa61544d2",
+  "baseline": {
+    "runs": 3,
+    "passed": null,
+    "verdict": "needed"
+  },
+  "sources": {
+    "count": 13,
+    "non_model": 13,
+    "kind": "repo"
+  },
+  "lint": {
+    "blocking": 0,
+    "warnings": 1
+  },
+  "script_tests": {
+    "command": "pnpm test --reporter=tap",
+    "tests": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "benchmark": {
+    "iterations": 2,
+    "pass_rate_with": 0.9587,
+    "pass_rate_without": 0.5907,
+    "delta_points": 36.8,
+    "token_multiple": 0.782,
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "claude_version": "2.1.325",
+    "checks_not_measured": [],
+    "source": "subagent-dispatch"
+  },
+  "trigger": {
+    "validation_score": 1,
+    "description_chars": 715,
+    "batch": "not-offered"
+  },
+  "performance": {
+    "tokens": "measured",
+    "source": "subagent-dispatch"
+  },
+  "creation_cost": {
+    "S5": "unavailable",
+    "S6": 3.0438,
+    "source": "host-usage"
+  },
+  "overrides": [],
+  "decisions": [],
+  "labels": []
+}

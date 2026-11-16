@@ -132,7 +132,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
     ],
     "SubagentStart": [
       {
-        "matcher": "^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$",
+        "matcher": "^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync|onboarding-(docs|modules|rules|analyze|scripts))$",
         "hooks": [
           {
             "type": "command",

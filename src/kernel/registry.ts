@@ -12,6 +12,7 @@ export interface CapabilityPayload {
   toolUseId?: string;
   toolInput?: unknown;
   agentType?: string;
+  agentId?: string;
 }
 
 export interface CapabilityDescriptor {

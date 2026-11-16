@@ -28,6 +28,10 @@ manifests, syncs the stored stack profile, then writes
 - **`stack-docs/generator.ts`.** With the analytics flag on it writes `analytics.md`; with it off
   it writes nothing and removes a stale copy an earlier onboard left, and a failed cleanup never
   breaks onboarding.
+- **Journey mode.** Only when the brief carries "Onboarding journey says auto-recommended." the
+  skill answers each pause with `paqad-ai onboarding decide`, writes only missing pages (existing
+  pages stay byte-identical and are listed as kept), and records each finished doc area or module
+  with `paqad-ai onboarding unit`. Without that line it asks as before and runs no onboarding verb.
 
 ## Source Footprint
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { resolveStageAgentSettings } from '@/core/framework-config';
+import { ONBOARDING_AGENTS } from '@/onboarding/journey/agents';
 import {
   renderClaudePluginStageAgents,
   renderStageAgentFiles,
@@ -23,11 +24,11 @@ afterEach(() => {
 });
 
 describe('writeStageAgents', () => {
-  it('writes six stage agents and two High Table agents per host at user scope (no config knob, AC-46)', () => {
+  it('AC-16: writes six stage agents and two High Table agents per host, and the five onboarding agents for Claude Code (no config knob, AC-46)', () => {
     const home = tempDir('paqad-sa-home-');
     const written = writeStageAgents({ homeDir: home });
 
-    expect(written).toHaveLength(16);
+    expect(written).toHaveLength(21);
     const claudeDir = join(home, '.claude/agents');
     const codexDir = join(home, '.codex/agents');
     expect(readdirSync(claudeDir).sort()).toEqual([
@@ -36,6 +37,11 @@ describe('writeStageAgents', () => {
       'paqad-development.md',
       'paqad-documentation-sync.md',
       'paqad-expert.md',
+      'paqad-onboarding-analyze.md',
+      'paqad-onboarding-docs.md',
+      'paqad-onboarding-modules.md',
+      'paqad-onboarding-rules.md',
+      'paqad-onboarding-scripts.md',
       'paqad-planning.md',
       'paqad-review.md',
       'paqad-specification.md',
@@ -143,8 +149,13 @@ describe('stage agent frontmatter', () => {
         { effort: 'inherit' as const, model: 'inherit' as const },
       ]),
     );
+    const fixedEffort = new Set(
+      ONBOARDING_AGENTS.filter((def) => def.effort !== undefined).map(
+        (def) => `${def.agentName}.md`,
+      ),
+    );
     for (const file of renderStageAgentFiles('claude-code', settings)) {
-      expect(file.content).not.toMatch(/^effort:/m);
+      if (!fixedEffort.has(file.name)) expect(file.content).not.toMatch(/^effort:/m);
       expect(frontmatter(file.content).model).toBe('inherit');
     }
   });
@@ -177,5 +188,27 @@ describe('the stage agent copies this repo commits', () => {
       const committed = readFileSync(join(process.cwd(), '.claude/agents', name), 'utf8');
       expect(committed, `.claude/agents/${name} is out of date`).toBe(withManagedMarker(content));
     }
+  });
+});
+
+describe('onboarding agent effort', () => {
+  it('renders an effort line only for an onboarding def that sets effort', () => {
+    const rendered = new Map(
+      renderClaudePluginStageAgents().map(({ name, content }) => [name, content]),
+    );
+    for (const def of ONBOARDING_AGENTS) {
+      const content = rendered.get(`${def.agentName}.md`) ?? '';
+      if (def.effort === undefined) {
+        expect(content, def.agentName).toContain('\nmodel: inherit\ntools: ');
+        expect(content, def.agentName).not.toMatch(/^effort:/mu);
+      } else {
+        expect(content, def.agentName).toContain(
+          `\nmodel: inherit\neffort: ${def.effort}\ntools: `,
+        );
+      }
+    }
+    expect(
+      ONBOARDING_AGENTS.filter((def) => def.effort !== undefined).map((d) => d.agentName),
+    ).toEqual(['paqad-onboarding-analyze']);
   });
 });

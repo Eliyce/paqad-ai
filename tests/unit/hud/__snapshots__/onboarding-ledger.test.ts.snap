@@ -1,0 +1,15 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AC-11: the onboarding Ledger tabs > Stages: a heading per step with its right word and step lines 1`] = `
+[
+  "READ YOUR PROJECT  ✓ Done 1 min",
+  "SET UP PAQAD  ✓ Done 2 min",
+  "WRITE THE PROJECT DOCS  ✓ Done 41 min",
+  "WRITE THE MODULE DOCS  Running 14:00",
+  "  ✓ 7 of 23 · billing",
+  "RESEARCH RULES FOR YOUR STACK  Not yet",
+  "CHECK WHICH RULES CAN BE AUTOMATED  Not yet",
+  "WRITE THE RULE CHECKS  Not yet",
+  "WRAP UP  Not yet",
+]
+`;

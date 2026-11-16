@@ -1,4 +1,11 @@
 import {
+  appendEvent as appendJourneyEvent,
+  readEvents as readJourneyEvents,
+} from '@/onboarding/journey/events.js';
+import { currentStage as currentJourneyStage } from '@/onboarding/journey/fold.js';
+import { readRun as readJourneyRun } from '@/onboarding/journey/run-store.js';
+import { statusLine } from '@/onboarding/journey/stages.js';
+import {
   CHECKS_RUNNING_CEILING_MS,
   liveChecksRunningMarker,
   type ChecksMarkerProbe,
@@ -255,4 +262,26 @@ function deferralCeilingReached(rows: readonly SessionLedgerRow[], now: () => Da
     firstDeferredAt = Math.min(firstDeferredAt, at);
   }
   return now().getTime() - firstDeferredAt >= CHECKS_RUNNING_CEILING_MS;
+}
+
+export function onboardingStopNudge(
+  projectRoot: string,
+  stopSessionId: string | null,
+  now: () => Date = () => new Date(),
+): string | null {
+  const run = readJourneyRun(projectRoot);
+  if (run === null || run.status !== 'running' || stopSessionId !== run.owner_session) return null;
+  const current = currentJourneyStage(run);
+  if (current === null || run.stages[current].status !== 'not_started') return null;
+  const nudged = readJourneyEvents(projectRoot, run.run_id).some(
+    (event) => event.kind === 'heartbeat' && event.note === `nudge:${current}`,
+  );
+  if (nudged) return null;
+  appendJourneyEvent(projectRoot, {
+    ts: now().toISOString(),
+    run_id: run.run_id,
+    kind: 'heartbeat',
+    note: `nudge:${current}`,
+  });
+  return `paqad: onboarding is between steps and ${statusLine(current)} has not started. Run \`paqad-ai onboarding next\` and carry on, or \`paqad-ai onboarding abandon\` to pause.`;
 }

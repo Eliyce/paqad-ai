@@ -142,6 +142,13 @@ their say at the end of the turn. Every other edit is refused with the same mess
 - **What it records.** A `rule-run.jsonl` row of kind `edit-allowed` with the findings removed and the
   count remaining, and a line in the hooks log. If a change is open and the row cannot be written, the
   edit is refused. With no change open only the log line is written. The remaining findings still block at the end of the turn.
+## Onboarding agents and the journey
+
+The five `paqad-onboarding-*` agents are not stage agents: `must-not-judge` skips them, and the
+write guards (`agent-writer.ts`, `bash-write-guard.ts`) hold them to the onboarding write roots
+and deny the journey's run state. `completion-deferred.ts` adds `onboardingStopNudge`: when the
+owning session stops between steps with the next step not started, it nudges once per step to run
+`paqad-ai onboarding next` or `abandon`.
 
 ## Source Footprint
 

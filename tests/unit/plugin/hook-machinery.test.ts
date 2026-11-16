@@ -127,7 +127,8 @@ describe('plugin manifest-build generators', () => {
     expect(manifest.version).toBe('9.9.9');
     expect(manifest.hooks).toBe('./runtime/claude-plugin/hooks.json');
     expect(Array.isArray(manifest.agents)).toBe(true);
-    expect(manifest.agents).toHaveLength(8);
+    expect(manifest.agents).toHaveLength(13);
+    expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-onboarding-docs.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-development.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-expert.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-chief-architect.md');
@@ -139,7 +140,7 @@ describe('plugin manifest-build generators', () => {
     });
   });
 
-  it('renders the six Claude stage agents and the two High Table agents from the shared template', () => {
+  it('renders the six Claude stage agents, the two High Table agents and the five onboarding agents from the shared template', () => {
     const agents = renderClaudePluginStageAgents();
     const names = agents.map((a) => a.name).sort();
     expect(names).toEqual([
@@ -148,6 +149,11 @@ describe('plugin manifest-build generators', () => {
       'paqad-development.md',
       'paqad-documentation-sync.md',
       'paqad-expert.md',
+      'paqad-onboarding-analyze.md',
+      'paqad-onboarding-docs.md',
+      'paqad-onboarding-modules.md',
+      'paqad-onboarding-rules.md',
+      'paqad-onboarding-scripts.md',
       'paqad-planning.md',
       'paqad-review.md',
       'paqad-specification.md',
@@ -162,15 +168,20 @@ describe('plugin manifest-build generators', () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad-plugin-agents-'));
     afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-    it('writes the six stage-agent files and the two High Table agents into the destination dir', () => {
+    it('writes the six stage-agent files, the two High Table agents and the five onboarding agents into the destination dir', () => {
       const written = writeClaudePluginStageAgents(dir);
-      expect(written).toHaveLength(8);
+      expect(written).toHaveLength(13);
       expect(readdirSync(dir).sort()).toEqual([
         'paqad-checks.md',
         'paqad-chief-architect.md',
         'paqad-development.md',
         'paqad-documentation-sync.md',
         'paqad-expert.md',
+        'paqad-onboarding-analyze.md',
+        'paqad-onboarding-docs.md',
+        'paqad-onboarding-modules.md',
+        'paqad-onboarding-rules.md',
+        'paqad-onboarding-scripts.md',
         'paqad-planning.md',
         'paqad-review.md',
         'paqad-specification.md',

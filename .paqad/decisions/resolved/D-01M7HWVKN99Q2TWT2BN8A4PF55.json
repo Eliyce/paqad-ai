@@ -1,0 +1,64 @@
+{
+  "id": "D-01M7HWVKN99Q2TWT2BN8A4PF55",
+  "category": "authoring.override",
+  "title": "The agent paqad-onboarding-modules cannot run its S2 check. Add it unverified, kept in this project?",
+  "context": "The only S2 clash is paqad's own generated copy of this same agent in ~/.claude/agents (managed marker); no description or tool overlap with any other agent.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, paqad-onboarding-modules is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that paqad-onboarding-modules helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, paqad-onboarding-modules is not added.",
+      "trade_off": "You give up: the agent.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Withdrawn: no override. The owner chose to remove paqad's generated ~/.claude/agents copies so S2 passes and the agent stays verified.",
+      "one_line_preview": "Withdrawn: no override. The owner chose to remove paqad's generated ~/.claude/agents copies so S2 passes and the agent stays verified.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-16T10:01:18.249Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M6N2VXAN0CXF96TGBSN1VR32",
+      "D-01M6N2VW5AEE73458CF7SAHX5Z",
+      "D-01M6N2VV0G7JZXR6JYTZV7RXKE",
+      "D-01M6N2VRKBD8PV3K0WKCD7E4Y2",
+      "D-01M6N2VP90745HRPDN8TF540MG"
+    ],
+    "none_reason": "First S2 shadowing override for the onboarding agents"
+  },
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-11-16T10:06:01.453Z",
+  "decision_id": "D-01M7HWVKN99Q2TWT2BN8A4PF55",
+  "fingerprint": "sha256:3e661bf83ce27ab86bf92f96c87a17a62aaf8931e120c2d5d0d1aa6980b948fa",
+  "question": "The agent paqad-onboarding-modules cannot run its S2 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:01:18.249Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:06:01.453Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

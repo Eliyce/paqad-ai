@@ -181,6 +181,12 @@ reasons below are not obvious from the code.
   best-effort and never breaks the decision flow. The schema lives in `src/`, never under
   `.paqad/`, so the model cannot weaken it. A row proves a reuse was observed, not that it was
   correct.
+- **Onboarding journey answers.** A packet the onboarding journey opened is answered with its
+  recommended option through `paqad-ai onboarding decide <id>`, recorded in
+  `.paqad/onboarding/choices.jsonl`, never asked. `authoring.ts` notes each packet the journey opens.
+  `earlier-answers.ts` and `decision-precedents.ts` filter with `journeyAnswerReusable`, so an
+  automatic answer is not offered as "same as last time" until a person reviews it with
+  `onboarding choices --review`. The written contract carries a matching Onboarding journey section.
 
 ## Authority
 

@@ -1,3 +1,4 @@
+import { journeyAnswerReusable } from './decision-store.js';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -98,8 +99,10 @@ export function findDecisionPrecedents(
 ): DecisionPrecedent[] {
   const limit = options.limit ?? DEFAULT_PRECEDENT_LIMIT;
   const floor = options.floor ?? PRECEDENT_SCORE_FLOOR;
+  const reusable = journeyAnswerReusable(projectRoot);
   const candidates = readResolvedPackets(projectRoot).filter(
     (packet) =>
+      reusable(packet) &&
       packet.decision_id !== query.decision_id &&
       (!query.fingerprint || packet.fingerprint !== query.fingerprint) &&
       (packet.status === 'resolved' || packet.status === 'delegated') &&

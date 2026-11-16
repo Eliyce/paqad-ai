@@ -39,6 +39,12 @@ export interface OnboardingOutput {
   kept_files: string[];
   drift_review_targets: string[];
   reverted_framework_values: string[];
+  step_failures?: OnboardingStepFailure[];
+}
+
+export interface OnboardingStepFailure {
+  step: 'rule_script_map' | 'planning_rules' | 'rule_context';
+  message: string;
 }
 
 export interface OnboardingFileTreeEntry {

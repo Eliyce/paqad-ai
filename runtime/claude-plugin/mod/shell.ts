@@ -1,4 +1,4 @@
-import type { LiveState, PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
+import type { JourneyView, LiveState, PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
 
 export type BandAction = 'minimise' | 'restore' | 'close' | 'show' | 'reopen';
 
@@ -51,11 +51,13 @@ export interface BodyContext {
   turnStartedAt?: number | null;
   unavailable?: boolean;
   live?: LiveState;
+  journey?: JourneyView | null;
+  columns?: number;
 }
 
 export const UNAVAILABLE = 'HUD data unavailable';
 
-export type BodyRenderer = (snapshot: PaqadHudSnapshot, context: BodyContext) => BandBody;
+export type BodyRenderer = (snapshot: PaqadHudSnapshot | null, context: BodyContext) => BandBody;
 
 export const BAND_BODIES: Record<string, BodyRenderer> = {};
 

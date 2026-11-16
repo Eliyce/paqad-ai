@@ -227,6 +227,11 @@
       "name": "module-map-reconciler"
     },
     {
+      "path": "runtime/base/skills/onboarding-journey/SKILL.md",
+      "folder": "onboarding-journey",
+      "name": "onboarding-journey"
+    },
+    {
       "path": "runtime/base/skills/performance-regression-estimator/SKILL.md",
       "folder": "performance-regression-estimator",
       "name": "performance-regression-estimator"
@@ -710,6 +715,31 @@
       "path": "runtime/claude-plugin/agents/paqad-expert.md",
       "folder": "paqad-expert",
       "name": "paqad-expert"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-onboarding-analyze.md",
+      "folder": "paqad-onboarding-analyze",
+      "name": "paqad-onboarding-analyze"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-onboarding-docs.md",
+      "folder": "paqad-onboarding-docs",
+      "name": "paqad-onboarding-docs"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-onboarding-modules.md",
+      "folder": "paqad-onboarding-modules",
+      "name": "paqad-onboarding-modules"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-onboarding-rules.md",
+      "folder": "paqad-onboarding-rules",
+      "name": "paqad-onboarding-rules"
+    },
+    {
+      "path": "runtime/claude-plugin/agents/paqad-onboarding-scripts.md",
+      "folder": "paqad-onboarding-scripts",
+      "name": "paqad-onboarding-scripts"
     },
     {
       "path": "runtime/claude-plugin/agents/paqad-planning.md",

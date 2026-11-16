@@ -21,6 +21,7 @@ import {
 } from '@/planning/decision-packet.js';
 import { appendDecisionAuditEvent } from '@/planning/decision-audit.js';
 import { DecisionStore } from '@/planning/decision-store.js';
+import { noteJourneyDecision } from '@/onboarding/journey/packets.js';
 
 import {
   assertEarlierCheckDone,
@@ -177,6 +178,7 @@ export function createPendingDecision(
   if (check !== null) packet.earlier_check = check;
 
   atomicWriteJson(path, withRichFields(packet));
+  noteJourneyDecision(projectRoot, id);
   return { id, path };
 }
 

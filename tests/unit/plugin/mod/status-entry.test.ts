@@ -42,7 +42,8 @@ describe('the status entry for other workflows (FR-44, AC-40)', () => {
     );
     expect(workflowCost(workflow({ usd: null }))).toBe('84K tokens');
     expect(workflowWords('made-up-flow')).toBe('made up flow');
-    expect(Object.keys(WORKFLOW_WORDS)).toHaveLength(10);
+    expect(Object.keys(WORKFLOW_WORDS)).toHaveLength(11);
+    expect(workflowWords('onboarding')).toBe('onboarding');
   });
 
   it('shows only on another route, never on feature development or no workflow', () => {

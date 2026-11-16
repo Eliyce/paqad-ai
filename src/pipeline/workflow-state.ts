@@ -14,6 +14,7 @@ export interface WorkflowEntry {
   lane?: StageLane;
   specId?: string;
   discoveryRunId?: string;
+  onboardingRunId?: string;
   reason?: string;
 }
 
@@ -65,6 +66,9 @@ function toEntry(value: unknown): WorkflowEntry | null {
   }
   if (typeof record.discoveryRunId === 'string') {
     entry.discoveryRunId = record.discoveryRunId;
+  }
+  if (typeof record.onboardingRunId === 'string') {
+    entry.onboardingRunId = record.onboardingRunId;
   }
   if (typeof record.reason === 'string') {
     entry.reason = record.reason;
@@ -146,6 +150,9 @@ function stripUndefined(anchors: Omit<WorkflowEntry, 'workflow'>): Omit<Workflow
   }
   if (anchors.discoveryRunId !== undefined) {
     out.discoveryRunId = anchors.discoveryRunId;
+  }
+  if (anchors.onboardingRunId !== undefined) {
+    out.onboardingRunId = anchors.onboardingRunId;
   }
   if (anchors.reason !== undefined) {
     out.reason = anchors.reason;

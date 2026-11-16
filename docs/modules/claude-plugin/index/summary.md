@@ -19,7 +19,9 @@ should push to that repo.
 
 17 skills, all under `runtime/claude-plugin/skills/`, each invoked as `/paqad:<name>`.
 
-- Developer skills, written by hand: `onboard`, `join`, `dashboard`.
+- Developer skills, written by hand: `onboard`, `join`, `dashboard`. `onboard` runs the
+  staged onboarding journey (`paqad-ai onboarding next` in a loop) and the HUD mod shows its
+  progress card; the plugin also ships the five `paqad-onboarding-*` agents the journey dispatches.
 - Product-owner discovery skills, generated from `plugins/discovery`: `start`, `discover`,
   `ask`, `refine-ticket`, `size-work`, `plan-sprint`, `get-connected`, `understand-idea`,
   `ground-in-project`, `shape-idea`, `decide-together`, `write-tickets`, `check-tickets`,

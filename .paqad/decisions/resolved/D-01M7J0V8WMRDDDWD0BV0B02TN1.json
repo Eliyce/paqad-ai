@@ -1,0 +1,63 @@
+{
+  "id": "D-01M7J0V8WMRDDDWD0BV0B02TN1",
+  "category": "authoring.override",
+  "title": "The skill onboard cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "onboard is command-only (disable-model-invocation), so it cannot be picked from a sentence and cannot pass the trigger test by construction; natural-language onboarding requests correctly route to onboarding-journey. Every other gate ran for real (S5 +72.6 points). Same case as start.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, onboard is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that onboard helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, onboard is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "add-unverified",
+  "created_at": "2026-11-16T11:11:01.525Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M786NZ7HW2E27M58HX0YE02D",
+      "D-01M75M6WCJQ4RCTVN54S7GB04R",
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M7HX2SCCNH63JZ9KKQVANCWA",
+      "D-01M786PD32HSSN8ZVAD18QPREC"
+    ]
+  },
+  "suggestion": {
+    "earlier_id": "D-01M75M6WCJQ4RCTVN54S7GB04R",
+    "option_key": "add-unverified",
+    "reason": "Same case as the start skill: command-only, cannot pass S6 by construction; owner approved the skip in chat.",
+    "at": "2026-11-16T11:11:02.318Z"
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner chose 'Allow the S6 skip (Recommended)' in the question prompt: onboard is command-only and cannot pass the trigger test; every other gate ran for real.",
+  "resolved_at": "2026-11-16T11:11:02.768Z",
+  "decision_id": "D-01M7J0V8WMRDDDWD0BV0B02TN1",
+  "fingerprint": "sha256:8c9ff80273409d6dce0f14f39ebd0162046fb51afe88d932a3bf003baa429a0e",
+  "question": "The skill onboard cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Same case as the start skill: command-only, cannot pass S6 by construction; owner approved the skip in chat.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T11:11:01.525Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T11:11:02.768Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose 'Allow the S6 skip (Recommended)' in the question prompt: onboard is command-only and cannot pass the trigger test; every other gate ran for real."
+  }
+}

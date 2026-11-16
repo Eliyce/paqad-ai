@@ -26,6 +26,7 @@ export async function main(input) {
     const decision = stageAgentWriteDecision({
       projectRoot,
       agentType,
+      agentId: payload?.agent_id,
       toolName: payload?.tool_name,
       command: payload?.tool_input?.command,
       cwd: typeof payload?.cwd === 'string' && payload.cwd.trim() !== '' ? payload.cwd : undefined,

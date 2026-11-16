@@ -1,0 +1,64 @@
+{
+  "id": "D-01M7HZM6JF1SHB9VH9S1XKHCW8",
+  "category": "authoring.override",
+  "title": "The skill rule-script-generator cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "The description is unchanged from 1.1.0, which passed S6 with validation 1.0. After the body-only staged-install update, the rerun scored train 1.0 and validation 0.875: the near-miss 'Write a bash script that runs eslint and prettier on staged files before commit' fired 2 of 3 runs (1 of 3 last time). There are no train failures, so S6 allows no revision; options are to accept the unchanged description (override S6) or to rerun the trigger sweep.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, rule-script-generator is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that rule-script-generator helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, rule-script-generator is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Owner answered in chat: no override; rerun S6 once with the realistic harness (sonnet, 4 turns, clean fixtures).",
+      "one_line_preview": "Owner answered in chat: no override; rerun S6 once with the realistic harness (sonnet, 4 turns, clean fixtures).",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-16T10:49:41.199Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M786NZ7HW2E27M58HX0YE02D",
+      "D-01M75M6WCJQ4RCTVN54S7GB04R",
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M7HX2SCCNH63JZ9KKQVANCWA",
+      "D-01M786PD32HSSN8ZVAD18QPREC"
+    ],
+    "none_reason": "No earlier answer offers a rerun option; the owner chose a rerun in chat."
+  },
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-11-16T10:51:14.737Z",
+  "decision_id": "D-01M7HZM6JF1SHB9VH9S1XKHCW8",
+  "fingerprint": "sha256:63d4452ba7c0ef9bd49d7e66aef42ca4d7fb54fd7c80e20b9f3cffc2f0bd501e",
+  "question": "The skill rule-script-generator cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:49:41.199Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:51:14.737Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

@@ -1,3 +1,5 @@
+import type { JourneyBandModel } from './journey-model';
+import type { JourneyLedger } from './journey-ledger';
 import { ACTIVITY_LINES } from './agents';
 import { changeChip } from './band';
 import {
@@ -794,6 +796,7 @@ export interface FeatureCard {
 
 export type DesktopBand =
   | { kind: 'none' }
+  | { kind: 'onboarding'; model: JourneyBandModel; columns: number }
   | { kind: 'ready' }
   | { kind: 'unreadable'; reason: Unreadable; headline: string }
   | { kind: 'missing'; line: string; hint: string }
@@ -1832,6 +1835,7 @@ export function workflowLedger(snapshot: PaqadHudSnapshot, route: string): Workf
 
 export type DesktopLedger =
   | { kind: 'none' }
+  | { kind: 'onboarding'; ledger: JourneyLedger }
   | { kind: 'no-change'; words: string }
   | { kind: 'unreadable'; light: LightView }
   | { kind: 'workflow'; view: WorkflowLedger }

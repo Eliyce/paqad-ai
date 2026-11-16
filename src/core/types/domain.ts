@@ -196,3 +196,15 @@ export const STACK_CAPABILITIES_MAP: Record<Stack, readonly Capability[]> = {
   'node-service': ['docker', 'compose'],
   'short-video': ['docker', 'compose'],
 };
+
+export function isStack(value: string): value is Stack {
+  return (STACKS as readonly string[]).includes(value);
+}
+
+export function validateCapabilitiesForStack(
+  stack: Stack,
+  capabilities: readonly string[],
+): string[] {
+  const allowed = STACK_CAPABILITIES_MAP[stack] as readonly string[];
+  return capabilities.filter((capability) => !allowed.includes(capability));
+}

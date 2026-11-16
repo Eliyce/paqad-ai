@@ -198,13 +198,14 @@ describe('agent router document', () => {
 });
 
 describe('agent router document · rules discovery', () => {
-  it('AC-4: lists 13 workflows with the rules-discovery line and says the other 11 load no rules', () => {
+  it('AC-4: lists 14 workflows with the rules-discovery and onboarding lines and says the other 12 load no rules', () => {
     for (const doc of [buildAgentRouterDocument(), readFileSync(COMMITTED_ROUTER, 'utf8')]) {
-      expect(doc).toContain('pick **exactly one** of these 13 workflows');
+      expect(doc).toContain('pick **exactly one** of these 14 workflows');
+      expect(doc).toContain('13. **onboarding**');
       expect(doc).toContain(
         "**rules-discovery**: bring the project's rules and stack docs up to date: read the real stack, turn resolved decisions into rules, research the stack online, and propose a merged rule set for sign-off.",
       );
-      expect(doc).toContain('The other 11 outcomes load **no** rules');
+      expect(doc).toContain('The other 12 outcomes load **no** rules');
     }
   });
 });

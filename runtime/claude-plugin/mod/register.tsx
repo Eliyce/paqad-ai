@@ -49,6 +49,34 @@ import {
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
+  JOURNEY_CHOICES_PATH,
+  buildJourneyLedger,
+  journeyPaneView,
+  parseChoices,
+  type JourneyLedger,
+} from './journey-ledger';
+import {
+  BIND_WATCH_MS,
+  JOURNEY_RUN_PATH,
+  JOURNEY_VIEW_PATH,
+  STALL_MS,
+  isOnboardingCommand,
+  journeyBand,
+  journeyBandShown,
+  journeyPrompt,
+  parseJourneyView,
+  rebindNeeded,
+  type JourneyView,
+} from './journey-model';
+import {
+  drawOnboardTray,
+  initialTray,
+  toggleTray,
+  traySubmitText,
+  type TrayActions,
+  type TrayState,
+} from './onboard-tray';
+import {
   ANSWER_TOAST,
   RECORD_WAIT_MS,
   bandIsLive,
@@ -65,6 +93,7 @@ import {
   refusesTaskList,
   taskListSentence,
   type DesktopBand,
+  type DesktopLedger,
   type SignoffAction,
   type SignoffCheck,
   type TableSitting,
@@ -204,6 +233,10 @@ const snapshotAtom = atom(
   null as PaqadHudSnapshot | null,
 );
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
+const onboardPendingAtom = atom(
+  { plugin: 'paqad', key: 'onboardPending' } as const,
+  null as TrayState | null,
+);
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
 const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
@@ -296,6 +329,8 @@ let sessionOpened = false;
 let homeDir: string | null = null;
 let missingTimer: Timer | null = null;
 let commandRegistered = false;
+let bindWatch: Timer | null = null;
+let bindWatchUntil = 0;
 const rawCalls = new Set<string>();
 
 interface CiWatch {
@@ -711,10 +746,14 @@ async function readStatus(
     USERPROFILE: await $.env.get('USERPROFILE'),
   });
   let root: string | null = null;
+  let journeyRoot: string | null = null;
   for (const dir of ancestorDirs(start, home)) {
     if (await $.fs.exists(joinPath(dir, '.paqad/framework-path.txt'))) {
       root = dir;
       break;
+    }
+    if (journeyRoot === null && (await $.fs.exists(joinPath(dir, JOURNEY_RUN_PATH)))) {
+      journeyRoot = dir;
     }
   }
   const teamConfigs: Array<{ name: string; text: string }> = [];
@@ -745,6 +784,7 @@ async function readStatus(
   };
   const status = decideStatus({
     onboarded: root !== null,
+    journey: journeyRoot !== null,
     env,
     localConfig,
     teamConfigs,
@@ -753,7 +793,7 @@ async function readStatus(
   });
   return {
     ...status,
-    root,
+    root: root ?? journeyRoot,
     home,
     chime: isChimeOn({ env, localConfig, teamConfigs, paqadYaml }),
   };
@@ -1050,6 +1090,8 @@ async function desktopBandOf(
   $: EngineInterface,
   size: { columns: number; maxRows: number },
 ): Promise<DesktopBand> {
+  const journey = await journeyBandOf($, size);
+  if (journey !== null) return journey;
   const snapshot = await read($, snapshotAtom);
   return buildDesktopBand({
     snapshot,
@@ -1191,6 +1233,43 @@ function desktopActions($: EngineInterface): BandActions {
     cancel: act(() => closing(false)),
     show: act(() => showBand($, true)),
     signoff: (action, surface) => act(() => pressSignoff($, action, surface))(),
+    journey: (button) => act(() => $.prompt.submit({ text: journeyPrompt(button) }))(),
+  };
+}
+
+async function journeyViewOf($: EngineInterface): Promise<JourneyView | null> {
+  const root = live?.root ?? null;
+  if (root === null) return null;
+  return parseJourneyView(await readText($, joinPath(root, JOURNEY_VIEW_PATH)));
+}
+
+async function journeyLedgerOf(
+  $: EngineInterface,
+  tab: PaqadPaneTab | null,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<JourneyLedger | null> {
+  const root = live?.root ?? null;
+  const view = await journeyViewOf($);
+  const now = (await read($, nowAtom)) ?? 0;
+  if (root === null || view === null || !journeyBandShown(view, now)) return null;
+  const choices = parseChoices(await readText($, joinPath(root, JOURNEY_CHOICES_PATH)));
+  const workflow = snapshot?.workflow?.name === 'onboarding' ? snapshot.workflow : null;
+  return buildJourneyLedger({ view, choices, tab, workflow, now });
+}
+
+async function journeyBandOf(
+  $: EngineInterface,
+  size: { columns: number },
+): Promise<DesktopBand | null> {
+  const view = await journeyViewOf($);
+  const now = (await read($, nowAtom)) ?? 0;
+  if (!journeyBandShown(view, now) || view === null) return null;
+  const heartbeat = view.generated_at ? Date.parse(view.generated_at) : now;
+  const stalled = now - heartbeat > STALL_MS;
+  return {
+    kind: 'onboarding',
+    model: journeyBand(view, { columns: size.columns, stalled }),
+    columns: size.columns,
   };
 }
 
@@ -1389,7 +1468,7 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
   const sub = subcommandOf(args);
   if (status?.on && at && sub === 'show') await showBand($, true);
   if (status?.on && at && sub === 'hide') await setHidden($, true);
-  return runPaqadCommand({
+  const answer = runPaqadCommand({
     ...(status?.on && at && sub === 'decisions'
       ? { repoDecisions: await readRepoDecisions($, at.root) }
       : {}),
@@ -1399,10 +1478,28 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
     receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
     now: await $.clock.now(),
   });
+  if (answer.onboard) await update($, onboardPendingAtom, () => initialTray(false));
+  return { text: answer.text };
+}
+
+function trayActions($: EngineInterface, state: TrayState): TrayActions {
+  return {
+    toggle: (key) => void update($, onboardPendingAtom, () => toggleTray(state, key)),
+    dismiss: () => void update($, onboardPendingAtom, () => null),
+    start: () =>
+      void (async () => {
+        const text = traySubmitText(state, (await $.session.id()) ?? 'unknown');
+        if (text === null) return;
+        await update($, onboardPendingAtom, () => null);
+        await $.prompt.submit({ text });
+        await watchForJourney($);
+      })(),
+  };
 }
 
 async function clearBinding($: EngineInterface): Promise<void> {
   live = null;
+  stopBindWatch();
   await moveLive($, turnEnded);
   lastText = undefined;
   verdictSeen = undefined;
@@ -1443,6 +1540,40 @@ async function resolveRoot(
   }
   if (status?.on && status.root) await bind($, status.root, status.chime);
   return status;
+}
+
+async function recheckRoot($: EngineInterface): Promise<void> {
+  const start = boundStart;
+  if (start === null) return;
+  let found: Awaited<ReturnType<typeof readStatus>>;
+  try {
+    found = await readStatus($, start);
+  } catch {
+    return;
+  }
+  const before = { on: (await read($, statusAtom))?.on === true, root: live?.root ?? null };
+  if (!rebindNeeded(before, { on: found.on, root: found.root })) return;
+  await clearBinding($);
+  const status = await resolveRoot($, start);
+  if (status && registersCommand(status)) await registerCommandOnce($);
+}
+
+function stopBindWatch(): void {
+  bindWatch?.cancel();
+  bindWatch = null;
+}
+
+async function watchForJourney($: EngineInterface): Promise<void> {
+  if (live || bindWatch) return;
+  try {
+    bindWatchUntil = (await $.clock.now()) + BIND_WATCH_MS;
+    bindWatch = $.clock.every(AGENT_TICK_MS, () => {
+      void (async () => {
+        await recheckRoot($);
+        if (live || (await $.clock.now()) > bindWatchUntil) stopBindWatch();
+      })();
+    });
+  } catch {}
 }
 
 async function logDebug($: EngineInterface, text: string): Promise<void> {
@@ -1497,6 +1628,7 @@ export const register: Register = (on) => {
 
   on('prompt.submit', async ($, e, next) => {
     await followRoot($);
+    if (!live) await recheckRoot($);
     taskListRefused = false;
     if (live) {
       const now = await $.clock.now();
@@ -1520,9 +1652,13 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
-    if (!live) return next(e);
     const tool = String(e.tool);
     const input = e as unknown as { command?: unknown };
+    if (!live) {
+      const result = await next(e);
+      if (isOnboardingCommand(tool, input)) await recheckRoot($);
+      return result;
+    }
     const isAgent = AGENT_TOOLS.has(tool);
     const agentId = (e as { agentId?: unknown }).agentId;
     if (isExpertsCall(tool, input)) {
@@ -1581,6 +1717,7 @@ export const register: Register = (on) => {
       await moveLive($, turnEnded);
     }
     const result = await next(e);
+    if (!live && !e.agentId) await recheckRoot($);
     if (live) {
       await refresh($);
       if (e.agentId === undefined) $.clock.after(AFTER_TURN_MS, () => void refresh($));
@@ -1590,6 +1727,18 @@ export const register: Register = (on) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
+    const tray = await read($, onboardPendingAtom);
+    if (tray && !status?.on && e.surface === 'desktop' && !e.props.hasSurvey) {
+      const engine = await next(e);
+      const ui = $.ui.resolve(e) as Elements['desktop'];
+      const { Box } = ui;
+      return (
+        <Box flexDirection="column">
+          {drawOnboardTray(ui, tray, trayActions($, tray))}
+          {isBlank(engine) ? null : (engine as RenderElement)}
+        </Box>
+      );
+    }
     if (!status?.on || e.props.hasSurvey) return next(e);
     if (e.surface === 'desktop') {
       const band = await desktopBandOf($, {
@@ -1615,6 +1764,7 @@ export const register: Register = (on) => {
         turnStartedAt: (await liveState($)).turnStartedAt,
         unavailable: (await read($, unavailableAtom)) === true,
         live: await liveState($),
+        journey: await journeyViewOf($),
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
@@ -1641,18 +1791,25 @@ export const register: Register = (on) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
+    const journey = await journeyLedgerOf(
+      $,
+      await read($, paneTabAtom),
+      await read($, snapshotAtom),
+    );
     if (e.surface === 'desktop') {
       const snapshot = await read($, snapshotAtom);
       const tab = await read($, paneTabAtom);
-      const ledger = buildDesktopLedger({
-        snapshot,
-        unbound: (await read($, unboundAtom)) === true,
-        unavailable: (await read($, unavailableAtom)) === true,
-        tab,
-        now: (await read($, nowAtom)) ?? 0,
-        specText: tab === 'table' ? await specTextOf($, snapshot) : null,
-        live: await liveState($),
-      });
+      const ledger: DesktopLedger = journey
+        ? { kind: 'onboarding', ledger: journey }
+        : buildDesktopLedger({
+            snapshot,
+            unbound: (await read($, unboundAtom)) === true,
+            unavailable: (await read($, unavailableAtom)) === true,
+            tab,
+            now: (await read($, nowAtom)) ?? 0,
+            specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+            live: await liveState($),
+          });
       return drawDesktopLedger(
         $.ui.resolve(e) as Elements['desktop'],
         ledger,
@@ -1663,11 +1820,13 @@ export const register: Register = (on) => {
         ledgerActions($),
       );
     }
-    const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
-      seat: await read($, tableSeatAtom),
-      now: await read($, nowAtom),
-      columns: e.props.bodyColumns,
-    });
+    const view = journey
+      ? journeyPaneView(journey)
+      : buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
+          seat: await read($, tableSeatAtom),
+          now: await read($, nowAtom),
+          columns: e.props.bodyColumns,
+        });
     const ui = $.ui.resolve(e);
     const { Box, Text, Button } = ui;
     const Link = 'Link' in ui ? ui.Link : null;

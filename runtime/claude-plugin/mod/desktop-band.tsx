@@ -32,6 +32,7 @@ export interface BandActions {
   cancel: () => void;
   show: () => void;
   signoff: (action: SignoffAction, surface?: unknown) => void;
+  journey?: (button: 'Resume' | 'Commit') => void;
 }
 
 type CardBand = Extract<DesktopBand, { kind: 'feature' | 'ready-feature' }>;
@@ -367,11 +368,77 @@ function missingBand(ui: D, band: Extract<DesktopBand, { kind: 'missing' }>, act
   );
 }
 
+type JourneyBand = Extract<DesktopBand, { kind: 'onboarding' }>;
+
+function journeyStrip(band: JourneyBand) {
+  return strip({
+    columns: band.columns,
+    stages: band.model.marks,
+    stageValue: band.model.value,
+    seats: null,
+    chief: 'waiting',
+    tableValue: '',
+    deliveryValue: '',
+    deliveryTone: 'ink',
+    deliveryFigures: null,
+  });
+}
+
+function onboardingBand(ui: D, band: JourneyBand, actions: BandActions) {
+  const { Box, Text, Svg, Button } = ui;
+  const model = band.model;
+  const press = model.button;
+  return (
+    <Box key="paqad-band" flexDirection="column" rowGap="xs">
+      <Box key="paqad-identity" flexDirection="row" alignItems="center" columnGap="sm">
+        <Text wrap="truncate-end">
+          {brand(ui)}
+          <Text size="footnote" dimColor>{`   ${model.word}   `}</Text>
+          <Text size="footnote">{model.headline.text}</Text>
+        </Text>
+        <Box flexGrow={1} />
+        <Button dimColor key="paqad-ledger" onPress={actions.ledger}>
+          Ledger
+        </Button>
+      </Box>
+      <Box key="paqad-strip" flexDirection="row" alignItems="center" columnGap="sm">
+        {journeyStrip(band).sections.map((cut) => (
+          <Box key={`paqad-strip-${cut.id}`} flexGrow={cut.grow ? 1 : 0} minWidth={0}>
+            <Svg source={cut.source} alt={model.alt} />
+          </Box>
+        ))}
+        {press && actions.journey ? (
+          <Button bordered key="paqad-journey-button" onPress={() => actions.journey?.(press)}>
+            {press}
+          </Button>
+        ) : null}
+      </Box>
+      {model.eta.eta && model.eta.etaInNote ? (
+        <Text key="paqad-eta" size="footnote" dimColor>
+          {model.eta.eta}
+        </Text>
+      ) : null}
+      {model.gaps.map((gap) => (
+        <Text key={`paqad-gap-${gap.code}`} size="footnote">
+          {`▲ ${gap.footnote} ${gap.next_action}`}
+        </Text>
+      ))}
+      {model.note ? (
+        <Text key="paqad-journey-note" size="footnote" dimColor>
+          {model.note}
+        </Text>
+      ) : null}
+    </Box>
+  );
+}
+
 export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions: BandActions) {
   const { Text } = ui;
   switch (band.kind) {
     case 'none':
       return null;
+    case 'onboarding':
+      return onboardingBand(ui, band, actions);
     case 'ready':
       return (
         <Text key="paqad-band">

@@ -299,4 +299,6 @@ export function featureDevelopmentBody(snapshot: PaqadHudSnapshot, context: Body
   };
 }
 
-registerBandBody('feature-development', featureDevelopmentBody);
+registerBandBody('feature-development', (snapshot, context) =>
+  snapshot ? featureDevelopmentBody(snapshot, context) : { blocks: [], footer: null },
+);

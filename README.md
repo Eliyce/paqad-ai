@@ -63,7 +63,7 @@ Inside Claude Code you can install paqad as a plugin, with no npm package and no
 
 Then use it:
 
-- `/paqad:onboard` if you are setting the project up for your team (the lead).
+- `/paqad:onboard` if you are setting the project up for your team (the lead). It asks one question, which AI tools the team uses, then runs eight steps without stopping (read the project, set up paqad, write the project and module docs, research rules, check which can be automated, write the rule checks, wrap up) with a band showing progress, and ends with one question: commit the changes on a new branch? In other AI tools, say "onboard paqad" for the same journey with one status line per step. A stopped journey resumes at its first unfinished unit.
 - `/paqad:join` if the project is already onboarded and you are setting up your own machine.
 
 <details>

@@ -1,3 +1,6 @@
+import { readEvents as readJourneyEvents } from '@/onboarding/journey/events.js';
+import { readRun as readJourneyRun } from '@/onboarding/journey/run-store.js';
+import { buildView as buildJourneyView } from '@/onboarding/journey/view.js';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -623,7 +626,17 @@ export function buildSignoff(
   };
 }
 
+export interface HudOnboarding {
+  run_id: string | null;
+  status: string;
+  headline: string;
+  status_line: string | null;
+  alt: string;
+  stages: Array<{ label: string; state: string; mark: string }>;
+}
+
 export interface HudSnapshot {
+  onboarding?: HudOnboarding | null;
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
@@ -1697,7 +1710,38 @@ export const TURN_END_SOURCES: ReadonlySet<string> = new Set([
   'hook:capability-gate-completion',
 ]);
 
+const OPEN_JOURNEY = new Set(['running', 'paused', 'failed', 'abandoned']);
+
+export function hudOnboarding(projectRoot: string, now: () => Date): HudOnboarding | null {
+  const run = readJourneyRun(projectRoot);
+  if (run === null || !OPEN_JOURNEY.has(run.status)) return null;
+  const view = buildJourneyView(run, readJourneyEvents(projectRoot, run.run_id), { now });
+  return {
+    run_id: view.run_id,
+    status: view.status,
+    headline: view.headline.text,
+    status_line: view.status_line,
+    alt: view.alt,
+    stages: view.stages.map((stage) => ({
+      label: stage.label,
+      state: stage.state,
+      mark: stage.mark,
+    })),
+  };
+}
+
 export function buildHudSnapshot(
+  projectRoot: string,
+  sessionHint: string | null,
+  options: BuildHudSnapshotOptions = {},
+): HudSnapshot {
+  const snapshot = buildHudSnapshotForRoute(projectRoot, sessionHint, options);
+  const onboarding = hudOnboarding(projectRoot, options.now ?? (() => new Date()));
+  if (onboarding === null) return snapshot;
+  return { ...snapshot, route: 'onboarding', onboarding };
+}
+
+function buildHudSnapshotForRoute(
   projectRoot: string,
   sessionHint: string | null,
   options: BuildHudSnapshotOptions = {},

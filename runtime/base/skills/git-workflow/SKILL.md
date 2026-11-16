@@ -81,6 +81,15 @@ propose a long-lived `develop` branch for a new project.
 In `change.json`, `value: null` removes a branch type or a ticket source. It is an error
 for any other key, because settings are never removed.
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask anyone. Take the safe default its `Git workflow:` line names:
+
+- **Untouched since setup:** apply the recommended workflow. Write `{"choices": {}}` to an `answers.json` outside the repo and run `scripts/apply.mjs <answers.json> --overwrite`; with no answers every choice takes its recommended option and is listed as `not confirmed`.
+- **Changed since setup:** keep the files as they are. Don't run `apply.mjs` or `change.mjs`, and never pass `--overwrite`. Report the files as kept, with the `git_workflow_kept` gap where the brief allows it.
+
+Never accept `changed_outside` with `--accept`: keep those files and list them. Don't run `paqad-ai decision create` and don't ask whether to commit: the `not confirmed` list is the record, and the journey asks its one commit question at the end. Answer any decision packet with `paqad-ai onboarding decide <decision-id>` and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
 ## Output Contract
 
 - The six files under `.paqad/configs/git-workflow/`, valid, written only by the

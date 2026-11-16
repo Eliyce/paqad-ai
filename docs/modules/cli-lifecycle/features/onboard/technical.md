@@ -85,6 +85,68 @@ Source directories owned by this feature:
   `Review these for drift:` as indented plain lines, and then each warning once as
   `⚠ <warning>`: yellow on a terminal, plain text otherwise.
 
+## The onboarding journey (`src/onboarding/journey/`)
+
+The journey core lives under `src/onboarding/journey/`, attributed to this feature. The command
+file `src/cli/commands/onboarding.ts` only parses flags and calls the core.
+
+- **Stages** (`stages.ts`): the eight steps with their words (name, strip label, running phrase),
+  where they run, their agent and their allowed gaps. `docs/instructions/workflows/onboarding-stages.yml`
+  mirrors it and a drift test keeps the two equal.
+- **Run store** (`run-store.ts`): `journey.json` is written under `.paqad/locks/journey.lock`
+  (the single-flight lock) with a revision compare-and-set and tmp+rename, so two verbs at once
+  never tear it. Units go to append-only `events.jsonl`, which needs no lock.
+- **Fold** (`fold.ts`): per-step done and total from distinct unit rows newer than the step's first
+  start in this run, the units still to do in plan order, and `interrupted` (running, no event for
+  20 minutes, no open agent). Resume keeps the first start, so units finished before a stop still
+  count as proof; a module whose module-map entry changed is counted as not done.
+- **Proofs and gates** (`proof.ts`, `degraded.ts`): a step starts only when every earlier step is
+  done or ended with one of its allowed gaps, and ends only when its proof items hold for this run.
+  Each gap code relaxes only the proof items it names; free text is refused.
+- **View** (`view.ts`): `view.json`, rebuilt after every verb, holds the headline rows O1 to O6, step
+  states with `✓ ▸ ○ ✗ ◐` marks, sub-progress words, the alt text, the ETA (only after 3 units) and
+  the Resume or Commit button. It needs no session, so the HUD can draw it before setup finishes.
+- **Decisions** (`auto-decide.ts`): `decide` records "no earlier answer fits" when the earlier check
+  is required, then resolves (only packets this journey opened, per a `decision_open` event; an
+  unnamed session's packets count, another named session's are refused) the packet as delegated by `paqad-onboarding`. Decision reuse,
+  precedents, earlier-answer candidates and the rules decision miner skip those answers until the
+  matching choices row is reviewed, which keeps a second reuse store out of the journey.
+- **Rule checks** (`rule-checks.ts`): when step 7 ends, scripts of rules added since step 5 started
+  get `warn_until_reviewed`; the runner leaves their findings out of `blocking`. Reviewing the
+  choice clears the flag. The analyzer keeps an earlier unverifiable verdict whose reason starts
+  `onboarding:`, so a re-analysis does not undo the journey's marks.
+- **Agents** (`agents.ts`): the `paqad-onboarding-*` agents write only under `docs/` and `.paqad/`,
+  never paqad's controls (`.paqad/.config`, `.paqad/configs/`, decisions, rule scripts,
+  `journey.json`, `events.jsonl`, `view.json`), and never a docs page listed in `docs_baseline`
+  (pages that existed before onboarding). The allow list denies the journey ledger files too, and
+  allows skill scripts in the form `Bash(node <install>/runtime/base/skills/*)`. Redirects to
+  `/dev/null`, `/dev/stdout` and `/dev/stderr` pass the guard. Briefs tell agents to run
+  `paqad-ai` verbs bare. Step 7 checks are staged under `.paqad/tmp/onboarding/scripts/` and
+  installed with `unit rule_scripts <id> --install-check <staged.mjs> --kind --scope`, which never
+  overwrites an existing check; the step 7 proof reads the `rules-compile` row of the rule-script
+  audit log. Unit output paths are normalized; `..`, paths outside the root and symlink escapes
+  are refused. A module agent writes only under the `docs/modules/<slug>/` it was claimed for
+  with `unit module_docs <slug> --claim paqad-onboarding-modules`. SubagentStart records an
+  `agent_bind` row with the agent id; a module agent is bound to the oldest claimed module no
+  other agent holds, so claim each module just before dispatching its agent, in the same order.
+  The write guard reads that binding by agent id, so one module agent cannot write into another
+  open module's folder. Their SubagentStop records `agent_stop` instead of the feature handback.
+- **Setup** (`setup.ts`): runs the orchestrator with `interactive: false` and the index deferred,
+  records `written{}` from `generated_files` and the git-workflow hashes (answers passed as a temp
+  file path), and `--compile-only`
+  re-runs the compile steps the orchestrator now reports as structured `step_failures`.
+- **Wrap up** (`finish.ts`, `commit.ts`): the report lists gaps, kept pages, rule changes for
+  review, new rule checks and the allow list. The commit stages only `written{}` files whose sha256
+  still matches, inside the allowed set, never git-ignored files or likely secrets, and never files
+  that were already dirty before the journey; `docs_baseline` pages that changed are kept for
+  review, not committed. It branches from HEAD, returns to the original branch if the commit
+  fails, and never pushes.
+- **Routing and hooks**: "onboard paqad", "continue paqad onboarding" and "resume paqad onboarding"
+  route to `onboarding`; while a journey is open the docs, module-docs and rules workflows fold
+  under it. The Stop hook nudges the owner session once between steps. The entry sentinel ignores
+  docs staleness for the owner session while steps 3 and 5 run. Before setup has written
+  `framework-path.txt`, only the HUD refresh and the onboarding Stop branch pass the stand-down.
+
 ## Why the code works the way it does
 
 The reasons below are not obvious from the code, grouped by file in `src/onboarding/`.

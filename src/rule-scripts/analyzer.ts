@@ -80,6 +80,15 @@ export interface RuleClassification {
   enforced_by: string[];
 }
 
+export const ONBOARDING_REASON_PREFIX = 'onboarding:';
+
+function isOnboardingUnverifiable(entry: RuleEntry | undefined): boolean {
+  return (
+    entry?.verifiability.kind === 'unverifiable' &&
+    (entry.verifiability.reason ?? '').startsWith(ONBOARDING_REASON_PREFIX)
+  );
+}
+
 export function assembleMap(
   inventory: RuleInventoryItem[],
   classifications: Map<string, RuleClassification>,
@@ -97,12 +106,17 @@ export function assembleMap(
     const prior = priorById.get(item.id);
     const carryScripts =
       prior !== undefined && prior.text_hash === item.text_hash ? prior.scripts : [];
+    const keptOnboardingVerdict = isOnboardingUnverifiable(prior)
+      ? prior?.verifiability
+      : undefined;
     return {
       id: item.id,
       source: item.source,
       text: item.text,
       text_hash: item.text_hash,
-      verifiability: cls?.verifiability ?? prior?.verifiability ?? { kind: 'heuristic' },
+      verifiability: keptOnboardingVerdict ??
+        cls?.verifiability ??
+        prior?.verifiability ?? { kind: 'heuristic' },
       enforced_by: cls?.enforced_by ?? prior?.enforced_by ?? [],
       scripts: carryScripts,
     };

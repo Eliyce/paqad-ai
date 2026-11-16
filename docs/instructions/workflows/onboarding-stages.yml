@@ -1,0 +1,92 @@
+# Onboarding journey stage registry.
+#
+# The eight onboarding steps, in their fixed order. This file is the tracked, human-readable mirror
+# of the canonical source, `ONBOARDING_STAGES` in src/onboarding/journey/stages.ts. A drift test
+# (tests/unit/onboarding/journey/stages.test.ts) fails when the two disagree.
+#
+# Every step runs, in order; there is no skip state. A step may end with one of its allowed gaps
+# (allowed_degraded); any other gap blocks the next step. The step words (name, label, running)
+# are the only words the HUD band and the chat status lines use.
+schema_version: "1"
+
+stages:
+  - id: detect
+    index: 1
+    name: Read your project
+    label: Read
+    running: Reading your project
+    workflow: detect
+    runs_in: cli
+    agent: null
+    unit: null
+    allowed_degraded: [stack_mismatch_noted]
+  - id: setup
+    index: 2
+    name: Set up paqad
+    label: Set up
+    running: Setting up paqad
+    workflow: onboard setup
+    runs_in: cli
+    agent: null
+    unit: null
+    allowed_degraded: [git_workflow_kept]
+  - id: project_docs
+    index: 3
+    name: Write the project docs
+    label: Docs
+    running: Writing the project docs
+    workflow: documentation-update
+    runs_in: agent
+    agent: paqad-onboarding-docs
+    unit: { one: doc area, many: doc areas }
+    allowed_degraded: []
+  - id: module_docs
+    index: 4
+    name: Write the module docs
+    label: Modules
+    running: Writing the module docs
+    workflow: module-documentation
+    runs_in: agent
+    agent: paqad-onboarding-modules
+    unit: { one: module, many: modules }
+    allowed_degraded: []
+  - id: rules_discovery
+    index: 5
+    name: Research rules for your stack
+    label: Research
+    running: Researching rules for your stack
+    workflow: rules-discovery
+    runs_in: agent
+    agent: paqad-onboarding-rules
+    unit: { one: package, many: packages }
+    allowed_degraded: [research_offline, research_stopped]
+  - id: rules_analyze
+    index: 6
+    name: Check which rules can be automated
+    label: Triage
+    running: Checking which rules can be automated
+    workflow: rules-analyze
+    runs_in: agent
+    agent: paqad-onboarding-analyze
+    unit: { one: rule batch, many: rule batches }
+    allowed_degraded: []
+  - id: rule_scripts
+    index: 7
+    name: Write the rule checks
+    label: Checks
+    running: Writing the rule checks
+    workflow: rules-generate
+    runs_in: agent
+    agent: paqad-onboarding-scripts
+    unit: { one: rule batch, many: rule batches }
+    allowed_degraded: []
+  - id: finish
+    index: 8
+    name: Wrap up
+    label: Wrap up
+    running: Wrapping up
+    workflow: search index, report, commit question
+    runs_in: cli
+    agent: null
+    unit: null
+    allowed_degraded: [rag_off]

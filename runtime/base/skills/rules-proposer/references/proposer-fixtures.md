@@ -1,5 +1,7 @@
 # Proposer fixtures
 
+verified: 2026-11-16
+
 The fixed example pairs the proposer is checked against. Each row gives an idea, an existing rule and the expected outcome.
 
 | Idea                                               | Existing rule                                  | Outcome  |

@@ -52,6 +52,38 @@ After the rest of its output, `paqad-ai onboard` prints, in this order:
 
 When all three are empty nothing extra is printed. The full onboard has no JSON or silent mode (`--json` applies only to `--detect`), so these lines are always printed.
 
+## `paqad-ai onboarding` (the onboarding journey)
+
+The journey is driven by an AI tool through the `onboarding-journey` skill. Every verb ends by
+rewriting `.paqad/onboarding/view.json`, including a refused call, which keeps every step state
+and shows the refusal.
+
+| Verb | What it does |
+| --- | --- |
+| `start [--providers <list>] [--session <id>] [--allow-list yes\|no] [--asked\|--from-tray]` | Preflight (no open run, no pending packets, `--asked` off a TTY), records the opening answer and writes the local allow list. A second start attaches to the open journey and resumes it. |
+| `detect [--json]` | Step 1: runs the detector without persisting; prints `needs_ai_choice` and the candidate stacks when unsure. |
+| `choose-stack <stack> [--capabilities <list>] --reason <text>` | Step 1: records the AI pick; refused after step 2 started. |
+| `setup [--compile-only]` | Step 2: onboard setup with no questions, search on (local) with the index deferred to Wrap up. |
+| `next` | Prints the brief for what to do now (under 27,000 characters). |
+| `stage start\|end\|fail <step> [--degraded <codes>] [--planned <n>] [--reason <text>]` | Ordered start gate, proof-checked end gate, closed gap list. There is no skip. |
+| `unit <step> <unit> [--outputs <files>] [--kept --source-hash <sha>] [--claim <agent>]` | Records one finished unit (or claims a module for a module agent). Each output path is normalized and refused when it holds `..`, lies outside the project root or escapes through a symlink. |
+| `unit rule_scripts <id> --install-check <staged.mjs> --kind <kind> --scope <scope>` | Step 7: `--kind` is `deterministic` or `heuristic`, `--scope` is `changed-files`, `whole-tree`, `git-diff` or `git-history`. Proves and installs a check the scripts agent staged under `.paqad/tmp/onboarding/scripts/`; never overwrites an existing check. |
+| `progress <step> <done> <total>` | Batch progress (step 6 records it every 25 rules). |
+| `decide <decision-id>` | Answers only a packet this journey opened (a `decision_open` event; packets of an unnamed session count, packets of another named session are refused) with its recommended option, recorded in choices.jsonl. |
+| `status [--json]` | The headline and the step states in words. |
+| `choices [--review [ids\|all]]` | Lists automatic choices; reviewing them lets them be reused and lets journey rule checks block. |
+| `resume [--session <id>]` | Restarts a stopped or paused step at its first unfinished unit; another session taking over is a hand-over. |
+| `finish` | Step 8: search index rebuild in the background, report.json and report.md, then ends the step. |
+| `commit --branch [name] \| --later \| --no [--ticket <id>] [--message <subject>]` | The person's answer to the commit question; commits only unchanged journey files on a new branch named by branches.yaml, and never pushes. Pages in `docs_baseline` that changed are kept for review, not committed. On failure it returns to the original branch. |
+| `abandon` | Pauses the journey and lists everything written so far for review. |
+
+Files: `.paqad/onboarding/journey.json`, `events.jsonl` and `view.json` are git-ignored run state;
+`choices.jsonl`, `report.json` and `report.md` are committable. Agents cannot write `events.jsonl`
+or `view.json`: the write guard and the allow list both deny them. `journey.json` records
+`docs_baseline`, the docs pages that existed before onboarding; the guard refuses agent rewrites of
+those pages. Briefs tell agents to run `paqad-ai` verbs bare, and setup takes the git-workflow
+answers as a temp file path.
+
 ## `src/onboarding/orchestrator.ts`
 
 ```ts

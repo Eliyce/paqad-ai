@@ -1,0 +1,226 @@
+import {
+  ANALYZE_AGENT_BODY,
+  ANALYZE_AGENT_DESCRIPTION,
+  ANALYZE_AGENT_EFFORT,
+  ANALYZE_AGENT_TOOLS,
+} from './analyze-agent.js';
+import { DOCS_AGENT_BODY, DOCS_AGENT_DESCRIPTION, DOCS_AGENT_TOOLS } from './docs-agent.js';
+import { appendEvent, readEvents } from './events.js';
+import {
+  MODULES_AGENT_BODY,
+  MODULES_AGENT_DESCRIPTION,
+  MODULES_AGENT_TOOLS,
+} from './modules-agent.js';
+import { readRun } from './run-store.js';
+import { RULES_AGENT_BODY, RULES_AGENT_DESCRIPTION, RULES_AGENT_TOOLS } from './rules-agent.js';
+import {
+  SCRIPTS_AGENT_BODY,
+  SCRIPTS_AGENT_DESCRIPTION,
+  SCRIPTS_AGENT_TOOLS,
+} from './scripts-agent.js';
+import type { StageId } from './types.js';
+
+export interface OnboardingAgentDef {
+  agentName: string;
+  stage: StageId;
+  claudeTools: string;
+  description: string;
+  maxTurns: number;
+  job: string;
+  body?: string;
+  effort?: string;
+}
+
+export const ONBOARDING_AGENTS: readonly OnboardingAgentDef[] = [
+  {
+    agentName: 'paqad-onboarding-docs',
+    stage: 'project_docs',
+    claudeTools: DOCS_AGENT_TOOLS,
+    description: DOCS_AGENT_DESCRIPTION,
+    maxTurns: 60,
+    job: 'Write the docs for the doc areas your brief lists, one area at a time, adding only pages that are missing. Record each finished area with `paqad-ai onboarding unit project_docs <area> --outputs <files>`.',
+    body: DOCS_AGENT_BODY,
+  },
+  {
+    agentName: 'paqad-onboarding-modules',
+    stage: 'module_docs',
+    claudeTools: MODULES_AGENT_TOOLS,
+    description: MODULES_AGENT_DESCRIPTION,
+    maxTurns: 40,
+    job: 'Write the docs for the one module your brief names, only under docs/modules/<slug>/. Record it with `paqad-ai onboarding unit module_docs <slug> --outputs <files>`.',
+    body: MODULES_AGENT_BODY,
+  },
+  {
+    agentName: 'paqad-onboarding-rules',
+    stage: 'rules_discovery',
+    claudeTools: RULES_AGENT_TOOLS,
+    description: RULES_AGENT_DESCRIPTION,
+    maxTurns: 80,
+    job: 'Run the rules discovery steps your brief lists, record each researched package with `paqad-ai onboarding unit rules_discovery <package>`, and answer pauses with `paqad-ai onboarding decide <id>`.',
+    body: RULES_AGENT_BODY,
+  },
+  {
+    agentName: 'paqad-onboarding-analyze',
+    stage: 'rules_analyze',
+    claudeTools: ANALYZE_AGENT_TOOLS,
+    description: ANALYZE_AGENT_DESCRIPTION,
+    maxTurns: 60,
+    job: 'Classify the rules in batches of 25 with the rule-analyzer scripts and run `paqad-ai onboarding progress rules_analyze <done> <total>` after each batch.',
+    body: ANALYZE_AGENT_BODY,
+    effort: ANALYZE_AGENT_EFFORT,
+  },
+  {
+    agentName: 'paqad-onboarding-scripts',
+    stage: 'rule_scripts',
+    claudeTools: SCRIPTS_AGENT_TOOLS,
+    description: SCRIPTS_AGENT_DESCRIPTION,
+    maxTurns: 80,
+    job: 'Stage each check with its fixtures under .paqad/tmp/onboarding/scripts/ and install it with `paqad-ai onboarding unit rule_scripts <rule-id> --install-check <staged.mjs>`.',
+    body: SCRIPTS_AGENT_BODY,
+  },
+];
+
+export const ONBOARDING_WRITE_ROOTS: readonly string[] = ['docs/', '.paqad/'];
+
+export const ONBOARDING_DENIED_ROOTS: readonly string[] = [
+  '.paqad/.config/',
+  '.paqad/configs/',
+  '.paqad/decisions/',
+  '.paqad/scripts/rules/',
+  '.paqad/onboarding/journey.json/',
+  '.paqad/onboarding/events.jsonl/',
+  '.paqad/onboarding/view.json/',
+];
+
+export const MODULE_AGENT = 'paqad-onboarding-modules';
+export const DOCS_AGENT = 'paqad-onboarding-docs';
+const PAGE_GUARDED_AGENTS: ReadonlySet<string> = new Set([DOCS_AGENT, MODULE_AGENT]);
+
+export function preexistingDocsPages(projectRoot: string, agent: string): string[] {
+  if (!PAGE_GUARDED_AGENTS.has(agent)) return [];
+  try {
+    return Object.keys(readRun(projectRoot)?.docs_baseline ?? {});
+  } catch {
+    return [];
+  }
+}
+
+export function onboardingAgent(name: string): OnboardingAgentDef | null {
+  return ONBOARDING_AGENTS.find((agent) => agent.agentName === name) ?? null;
+}
+
+export function claimedModuleSlugs(projectRoot: string): string[] {
+  const open = new Map<string, number>();
+  for (const event of readEvents(projectRoot)) {
+    if (event.stage !== 'module_docs' || !event.unit) continue;
+    if (event.kind === 'agent_start' && event.agent === MODULE_AGENT) {
+      open.set(event.unit, (open.get(event.unit) ?? 0) + 1);
+    }
+    if (event.kind === 'unit' || event.kind === 'unit_kept') open.delete(event.unit);
+  }
+  return [...open.keys()];
+}
+
+export function moduleAgentBindings(projectRoot: string): Map<string, string | null> {
+  const bound = new Map<string, string | null>();
+  for (const event of readEvents(projectRoot)) {
+    if (event.kind !== 'agent_bind' || event.agent !== MODULE_AGENT || !event.agent_id) continue;
+    bound.set(event.agent_id, event.unit ?? null);
+  }
+  return bound;
+}
+
+function nextUnboundModule(projectRoot: string): string | null {
+  const taken = new Set(moduleAgentBindings(projectRoot).values());
+  return claimedModuleSlugs(projectRoot).find((slug) => !taken.has(slug)) ?? null;
+}
+
+export function moduleAgentWriteRoots(projectRoot: string, agentId?: unknown): string[] {
+  const claimed = claimedModuleSlugs(projectRoot);
+  const bound = moduleAgentBindings(projectRoot);
+  const id = typeof agentId === 'string' ? agentId.trim() : '';
+  if (id !== '' && bound.has(id)) {
+    const slug = bound.get(id) ?? null;
+    return slug !== null && claimed.includes(slug) ? [`docs/modules/${slug}/`] : [];
+  }
+  const taken = new Set(bound.values());
+  return claimed.filter((slug) => !taken.has(slug)).map((slug) => `docs/modules/${slug}/`);
+}
+
+export function buildOnboardingAgentBody(def: OnboardingAgentDef): string {
+  if (def.body !== undefined) return def.body;
+  return [
+    `You are the paqad onboarding agent for one step of the onboarding journey. ${def.job}`,
+    '',
+    '## Procedure',
+    '',
+    '1. Export the `SE_SESSION` your brief names for every `paqad-ai` command.',
+    '2. Do only the work your brief lists; the brief says "Onboarding journey says auto-recommended.", so never ask the person.',
+    '3. Before you return, list the units done, the units left and any gap.',
+    '',
+    '## Do not',
+    '',
+    '- Do not ask the person anything: answer pauses with `paqad-ai onboarding decide <id>`.',
+    '- Do not write outside docs/ and .paqad/; module agents write only under their own docs/modules/<slug>/. stage-agent-write-guard.mjs and the capability gate refuse any other write.',
+    '- Do not use `paqad-ai stage begin` or the stage handback: this is not a feature-development stage.',
+    '',
+    '## Report',
+    '',
+    `Keep it under 2,000 tokens and finish in at most ${def.maxTurns} turns. Leave every finished unit recorded with \`paqad-ai onboarding unit\`. List the units done, the first unit left and any gap.`,
+    'End with one line: `Status: DONE`, `Status: DONE_WITH_CONCERNS` (name the concerns), `Status: NEEDS_CONTEXT` (name the first unit left) or `Status: BLOCKED` (name what blocks it).',
+  ].join('\n');
+}
+
+export const ONBOARDING_AGENT_TYPE = /^(?:paqad:)?paqad-onboarding-/u;
+
+function agentName(agentType: string): string {
+  return agentType.trim().replace(/^paqad:/u, '');
+}
+
+export function recordOnboardingAgentStart(
+  projectRoot: string,
+  agentType: unknown,
+  agentId: unknown,
+  now: () => Date = () => new Date(),
+): boolean {
+  if (typeof agentType !== 'string' || typeof agentId !== 'string' || agentId.trim() === '') {
+    return false;
+  }
+  const agent = agentName(agentType);
+  const def = onboardingAgent(agent);
+  const run = readRun(projectRoot);
+  if (def === null || run === null) return false;
+  const unit = agent === MODULE_AGENT ? nextUnboundModule(projectRoot) : null;
+  appendEvent(projectRoot, {
+    ts: now().toISOString(),
+    run_id: run.run_id,
+    kind: 'agent_bind',
+    stage: def.stage,
+    agent,
+    agent_id: agentId.trim(),
+    ...(unit !== null ? { unit } : {}),
+  });
+  return true;
+}
+
+export function recordOnboardingAgentStop(
+  projectRoot: string,
+  agentType: unknown,
+  reason: string,
+  now: () => Date = () => new Date(),
+): boolean {
+  if (typeof agentType !== 'string') return false;
+  const agent = agentName(agentType);
+  const def = onboardingAgent(agent);
+  const run = readRun(projectRoot);
+  if (def === null || run === null) return false;
+  appendEvent(projectRoot, {
+    ts: now().toISOString(),
+    run_id: run.run_id,
+    kind: 'agent_stop',
+    stage: def.stage,
+    agent,
+    action: reason,
+  });
+  return true;
+}

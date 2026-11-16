@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PAQAD_STAGE_AGENT_MATCHER,
-  PAQAD_STAGE_HELPER_MATCHER,
+  PAQAD_SUBAGENT_START_MATCHER,
   buildHostHookChain,
   buildPluginHookChain,
 } from '@/adapters/shared/paqad-hooks.js';
@@ -208,7 +208,7 @@ describe('AC-22: the SubagentStart and SubagentStop entries keep their command a
     for (const chain of [buildHostHookChain('claude-code', env), buildPluginHookChain(env)]) {
       const start = chain.filter((hook) => hook.nativeEvent === 'SubagentStart');
       expect(start).toHaveLength(1);
-      expect(start[0]!.matcher).toBe(PAQAD_STAGE_HELPER_MATCHER);
+      expect(start[0]!.matcher).toBe(PAQAD_SUBAGENT_START_MATCHER);
       expect(start[0]!.command).toMatch(/hooks\/stage-agent-start\.mjs"$/u);
       const stop = chain.filter(
         (hook) => hook.nativeEvent === 'SubagentStop' && hook.matcher === PAQAD_STAGE_AGENT_MATCHER,

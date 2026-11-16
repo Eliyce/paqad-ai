@@ -50,6 +50,18 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
    Deletes any `.mjs` + `__fixtures__/` under `.paqad/scripts/rules/` not referenced by an active map rule. Archived rules' scripts survive one cycle, then this prunes them.
 7. Present the `## Generation Summary`: scripts accepted, scripts rejected (with reasons), over-flag warnings, pruned files. Tell the user the next prompt (`feature-development` will now enforce them).
 
+## Onboarding Journey
+
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+
+Inside the journey, steps 3 and 4 open no packet. A check that fails its fixtures is rewritten once. When it still fails, when validation exits 2 for a missing binary, or when it flags too much, leave it unregistered and mark its rule unverifiable with a reason that starts `onboarding:` (`onboarding: fixtures failed`, or `onboarding: flags too much`), so a later analyze run keeps the mark. Write the mark through rule-analyzer's map writer, which also goes through `src/rule-scripts/apply.ts`:
+
+```
+node <this skill's scripts folder>/../../rule-analyzer/scripts/write-map.mjs <project-root> .paqad/tmp/onboarding-checks/<rule-id>.json
+```
+
+where the file holds `[{"id":"<rule-id>","verifiability":{"kind":"unverifiable","reason":"onboarding: fixtures failed"}}]`. The journey keeps checks for the rules it added warn-only until a person reviews them: never clear that marker yourself.
+
 ## Output Contract
 
 - Accepted scripts written under `.paqad/scripts/rules/...` with their `__fixtures__/`.
@@ -58,11 +70,11 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
 
 ## Escalate / Stop Conditions
 
-- Never register a script that fails its fixtures or whose header is invalid: surface a Decision Pause packet instead.
+- Never register a script that fails its fixtures or whose header is invalid: surface a Decision Pause packet instead, or, inside the onboarding journey, follow `## Onboarding Journey`.
 - Never author a `.sh` script; Node `.mjs` only.
 - Never copy fixtures from the user's real code: fixtures are synthetic.
 - Skip rules with non-empty `enforced_by` (already covered) and `unverifiable` rules.
-- All map writes go through `register-script.mjs` → `src/rule-scripts/apply.ts`.
+- All map writes go through `src/rule-scripts/apply.ts`: `register-script.mjs` for a check, and rule-analyzer's `write-map.mjs` only for an `onboarding:` unverifiable mark during the journey.
 
 ## Resources
 

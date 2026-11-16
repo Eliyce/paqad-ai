@@ -16,6 +16,11 @@ export interface RagSelection {
   enabled: boolean;
   provider?: EmbeddingProviderName;
   model?: string;
+  index?: 'now' | 'defer';
+}
+
+export function ragIndexDeferred(selection: RagSelection | undefined): boolean {
+  return selection?.enabled === true && selection.index === 'defer';
 }
 
 export const RAG_ENGINE_INSTALLING_LINE =
@@ -55,6 +60,7 @@ export async function resolveRagSelection(
           enabled: true,
           provider: preset.provider ?? 'local',
           model: preset.model ?? getDefaultEmbeddingModel(preset.provider ?? 'local'),
+          ...(preset.index ? { index: preset.index } : {}),
         }
       : { enabled: false };
   }

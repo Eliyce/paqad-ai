@@ -7,6 +7,7 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | Command         | File                              | Purpose                                        |
 | --------------- | --------------------------------- | ---------------------------------------------- |
 | `onboard`       | `src/cli/commands/onboard.ts`     | Detect stack, write `.paqad/` and rules        |
+| `onboarding`    | `src/cli/commands/onboarding.ts`  | Drive the eight-step onboarding journey (15 verbs: `start`/`detect`/`choose-stack`/`setup`/`next`/`stage`/`unit`/`progress`/`decide`/`status`/`choices`/`resume`/`finish`/`commit`/`abandon`) |
 | `refresh`       | `src/cli/commands/refresh.ts`     | Refresh detection + profile                    |
 | `update`        | `src/cli/commands/update.ts`      | Update framework assets                        |
 | `install`       | `src/cli/commands/install.ts`     | Install/relink runtime                         |

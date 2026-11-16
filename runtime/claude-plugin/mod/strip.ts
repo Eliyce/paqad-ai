@@ -10,7 +10,8 @@ import {
   type Signal,
 } from './palette';
 
-export type StageState = 'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' | 'todo';
+export type StageState =
+  'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' | 'todo' | 'stopped' | 'gap';
 export type SeatState = 'done' | 'writing' | 'seated' | 'late';
 export type ChiefState = 'waiting' | 'ruling' | 'needs' | 'done';
 export type ShipState = 'done' | 'run' | 'todo' | 'fail';
@@ -233,6 +234,8 @@ const STAGE_BAR: Readonly<Record<StageState, string>> = {
   fail: 'fail',
   skip: 'faints',
   todo: 'faint',
+  stopped: 'cau',
+  gap: 'cau',
 };
 
 const STAGE_LABEL: Readonly<Record<StageState, string>> = {
@@ -242,7 +245,9 @@ const STAGE_LABEL: Readonly<Record<StageState, string>> = {
   marked: 'ink',
   fail: 'fail cur',
   skip: 'mut',
-  todo: 'mut',
+  todo: 'mutt',
+  stopped: 'caut cur',
+  gap: 'passt',
 };
 
 const LIVE_BAR_STATES: ReadonlySet<StageState> = new Set(['run', 'paused', 'marked']);

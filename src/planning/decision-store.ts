@@ -11,6 +11,8 @@ import {
 import { basename, dirname, join, relative } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { AUTO_RESPONDER, reviewedAutoDecisionIds } from '@/onboarding/journey/choices.js';
+import { noteJourneyDecision } from '@/onboarding/journey/packets.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { readProjectProfile } from '@/core/project-profile.js';
@@ -116,6 +118,15 @@ export interface DecisionStoreOptions {
   onEvent?: DecisionEventSink;
 }
 
+export function journeyAnswerReusable(projectRoot: string): (packet: DecisionPacket) => boolean {
+  let reviewed: Set<string> | null = null;
+  return (packet) => {
+    if (packet.human_response?.responded_by !== AUTO_RESPONDER) return true;
+    reviewed ??= reviewedAutoDecisionIds(projectRoot);
+    return reviewed.has(packet.decision_id);
+  };
+}
+
 export class DecisionStore {
   private readonly onEvent?: DecisionEventSink;
 
@@ -159,6 +170,7 @@ export class DecisionStore {
     const enriched = this.withEarlierCheck(this.enrichWithPrecedents(packet));
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
     atomicWriteJson(path, enriched);
+    noteJourneyDecision(this.projectRoot, enriched.decision_id);
     this.appendAudit('decision-pending-written', enriched);
     recordDecisionOpened(this.projectRoot, {
       decisionId: enriched.decision_id,
@@ -454,6 +466,9 @@ export class DecisionStore {
       return null;
     }
     if (packet.human_response?.chosen_option_key === null) {
+      return null;
+    }
+    if (!journeyAnswerReusable(this.projectRoot)(packet)) {
       return null;
     }
     if (isExpired(packet)) {

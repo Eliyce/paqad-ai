@@ -1,6 +1,6 @@
 import { logHookFailure } from './hook-log.mjs';
 import {
-  hookStandsDown,
+  hookStandsDownOutsideJourney,
   isPaqadDisabled,
   parseHookPayload,
   resolveProjectRoot,
@@ -11,7 +11,7 @@ export async function refreshHudFromHook(input, hook, load = (href) => import(hr
   try {
     const payload = parseHookPayload(input);
     projectRoot = resolveProjectRoot(process.env, payload);
-    if (isPaqadDisabled(projectRoot) || hookStandsDown(payload)) {
+    if (isPaqadDisabled(projectRoot) || hookStandsDownOutsideJourney(payload)) {
       return;
     }
     const url = new URL('../../../dist/hud/refresh.js', import.meta.url);

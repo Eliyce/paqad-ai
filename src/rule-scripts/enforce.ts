@@ -19,6 +19,7 @@ export interface RuleViolation {
   line?: number;
   message: string;
   severity: Finding['severity'];
+  warn_until_reviewed?: boolean;
 }
 
 export interface EnforcementResult {
@@ -121,6 +122,7 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
         line: f.line,
         message: f.message,
         severity: f.severity,
+        ...(r.warn_until_reviewed ? { warn_until_reviewed: true } : {}),
       })),
     );
 

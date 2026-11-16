@@ -16,7 +16,7 @@ const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
 
 const LEGACY_MARKER = '# paqad-ai';
 
-export const MANAGED_BLOCK_VERSION = 2;
+export const MANAGED_BLOCK_VERSION = 3;
 const MANAGED_BLOCK_VERSION_LINE = /^# managed_block_version:[ \t]*(\S+)[ \t]*\r?$/mu;
 
 const MANAGED_GITIGNORE_ENTRIES = [
@@ -37,6 +37,10 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'scripts/rules/.cache/',
   'scripts/rules/.history/',
   'onboarding-checkpoint.json',
+  '# onboarding journey run state (choices.jsonl and report.* stay committable)',
+  'onboarding/journey.json',
+  'onboarding/events.jsonl',
+  'onboarding/view.json',
   '.config',
   '# per-machine runtime state (regenerated locally)',
   'logs/',

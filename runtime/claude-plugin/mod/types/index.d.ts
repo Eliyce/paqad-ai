@@ -126,6 +126,47 @@ export type PaqadHighTable = {
   credits: Array<{ line: string; roles: string[] }>;
 };
 
+export type JourneyStageState = 'todo' | 'running' | 'done' | 'degraded' | 'failed';
+
+export interface JourneyViewStage {
+  id: string;
+  index: number;
+  name: string;
+  label: string;
+  running: string;
+  state: JourneyStageState;
+  mark: string;
+  sub_progress: {
+    done: number;
+    total: number | null;
+    current: string | null;
+    words: string;
+    eta_minutes: number | null;
+  } | null;
+  gaps: string[];
+  started_at?: string | null;
+  ended_at?: string | null;
+}
+
+export interface JourneyView {
+  generated_at?: string;
+  run_id: string | null;
+  status: string;
+  headline: { row: string; text: string };
+  status_line: string | null;
+  stages: JourneyViewStage[];
+  current: string | null;
+  alt: string;
+  gaps: Array<{ code: string; stage: string; footnote: string; next_action: string }>;
+  button: 'Resume' | 'Commit' | null;
+  celebrate: boolean;
+  uncommitted_note: string | null;
+  refusal: string | null;
+  estimate?: string;
+  planned?: { modules: number | null; packages: number | null; rules: number | null };
+  left_out?: Array<{ path: string; reason: string }>;
+}
+
 export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';
 
 export type TableSitting = {
@@ -411,6 +452,7 @@ declare module 'claude-code' {
       signoffCheck: { ref: string | null; at: number } | null;
       designText: string | null;
       designCopiedAt: number | null;
+      onboardPending: { ticked: string[]; allowList: boolean; npmAvailable: boolean } | null;
     };
   }
 }

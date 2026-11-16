@@ -541,6 +541,7 @@ const stagesCapability: Capability = {
     const writeDecision = stageAgentWriteDecision({
       projectRoot,
       agentType: payload?.agentType,
+      agentId: payload?.agentId,
       toolName: payload?.toolName,
       targets,
     });
