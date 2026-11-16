@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-onboarding-docs",
-  "version": "1.1.0",
-  "file_hash": "sha256:93f380a927bcee11de210f838e4b8e64f4048ef002abfbfc85d3c208af6841ae",
+  "version": "1.2.0",
+  "file_hash": "sha256:64a12f57f3b4620264bca6efd516a6f24869c2bc538679035cf4c28431b0e92e",
   "released_path": "runtime/claude-plugin/agents/paqad-onboarding-docs.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-onboarding-docs.md"
@@ -19,7 +19,7 @@
   "reliability": {
     "pass_hat_k": 1,
     "threshold": 0.95,
-    "registered_tier": "fast",
+    "registered_tier": "reasoning",
     "table": [
       {
         "arm": "main_thread",
@@ -85,7 +85,7 @@
         "arm": "with_agent",
         "tier": "fast",
         "k": 3,
-        "pass_hat_k": 1,
+        "pass_hat_k": 0.6667,
         "pass_at_k": 1,
         "cases": [
           {
@@ -98,8 +98,8 @@
           {
             "case": "step-not-running",
             "trials": 3,
-            "passed": 3,
-            "pass_hat_k": 1,
+            "passed": 1,
+            "pass_hat_k": 0,
             "pass_at_k": 1
           },
           {
@@ -147,7 +147,7 @@
     "skipped": "dispatched"
   },
   "memory": "none",
-  "returned_to_main_tokens_median": 366,
+  "returned_to_main_tokens_median": 255,
   "host_notes": {
     "claude-plugin": [
       "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
@@ -173,26 +173,26 @@
   },
   "model_stamp": {
     "model": "inherit",
-    "proven_on": "gpt-5-mini",
-    "tier": "fast"
+    "proven_on": "claude-sonnet-5-5",
+    "tier": "reasoning"
   },
   "performance": {
     "task_type": "cases that must leave the project's tests green",
-    "tier": "fast",
+    "tier": "reasoning",
     "tokens_per_task": {
-      "value": 167223,
+      "value": 77104,
       "source": "subagent-dispatch"
     },
     "cost_usd": {
-      "value": 0.007617500000000001,
+      "value": 0.0738312,
       "source": "subagent-dispatch"
     },
     "latency_p50_ms": {
-      "value": 52351,
+      "value": 23347,
       "source": "subagent-dispatch"
     },
     "latency_p95_ms": {
-      "value": 52351,
+      "value": 23347,
       "measure": "median",
       "samples": 9,
       "source": "subagent-dispatch"
@@ -202,11 +202,11 @@
       "source": "subagent-dispatch"
     },
     "cache_hit_share": {
-      "value": 0.8944,
+      "value": 0.8727,
       "source": "subagent-dispatch"
     },
     "tool_calls": {
-      "value": 11,
+      "value": 9,
       "source": "subagent-dispatch"
     },
     "tool_use_blocks_per_message": {
@@ -214,11 +214,11 @@
       "source": "subagent-dispatch"
     },
     "turns": {
-      "value": 12,
+      "value": 10,
       "source": "subagent-dispatch"
     },
     "returned_to_main_tokens": {
-      "value": 366,
+      "value": 255,
       "source": "subagent-dispatch"
     },
     "context_utilisation": {
@@ -228,7 +228,7 @@
   },
   "batch": "unavailable",
   "creation_cost": {
-    "S5": 2.599352,
+    "S5": 2.52486,
     "S6": 0,
     "source": "host-usage"
   },
@@ -244,13 +244,15 @@
   "permission_decisions": [
     "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
     "D-01M7HXQJCS9SNZ7VZD7443JVF3",
-    "D-01M7HYDDPQEB03K10VDB3QQFK6"
+    "D-01M7HYDDPQEB03K10VDB3QQFK6",
+    "D-01M7J2ZCHB8WQ62HK0Q4TX8VJ5"
   ],
   "overrides": [],
   "decisions": [
     "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
     "D-01M7HXQJCS9SNZ7VZD7443JVF3",
-    "D-01M7HYDDPQEB03K10VDB3QQFK6"
+    "D-01M7HYDDPQEB03K10VDB3QQFK6",
+    "D-01M7J2ZCHB8WQ62HK0Q4TX8VJ5"
   ],
   "labels": []
 }
