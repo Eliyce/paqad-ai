@@ -340,6 +340,26 @@ function namesStageOfOpenChange(
 }
 
 const RUNNING_CHANGE_REASON = 'the change open in this session is still running';
+const RESUME_REASON = 'you asked to pick the paused change back up';
+
+/** "continue", "resume" or "carry on" picks a paused feature change back up (B6). */
+const RESUME_INTENT_RE = /^\s*(?:please\s+)?(?:continue|resume|carry\s+on)\b/i;
+
+const QUESTION_LEAD_RE =
+  /^\s*(?:what|why|how|when|where|which|who|whose|does|do|did|is|are|was|were|can|could|should|would|will|has|have|explain|tell me)\b/i;
+
+/** A plain question: it ends with a question mark or opens with a question word. */
+function isPlainQuestion(request: string): boolean {
+  return request.trim().endsWith('?') || QUESTION_LEAD_RE.test(request);
+}
+
+/** A feature change this session paused for another workflow (not the active one). */
+function featureChangePaused(prior: WorkflowState): boolean {
+  return (
+    (prior.active === null || !isFeatureDevelopmentRoute(prior.active.workflow)) &&
+    prior.paused.some((entry) => isFeatureDevelopmentRoute(entry.workflow))
+  );
+}
 const RECORDED_LANE_REASON = 'the lane recorded on this change';
 
 function openChangeOf(projectRoot: string, sessionId: string): string | null {
@@ -397,7 +417,17 @@ export async function runPromptRouteSeam(
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
 
   const prior = readWorkflowState(input.projectRoot, sessionId);
+  const paused = featureChangePaused(prior);
+  const questionWhilePaused =
+    slashName === null && paused && routed === 'project-question' && isPlainQuestion(input.request);
+  if (slashName === null && paused && RESUME_INTENT_RE.test(input.request)) {
+    routed = 'feature-development';
+    lane = null;
+    kind = undefined;
+    reason = RESUME_REASON;
+  }
   if (
+    !questionWhilePaused &&
     slashName === null &&
     STAGE_NAME_OVERRIDABLE_ROUTES.has(routed) &&
     namesStageOfOpenChange(input.projectRoot, sessionId, prior, input.request)
@@ -409,8 +439,9 @@ export async function runPromptRouteSeam(
   }
   const openChange = openChangeOf(input.projectRoot, sessionId);
   if (
+    !questionWhilePaused &&
     slashName === null &&
-    STAGE_NAME_OVERRIDABLE_ROUTES.has(routed) &&
+    !isFeatureDevelopmentRoute(routed) &&
     changeIsRunning(input.projectRoot, openChange)
   ) {
     routed = 'feature-development';
