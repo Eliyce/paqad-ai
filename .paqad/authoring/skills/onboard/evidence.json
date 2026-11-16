@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "onboard",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "host": "claude-code",
-  "folder_hash": "sha256:f6775a8cbdd7bfed106aa69b96aef41685b9b4f718000fcc1fbfeda9d722fe50",
+  "folder_hash": "sha256:f88c2a66b37c8a5ddd8707d402b13a1519becb57233bb2550dd7d2507bd826bb",
   "baseline": {
     "runs": 3,
     "passed": null,
-    "verdict": "overridden"
+    "verdict": "needed"
   },
   "sources": {
-    "count": 0,
-    "non_model": 0,
+    "count": 17,
+    "non_model": 17,
     "kind": "repo"
   },
   "lint": {
@@ -24,55 +24,44 @@
     "passed": 0,
     "skipped": 0
   },
-  "benchmark": null,
-  "trigger": null,
+  "benchmark": {
+    "iterations": 2,
+    "pass_rate_with": 0.9792,
+    "pass_rate_without": 0.2187,
+    "delta_points": 76.05,
+    "token_multiple": 1.009,
+    "models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "claude_version": "2.1.325",
+    "checks_not_measured": [],
+    "source": "subagent-dispatch"
+  },
+  "trigger": {
+    "validation_score": 0.5,
+    "description_chars": 409,
+    "batch": "not-offered"
+  },
   "performance": {
-    "tokens": "unavailable",
-    "source": "unavailable"
+    "tokens": "measured",
+    "source": "subagent-dispatch"
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": "unavailable",
+    "S6": 5.0948,
     "source": "host-usage"
   },
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T05:47:15.795Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T05:47:17.222Z"
-    },
-    {
-      "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T05:47:18.735Z"
-    },
-    {
-      "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T05:47:20.181Z"
-    },
-    {
       "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner chose 'Allow the S6 skip (Recommended)' in the question prompt: onboard is command-only and cannot pass the trigger test; every other gate ran for real.",
       "by": "human",
-      "at": "2026-11-02T05:47:21.585Z"
+      "at": "2026-11-16T11:11:02.768Z"
     }
   ],
   "decisions": [
-    "D-01M6DCRC3A0D1T8NFK5VS7KXPS",
-    "D-01M6DCRDFG0PT5ZT3ZDHPWY55D",
-    "D-01M6DCREYW7H176B8P1F6WJAYZ",
-    "D-01M6DCRGAV7BSKW84XMPBSHHQW",
-    "D-01M6DCRHQNMT3GXVSPBEHNT0FM"
+    "D-01M7J0V8WMRDDDWD0BV0B02TN1"
   ],
   "labels": [
     "unverified"
