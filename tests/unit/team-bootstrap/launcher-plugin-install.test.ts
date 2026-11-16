@@ -77,7 +77,11 @@ describe('AC-7: the copy route starts the plugin install in the background', () 
   });
 
   it.each([
-    ['team yaml install mode settings', 'configs/paqad.yaml', 'claude_code:\n  install_mode: settings\n'],
+    [
+      'team yaml install mode settings',
+      'configs/paqad.yaml',
+      'claude_code:\n  install_mode: settings\n',
+    ],
     ['team yaml migration off', 'configs/paqad.yaml', 'claude_code:\n  plugin_migration: off\n'],
     ['local config install mode settings', '.config', 'claude_install_mode=settings\n'],
     ['local config migration off', '.config', 'plugin_migration=off\n'],
