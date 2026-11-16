@@ -118,4 +118,20 @@ describe('paqad-ai security-review and design-review', () => {
       expect(value.ok).toBe(out.code === 0);
     }
   });
+
+  it('AC-12: one gap on a running stage, then done and finish, reads Done with 1 gap', async () => {
+    await cli('security', 'start');
+    await cli('security', 'stage', 'scope', 'start');
+    const gap = await cli('security', 'gap', 'thin-scope', '--stage', 'scope', '--say', 'No list');
+    expect(gap.code).toBe(0);
+    expect((await cli('security', 'stage', 'scope', 'done')).code).toBe(0);
+    for (const stage of REVIEW_KINDS.security.stages.slice(1)) {
+      expect((await cli('security', 'stage', stage.id, 'start')).code).toBe(0);
+      expect((await cli('security', 'stage', stage.id, 'done')).code).toBe(0);
+    }
+    const finished = await cli('security', 'finish');
+    expect(finished.code).toBe(0);
+    expect(finished.lines.join('\n')).toContain('Done with 1 gap');
+    expect(readReviewRun(root, REVIEW_KINDS.security)?.gaps).toHaveLength(1);
+  });
 });

@@ -186,7 +186,9 @@ export function gapReview(
       const record = run.stages[stageId]!;
       const wasRunning = record.status === 'running';
       run.gaps.push({ code: input.code.trim(), stage: stageId, say, at });
-      run.stages[stageId] = { ...record, status: 'gap' };
+      // A gap on a running stage, without --stop, leaves the stage running so
+      // `stage <id> done` or `skip` can still end it; it then draws as a gap.
+      if (!wasRunning || input.stop) run.stages[stageId] = { ...record, status: 'gap' };
       if (input.stop) {
         run.status = 'stopped';
         run.current_stage = stageId;
@@ -211,13 +213,18 @@ export function finishReview(
       for (const stage of kind.stages) {
         const record = run.stages[stage.id]!;
         if (record.status === 'done' || record.status === 'skipped') continue;
+        const ended = { ...record, status: 'gap' as const, ended_at: record.ended_at ?? at };
+        if (run.gaps.some((gap) => gap.stage === stage.id)) {
+          run.stages[stage.id] = ended;
+          continue;
+        }
         run.gaps.push({
           code: NOT_RUN_GAP,
           stage: stage.id,
           say: `${stage.label} did not run to the end`,
           at,
         });
-        run.stages[stage.id] = { ...record, status: 'gap', ended_at: record.ended_at ?? at };
+        run.stages[stage.id] = ended;
       }
       run.status = 'finished';
       run.finished_at = at;

@@ -170,6 +170,61 @@ describe('review run actions', () => {
     expect(readReviewView(root, SECURITY)!.headline.text).toBe('Done with 3 gaps');
   });
 
+  function allButScopeDone(): void {
+    for (const stage of SECURITY.stages.slice(1)) {
+      stageReview(root, SECURITY, stage.id, 'start');
+      stageReview(root, SECURITY, stage.id, 'done');
+    }
+  }
+
+  it('AC-12: a gap on a running stage keeps it running, done ends it, finish counts 1 gap', () => {
+    startReview(root, SECURITY, { now: clockAt(0) });
+    stageReview(root, SECURITY, 'scope', 'start');
+    gapReview(root, SECURITY, { code: 'thin-scope', stage: 'scope', say: 'no target list' });
+    expect(readReviewRun(root, SECURITY)!.stages['scope']!.status).toBe('running');
+    stageReview(root, SECURITY, 'scope', 'done');
+    allButScopeDone();
+    finishReview(root, SECURITY, { now: clockAt(5) });
+    const run = readReviewRun(root, SECURITY)!;
+    expect(run.gaps.map((gap) => [gap.code, gap.stage])).toEqual([['thin-scope', 'scope']]);
+    const view = readReviewView(root, SECURITY)!;
+    expect(view.headline.text).toBe('Done with 1 gap');
+    expect(view.stages.find((stage) => stage.id === 'scope')!.state).toBe('gap');
+  });
+
+  it('AC-12: a gap on a running stage then skip leaves exactly 1 gap', () => {
+    startReview(root, SECURITY, { now: clockAt(0) });
+    stageReview(root, SECURITY, 'scope', 'start');
+    gapReview(root, SECURITY, { code: 'thin-scope', stage: 'scope', say: 'no target list' });
+    stageReview(root, SECURITY, 'scope', 'skip');
+    allButScopeDone();
+    finishReview(root, SECURITY, { now: clockAt(5) });
+    expect(readReviewRun(root, SECURITY)!.gaps).toHaveLength(1);
+    expect(readReviewView(root, SECURITY)!.headline.text).toBe('Done with 1 gap');
+  });
+
+  it('AC-12: a running stage left open with its own gap gets no second not-run gap at finish', () => {
+    startReview(root, SECURITY, { now: clockAt(0) });
+    allButScopeDone();
+    stageReview(root, SECURITY, 'scope', 'start');
+    gapReview(root, SECURITY, { code: 'thin-scope', stage: 'scope', say: 'no target list' });
+    finishReview(root, SECURITY, { now: clockAt(5) });
+    const run = readReviewRun(root, SECURITY)!;
+    expect(run.gaps.map((gap) => [gap.code, gap.stage])).toEqual([['thin-scope', 'scope']]);
+    expect(run.stages['scope']!.status).toBe('gap');
+    expect(run.stages['scope']!.ended_at).not.toBeNull();
+    expect(readReviewView(root, SECURITY)!.headline.text).toBe('Done with 1 gap');
+  });
+
+  it('AC-12: a gap on a stage never started keeps it as the only gap at finish', () => {
+    startReview(root, SECURITY, { now: clockAt(0) });
+    gapReview(root, SECURITY, { code: 'no-access', stage: 'scope', say: 'no repo access' });
+    expect(readReviewRun(root, SECURITY)!.stages['scope']!.status).toBe('gap');
+    allButScopeDone();
+    finishReview(root, SECURITY, { now: clockAt(5) });
+    expect(readReviewRun(root, SECURITY)!.gaps).toHaveLength(1);
+  });
+
   it('AC-13: resuming a design review after the docs exist drops the missing-design-docs gap', () => {
     startReview(root, DESIGN, { now: clockAt(0) });
     stageReview(root, DESIGN, 'scope', 'start');

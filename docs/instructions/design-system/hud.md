@@ -291,7 +291,7 @@ band component. The band still draws from `view.json` alone when `run.json` is g
 - **Strips:** eight bars each. Security review: `Scope`, `Map`, `Scan`, `Threats`, `Hunt`,
   `Confirm`, `Sweep`, `Report`. Design review: `Scope`, `Map`, `Code`, `Screens`, `Tasks`, `Judge`,
   `Confirm`, `Report`. A skipped stage draws the not-required bar and its alt text says `skipped`.
-  A stage with a gap draws the gap bar.
+  A stage with a gap draws the gap bar once it ends; a running stage stays running.
 - **Open-run headlines:** no stage started yet, muted, `Security review has not started` (or
   `Design review has not started`); running, accent, `Stage N of 8 · <running phrase>`; between
   stages, muted, `Next: stage N of 8 · <stage>`; stopped, abandoned or stalled, caution,
@@ -301,7 +301,8 @@ band component. The band still draws from `view.json` alone when `run.json` is g
   `N serious findings confirmed`; other confirmed findings, caution, `N findings confirmed`; gaps,
   caution, `Done with N gaps`; nothing confirmed, muted, `No finding confirmed`. Counts use real
   singular and plural words (`1 finding confirmed`, `Done with 1 gap`). Gaps under a winning row
-  show as footnotes. A finish counts every stage never run as a `not-run` gap.
+  show as footnotes. A finish counts every stage never run as a `not-run` gap, and never adds a
+  second gap to a stage that already holds one.
 - **Tones:** nothing confirmed is never green: the band dot is muted, the terminal card is neutral,
   and the all-green toast and settle glow stay off. Leads show only as a dim neutral footnote
   (`2 leads, not confirmed`) and never raise the fail or caution tone. The card tone follows the

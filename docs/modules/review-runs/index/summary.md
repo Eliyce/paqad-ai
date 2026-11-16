@@ -39,8 +39,11 @@ Route ids, finding ids and the report folders keep their old names.
 - `stage <id> start|done|skip`: `done` needs the stage running; unknown stages refuse.
 - `finding --severity <critical|high|medium|low|info> --proof <confirmed|lead>`: leads are counted
   apart and never raise the headline.
-- `gap <code> --stage <id> --say <words> [--stop]`: marks the stage `gap`; `--stop` stops the run.
-- `finish`: records a `not-run` gap for every stage neither done nor skipped, then finishes.
+- `gap <code> --stage <id> --say <words> [--stop]`: records the gap on the stage. A running stage
+  stays running so `stage <id> done` or `skip` can end it; any other stage, or `--stop`, marks it
+  `gap`; `--stop` stops the run.
+- `finish`: records a `not-run` gap for every stage neither done nor skipped that holds no gap of
+  its own, never a second gap for one stage, then finishes.
 - `abandon`, `resume`, `status`. For a design review, `resume` drops the `missing-design-docs`
   gap once the design-system docs exist.
 
