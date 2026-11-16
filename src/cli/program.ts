@@ -40,6 +40,7 @@ import { createModuleMapCommand } from './commands/module-map.js';
 import { createNewProjectCommand } from './commands/new-project.js';
 import { createOnboardCommand } from './commands/onboard.js';
 import { createOnboardingCommand } from './commands/onboarding.js';
+import { createReviewRunCommand } from './commands/review-run.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createPlanCommand } from './commands/plan.js';
@@ -97,6 +98,8 @@ export function createProgram(): Command {
   program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
   program.addCommand(createOnboardingCommand());
+  program.addCommand(createReviewRunCommand('security'));
+  program.addCommand(createReviewRunCommand('design'));
   program.addCommand(createNewProjectCommand());
   program.addCommand(createSetupCommand());
   program.addCommand(createJoinCommand());
