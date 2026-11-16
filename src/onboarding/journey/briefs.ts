@@ -60,7 +60,8 @@ const SENTINEL_LINE =
   'After writing under docs/instructions/, read AGENT-BOOTSTRAP.md from the install directory again so the entry sentinel is stamped fresh.';
 
 function stageWork(projectRoot: string, run: JourneyRun, stage: StageDefinition): string[] {
-  const session = `Export SE_SESSION=${run.owner_session} for every paqad-ai command.`;
+  const session =
+    'Run every paqad-ai command bare, with no `SE_SESSION=` prefix, so the journey allow list matches it; the onboarding verbs need no session.';
   switch (stage.id) {
     case 'detect':
       return [

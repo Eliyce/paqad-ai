@@ -2,8 +2,9 @@ import { appendEvent, readEvents } from './events.js';
 import { readRun } from './run-store.js';
 import { STAGE_IDS, type JourneyEvent, type JourneyRun } from './types.js';
 
-export function processSession(env: NodeJS.ProcessEnv = process.env): string {
-  return env.SE_SESSION ?? env.CLAUDE_SESSION_ID ?? 'unknown';
+export function processSession(env: NodeJS.ProcessEnv = process.env): string | null {
+  const session = env.SE_SESSION ?? env.CLAUDE_SESSION_ID ?? '';
+  return session.trim() === '' ? null : session.trim();
 }
 
 export function journeySessions(run: JourneyRun, events: readonly JourneyEvent[]): Set<string> {
@@ -18,7 +19,7 @@ export function journeySessions(run: JourneyRun, events: readonly JourneyEvent[]
 }
 
 export interface NoteDecisionOptions {
-  session?: string;
+  session?: string | null;
   now?: () => Date;
 }
 
@@ -32,14 +33,15 @@ export function noteJourneyDecision(
     if (run === null || run.status !== 'running') return false;
     const stage = STAGE_IDS.find((id) => run.stages[id].status === 'running');
     if (stage === undefined) return false;
-    const session = options.session ?? processSession();
-    if (!journeySessions(run, readEvents(projectRoot, run.run_id)).has(session)) return false;
+    const session = options.session === undefined ? processSession() : options.session;
+    const sessions = journeySessions(run, readEvents(projectRoot, run.run_id));
+    if (session !== null && !sessions.has(session)) return false;
     appendEvent(projectRoot, {
       ts: (options.now ?? (() => new Date()))().toISOString(),
       run_id: run.run_id,
       kind: 'decision_open',
       stage,
-      session,
+      ...(session !== null ? { session } : {}),
       decision_id: decisionId,
     });
     return true;

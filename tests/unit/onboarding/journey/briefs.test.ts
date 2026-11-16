@@ -59,7 +59,8 @@ describe('onboarding stage briefs', () => {
   it('FR-22: the docs brief carries SE_SESSION, the areas still to do and the re-read step', () => {
     runningAt('project_docs', ['stack', 'architecture']);
     const brief = nextStep(root, clockAt(2)).brief;
-    expect(brief).toContain('SE_SESSION=owner-1');
+    expect(brief).not.toContain('SE_SESSION=owner-1');
+    expect(brief).toContain('Run every paqad-ai command bare, with no `SE_SESSION=` prefix');
     expect(brief).toContain('- stack\n- architecture');
     expect(brief).toContain('re-read docs/stack/ and docs/design-system/');
     expect(brief).toContain('entry sentinel is stamped fresh');

@@ -80,6 +80,13 @@ describe('onboarding decide', () => {
     expect(autoDecide(root, PACKET_ID, clockAt(6)).chosen_option_key).toBe('keep-existing');
   });
 
+  it('INV-8: tags a packet opened with no session named, as the bare journey verbs run', () => {
+    vi.stubEnv('SE_SESSION', '');
+    vi.stubEnv('CLAUDE_SESSION_ID', '');
+    store.writePending(journeyPacket());
+    expect(autoDecide(root, PACKET_ID, clockAt(6)).chosen_option_key).toBe('keep-existing');
+  });
+
   it('INV-8: does not tag a packet opened when no journey step is running', () => {
     updateRun(root, (draft) => void (draft.stages.rules_discovery = { status: 'done' }));
     store.writePending(journeyPacket());
