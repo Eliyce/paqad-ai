@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "agent": "paqad-onboarding-analyze",
-  "version": "1.0.0",
-  "file_hash": "sha256:5f223eb28f10af122c5f56295e6be131341338c4d223745867329c771de5f55f",
+  "version": "1.1.0",
+  "file_hash": "sha256:db32b80fb6cc43ec373430dc98217db102081ae3791c083f24ce48e41ab9779a",
   "released_path": "runtime/claude-plugin/agents/paqad-onboarding-analyze.md",
   "files": [
     "runtime/claude-plugin/agents/paqad-onboarding-analyze.md"
@@ -18,7 +18,7 @@
   },
   "reliability": {
     "pass_hat_k": 1,
-    "threshold": 0.9,
+    "threshold": 0.95,
     "registered_tier": "fast",
     "table": [
       {
@@ -26,10 +26,47 @@
         "tier": "fast",
         "k": 3,
         "pass_hat_k": 0,
-        "pass_at_k": 0.5,
+        "pass_at_k": 0.3333,
         "cases": [
           {
             "case": "conflict-kept",
+            "trials": 3,
+            "passed": 1,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          },
+          {
+            "case": "rules-missing",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          },
+          {
+            "case": "two-batches",
+            "trials": 3,
+            "passed": 0,
+            "pass_hat_k": 0,
+            "pass_at_k": 0
+          }
+        ]
+      },
+      {
+        "arm": "main_thread",
+        "tier": "reasoning",
+        "k": 3,
+        "pass_hat_k": 0,
+        "pass_at_k": 0.6667,
+        "cases": [
+          {
+            "case": "conflict-kept",
+            "trials": 3,
+            "passed": 1,
+            "pass_hat_k": 0,
+            "pass_at_k": 1
+          },
+          {
+            "case": "rules-missing",
             "trials": 3,
             "passed": 1,
             "pass_hat_k": 0,
@@ -45,29 +82,6 @@
         ]
       },
       {
-        "arm": "main_thread",
-        "tier": "reasoning",
-        "k": 3,
-        "pass_hat_k": 0,
-        "pass_at_k": 0,
-        "cases": [
-          {
-            "case": "conflict-kept",
-            "trials": 3,
-            "passed": 0,
-            "pass_hat_k": 0,
-            "pass_at_k": 0
-          },
-          {
-            "case": "two-batches",
-            "trials": 3,
-            "passed": 0,
-            "pass_hat_k": 0,
-            "pass_at_k": 0
-          }
-        ]
-      },
-      {
         "arm": "with_agent",
         "tier": "fast",
         "k": 3,
@@ -82,6 +96,13 @@
             "pass_at_k": 1
           },
           {
+            "case": "rules-missing",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
             "case": "two-batches",
             "trials": 3,
             "passed": 3,
@@ -99,6 +120,13 @@
         "cases": [
           {
             "case": "conflict-kept",
+            "trials": 3,
+            "passed": 3,
+            "pass_hat_k": 1,
+            "pass_at_k": 1
+          },
+          {
+            "case": "rules-missing",
             "trials": 3,
             "passed": 3,
             "pass_hat_k": 1,
@@ -119,7 +147,7 @@
     "skipped": "dispatched"
   },
   "memory": "none",
-  "returned_to_main_tokens_median": 457.5,
+  "returned_to_main_tokens_median": 323,
   "host_notes": {
     "claude-plugin": [
       "released in place: hooks, mcpServers and permissionMode are not relied on in a plugin agent; must-not rules moved to SubagentStart and SubagentStop settings hooks"
@@ -145,28 +173,28 @@
   },
   "model_stamp": {
     "model": "inherit",
-    "proven_on": "gpt-5-mini",
+    "proven_on": "claude-haiku-5-5",
     "tier": "fast"
   },
   "performance": {
     "task_type": "questions it must answer from the project's facts",
     "tier": "fast",
     "tokens_per_task": {
-      "value": 142526.5,
+      "value": 94698,
       "source": "claude-plugin-eval"
     },
     "cost_usd": {
-      "value": 0.007182580000000001,
+      "value": 0.00572954,
       "source": "claude-plugin-eval"
     },
     "latency_p50_ms": {
-      "value": 66776,
+      "value": 31286,
       "source": "claude-plugin-eval"
     },
     "latency_p95_ms": {
-      "value": 66776,
+      "value": 31286,
       "measure": "median",
-      "samples": 6,
+      "samples": 9,
       "source": "claude-plugin-eval"
     },
     "queue_ms_median": {
@@ -174,23 +202,23 @@
       "source": "claude-plugin-eval"
     },
     "cache_hit_share": {
-      "value": 0.88495,
+      "value": 0.8648,
       "source": "claude-plugin-eval"
     },
     "tool_calls": {
-      "value": 9.5,
+      "value": 6,
       "source": "claude-plugin-eval"
     },
     "tool_use_blocks_per_message": {
-      "value": 0.4736842105263158,
+      "value": 0.42857142857142855,
       "source": "claude-plugin-eval"
     },
     "turns": {
-      "value": 10.5,
+      "value": 7,
       "source": "claude-plugin-eval"
     },
     "returned_to_main_tokens": {
-      "value": 457.5,
+      "value": 323,
       "source": "claude-plugin-eval"
     },
     "context_utilisation": {
@@ -200,7 +228,7 @@
   },
   "batch": "unavailable",
   "creation_cost": {
-    "S5": 1.695301,
+    "S5": 2.30789,
     "S6": 0,
     "source": "host-usage"
   },
@@ -214,11 +242,13 @@
     "passed": 0
   },
   "permission_decisions": [
-    "D-01M7HX85TS3BCKK7V1KSD26FEA"
+    "D-01M7HX85TS3BCKK7V1KSD26FEA",
+    "D-01M7J2ZD0Q88MDM8M3D8W79T3W"
   ],
   "overrides": [],
   "decisions": [
-    "D-01M7HX85TS3BCKK7V1KSD26FEA"
+    "D-01M7HX85TS3BCKK7V1KSD26FEA",
+    "D-01M7J2ZD0Q88MDM8M3D8W79T3W"
   ],
   "labels": []
 }
