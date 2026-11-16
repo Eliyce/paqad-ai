@@ -126,7 +126,10 @@ describe('setup stage', () => {
     writeFile(root, '.paqad/configs/git-workflow/branches.yaml', 'a');
     writeFile(root, '.paqad/configs/git-workflow/hooks/commit.yaml', 'b');
     mkdirSync(join(root, '.paqad/configs/git-workflow/empty'));
-    symlinkSync('/dev/null', join(root, '.paqad/configs/git-workflow/device-link'));
+    // A symlink is neither a plain file nor a folder; Windows runners may not allow one.
+    if (process.platform !== 'win32') {
+      symlinkSync('branches.yaml', join(root, '.paqad/configs/git-workflow/link.yaml'));
+    }
     expect(Object.keys(gitWorkflowHashes(root)).sort()).toEqual([
       '.paqad/configs/git-workflow/branches.yaml',
       '.paqad/configs/git-workflow/hooks/commit.yaml',
