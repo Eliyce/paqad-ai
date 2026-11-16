@@ -1,5 +1,30 @@
 # paqad-ai
 
+## 1.129.0
+
+### Minor Changes
+
+- 6703d9c: Existing Claude Code users now move to the paqad plugin automatically. Set claude_install_mode=settings to stay on npm.
+
+  Every Claude Code user now sees the paqad HUD, and it follows every workflow change. Team repos that turn the plugin on in `.claude/settings.json` now get the plugin installed for the user too, because project settings alone never fetch it; teammates on the team launcher get it installed in the background, and paqad says once to type /reload-plugins to see the HUD now, or it shows next session. Every opt-out still holds: the plugin turned off in your user or local settings, claude_install_mode=settings, a managed policy, CI or headless runs, and cloud sessions. The plugin migration and the HUD now need the same Claude Code, 2.1.301 or later.
+
+  The HUD band no longer goes blank: it binds on the first prompt after /clear, /resume or /branch, keeps a running change's band through questions and research, keeps a paused change paused, shows Getting ready for a change picked up from another session, and draws a defined row for every scope. A cloud session says once, in one plain line, that the HUD cannot draw there while paqad's checks still run, and `paqad-ai doctor` warns with one fix when the HUD is not attached or the plugin is not loaded, and reads the plugin version that applies to this repo.
+
+  The paqad discovery plugin is now named paqad-discovery, so its commands read `/paqad-discovery:start`, `/paqad-discovery:ask` and `/paqad-discovery:discover` and it no longer clashes with the paqad plugin. Doctor still warns about an old discovery plugin named paqad, with the fix to update or remove it.
+
+- 9d4427e: Onboarding is now one journey you start with one click. In Claude Code, `/paqad onboard` asks one question, which AI tools your team uses, and then runs eight steps in order (Read, Set up, Docs, Modules, Research, Triage, Checks, Wrap up) without stopping to ask. The Onboarding band in the HUD shows each step, its progress such as "7 of 23 modules", and a Resume control when a step stops. In other AI tools with skills, say "onboard paqad" and the onboarding-journey skill runs the same steps and narrates one status line per step.
+
+  A new `paqad-ai onboarding` command group drives the journey: start, detect, choose-stack, setup, next, stage, unit, progress, decide, status, choices, resume, finish, commit and abandon. A step cannot start before the one above it is done, and cannot end without proof from this run. Resume restarts a stopped step at its first unfinished unit, and recounts modules against the current module map.
+
+  Choices the journey makes for you are recorded in `.paqad/onboarding/choices.jsonl`. List them with `paqad-ai onboarding choices` and mark them reviewed; until then they are not reused as "same as last time". Rule checks the journey adds only warn until they are reviewed. Existing hand-written docs pages are kept as they are and listed for review in the finish report. At Wrap up the journey asks once whether to commit its files on a new branch; answering no leaves them uncommitted and says how to commit them later.
+
+  Five new agents, `paqad-onboarding-docs`, `paqad-onboarding-modules`, `paqad-onboarding-rules`, `paqad-onboarding-analyze` and `paqad-onboarding-scripts`, do the docs, module, research, triage and checks steps in Claude Code. Each writes only under `docs/` and `.paqad/`, and a module agent only under its own module folder.
+
+### Patch Changes
+
+- e520144: The dashboard's build tool moves to Vite 6.4.6, which escapes module ids in its virtual-module resolver. This affects only the dev server used to build the dashboard, not what ships.
+- e520144: Rules discovery's inventory no longer reads package manifests inside test-fixture folders (`fixtures`, `__fixtures__`, `fixture`, `testdata`), so a fixture project's packages are no longer researched as your own. When a lockfile holds one package at several versions, the inventory now reports the one matching your declared range instead of whichever came last.
+
 ## 1.128.1
 
 ### Patch Changes
