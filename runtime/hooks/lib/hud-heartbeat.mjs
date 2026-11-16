@@ -122,12 +122,23 @@ export function snapshotIsFresh(projectRoot, sessionId, now = Date.now()) {
   return age >= 0 && age <= SNAPSHOT_FRESH_MS;
 }
 
-function noteOnce(projectRoot, sessionId, what, now) {
-  const path = notedPath(projectRoot, sessionId, what);
-  if (existsSync(path)) return false;
+function createOnce(projectRoot, path, data) {
   mkdirSync(join(projectRoot, HUD_DIR), { recursive: true });
-  writeFileSync(path, `${new Date(now).toISOString()}\n`, 'utf8');
+  try {
+    writeFileSync(path, data, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if (error?.code === 'EEXIST') return false;
+    throw error;
+  }
   return true;
+}
+
+function noteOnce(projectRoot, sessionId, what, now) {
+  return createOnce(
+    projectRoot,
+    notedPath(projectRoot, sessionId, what),
+    `${new Date(now).toISOString()}\n`,
+  );
 }
 
 export function cloudHudLine(projectRoot, sessionId, env = process.env, now = Date.now()) {
@@ -150,17 +161,17 @@ export function recordHudAttachment(projectRoot, sessionId, options = {}) {
   try {
     const record = unattachedPath(projectRoot, sessionId);
     if (heartbeatIsFresh(projectRoot, sessionId, now)) {
-      if (existsSync(record)) rmSync(record, { force: true });
+      rmSync(record, { force: true });
       return '';
     }
-    if (!snapshotIsFresh(projectRoot, sessionId, now) || existsSync(record)) return '';
+    if (!snapshotIsFresh(projectRoot, sessionId, now)) return '';
     const at = new Date(now).toISOString();
-    mkdirSync(join(projectRoot, HUD_DIR), { recursive: true });
-    writeFileSync(
+    const created = createOnce(
+      projectRoot,
       record,
       `${JSON.stringify({ session_id: sessionId, at, note: HUD_NOT_ATTACHED_NOTE, fix: HUD_NOT_ATTACHED_FIX })}\n`,
-      'utf8',
     );
+    if (!created) return '';
     appendHookLog(projectRoot, `hud: ${HUD_NOT_ATTACHED_NOTE} (session ${sessionId})`);
     return `[paqad] ${HUD_NOT_ATTACHED_NOTE} ${HUD_NOT_ATTACHED_FIX}\n`;
   } catch (error) {
