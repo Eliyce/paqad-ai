@@ -127,13 +127,7 @@ export type PaqadHighTable = {
 };
 
 export type JourneyStageState =
-  | 'todo'
-  | 'running'
-  | 'done'
-  | 'degraded'
-  | 'failed'
-  | 'skipped'
-  | 'gap';
+  'todo' | 'running' | 'done' | 'degraded' | 'failed' | 'skipped' | 'gap';
 
 export interface JourneyViewStage {
   id: string;
