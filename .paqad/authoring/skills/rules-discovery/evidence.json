@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "rules-discovery",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:26c7f9e9898f25ea773d7515a32bf448589885cb5903745ef39a7679055f32c2",
+  "folder_hash": "sha256:6d5c1bb0c89179bc859f7d0cf78fcb0c30abdf4d7ce112e823f8db0fa61544d2",
   "baseline": {
     "runs": 3,
     "passed": null,
     "verdict": "needed"
   },
   "sources": {
-    "count": 12,
-    "non_model": 12,
+    "count": 13,
+    "non_model": 13,
     "kind": "repo"
   },
   "lint": {
@@ -25,13 +25,12 @@
     "skipped": 0
   },
   "benchmark": {
-    "iterations": 1,
-    "pass_rate_with": 0.9036,
-    "pass_rate_without": 0.6492,
-    "delta_points": 25.44,
-    "token_multiple": 0.85,
+    "iterations": 2,
+    "pass_rate_with": 0.9587,
+    "pass_rate_without": 0.5907,
+    "delta_points": 36.8,
+    "token_multiple": 0.782,
     "models": [
-      "claude-haiku-5-5",
       "claude-sonnet-5-5"
     ],
     "claude_version": "2.1.325",
@@ -49,7 +48,7 @@
   },
   "creation_cost": {
     "S5": "unavailable",
-    "S6": 0.5103,
+    "S6": 3.0438,
     "source": "host-usage"
   },
   "overrides": [],
