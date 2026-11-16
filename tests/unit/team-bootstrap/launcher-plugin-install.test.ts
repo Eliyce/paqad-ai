@@ -104,3 +104,29 @@ describe('AC-7: the copy route starts the plugin install in the background', () 
     expect(log).toContain('plugin install not started (EACCES)');
   });
 });
+
+describe('AC-38: with the user-scope plugin and the launcher copy both present, the hooks run once', () => {
+  it('the launcher yields to the plugin that claimed the session and starts no install', async () => {
+    const installPath = join(
+      sandbox.home,
+      '.claude',
+      'plugins',
+      'cache',
+      'eliyce',
+      'paqad',
+      '9.9.9',
+    );
+    mkdirSync(installPath, { recursive: true });
+    writeFileSync(
+      join(sandbox.home, '.claude', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'paqad@eliyce': [{ scope: 'user', installPath }] } }),
+    );
+    const claims = join(sandbox.project, '.paqad', 'session', 'plugin-active.d');
+    mkdirSync(claims, { recursive: true });
+    writeFileSync(join(claims, 's-both'), JSON.stringify({ at: 'now', root: installPath }));
+    const { code, captured } = await sessionStart('s-both');
+    expect(code).toBe(0);
+    expect(captured.spawns).toEqual([]);
+    expect(captured.detached).toEqual([]);
+  });
+});

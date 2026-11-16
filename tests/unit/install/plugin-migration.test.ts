@@ -2013,3 +2013,15 @@ describe('team repos get the user-scope install, every opt-out still holds (AC-2
     expect(MIN_CLAUDE_VERSION).toBe(MIN_ENGINE);
   });
 });
+
+describe('AC-1: an npm-only install moves to the plugin with the default switch', () => {
+  it('runs the user-scope install, records installed and doctor reports the plugin route', () => {
+    manifestClaudeCode();
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ env: {}, runClaudeInstall }));
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(runClaudeInstall).toHaveBeenCalledOnce();
+    expect(readMigrationState(home)?.state).toBe('installed');
+    expect(doctorLine(home)).toContain('plugin');
+  });
+});
