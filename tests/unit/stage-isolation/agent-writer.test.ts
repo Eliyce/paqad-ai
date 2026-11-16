@@ -23,11 +23,11 @@ afterEach(() => {
 });
 
 describe('writeStageAgents', () => {
-  it('writes six stage agents and two High Table agents per host at user scope (no config knob, AC-46)', () => {
+  it('AC-16: writes six stage agents and two High Table agents per host, and the five onboarding agents for Claude Code (no config knob, AC-46)', () => {
     const home = tempDir('paqad-sa-home-');
     const written = writeStageAgents({ homeDir: home });
 
-    expect(written).toHaveLength(16);
+    expect(written).toHaveLength(21);
     const claudeDir = join(home, '.claude/agents');
     const codexDir = join(home, '.codex/agents');
     expect(readdirSync(claudeDir).sort()).toEqual([
@@ -36,6 +36,11 @@ describe('writeStageAgents', () => {
       'paqad-development.md',
       'paqad-documentation-sync.md',
       'paqad-expert.md',
+      'paqad-onboarding-analyze.md',
+      'paqad-onboarding-docs.md',
+      'paqad-onboarding-modules.md',
+      'paqad-onboarding-rules.md',
+      'paqad-onboarding-scripts.md',
       'paqad-planning.md',
       'paqad-review.md',
       'paqad-specification.md',
