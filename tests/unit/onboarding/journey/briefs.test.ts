@@ -81,6 +81,13 @@ describe('onboarding stage briefs', () => {
     expect(brief).not.toContain('--apply {}');
   });
 
+  it('the step 5 brief dispatches the rules agent', () => {
+    runningAt('rules_discovery');
+    const brief = nextStep(root, clockAt(2)).brief;
+    expect(brief).toContain('Dispatch the paqad-onboarding-rules agent');
+    expect(brief).not.toContain('Export SE_SESSION');
+  });
+
   it('the analyze brief batches by 25 with progress calls and absolute script paths', () => {
     runningAt('rules_analyze');
     const brief = nextStep(root, clockAt(2)).brief;

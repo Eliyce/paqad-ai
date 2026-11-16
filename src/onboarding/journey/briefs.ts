@@ -90,6 +90,7 @@ function stageWork(projectRoot: string, run: JourneyRun, stage: StageDefinition)
     case 'rules_discovery':
       return [
         session,
+        `Dispatch the ${stage.agent} agent where agents exist (inline elsewhere) to run the rules-discovery steps below.`,
         'Run `paqad-ai rules discovery start` (use --fresh for a stale or broken run) and follow the rules-discovery steps. With no network, research offline and end with `--degraded research_offline`.',
         'Record each researched package with `paqad-ai onboarding unit rules_discovery <package>`.',
         'Review with `paqad-ai rules discovery review --run <run_id> --all-recommended`, then answer the sign-off with `paqad-ai onboarding decide <decision-id>`.',
