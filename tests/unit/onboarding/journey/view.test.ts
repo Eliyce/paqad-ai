@@ -184,4 +184,29 @@ describe('writeView', () => {
     expect(onDisk.refusal).toBe('Step 4 cannot start');
     expect(after.stages).toEqual(before.stages);
   });
+  it('AC-14: units kept unchanged count toward the ETA, timed up to now', () => {
+    const kept = MODULES.slice(0, 3).map((slug) =>
+      unitRow('module_docs', slug, at(1), { kind: 'unit_kept' }),
+    );
+    const module = buildView(modulesRunning(), kept, { now: clockAt(30) }).stages.find(
+      (stage) => stage.id === 'module_docs',
+    );
+    expect(module?.sub_progress).toMatchObject({ done: 3, eta_minutes: 200 });
+  });
+
+  it('AC-11: paused or stopped after every step names no step, and one gap reads singular', () => {
+    const paused = buildView(runWith(allDone(), { status: 'paused' }), [], { now: clockAt(1) });
+    expect(paused.headline.text).toBe('Paused at step ? ·  · Resume to continue');
+    const stopped = buildView(runWith(allDone(), { status: 'failed' }), [], { now: clockAt(1) });
+    expect(stopped.headline.text).toBe('Stopped at step ? ·  · Resume to continue');
+    const gap = buildView(
+      runWith(allDone(true), { commit: { answer: 'no', answered_at: at(2) } }),
+      [],
+    );
+    expect(gap.headline.text).toBe('Onboarding done with 1 gap');
+    const stages = allDone(true);
+    stages.finish = { status: 'degraded', degraded: ['rag_off'] };
+    const gaps = buildView(runWith(stages, { commit: { answer: 'no', answered_at: at(2) } }), []);
+    expect(gaps.headline.text).toBe('Onboarding done with 2 gaps');
+  });
 });
