@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -21,7 +29,11 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { qualifyHudChange } from '@/hud/change-scope.js';
 import { readRouteOverrides } from '@/pipeline/route-override-log.js';
-import { ROUTE_SWITCHED_LINE } from '@/pipeline/route-switch.js';
+import {
+  LEDGER_SESSION_RECENT_MS,
+  NO_SESSION_LINE,
+  ROUTE_SWITCHED_LINE,
+} from '@/pipeline/route-switch.js';
 import { appendRouteTurn } from '@/pipeline/route-turns.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
@@ -824,12 +836,36 @@ describe('paqad-ai stage command', () => {
         expect(lines).toContain(ROUTE_SWITCHED_LINE);
       });
 
-      it('AC-3: an id found only in the shared cache leaves the route', async () => {
+      it('AC-21: CLAUDE_CODE_SESSION_ID alone switches the route for that session', async () => {
+        vi.stubEnv('CLAUDE_CODE_SESSION_ID', SES);
+        await startBare();
+        expect(readSessionRoute(root, SES)?.workflow).toBe('feature-development');
+      });
+
+      it('AC-22: a recent hook-written cache for this root switches the route', async () => {
         resolveSessionId(root, SES);
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+        expect(lines).toContain(ROUTE_SWITCHED_LINE);
+      });
+
+      it('AC-22: a stale cache leaves the route and says no session was identified', async () => {
+        resolveSessionId(root, SES);
+        const old = new Date(Date.now() - LEDGER_SESSION_RECENT_MS - 60_000);
+        utimesSync(join(root, '.paqad/session/ledger-session-id'), old, old);
         const lines = await startBare();
         expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
         expect(readRouteOverrides(root, SES)).toEqual([]);
         expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+        expect(lines).toContain(NO_SESSION_LINE);
+      });
+
+      it('AC-22: a cache naming a session the hooks never routed here leaves the route', async () => {
+        resolveSessionId(root, 'ses_from_another_root');
+        const lines = await startBare();
+        expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+        expect(lines).not.toContain(ROUTE_SWITCHED_LINE);
+        expect(lines).toContain(NO_SESSION_LINE);
       });
     });
 
