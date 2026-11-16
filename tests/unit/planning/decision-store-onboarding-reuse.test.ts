@@ -1,12 +1,13 @@
 import { rmSync } from 'node:fs';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { findEarlierQuestions } from '../../../src/decisions/earlier-answers.js';
 import { autoDecide } from '../../../src/onboarding/journey/auto-decide.js';
 import { markChoicesReviewed } from '../../../src/onboarding/journey/choices.js';
 import { findDecisionPrecedents } from '../../../src/planning/decision-precedents.js';
 import { DecisionStore } from '../../../src/planning/decision-store.js';
+import { updateRun } from '../../../src/onboarding/journey/run-store.js';
 import { listUnjudgedDecisions } from '../../../src/rules-discovery/decisions.js';
 
 import { PACKET_ID, PACKET_ID_2, journeyPacket } from '../onboarding/journey/fixtures/packets.js';
@@ -19,6 +20,8 @@ describe('automatic onboarding answers and same-as-last-time reuse', () => {
   beforeEach(() => {
     root = tempRoot('paqad-reuse-');
     seedRun(root);
+    updateRun(root, (draft) => void (draft.stages.rules_discovery = { status: 'running' }));
+    vi.stubEnv('SE_SESSION', 'session-a');
     store = new DecisionStore(root);
     store.initialize();
     store.writePending(journeyPacket());
@@ -26,6 +29,7 @@ describe('automatic onboarding answers and same-as-last-time reuse', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
 

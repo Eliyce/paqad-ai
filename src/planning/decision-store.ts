@@ -12,6 +12,7 @@ import { basename, dirname, join, relative } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { AUTO_RESPONDER, reviewedAutoDecisionIds } from '@/onboarding/journey/choices.js';
+import { noteJourneyDecision } from '@/onboarding/journey/packets.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { readProjectProfile } from '@/core/project-profile.js';
@@ -169,6 +170,7 @@ export class DecisionStore {
     const enriched = this.withEarlierCheck(this.enrichWithPrecedents(packet));
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
     atomicWriteJson(path, enriched);
+    noteJourneyDecision(this.projectRoot, enriched.decision_id);
     this.appendAudit('decision-pending-written', enriched);
     recordDecisionOpened(this.projectRoot, {
       decisionId: enriched.decision_id,

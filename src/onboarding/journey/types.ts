@@ -104,7 +104,8 @@ export type JourneyEventKind =
   | 'agent_bind'
   | 'agent_stop'
   | 'handover'
-  | 'heartbeat';
+  | 'heartbeat'
+  | 'decision_open';
 
 export interface JourneyEvent {
   ts: string;
@@ -121,6 +122,7 @@ export interface JourneyEvent {
   agent_id?: string;
   action?: string;
   note?: string;
+  decision_id?: string;
 }
 
 export interface ChoiceRow {

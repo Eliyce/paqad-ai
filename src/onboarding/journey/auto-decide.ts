@@ -4,6 +4,7 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import { AUTO_RESPONDER, appendChoice } from './choices.js';
 import { JourneyRefusal } from './errors.js';
 import { currentStage } from './fold.js';
+import { openedByJourney } from './packets.js';
 import { requireRun } from './run-store.js';
 import type { ChoiceRow } from './types.js';
 
@@ -26,6 +27,11 @@ export function autoDecide(projectRoot: string, decisionId: string, now: () => D
   if (packet.created_at < run.created_at) {
     throw new JourneyRefusal(
       `Decision ${decisionId} was opened before this journey; a person answers it.`,
+    );
+  }
+  if (!openedByJourney(projectRoot, run, decisionId)) {
+    throw new JourneyRefusal(
+      `Decision ${decisionId} was not opened by this onboarding journey; a person answers it.`,
     );
   }
   const chosen = packet.recommendation ?? null;
