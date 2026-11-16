@@ -6,6 +6,7 @@ import { getPackageRoot } from '@/core/runtime-paths.js';
 import { fitToCeiling, type ContentSlot } from '@/stage-isolation/stage-begin.js';
 
 import { readEvents } from './events.js';
+import { STAGED_CHECKS_ROOT } from './install-check.js';
 import { foldJourney, type StageFold } from './fold.js';
 import { readTextOrNull } from './io.js';
 import { proveStage } from './proof.js';
@@ -107,9 +108,10 @@ function stageWork(projectRoot: string, run: JourneyRun, stage: StageDefinition)
     case 'rule_scripts':
       return [
         session,
-        `Write each check with the rule-script-generator scripts in ${skillScripts(projectRoot, 'rule-script-generator')}; install it only through register-script.mjs there.`,
+        `Write each check with the rule-script-generator method (scripts in ${skillScripts(projectRoot, 'rule-script-generator')}), but stage it under ${STAGED_CHECKS_ROOT}<category>/<name>.mjs with its fixtures in <name>/__fixtures__/pass and fail beside it; .paqad/scripts/rules/ is closed to onboarding agents.`,
+        'Install each staged check with `paqad-ai onboarding unit rule_scripts <rule-id> --install-check <staged.mjs> --kind <deterministic|heuristic> --scope <scope>`; it runs the fixtures, copies the check into .paqad/scripts/rules/ only when they pass, registers it and records the unit.',
         'A failing fixture is regenerated once, then the rule is marked unverifiable with "onboarding: fixtures failed".',
-        'Record each rule batch with `paqad-ai onboarding unit rule_scripts <batch>`, then run `paqad-ai rules compile`.',
+        'After the last check, run `paqad-ai rules compile`.',
       ];
     case 'finish':
       return [

@@ -16,6 +16,7 @@ import {
 import { autoDecide } from '@/onboarding/journey/auto-decide.js';
 import { answerCommit, type CommitAnswer } from '@/onboarding/journey/commit.js';
 import { finishJourney, rebuildRagInBackground } from '@/onboarding/journey/finish.js';
+import { installStagedCheck } from '@/onboarding/journey/install-check.js';
 import { nextStep } from '@/onboarding/journey/briefs.js';
 import { appendChoice, readChoices } from '@/onboarding/journey/choices.js';
 import { chooseStack, detectProject } from '@/onboarding/journey/detect.js';
@@ -282,6 +283,38 @@ function addStage(command: Command): void {
     );
 }
 
+function installCheckVerb(
+  step: string,
+  ruleId: string,
+  options: RootOptions & { installCheck: string; kind?: string; scope?: string },
+): void {
+  if (stageArg(step) !== 'rule_scripts') {
+    throw new JourneyRefusal('--install-check is only for step 7: `unit rule_scripts <rule-id>`.');
+  }
+  const result = installStagedCheck(
+    options.projectRoot,
+    {
+      staged: options.installCheck,
+      ruleId,
+      kind: options.kind ?? 'deterministic',
+      scope: options.scope ?? 'changed-files',
+    },
+    now,
+  );
+  if (result.installed) {
+    recordUnit(options.projectRoot, 'rule_scripts', ruleId, { outputs: [], kept: false }, now);
+  } else {
+    process.exitCode = result.deferred ? 2 : 1;
+  }
+  emit(
+    options,
+    result,
+    result.installed
+      ? `**▸ paqad** · Installed ${result.path} for ${ruleId}.`
+      : `**▸ paqad** · Not installed: the check for ${ruleId} ${result.deferred ? 'needs a tool that is missing' : 'failed its header or fixtures'}.`,
+  );
+}
+
 function addUnit(command: Command): void {
   rootOption(
     command
@@ -294,6 +327,15 @@ function addUnit(command: Command): void {
     .option('--kept', 'Keep a module whose source is unchanged since its docs were written')
     .option('--source-hash <sha>', 'The module source hash a kept unit matches')
     .option('--claim <agent>', 'Record that an agent starts this unit, before dispatching it')
+    .option(
+      '--install-check <staged>',
+      'Step 7: prove a check staged under .paqad/tmp/onboarding/scripts/ and install it for the rule named as the unit',
+    )
+    .option('--kind <kind>', 'With --install-check: deterministic or heuristic')
+    .option(
+      '--scope <scope>',
+      'With --install-check: changed-files, whole-tree, git-diff or git-history',
+    )
     .action(
       (
         step: string,
@@ -303,9 +345,16 @@ function addUnit(command: Command): void {
           kept?: boolean;
           sourceHash?: string;
           claim?: string;
+          installCheck?: string;
+          kind?: string;
+          scope?: string;
         },
       ) =>
         runVerb(options.projectRoot, () => {
+          if (options.installCheck) {
+            installCheckVerb(step, unit, { ...options, installCheck: options.installCheck });
+            return;
+          }
           if (options.claim) {
             claimUnit(options.projectRoot, stageArg(step), unit, options.claim, now);
             emit(options, { step, unit }, `**▸ paqad** · ${options.claim} starts ${unit}.`);
