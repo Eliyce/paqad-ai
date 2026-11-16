@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 
 import { resolveProjectRoot } from './paqad-disabled.mjs';
@@ -70,6 +70,21 @@ export function stampSessionSentinel(projectRoot, sessionId, entry) {
   } catch {}
 }
 
+const JOURNEY_DOC_STAGES = ['project_docs', 'rules_discovery'];
+
+export function journeyOwnerWritingDocs(projectRoot, sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '') return false;
+  try {
+    const run = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad', 'onboarding', 'journey.json'), 'utf8'),
+    );
+    if (run?.owner_session !== sessionId || run?.status !== 'running') return false;
+    return JOURNEY_DOC_STAGES.some((stage) => run?.stages?.[stage]?.status === 'running');
+  } catch {
+    return false;
+  }
+}
+
 export function sentinelDetail(
   projectRoot = resolveProjectRoot(),
   env = process.env,
@@ -104,7 +119,10 @@ export function sentinelDetail(
   const loadedDirs = LOADED_INSTRUCTION_DIRS.map((dir) =>
     join(projectRoot, 'docs', 'instructions', dir),
   );
-  if (loadedDirs.some((dir) => anyFileNewer(dir, sentinelMtime))) {
+  if (
+    !journeyOwnerWritingDocs(projectRoot, sessionId) &&
+    loadedDirs.some((dir) => anyFileNewer(dir, sentinelMtime))
+  ) {
     const files = loadedDirs
       .flatMap((dir) => filesNewer(dir, sentinelMtime))
       .map((full) => relative(projectRoot, full).split(sep).join('/'))

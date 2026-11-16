@@ -346,6 +346,22 @@ export function hookStandsDown(payload = undefined, env = process.env) {
   return standDownReason(payload, env) !== null;
 }
 
+export function onboardingJourneyExists(projectRoot = resolveProjectRoot()) {
+  try {
+    return statSync(join(projectRoot, '.paqad', 'onboarding', 'journey.json')).isFile();
+  } catch {
+    return false;
+  }
+}
+
+export function hookStandsDownOutsideJourney(payload = undefined, env = process.env) {
+  const reason = standDownReason(payload, env);
+  if (reason === 'unonboarded' && onboardingJourneyExists(resolveProjectRoot(env, payload))) {
+    return false;
+  }
+  return reason !== null;
+}
+
 function resolvePaqadEnable(projectRoot, env) {
   const raw = readLayeredKey(projectRoot, 'paqad_enable', 'PAQAD_ENABLE', env);
   return raw === undefined ? undefined : raw.trim().toLowerCase();

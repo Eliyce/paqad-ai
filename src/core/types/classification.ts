@@ -22,6 +22,7 @@ export const CLASSIFICATION_WORKFLOWS = [
   'root-cause-analysis',
   'discovery',
   'rules-discovery',
+  'onboarding',
   'pentest',
   'pentest-retest',
   'codebase-health',

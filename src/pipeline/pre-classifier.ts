@@ -96,6 +96,17 @@ const WORKFLOW_PATTERNS: WorkflowPattern[] = [
     ],
   },
   {
+    workflow: 'onboarding',
+    priority: 232,
+    patterns: [
+      'onboard paqad',
+      'continue paqad onboarding',
+      'resume paqad onboarding',
+      'continue onboarding paqad',
+      'resume onboarding paqad',
+    ],
+  },
+  {
     workflow: 'rules-discovery',
     priority: 231,
     patterns: [

@@ -14,6 +14,7 @@ export const ROUTED_WORKFLOWS = [
   'root-cause-analysis',
   'discovery',
   'rules-discovery',
+  'onboarding',
   'no-workflow',
 ] as const;
 export type RoutedWorkflow = (typeof ROUTED_WORKFLOWS)[number];
@@ -54,6 +55,7 @@ const OUTCOME_BY_WORKFLOW: Record<ClassificationWorkflow, RoutedWorkflow> = {
   'root-cause-analysis': 'root-cause-analysis',
   discovery: 'discovery',
   'rules-discovery': 'rules-discovery',
+  onboarding: 'onboarding',
   writing: 'no-workflow',
   editing: 'no-workflow',
   planning: 'no-workflow',
@@ -69,6 +71,17 @@ export function resolveRoutedWorkflow(
     return 'no-workflow';
   }
   return OUTCOME_BY_WORKFLOW[workflow];
+}
+
+const FOLDED_UNDER_ONBOARDING: ReadonlySet<RoutedWorkflow> = new Set([
+  'documentation-update',
+  'module-documentation',
+  'rules-discovery',
+  'rules-analyze',
+]);
+
+export function routeWhileOnboarding(routed: RoutedWorkflow, journeyOpen: boolean): RoutedWorkflow {
+  return journeyOpen && FOLDED_UNDER_ONBOARDING.has(routed) ? 'onboarding' : routed;
 }
 
 export function changeKindForWorkflow(
