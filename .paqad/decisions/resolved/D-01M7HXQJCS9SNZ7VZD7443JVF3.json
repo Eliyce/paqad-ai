@@ -1,0 +1,63 @@
+{
+  "id": "D-01M7HXQJCS9SNZ7VZD7443JVF3",
+  "category": "authoring.agent_permission",
+  "title": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "context": "Powers: Bash. File hash: sha256:155105f0a247a42cb60906c0a205bf9d4836e3099785345fee47b1eec958e67d.",
+  "options": [
+    {
+      "option_key": "allow",
+      "label": "Allow these powers",
+      "one_line_preview": "If you pick this, paqad-onboarding-docs keeps Bash; adding a power or editing the agent asks again.",
+      "trade_off": "You give up: an agent limited to the minimum tools.",
+      "evidence": {}
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them",
+      "one_line_preview": "If you pick this, Bash is taken out of paqad-onboarding-docs before its checks run.",
+      "trade_off": "You give up: whatever those powers let the agent do.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "allow",
+  "created_at": "2026-11-16T10:16:34.457Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+      "D-01M7HXARV041WPPWCF8BCHSJY2",
+      "D-01M7HX85TS3BCKK7V1KSD26FEA",
+      "D-01M6RXZMDMD1RDYDCW252GMSRT",
+      "D-01M6N7M9A6DDK70GJ6TKMS8A5E"
+    ]
+  },
+  "suggestion": {
+    "earlier_id": "D-01M7HWDWFSTAKH7HKR6TWCGSQG",
+    "option_key": "allow",
+    "reason": "Same agent and same Bash power, re-asked only because the draft text changed; the owner approved Bash for the onboarding agents in chat.",
+    "at": "2026-11-16T10:17:22.679Z"
+  },
+  "chosen": "allow",
+  "rationale": "Owner approved Bash for the onboarding agents in chat; same power as D-01M7HWDWFSTAKH7HKR6TWCGSQG on the edited draft.",
+  "resolved_at": "2026-11-16T10:17:24.293Z",
+  "decision_id": "D-01M7HXQJCS9SNZ7VZD7443JVF3",
+  "fingerprint": "sha256:6a339336f5e33a7d228bbea6c7d1a0c98059bd6c28e49bde602ff911d30517a5",
+  "question": "The agent paqad-onboarding-docs asks for these powers: Bash. Allow these powers?",
+  "recommendation_reason": "Same agent and same Bash power, re-asked only because the draft text changed; the owner approved Bash for the onboarding agents in chat.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-12-16T10:16:34.457Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "allow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T10:17:24.293Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved Bash for the onboarding agents in chat; same power as D-01M7HWDWFSTAKH7HKR6TWCGSQG on the edited draft."
+  }
+}
