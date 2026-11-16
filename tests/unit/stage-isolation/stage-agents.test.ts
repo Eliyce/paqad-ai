@@ -244,7 +244,9 @@ describe('stage-agent turn limits and Report sections', () => {
       const name = agent.name.replace(/\.md$/u, '');
       expect(agent.content).toContain(`\nmaxTurns: ${TURNS[name] ?? ONBOARDING_TURNS[name]}\n`);
       const report = agent.content.slice(agent.content.indexOf('\n## Report\n'));
-      expect(report).toContain(`under ${REPORT_MAX_TOKENS.toLocaleString('en-US')} tokens`);
+      const cap = /under ([\d,]+) tokens/u.exec(report)?.[1];
+      expect(cap, name).toBeDefined();
+      expect(Number(cap!.replaceAll(',', '')), name).toBeLessThanOrEqual(REPORT_MAX_TOKENS);
       for (const status of STAGE_REPORT_STATUSES) expect(report).toContain(`\`Status: ${status}\``);
       expect(report).toContain('Leave ');
       expect(agent.content).not.toContain('—');

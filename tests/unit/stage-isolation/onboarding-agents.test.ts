@@ -225,7 +225,7 @@ describe('onboarding stage agents', () => {
     }
     expect(
       ONBOARDING_AGENTS.find((a) => a.agentName === 'paqad-onboarding-docs')?.claudeTools,
-    ).toBe('Read, Edit, Write, Grep, Glob, Bash');
+    ).toBe('Read, Write, Grep, Glob, Bash');
   });
 
   it('INV-17 FR-22: the shipped docs agent is its own file, scoped to step 3, without the stage protocol', () => {

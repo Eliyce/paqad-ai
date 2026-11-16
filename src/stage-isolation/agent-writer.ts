@@ -82,6 +82,7 @@ function onboardingAgentContext(def: OnboardingAgentDef): Record<string, unknown
     tools: def.claudeTools,
     maxTurns: def.maxTurns,
     model: 'inherit',
+    effort: def.effort,
     body: buildOnboardingAgentBody(def),
   };
 }
