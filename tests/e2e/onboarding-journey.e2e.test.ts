@@ -1,4 +1,4 @@
-import { readFileSync, rmSync, utimesSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,7 @@ import { readEvents } from '@/onboarding/journey/events.js';
 import { readRun } from '@/onboarding/journey/run-store.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
+import { compileRuleScripts } from '@/rule-scripts/compile.js';
 
 import { T0, moduleMap, tempRoot, writeFile } from '../unit/onboarding/journey/fixtures/journey.js';
 
@@ -216,9 +217,7 @@ describe('the onboarding journey end to end with a stub agent', () => {
     await verb('stage', 'end', 'rules_analyze');
 
     await verb('stage', 'start', 'rule_scripts');
-    writeFile(root, '.paqad/compiled-rules.json', '{}');
-    const later = clock();
-    utimesSync(join(root, '.paqad/compiled-rules.json'), later, later);
+    compileRuleScripts(root);
     await verb('unit', 'rule_scripts', 'batch-1');
     await verb('stage', 'end', 'rule_scripts');
 

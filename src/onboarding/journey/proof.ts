@@ -1,4 +1,3 @@
-import { statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -46,14 +45,6 @@ function item(name: string, ok: boolean, message: string): ProofItem {
 
 function startedAt(ctx: ProofContext, stage: StageId): string {
   return ctx.run.stages[stage].started_at ?? '9999';
-}
-
-function fileNewerThan(path: string, iso: string): boolean {
-  try {
-    return statSync(path).mtime.toISOString() >= iso;
-  } catch {
-    return false;
-  }
 }
 
 function unitIds(ctx: ProofContext, stage: StageId): Map<string, JourneyEvent> {
@@ -201,6 +192,13 @@ function analyzeAuditRows(ctx: ProofContext): RuleScriptMapEvent[] {
   );
 }
 
+function compileAuditRows(ctx: ProofContext): RuleScriptMapEvent[] {
+  return readJsonLines<RuleScriptMapEvent>(
+    join(ctx.projectRoot, PATHS.RULE_SCRIPT_MAP_EVENTS_LOG),
+    (row) => row.via === 'rules-compile' && typeof row.ts === 'string',
+  );
+}
+
 function proveRulesAnalyze(ctx: ProofContext): ProofItem[] {
   const map = loadRuleScriptMap(ctx.projectRoot);
   const since = startedAt(ctx, 'rules_analyze');
@@ -238,13 +236,11 @@ function proveRuleScripts(ctx: ProofContext): ProofItem[] {
         `Register a passing check for ${rule.id} or mark it unverifiable with an "onboarding:" reason.`,
       );
     });
+  const since = startedAt(ctx, 'rule_scripts');
   items.push(
     item(
       'compile',
-      fileNewerThan(
-        join(ctx.projectRoot, '.paqad/compiled-rules.json'),
-        startedAt(ctx, 'rule_scripts'),
-      ),
+      compileAuditRows(ctx).some((row) => row.ts >= since),
       'Run `paqad-ai rules compile` after the checks are registered.',
     ),
   );

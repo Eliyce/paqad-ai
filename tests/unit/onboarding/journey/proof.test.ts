@@ -231,6 +231,21 @@ describe('onboarding stage proofs', () => {
       'rule:RL-1',
       'compile',
     ]);
+    writeFile(
+      root,
+      '.paqad/compiled-rules.json',
+      '{"written":"by rag refresh-context, which the brief does not run"}',
+    );
+    expect(failing(root, running('rule_scripts'), 'rule_scripts')).toContain('compile');
+    writeFile(
+      root,
+      '.paqad/scripts/rules/.history/events.jsonl',
+      [
+        JSON.stringify({ ts: T0, via: 'rules-compile', action: 'generate', rule_ids: ['RL-1'] }),
+        JSON.stringify({ ts: at(11), via: 'rules-compile', action: 'generate', rule_ids: [] }),
+      ].join('\n') + '\n',
+    );
+    expect(failing(root, running('rule_scripts'), 'rule_scripts')).toEqual(['rule:RL-1']);
   });
 
   it('AC-6: finish needs a report written in this step', () => {
