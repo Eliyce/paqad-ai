@@ -6,9 +6,13 @@ import { isNpmAvailable } from '@/core/npm-available.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import { STACKS, type Capability, type Stack } from '@/core/types/domain.js';
 import { Detector } from '@/detection/detector.js';
+import { readRun as readJourneyRun } from '@/onboarding/journey/run-store.js';
+import { journeyHosts } from '@/onboarding/journey/setup.js';
+import { readExistingOnboardingManifest } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 
 import { codexTrustHint, printBanner, printNextSteps } from '../ui/banner.js';
+import { OPEN_JOURNEY_LINE, journeyPointer } from '../ui/journey-pointer.js';
 
 interface OnboardOptions {
   projectRoot: string;
@@ -107,6 +111,13 @@ export function createOnboardCommand(): Command {
         return;
       }
 
+      const journey = readJourneyRun(options.projectRoot);
+      if (journey !== null && journey.status !== 'done') {
+        console.log(OPEN_JOURNEY_LINE);
+        return;
+      }
+
+      const firstOnboarding = readExistingOnboardingManifest(options.projectRoot) === null;
       const npmAvailable = isNpmAvailable();
 
       if (options.nonInteractive) {
@@ -182,5 +193,10 @@ export function createOnboardCommand(): Command {
       }
 
       printOnboardingNotices(result);
+
+      const pointer = firstOnboarding
+        ? journeyPointer(journeyHosts(result?.decision_pause_supported_adapters ?? []))
+        : null;
+      if (pointer) console.log(`\n${pointer}`);
     });
 }
