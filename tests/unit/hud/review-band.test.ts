@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'pathe';
 import { describe, expect, it } from 'vitest';
 
+import { emptyStages } from '@/onboarding/journey/run-store.js';
+import { buildView } from '@/onboarding/journey/view.js';
 import { REVIEW_KINDS, type ReviewKind } from '@/review-runs/kinds.js';
 import type { ReviewFinding, ReviewRun } from '@/review-runs/types.js';
 import { buildReviewView } from '@/review-runs/view.js';
@@ -22,6 +24,7 @@ import { INK, SIGNAL, STATUS_B } from '../../../runtime/claude-plugin/mod/palett
 import { WORKFLOW_WORDS, workflowWords } from '../../../runtime/claude-plugin/mod/status-entry.ts';
 import type { BandLayout } from '../../../runtime/claude-plugin/mod/shell.ts';
 
+import { baseRun, clockAt } from '../onboarding/journey/fixtures/journey.js';
 import { at, reviewRun } from '../review-runs/fixtures.js';
 
 const MOD = join(__dirname, '../../../runtime/claude-plugin/mod');
@@ -267,6 +270,27 @@ describe('the review band and card', () => {
     if (layout.kind !== 'card') throw new Error('expected a card');
     const cell = layout.blocks[0]!.cells[1]!;
     expect(cell.top).toEqual({ text: '–', dim: true });
+  });
+
+  it('AC-23: an onboarding view carries no word and keeps its onboarding defaults', () => {
+    const run = {
+      ...baseRun({ stages: { ...emptyStages(), detect: { status: 'failed', started_at: at(0) } } }),
+      status: 'failed' as const,
+      revision: 2,
+    };
+    const view = parseJourneyView(JSON.stringify(buildView(run, [], { now: clockAt(1) })))!;
+    expect(view.word).toBeUndefined();
+    const model = journeyBand(view, { columns: 900, stalled: false });
+    expect(model.word).toBe('Onboarding');
+    expect(model.review).toBe(false);
+    expect(model.prompt).toBe('resume paqad onboarding');
+    expect(model.leads).toBeNull();
+    expect(find(draw(view), (props) => props.key === 'paqad-review-dot')).toEqual([]);
+    const layout = card(view, 80);
+    if (layout.kind !== 'card') throw new Error('expected a card');
+    expect(rowText(layout.header.left)).toBe('paqad  Onboarding · Step 1 of 8');
+    expect(rowText(layout.blocks[1]!.title)).toBe('Steps 5 to 8');
+    expect(layout.tone).toBe('bad');
   });
 
   it('AC-24: the review routes read as security review and design review', () => {
