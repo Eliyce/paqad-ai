@@ -90,7 +90,6 @@ export interface JourneyRun {
   setup?: SetupRecord;
   commit?: CommitRecord;
   abandoned_at?: string;
-  last_refusal?: string | null;
 }
 
 export type JourneyEventKind =
