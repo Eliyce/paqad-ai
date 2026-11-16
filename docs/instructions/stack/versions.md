@@ -48,7 +48,7 @@ example `vite >=7.3.7 <8`). No shipped runtime fix relies on an override.
 
 - `react ^19.0.0` (locked band)
 - `tailwindcss ^4.0.0` (locked band)
-- `vite ^6.4.3`
+- `vite ^6.4.6`
 - `vitest ^5.0.5`, `@vitest/coverage-v8 5.0.5`
 
 The root package and graph-ui both run Vitest 5.
