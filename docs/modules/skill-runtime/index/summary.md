@@ -34,6 +34,13 @@ _This module has no enumerated features in the map; the module itself is the uni
   that clashes with a built-in is refused so the built-in stays the default match. Registration
   parses and stores with no `await` in between, and `snapshot` builds a new list each call, so a
   snapshot taken earlier never changes.
+- **`onboarding-journey`.** The driver skill for `paqad-ai onboarding`, shipped to every host with
+  skills. It runs the eight steps in order through `onboarding next`, dispatches the five
+  `paqad-onboarding-*` agents on Claude Code, and narrates one `**▸ paqad** ·` status line per
+  step on other hosts. The documentation, rules-discovery, rule-analyzer, rule-script-generator,
+  rule-script-reconciler and rules-proposer skills gained a journey mode: no questions, the
+  recommended default recorded in choices.jsonl, existing rules never rewritten or removed, and
+  step 7 checks staged under `.paqad/tmp/onboarding/scripts/` for `unit rule_scripts --install-check`.
 
 ## Why the shipped skill scripts work the way they do
 

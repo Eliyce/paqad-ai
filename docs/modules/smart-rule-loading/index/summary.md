@@ -84,6 +84,11 @@ The reasons below are not obvious from the code of the rule slice.
   recompile, so it tracks `compiled-rules.json` without the background harness. Summaries drop
   backticks and trigger spans are joined by spaces, so the manifest can never emit the corrupted
   `` `, ` `` sequence. An absent rule-script map means no rule shows as scripted.
+- **`enforce.ts` and `warn_until_reviewed`.** A check the onboarding journey installed for a rule
+  it added carries `warn_until_reviewed` in the rule-script map. Its findings are still reported,
+  but they never make a strict run blocking until a person reviews the choice with
+  `paqad-ai onboarding choices --review`. Checks for rules that existed before onboarding enforce
+  as normal.
 
 ## Authority
 
