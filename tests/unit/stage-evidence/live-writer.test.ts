@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
@@ -860,5 +860,28 @@ describe('recordMarkedStage returns its reason (B5)', () => {
     expect(failed.ok).toBe(false);
     expect(failed.ok ? null : failed.reason).toBe('error');
     rmSync(fileRoot, { force: true });
+  });
+
+  it('AC-20: a writer failure that is not an Error still returns its text as the message', async () => {
+    vi.resetModules();
+    vi.doMock('@/stage-evidence/recorder.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@/stage-evidence/recorder.js')>()),
+      endStage: () => {
+        throw 'the ledger refused the row';
+      },
+    }));
+    try {
+      const fresh = await import('@/stage-evidence/live-writer.js');
+      expect(
+        fresh.recordMarkedStage(join(tmpdir(), 'paqad-unused'), {
+          sessionId: 'ses_reason',
+          stage: 'planning',
+          phase: 'end',
+        }),
+      ).toEqual({ ok: false, reason: 'error', message: 'the ledger refused the row' });
+    } finally {
+      vi.doUnmock('@/stage-evidence/recorder.js');
+      vi.resetModules();
+    }
   });
 });
