@@ -51,7 +51,14 @@ Any code except `RS-CACHE-INVALID` blocks `feature-development` per the project'
 
 ## Onboarding Journey
 
-When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask: take each recommended option with `paqad-ai onboarding decide <decision-id>`, keep existing pages and rules as they are, and record your units with `paqad-ai onboarding unit`. Without that line, ask as you always do.
+When the brief you were given says "Onboarding journey says auto-recommended.", do not stop to ask. For each finding group from step 2:
+
+1. Open its packet with `paqad-ai decision create` and pass `--recommendation` with the option that leaves existing rules and scripts as they are: accept as-is for `RS-RULE-EDITED`, keep the rule for `RS-RULE-REMOVED`, keep the current scripts for `RS-SCRIPT-STALE` / `RS-FIXTURE-FAIL`, and treat as a new rule for `RS-RULE-ADDED` (adding is allowed). Never recommend removing an existing rule.
+2. Answer it at once with `paqad-ai onboarding decide <decision-id>`; the answer is recorded in `choices.jsonl` for review.
+3. If `onboarding decide` refuses (the packet was opened before the journey, or has no recommended option), do not answer it another way: end the step with `paqad-ai onboarding stage fail <step> --reason "<why>"`.
+4. Record your units with `paqad-ai onboarding unit`.
+
+Without that line, ask as you always do.
 
 ## Output Contract
 
