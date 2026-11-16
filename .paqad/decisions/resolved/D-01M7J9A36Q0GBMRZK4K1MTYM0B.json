@@ -1,0 +1,59 @@
+{
+  "id": "D-01M7J9A36Q0GBMRZK4K1MTYM0B",
+  "category": "architecture-path",
+  "title": "D6: may stage start / lane set use the hook-written session cache when no session id is in the environment",
+  "context": "B4: without SE_SESSION/CLAUDE_SESSION_ID/CLAUDE_CODE_SESSION_ID the route never switches. CLAUDE_CODE_SESSION_ID is exported to Bash in Claude Code (verified), so the cache is only a fallback; risk is a stale cache from another session.",
+  "options": [
+    {
+      "option_key": "recent-same",
+      "label": "Use the cache only when it is recent and written for this project root; otherwise do not switch",
+      "one_line_preview": "Use the cache only when it is recent and written for this project root; otherwise do not switch",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "never",
+      "label": "Never use it; without an env id the route does not switch and stage start says so",
+      "one_line_preview": "Never use it; without an env id the route does not switch and stage start says so",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "always",
+      "label": "Always use the cache",
+      "one_line_preview": "Always use the cache",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "recent-same",
+  "created_at": "2026-11-16T13:38:55.831Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier answer on using the hook session cache for stage start."
+  },
+  "chosen": "recent-same",
+  "rationale": "Developer chose recent same-repo cache only",
+  "resolved_at": "2026-11-16T13:50:11.486Z",
+  "decision_id": "D-01M7J9A36Q0GBMRZK4K1MTYM0B",
+  "fingerprint": "sha256:d7a9920a87625774bdd66bf4e982965ead68ef511059a7bce7f5efb5c8425149",
+  "question": "D6: may stage start / lane set use the hook-written session cache when no session id is in the environment",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2027-02-14T13:38:55.831Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "recent-same",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:11.486Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose recent same-repo cache only"
+  }
+}

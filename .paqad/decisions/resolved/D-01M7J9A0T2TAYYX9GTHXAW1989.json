@@ -1,0 +1,59 @@
+{
+  "id": "D-01M7J9A0T2TAYYX9GTHXAW1989",
+  "category": "ux-pattern",
+  "title": "D2: what the HUD draws on the feature route for a closed, other-branch or resumed change",
+  "context": "Today the feature route draws nothing for closed, other-branch and no-row-this-episode (#862). The workflow-switch proof expects the feature band after continue. Proposed rows: closed = closed-change row (or 'Change closed'); other-branch = 'The change is on branch <b>'; paused = 'A change is paused. Say \"continue\" to pick it up.'; adopted untouched change = Getting ready.",
+  "options": [
+    {
+      "option_key": "band-on-resume",
+      "label": "Full band with stage strip for a resumed change; short plain row for closed, other-branch and paused",
+      "one_line_preview": "Full band with stage strip for a resumed change; short plain row for closed, other-branch and paused",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "rows-only",
+      "label": "Short plain row for every reason, including a resumed change",
+      "one_line_preview": "Short plain row for every reason, including a resumed change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "band-always",
+      "label": "Full band in every case",
+      "one_line_preview": "Full band in every case",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "band-on-resume",
+  "created_at": "2026-11-16T13:38:53.378Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "D-01M75Y5TQWY73FNSE0P2MFAJ6E (closed band after new commits) and D-01M6SEB9P2Y8BFXB5B3VZNSSK2 (Getting ready before a change opens) cover neighbouring states, not what closed, other-branch and resumed changes draw on the feature route."
+  },
+  "chosen": "band-on-resume",
+  "rationale": "Developer chose full band on resume, short rows otherwise",
+  "resolved_at": "2026-11-16T13:50:09.122Z",
+  "decision_id": "D-01M7J9A0T2TAYYX9GTHXAW1989",
+  "fingerprint": "sha256:2cd730506c7b4f8923df8ae8848962c121ae4644c78b4606f32b536a5f84403b",
+  "question": "D2: what the HUD draws on the feature route for a closed, other-branch or resumed change",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2026-12-16T13:38:53.378Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "band-on-resume",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:09.122Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose full band on resume, short rows otherwise"
+  }
+}

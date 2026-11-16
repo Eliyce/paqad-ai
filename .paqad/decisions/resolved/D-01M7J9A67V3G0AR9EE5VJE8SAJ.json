@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7J9A67V3G0AR9EE5VJE8SAJ",
+  "category": "architecture-path",
+  "title": "D5: discovery plugin 'paqad' name clash: keep out of scope or pull the rename in",
+  "context": "The discovery plugin's manifest (Eliyce/paqad-product-discovery-plugin, another repo) is also named paqad. The experts' agreed scope leaves the rename out unless this pulls it in.",
+  "options": [
+    {
+      "option_key": "out",
+      "label": "Keep the doctor clash failure, document removing discovery, open a follow-up in the other repo",
+      "one_line_preview": "Keep the doctor clash failure, document removing discovery, open a follow-up in the other repo",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "in",
+      "label": "Rename the discovery plugin as part of this release",
+      "one_line_preview": "Rename the discovery plugin as part of this release",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "out",
+  "created_at": "2026-11-16T13:38:58.939Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "D-01M781NBRCEHB7WMM2RV0Y379R was about outreach for a rename made in the discovery release, not whether this change renames the discovery plugin's manifest in its own repo."
+  },
+  "chosen": "in",
+  "rationale": "Developer chose to rename the discovery plugin in this release",
+  "resolved_at": "2026-11-16T13:50:13.942Z",
+  "decision_id": "D-01M7J9A67V3G0AR9EE5VJE8SAJ",
+  "fingerprint": "sha256:9d60d271fe71b199ad6a34da53378e253a4d7319f35f74b136a308119beb377c",
+  "question": "D5: discovery plugin 'paqad' name clash: keep out of scope or pull the rename in",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2027-02-14T13:38:58.939Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "in",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:13.942Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose to rename the discovery plugin in this release"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7J9A2DS7B36JCVY09CZDVPF",
+  "category": "architecture-path",
+  "title": "D4: raise the automatic install minimum Claude Code version to the HUD's 2.1.301",
+  "context": "The migration installs from 2.1.295 but the mod stands down below 2.1.301, so 2.1.295-2.1.300 get hooks with no HUD.",
+  "options": [
+    {
+      "option_key": "raise",
+      "label": "Raise to 2.1.301 (one shared value or an equality test); 2.1.295-2.1.300 stay on npm until they update",
+      "one_line_preview": "Raise to 2.1.301 (one shared value or an equality test); 2.1.295-2.1.300 stay on npm until they update",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep 2.1.295 and have the doctor warn the HUD needs 2.1.301",
+      "one_line_preview": "Keep 2.1.295 and have the doctor warn the HUD needs 2.1.301",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "raise",
+  "created_at": "2026-11-16T13:38:55.034Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "D-01M6ESP09QFK0GX344E2PXAXQH ruled on skipping the move in team repos, not the minimum version; no earlier answer on the version floor."
+  },
+  "chosen": "raise",
+  "rationale": "Developer chose one minimum of 2.1.301",
+  "resolved_at": "2026-11-16T13:50:10.693Z",
+  "decision_id": "D-01M7J9A2DS7B36JCVY09CZDVPF",
+  "fingerprint": "sha256:dfa97b7e951a899eb4d5e85416a6b82399b8fb18da88bc42e9d82219f68cb366",
+  "question": "D4: raise the automatic install minimum Claude Code version to the HUD's 2.1.301",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2027-02-14T13:38:55.034Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "raise",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:10.693Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose one minimum of 2.1.301"
+  }
+}

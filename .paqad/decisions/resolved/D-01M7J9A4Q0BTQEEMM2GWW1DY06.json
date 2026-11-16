@@ -1,0 +1,52 @@
+{
+  "id": "D-01M7J9A4Q0BTQEEMM2GWW1DY06",
+  "category": "finding.triage",
+  "title": "Fix the mod test that already fails on main (question row with tokens and running time, terminal)?",
+  "context": "'a question shows one row with its tokens, and the running time while a turn is in flight, on terminal' fails on main before this change. It sits in the same mod files this change edits and the workflow-switch proof relies on question rows.",
+  "options": [
+    {
+      "option_key": "fix",
+      "label": "Fix it in this change, as its own commit",
+      "one_line_preview": "Fix it in this change, as its own commit",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "known",
+      "label": "Record it as known and leave it for a follow-up issue",
+      "one_line_preview": "Record it as known and leave it for a follow-up issue",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "fix",
+  "created_at": "2026-11-16T13:38:57.376Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier answer on this pre-existing mod test failure."
+  },
+  "chosen": "fix",
+  "rationale": "Developer chose to fix the failing mod test here",
+  "resolved_at": "2026-11-16T13:50:13.161Z",
+  "decision_id": "D-01M7J9A4Q0BTQEEMM2GWW1DY06",
+  "fingerprint": "sha256:0050f526a7002b4398cc2410fdd162d40e318aec5b067754dd10facedaa0d15c",
+  "question": "Fix the mod test that already fails on main (question row with tokens and running time, terminal)?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2026-12-16T13:38:57.376Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "fix",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:13.161Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose to fix the failing mod test here"
+  }
+}

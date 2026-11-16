@@ -1,0 +1,66 @@
+{
+  "id": "D-01M7J9A3XTP9RYFRYP6QQFRH8Q",
+  "category": "architecture-path",
+  "title": "Retry policy when the automatic background plugin install fails (e.g. offline)",
+  "context": "W1 makes network installs run for every local user by default, including from the team launcher copy route. paqad keeps running from npm or the copy either way.",
+  "options": [
+    {
+      "option_key": "existing-schedule",
+      "label": "Reuse the migration's existing lock, retry schedule and failed record; doctor shows the reason",
+      "one_line_preview": "Reuse the migration's existing lock, retry schedule and failed record; doctor shows the reason",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "per-session",
+      "label": "Retry once per new session",
+      "one_line_preview": "Retry once per new session",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "daily",
+      "label": "Retry after a waiting period such as a day",
+      "one_line_preview": "Retry after a waiting period such as a day",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "never",
+      "label": "Never retry; the doctor tells the user how to install",
+      "one_line_preview": "Never retry; the doctor tells the user how to install",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "existing-schedule",
+  "created_at": "2026-11-16T13:38:56.571Z",
+  "status": "resolved",
+  "change": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier answer on retrying a failed background plugin install."
+  },
+  "chosen": "existing-schedule",
+  "rationale": "Developer chose the existing retry schedule",
+  "resolved_at": "2026-11-16T13:50:12.289Z",
+  "decision_id": "D-01M7J9A3XTP9RYFRYP6QQFRH8Q",
+  "fingerprint": "sha256:40cd4c9474a23904e7a23264817e7c07d96cb214a0959dc1670061cc0d3ffba2",
+  "question": "Retry policy when the automatic background plugin install fails (e.g. offline)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7J8JE08Q0TPKF57BS49FRWZ",
+  "ttl_until": "2027-02-14T13:38:56.571Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "existing-schedule",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T13:50:12.289Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Developer chose the existing retry schedule"
+  }
+}
