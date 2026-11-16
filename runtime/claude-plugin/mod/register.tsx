@@ -49,13 +49,16 @@ import {
 import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
+  BIND_WATCH_MS,
   JOURNEY_RUN_PATH,
   JOURNEY_VIEW_PATH,
   STALL_MS,
+  isOnboardingCommand,
   journeyBand,
   journeyBandShown,
   journeyPrompt,
   parseJourneyView,
+  rebindNeeded,
 } from './journey-model';
 import {
   drawOnboardTray,
@@ -317,6 +320,8 @@ let sessionOpened = false;
 let homeDir: string | null = null;
 let missingTimer: Timer | null = null;
 let commandRegistered = false;
+let bindWatch: Timer | null = null;
+let bindWatchUntil = 0;
 const rawCalls = new Set<string>();
 
 interface CiWatch {
@@ -1460,12 +1465,14 @@ function trayActions($: EngineInterface, state: TrayState): TrayActions {
         if (text === null) return;
         await update($, onboardPendingAtom, () => null);
         await $.prompt.submit({ text });
+        await watchForJourney($);
       })(),
   };
 }
 
 async function clearBinding($: EngineInterface): Promise<void> {
   live = null;
+  stopBindWatch();
   await moveLive($, turnEnded);
   lastText = undefined;
   verdictSeen = undefined;
@@ -1506,6 +1513,40 @@ async function resolveRoot(
   }
   if (status?.on && status.root) await bind($, status.root, status.chime);
   return status;
+}
+
+async function recheckRoot($: EngineInterface): Promise<void> {
+  const start = boundStart;
+  if (start === null) return;
+  let found: Awaited<ReturnType<typeof readStatus>>;
+  try {
+    found = await readStatus($, start);
+  } catch {
+    return;
+  }
+  const before = { on: (await read($, statusAtom))?.on === true, root: live?.root ?? null };
+  if (!rebindNeeded(before, { on: found.on, root: found.root })) return;
+  await clearBinding($);
+  const status = await resolveRoot($, start);
+  if (status && registersCommand(status)) await registerCommandOnce($);
+}
+
+function stopBindWatch(): void {
+  bindWatch?.cancel();
+  bindWatch = null;
+}
+
+async function watchForJourney($: EngineInterface): Promise<void> {
+  if (live || bindWatch) return;
+  try {
+    bindWatchUntil = (await $.clock.now()) + BIND_WATCH_MS;
+    bindWatch = $.clock.every(AGENT_TICK_MS, () => {
+      void (async () => {
+        await recheckRoot($);
+        if (live || (await $.clock.now()) > bindWatchUntil) stopBindWatch();
+      })();
+    });
+  } catch {}
 }
 
 async function logDebug($: EngineInterface, text: string): Promise<void> {
@@ -1560,6 +1601,7 @@ export const register: Register = (on) => {
 
   on('prompt.submit', async ($, e, next) => {
     await followRoot($);
+    if (!live) await recheckRoot($);
     taskListRefused = false;
     if (live) {
       const now = await $.clock.now();
@@ -1583,9 +1625,13 @@ export const register: Register = (on) => {
   }).catch(($, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
-    if (!live) return next(e);
     const tool = String(e.tool);
     const input = e as unknown as { command?: unknown };
+    if (!live) {
+      const result = await next(e);
+      if (isOnboardingCommand(tool, input)) await recheckRoot($);
+      return result;
+    }
     const isAgent = AGENT_TOOLS.has(tool);
     const agentId = (e as { agentId?: unknown }).agentId;
     if (isExpertsCall(tool, input)) {
@@ -1644,6 +1690,7 @@ export const register: Register = (on) => {
       await moveLive($, turnEnded);
     }
     const result = await next(e);
+    if (!live && !e.agentId) await recheckRoot($);
     if (live) {
       await refresh($);
       if (e.agentId === undefined) $.clock.after(AFTER_TURN_MS, () => void refresh($));

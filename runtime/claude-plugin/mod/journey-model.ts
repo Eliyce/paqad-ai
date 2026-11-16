@@ -185,3 +185,26 @@ export function journeyBandShown(view: JourneyView | null, nowMs: number): boole
 export function journeyPrompt(button: 'Resume' | 'Commit'): string {
   return button === 'Resume' ? RESUME_PROMPT : COMMIT_PROMPT;
 }
+
+export const ONBOARDING_COMMAND = /\bpaqad-ai\s+onboard(?:ing)?\b/u;
+export const BIND_WATCH_MS = 10 * 60 * 1000;
+
+export function isOnboardingCommand(tool: string, input: { command?: unknown }): boolean {
+  return (
+    tool === 'Bash' && typeof input.command === 'string' && ONBOARDING_COMMAND.test(input.command)
+  );
+}
+
+export interface RootBinding {
+  on: boolean;
+  root: string | null;
+}
+
+function trimmedRoot(root: string | null): string | null {
+  return root === null ? null : root.replace(/[\\/]+$/, '') || root;
+}
+
+export function rebindNeeded(before: RootBinding, after: RootBinding): boolean {
+  if (before.on !== after.on) return true;
+  return after.on && trimmedRoot(before.root) !== trimmedRoot(after.root);
+}

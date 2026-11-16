@@ -3,9 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { buildView } from '@/onboarding/journey/view.js';
 import { emptyStages } from '@/onboarding/journey/run-store.js';
 import type { JourneyRun } from '@/onboarding/journey/types.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
+  isOnboardingCommand,
   journeyBand,
   parseJourneyView,
+  rebindNeeded,
   skipsSubagentRow,
 } from '../../../runtime/claude-plugin/mod/journey-model.ts';
 import { decideStatus } from '../../../runtime/claude-plugin/mod/config.ts';
@@ -153,5 +158,40 @@ describe('the onboarding band model', () => {
   it('refuses a view that does not parse', () => {
     expect(parseJourneyView('{')).toBeNull();
     expect(parseJourneyView(null)).toBeNull();
+  });
+});
+
+describe('AC-12 AC-3: the HUD binds to a journey before setup', () => {
+  it('re-checks the root only after a Bash call that runs paqad-ai onboarding', () => {
+    expect(
+      isOnboardingCommand('Bash', { command: 'paqad-ai onboarding start --tools claude-code' }),
+    ).toBe(true);
+    expect(
+      isOnboardingCommand('Bash', { command: 'SE_SESSION=x npx paqad-ai onboarding resume' }),
+    ).toBe(true);
+    expect(isOnboardingCommand('Bash', { command: 'paqad-ai onboard' })).toBe(true);
+    expect(isOnboardingCommand('Bash', { command: 'paqad-ai status' })).toBe(false);
+    expect(isOnboardingCommand('Read', { command: 'paqad-ai onboarding start' })).toBe(false);
+    expect(isOnboardingCommand('Bash', {})).toBe(false);
+  });
+
+  it('rebinds when the same root turns on, off or moves, and not otherwise', () => {
+    expect(rebindNeeded({ on: false, root: null }, { on: true, root: '/repo' })).toBe(true);
+    expect(rebindNeeded({ on: true, root: '/repo' }, { on: false, root: null })).toBe(true);
+    expect(rebindNeeded({ on: true, root: '/repo' }, { on: true, root: '/repo/' })).toBe(false);
+    expect(rebindNeeded({ on: true, root: '/repo' }, { on: true, root: '/other' })).toBe(true);
+    expect(rebindNeeded({ on: false, root: null }, { on: false, root: null })).toBe(false);
+  });
+
+  it('wires the re-check into the Bash call, the turn edges and the bind ticker', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'runtime/claude-plugin/mod/register.tsx'),
+      'utf8',
+    );
+    expect(source).toContain('if (isOnboardingCommand(tool, input)) await recheckRoot($);');
+    expect(source).toContain('if (!live) await recheckRoot($);');
+    expect(source).toContain('if (!live && !e.agentId) await recheckRoot($);');
+    expect(source).toMatch(/bindWatch = \$\.clock\.every\(AGENT_TICK_MS[\s\S]*?recheckRoot\(\$\)/u);
+    expect(source).toContain('await watchForJourney($);');
   });
 });
