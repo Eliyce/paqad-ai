@@ -11,6 +11,7 @@ import {
   bashWrites,
   formatStageAgentWriteSummary,
   readOnlyAgentScope,
+  shownWriteTarget,
   stageAgentWriteDecision,
   writeAllowed,
   type WriteHost,
@@ -230,6 +231,32 @@ describe('the read-only write guard behaves the same on Windows', () => {
       });
     }
     expect(allowed('paqad-expert', '/tmp/scratch.txt')).toBe(false);
+  });
+
+  it('names a blocked Windows project path relative to the root with forward slashes', () => {
+    const shown = (target: string | null, cwd: string | null = project) =>
+      shownWriteTarget(project, { target, cwd }, win32);
+    expect(shown('D:\\a\\repo\\docs\\modules\\auth\\summary.md')).toBe(
+      'docs/modules/auth/summary.md',
+    );
+    expect(shown('docs\\modules\\auth\\summary.md')).toBe('docs/modules/auth/summary.md');
+    expect(shown('summary.md', 'D:\\a\\repo\\docs')).toBe('docs/summary.md');
+    expect(
+      formatStageAgentWriteSummary({
+        blocked: true,
+        agent: 'paqad-onboarding-modules',
+        target: shown('D:\\a\\repo\\docs\\modules\\auth\\summary.md'),
+      }),
+    ).toContain('`docs/modules/auth/summary.md`');
+  });
+
+  it('keeps a path outside the project, the root itself and an unresolved target as written', () => {
+    const shown = (target: string | null, cwd: string | null = project) =>
+      shownWriteTarget(project, { target, cwd }, win32);
+    expect(shown('C:\\Windows\\x.txt')).toBe('C:\\Windows\\x.txt');
+    expect(shown('D:\\a\\repo')).toBe('D:\\a\\repo');
+    expect(shown(null)).toBeNull();
+    expect(shown('x.txt', null)).toBe('x.txt');
   });
 });
 

@@ -465,7 +465,29 @@ export function stageAgentWriteDecision(input: StageAgentWriteInput): StageAgent
   }
   const denied = writes.find((write) => !writeAllowed(scope, input.projectRoot, write));
   if (denied === undefined) return { blocked: false, agent: scope.agent, target: null };
-  return { blocked: true, agent: scope.agent, target: denied.target };
+  return {
+    blocked: true,
+    agent: scope.agent,
+    target: shownWriteTarget(input.projectRoot, denied),
+  };
+}
+
+/**
+ * The blocked target as the person reads it: a path inside the project is
+ * shown relative to the project root with forward slashes on every OS, so a
+ * Windows `C:\repo\docs\a.md` reads `docs/a.md`. A path outside the project
+ * is shown as written.
+ */
+export function shownWriteTarget(
+  projectRoot: string,
+  write: BashWrite,
+  path: typeof nodePath.posix = nodePath,
+): string | null {
+  if (write.target === null || write.cwd === null) return write.target;
+  const root = path.resolve(projectRoot);
+  const abs = path.resolve(write.cwd, write.target);
+  if (!under(path, abs, root) || abs === root) return write.target;
+  return path.relative(root, abs).split(path.sep).join('/');
 }
 
 export function formatStageAgentWriteSummary(decision: StageAgentWriteDecision): string {
