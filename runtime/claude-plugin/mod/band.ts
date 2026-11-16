@@ -21,11 +21,11 @@ import {
   type BodyContext,
   type ShellHeader,
 } from './shell';
+import { featureScopeRow, scopeRowWords } from './scope-rows';
 import { shipRail } from './ship';
 import {
   FEATURE_WORDS,
   NO_WORKFLOW,
-  readyFeatureRoute,
   routeFromEarlierTurn,
   statusEntryRoute,
   statusEntryRow,
@@ -123,6 +123,18 @@ export function closedChangeRow(snapshot: PaqadHudSnapshot, columns: number): Ba
     row.push({ text: `  ${CAUTION_MARK} ${NEW_COMMITS_AFTER_CLOSE}`, tone: 'warn' });
   }
   return truncateRow(row, columns);
+}
+
+/** The one row the feature route draws for each scope reason when no change is live (FR-10). */
+export function featureScopeLine(snapshot: PaqadHudSnapshot, columns: number): BandRow {
+  const row = featureScopeRow(snapshot);
+  if (row.kind === 'band' || row.kind === 'ready') {
+    return truncateRow([{ text: READY_FEATURE_LINE }], columns);
+  }
+  const { word, words } = scopeRowWords(row);
+  const line: BandRow = [{ text: 'paqad' }, { text: `  ${word}` }];
+  if (words) line.push({ text: ` · ${words}`, dim: true });
+  return truncateRow(line, columns);
 }
 
 export function allGreenNow(snapshot: PaqadHudSnapshot | null): boolean {
@@ -223,14 +235,10 @@ export function layoutBand(
     const shown = mode !== 'closed' && mode !== 'hidden';
     const closedRow = shown ? closedChangeRow(snapshot, size.columns) : null;
     if (closedRow) return { kind: 'line', row: closedRow };
-    const drawsReady =
-      mode !== 'closed' &&
-      mode !== 'hidden' &&
-      readyFeatureRoute(snapshot) &&
-      !routeFromEarlierTurn(snapshot, context.turnStartedAt ?? null);
-    return drawsReady
-      ? { kind: 'line', row: truncateRow([{ text: READY_FEATURE_LINE }], size.columns) }
-      : { kind: 'none' };
+    if (!shown || routeFromEarlierTurn(snapshot, context.turnStartedAt ?? null)) {
+      return { kind: 'none' };
+    }
+    return { kind: 'line', row: featureScopeLine(snapshot, size.columns) };
   }
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: 'line', row: closedLine(mode, view) };

@@ -303,7 +303,7 @@ export type PaqadShipCommit = { sha: string; subject: string; own: boolean | nul
 
 export type PaqadPrState = 'open' | 'merged' | 'closed';
 
-export type PaqadScope = { qualified: boolean; reason: string };
+export type PaqadScope = { qualified: boolean; reason: string; branch?: string | null };
 
 export type PaqadWorkflow = {
   name: string;

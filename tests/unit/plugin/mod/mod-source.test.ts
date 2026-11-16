@@ -51,6 +51,7 @@ describe('the HUD mod source', () => {
         'pane.ts',
         'paqad-cli.ts',
         'receipt.ts',
+        'scope-rows.ts',
         'register.test.ts',
         'register.tsx',
         'ship.ts',

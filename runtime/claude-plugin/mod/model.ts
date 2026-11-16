@@ -513,6 +513,7 @@ function readScope(value: unknown): PaqadScope {
   return {
     qualified: scope?.qualified === true,
     reason: str(scope?.reason) ?? 'no scope recorded',
+    ...(typeof scope?.branch === 'string' ? { branch: scope.branch } : {}),
   };
 }
 

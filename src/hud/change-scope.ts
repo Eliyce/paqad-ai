@@ -16,19 +16,24 @@ import { readHeadRef } from '@/rag/git-state.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 
-export type HudScopeReason =
-  | 'qualified'
-  | 'finished'
-  | 'no-active-change'
-  | 'no-change-yet'
-  | 'closed'
-  | 'other-branch'
-  | 'not-feature-route'
-  | 'no-row-this-episode';
+export const HUD_SCOPE_REASONS = [
+  'qualified',
+  'finished',
+  'no-active-change',
+  'no-change-yet',
+  'closed',
+  'other-branch',
+  'not-feature-route',
+  'no-row-this-episode',
+] as const;
+
+export type HudScopeReason = (typeof HUD_SCOPE_REASONS)[number];
 
 export interface HudChangeScope {
   dir: string | null;
   reason: HudScopeReason;
+  /** The branch the change was opened on, for the other-branch row. */
+  branch?: string | null;
 }
 
 export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = Object.fromEntries(
@@ -63,7 +68,7 @@ export function qualifyHudChange(
   const head = readHeadRef(projectRoot);
   const recorded = featureBranch(projectRoot, dir);
   if (head.detached || (recorded !== null && recorded !== head.branch)) {
-    return { dir: null, reason: 'other-branch' };
+    return { dir: null, reason: 'other-branch', branch: recorded };
   }
   const start =
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ??
@@ -75,11 +80,27 @@ export function qualifyHudChange(
   ) {
     // A change this session adopted and never wrote a row in is not "hidden this episode": it
     // reads as Getting ready, so a new feature turn never draws nothing (B5 adoption effect).
-    return sessionWroteInEpisode(projectRoot, sessionId, dir, null)
-      ? { dir: null, reason: 'no-row-this-episode' }
-      : { dir: null, reason: 'no-change-yet' };
+    if (!sessionWroteInEpisode(projectRoot, sessionId, dir, null)) {
+      return { dir: null, reason: 'no-change-yet' };
+    }
+    // A change this session worked on in an earlier feature episode and resumed now draws its
+    // full band with the stage strip before any new row is written (D2 band-on-resume).
+    if (resumedFeatureEpisode(projectRoot, sessionId, start)) return { dir, reason: 'qualified' };
+    return { dir: null, reason: 'no-row-this-episode' };
   }
   return { dir, reason: 'qualified' };
+}
+
+function resumedFeatureEpisode(
+  projectRoot: string,
+  sessionId: string,
+  start: string | null,
+): boolean {
+  if (start === null) return false;
+  const startMs = Date.parse(start);
+  return readRouteTurns(projectRoot, sessionId).some(
+    (turn) => turn.workflow === 'feature-development' && Date.parse(turn.at) < startMs,
+  );
 }
 
 function stageStillRunning(projectRoot: string, dirName: string): boolean {

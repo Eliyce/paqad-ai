@@ -127,13 +127,25 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
   });
 
-  it('a row recorded before the episode started does not qualify', () => {
+  it('AC-17: a change resumed from an earlier feature episode qualifies before any new row (D2)', () => {
     const root = repoRoot();
-    openChangeHere(root, S);
+    const dir = openChangeHere(root, S);
     runStage(root, S, 'planning');
     logTurns(root, S, [
       { at: PAST, workflow: 'feature-development' },
       { at: later(1000).toISOString(), workflow: 'project-question' },
+      { at: later(2000).toISOString(), workflow: 'feature-development' },
+    ]);
+    expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'qualified' });
+    expect(buildHudSnapshot(root, S).active).toBe(true);
+  });
+
+  it('a row recorded before the episode started, with no earlier feature episode, does not qualify', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    logTurns(root, S, [
+      { at: PAST, workflow: 'project-question' },
       { at: later(2000).toISOString(), workflow: 'feature-development' },
     ]);
     expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
