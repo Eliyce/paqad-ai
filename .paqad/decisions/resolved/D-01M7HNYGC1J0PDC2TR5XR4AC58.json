@@ -1,0 +1,59 @@
+{
+  "id": "D-01M7HNYGC1J0PDC2TR5XR4AC58",
+  "category": "intake.requirement",
+  "title": "Step 3: may onboarding rewrite existing hand-written project docs?",
+  "context": "Issue #901 step 3 (Write the project docs) runs documentation-update. The settled decisions protect existing rules but say nothing about project docs the team already wrote under docs/. With no answer, step 3 would rewrite them by default. Rewriting replaces pages the team wrote; adding only missing pages keeps them but may leave older pages out of step with the new ones. (High Table gap, the one owner question left.)",
+  "options": [
+    {
+      "option_key": "add-missing",
+      "label": "Only add missing pages and list the existing ones for review",
+      "one_line_preview": "Only add missing pages and list the existing ones for review",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "rewrite-recorded",
+      "label": "Rewrite existing pages and record each rewrite in the choices made for you",
+      "one_line_preview": "Rewrite existing pages and record each rewrite in the choices made for you",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "rewrite-paqad-only",
+      "label": "Rewrite only pages that paqad itself wrote earlier",
+      "one_line_preview": "Rewrite only pages that paqad itself wrote earlier",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "add-missing",
+  "created_at": "2026-11-16T08:00:33.153Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "The closest earlier answer (D-01M73B0XQZVWWTBXTY2AHDVSMJ) is about the rule reset, not hand-written project docs; no earlier question asks about rewriting docs/ pages."
+  },
+  "chosen": "add-missing",
+  "rationale": "Owner chose: only add missing pages; existing hand-written docs are listed for review, never overwritten in a hands-off run.",
+  "resolved_at": "2026-11-16T08:04:31.894Z",
+  "decision_id": "D-01M7HNYGC1J0PDC2TR5XR4AC58",
+  "fingerprint": "sha256:633009a370d848027a39030784e71018b335ff2acc5fea0f8180dc54a1acd10b",
+  "question": "Step 3: may onboarding rewrite existing hand-written project docs?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2026-11-30T08:00:33.153Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-missing",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T08:04:31.894Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: only add missing pages; existing hand-written docs are listed for review, never overwritten in a hands-off run."
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "D-01M7HNYH1ZSYYZJPHFKTX63K0Y",
+  "category": "architecture-path",
+  "title": "Which module owns the onboarding journey?",
+  "context": "Module attribution for issue #901 is pending: the extractor found 0 candidates and the inferencer was not confident (top cli-dashboard 0.073), so planning left the journey core (src/onboarding/journey, the paqad-ai onboarding verbs) as no-attribution. The High Table ruled the journey is documented in the cli-lifecycle onboarding docs, with the tray and band added to the adapter-onboarding Claude Code page, and no new module page. Applied automatically: cli-lifecycle (onboard). The owner can change it.",
+  "options": [
+    {
+      "option_key": "cli-lifecycle",
+      "label": "cli-lifecycle owns it, beside paqad-ai onboard (choice already applied)",
+      "one_line_preview": "cli-lifecycle owns it, beside paqad-ai onboard (choice already applied)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Create a new onboarding-journey module with its own docs",
+      "one_line_preview": "Create a new onboarding-journey module with its own docs",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "cli-dashboard",
+      "label": "cli-dashboard owns it (the inferencer's weak top guess)",
+      "one_line_preview": "cli-dashboard owns it (the inferencer's weak top guess)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "cli-lifecycle",
+  "created_at": "2026-11-16T08:00:33.855Z",
+  "status": "resolved",
+  "change": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "Earlier module-attribution answers (D-01M6PMF1T3GH4PK5AJHH0YRJE4, D-01M6QKXA0TPTX2RCF3Q3W04V6V, D-01M75Y5VDNQ8T66PBW0JEJ4Z7S) were about other code; none names an owner for the onboarding journey."
+  },
+  "chosen": "cli-lifecycle",
+  "rationale": "Owner chose cli-lifecycle: keeps onboarding in one module.",
+  "resolved_at": "2026-11-16T08:04:32.820Z",
+  "decision_id": "D-01M7HNYH1ZSYYZJPHFKTX63K0Y",
+  "fingerprint": "sha256:4ee34370bb0211e17fd6f96c3ad536f69ef77380015bdacd38f7d5f99e998be0",
+  "question": "Which module owns the onboarding journey?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M7HN6CN644C9ZZQE1MQ3K0N0",
+  "ttl_until": "2027-02-14T08:00:33.855Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "cli-lifecycle",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-16T08:04:32.820Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose cli-lifecycle: keeps onboarding in one module."
+  }
+}
