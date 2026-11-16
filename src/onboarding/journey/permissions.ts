@@ -19,7 +19,7 @@ export function allowListEntries(installDir: string): AllowListEntries {
   return {
     allow: [
       'Bash(paqad-ai:*)',
-      `Bash(node ${skills}/:*)`,
+      `Bash(node ${skills}/*)`,
       'Edit(docs/**)',
       'Write(docs/**)',
       'Edit(.paqad/**)',

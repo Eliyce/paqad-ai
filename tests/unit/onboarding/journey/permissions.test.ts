@@ -73,6 +73,7 @@ describe('onboarding allow list', () => {
     const scripts = allowListEntries(INSTALL).allow.filter((entry) =>
       entry.startsWith('Bash(node '),
     );
-    expect(scripts).toEqual([`Bash(node ${INSTALL}/runtime/base/skills/:*)`]);
+    expect(scripts).toEqual([`Bash(node ${INSTALL}/runtime/base/skills/*)`]);
+    expect(scripts[0]).not.toContain(':*');
   });
 });
