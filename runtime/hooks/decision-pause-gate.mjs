@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   hookStandsDown,
@@ -29,12 +30,32 @@ function pendingPacketIds(projectRoot) {
   }
 }
 
-function packetChange(projectRoot, id) {
+function packetFields(projectRoot, id) {
   try {
     const packet = JSON.parse(readFileSync(join(pendingDir(projectRoot), `${id}.json`), 'utf8'));
-    return typeof packet?.change === 'string' && packet.change.trim() !== '' ? packet.change : null;
+    const text = (value) => (typeof value === 'string' && value.trim() !== '' ? value : null);
+    return { change: text(packet?.change), workstream: text(packet?.workstream) };
   } catch {
-    return null;
+    return { change: null, workstream: null };
+  }
+}
+
+async function sliceScoped(projectRoot, payload, packets, loadResolver) {
+  if (!packets.some((packet) => packet.workstream !== null)) return packets.map((p) => p.id);
+  try {
+    const { scopedPacketsBlocking } = await loadResolver();
+    if (typeof scopedPacketsBlocking !== 'function') return packets.map((p) => p.id);
+    const hint = typeof payload?.session_id === 'string' ? payload.session_id : null;
+    const sessionId = hint ?? process.env.SE_SESSION ?? null;
+    if (!sessionId) return packets.map((p) => p.id);
+    return scopedPacketsBlocking({
+      projectRoot,
+      sessionId,
+      packets: packets.map((p) => ({ id: p.id, workstream: p.workstream })),
+      targets: editTargets(payload),
+    });
+  } catch {
+    return packets.map((p) => p.id);
   }
 }
 
@@ -68,12 +89,14 @@ export async function evaluateDecisionPauseGate(input, { loadResolver = loadDist
     return 0;
   }
 
-  const packets = ids.map((id) => ({ id, change: packetChange(projectRoot, id) }));
+  const packets = ids.map((id) => ({ id, ...packetFields(projectRoot, id) }));
   const scoped = packets.some((packet) => packet.change !== null);
   const active = scoped ? await activeChangeFor(projectRoot, payload, loadResolver) : UNRESOLVED;
-  const blocking = packets.filter(
+  const inChange = packets.filter(
     (packet) => packet.change === null || active === UNRESOLVED || packet.change === active,
   );
+  const stillBlocking = new Set(await sliceScoped(projectRoot, payload, inChange, loadResolver));
+  const blocking = inChange.filter((packet) => stillBlocking.has(packet.id));
   if (blocking.length === 0) {
     return 0;
   }

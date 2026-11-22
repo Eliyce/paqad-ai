@@ -1,12 +1,16 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { featureChangeKey, featureSessionControlPath } from '@/feature-evidence/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import {
+  featureChangeKey,
+  featureFilePath,
+  featureSessionControlPath,
+} from '@/feature-evidence/paths.js';
+import { openFeatureChange, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 import { evaluateDecisionPauseGate } from '../../../runtime/hooks/decision-pause-gate.mjs';
 import { removeTempProject } from './temp-project.js';
@@ -169,5 +173,112 @@ describe('the decision-pause gate holds only the change a packet belongs to', ()
   it('lets an edit through when nothing is pending', async () => {
     openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');
     expect(await edit(SES_A)).toBe(0);
+  });
+});
+
+describe('a slice-scoped packet blocks only its own workstream and the users of its seams', () => {
+  const PLAN = {
+    summary: 's',
+    workstreams: [
+      {
+        id: 'store',
+        owned_files: ['src/store/**'],
+        acs: ['AC-1'],
+        depends_on: [],
+        provides_seams: [{ name: 'rows', entry_file: 'src/store/rows.ts', wired_ac: 'AC-2' }],
+        uses_seams: [],
+        risk: 'high',
+        size_budget: { files: 10 },
+      },
+      {
+        id: 'api',
+        owned_files: ['src/api/**'],
+        acs: ['AC-2'],
+        depends_on: ['store'],
+        provides_seams: [],
+        uses_seams: ['rows'],
+        risk: 'high',
+        size_budget: { files: 10 },
+      },
+      {
+        id: 'view',
+        owned_files: ['src/view/**'],
+        acs: ['AC-3'],
+        depends_on: [],
+        provides_seams: [],
+        uses_seams: [],
+        risk: 'high',
+        size_budget: { files: 10 },
+      },
+    ],
+    waves: [['store', 'view'], ['api']],
+    joining: [],
+  };
+
+  function sliced(): string {
+    const dir = openChange(SES_A, '01JABCDEFGHJKMNPQRSTVWXYZ1');
+    writeFileSync(join(root, featureFilePath(dir, 'plan')), JSON.stringify(PLAN));
+    return dir;
+  }
+
+  function scoped(dir: string, workstream: string | null): string {
+    return createPendingDecision(root, {
+      category: 'spec.expert_conflict',
+      title: 'Which way?',
+      context: 'x',
+      options: [
+        { option_key: 'a', label: 'a' },
+        { option_key: 'b', label: 'b' },
+      ],
+      change: featureChangeKey(dir),
+      workstream,
+    }).id;
+  }
+
+  function editFile(file: string): Promise<number> {
+    const payload = {
+      cwd: root,
+      tool_name: 'Edit',
+      session_id: SES_A,
+      tool_input: { file_path: join(root, file) },
+    };
+    return evaluateDecisionPauseGate(JSON.stringify(payload), { loadResolver: srcResolver });
+  }
+
+  it('AC-3 AC-43 lets an edit to an unrelated workstream through and records it', async () => {
+    const dir = sliced();
+    const id = scoped(dir, 'store');
+    expect(await editFile('src/view/page.ts')).toBe(0);
+    const rows = readFeatureStageUnit(root, dir).filter(
+      (row) => row.kind === 'slice_edit_allowed',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ workstream: 'store', decision: id, files: ['src/view/page.ts'] });
+    expect(rows[0]!.session_id).toBe(SES_A);
+    expect(typeof rows[0]!.recorded_at).toBe('string');
+  });
+
+  it('AC-18 blocks the packet workstream, a lead-owned file and every file under an unscoped packet', async () => {
+    const dir = sliced();
+    const id = scoped(dir, 'store');
+    expect(await editFile('src/store/rows.ts')).toBe(2);
+    expect(await editFile('src/index.ts')).toBe(2);
+    expect(stderr).toContain(id);
+    rmSync(join(root, '.paqad/decisions/pending', `${id}.json`));
+    scoped(dir, null);
+    expect(await editFile('src/view/page.ts')).toBe(2);
+  });
+
+  it('AC-19 blocks a workstream that uses a seam the packet workstream provides', async () => {
+    const dir = sliced();
+    scoped(dir, 'store');
+    expect(await editFile('src/api/get.ts')).toBe(2);
+  });
+
+  it('AC-18 decides the workstream from the file path, never from SE_WORKSTREAM', async () => {
+    const dir = sliced();
+    scoped(dir, 'store');
+    vi.stubEnv('SE_WORKSTREAM', 'view');
+    expect(await editFile('src/store/rows.ts')).toBe(2);
   });
 });

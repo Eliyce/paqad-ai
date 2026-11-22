@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
 import type { PlanRecord } from '@/feature-evidence/types.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
@@ -17,6 +18,7 @@ import {
 
 import {
   SLICE_DONE_KIND,
+  SLICE_EDIT_ALLOWED_KIND,
   SLICE_END_REFUSED_KIND,
   SLICE_GATE_KIND,
   SLICE_START_KIND,
@@ -339,4 +341,67 @@ export function resumeFanOut(rows: readonly SessionLedgerRow[]): FanOutResume {
 
 export function workstreamOfFile(slicing: CompiledSlicing, file: string): string | null {
   return slicing.workstreams.find((w) => ownsFile(w, file))?.id ?? null;
+}
+
+export function packetBlocksFile(
+  slicing: CompiledSlicing,
+  packetWorkstream: string,
+  file: string,
+): boolean {
+  const owner = slicing.workstreams.find((w) => ownsFile(w, file));
+  if (!owner) return true;
+  if (owner.id === packetWorkstream) return true;
+  const source = slicing.workstreams.find((w) => w.id === packetWorkstream);
+  const provided = new Set((source?.provides_seams ?? []).map((seam) => seam.name));
+  return owner.uses_seams.some((seam) => provided.has(seam));
+}
+
+export interface ScopedPacket {
+  id: string;
+  workstream: string | null;
+}
+
+export function scopedPacketsBlocking(input: {
+  projectRoot: string;
+  sessionId: string;
+  packets: readonly ScopedPacket[];
+  targets: readonly string[];
+  now?: () => Date;
+}): string[] {
+  const dirName = currentFeature(input.projectRoot, input.sessionId);
+  const slicing = dirName ? readCompiledSlicing(input.projectRoot, dirName) : null;
+  const files = input.targets.map((target) => {
+    const rel = isAbsolute(target) ? relative(input.projectRoot, target) : target;
+    return rel.split(sep).join('/');
+  });
+  const blocking: string[] = [];
+  const allowedBy: ScopedPacket[] = [];
+  for (const packet of input.packets) {
+    const blocks =
+      packet.workstream === null ||
+      slicing === null ||
+      files.length === 0 ||
+      files.some((file) => packetBlocksFile(slicing, packet.workstream!, file));
+    if (blocks) blocking.push(packet.id);
+    else allowedBy.push(packet);
+  }
+  if (blocking.length === 0 && allowedBy.length > 0 && dirName !== null) {
+    for (const packet of allowedBy) {
+      appendFeatureStageRow(
+        input.projectRoot,
+        input.sessionId,
+        dirName,
+        {
+          kind: SLICE_EDIT_ALLOWED_KIND,
+          agent: 'paqad-ai',
+          workstream: packet.workstream!,
+          decision: packet.id,
+          files,
+          refusal_id: `${packet.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        },
+        input.now,
+      );
+    }
+  }
+  return blocking;
 }
