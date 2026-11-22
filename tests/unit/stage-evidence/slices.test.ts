@@ -230,6 +230,28 @@ describe('slice rows', () => {
     ).toHaveLength(1);
   });
 
+  it('AC-2 AC-37 the lint-cleanup gate and done digest cover every file its write guard allows', async () => {
+    const { root } = repo('ses-lint');
+    const seen: string[][] = [];
+    const spy = {
+      lint: (files: string[]) => {
+        seen.push(files);
+        return [];
+      },
+    };
+    const c = (extra = {}) => ctx(root, 'ses-lint', 'ag-lint', { steps: spy, ...extra });
+    await runSlicePhase('start', 'join-lint-cleanup', c());
+    expect((await runSlicePhase('gate', 'join-lint-cleanup', c())).ok).toBe(true);
+    expect(seen[0]).toEqual([...CHANGED].sort());
+    writeRepoFile(root, 'src/api/get.ts', 'export const get = 2;\n');
+    expect((await runSlicePhase('done', 'join-lint-cleanup', c())).message).toMatch(
+      /changed since its last passed gate/,
+    );
+    expect(leadGuideText()).toMatch(
+      /lint-cleanup entry may edit any workstream or joining file but never a lead-only file/,
+    );
+  });
+
   it('AC-24 AC-7 escalates a routine slice after two failures, never a high slice', async () => {
     const { root } = repo('ses-24');
     await runSlicePhase('start', 'store', ctx(root, 'ses-24', 'h'));

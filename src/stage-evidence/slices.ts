@@ -69,6 +69,13 @@ export function sliceOwnedFiles(slicing: CompiledSlicing, id: string): string[] 
   return join ? join.owned_files : null;
 }
 
+export function sliceScopeFiles(slicing: CompiledSlicing, id: string): string[] | null {
+  if (id === LINT_CLEANUP_ID) {
+    return [...slicing.workstreams, ...slicing.joining].flatMap((entry) => entry.owned_files);
+  }
+  return sliceOwnedFiles(slicing, id);
+}
+
 export function sliceRisk(slicing: CompiledSlicing, id: string): WorkstreamRisk {
   return slicing.workstreams.find((w) => w.id === id)?.risk ?? 'high';
 }
@@ -508,10 +515,7 @@ export function sliceWriteRefusal(input: {
   if (workstream === null) return null;
   const slicing = readCompiledSlicing(input.projectRoot, input.dirName);
   if (slicing === null) return null;
-  const owned =
-    workstream === LINT_CLEANUP_ID
-      ? [...slicing.workstreams, ...slicing.joining].flatMap((entry) => entry.owned_files)
-      : (sliceOwnedFiles(slicing, workstream) ?? []);
+  const owned = sliceScopeFiles(slicing, workstream) ?? [];
   for (const target of input.targets) {
     const rel = (isAbsolute(target) ? relative(input.projectRoot, target) : target)
       .split(sep)

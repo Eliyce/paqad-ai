@@ -33,6 +33,7 @@ import {
   sliceProgressFile,
   sliceReport,
   sliceRisk,
+  sliceScopeFiles,
   sliceStartRefusal,
   slicesView,
   type CompiledSlicing,
@@ -90,7 +91,7 @@ function subjectOf(slicing: CompiledSlicing, id: string) {
   const ws = slicing.workstreams.find((w) => w.id === id);
   return {
     id,
-    owned_files: sliceOwnedFiles(slicing, id) ?? [],
+    owned_files: sliceScopeFiles(slicing, id) ?? [],
     acs: ws?.acs ?? [],
     seams: slicing.workstreams
       .flatMap((w) => w.provides_seams)
