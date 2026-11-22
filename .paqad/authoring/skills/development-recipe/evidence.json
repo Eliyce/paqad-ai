@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "development-recipe",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "host": "claude-code",
-  "folder_hash": "sha256:8f34bcd85fb1da22169447bd552f55d5bbf8b3e1cde4b21dbc46db8f88aca240",
+  "folder_hash": "sha256:8a52a1f7b9b0339c7ec29a341c4f03e92bbb407aa018ffd2aa87a4b67a5f0394",
   "baseline": {
     "runs": 3,
     "passed": null,
     "verdict": "overridden"
   },
   "sources": {
-    "count": 11,
-    "non_model": 11,
+    "count": 12,
+    "non_model": 12,
     "kind": "repo"
   },
   "lint": {
