@@ -14,7 +14,23 @@ Return exactly this JSON shape:
       "target": "orders",
       "ruling": "pick",
       "recommendation": "generate the file in a background job and email a link",
-      "rationale": "a bulk export on a large table is too slow to stream in the request path"
+      "rationale": "a bulk export on a large table is too slow to stream in the request path",
+      "claim_qualities": [
+        {
+          "claim": "generate the file in a background job and email a link",
+          "easy_maintenance": "one job runner to look after",
+          "security": "the link expires and is signed",
+          "cost_effectiveness": "a worker runs only while exporting",
+          "usability": "the person waits for an email"
+        },
+        {
+          "claim": "stream the file in the request",
+          "easy_maintenance": "no job runner at all",
+          "security": "nothing is stored after the download",
+          "cost_effectiveness": "no worker to pay for",
+          "usability": "a large export can time out in the browser"
+        }
+      ]
     },
     {
       "target": "export file name",

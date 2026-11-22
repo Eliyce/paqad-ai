@@ -9,7 +9,10 @@ import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 
 import {
+  QUALITY_NOTE_KEYS,
   isCompatibleRuling,
+  qualityTradeOff,
+  type ClaimQualities,
   type SynthesisAutoResolved,
   type SynthesisConflict,
 } from './synthesis.js';
@@ -88,7 +91,11 @@ export function mintExpertConflictDecisions(
       });
       continue;
     }
-    const { options, recommendation } = buildOptions(conflict, chief?.recommendation);
+    const { options, recommendation } = buildOptions(
+      conflict,
+      chief?.recommendation,
+      chief?.claim_qualities,
+    );
     const context = buildContext(conflict, chief?.rationale, token);
     const { id, reused } = createPendingDecision(projectRoot, {
       category: CATEGORY,
@@ -143,6 +150,7 @@ function collectKnownForks(projectRoot: string): Map<string, KnownFork> {
 function buildOptions(
   conflict: ExpertConflict,
   recommendedClaim: string | undefined,
+  qualities: readonly ClaimQualities[] = [],
 ): { options: ContractDecisionOption[]; recommendation: string | null } {
   const used = new Set<string>();
   const options: ContractDecisionOption[] = [];
@@ -150,7 +158,17 @@ function buildOptions(
   conflict.claims.forEach((claim, index) => {
     const role = conflict.roles[index] ?? 'unknown';
     const key = optionKeyFor(claim, used);
-    options.push({ option_key: key, label: `${claim} — ${role}` });
+    const notes = qualities.find((entry) => normalize(entry.claim) === normalize(claim));
+    options.push({
+      option_key: key,
+      label: `${claim} — ${role}`,
+      ...(notes
+        ? {
+            trade_off: qualityTradeOff(notes),
+            quality_notes: Object.fromEntries(QUALITY_NOTE_KEYS.map((k) => [k, notes[k]])),
+          }
+        : {}),
+    });
     if (recommendedClaim !== undefined && normalize(recommendedClaim) === normalize(claim)) {
       recommendation = key;
     }

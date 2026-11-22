@@ -58,7 +58,8 @@ Read `references/synthesis-checklist.md` for the gap categories to look for.
    `recommendation`. Never pick between claims that agree. A pick becomes a decision the owner
    makes; a compatible ruling becomes one accepted finding and asks the owner nothing.
    A conflict that includes a must-level security-auditor finding is always a pick, so the owner
-   decides it.
+   decides it. For a pick, give every conflicting claim a `claim_qualities` entry with one line
+   each for easy maintenance, security, cost effectiveness and usability, so the owner weighs them.
 4. List the gaps by the categories in `references/synthesis-checklist.md`: an uncovered area, a
    contradiction with the grounding docs, a requirement with no owner answer, a missing non-goal, a
    missing failure path. Attach a plain-language question to a gap that needs one.
@@ -71,10 +72,11 @@ Read `references/synthesis-checklist.md` for the gap categories to look for.
 ## Output Contract
 
 - A JSON object shaped like `assets/output.template.md`:
-  `{ "verdict", "accepted": ["EX-…"], "declined": [ { "id", "reason" } ], "conflicts": [ { "target", "ruling": "pick", "recommendation", "rationale" } | { "target", "ruling": "compatible", "merged_claim", "rationale" } ], "gaps": [ { "area", "why_it_matters", "question"? } ], "questions": [ PipelineQuestion ], "tokens" }`.
+  `{ "verdict", "accepted": ["EX-…"], "declined": [ { "id", "reason" } ], "conflicts": [ { "target", "ruling": "pick", "recommendation", "rationale", "claim_qualities": [ { "claim", "easy_maintenance", "security", "cost_effectiveness", "usability" } ] } | { "target", "ruling": "compatible", "merged_claim", "rationale" } ], "gaps": [ { "area", "why_it_matters", "question"? } ], "questions": [ PipelineQuestion ], "tokens" }`.
 - `verdict` is one of `ready | needs-answers | not-ready`.
 - Every merged finding id appears exactly once across `accepted` and `declined`; every conflict in
-  the merge has exactly one row. A `pick` row's `recommendation` is one of its claims verbatim. A
+  the merge has exactly one row. A `pick` row's `recommendation` is one of its claims verbatim, and its
+  `claim_qualities` give each claim all four one-line notes. A
   `compatible` row carries a non-empty `merged_claim`. A row with no `ruling` reads as `pick`.
 
 ## Escalate / Stop Conditions

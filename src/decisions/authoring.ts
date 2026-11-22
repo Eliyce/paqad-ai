@@ -47,6 +47,7 @@ export interface ContractDecisionOption {
   label: string;
   one_line_preview?: string;
   trade_off?: string;
+  quality_notes?: Record<string, string>;
   evidence?: DecisionOptionEvidence;
 }
 
@@ -422,6 +423,7 @@ function contractOption(option: ContractDecisionOption): ContractDecisionOption 
     label: option.label,
     ...(option.one_line_preview ? { one_line_preview: option.one_line_preview } : {}),
     ...(option.trade_off ? { trade_off: option.trade_off } : {}),
+    ...(option.quality_notes ? { quality_notes: { ...option.quality_notes } } : {}),
     ...(option.evidence !== undefined ? { evidence: option.evidence } : {}),
   };
 }
