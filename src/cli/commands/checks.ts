@@ -195,13 +195,14 @@ async function runAndRecordChecks(
   startedOn: string | null,
 ): Promise<void> {
   const changedFiles = (await loadChangeEvidence(options.projectRoot)).files;
+  const dirName = sessionChecksTarget(options.projectRoot, sessionId, startedOn);
   const result = await runChecks({
     projectRoot: options.projectRoot,
     changedFiles,
     reuse: options.reuse,
+    changeId: dirName,
   });
 
-  const dirName = sessionChecksTarget(options.projectRoot, sessionId, startedOn);
   writeChecksReportForFeature(
     options.projectRoot,
     dirName,

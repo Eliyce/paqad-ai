@@ -100,6 +100,7 @@ export interface RunChecksOptions {
   checksMaxProcesses?: number;
   flakyMode?: ChecksFlakyMode;
   reuse?: boolean;
+  changeId?: string | null;
   treeIdentity?: (projectRoot: string) => TreeIdentityResult;
   nodeVersion?: string;
 }
@@ -224,6 +225,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     options.reuse !== false && before.identity && rest.length > 0
       ? findReusableRuns(projectRoot, readRunHistory(projectRoot), rest, {
           tree_digest: before.identity.digest,
+          change_id: options.changeId ?? null,
           lockfile_hash: lockHash,
           node_version: nodeVersion,
           build_output_fingerprint: rest.some((command) => command.logical_command === 'build')
@@ -384,6 +386,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         logical_command: command.logical_command,
         command: command.command,
         tree_digest: beforeDigest,
+        change_id: options.changeId ?? null,
         ran_at: ran.started_at,
         passed: commandPassed,
         reusable:

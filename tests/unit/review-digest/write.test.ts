@@ -240,9 +240,9 @@ describe('writeReviewDigest limited to the change', () => {
   });
 
   it('AC-22: a checks row on an untouched file stays in the digest', async () => {
-    const { root } = ownChangeRepo(S);
+    const { root, dir } = ownChangeRepo(S);
     writeRepoFile(root, 'b.ts', 'export const b = 2;\n');
-    writeFailingChecks(root, 'tests/a.test.ts');
+    writeFailingChecks(root, 'tests/a.test.ts', dir);
 
     const result = await writeReviewDigest(root, S);
 

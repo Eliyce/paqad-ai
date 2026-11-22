@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { startStage } from '@/stage-evidence/recorder.js';
@@ -70,8 +71,8 @@ export function writeRuleReport(root: string, ...files: string[]): void {
   );
 }
 
-export function writeFailingChecks(root: string, file: string): void {
-  const target = join(root, PATHS.CHECKS_REPORT);
+export function writeFailingChecks(root: string, file: string, dir?: string): void {
+  const target = join(root, dir ? featureFilePath(dir, 'checks') : PATHS.CHECKS_REPORT);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(
     target,

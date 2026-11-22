@@ -21,6 +21,7 @@ export interface RunHistoryRow {
   reusable: boolean;
   report_path: string;
   report_sha256: string;
+  change_id?: string | null;
 }
 
 export interface RunSnapshot extends ChecksReport {
@@ -42,6 +43,7 @@ export interface ReuseKey {
   lockfile_hash: string | null;
   node_version: string;
   build_output_fingerprint: string | null;
+  change_id?: string | null;
 }
 
 export interface ReusedCommand {
@@ -140,6 +142,7 @@ export function findReusableRuns(
   for (const command of wanted) {
     const row = newestFirst.find((candidate) => candidate.command === command.command);
     if (!row || !row.reusable || !row.passed || row.tree_digest !== key.tree_digest) return null;
+    if ((row.change_id ?? null) !== (key.change_id ?? null)) return null;
     if (!snapshots.has(row.report_path)) {
       snapshots.set(row.report_path, readVerifiedSnapshot(projectRoot, row));
     }
