@@ -17,7 +17,9 @@ import { dirname } from 'node:path';
 
 import type { LockOutcome } from './types.js';
 
-const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+function noFollow(): number {
+  return constants.O_NOFOLLOW ?? 0;
+}
 
 export const UNPARSEABLE_LOCK_GRACE_MS = 10_000;
 
@@ -142,7 +144,7 @@ function createExclusive(path: string, body: unknown): boolean {
   try {
     fd = openSync(
       path,
-      constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | NOFOLLOW,
+      constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | noFollow(),
       0o600,
     );
   } catch {
@@ -159,7 +161,7 @@ function createExclusive(path: string, body: unknown): boolean {
 function readLockText(path: string): { text: string; mtimeMs: number } | null {
   let fd: number;
   try {
-    fd = openSync(path, constants.O_RDONLY | NOFOLLOW);
+    fd = openSync(path, constants.O_RDONLY | noFollow());
   } catch {
     return null;
   }

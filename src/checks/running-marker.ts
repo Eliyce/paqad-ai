@@ -155,7 +155,9 @@ export interface AgentRunProbe {
 
 export const AGENT_RUN_RECORDS_RELATIVE = join('.paqad-ai', 'runs');
 
-const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+function noFollow(): number {
+  return constants.O_NOFOLLOW ?? 0;
+}
 
 export function agentRunRecordDir(projectRoot: string, home: string = homedir()): string {
   const project = createHash('sha256').update(projectRoot).digest('hex').slice(0, 16);
@@ -179,7 +181,7 @@ function ensurePrivateDir(dir: string): void {
 function readPrivateFile(path: string): string | null {
   let fd: number;
   try {
-    fd = openSync(path, constants.O_RDONLY | NOFOLLOW);
+    fd = openSync(path, constants.O_RDONLY | noFollow());
   } catch {
     return null;
   }
@@ -217,7 +219,7 @@ export function writeAgentRunRecord(
   rmSync(path, { force: true });
   const fd = openSync(
     path,
-    constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | NOFOLLOW,
+    constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | noFollow(),
     0o600,
   );
   try {
