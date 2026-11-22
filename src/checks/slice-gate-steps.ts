@@ -57,7 +57,7 @@ function defaultRunner(projectRoot: string): SliceCommandRunner {
       });
       return {
         exitCode: typeof result.exitCode === 'number' ? result.exitCode : 1,
-        output: typeof result.all === 'string' ? result.all : '',
+        output: result.all,
         timedOut: result.timedOut === true,
       };
     } catch (error) {
