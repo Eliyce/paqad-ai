@@ -61,7 +61,8 @@ function liveProcess(pid: number): boolean {
 
 describe('heavy-run lock', () => {
   it('keeps the lock under the home folder, fixed in code', () => {
-    expect(heavyRunLockPath('/home/me')).toBe('/home/me/.paqad-ai/locks/heavy-run.json');
+    const home = join(tmpdir(), 'fake-home');
+    expect(heavyRunLockPath(home)).toBe(join(home, '.paqad-ai', 'locks', 'heavy-run.json'));
   });
 
   it('AC-12 a second checks run waits in line and prints which run holds the lock', async () => {
