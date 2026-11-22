@@ -309,6 +309,38 @@ describe('platform fallbacks', () => {
     });
   });
 
+  it('AC-12 AC-30 on Windows reads records whose mode bits NTFS cannot make private and ends the run', async () => {
+    const root = tempDir();
+    const home = tempDir();
+    const path = writeAgentRunRecord(root, { ...RECORD, pid: 93, pgid: 93 }, home);
+    chmodSync(path, 0o666);
+    chmodSync(agentRunRecordDir(root, home), 0o777);
+    asPlatform('linux', () => {
+      expect(readAgentRunRecords(root, home)).toEqual([]);
+    });
+    const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { ...original, value: 'win32' });
+    try {
+      expect(readAgentRunRecords(root, home).map((r) => r.pid)).toEqual([93]);
+      const signals: Array<[number, string | number]> = [];
+      const ended = await endAgentRuns(root, 'agent-a', {
+        home,
+        startTimeOf: () => 's',
+        pgidOf: (pid) => (pid === 93 ? 93 : null),
+        signal: (target, signal) => {
+          signals.push([target, signal]);
+          return signal !== 0;
+        },
+        sleep: async () => {},
+      });
+      expect(ended.map((r) => r.pid)).toEqual([93]);
+      expect(signals[0]).toEqual([-93, 'SIGTERM']);
+    } finally {
+      Object.defineProperty(process, 'platform', original);
+    }
+    expect(readAgentRunRecords(root, home)).toEqual([]);
+  });
+
   it('AC-30 trusts the file owner when the platform has no user id', () => {
     const root = tempDir();
     const home = tempDir();
