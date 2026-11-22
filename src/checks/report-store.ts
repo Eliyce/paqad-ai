@@ -36,6 +36,7 @@ export interface ChecksReportCommand {
   ended_at: string;
   duration_ms: number;
   output_tail?: string[];
+  output_log?: string;
   outcome?: 'inconclusive' | 'reused';
   reused_from?: string;
   tree_digest?: string;
@@ -73,6 +74,12 @@ export interface ChecksReportCriticalPath {
   duration_ms: number;
 }
 
+export interface ChecksReportFailingTest {
+  test_id: string;
+  file_path: string | null;
+  line_number: number | null;
+}
+
 export interface ChecksReport extends Partial<Omit<EnvelopeHeader, 'schema_version'>> {
   schema_version: number;
   generated_at?: string;
@@ -91,6 +98,7 @@ export interface ChecksReport extends Partial<Omit<EnvelopeHeader, 'schema_versi
   run_id?: string;
   lockfile_hash?: string | null;
   node_version?: string;
+  failing_tests?: ChecksReportFailingTest[];
 }
 
 export function checksReportPath(projectRoot: string): string {

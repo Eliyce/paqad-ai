@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { runChecks } from '@/checks/run-checks.js';
+import { buildChecksReport, runChecks } from '@/checks/run-checks.js';
 import { renderReceipt } from '@/cli/commands/checks.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
@@ -199,6 +199,53 @@ describe('runChecks', () => {
     expect(format?.passed).toBe(false);
     expect(format?.output_tail?.join('\n')).toContain('prettier found issues');
     expect(result.mode.test_mode).toBe('sequential');
+  });
+
+  it('AC-8 keeps the full failing output in a log and names each failing test with file and line', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  format: pnpm format',
+        '  test: mkdir -p .paqad/test-results && ./vendor/bin/pest --log-junit .paqad/test-results/pest.xml',
+        'stack_profile:',
+        '  frameworks: [laravel]',
+        '  traits: [pest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const junit = `<?xml version="1.0"?><testsuites><testsuite name="Feature"><testcase name="it totals the invoice" classname="Tests\\Feature\\InvoiceTest" file="tests/Feature/InvoiceTest.php" line="42"><failure>boom</failure></testcase></testsuite></testsuites>`;
+    const longOutput = [
+      'FIRST LINE OF OUTPUT',
+      ...Array.from({ length: 500 }, (_, i) => `line ${i}`),
+    ];
+    const shell: DeliveryShell = {
+      async run(bin, args) {
+        if (bin === './vendor/bin/pest') {
+          writeFileSync(join(root, '.paqad/test-results/pest.xml'), junit);
+          return { stdout: '', stderr: '', exitCode: 1 };
+        }
+        if (args[0] === 'format') return { stdout: longOutput.join('\n'), stderr: '', exitCode: 2 };
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * GiB },
+      ...CLOCK,
+    });
+    const format = result.commands.find((c) => c.logical_command === 'format')!;
+    expect(format.output_tail).not.toContain('FIRST LINE OF OUTPUT');
+    expect(format.output_log).toBe(`.paqad/checks/runs/${result.run_id}/format.log`);
+    const log = readFileSync(join(root, format.output_log!), 'utf8');
+    expect(log.split('\n')[0]).toBe('FIRST LINE OF OUTPUT');
+    expect(log).toContain('line 499');
+    const report = buildChecksReport(result, '2026-01-01T00:00:00.000Z');
+    expect(report.failing_tests).toContainEqual(
+      expect.objectContaining({ file_path: 'tests/Feature/InvoiceTest.php', line_number: 42 }),
+    );
   });
 
   it('runs a native runner in native mode without a parallel command', async () => {
