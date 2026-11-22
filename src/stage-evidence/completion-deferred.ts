@@ -25,7 +25,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
-import { deadSlices, droppedSlices, runningSlices } from './slices.js';
+import { deadSlices, developmentEnded, droppedSlices, runningSlices } from './slices.js';
 import { liveStageAgents, STAGE_AGENT_SESSION_RELEASE } from './stage-agent-holds.js';
 import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND } from './types.js';
 
@@ -180,12 +180,6 @@ export interface DeferCompletionResult {
 }
 
 export const SLICES_RUNNING_REASON = 'slices running';
-
-function developmentEnded(rows: readonly SessionLedgerRow[]): boolean {
-  return rows.some(
-    (row) => row.kind === 'stage_end' && (row as Record<string, unknown>).stage === 'development',
-  );
-}
 
 function sliceHold(
   projectRoot: string,

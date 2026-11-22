@@ -95,7 +95,36 @@ function at(row: SessionLedgerRow): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-export function foldSlices(rows: readonly SessionLedgerRow[]): Map<string, SliceState> {
+function isDevelopmentRow(row: SessionLedgerRow, kind: string): boolean {
+  return row.kind === kind && (row as Record<string, unknown>).stage === 'development';
+}
+
+function lastIndexOf(
+  rows: readonly SessionLedgerRow[],
+  match: (row: SessionLedgerRow) => boolean,
+): number {
+  for (let i = rows.length - 1; i >= 0; i -= 1) if (match(rows[i]!)) return i;
+  return -1;
+}
+
+export function currentDevelopmentRows(
+  rows: readonly SessionLedgerRow[],
+): readonly SessionLedgerRow[] {
+  const lastStart = lastIndexOf(rows, (row) => isDevelopmentRow(row, 'stage_start'));
+  if (lastStart < 0) return rows;
+  const boundary = lastIndexOf(rows.slice(0, lastStart), (row) =>
+    isDevelopmentRow(row, 'stage_end'),
+  );
+  return boundary < 0 ? rows : rows.slice(boundary + 1);
+}
+
+export function developmentEnded(rows: readonly SessionLedgerRow[]): boolean {
+  const lastStart = lastIndexOf(rows, (row) => isDevelopmentRow(row, 'stage_start'));
+  return rows.slice(lastStart + 1).some((row) => isDevelopmentRow(row, 'stage_end'));
+}
+
+export function foldSlices(allRows: readonly SessionLedgerRow[]): Map<string, SliceState> {
+  const rows = currentDevelopmentRows(allRows);
   const slices = new Map<string, SliceState>();
   const byAgent = new Map<string, string>();
   for (const row of rows) {
@@ -152,7 +181,7 @@ export function sliceOfAgent(
 ): string | null {
   if (!agentId) return null;
   let found: string | null = null;
-  for (const row of rows) {
+  for (const row of currentDevelopmentRows(rows)) {
     const record = row as Record<string, unknown>;
     if (row.kind === SLICE_START_KIND && record.agent_id === agentId) {
       found = str(record.workstream);

@@ -306,6 +306,31 @@ describe('stop deferral while slices run', () => {
     expect(developmentEndCheck(root, 'ses-20b', null)).toMatch(/store/);
   });
 
+  it('AC-5 AC-20 defers again when development is reopened for a fix pass and fans out again', async () => {
+    const { root, dir } = repo('ses-reopen');
+    const mark = (kind: string) =>
+      appendFeatureStageRow(root, 'ses-reopen', dir, {
+        kind,
+        stage: 'development',
+        event_status: 'completed',
+        evidence_source: 'live-mark',
+      });
+    mark('stage_start');
+    await runSlicePhase('start', 'api', ctx(root, 'ses-reopen', 'ag-old'));
+    mark('stage_end');
+    expect((await stop(root, 'ses-reopen')).reason).not.toBe('slices running');
+    mark('stage_start');
+    expect(developmentEndCheck(root, 'ses-reopen', null)).toBeNull();
+    await runSlicePhase('start', 'store', ctx(root, 'ses-reopen', 'ag-fix'));
+    expect(await stop(root, 'ses-reopen')).toMatchObject({
+      deferred: true,
+      reason: 'slices running',
+    });
+    const refusal = developmentEndCheck(root, 'ses-reopen', null);
+    expect(refusal).toMatch(/slices not done: store(;|$)/);
+    expect(refusal).not.toMatch(/api/);
+  });
+
   it('AC-20 AC-21 a slice dropped through its packet no longer blocks Stop or the lead stage end', async () => {
     const { root, dir } = repo('ses-drop');
     const { resolvePendingDecision } = await import('@/decisions/authoring.js');
