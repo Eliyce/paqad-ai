@@ -303,18 +303,19 @@ export function openSeams(
   return open;
 }
 
-export function blockedSlices(
-  slicing: CompiledSlicing,
-  rows: readonly SessionLedgerRow[],
-): SliceState[] {
-  return [...foldSlices(rows).values()].filter(
-    (s) => !s.done && sliceOutOfAttempts(sliceRisk(slicing, s.id), s.gate_failures),
-  );
-}
-
 export type EndDevelopmentRefusal =
   | { kind: 'slice-agent'; workstream: string; message: string }
   | { kind: 'lead'; slices: string[]; seams: string[]; message: string };
+
+function sliceAgentRefusal(
+  workstream: string,
+): Extract<EndDevelopmentRefusal, { kind: 'slice-agent' }> {
+  return {
+    kind: 'slice-agent',
+    workstream,
+    message: `a slice agent cannot end development; run \`paqad-ai stage slice done ${workstream}\` and return`,
+  };
+}
 
 export function developmentEndRefusal(
   slicing: CompiledSlicing | null,
@@ -325,13 +326,7 @@ export function developmentEndRefusal(
   const states = foldSlices(rows);
   if (states.size === 0) return null;
   const own = sliceOfAgent(rows, agentId);
-  if (own !== null) {
-    return {
-      kind: 'slice-agent',
-      workstream: own,
-      message: `a slice agent cannot end development; run \`paqad-ai stage slice done ${own}\` and return`,
-    };
-  }
+  if (own !== null) return sliceAgentRefusal(own);
   const open = [...states.values()].filter((s) => !s.done && !dropped.has(s.id)).map((s) => s.id);
   const seams = slicing ? openSeams(slicing, rows, dropped) : [];
   if (open.length === 0 && seams.length === 0) return null;
@@ -427,10 +422,6 @@ export function resumeFanOut(rows: readonly SessionLedgerRow[]): FanOutResume {
     redispatch,
     line: `resumed the fan-out: kept ${kept.length} done slice(s)${kept.length ? ` (${kept.join(', ')})` : ''}, dispatch ${redispatch.length} again${redispatch.length ? ` (${redispatch.map((r) => r.id).join(', ')})` : ''}`,
   };
-}
-
-export function workstreamOfFile(slicing: CompiledSlicing, file: string): string | null {
-  return slicing.workstreams.find((w) => ownsFile(w, file))?.id ?? null;
 }
 
 export function packetBlocksFile(
@@ -552,8 +543,7 @@ export function sliceEndCommandRefusal(input: {
   const rows = readFeatureStageUnit(input.projectRoot, dirName);
   const workstream = sliceOfAgent(rows, input.agentId);
   if (workstream === null) return null;
-  const refusal = developmentEndRefusal(null, rows, input.agentId);
-  if (refusal?.kind !== 'slice-agent') return null;
+  const refusal = sliceAgentRefusal(workstream);
   appendFeatureStageRow(
     input.projectRoot,
     sessionId,
