@@ -155,7 +155,7 @@ function findCycle(workstreams: readonly Workstream[]): string[] | null {
     if (state.get(id) === 'visiting') return [...stack.slice(stack.indexOf(id)), id];
     state.set(id, 'visiting');
     stack.push(id);
-    for (const dep of byId.get(id)?.depends_on ?? []) {
+    for (const dep of byId.get(id)!.depends_on) {
       if (!byId.has(dep)) continue;
       const cycle = visit(dep);
       if (cycle) return cycle;
