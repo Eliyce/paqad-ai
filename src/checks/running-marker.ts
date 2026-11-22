@@ -164,13 +164,9 @@ export function agentRunRecordDir(projectRoot: string, home: string = homedir())
   return join(home, AGENT_RUN_RECORDS_RELATIVE, project);
 }
 
-function modeIsPrivate(mode: number): boolean {
-  return process.platform === 'win32' || (mode & 0o077) === 0;
-}
-
 function ownerOnly(mode: number, uid: number): boolean {
   const me = typeof process.getuid === 'function' ? process.getuid() : uid;
-  return uid === me && modeIsPrivate(mode);
+  return uid === me && (mode & 0o077) === 0;
 }
 
 function ensurePrivateDir(dir: string): void {
@@ -178,7 +174,7 @@ function ensurePrivateDir(dir: string): void {
   for (const path of [dirname(dir), dir]) {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error(`${path} is not a directory`);
-    if (!modeIsPrivate(stat.mode)) chmodSync(path, 0o700);
+    if (process.platform !== 'win32' && (stat.mode & 0o077) !== 0) chmodSync(path, 0o700);
   }
 }
 
@@ -239,6 +235,7 @@ export function clearAgentRunRecord(projectRoot: string, pid: number, home?: str
 }
 
 export function readAgentRunRecords(projectRoot: string, home?: string): AgentRunRecord[] {
+  if (process.platform === 'win32') return [];
   const dir = agentRunRecordDir(projectRoot, home);
   let names: string[];
   try {
@@ -295,6 +292,7 @@ export async function endAgentRuns(
   agentId: string,
   probe: AgentRunProbe = {},
 ): Promise<AgentRunRecord[]> {
+  if (process.platform === 'win32') return [];
   const startTimeOf = probe.startTimeOf ?? processStartTime;
   const signal = probe.signal ?? defaultSignal;
   const sleep = probe.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));

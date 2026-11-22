@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   acquireHeavyRunLock,
@@ -30,6 +30,34 @@ import {
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 import { openChange } from '../traceability/change-map.fixture.js';
+
+const runner = vi.hoisted(() => ({ windows: process.platform === 'win32' }));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>();
+  const asPosix = <T>(stat: T): T => {
+    if (runner.windows && process.platform !== 'win32' && stat && typeof stat === 'object') {
+      const entry = stat as unknown as { mode: number };
+      if (typeof entry.mode === 'number') entry.mode &= ~0o077;
+    }
+    return stat;
+  };
+  const lstatSync = ((...args: Parameters<typeof fs.lstatSync>) =>
+    asPosix(fs.lstatSync(...args))) as typeof fs.lstatSync;
+  const fstatSync = ((...args: Parameters<typeof fs.fstatSync>) =>
+    asPosix(fs.fstatSync(...args))) as typeof fs.fstatSync;
+  return { ...fs, default: { ...fs, lstatSync, fstatSync }, lstatSync, fstatSync };
+});
+
+async function asPlatform<T>(platform: NodeJS.Platform, run: () => T | Promise<T>): Promise<T> {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value: platform });
+  try {
+    return await run();
+  } finally {
+    Object.defineProperty(process, 'platform', original);
+  }
+}
 
 const roots: string[] = [];
 afterEach(() => {
@@ -177,33 +205,49 @@ describe('heavy-run lock', () => {
   });
 
   it('AC-12 ends a stopped agent run it recorded and leaves other agents alone', async () => {
-    const root = tempRoot();
-    const home = tempRoot();
-    writeAgentRunRecord(
-      root,
-      { pid: 41, start_time: 's41', pgid: 41, agent_id: 'agent-a', session: 's', label: 'checks' },
-      home,
-    );
-    writeAgentRunRecord(
-      root,
-      { pid: 42, start_time: 's42', pgid: 42, agent_id: 'agent-b', session: 's', label: 'checks' },
-      home,
-    );
-    const signals: Array<[number, string | number]> = [];
-    const ended = await endAgentRuns(root, 'agent-a', {
-      home,
-      startTimeOf: (pid) => `s${pid}`,
-      pgidOf: (pid) => (pid === process.pid || pid === process.ppid ? 1 : pid),
-      signal: (target, signal) => {
-        signals.push([target, signal]);
-        return signal !== 0;
-      },
-      sleep: async () => {},
+    await asPlatform('linux', async () => {
+      const root = tempRoot();
+      const home = tempRoot();
+      writeAgentRunRecord(
+        root,
+        {
+          pid: 41,
+          start_time: 's41',
+          pgid: 41,
+          agent_id: 'agent-a',
+          session: 's',
+          label: 'checks',
+        },
+        home,
+      );
+      writeAgentRunRecord(
+        root,
+        {
+          pid: 42,
+          start_time: 's42',
+          pgid: 42,
+          agent_id: 'agent-b',
+          session: 's',
+          label: 'checks',
+        },
+        home,
+      );
+      const signals: Array<[number, string | number]> = [];
+      const ended = await endAgentRuns(root, 'agent-a', {
+        home,
+        startTimeOf: (pid) => `s${pid}`,
+        pgidOf: (pid) => (pid === process.pid || pid === process.ppid ? 1 : pid),
+        signal: (target, signal) => {
+          signals.push([target, signal]);
+          return signal !== 0;
+        },
+        sleep: async () => {},
+      });
+      expect(ended.map((run) => run.pid)).toEqual([41]);
+      expect(signals[0]).toEqual([-41, 'SIGTERM']);
+      expect(signals.every(([target]) => target === -41)).toBe(true);
+      expect(readAgentRunRecords(root, home).map((record) => record.pid)).toEqual([42]);
     });
-    expect(ended.map((run) => run.pid)).toEqual([41]);
-    expect(signals[0]).toEqual([-41, 'SIGTERM']);
-    expect(signals.every(([target]) => target === -41)).toBe(true);
-    expect(readAgentRunRecords(root, home).map((record) => record.pid)).toEqual([42]);
   });
 
   it('AC-12 AC-30 never signals a group the record does not prove, nor a record an agent can write', async () => {

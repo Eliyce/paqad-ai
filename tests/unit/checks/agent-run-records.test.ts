@@ -34,6 +34,34 @@ import {
   writeChecksRunningMarker,
 } from '@/checks/running-marker.js';
 
+const runner = vi.hoisted(() => ({ windows: process.platform === 'win32' }));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>();
+  const asPosix = <T>(stat: T): T => {
+    if (runner.windows && process.platform !== 'win32' && stat && typeof stat === 'object') {
+      const entry = stat as unknown as { mode: number };
+      if (typeof entry.mode === 'number') entry.mode &= ~0o077;
+    }
+    return stat;
+  };
+  const lstatSync = ((...args: Parameters<typeof fs.lstatSync>) =>
+    asPosix(fs.lstatSync(...args))) as typeof fs.lstatSync;
+  const fstatSync = ((...args: Parameters<typeof fs.fstatSync>) =>
+    asPosix(fs.fstatSync(...args))) as typeof fs.fstatSync;
+  return { ...fs, default: { ...fs, lstatSync, fstatSync }, lstatSync, fstatSync };
+});
+
+async function asPlatform<T>(platform: NodeJS.Platform, run: () => T | Promise<T>): Promise<T> {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value: platform });
+  try {
+    return await run();
+  } finally {
+    Object.defineProperty(process, 'platform', original);
+  }
+}
+
 const roots: string[] = [];
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -144,29 +172,31 @@ describe('agent run records', () => {
   );
 
   it('AC-12 clears a record whose process restarted and kills a group that ignores SIGTERM', async () => {
-    const root = tempDir();
-    const home = tempDir();
-    writeAgentRunRecord(root, { ...RECORD, pid: 81, pgid: 81, start_time: 'old' }, home);
-    writeAgentRunRecord(root, { ...RECORD, pid: 82, pgid: 82 }, home);
-    const signals: Array<[number, string | number]> = [];
-    let slept = 0;
-    const ended = await endAgentRuns(root, 'agent-a', {
-      home,
-      startTimeOf: (pid) => (pid === 81 ? 'new' : 's'),
-      pgidOf: (pid) => (pid === 82 ? 82 : null),
-      signal: (target, signal) => {
-        signals.push([target, signal]);
-        return true;
-      },
-      sleep: async () => {
-        slept += 1;
-      },
+    await asPlatform('linux', async () => {
+      const root = tempDir();
+      const home = tempDir();
+      writeAgentRunRecord(root, { ...RECORD, pid: 81, pgid: 81, start_time: 'old' }, home);
+      writeAgentRunRecord(root, { ...RECORD, pid: 82, pgid: 82 }, home);
+      const signals: Array<[number, string | number]> = [];
+      let slept = 0;
+      const ended = await endAgentRuns(root, 'agent-a', {
+        home,
+        startTimeOf: (pid) => (pid === 81 ? 'new' : 's'),
+        pgidOf: (pid) => (pid === 82 ? 82 : null),
+        signal: (target, signal) => {
+          signals.push([target, signal]);
+          return true;
+        },
+        sleep: async () => {
+          slept += 1;
+        },
+      });
+      expect(ended.map((r) => r.pid)).toEqual([82]);
+      expect(signals[0]).toEqual([-82, 'SIGTERM']);
+      expect(signals.at(-1)).toEqual([-82, 'SIGKILL']);
+      expect(slept).toBe(30);
+      expect(readAgentRunRecords(root, home)).toEqual([]);
     });
-    expect(ended.map((r) => r.pid)).toEqual([82]);
-    expect(signals[0]).toEqual([-82, 'SIGTERM']);
-    expect(signals.at(-1)).toEqual([-82, 'SIGKILL']);
-    expect(slept).toBe(30);
-    expect(readAgentRunRecords(root, home)).toEqual([]);
   });
 });
 
@@ -283,16 +313,6 @@ describe('recording an agent run', () => {
 });
 
 describe('platform fallbacks', () => {
-  function asPlatform(platform: NodeJS.Platform, run: () => void): void {
-    const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
-    Object.defineProperty(process, 'platform', { ...original, value: platform });
-    try {
-      run();
-    } finally {
-      Object.defineProperty(process, 'platform', original);
-    }
-  }
-
   it('AC-30 on Windows reads no group or command and only whether the pid is alive', () => {
     const root = tempDir();
     writeChecksRunningMarker(root, {
@@ -309,57 +329,53 @@ describe('platform fallbacks', () => {
     });
   });
 
-  it('AC-12 AC-30 on Windows reads records whose mode bits NTFS cannot make private and ends the run', async () => {
+  it('AC-12 AC-30 on Windows reads no agent run record and signals nothing even when a record exists', async () => {
     const root = tempDir();
     const home = tempDir();
-    const path = writeAgentRunRecord(root, { ...RECORD, pid: 93, pgid: 93 }, home);
-    chmodSync(path, 0o666);
-    chmodSync(agentRunRecordDir(root, home), 0o777);
-    asPlatform('linux', () => {
+    await asPlatform('linux', () =>
+      writeAgentRunRecord(root, { ...RECORD, pid: 93, pgid: 93 }, home),
+    );
+    expect(readdirSync(agentRunRecordDir(root, home))).toEqual(['93.json']);
+    const signals: Array<[number, string | number]> = [];
+    await asPlatform('win32', async () => {
       expect(readAgentRunRecords(root, home)).toEqual([]);
-    });
-    const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
-    Object.defineProperty(process, 'platform', { ...original, value: 'win32' });
-    try {
-      expect(readAgentRunRecords(root, home).map((r) => r.pid)).toEqual([93]);
-      const signals: Array<[number, string | number]> = [];
       const ended = await endAgentRuns(root, 'agent-a', {
         home,
         startTimeOf: () => 's',
         pgidOf: (pid) => (pid === 93 ? 93 : null),
         signal: (target, signal) => {
           signals.push([target, signal]);
-          return signal !== 0;
+          return true;
         },
         sleep: async () => {},
       });
-      expect(ended.map((r) => r.pid)).toEqual([93]);
-      expect(signals[0]).toEqual([-93, 'SIGTERM']);
-    } finally {
-      Object.defineProperty(process, 'platform', original);
-    }
-    expect(readAgentRunRecords(root, home)).toEqual([]);
+      expect(ended).toEqual([]);
+    });
+    expect(signals).toEqual([]);
+    expect(readdirSync(agentRunRecordDir(root, home))).toEqual(['93.json']);
   });
 
-  it('AC-30 trusts the file owner when the platform has no user id', () => {
-    const root = tempDir();
-    const home = tempDir();
-    writeAgentRunRecord(root, { ...RECORD, pid: 91, pgid: 91 }, home);
-    const getuid = process.getuid;
-    Object.defineProperty(process, 'getuid', {
-      value: undefined,
-      configurable: true,
-      writable: true,
-    });
-    try {
-      expect(readAgentRunRecords(root, home).map((r) => r.pid)).toEqual([91]);
-    } finally {
+  it('AC-30 trusts the file owner when the platform has no user id', async () => {
+    await asPlatform('darwin', () => {
+      const root = tempDir();
+      const home = tempDir();
+      writeAgentRunRecord(root, { ...RECORD, pid: 91, pgid: 91 }, home);
+      const getuid = process.getuid;
       Object.defineProperty(process, 'getuid', {
-        value: getuid,
+        value: undefined,
         configurable: true,
         writable: true,
       });
-    }
+      try {
+        expect(readAgentRunRecords(root, home).map((r) => r.pid)).toEqual([91]);
+      } finally {
+        Object.defineProperty(process, 'getuid', {
+          value: getuid,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
   });
 
   it.skipIf(!posix)(
