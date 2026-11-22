@@ -1,0 +1,58 @@
+{
+  "id": "D-01M81HVFJEE64HPBJ69GGMTM7Z",
+  "category": "authoring.override",
+  "title": "The skill expert-synthesis cannot run its S6 check. Add it unverified, kept in this project?",
+  "context": "The trigger test needs model calls this stage cannot make, and paqad loads this skill by name for the chief architect seat after the expert notes, so the router does not pick it from its description; the same skip the development and planning recipes hold.",
+  "options": [
+    {
+      "option_key": "add-unverified",
+      "label": "Add it unverified, kept in this project",
+      "one_line_preview": "If you pick this, expert-synthesis is added with the label unverified and cannot leave this project.",
+      "trade_off": "You give up: proof that expert-synthesis helps.",
+      "evidence": {}
+    },
+    {
+      "option_key": "do-not-add",
+      "label": "Do not add it",
+      "one_line_preview": "If you pick this, expert-synthesis is not added.",
+      "trade_off": "You give up: the skill.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "do-not-add",
+  "created_at": "2026-11-22T11:56:50.638Z",
+  "status": "resolved",
+  "change": "01M81CC8J15E4X6E3RRBN3RCNJ",
+  "earlier_check": {
+    "status": "done",
+    "candidates": [
+      "D-01M7J0V8WMRDDDWD0BV0B02TN1",
+      "D-01M786NZ7HW2E27M58HX0YE02D",
+      "D-01M75M6WCJQ4RCTVN54S7GB04R",
+      "D-01M6HKDTPG4BWCJKB5YQJ1V18R",
+      "D-01M7HX2SCCNH63JZ9KKQVANCWA"
+    ],
+    "none_reason": "The earlier S6 skips were for command-only skills or other skills; expert-synthesis keeps a workflow trigger, so the owner should judge this skip on its own."
+  },
+  "chosen": "add-unverified",
+  "rationale": "Owner chose add-unverified on 2026-11-22: same as development-recipe and planning-recipe; S5/S6 need model calls, S1-S4 passed.",
+  "resolved_at": "2026-11-22T13:15:55.868Z",
+  "decision_id": "D-01M81HVFJEE64HPBJ69GGMTM7Z",
+  "fingerprint": "sha256:4968b18e640e13e984f36c2f551a4f0df11c94c5c006af30cadaaf58cff71345",
+  "question": "The skill expert-synthesis cannot run its S6 check. Add it unverified, kept in this project?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M81CC8J15E4X6E3RRBN3RCNJ",
+  "ttl_until": "2026-12-22T11:56:50.638Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add-unverified",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-22T13:15:55.868Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose add-unverified on 2026-11-22: same as development-recipe and planning-recipe; S5/S6 need model calls, S1-S4 passed."
+  }
+}
