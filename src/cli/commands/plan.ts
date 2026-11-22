@@ -6,6 +6,7 @@ import { checkRecipe } from '@/stage-isolation/recipe-check.js';
 import {
   NoActiveFeatureError,
   ReuseDeclarationError,
+  SlicingRuleError,
   writeFeaturePlan,
   type PlanCompileInput,
 } from '@/feature-evidence/artifacts.js';
@@ -114,7 +115,7 @@ export function createPlanCommand(): Command {
           gitReadable: readGitState(root).head_commit !== undefined,
         });
       } catch (error) {
-        if (error instanceof ReuseDeclarationError) {
+        if (error instanceof ReuseDeclarationError || error instanceof SlicingRuleError) {
           for (const line of error.errors) {
             console.error(line);
           }

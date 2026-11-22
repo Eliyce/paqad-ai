@@ -1,3 +1,4 @@
+import type { JoiningEntry, Workstream } from '@/planning/slicing.js';
 import type { EnvelopeHeader } from './envelope.js';
 import type { PlanReuse } from './reuse.js';
 
@@ -122,6 +123,9 @@ export interface PlanRecord extends EnvelopeHeader {
   decisions: string[];
   risks: PlanRisk[];
   reuse?: PlanReuse;
+  workstreams?: Workstream[];
+  waves?: string[][];
+  joining?: JoiningEntry[];
 }
 
 export type ReviewVerdict = 'safe-to-merge' | 'needs-attention' | 'inconclusive';

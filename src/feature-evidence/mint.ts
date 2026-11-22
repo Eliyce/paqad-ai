@@ -161,6 +161,7 @@ export interface BuildPlanRecordInput extends DocumentIdentityInput {
   decisions?: string[];
   risks?: PlanRisk[];
   reuse?: PlanReuse;
+  slicing?: Pick<PlanRecord, 'workstreams' | 'waves' | 'joining'>;
 }
 
 export interface BuildReviewRecordInput extends DocumentIdentityInput {
@@ -202,6 +203,7 @@ export function buildPlanRecord(input: BuildPlanRecordInput): PlanRecord {
       decisions: input.decisions ?? [],
       risks: input.risks ?? [],
       ...(input.reuse === undefined ? {} : { reuse: input.reuse }),
+      ...(input.slicing === undefined ? {} : input.slicing),
     },
   }) as PlanRecord;
 }
