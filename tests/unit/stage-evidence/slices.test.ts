@@ -265,6 +265,48 @@ describe('slice rows', () => {
   });
 });
 
+describe('stop deferral while slices run', () => {
+  async function stop(root: string, session: string, nowMs = Date.now()) {
+    const { deferCompletionForBackgroundStage } =
+      await import('@/stage-evidence/completion-deferred.js');
+    return deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: session,
+      adapter: 'claude-code',
+      now: () => new Date(nowMs),
+    });
+  }
+
+  it('AC-5 defers with slices running and judges again after the lead ends development', async () => {
+    const { root, dir } = repo('ses-5');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-5', 'ag-store'));
+    expect(await stop(root, 'ses-5')).toMatchObject({ deferred: true, reason: 'slices running' });
+    const deferred = readFeatureStageUnit(root, dir).filter(
+      (row) => row.kind === 'completion-deferred',
+    );
+    expect(deferred.at(-1)).toMatchObject({ reason: 'slices running', tasks: 1 });
+    appendFeatureStageRow(root, 'ses-5', dir, {
+      kind: 'stage_end',
+      stage: 'development',
+      event_status: 'completed',
+      evidence_source: 'live-mark',
+    });
+    expect((await stop(root, 'ses-5')).reason).not.toBe('slices running');
+  });
+
+  it('AC-20 stops deferring for a slice quiet for 60 minutes and names it', async () => {
+    const { root } = repo('ses-20b');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-20b', 'ag-store'));
+    const later = Date.now() + DEAD_SLICE_MS + 1000;
+    const result = await stop(root, 'ses-20b', later);
+    expect(result.reason).not.toBe('slices running');
+    expect(result.stoppedSlices).toEqual(['store']);
+    expect(result.stoppedSlicesNote).toContain('store');
+    expect(developmentEndCheck(root, 'ses-20b', null)).toMatch(/store/);
+  });
+});
+
 describe('slice write guard', () => {
   async function write(root: string, session: string, agentId: string, file: string) {
     const { runCapabilityGate } = await import('@/kernel/gate.js');

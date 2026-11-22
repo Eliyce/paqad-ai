@@ -70,6 +70,8 @@ async function main() {
   const agreement =
     held.length === 0 && !isPaqadDisabled(projectRoot) ? await verdictAgreement(projectRoot) : null;
   if (agreement) held.push(`${JSON.stringify(agreement)}\n`);
+  const stopped = stoppedSlicesBlock(deferral, held.length === 0);
+  if (stopped) held.push(`${JSON.stringify(stopped)}\n`);
   for (const chunk of held) process.stdout.write(chunk);
   await refreshCostFromHook(input, 'verification-completion');
   await refreshHudFromHook(input, 'verification-completion');
@@ -91,6 +93,12 @@ async function verdictAgreement(projectRoot) {
     logHookFailure(projectRoot, 'verification-completion:verdict', error);
     return null;
   }
+}
+
+function stoppedSlicesBlock(deferral, nothingHeld) {
+  const note = typeof deferral?.stoppedSlicesNote === 'string' ? deferral.stoppedSlicesNote : '';
+  if (note === '' || !nothingHeld || stopHookActiveFromStdin(input)) return null;
+  return { decision: 'block', reason: note };
 }
 
 function nextStageNudge(stage) {
