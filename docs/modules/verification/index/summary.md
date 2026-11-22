@@ -228,6 +228,16 @@ The Stop hook imports the depth-one `dist/index.js`, while the CLI runs the dept
 `verify-backstop.mjs` on a fixture, so a wrong root fails loudly instead of reading as "no
 packs, nothing to check".
 
+## Checks in a parallel build
+
+- **One report per change.** The checks report is written for the change it ran for, so two changes never read each other's result.
+- **More tests count.** Go `_test.go` files and test files git does not track yet both count in ac-test-mapping.
+- **Full failing output.** A failure keeps its whole output, with the failing test's file and line.
+- **Reuse only on a match.** A green run is reused only for the same change and the same files.
+- **One heavy run per machine.** A lock lets only one heavy run (full tests, build) go at a time across the machine, so parallel slices take turns.
+
+None of this adds a setting. Every default is fixed in code.
+
 ## Gate states and record ownership
 
 Each gate reads one of five states, set by one status mapper: pass, fail, could not prove, did
