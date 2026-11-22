@@ -181,7 +181,14 @@ in this page disagrees with the map, the **map wins**. To change this page:
 On the full lane the development stage is run by one lead developer. The lead reads the plan, splits the work into slices that do not touch the same files, and hands each slice to its own development agent. The slice agents build at the same time.
 
 - **Slice rows.** Each slice writes a start row and a done row to the ledger. A slice agent hands back on its done row.
-- **Slice gate.** The lead cannot move on while a slice is still open or has no done row.
+- **Slice gate.** The lead cannot move on while a slice is still open or has no done row. Each slice passes a gate that runs the project's own commands, with no new setting:
+  - format on the slice's files;
+  - rule scripts limited to those files;
+  - lint narrowed to the owned files when the lint command ends in ` .`, and skipped otherwise;
+  - typecheck errors counted only in the owned files;
+  - the slice's own tests, with at most 2 workers.
+
+  The whole gate has a 10-minute limit, and a timeout names the slowest step. The join-lint-cleanup step's gate covers the same files its write guard allows.
 - **Only the lead ends the stage.** A slice agent cannot run `stage end development`.
 - **Stop waits for slices.** While a slice is still running, the Stop hook defers instead of closing the turn.
 - **Decisions stay in their slice.** A decision packet opened by a slice is scoped to that slice, so one slice pausing does not stop the others.

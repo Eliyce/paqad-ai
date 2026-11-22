@@ -194,6 +194,8 @@ When the build stage runs as parallel slices, a pending packet raised for one wo
 
 A slice that still fails after its retry on the stronger model raises a packet scoped to its workstream. That packet blocks the end of the development stage until it is resolved.
 
+Answering a slice packet with `drop` closes that slice, so it no longer blocks stage end or the Stop check. A slice that is dispatched again starts with a fresh failure count.
+
 Every chief architect recommendation carries four short quality lines, so the human sees the trade-offs next to the pick.
 
 None of this adds a setting. The scoping and the retry are fixed in code.
