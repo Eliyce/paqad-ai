@@ -19,7 +19,14 @@ export type StageEvidenceKind =
   | 'record-repair'
   | 'stage-handback'
   | 'recipe-injected'
-  | 'skill-used';
+  | 'skill-used'
+  | 'slice_start'
+  | 'slice_gate'
+  | 'slice_done'
+  | 'slice_end_refused'
+  | 'slice_edit_allowed'
+  | 'heavy_run_reclaim'
+  | 'process_group_ended';
 
 export const STAGE_AGENT_KIND = 'stage-agent';
 
@@ -36,6 +43,30 @@ export const STAGE_HANDBACK_KIND = 'stage-handback';
 export const RECIPE_INJECTED_KIND = 'recipe-injected';
 
 export const SKILL_USED_KIND = 'skill-used';
+
+export const SLICE_START_KIND = 'slice_start';
+
+export const SLICE_GATE_KIND = 'slice_gate';
+
+export const SLICE_DONE_KIND = 'slice_done';
+
+export const SLICE_END_REFUSED_KIND = 'slice_end_refused';
+
+export const SLICE_EDIT_ALLOWED_KIND = 'slice_edit_allowed';
+
+export const HEAVY_RUN_RECLAIM_KIND = 'heavy_run_reclaim';
+
+export const PROCESS_GROUP_ENDED_KIND = 'process_group_ended';
+
+export const SLICE_KIND_LIST = [
+  SLICE_START_KIND,
+  SLICE_GATE_KIND,
+  SLICE_DONE_KIND,
+  SLICE_END_REFUSED_KIND,
+  SLICE_EDIT_ALLOWED_KIND,
+  HEAVY_RUN_RECLAIM_KIND,
+  PROCESS_GROUP_ENDED_KIND,
+] as const;
 
 export const REPORT_SOURCES = ['handback', 'text', 'rollout', 'none'] as const;
 export type ReportSource = (typeof REPORT_SOURCES)[number];
