@@ -7,6 +7,11 @@ const FILE_NAME =
 const CODE_SYMBOLS = ['::', '->', '=>', '()'];
 const CAMEL = /[a-z][A-Z]/;
 const SNAKE = /[A-Za-z]_[A-Za-z]/;
+const PRODUCT_NAME = /^[A-Z][A-Za-z0-9]*[.,;:!?]?$/;
+
+function isProductName(word: string): boolean {
+  return PRODUCT_NAME.test(word) && !/\d\./.test(word);
+}
 const VAGUE = new Set([
   'fix',
   'fixes',
@@ -102,7 +107,7 @@ export function summaryStyleReasons(summary: string, maxLength: number): string[
     reasons.push('it uses code symbols');
   }
   const words = summary.split(/\s+/).filter((word) => word !== '');
-  if (words.some((word) => CAMEL.test(word) || SNAKE.test(word))) {
+  if (words.some((word) => !isProductName(word) && (CAMEL.test(word) || SNAKE.test(word)))) {
     reasons.push('it names a function or variable');
   }
   if (summary.length > maxLength) reasons.push(`it's longer than ${maxLength} characters`);

@@ -65,4 +65,20 @@ describe('the plain-language summary rule', () => {
       'commit "wip" reads like code, not plain language: it doesn\'t say what changed.',
     );
   });
+
+  it('AC-17 accepts product names and refuses code names', () => {
+    expect(summaryStyleReasons('Add DynamoDB store', 72)).toEqual([]);
+    expect(summaryStyleReasons('Read Postgres rows', 72)).toEqual([]);
+    expect(summaryStyleReasons('Post to Jira', 72)).toEqual([]);
+    expect(summaryStyleReasons('Use PostgreSQL and GitHub now', 72)).toEqual([]);
+    expect(summaryStyleReasons('Call writeFeaturePlan on save', 72)).toContain(
+      'it names a function or variable',
+    );
+    expect(summaryStyleReasons('Call read_plan on save', 72)).toContain(
+      'it names a function or variable',
+    );
+    expect(summaryStyleReasons('Call Read_Plan on save', 72)).toContain(
+      'it names a function or variable',
+    );
+  });
 });
