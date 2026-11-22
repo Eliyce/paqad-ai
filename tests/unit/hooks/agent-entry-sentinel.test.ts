@@ -80,6 +80,29 @@ describe('agent-entry sentinel staleness walk', () => {
     expect(sentinelState(projectRoot, {}, undefined, SESSION)).toBe('fresh');
   });
 
+  it('AC-9 stays valid while the session change has documentation_sync open', () => {
+    const dir = 'docs-change-01ABC';
+    const control = join(projectRoot, '.paqad/ledger/feature-evidence/_session', `${SESSION}.json`);
+    mkdirSync(join(control, '..'), { recursive: true });
+    writeFileSync(control, JSON.stringify({ session_id: SESSION, active: dir }));
+    const ledger = join(projectRoot, '.paqad/ledger/feature-evidence', dir, 'stage-evidence.jsonl');
+    mkdirSync(join(ledger, '..'), { recursive: true });
+    writeFileSync(
+      ledger,
+      JSON.stringify({ kind: 'stage_start', stage: 'documentation_sync' }) + '\n',
+    );
+    write('docs/instructions/stack/overview.md');
+    expect(sentinelState(projectRoot, {}, undefined, SESSION)).toBe('fresh');
+    writeFileSync(
+      ledger,
+      [
+        JSON.stringify({ kind: 'stage_start', stage: 'documentation_sync' }),
+        JSON.stringify({ kind: 'stage_end', stage: 'documentation_sync' }),
+      ].join('\n') + '\n',
+    );
+    expect(sentinelState(projectRoot, {}, undefined, SESSION)).toBe('stale:docs-instructions');
+  });
+
   it('goes stale on a stack change and names only that file', () => {
     write('docs/instructions/stack/overview.md');
 
