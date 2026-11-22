@@ -56,10 +56,12 @@ import {
   unknownAgentReport,
 } from '@/stage-isolation/stage-handback.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
+import { readCompiledSlicing } from '@/stage-evidence/slices.js';
 
 import {
   developmentEndCheck,
   leadGuideText,
+  sliceBriefText,
   runSlicePhase,
   slicesReport,
   slicesSettings,
@@ -175,9 +177,23 @@ function briefRecipeSection(
   return text;
 }
 
-function runStageBrief(stage: string | undefined, options: StageOptions): void {
+function runStageBrief(stage: string | undefined, options: StageOptions, target?: string): void {
   if (options.lead === true && stage === 'development') {
-    process.stdout.write(leadGuideText());
+    if (target === undefined) {
+      process.stdout.write(leadGuideText());
+      return;
+    }
+    const root = options.projectRoot;
+    const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
+    const dirName = currentFeature(root, sessionId);
+    const slicing = dirName ? readCompiledSlicing(root, dirName) : null;
+    const brief = slicing ? sliceBriefText(slicing, target) : null;
+    if (brief === null) {
+      console.error(`slice "${target}" is not in the compiled plan of the active change`);
+      process.exitCode = 1;
+      return;
+    }
+    process.stdout.write(brief);
     return;
   }
   if (!stage || !STAGE_AGENT_STAGES.includes(stage)) {
@@ -416,7 +432,10 @@ export function createStageCommand(): Command {
       collectArtifact,
     )
     .option('--reason <text>', 'On a `repair`, what happened to the row')
-    .option('--lead', "On `brief development`, print the lead developer's guide")
+    .option(
+      '--lead',
+      "On `brief development`, print the lead developer's guide, or the slice brief for a named workstream",
+    )
     .argument('[target]', "for 'slice', the workstream or joining id")
     .action(
       async (
@@ -445,7 +464,7 @@ export function createStageCommand(): Command {
           return;
         }
         if (phase === 'brief') {
-          runStageBrief(stage, options);
+          runStageBrief(stage, options, target);
           return;
         }
         if (phase === 'begin') {

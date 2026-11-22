@@ -21,6 +21,7 @@ import {
   sliceDoneRefusal,
   sliceEndRefusedRow,
   sliceOwnedFiles,
+  sliceProgressFile,
   sliceReport,
   sliceRisk,
   sliceStartRefusal,
@@ -33,6 +34,30 @@ export const LEAD_GUIDE_FILE = 'runtime/base/checklists/lead-developer.md';
 
 export function leadGuideText(packageRoot: string = getPackageRoot()): string {
   return readFileSync(join(packageRoot, LEAD_GUIDE_FILE), 'utf8');
+}
+
+export function sliceBriefText(slicing: CompiledSlicing, id: string): string | null {
+  const owned = sliceOwnedFiles(slicing, id);
+  if (owned === null) return null;
+  const ws = slicing.workstreams.find((w) => w.id === id);
+  const provides = (ws?.provides_seams ?? []).map(
+    (seam) => `${seam.name} (entry \`${seam.entry_file}\`, wired by ${seam.wired_ac})`,
+  );
+  const list = (items: readonly string[]) => (items.length > 0 ? items.join(', ') : 'none');
+  return [
+    `# Slice ${id}`,
+    '',
+    `You build slice \`${id}\` of this change. Export SE_WORKSTREAM=${id}.`,
+    '',
+    `- Criteria: ${list(ws?.acs ?? [])}`,
+    `- Owned files: ${list(owned.map((glob) => `\`${glob}\``))}`,
+    `- Seams you provide: ${list(provides)}`,
+    `- Seams you use: ${list(ws?.uses_seams ?? [])}`,
+    `- Progress file: \`${sliceProgressFile(id)}\`; keep it updated so the lead can dispatch you fresh.`,
+    '',
+    'Follow the slice section of your recipe. Return DONE only after slice done is accepted, and BLOCKED after opening a packet.',
+    '',
+  ].join('\n');
 }
 
 export interface SliceCommandContext {
