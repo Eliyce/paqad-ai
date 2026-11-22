@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs';
 import { ulid } from '@/core/ids/ulid.js';
 import { join } from 'node:path';
 
-import { runSliceGate, sliceDigest, sliceFiles, type SliceGateStep } from '@/checks/slice-gate.js';
+import {
+  runSliceGate,
+  SLICE_GATE_LIMIT_MS,
+  sliceDigest,
+  sliceFiles,
+  type SliceGateStep,
+} from '@/checks/slice-gate.js';
+import { defaultSliceGateSteps } from '@/checks/slice-gate-steps.js';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
@@ -130,7 +137,14 @@ export async function runSlicePhase(
       subject,
       changedFiles: changed,
       nowMs,
-      ...(ctx.steps ? { steps: ctx.steps } : {}),
+      steps: {
+        ...defaultSliceGateSteps({
+          projectRoot: ctx.projectRoot,
+          deadlineMs: nowMs() + SLICE_GATE_LIMIT_MS,
+          nowMs,
+        }),
+        ...ctx.steps,
+      },
     });
     append({
       kind: SLICE_GATE_KIND,
