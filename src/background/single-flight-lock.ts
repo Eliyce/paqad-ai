@@ -1,10 +1,13 @@
+import { randomBytes } from 'node:crypto';
 import {
   closeSync,
   constants,
-  lstatSync,
+  fstatSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
+  renameSync,
   rmdirSync,
   statSync,
   unlinkSync,
@@ -15,6 +18,8 @@ import { dirname } from 'node:path';
 import type { LockOutcome } from './types.js';
 
 const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+
+export const UNPARSEABLE_LOCK_GRACE_MS = 10_000;
 
 export function tryAcquireLock(
   lockDir: string,
@@ -71,6 +76,7 @@ export interface FileLockOptions<T> {
   body: T;
   holderGone: (holder: T) => boolean;
   parse: (text: string) => T | null;
+  now?: () => number;
 }
 
 export function tryAcquireFileLock<T>(
@@ -79,19 +85,43 @@ export function tryAcquireFileLock<T>(
 ): FileLockOutcome<T> {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   if (createExclusive(path, options.body)) return { acquired: true, reclaimed: null };
-  const holder = readHolder(path, options.parse);
-  if (holder === null || !options.holderGone(holder)) {
-    return { acquired: false, holder };
-  }
-  try {
-    if (lstatSync(path).isSymbolicLink()) return { acquired: false, holder };
-    unlinkSync(path);
-  } catch {
-    return { acquired: false, holder };
+  const judged = readLockText(path);
+  if (judged === null) return { acquired: false, holder: null };
+  const holder = options.parse(judged.text);
+  const now = options.now ?? Date.now;
+  const stale =
+    holder === null
+      ? now() - judged.mtimeMs > UNPARSEABLE_LOCK_GRACE_MS
+      : options.holderGone(holder);
+  if (!stale) return { acquired: false, holder };
+  if (!setAside(path, judged.text)) {
+    return { acquired: false, holder: readHolder(path, options.parse) };
   }
   return createExclusive(path, options.body)
     ? { acquired: true, reclaimed: holder }
     : { acquired: false, holder: readHolder(path, options.parse) };
+}
+
+function setAside(path: string, judgedText: string): boolean {
+  const aside = `${path}.reclaim-${process.pid}-${randomBytes(6).toString('hex')}`;
+  try {
+    renameSync(path, aside);
+  } catch {
+    return false;
+  }
+  const moved = readLockText(aside);
+  if (moved !== null && moved.text === judgedText) {
+    unlinkSync(aside);
+    return true;
+  }
+  try {
+    if (moved === null) renameSync(aside, path);
+    else {
+      linkSync(aside, path);
+      unlinkSync(aside);
+    }
+  } catch {}
+  return false;
 }
 
 export function releaseFileLock<T>(
@@ -126,11 +156,25 @@ function createExclusive(path: string, body: unknown): boolean {
   return true;
 }
 
-function readHolder<T>(path: string, parse: (text: string) => T | null): T | null {
+function readLockText(path: string): { text: string; mtimeMs: number } | null {
+  let fd: number;
   try {
-    if (lstatSync(path).isSymbolicLink()) return null;
-    return parse(readFileSync(path, 'utf8'));
+    fd = openSync(path, constants.O_RDONLY | NOFOLLOW);
   } catch {
     return null;
   }
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) return null;
+    return { text: readFileSync(fd, 'utf8'), mtimeMs: stat.mtimeMs };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function readHolder<T>(path: string, parse: (text: string) => T | null): T | null {
+  const lock = readLockText(path);
+  return lock === null ? null : parse(lock.text);
 }
