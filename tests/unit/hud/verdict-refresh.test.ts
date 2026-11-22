@@ -51,3 +51,37 @@ describe('status --verdict refresh', () => {
     expect(again.status).toBe('found');
   });
 });
+
+describe('newest change evidence', () => {
+  it('AC-9 reads the checks report time when the stage ledger cannot be read', async () => {
+    const { featureChecksPath } = await import('@/checks/report-store.js');
+    const { featureStagePath } = await import('@/feature-evidence/stage-ledger.js');
+    const { newestChangeEvidenceAt } = await import('@/hud/verdict-refresh.js');
+    const { writeFileSync } = await import('node:fs');
+    const root = project();
+    const dir = openChange(root, 'ses-n');
+    const rows = newestChangeEvidenceAt(root, dir);
+    expect(rows).toEqual(expect.any(Number));
+    const later = '2999-01-01T00:00:00.000Z';
+    writeFileSync(
+      featureChecksPath(root, dir),
+      JSON.stringify({ passed: true, results: [], generated_at: later }),
+    );
+    expect(newestChangeEvidenceAt(root, dir)).toBe(Date.parse(later));
+    rmSync(join(root, featureStagePath(dir)));
+    mkdirSync(join(root, featureStagePath(dir)));
+    writeFileSync(
+      featureChecksPath(root, dir),
+      JSON.stringify({ passed: true, results: [], recorded_at: 'not a date' }),
+    );
+    expect(newestChangeEvidenceAt(root, dir)).toBeNull();
+  });
+
+  it('AC-9 treats a verdict with an unreadable write time as stale and one without a change as fresh', () => {
+    const root = project();
+    const found = (record: Record<string, unknown>) =>
+      ({ status: 'found', record }) as unknown as Parameters<typeof hudVerdictIsStale>[1];
+    expect(hudVerdictIsStale(root, found({ change: 'c', written_at: 'garbage' }))).toBe(true);
+    expect(hudVerdictIsStale(root, found({ change: null, written_at: 'garbage' }))).toBe(false);
+  });
+});

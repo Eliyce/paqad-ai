@@ -17,12 +17,8 @@ export function newestChangeEvidenceAt(projectRoot: string, dirName: string): nu
   } catch {
     newest = null;
   }
-  try {
-    const report = readFeatureChecks(projectRoot, dirName);
-    consider(report?.generated_at ?? report?.recorded_at);
-  } catch {
-    return newest;
-  }
+  const report = readFeatureChecks(projectRoot, dirName);
+  consider(report?.generated_at ?? report?.recorded_at);
   return newest;
 }
 
