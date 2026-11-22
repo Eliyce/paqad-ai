@@ -130,6 +130,38 @@ describe('end-of-change verification judges decisions by when they were opened',
   });
 });
 
+describe('end-of-change verification judges a change only against its own pending decisions', () => {
+  async function reviewWithPacketFor(change: string | null) {
+    const { root } = project();
+    const named = change === null ? packet(BEFORE_EDIT) : { ...packet(BEFORE_EDIT), change };
+    new DecisionStore(root).writePending(named as DecisionPacket);
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+    return context;
+  }
+
+  it('does not block on a pending packet that names a different change', async () => {
+    const context = await reviewWithPacketFor('01JZZZZZZZZZZZZZZZZZZZZZZZ');
+    expect(context.implementation_review_passed).toBe(true);
+    expect(context.implementation_review_findings).toEqual([]);
+    expect(context.waiting_decisions).toEqual([]);
+  });
+
+  it('blocks on a pending packet that names this change', async () => {
+    const context = await reviewWithPacketFor('01JABCDEFGHJKMNPQRSTVWXYZ7');
+    expect(context.implementation_review_passed).toBe(false);
+    expect(context.implementation_review_findings?.[0]).toMatchObject({ decision_id: DECISION });
+  });
+
+  it('blocks on a pending packet that names no change', async () => {
+    const context = await reviewWithPacketFor(null);
+    expect(context.implementation_review_passed).toBe(false);
+    expect(context.implementation_review_findings?.[0]).toMatchObject({ decision_id: DECISION });
+  });
+});
+
 describe('lastSourceEditAt', () => {
   it('reads the latest development row of the bundle first', async () => {
     const { root, dir } = project();

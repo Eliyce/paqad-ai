@@ -7,6 +7,7 @@ import {
 } from '@/decisions/authoring.js';
 import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { packetHoldsChange } from '@/planning/decision-packet.js';
 
 import {
   QUALITY_NOTE_KEYS,
@@ -56,7 +57,7 @@ export function hasPendingExpertConflict(projectRoot: string, dirName: string): 
   const change = featureChangeKey(dirName);
   return readContractDecisions(projectRoot).some(({ packet, status }) => {
     if (status !== 'pending' || packet.category !== CATEGORY) return false;
-    return !packet.change || packet.change === change;
+    return packetHoldsChange(packet, change);
   });
 }
 

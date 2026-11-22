@@ -192,6 +192,12 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'rules.proposal': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
+export function packetHoldsChange(packet: object, changeKey: string | null): boolean {
+  const named = (packet as Record<string, unknown>).change;
+  if (typeof named !== 'string' || named.trim() === '' || changeKey === null) return true;
+  return named === changeKey;
+}
+
 export function isDecisionPacket(value: unknown): value is DecisionPacket {
   return validateDecisionPacket(value).length === 0;
 }
