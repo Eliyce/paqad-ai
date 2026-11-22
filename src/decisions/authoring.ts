@@ -61,6 +61,7 @@ export interface PendingContractDecision {
   status: 'pending';
   origin?: ContractDecisionOrigin;
   change?: string;
+  workstream?: string;
   earlier_check?: EarlierCheck;
   suggestion?: DecisionSuggestion;
 }
@@ -81,6 +82,7 @@ export interface CreateDecisionInput {
   recommendation?: string | null;
   origin?: ContractDecisionOrigin;
   change?: string | null;
+  workstream?: string | null;
   askAnyway?: boolean;
   agentWorded?: boolean;
 }
@@ -162,6 +164,7 @@ export function createPendingDecision(
     status: 'pending',
     ...(input.origin !== undefined ? { origin: input.origin } : {}),
     ...(input.change ? { change: input.change } : {}),
+    ...(input.workstream ? { workstream: input.workstream } : {}),
   };
 
   const rule = input.askAnyway

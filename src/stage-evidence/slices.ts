@@ -1,0 +1,342 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import type { PlanRecord } from '@/feature-evidence/types.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import {
+  ownsFile,
+  seamJoiningEntry,
+  sliceModel,
+  sliceOutOfAttempts,
+  type JoiningEntry,
+  type Workstream,
+  type WorkstreamRisk,
+} from '@/planning/slicing.js';
+
+import {
+  SLICE_DONE_KIND,
+  SLICE_END_REFUSED_KIND,
+  SLICE_GATE_KIND,
+  SLICE_START_KIND,
+} from './types.js';
+
+export const DEAD_SLICE_MS = 60 * 60 * 1000;
+
+const AGENT_STOP_KINDS: ReadonlySet<string> = new Set(['stage-agent', 'stage-handback']);
+
+export interface CompiledSlicing {
+  workstreams: Workstream[];
+  waves: string[][];
+  joining: JoiningEntry[];
+}
+
+export function readCompiledSlicing(projectRoot: string, dirName: string): CompiledSlicing | null {
+  const path = join(projectRoot, featureFilePath(dirName, 'plan'));
+  if (!existsSync(path)) return null;
+  try {
+    const plan = JSON.parse(readFileSync(path, 'utf8')) as Partial<PlanRecord>;
+    if (!Array.isArray(plan.workstreams) || plan.workstreams.length === 0) return null;
+    return {
+      workstreams: plan.workstreams,
+      waves: plan.waves ?? [],
+      joining: plan.joining ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function sliceIds(slicing: CompiledSlicing): string[] {
+  return [...slicing.workstreams.map((w) => w.id), ...slicing.joining.map((j) => j.id)];
+}
+
+export function sliceOwnedFiles(slicing: CompiledSlicing, id: string): string[] | null {
+  const ws = slicing.workstreams.find((w) => w.id === id);
+  if (ws) return ws.owned_files;
+  const join = slicing.joining.find((j) => j.id === id);
+  return join ? join.owned_files : null;
+}
+
+export function sliceRisk(slicing: CompiledSlicing, id: string): WorkstreamRisk {
+  return slicing.workstreams.find((w) => w.id === id)?.risk ?? 'high';
+}
+
+export interface SliceState {
+  id: string;
+  agent_id: string | null;
+  started_at: string | null;
+  done_at: string | null;
+  gate_failures: number;
+  last_gate_passed: boolean | null;
+  last_gate_digest: string | null;
+  last_gate_failures: string[];
+  done: boolean;
+  stopped: boolean;
+  last_row_at: number | null;
+}
+
+function str(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function at(row: SessionLedgerRow): number | null {
+  const parsed = Date.parse(rowRecordedAt(row) ?? '');
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+export function foldSlices(rows: readonly SessionLedgerRow[]): Map<string, SliceState> {
+  const slices = new Map<string, SliceState>();
+  const byAgent = new Map<string, string>();
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    const id = str(record.workstream);
+    const agentId = str(record.agent_id);
+    if (row.kind === SLICE_START_KIND && id) {
+      const previous = slices.get(id);
+      slices.set(id, {
+        id,
+        agent_id: agentId,
+        started_at: previous?.started_at ?? rowRecordedAt(row) ?? null,
+        done_at: null,
+        gate_failures: previous?.gate_failures ?? 0,
+        last_gate_passed: null,
+        last_gate_digest: null,
+        last_gate_failures: [],
+        done: false,
+        stopped: false,
+        last_row_at: at(row),
+      });
+      if (agentId) byAgent.set(agentId, id);
+      continue;
+    }
+    const target = id
+      ? slices.get(id)
+      : agentId
+        ? slices.get(byAgent.get(agentId) ?? '')
+        : undefined;
+    if (!target) continue;
+    if (agentId && agentId === target.agent_id) target.last_row_at = at(row) ?? target.last_row_at;
+    if (row.kind === SLICE_GATE_KIND && id) {
+      const passed = record.event_status === 'completed';
+      target.last_gate_passed = passed;
+      target.last_gate_digest = str(record.digest);
+      target.last_gate_failures = Array.isArray(record.failures)
+        ? (record.failures as string[])
+        : [];
+      if (!passed) target.gate_failures += 1;
+    } else if (row.kind === SLICE_DONE_KIND && id) {
+      target.done = true;
+      target.done_at = rowRecordedAt(row) ?? null;
+    } else if (AGENT_STOP_KINDS.has(String(row.kind)) && agentId === target.agent_id) {
+      target.stopped = true;
+    }
+  }
+  return slices;
+}
+
+export function sliceOfAgent(
+  rows: readonly SessionLedgerRow[],
+  agentId: string | null | undefined,
+): string | null {
+  if (!agentId) return null;
+  let found: string | null = null;
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    if (row.kind === SLICE_START_KIND && record.agent_id === agentId) {
+      found = str(record.workstream);
+    }
+  }
+  return found;
+}
+
+export function sliceIsDead(state: SliceState, nowMs: number): boolean {
+  if (state.done) return false;
+  if (state.stopped) return true;
+  return state.last_row_at !== null && nowMs - state.last_row_at >= DEAD_SLICE_MS;
+}
+
+export function runningSlices(rows: readonly SessionLedgerRow[], nowMs: number): SliceState[] {
+  return [...foldSlices(rows).values()].filter((s) => !s.done && !sliceIsDead(s, nowMs));
+}
+
+export function deadSlices(rows: readonly SessionLedgerRow[], nowMs: number): SliceState[] {
+  return [...foldSlices(rows).values()].filter((s) => sliceIsDead(s, nowMs));
+}
+
+export function sliceStartRefusal(
+  slicing: CompiledSlicing | null,
+  id: string,
+  rows: readonly SessionLedgerRow[],
+  nowMs: number,
+): string | null {
+  if (slicing === null) {
+    return `no compiled plan with workstreams, so slice "${id}" cannot start; run \`paqad-ai plan compile\` first`;
+  }
+  if (!sliceIds(slicing).includes(id)) {
+    return `"${id}" is not a workstream or joining entry of the compiled plan`;
+  }
+  const state = foldSlices(rows).get(id);
+  if (state && !state.done && !sliceIsDead(state, nowMs)) {
+    return `slice "${id}" is already running under agent ${state.agent_id ?? 'unknown'}`;
+  }
+  return null;
+}
+
+export function sliceDoneRefusal(
+  rows: readonly SessionLedgerRow[],
+  id: string,
+  currentDigest: string,
+): string | null {
+  const state = foldSlices(rows).get(id);
+  if (!state) return `slice "${id}" has no slice_start row`;
+  if (state.last_gate_passed !== true) {
+    return `slice "${id}" has no passed slice gate; run \`paqad-ai stage slice gate ${id}\``;
+  }
+  if (state.last_gate_digest !== currentDigest) {
+    return `slice "${id}" changed since its last passed gate; run the gate again`;
+  }
+  return null;
+}
+
+export function openSeams(slicing: CompiledSlicing, rows: readonly SessionLedgerRow[]): string[] {
+  const states = foldSlices(rows);
+  const open: string[] = [];
+  for (const ws of slicing.workstreams) {
+    for (const seam of ws.provides_seams) {
+      const entry = seamJoiningEntry(seam, slicing.joining);
+      const closer = entry?.id ?? ws.id;
+      if (!states.get(closer)?.done) open.push(seam.name);
+    }
+  }
+  return open;
+}
+
+export function blockedSlices(
+  slicing: CompiledSlicing,
+  rows: readonly SessionLedgerRow[],
+): SliceState[] {
+  return [...foldSlices(rows).values()].filter(
+    (s) => !s.done && sliceOutOfAttempts(sliceRisk(slicing, s.id), s.gate_failures),
+  );
+}
+
+export type EndDevelopmentRefusal =
+  | { kind: 'slice-agent'; workstream: string; message: string }
+  | { kind: 'lead'; slices: string[]; seams: string[]; message: string };
+
+export function developmentEndRefusal(
+  slicing: CompiledSlicing | null,
+  rows: readonly SessionLedgerRow[],
+  agentId: string | null | undefined,
+): EndDevelopmentRefusal | null {
+  const states = foldSlices(rows);
+  if (states.size === 0) return null;
+  const own = sliceOfAgent(rows, agentId);
+  if (own !== null) {
+    return {
+      kind: 'slice-agent',
+      workstream: own,
+      message: `a slice agent cannot end development; run \`paqad-ai stage slice done ${own}\` and return`,
+    };
+  }
+  const open = [...states.values()].filter((s) => !s.done).map((s) => s.id);
+  const seams = slicing ? openSeams(slicing, rows) : [];
+  if (open.length === 0 && seams.length === 0) return null;
+  const parts: string[] = [];
+  if (open.length > 0) parts.push(`slices not done: ${open.join(', ')}`);
+  if (seams.length > 0) parts.push(`open seams: ${seams.join(', ')}`);
+  return {
+    kind: 'lead',
+    slices: open,
+    seams,
+    message: `development cannot end yet — ${parts.join('; ')}`,
+  };
+}
+
+export function sliceEndRefusedRow(
+  refusal: Extract<EndDevelopmentRefusal, { kind: 'slice-agent' }>,
+  agentId: string,
+) {
+  return {
+    kind: SLICE_END_REFUSED_KIND,
+    agent: 'paqad-development',
+    agent_id: agentId,
+    workstream: refusal.workstream,
+    stage: 'development',
+  };
+}
+
+export interface SliceView {
+  id: string;
+  risk: WorkstreamRisk;
+  model: string;
+  effort: string;
+  gate_failures: number;
+  escalated: boolean;
+}
+
+export function slicesView(
+  slicing: CompiledSlicing,
+  rows: readonly SessionLedgerRow[],
+): SliceView[] {
+  const states = foldSlices(rows);
+  return slicing.workstreams.map((ws) => {
+    const failures = states.get(ws.id)?.gate_failures ?? 0;
+    return { id: ws.id, risk: ws.risk, gate_failures: failures, ...sliceModel(ws.risk, failures) };
+  });
+}
+
+export interface SliceReportRow {
+  id: string;
+  status: 'DONE' | 'BLOCKED' | 'RUNNING';
+  wall_clock_ms: number | null;
+  gate_failures: number;
+  escalated: boolean;
+}
+
+export function sliceReport(
+  slicing: CompiledSlicing,
+  rows: readonly SessionLedgerRow[],
+): SliceReportRow[] {
+  return [...foldSlices(rows).values()].map((s) => {
+    const risk = sliceRisk(slicing, s.id);
+    const start = Date.parse(s.started_at ?? '');
+    const end = Date.parse(s.done_at ?? '');
+    return {
+      id: s.id,
+      status: s.done ? 'DONE' : sliceOutOfAttempts(risk, s.gate_failures) ? 'BLOCKED' : 'RUNNING',
+      wall_clock_ms: Number.isNaN(start) || Number.isNaN(end) ? null : end - start,
+      gate_failures: s.gate_failures,
+      escalated: sliceModel(risk, s.gate_failures).escalated,
+    };
+  });
+}
+
+export interface FanOutResume {
+  kept: string[];
+  redispatch: Array<{ id: string; handback: string }>;
+  line: string;
+}
+
+export function sliceProgressFile(id: string): string {
+  return `.paqad/tmp/slice-${id}-progress.md`;
+}
+
+export function resumeFanOut(rows: readonly SessionLedgerRow[]): FanOutResume {
+  const states = [...foldSlices(rows).values()];
+  const kept = states.filter((s) => s.done).map((s) => s.id);
+  const redispatch = states
+    .filter((s) => !s.done)
+    .map((s) => ({ id: s.id, handback: sliceProgressFile(s.id) }));
+  return {
+    kept,
+    redispatch,
+    line: `resumed the fan-out: kept ${kept.length} done slice(s)${kept.length ? ` (${kept.join(', ')})` : ''}, dispatch ${redispatch.length} again${redispatch.length ? ` (${redispatch.map((r) => r.id).join(', ')})` : ''}`,
+  };
+}
+
+export function workstreamOfFile(slicing: CompiledSlicing, file: string): string | null {
+  return slicing.workstreams.find((w) => ownsFile(w, file))?.id ?? null;
+}
