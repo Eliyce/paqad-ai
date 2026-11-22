@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
+import { readContractDecisions } from '@/decisions/authoring.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   currentFeature,
@@ -74,6 +75,7 @@ export interface SliceState {
   id: string;
   agent_id: string | null;
   started_at: string | null;
+  last_started_at: string | null;
   done_at: string | null;
   gate_failures: number;
   last_gate_passed: boolean | null;
@@ -106,8 +108,9 @@ export function foldSlices(rows: readonly SessionLedgerRow[]): Map<string, Slice
         id,
         agent_id: agentId,
         started_at: previous?.started_at ?? rowRecordedAt(row) ?? null,
+        last_started_at: rowRecordedAt(row) ?? null,
         done_at: null,
-        gate_failures: previous?.gate_failures ?? 0,
+        gate_failures: 0,
         last_gate_passed: null,
         last_gate_digest: null,
         last_gate_failures: [],
@@ -164,12 +167,48 @@ export function sliceIsDead(state: SliceState, nowMs: number): boolean {
   return state.last_row_at !== null && nowMs - state.last_row_at >= DEAD_SLICE_MS;
 }
 
-export function runningSlices(rows: readonly SessionLedgerRow[], nowMs: number): SliceState[] {
-  return [...foldSlices(rows).values()].filter((s) => !s.done && !sliceIsDead(s, nowMs));
+export const SLICE_DROP_OPTION = 'drop';
+
+export function droppedSlices(
+  projectRoot: string,
+  dirName: string,
+  rows: readonly SessionLedgerRow[],
+): Set<string> {
+  const key = featureChangeKey(dirName);
+  const states = foldSlices(rows);
+  const dropped = new Set<string>();
+  for (const { packet, status } of readContractDecisions(projectRoot)) {
+    const record = packet as unknown as Record<string, unknown>;
+    if (status !== 'resolved' || record.chosen !== SLICE_DROP_OPTION) continue;
+    if (record.change !== key || typeof packet.workstream !== 'string') continue;
+    const state = states.get(packet.workstream);
+    if (!state || state.done) continue;
+    const resolvedAt = Date.parse(String(record.resolved_at ?? ''));
+    const startedAt = Date.parse(state.last_started_at ?? '');
+    if (Number.isNaN(resolvedAt) || (!Number.isNaN(startedAt) && resolvedAt < startedAt)) continue;
+    dropped.add(packet.workstream);
+  }
+  return dropped;
 }
 
-export function deadSlices(rows: readonly SessionLedgerRow[], nowMs: number): SliceState[] {
-  return [...foldSlices(rows).values()].filter((s) => sliceIsDead(s, nowMs));
+const NONE: ReadonlySet<string> = new Set();
+
+export function runningSlices(
+  rows: readonly SessionLedgerRow[],
+  nowMs: number,
+  dropped: ReadonlySet<string> = NONE,
+): SliceState[] {
+  return [...foldSlices(rows).values()].filter(
+    (s) => !s.done && !dropped.has(s.id) && !sliceIsDead(s, nowMs),
+  );
+}
+
+export function deadSlices(
+  rows: readonly SessionLedgerRow[],
+  nowMs: number,
+  dropped: ReadonlySet<string> = NONE,
+): SliceState[] {
+  return [...foldSlices(rows).values()].filter((s) => !dropped.has(s.id) && sliceIsDead(s, nowMs));
 }
 
 export function sliceStartRefusal(
@@ -207,13 +246,19 @@ export function sliceDoneRefusal(
   return null;
 }
 
-export function openSeams(slicing: CompiledSlicing, rows: readonly SessionLedgerRow[]): string[] {
+export function openSeams(
+  slicing: CompiledSlicing,
+  rows: readonly SessionLedgerRow[],
+  dropped: ReadonlySet<string> = NONE,
+): string[] {
   const states = foldSlices(rows);
   const open: string[] = [];
   for (const ws of slicing.workstreams) {
+    if (dropped.has(ws.id)) continue;
     for (const seam of ws.provides_seams) {
       const entry = seamJoiningEntry(seam, slicing.joining);
       const closer = entry?.id ?? ws.id;
+      if (dropped.has(closer)) continue;
       if (!states.get(closer)?.done) open.push(seam.name);
     }
   }
@@ -237,6 +282,7 @@ export function developmentEndRefusal(
   slicing: CompiledSlicing | null,
   rows: readonly SessionLedgerRow[],
   agentId: string | null | undefined,
+  dropped: ReadonlySet<string> = NONE,
 ): EndDevelopmentRefusal | null {
   const states = foldSlices(rows);
   if (states.size === 0) return null;
@@ -248,8 +294,8 @@ export function developmentEndRefusal(
       message: `a slice agent cannot end development; run \`paqad-ai stage slice done ${own}\` and return`,
     };
   }
-  const open = [...states.values()].filter((s) => !s.done).map((s) => s.id);
-  const seams = slicing ? openSeams(slicing, rows) : [];
+  const open = [...states.values()].filter((s) => !s.done && !dropped.has(s.id)).map((s) => s.id);
+  const seams = slicing ? openSeams(slicing, rows, dropped) : [];
   if (open.length === 0 && seams.length === 0) return null;
   const parts: string[] = [];
   if (open.length > 0) parts.push(`slices not done: ${open.join(', ')}`);

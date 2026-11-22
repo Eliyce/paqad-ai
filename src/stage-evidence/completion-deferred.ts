@@ -25,7 +25,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
-import { deadSlices, runningSlices } from './slices.js';
+import { deadSlices, droppedSlices, runningSlices } from './slices.js';
 import { liveStageAgents, STAGE_AGENT_SESSION_RELEASE } from './stage-agent-holds.js';
 import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND } from './types.js';
 
@@ -188,13 +188,16 @@ function developmentEnded(rows: readonly SessionLedgerRow[]): boolean {
 }
 
 function sliceHold(
+  projectRoot: string,
+  dirName: string | null,
   rows: readonly SessionLedgerRow[],
   nowMs: number,
 ): { running: number; stopped: string[] } {
-  if (developmentEnded(rows)) return { running: 0, stopped: [] };
+  if (dirName === null || developmentEnded(rows)) return { running: 0, stopped: [] };
+  const dropped = droppedSlices(projectRoot, dirName, rows);
   return {
-    running: runningSlices(rows, nowMs).length,
-    stopped: deadSlices(rows, nowMs).map((slice) => slice.id),
+    running: runningSlices(rows, nowMs, dropped).length,
+    stopped: deadSlices(rows, nowMs, dropped).map((slice) => slice.id),
   };
 }
 
@@ -229,7 +232,7 @@ export function deferCompletionForBackgroundStage(
     dirName !== null &&
     !hasOpenUnendedStage(rows) &&
     isBetweenStages(input.projectRoot, sessionId, dirName);
-  const slices = sliceHold(rows, now().getTime());
+  const slices = sliceHold(input.projectRoot, dirName, rows, now().getTime());
   const stopped =
     slices.stopped.length > 0
       ? { stoppedSlices: slices.stopped, stoppedSlicesNote: stoppedSlicesNote(slices.stopped) }

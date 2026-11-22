@@ -22,6 +22,7 @@ import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { sliceOutOfAttempts } from '@/planning/slicing.js';
 import {
   developmentEndRefusal,
+  droppedSlices,
   foldSlices,
   readCompiledSlicing,
   resumeFanOut,
@@ -224,7 +225,12 @@ export function developmentEndCheck(
   if (dirName === null) return null;
   const rows = readFeatureStageUnit(projectRoot, dirName);
   const slicing = readCompiledSlicing(projectRoot, dirName);
-  const refusal = developmentEndRefusal(slicing, rows, agentId);
+  const refusal = developmentEndRefusal(
+    slicing,
+    rows,
+    agentId,
+    droppedSlices(projectRoot, dirName, rows),
+  );
   if (refusal === null) return null;
   if (refusal.kind === 'slice-agent' && agentId) {
     appendFeatureStageRow(projectRoot, sessionId, dirName, sliceEndRefusedRow(refusal, agentId));

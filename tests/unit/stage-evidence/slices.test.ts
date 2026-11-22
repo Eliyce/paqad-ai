@@ -305,6 +305,63 @@ describe('stop deferral while slices run', () => {
     expect(result.stoppedSlicesNote).toContain('store');
     expect(developmentEndCheck(root, 'ses-20b', null)).toMatch(/store/);
   });
+
+  it('AC-20 AC-21 a slice dropped through its packet no longer blocks Stop or the lead stage end', async () => {
+    const { root, dir } = repo('ses-drop');
+    const { resolvePendingDecision } = await import('@/decisions/authoring.js');
+    await runSlicePhase('start', 'api', ctx(root, 'ses-drop', 'ag-api'));
+    let packet: string | undefined;
+    for (let i = 0; i < 3; i += 1) {
+      packet = (
+        await runSlicePhase('gate', 'api', ctx(root, 'ses-drop', 'ag-api', { steps: failing }))
+      ).packet;
+    }
+    expect(packet).toMatch(/^D-/);
+    for (const id of ['store', 'join-wiring']) {
+      await runSlicePhase('start', id, ctx(root, 'ses-drop', `ag-${id}`));
+      await runSlicePhase('gate', id, ctx(root, 'ses-drop', `ag-${id}`));
+      await runSlicePhase('done', id, ctx(root, 'ses-drop', `ag-${id}`));
+    }
+    appendFeatureStageRow(root, 'ses-drop', dir, {
+      kind: 'stage-agent',
+      agent: 'paqad-development',
+      agent_id: 'ag-api',
+      stage: 'development',
+      tokens_used: 0,
+      tokens_not_recarried: 0,
+      estimate: true,
+    });
+    expect((await stop(root, 'ses-drop')).stoppedSlices).toEqual(['api']);
+    expect(developmentEndCheck(root, 'ses-drop', null)).toMatch(/api/);
+    resolvePendingDecision(root, packet!, 'drop', 'not needed');
+    expect((await stop(root, 'ses-drop')).stoppedSlices).toBeUndefined();
+    expect(developmentEndCheck(root, 'ses-drop', null)).toBeNull();
+  });
+
+  it('AC-21 a slice dispatched again starts with a fresh failure count and blocks again', async () => {
+    const { root } = repo('ses-again');
+    await runSlicePhase('start', 'api', ctx(root, 'ses-again', 'ag-1'));
+    for (let i = 0; i < 3; i += 1) {
+      await runSlicePhase('gate', 'api', ctx(root, 'ses-again', 'ag-1', { steps: failing }));
+    }
+    expect(slicesReport(root, 'ses-again')![0]).toMatchObject({ status: 'BLOCKED' });
+    await runSlicePhase(
+      'start',
+      'api',
+      ctx(root, 'ses-again', 'ag-2', { nowMs: () => Date.now() + DEAD_SLICE_MS + 1000 }),
+    );
+    expect(slicesReport(root, 'ses-again')![0]).toMatchObject({
+      status: 'RUNNING',
+      gate_failures: 0,
+    });
+    const first = await runSlicePhase(
+      'gate',
+      'api',
+      ctx(root, 'ses-again', 'ag-2', { steps: failing }),
+    );
+    expect(first.packet).toBeUndefined();
+    expect(developmentEndCheck(root, 'ses-again', null)).toMatch(/api/);
+  });
 });
 
 describe('slice write guard', () => {
