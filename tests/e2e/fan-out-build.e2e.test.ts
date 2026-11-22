@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createStageCommand } from '@/cli/commands/stage.js';
 import { developmentEndCheck, runSlicePhase } from '@/cli/commands/stage-slice.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { writeFeaturePlan } from '@/feature-evidence/artifacts.js';
@@ -69,6 +70,33 @@ function ctx(root: string, id: string) {
     changedFiles: Object.values(FILES).flatMap((files) => Object.keys(files)),
     err: () => undefined,
   };
+}
+
+async function stageCli(root: string, agentId: string | null, ...args: string[]) {
+  vi.stubEnv('SE_AGENT_ID', agentId ?? undefined);
+  const err: string[] = [];
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  const error = vi.spyOn(console, 'error').mockImplementation((line: unknown) => {
+    err.push(String(line));
+  });
+  process.exitCode = undefined;
+  try {
+    await createStageCommand().parseAsync([...args, '--project-root', root, '--session', SESSION], {
+      from: 'user',
+    });
+    return { exitCode: process.exitCode, err: err.join('\n') };
+  } finally {
+    process.exitCode = undefined;
+    log.mockRestore();
+    error.mockRestore();
+    vi.stubEnv('SE_AGENT_ID', undefined);
+  }
+}
+
+function developmentEnds(root: string, dir: string) {
+  return readFeatureStageUnit(root, dir).filter(
+    (row) => row.kind === 'stage_end' && (row as Record<string, unknown>).stage === 'development',
+  );
 }
 
 function editFrom(root: string, file: string): Promise<number> {
@@ -154,6 +182,7 @@ describe('fan-out build of a fixture project', () => {
     const plan = JSON.parse(readFileSync(join(root, featureFilePath(dir, 'plan')), 'utf8'));
     expect(plan.waves).toEqual([['store', 'view'], ['api']]);
     expect(plan.joining.map((entry: { id: string }) => entry.id)).toContain('join-wiring');
+    expect((await stageCli(root, null, 'start', 'development')).exitCode).toBeUndefined();
 
     expect((await runSlicePhase('start', 'store', ctx(root, 'store'))).ok).toBe(true);
     const stop = deferCompletionForBackgroundStage({
@@ -190,11 +219,55 @@ describe('fan-out build of a fixture project', () => {
     expect(developmentEndCheck(root, SESSION, null)).toMatch(/rows/);
     await scriptedSlice(root, 'join-wiring');
 
-    expect(developmentEndCheck(root, SESSION, AGENTS.api!)).not.toBeNull();
+    const sliceEnd = await stageCli(root, AGENTS.api!, 'end', 'development');
+    expect(sliceEnd.exitCode).toBe(1);
+    expect(sliceEnd.err).toMatch(/slice agent cannot end development/);
+    expect(developmentEnds(root, dir)).toEqual([]);
     const refused = readFeatureStageUnit(root, dir).filter(
       (row) => row.kind === 'slice_end_refused',
     );
     expect(refused.length).toBeGreaterThanOrEqual(2);
-    expect(developmentEndCheck(root, SESSION, null)).toBeNull();
+    expect(refused.at(-1)).toMatchObject({ agent_id: AGENTS.api, workstream: 'api' });
+
+    const leadEnd = await stageCli(root, null, 'end', 'development');
+    expect(leadEnd.err).not.toMatch(/cannot end/);
+    expect(leadEnd.exitCode).toBeUndefined();
+    expect(developmentEnds(root, dir)).toHaveLength(1);
+  });
+
+  it('AC-28 a plan with no workstreams keeps the one-agent Stop and stage end', async () => {
+    const root = makeEmptyRepo('main');
+    roots.push(root);
+    writeRepoFile(root, 'README.md', 'fixture\n');
+    commitAll(root, 'base');
+    const dir = openChange(root, SESSION);
+    writeSpec(root, dir, [{ id: 'AC-1', proof: 'automated' }]);
+    writeFeaturePlan(root, SESSION, {
+      summary: 'one agent',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'rows', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
+      steps: [{ id: 'S1', description: 'rows', files: ['src/store/rows.ts'] }],
+    });
+    const plan = JSON.parse(readFileSync(join(root, featureFilePath(dir, 'plan')), 'utf8'));
+    expect(plan.workstreams).toBeUndefined();
+    expect((await stageCli(root, null, 'start', 'development')).exitCode).toBeUndefined();
+    for (const [file, text] of Object.entries(FILES.store!)) writeRepoFile(root, file, text);
+    const stop = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+    });
+    expect(stop.reason).not.toBe('slices running');
+    expect(stop.stoppedSlices).toBeUndefined();
+    const end = await stageCli(root, null, 'end', 'development');
+    expect(end.exitCode).toBeUndefined();
+    expect(developmentEnds(root, dir)).toHaveLength(1);
+    expect(
+      readFeatureStageUnit(root, dir).filter((row) => String(row.kind).startsWith('slice_')),
+    ).toEqual([]);
   });
 });
