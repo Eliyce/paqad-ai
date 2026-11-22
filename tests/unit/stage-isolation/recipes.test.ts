@@ -127,3 +127,52 @@ describe('seeding a stage agent', () => {
     },
   );
 });
+
+describe('the grown recipes beside a slice brief', () => {
+  const longGlob = (n: number) => `src/modules/some-long-module-name-${n}/**/*.{ts,tsx}`;
+  const worstCase = {
+    workstreams: [
+      {
+        id: 'worst-case-workstream-with-a-long-id',
+        owned_files: Array.from({ length: 12 }, (_, n) => longGlob(n)),
+        acs: Array.from({ length: 20 }, (_, n) => `AC-${n + 100}`),
+        depends_on: ['a', 'b', 'c'],
+        provides_seams: Array.from({ length: 3 }, (_, n) => ({
+          name: `seam-name-${n}`,
+          entry_file: `src/modules/some-long-module-name-${n}/entry.ts`,
+          wired_ac: `AC-${n + 100}`,
+        })),
+        uses_seams: ['seam-a', 'seam-b', 'seam-c'],
+        risk: 'high' as const,
+        size_budget: { files: 40 },
+      },
+    ],
+    waves: [['worst-case-workstream-with-a-long-id']],
+    joining: [],
+  };
+
+  it.each(['development', 'planning'])(
+    'AC-31 keeps the %s recipe uncut beside a worst-case slice brief',
+    async (stage) => {
+      const { sliceBriefText } = await import('@/cli/commands/stage-slice.js');
+      const slice = sliceBriefText(worstCase, 'worst-case-workstream-with-a-long-id')!;
+      expect(slice).toContain('AC-119');
+      const brief = buildStageBrief(stage, process.cwd(), 'ses_seed', { full: true });
+      const fitted = fitRecipe(brief.length + slice.length + 2, resolveRecipe(stage))!;
+      expect(fitted.truncated).toBe(false);
+      expect(brief.length + slice.length + 2 + fitted.text.length + 2).toBeLessThanOrEqual(
+        RECIPE_BUDGET_CHARS,
+      );
+    },
+  );
+
+  it('AC-31 the development recipe ends a slice on slice done, never on stage end', () => {
+    const body = resolveRecipe('development').body;
+    const slice = body.slice(body.indexOf('## When You Build A Slice'));
+    expect(slice).toContain('stage slice gate');
+    expect(slice).toContain('stage slice done');
+    expect(slice).toContain('SE_WORKSTREAM');
+    expect(slice).toContain('Never run `paqad-ai stage end development`');
+    expect(resolveRecipe('planning').body).toContain('sequence-planner');
+  });
+});

@@ -190,6 +190,15 @@ export const FEATURE_SCHEMA = versionedSchema(
 
 const PLAN_BODY_PROPERTIES = {
   summary: { type: 'string' },
+  workstreams: {
+    type: 'array',
+    items: { type: 'object', required: ['id', 'owned_files', 'risk'] },
+  },
+  waves: { type: 'array', items: { type: 'array', items: { type: 'string', minLength: 1 } } },
+  joining: {
+    type: 'array',
+    items: { type: 'object', required: ['id', 'area', 'owned_files'] },
+  },
   steps: {
     type: 'array',
     items: {

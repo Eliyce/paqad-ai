@@ -73,6 +73,7 @@ function failWith(error: unknown): void {
 
 interface CreateOptions {
   projectRoot: string;
+  workstream?: string;
   category: string;
   title: string;
   context: string;
@@ -104,6 +105,10 @@ export function createDecisionCommand(): Command {
     .option('--option <key=label>', 'an option (repeatable, at least 2)', collectOption)
     .option('--recommendation <key>', 'option_key you recommend')
     .option('--ask-anyway', 'Open the question even when a standing answer matches')
+    .option(
+      '--workstream <id>',
+      'The plan workstream this packet blocks (defaults to SE_WORKSTREAM when set)',
+    )
     .option('--session <id>', 'Session whose active change the packet belongs to')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: CreateOptions) => {
@@ -122,6 +127,7 @@ export function createDecisionCommand(): Command {
           options: options.option ?? [],
           recommendation: options.recommendation ?? null,
           change: activeChangeKey(options.projectRoot, options.session),
+          workstream: options.workstream ?? (process.env.SE_WORKSTREAM?.trim() || null),
           askAnyway: options.askAnyway === true,
           agentWorded: true,
         });

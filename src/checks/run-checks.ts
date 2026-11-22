@@ -1,5 +1,6 @@
 import { availableParallelism as osAvailableParallelism, totalmem as osTotalmem } from 'node:os';
-import { rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import fg from 'fast-glob';
 
@@ -40,9 +41,11 @@ import {
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
 import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
+import { PATHS } from '@/core/constants/paths.js';
 import type {
   ChecksReport,
   ChecksReportCommand,
+  ChecksReportFailingTest,
   ChecksTreeAfterRun,
   ChecksReportCriticalPath,
   ChecksReportFlaky,
@@ -100,6 +103,7 @@ export interface RunChecksOptions {
   checksMaxProcesses?: number;
   flakyMode?: ChecksFlakyMode;
   reuse?: boolean;
+  changeId?: string | null;
   treeIdentity?: (projectRoot: string) => TreeIdentityResult;
   nodeVersion?: string;
 }
@@ -224,6 +228,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     options.reuse !== false && before.identity && rest.length > 0
       ? findReusableRuns(projectRoot, readRunHistory(projectRoot), rest, {
           tree_digest: before.identity.digest,
+          change_id: options.changeId ?? null,
           lockfile_hash: lockHash,
           node_version: nodeVersion,
           build_output_fingerprint: rest.some((command) => command.logical_command === 'build')
@@ -249,7 +254,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   let testRun: ScheduledCommandResult | null = null;
 
   for (const runResult of runResults) {
-    reportCommands.push(toReportCommand(runResult));
+    reportCommands.push(toReportCommand(runResult, projectRoot, runId));
     if (runResult.logical_command !== 'test') {
       results.push(exitCodeResult(runResult, changedFiles, nowIso()));
       continue;
@@ -264,7 +269,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
       (parsed.summary.total === 0 || parsed.parse_metadata.parse_strategy === 'degraded')
     ) {
       const seq = await runOneCommand(shell, profile!.commands.test, projectRoot, nowMs, nowIso);
-      reportCommands.push(toReportCommand(seq));
+      reportCommands.push(toReportCommand(seq, projectRoot, runId));
       testRun = seq;
       parsed = await parseTestCommandOutputAsync(runner, seq, projectRoot, changedFiles);
       testMode = 'sequential';
@@ -384,6 +389,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         logical_command: command.logical_command,
         command: command.command,
         tree_digest: beforeDigest,
+        change_id: options.changeId ?? null,
         ran_at: ran.started_at,
         passed: commandPassed,
         reusable:
@@ -463,6 +469,9 @@ export function buildChecksReport(result: ChecksRunResult, generatedAt: string):
     run_id: result.run_id,
     lockfile_hash: result.lockfile_hash,
     node_version: result.node_version,
+    ...(failingTestsOf(result.results).length > 0
+      ? { failing_tests: failingTestsOf(result.results) }
+      : {}),
   };
 }
 
@@ -540,15 +549,20 @@ function markInconclusive(commands: ChecksReportCommand[]): void {
   commands[index] = { ...commands[index]!, outcome: 'inconclusive' };
 }
 
-function toReportCommand(result: ScheduledCommandResult): ChecksReportCommand {
-  const tail =
-    !result.passed && (result.stdout || result.stderr || result.invalid)
-      ? [result.invalid ?? '', result.stdout, result.stderr]
-          .filter(Boolean)
-          .join('\n')
-          .split('\n')
-          .slice(-OUTPUT_TAIL_LINES)
-      : undefined;
+function toReportCommand(
+  result: ScheduledCommandResult,
+  projectRoot?: string,
+  runId?: string,
+): ChecksReportCommand {
+  const failedWithOutput = !result.passed && (result.stdout || result.stderr || result.invalid);
+  const full = failedWithOutput
+    ? [result.invalid ?? '', result.stdout, result.stderr].filter(Boolean).join('\n')
+    : '';
+  const tail = failedWithOutput ? full.split('\n').slice(-OUTPUT_TAIL_LINES) : undefined;
+  const log =
+    failedWithOutput && projectRoot && runId
+      ? writeFullOutputLog(projectRoot, runId, result.logical_command ?? result.command, full)
+      : null;
   return {
     logical_command: result.logical_command,
     command: result.command,
@@ -559,7 +573,46 @@ function toReportCommand(result: ScheduledCommandResult): ChecksReportCommand {
     ended_at: result.ended_at,
     duration_ms: result.duration_ms,
     ...(tail && tail.length > 0 ? { output_tail: tail } : {}),
+    ...(log ? { output_log: log } : {}),
   };
+}
+
+export function checksRunLogPath(runId: string, command: string): string {
+  const name = command.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'command';
+  return `${PATHS.CHECKS_RUNS_DIR}/${runId}/${name}.log`;
+}
+
+function writeFullOutputLog(
+  projectRoot: string,
+  runId: string,
+  command: string,
+  output: string,
+): string | null {
+  const relative = checksRunLogPath(runId, command);
+  try {
+    const target = join(projectRoot, relative);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, output.endsWith('\n') ? output : `${output}\n`, 'utf8');
+    return relative;
+  } catch {
+    return null;
+  }
+}
+
+export function failingTestsOf(
+  results: readonly StructuredTestResult[],
+): ChecksReportFailingTest[] {
+  const out: ChecksReportFailingTest[] = [];
+  for (const result of results) {
+    for (const issue of [...(result.failures ?? []), ...(result.errors ?? [])]) {
+      out.push({
+        test_id: issue.test_id,
+        file_path: issue.file_path ?? null,
+        line_number: issue.line_number ?? null,
+      });
+    }
+  }
+  return out;
 }
 
 async function runOneCommand(

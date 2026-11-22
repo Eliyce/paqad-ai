@@ -1,9 +1,21 @@
-import { existsSync, mkdirSync, utimesSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { releaseLock, tryAcquireLock } from '@/background/single-flight-lock.js';
+import {
+  releaseLock,
+  tryAcquireFileLock,
+  tryAcquireLock,
+  UNPARSEABLE_LOCK_GRACE_MS,
+} from '@/background/single-flight-lock.js';
 
 import { withTempDir } from '../skills/_helpers/temp-fs.js';
 
@@ -90,6 +102,68 @@ describe('releaseLock', () => {
   it('is a no-op when no lock is held', () => {
     withTempDir((dir) => {
       expect(() => releaseLock(join(dir, 'absent.lock'))).not.toThrow();
+    });
+  });
+});
+
+describe('tryAcquireFileLock reclaim (AC-29)', () => {
+  interface Holder {
+    pid: number;
+  }
+  const parse = (text: string): Holder | null => {
+    try {
+      const value = JSON.parse(text) as Holder;
+      return Number.isInteger(value.pid) ? value : null;
+    } catch {
+      return null;
+    }
+  };
+
+  it('AC-29 reclaims an unparseable lock file once it is older than the grace, never sooner', () => {
+    withTempDir((dir) => {
+      const path = join(dir, 'locks', 'heavy.json');
+      mkdirSync(join(dir, 'locks'));
+      writeFileSync(path, '');
+      const written = Date.now();
+      const young = tryAcquireFileLock(path, {
+        body: { pid: 1 },
+        parse,
+        holderGone: () => true,
+        now: () => written + 1_000,
+      });
+      expect(young).toEqual({ acquired: false, holder: null });
+      const old = tryAcquireFileLock(path, {
+        body: { pid: 1 },
+        parse,
+        holderGone: () => true,
+        now: () => written + UNPARSEABLE_LOCK_GRACE_MS + 5_000,
+      });
+      expect(old.acquired).toBe(true);
+      expect(parse(readFileSync(path, 'utf8'))).toEqual({ pid: 1 });
+    });
+  });
+
+  it('AC-29 lets only one of two waiters win when both judge the old holder gone', () => {
+    withTempDir((dir) => {
+      const path = join(dir, 'heavy.json');
+      writeFileSync(path, JSON.stringify({ pid: 9 }));
+      let first: ReturnType<typeof tryAcquireFileLock<Holder>> | null = null;
+      const second = tryAcquireFileLock<Holder>(path, {
+        body: { pid: 2 },
+        parse,
+        holderGone: () => {
+          first = tryAcquireFileLock<Holder>(path, {
+            body: { pid: 1 },
+            parse,
+            holderGone: (holder) => holder.pid === 9,
+          });
+          return true;
+        },
+      });
+      expect(first).toMatchObject({ acquired: true, reclaimed: { pid: 9 } });
+      expect(second).toEqual({ acquired: false, holder: { pid: 1 } });
+      expect(parse(readFileSync(path, 'utf8'))).toEqual({ pid: 1 });
+      expect(readdirSync(dir)).toEqual(['heavy.json']);
     });
   });
 });

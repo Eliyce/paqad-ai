@@ -4,7 +4,12 @@ import type { AgentRole } from '@/core/types/agent.js';
 import type { ExpertRosterEntry } from '../run-store.js';
 import type { GroundingArtifact, LabelArtifact } from '../types.js';
 import { planExpertSlices } from './slice.js';
-import type { ExpertNeed } from './types.js';
+import {
+  FINDING_KINDS,
+  FINDING_SEVERITIES,
+  HIGH_TABLE_WRITE_PATH,
+  type ExpertNeed,
+} from './types.js';
 
 const CHARS_PER_TOKEN = 4;
 
@@ -124,7 +129,10 @@ function renderBrief(input: RenderExpertBriefInput, pointers: FittedGrounding): 
   lines.push(`- Lens: \`${lensPathForRole(need.role)}\``);
   lines.push(`- Why you were brought in: ${need.reason}`);
   lines.push(`- Granted budget: ${input.granted} tokens`);
-  lines.push(`- Grounding truncated: ${pointers.truncated ? 'yes' : 'no'}`, '');
+  lines.push(`- Grounding truncated: ${pointers.truncated ? 'yes' : 'no'}`);
+  lines.push(`- Write path: \`${HIGH_TABLE_WRITE_PATH}\` only`);
+  lines.push(`- Finding kinds: ${FINDING_KINDS.join(', ')}`);
+  lines.push(`- Finding severities: ${FINDING_SEVERITIES.join(', ')}`, '');
 
   lines.push('## Request', '', input.request.trim(), '');
 

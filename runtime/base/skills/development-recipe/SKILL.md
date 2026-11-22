@@ -31,6 +31,14 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 7. On a business choice, run `paqad-ai decision create`, on `earlier_check` scan the titles, read up to 5 with `decision check <id> --read` and run `decision suggest`, on `"reused": true` carry on as your rules say, and unless it was reused return `paused: D-<id>` and wait to be resumed with the answer.
 8. End with `paqad-ai stage end development --agent paqad-development`. It runs the `check-ac-map.mjs` check itself and refuses when a criterion has no test, printing which.
 
+## When You Build A Slice
+
+When the lead dispatched you with a slice brief for one workstream:
+
+1. Export `SE_WORKSTREAM=<id>` and run `paqad-ai stage slice start <id>`. Edit only the files the slice brief names, and keep its progress file updated.
+2. Run `paqad-ai stage slice gate <id>` until it passes, then `paqad-ai stage slice done <id>`.
+3. Return DONE with the handback file once slice done is accepted, or BLOCKED after opening a packet. Never run `paqad-ai stage end development`: the lead signs the stage off.
+
 ## Read This Path
 
 - For the full scope method, read `base/skills/scope-check/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.

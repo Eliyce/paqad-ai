@@ -164,6 +164,21 @@ describe('runChecks reuse of a green run on the same tree', () => {
     expect(lines.some((line) => line.includes('format passed'))).toBe(true);
   });
 
+  it('AC-42 reuses a green run only for the same change id and untracked tree', async () => {
+    const root = project();
+    writeRepoFile(root, 'src/draft.ts', 'export const draft = 1;\n');
+    const first = await run(root, fakeShell(root), { changeId: 'change-a' });
+    expect(first.passed).toBe(true);
+    const same = await run(root, fakeShell(root), { changeId: 'change-a' });
+    expect(same.reused).toBe(2);
+    const other = await run(root, fakeShell(root), { changeId: 'change-b' });
+    expect(other.reused).toBe(0);
+    await run(root, fakeShell(root), { changeId: 'change-a' });
+    writeRepoFile(root, 'src/draft.ts', 'export const draft = 2;\n');
+    const edited = await run(root, fakeShell(root), { changeId: 'change-a' });
+    expect(edited.reused).toBe(0);
+  });
+
   it('AC-2: runs for real after a tracked edit, a new untracked file or a deleted tracked file', async () => {
     const root = project();
     await seedGreen(root);

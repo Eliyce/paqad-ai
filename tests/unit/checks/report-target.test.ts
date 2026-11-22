@@ -106,10 +106,10 @@ describe('checks report target', () => {
       expect(readChecksReportForFeature(root, dir)?.passed).toBe(true);
     });
 
-    it('falls back to the global path when the active bundle carries no report', () => {
+    it('AC-13 never falls back to the global path while a change is active', () => {
       const dir = resolveActiveFeature(root, 'ses-r2', { title: 'thing', issue: '528' });
       writeChecksReport(root, report(false));
-      expect(readChecksReportForFeature(root, dir)?.passed).toBe(false);
+      expect(readChecksReportForFeature(root, dir)).toBeNull();
     });
 
     it('reads the global path when no feature is active', () => {

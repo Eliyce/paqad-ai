@@ -4,13 +4,14 @@ import { join } from 'node:path';
 import fg from 'fast-glob';
 
 import { DecisionStore } from '@/planning/decision-store.js';
-import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { packetHoldsChange, type DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReportForFeature } from '@/checks/report-target.js';
 import type { ChecksReport } from '@/checks/report-store.js';
 import { computeTreeIdentity } from '@/checks/tree-identity.js';
 import type { Lane } from '@/core/types/routing.js';
 import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 import {
   currentFeature,
   readFeatureStageUnit,
@@ -99,7 +100,7 @@ export async function buildRepositoryVerificationContext(
     (message) => appendHooksLog(projectRoot, `verification: ${message}`),
   );
   const traceabilityMap = effectiveTraceabilityMap(changeMap.result?.map ?? null, diskMap);
-  const pendingDecisions = readPendingDecisions(projectRoot);
+  const pendingDecisions = readPendingDecisions(projectRoot, dirName);
   const specReview = await loadSpecReviewSafely(projectRoot);
 
   const acMapping = computeAcTestMapping({
@@ -296,13 +297,14 @@ export async function lastSourceEditAt(
   return Number.isNaN(fileAt) ? null : new Date(fileAt).toISOString();
 }
 
-function readPendingDecisions(projectRoot: string): DecisionPacket[] {
+function readPendingDecisions(projectRoot: string, dirName: string | null): DecisionPacket[] {
+  const changeKey = dirName ? featureChangeKey(dirName) : null;
   const store = new DecisionStore(projectRoot);
   const packets: DecisionPacket[] = [];
   try {
     for (const decisionId of store.listPendingDecisionIds()) {
       const result = store.readPendingResult(decisionId);
-      if (result.packet) {
+      if (result.packet && packetHoldsChange(result.packet, changeKey)) {
         packets.push(result.packet);
       }
     }

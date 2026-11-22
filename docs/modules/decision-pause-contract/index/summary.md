@@ -188,6 +188,18 @@ reasons below are not obvious from the code.
   automatic answer is not offered as "same as last time" until a person reviews it with
   `onboarding choices --review`. The written contract carries a matching Onboarding journey section.
 
+## Packets in a parallel build
+
+When the build stage runs as parallel slices, a pending packet raised for one workstream blocks only that workstream. It blocks the files the workstream owns, matched by file path against the compiled plan, and the files of any workstream that uses its seams. Files no workstream owns, and files the lead owns, stay blocked by any pending packet, as before.
+
+A slice that still fails after its retry on the stronger model raises a packet scoped to its workstream. That packet blocks the end of the development stage until it is resolved.
+
+Answering a slice packet with `drop` closes that slice, so it no longer blocks stage end or the Stop check. A slice that is dispatched again starts with a fresh failure count.
+
+Every chief architect recommendation carries four short quality lines, so the human sees the trade-offs next to the pick.
+
+None of this adds a setting. The scoping and the retry are fixed in code.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

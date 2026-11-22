@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -158,4 +158,23 @@ export function writeClaudePluginStageAgents(destDir: string): string[] {
     written.push(toPosixPath(filePath));
   }
   return written;
+}
+
+export const AGENT_MIRROR_DIRS = ['.claude/agents', 'runtime/claude-plugin/agents'] as const;
+
+export function agentMirrorDrift(root: string): string[] {
+  const drift: string[] = [];
+  for (const dir of AGENT_MIRROR_DIRS) {
+    const managed = dir === '.claude/agents';
+    for (const { name, content } of renderClaudePluginStageAgents()) {
+      const path = join(root, dir, name);
+      if (!existsSync(path)) {
+        if (!managed) drift.push(`${dir}/${name}`);
+        continue;
+      }
+      const expected = managed ? withManagedMarker(content) : content;
+      if (readFileSync(path, 'utf8') !== expected) drift.push(`${dir}/${name}`);
+    }
+  }
+  return drift;
 }

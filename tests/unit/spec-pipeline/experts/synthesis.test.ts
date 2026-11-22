@@ -45,13 +45,32 @@ const merged: MergedExpertNotes = {
   ],
 };
 
+function notes(claim: string) {
+  return {
+    claim,
+    easy_maintenance: `${claim} keeps one code path`,
+    security: 'no new secret is stored',
+    cost_effectiveness: 'no extra service to run',
+    usability: 'the person sees one answer',
+  };
+}
+
+function qualities(...claims: string[]) {
+  return claims.map(notes);
+}
+
 function validSynthesis(): ExpertSynthesis {
   return {
     verdict: 'ready',
     accepted: ['EX-db-expert-1'],
     declined: [],
     conflicts: [
-      { target: 'orders', recommendation: 'denormalise for reads', rationale: 'reads dominate' },
+      {
+        target: 'orders',
+        recommendation: 'denormalise for reads',
+        rationale: 'reads dominate',
+        claim_qualities: qualities('denormalise for reads', 'keep normalised'),
+      },
     ],
     gaps: [],
     questions: [],
@@ -373,7 +392,12 @@ describe('validateExpertSynthesis edge branches', () => {
           accepted: [],
           declined: [],
           conflicts: [
-            { target: 'orders', recommendation: 'a', rationale: 'r' },
+            {
+              target: 'orders',
+              recommendation: 'a',
+              rationale: 'r',
+              claim_qualities: qualities('a', 'b'),
+            },
             { target: 'orders', recommendation: 'b', rationale: 'r' },
           ],
           gaps: [],
@@ -486,6 +510,7 @@ describe('compatible and pick rulings', () => {
         ruling: 'pick',
         recommendation: 'denormalise for reads',
         rationale: 'reads dominate',
+        claim_qualities: qualities('denormalise for reads', 'keep normalised'),
       },
     ]);
   });
@@ -541,6 +566,7 @@ describe('compatible and pick rulings', () => {
             ruling: 'pick',
             recommendation: 'rotate tokens hourly',
             rationale: 'x',
+            claim_qualities: qualities('rotate tokens hourly', 'cache tokens'),
           },
         ],
         securityMerged,
@@ -606,5 +632,28 @@ describe('compatible and pick rulings', () => {
       [],
     );
     expect(result).toEqual({ findings, accepted: [], merged: 0 });
+  });
+});
+
+describe('chief architect quality notes', () => {
+  it('AC-38 refuses a pick missing any one of the four quality notes and names it', () => {
+    for (const missing of ['easy_maintenance', 'security', 'cost_effectiveness', 'usability']) {
+      const synthesis = validSynthesis();
+      const claimQualities = qualities('denormalise for reads', 'keep normalised');
+      delete (claimQualities[1] as Record<string, string>)[missing];
+      synthesis.conflicts[0]!.claim_qualities = claimQualities;
+      const result = validateExpertSynthesis(synthesis, merged);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain(missing.replace(/_/g, ' '));
+      expect(result.error).toContain('keep normalised');
+    }
+  });
+
+  it('AC-38 refuses a quality note that runs over one line', () => {
+    const synthesis = validSynthesis();
+    const claimQualities = qualities('denormalise for reads', 'keep normalised');
+    claimQualities[0]!.security = 'first line\nsecond line';
+    synthesis.conflicts[0]!.claim_qualities = claimQualities;
+    expect(validateExpertSynthesis(synthesis, merged).error).toContain('security');
   });
 });

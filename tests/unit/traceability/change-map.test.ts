@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { StructuredTestResult } from '@/core/types/test-output.js';
+import { readChecksReportForFeature } from '@/checks/report-target.js';
+import { writeChecksReport, writeFeatureChecks } from '@/checks/report-store.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import {
@@ -542,5 +544,70 @@ describe('change scoping over a real git branch (AC-30)', () => {
       lane: 'full',
     });
     expect(proving(built!.map)).toEqual(['AC-1', 'AC-3']);
+  });
+
+  it('AC-6 counts a tracked Go _test.go tag and an untracked test file tag', async () => {
+    const root = makeEmptyRepo('main');
+    roots.push(root);
+    writeRepoFile(root, 'README.md', 'base\n');
+    commitAll(root, 'base');
+    git(root, ['switch', '-q', '-c', 'feat/go-tags']);
+    const dir = openChange(root, 'ses-go');
+    writeRepoFile(
+      root,
+      'store/db_test.go',
+      '// @obligation AC-1\nfunc TestStore(t *testing.T) {}\n',
+    );
+    commitAll(root, 'go test');
+    writeRepoFile(root, 'store/cache_test.py', '# @obligation AC-2\ndef test_cache(): pass\n');
+    writeSpec(root, dir, [
+      { id: 'AC-1', proof: 'automated' },
+      { id: 'AC-2', proof: 'automated' },
+    ]);
+    const changedFiles = (await loadChangeEvidence(root)).files;
+    expect(changedFiles).toContain('store/cache_test.py');
+    const built = buildChangeTraceabilityMap({
+      projectRoot: root,
+      dirName: dir,
+      changedFiles,
+      lane: 'full',
+    });
+    expect(proving(built!.map)).toEqual(['AC-1', 'AC-2']);
+  });
+
+  it("AC-27 AC-13 ignores a non-test Go tag, a deleted untracked test and another change's failing report", async () => {
+    const root = makeEmptyRepo('main');
+    roots.push(root);
+    writeRepoFile(root, 'README.md', 'base\n');
+    commitAll(root, 'base');
+    git(root, ['switch', '-q', '-c', 'feat/go-tags']);
+    const dir = openChange(root, 'ses-27');
+    writeRepoFile(root, 'store/db.go', '// @obligation AC-1\npackage store\n');
+    writeRepoFile(root, 'store/gone_test.go', '// @obligation AC-2\n');
+    rmSync(join(root, 'store/gone_test.go'));
+    writeRepoFile(root, 'store/rows_test.go', '// @obligation AC-8\n');
+    writeChecksReport(root, {
+      schema_version: 3,
+      passed: false,
+      ran: true,
+      results: [failingResult('AC-8 rows load')],
+    });
+    writeFeatureChecks(root, dir, { schema_version: 3, passed: true, ran: true, results: [] });
+    writeSpec(root, dir, [
+      { id: 'AC-1', proof: 'automated' },
+      { id: 'AC-2', proof: 'automated' },
+      { id: 'AC-8', proof: 'automated' },
+    ]);
+    const changedFiles = [...(await loadChangeEvidence(root)).files, 'store/gone_test.go'];
+    const report = readChecksReportForFeature(root, dir);
+    expect(report?.results).toEqual([]);
+    const built = buildChangeTraceabilityMap({
+      projectRoot: root,
+      dirName: dir,
+      changedFiles,
+      testResults: report?.results,
+      lane: 'full',
+    });
+    expect(proving(built!.map)).toEqual(['AC-8']);
   });
 });

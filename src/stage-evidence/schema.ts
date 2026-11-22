@@ -9,6 +9,11 @@ import {
   RECORD_REPAIR_KIND,
   REPORT_SOURCES,
   SKILL_USED_KIND,
+  SLICE_DONE_KIND,
+  SLICE_END_REFUSED_KIND,
+  SLICE_GATE_KIND,
+  SLICE_KIND_LIST,
+  SLICE_START_KIND,
   SPEC_CORRECTION_KIND,
   SPEC_STEP_KIND,
   SPEC_STEP_OUTCOMES,
@@ -147,6 +152,16 @@ const V3_ROW_PROPERTIES = {
   script: { type: 'string', minLength: 1 },
   output_hash: { type: 'string', minLength: 1 },
   stale_ok: { type: 'array', items: { type: 'string', minLength: 1 } },
+  workstream: { type: 'string', minLength: 1 },
+  failures: { type: 'array', items: { type: 'string', minLength: 1 } },
+  digest: { type: 'string', minLength: 1 },
+  slowest_step: { type: 'string', minLength: 1 },
+  model: { type: 'string', minLength: 1 },
+  effort: { type: 'string', minLength: 1 },
+  files: { type: 'array', items: { type: 'string', minLength: 1 } },
+  pid: { type: 'integer', minimum: 1 },
+  pgid: { type: 'integer', minimum: 1 },
+  holder_pid: { type: 'integer', minimum: 1 },
 } as const;
 
 export const STAGE_EVIDENCE_SCHEMA = {
@@ -162,6 +177,7 @@ export const STAGE_EVIDENCE_SCHEMA = {
         STAGE_HANDBACK_KIND,
         RECIPE_INJECTED_KIND,
         SKILL_USED_KIND,
+        ...SLICE_KIND_LIST,
       ],
     },
   },
@@ -178,6 +194,17 @@ export const STAGE_EVIDENCE_SCHEMA = {
     {
       if: { properties: { kind: { const: SKILL_USED_KIND } }, required: ['kind'] },
       then: { required: ['stage', 'recipe', 'source', 'script', 'output_hash'] },
+    },
+    {
+      if: {
+        properties: {
+          kind: {
+            enum: [SLICE_START_KIND, SLICE_GATE_KIND, SLICE_DONE_KIND, SLICE_END_REFUSED_KIND],
+          },
+        },
+        required: ['kind'],
+      },
+      then: { required: ['workstream'] },
     },
   ],
 } as const;

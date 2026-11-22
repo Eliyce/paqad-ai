@@ -13,7 +13,17 @@ import {
   sessionChecksTarget,
   writeChecksReportForFeature,
 } from '@/checks/report-target.js';
-import { clearChecksRunningMarker, writeChecksRunningMarker } from '@/checks/running-marker.js';
+import {
+  clearAgentRunRecord,
+  clearChecksRunningMarker,
+  writeChecksRunningMarker,
+} from '@/checks/running-marker.js';
+import {
+  acquireHeavyRunLock,
+  describeHeavyRunHolder,
+  recordAgentRun,
+  recordHeavyRunReclaim,
+} from '@/checks/heavy-run-lock.js';
 import { recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
 import { buildAndWriteChangeTraceabilityMap } from '@/traceability/index.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
@@ -60,9 +70,23 @@ export function createChecksCommand(): Command {
           started_at: new Date().toISOString(),
         });
       } catch {}
+      const lease = await acquireHeavyRunLock({
+        projectRoot: options.projectRoot,
+        label: 'paqad-ai checks run',
+        session: sessionId,
+        onWait: (holder) =>
+          console.error(
+            `⏳ waiting in line: ${describeHeavyRunHolder(holder)} holds the heavy-run lock`,
+          ),
+        onReclaim: (holder) =>
+          recordHeavyRunReclaim(options.projectRoot, sessionId, startedOn, holder),
+      });
+      recordAgentRun(options.projectRoot, sessionId, 'paqad-ai checks run');
       try {
         await runAndRecordChecks(options, sessionId, startedOn);
       } finally {
+        clearAgentRunRecord(options.projectRoot, process.pid);
+        lease.release();
         clearChecksRunningMarker(options.projectRoot, sessionId, process.pid);
       }
     });
@@ -199,9 +223,11 @@ async function runAndRecordChecks(
     projectRoot: options.projectRoot,
     changedFiles,
     reuse: options.reuse,
+    changeId: sessionChecksTarget(options.projectRoot, sessionId, startedOn),
   });
 
   const dirName = sessionChecksTarget(options.projectRoot, sessionId, startedOn);
+
   writeChecksReportForFeature(
     options.projectRoot,
     dirName,

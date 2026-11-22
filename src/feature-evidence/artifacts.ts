@@ -1,9 +1,12 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import { readRawModuleMap } from '@/module-map/reconciler.js';
 import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
+import { renderSlicingViolation, validateSlicing, type Workstream } from '@/planning/slicing.js';
 import { openVisualEvidenceReadinessPause } from '@/visual-evidence/readiness.js';
 
 import { documentSessionId, stampFeatureDocument } from './bundle-document.js';
@@ -53,8 +56,73 @@ export interface PlanCompileInput {
   decisions?: string[];
   risks?: PlanRisk[];
   reuse?: PlanReuse;
+  workstreams?: Partial<Workstream>[];
   title?: string;
   now?: () => Date;
+}
+
+export class SlicingRuleError extends Error {
+  readonly errors: string[];
+  constructor(errors: string[]) {
+    super(errors.join('\n'));
+    this.name = 'SlicingRuleError';
+    this.errors = errors;
+  }
+}
+
+function moduleResolver(projectRoot: string): (file: string) => string | null {
+  const map = readRawModuleMap(projectRoot);
+  if (!map) return () => null;
+  const clean = (p: string): string => p.replace(/^\.\//, '').replace(/\/+$/, '');
+  return (file) => {
+    let best: { slug: string; length: number } | null = null;
+    for (const mod of map.modules) {
+      for (const source of mod.sources.map(clean)) {
+        if (source.length === 0) continue;
+        if (
+          (file === source || file.startsWith(`${source}/`)) &&
+          source.length > (best?.length ?? -1)
+        ) {
+          best = { slug: mod.slug, length: source.length };
+        }
+      }
+    }
+    return best?.slug ?? null;
+  };
+}
+
+function compileSlicing(
+  projectRoot: string,
+  dirName: string,
+  input: PlanCompileInput,
+): Pick<PlanRecord, 'workstreams' | 'waves' | 'joining'> | undefined {
+  if (!input.workstreams || input.workstreams.length === 0) return undefined;
+  const spec = readFeatureSpecification(projectRoot, dirName);
+  const criteria = Array.isArray(spec?.acceptance_criteria)
+    ? spec.acceptance_criteria
+        .filter((c) => c.proof_type === 'automated')
+        .map((c) => c.criterion_id)
+    : null;
+  const result = validateSlicing({
+    workstreams: input.workstreams,
+    stepFiles: [...new Set((input.steps ?? []).flatMap((step) => step.files ?? []))],
+    criteria,
+    moduleOf: moduleResolver(projectRoot),
+    cores: availableParallelism(),
+  });
+  if (result.violations.length > 0) {
+    throw new SlicingRuleError(result.violations.map(renderSlicingViolation));
+  }
+  return {
+    workstreams: result.workstreams.map((w) => ({
+      ...w,
+      size_budget: input.workstreams!.find((raw) => raw.id === w.id)?.size_budget ?? {
+        files: (input.steps ?? []).length,
+      },
+    })),
+    waves: result.waves,
+    joining: result.joining,
+  };
 }
 
 export class ReuseDeclarationError extends Error {
@@ -151,7 +219,9 @@ export function writeFeaturePlan(
       }
     }
   }
+  const slicing = compileSlicing(projectRoot, dirName, input);
   const record = buildPlanRecord({
+    slicing,
     change: parts.ulid,
     session_id: sessionId,
     summary: input.summary,

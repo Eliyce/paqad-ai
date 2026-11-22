@@ -17,6 +17,7 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { bundleLedgerEra } from '@/stage-evidence/ledger-era.js';
 import { extractAssistantText } from '@/stage-evidence/marker-parse.js';
 import { readRepairedReports, REPORT_REPAIR_REASON } from '@/stage-evidence/report-repair.js';
+import { foldSlices, sliceOfAgent } from '@/stage-evidence/slices.js';
 import {
   STAGE_AGENT_KIND,
   STAGE_HANDBACK_KIND,
@@ -68,6 +69,10 @@ export function missingRequirementReason(stage: string): string {
   return `${stage} ended without ${what}; run \`${stageEndCommand(stage)}\` first`;
 }
 
+export function missingSliceDoneReason(slice: string): string {
+  return `slice ${slice} has no slice_done row; run \`paqad-ai stage slice gate ${slice}\` and \`paqad-ai stage slice done ${slice}\` first`;
+}
+
 export function currentStageOfAgent(
   rows: readonly Row[],
   agentId: string | null,
@@ -101,11 +106,17 @@ function endRowProvesStage(row: Row, stage: string): boolean {
   return stringField(row.artifact_digest) !== null && named;
 }
 
+function agentSlice(rows: readonly Row[], stage: string, agentId: string | null): string | null {
+  return stage === 'development' ? sliceOfAgent(rows, agentId) : null;
+}
+
 export function stageRequirementMet(
   rows: readonly Row[],
   stage: string,
   agentId: string | null,
 ): boolean {
+  const slice = agentSlice(rows, stage, agentId);
+  if (slice !== null) return foldSlices(rows).get(slice)?.done === true;
   const anchor = requirementAnchor(rows, stage, agentId);
   return rows.slice(anchor + 1).some((row) => endRowProvesStage(row, stage));
 }
@@ -180,7 +191,8 @@ export function judgeStageReport(input: JudgeReportInput): ReportJudgement {
     const clean = input.checksRed !== true && (input.violations?.length ?? 0) === 0;
     return { outcome: 'pass', ...settled, advance: clean };
   }
-  const reason = missingRequirementReason(stage);
+  const slice = agentSlice(rows, stage, agentId);
+  const reason = slice === null ? missingRequirementReason(stage) : missingSliceDoneReason(slice);
   if (refusalsSinceLastPass(rows, agentId, stage).length >= REFUSAL_CEILING) {
     return {
       outcome: 'ceiling',
@@ -226,7 +238,8 @@ const PASS_WITHOUT_ROW: HandbackDecision = { exit: 0, wrote: false };
 function agentKnownToLedger(rows: readonly Row[], agentId: string): boolean {
   return rows.some(
     (row) =>
-      row.agent_id === agentId && (row.kind === STAGE_AGENT_KIND || row.kind === 'stage_start'),
+      row.agent_id === agentId &&
+      (row.kind === STAGE_AGENT_KIND || row.kind === 'stage_start' || row.kind === 'slice_start'),
   );
 }
 

@@ -19,6 +19,7 @@ import {
   writeChecksReport,
   writeFeatureChecks,
 } from '@/checks/report-store.js';
+import { activeFeatureDirOrNull } from '@/checks/report-target.js';
 import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 
@@ -220,8 +221,20 @@ describe('checks report freshness against the current tree', () => {
     writeRepoFile(root, '.paqad/decisions/pending/D-1.json', '{"id":"D-1"}\n');
     expect((await contextOf(root)).checks_report_stale).toBeUndefined();
 
+    const tree = computeTreeIdentity(root)!;
     writeRepoFile(root, 'src/app.ts', 'export const a = 2;\n');
     ownInFlightChange(root);
+    const active = activeFeatureDirOrNull(root);
+    if (active) {
+      writeFeatureChecks(root, active, {
+        schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+        generated_at: '2026-01-01T00:00:00.000Z',
+        passed: true,
+        ran: true,
+        results: [structuredResult('test', 0)],
+        tree,
+      });
+    }
     const context = await contextOf(root);
     expect(context.checks_report_stale).toBe('different-files');
     const verdict = await runRepositoryVerification({

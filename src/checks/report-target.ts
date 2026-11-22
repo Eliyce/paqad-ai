@@ -52,10 +52,7 @@ export function readChecksReportForFeature(
   projectRoot: string,
   dirName: string | null,
 ): ChecksReport | null {
-  if (dirName) {
-    const fromBundle = readFeatureChecks(projectRoot, dirName);
-    if (fromBundle) return fromBundle;
-  }
+  if (dirName) return readFeatureChecks(projectRoot, dirName);
   return readChecksReport(projectRoot);
 }
 

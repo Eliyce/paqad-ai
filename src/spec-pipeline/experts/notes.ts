@@ -9,6 +9,8 @@ import { checkPlainLanguage, type PlainLanguageSources } from '../plain-language
 import type { PipelineQuestion, VocabularyEntry } from '../types.js';
 import { isExpertRole } from './roster.js';
 import {
+  FINDING_KINDS,
+  FINDING_SEVERITIES,
   QA_ROLE,
   type ExpertFinding,
   type ExpertNote,
@@ -18,15 +20,6 @@ import {
   type QaVerdictStatus,
   type VoiceWarning,
 } from './types.js';
-
-const FINDING_KINDS: readonly FindingKind[] = [
-  'requirement',
-  'invariant',
-  'acceptance',
-  'risk',
-  'non-goal',
-];
-const FINDING_SEVERITIES: readonly FindingSeverity[] = ['must', 'should', 'could'];
 
 export interface ExpertNotesArtifact {
   notes: ExpertNote[];

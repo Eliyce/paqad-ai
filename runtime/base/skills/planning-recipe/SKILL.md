@@ -32,6 +32,10 @@ You are the paqad stage agent for this stage. Your injected copy is the truth fo
 7. Attribute each step to its module with `docs/instructions/rules/module-map.yml` when the project has one.
 8. Write the template under `.paqad/tmp/` and run `paqad-ai plan compile <plan-template.json>`. It runs the `check-plan.mjs` check itself and refuses a plan that fails, printing the errors. Fix them and run it again.
 
+## Workstreams
+
+When the work splits into parts that can be built at once, add `workstreams` to the plan template: each with its owned files, criteria, seams and risk. Order them with the `sequence-planner` skill, and let `paqad-ai plan compile` check the slicing rules and print any it breaks.
+
 ## Read This Path
 
 - When the plan touches more than one module, read `base/skills/cross-module-impact-scanner/SKILL.md` under the install directory that `.paqad/framework-path.txt` names.

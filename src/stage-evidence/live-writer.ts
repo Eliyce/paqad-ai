@@ -5,6 +5,7 @@ import { titleActiveFeature } from '@/feature-evidence/rename.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 export { activeChangeKey, peekActiveChangeKey } from '@/feature-evidence/stage-ledger.js';
+export { scopedPacketsBlocking } from './slices.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 

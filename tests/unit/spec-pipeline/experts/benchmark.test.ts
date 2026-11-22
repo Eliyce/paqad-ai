@@ -43,7 +43,7 @@ import {
 
 const CHANGES = ['ORD-501', 'ORD-502', 'ORD-503'];
 
-const MAIN_BRIEF_HASH = 'c792638b34f02db41621412177f48fdcb1fbdd18fcad5bff3bb286db80de4bd1';
+const MAIN_BRIEF_HASH = '168dcc1f0841f317d1d646f9d3741790e1a0a79a879d9e38a704a840384bf667';
 const MAIN_NOTES = {
   ok: true,
   artifact: {

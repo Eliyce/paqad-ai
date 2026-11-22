@@ -145,7 +145,8 @@ and documentation:
 
 On the hook and backstop path the implementation-review signal comes from the decision store
 (`computeImplementationReview` in `src/verification/repository/judgment-inputs.ts`). A pending
-decision opened before the change's last source edit blocks the change, because the agent kept
+decision holds up only the change it names, or every change when it names none
+(`packetHoldsChange` in `src/planning/decision-packet.ts`). A pending decision opened before the change's last source edit blocks the change, because the agent kept
 editing past an open question. A pending decision opened after the last source edit is not a
 defect: it is the agent pausing as it should, so it goes on a waiting list instead. The last
 source edit is the latest `development` row in the active bundle, else the newest modified
@@ -227,6 +228,16 @@ The Stop hook imports the depth-one `dist/index.js`, while the CLI runs the dept
 `tests/e2e/dist-runtime-root.e2e.test.ts` imports the built bundles and runs the real
 `verify-backstop.mjs` on a fixture, so a wrong root fails loudly instead of reading as "no
 packs, nothing to check".
+
+## Checks in a parallel build
+
+- **One report per change.** The checks report is written for the change it ran for, so two changes never read each other's result.
+- **More tests count.** Go `_test.go` files and test files git does not track yet both count in ac-test-mapping.
+- **Full failing output.** A failure keeps its whole output, with the failing test's file and line.
+- **Reuse only on a match.** A green run is reused only for the same change and the same files.
+- **One heavy run per machine.** A lock lets only one heavy run (full tests, build) go at a time across the machine, so parallel slices take turns.
+
+None of this adds a setting. Every default is fixed in code.
 
 ## Gate states and record ownership
 

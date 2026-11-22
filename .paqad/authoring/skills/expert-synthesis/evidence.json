@@ -1,17 +1,17 @@
 {
   "schema_version": "1",
   "skill": "expert-synthesis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "host": "claude-code",
-  "folder_hash": "sha256:bab1bd2f9b8ffa8b8dcdb61ce664a206a32b566570150fda8c0fa483e761561b",
+  "folder_hash": "sha256:a70e3e19ef5c42175c721b4a1882a535f71d968ab341f7c91f4384347a0dd8a1",
   "baseline": {
     "runs": 3,
     "passed": null,
-    "verdict": "overridden"
+    "verdict": "needed"
   },
   "sources": {
-    "count": 0,
-    "non_model": 0,
+    "count": 9,
+    "non_model": 9,
     "kind": "repo"
   },
   "lint": {
@@ -37,42 +37,21 @@
   },
   "overrides": [
     {
-      "gate": "S0",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T07:11:12.037Z"
-    },
-    {
-      "gate": "S1",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T07:11:13.564Z"
-    },
-    {
-      "gate": "S2",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
-      "by": "human",
-      "at": "2026-11-02T07:11:15.004Z"
-    },
-    {
       "gate": "S5",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner chose add-unverified on 2026-11-22: same as development-recipe and planning-recipe; S5/S6 need model calls, S1-S4 passed.",
       "by": "human",
-      "at": "2026-11-02T07:11:16.447Z"
+      "at": "2026-11-22T13:15:54.915Z"
     },
     {
       "gate": "S6",
-      "reason": "Owner decisions D-01M6CG6W9M6GN70AW52REH71SZ and D-01M6CYQ0JFG84Y6JXY78QBM485",
+      "reason": "Owner chose add-unverified on 2026-11-22: same as development-recipe and planning-recipe; S5/S6 need model calls, S1-S4 passed.",
       "by": "human",
-      "at": "2026-11-02T07:11:17.943Z"
+      "at": "2026-11-22T13:15:55.868Z"
     }
   ],
   "decisions": [
-    "D-01M6DHJ29DC1HGCN9E5A6WEQ00",
-    "D-01M6DHJ3SQWFFHMVX3G7T4P3VD",
-    "D-01M6DHJ560K8Q4BTST35ZWP88V",
-    "D-01M6DHJ6K8SS0216AH1BR3M7GM",
-    "D-01M6DHJ81JT64EMYE6AVFQQET2"
+    "D-01M81HV96ZZ2GSGDRS48SG5N0Z",
+    "D-01M81HVFJEE64HPBJ69GGMTM7Z"
   ],
   "labels": [
     "unverified"

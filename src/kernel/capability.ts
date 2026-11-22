@@ -40,6 +40,11 @@ import { PATHS } from '@/core/constants/paths.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
+import {
+  formatSliceWriteRefusal,
+  sliceWriteRefusal,
+  type SliceWriteRefusal,
+} from '@/stage-evidence/slices.js';
 import { changeIsFeatureDev, isFeatureDevEdit } from '@/stage-evidence/scope.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 import {
@@ -189,6 +194,19 @@ function payloadSessionId(
   payload: CapabilityPayload | undefined,
 ): string {
   return resolveSessionId(projectRoot, payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null);
+}
+
+function sliceAgentWriteRefusal(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  payload: CapabilityPayload | undefined,
+  targets: readonly string[],
+): SliceWriteRefusal | null {
+  const agentId = typeof payload?.agentId === 'string' ? payload.agentId : null;
+  if (agentId === null || targets.length === 0) return null;
+  const dirName = currentFeature(projectRoot, payloadSessionId(projectRoot, env, payload));
+  if (!dirName) return null;
+  return sliceWriteRefusal({ projectRoot, dirName, agentId, targets });
 }
 
 function payloadTargets(payload: CapabilityPayload | undefined): string[] {
@@ -547,6 +565,10 @@ const stagesCapability: Capability = {
     });
     if (writeDecision.blocked) {
       return { ran: true, blocking: true, summary: formatStageAgentWriteSummary(writeDecision) };
+    }
+    const sliceRefusal = sliceAgentWriteRefusal(projectRoot, env, payload, targets);
+    if (sliceRefusal !== null) {
+      return { ran: true, blocking: true, summary: formatSliceWriteRefusal(sliceRefusal) };
     }
     const unresolvedAgent = unresolvedStageAgent(payload?.agentType);
     if (unresolvedAgent !== null) {

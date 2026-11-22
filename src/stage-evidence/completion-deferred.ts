@@ -25,6 +25,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
+import { deadSlices, developmentEnded, droppedSlices, runningSlices } from './slices.js';
 import { liveStageAgents, STAGE_AGENT_SESSION_RELEASE } from './stage-agent-holds.js';
 import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND } from './types.js';
 
@@ -174,6 +175,31 @@ export interface DeferCompletionResult {
   reason?: string;
   tasks?: number;
   nextStage?: string;
+  stoppedSlices?: string[];
+  stoppedSlicesNote?: string;
+}
+
+export const SLICES_RUNNING_REASON = 'slices running';
+
+function sliceHold(
+  projectRoot: string,
+  dirName: string | null,
+  rows: readonly SessionLedgerRow[],
+  nowMs: number,
+): { running: number; stopped: string[] } {
+  if (dirName === null || developmentEnded(rows)) return { running: 0, stopped: [] };
+  const dropped = droppedSlices(projectRoot, dirName, rows);
+  return {
+    running: runningSlices(rows, nowMs, dropped).length,
+    stopped: deadSlices(rows, nowMs, dropped).map((slice) => slice.id),
+  };
+}
+
+export function stoppedSlicesNote(ids: readonly string[]): string {
+  return (
+    `paqad: slice ${ids.join(', ')} stopped before slice done. Dispatch it again, or answer a packet ` +
+    'to drop it, before stage end development.'
+  );
 }
 
 function pendingDecisionOf(projectRoot: string, dirName: string): boolean {
@@ -200,8 +226,19 @@ export function deferCompletionForBackgroundStage(
     dirName !== null &&
     !hasOpenUnendedStage(rows) &&
     isBetweenStages(input.projectRoot, sessionId, dirName);
-  if (tasks.length === 0 && !checksRunning && ledgerAgents === 0 && !betweenStages) {
-    return { deferred: false };
+  const slices = sliceHold(input.projectRoot, dirName, rows, now().getTime());
+  const stopped =
+    slices.stopped.length > 0
+      ? { stoppedSlices: slices.stopped, stoppedSlicesNote: stoppedSlicesNote(slices.stopped) }
+      : {};
+  if (
+    tasks.length === 0 &&
+    !checksRunning &&
+    ledgerAgents === 0 &&
+    !betweenStages &&
+    slices.running === 0
+  ) {
+    return { deferred: false, ...stopped };
   }
 
   let reason: string;
@@ -216,6 +253,9 @@ export function deferCompletionForBackgroundStage(
   } else if (ledgerAgents > 0) {
     reason = 'stage agent running in background';
     count = ledgerAgents;
+  } else if (slices.running > 0) {
+    reason = SLICES_RUNNING_REASON;
+    count = slices.running;
   } else if (betweenStages) {
     reason = 'between stages';
     count = tasks.length;
@@ -223,10 +263,13 @@ export function deferCompletionForBackgroundStage(
     reason = 'background task running while a stage is open';
     count = tasks.length;
   } else {
-    return { deferred: false };
+    return { deferred: false, ...stopped };
   }
 
-  const clockFree = reason === 'between stages' || (stageAgents === 0 && ledgerAgents > 0);
+  const clockFree =
+    reason === 'between stages' ||
+    reason === SLICES_RUNNING_REASON ||
+    (stageAgents === 0 && ledgerAgents > 0);
   if (!clockFree && deferralCeilingReached(rows, now)) {
     return { deferred: false };
   }
@@ -285,3 +328,4 @@ export function onboardingStopNudge(
   });
   return `paqad: onboarding is between steps and ${statusLine(current)} has not started. Run \`paqad-ai onboarding next\` and carry on, or \`paqad-ai onboarding abandon\` to pause.`;
 }
+export { sliceEndCommandRefusal } from './slices.js';

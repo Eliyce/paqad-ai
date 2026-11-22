@@ -315,3 +315,39 @@ describe('the questions step waits only on its own change', () => {
     expect(hasPendingExpertConflict(root, DIR_B)).toBe(true);
   });
 });
+
+describe('chief architect quality notes on packet options', () => {
+  it('AC-4 copies one line per quality to every option and leaves the packet pending', () => {
+    const root = tempRoot();
+    const claims = merged.conflicts[0]!.claims;
+    const ruled: SynthesisConflict[] = [
+      {
+        ...synthesisConflicts[0]!,
+        ruling: 'pick',
+        claim_qualities: claims.map((claim) => ({
+          claim,
+          easy_maintenance: `${claim}: one code path`,
+          security: `${claim}: no secret leaves the server`,
+          cost_effectiveness: `${claim}: no new service`,
+          usability: `${claim}: the person waits less`,
+        })),
+      },
+    ];
+    const { minted } = mintExpertConflictDecisions(root, merged, ruled);
+    expect(minted).toHaveLength(1);
+    const [row] = pending(root);
+    expect(row!.status).toBe('pending');
+    expect(row!.packet.options).toHaveLength(2);
+    for (const option of row!.packet.options) {
+      const notes = option.quality_notes!;
+      expect(Object.keys(notes).sort()).toEqual(
+        ['cost_effectiveness', 'easy_maintenance', 'security', 'usability'].sort(),
+      );
+      for (const line of Object.values(notes)) expect(line).not.toContain('\n');
+      expect(option.trade_off).toContain('Easy maintenance:');
+      expect(option.trade_off).toContain('Security:');
+      expect(option.trade_off).toContain('Cost effectiveness:');
+      expect(option.trade_off).toContain('Usability:');
+    }
+  });
+});

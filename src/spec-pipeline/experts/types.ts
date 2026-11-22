@@ -5,7 +5,19 @@ export const MAX_EXPERT_QUESTIONS = 5;
 
 export type FindingKind = 'requirement' | 'invariant' | 'acceptance' | 'risk' | 'non-goal';
 
+export const FINDING_KINDS: readonly FindingKind[] = [
+  'requirement',
+  'invariant',
+  'acceptance',
+  'risk',
+  'non-goal',
+];
+
+export const HIGH_TABLE_WRITE_PATH = '.paqad/tmp/high-table/';
+
 export type FindingSeverity = 'must' | 'should' | 'could';
+
+export const FINDING_SEVERITIES: readonly FindingSeverity[] = ['must', 'should', 'could'];
 
 export type ExpertOrigin = 'detector' | 'standing';
 

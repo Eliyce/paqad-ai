@@ -17,10 +17,26 @@ export type SynthesisRuling = 'pick' | 'compatible';
 
 const RULINGS: readonly SynthesisRuling[] = ['pick', 'compatible'];
 
+export const QUALITY_NOTE_KEYS = [
+  'easy_maintenance',
+  'security',
+  'cost_effectiveness',
+  'usability',
+] as const;
+
+export type QualityNoteKey = (typeof QUALITY_NOTE_KEYS)[number];
+
+export type QualityNotes = Record<QualityNoteKey, string>;
+
+export interface ClaimQualities extends QualityNotes {
+  claim: string;
+}
+
 export interface SynthesisConflict {
   target: string;
   ruling?: SynthesisRuling;
   recommendation?: string;
+  claim_qualities?: ClaimQualities[];
   merged_claim?: string;
   rationale: string;
   claims?: string[];
@@ -310,9 +326,62 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
         conflicts,
       };
     }
-    conflicts.push({ target, ruling: 'pick', recommendation, rationale: rationale.trim() });
+    const qualities = validateClaimQualities(
+      (entry as Record<string, unknown>).claim_qualities,
+      conflictByTarget.get(key)!.claims,
+      index,
+    );
+    if ('error' in qualities) return { ok: false, error: qualities.error, conflicts };
+    conflicts.push({
+      target,
+      ruling: 'pick',
+      recommendation,
+      rationale: rationale.trim(),
+      claim_qualities: qualities.notes,
+    });
   }
   return { ok: true, conflicts };
+}
+
+function qualityLabel(key: QualityNoteKey): string {
+  return key.replace(/_/g, ' ');
+}
+
+function validateClaimQualities(
+  raw: unknown,
+  claims: readonly string[],
+  index: number,
+): { notes: ClaimQualities[] } | { error: string } {
+  const entries = Array.isArray(raw) ? raw : [];
+  const notes: ClaimQualities[] = [];
+  for (const claim of claims) {
+    const found = entries.find(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).claim === 'string' &&
+        normalize((item as Record<string, unknown>).claim as string) === normalize(claim),
+    );
+    const note = { claim } as ClaimQualities;
+    for (const key of QUALITY_NOTE_KEYS) {
+      const value = found?.[key];
+      if (typeof value !== 'string' || value.trim() === '' || /[\r\n]/.test(value.trim())) {
+        return {
+          error: `conflicts[${index}] claim "${claim}" needs a one-line ${qualityLabel(key)} note for a pick ruling`,
+        };
+      }
+      note[key] = value.trim();
+    }
+    notes.push(note);
+  }
+  return { notes };
+}
+
+export function qualityTradeOff(notes: QualityNotes): string {
+  return QUALITY_NOTE_KEYS.map((key) => {
+    const label = qualityLabel(key);
+    return `${label.charAt(0).toUpperCase()}${label.slice(1)}: ${notes[key]}`;
+  }).join(' ');
 }
 
 function hasMustSecurityFinding(conflict: ExpertConflict): boolean {

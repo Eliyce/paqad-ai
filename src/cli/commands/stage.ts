@@ -56,6 +56,16 @@ import {
   unknownAgentReport,
 } from '@/stage-isolation/stage-handback.js';
 import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
+import { readCompiledSlicing } from '@/stage-evidence/slices.js';
+
+import {
+  developmentEndCheck,
+  leadGuideText,
+  sliceBriefText,
+  runSlicePhase,
+  slicesReport,
+  slicesSettings,
+} from './stage-slice.js';
 
 import { laneRaisedLine } from './plan.js';
 
@@ -74,6 +84,7 @@ interface StageOptions {
   full?: boolean;
   staleOk?: string[];
   reason?: string;
+  lead?: boolean;
 }
 
 function runStageSettings(options: StageOptions): void {
@@ -82,7 +93,10 @@ function runStageSettings(options: StageOptions): void {
   const sessionId = sessionHint?.trim() ? sessionHint.trim() : resolveSessionId(root, null);
   try {
     const settings = writeStageSettings(root, sessionId);
-    console.log(JSON.stringify(stageSettingsReport(settings), null, 2));
+    const slices = slicesSettings(root, sessionId);
+    console.log(
+      JSON.stringify({ ...stageSettingsReport(settings), ...(slices ? { slices } : {}) }, null, 2),
+    );
   } catch (error) {
     console.error(`could not write the stage settings: ${(error as Error).message}`);
     process.exitCode = 1;
@@ -163,7 +177,25 @@ function briefRecipeSection(
   return text;
 }
 
-function runStageBrief(stage: string | undefined, options: StageOptions): void {
+function runStageBrief(stage: string | undefined, options: StageOptions, target?: string): void {
+  if (options.lead === true && stage === 'development') {
+    if (target === undefined) {
+      process.stdout.write(leadGuideText());
+      return;
+    }
+    const root = options.projectRoot;
+    const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
+    const dirName = currentFeature(root, sessionId);
+    const slicing = dirName ? readCompiledSlicing(root, dirName) : null;
+    const brief = slicing ? sliceBriefText(slicing, target) : null;
+    if (brief === null) {
+      console.error(`slice "${target}" is not in the compiled plan of the active change`);
+      process.exitCode = 1;
+      return;
+    }
+    process.stdout.write(brief);
+    return;
+  }
   if (!stage || !STAGE_AGENT_STAGES.includes(stage)) {
     console.error(
       `name the stage to brief: one of ${STAGE_AGENT_STAGES.join(', ')}${stage ? ` (got "${stage}")` : ''}`,
@@ -309,6 +341,14 @@ function runStageRepair(rowArg: string | undefined, options: StageOptions): void
 }
 
 function runStageReport(agentId: string | undefined, options: StageOptions): void {
+  if (agentId === 'slices') {
+    const root = options.projectRoot;
+    const sessionId = resolveBriefSession(root, { session_id: options.session }, process.env);
+    const report = slicesReport(root, sessionId);
+    console.log(JSON.stringify({ slices: report ?? [] }));
+    if (report === null) process.exitCode = 1;
+    return;
+  }
   if (!agentId) {
     console.log(JSON.stringify(unknownAgentReport('', 'name the agent id to report on')));
     process.exitCode = 1;
@@ -392,127 +432,167 @@ export function createStageCommand(): Command {
       collectArtifact,
     )
     .option('--reason <text>', 'On a `repair`, what happened to the row')
-    .action(async (phase: string, stage: string | undefined, options: StageOptions) => {
-      if (phase === 'settings') {
-        runStageSettings(options);
-        return;
-      }
-      if (phase === 'brief') {
-        runStageBrief(stage, options);
-        return;
-      }
-      if (phase === 'begin') {
-        runStageBeginPhase(stage, options);
-        return;
-      }
-      if (phase === 'report') {
-        runStageReport(stage, options);
-        return;
-      }
-      if (phase === 'repair') {
-        runStageRepair(stage, options);
-        return;
-      }
-      if (phase !== 'start' && phase !== 'end') {
-        console.error(
-          `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief', 'report' or 'repair'`,
-        );
-        process.exitCode = 1;
-        return;
-      }
-      if (!stage) {
-        console.error(`name the stage to ${phase}: one of ${STAGE_ORDER.join(', ')}`);
-        process.exitCode = 1;
-        return;
-      }
-      const root = options.projectRoot;
-      const sessionHint = explicitSessionHint(options.session);
-      const routeSession = routeSwitchSession(root, sessionHint);
-      const sessionId = resolveSessionId(root, sessionHint);
-      const sessionSource = sessionHint?.trim() ? 'env' : 'cache';
-      let artifactPaths: string[] | undefined;
-      if (phase === 'end' && options.artifact) {
-        let normalized: string[];
-        try {
-          normalized = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
-        } catch (error) {
-          console.error(`could not record "${stage} ${phase}" — ${(error as Error).message}`);
+    .option(
+      '--lead',
+      "On `brief development`, print the lead developer's guide, or the slice brief for a named workstream",
+    )
+    .argument('[target]', "for 'slice', the workstream or joining id")
+    .action(
+      async (
+        phase: string,
+        stage: string | undefined,
+        target: string | undefined,
+        options: StageOptions,
+      ) => {
+        if (phase === 'slice') {
+          const root = options.projectRoot;
+          const sessionId = resolveSessionId(root, explicitSessionHint(options.session));
+          const result = await runSlicePhase(stage ?? '', target, {
+            projectRoot: root,
+            sessionId,
+            agentId: process.env.SE_AGENT_ID?.trim() || null,
+          });
+          if (result.ok) console.log(result.message);
+          else console.error(`**▸ paqad** · ${result.message}`);
+          if (result.packet)
+            console.error(`**▸ paqad** · raised ${result.packet} for slice ${target}`);
+          if (!result.ok) process.exitCode = 1;
+          return;
+        }
+        if (phase === 'settings') {
+          runStageSettings(options);
+          return;
+        }
+        if (phase === 'brief') {
+          runStageBrief(stage, options, target);
+          return;
+        }
+        if (phase === 'begin') {
+          runStageBeginPhase(stage, options);
+          return;
+        }
+        if (phase === 'report') {
+          runStageReport(stage, options);
+          return;
+        }
+        if (phase === 'repair') {
+          runStageRepair(stage, options);
+          return;
+        }
+        if (phase !== 'start' && phase !== 'end') {
+          console.error(
+            `unknown phase "${phase}" — use 'start', 'end', 'begin', 'settings', 'brief', 'report' or 'repair'`,
+          );
           process.exitCode = 1;
           return;
         }
-        const check = checkBundleArtifacts(root, sessionId, stage, normalized);
-        if (check.rigid && check.accepted.length === 0 && check.rejected.length > 0) {
-          const target = check.expected ?? `the bundle's ${bundleArtifactFile(stage)}.json`;
-          console.error(
-            `**▸ paqad** · that file isn't ${stage}'s bundle artifact — run ` +
-              `\`npx ${check.verb} …\` first, then end ${stage} against ${target}. ` +
-              `Recording ${stage} as inconclusive.`,
-          );
-        } else if (!check.rigid && check.rejected.length > 0) {
-          console.error(
-            `**▸ paqad** · a feature bundle holds only its rigid artifacts, so ` +
-              `${check.rejected.join(', ')} can't prove ${stage} — keep the artifact ` +
-              `outside \`.paqad/ledger/feature-evidence/\` and end ${stage} against that path.`,
-          );
-        }
-        artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
-      }
-      if (phase === 'start' && !options.title) {
-        const refusal = startRefusalMessage(root, sessionId, stage);
-        if (refusal !== null) {
-          console.error(`**▸ paqad** · ${refusal}`);
+        if (!stage) {
+          console.error(`name the stage to ${phase}: one of ${STAGE_ORDER.join(', ')}`);
           process.exitCode = 1;
           return;
         }
-      }
-      const raised =
-        phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
-          ? await raiseLaneOnStageStart(root, sessionId)
-          : NO_RAISES;
-      const recipeCheck =
-        phase === 'end' ? await stageEndRecipeCheck(root, sessionId, stage, options) : null;
-      for (const line of recipeCheck?.lines ?? []) console.error(line);
-      if (recipeCheck?.verdict === 'refuse') {
-        process.exitCode = 1;
-        return;
-      }
-      const recorded = recordMarkedStage(root, {
-        sessionId,
-        sessionSource,
-        stage,
-        phase,
-        artifactPaths,
-        title: phase === 'start' ? options.title : undefined,
-        issue: options.issue,
-        agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
-        agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
-      });
-      if (!recorded.ok) {
-        console.error(
-          recorded.reason === 'unknown-stage'
-            ? `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
-                `Stages, in order: ${STAGE_ORDER.join(', ')}`
-            : `**▸ paqad** · could not record "${stage} ${phase}" — ${recorded.message}`,
-        );
-        process.exitCode = 1;
-        return;
-      }
-      recipeCheck?.record();
-      if (raised.authoring) console.log(laneRaisedLine(raised.authoring));
-      if (raised.grown) console.log(laneRaisedLine(raised.grown));
-      const line = markerNarrationLine(stage, phase);
-      if (line) console.log(line);
-      if (phase === 'start' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
-        announceRouteSwitchFor(root, sessionId, routeSession, 'stage-start');
-      }
-      console.log(
-        JSON.stringify({
-          recorded: true,
+        const root = options.projectRoot;
+        const sessionHint = explicitSessionHint(options.session);
+        const routeSession = routeSwitchSession(root, sessionHint);
+        const sessionId = resolveSessionId(root, sessionHint);
+        const sessionSource = sessionHint?.trim() ? 'env' : 'cache';
+        let artifactPaths: string[] | undefined;
+        if (phase === 'end' && options.artifact) {
+          let normalized: string[];
+          try {
+            normalized = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
+          } catch (error) {
+            console.error(`could not record "${stage} ${phase}" — ${(error as Error).message}`);
+            process.exitCode = 1;
+            return;
+          }
+          const check = checkBundleArtifacts(root, sessionId, stage, normalized);
+          if (check.rigid && check.accepted.length === 0 && check.rejected.length > 0) {
+            const target = check.expected ?? `the bundle's ${bundleArtifactFile(stage)}.json`;
+            console.error(
+              `**▸ paqad** · that file isn't ${stage}'s bundle artifact — run ` +
+                `\`npx ${check.verb} …\` first, then end ${stage} against ${target}. ` +
+                `Recording ${stage} as inconclusive.`,
+            );
+          } else if (!check.rigid && check.rejected.length > 0) {
+            console.error(
+              `**▸ paqad** · a feature bundle holds only its rigid artifacts, so ` +
+                `${check.rejected.join(', ')} can't prove ${stage} — keep the artifact ` +
+                `outside \`.paqad/ledger/feature-evidence/\` and end ${stage} against that path.`,
+            );
+          }
+          artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
+        }
+        if (phase === 'start' && !options.title) {
+          const refusal = startRefusalMessage(root, sessionId, stage);
+          if (refusal !== null) {
+            console.error(`**▸ paqad** · ${refusal}`);
+            process.exitCode = 1;
+            return;
+          }
+        }
+        const raised =
+          phase === 'start' && !options.title && (STAGE_ORDER as string[]).includes(stage)
+            ? await raiseLaneOnStageStart(root, sessionId)
+            : NO_RAISES;
+        if (phase === 'end' && stage === 'development') {
+          const refusal = developmentEndCheck(
+            root,
+            sessionId,
+            process.env.SE_AGENT_ID?.trim() || null,
+            process.env.SE_WORKSTREAM?.trim() || null,
+          );
+          if (refusal !== null) {
+            console.error(`**▸ paqad** · ${refusal}`);
+            process.exitCode = 1;
+            return;
+          }
+        }
+        const recipeCheck =
+          phase === 'end' ? await stageEndRecipeCheck(root, sessionId, stage, options) : null;
+        for (const line of recipeCheck?.lines ?? []) console.error(line);
+        if (recipeCheck?.verdict === 'refuse') {
+          process.exitCode = 1;
+          return;
+        }
+        const recorded = recordMarkedStage(root, {
+          sessionId,
+          sessionSource,
           stage,
           phase,
-          ...(raised.authoring ? { lane_raised_for_authoring: raised.authoring } : {}),
-          ...(raised.grown ? { lane_raised: raised.grown } : {}),
-        }),
-      );
-    });
+          artifactPaths,
+          title: phase === 'start' ? options.title : undefined,
+          issue: options.issue,
+          agent: options.agent ?? (process.env.PAQAD_STAGE_AGENT?.trim() || undefined),
+          agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
+        });
+        if (!recorded.ok) {
+          console.error(
+            recorded.reason === 'unknown-stage'
+              ? `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
+                  `Stages, in order: ${STAGE_ORDER.join(', ')}`
+              : `**▸ paqad** · could not record "${stage} ${phase}" — ${recorded.message}`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+        recipeCheck?.record();
+        if (raised.authoring) console.log(laneRaisedLine(raised.authoring));
+        if (raised.grown) console.log(laneRaisedLine(raised.grown));
+        const line = markerNarrationLine(stage, phase);
+        if (line) console.log(line);
+        if (phase === 'start' && !STAGES_THAT_KEEP_THE_ROUTE.has(stage)) {
+          announceRouteSwitchFor(root, sessionId, routeSession, 'stage-start');
+        }
+        console.log(
+          JSON.stringify({
+            recorded: true,
+            stage,
+            phase,
+            ...(raised.authoring ? { lane_raised_for_authoring: raised.authoring } : {}),
+            ...(raised.grown ? { lane_raised: raised.grown } : {}),
+          }),
+        );
+      },
+    );
 }

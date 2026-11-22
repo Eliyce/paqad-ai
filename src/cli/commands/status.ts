@@ -7,7 +7,8 @@ import { collectModuleHealth } from '@/dashboard/collectors/module-health.js';
 import { renderMarkdown } from '@/dashboard/markdown.js';
 import { buildReport } from '@/dashboard/report.js';
 import { moneyText } from '@/cost/prices.js';
-import { NO_VERDICT_RECORD, readHudVerdict, type HudVerdictReading } from '@/hud/receipt-file.js';
+import { NO_VERDICT_RECORD, type HudVerdictReading } from '@/hud/receipt-file.js';
+import { readFreshHudVerdict } from '@/hud/verdict-refresh.js';
 
 export { NO_VERDICT_RECORD };
 import { buildHudSnapshot, hudSessionId, type HudSnapshot } from '@/hud/snapshot.js';
@@ -133,7 +134,7 @@ export function createStatusCommand(): Command {
       'Exit non-zero when module-map drift, stale module-health, expired MD-XXXX decisions, or MM-DOC-MISSING findings are present',
       false,
     )
-    .action((options: StatusCommandOptions) => {
+    .action(async (options: StatusCommandOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const fmt = options.format.toLowerCase();
       if (fmt !== 'markdown' && fmt !== 'json') {
@@ -144,7 +145,7 @@ export function createStatusCommand(): Command {
         return;
       }
       if (options.verdict) {
-        const reading = readHudVerdict(
+        const reading = await readFreshHudVerdict(
           projectRoot,
           hudSessionId(projectRoot, sessionHint(options)),
         );

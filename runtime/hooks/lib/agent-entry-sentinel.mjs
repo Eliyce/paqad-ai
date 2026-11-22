@@ -85,6 +85,40 @@ export function journeyOwnerWritingDocs(projectRoot, sessionId) {
   }
 }
 
+export function changeWritingDocs(projectRoot, sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '' || /[\\/]/.test(sessionId)) return false;
+  try {
+    const control = JSON.parse(
+      readFileSync(
+        join(projectRoot, '.paqad', 'ledger', 'feature-evidence', '_session', `${sessionId}.json`),
+        'utf8',
+      ),
+    );
+    const active = control?.active;
+    if (typeof active !== 'string' || active === '' || /[\\/]/.test(active)) return false;
+    const ledger = readFileSync(
+      join(projectRoot, '.paqad', 'ledger', 'feature-evidence', active, 'stage-evidence.jsonl'),
+      'utf8',
+    );
+    let open = false;
+    for (const line of ledger.split('\n')) {
+      if (!line.includes('documentation_sync')) continue;
+      let row;
+      try {
+        row = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (row?.stage !== 'documentation_sync') continue;
+      if (row.kind === 'stage_start') open = true;
+      else if (row.kind === 'stage_end') open = false;
+    }
+    return open;
+  } catch {
+    return false;
+  }
+}
+
 export function sentinelDetail(
   projectRoot = resolveProjectRoot(),
   env = process.env,
@@ -121,6 +155,7 @@ export function sentinelDetail(
   );
   if (
     !journeyOwnerWritingDocs(projectRoot, sessionId) &&
+    !changeWritingDocs(projectRoot, sessionId) &&
     loadedDirs.some((dir) => anyFileNewer(dir, sentinelMtime))
   ) {
     const files = loadedDirs
