@@ -376,3 +376,37 @@ describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
     }
   });
 });
+
+describe('agent mirror parity', () => {
+  it('AC-32 the agent mirrors in this repo match their source', async () => {
+    const { agentMirrorDrift } = await import('@/stage-isolation/agent-writer.js');
+    expect(agentMirrorDrift(process.cwd())).toEqual([]);
+  });
+
+  it('AC-32 a drifted mirror under either folder fails naming the file', async () => {
+    const { agentMirrorDrift, withManagedMarker } =
+      await import('@/stage-isolation/agent-writer.js');
+    const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const root = mkdtempSync(join(tmpdir(), 'paqad-mirror-'));
+    try {
+      for (const dir of ['.claude/agents', 'runtime/claude-plugin/agents']) {
+        mkdirSync(join(root, dir), { recursive: true });
+        for (const agent of renderClaudePluginStageAgents()) {
+          const content =
+            dir === '.claude/agents' ? withManagedMarker(agent.content) : agent.content;
+          writeFileSync(join(root, dir, agent.name), content);
+        }
+      }
+      expect(agentMirrorDrift(root)).toEqual([]);
+      writeFileSync(join(root, '.claude/agents/paqad-development.md'), 'edited\n');
+      writeFileSync(join(root, 'runtime/claude-plugin/agents/paqad-chief-architect.md'), 'x\n');
+      expect(agentMirrorDrift(root)).toEqual([
+        '.claude/agents/paqad-development.md',
+        'runtime/claude-plugin/agents/paqad-chief-architect.md',
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
