@@ -15,6 +15,7 @@ import { buildTraceabilityMap } from './map-builder.js';
 import { writeTraceabilityMap } from './writer.js';
 
 const SCANNABLE_TEST_FILE = /\.(?:[cm]?[jt]sx?|py|rb|php|go|java|kt|kts|cs|rs|swift|ex|exs)$/;
+const SUFFIX_TEST_FILE = /(?:^|\/)[^/]+_test\.[A-Za-z0-9]+$/;
 const MAX_TEST_FILE_BYTES = 2 * 1024 * 1024;
 const TEST_CALL = /(?<![\w$.])(?:it|test|describe|suite|context)((?:\.[A-Za-z]+)*)\s*\(/g;
 const OBLIGATION_TAG = /@obligation\b([^\n]*)/g;
@@ -159,7 +160,9 @@ function changedTestFiles(changedFiles: readonly string[]): string[] {
   const files = new Set<string>();
   for (const raw of changedFiles) {
     const file = toPosixPath(raw);
-    if (isTestFile(file) && SCANNABLE_TEST_FILE.test(file)) files.add(file);
+    if ((isTestFile(file) || SUFFIX_TEST_FILE.test(file)) && SCANNABLE_TEST_FILE.test(file)) {
+      files.add(file);
+    }
   }
   return [...files].sort();
 }
