@@ -249,11 +249,13 @@ describe('a slice-scoped packet blocks only its own workstream and the users of 
     const dir = sliced();
     const id = scoped(dir, 'store');
     expect(await editFile('src/view/page.ts')).toBe(0);
-    const rows = readFeatureStageUnit(root, dir).filter(
-      (row) => row.kind === 'slice_edit_allowed',
-    );
+    const rows = readFeatureStageUnit(root, dir).filter((row) => row.kind === 'slice_edit_allowed');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ workstream: 'store', decision: id, files: ['src/view/page.ts'] });
+    expect(rows[0]).toMatchObject({
+      workstream: 'store',
+      decision: id,
+      files: ['src/view/page.ts'],
+    });
     expect(rows[0]!.session_id).toBe(SES_A);
     expect(typeof rows[0]!.recorded_at).toBe('string');
   });
