@@ -176,6 +176,23 @@ in this page disagrees with the map, the **map wins**. To change this page:
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).
 3. Review the regenerated business + technical pages per feature.
 
+## The build stage: a lead developer and parallel slices
+
+On the full lane the development stage is run by one lead developer. The lead reads the plan, splits the work into slices that do not touch the same files, and hands each slice to its own development agent. The slice agents build at the same time.
+
+- **Slice rows.** Each slice writes a start row and a done row to the ledger. A slice agent hands back on its done row.
+- **Slice gate.** The lead cannot move on while a slice is still open or has no done row.
+- **Only the lead ends the stage.** A slice agent cannot run `stage end development`.
+- **Stop waits for slices.** While a slice is still running, the Stop hook defers instead of closing the turn.
+- **Decisions stay in their slice.** A decision packet opened by a slice is scoped to that slice, so one slice pausing does not stop the others.
+- **Model per slice.** The model for each slice comes from the risk tag the plan gave that piece of work.
+- **Chief recommendations.** Every chief architect pick carries four short quality notes.
+- **Heavy runs take turns.** A lock lets only one heavy run (full tests, build) go at a time, so slices do not fight over the machine.
+- **Checks report per change.** The checks report is written per change, picks up Go tests and untracked test files, and keeps the full failing output.
+- **Commit messages and briefs.** Commit messages name products by their real names, and each seat brief says which paths that seat may write.
+
+None of this adds a setting. Every default here (slice count, model choice, lock, deferral) is fixed in code.
+
 ## Route switches and the HUD
 
 The running-change rule covers every non-feature route except slash commands; a question asked while a change is paused stays a question. The ledger-session cache counts for a route switch only when it is recent and was written for this project root. A route correction is recorded as its own route turn, stamped at the corrected turn. `stage start` on a change it does not own prints the real ownership message with the `--title` hint and exits 1.
