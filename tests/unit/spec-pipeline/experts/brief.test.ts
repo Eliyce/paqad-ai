@@ -23,6 +23,20 @@ const label: LabelArtifact = {
 };
 
 describe('buildExpertBriefs', () => {
+  it('AC-33 names the seat write path and the allowed finding kinds and severities', () => {
+    const { briefs } = buildExpertBriefs({
+      needs: [{ role: 'db-expert', reason: 'touches the schema' }],
+      request: 'Store invoices',
+      grounding,
+      label,
+      ceiling: 60000,
+    });
+    const content = briefs[0]!.content;
+    expect(content).toContain('Write path: `.paqad/tmp/high-table/` only');
+    expect(content).toContain('Finding kinds: requirement, invariant, acceptance, risk, non-goal');
+    expect(content).toContain('Finding severities: must, should, could');
+  });
+
   it('builds one brief per needed expert, each with lens, request, budget and label', () => {
     const needs: ExpertNeed[] = [
       { role: 'db-expert', reason: 'touches the invoices migration' },
