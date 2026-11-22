@@ -3,10 +3,15 @@ import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
-import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
 import type { PlanRecord } from '@/feature-evidence/types.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
+  LINT_CLEANUP_ID,
   ownsFile,
   seamJoiningEntry,
   sliceModel,
@@ -404,4 +409,47 @@ export function scopedPacketsBlocking(input: {
     }
   }
   return blocking;
+}
+
+export const SLICE_SCRATCH_ROOT = '.paqad/tmp/';
+
+export interface SliceWriteRefusal {
+  workstream: string;
+  target: string;
+}
+
+export function sliceWriteRefusal(input: {
+  projectRoot: string;
+  dirName: string;
+  agentId: string | null | undefined;
+  targets: readonly string[];
+}): SliceWriteRefusal | null {
+  if (!input.agentId) return null;
+  const rows = readFeatureStageUnit(input.projectRoot, input.dirName);
+  const workstream = sliceOfAgent(rows, input.agentId);
+  if (workstream === null) return null;
+  const slicing = readCompiledSlicing(input.projectRoot, input.dirName);
+  if (slicing === null) return null;
+  const owned =
+    workstream === LINT_CLEANUP_ID
+      ? [...slicing.workstreams, ...slicing.joining].flatMap((entry) => entry.owned_files)
+      : (sliceOwnedFiles(slicing, workstream) ?? []);
+  for (const target of input.targets) {
+    const rel = (isAbsolute(target) ? relative(input.projectRoot, target) : target)
+      .split(sep)
+      .join('/');
+    if (rel.startsWith('../') || isAbsolute(rel)) continue;
+    if (rel.startsWith(SLICE_SCRATCH_ROOT)) continue;
+    if (!ownsFile({ owned_files: owned }, rel)) return { workstream, target: rel };
+  }
+  return null;
+}
+
+export function formatSliceWriteRefusal(refusal: SliceWriteRefusal): string {
+  return (
+    `**▸ paqad** · write blocked: slice \`${refusal.workstream}\` writes only its own files\n` +
+    `> 🔴 Needs your attention: \`${refusal.target}\` is outside the owned files of slice ` +
+    `\`${refusal.workstream}\` in plan.json. A slice agent edits only its workstream's owned files ` +
+    `and its progress file under \`${SLICE_SCRATCH_ROOT}\`; lead-owned files belong to the lead.`
+  );
 }

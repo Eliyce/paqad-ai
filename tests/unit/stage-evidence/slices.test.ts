@@ -265,6 +265,40 @@ describe('slice rows', () => {
   });
 });
 
+describe('slice write guard', () => {
+  async function write(root: string, session: string, agentId: string, file: string) {
+    const { runCapabilityGate } = await import('@/kernel/gate.js');
+    return runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: { CLAUDE_SESSION_ID: session },
+      payload: {
+        toolName: 'Edit',
+        targetPath: join(root, file),
+        agentType: 'paqad:paqad-development',
+        agentId,
+        sessionId: session,
+      },
+    });
+  }
+
+  it('AC-37 refuses a slice agent edit outside its owned files or on a lead-owned file', async () => {
+    const { root } = repo('ses-37');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-37', 'ag-store'));
+    const outside = await write(root, 'ses-37', 'ag-store', 'src/api/get.ts');
+    expect(outside.block).toBe(true);
+    expect(outside.summary).toContain('src/api/get.ts');
+    expect(outside.summary).toContain('store');
+    expect((await write(root, 'ses-37', 'ag-store', 'src/index.ts')).block).toBe(true);
+    const own = await write(root, 'ses-37', 'ag-store', 'src/store/rows.ts');
+    expect(own.summary).not.toContain('writes only its own files');
+    const progress = await write(root, 'ses-37', 'ag-store', '.paqad/tmp/slice-store-progress.md');
+    expect(progress.summary).not.toContain('writes only its own files');
+    const lead = await write(root, 'ses-37', 'ag-lead', 'src/api/get.ts');
+    expect(lead.summary).not.toContain('writes only its own files');
+  });
+});
+
 describe('slice gate', () => {
   it('AC-11 fails a seam test that mocks or skips the entry file and passes a real import', () => {
     const { root } = repo('ses-11');
