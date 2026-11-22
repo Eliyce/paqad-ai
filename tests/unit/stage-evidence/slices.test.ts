@@ -435,3 +435,26 @@ describe('lead guide', () => {
     ).not.toContain('Lead developer guide');
   });
 });
+
+describe('slice handback', () => {
+  it('AC-40 accepts a slice agent handback on its slice_done row with no stage end row', async () => {
+    const { decideHandback } = await import('@/stage-isolation/stage-handback.js');
+    const { root, dir } = repo('ses-40');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-40', 'ag-store'));
+    const payload = {
+      agent_type: 'paqad:paqad-development',
+      agent_id: 'ag-store',
+      session_id: 'ses-40',
+      tool_input: { message: 'Built the store slice.\nStatus: DONE' },
+    };
+    const early = decideHandback({ projectRoot: root, payload });
+    expect(early.exit).toBe(2);
+    expect(early.reason).toContain('stage slice done store');
+    expect(early.reason).not.toContain('stage end');
+    await runSlicePhase('gate', 'store', ctx(root, 'ses-40', 'ag-store'));
+    expect((await runSlicePhase('done', 'store', ctx(root, 'ses-40', 'ag-store'))).ok).toBe(true);
+    expect(decideHandback({ projectRoot: root, payload }).exit).toBe(0);
+    const rows = readFeatureStageUnit(root, dir);
+    expect(rows.some((row) => row.kind === 'stage_end' && row.stage === 'development')).toBe(false);
+  });
+});
