@@ -540,6 +540,7 @@ export function createStageCommand(): Command {
             root,
             sessionId,
             process.env.SE_AGENT_ID?.trim() || null,
+            process.env.SE_WORKSTREAM?.trim() || null,
           );
           if (refusal !== null) {
             console.error(`**▸ paqad** · ${refusal}`);

@@ -328,3 +328,4 @@ export function onboardingStopNudge(
   });
   return `paqad: onboarding is between steps and ${statusLine(current)} has not started. Run \`paqad-ai onboarding next\` and carry on, or \`paqad-ai onboarding abandon\` to pause.`;
 }
+export { sliceEndCommandRefusal } from './slices.js';

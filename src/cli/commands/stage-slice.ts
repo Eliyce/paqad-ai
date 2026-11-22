@@ -28,6 +28,7 @@ import {
   resumeFanOut,
   sliceDoneRefusal,
   sliceEndRefusedRow,
+  sliceOfAgent,
   sliceOwnedFiles,
   sliceProgressFile,
   sliceReport,
@@ -216,15 +217,28 @@ function raiseSlicePacket(
   }
 }
 
+function workstreamAgent(
+  rows: ReturnType<typeof readFeatureStageUnit>,
+  workstream: string | null | undefined,
+): string | null {
+  if (!workstream) return null;
+  const state = foldSlices(rows).get(workstream);
+  return state && !state.done ? state.agent_id : null;
+}
+
 export function developmentEndCheck(
   projectRoot: string,
   sessionId: string,
   agentId: string | null,
+  workstream: string | null = null,
 ): string | null {
   const dirName = currentFeature(projectRoot, sessionId);
   if (dirName === null) return null;
   const rows = readFeatureStageUnit(projectRoot, dirName);
   const slicing = readCompiledSlicing(projectRoot, dirName);
+  if (agentId === null || sliceOfAgent(rows, agentId) === null) {
+    agentId = workstreamAgent(rows, workstream) ?? agentId;
+  }
   const refusal = developmentEndRefusal(
     slicing,
     rows,

@@ -12,9 +12,43 @@ import {
 } from './lib/paqad-disabled.mjs';
 
 const PAQAD_AGENT = /^(?:paqad:)?paqad-/;
+const STAGE_END_DEVELOPMENT = /\bstage\s+end\s+development\b/;
+
+async function sliceEndRefusal(payload) {
+  const agentId = typeof payload?.agent_id === 'string' ? payload.agent_id.trim() : '';
+  const command = payload?.tool_input?.command;
+  if (agentId === '' || typeof command !== 'string' || !STAGE_END_DEVELOPMENT.test(command)) {
+    return 0;
+  }
+  let projectRoot;
+  try {
+    projectRoot = resolveProjectRoot(process.env, payload);
+    if (isPaqadDisabled(projectRoot) || hookStandsDown(payload)) return 0;
+    const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
+    const { sliceEndCommandRefusal } = await import(distUrl.href);
+    const message = sliceEndCommandRefusal({
+      projectRoot,
+      sessionId: typeof payload?.session_id === 'string' ? payload.session_id : null,
+      agentId,
+      command,
+    });
+    if (message === null) return 0;
+    appendHooksLog(projectRoot, `stage-agent-write-guard: refused stage end agent=${agentId}`);
+    process.stderr.write(`**▸ paqad** · ${message}\n`);
+    return 2;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(
+      `[paqad] the slice check for stage end development could not run (${reason}), so the command is blocked.\n`,
+    );
+    return 2;
+  }
+}
 
 export async function main(input) {
   const payload = parseHookPayload(input);
+  const refused = await sliceEndRefusal(payload);
+  if (refused !== 0) return refused;
   const agentType = typeof payload?.agent_type === 'string' ? payload.agent_type.trim() : '';
   if (!PAQAD_AGENT.test(agentType)) return 0;
   let projectRoot;

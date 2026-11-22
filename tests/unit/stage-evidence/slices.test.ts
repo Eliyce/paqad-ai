@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { heavyRunFailures, runSliceGate, wiredFailures } from '@/checks/slice-gate.js';
 import {
@@ -14,7 +14,7 @@ import {
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { appendFeatureStageRow, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
-import { DEAD_SLICE_MS, resumeFanOut } from '@/stage-evidence/slices.js';
+import { DEAD_SLICE_MS, resumeFanOut, sliceEndCommandRefusal } from '@/stage-evidence/slices.js';
 
 import { commitAll, makeEmptyRepo, writeRepoFile } from '../pipeline/changed-files.fixture.js';
 import { openChange } from '../traceability/change-map.fixture.js';
@@ -163,6 +163,71 @@ describe('slice rows', () => {
     await runSlicePhase('gate', 'join-wiring', ctx(root, 'ses-14', 'ag-j'));
     await runSlicePhase('done', 'join-wiring', ctx(root, 'ses-14', 'ag-j'));
     expect(developmentEndCheck(root, 'ses-14', null)).toBeNull();
+  });
+
+  it('AC-14 refuses a slice agent by its hook agent id or workstream even with SE_AGENT_ID unset', async () => {
+    const { root, dir } = repo('ses-14b');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-14b', 'ag-s'));
+    const refused = () =>
+      readFeatureStageUnit(root, dir).filter((r) => r.kind === 'slice_end_refused');
+    expect(developmentEndCheck(root, 'ses-14b', null, 'store')).toMatch(
+      /slice agent cannot end development/,
+    );
+    expect(refused().at(-1)).toMatchObject({ agent_id: 'ag-s', workstream: 'store' });
+    expect(
+      sliceEndCommandRefusal({
+        projectRoot: root,
+        sessionId: 'ses-14b',
+        agentId: 'ag-s',
+        command: 'SE_AGENT_ID= paqad-ai stage end development --agent paqad-development',
+      }),
+    ).toMatch(/slice agent cannot end development/);
+    expect(refused()).toHaveLength(2);
+    expect(
+      sliceEndCommandRefusal({
+        projectRoot: root,
+        sessionId: 'ses-14b',
+        agentId: 'ag-lead',
+        command: 'paqad-ai stage end development',
+      }),
+    ).toBeNull();
+    expect(
+      sliceEndCommandRefusal({
+        projectRoot: root,
+        sessionId: 'ses-14b',
+        agentId: 'ag-s',
+        command: 'paqad-ai stage slice done store',
+      }),
+    ).toBeNull();
+    expect(refused()).toHaveLength(2);
+  });
+
+  it('AC-14 the Bash hook blocks a slice agent running stage end development by its payload agent id', async () => {
+    const { root, dir } = repo('ses-14c');
+    await runSlicePhase('start', 'store', ctx(root, 'ses-14c', 'ag-s'));
+    const { main } = await import('../../../runtime/hooks/stage-agent-write-guard.mjs');
+    const payload = (agentId: string, command: string) =>
+      JSON.stringify({
+        tool_name: 'Bash',
+        session_id: 'ses-14c',
+        cwd: root,
+        agent_id: agentId,
+        agent_type: 'paqad-development',
+        tool_input: { command },
+      });
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(await main(payload('ag-s', 'env -u SE_AGENT_ID paqad-ai stage end development'))).toBe(
+        2,
+      );
+      expect(String(stderr.mock.calls.at(-1)?.[0])).toMatch(/slice agent cannot end development/);
+      expect(await main(payload('ag-other', 'paqad-ai stage end development'))).toBe(0);
+    } finally {
+      stderr.mockRestore();
+    }
+    expect(
+      readFeatureStageUnit(root, dir).filter((r) => r.kind === 'slice_end_refused'),
+    ).toHaveLength(1);
   });
 
   it('AC-24 AC-7 escalates a routine slice after two failures, never a high slice', async () => {

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
+import { ulid } from '@/core/ids/ulid.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
@@ -10,6 +11,7 @@ import {
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import type { PlanRecord } from '@/feature-evidence/types.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
   LINT_CLEANUP_ID,
@@ -347,6 +349,7 @@ export function sliceEndRefusedRow(
     agent_id: agentId,
     workstream: refusal.workstream,
     stage: 'development',
+    refusal_id: ulid(),
   };
 }
 
@@ -527,4 +530,31 @@ export function formatSliceWriteRefusal(refusal: SliceWriteRefusal): string {
     `\`${refusal.workstream}\` in plan.json. A slice agent edits only its workstream's owned files ` +
     `and its progress file under \`${SLICE_SCRATCH_ROOT}\`; lead-owned files belong to the lead.`
   );
+}
+
+const STAGE_END_DEVELOPMENT = /\bstage\s+end\s+development\b/;
+
+export function sliceEndCommandRefusal(input: {
+  projectRoot: string;
+  sessionId: string | null | undefined;
+  agentId: unknown;
+  command: unknown;
+}): string | null {
+  if (typeof input.agentId !== 'string' || input.agentId.trim() === '') return null;
+  if (typeof input.command !== 'string' || !STAGE_END_DEVELOPMENT.test(input.command)) return null;
+  const sessionId = resolveSessionId(input.projectRoot, input.sessionId ?? null);
+  const dirName = currentFeature(input.projectRoot, sessionId);
+  if (dirName === null) return null;
+  const rows = readFeatureStageUnit(input.projectRoot, dirName);
+  const workstream = sliceOfAgent(rows, input.agentId);
+  if (workstream === null) return null;
+  const refusal = developmentEndRefusal(null, rows, input.agentId);
+  if (refusal?.kind !== 'slice-agent') return null;
+  appendFeatureStageRow(
+    input.projectRoot,
+    sessionId,
+    dirName,
+    sliceEndRefusedRow(refusal, input.agentId),
+  );
+  return refusal.message;
 }
