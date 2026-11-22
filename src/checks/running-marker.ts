@@ -1,5 +1,20 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  chmodSync,
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -135,10 +150,46 @@ export interface AgentRunProbe {
   signal?: (target: number, signal: NodeJS.Signals | 0) => boolean;
   sleep?: (ms: number) => Promise<void>;
   protectedGroups?: readonly number[];
+  home?: string;
 }
 
-export function agentRunRecordDir(projectRoot: string): string {
-  return join(projectRoot, PATHS.CHECKS_DIR, 'running', 'processes');
+export const AGENT_RUN_RECORDS_RELATIVE = join('.paqad-ai', 'runs');
+
+const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+
+export function agentRunRecordDir(projectRoot: string, home: string = homedir()): string {
+  const project = createHash('sha256').update(projectRoot).digest('hex').slice(0, 16);
+  return join(home, AGENT_RUN_RECORDS_RELATIVE, project);
+}
+
+function ownerOnly(mode: number, uid: number): boolean {
+  const me = typeof process.getuid === 'function' ? process.getuid() : uid;
+  return uid === me && (mode & 0o077) === 0;
+}
+
+function ensurePrivateDir(dir: string): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  for (const path of [dirname(dir), dir]) {
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error(`${path} is not a directory`);
+    if ((stat.mode & 0o077) !== 0) chmodSync(path, 0o700);
+  }
+}
+
+function readPrivateFile(path: string): string | null {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | NOFOLLOW);
+  } catch {
+    return null;
+  }
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || !ownerOnly(stat.mode, stat.uid)) return null;
+    return readFileSync(fd, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
 }
 
 export function processGroupOf(pid: number): number | null {
@@ -155,21 +206,39 @@ export function processGroupOf(pid: number): number | null {
   }
 }
 
-export function writeAgentRunRecord(projectRoot: string, record: AgentRunRecord): string {
-  const path = join(agentRunRecordDir(projectRoot), `${record.pid}.json`);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+export function writeAgentRunRecord(
+  projectRoot: string,
+  record: AgentRunRecord,
+  home?: string,
+): string {
+  const dir = agentRunRecordDir(projectRoot, home);
+  ensurePrivateDir(dir);
+  const path = join(dir, `${record.pid}.json`);
+  rmSync(path, { force: true });
+  const fd = openSync(
+    path,
+    constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | NOFOLLOW,
+    0o600,
+  );
+  try {
+    writeSync(fd, `${JSON.stringify({ ...record, project: projectRoot }, null, 2)}\n`);
+  } finally {
+    closeSync(fd);
+  }
   return path;
 }
 
-export function clearAgentRunRecord(projectRoot: string, pid: number): void {
-  rmSync(join(agentRunRecordDir(projectRoot), `${pid}.json`), { force: true });
+export function clearAgentRunRecord(projectRoot: string, pid: number, home?: string): void {
+  rmSync(join(agentRunRecordDir(projectRoot, home), `${pid}.json`), { force: true });
 }
 
-export function readAgentRunRecords(projectRoot: string): AgentRunRecord[] {
+export function readAgentRunRecords(projectRoot: string, home?: string): AgentRunRecord[] {
+  const dir = agentRunRecordDir(projectRoot, home);
   let names: string[];
   try {
-    names = readdirSync(agentRunRecordDir(projectRoot));
+    const stat = lstatSync(dir);
+    if (!stat.isDirectory() || !ownerOnly(stat.mode, stat.uid)) return [];
+    names = readdirSync(dir);
   } catch {
     return [];
   }
@@ -177,14 +246,15 @@ export function readAgentRunRecords(projectRoot: string): AgentRunRecord[] {
   for (const name of names) {
     if (!/^\d+\.json$/.test(name)) continue;
     try {
-      const value = JSON.parse(
-        readFileSync(join(agentRunRecordDir(projectRoot), name), 'utf8'),
-      ) as Record<string, unknown>;
+      const text = readPrivateFile(join(dir, name));
+      if (text === null) continue;
+      const value = JSON.parse(text) as Record<string, unknown>;
       if (
         Number.isInteger(value.pid) &&
         Number.isInteger(value.pgid) &&
         typeof value.start_time === 'string' &&
         typeof value.agent_id === 'string' &&
+        value.project === projectRoot &&
         `${String(value.pid)}.json` === name
       ) {
         records.push(value as unknown as AgentRunRecord);
@@ -222,14 +292,16 @@ export async function endAgentRuns(
   const startTimeOf = probe.startTimeOf ?? processStartTime;
   const signal = probe.signal ?? defaultSignal;
   const sleep = probe.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const pgidOf = probe.pgidOf ?? processGroupOf;
   const protectedGroups = ownGroups(probe);
   const ended: AgentRunRecord[] = [];
-  for (const record of readAgentRunRecords(projectRoot)) {
+  for (const record of readAgentRunRecords(projectRoot, probe.home)) {
     if (record.agent_id !== agentId) continue;
     if (startTimeOf(record.pid) !== record.start_time) {
-      clearAgentRunRecord(projectRoot, record.pid);
+      clearAgentRunRecord(projectRoot, record.pid, probe.home);
       continue;
     }
+    if (record.pgid <= 1 || pgidOf(record.pid) !== record.pgid) continue;
     if (protectedGroups.has(record.pgid)) continue;
     signal(-record.pgid, 'SIGTERM');
     for (let waited = 0; waited < AGENT_RUN_GRACE_MS; waited += 100) {
@@ -237,7 +309,7 @@ export async function endAgentRuns(
       await sleep(100);
     }
     if (signal(-record.pgid, 0)) signal(-record.pgid, 'SIGKILL');
-    clearAgentRunRecord(projectRoot, record.pid);
+    clearAgentRunRecord(projectRoot, record.pid, probe.home);
     ended.push(record);
   }
   return ended;

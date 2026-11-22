@@ -1,5 +1,13 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,6 +41,10 @@ function tempRoot(): string {
   roots.push(root);
   mkdirSync(join(root, '.paqad'), { recursive: true });
   return root;
+}
+
+function readdirOne(dir: string): string {
+  return join(dir, readdirSync(dir)[0]!);
 }
 
 function liveProcess(pid: number): boolean {
@@ -165,26 +177,22 @@ describe('heavy-run lock', () => {
 
   it('AC-12 ends a stopped agent run it recorded and leaves other agents alone', async () => {
     const root = tempRoot();
-    writeAgentRunRecord(root, {
-      pid: 41,
-      start_time: 's41',
-      pgid: 41,
-      agent_id: 'agent-a',
-      session: 's',
-      label: 'checks',
-    });
-    writeAgentRunRecord(root, {
-      pid: 42,
-      start_time: 's42',
-      pgid: 42,
-      agent_id: 'agent-b',
-      session: 's',
-      label: 'checks',
-    });
+    const home = tempRoot();
+    writeAgentRunRecord(
+      root,
+      { pid: 41, start_time: 's41', pgid: 41, agent_id: 'agent-a', session: 's', label: 'checks' },
+      home,
+    );
+    writeAgentRunRecord(
+      root,
+      { pid: 42, start_time: 's42', pgid: 42, agent_id: 'agent-b', session: 's', label: 'checks' },
+      home,
+    );
     const signals: Array<[number, string | number]> = [];
     const ended = await endAgentRuns(root, 'agent-a', {
+      home,
       startTimeOf: (pid) => `s${pid}`,
-      pgidOf: () => 1,
+      pgidOf: (pid) => (pid === process.pid || pid === process.ppid ? 1 : pid),
       signal: (target, signal) => {
         signals.push([target, signal]);
         return signal !== 0;
@@ -194,7 +202,37 @@ describe('heavy-run lock', () => {
     expect(ended.map((run) => run.pid)).toEqual([41]);
     expect(signals[0]).toEqual([-41, 'SIGTERM']);
     expect(signals.every(([target]) => target === -41)).toBe(true);
-    expect(readAgentRunRecords(root).map((record) => record.pid)).toEqual([42]);
+    expect(readAgentRunRecords(root, home).map((record) => record.pid)).toEqual([42]);
+  });
+
+  it('AC-12 AC-30 never signals a group the record does not prove, nor a record an agent can write', async () => {
+    const root = tempRoot();
+    const home = tempRoot();
+    const record = { start_time: 's', agent_id: 'agent-a', session: 's', label: 'checks' };
+    writeAgentRunRecord(root, { ...record, pid: 51, pgid: 999 }, home);
+    writeAgentRunRecord(root, { ...record, pid: 52, pgid: 52 }, home);
+    writeAgentRunRecord(root, { ...record, pid: 53, pgid: 53 }, home);
+    const loose = join(home, '.paqad-ai', 'runs');
+    execFileSync('chmod', ['644', join(readdirOne(loose), '53.json')]);
+    mkdirSync(join(root, '.paqad/checks/running/processes'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/checks/running/processes/54.json'),
+      JSON.stringify({ ...record, pid: 54, pgid: 54, project: root }),
+    );
+    const signals: number[] = [];
+    const ended = await endAgentRuns(root, 'agent-a', {
+      home,
+      startTimeOf: () => 's',
+      pgidOf: (pid) => (pid === 51 ? 51 : pid === 52 ? 52 : pid === 53 ? 53 : pid === 54 ? 54 : 1),
+      protectedGroups: [52],
+      signal: (target) => {
+        signals.push(target);
+        return false;
+      },
+      sleep: async () => {},
+    });
+    expect(ended).toEqual([]);
+    expect(signals).toEqual([]);
   });
 
   it.skipIf(process.platform === 'win32')(
@@ -213,16 +251,21 @@ describe('heavy-run lock', () => {
       });
       const pid = parent.pid!;
       expect(processGroupOf(workerPid)).toBe(pid);
-      writeAgentRunRecord(root, {
-        pid,
-        start_time: processStartTime(pid)!,
-        pgid: pid,
-        agent_id: 'agent-suite',
-        session: null,
-        label: 'full suite',
-      });
+      const home = tempRoot();
+      writeAgentRunRecord(
+        root,
+        {
+          pid,
+          start_time: processStartTime(pid)!,
+          pgid: pid,
+          agent_id: 'agent-suite',
+          session: null,
+          label: 'full suite',
+        },
+        home,
+      );
       const started = Date.now();
-      await endAgentRuns(root, 'agent-suite');
+      await endAgentRuns(root, 'agent-suite', { home });
       while ((liveProcess(pid) || liveProcess(workerPid)) && Date.now() - started < 5_000) {
         await new Promise((r) => setTimeout(r, 50));
       }
