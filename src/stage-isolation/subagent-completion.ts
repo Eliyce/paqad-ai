@@ -7,10 +7,11 @@ import {
   currentFeature,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
-import { resolveHookSession } from '@/rag-ledger/session.js';
+import { endAgentRuns, type AgentRunProbe } from '@/checks/running-marker.js';
+import { resolveHookSession, resolveSessionId } from '@/rag-ledger/session.js';
 import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { extractAssistantText, extractMarkers } from '@/stage-evidence/marker-parse.js';
-import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
+import { PROCESS_GROUP_ENDED_KIND, STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 
 import { judgeMustNot, transcriptToolUses } from './must-not-judge.js';
@@ -370,4 +371,30 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
   } catch {
     return false;
   }
+}
+
+export async function endStoppedAgentRuns(input: {
+  projectRoot: string;
+  payload: SubagentStopPayload;
+  probe?: AgentRunProbe;
+}): Promise<number> {
+  const agentId = agentIdField(input.payload).agent_id;
+  if (!agentId) return 0;
+  const ended = await endAgentRuns(input.projectRoot, agentId, input.probe);
+  if (ended.length === 0) return 0;
+  const sessionId = resolveSessionId(input.projectRoot, null);
+  const dirName = currentFeature(input.projectRoot, sessionId);
+  if (dirName !== null) {
+    for (const run of ended) {
+      appendFeatureStageRow(input.projectRoot, sessionId, dirName, {
+        kind: PROCESS_GROUP_ENDED_KIND,
+        agent: 'paqad-ai',
+        agent_id: agentId,
+        pid: run.pid,
+        pgid: run.pgid,
+        reason: run.label,
+      });
+    }
+  }
+  return ended.length;
 }

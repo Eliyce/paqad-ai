@@ -41,7 +41,15 @@ async function main(input) {
       '../../dist/stage-isolation/subagent-completion.js',
       import.meta.url,
     );
-    const { recordStageAgentCompletion, recordHighTableUsage } = await import(recorderUrl.href);
+    const { recordStageAgentCompletion, recordHighTableUsage, endStoppedAgentRuns } = await import(
+      recorderUrl.href
+    );
+    try {
+      await endStoppedAgentRuns({ projectRoot, payload });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendHooksLog(projectRoot, `stage-agent-completion: agent runs not ended: ${message}`);
+    }
     recordStageAgentCompletion({
       projectRoot,
       payload,
