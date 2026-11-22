@@ -91,7 +91,7 @@ function subjectOf(slicing: CompiledSlicing, id: string) {
   const ws = slicing.workstreams.find((w) => w.id === id);
   return {
     id,
-    owned_files: sliceScopeFiles(slicing, id) ?? [],
+    owned_files: sliceScopeFiles(slicing, id)!,
     acs: ws?.acs ?? [],
     seams: slicing.workstreams
       .flatMap((w) => w.provides_seams)
@@ -128,7 +128,7 @@ export async function runSlicePhase(
     return { ok: true, message: `slice ${id} started` };
   }
   if (slicing === null || sliceOwnedFiles(slicing, id) === null) {
-    return { ok: false, message: sliceStartRefusal(slicing, id, [], nowMs()) ?? 'unknown slice' };
+    return { ok: false, message: sliceStartRefusal(slicing, id, [], nowMs())! };
   }
   const changed = ctx.changedFiles ?? (await loadChangeEvidence(ctx.projectRoot)).files;
   const subject = subjectOf(slicing, id);
@@ -157,10 +157,10 @@ export async function runSlicePhase(
       event_status: result.passed ? 'completed' : 'failed',
       failures: result.failures.length > 0 ? result.failures : [],
       digest: result.digest,
-      ...(result.slowest_step ? { slowest_step: result.slowest_step } : {}),
+      slowest_step: result.slowest_step,
     });
     if (result.passed) return { ok: true, message: `slice ${id} gate passed` };
-    const failures = foldSlices(rows()).get(id)?.gate_failures ?? 0;
+    const failures = foldSlices(rows()).get(id)!.gate_failures;
     let packet: string | undefined;
     if (sliceOutOfAttempts(sliceRisk(slicing, id), failures)) {
       packet = raiseSlicePacket(ctx, dirName, id, result.failures);

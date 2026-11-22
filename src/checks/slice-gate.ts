@@ -34,7 +34,7 @@ export interface SliceGateResult {
   failures: string[];
   digest: string;
   files: string[];
-  slowest_step: string | null;
+  slowest_step: string;
   timed_out: boolean;
 }
 
@@ -68,8 +68,7 @@ export function heavyRunFailures(projectRoot: string, testFiles: readonly string
     HEAVY_CALL.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = HEAVY_CALL.exec(text)) !== null) {
-      const args = match[1] ?? '';
-      if (HEAVY_COMMAND.test(args)) {
+      if (HEAVY_COMMAND.test(match[1]!)) {
         failures.push(`heavy run: ${file} starts a full suite, build or lint run`);
         break;
       }
@@ -119,15 +118,15 @@ export function wiredFailures(
   const failures: string[] = [];
   for (const seam of seams) {
     const target = stripExtension(seam.entry_file);
-    const naming = testFiles.filter((file) => {
+    const naming = testFiles.flatMap((file) => {
       const text = readText(projectRoot, file);
-      return (
-        text !== null && extractTitlesAndTags(text).some((t) => namesCriterion(t, seam.wired_ac))
-      );
+      return text !== null &&
+        extractTitlesAndTags(text).some((t) => namesCriterion(t, seam.wired_ac))
+        ? [{ file, text }]
+        : [];
     });
     if (naming.length === 0) continue;
-    const wired = naming.some((file) => {
-      const text = readText(projectRoot, file) ?? '';
+    const wired = naming.some(({ file, text }) => {
       const specs = (re: RegExp): string[] => {
         re.lastIndex = 0;
         const out: string[] = [];
@@ -217,13 +216,10 @@ export async function runSliceGate(options: SliceGateOptions): Promise<SliceGate
       break;
     }
   }
-  const slowest = timings.reduce<[string, number] | null>(
-    (max, entry) => (max === null || entry[1] > max[1] ? entry : max),
-    null,
-  );
+  const [slowestStep] = timings.reduce((max, entry) => (entry[1] > max[1] ? entry : max));
   if (timedOut) {
     failures.push(
-      `time limit: the slice gate ran past ${Math.round(limit / 60_000)} minutes; slowest step: ${slowest?.[0] ?? 'unknown'}`,
+      `time limit: the slice gate ran past ${Math.round(limit / 60_000)} minutes; slowest step: ${slowestStep}`,
     );
   }
   return {
@@ -231,7 +227,7 @@ export async function runSliceGate(options: SliceGateOptions): Promise<SliceGate
     failures,
     digest: sliceDigest(options.projectRoot, options.subject.id, files, options.gitBinary),
     files,
-    slowest_step: slowest?.[0] ?? null,
+    slowest_step: slowestStep,
     timed_out: timedOut,
   };
 }
