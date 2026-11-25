@@ -163,6 +163,10 @@ export function teamFilesToCommit(projectRoot: string, report: TeamSetupReport):
 export const SHARED_SETTINGS_NOTE =
   '`.claude/settings.json` is now shared with your team, so review and commit it; anything personal it held now lives in the git-ignored `.claude/settings.local.json`.';
 
+export function commitTeamFilesNote(paths: readonly string[]): string {
+  return `Commit these team setup files together so teammates and cloud sessions get paqad: ${paths.join(', ')}.`;
+}
+
 export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): string[] {
   const notes: string[] = [];
   if (
@@ -173,11 +177,7 @@ export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): st
     notes.push(SHARED_SETTINGS_NOTE);
   }
   const toCommit = teamFilesToCommit(projectRoot, report);
-  if (toCommit.length > 0) {
-    notes.push(
-      `Commit these team setup files together so teammates and cloud sessions get paqad: ${toCommit.join(', ')}.`,
-    );
-  }
+  if (toCommit.length > 0) notes.push(commitTeamFilesNote(toCommit));
   const handEdited = new Set(report.handEditedAgents ?? []);
   if (handEdited.size > 0) {
     notes.push(

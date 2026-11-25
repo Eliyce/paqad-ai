@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
 
@@ -288,4 +288,26 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
     (existingLocal !== null && serialize(local) !== serialize(existingLocal));
   if (localChanged) files.push(fileFor(CLAUDE_LOCAL_SETTINGS_FILE, local));
   return { files, enabled, tracked };
+}
+
+export function rewriteTeamMarketplaceKeys(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const path = join(projectRoot, CLAUDE_SETTINGS_FILE);
+  const existing = readJson(path);
+  if (existing === null || !isRecord(existing.extraKnownMarketplaces)) return false;
+  const marketplace = existing.extraKnownMarketplaces[PLUGIN_MARKETPLACE_KEY];
+  if (!isRecord(marketplace)) return false;
+  const autoUpdate = pluginAutoUpdate(resolveUpdatePolicy(projectRoot, env));
+  if (marketplace.autoUpdate === autoUpdate) return false;
+  const next: Json = {
+    ...existing,
+    extraKnownMarketplaces: {
+      ...existing.extraKnownMarketplaces,
+      [PLUGIN_MARKETPLACE_KEY]: { ...marketplace, autoUpdate },
+    },
+  };
+  writeFileSync(path, serialize(next), 'utf8');
+  return true;
 }
