@@ -546,3 +546,27 @@ backlog queue listed below are the standalone exports.
 | desktop (planned) | src/rag/crs-backlog.ts | `CrsBacklogQueue` | `class CrsBacklogQueue { size; enqueue; drain }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
 | desktop (planned) | src/rag/crs-backlog.ts | `CrsBacklogPersist` | `type CrsBacklogPersist = (collectionId, chunks) => Promise<void>` | beta | 1.10.0 | planned consumer; in-tree at CrsBacklogQueue |
 | desktop (planned) | src/rag/crs-backlog.ts | `DEFAULT_CRS_BACKLOG_CAP` | `const DEFAULT_CRS_BACKLOG_CAP: number` | beta | 1.10.0 | planned consumer; in-tree at CrsBacklogQueue |
+
+## Local file read-surface consumers (planned)
+
+Files paqad writes on the developer's machine that any local tool may read:
+status lines, editor panels, other plugins. They are read-only for everyone but
+paqad. All stay git-ignored except the committed team settings. The contract is a
+JSON Schema plus conformance samples kept in this repository and shipped in the
+npm package; there is no reader library and no hosted copy. A breaking change
+bumps the file's major and adds a changelog line; an added optional field does
+not. Readers ignore unknown fields and treat an unknown major as "status
+unknown". Requirements, status and order:
+[`local-status-and-resume/REQUIREMENTS.md`](local-status-and-resume/REQUIREMENTS.md)
+(RS, HB, CFG) and [`local-status-and-resume/PROGRESS.md`](local-status-and-resume/PROGRESS.md).
+Every row is planned until slice S1 (S2 for the heartbeat fields) is done.
+
+| File | Path | Format id | Stability | Since | Requirement |
+| --- | --- | --- | --- | --- | --- |
+| HUD snapshot | `.paqad/session/hud/<session>.json` | `paqad.hud/3` (field `schema`) | beta | planned | RS-1 to RS-7 |
+| Heartbeat | `.paqad/session/hud/<session>.live` | `paqad.heartbeat/1` (field `schema`, added with `pid`, `boot_id` and `host_id`) | beta | planned | HB-1, HB-2 |
+| Change record | `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/feature.json` | `doc_type` + `schema_version` envelope | beta | planned | RS-1 to RS-7 |
+| Stage ledger | `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/stage-evidence.jsonl` | `doc_type` + `schema_version` envelope | beta | planned | RS-1 to RS-7 |
+| Change cost | `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/cost.json` | `doc_type` + `schema_version` envelope | beta | planned | RS-1 to RS-7 |
+| Team git settings (committed) | `.paqad/configs/git-workflow/branches.yaml`, `tickets.yaml`, `commits.yaml`, `pull-requests.yaml` | `schema_version: 1` | beta | planned | CFG-1 |
+| Band setting (committed) | `.paqad/configs/paqad.yaml` key `hud.band` | boolean, default `true`; `false` hides only the band | beta | planned | CFG-1, CFG-2 |
