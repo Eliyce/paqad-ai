@@ -67,15 +67,13 @@ async function main(input) {
     }
   } catch {}
 
+  const missingAgents = await missingStageAgentsOutput(projectRoot);
   await refreshProjectFiles(projectRoot);
 
   const output = mergeSessionStartOutput(
     mergeSessionStartOutput(
       mergeSessionStartOutput(
-        mergeSessionStartOutput(
-          await missingStageAgentsOutput(projectRoot),
-          await teamConfigNotice(projectRoot),
-        ),
+        mergeSessionStartOutput(missingAgents, await teamConfigNotice(projectRoot)),
         await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
       ),
       await designSignOffNotice(projectRoot),
@@ -87,9 +85,6 @@ async function main(input) {
   return 0;
 }
 
-// FR-12, FR-16: refresh paqad's own agents, ignore blocks and recipes from the
-// installed package. Prints nothing; on an error it logs one line holding only
-// the message and the path (FR-17) and the session goes on.
 async function refreshProjectFiles(projectRoot) {
   if (!isProjectOnboarded(projectRoot)) return;
   try {

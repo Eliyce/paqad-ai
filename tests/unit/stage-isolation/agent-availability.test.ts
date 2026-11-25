@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  STAGE_AGENT_MISSING_CONTEXT,
   STAGE_AGENT_MISSING_MESSAGE,
   claudeStageAgentSource,
   stageDispatchStopHookOutput,
@@ -104,14 +105,17 @@ describe('Claude Code stage agent source', () => {
 });
 
 describe('stop when a dispatch finds no stage agent', () => {
-  it('names the plugin install and refuses a main-session fallback', () => {
+  it('AC-50: stops with the one FR-43 line and refuses a main-session or general agent fallback', () => {
     const home = tempRoot();
     expect(stageDispatchStopMessage({ homeDir: home, pluginInstalled: false })).toBe(
       STAGE_AGENT_MISSING_MESSAGE,
     );
-    expect(STAGE_AGENT_MISSING_MESSAGE).toContain('Install the paqad plugin');
-    expect(STAGE_AGENT_MISSING_MESSAGE).toContain(
-      'instead of running the stage in the main session',
+    expect(STAGE_AGENT_MISSING_MESSAGE).toBe(
+      "paqad's stage agents load from the next session. Start a new session to continue.",
+    );
+    expect(STAGE_AGENT_MISSING_MESSAGE.split('\n')).toHaveLength(1);
+    expect(STAGE_AGENT_MISSING_CONTEXT).toContain(
+      'instead of running the stage in the main session or handing it to a general agent',
     );
     expect(stageDispatchStopMessage({ homeDir: home, pluginInstalled: true })).toBeNull();
   });
@@ -135,7 +139,7 @@ describe('stop when a dispatch finds no stage agent', () => {
     expect(stageDispatchStopHookOutput(home, { homeDir: home, pluginInstalled: false })).toBeNull();
   });
 
-  it('the session-start hook prints the stop message on Claude Code with no agent source', async () => {
+  it('AC-50: the session-start hook prints the stop line when the session started with no agent source, and the refresh fixes the next session', async () => {
     const root = tempRoot();
     onboard(root);
     const env = {
@@ -150,8 +154,11 @@ describe('stop when a dispatch finds no stage agent', () => {
       extendEnv: false,
       reject: false,
     });
-    expect(missing.stdout).toContain('stage agents are missing');
+    expect(missing.stdout).toContain('load from the next session');
+    expect(missing.stdout).not.toContain('general-purpose');
+    expect(existsSync(join(root, '.claude', 'agents', 'paqad-planning.md'))).toBe(true);
 
+    rmSync(join(root, '.claude', 'agents'), { recursive: true, force: true });
     writeHomeCopies(root);
     const present = await execa('node', [HOOK], {
       input: JSON.stringify({ session_id: 's-1', source: 'startup' }),
@@ -159,7 +166,7 @@ describe('stop when a dispatch finds no stage agent', () => {
       extendEnv: false,
       reject: false,
     });
-    expect(present.stdout).not.toContain('stage agents are missing');
+    expect(present.stdout).not.toContain('load from the next session');
   });
 
   it('the session-start hook stays silent off Claude Code', async () => {

@@ -26,17 +26,12 @@ export function projectOnboardedForClaudeCode(projectRoot: string): boolean {
 }
 
 export const STAGE_AGENT_MISSING_MESSAGE =
-  '**▸ paqad** · stage agents are missing\n' +
-  '> 🔴 Needs your attention — Claude Code has neither the paqad plugin agents nor a copy in ' +
-  "this repo's `.claude/agents/` or in `~/.claude/agents/`, so a stage cannot be dispatched to " +
-  'its own agent. Install the paqad ' +
-  'plugin (`/plugin install paqad@eliyce`) and start a new session. paqad stops here instead ' +
-  'of running the stage in the main session.';
+  "paqad's stage agents load from the next session. Start a new session to continue.";
 
 export const STAGE_AGENT_MISSING_CONTEXT =
   'paqad stage agents are not available in this Claude Code session. When a stage needs its ' +
-  'own agent, stop and show the Developer this message instead of running the stage in the ' +
-  `main session:\n\n${STAGE_AGENT_MISSING_MESSAGE}`;
+  'own agent, stop and show the Developer this one line instead of running the stage in the ' +
+  `main session or handing it to a general agent:\n\n${STAGE_AGENT_MISSING_MESSAGE}`;
 
 function fullCopyPresent(root: string): boolean {
   return MANDATORY_STAGE_AGENTS.every((def) =>
