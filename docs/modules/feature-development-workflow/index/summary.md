@@ -92,8 +92,8 @@ backfill is used in the same way. `next_action` then says one of these:
   really covers the criterion is left to review.
 - **Proof.** On the full lane, the completeness gate asks each stage started after the update for a
   `stage-agent` completed row, a `recipe-injected` row and, when its recipe has a script, a `skill-used`
-  row. Older stages get a note. On Codex the recipes are written to `.agents/skills/`, kept out of git
-  by `.agents/skills/.gitignore`, and no `recipe-injected` row is written, because nothing was injected.
+  row. Older stages get a note. On Codex the recipes are written to `.agents/skills/` as `paqad-<stage>-recipe`
+  folders, kept out of git by the `paqad-*/` line in `.agents/skills/.gitignore` and refreshed on every run, and no `recipe-injected` row is written, because nothing was injected.
 - **Turns.** Budgets are 50 percent above the measured baselines, rounded up to the next ten: planning
   100 (baseline 64), specification 60 (35), development 170 (109), review 70 (44), checks 20 (10) and
   documentation sync 30 (17). The completed row carries `api_turns`, and the receipt states turns per stage against the budget and the baseline.

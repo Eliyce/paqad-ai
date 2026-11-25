@@ -362,8 +362,8 @@ state on its own.
 - **`silent-update.mjs`.** A Node port of the old shell hook, because the shell one needed bash,
   python3 and GNU `timeout` and `flock`. Any newer version triggers a background global install
   then `update --silent`; a version older than the latest two minors of the same major is recorded
-  as forced. A pinned `minimum_version` that is unmet skips the interval throttle; an unsatisfiable
-  floor is logged, never enforced, because this hook never blocks. A missing
+  as forced. A pinned `minimum_version` (an exact version) that is unmet skips the interval throttle; a pin
+  that cannot be met is logged, never enforced, because this hook never blocks. A missing
   `framework-version.txt` (a teammate who cloned without onboarding) is reseeded at the epoch so
   the next session checks at once, and no check runs in the seeding session. The version comes from
   the package one level above the resolved runtime link. The single-flight lock is an atomic
