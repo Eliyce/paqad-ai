@@ -31,11 +31,11 @@ paqad-ai join [--project-root <path>] [--interactive] [--no-rag] [--yes] [--non-
 | The RAG index is built | `Building your local RAG index (this stays on your machine and is not committed)...` |
 | Done | `Ready. Your machine is set up for this project. No tracked files changed.` |
 
-The team setup line appears only when the project uses Claude Code, `team_bootstrap_enabled` is on, and `.paqad/hook.mjs`, the team keys in `.claude/settings.json` or one of the `.claude/agents/paqad-*.md` files is missing.
+The team setup line appears only when the project uses Claude Code, `team_bootstrap_enabled` is on, and the team keys in `.claude/settings.json` are missing.
 
 ## Claude Code settings
 
-When `.paqad/hook.mjs` is present, the git-ignored Claude settings get the launcher lines `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]`. Until it is present, they get the plain npm hook lines `node "<framework home>/hooks/<script>.mjs" [args]`, so no hook ever points at a missing launcher. With `team_bootstrap_enabled=false` the npm lines go to `.claude/settings.local.json`, as on onboarding. Every file is written only when git ignores it.
+When the paqad plugin is not loaded for this repo, the plain npm hook lines `node "<framework home>/hooks/<script>.mjs" [args]` go to the git-ignored `.claude/settings.local.json`. When the plugin is loaded, join writes no hook line, since the plugin carries them. With `team_bootstrap_enabled=false` the npm lines go to `.claude/settings.local.json`, as on onboarding. Every file is written only when git ignores it.
 
 ## `src/cli/commands/join.ts`
 
@@ -61,4 +61,4 @@ class ClaudeCodeAdapter {
 }
 ```
 
-`joinSettingsFiles` returns the plain npm form while the team setup is on but `.paqad/hook.mjs` is missing, and the same Claude files onboarding writes otherwise.
+`joinSettingsFiles` puts the npm hook lines in `.claude/settings.local.json` while the team setup is on and the plugin is not loaded, and returns the same Claude files onboarding writes otherwise.

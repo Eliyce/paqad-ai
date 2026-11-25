@@ -74,9 +74,13 @@ describe('ClaudeCodeAdapter attribution', () => {
     expect(JSON.parse(settings?.content ?? '{}').attribution).toBeUndefined();
   });
 
-  it('still writes the entry-gate hooks alongside the attribution object', async () => {
-    const settings = await fileAt(adapter, makeProject(), '.claude/settings.json');
-    expect(JSON.parse(settings?.content ?? '{}').hooks).toBeDefined();
+  it('AC-35: enables the paqad plugin, which carries the hooks, alongside the attribution object', async () => {
+    const settings = JSON.parse(
+      (await fileAt(adapter, makeProject(), '.claude/settings.json'))?.content ?? '{}',
+    ) as Record<string, unknown>;
+    expect(settings.attribution).toBeDefined();
+    expect(settings.hooks).toBeUndefined();
+    expect(settings.enabledPlugins).toEqual({ 'paqad@eliyce': true });
   });
 });
 

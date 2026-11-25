@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterFactory } from '@/adapters';
 import type { AdapterType } from '@/core/types/adapter.js';
@@ -23,7 +23,7 @@ const WIRED_HOSTS: ReadonlyArray<{
 }> = [
   {
     type: 'claude-code',
-    hookFile: '.claude/settings.json',
+    hookFile: '.claude/settings.local.json',
     event: '"Stop"',
     script: 'verification-completion.mjs',
     entryFile: 'CLAUDE.md',
@@ -43,6 +43,14 @@ const WIRED_HOSTS: ReadonlyArray<{
     entryFile: 'GEMINI.md',
   },
 ];
+
+beforeEach(() => {
+  vi.stubEnv('PAQAD_TEAM_BOOTSTRAP_ENABLED', 'false');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('cross-provider completion-hook parity', () => {
   for (const host of WIRED_HOSTS) {

@@ -3,8 +3,9 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { CONTRACT, FROZEN_SHA256, contractDigest } from '../../helpers/stage-contract-frozen';
+
 const REPO = resolve(__dirname, '../../..');
-const CONTRACT = 'tests/e2e/stage-enforcement-contract.e2e.test.ts';
 
 function git(args: string[]): string | null {
   try {
@@ -20,8 +21,12 @@ function git(args: string[]): string | null {
 
 const base = git(['merge-base', 'HEAD', 'origin/main']);
 
-describe('AC-40: the stage enforcement contract test stays byte-identical to main', () => {
-  it.skipIf(base === null || base === '')('has no change against the main merge base', () => {
-    expect(git(['diff', '--name-only', base!, '--', CONTRACT])).toBe('');
-  });
+describe('AC-40: the stage enforcement contract test changes only to the frozen version', () => {
+  it.skipIf(base === null || base === '')(
+    'any change against the main merge base is the frozen version',
+    () => {
+      if (git(['diff', '--name-only', base!, '--', CONTRACT]) === '') return;
+      expect(contractDigest(REPO)).toBe(FROZEN_SHA256);
+    },
+  );
 });

@@ -600,7 +600,10 @@ describe('lead guide', () => {
     const guide = leadGuideText();
     expect(guide).toContain('# Lead developer guide');
     expect(
-      readFileSync(join(process.cwd(), 'runtime/base/skills/development-recipe/SKILL.md'), 'utf8'),
+      readFileSync(
+        join(process.cwd(), 'runtime/base/skills/paqad-development-recipe/SKILL.md'),
+        'utf8',
+      ),
     ).not.toContain('Lead developer guide');
   });
 });

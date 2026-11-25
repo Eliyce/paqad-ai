@@ -1,0 +1,59 @@
+{
+  "id": "D-01M89CWY73J1CG4EQS4HJF32VA",
+  "category": "intake.requirement",
+  "title": "When to repeat the reminder to commit the one-time cleanup (untracked agents, removed startup file)",
+  "context": "After an upgrade, paqad asks the lead to commit one cleanup (the paqad helpers it stopped tracking and the removed startup file .paqad/hook.mjs) in a single message. If the lead does not commit it, when should paqad remind them? Without a reminder the old files stay shared and every teammate keeps receiving them; too many reminders become noise in every session. Grounded in docs/modules/adapter-onboarding/features/claude-code/business.md.",
+  "options": [
+    {
+      "option_key": "every-manual-update",
+      "label": "On every update the lead runs by hand until it is committed, never at session start (recommended)",
+      "one_line_preview": "On every update the lead runs by hand until it is committed, never at session start (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "every-update-incl-session-start",
+      "label": "On every update, including the quiet one at session start, until it is committed",
+      "one_line_preview": "On every update, including the quiet one at session start, until it is committed",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "once-only",
+      "label": "Once only, then stay quiet",
+      "one_line_preview": "Once only, then stay quiet",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "every-manual-update",
+  "created_at": "2026-11-25T13:04:10.979Z",
+  "status": "resolved",
+  "change": "01M89BBP4XKXVR159V9R9GNA98",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier packet decides how often to repeat a commit-the-cleanup reminder; the #852 removal note had no repeat policy."
+  },
+  "chosen": "every-manual-update",
+  "rationale": "Owner: repeat on each manual update until committed, never at session start",
+  "resolved_at": "2026-11-25T13:06:37.658Z",
+  "decision_id": "D-01M89CWY73J1CG4EQS4HJF32VA",
+  "fingerprint": "sha256:b8171bb908096818b1f3854cbfaca66128b05c73e74341c0f102344c11a0dc7b",
+  "question": "When to repeat the reminder to commit the one-time cleanup (untracked agents, removed startup file)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M89BBP4XKXVR159V9R9GNA98",
+  "ttl_until": "2026-12-09T13:04:10.979Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "every-manual-update",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-25T13:06:37.658Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: repeat on each manual update until committed, never at session start"
+  }
+}

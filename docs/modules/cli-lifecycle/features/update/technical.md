@@ -142,10 +142,10 @@ Source directories owned by this feature:
 - There are 17 team files: 12 of paqad's own and 5 under `git-workflow/`. `src/core/team-file-schema.ts`
   owns `schema_version`. Each frozen file carries a whole number that changes only when its layout does:
   `schema_version` in team files, `# catalog_version:` on line 2 of `.paqad/.config.example`,
-  `LAUNCHER_REVISION` in `.paqad/hook.mjs` and `# managed_block_version:` in the managed
+  and `# managed_block_version:` in the managed
   `.paqad/.gitignore` block. A file with a higher number than this paqad knows is left alone, with a
-  line saying to update paqad. The launcher is also rewritten when its revision is lower or missing, or equal
-  with different content.
+  line saying to update paqad. A manual update removes an old `.paqad/hook.mjs` that carries
+  the paqad `LAUNCHER_REVISION` stamp, from disk and from git, and keeps a hand-written one.
 - The first update swaps the line once. It prints a line asking one person to commit the swap, together
   with the git-workflow record when that file exists, then teammates update. Everyone needs this version or newer, including the
   plugin inside sessions, because a lagging plugin binary comes first on the PATH there. Released versions

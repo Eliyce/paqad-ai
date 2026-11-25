@@ -475,3 +475,66 @@ describe('silent-update.mjs', () => {
     expect(stat.mode & 0o100).toBe(0o100);
   });
 });
+
+describe('the npm route follows the one update resolver (FR-24, FR-29, FR-30)', () => {
+  async function routed(
+    yaml: string | null,
+    env: Record<string, string> = {},
+    current = '0.1.0',
+  ): Promise<{ log: string; exitCode: number | undefined }> {
+    const root = makeRoot();
+    try {
+      writeVersionFile(root, current, STALE);
+      mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+      if (yaml !== null) writeFileSync(join(root, '.paqad/configs/paqad.yaml'), yaml);
+      const fakeBinDir = join(root, 'fakebin');
+      mkdirSync(fakeBinDir, { recursive: true });
+      writeFakeNpmVersion(fakeBinDir, '9.9.9');
+      const result = await runHook(root, fakeBinDir, { env });
+      return { log: readAuditLog(root), exitCode: result.exitCode };
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  itPosix('AC-23: updates.automatic false spawns nothing', async () => {
+    const run = await routed('updates:\n  automatic: false\n');
+    expect(run.exitCode).toBe(0);
+    expect(run.log).not.toContain('INFO silent-update');
+  });
+
+  itPosix('AC-24: the team off wins over PAQAD_AUTO_UPDATE=1', async () => {
+    const run = await routed('updates:\n  automatic: false\n', { PAQAD_AUTO_UPDATE: '1' });
+    expect(run.log).not.toContain('INFO silent-update');
+  });
+
+  itPosix('AC-26: an unparseable paqad.yaml starts no update and logs one line', async () => {
+    const run = await routed('updates: [oops\n');
+    expect(run.exitCode).toBe(0);
+    expect(run.log).not.toContain('INFO silent-update');
+    expect(run.log.trim().split('\n')).toHaveLength(1);
+  });
+
+  itPosix('AC-27: unset follows updates.automatic and installs latest', async () => {
+    expect((await routed(null)).log).toContain('(npm install -g paqad-ai@latest)');
+  });
+
+  itPosix(
+    'AC-27, AC-28: an exact pin installs only that version, and nothing when it matches',
+    async () => {
+      const pinned = await routed('updates:\n  minimum_version: 1.2.3\n');
+      expect(pinned.log).toContain('(npm install -g paqad-ai@1.2.3)');
+      expect(pinned.log).not.toContain('@latest');
+      expect((await routed('updates:\n  minimum_version: 1.2.3\n', {}, '1.2.3')).log).toBe('');
+      const lower = await routed('updates:\n  minimum_version: 0.0.9\n');
+      expect(lower.log).toContain('(npm install -g paqad-ai@0.0.9)');
+    },
+  );
+
+  itPosix('AC-27: a malformed pin starts no update, logs one line and exits 0', async () => {
+    const run = await routed('updates:\n  minimum_version: "1.2"\n');
+    expect(run.exitCode).toBe(0);
+    expect(run.log).not.toContain('INFO silent-update');
+    expect(run.log.trim().split('\n')).toHaveLength(1);
+  });
+});

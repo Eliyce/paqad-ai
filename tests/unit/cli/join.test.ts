@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -319,14 +327,55 @@ describe('paqad-ai join', () => {
 
     expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
     expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
-    expect(existsSync(join(root, '.claude/agents'))).toBe(false);
+    expect(existsSync(join(root, '.claude/agents/paqad-planning.md'))).toBe(true);
     expect(output.join('')).toContain(JOIN_TEAM_SETUP_MISSING_MESSAGE);
     expect(JOIN_TEAM_SETUP_MISSING_MESSAGE).toContain('`paqad-ai update`');
   });
 
-  it('in a repo the lead has not updated, writes plain npm hook lines to the ignored settings and no launcher line', async () => {
+  it('AC-40: a fresh clone with no agents gets the 13 agents and the block, and git shows none of them', async () => {
     seedOnboardedProject(root);
-    write(join(root, '.claude/.gitignore'), 'settings.json\nsettings.hooks.json\n');
+    mkdirSync(join(root, '.claude/agents'), { recursive: true });
+    writeFileSync(
+      join(root, '.claude/agents/.gitignore'),
+      '# >>> paqad-ai managed (do not edit between markers) >>>\n# paqad writes and refreshes these files itself. Never commit them.\npaqad-*\n# <<< paqad-ai managed <<<\n',
+    );
+    const git = (...args: string[]) =>
+      execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    git('add', '-A');
+    git(
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-qm',
+      'seed',
+    );
+    const blockBefore = readFileSync(join(root, '.claude/agents/.gitignore'), 'utf8');
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    const agents = readdirSync(join(root, '.claude/agents')).filter((name) =>
+      name.startsWith('paqad-'),
+    );
+    expect(agents).toHaveLength(13);
+    expect(readFileSync(join(root, '.claude/agents/.gitignore'), 'utf8')).toBe(blockBefore);
+    expect(git('status', '--porcelain', '-uall', '--', '.claude/agents')).toBe('');
+    expect(output.join('')).toContain('No tracked files changed.');
+  });
+
+  it('AC-35: without the plugin, join writes the npm hook lines to the ignored local settings and no launcher line', async () => {
+    seedOnboardedProject(root);
+    write(
+      join(root, '.claude/.gitignore'),
+      'settings.json\nsettings.hooks.json\nsettings.local.json\n',
+    );
     const git = (...args: string[]) =>
       execFileSync('git', args, {
         cwd: root,
@@ -348,7 +397,10 @@ describe('paqad-ai join', () => {
 
     await joinProject({ projectRoot: root, rag: false });
 
-    const settings = readFileSync(join(root, '.claude/settings.json'), 'utf8');
+    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).not.toContain(
+      '/.paqad/hook.mjs',
+    );
+    const settings = readFileSync(join(root, '.claude/settings.local.json'), 'utf8');
     expect(settings).not.toContain('/.paqad/hook.mjs');
     const hooks = (
       JSON.parse(settings) as {
@@ -364,14 +416,25 @@ describe('paqad-ai join', () => {
     expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
   });
 
-  it('with the launcher present, the ignored settings get the launcher lines', async () => {
+  it('AC-35: with the plugin live, join adds no npm hook line anywhere', async () => {
     seedOnboardedProject(root);
     write(join(root, '.claude/.gitignore'), 'settings.json\nsettings.hooks.json\n');
-    syncTeamSetup(root, {});
+    write(
+      join(homeDir, '.claude/plugins/installed_plugins.json'),
+      JSON.stringify({
+        version: 2,
+        plugins: { 'paqad@eliyce': [{ scope: 'user', installPath: '/x', version: '1.0.0' }] },
+      }),
+    );
 
     await joinProject({ projectRoot: root, rag: false });
 
-    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).toContain('/.paqad/hook.mjs');
+    const local = join(root, '.claude/settings.local.json');
+    const text = existsSync(local) ? readFileSync(local, 'utf8') : '';
+    expect(text).not.toContain('agent-entry-gate.mjs');
+    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).not.toContain(
+      'agent-entry-gate.mjs',
+    );
   });
 
   it('stays quiet about the team setup once the repo carries it', async () => {

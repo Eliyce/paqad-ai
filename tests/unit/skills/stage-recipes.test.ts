@@ -7,12 +7,12 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { renderClaudePluginStageAgents } from '@/stage-isolation/agent-writer.js';
 
 const RECIPES = [
-  'planning-recipe',
-  'specification-recipe',
-  'development-recipe',
-  'review-recipe',
-  'documentation-sync-recipe',
-  'checks-recipe',
+  'paqad-planning-recipe',
+  'paqad-specification-recipe',
+  'paqad-development-recipe',
+  'paqad-review-recipe',
+  'paqad-documentation-sync-recipe',
+  'paqad-checks-recipe',
 ];
 
 const skillDir = (name: string) => join(process.cwd(), 'runtime/base/skills', name);
@@ -35,7 +35,7 @@ describe('the six stage recipes', () => {
 
 describe('the development recipe', () => {
   it('step 5 says check-ac-map proves a test names a criterion, not that it tests it', () => {
-    const body = readFileSync(join(skillDir('development-recipe'), 'SKILL.md'), 'utf8');
+    const body = readFileSync(join(skillDir('paqad-development-recipe'), 'SKILL.md'), 'utf8');
     const stepFive = body.split('\n').find((line) => line.startsWith('5. '));
     expect(stepFive).toContain(
       '`check-ac-map.mjs` proves a test names a criterion, not that it tests it.',
@@ -98,9 +98,12 @@ describe('every path a recipe names, from an installed layout', () => {
   });
 
   it('the documentation recipe names its stale docs script by a full path', () => {
-    const body = readFileSync(join(skillDir('documentation-sync-recipe'), 'SKILL.md'), 'utf8');
+    const body = readFileSync(
+      join(skillDir('paqad-documentation-sync-recipe'), 'SKILL.md'),
+      'utf8',
+    );
     expect(installPaths(body)).toContain(
-      'base/skills/documentation-sync-recipe/scripts/stale-docs.mjs',
+      'base/skills/paqad-documentation-sync-recipe/scripts/stale-docs.mjs',
     );
   });
 
@@ -108,5 +111,51 @@ describe('every path a recipe names, from an installed layout', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { files: string[] };
     expect(pkg.files).toContain('runtime');
     expect(pkg.files.filter((entry) => entry.startsWith('!runtime/base'))).toEqual([]);
+  });
+});
+
+describe('the paqad- recipe names (FR-3, FR-4)', () => {
+  it('AC-12: every stage maps to a RECIPE_NAMES entry that starts with paqad-', async () => {
+    const { RECIPE_NAMES, recipeNameForStage } = await import('@/stage-isolation/recipes.js');
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'documentation_sync',
+      'checks',
+    ]) {
+      const name = recipeNameForStage(stage);
+      expect(RECIPE_NAMES).toContain(name);
+      expect(name?.startsWith('paqad-')).toBe(true);
+    }
+  });
+
+  it('AC-13: every recipe the 13 agent bodies and the stage brief name is a current paqad- name', async () => {
+    const { RECIPE_NAMES } = await import('@/stage-isolation/recipes.js');
+    const { renderStageAgentFiles } = await import('@/stage-isolation/agent-writer.js');
+    const texts = [
+      ...renderStageAgentFiles('claude-code').map((agent) => agent.content),
+      ...renderStageAgentFiles('codex-cli').map((agent) => agent.content),
+      readFileSync(join(process.cwd(), 'src/stage-isolation/stage-brief.ts'), 'utf8'),
+      readFileSync(join(process.cwd(), 'src/stage-isolation/stage-agents.ts'), 'utf8'),
+    ];
+    for (const text of texts) {
+      for (const match of text.matchAll(/[a-z][a-z-]*-recipe\b/gu)) {
+        if (match[0] === 'stage-recipe' || match[0] === 'missing-recipe') continue;
+        expect(RECIPE_NAMES).toContain(match[0]);
+      }
+    }
+  });
+
+  it('AC-14: each renamed SKILL.md front-matter name equals its folder name', async () => {
+    const { RECIPE_NAMES } = await import('@/stage-isolation/recipes.js');
+    for (const name of RECIPE_NAMES) {
+      const body = readFileSync(
+        join(process.cwd(), 'runtime/base/skills', name, 'SKILL.md'),
+        'utf8',
+      );
+      expect(body).toMatch(new RegExp(`^---\\nname: ${name}\\n`, 'u'));
+    }
   });
 });

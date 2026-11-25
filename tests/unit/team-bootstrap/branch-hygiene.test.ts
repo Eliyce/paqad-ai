@@ -54,3 +54,33 @@ describe('the branch stays portable', () => {
     }
   });
 });
+
+describe('AC-61: this repo runs the change on itself', () => {
+  const tracked = (git('ls-files', '.claude/agents', '.paqad/hook.mjs') ?? '').split('\n');
+
+  it('tracks no paqad agent and no launcher', () => {
+    expect(tracked.filter((path) => /^\.claude\/agents\/paqad-[^/]*\.md$/u.test(path))).toEqual([]);
+    expect(tracked).not.toContain('.paqad/hook.mjs');
+  });
+
+  it('carries the pattern blocks in both ignore files', () => {
+    expect(readFileSync(join(REPO, '.claude/agents/.gitignore'), 'utf8')).toMatch(/^paqad-\*$/mu);
+    expect(readFileSync(join(REPO, '.agents/skills/.gitignore'), 'utf8')).toMatch(/^paqad-\*\/$/mu);
+  });
+
+  it('has no paqad hook line in the shared Claude settings', () => {
+    expect(readFileSync(join(REPO, '.claude/settings.json'), 'utf8')).not.toContain(
+      '.paqad/hook.mjs',
+    );
+  });
+
+  it('adds a changeset on this branch', (ctx) => {
+    if (!base) return ctx.skip(NO_BASE);
+    const added = (
+      git('diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', '.changeset') ?? ''
+    )
+      .split('\n')
+      .filter((name) => name.endsWith('.md') && !name.endsWith('README.md'));
+    expect(added.length).toBeGreaterThan(0);
+  });
+});

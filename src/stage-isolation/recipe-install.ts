@@ -1,42 +1,23 @@
-import { cpSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isGeneratedRecipeFolder } from '@/authoring/generated-recipes.js';
+import {
+  LEGACY_RECIPE_FOLDER_NAMES,
+  isGeneratedRecipeFolder,
+} from '@/authoring/generated-recipes.js';
+import { hashFolder } from '@/authoring/hash.js';
+import { readTextNoFollow } from '@/core/fs/read-no-follow.js';
 import { OPEN_STANDARD_SKILLS_ROOT, enabledAdapters } from '@/authoring/paths.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import {
+  SKILLS_IGNORE_LINES,
+  folderIgnoreIsSymlink,
+  writeFolderIgnoreBlock,
+} from '@/onboarding/gitignore-writer.js';
 
 import { RECIPE_NAMES, recipeRoot } from './recipes.js';
 
 const CODEX_ADAPTER = 'codex-cli';
-const IGNORE_BEGIN = '# paqad recipes: generated on each machine, kept out of git';
-const IGNORE_END = '# end paqad recipes';
-
-function recipeIgnoreBlock(): string {
-  return [IGNORE_BEGIN, ...RECIPE_NAMES.map((name) => `/${name}/`), IGNORE_END, ''].join('\n');
-}
-
-function readIgnoreFile(path: string): string {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
-    throw error;
-  }
-}
-
-function writeRecipeIgnore(skillsRoot: string): void {
-  const path = join(skillsRoot, '.gitignore');
-  const current = readIgnoreFile(path);
-  const start = current.indexOf(IGNORE_BEGIN);
-  const end = current.indexOf(IGNORE_END);
-  const kept =
-    start === -1 || end === -1
-      ? current
-      : `${current.slice(0, start)}${current.slice(end + IGNORE_END.length + 1)}`;
-  writeFileSync(
-    path,
-    `${kept}${kept === '' || kept.endsWith('\n') ? '' : '\n'}${recipeIgnoreBlock()}`,
-  );
-}
 
 function stagedCopy(source: string, staged: string): boolean {
   rmSync(staged, { recursive: true, force: true });
@@ -62,21 +43,82 @@ function replaceRecipe(source: string, skillsRoot: string, name: string): boolea
   }
 }
 
+function skillName(folder: string): string | null {
+  try {
+    const text = readTextNoFollow(join(folder, 'SKILL.md'));
+    if (text === null) return null;
+    const name = splitFrontMatter(text).header?.['name'];
+    return typeof name === 'string' ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+export function removeLegacyRecipes(skillsRoot: string): string[] {
+  const removed: string[] = [];
+  for (const name of LEGACY_RECIPE_FOLDER_NAMES) {
+    const folder = join(skillsRoot, name);
+    if (!existsSync(folder) || isSymlink(folder)) continue;
+    if (skillName(folder) !== name) continue;
+    rmSync(folder, { recursive: true, force: true });
+    removed.push(name);
+  }
+  return removed;
+}
+
+function sameFolder(installed: string, source: string): boolean {
+  try {
+    return existsSync(installed) && hashFolder(installed) === hashFolder(source);
+  } catch {
+    return false;
+  }
+}
+
+export interface RecipeSync {
+  written: string[];
+  symlinks: string[];
+}
+
+export function syncCodexRecipes(
+  projectRoot: string,
+  source: string | null = recipeRoot(),
+): RecipeSync {
+  const result: RecipeSync = { written: [], symlinks: [] };
+  if (!enabledAdapters(projectRoot).includes(CODEX_ADAPTER)) return result;
+  if (source === null) return result;
+  const skillsRoot = join(projectRoot, OPEN_STANDARD_SKILLS_ROOT);
+  mkdirSync(skillsRoot, { recursive: true });
+  for (const name of RECIPE_NAMES) {
+    const rel = `${OPEN_STANDARD_SKILLS_ROOT}/${name}`;
+    const target = join(skillsRoot, name);
+    if (isSymlink(target)) {
+      result.symlinks.push(rel);
+      continue;
+    }
+    if (sameFolder(target, join(source, name))) continue;
+    if (!replaceRecipe(join(source, name), skillsRoot, name)) continue;
+    result.written.push(rel);
+  }
+  removeLegacyRecipes(skillsRoot);
+  if (folderIgnoreIsSymlink(skillsRoot))
+    result.symlinks.push(`${OPEN_STANDARD_SKILLS_ROOT}/.gitignore`);
+  else writeFolderIgnoreBlock(skillsRoot, SKILLS_IGNORE_LINES);
+  return result;
+}
+
 export function writeCodexRecipes(
   projectRoot: string,
   source: string | null = recipeRoot(),
 ): string[] {
-  if (!enabledAdapters(projectRoot).includes(CODEX_ADAPTER)) return [];
-  if (source === null) return [];
-  const skillsRoot = join(projectRoot, OPEN_STANDARD_SKILLS_ROOT);
-  mkdirSync(skillsRoot, { recursive: true });
-  const written: string[] = [];
-  for (const name of RECIPE_NAMES) {
-    if (!replaceRecipe(join(source, name), skillsRoot, name)) continue;
-    written.push(`${OPEN_STANDARD_SKILLS_ROOT}/${name}`);
-  }
-  writeRecipeIgnore(skillsRoot);
-  return written;
+  return syncCodexRecipes(projectRoot, source).written;
 }
 
 export { isGeneratedRecipeFolder };

@@ -103,6 +103,11 @@ describe('paqad-ai join — cloned project', () => {
     mkdirSync(source, { recursive: true });
     seedTrackedOnboarding(source);
     writeGitignore(source);
+    mkdirSync(join(source, '.agents/skills'), { recursive: true });
+    writeFileSync(
+      join(source, '.agents/skills/.gitignore'),
+      '# >>> paqad-ai managed (do not edit between markers) >>>\n# paqad writes and refreshes these folders itself. Never commit them.\npaqad-*/\n# <<< paqad-ai managed <<<\n',
+    );
     execFileSync('git', ['init', '--quiet'], { cwd: source });
     execFileSync('git', ['config', 'user.email', 'join@example.test'], { cwd: source });
     execFileSync('git', ['config', 'user.name', 'Join Fixture'], { cwd: source });

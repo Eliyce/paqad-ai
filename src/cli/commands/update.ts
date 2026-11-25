@@ -113,7 +113,9 @@ export function createUpdateCommand(): Command {
         return;
       }
       try {
-        const report = await new FrameworkUpdater().run(options.projectRoot);
+        const report = await new FrameworkUpdater({ silent: options.silent === true }).run(
+          options.projectRoot,
+        );
         if (!options.silent) {
           if (options.json) {
             console.log(JSON.stringify(report, null, 2));

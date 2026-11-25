@@ -3,6 +3,12 @@ import { join, relative } from 'node:path';
 import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { commitTeamFilesNote } from '@/adapters/claude/team-setup.js';
+import {
+  CLAUDE_SETTINGS_FILE,
+  rewriteTeamMarketplaceKeys,
+} from '@/adapters/claude/team-settings.js';
+import { setTeamConfigValue } from '@/core/team-config.js';
 import { migrateTeamConfig } from '@/core/team-config-migrate.js';
 import { buildConfigShow, renderConfigShow } from './config-show.js';
 import {
@@ -191,6 +197,56 @@ export function resolveEffectiveConfig(
   });
 }
 
+const SETTABLE_KEYS: Record<string, 'auto_update' | 'minimum_version'> = {
+  auto_update: 'auto_update',
+  'updates.automatic': 'auto_update',
+  minimum_version: 'minimum_version',
+  'updates.minimum_version': 'minimum_version',
+};
+
+const BOOLEAN_VALUE = /^(true|false|1|0|yes|no|on|off)$/iu;
+const PIN_VALUE = /^(latest|v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/u;
+
+export interface ConfigSetResult {
+  lines: string[];
+  error?: string;
+}
+
+export function setUpdateSetting(
+  projectRoot: string,
+  rawKey: string,
+  rawValue: string,
+  env: NodeJS.ProcessEnv = process.env,
+): ConfigSetResult {
+  const key = SETTABLE_KEYS[rawKey];
+  if (key === undefined) {
+    return {
+      lines: [],
+      error: `config set changes only updates.automatic (auto_update) and updates.minimum_version (minimum_version), not ${rawKey}.`,
+    };
+  }
+  const value = rawValue.trim();
+  const valid = key === 'auto_update' ? BOOLEAN_VALUE.test(value) : PIN_VALUE.test(value);
+  if (!valid) {
+    return {
+      lines: [],
+      error:
+        key === 'auto_update'
+          ? `${rawKey} takes true or false, not ${rawValue}.`
+          : `${rawKey} takes an exact version such as 1.2.3, or latest, not ${rawValue}.`,
+    };
+  }
+  let written: string;
+  try {
+    written = setTeamConfigValue(projectRoot, key, value.replace(/^v/u, ''));
+  } catch (error) {
+    return { lines: [], error: error instanceof Error ? error.message : String(error) };
+  }
+  const changed = [relative(projectRoot, written).replace(/\\/gu, '/')];
+  if (rewriteTeamMarketplaceKeys(projectRoot, env)) changed.push(CLAUDE_SETTINGS_FILE);
+  return { lines: [`Set ${rawKey} to ${value}.`, commitTeamFilesNote(changed)] };
+}
+
 export function createConfigCommand(): Command {
   const command = new Command('config').description('Inspect the framework configuration');
 
@@ -241,6 +297,22 @@ export function createConfigCommand(): Command {
         return;
       }
       console.log(renderConfigShow(result, options.changed === true));
+    });
+
+  command
+    .command('set <key> <value>')
+    .description(
+      'Set the team update setting updates.automatic (auto_update) or updates.minimum_version ' +
+        '(minimum_version) in paqad.yaml, and rewrite the paqad plugin keys in .claude/settings.json to match.',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action((key: string, value: string, options: { projectRoot: string }) => {
+      const result = setUpdateSetting(options.projectRoot, key, value);
+      for (const line of result.lines) console.log(line);
+      if (result.error !== undefined) {
+        console.error(result.error);
+        process.exitCode = 1;
+      }
     });
 
   command

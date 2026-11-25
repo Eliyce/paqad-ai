@@ -213,7 +213,7 @@ same renderer `agent audit` uses: S3 runs on every rendered agent and S4 lints e
 agent's own permission decision. Release never writes into the template; its `claude` record
 carries the template file's own hash.
 
-The completion check skips a stage recipe folder under the open-standard skills root when its hash
+The completion check skips a stage recipe folder (named `paqad-<stage>-recipe`) under the open-standard skills root when its hash
 matches the source in `runtime/base/skills`, because paqad wrote that copy and nobody authored it. An
 edited copy is checked as usual. AG-021 warns on a `Do not` line that nothing enforces. It accepts a line
 that names the capability gate or a `stage-agent-*.mjs` hook, and it accepts a line naming a

@@ -67,13 +67,13 @@ async function main(input) {
     }
   } catch {}
 
+  const missingAgents = await missingStageAgentsOutput(projectRoot);
+  await refreshProjectFiles(projectRoot);
+
   const output = mergeSessionStartOutput(
     mergeSessionStartOutput(
       mergeSessionStartOutput(
-        mergeSessionStartOutput(
-          await missingStageAgentsOutput(projectRoot),
-          await teamConfigNotice(projectRoot),
-        ),
+        mergeSessionStartOutput(missingAgents, await teamConfigNotice(projectRoot)),
         await lastUpdateNotice(projectRoot, sourceFromStdin(input)),
       ),
       await designSignOffNotice(projectRoot),
@@ -83,6 +83,25 @@ async function main(input) {
   if (output) process.stdout.write(output);
 
   return 0;
+}
+
+async function refreshProjectFiles(projectRoot) {
+  if (!isProjectOnboarded(projectRoot)) return;
+  try {
+    const url = new URL('../../dist/stage-isolation/project-refresh.js', import.meta.url);
+    const { refreshPaqadProjectFiles } = await import(url.href);
+    const result = refreshPaqadProjectFiles(projectRoot);
+    if (result.symlinks.length > 0) {
+      appendHooksLog(
+        projectRoot,
+        `session-start: refresh skipped symlinks: ${result.symlinks.join(', ')}`,
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const path = error && typeof error.path === 'string' ? error.path : projectRoot;
+    appendHooksLog(projectRoot, `session-start: refresh failed at ${path}: ${message}`);
+  }
 }
 
 async function missingStageAgentsOutput(projectRoot) {

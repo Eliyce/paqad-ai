@@ -21,7 +21,6 @@ import {
   readLayeredKey,
 } from '../../../runtime/hooks/lib/paqad-disabled.mjs';
 import { readYamlScalar } from '../../../runtime/hooks/lib/yaml-scalar.mjs';
-import { readYamlScalar as launcherReadYamlScalar } from '../../../runtime/templates/team-bootstrap/hook.mjs';
 
 const SH = resolve(__dirname, '../../../runtime/hooks/lib/paqad-disabled.sh');
 const itPosix = process.platform === 'win32' ? it.skip : it;
@@ -63,7 +62,6 @@ describe('readYamlScalar', () => {
     it(`reads enabled with ${name} (AC-54)`, () => {
       expect(readYamlScalar(text, ['enabled'])).toBe(expected);
       expect(modReadYamlScalar(text, ['enabled'])).toBe(expected);
-      expect(launcherReadYamlScalar(text, ['enabled'])).toBe(expected);
     });
 
     itPosix(`the shell reader agrees on ${name} (AC-54)`, () => {
@@ -84,7 +82,6 @@ describe('readYamlScalar', () => {
     it(`reads hud.chime with ${name}`, () => {
       expect(readYamlScalar(text, ['hud', 'chime'])).toBe(expected);
       expect(modReadYamlScalar(text, ['hud', 'chime'])).toBe(expected);
-      expect(launcherReadYamlScalar(text, ['hud', 'chime'])).toBe(expected);
     });
   }
 

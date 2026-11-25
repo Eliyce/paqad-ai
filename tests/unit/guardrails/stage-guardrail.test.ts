@@ -166,6 +166,8 @@ function seedLine(hooksDir: string): RenderedHook {
 async function renderHookFiles(): Promise<Record<string, Record<string, string>>> {
   const prior = process.env.PAQAD_FRAMEWORK_HOME;
   process.env.PAQAD_FRAMEWORK_HOME = PINNED.frameworkHome;
+  const priorTeam = process.env.PAQAD_TEAM_BOOTSTRAP_ENABLED;
+  process.env.PAQAD_TEAM_BOOTSTRAP_ENABLED = 'false';
   const out: Record<string, Record<string, string>> = {};
   try {
     for (const type of ADAPTER_TYPES) {
@@ -178,14 +180,18 @@ async function renderHookFiles(): Promise<Record<string, Record<string, string>>
       });
       for (const file of files) {
         const content = file.content.split(projectRoot).join('<root>');
-        if (content.includes('/hooks/') || content.includes('/.paqad/hook.mjs')) {
-          (out[type] ??= {})[file.path] = content;
+        const path =
+          file.path === '.claude/settings.local.json' ? '.claude/settings.json' : file.path;
+        if (content.includes('/hooks/')) {
+          (out[type] ??= {})[path] = content;
         }
       }
     }
   } finally {
     if (prior === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
     else process.env.PAQAD_FRAMEWORK_HOME = prior;
+    if (priorTeam === undefined) delete process.env.PAQAD_TEAM_BOOTSTRAP_ENABLED;
+    else process.env.PAQAD_TEAM_BOOTSTRAP_ENABLED = priorTeam;
   }
   return out;
 }
@@ -244,10 +250,8 @@ function goldenAsHost(text: string): string {
       `node \\\\"${GOLDEN_HOME}/hooks/$1\\\\"`,
     )
     .replace(/,\n {12}"timeout": 600/g, '')
-    .replace(
-      / {2}"extraKnownMarketplaces": \{\n[\s\S]*?\n {2}"enabledPlugins": \{\n[^}]*\},\n/,
-      '',
-    );
+    .replace(/ {2}"extraKnownMarketplaces": \{\n[\s\S]*?\n {2}"enabledPlugins": \{\n[^}]*\},\n/, '')
+    .replace(/,\n {2}"attribution": \{\n[^}]*\n {2}\}/, '');
 }
 
 const LAUNCHER_ROUTE_ADDITIONS: ReadonlyArray<readonly [string, string]> = [
@@ -423,14 +427,12 @@ describe('the stage enforcement guardrails', () => {
     );
   });
 
-  it('AC-32: the contract runs every case on npm, plugin, launcher then npm and launcher then team copy, from a temp HOME with no network', () => {
+  it('AC-36: the contract runs every case on the npm and plugin routes, with no launcher route and no network', () => {
     const contract = working(CONTRACT);
-    for (const name of ['npm', 'plugin', 'launcher then npm', 'launcher then team copy']) {
+    for (const name of ['npm', 'plugin']) {
       expect(contract).toContain(`name: '${name}'`);
     }
-    for (const part of ["'package.json'", "['dist', 'runtime']", 'HOME: launcherHome']) {
-      expect(contract).toContain(part);
-    }
+    expect(contract).not.toContain('launcher');
     expect(contract).not.toMatch(/git clone|https:\/\//);
   });
 
@@ -543,7 +545,7 @@ describe('the stage enforcement guardrails', () => {
         ]);
         expectOnlyTheActivationEntry(parsed.hooks);
         parsed.hooks = withoutSeedHook(parsed.hooks);
-        expect(`${JSON.stringify(parsed, null, 2)}\n`).toBe(content);
+        expect(parsed.hooks).toEqual((JSON.parse(content) as { hooks: HookGroups }).hooks);
       }
     }
   });

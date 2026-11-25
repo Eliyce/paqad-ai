@@ -1160,6 +1160,63 @@ describe('FrameworkUpdater', () => {
       restore('USERPROFILE', savedUserProfile);
     });
 
+    it('AC-41, AC-49, AC-2, AC-3: update with team setup off writes the agents, matches the user copy and is quiet on rerun', async () => {
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' });
+      git('init', '-q');
+      mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.paqad/configs/.config.app'),
+        'team_bootstrap_enabled=false\n',
+      );
+      writeFileSync(
+        join(projectRoot, '.paqad/onboarding-manifest.json'),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          adapter: 'claude-code',
+          providers: ['claude-code'],
+          generated_artifacts: [],
+          detected: null,
+        }),
+      );
+      const updater = () =>
+        new FrameworkUpdater({
+          generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
+        }).run(projectRoot);
+      const report = await updater();
+      const agents = join(projectRoot, '.claude/agents');
+      const names = readdirSync(agents).filter((name) => name.startsWith('paqad-'));
+      expect(names).toHaveLength(13);
+      expect(readFileSync(join(agents, '.gitignore'), 'utf8')).toContain('paqad-*');
+      expect(JSON.stringify(report.team_setup_notes ?? [])).not.toMatch(/paqad-[a-z-]+\.md/u);
+      for (const name of names) {
+        const user = join(userHome, '.claude/agents', name);
+        if (existsSync(user)) {
+          expect(readFileSync(join(agents, name), 'utf8')).toBe(readFileSync(user, 'utf8'));
+        }
+      }
+      expect(git('status', '--porcelain', '-uall')).not.toMatch(/\.claude\/agents\/paqad-/u);
+      git('add', '-A');
+      git(
+        '-c',
+        'user.email=t@t',
+        '-c',
+        'user.name=t',
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '--no-verify',
+        '-qm',
+        'first',
+      );
+      const before = readFileSync(join(agents, 'paqad-planning.md'), 'utf8');
+      await updater();
+      expect(readFileSync(join(agents, 'paqad-planning.md'), 'utf8')).toBe(before);
+      expect(git('status', '--porcelain', '--', '.claude')).toBe('');
+    });
+
     it('AC-52: an update writes the recipes and the read-first line, and git ignores only the six folders', async () => {
       execFileSync('git', ['init', '-q'], { cwd: projectRoot });
       mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
@@ -1176,9 +1233,11 @@ describe('FrameworkUpdater', () => {
         }),
       );
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
-      expect(existsSync(join(projectRoot, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+      expect(existsSync(join(projectRoot, '.agents/skills/paqad-review-recipe/SKILL.md'))).toBe(
+        true,
+      );
       expect(readFileSync(join(userHome, '.codex/agents/paqad-review.toml'), 'utf8')).toContain(
-        'Read `.agents/skills/review-recipe/SKILL.md` first',
+        'Read `.agents/skills/paqad-review-recipe/SKILL.md` first',
       );
       const ignored = (path: string): boolean => {
         try {
@@ -1196,7 +1255,7 @@ describe('FrameworkUpdater', () => {
         'documentation-sync',
         'checks',
       ]) {
-        expect(ignored(`.agents/skills/${recipe}-recipe/SKILL.md`)).toBe(true);
+        expect(ignored(`.agents/skills/paqad-${recipe}-recipe/SKILL.md`)).toBe(true);
       }
       expect(ignored('.agents/skills/our-skill/SKILL.md')).toBe(false);
     });
@@ -1362,17 +1421,35 @@ describe('FrameworkUpdater', () => {
   describe('team setup on update', () => {
     const claudeCandidates = async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }];
 
-    it('writes .paqad/hook.mjs for a Claude project, names it to commit, and gives no diff on a rerun', async () => {
+    beforeEach(() => {
+      vi.stubEnv('CI', '');
+      vi.stubEnv('GITHUB_ACTIONS', '');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('AC-1, FR-38: writes no .paqad/hook.mjs, and a manual update removes a stamped one', async () => {
       const report = await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(
         projectRoot,
       );
       const launcher = join(projectRoot, '.paqad/hook.mjs');
-      const bytes = readFileSync(launcher, 'utf8');
-      expect(bytes).toMatch(/LAUNCHER_REVISION = \d+;/u);
-      expect(bytes).not.toContain(VERSION);
-      expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
+      expect(existsSync(launcher)).toBe(false);
+      expect(report.team_setup_notes.join('\n')).not.toContain('.paqad/hook.mjs');
+      writeFileSync(launcher, 'export const LAUNCHER_REVISION = 2;\n');
       await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
-      expect(readFileSync(launcher, 'utf8')).toBe(bytes);
+      expect(existsSync(launcher)).toBe(false);
+    });
+
+    it('INV-13: the silent update leaves a stamped launcher for the next manual update', async () => {
+      const launcher = join(projectRoot, '.paqad/hook.mjs');
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(launcher, 'export const LAUNCHER_REVISION = 2;\n');
+      await new FrameworkUpdater({ generateCandidates: claudeCandidates, silent: true }).run(
+        projectRoot,
+      );
+      expect(existsSync(launcher)).toBe(true);
     });
 
     it('writes no team setup for a project without Claude', async () => {
@@ -1383,8 +1460,9 @@ describe('FrameworkUpdater', () => {
       expect(report.team_setup_notes).toEqual([]);
     });
 
-    it('removes an unchanged launcher once the team opts out', async () => {
-      await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
+    it('removes a stamped launcher once the team opts out', async () => {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(join(projectRoot, '.paqad/hook.mjs'), 'export const LAUNCHER_REVISION = 2;\n');
       mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
       writeFileSync(
         join(projectRoot, '.paqad/configs/.config.app'),

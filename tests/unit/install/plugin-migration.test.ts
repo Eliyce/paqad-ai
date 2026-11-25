@@ -451,6 +451,30 @@ describe('installViaSettings / undoViaSettings (Path B)', () => {
     expect(after.enabledPlugins['paqad@eliyce']).toBeUndefined();
     expect(after.extraKnownMarketplaces.eliyce).toBeUndefined();
   });
+  it('INV-4: one project with updates off or pinned leaves the user level auto update alone', () => {
+    const project = mkdtempSync(join(tmpdir(), 'paqad-mig-project-'));
+    mkdirSync(join(project, '.paqad/configs'), { recursive: true });
+    writeFileSync(
+      join(project, '.paqad/configs/paqad.yaml'),
+      'updates:\n  automatic: false\n  minimum_version: 1.2.3\n',
+    );
+    const cwd = process.cwd();
+    process.chdir(project);
+    try {
+      expect(installViaSettings(home).state).toBe('installed');
+      let after = JSON.parse(readFileSync(userSettings(), 'utf8'));
+      expect(after.extraKnownMarketplaces.eliyce.autoUpdate).toBe(true);
+      after.extraKnownMarketplaces.eliyce.autoUpdate = false;
+      writeFileSync(userSettings(), JSON.stringify(after));
+      process.chdir(cwd);
+      expect(installViaSettings(home).state).toBe('installed');
+      after = JSON.parse(readFileSync(userSettings(), 'utf8'));
+      expect(after.extraKnownMarketplaces.eliyce.autoUpdate).toBe(false);
+    } finally {
+      process.chdir(cwd);
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
   it('undo is a no-op on unreadable settings', () => {
     expect(() => undoViaSettings(home)).not.toThrow();
   });
@@ -1970,6 +1994,23 @@ describe('team repos get the user-scope install, every opt-out still holds (AC-2
       name: 'cloud session',
       reason: 'cloud-session',
       env: { PAQAD_PLUGIN_MIGRATION: 'on', CLAUDE_CODE_REMOTE: 'true' },
+    },
+    {
+      name: 'AC-34 a pinned updates.minimum_version',
+      reason: 'pinned-version',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on' },
+      setup: () => {
+        mkdirSync(join(projectRoot, '.paqad', 'configs'), { recursive: true });
+        writeFileSync(
+          join(projectRoot, '.paqad', 'configs', 'paqad.yaml'),
+          'updates:\n  minimum_version: 1.2.3\n',
+        );
+      },
+    },
+    {
+      name: 'AC-34 a personal PAQAD_MINIMUM_VERSION pin',
+      reason: 'pinned-version',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on', PAQAD_MINIMUM_VERSION: '1.2.3' },
     },
   ];
 

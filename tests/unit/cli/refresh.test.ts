@@ -358,7 +358,7 @@ describe('refresh command', () => {
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
   });
 
-  it('writes the team launcher whenever it writes launcher hook lines, so no hook points at a missing file', async () => {
+  it('AC-35: writes no launcher and no hook line that calls it', async () => {
     writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stale CLAUDE.md\n');
 
     await createRefreshCommand().parseAsync(
@@ -367,8 +367,8 @@ describe('refresh command', () => {
     );
 
     const settings = readFileSync(join(projectRoot, '.claude/settings.json'), 'utf8');
-    expect(settings).toContain('/.paqad/hook.mjs');
-    expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(true);
+    expect(settings).not.toContain('/.paqad/hook.mjs');
+    expect(existsSync(join(projectRoot, '.paqad/hook.mjs'))).toBe(false);
   });
 
   describe('AC-52 the full rule reset is removed', () => {

@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterFactory } from '@/adapters';
 import type { AdapterType } from '@/core/types/adapter.js';
@@ -10,7 +10,7 @@ import type { AdapterType } from '@/core/types/adapter.js';
 const FIXED_HOME = '/fake/home/.paqad-ai/current';
 
 const EXECUTED_HOOK_FILE: Partial<Record<AdapterType, string>> = {
-  'claude-code': '.claude/settings.json',
+  'claude-code': '.claude/settings.local.json',
   'gemini-cli': '.gemini/settings.json',
 };
 
@@ -35,8 +35,11 @@ describe('native hook-config byte-identity', () => {
   beforeEach(() => {
     priorHome = process.env.PAQAD_FRAMEWORK_HOME;
     process.env.PAQAD_FRAMEWORK_HOME = FIXED_HOME;
+    vi.stubEnv('PAQAD_TEAM_BOOTSTRAP_ENABLED', 'false');
+    vi.stubEnv('CLAUDE_PLUGIN_ROOT', '');
   });
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (priorHome === undefined) {
       delete process.env.PAQAD_FRAMEWORK_HOME;
     } else {

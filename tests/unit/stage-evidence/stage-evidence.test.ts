@@ -725,7 +725,7 @@ describe('stage evidence schema versions', () => {
         schema_version: 3,
         kind: 'skill-used',
         stage: 'review',
-        recipe: 'review-recipe',
+        recipe: 'paqad-review-recipe',
       }),
     ).not.toEqual([]);
     expect(
@@ -734,7 +734,7 @@ describe('stage evidence schema versions', () => {
         schema_version: 3,
         kind: 'recipe-injected',
         stage: 'review',
-        recipe: 'review-recipe',
+        recipe: 'paqad-review-recipe',
         recipe_hash: 'h',
       }),
     ).toEqual([]);

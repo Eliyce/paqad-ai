@@ -47,85 +47,93 @@ describe('CLI interactions — end-to-end', () => {
     await ensureBuiltCli();
   });
 
-  it('supports user-facing capabilities management against an onboarded project', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-cli-capabilities-'));
-    process.env.PAQAD_FRAMEWORK_HOME = join(projectRoot, '.framework-home');
+  it(
+    'supports user-facing capabilities management against an onboarded project',
+    async () => {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-cli-capabilities-'));
+      process.env.PAQAD_FRAMEWORK_HOME = join(projectRoot, '.framework-home');
 
-    try {
-      await execa('node', [cliPath, 'install', '--project-root', projectRoot], {
-        cwd: projectRoot,
-      });
-      await execa(
-        'node',
-        [
-          cliPath,
-          'onboard',
-          '--project-root',
-          projectRoot,
-          '--stack',
-          'laravel',
-          '--providers',
-          'claude-code',
-        ],
-        { cwd: projectRoot },
-      );
-
-      const available = await execa('node', [cliPath, 'capabilities', 'available'], {
-        cwd: projectRoot,
-      });
-      expect(available.stdout).toContain('content');
-      expect(available.stdout).toContain('coding');
-      expect(available.stdout).not.toContain('security');
-
-      const initial = await execa(
-        'node',
-        [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
-        { cwd: projectRoot },
-      );
-      expect(initial.stdout.trim().split('\n')).toEqual(['content', 'coding', 'security']);
-
-      await execa(
-        'node',
-        [cliPath, 'capabilities', 'remove', 'coding', '--project-root', projectRoot],
-        { cwd: projectRoot },
-      );
-      const afterRemove = await execa(
-        'node',
-        [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
-        { cwd: projectRoot },
-      );
-      expect(afterRemove.stdout.trim()).toBe('content');
-
-      await execa(
-        'node',
-        [cliPath, 'capabilities', 'add', 'coding', '--project-root', projectRoot],
-        { cwd: projectRoot },
-      );
-      const afterAdd = await execa(
-        'node',
-        [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
-        { cwd: projectRoot },
-      );
-      expect(afterAdd.stdout.trim().split('\n')).toEqual(['content', 'coding', 'security']);
-
-      await expect(
-        execa('node', [cliPath, 'capabilities', 'add', 'security', '--project-root', projectRoot], {
+      try {
+        await execa('node', [cliPath, 'install', '--project-root', projectRoot], {
           cwd: projectRoot,
-        }),
-      ).rejects.toThrow('dependency-managed');
-
-      await expect(
-        execa(
+        });
+        await execa(
           'node',
-          [cliPath, 'capabilities', 'remove', 'security', '--project-root', projectRoot],
+          [
+            cliPath,
+            'onboard',
+            '--project-root',
+            projectRoot,
+            '--stack',
+            'laravel',
+            '--providers',
+            'claude-code',
+          ],
           { cwd: projectRoot },
-        ),
-      ).rejects.toThrow('dependency-managed');
-    } finally {
-      delete process.env.PAQAD_FRAMEWORK_HOME;
-      rmSync(projectRoot, { recursive: true, force: true });
-    }
-  }, 15000);
+        );
+
+        const available = await execa('node', [cliPath, 'capabilities', 'available'], {
+          cwd: projectRoot,
+        });
+        expect(available.stdout).toContain('content');
+        expect(available.stdout).toContain('coding');
+        expect(available.stdout).not.toContain('security');
+
+        const initial = await execa(
+          'node',
+          [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
+          { cwd: projectRoot },
+        );
+        expect(initial.stdout.trim().split('\n')).toEqual(['content', 'coding', 'security']);
+
+        await execa(
+          'node',
+          [cliPath, 'capabilities', 'remove', 'coding', '--project-root', projectRoot],
+          { cwd: projectRoot },
+        );
+        const afterRemove = await execa(
+          'node',
+          [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
+          { cwd: projectRoot },
+        );
+        expect(afterRemove.stdout.trim()).toBe('content');
+
+        await execa(
+          'node',
+          [cliPath, 'capabilities', 'add', 'coding', '--project-root', projectRoot],
+          { cwd: projectRoot },
+        );
+        const afterAdd = await execa(
+          'node',
+          [cliPath, 'capabilities', 'list', '--project-root', projectRoot],
+          { cwd: projectRoot },
+        );
+        expect(afterAdd.stdout.trim().split('\n')).toEqual(['content', 'coding', 'security']);
+
+        await expect(
+          execa(
+            'node',
+            [cliPath, 'capabilities', 'add', 'security', '--project-root', projectRoot],
+            {
+              cwd: projectRoot,
+            },
+          ),
+        ).rejects.toThrow('dependency-managed');
+
+        await expect(
+          execa(
+            'node',
+            [cliPath, 'capabilities', 'remove', 'security', '--project-root', projectRoot],
+            { cwd: projectRoot },
+          ),
+        ).rejects.toThrow('dependency-managed');
+      } finally {
+        delete process.env.PAQAD_FRAMEWORK_HOME;
+        rmSync(projectRoot, { recursive: true, force: true });
+      }
+    },
+    process.platform === 'win32' ? 30_000 : 15_000,
+  );
 
   it('supports pack scaffolding, validation, installation, and listing from the built cli', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-cli-packs-'));

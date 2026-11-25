@@ -67,6 +67,7 @@ import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { removeObsoleteContractDocs, removeObsoleteWorkflowRules } from './obsolete-cleanup.js';
 import { writeCodexRecipes } from '@/stage-isolation/recipe-install.js';
+import { untrackPaqadFiles } from '@/update/paqad-files-untrack.js';
 import { writeGitignore } from './gitignore-writer.js';
 import { writeWorktreeInclude } from './worktree-include-writer.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
@@ -321,11 +322,14 @@ export class OnboardingOrchestrator {
       }
       if (adapters.includes('claude-code')) {
         onboardingWarnings.push(
-          ...new ClaudeCodeAdapter().syncTeamSetup(options.projectRoot).notes,
+          ...new ClaudeCodeAdapter().syncTeamSetup(options.projectRoot, process.env, {
+            removeLauncher: true,
+          }).notes,
         );
       }
       writeGitignore(options.projectRoot);
       writeCodexRecipes(options.projectRoot);
+      onboardingWarnings.push(...untrackPaqadFiles(options.projectRoot).notes);
       writeWorktreeInclude(options.projectRoot);
       onboardingWarnings.push(...(installGitHooks(options.projectRoot).problems ?? []));
       writeDetectionReport(options.projectRoot, detection);

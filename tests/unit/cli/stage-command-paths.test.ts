@@ -340,7 +340,7 @@ describe('paqad-ai stage, in process', () => {
       testFile("it('has no id', () => {});\n");
       await run('end', 'development');
       expect(process.exitCode).toBe(1);
-      expect(err[0]).toContain('development-recipe check found problems');
+      expect(err[0]).toContain('paqad-development-recipe check found problems');
       expect(devEnded(dir)).toBe(false);
     });
 
@@ -359,7 +359,7 @@ describe('paqad-ai stage, in process', () => {
       expect(
         readFeatureStageUnit(root, dir).find((row) => row.kind === 'skill-used'),
       ).toMatchObject({
-        recipe: 'development-recipe',
+        recipe: 'paqad-development-recipe',
         script: 'check-ac-map.mjs',
         agent_id: 'a-dev',
       });
@@ -384,7 +384,7 @@ describe('paqad-ai stage, in process', () => {
       specFor(dir);
       await run('end', 'development');
       expect(process.exitCode).toBe(1);
-      expect(err[0]).toContain('development-recipe check found problems');
+      expect(err[0]).toContain('paqad-development-recipe check found problems');
       expect(devEnded(dir)).toBe(false);
     });
 
@@ -395,7 +395,7 @@ describe('paqad-ai stage, in process', () => {
       expect(process.exitCode).toBeUndefined();
       expect(
         readFeatureStageUnit(root, dir).find((row) => row.kind === 'skill-used'),
-      ).toMatchObject({ recipe: 'documentation-sync-recipe', stale_ok: ['docs/a.md'] });
+      ).toMatchObject({ recipe: 'paqad-documentation-sync-recipe', stale_ok: ['docs/a.md'] });
     });
 
     it('records a boundary when PAQAD_STAGE_AGENT is exported empty', async () => {

@@ -111,7 +111,7 @@ describe('review record checks the template with the recipe script', () => {
     expect(skillUsed(root)).toMatchObject([
       {
         stage: 'review',
-        recipe: 'review-recipe',
+        recipe: 'paqad-review-recipe',
         source: 'script',
         script: 'lint-findings.mjs',
         agent_id: AGENT,
@@ -350,7 +350,7 @@ describe('spec freeze checks the spec', () => {
 
 describe('the recipe-injected row', () => {
   const injected = (hash: string) => ({
-    recipe: 'review-recipe',
+    recipe: 'paqad-review-recipe',
     recipe_hash: hash,
     recipe_root: '/r',
     truncated: false,

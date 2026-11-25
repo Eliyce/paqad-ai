@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-11-16T06:52:06.232Z
-rule_files_hash: sha256-c897d3bc2e6c9214dbe0c72256ac1394cdd3254c185c4b008b3f378f48da1dd1
+generated_at: 2026-11-25T15:58:22.734Z
+rule_files_hash: sha256-d0bdde7fdc97cce7cedd497696e4242b3978d06babfc1fdd3ec5c1d8a17cd02f
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1333,8 +1333,8 @@ rules:
         fixtures_passed: true
   - id: RL-d898
     source: docs/instructions/rules/coding/cross-platform-hooks.md
-    text: 'Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. The one exception is the Claude Code team chain committed in `.claude/settings.json`, which runs the committed launcher as `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]`. MUST NOT rely on `~` expansion, a shebang, or the executable bit.'
-    text_hash: 28d534d3365e17ad18ffde9834c6c5b5ce2d7938f0f19902ba18973d84dfea7e
+    text: 'Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. MUST NOT rely on `~` expansion, a shebang, or the executable bit.'
+    text_hash: 638572d1393a01322baccb04c8b88172fc9036aed896ddafca8962d2f6cb97a7
     verifiability:
       kind: deterministic
     enforced_by: []

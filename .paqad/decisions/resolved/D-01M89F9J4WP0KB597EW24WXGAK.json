@@ -1,0 +1,52 @@
+{
+  "id": "D-01M89F9J4WP0KB597EW24WXGAK",
+  "category": "spec.contradiction",
+  "title": "paqad-ai config set does not exist: add it for the update keys?",
+  "context": "FR-32 and AC-29 say paqad-ai config set for auto_update or minimum_version rewrites the eliyce marketplace keys and prints the existing commit note. The CLI has no config set command today (config has only effective, show and migrate). Meeting FR-32 means adding a new command that writes updates.automatic and updates.minimum_version into .paqad/configs/paqad.yaml, which the spec does not describe.",
+  "options": [
+    {
+      "option_key": "add",
+      "label": "Add paqad-ai config set for auto_update and minimum_version only, writing paqad.yaml and the marketplace keys at once",
+      "one_line_preview": "Add paqad-ai config set for auto_update and minimum_version only, writing paqad.yaml and the marketplace keys at once",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "update-only",
+      "label": "Drop FR-32: the next paqad-ai update or onboard rewrites the marketplace keys; amend AC-29 to use update",
+      "one_line_preview": "Drop FR-32: the next paqad-ai update or onboard rewrites the marketplace keys; amend AC-29 to use update",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "update-only",
+  "created_at": "2026-11-25T13:46:01.756Z",
+  "status": "resolved",
+  "change": "01M89BBP4XKXVR159V9R9GNA98",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier title is about a missing config set command or how the plugin route learns a changed update setting."
+  },
+  "chosen": "add",
+  "rationale": "Owner: build paqad-ai config set for the two update keys; writes paqad.yaml and the plugin keys at once",
+  "resolved_at": "2026-11-25T13:57:35.822Z",
+  "decision_id": "D-01M89F9J4WP0KB597EW24WXGAK",
+  "fingerprint": "sha256:da242a167866f147f2a2ebb48dff65db812b83fbc8c4c273145c113ff8591428",
+  "question": "paqad-ai config set does not exist: add it for the update keys?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M89BBP4XKXVR159V9R9GNA98",
+  "ttl_until": "2026-12-02T13:46:01.756Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-25T13:57:35.822Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build paqad-ai config set for the two update keys; writes paqad.yaml and the plugin keys at once"
+  }
+}

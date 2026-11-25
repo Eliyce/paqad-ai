@@ -105,36 +105,40 @@ A few things worth knowing:
 
 ## Teammates and cloud sessions
 
-Once the lead has onboarded a project and committed the setup, a teammate who clones the repo, or a Claude Code cloud session, gets the same stages and checks as the lead with no command to run.
+Once the lead has onboarded a project and committed the setup, a teammate who clones the repo gets the same stages and checks as the lead from the paqad plugin, and a Claude Code cloud session gets them from three setup commands. The project itself commits only configuration: no paqad code and no paqad agents.
 
 **What the lead commits.** `paqad-ai onboard` and `paqad-ai update` list the files to commit together:
 
-- `.claude/settings.json`, now shared with the team. It holds only portable content: the `eliyce` marketplace, `paqad@eliyce` turned on, and hook lines that run `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs`. Anything personal that was there before, such as your own permissions or a hook path under your home folder, moves to the git-ignored `.claude/settings.local.json`, and update says so in one line.
+- `.claude/settings.json`, now shared with the team. It holds only portable content: the `eliyce` marketplace and `paqad@eliyce` turned on. The plugin carries every paqad hook, so the file has no paqad hook line. Anything personal that was there before, such as your own permissions or a hook path under your home folder, moves to the git-ignored `.claude/settings.local.json`, and update says so in one line.
 - `.claude/.gitignore`, which now ignores `settings.local.json` and `settings.hooks.json` instead of `settings.json`.
-- `.paqad/hook.mjs`, a small launcher.
-- `.claude/agents/paqad-*.md`, the eight stage agents.
+- `.claude/agents/.gitignore` and `.agents/skills/.gitignore`, each with a managed block that ignores `paqad-*` (agents) and `paqad-*/` (recipe folders) by pattern. paqad writes its own agents and recipes on every run and keeps them out of git, so they never show up as a diff. Your own agents and skills in the same folders stay visible to git; just do not start their names with `paqad-`.
 
-**What a teammate sees.** They clone and open the repo, trust the folder, and Claude Code offers the paqad plugin. Either way, the launcher picks one route at the start of each session and keeps it for that session:
+**Moving off the committed launcher and agents.** Older releases committed a launcher, `.paqad/hook.mjs`, and hook lines in `.claude/settings.json` that called it, plus paqad's own agents and recipes. The first manual `paqad-ai update` or `paqad-ai onboard` on such a project removes the launcher (from disk and from git) and its hook lines, untracks the agents and recipes (they stay on disk), and prints one line asking you to commit the removal. It repeats on every manual update until you do, and never in the background update or at session start. A `.paqad/hook.mjs` that paqad did not write is kept and named. If a teammate on an older paqad runs update and puts the launcher back, the next update on a newer paqad removes it again and prints the same line; ask that teammate to run `paqad-ai update`, or set `updates.minimum_version` for the team.
 
-- If the paqad plugin is installed and turned on for this project, the launcher steps aside and the plugin runs.
-- If the npm package is installed, the launcher hands every hook to it.
-- Otherwise, the first session prints `Setting up paqad for this repo (one time).`, downloads the plugin from `Eliyce/paqad-claude-plugin` into `~/.paqad-ai/team-plugin`, and runs the hooks from there. It refreshes that copy at most every 6 hours. If setup fails (offline, no git, Node older than 22), Claude tells the teammate once that paqad's checks are off for the session, and the next session tries again.
+After teammates pull that commit, anyone with the plugin or an npm install still has the stage agents in that session. A teammate with neither waits one session: that session says `paqad's stage agents load from the next session. Start a new session to continue.` and the next session brings the agents back. A stage never runs without its own agent.
 
-Which route should a teammate use? Accepting the plugin offer is best. The launcher route runs every stage and check, but it leaves out what `paqad-ai join` adds on your own machine: the code index, the detection report and the quality baseline. Run `/paqad:join` or `paqad-ai join` if you want those. `join` writes no tracked file. Until the repo carries the launcher (`.paqad/hook.mjs`), it keeps plain npm hook lines in a git-ignored `.claude/settings.json` and tells you to ask the lead to run `paqad-ai update`. `paqad-ai refresh` writes the team setup too, so the launcher is there whenever its settings lines are.
+**What a teammate sees.** They clone and open the repo, trust the folder, and Claude Code offers the paqad plugin that the committed settings turn on. Accepting it is all they need: the plugin runs every hook and writes the stage agents. A teammate who prefers the npm package runs `paqad-ai join`, which writes no tracked file and, when the plugin is not installed on that machine, puts the npm hook lines in the git-ignored `.claude/settings.local.json`. `join` also adds the code index, the detection report and the quality baseline; run `/paqad:join` or `paqad-ai join` if you want those.
 
-**Cloud sessions.** A Claude Code cloud session starts from a fresh machine every time, so the setup line, `Setting up paqad for this cloud session.`, and its short wait repeat on every cloud session. RAG is always off in cloud (`PAQAD_RAG_ENABLED=false`) and search uses plain text. When GitHub refuses `gh` from the cloud session, paqad opens the pull request, comments and reads checks through the GitHub REST API instead. The receipt notes when evidence starts in the cloud session because earlier steps were recorded on another machine.
+**Cloud sessions.** A Claude Code cloud session starts from a fresh machine every time. Add these environment setup commands to the cloud environment, with the exact version your team runs:
 
-**Turning it off.** Set `enabled: false` under `team_bootstrap:` in `.paqad/configs/paqad.yaml` (or `PAQAD_TEAM_BOOTSTRAP_ENABLED=false`) and run `paqad-ai update`. That removes the launcher, its settings lines, the plugin keys and the agent files paqad wrote, and keeps your own hooks in `.claude/settings.local.json`. A teammate who has the plugin or npm installed keeps every hook.
+```bash
+npm i -g paqad-ai@<version> && paqad-ai install && paqad-ai join --no-rag --non-interactive
+```
 
-**A bad plugin release.** Revert the release in `Eliyce/paqad-claude-plugin`; teammates pick the revert up within 6 hours. Meanwhile set `PAQAD_DISABLED=1` on an affected machine, or set `team_bootstrap_enabled=false` for the team. Keep branch protection on the plugin repo so only the release job pushes to it.
+`<version>` is `updates.minimum_version` when the team set it, otherwise the paqad version that last ran `paqad-ai update` or onboard in the project. Onboard and update print the command with that version filled in. Never use the bare package name, which installs whatever is latest. The commands run before the session starts, so the first prompt already has all 13 stage agents in `~/.claude/agents` and dispatches `paqad-planning`. If the setup fails or npm is offline, the session has no paqad stage agents, and when paqad's hooks run it says `paqad's stage agents load from the next session. Start a new session to continue.` Fix the setup commands, re-run them, and start a new session. RAG is always off in cloud (`PAQAD_RAG_ENABLED=false`) and search uses plain text. When GitHub refuses `gh` from the cloud session, paqad opens the pull request, comments and reads checks through the GitHub REST API instead. The receipt notes when evidence starts in the cloud session because earlier steps were recorded on another machine.
 
-**A half-committed setup.** If only part of the setup reached the branch:
+**One update setting for every route.** `updates.automatic` and `updates.minimum_version` in `.paqad/configs/paqad.yaml` decide updates for the npm package, the plugin and the cloud setup command alike.
 
-- The settings lines are committed but `.paqad/hook.mjs` is not: edits are blocked with a hook error, rather than let through unchecked. Prompts and reads still work.
-- `.paqad/hook.mjs` is committed but the settings lines are not: nothing runs and paqad is simply off.
-- The launcher names a hook script your paqad no longer has: edits are blocked with one sentence. On the npm route it tells you to update your own `paqad-ai`; on the downloaded copy it asks the lead to run `paqad-ai update`.
+- `updates.automatic: false` stops background updates on every machine that already runs paqad. The npm background update installs nothing, and `.claude/settings.json` carries `extraKnownMarketplaces.eliyce.autoUpdate: false`, so Claude Code stops updating the plugin. First install for a new teammate or a cloud session stays automatic.
+- `updates.minimum_version` is now an exact pin: "this exact version". The npm route installs `paqad-ai@<pin>` and never latest, the cloud command uses it, and the automatic move from npm to the plugin waits while a pin is set. The plugin route can be stopped but not pinned: Claude Code gives no confirmed way to hold a marketplace plugin at one tag, so a pin writes `autoUpdate: false` and the plugin stays on the version it has.
+- The committed team setting always wins. A personal `PAQAD_AUTO_UPDATE=0` or `.paqad/.config` can turn updates off on one machine, never on against the team, and it never changes the committed `.claude/settings.json`.
+- A setting paqad cannot read means updates off and pinned to the installed version, never latest.
 
-To recover, the lead runs `paqad-ai update`, commits every file it lists, and pushes.
+To turn updates off for the team: run `paqad-ai config set updates.automatic false` (or edit `paqad.yaml` and run `paqad-ai update`). `config set` writes `paqad.yaml`, keeps every other line and comment, rewrites the marketplace key in `.claude/settings.json` at once, and names both files to commit. Once that commit is pulled, every later session stays on its version with no manual edit. `paqad-ai config set updates.minimum_version 1.2.3` pins the team the same way, and `latest` clears the pin.
+
+**Turning it off.** Set `enabled: false` under `team_bootstrap:` in `.paqad/configs/paqad.yaml` (or `PAQAD_TEAM_BOOTSTRAP_ENABLED=false`) and run `paqad-ai update`. That removes the plugin keys from `.claude/settings.json` and puts the npm hook lines in `.claude/settings.local.json`. paqad still writes its agents, ignored by pattern. A teammate who has the plugin or npm installed keeps every hook.
+
+**Rolling back.** Reinstall the previous release (`npm i -g paqad-ai@<previous version>`) and run `paqad-ai update`. The older release writes its launcher back; it re-tracks nothing.
 
 ## What paqad runs, writes and sends
 

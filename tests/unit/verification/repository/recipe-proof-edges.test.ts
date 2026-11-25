@@ -151,3 +151,28 @@ describe('the recipe proof a full change must hold', () => {
     expect(gateDetail(root)).toContain('recipe proof for development');
   });
 });
+
+describe('a change opened before the recipe rename (FR-7)', () => {
+  it('AC-15: takes a recipe-injected row that recorded planning-recipe as proof after update', () => {
+    const root = bundle();
+    add(root, { kind: 'stage_start', stage: 'planning' });
+    add(root, agentRow('planning'));
+    add(root, {
+      kind: 'recipe-injected',
+      stage: 'planning',
+      agent: 'paqad-planning',
+      recipe: 'planning-recipe',
+      recipe_hash: 'sha256:old',
+      recipe_root: '/old/runtime/base/skills',
+    });
+    add(root, {
+      kind: 'skill-used',
+      stage: 'planning',
+      recipe: 'planning-recipe',
+      source: 'script',
+      script: 'check-plan.mjs',
+      output_hash: 'sha256:x',
+    });
+    expect(gateDetail(root)).not.toContain('recipe proof for planning');
+  });
+});

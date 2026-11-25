@@ -99,6 +99,92 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
+describe('AC-20, AC-21, AC-22: update removes the committed launcher (FR-36, FR-38, FR-42)', () => {
+  const STAMPED = '#!/usr/bin/env node\nexport const LAUNCHER_REVISION = 2;\n';
+  const LAUNCHER_LINE = 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" agent-entry-gate.mjs';
+
+  function commitLauncher(): void {
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(join(root, '.paqad/hook.mjs'), STAMPED);
+    writeFileSync(
+      join(root, '.claude/settings.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Edit|Write|NotebookEdit',
+              hooks: [{ type: 'command', command: LAUNCHER_LINE, onFailure: 'block' }],
+            },
+          ],
+        },
+      }),
+    );
+    git('add', '-f', '.paqad/hook.mjs', '.claude/settings.json');
+    commitAll('old team setup');
+  }
+
+  function cleanupLines(notes: string[]): string[] {
+    return notes.filter((note) => note.startsWith("paqad's own files"));
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('CI', '');
+    vi.stubEnv('GITHUB_ACTIONS', '');
+  });
+
+  it('AC-21: removes the launcher from disk and index, strips its hook lines, and a second update after commit prints nothing', async () => {
+    commitLauncher();
+    const first = await new FrameworkUpdater({ generateCandidates: CLAUDE_CANDIDATES }).run(root);
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
+    expect(git('ls-files', '--', '.paqad/hook.mjs')).toBe('');
+    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).not.toContain(
+      '.paqad/hook.mjs',
+    );
+    expect(cleanupLines(first.team_setup_notes)).toHaveLength(1);
+    commitAll('stop tracking paqad files');
+    const second = await new FrameworkUpdater({ generateCandidates: CLAUDE_CANDIDATES }).run(root);
+    expect(cleanupLines(second.team_setup_notes)).toEqual([]);
+    expect(second.team_setup_notes).toEqual([]);
+  });
+
+  it('AC-20: the files the lead is asked to commit are only config and the removals, never an agent file', async () => {
+    commitLauncher();
+    const report = await new FrameworkUpdater({ generateCandidates: CLAUDE_CANDIDATES }).run(root);
+    const commitNote = report.team_setup_notes.find((note) => note.startsWith('Commit these'));
+    const named = commitNote!
+      .replace(/^[^:]+: /u, '')
+      .replace(/\.$/u, '')
+      .split(', ');
+    for (const path of named) {
+      expect(
+        path === '.claude/settings.json' ||
+          path === '.paqad/hook.mjs' ||
+          path.endsWith('.gitignore'),
+        path,
+      ).toBe(true);
+    }
+    expect(commitNote).not.toContain('.claude/agents/paqad-');
+  });
+
+  it('AC-22: a launcher an older paqad put back is removed again with the line, and the pin is left alone', async () => {
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    const yamlPath = join(root, '.paqad/configs/paqad.yaml');
+    writeFileSync(yamlPath, 'updates:\n  minimum_version: 0.0.1\n');
+    commitLauncher();
+    await new FrameworkUpdater({ generateCandidates: CLAUDE_CANDIDATES }).run(root);
+    commitAll('stop tracking paqad files');
+    commitLauncher();
+    const before = readFileSync(yamlPath, 'utf8');
+    const again = await new FrameworkUpdater({ generateCandidates: CLAUDE_CANDIDATES }).run(root);
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
+    expect(readFileSync(join(root, '.claude/settings.json'), 'utf8')).not.toContain(
+      '.paqad/hook.mjs',
+    );
+    expect(cleanupLines(again.team_setup_notes)).toHaveLength(1);
+    expect(YAML.parse(readFileSync(yamlPath, 'utf8'))).toEqual(YAML.parse(before));
+  });
+});
+
 describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the team', () => {
   it('moves personal entries of an untracked settings.json to settings.local.json and says so in one line', async () => {
     mkdirSync(join(root, '.claude'), { recursive: true });
@@ -133,7 +219,6 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
       'attribution',
       'enabledPlugins',
       'extraKnownMarketplaces',
-      'hooks',
     ]);
     expect(JSON.stringify(shared)).not.toContain(USERS);
     const local = readJson('.claude/settings.local.json');
@@ -143,8 +228,8 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(report.team_setup_notes).toContain(SHARED_SETTINGS_NOTE);
     expect(SHARED_SETTINGS_NOTE.split('\n')).toHaveLength(1);
     expect(report.team_setup_notes.join('\n')).toContain('.claude/settings.json');
-    expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
-    expect(report.team_setup_notes.join('\n')).toContain('.claude/agents/paqad-');
+    expect(report.team_setup_notes.join('\n')).not.toContain('.paqad/hook.mjs');
+    expect(report.team_setup_notes.join('\n')).not.toContain('.claude/agents/paqad-');
     expect(git('check-ignore', '-v', '.claude/settings.local.json')).toContain(
       '.claude/.gitignore',
     );
@@ -202,7 +287,7 @@ describe('AC-20, AC-21, AC-22, AC-23: update shares the Claude settings with the
     expect(shared).not.toHaveProperty('extraKnownMarketplaces');
     expect(JSON.stringify(shared)).not.toContain('/.paqad/hook.mjs');
     expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
-    expect(readdirSync(join(root, '.claude/agents'))).toEqual(['paqad-review.md']);
+    expect(readFileSync(join(root, '.claude/agents/paqad-review.md'), 'utf8')).toBe('team note\n');
     const localHooks = readJson('.claude/settings.local.json').hooks as Record<
       string,
       Array<{ hooks: Array<{ command: string }> }>
@@ -223,7 +308,7 @@ describe('AC-24: no home path reaches a tracked file', () => {
     const agents = existsSync(join(root, '.claude/agents'))
       ? readdirSync(join(root, '.claude/agents')).map((name) => `.claude/agents/${name}`)
       : [];
-    return ['.claude/settings.json', '.claude/.gitignore', '.paqad/hook.mjs', ...agents];
+    return ['.claude/settings.json', '.claude/.gitignore', ...agents];
   }
 
   function assertClean(): void {
@@ -242,9 +327,11 @@ describe('AC-24: no home path reaches a tracked file', () => {
       selections: { domain: 'coding', stack: 'laravel', providers: ['claude-code'] },
     });
     expect(tracked()).toHaveLength(16);
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
     assertClean();
     await new FrameworkUpdater().run(root);
     expect(tracked()).toHaveLength(16);
+    expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
     assertClean();
   }, 120_000);
 });

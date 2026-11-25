@@ -48,7 +48,7 @@ describe('the recipes on a Codex project', () => {
     const root = project(['codex-cli']);
     execFileSync('git', ['init', '-q'], { cwd: root });
     expect(writeCodexRecipes(root)).toHaveLength(6);
-    expect(existsSync(join(root, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+    expect(existsSync(join(root, '.agents/skills/paqad-review-recipe/SKILL.md'))).toBe(true);
     for (const name of RECIPE_NAMES) {
       expect(ignored(root, `.agents/skills/${name}/SKILL.md`)).toBe(true);
     }
@@ -64,7 +64,7 @@ describe('the recipes on a Codex project', () => {
     writeCodexRecipes(root);
     const text = readFileSync(file, 'utf8');
     expect(text).toContain('/ours/');
-    expect(text.match(/review-recipe/gu)).toHaveLength(1);
+    expect(text.match(/paqad-\*\//gu)).toHaveLength(1);
   });
 
   it('FR-89: skips a recipe the install lost, and keeps the copy the project has', () => {
@@ -72,25 +72,25 @@ describe('the recipes on a Codex project', () => {
     writeCodexRecipes(root);
     const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
     roots.push(source);
-    mkdirSync(join(source, 'planning-recipe'));
-    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'kept\n');
-    expect(writeCodexRecipes(root, source)).toEqual(['.agents/skills/planning-recipe']);
-    expect(readFileSync(join(root, '.agents/skills/planning-recipe/SKILL.md'), 'utf8')).toBe(
+    mkdirSync(join(source, 'paqad-planning-recipe'));
+    writeFileSync(join(source, 'paqad-planning-recipe/SKILL.md'), 'kept\n');
+    expect(writeCodexRecipes(root, source)).toEqual(['.agents/skills/paqad-planning-recipe']);
+    expect(readFileSync(join(root, '.agents/skills/paqad-planning-recipe/SKILL.md'), 'utf8')).toBe(
       'kept\n',
     );
-    expect(existsSync(join(root, '.agents/skills/review-recipe/SKILL.md'))).toBe(true);
+    expect(existsSync(join(root, '.agents/skills/paqad-review-recipe/SKILL.md'))).toBe(true);
   });
 
   it('replaces a recipe whole, so a file the new copy dropped does not stay behind', () => {
     const root = project(['codex-cli']);
     writeCodexRecipes(root);
-    writeFileSync(join(root, '.agents/skills/planning-recipe/stale.md'), 'old\n');
+    writeFileSync(join(root, '.agents/skills/paqad-planning-recipe/stale.md'), 'old\n');
     const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
     roots.push(source);
-    mkdirSync(join(source, 'planning-recipe'));
-    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'new\n');
+    mkdirSync(join(source, 'paqad-planning-recipe'));
+    writeFileSync(join(source, 'paqad-planning-recipe/SKILL.md'), 'new\n');
     writeCodexRecipes(root, source);
-    expect(readdirSync(join(root, '.agents/skills/planning-recipe'))).toEqual(['SKILL.md']);
+    expect(readdirSync(join(root, '.agents/skills/paqad-planning-recipe'))).toEqual(['SKILL.md']);
   });
 
   it('leaves no staged folder behind, whether the recipe was copied or skipped', () => {
@@ -98,8 +98,8 @@ describe('the recipes on a Codex project', () => {
     writeCodexRecipes(root);
     const source = mkdtempSync(join(tmpdir(), 'paqad-recipe-source-'));
     roots.push(source);
-    mkdirSync(join(source, 'planning-recipe'));
-    writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'new\n');
+    mkdirSync(join(source, 'paqad-planning-recipe'));
+    writeFileSync(join(source, 'paqad-planning-recipe/SKILL.md'), 'new\n');
     writeCodexRecipes(root, source);
     const names = readdirSync(join(root, '.agents/skills'));
     expect(names.filter((name) => name.includes('staged'))).toEqual([]);
@@ -127,8 +127,8 @@ describe('the recipes on a Codex project', () => {
   it('counts an unedited folder as generated, and an edited one as a skill change', () => {
     const root = project(['codex-cli']);
     writeCodexRecipes(root);
-    const folder = '.agents/skills/review-recipe';
-    expect(isGeneratedRecipeFolder(root, folder, 'review-recipe')).toBe(true);
+    const folder = '.agents/skills/paqad-review-recipe';
+    expect(isGeneratedRecipeFolder(root, folder, 'paqad-review-recipe')).toBe(true);
     const input = {
       projectRoot: root,
       dirName: 'x-01JABCDEFGHJKMNPQRSTVWXYZ0',
@@ -136,14 +136,14 @@ describe('the recipes on a Codex project', () => {
     };
     expect(skillCompletionFindings(input)).toEqual([]);
     writeFileSync(join(root, folder, 'SKILL.md'), 'edited');
-    expect(isGeneratedRecipeFolder(root, folder, 'review-recipe')).toBe(false);
+    expect(isGeneratedRecipeFolder(root, folder, 'paqad-review-recipe')).toBe(false);
     expect(skillCompletionFindings(input)).toHaveLength(1);
   });
 
   it('adds the read-first line to the Codex render only, on stage agents only', () => {
     const codex = renderStageAgentFiles('codex-cli');
     expect(codex.find((agent) => agent.name === 'paqad-review.toml')?.content).toContain(
-      'Read `.agents/skills/review-recipe/SKILL.md` first',
+      'Read `.agents/skills/paqad-review-recipe/SKILL.md` first',
     );
     expect(codex.find((agent) => agent.name === 'paqad-expert.toml')?.content).not.toContain(
       '.agents/skills',
@@ -172,5 +172,75 @@ describe('the turns line in the receipt', () => {
 
   it('says nothing with no turns on record', () => {
     expect(stageTurnsLine([])).toBeNull();
+  });
+});
+
+describe('the paqad- recipe names and the pattern block (FR-3, FR-5, FR-6)', () => {
+  function legacy(root: string, name: string, skillMd: string | null): string {
+    const folder = join(root, '.agents/skills', name);
+    mkdirSync(folder, { recursive: true });
+    if (skillMd !== null) writeFileSync(join(folder, 'SKILL.md'), skillMd);
+    return folder;
+  }
+
+  it('AC-9: the skills .gitignore names no recipe or agent, only the paqad-*/ pattern', () => {
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    const text = readFileSync(join(root, '.agents/skills/.gitignore'), 'utf8');
+    expect(text).toContain('paqad-*/');
+    for (const name of RECIPE_NAMES) expect(text).not.toContain(name);
+    expect(text).not.toMatch(/recipe\/|paqad-planning\b/u);
+  });
+
+  it('AC-8: replaces the old name-list block and keeps the team lines', () => {
+    const root = project(['codex-cli']);
+    mkdirSync(join(root, '.agents/skills'), { recursive: true });
+    writeFileSync(
+      join(root, '.agents/skills/.gitignore'),
+      'ours/\n# paqad recipes: generated on each machine, kept out of git\n/planning-recipe/\n# end paqad recipes\n',
+    );
+    writeCodexRecipes(root);
+    const text = readFileSync(join(root, '.agents/skills/.gitignore'), 'utf8');
+    expect(text.startsWith('ours/\n')).toBe(true);
+    expect(text).not.toContain('planning-recipe');
+  });
+
+  it('AC-10: deletes an old recipe folder only when the folder and SKILL.md names both match', () => {
+    const root = project(['codex-cli']);
+    const matching = legacy(root, 'planning-recipe', '---\nname: planning-recipe\n---\nold\n');
+    const otherName = legacy(root, 'review-recipe', '---\nname: our-review\n---\nours\n');
+    const noSkill = legacy(root, 'checks-recipe', null);
+    const unrelated = legacy(root, 'my-recipe', '---\nname: my-recipe\n---\n');
+    writeCodexRecipes(root);
+    expect(existsSync(matching)).toBe(false);
+    expect(existsSync(otherName)).toBe(true);
+    expect(existsSync(noSkill)).toBe(true);
+    expect(existsSync(unrelated)).toBe(true);
+  });
+
+  it('AC-11: leaves a team skill named paqad-house-style alone and writes the pattern block', () => {
+    const root = project(['codex-cli']);
+    const house = legacy(root, 'paqad-house-style', '---\nname: paqad-house-style\n---\nours\n');
+    writeCodexRecipes(root);
+    expect(readFileSync(join(house, 'SKILL.md'), 'utf8')).toBe(
+      '---\nname: paqad-house-style\n---\nours\n',
+    );
+    expect(readFileSync(join(root, '.agents/skills/.gitignore'), 'utf8')).toContain('paqad-*/');
+  });
+});
+
+describe('the recipe refresh writes only what differs (FR-12)', () => {
+  it('AC-42: a second run on an unchanged project leaves every mtime unchanged', async () => {
+    const { statSync } = await import('node:fs');
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    const skills = join(root, '.agents/skills');
+    const stamp = () =>
+      Object.fromEntries(
+        readdirSync(skills).map((name) => [name, statSync(join(skills, name)).mtimeMs]),
+      );
+    const before = stamp();
+    expect(writeCodexRecipes(root)).toEqual([]);
+    expect(stamp()).toEqual(before);
   });
 });

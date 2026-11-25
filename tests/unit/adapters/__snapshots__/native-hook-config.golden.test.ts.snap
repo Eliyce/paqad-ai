@@ -9,7 +9,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-entry-gate.mjs",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-gate.mjs\\"",
             "onFailure": "block",
             "timeout": 10
           }
@@ -20,7 +20,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-writer.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-writer.mjs\\""
           }
         ]
       },
@@ -29,7 +29,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" decision-pause-gate.mjs",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/decision-pause-gate.mjs\\"",
             "onFailure": "block",
             "timeout": 10
           }
@@ -40,7 +40,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" capability-gate.mjs pre-mutation",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" pre-mutation",
             "onFailure": "block",
             "timeout": 10
           }
@@ -51,7 +51,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-write-guard.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-agent-write-guard.mjs\\""
           }
         ]
       },
@@ -60,7 +60,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-handback.mjs",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-agent-handback.mjs\\"",
             "timeout": 10
           }
         ]
@@ -71,7 +71,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-entry-prompt-gate.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-prompt-gate.mjs\\""
           }
         ]
       },
@@ -79,7 +79,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" ticket-intake-prompt.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/ticket-intake-prompt.mjs\\""
           }
         ]
       }
@@ -89,8 +89,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-entry-session-start.mjs",
-            "timeout": 600
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-session-start.mjs\\""
           }
         ]
       },
@@ -98,8 +97,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" silent-update.mjs",
-            "timeout": 600
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/silent-update.mjs\\""
           }
         ]
       }
@@ -109,7 +107,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-marker-parse.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-marker-parse.mjs\\""
           }
         ]
       },
@@ -117,7 +115,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" verification-completion.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/verification-completion.mjs\\""
           }
         ]
       },
@@ -125,7 +123,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" capability-gate.mjs completion"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" completion"
           }
         ]
       }
@@ -136,7 +134,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-start.mjs",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-agent-start.mjs\\"",
             "timeout": 10
           }
         ]
@@ -148,7 +146,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" stage-agent-completion.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-agent-completion.mjs\\""
           }
         ]
       },
@@ -157,7 +155,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-delegation.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-delegation.mjs\\""
           }
         ]
       }
@@ -168,7 +166,7 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" skill-activation.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/skill-activation.mjs\\""
           }
         ]
       },
@@ -177,28 +175,11 @@ exports[`native hook-config byte-identity > renders the Claude settings.json exa
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"$CLAUDE_PROJECT_DIR/.paqad/hook.mjs\\" agent-delegation.mjs"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-delegation.mjs\\""
           }
         ]
       }
     ]
-  },
-  "extraKnownMarketplaces": {
-    "eliyce": {
-      "source": {
-        "source": "github",
-        "repo": "Eliyce/paqad-claude-plugin"
-      },
-      "autoUpdate": true
-    }
-  },
-  "enabledPlugins": {
-    "paqad@eliyce": true
-  },
-  "attribution": {
-    "commit": "",
-    "pr": "",
-    "sessionUrl": false
   }
 }
 "

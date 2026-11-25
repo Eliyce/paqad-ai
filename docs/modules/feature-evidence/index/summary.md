@@ -1062,9 +1062,9 @@ obvious from its code, grouped by file.
   followed by a space, so `spec pipeline experts` covers its subcommands.
 - **`stage-isolation/agent-writer.ts`.** Stage agents are written only at user scope
   (`~/.claude/agents`, `~/.codex/agents`) and does not use the project-scoped
-  `BaseAdapter.generateAgents()`. The one project copy is the Claude team setup: with
-  `team_bootstrap_enabled` on, team setup commits the 8 Claude stage agents to `.claude/agents/`
-  with a managed marker, and the agent completion check skips a project copy that is an exact
+  `BaseAdapter.generateAgents()`. The one project copy is `.claude/agents/paqad-*.md`: paqad writes
+  the 13 Claude agents there for every Claude Code project with a managed marker and git-ignores them
+  by pattern, and the agent completion check skips a project copy that is an exact
   generated copy. The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
   templates use no custom Handlebars helpers. The plugin build renders its Claude agents through the
   same function, so there is one template path.

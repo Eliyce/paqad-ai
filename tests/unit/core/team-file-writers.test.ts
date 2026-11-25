@@ -178,10 +178,11 @@ describe('AC-24 and INV-4: a file with a higher integer through every writer', (
     expect(read('.paqad/.config.example')).toBe(generateConfigExample());
   });
 
-  it('LAUNCHER_REVISION keeps the launcher', () => {
+  it('FR-42: a launcher with a higher LAUNCHER_REVISION is still removed by a manual update', () => {
     put('.paqad/hook.mjs', 'export const LAUNCHER_REVISION = 99;\n');
-    expect(syncTeamSetup(root, {}).kept).toContain('.paqad/hook.mjs');
+    expect(syncTeamSetup(root, {}).removed).toEqual([]);
     expect(read('.paqad/hook.mjs')).toBe('export const LAUNCHER_REVISION = 99;\n');
+    expect(syncTeamSetup(root, {}, { removeLauncher: true }).removed).toEqual(['.paqad/hook.mjs']);
   });
 });
 

@@ -35,8 +35,10 @@ Source directories owned by this feature:
 - Detection signals and generated artifact paths are repository-relative; ignored repository paths omit `.DS_Store`, `.idea`, and `.vscode` noise and are sorted.
 
 - With `team_bootstrap_enabled` on, onboard (and update) also write the Claude team files:
-  `.claude/settings.json`, `.claude/.gitignore`, `.paqad/hook.mjs` and the 8
-  `.claude/agents/paqad-*.md` files, and the summary lists them as files to commit together.
+  `.claude/settings.json`, `.claude/.gitignore` and `.claude/agents/.gitignore`, and the
+  summary lists them as files to commit together, followed by the cloud setup command with the team's
+  exact version. The 13 `.claude/agents/paqad-*.md` files are written for
+  every Claude Code project and git-ignored by pattern, never listed to commit.
 
 ## Error Codes
 

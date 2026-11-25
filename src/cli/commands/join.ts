@@ -48,6 +48,7 @@ import { assertEmbeddingProviderAvailable } from '@/rag/removed-provider.js';
 import { RagService } from '@/rag/service.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeRuleContext } from '@/context/rule-context.js';
+import { refreshPaqadProjectFiles } from '@/stage-isolation/project-refresh.js';
 import { removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
 
 import { initializeRagIndex } from './rag.js';
@@ -113,6 +114,7 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
 
   const providers = deriveRecordedProviders(manifest);
   await recreateLocalArtifacts(projectRoot, profile, providers);
+  refreshPaqadProjectFiles(projectRoot);
   await regenerateMachineArtifacts(projectRoot);
 
   writeWorktreeInclude(projectRoot);

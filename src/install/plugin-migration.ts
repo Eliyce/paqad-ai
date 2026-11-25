@@ -36,6 +36,7 @@ import {
   PLUGIN_MARKETPLACE_REPO,
   pluginSettingsKeys,
 } from './plugin-settings-keys.js';
+import { resolveUpdatePolicy } from '@/update/update-policy.js';
 
 export { PLUGIN_MARKETPLACE_REPO, pluginSettingsKeys };
 
@@ -332,7 +333,9 @@ export function installViaSettings(home: string): { state: MigrationState; reaso
   if (existingEnabled && existingEnabled[PLUGIN_ID] === false) {
     return { state: 'declined', reason: 'user-opted-out' };
   }
-  const keys = pluginSettingsKeys();
+  const markets = (settings.extraKnownMarketplaces as Record<string, unknown> | undefined) ?? {};
+  const current = (markets[MARKETPLACE_KEY] as { autoUpdate?: unknown } | undefined)?.autoUpdate;
+  const keys = pluginSettingsKeys(typeof current === 'boolean' ? current : true);
   const next: Record<string, unknown> = {
     ...settings,
     extraKnownMarketplaces: {
@@ -544,8 +547,13 @@ export function migrationOptOut(projectRoot: string, deps: ResolvedDeps): Migrat
   }
   if (isCiOrHeadless(deps.env)) return { state: 'skipped', reason: 'ci-or-headless' };
   if (isCloudSession(deps.env)) return { state: 'skipped', reason: CLOUD_SESSION_REASON };
+  if (resolveUpdatePolicy(projectRoot, deps.env).pin !== null) {
+    return { state: 'skipped', reason: PINNED_VERSION_REASON };
+  }
   return null;
 }
+
+const PINNED_VERSION_REASON = 'pinned-version';
 
 const CLOUD_SESSION_REASON = 'cloud-session';
 

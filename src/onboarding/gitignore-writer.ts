@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
+import { readFileNoFollow, writeFileNoFollow } from '@/core/fs/read-no-follow.js';
 import { isHigherStamp } from '@/core/team-file-schema.js';
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
@@ -85,6 +86,65 @@ const DEPRECATED_ARTIFACTS = [
   '.paqad/next-steps.md',
   '.paqad/hooks/silent-update.sh',
 ];
+
+export const AGENTS_IGNORE_LINES: readonly string[] = [
+  '# paqad writes and refreshes these files itself. Never commit them.',
+  'paqad-*',
+];
+
+export const SKILLS_IGNORE_LINES: readonly string[] = [
+  '# paqad writes and refreshes these folders itself. Never commit them.',
+  'paqad-*/',
+];
+
+const OLD_RECIPE_BLOCK_BEGIN = '# paqad recipes:';
+const OLD_RECIPE_BLOCK_END = '# end paqad recipes';
+
+function withoutOldRecipeBlock(existing: string): string {
+  const start = existing.indexOf(OLD_RECIPE_BLOCK_BEGIN);
+  if (start === -1) return existing;
+  const endAt = existing.indexOf(OLD_RECIPE_BLOCK_END, start);
+  if (endAt === -1) return existing;
+  let stop = endAt + OLD_RECIPE_BLOCK_END.length;
+  if (existing.startsWith('\r\n', stop)) stop += 2;
+  else if (existing.startsWith('\n', stop)) stop += 1;
+  return `${existing.slice(0, start)}${existing.slice(stop)}`;
+}
+
+export function renderFolderIgnoreBlock(existing: string, lines: readonly string[]): string {
+  const base = withoutOldRecipeBlock(existing);
+  const eol = base.includes('\r\n') ? '\r\n' : '\n';
+  const block = [MANAGED_BEGIN, ...lines, MANAGED_END].join(eol);
+  const replaced = replaceMarkerBlock(base, MANAGED_BEGIN, MANAGED_END, block);
+  if (replaced !== null) return replaced.endsWith('\n') ? replaced : `${replaced}${eol}`;
+  const prefix = base === '' || base.endsWith('\n') ? base : `${base}${eol}`;
+  return `${prefix}${block}${eol}`;
+}
+
+export function folderIgnoreIsSymlink(folderAbs: string): boolean {
+  for (const path of [folderAbs, join(folderAbs, '.gitignore')]) {
+    try {
+      if (lstatSync(path).isSymbolicLink()) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export function writeFolderIgnoreBlock(folderAbs: string, lines: readonly string[]): boolean {
+  if (folderIgnoreIsSymlink(folderAbs)) return false;
+  const path = join(folderAbs, '.gitignore');
+  const read = readFileNoFollow(path);
+  if (read.kind === 'symlink') return false;
+  if (read.kind === 'other') throw read.error;
+  const existing = read.kind === 'file' ? read.text : '';
+  const next = renderFolderIgnoreBlock(existing, lines);
+  if (next === existing) return false;
+  mkdirSync(folderAbs, { recursive: true });
+  writeFileNoFollow(path, next);
+  return true;
+}
 
 function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENTRIES): string[] {
   return entries
@@ -274,7 +334,7 @@ function untrackNowIgnoredPaths(projectRoot: string, paths: string[]): void {
   });
 }
 
-function isGitRepository(projectRoot: string): boolean {
+export function isGitRepository(projectRoot: string): boolean {
   try {
     const out = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
       cwd: projectRoot,
@@ -286,7 +346,7 @@ function isGitRepository(projectRoot: string): boolean {
   }
 }
 
-function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
+export function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
   if (paths.length === 0) {
     return [];
   }
