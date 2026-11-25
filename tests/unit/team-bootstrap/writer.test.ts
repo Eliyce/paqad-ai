@@ -121,8 +121,9 @@ describe('what the lead is told', () => {
       /^Commit these team setup files together so teammates and cloud sessions get paqad: /,
     );
     expect(notes[0]).toContain(TEAM_LAUNCHER_PATH);
-    expect(notes[0]).toContain('.claude/agents/paqad-development.md');
-    git('add', '-f', TEAM_LAUNCHER_PATH, '.claude/agents');
+    expect(notes[0]).not.toContain('.claude/agents/paqad-development.md');
+    expect(notes[0]).toContain('.claude/agents/.gitignore');
+    git('add', '-f', TEAM_LAUNCHER_PATH, '.claude/agents/.gitignore');
     git(
       '-c',
       'user.email=t@t',

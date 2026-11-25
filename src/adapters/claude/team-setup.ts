@@ -9,10 +9,11 @@ import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { isHigherStamp, parseStampInteger } from '@/core/team-file-schema.js';
+import { AGENTS_IGNORE_LINES, writeFolderIgnoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
   PROJECT_AGENTS_DIR,
-  migrateProjectStageAgents,
   syncProjectStageAgents,
+  type ProjectAgentSync,
 } from '@/onboarding/stage-agent-migration.js';
 
 import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
@@ -103,18 +104,20 @@ export function syncTeamSetup(
   for (const file of teamOwnedFiles()) {
     syncOwnedFile(projectRoot, file, enabled, report);
   }
-  if (enabled) {
-    const agents = syncProjectStageAgents(projectRoot);
-    report.written.push(...agents.written);
-    report.kept.push(...agents.kept);
-    report.handEditedAgents = agents.kept;
-    return report;
-  }
-  const agents = migrateProjectStageAgents(projectRoot);
-  report.removed.push(...agents.removed);
-  report.kept.push(...agents.kept);
-  report.handEditedAgents = agents.kept;
+  const agents = refreshProjectAgents(projectRoot);
+  report.written.push(...agents.written);
+  report.kept.push(...agents.kept, ...agents.symlinks);
+  report.handEditedAgents = [...agents.kept, ...agents.symlinks];
   return report;
+}
+
+export const PROJECT_AGENTS_GITIGNORE = `${PROJECT_AGENTS_DIR}/.gitignore`;
+
+// FR-8, FR-12: the agents ignore block and the 13 project agents, for every
+// Claude Code project, team setup on or off. Writes only what differs.
+export function refreshProjectAgents(projectRoot: string): ProjectAgentSync {
+  writeFolderIgnoreBlock(join(projectRoot, PROJECT_AGENTS_DIR), AGENTS_IGNORE_LINES);
+  return syncProjectStageAgents(projectRoot);
 }
 
 export const CLAUDE_GITIGNORE_FILE = '.claude/.gitignore';
@@ -143,17 +146,20 @@ export function teamSetupMissing(projectRoot: string): boolean {
 }
 
 export function teamTrackedPaths(): string[] {
-  return [CLAUDE_SETTINGS_FILE, CLAUDE_GITIGNORE_FILE, TEAM_LAUNCHER_PATH, PROJECT_AGENTS_DIR];
+  return [
+    CLAUDE_SETTINGS_FILE,
+    CLAUDE_GITIGNORE_FILE,
+    TEAM_LAUNCHER_PATH,
+    PROJECT_AGENTS_GITIGNORE,
+  ];
 }
-
-const STAGE_AGENT_PATH = /^\.claude\/agents\/paqad-[a-z0-9-]+\.md$/u;
 
 function isTeamPath(path: string): boolean {
   return (
     path === CLAUDE_SETTINGS_FILE ||
     path === CLAUDE_GITIGNORE_FILE ||
     path === TEAM_LAUNCHER_PATH ||
-    STAGE_AGENT_PATH.test(path)
+    path === PROJECT_AGENTS_GITIGNORE
   );
 }
 
@@ -184,12 +190,6 @@ export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): st
     );
   }
   const handEdited = new Set(report.handEditedAgents ?? []);
-  const removedAgents = report.removed.filter((path) => path.startsWith('.claude/agents/'));
-  if (removedAgents.length > 0) {
-    notes.push(
-      `Removed the old paqad stage agents from .claude/agents, because team setup is off and the paqad plugin provides them; commit the removals: ${removedAgents.join(', ')}.`,
-    );
-  }
   if (handEdited.size > 0) {
     notes.push(
       `Kept these .claude/agents files because they do not match what paqad wrote; check them and delete any you no longer need: ${[...handEdited].join(', ')}.`,

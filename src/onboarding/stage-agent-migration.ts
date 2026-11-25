@@ -2,19 +2,18 @@ import { createHash } from 'node:crypto';
 import {
   closeSync,
   constants,
-  fstatSync,
-  ftruncateSync,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
   writeSync,
   type Dirent,
 } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
@@ -23,7 +22,10 @@ import {
   withManagedMarker,
 } from '@/stage-isolation/agent-writer.js';
 
-import { PAST_RELEASE_STAGE_AGENT_BODY_HASHES } from './stage-agent-past-bodies.js';
+import {
+  PAST_RELEASE_MARKED_AGENT_HASHES,
+  PAST_RELEASE_STAGE_AGENT_BODY_HASHES,
+} from './stage-agent-past-bodies.js';
 
 export const PROJECT_AGENTS_DIR = '.claude/agents';
 const LEGACY_STAMP = /^<!-- written by paqad-ai \S+ -->$/u;
@@ -61,7 +63,10 @@ export function stageAgentBodyHash(body: string): string {
 }
 
 export function knownGeneratedBodies(): Set<string> {
-  const hashes = new Set<string>(PAST_RELEASE_STAGE_AGENT_BODY_HASHES);
+  const hashes = new Set<string>([
+    ...PAST_RELEASE_STAGE_AGENT_BODY_HASHES,
+    ...PAST_RELEASE_MARKED_AGENT_HASHES,
+  ]);
   for (const { content } of renderStageAgentFiles('claude-code')) {
     hashes.add(stageAgentBodyHash(content));
     hashes.add(stageAgentBodyHash(withManagedMarker(content)));
@@ -128,56 +133,74 @@ export function isGeneratedProjectStageAgent(path: string, content: string): boo
   );
 }
 
-type SyncOutcome = 'same' | 'kept' | 'written';
+type SyncOutcome = 'same' | 'kept' | 'written' | 'symlink';
+
+// FR-9: paqad overwrites a project agent only when it carries the marker AND
+// matches a paqad render (current or a recorded earlier hash), or it is one of
+// paqad's earlier unmarked renders. Anything else is the team's file.
+export function isPaqadOwnedAgent(
+  content: string,
+  known: ReadonlySet<string> = knownGeneratedBodies(),
+): boolean {
+  const reason = removalReason(content, known);
+  if (reason === null) return false;
+  if (reason === 'managed-marker') return known.has(stageAgentBodyHash(content));
+  return true;
+}
 
 function noFollowFlag(): number {
   return constants.O_NOFOLLOW ?? 0;
 }
 
-function createAgentFile(target: string, wanted: string): SyncOutcome {
-  let fd: number;
-  try {
-    fd = openSync(
-      target,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollowFlag(),
-    );
-  } catch {
-    return 'kept';
-  }
+function writeBySwap(target: string, wanted: string): void {
+  const temp = join(dirname(target), `.${basename(target)}.${process.pid}.tmp`);
+  rmSync(temp, { force: true });
+  const fd = openSync(
+    temp,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollowFlag(),
+  );
   try {
     writeSync(fd, wanted, 0, 'utf8');
   } finally {
     closeSync(fd);
   }
-  return 'written';
+  try {
+    renameSync(temp, target);
+  } catch (error) {
+    rmSync(temp, { force: true });
+    throw error;
+  }
 }
 
 function syncAgentFile(target: string, wanted: string, known: ReadonlySet<string>): SyncOutcome {
-  let fd: number;
+  let stat;
   try {
-    fd = openSync(target, constants.O_RDWR | noFollowFlag());
+    stat = lstatSync(target);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return createAgentFile(target, wanted);
-    return 'kept';
-  }
-  try {
-    if (!fstatSync(fd).isFile() || lstatSync(target).isSymbolicLink()) return 'kept';
-    const existing = readFileSync(fd, 'utf8');
-    if (existing === wanted) return 'same';
-    if (removalReason(existing, known) === null) return 'kept';
-    ftruncateSync(fd, 0);
-    writeSync(fd, wanted, 0, 'utf8');
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return 'kept';
+    writeBySwap(target, wanted);
     return 'written';
-  } finally {
-    closeSync(fd);
   }
+  if (stat.isSymbolicLink()) return 'symlink';
+  if (!stat.isFile()) return 'kept';
+  const existing = readFileSync(target, 'utf8');
+  if (existing === wanted) return 'same';
+  if (!isPaqadOwnedAgent(existing, known)) return 'kept';
+  writeBySwap(target, wanted);
+  return 'written';
+}
+
+export interface ProjectAgentSync {
+  written: string[];
+  kept: string[];
+  symlinks: string[];
 }
 
 export function syncProjectStageAgents(
   projectRoot: string,
   known: ReadonlySet<string> = knownGeneratedBodies(),
-): { written: string[]; kept: string[] } {
-  const result = { written: [] as string[], kept: [] as string[] };
+): ProjectAgentSync {
+  const result: ProjectAgentSync = { written: [], kept: [], symlinks: [] };
   const dir = join(projectRoot, PROJECT_AGENTS_DIR);
   mkdirSync(dir, { recursive: true });
   for (const { name, content } of renderStageAgentFiles('claude-code')) {
@@ -185,8 +208,30 @@ export function syncProjectStageAgents(
     const outcome = syncAgentFile(join(dir, name), withManagedMarker(content), known);
     if (outcome === 'written') result.written.push(rel);
     if (outcome === 'kept') result.kept.push(rel);
+    if (outcome === 'symlink') result.symlinks.push(rel);
+  }
+  for (const entry of listStageAgentFiles(dir)) {
+    const rel = `${PROJECT_AGENTS_DIR}/${entry}`;
+    if (result.kept.includes(rel) || result.written.includes(rel) || result.symlinks.includes(rel))
+      continue;
+    if (renderedNames().has(entry)) continue;
+    result.kept.push(rel);
   }
   return result;
+}
+
+function renderedNames(): Set<string> {
+  return new Set(renderStageAgentFiles('claude-code').map((agent) => agent.name));
+}
+
+function listStageAgentFiles(dir: string): string[] {
+  try {
+    return readdirSync(dir)
+      .filter((name) => STAGE_AGENT_FILE.test(name))
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 export function recordRemovedStageAgents(

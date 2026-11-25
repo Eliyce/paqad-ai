@@ -261,7 +261,7 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
           for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
             if (adapter === 'claude-code' && relativePath === '.claude/agents') {
               expect(readdirSync(join(projectRoot, relativePath)).sort()).toEqual(
-                TEAM_STAGE_HELPERS,
+                ['.gitignore', ...TEAM_STAGE_HELPERS],
               );
               continue;
             }
