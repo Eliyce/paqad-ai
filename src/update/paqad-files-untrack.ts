@@ -86,7 +86,7 @@ function recipeFolderOf(path: string): string | null {
 }
 
 function indexText(git: GitRunner, projectRoot: string, ref: string, path: string): string | null {
-  const result = git(['show', `${ref}:${path}`], projectRoot);
+  const result = git(['show', ref === ':' ? `:${path}` : `${ref}:${path}`], projectRoot);
   return ok(result) ? result.stdout : null;
 }
 
@@ -124,7 +124,9 @@ function ownedPaths(git: GitRunner, projectRoot: string, ref: string, paths: str
   return [...owned].sort();
 }
 
-const SCOPES = [PROJECT_AGENTS_DIR, OPEN_STANDARD_SKILLS_ROOT];
+function scopes(): string[] {
+  return [PROJECT_AGENTS_DIR, OPEN_STANDARD_SKILLS_ROOT, TEAM_LAUNCHER_FILE];
+}
 
 export interface UntrackResult {
   untracked: string[];
@@ -150,7 +152,7 @@ export function untrackPaqadFiles(
   try {
     if (isCiEnvironment(env)) return result;
     if (!gitIsSafe(projectRoot, git)) return result;
-    const tracked = listed(git, projectRoot, ['ls-files', '-z', '--', ...SCOPES]);
+    const tracked = listed(git, projectRoot, ['ls-files', '-z', '--', ...scopes()]);
     const toUntrack = ownedPaths(git, projectRoot, ':', tracked);
     if (toUntrack.length > 0) {
       const removed = git(
@@ -166,7 +168,7 @@ export function untrackPaqadFiles(
       '--name-only',
       'HEAD',
       '--',
-      ...SCOPES,
+      ...scopes(),
     ]);
     if (ownedPaths(git, projectRoot, 'HEAD', inHead).length > 0) {
       result.notes.push(untrackLine(options.version));

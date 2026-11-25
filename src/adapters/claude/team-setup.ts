@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   resolveTeamBootstrapEnabled,
@@ -7,15 +7,17 @@ import {
 } from '@/core/framework-config.js';
 import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
-import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
-import { isHigherStamp, parseStampInteger } from '@/core/team-file-schema.js';
 import { PROJECT_AGENTS_DIR } from '@/onboarding/stage-agent-migration.js';
 import { refreshProjectAgents } from '@/stage-isolation/project-refresh.js';
+import {
+  isCiEnvironment,
+  isPaqadLauncher,
+  TEAM_LAUNCHER_FILE,
+} from '@/update/paqad-files-untrack.js';
 
-import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
+import { CLAUDE_SETTINGS_FILE } from './team-settings.js';
 
-export const TEAM_LAUNCHER_PATH = '.paqad/hook.mjs';
-const LAUNCHER_STAMP = /LAUNCHER_REVISION = (\S+?);/u;
+export const TEAM_LAUNCHER_PATH = TEAM_LAUNCHER_FILE;
 
 export interface TeamSetupReport {
   enabled: boolean;
@@ -25,18 +27,8 @@ export interface TeamSetupReport {
   handEditedAgents?: string[];
 }
 
-interface OwnedFile {
-  path: string;
-  content: string;
-  stamp: RegExp;
-}
-
-export function renderTeamLauncher(): string {
-  return readFileSync(join(getRuntimeTemplatesRoot(), 'team-bootstrap', 'hook.mjs'), 'utf8');
-}
-
-export function teamOwnedFiles(): OwnedFile[] {
-  return [{ path: TEAM_LAUNCHER_PATH, content: renderTeamLauncher(), stamp: LAUNCHER_STAMP }];
+export interface TeamSetupOptions {
+  removeLauncher?: boolean;
 }
 
 function readIfPresent(path: string): string | null {
@@ -48,58 +40,31 @@ function readIfPresent(path: string): string | null {
   }
 }
 
-function revisionOf(text: string, stamp: RegExp): string | undefined {
-  return stamp.exec(text)?.[1];
-}
-
-function isNewerStamp(existing: string, file: OwnedFile): boolean {
-  return isHigherStamp(
-    revisionOf(existing, file.stamp),
-    parseStampInteger(revisionOf(file.content, file.stamp)) ?? 0,
-  );
-}
-
-function sameContent(existing: string, content: string): boolean {
-  return existing.replace(/\r\n/gu, '\n') === content.replace(/\r\n/gu, '\n');
-}
-
-function syncOwnedFile(
+export function removeTeamLauncher(
   projectRoot: string,
-  file: OwnedFile,
-  enabled: boolean,
+  env: NodeJS.ProcessEnv,
   report: TeamSetupReport,
 ): void {
-  const target = join(projectRoot, file.path);
+  if (isCiEnvironment(env)) return;
+  const target = join(projectRoot, TEAM_LAUNCHER_PATH);
   const existing = readIfPresent(target);
-  if (!enabled) {
-    if (existing === null) return;
-    if (sameContent(existing, file.content)) {
-      rmSync(target, { force: true });
-      report.removed.push(file.path);
-    } else {
-      report.kept.push(file.path);
-    }
+  if (existing === null) return;
+  if (!isPaqadLauncher(existing)) {
+    report.kept.push(TEAM_LAUNCHER_PATH);
     return;
   }
-  if (existing !== null && sameContent(existing, file.content)) return;
-  if (existing !== null && isNewerStamp(existing, file)) {
-    report.kept.push(file.path);
-    return;
-  }
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, file.content, 'utf8');
-  report.written.push(file.path);
+  rmSync(target, { force: true });
+  report.removed.push(TEAM_LAUNCHER_PATH);
 }
 
 export function syncTeamSetup(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
+  options: TeamSetupOptions = {},
 ): TeamSetupReport {
   const enabled = resolveTeamBootstrapEnabled(projectRoot, env);
   const report: TeamSetupReport = { enabled, written: [], removed: [], kept: [] };
-  for (const file of teamOwnedFiles()) {
-    syncOwnedFile(projectRoot, file, enabled, report);
-  }
+  if (options.removeLauncher === true) removeTeamLauncher(projectRoot, env, report);
   const agents = refreshProjectAgents(projectRoot);
   report.written.push(...agents.written);
   report.kept.push(...agents.kept, ...agents.symlinks);
@@ -121,17 +86,11 @@ function settingsCarryTeamSetup(projectRoot: string): boolean {
     return false;
   }
   const enabled = (parsed as { enabledPlugins?: Record<string, unknown> } | null)?.enabledPlugins;
-  return (
-    raw.includes(TEAM_LAUNCHER_MARK) &&
-    (enabled?.[PLUGIN_ID] !== undefined || teamSetsInstallModeSettings(projectRoot))
-  );
+  return enabled?.[PLUGIN_ID] !== undefined || teamSetsInstallModeSettings(projectRoot);
 }
 
 export function teamSetupMissing(projectRoot: string): boolean {
-  return (
-    !settingsCarryTeamSetup(projectRoot) ||
-    teamOwnedFiles().some((file) => readIfPresent(join(projectRoot, file.path)) === null)
-  );
+  return !settingsCarryTeamSetup(projectRoot);
 }
 
 export function teamTrackedPaths(): string[] {

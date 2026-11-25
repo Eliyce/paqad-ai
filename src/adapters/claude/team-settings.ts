@@ -13,17 +13,11 @@ import { pluginAutoUpdate, resolveUpdatePolicy } from '@/update/update-policy.js
 
 import type { GeneratedFile } from '../adapter.interface.js';
 import { mergeNativeHooks } from '../shared/native-hook-config.js';
-import {
-  buildHostHookChain,
-  frameworkHomeAbsolute,
-  type RenderedHook,
-} from '../shared/paqad-hooks.js';
+import { frameworkHomeAbsolute, type RenderedHook } from '../shared/paqad-hooks.js';
 
 export const CLAUDE_SETTINGS_FILE = '.claude/settings.json';
 export const CLAUDE_LOCAL_SETTINGS_FILE = '.claude/settings.local.json';
 export const TEAM_LAUNCHER_MARK = '/.paqad/hook.mjs';
-export const TEAM_LAUNCHER_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs"';
-export const SESSION_START_TIMEOUT_SEC = 600;
 
 const TEAM_KEYS = new Set(['$schema', 'attribution']);
 
@@ -58,22 +52,6 @@ function slash(value: string): string {
 
 export function isTeamLauncherCommand(command: unknown): boolean {
   return typeof command === 'string' && slash(command).includes(TEAM_LAUNCHER_MARK);
-}
-
-export function toLauncherCommand(command: string): string {
-  const match = /^node "[^"]*\/hooks\/([^"/]+\.mjs)"(.*)$/.exec(slash(command));
-  if (!match) {
-    throw new Error(`the paqad hook command has an unexpected shape: ${command}`);
-  }
-  return `${TEAM_LAUNCHER_COMMAND} ${match[1]}${match[2]}`;
-}
-
-export function buildTeamHookChain(env: NodeJS.ProcessEnv = process.env): RenderedHook[] {
-  return buildHostHookChain('claude-code', env).map((hook) => ({
-    ...hook,
-    command: toLauncherCommand(hook.command),
-    ...(hook.nativeEvent === 'SessionStart' ? { timeout: SESSION_START_TIMEOUT_SEC } : {}),
-  }));
 }
 
 export function isMachinePaqadCommand(command: unknown, env: NodeJS.ProcessEnv): boolean {
@@ -150,6 +128,18 @@ function withoutPaqadLines(
 ): Json {
   if (!('hooks' in settings)) return settings;
   return { ...settings, hooks: filterHooks(settings.hooks, (hook) => !isPaqadLine(hook, options)) };
+}
+
+function withoutEmptyHooks(settings: Json): Json {
+  if (
+    !('hooks' in settings) ||
+    (isRecord(settings.hooks) && Object.keys(settings.hooks).length > 0)
+  ) {
+    return settings;
+  }
+  const rest = { ...settings };
+  delete rest.hooks;
+  return rest;
 }
 
 function addTeamKeys(settings: Json, autoUpdate: boolean): Json {
@@ -236,10 +226,16 @@ export interface ClaudeSettingsPlan {
   tracked: boolean;
 }
 
-export function planMachineOnlySettings(options: ClaudeSettingsOptions): GeneratedFile {
-  const existing = readJson(join(options.projectRoot, CLAUDE_SETTINGS_FILE)) ?? {};
-  const merged = mergeNativeHooks(withoutPaqadLines(existing, options), options.npmChain);
-  return fileFor(CLAUDE_SETTINGS_FILE, options.transform(merged));
+export function planJoinLocalSettings(
+  options: ClaudeSettingsOptions,
+  planned: GeneratedFile | undefined,
+): GeneratedFile | null {
+  const existingLocal = readJson(join(options.projectRoot, CLAUDE_LOCAL_SETTINGS_FILE));
+  const base = planned === undefined ? existingLocal : (JSON.parse(planned.content) as Json);
+  const local = mergeNativeHooks(withoutPaqadLines(base ?? {}, options), options.npmChain);
+  if (existingLocal !== null && serialize(local) === serialize(existingLocal)) return null;
+  if (existingLocal === null && options.npmChain.length === 0) return null;
+  return fileFor(CLAUDE_LOCAL_SETTINGS_FILE, local);
 }
 
 export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettingsPlan {
@@ -265,7 +261,6 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
     return { files, enabled, tracked };
   }
 
-  const chain = buildTeamHookChain(env);
   const autoUpdate = pluginAutoUpdate(resolveUpdatePolicy(projectRoot, env));
   const pluginKeys = teamSetsInstallModeSettings(projectRoot)
     ? withoutTeamKeys
@@ -273,11 +268,11 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   let shared: Json;
   let personal: Json = {};
   if (tracked) {
-    shared = transform(pluginKeys(mergeNativeHooks(withoutPaqadLines(existing, options), chain)));
+    shared = transform(pluginKeys(withoutEmptyHooks(withoutPaqadLines(existing, options))));
   } else {
     const split = splitPersonal(withoutPaqadLines(existing, options));
     personal = split.personal;
-    shared = transform({ ...pluginKeys(mergeNativeHooks({}, chain)), ...split.team });
+    shared = transform({ ...pluginKeys({}), ...split.team });
   }
   files.push(fileFor(CLAUDE_SETTINGS_FILE, shared));
 

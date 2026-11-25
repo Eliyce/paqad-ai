@@ -331,7 +331,11 @@ export class FrameworkUpdater {
       writeCodexRecipes(projectRoot);
     } catch {}
 
-    const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;
+    const teamSetup = usesClaude
+      ? claude.syncTeamSetup(projectRoot, process.env, {
+          removeLauncher: this.options.silent !== true,
+        })
+      : null;
     const untrack = this.options.silent === true ? null : untrackPaqadFiles(projectRoot);
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });

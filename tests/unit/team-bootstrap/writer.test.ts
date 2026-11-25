@@ -7,14 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   TEAM_LAUNCHER_PATH,
-  renderTeamLauncher,
   syncTeamSetup,
   teamFilesToCommit,
   teamSetupMissing,
   teamSetupNotes,
 } from '@/adapters/claude/team-setup.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
-import { VERSION } from '@/index.js';
 
 import { writeTeamSetup } from './helpers';
 
@@ -35,76 +33,64 @@ function optOut(): void {
   writeFileSync(join(root, '.paqad', 'configs', '.config.app'), 'team_bootstrap_enabled=false\n');
 }
 
-describe('the launcher file', () => {
-  it('renders the shipped template as it is, with no version in it', () => {
-    const rendered = renderTeamLauncher();
-    expect(rendered.length).toBeGreaterThan(1000);
-    expect(rendered).toMatch(/^export const LAUNCHER_REVISION = [1-9]\d*;$/mu);
-    expect(rendered).not.toContain(VERSION);
-    expect(rendered.startsWith('#!/usr/bin/env node\n')).toBe(true);
-  });
+const STAMPED = '#!/usr/bin/env node\nexport const LAUNCHER_REVISION = 2;\n';
 
-  it('is written on the first sync and byte-identical on the next', () => {
-    const first = syncTeamSetup(root, {});
-    expect(first.written).toContain(TEAM_LAUNCHER_PATH);
-    const bytes = readFileSync(launcherPath(), 'utf8');
-    expect(bytes).toBe(renderTeamLauncher());
-    const second = syncTeamSetup(root, {});
-    expect(second.written).toEqual([]);
-    expect(readFileSync(launcherPath(), 'utf8')).toBe(bytes);
-  });
+function writeLauncher(text: string): void {
+  mkdirSync(join(root, '.paqad'), { recursive: true });
+  writeFileSync(launcherPath(), text);
+}
 
-  const withRevision = (value: string) =>
-    renderTeamLauncher().replace(/LAUNCHER_REVISION = \d+;/u, `LAUNCHER_REVISION = ${value};`);
-
-  it.each([
-    ['lower', () => withRevision('0')],
-    ['malformed', () => withRevision('1.5')],
-    ['missing', () => renderTeamLauncher().replace(/^export const LAUNCHER_REVISION.*\n/mu, '')],
-    ['an old version stamp', () => "export const PAQAD_LAUNCHER_VERSION = '1.119.0';\n"],
-    ['equal with other content', () => `${renderTeamLauncher()}// edited\n`],
-  ])('AC-25: rewrites a launcher whose revision is %s', (_name, make) => {
-    mkdirSync(join(root, '.paqad'), { recursive: true });
-    writeFileSync(launcherPath(), make());
-    expect(syncTeamSetup(root, {}).written).toContain(TEAM_LAUNCHER_PATH);
-    expect(readFileSync(launcherPath(), 'utf8')).toBe(renderTeamLauncher());
-  });
-
-  it('AC-24: a launcher with a higher revision stays, even with other content', () => {
-    const newer = `${withRevision('999')}// a newer launcher\n`;
-    mkdirSync(join(root, '.paqad'), { recursive: true });
-    writeFileSync(launcherPath(), newer);
+describe('FR-36, FR-38: team setup no longer writes the launcher', () => {
+  it('AC-1: a sync writes no .paqad/hook.mjs', () => {
     const report = syncTeamSetup(root, {});
-    expect(report.kept).toEqual([TEAM_LAUNCHER_PATH]);
-    expect(readFileSync(launcherPath(), 'utf8')).toBe(newer);
-  });
-
-  it('NFR-3: a CRLF copy at the current revision counts as unchanged', () => {
-    const crlf = renderTeamLauncher().replace(/\n/gu, '\r\n');
-    mkdirSync(join(root, '.paqad'), { recursive: true });
-    writeFileSync(launcherPath(), crlf);
-    expect(syncTeamSetup(root, {}).written).not.toContain(TEAM_LAUNCHER_PATH);
-    expect(readFileSync(launcherPath(), 'utf8')).toBe(crlf);
-  });
-
-  it('the opt-out removes an unchanged launcher and keeps an edited one', () => {
-    syncTeamSetup(root, {});
-    optOut();
-    expect(syncTeamSetup(root, {}).removed).toContain(TEAM_LAUNCHER_PATH);
+    expect(report.written).not.toContain(TEAM_LAUNCHER_PATH);
     expect(existsSync(launcherPath())).toBe(false);
-    expect(syncTeamSetup(root, {}).removed).toEqual([]);
+  });
 
-    writeFileSync(launcherPath(), 'hand written\n');
-    const report = syncTeamSetup(root, {});
-    expect(report.kept).toEqual([TEAM_LAUNCHER_PATH]);
+  it('AC-21: an update removes a launcher that carries the paqad stamp, and a second run is silent', () => {
+    writeLauncher(STAMPED);
+    const report = syncTeamSetup(root, {}, { removeLauncher: true });
+    expect(report.removed).toEqual([TEAM_LAUNCHER_PATH]);
+    expect(existsSync(launcherPath())).toBe(false);
+    const again = syncTeamSetup(root, {}, { removeLauncher: true });
+    expect(again.removed).toEqual([]);
+    expect(teamSetupNotes(root, again)).toEqual([]);
+  });
+
+  it('AC-21: any launcher revision and CRLF line ends count as paqad files', () => {
+    writeLauncher(STAMPED.replace('= 2;', '= 999;').replace(/\n/gu, '\r\n'));
+    expect(syncTeamSetup(root, {}, { removeLauncher: true }).removed).toEqual([TEAM_LAUNCHER_PATH]);
+  });
+
+  it('FR-38: a .paqad/hook.mjs without the stamp is kept and named', () => {
+    writeLauncher('hand written\n');
+    const report = syncTeamSetup(root, {}, { removeLauncher: true });
     expect(report.removed).toEqual([]);
+    expect(report.kept).toContain(TEAM_LAUNCHER_PATH);
     expect(readFileSync(launcherPath(), 'utf8')).toBe('hand written\n');
+    expect(teamSetupNotes(root, report)).toContain(
+      'Left alone because they were edited by hand or written by a newer paqad: .paqad/hook.mjs.',
+    );
   });
 
-  it('the env switch turns the writer off', () => {
-    const report = syncTeamSetup(root, { PAQAD_TEAM_BOOTSTRAP_ENABLED: 'false' });
+  it('AC-48: the launcher removal does not run under CI', () => {
+    writeLauncher(STAMPED);
+    expect(syncTeamSetup(root, { CI: 'true' }, { removeLauncher: true }).removed).toEqual([]);
+    expect(existsSync(launcherPath())).toBe(true);
+  });
+
+  it('INV-13: the silent update and session start, which pass no removal flag, leave the launcher', () => {
+    writeLauncher(STAMPED);
+    expect(syncTeamSetup(root, {}).removed).toEqual([]);
+    expect(existsSync(launcherPath())).toBe(true);
+  });
+
+  it('the opt-out removes the launcher on update too', () => {
+    optOut();
+    writeLauncher(STAMPED);
+    const report = syncTeamSetup(root, {}, { removeLauncher: true });
     expect(report.enabled).toBe(false);
-    expect(existsSync(launcherPath())).toBe(false);
+    expect(report.removed).toEqual([TEAM_LAUNCHER_PATH]);
   });
 });
 
@@ -120,10 +106,10 @@ describe('what the lead is told', () => {
     expect(notes[0]).toMatch(
       /^Commit these team setup files together so teammates and cloud sessions get paqad: /,
     );
-    expect(notes[0]).toContain(TEAM_LAUNCHER_PATH);
+    expect(notes[0]).not.toContain(TEAM_LAUNCHER_PATH);
     expect(notes[0]).not.toContain('.claude/agents/paqad-development.md');
     expect(notes[0]).toContain('.claude/agents/.gitignore');
-    git('add', '-f', TEAM_LAUNCHER_PATH, '.claude/agents/.gitignore');
+    git('add', '-f', '.claude/agents/.gitignore');
     git(
       '-c',
       'user.email=t@t',
@@ -141,14 +127,14 @@ describe('what the lead is told', () => {
   it('outside git it lists what it wrote', () => {
     const report = syncTeamSetup(root, {});
     expect(teamFilesToCommit(root, report)).toEqual([...report.written].sort());
-    expect(report.written).toContain(TEAM_LAUNCHER_PATH);
-    expect(report.written).toHaveLength(14);
+    expect(report.written).not.toContain(TEAM_LAUNCHER_PATH);
+    expect(report.written).toHaveLength(13);
   });
 
   it('says nothing to commit when the team setup is off and names files it kept', () => {
     optOut();
     writeFileSync(launcherPath(), 'mine\n');
-    const report = syncTeamSetup(root, {});
+    const report = syncTeamSetup(root, {}, { removeLauncher: true });
     expect(teamFilesToCommit(root, report)).toEqual([]);
     expect(teamSetupNotes(root, report)).toEqual([
       'Left alone because they were edited by hand or written by a newer paqad: .paqad/hook.mjs.',
@@ -160,6 +146,7 @@ describe('what the lead is told', () => {
     syncTeamSetup(root, {});
     expect(teamSetupMissing(root)).toBe(true);
     await writeTeamSetup(root);
+    expect(existsSync(launcherPath())).toBe(false);
     expect(teamSetupMissing(root)).toBe(false);
     writeFileSync(join(root, '.claude', 'settings.json'), '{ broken');
     expect(teamSetupMissing(root)).toBe(true);

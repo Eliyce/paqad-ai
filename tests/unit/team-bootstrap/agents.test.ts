@@ -173,10 +173,10 @@ describe("the stage agents in the repo's .claude/agents", () => {
     expect(lines[lines.indexOf('---', 1) + 1]).toBe(STAGE_AGENT_MARKER);
   });
 
-  it('a team setup with no stage agents in the project is not missing', async () => {
+  it('AC-40: a team setup with no stage agents and no launcher in the project is not missing', async () => {
     await writeTeamSetup(root);
     expect(teamSetupMissing(root)).toBe(false);
-    expect(existsSync(join(root, '.paqad', 'hook.mjs'))).toBe(true);
+    expect(existsSync(join(root, '.paqad', 'hook.mjs'))).toBe(false);
   });
 });
 

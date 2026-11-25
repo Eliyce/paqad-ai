@@ -322,7 +322,9 @@ export class OnboardingOrchestrator {
       }
       if (adapters.includes('claude-code')) {
         onboardingWarnings.push(
-          ...new ClaudeCodeAdapter().syncTeamSetup(options.projectRoot).notes,
+          ...new ClaudeCodeAdapter().syncTeamSetup(options.projectRoot, process.env, {
+            removeLauncher: true,
+          }).notes,
         );
       }
       writeGitignore(options.projectRoot);

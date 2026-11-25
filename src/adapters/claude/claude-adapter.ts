@@ -1,10 +1,8 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { resolveTeamBootstrapEnabled } from '@/core/framework-config.js';
 import { isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
+import { pluginLoadState } from '@/health/plugin-install.js';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
@@ -12,14 +10,19 @@ import { buildFullHookChain } from '../shared/native-hook-config.js';
 import { PAQAD_RUNTIME_PREFIX } from '../shared/paqad-hooks.js';
 
 import {
+  CLAUDE_LOCAL_SETTINGS_FILE,
   CLAUDE_SETTINGS_FILE,
   planClaudeSettings,
-  planMachineOnlySettings,
+  planJoinLocalSettings,
   type ClaudeSettingsOptions,
 } from './team-settings.js';
-import { TEAM_LAUNCHER_PATH } from './team-setup.js';
 
-import { syncTeamSetup, teamSetupNotes, type TeamSetupReport } from './team-setup.js';
+import {
+  syncTeamSetup,
+  teamSetupNotes,
+  type TeamSetupOptions,
+  type TeamSetupReport,
+} from './team-setup.js';
 
 const LEGACY_HOOK_COMMANDS = new Set(
   [
@@ -86,20 +89,27 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   }
 
   joinSettingsFiles(projectRoot: string, env: NodeJS.ProcessEnv = process.env): GeneratedFile[] {
+    const files = this.hostSettingsFiles(projectRoot, env);
     if (
-      resolveTeamBootstrapEnabled(projectRoot, env) &&
-      !existsSync(join(projectRoot, TEAM_LAUNCHER_PATH))
+      !resolveTeamBootstrapEnabled(projectRoot, env) ||
+      pluginLoadState(projectRoot, { env }) === 'live'
     ) {
-      return [planMachineOnlySettings(claudeSettingsOptions(projectRoot, env))];
+      return files;
     }
-    return this.hostSettingsFiles(projectRoot, env);
+    const local = planJoinLocalSettings(
+      claudeSettingsOptions(projectRoot, env),
+      files.find((file) => file.path === CLAUDE_LOCAL_SETTINGS_FILE),
+    );
+    const rest = files.filter((file) => file.path !== CLAUDE_LOCAL_SETTINGS_FILE);
+    return local === null ? rest : [...rest, local];
   }
 
   syncTeamSetup(
     projectRoot: string,
     env: NodeJS.ProcessEnv = process.env,
+    options: TeamSetupOptions = {},
   ): { report: TeamSetupReport; notes: string[] } {
-    const report = syncTeamSetup(projectRoot, env);
+    const report = syncTeamSetup(projectRoot, env, options);
     return { report, notes: teamSetupNotes(projectRoot, report) };
   }
 }

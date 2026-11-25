@@ -6,13 +6,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
-import {
-  buildTeamHookChain,
-  holdsHomePath,
-  isMachinePaqadCommand,
-  toLauncherCommand,
-} from '@/adapters/claude/team-settings.js';
-import { buildHostHookChain } from '@/adapters/shared/paqad-hooks.js';
+import { holdsHomePath, isMachinePaqadCommand } from '@/adapters/claude/team-settings.js';
+import { buildHostHookChain, buildPluginHookChain } from '@/adapters/shared/paqad-hooks.js';
 import { HealthChecker } from '@/health/checker.js';
 
 import { HOME_PATH_PATTERN } from './helpers';
@@ -88,12 +83,6 @@ function teamSettingsWithMachineLines(): Settings {
   };
 }
 
-function byEvent<T extends { event: string }>(entries: T[]): Record<string, T[]> {
-  const out: Record<string, T[]> = {};
-  for (const entry of entries) (out[entry.event] ??= []).push(entry);
-  return out;
-}
-
 function launcherEntries(
   settings: Settings,
 ): Array<{ event: string; matcher?: string; hook: unknown }> {
@@ -107,21 +96,22 @@ function launcherEntries(
 }
 
 describe('AC-18, AC-20: the committed team settings', () => {
-  it('maps every hook to the launcher, changing only the command and the SessionStart timeouts', () => {
-    const chain = buildHostHookChain('claude-code');
-    const team = buildTeamHookChain();
-    expect(team).toHaveLength(chain.length);
-    team.forEach((entry, index) => {
-      const original = chain[index]!;
-      const { command, timeout, ...rest } = entry;
-      const { command: originalCommand, timeout: originalTimeout, ...originalRest } = original;
-      expect(rest).toEqual(originalRest);
-      expect(timeout).toBe(entry.nativeEvent === 'SessionStart' ? 600 : originalTimeout);
-      const script = /\/hooks\/([^"]+)"(.*)$/.exec(originalCommand)!;
-      expect(command).toBe(`node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" ${script[1]}${script[2]}`);
-    });
-    expect(team.filter((entry) => entry.nativeEvent === 'SessionStart')).toHaveLength(2);
-    expect(() => toLauncherCommand('bash something.sh')).toThrow(/unexpected shape/);
+  it('AC-35: settings hook lines never call the launcher and the plugin chain carries every paqad hook', async () => {
+    const plugin = buildPluginHookChain().map((line) => `${line.nativeEvent} ${line.command}`);
+    const host = buildHostHookChain('claude-code').filter(
+      (line) => !line.command.includes('silent-update.mjs'),
+    );
+    for (const line of host) {
+      const script = /\/hooks\/([^"]+)"/u.exec(line.command)![1]!;
+      expect(
+        plugin.some((entry) => entry.startsWith(line.nativeEvent) && entry.includes(script)),
+      ).toBe(true);
+    }
+    const settings = JSON.parse((await render()).get('.claude/settings.json')!) as Settings;
+    expect(settings).not.toHaveProperty('hooks');
+    expect(JSON.stringify(settings)).not.toContain('/.paqad/hook.mjs');
+    expect(settings.enabledPlugins).toEqual({ 'paqad@eliyce': true });
+    expect(settings.extraKnownMarketplaces).toHaveProperty('eliyce');
   });
 
   it('keeps team keys and non-paqad hooks, drops machine lines, writes the three keys, twice the same bytes', async () => {
@@ -153,34 +143,36 @@ describe('AC-18, AC-20: the committed team settings', () => {
     expect(commands.filter((command) => command.includes('.paqad-ai'))).toEqual([]);
     expect(commands.filter((command) => command.includes('.sh'))).toEqual([]);
 
-    expect(byEvent(launcherEntries(settings))).toEqual(
-      byEvent(
-        buildTeamHookChain().map((entry) => ({
-          event: entry.nativeEvent,
-          matcher: entry.matcher,
-          hook: {
-            type: 'command',
-            command: entry.command,
-            ...(entry.onFailure ? { onFailure: entry.onFailure } : {}),
-            ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}),
-          },
-        })),
-      ),
-    );
+    expect(launcherEntries(settings)).toEqual([]);
   });
 
-  it('keeps the three edit gates fail-closed, which the health check confirms', async () => {
+  it('AC-35, AC-21: an update strips the old launcher lines and keeps the team lines', async () => {
+    const team = teamSettingsWithMachineLines();
+    team.hooks.PreToolUse!.push({
+      matcher: 'Edit|Write|NotebookEdit',
+      hooks: [
+        {
+          type: 'command',
+          command: 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" agent-entry-gate.mjs',
+          onFailure: 'block',
+        },
+      ],
+    });
+    team.hooks.SessionStart!.push({
+      hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" x.mjs' }],
+    });
+    writeSettings('settings.json', team);
+    git('init', '-q');
+    git('add', '-f', '.claude/settings.json');
+    const settings = JSON.parse((await render()).get('.claude/settings.json')!) as Settings;
+    expect(launcherEntries(settings)).toEqual([]);
+    expect(Object.keys(settings.hooks).sort()).toEqual(['PreToolUse', 'Stop']);
+  });
+
+  it('AC-35: with no paqad lines in the project settings the edit gate health check still passes', async () => {
     const files = await render();
     mkdirSync(join(root, '.claude'), { recursive: true });
     writeFileSync(join(root, '.claude/settings.json'), files.get('.claude/settings.json')!);
-    const settings = JSON.parse(files.get('.claude/settings.json')!) as Settings;
-    const gates = settings.hooks
-      .PreToolUse!.flatMap((group) => group.hooks)
-      .filter((hook) =>
-        /agent-entry-gate|decision-pause-gate|capability-gate/.test(String(hook.command)),
-      );
-    expect(gates).toHaveLength(3);
-    expect(gates.every((hook) => hook.onFailure === 'block')).toBe(true);
     const report = await new HealthChecker().run(root);
     const gateCheck = report.checks.find((check) => check.name === 'Edit gates fail closed');
     expect(gateCheck?.status).toBe('pass');
@@ -279,9 +271,7 @@ describe('AC-18, AC-20: the committed team settings', () => {
       'attribution',
       'enabledPlugins',
       'extraKnownMarketplaces',
-      'hooks',
     ]);
-    expect(launcherEntries(shared)).toHaveLength(Object.values(shared.hooks).flat().length);
     expect(holdsHomePath(shared)).toBe(false);
 
     expect(local.permissions).toEqual({ allow: ['Read(*)', 'Bash(pnpm test:*)'] });
@@ -304,7 +294,7 @@ describe('AC-18, AC-20: the committed team settings', () => {
     expect(again.has('.claude/settings.local.json')).toBe(false);
   });
 
-  it('removes machine paqad lines left in settings.local.json so only the launcher chain acts', async () => {
+  it('removes machine paqad lines left in settings.local.json so only the plugin chain acts', async () => {
     writeSettings('settings.local.json', {
       hooks: {
         PreToolUse: [
@@ -400,7 +390,14 @@ describe('AC-21: the team setup turned off', () => {
     const team = JSON.parse(enabled.get('.claude/settings.json')!) as Settings;
     team.permissions = { allow: ['Bash(ls)'] };
     team.enabledPlugins = { ...(team.enabledPlugins as object), 'other@x': true };
-    team.hooks.Stop!.push({ hooks: [{ type: 'command', command: 'echo team-stop' }] });
+    team.hooks = {
+      Stop: [
+        {
+          hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" x.mjs' }],
+        },
+        { hooks: [{ type: 'command', command: 'echo team-stop' }] },
+      ],
+    };
     writeSettings('settings.json', team);
 
     const files = await render();

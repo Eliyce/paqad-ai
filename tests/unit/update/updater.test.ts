@@ -1421,17 +1421,26 @@ describe('FrameworkUpdater', () => {
   describe('team setup on update', () => {
     const claudeCandidates = async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }];
 
-    it('writes .paqad/hook.mjs for a Claude project, names it to commit, and gives no diff on a rerun', async () => {
+    it('AC-1, FR-38: writes no .paqad/hook.mjs, and a manual update removes a stamped one', async () => {
       const report = await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(
         projectRoot,
       );
       const launcher = join(projectRoot, '.paqad/hook.mjs');
-      const bytes = readFileSync(launcher, 'utf8');
-      expect(bytes).toMatch(/LAUNCHER_REVISION = \d+;/u);
-      expect(bytes).not.toContain(VERSION);
-      expect(report.team_setup_notes.join('\n')).toContain('.paqad/hook.mjs');
+      expect(existsSync(launcher)).toBe(false);
+      expect(report.team_setup_notes.join('\n')).not.toContain('.paqad/hook.mjs');
+      writeFileSync(launcher, 'export const LAUNCHER_REVISION = 2;\n');
       await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
-      expect(readFileSync(launcher, 'utf8')).toBe(bytes);
+      expect(existsSync(launcher)).toBe(false);
+    });
+
+    it('INV-13: the silent update leaves a stamped launcher for the next manual update', async () => {
+      const launcher = join(projectRoot, '.paqad/hook.mjs');
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(launcher, 'export const LAUNCHER_REVISION = 2;\n');
+      await new FrameworkUpdater({ generateCandidates: claudeCandidates, silent: true }).run(
+        projectRoot,
+      );
+      expect(existsSync(launcher)).toBe(true);
     });
 
     it('writes no team setup for a project without Claude', async () => {
@@ -1442,8 +1451,9 @@ describe('FrameworkUpdater', () => {
       expect(report.team_setup_notes).toEqual([]);
     });
 
-    it('removes an unchanged launcher once the team opts out', async () => {
-      await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(projectRoot);
+    it('removes a stamped launcher once the team opts out', async () => {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(join(projectRoot, '.paqad/hook.mjs'), 'export const LAUNCHER_REVISION = 2;\n');
       mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
       writeFileSync(
         join(projectRoot, '.paqad/configs/.config.app'),
