@@ -36,7 +36,7 @@ import {
   PLUGIN_MARKETPLACE_REPO,
   pluginSettingsKeys,
 } from './plugin-settings-keys.js';
-import { pluginAutoUpdate, resolveUpdatePolicy } from '@/update/update-policy.js';
+import { resolveUpdatePolicy } from '@/update/update-policy.js';
 
 export { PLUGIN_MARKETPLACE_REPO, pluginSettingsKeys };
 
@@ -333,7 +333,9 @@ export function installViaSettings(home: string): { state: MigrationState; reaso
   if (existingEnabled && existingEnabled[PLUGIN_ID] === false) {
     return { state: 'declined', reason: 'user-opted-out' };
   }
-  const keys = pluginSettingsKeys(pluginAutoUpdate(resolveUpdatePolicy(process.cwd())));
+  const markets = (settings.extraKnownMarketplaces as Record<string, unknown> | undefined) ?? {};
+  const current = (markets[MARKETPLACE_KEY] as { autoUpdate?: unknown } | undefined)?.autoUpdate;
+  const keys = pluginSettingsKeys(typeof current === 'boolean' ? current : true);
   const next: Record<string, unknown> = {
     ...settings,
     extraKnownMarketplaces: {
