@@ -45,6 +45,30 @@ Capture the main journeys for `claude-code`. Each flow should call out:
 - User-visible failures and the message contract.
 - Recovery guidance — what the user should do, in plain language, when the feature aborts.
 
+## Teammates and cloud sessions
+
+- **What the project commits.** Only configuration: `.claude/settings.json` with the `eliyce`
+  marketplace and `paqad@eliyce` turned on, `.claude/.gitignore`, and the managed ignore blocks in
+  `.claude/agents/.gitignore` and `.agents/skills/.gitignore`. No paqad code, no paqad agents or
+  recipes, and no launcher. paqad writes its agents and recipes on every run and git ignores them by
+  the `paqad-*` pattern.
+- **Teammates get paqad from the plugin.** A teammate who opens the repo accepts the paqad plugin
+  that the committed settings turn on. The plugin runs every hook and writes the agents. A teammate
+  who prefers npm runs `paqad-ai join`, which writes no tracked file.
+- **Cloud sessions get paqad from the setup commands.** Add these environment setup commands with
+  the team's exact version:
+  `npm i -g paqad-ai@<version> && paqad-ai install && paqad-ai join --no-rag --non-interactive`. Onboard and update print the command with the version filled in.
+  Never use the bare package name, which installs whatever is latest. The session then starts with
+  the 13 stage agents in `~/.claude/agents`, and its first prompt dispatches `paqad-planning`.
+- **No stage agent, no stage.** When a session has no paqad stage agent, a dispatched stage stops
+  with `paqad's stage agents load from the next session. Start a new session to continue.` In cloud,
+  fix and re-run the setup commands, then start a new session.
+- **Updates.** `updates.automatic: false` stops background updates for the npm package and the
+  plugin alike (`.claude/settings.json` gets `autoUpdate: false` on the marketplace).
+  `updates.minimum_version` pins the npm route and the cloud command to one exact version. The plugin
+  route can be stopped but not pinned. `paqad-ai config set updates.automatic false` changes the
+  setting and the marketplace key at once and names both files to commit.
+
 ## The HUD in Claude Code
 
 The paqad plugin draws a band above the prompt that shows the change this session is working on.

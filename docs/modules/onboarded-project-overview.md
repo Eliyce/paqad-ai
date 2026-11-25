@@ -79,11 +79,12 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
 On Claude Code, onboarding also writes team files the lead commits: a portable
-`.claude/settings.json` (plugin marketplace keys plus hooks that run `.paqad/hook.mjs`), the
-launcher itself and the 13 paqad agents. A teammate or a cloud session that clones the repo then gets
-the same stages and checks with no command to run; the launcher uses the installed plugin, the npm
-install, or a copy it fetches once into `~/.paqad-ai/team-plugin`. `team_bootstrap_enabled=false`
-turns this off.
+`.claude/settings.json` (the plugin marketplace keys, no paqad hook line) and the managed ignore
+blocks that keep paqad's own agents and recipes out of git. A teammate who clones the repo gets the
+same stages and checks from the paqad plugin those settings turn on. A cloud session gets them from its
+environment setup commands, with the team's exact version:
+`npm i -g paqad-ai@<version> && paqad-ai install && paqad-ai join --no-rag --non-interactive`.
+`team_bootstrap_enabled=false` turns this off.
 
 On **Claude Code only**, the framework can also install as a **plugin** instead of
 the npm package. The plugin ships its own manifest

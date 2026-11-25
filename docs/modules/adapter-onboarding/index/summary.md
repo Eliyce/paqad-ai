@@ -48,9 +48,9 @@ The reasons below are not obvious from the code in `src/adapters/`.
   overwrote servers teams had configured; Claude's `.mcp.json` is only read (by `doctor`).
 - **Claude team setup.** When `team_bootstrap_enabled` is on (the default), Claude Code is the
   exception to per-machine hook files: `.claude/settings.json` is tracked and portable, holding the
-  plugin marketplace keys and a hook chain that runs the committed launcher `.paqad/hook.mjs`, with
-  the 13 paqad agents in `.claude/agents/`. Personal content moves to `.claude/settings.local.json`.
-  See [claude-code technical](../features/claude-code/technical.md#team-setup-committed-launcher).
+  plugin marketplace keys and no paqad hook line; the plugin carries the hooks, and paqad's agents in
+  `.claude/agents/` are git-ignored by pattern. Personal content moves to `.claude/settings.local.json`.
+  See [claude-code technical](../features/claude-code/technical.md#team-setup-plugin-and-cloud-setup-commands).
 - **Hook commands (`shared/paqad-hooks.ts`).** A command is `node "<abs>/hooks/<file>"`: Windows
   shells do not expand `~` and ignore shebangs and the executable bit, and `node` is always present
   for a Node CLI. The path is recomputed from the local home on every generation. One chain

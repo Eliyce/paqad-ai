@@ -33,18 +33,18 @@ describe('AC-36: the stored journeys carry the HUD rows and the team install ste
     expect(hud.expect).toContain('never goes blank');
   });
 
-  it('team-bootstrap-first-session installs the plugin in the background before the first prompt', () => {
+  it('AC-53: team-bootstrap-first-session gets paqad from the plugin or the cloud setup commands', () => {
     const steps = journey('team-bootstrap-first-session').steps;
     expect(steps.map((step) => step.surface)).toEqual([
       'node-cli-update',
       'node-cli-update',
-      'node-cli-update',
-      'node-cli-update',
+      'node-cli-join',
+      'node-cli-install',
+      'node-cli-join',
+      'node-cli-join',
       'node-cli-join',
     ]);
-    expect(steps[3]!.action).toContain('in the background');
-    expect(steps[3]!.expect).toContain(
-      'type /reload-plugins to see the HUD now, or it shows next session',
-    );
+    expect(steps[1]!.action).toContain('accepts the paqad plugin');
+    expect(steps.map((step) => step.action ?? '').join('\n')).not.toContain('in the background');
   });
 });

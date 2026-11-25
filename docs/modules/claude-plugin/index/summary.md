@@ -5,15 +5,13 @@
 ## Purpose
 
 There is one `paqad` Claude plugin. It works in Claude Code, Cowork and claude.ai chat. It
-carries the hooks, stage agents, HUD mod and launcher that make paqad work in Claude Code, and
+carries the hooks, stage agents and HUD mod that make paqad work in Claude Code, and
 it carries the skills a team uses: the developer skills and the product-owner discovery skills.
 Release pushes the assembled plugin tree to `Eliyce/paqad-claude-plugin`.
 
-The plugin runs in three ways: installed through `/plugin`, deployed by an organization, or
-fetched by the committed team launcher `.paqad/hook.mjs`, which clones
-`Eliyce/paqad-claude-plugin` into `~/.paqad-ai/team-plugin` for a teammate or cloud session that
-has neither the plugin nor npm. The launcher clones the default branch, so only the release job
-should push to that repo.
+The plugin runs in two ways: installed through `/plugin` (a teammate accepts the offer that the
+project's committed `.claude/settings.json` makes), or deployed by an organization. No paqad code
+clones the plugin repo. A cloud session uses the npm package from its setup commands instead.
 
 ## What the plugin ships
 

@@ -146,14 +146,17 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - Tracker writes (`.paqad/doc-progress.json`, `.paqad/stack-drift.json`, etc.).
 - Exit codes (for CLI features).
 
-## Team setup (committed launcher)
+## Team setup (plugin and cloud setup commands)
 
 - **Key.** `team_bootstrap_enabled` (env `PAQAD_TEAM_BOOTSTRAP_ENABLED`, default true, group app,
   section "Team and cloud setup") sits right after `paqad_enable` and resolves the same way.
 - **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
   onboard and update both call, against the real project root: the team keys in
-  `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
-  `runtime/templates/team-bootstrap/hook.mjs`, and the agents ignore block in `.claude/agents/.gitignore`. The 13 paqad agents (6 stage, 2 High
+  `.claude/settings.json` (`src/adapters/claude/team-settings.ts`) and the agents ignore block in
+  `.claude/agents/.gitignore`. It writes no launcher: teammates get paqad from the plugin and a cloud
+  session from its environment setup commands. When the files still need committing, the notes add
+  the cloud setup command with the team version (`cloudSetupNote`, from `teamVersion` and
+  `cloudSetupCommand` in `src/update/update-policy.ts`). The 13 paqad agents (6 stage, 2 High
   Table, 5 onboarding) in `.claude/agents/paqad-*.md` are written for every Claude Code project,
   team setup on or off, with the managed marker, and are git-ignored by the `paqad-*` pattern, never
   committed.
@@ -188,40 +191,30 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   agents write only to `.paqad/tmp/` and the system temp folder; High Table seats only to
   `.paqad/tmp/high-table/`. A target that cannot be resolved, and any unknown `paqad-*` agent, is
   denied.
-- **Missing agents stop the flow.** At SessionStart in an onboarded project, when neither the plugin
-  agents, a full copy in the repo's `.claude/agents/`, nor the home copy is present, the hook prints `stage agents are missing` with Needs your
-  attention, telling the Developer to run `/plugin install paqad@eliyce` and start a new session.
-  paqad stops there instead of running a stage in the main session.
+- **Missing agents stop the flow.** When a stage is dispatched in a session with no paqad stage
+  agent (`src/stage-isolation/agent-availability.ts`), paqad prints `paqad's stage agents load from
+  the next session. Start a new session to continue.` and no general agent runs the stage.
 - **`.claude/settings.json` is tracked and portable.** It holds only
-  `extraKnownMarketplaces.eliyce`, `enabledPlugins["paqad@eliyce"]` and the launcher chain.
+  `extraKnownMarketplaces.eliyce` and `enabledPlugins["paqad@eliyce"]`. The plugin's
+  `hooks.json` carries every paqad hook, so the file holds no paqad hook line.
   When the team sets `claude_code:` `install_mode: settings` in the tracked `.paqad/configs/paqad.yaml`,
   update leaves the two plugin keys out (other plugins and marketplaces stay) and keeps every
   other key in place, so Claude Code does not offer the plugin to teammates. The same value in
   the git-ignored `.paqad/.config`, which `paqad-ai plugin rollback` writes, does not change the
   team file. The team setup then counts as complete without the plugin keys.
-  The chain is `buildHostHookChain('claude-code')` with only the command mapped to
-  `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs [args]` and a 600 second timeout on the
-  two SessionStart entries. paqad entries are matched by `/.paqad/hook.mjs`; non-paqad content and
+  Old hook lines that call `.paqad/hook.mjs` are removed; non-paqad content and
   any line with an absolute home path move to the git-ignored `.claude/settings.local.json`. The
   managed `.claude/.gitignore` block lists `settings.hooks.json` and `settings.local.json`.
-- **Versions.** The launcher carries the paqad version that wrote it; an older paqad
-  leaves newer files alone, so two versions do not flip the files back and forth.
-- **Opt out.** With the key false, update removes the launcher lines, the two plugin keys, and the
-  launcher file whose bytes match what paqad wrote, and writes the npm chain to
-  `.claude/settings.local.json`.
-- **The launcher.** Node built-ins only. At SessionStart it picks one route per session (the
-  plugin, npm install, its own copy in `~/.paqad-ai/team-plugin`, or none), records it under
-  `.paqad/session/` and logs it to `.paqad/logs/hooks.log`. It takes the plugin route only when
-  the plugin claimed this session: its SessionStart wrote `.paqad/session/plugin-active.d/<session
-  id>` naming a root on disk that is not the launcher's copy. Being listed in
-  `installed_plugins.json` is not enough, since a plugin installed during startup loads only in the
-  next session. When the plugin is installed and enabled for this repo but has not claimed yet, the
-  launcher waits up to 2 seconds for the claim, because both SessionStart hooks run side by side.
-  A plugin route recorded with no claim is decided again on the next event. The copy is a `git clone --depth 1`
-  of `Eliyce/paqad-claude-plugin` under the lock `~/.paqad-ai/locks/team-plugin.lock`, refreshed
-  after 6 hours. In a cloud session (`CLAUDE_CODE_REMOTE=true`) it sets `PAQAD_RAG_ENABLED=false`.
-  `paqadHookScriptPath()` ignores launcher lines and `claimedRootIsLive` counts the copy as a live
-  claim, so the plugin's stand-down logic keeps one chain per session.
+- **Updates.** `updates.automatic` and `updates.minimum_version` drive every route. The marketplace
+  entry gets `autoUpdate` true only when updates are on and no version is pinned
+  (`pluginAutoUpdate`); a pin writes `autoUpdate: false` and no ref, because Claude Code gives no
+  confirmed way to hold a marketplace plugin at one tag. The plugin route can be stopped but not
+  pinned. `paqad-ai config set` writes the setting and the marketplace key at once.
+- **Removing the old launcher.** A manual update or onboard deletes a `.paqad/hook.mjs` that carries
+  the paqad stamp, from disk and from git, and its hook lines; a hand-written one is kept and named.
+  Never under CI, in the silent update or at session start.
+- **Opt out.** With the key false, update removes the two plugin keys and writes the npm chain to
+  `.claude/settings.local.json`. paqad still writes its agents, ignored by pattern.
 
 ## Onboarding from the plugin
 

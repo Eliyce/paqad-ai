@@ -13,6 +13,7 @@ import {
   teamSetupNotes,
 } from '@/adapters/claude/team-setup.js';
 import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
+import { VERSION } from '@/index.js';
 
 import { writeTeamSetup } from './helpers';
 
@@ -102,13 +103,16 @@ describe('what the lead is told', () => {
   it('names the team files still to commit in a git repo', () => {
     git('init', '-q');
     const { notes } = new ClaudeCodeAdapter().syncTeamSetup(root, {});
-    expect(notes).toHaveLength(1);
+    expect(notes).toHaveLength(2);
     expect(notes[0]).toMatch(
       /^Commit these team setup files together so teammates and cloud sessions get paqad: /,
     );
     expect(notes[0]).not.toContain(TEAM_LAUNCHER_PATH);
     expect(notes[0]).not.toContain('.claude/agents/paqad-development.md');
     expect(notes[0]).toContain('.claude/agents/.gitignore');
+    expect(notes[1]).toBe(
+      `For Claude Code cloud sessions, add these environment setup commands: npm i -g paqad-ai@${VERSION} && paqad-ai install && paqad-ai join --no-rag --non-interactive`,
+    );
     git('add', '-f', '.claude/agents/.gitignore');
     git(
       '-c',

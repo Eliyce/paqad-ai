@@ -62,9 +62,9 @@ page via `create module documentation`.
 2. Run `create module documentation` in your AI agent (Claude Code, Codex, Cursor, …).
 3. Review the regenerated business + technical pages per feature.
 
-## Team bootstrap hook
+## Team bootstrap
 
-The team-bootstrap launcher template (`runtime/templates/team-bootstrap/hook.mjs`, `LAUNCHER_REVISION` 2) runs the hidden `paqad-ai plugin migrate` in the background from its copy route at session start on a local machine, unless the migration state is already settled (`installed`, `done`, `declined`, `rolled-back`) or a cheap check of the project's opt-outs already rules it out: a remote session, CI or headless (`CI`, `PAQAD_HEADLESS`, `CLAUDE_CODE_ENTRYPOINT=sdk-cli`), `claude_install_mode=settings`, or `plugin_migration=off` without `claude_install_mode=plugin`. A per-session mark keeps it, and the one-time reload line, to once per session.
+There is no team launcher template any more. Teammates get paqad from the plugin and a cloud session from its setup commands, so no template is written into the project for them. The old `.paqad/hook.mjs` is removed by a manual update (see the update technical doc).
 
 ## Related
 

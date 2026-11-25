@@ -4,27 +4,48 @@ schema_version: 1
 id: team-bootstrap-first-session
 label: A teammate or cloud session starts on an onboarded repo
 actor: developer
-goal: Get the same stages and checks as the lead straight from the repo, with no command to run.
+goal: Get the same stages and checks as the lead, from the paqad plugin on a laptop or from three setup commands in a cloud session.
 entry: node-cli-update
 priority: high
 status: proposed
 derivation: agent
 steps:
   - surface: node-cli-update
-    action: The lead runs `paqad-ai update` and commits every file it lists (`.claude/settings.json`, `.claude/.gitignore`, `.paqad/hook.mjs`, `.claude/agents/paqad-*.md`).
-    expect: A portable team setup on the branch, with personal settings moved to `.claude/settings.local.json`.
+    action: The lead runs `paqad-ai update` and commits every file it lists (`.claude/settings.json`, `.claude/.gitignore`, `.claude/agents/.gitignore`, `.agents/skills/.gitignore`). No paqad code, agent or recipe is committed.
+    expect: A portable team setup on the branch that turns on the paqad plugin, with personal settings moved to `.claude/settings.local.json`, and the pinned cloud setup command printed with the team version filled in.
   - surface: node-cli-update
-    action: A teammate clones and opens the repo, trusts the folder, and accepts or declines the plugin offer.
-    expect: The committed launcher picks one route for the session (plugin, npm, its own copy, or none).
-  - surface: node-cli-update
-    action: On the first session with no plugin and no npm install, the launcher shows the setup line and waits while it fetches the plugin copy.
-    expect: "`Setting up paqad for this repo (one time).` on a laptop, or `Setting up paqad for this cloud session.` in cloud; a failed setup says once that checks are off for the session."
-  - surface: node-cli-update
-    action: On a local machine, a session on the launcher's own copy starts the paqad plugin install for the user in the background, never in cloud and never holding up a hook.
-    expect: "Once the install finishes mid-session, one line says once to type /reload-plugins to see the HUD now, or it shows next session."
+    action: A teammate clones and opens the repo, trusts the folder, and accepts the paqad plugin that the committed settings turn on.
+    expect: The plugin runs every paqad hook and writes paqad's agents and recipes, ignored by git, on every session start.
+    variant:
+      group: laptop
+      when: a teammate on their own machine
   - surface: node-cli-join
-    action: The first prompt runs through the entry gate; optionally the teammate runs `paqad-ai join` for the code index, detection report and quality baseline.
-    expect: Stages and checks enforced as for the lead; join writes no tracked file.
+    action: Optionally the teammate runs `paqad-ai join` for the code index, detection report and quality baseline, or to use the npm package instead of the plugin.
+    expect: Join writes no tracked file; without the plugin it puts the npm hook lines in `.claude/settings.local.json`.
+    variant:
+      group: laptop
+      when: a teammate on their own machine
+  - surface: node-cli-install
+    action: "The cloud environment runs its setup commands with the team's exact version: `npm i -g paqad-ai@<version> && paqad-ai install && paqad-ai join --no-rag --non-interactive`."
+    expect: The setup finishes before the session starts.
+    variant:
+      group: cloud
+      when: a Claude Code cloud session
+  - surface: node-cli-join
+    action: The cloud session starts.
+    expect: All 13 paqad stage agents are already in `~/.claude/agents`, and RAG is off.
+    variant:
+      group: cloud
+      when: a Claude Code cloud session
+  - surface: node-cli-join
+    action: The first prompt runs through the entry gate.
+    expect: The first prompt dispatches `paqad-planning`, and stages and checks are enforced as for the lead.
+    variant:
+      group: cloud
+      when: a Claude Code cloud session
+  - surface: node-cli-join
+    action: A stage is dispatched in a session that has no paqad stage agent (the setup failed, npm was offline, or the agents arrive only next session).
+    expect: "paqad says `paqad's stage agents load from the next session. Start a new session to continue.` and no general agent runs the stage."
 ends:
-  success: The teammate's first prompt runs with stages enforced and evidence recorded.
-  abandoned: Setup failed and the session ran with paqad's checks off.
+  success: The teammate's or cloud session's first prompt runs with stages enforced and evidence recorded.
+  abandoned: Setup failed, the session had no paqad stage agents, and it asked for a new session after the setup is fixed.

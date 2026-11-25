@@ -9,6 +9,7 @@ import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { PROJECT_AGENTS_DIR } from '@/onboarding/stage-agent-migration.js';
 import { refreshProjectAgents } from '@/stage-isolation/project-refresh.js';
+import { cloudSetupCommand, resolveUpdatePolicy, teamVersion } from '@/update/update-policy.js';
 import {
   isCiEnvironment,
   isPaqadLauncher,
@@ -126,6 +127,11 @@ export function commitTeamFilesNote(paths: readonly string[]): string {
   return `Commit these team setup files together so teammates and cloud sessions get paqad: ${paths.join(', ')}.`;
 }
 
+export function cloudSetupNote(projectRoot: string, env: NodeJS.ProcessEnv = {}): string {
+  const version = teamVersion(resolveUpdatePolicy(projectRoot, env));
+  return `For Claude Code cloud sessions, add these environment setup commands: ${cloudSetupCommand(version)}`;
+}
+
 export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): string[] {
   const notes: string[] = [];
   if (
@@ -136,7 +142,10 @@ export function teamSetupNotes(projectRoot: string, report: TeamSetupReport): st
     notes.push(SHARED_SETTINGS_NOTE);
   }
   const toCommit = teamFilesToCommit(projectRoot, report);
-  if (toCommit.length > 0) notes.push(commitTeamFilesNote(toCommit));
+  if (toCommit.length > 0) {
+    notes.push(commitTeamFilesNote(toCommit));
+    notes.push(cloudSetupNote(projectRoot));
+  }
   const handEdited = new Set(report.handEditedAgents ?? []);
   if (handEdited.size > 0) {
     notes.push(
