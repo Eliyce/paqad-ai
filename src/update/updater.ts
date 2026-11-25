@@ -59,6 +59,7 @@ import {
 import { FEATURE_DEVELOPMENT_VIEW_RELATIVE } from '@/pipeline/feature-development-view.js';
 import { dropRuleScriptMapSources, isRuleScriptMapCurrent } from '@/rule-scripts/compile.js';
 import { LEGACY_VIEW_HASH, removeGeneratedFiles } from '@/update/generated-files-cleanup.js';
+import { untrackPaqadFiles } from './paqad-files-untrack.js';
 import { VERSION } from '@/index.js';
 import { managedBlockIsNewer, writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import {
@@ -110,6 +111,8 @@ export interface UpdateReport {
 }
 
 export interface FrameworkUpdaterOptions {
+  // The background update (`paqad-ai update --silent`) never untracks files (FR-18).
+  silent?: boolean;
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
 }
 
@@ -329,6 +332,7 @@ export class FrameworkUpdater {
     } catch {}
 
     const teamSetup = usesClaude ? claude.syncTeamSetup(projectRoot) : null;
+    const untrack = this.options.silent === true ? null : untrackPaqadFiles(projectRoot);
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     const versionPath = join(projectRoot, PATHS.FRAMEWORK_VERSION);
@@ -364,7 +368,7 @@ export class FrameworkUpdater {
       new_mcp_servers: [],
       new_scripts: newScripts.sort(),
       config_keys_pruned: configKeysPruned,
-      team_setup_notes: teamSetup?.notes ?? [],
+      team_setup_notes: [...(teamSetup?.notes ?? []), ...(untrack?.notes ?? [])],
       git_workflow_notes: gitWorkflowNotes,
       ...(discoveryPluginClash() ? { plugin_notes: [DISCOVERY_CLASH_MESSAGE] } : {}),
     };
