@@ -26,7 +26,7 @@ const DEFAULT_INTERVAL_HOURS = 12;
 const STALE_LOCK_MS = 60 * 60 * 1000;
 const NPM_TIMEOUT_MS = 5000;
 
-function main() {
+async function main() {
   const projectRoot =
     process.env.CLAUDE_PROJECT_DIR || process.env.PAQAD_PROJECT_ROOT || process.cwd();
 
@@ -50,16 +50,33 @@ function main() {
   const current = readVersionField(versionFile, 'version');
   if (!current) return;
 
-  if (!autoUpdateEnabled(projectRoot)) {
-    noteUnmetFloorWhileDisabled(projectRoot, current, logsDir);
+  // FR-24, FR-29: one resolver decides for every route. If it cannot load or
+  // read the setting, nothing updates and one line is logged.
+  let policy;
+  try {
+    const url = new URL('../../dist/update/update-policy.js', import.meta.url);
+    const { resolveUpdatePolicy } = await import(url.href);
+    policy = resolveUpdatePolicy(projectRoot, process.env, current);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logLine(logsDir, `WARN silent-update update setting unreadable, not updating: ${message}`);
+    return;
+  }
+  if (policy.error) {
+    logLine(logsDir, `WARN silent-update update setting unreadable, not updating: ${policy.error}`);
+    return;
+  }
+  if (!policy.automatic) return;
+
+  // FR-30: a pin is exact. Install that version only, never latest.
+  if (policy.pin) {
+    if (policy.pin === current) return;
+    startUpdate(projectRoot, logsDir, `pinned self-update ${current} -> ${policy.pin}`, policy.pin);
     return;
   }
 
-  const minVersion = resolveMinimumVersion(projectRoot);
-  const floorUnmet = isPinned(minVersion) && isBehindVersion(current, minVersion);
-
   const intervalHours = resolveIntervalHours(projectRoot);
-  if (!floorUnmet && withinInterval(readVersionField(versionFile, 'updated_at'), intervalHours)) {
+  if (withinInterval(readVersionField(versionFile, 'updated_at'), intervalHours)) {
     return;
   }
 
@@ -67,33 +84,32 @@ function main() {
   if (!latest) return;
 
   const nowIso = new Date().toISOString();
-  const baseDecision = classify(current, latest);
-  if (baseDecision === 'current' && !floorUnmet) {
+  const decision = classify(current, latest);
+  if (decision === 'current') {
     touchUpdatedAt(versionFile, current, nowIso);
     return;
   }
-  if (floorUnmet && isBehindVersion(latest, minVersion)) {
-    mkdirSync(logsDir, { recursive: true });
-    appendLine(
-      join(logsDir, 'auto-update.log'),
-      `[${nowIso}] WARN silent-update minimum_version ${minVersion} exceeds latest published ${latest}; cannot satisfy floor`,
-    );
-    touchUpdatedAt(versionFile, current, nowIso);
-    return;
-  }
-  const decision = floorUnmet ? 'forced-minimum' : baseDecision;
+  startUpdate(projectRoot, logsDir, `${decision} self-update ${current} -> ${latest}`, 'latest');
+}
 
+function logLine(logsDir, text) {
+  try {
+    mkdirSync(logsDir, { recursive: true });
+  } catch {}
+  appendLine(join(logsDir, 'auto-update.log'), `[${new Date().toISOString()}] ${text}`);
+}
+
+function startUpdate(projectRoot, logsDir, what, target) {
   const lockDir = acquireLock(projectRoot);
   if (!lockDir) return;
-
   try {
     mkdirSync(logsDir, { recursive: true });
     const logPath = join(logsDir, 'auto-update.log');
     appendLine(
       logPath,
-      `[${nowIso}] INFO silent-update ${decision} self-update ${current} -> ${latest} (npm install -g paqad-ai@latest)`,
+      `[${new Date().toISOString()}] INFO silent-update ${what} (npm install -g paqad-ai@${target})`,
     );
-    spawnBackgroundUpdate(logPath, projectRoot);
+    spawnBackgroundUpdate(logPath, projectRoot, target);
   } finally {
     releaseLock(lockDir);
   }
@@ -143,46 +159,6 @@ function readVersionField(file, field) {
   return match ? match[1].trim() : null;
 }
 
-const CONFIG_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
-const CONFIG_FALSY = new Set(['0', 'false', 'no', 'off']);
-
-function autoUpdateEnabled(projectRoot) {
-  const auto = readLayeredKey(projectRoot, 'auto_update', 'PAQAD_AUTO_UPDATE');
-  if (auto !== undefined && CONFIG_FALSY.has(auto.toLowerCase())) return false;
-  const skip = readLayeredKey(projectRoot, 'skip_version_check', 'PAQAD_SKIP_VERSION_CHECK');
-  if (skip !== undefined && CONFIG_TRUTHY.has(skip.toLowerCase())) return false;
-  return true;
-}
-
-function resolveMinimumVersion(projectRoot) {
-  return readLayeredKey(projectRoot, 'minimum_version', 'PAQAD_MINIMUM_VERSION') || 'latest';
-}
-
-function isPinned(value) {
-  return (
-    typeof value === 'string' && value.trim() !== '' && value.trim().toLowerCase() !== 'latest'
-  );
-}
-
-function isBehindVersion(a, b) {
-  const [amaj, amin, apat] = parseVersion(a);
-  const [bmaj, bmin, bpat] = parseVersion(b);
-  return (
-    amaj < bmaj || (amaj === bmaj && amin < bmin) || (amaj === bmaj && amin === bmin && apat < bpat)
-  );
-}
-
-function noteUnmetFloorWhileDisabled(projectRoot, current, logsDir) {
-  const minVersion = resolveMinimumVersion(projectRoot);
-  if (!isPinned(minVersion) || !isBehindVersion(current, minVersion)) return;
-  try {
-    mkdirSync(logsDir, { recursive: true });
-    appendLine(
-      join(logsDir, 'auto-update.log'),
-      `[${new Date().toISOString()}] WARN silent-update installed ${current} is below minimum_version ${minVersion}, but auto_update is off — not updating`,
-    );
-  } catch {}
-}
 
 function resolveIntervalHours(projectRoot) {
   const raw = readLayeredKey(
@@ -274,10 +250,11 @@ function appendLine(logPath, line) {
   } catch {}
 }
 
-function spawnBackgroundUpdate(logPath, projectRoot) {
+function spawnBackgroundUpdate(logPath, projectRoot, target) {
+  if (!/^(latest|\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/u.test(target)) return;
   try {
     const out = openSync(logPath, 'a');
-    const child = spawn('npm install -g paqad-ai@latest && paqad-ai update --silent', {
+    const child = spawn(`npm install -g paqad-ai@${target} && paqad-ai update --silent`, {
       shell: true,
       detached: true,
       cwd: projectRoot,
@@ -287,7 +264,6 @@ function spawnBackgroundUpdate(logPath, projectRoot) {
   } catch {}
 }
 
-try {
-  main();
-} catch {}
-process.exit(0);
+main()
+  .catch(() => {})
+  .finally(() => process.exit(0));

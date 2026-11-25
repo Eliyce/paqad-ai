@@ -34,6 +34,7 @@ export default defineConfig({
     'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
     'stage-isolation/agent-availability': 'src/stage-isolation/agent-availability.ts',
     'stage-isolation/project-refresh': 'src/stage-isolation/project-refresh.ts',
+    'update/update-policy': 'src/update/update-policy.ts',
     'stage-isolation/bash-write-guard': 'src/stage-isolation/bash-write-guard.ts',
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
     'hud/refresh': 'src/hud/refresh.ts',
