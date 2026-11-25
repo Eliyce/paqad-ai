@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -44,7 +44,7 @@ describe('AC-33: every documented cloud setup command installs an exact version'
     const seen: string[] = [];
     for (const file of files) {
       for (const command of cloudCommands(readFileSync(file, 'utf8'))) {
-        seen.push(relative(REPO, file));
+        seen.push(relative(REPO, file).split(sep).join('/'));
         expect(installPart(command), relative(REPO, file)).toMatch(PINNED_INSTALL);
       }
     }
