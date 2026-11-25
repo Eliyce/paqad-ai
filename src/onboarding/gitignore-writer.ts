@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
@@ -120,7 +120,19 @@ export function renderFolderIgnoreBlock(existing: string, lines: readonly string
   return `${prefix}${block}${eol}`;
 }
 
+export function folderIgnoreIsSymlink(folderAbs: string): boolean {
+  for (const path of [folderAbs, join(folderAbs, '.gitignore')]) {
+    try {
+      if (lstatSync(path).isSymbolicLink()) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export function writeFolderIgnoreBlock(folderAbs: string, lines: readonly string[]): boolean {
+  if (folderIgnoreIsSymlink(folderAbs)) return false;
   const path = join(folderAbs, '.gitignore');
   const existing = readTextOrEmpty(path);
   const next = renderFolderIgnoreBlock(existing, lines);

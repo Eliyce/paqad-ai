@@ -16,7 +16,11 @@ import {
 import { hashFolder } from '@/authoring/hash.js';
 import { OPEN_STANDARD_SKILLS_ROOT, enabledAdapters } from '@/authoring/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
-import { SKILLS_IGNORE_LINES, writeFolderIgnoreBlock } from '@/onboarding/gitignore-writer.js';
+import {
+  SKILLS_IGNORE_LINES,
+  folderIgnoreIsSymlink,
+  writeFolderIgnoreBlock,
+} from '@/onboarding/gitignore-writer.js';
 
 import { RECIPE_NAMES, recipeRoot } from './recipes.js';
 
@@ -109,7 +113,9 @@ export function syncCodexRecipes(
     result.written.push(rel);
   }
   removeLegacyRecipes(skillsRoot);
-  writeFolderIgnoreBlock(skillsRoot, SKILLS_IGNORE_LINES);
+  if (folderIgnoreIsSymlink(skillsRoot))
+    result.symlinks.push(`${OPEN_STANDARD_SKILLS_ROOT}/.gitignore`);
+  else writeFolderIgnoreBlock(skillsRoot, SKILLS_IGNORE_LINES);
   return result;
 }
 

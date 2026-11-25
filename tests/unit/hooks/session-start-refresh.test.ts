@@ -174,4 +174,26 @@ describe.skipIf(!HAS_DIST)('the session-start refresh (FR-12, FR-16)', () => {
       expect(lines[0]).toContain('.agents/skills/paqad-planning-recipe');
     },
   );
+
+  it.skipIf(!POSIX)(
+    'AC-44: never writes through a symlinked .gitignore in the agent or recipe folder, and logs one line',
+    () => {
+      const root = project(['claude-code', 'codex-cli']);
+      const outside = mkdtempSync(join(tmpdir(), 'paqad-outside-'));
+      roots.push(outside);
+      writeFileSync(join(outside, 'agents-ignore'), 'theirs\n');
+      writeFileSync(join(outside, 'skills-ignore'), 'theirs\n');
+      mkdirSync(join(root, '.claude/agents'), { recursive: true });
+      mkdirSync(join(root, '.agents/skills'), { recursive: true });
+      symlinkSync(join(outside, 'agents-ignore'), join(root, '.claude/agents/.gitignore'));
+      symlinkSync(join(outside, 'skills-ignore'), join(root, '.agents/skills/.gitignore'));
+      expect(run(root).status).toBe(0);
+      expect(readFileSync(join(outside, 'agents-ignore'), 'utf8')).toBe('theirs\n');
+      expect(readFileSync(join(outside, 'skills-ignore'), 'utf8')).toBe('theirs\n');
+      const lines = hooksLog(root);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('.claude/agents/.gitignore');
+      expect(lines[0]).toContain('.agents/skills/.gitignore');
+    },
+  );
 });
