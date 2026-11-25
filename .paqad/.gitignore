@@ -1,5 +1,5 @@
 # >>> paqad-ai managed (do not edit between markers) >>>
-# managed_block_version: 2
+# managed_block_version: 3
 .agent-entry-loaded
 .agent-entry-loaded.d/
 framework-version.txt
@@ -16,6 +16,10 @@ theme/
 scripts/rules/.cache/
 scripts/rules/.history/
 onboarding-checkpoint.json
+# onboarding journey run state (choices.jsonl and report.* stay committable)
+onboarding/journey.json
+onboarding/events.jsonl
+onboarding/view.json
 .config
 # per-machine runtime state (regenerated locally)
 logs/
