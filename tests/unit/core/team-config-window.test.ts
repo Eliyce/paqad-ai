@@ -36,10 +36,6 @@ import {
   legacyTeamConfigReadable as hookLegacyReadable,
 } from '../../../runtime/hooks/lib/paqad-disabled.mjs';
 import { mergeSessionStartOutput } from '../../../runtime/hooks/lib/session-start-output.mjs';
-import {
-  LEGACY_TEAM_CONFIG_READ_UNTIL as LAUNCHER_UNTIL,
-  offSwitch as launcherOffSwitch,
-} from '../../../runtime/templates/team-bootstrap/hook.mjs';
 
 const SH = resolve(__dirname, '../../../runtime/hooks/lib/paqad-disabled.sh');
 const itPosix = process.platform === 'win32' ? it.skip : it;
@@ -120,7 +116,6 @@ describe('the readers outside TypeScript use the same date', () => {
   it('every copy of the date matches', () => {
     expect(HOOK_UNTIL).toBe(LEGACY_TEAM_CONFIG_READ_UNTIL);
     expect(MOD_UNTIL).toBe(LEGACY_TEAM_CONFIG_READ_UNTIL);
-    expect(LAUNCHER_UNTIL).toBe(LEGACY_TEAM_CONFIG_READ_UNTIL);
     expect(readFileSync(SH, 'utf8')).toContain(
       `-le ${LEGACY_TEAM_CONFIG_READ_UNTIL.replaceAll('-', '')} ]`,
     );
@@ -189,12 +184,11 @@ describe('the migrated stub turns an older paqad off and is ignored by a current
     expect(parseDotConfig(stub).get('minimum_version')).toBe('1.117.0');
   });
 
-  it('AC-73: the CLI, the hook, the mod and the team launcher stay on with the stub present', () => {
+  it('AC-73: the CLI, the hook and the mod stay on with the stub present', () => {
     const stub = migrated();
     expect(isFrameworkEnabledForRoot(root, {})).toBe(true);
     expect(layeredConfigMap(root, {}).get('paqad_enable')).toBeUndefined();
     expect(hookIsPaqadDisabled(root, {})).toBe(false);
-    expect(launcherOffSwitch(root, {})).toBeNull();
     const mod = { env: {}, localConfig: null, today: INSIDE };
     expect(isPaqadOff({ ...mod, teamConfigs: [{ name: '.config.app', text: stub }] })).toBe(false);
     expect(
@@ -211,7 +205,6 @@ describe('the migrated stub turns an older paqad off and is ignored by a current
       expect(shell(INSIDE)).toBe('off');
       if (hookLegacyReadable()) {
         expect(hookIsPaqadDisabled(root, {})).toBe(true);
-        expect(launcherOffSwitch(root, {})).toBe('paqad_enable');
       }
     },
   );

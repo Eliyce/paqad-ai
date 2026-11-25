@@ -427,14 +427,12 @@ describe('the stage enforcement guardrails', () => {
     );
   });
 
-  it('AC-32: the contract runs every case on npm, plugin, launcher then npm and launcher then team copy, from a temp HOME with no network', () => {
+  it('AC-36: the contract runs every case on the npm and plugin routes, with no launcher route and no network', () => {
     const contract = working(CONTRACT);
-    for (const name of ['npm', 'plugin', 'launcher then npm', 'launcher then team copy']) {
+    for (const name of ['npm', 'plugin']) {
       expect(contract).toContain(`name: '${name}'`);
     }
-    for (const part of ["'package.json'", "['dist', 'runtime']", 'HOME: launcherHome']) {
-      expect(contract).toContain(part);
-    }
+    expect(contract).not.toContain('launcher');
     expect(contract).not.toMatch(/git clone|https:\/\//);
   });
 
