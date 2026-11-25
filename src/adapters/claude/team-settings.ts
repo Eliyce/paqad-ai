@@ -9,6 +9,7 @@ import {
 import { isGitTracked } from '@/core/fs/git-tracked.js';
 import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { PLUGIN_MARKETPLACE_KEY, pluginSettingsKeys } from '@/install/plugin-settings-keys.js';
+import { pluginAutoUpdate, resolveUpdatePolicy } from '@/update/update-policy.js';
 
 import type { GeneratedFile } from '../adapter.interface.js';
 import { mergeNativeHooks } from '../shared/native-hook-config.js';
@@ -151,8 +152,8 @@ function withoutPaqadLines(
   return { ...settings, hooks: filterHooks(settings.hooks, (hook) => !isPaqadLine(hook, options)) };
 }
 
-function addTeamKeys(settings: Json): Json {
-  const keys = pluginSettingsKeys();
+function addTeamKeys(settings: Json, autoUpdate: boolean): Json {
+  const keys = pluginSettingsKeys(autoUpdate);
   const marketplaces = isRecord(settings.extraKnownMarketplaces)
     ? settings.extraKnownMarketplaces
     : {};
@@ -161,8 +162,9 @@ function addTeamKeys(settings: Json): Json {
     ...settings,
     extraKnownMarketplaces: {
       ...marketplaces,
-      [PLUGIN_MARKETPLACE_KEY]:
-        marketplaces[PLUGIN_MARKETPLACE_KEY] ?? keys.extraKnownMarketplaces[PLUGIN_MARKETPLACE_KEY],
+      [PLUGIN_MARKETPLACE_KEY]: isRecord(marketplaces[PLUGIN_MARKETPLACE_KEY])
+        ? { ...marketplaces[PLUGIN_MARKETPLACE_KEY], autoUpdate }
+        : keys.extraKnownMarketplaces[PLUGIN_MARKETPLACE_KEY],
     },
     enabledPlugins: { ...enabled, [PLUGIN_ID]: enabled[PLUGIN_ID] ?? true },
   };
@@ -264,7 +266,10 @@ export function planClaudeSettings(options: ClaudeSettingsOptions): ClaudeSettin
   }
 
   const chain = buildTeamHookChain(env);
-  const pluginKeys = teamSetsInstallModeSettings(projectRoot) ? withoutTeamKeys : addTeamKeys;
+  const autoUpdate = pluginAutoUpdate(resolveUpdatePolicy(projectRoot, env));
+  const pluginKeys = teamSetsInstallModeSettings(projectRoot)
+    ? withoutTeamKeys
+    : (settings: Json) => addTeamKeys(settings, autoUpdate);
   let shared: Json;
   let personal: Json = {};
   if (tracked) {

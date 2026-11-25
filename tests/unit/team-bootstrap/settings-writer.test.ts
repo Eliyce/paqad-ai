@@ -196,8 +196,70 @@ describe('AC-18, AC-20: the committed team settings', () => {
     const settings = JSON.parse((await render()).get('.claude/settings.json')!) as Settings;
     expect(settings.enabledPlugins).toEqual({ 'paqad@eliyce': false, 'other@x': true });
     expect(settings.extraKnownMarketplaces).toEqual({
-      eliyce: { source: { source: 'git', url: 'u' } },
+      eliyce: { source: { source: 'git', url: 'u' }, autoUpdate: true },
     });
+  });
+
+  it('AC-23, AC-31: updates.automatic false or a pin writes autoUpdate false, and flipping back writes true', async () => {
+    const eliyce = async () =>
+      (JSON.parse((await render()).get('.claude/settings.json')!) as Settings)
+        .extraKnownMarketplaces as Record<
+        string,
+        { autoUpdate: boolean; source: Record<string, string> }
+      >;
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    const yaml = join(root, '.paqad/configs/paqad.yaml');
+    writeFileSync(yaml, 'updates:\n  automatic: false\n');
+    expect((await eliyce()).eliyce!.autoUpdate).toBe(false);
+    writeFileSync(yaml, 'updates:\n  minimum_version: 1.2.3\n');
+    const pinned = (await eliyce()).eliyce!;
+    expect(pinned.autoUpdate).toBe(false);
+    expect(pinned.source).not.toHaveProperty('ref');
+    writeFileSync(yaml, 'updates:\n  automatic: true\n');
+    expect((await eliyce()).eliyce!.autoUpdate).toBe(true);
+  });
+
+  it('AC-25: a personal PAQAD_AUTO_UPDATE=0 never changes the committed autoUpdate', async () => {
+    const saved = process.env.PAQAD_AUTO_UPDATE;
+    process.env.PAQAD_AUTO_UPDATE = '0';
+    try {
+      const settings = JSON.parse((await render()).get('.claude/settings.json')!) as Settings;
+      expect(
+        (settings.extraKnownMarketplaces as Record<string, { autoUpdate: boolean }>).eliyce!
+          .autoUpdate,
+      ).toBe(true);
+    } finally {
+      if (saved === undefined) delete process.env.PAQAD_AUTO_UPDATE;
+      else process.env.PAQAD_AUTO_UPDATE = saved;
+    }
+  });
+
+  it('AC-30: rewriting the eliyce keys leaves every other key byte-identical', async () => {
+    const team = {
+      permissions: { allow: ['Bash(make:*)'] },
+      enabledPlugins: { 'paqad@eliyce': true, 'other@x': true },
+      extraKnownMarketplaces: {
+        mine: { source: { source: 'github', repo: 'a/b' } },
+        eliyce: {
+          source: { source: 'github', repo: 'Eliyce/paqad-claude-plugin' },
+          autoUpdate: true,
+        },
+      },
+    };
+    writeSettings('settings.json', team);
+    git('init', '-q');
+    git('add', '-f', '.claude/settings.json');
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/paqad.yaml'), 'updates:\n  automatic: false\n');
+    const settings = JSON.parse((await render()).get('.claude/settings.json')!) as Record<
+      string,
+      unknown
+    >;
+    expect(settings.permissions).toEqual(team.permissions);
+    expect(settings.enabledPlugins).toEqual(team.enabledPlugins);
+    const markets = settings.extraKnownMarketplaces as Record<string, unknown>;
+    expect(JSON.stringify(markets.mine)).toBe(JSON.stringify(team.extraKnownMarketplaces.mine));
+    expect(markets.eliyce).toEqual({ ...team.extraKnownMarketplaces.eliyce, autoUpdate: false });
   });
 
   it('moves personal entries out of an untracked settings.json into settings.local.json', async () => {

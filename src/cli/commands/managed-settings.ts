@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import { PAQAD_MUTATING_TOOL_MATCHER } from '@/adapters/shared/paqad-hooks.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { pluginSettingsKeys } from '@/install/plugin-migration.js';
+import { pluginAutoUpdate, resolveUpdatePolicy } from '@/update/update-policy.js';
 
 export const MANAGED_SETTINGS_FILE = 'paqad.json';
 
@@ -35,7 +36,12 @@ export function buildManagedSettings(options: { plugin: boolean }): Record<strin
       ],
     },
   };
-  return options.plugin ? { ...settings, ...pluginSettingsKeys() } : settings;
+  return options.plugin
+    ? {
+        ...settings,
+        ...pluginSettingsKeys(pluginAutoUpdate(resolveUpdatePolicy(process.cwd()))),
+      }
+    : settings;
 }
 
 interface ManagedSettingsOptions {
