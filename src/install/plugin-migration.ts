@@ -545,8 +545,13 @@ export function migrationOptOut(projectRoot: string, deps: ResolvedDeps): Migrat
   }
   if (isCiOrHeadless(deps.env)) return { state: 'skipped', reason: 'ci-or-headless' };
   if (isCloudSession(deps.env)) return { state: 'skipped', reason: CLOUD_SESSION_REASON };
+  if (resolveUpdatePolicy(projectRoot, deps.env).pin !== null) {
+    return { state: 'skipped', reason: PINNED_VERSION_REASON };
+  }
   return null;
 }
+
+const PINNED_VERSION_REASON = 'pinned-version';
 
 const CLOUD_SESSION_REASON = 'cloud-session';
 

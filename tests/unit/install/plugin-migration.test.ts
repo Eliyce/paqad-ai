@@ -1971,6 +1971,23 @@ describe('team repos get the user-scope install, every opt-out still holds (AC-2
       reason: 'cloud-session',
       env: { PAQAD_PLUGIN_MIGRATION: 'on', CLAUDE_CODE_REMOTE: 'true' },
     },
+    {
+      name: 'AC-34 a pinned updates.minimum_version',
+      reason: 'pinned-version',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on' },
+      setup: () => {
+        mkdirSync(join(projectRoot, '.paqad', 'configs'), { recursive: true });
+        writeFileSync(
+          join(projectRoot, '.paqad', 'configs', 'paqad.yaml'),
+          'updates:\n  minimum_version: 1.2.3\n',
+        );
+      },
+    },
+    {
+      name: 'AC-34 a personal PAQAD_MINIMUM_VERSION pin',
+      reason: 'pinned-version',
+      env: { PAQAD_PLUGIN_MIGRATION: 'on', PAQAD_MINIMUM_VERSION: '1.2.3' },
+    },
   ];
 
   it.each(optOuts)('AC-3: $name spawns no install and records $reason', (row) => {
