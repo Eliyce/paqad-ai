@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runScript } from '../_helpers/run-script.js';
 
-const SKILL = process.env.PAQAD_SKILL_UNDER_TEST ?? 'runtime/base/skills/paqad-specification-recipe';
+const SKILL =
+  process.env.PAQAD_SKILL_UNDER_TEST ?? 'runtime/base/skills/paqad-specification-recipe';
 const SCRIPT = join(SKILL, 'scripts', 'check-spec.mjs');
 const OUTPUT_LIMIT = 40_000;
 const CANARY = 'canary-value-7f3a';

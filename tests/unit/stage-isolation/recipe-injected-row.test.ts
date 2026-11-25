@@ -49,7 +49,10 @@ describe('recording that a recipe reached a stage agent', () => {
     expect(record('a1')).toBe(true);
     expect(record('a2')).toBe(true);
     expect(injectedRows(dir).map((row) => row.agent_id)).toEqual(['a1', 'a2']);
-    expect(injectedRows(dir)[0]).toMatchObject({ agent: 'paqad-review', recipe: 'paqad-review-recipe' });
+    expect(injectedRows(dir)[0]).toMatchObject({
+      agent: 'paqad-review',
+      recipe: 'paqad-review-recipe',
+    });
     expect(injectedRows(dir)[0]).not.toHaveProperty('truncated');
   });
 

@@ -5,7 +5,9 @@ import { cleanTempDirs, runScript, writeTemp } from '../recipe-helpers.js';
 afterEach(cleanTempDirs);
 
 const run = (plan: unknown) =>
-  runScript('paqad-planning-recipe', 'check-plan.mjs', [writeTemp('plan.json', JSON.stringify(plan))]);
+  runScript('paqad-planning-recipe', 'check-plan.mjs', [
+    writeTemp('plan.json', JSON.stringify(plan)),
+  ]);
 
 describe('check-plan.mjs', () => {
   it('passes a plan with a reuse section and a verdict on every step', async () => {
