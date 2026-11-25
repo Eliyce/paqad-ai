@@ -9,8 +9,6 @@ export const PAST_RELEASE_STAGE_AGENT_BODY_HASHES: readonly string[] = [
   'b81282fc6d1c258125bae8d02e9c0e578bf59ba6ea8cfe38743e11f41acca2d1',
 ];
 
-// Hashes of every paqad-written, marker-carrying project agent body from past releases
-// (FR-9: a recorded earlier render), taken from the files paqad committed in its own repo.
 export const PAST_RELEASE_MARKED_AGENT_HASHES: readonly string[] = [
   '04f30acee911b4082b278fa4105c6ce82778a01bb7a7c08e0729aa4c9eafed44',
   '13ffcf27c4f5d937538afe758d022205aad8cb93d30461533f3c4924291be468',

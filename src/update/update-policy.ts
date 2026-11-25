@@ -2,18 +2,11 @@ import { readDotConfig } from '@/core/framework-config.js';
 import { readTeamConfig } from '@/core/team-config.js';
 import { VERSION } from '@/index.js';
 
-// FR-24 to FR-30: the one place that turns updates.automatic and
-// updates.minimum_version into a decision for every route (npm silent
-// update, plugin settings keys, cloud setup command). No route keeps its own default.
 export interface UpdatePolicy {
-  // Whether this machine may replace its paqad version in the background.
   automatic: boolean;
-  // The exact version every route must run, or null for no pin.
   pin: string | null;
-  // The committed team values alone, for files the team commits (FR-28).
   teamAutomatic: boolean;
   teamPin: string | null;
-  // Set when the setting could not be read; every route is then off and pinned (FR-29).
   error: string | null;
 }
 
@@ -54,13 +47,11 @@ export function resolveUpdatePolicy(
     const invalid = team.issues.find((issue) => issue.kind === 'invalid');
     if (invalid !== undefined) return offAndPinned(invalid.message, installed);
     const local = readDotConfig(projectRoot);
-    // The code default: automatic on, no pin (FR-26).
     const teamAutomatic = flag(team.merged.get('auto_update')) ?? true;
     const teamPin = pinOf(team.merged.get('minimum_version'));
     if (teamPin === 'malformed') {
       return offAndPinned('updates.minimum_version is not an exact version', installed);
     }
-    // A personal switch may turn updates off on one machine, never on (FR-27).
     const personalOff =
       flag(local.get('auto_update')) === false ||
       flag(nonEmpty(env.PAQAD_AUTO_UPDATE)) === false ||
@@ -79,12 +70,10 @@ export function resolveUpdatePolicy(
   }
 }
 
-// FR-28, FR-33: the committed settings follow the team value only; a pin stops background updates.
 export function pluginAutoUpdate(policy: UpdatePolicy): boolean {
   return policy.error === null && policy.teamAutomatic && policy.teamPin === null;
 }
 
-// FR-39: the version a cloud session installs.
 export function teamVersion(policy: UpdatePolicy, lastRunVersion: string = VERSION): string {
   return policy.teamPin ?? lastRunVersion;
 }

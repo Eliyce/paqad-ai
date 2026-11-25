@@ -50,8 +50,6 @@ async function main() {
   const current = readVersionField(versionFile, 'version');
   if (!current) return;
 
-  // FR-24, FR-29: one resolver decides for every route. If it cannot load or
-  // read the setting, nothing updates and one line is logged.
   let policy;
   try {
     const url = new URL('../../dist/update/update-policy.js', import.meta.url);
@@ -68,7 +66,6 @@ async function main() {
   }
   if (!policy.automatic) return;
 
-  // FR-30: a pin is exact. Install that version only, never latest.
   if (policy.pin) {
     if (policy.pin === current) return;
     startUpdate(projectRoot, logsDir, `pinned self-update ${current} -> ${policy.pin}`, policy.pin);
@@ -158,7 +155,6 @@ function readVersionField(file, field) {
   const match = content.match(new RegExp(`^${field}=(.*)$`, 'm'));
   return match ? match[1].trim() : null;
 }
-
 
 function resolveIntervalHours(projectRoot) {
   const raw = readLayeredKey(

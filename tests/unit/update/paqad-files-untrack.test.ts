@@ -64,7 +64,6 @@ const commit = (message: string) => git('commit', '--no-verify', '-qm', message)
 function committedPaqadProject(): void {
   git('init', '-q');
   refreshPaqadProjectFiles(root);
-  // An older paqad committed its agents and recipes: no ignore blocks yet.
   rmSync(join(root, '.claude/agents/.gitignore'));
   rmSync(join(root, '.agents/skills/.gitignore'));
   git('add', '-A');
@@ -110,7 +109,6 @@ describe('the one-time untrack of paqad files (FR-18 to FR-22)', () => {
       '.claude/agents/paqad-mine.md',
     );
     expect(teamSetupNotes(root, report).join('\n')).toContain('.claude/agents/paqad-mine.md');
-    // Known behaviour: the pattern also ignores a new untracked paqad-* file of the team.
     expect(git('check-ignore', '--no-index', '.claude/agents/paqad-mine.md').trim()).toBe(
       '.claude/agents/paqad-mine.md',
     );

@@ -111,7 +111,6 @@ export interface UpdateReport {
 }
 
 export interface FrameworkUpdaterOptions {
-  // The background update (`paqad-ai update --silent`) never untracks files (FR-18).
   silent?: boolean;
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
 }

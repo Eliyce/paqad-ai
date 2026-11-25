@@ -110,8 +110,6 @@ function withoutOldRecipeBlock(existing: string): string {
   return `${existing.slice(0, start)}${existing.slice(stop)}`;
 }
 
-// Pure: text in, text out. Lines outside the managed block stay byte for byte,
-// a CRLF file keeps CRLF, and the old name-list recipe block is dropped.
 export function renderFolderIgnoreBlock(existing: string, lines: readonly string[]): string {
   const base = withoutOldRecipeBlock(existing);
   const eol = base.includes('\r\n') ? '\r\n' : '\n';
@@ -122,7 +120,6 @@ export function renderFolderIgnoreBlock(existing: string, lines: readonly string
   return `${prefix}${block}${eol}`;
 }
 
-// Writes the managed block into folderAbs/.gitignore; true when the file changed.
 export function writeFolderIgnoreBlock(folderAbs: string, lines: readonly string[]): boolean {
   const path = join(folderAbs, '.gitignore');
   const existing = readTextOrEmpty(path);

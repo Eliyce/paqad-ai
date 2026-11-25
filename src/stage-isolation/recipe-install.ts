@@ -63,8 +63,6 @@ function isSymlink(path: string): boolean {
   }
 }
 
-// FR-6: an old unprefixed recipe folder goes only when its folder name AND its
-// SKILL.md name both match one of the six old paqad recipe names.
 export function removeLegacyRecipes(skillsRoot: string): string[] {
   const removed: string[] = [];
   for (const name of LEGACY_RECIPE_FOLDER_NAMES) {
@@ -90,8 +88,6 @@ export interface RecipeSync {
   symlinks: string[];
 }
 
-// Writes each recipe only when it differs from the installed package, never
-// through a symlinked folder (FR-15), and by build and swap (FR-14).
 export function syncCodexRecipes(
   projectRoot: string,
   source: string | null = recipeRoot(),

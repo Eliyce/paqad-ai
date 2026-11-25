@@ -16,8 +16,6 @@ export const RECIPE_FOLDER_NAMES: readonly string[] = [
   'paqad-checks-recipe',
 ];
 
-// The names the recipes had before the paqad- prefix, kept only to recognise
-// and clean up an old copy (FR-6) and an old proof row (FR-7).
 export const LEGACY_RECIPE_FOLDER_NAMES: readonly string[] = RECIPE_FOLDER_NAMES.map((name) =>
   name.replace(/^paqad-/u, ''),
 );

@@ -13,7 +13,6 @@ export interface GitResult {
   stdout: string;
 }
 
-// FR-20: git always gets an argument list, never a shell.
 export type GitRunner = (args: readonly string[], cwd: string) => GitResult | null;
 
 export const runGit: GitRunner = (args, cwd) => {
@@ -46,7 +45,6 @@ function ok(result: GitResult | null): result is GitResult {
   return result !== null && result.status === 0;
 }
 
-// FR-19: skip quietly when there is no repo, no git, a merge or rebase in progress, or an index lock.
 export function gitIsSafe(projectRoot: string, git: GitRunner): boolean {
   const inside = git(['rev-parse', '--is-inside-work-tree'], projectRoot);
   if (!ok(inside) || inside.stdout.trim() !== 'true') return false;
@@ -90,8 +88,6 @@ function indexText(git: GitRunner, projectRoot: string, ref: string, path: strin
   return ok(result) ? result.stdout : null;
 }
 
-// The paths paqad owns among `paths` (tracked in `ref`, ':' for the index):
-// its own agents (FR-9 rule), its recipe folders (FR-6 rule) and a stamped launcher.
 function ownedPaths(git: GitRunner, projectRoot: string, ref: string, paths: string[]): string[] {
   const owned = new Set<string>();
   for (const path of paths) {
@@ -139,9 +135,6 @@ export interface UntrackOptions {
   version?: string;
 }
 
-// FR-18 to FR-22: a one-time untrack of paqad's own tracked files, idempotent,
-// git-guarded and never failing the command. Never commits and never stages
-// anything else. The one line repeats until HEAD stops tracking those paths.
 export function untrackPaqadFiles(
   projectRoot: string,
   options: UntrackOptions = {},

@@ -135,9 +135,6 @@ export function isGeneratedProjectStageAgent(path: string, content: string): boo
 
 type SyncOutcome = 'same' | 'kept' | 'written' | 'symlink';
 
-// FR-9: paqad overwrites a project agent only when it carries the marker AND
-// matches a paqad render (current or a recorded earlier hash), or it is one of
-// paqad's earlier unmarked renders. Anything else is the team's file.
 export function isPaqadOwnedAgent(
   content: string,
   known: ReadonlySet<string> = knownGeneratedBodies(),

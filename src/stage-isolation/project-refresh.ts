@@ -12,8 +12,6 @@ import { syncCodexRecipes } from './recipe-install.js';
 
 const CLAUDE_ADAPTER = 'claude-code';
 
-// FR-8, FR-12: the agents ignore block and the 13 project agents, for every
-// Claude Code project, team setup on or off. Writes only what differs.
 export function refreshProjectAgents(projectRoot: string): ProjectAgentSync {
   writeFolderIgnoreBlock(join(projectRoot, PROJECT_AGENTS_DIR), AGENTS_IGNORE_LINES);
   return syncProjectStageAgents(projectRoot);
@@ -25,8 +23,6 @@ export interface ProjectRefresh {
   symlinks: string[];
 }
 
-// FR-12: the one refresh that onboard, update, silent update, join and session
-// start share. Content comes only from the installed package (FR-15).
 export function refreshPaqadProjectFiles(projectRoot: string): ProjectRefresh {
   const agents = enabledAdapters(projectRoot).includes(CLAUDE_ADAPTER)
     ? refreshProjectAgents(projectRoot)
