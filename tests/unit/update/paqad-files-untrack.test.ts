@@ -204,6 +204,90 @@ describe('the untrack with an injected git runner (AC-16, AC-47)', () => {
   });
 });
 
+describe('which tracked paths count as paqad-owned (FR-18, FR-19)', () => {
+  const launcher = 'export const LAUNCHER_REVISION = 2;\n';
+  const legacySkill = (name: string) => `---\nname: ${name}\ndescription: x\n---\nbody\n`;
+
+  function indexGit(files: Record<string, string>, gitDir = join(root, 'gitdir')) {
+    const calls: string[][] = [];
+    const runner: GitRunner = (args) => {
+      calls.push([...args]);
+      if (args[0] === 'rev-parse' && args[1] === '--is-inside-work-tree') {
+        return { status: 0, stdout: 'true\n' };
+      }
+      if (args[0] === 'rev-parse' && args[1] === '--git-dir') return { status: 0, stdout: gitDir };
+      if (args[0] === 'ls-files' || args[0] === 'ls-tree') {
+        return { status: 0, stdout: `${Object.keys(files).join('\0')}\0` };
+      }
+      if (args[0] === 'show') {
+        const path = args[1]!.replace(/^[^:]*:/u, '');
+        return path in files ? { status: 0, stdout: files[path]! } : { status: 128, stdout: '' };
+      }
+      return { status: 0, stdout: '' };
+    };
+    return { calls, runner };
+  }
+
+  beforeEach(() => {
+    mkdirSync(join(root, 'gitdir'), { recursive: true });
+  });
+
+  it('reads a tracked launcher and an old recipe folder from the index when they are gone from disk', () => {
+    const { runner } = indexGit({
+      '.paqad/hook.mjs': launcher,
+      '.agents/skills/planning-recipe/SKILL.md': legacySkill('planning-recipe'),
+      '.agents/skills/review-recipe/SKILL.md': legacySkill('somebody-else'),
+      '.agents/skills/paqad-checks-recipe/SKILL.md': legacySkill('paqad-checks-recipe'),
+      '.agents/skills/team-skill/SKILL.md': legacySkill('team-skill'),
+      '.agents/skills/': '',
+    });
+    const result = untrackPaqadFiles(root, { git: runner, env: {} });
+    expect(result.untracked).toEqual([
+      '.agents/skills/paqad-checks-recipe',
+      '.agents/skills/planning-recipe',
+      '.paqad/hook.mjs',
+    ]);
+    expect(result.notes).toEqual([untrackLine()]);
+  });
+
+  it('keeps a hand-written launcher that carries no revision stamp', () => {
+    const { runner } = indexGit({ '.paqad/hook.mjs': 'console.log("ours")\n' });
+    expect(untrackPaqadFiles(root, { git: runner, env: {} })).toEqual({
+      untracked: [],
+      notes: [],
+    });
+  });
+
+  it('accepts a git folder given relative to the project', () => {
+    const { calls, runner } = indexGit({ '.paqad/hook.mjs': launcher }, 'gitdir');
+    expect(untrackPaqadFiles(root, { git: runner, env: {} }).untracked).toEqual([
+      '.paqad/hook.mjs',
+    ]);
+    expect(calls.some((args) => args[0] === 'rm')).toBe(true);
+  });
+
+  it('stops when git cannot name its own folder', () => {
+    const runner: GitRunner = (args) =>
+      args[1] === '--is-inside-work-tree'
+        ? { status: 0, stdout: 'true\n' }
+        : { status: 128, stdout: '' };
+    expect(untrackPaqadFiles(root, { git: runner, env: {} })).toEqual({
+      untracked: [],
+      notes: [],
+    });
+  });
+
+  it('untracks nothing when git refuses the removal, but still names the commit', () => {
+    const base = indexGit({ '.paqad/hook.mjs': launcher }).runner;
+    const runner: GitRunner = (args, cwd) =>
+      args[0] === 'rm' ? { status: 1, stdout: '' } : base(args, cwd);
+    expect(untrackPaqadFiles(root, { git: runner, env: {} })).toEqual({
+      untracked: [],
+      notes: [untrackLine()],
+    });
+  });
+});
+
 describe('INV-10: the untrack never runs under CI', () => {
   it('reads CI and GitHub Actions from the environment', () => {
     expect(isCiEnvironment({})).toBe(false);
