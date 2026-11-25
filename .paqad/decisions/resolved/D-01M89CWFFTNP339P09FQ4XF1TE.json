@@ -1,0 +1,59 @@
+{
+  "id": "D-01M89CWFFTNP339P09FQ4XF1TE",
+  "category": "architecture-path",
+  "title": "How paqad reaches a teammate or cloud session with nothing installed once the startup file (.paqad/hook.mjs) leaves the project",
+  "context": "A teammate or cloud session opens the project with nothing of paqad installed. Once the startup file leaves the project (#918), how should paqad reach them? This decides whether new teammates still get the team's checks with no steps, and how the first-session guide (docs/site-map/journeys/team-bootstrap-first-session.journey.yaml) is rewritten. The startup file cannot be removed until this is answered. Technical: plugin = committed enabledPlugins + extraKnownMarketplaces in .claude/settings.json, plugin carries every hook (D4, honouring ref and cloud plugin install, is verified at build); pinned command = npx -y paqad-ai@<version> hook <script>; cloud setup = npm i -g paqad-ai@<version> && paqad-ai install && paqad-ai join --no-rag --non-interactive (proven on #917).",
+  "options": [
+    {
+      "option_key": "plugin-plus-cloud-setup",
+      "label": "Team settings turn on the paqad plugin for teammates, and the docs give cloud sessions their setup commands (recommended)",
+      "one_line_preview": "Team settings turn on the paqad plugin for teammates, and the docs give cloud sessions their setup commands (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "pinned-npx-command",
+      "label": "Each startup step runs one short command that fetches the team's exact paqad version",
+      "one_line_preview": "Each startup step runs one short command that fetches the team's exact paqad version",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "cloud-setup-only",
+      "label": "Only the cloud setup commands; a teammate with nothing installed sees one line on how to turn paqad on",
+      "one_line_preview": "Only the cloud setup commands; a teammate with nothing installed sees one line on how to turn paqad on",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "plugin-plus-cloud-setup",
+  "created_at": "2026-11-25T13:03:55.898Z",
+  "status": "resolved",
+  "change": "01M89BBP4XKXVR159V9R9GNA98",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier packet asks what replaces the committed launcher; the plugin-install packets (D-01M7J9A...) were about automatic install retries and reload lines, not the bootstrap route."
+  },
+  "chosen": "plugin-plus-cloud-setup",
+  "rationale": "Owner: committed settings enable the plugin; cloud uses setup commands at the team's exact version",
+  "resolved_at": "2026-11-25T13:06:34.452Z",
+  "decision_id": "D-01M89CWFFTNP339P09FQ4XF1TE",
+  "fingerprint": "sha256:e3c4ab27763c0d680621161ba9a54c22a6d567adb505d225a67883e8151a23d9",
+  "question": "How paqad reaches a teammate or cloud session with nothing installed once the startup file (.paqad/hook.mjs) leaves the project",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M89BBP4XKXVR159V9R9GNA98",
+  "ttl_until": "2027-02-23T13:03:55.898Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "plugin-plus-cloud-setup",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-25T13:06:34.452Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: committed settings enable the plugin; cloud uses setup commands at the team's exact version"
+  }
+}

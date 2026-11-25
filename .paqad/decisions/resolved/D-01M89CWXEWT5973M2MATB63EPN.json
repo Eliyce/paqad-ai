@@ -1,0 +1,52 @@
+{
+  "id": "D-01M89CWXEWT5973M2MATB63EPN",
+  "category": "architecture-path",
+  "title": "Remove the GitHub clone route with the startup file, or keep it one more release pinned",
+  "context": "The startup file (.paqad/hook.mjs) also fetches a copy of paqad from GitHub (Eliyce/paqad-claude-plugin, today the moving default branch, refreshed every 6 hours) for teammates without it. Should that route go away with the file, or stay one more release, locked to a fixed version and never refreshed while updates are off? Removing it now means one less way to install paqad to secure and test; keeping it gives teams one release to switch over but needs a locked version and a tag check on every release (#918 rule 3).",
+  "options": [
+    {
+      "option_key": "remove-with-launcher",
+      "label": "Remove it together with the startup file (recommended)",
+      "one_line_preview": "Remove it together with the startup file (recommended)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-one-release-pinned",
+      "label": "Keep it one more release, locked to a fixed version",
+      "one_line_preview": "Keep it one more release, locked to a fixed version",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "remove-with-launcher",
+  "created_at": "2026-11-25T13:04:10.204Z",
+  "status": "resolved",
+  "change": "01M89BBP4XKXVR159V9R9GNA98",
+  "earlier_check": {
+    "status": "done",
+    "listed_by": "titles",
+    "none_reason": "No earlier packet decides the fate of the launcher's GitHub clone route; plugin-install packets concerned retries and reload lines."
+  },
+  "chosen": "remove-with-launcher",
+  "rationale": "Owner: remove the clone route now",
+  "resolved_at": "2026-11-25T13:06:36.082Z",
+  "decision_id": "D-01M89CWXEWT5973M2MATB63EPN",
+  "fingerprint": "sha256:158baf198f68e18ef939b6bb7f4490e91a4d8e7ddafc41c95325fbe71407d2b9",
+  "question": "Remove the GitHub clone route with the startup file, or keep it one more release pinned",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M89BBP4XKXVR159V9R9GNA98",
+  "ttl_until": "2027-02-23T13:04:10.204Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "remove-with-launcher",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-25T13:06:36.082Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: remove the clone route now"
+  }
+}

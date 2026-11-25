@@ -1,0 +1,60 @@
+{
+  "id": "D-01M89CTF4HA2ZH222A9ZF2FA5B",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on session-start refresh in runtime/hooks/agent-entry-session-start.mjs",
+  "context": "Chief architect: The two claims do not really fight: the security claim says what may be written, the QA claim says how errors stay silent. It is a pick only because a must-level security finding is involved. Recommend the security claim and build the QA error path with it (one log line, nothing printed, exit 0, no write when nothing differs); the owner can confirm both in one click.\n\nTarget: session-start refresh in runtime/hooks/agent-entry-session-start.mjs\n- security-auditor: The refresh writes agent and recipe content only from the installed paqad package, never from files in the project, and never writes through a symlink: a .claude/agents/paqad-*.md or paqad-*/ skills folder that is a symlink is skipped and logged, so a planted link cannot make paqad overwrite a file outside the folder.\n- qa-engineer: Error path: when the agents folder is unwritable or rendering throws, the hook writes one line to the launcher log, prints nothing to the session and exits 0; when nothing differs it writes no file (mtime unchanged); proof_type unit.\n\n[expert-conflict-fork:dafff9460046239a]",
+  "options": [
+    {
+      "option_key": "the-refresh-writes-agent-and-recipe-cont",
+      "label": "The refresh writes agent and recipe content only from the installed paqad package, never from files in the project, and never writes through a symlink: a .claude/agents/paqad-*.md or paqad-*/ skills folder that is a symlink is skipped and logged, so a planted link cannot make paqad overwrite a file outside the folder. — security-auditor",
+      "one_line_preview": "The refresh writes agent and recipe content only from the installed paqad package, never from files in the project, and never writes through a symlink: a .claude/agents/paqad-*.md or paqad-*/ skills folder that is a symlink is skipped and logged, so a planted link cannot make paqad overwrite a file outside the folder. — security-auditor",
+      "trade_off": "Easy maintenance: one source of content and one symlink check in the shared refresh module Security: a planted link or project file cannot make paqad overwrite files outside the folder Cost effectiveness: one extra file check per write, no new code path Usability: invisible to people; a skipped link shows in the log only",
+      "quality_notes": {
+        "easy_maintenance": "one source of content and one symlink check in the shared refresh module",
+        "security": "a planted link or project file cannot make paqad overwrite files outside the folder",
+        "cost_effectiveness": "one extra file check per write, no new code path",
+        "usability": "invisible to people; a skipped link shows in the log only"
+      },
+      "evidence": {}
+    },
+    {
+      "option_key": "error-path-when-the-agents-folder-is-unw",
+      "label": "Error path: when the agents folder is unwritable or rendering throws, the hook writes one line to the launcher log, prints nothing to the session and exits 0; when nothing differs it writes no file (mtime unchanged); proof_type unit. — qa-engineer",
+      "one_line_preview": "Error path: when the agents folder is unwritable or rendering throws, the hook writes one line to the launcher log, prints nothing to the session and exits 0; when nothing differs it writes no file (mtime unchanged); proof_type unit. — qa-engineer",
+      "trade_off": "Easy maintenance: clear error contract that matches the never-break rule for stage hooks Security: silent on errors but says nothing about symlinks or where content comes from Cost effectiveness: skipping unchanged writes saves disk work every session Usability: a session never breaks or shows noise because of the refresh",
+      "quality_notes": {
+        "easy_maintenance": "clear error contract that matches the never-break rule for stage hooks",
+        "security": "silent on errors but says nothing about symlinks or where content comes from",
+        "cost_effectiveness": "skipping unchanged writes saves disk work every session",
+        "usability": "a session never breaks or shows noise because of the refresh"
+      },
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-refresh-writes-agent-and-recipe-cont",
+  "created_at": "2026-11-25T13:02:50.001Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M89BBP4XKXVR159V9R9GNA98",
+  "chosen": "the-refresh-writes-agent-and-recipe-cont",
+  "rationale": "Owner: package-only content, skip symlinks; QA error path built alongside",
+  "resolved_at": "2026-11-25T13:06:32.923Z",
+  "decision_id": "D-01M89CTF4HA2ZH222A9ZF2FA5B",
+  "fingerprint": "sha256:e39e8762e1533abcd1ca87bf16ada728cd4ad7f1774493706106d08d84134397",
+  "question": "Experts disagree on session-start refresh in runtime/hooks/agent-entry-session-start.mjs",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M89BBP4XKXVR159V9R9GNA98",
+  "ttl_until": "2026-12-25T13:02:50.001Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-refresh-writes-agent-and-recipe-cont",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-11-25T13:06:32.923Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: package-only content, skip symlinks; QA error path built alongside"
+  }
+}
