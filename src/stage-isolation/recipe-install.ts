@@ -1,12 +1,4 @@
-import {
-  cpSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-} from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -14,6 +6,7 @@ import {
   isGeneratedRecipeFolder,
 } from '@/authoring/generated-recipes.js';
 import { hashFolder } from '@/authoring/hash.js';
+import { readTextNoFollow } from '@/core/fs/read-no-follow.js';
 import { OPEN_STANDARD_SKILLS_ROOT, enabledAdapters } from '@/authoring/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import {
@@ -52,7 +45,9 @@ function replaceRecipe(source: string, skillsRoot: string, name: string): boolea
 
 function skillName(folder: string): string | null {
   try {
-    const name = splitFrontMatter(readFileSync(join(folder, 'SKILL.md'), 'utf8')).header?.['name'];
+    const text = readTextNoFollow(join(folder, 'SKILL.md'));
+    if (text === null) return null;
+    const name = splitFrontMatter(text).header?.['name'];
     return typeof name === 'string' ? name : null;
   } catch {
     return null;

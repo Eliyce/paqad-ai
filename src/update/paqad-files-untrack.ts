@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
 import { LEGACY_RECIPE_FOLDER_NAMES, RECIPE_FOLDER_NAMES } from '@/authoring/generated-recipes.js';
 import { OPEN_STANDARD_SKILLS_ROOT } from '@/authoring/paths.js';
+import { readTextNoFollow } from '@/core/fs/read-no-follow.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { VERSION } from '@/index.js';
 import { PROJECT_AGENTS_DIR, isPaqadOwnedAgent } from '@/onboarding/stage-agent-migration.js';
@@ -62,14 +63,6 @@ export function isPaqadLauncher(text: string | null): boolean {
   return text !== null && LAUNCHER_STAMP.test(text);
 }
 
-function readText(path: string): string | null {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch {
-    return null;
-  }
-}
-
 function listed(git: GitRunner, projectRoot: string, args: string[]): string[] {
   const result = git(args, projectRoot);
   if (!ok(result)) return [];
@@ -92,12 +85,14 @@ function ownedPaths(git: GitRunner, projectRoot: string, ref: string, paths: str
   const owned = new Set<string>();
   for (const path of paths) {
     if (AGENT_PATH.test(path)) {
-      const text = readText(join(projectRoot, path)) ?? indexText(git, projectRoot, ref, path);
+      const text =
+        readTextNoFollow(join(projectRoot, path)) ?? indexText(git, projectRoot, ref, path);
       if (text !== null && isPaqadOwnedAgent(text)) owned.add(path);
       continue;
     }
     if (path === TEAM_LAUNCHER_FILE) {
-      const text = readText(join(projectRoot, path)) ?? indexText(git, projectRoot, ref, path);
+      const text =
+        readTextNoFollow(join(projectRoot, path)) ?? indexText(git, projectRoot, ref, path);
       if (isPaqadLauncher(text)) owned.add(path);
       continue;
     }

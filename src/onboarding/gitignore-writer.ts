@@ -3,6 +3,7 @@ import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'n
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
+import { readFileNoFollow, writeFileNoFollow } from '@/core/fs/read-no-follow.js';
 import { isHigherStamp } from '@/core/team-file-schema.js';
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
@@ -134,11 +135,14 @@ export function folderIgnoreIsSymlink(folderAbs: string): boolean {
 export function writeFolderIgnoreBlock(folderAbs: string, lines: readonly string[]): boolean {
   if (folderIgnoreIsSymlink(folderAbs)) return false;
   const path = join(folderAbs, '.gitignore');
-  const existing = readTextOrEmpty(path);
+  const read = readFileNoFollow(path);
+  if (read.kind === 'symlink') return false;
+  if (read.kind === 'other') throw read.error;
+  const existing = read.kind === 'file' ? read.text : '';
   const next = renderFolderIgnoreBlock(existing, lines);
   if (next === existing) return false;
   mkdirSync(folderAbs, { recursive: true });
-  writeFileSync(path, next);
+  writeFileNoFollow(path, next);
   return true;
 }
 

@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import {
   closeSync,
   constants,
-  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -16,6 +15,7 @@ import {
 import { basename, dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { noFollowFlag, readFileNoFollow } from '@/core/fs/read-no-follow.js';
 import {
   STAGE_AGENT_MARKER,
   renderStageAgentFiles,
@@ -107,12 +107,9 @@ export function migrateProjectStageAgents(
       result.kept.push(rel);
       continue;
     }
-    let content: string;
-    try {
-      content = readFileSync(join(dir, name), 'utf8');
-    } catch {
-      continue;
-    }
+    const read = readFileNoFollow(join(dir, name));
+    if (read.kind !== 'file') continue;
+    const content = read.text;
     const reason = removalReason(content, known);
     if (reason === null) {
       result.kept.push(rel);
@@ -145,10 +142,6 @@ export function isPaqadOwnedAgent(
   return true;
 }
 
-function noFollowFlag(): number {
-  return constants.O_NOFOLLOW ?? 0;
-}
-
 function writeBySwap(target: string, wanted: string): void {
   const temp = join(dirname(target), `.${basename(target)}.${process.pid}.tmp`);
   rmSync(temp, { force: true });
@@ -170,17 +163,14 @@ function writeBySwap(target: string, wanted: string): void {
 }
 
 function syncAgentFile(target: string, wanted: string, known: ReadonlySet<string>): SyncOutcome {
-  let stat;
-  try {
-    stat = lstatSync(target);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return 'kept';
+  const read = readFileNoFollow(target);
+  if (read.kind === 'symlink') return 'symlink';
+  if (read.kind === 'other') return 'kept';
+  if (read.kind === 'missing') {
     writeBySwap(target, wanted);
     return 'written';
   }
-  if (stat.isSymbolicLink()) return 'symlink';
-  if (!stat.isFile()) return 'kept';
-  const existing = readFileSync(target, 'utf8');
+  const existing = read.text;
   if (existing === wanted) return 'same';
   if (!isPaqadOwnedAgent(existing, known)) return 'kept';
   writeBySwap(target, wanted);
