@@ -597,8 +597,8 @@ function assertNoProjectLocalSkillsOrAgents(projectRoot: string): void {
   for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
     if (relativePath === '.claude/agents' && existsSync(join(projectRoot, 'CLAUDE.md'))) {
       expect(
-        readdirSync(join(projectRoot, relativePath)).every((name) =>
-          /^paqad-[a-z-]+\.md$/.test(name),
+        readdirSync(join(projectRoot, relativePath)).every(
+          (name) => name === '.gitignore' || /^paqad-[a-z-]+\.md$/.test(name),
         ),
       ).toBe(true);
       continue;
