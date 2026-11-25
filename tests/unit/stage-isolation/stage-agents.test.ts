@@ -326,8 +326,12 @@ describe('stage agent returns the orchestrator can act on', () => {
 });
 
 describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
-  const recipes = ['paqad-development-recipe', 'paqad-planning-recipe', 'paqad-documentation-sync-recipe'].map(
-    (name) => readFileSync(join(process.cwd(), 'runtime/base/skills', name, 'SKILL.md'), 'utf8'),
+  const recipes = [
+    'paqad-development-recipe',
+    'paqad-planning-recipe',
+    'paqad-documentation-sync-recipe',
+  ].map((name) =>
+    readFileSync(join(process.cwd(), 'runtime/base/skills', name, 'SKILL.md'), 'utf8'),
   );
   const bodies = MANDATORY_STAGE_AGENTS.map((def) => buildStageAgentBody(def, 'claude-code'));
 
@@ -373,6 +377,35 @@ describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
       if (agent.name === 'paqad-expert.md' || agent.name === 'paqad-chief-architect.md') {
         expect(agent.content).not.toContain('decision suggest');
       }
+    }
+  });
+});
+
+describe('agent mirror drift reads the folder on disk (FR-44)', () => {
+  it('AC-51: a fresh checkout passes, one stale agent is named, and only present agents are compared', async () => {
+    const { mkdtempSync, mkdirSync, rmSync, unlinkSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const {
+      agentMirrorDrift,
+      writeClaudePluginStageAgents,
+      renderClaudePluginStageAgents,
+      withManagedMarker,
+    } = await import('@/stage-isolation/agent-writer.js');
+    const root = mkdtempSync(join(tmpdir(), 'paqad-mirror-drift-'));
+    try {
+      writeClaudePluginStageAgents(join(root, 'runtime/claude-plugin/agents'));
+      expect(agentMirrorDrift(root)).toEqual([]);
+      const agents = join(root, '.claude/agents');
+      mkdirSync(agents, { recursive: true });
+      const [first, second] = renderClaudePluginStageAgents();
+      writeFileSync(join(agents, first!.name), withManagedMarker(first!.content));
+      expect(agentMirrorDrift(root)).toEqual([]);
+      writeFileSync(join(agents, second!.name), 'stale\n');
+      expect(agentMirrorDrift(root)).toEqual([`.claude/agents/${second!.name}`]);
+      unlinkSync(join(agents, second!.name));
+      expect(agentMirrorDrift(root)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

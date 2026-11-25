@@ -112,7 +112,9 @@ Once the lead has onboarded a project and committed the setup, a teammate who cl
 - `.claude/settings.json`, now shared with the team. It holds only portable content: the `eliyce` marketplace, `paqad@eliyce` turned on, and hook lines that run `node "$CLAUDE_PROJECT_DIR/.paqad/hook.mjs" <script>.mjs`. Anything personal that was there before, such as your own permissions or a hook path under your home folder, moves to the git-ignored `.claude/settings.local.json`, and update says so in one line.
 - `.claude/.gitignore`, which now ignores `settings.local.json` and `settings.hooks.json` instead of `settings.json`.
 - `.paqad/hook.mjs`, a small launcher.
-- `.claude/agents/paqad-*.md`, the eight stage agents.
+- `.claude/agents/.gitignore` and `.agents/skills/.gitignore`, each with a managed block that ignores `paqad-*` (agents) and `paqad-*/` (recipe folders) by pattern. paqad writes its own agents and recipes on every run and keeps them out of git, so they never show up as a diff. Your own agents and skills in the same folders stay visible to git; just do not start their names with `paqad-`.
+
+The first `paqad-ai update` or `paqad-ai onboard` on a project that committed paqad's agents or recipes untracks them (they stay on disk) and prints one line asking you to commit the removal. It repeats on every manual update until you do, and never in the background update or at session start. After teammates pull that commit, anyone with the plugin or an npm install still has the stage agents in that session; a teammate with neither waits one session, and the next session brings the agents back.
 
 **What a teammate sees.** They clone and open the repo, trust the folder, and Claude Code offers the paqad plugin. Either way, the launcher picks one route at the start of each session and keeps it for that session:
 

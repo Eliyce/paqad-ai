@@ -1,8 +1,4 @@
-# paqad recipes: generated on each machine, kept out of git
-/planning-recipe/
-/specification-recipe/
-/development-recipe/
-/review-recipe/
-/documentation-sync-recipe/
-/checks-recipe/
-# end paqad recipes
+# >>> paqad-ai managed (do not edit between markers) >>>
+# paqad writes and refreshes these folders itself. Never commit them.
+paqad-*/
+# <<< paqad-ai managed <<<

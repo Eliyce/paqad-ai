@@ -153,27 +153,35 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **One adapter method.** `src/adapters/claude/team-setup.ts` writes the team file group that
   onboard and update both call, against the real project root: the team keys in
   `.claude/settings.json` (`src/adapters/claude/team-settings.ts`), `.paqad/hook.mjs` from
-  `runtime/templates/team-bootstrap/hook.mjs`, and the 13 paqad agents (6 stage, 2 High Table, 5 onboarding) in `.claude/agents/paqad-*.md`
-  with the managed marker. It runs whether or not the plugin is installed on the lead's machine.
+  `runtime/templates/team-bootstrap/hook.mjs`, and the agents ignore block in `.claude/agents/.gitignore`. The 13 paqad agents (6 stage, 2 High
+  Table, 5 onboarding) in `.claude/agents/paqad-*.md` are written for every Claude Code project,
+  team setup on or off, with the managed marker, and are git-ignored by the `paqad-*` pattern, never
+  committed.
 - **Where stage agents come from.** paqad's Claude Code stage and High Table agents ship in
   `runtime/claude-plugin/agents/*.md`, generated from `src/stage-isolation/stage-agents.ts` by
   `node scripts/build-plugin-manifest.mjs` and checked for drift in CI; never hand-edit them. The
   user-scope copy in `~/.claude/agents/` is written only when the paqad plugin is not installed, so
-  npm-only users keep their stage agents. Codex keeps its written agents. With team setup on, the
-  repo also commits the 13 agents in `.claude/agents/`, because a Claude Code cloud session does not
-  install a plugin the repo turns on, and draws no plugin HUD, but does load committed agent files. A laptop with the plugin then lists both
+  npm-only users keep their stage agents. Codex keeps its written agents. The project copy in `.claude/agents/` and the user copy are rendered from the
+  one installed paqad version, and the project copy is git-ignored. A cloud session gets paqad, and so the agents, from its
+  environment setup commands (`npm i -g paqad-ai@<team version> && paqad-ai install && paqad-ai join --no-rag --non-interactive`). A laptop with the plugin then lists both
   `paqad:paqad-<name>` and `paqad-<name>`; the orchestrator dispatches the first and falls back to
   the second. The plugin counts as installed only when `pluginLoadState`
   (`src/health/plugin-install.ts`) reads a version 2 `installed_plugins.json` entry that exists on
   disk, loads for this repo and is not switched off in settings.
-- **Team setup on.** `syncProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) writes
-  each missing agent, rewrites a copy paqad wrote earlier, and keeps a hand-edited file or a symlink
-  and names it. The written files are listed in the commit note.
-- **Team setup off.** `migrateProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) removes a
-  project's old `.claude/agents/paqad-*.md` file, stamped or unmarked, only when its body matches a
-  known generated body (the hash list in `src/onboarding/stage-agent-past-bodies.ts`). A marker or
-  stamp alone is not enough. Hand-edited files and symlinks are kept and named, and nothing else in
-  the folder is touched. The lead is told to commit the removals.
+- **One refresh.** `refreshPaqadProjectFiles` (`src/stage-isolation/project-refresh.ts`) writes the
+  ignore blocks, the project agents and the recipes. Onboard, update, the silent update, `join` and
+  every session start (`runtime/hooks/agent-entry-session-start.mjs`) call it. It writes only what
+  differs, by temp file and rename, takes content only from the installed package, and skips a
+  symlink. At session start it prints nothing and, on an error, logs one line to the hooks log.
+- **Ownership.** `syncProjectStageAgents` (`src/onboarding/stage-agent-migration.ts`) overwrites a
+  `paqad-*.md` only when it carries the managed marker and matches a paqad render (current or a
+  recorded earlier hash in `src/onboarding/stage-agent-past-bodies.ts`). Any other `paqad-*.md` is
+  kept and named in the Kept note on every manual onboard and update.
+- **One-time untrack.** `untrackPaqadFiles` (`src/update/paqad-files-untrack.ts`) runs `git rm
+  --cached` on paqad's own tracked agents and recipe folders on manual update and onboard, never
+  under CI, in the silent update or at session start, and skips when git is missing, the folder is not
+  a repo, a merge or rebase is in progress, or `.git/index.lock` exists. One line asks the lead to
+  commit the removal and repeats until HEAD no longer tracks those files.
 - **Bash write guard.** The PreToolUse hook `runtime/hooks/stage-agent-write-guard.mjs`
   (`src/stage-isolation/bash-write-guard.ts`) checks Bash writes by paqad stage agents, and the
   Edit/Write branch of `src/stage-isolation/capability.ts` applies the same limits. Read-only stage
