@@ -1421,6 +1421,15 @@ describe('FrameworkUpdater', () => {
   describe('team setup on update', () => {
     const claudeCandidates = async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }];
 
+    beforeEach(() => {
+      vi.stubEnv('CI', '');
+      vi.stubEnv('GITHUB_ACTIONS', '');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it('AC-1, FR-38: writes no .paqad/hook.mjs, and a manual update removes a stamped one', async () => {
       const report = await new FrameworkUpdater({ generateCandidates: claudeCandidates }).run(
         projectRoot,
