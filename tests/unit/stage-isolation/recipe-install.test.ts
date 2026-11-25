@@ -228,3 +228,19 @@ describe('the paqad- recipe names and the pattern block (FR-3, FR-5, FR-6)', () 
     expect(readFileSync(join(root, '.agents/skills/.gitignore'), 'utf8')).toContain('paqad-*/');
   });
 });
+
+describe('the recipe refresh writes only what differs (FR-12)', () => {
+  it('AC-42: a second run on an unchanged project leaves every mtime unchanged', async () => {
+    const { statSync } = await import('node:fs');
+    const root = project(['codex-cli']);
+    writeCodexRecipes(root);
+    const skills = join(root, '.agents/skills');
+    const stamp = () =>
+      Object.fromEntries(
+        readdirSync(skills).map((name) => [name, statSync(join(skills, name)).mtimeMs]),
+      );
+    const before = stamp();
+    expect(writeCodexRecipes(root)).toEqual([]);
+    expect(stamp()).toEqual(before);
+  });
+});

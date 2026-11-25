@@ -9,12 +9,8 @@ import { PLUGIN_ID } from '@/health/plugin-install.js';
 import { gitPendingPaths, isGitTracked } from '@/core/fs/git-tracked.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { isHigherStamp, parseStampInteger } from '@/core/team-file-schema.js';
-import { AGENTS_IGNORE_LINES, writeFolderIgnoreBlock } from '@/onboarding/gitignore-writer.js';
-import {
-  PROJECT_AGENTS_DIR,
-  syncProjectStageAgents,
-  type ProjectAgentSync,
-} from '@/onboarding/stage-agent-migration.js';
+import { PROJECT_AGENTS_DIR } from '@/onboarding/stage-agent-migration.js';
+import { refreshProjectAgents } from '@/stage-isolation/project-refresh.js';
 
 import { CLAUDE_SETTINGS_FILE, TEAM_LAUNCHER_MARK } from './team-settings.js';
 
@@ -112,13 +108,6 @@ export function syncTeamSetup(
 }
 
 export const PROJECT_AGENTS_GITIGNORE = `${PROJECT_AGENTS_DIR}/.gitignore`;
-
-// FR-8, FR-12: the agents ignore block and the 13 project agents, for every
-// Claude Code project, team setup on or off. Writes only what differs.
-export function refreshProjectAgents(projectRoot: string): ProjectAgentSync {
-  writeFolderIgnoreBlock(join(projectRoot, PROJECT_AGENTS_DIR), AGENTS_IGNORE_LINES);
-  return syncProjectStageAgents(projectRoot);
-}
 
 export const CLAUDE_GITIGNORE_FILE = '.claude/.gitignore';
 

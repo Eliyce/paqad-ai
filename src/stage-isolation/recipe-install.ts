@@ -13,6 +13,7 @@ import {
   LEGACY_RECIPE_FOLDER_NAMES,
   isGeneratedRecipeFolder,
 } from '@/authoring/generated-recipes.js';
+import { hashFolder } from '@/authoring/hash.js';
 import { OPEN_STANDARD_SKILLS_ROOT, enabledAdapters } from '@/authoring/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { SKILLS_IGNORE_LINES, writeFolderIgnoreBlock } from '@/onboarding/gitignore-writer.js';
@@ -76,22 +77,51 @@ export function removeLegacyRecipes(skillsRoot: string): string[] {
   return removed;
 }
 
+function sameFolder(installed: string, source: string): boolean {
+  try {
+    return existsSync(installed) && hashFolder(installed) === hashFolder(source);
+  } catch {
+    return false;
+  }
+}
+
+export interface RecipeSync {
+  written: string[];
+  symlinks: string[];
+}
+
+// Writes each recipe only when it differs from the installed package, never
+// through a symlinked folder (FR-15), and by build and swap (FR-14).
+export function syncCodexRecipes(
+  projectRoot: string,
+  source: string | null = recipeRoot(),
+): RecipeSync {
+  const result: RecipeSync = { written: [], symlinks: [] };
+  if (!enabledAdapters(projectRoot).includes(CODEX_ADAPTER)) return result;
+  if (source === null) return result;
+  const skillsRoot = join(projectRoot, OPEN_STANDARD_SKILLS_ROOT);
+  mkdirSync(skillsRoot, { recursive: true });
+  for (const name of RECIPE_NAMES) {
+    const rel = `${OPEN_STANDARD_SKILLS_ROOT}/${name}`;
+    const target = join(skillsRoot, name);
+    if (isSymlink(target)) {
+      result.symlinks.push(rel);
+      continue;
+    }
+    if (sameFolder(target, join(source, name))) continue;
+    if (!replaceRecipe(join(source, name), skillsRoot, name)) continue;
+    result.written.push(rel);
+  }
+  removeLegacyRecipes(skillsRoot);
+  writeFolderIgnoreBlock(skillsRoot, SKILLS_IGNORE_LINES);
+  return result;
+}
+
 export function writeCodexRecipes(
   projectRoot: string,
   source: string | null = recipeRoot(),
 ): string[] {
-  if (!enabledAdapters(projectRoot).includes(CODEX_ADAPTER)) return [];
-  if (source === null) return [];
-  const skillsRoot = join(projectRoot, OPEN_STANDARD_SKILLS_ROOT);
-  mkdirSync(skillsRoot, { recursive: true });
-  const written: string[] = [];
-  for (const name of RECIPE_NAMES) {
-    if (!replaceRecipe(join(source, name), skillsRoot, name)) continue;
-    written.push(`${OPEN_STANDARD_SKILLS_ROOT}/${name}`);
-  }
-  removeLegacyRecipes(skillsRoot);
-  writeFolderIgnoreBlock(skillsRoot, SKILLS_IGNORE_LINES);
-  return written;
+  return syncCodexRecipes(projectRoot, source).written;
 }
 
 export { isGeneratedRecipeFolder };

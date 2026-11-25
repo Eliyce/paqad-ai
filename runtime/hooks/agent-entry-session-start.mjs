@@ -67,6 +67,8 @@ async function main(input) {
     }
   } catch {}
 
+  await refreshProjectFiles(projectRoot);
+
   const output = mergeSessionStartOutput(
     mergeSessionStartOutput(
       mergeSessionStartOutput(
@@ -83,6 +85,28 @@ async function main(input) {
   if (output) process.stdout.write(output);
 
   return 0;
+}
+
+// FR-12, FR-16: refresh paqad's own agents, ignore blocks and recipes from the
+// installed package. Prints nothing; on an error it logs one line holding only
+// the message and the path (FR-17) and the session goes on.
+async function refreshProjectFiles(projectRoot) {
+  if (!isProjectOnboarded(projectRoot)) return;
+  try {
+    const url = new URL('../../dist/stage-isolation/project-refresh.js', import.meta.url);
+    const { refreshPaqadProjectFiles } = await import(url.href);
+    const result = refreshPaqadProjectFiles(projectRoot);
+    if (result.symlinks.length > 0) {
+      appendHooksLog(
+        projectRoot,
+        `session-start: refresh skipped symlinks: ${result.symlinks.join(', ')}`,
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const path = error && typeof error.path === 'string' ? error.path : projectRoot;
+    appendHooksLog(projectRoot, `session-start: refresh failed at ${path}: ${message}`);
+  }
 }
 
 async function missingStageAgentsOutput(projectRoot) {

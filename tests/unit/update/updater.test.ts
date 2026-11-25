@@ -1160,6 +1160,63 @@ describe('FrameworkUpdater', () => {
       restore('USERPROFILE', savedUserProfile);
     });
 
+    it('AC-41, AC-49, AC-2, AC-3: update with team setup off writes the agents, matches the user copy and is quiet on rerun', async () => {
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' });
+      git('init', '-q');
+      mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.paqad/configs/.config.app'),
+        'team_bootstrap_enabled=false\n',
+      );
+      writeFileSync(
+        join(projectRoot, '.paqad/onboarding-manifest.json'),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          generated_at: '2020-01-01T00:00:00.000Z',
+          framework_version: '0.0.0',
+          adapter: 'claude-code',
+          providers: ['claude-code'],
+          generated_artifacts: [],
+          detected: null,
+        }),
+      );
+      const updater = () =>
+        new FrameworkUpdater({
+          generateCandidates: async () => [{ path: 'CLAUDE.md', content: 'x', autoUpdate: true }],
+        }).run(projectRoot);
+      const report = await updater();
+      const agents = join(projectRoot, '.claude/agents');
+      const names = readdirSync(agents).filter((name) => name.startsWith('paqad-'));
+      expect(names).toHaveLength(13);
+      expect(readFileSync(join(agents, '.gitignore'), 'utf8')).toContain('paqad-*');
+      expect(JSON.stringify(report.team_setup_notes ?? [])).not.toMatch(/paqad-[a-z-]+\.md/u);
+      for (const name of names) {
+        const user = join(userHome, '.claude/agents', name);
+        if (existsSync(user)) {
+          expect(readFileSync(join(agents, name), 'utf8')).toBe(readFileSync(user, 'utf8'));
+        }
+      }
+      expect(git('status', '--porcelain', '-uall')).not.toMatch(/\.claude\/agents\/paqad-/u);
+      git('add', '-A');
+      git(
+        '-c',
+        'user.email=t@t',
+        '-c',
+        'user.name=t',
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '--no-verify',
+        '-qm',
+        'first',
+      );
+      const before = readFileSync(join(agents, 'paqad-planning.md'), 'utf8');
+      await updater();
+      expect(readFileSync(join(agents, 'paqad-planning.md'), 'utf8')).toBe(before);
+      expect(git('status', '--porcelain', '--', '.claude')).toBe('');
+    });
+
     it('AC-52: an update writes the recipes and the read-first line, and git ignores only the six folders', async () => {
       execFileSync('git', ['init', '-q'], { cwd: projectRoot });
       mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
@@ -1176,7 +1233,9 @@ describe('FrameworkUpdater', () => {
         }),
       );
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
-      expect(existsSync(join(projectRoot, '.agents/skills/paqad-review-recipe/SKILL.md'))).toBe(true);
+      expect(existsSync(join(projectRoot, '.agents/skills/paqad-review-recipe/SKILL.md'))).toBe(
+        true,
+      );
       expect(readFileSync(join(userHome, '.codex/agents/paqad-review.toml'), 'utf8')).toContain(
         'Read `.agents/skills/paqad-review-recipe/SKILL.md` first',
       );

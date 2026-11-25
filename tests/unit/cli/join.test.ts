@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -319,9 +327,47 @@ describe('paqad-ai join', () => {
 
     expect(git('status', '--porcelain', '--untracked-files=no')).toBe('');
     expect(existsSync(join(root, '.paqad/hook.mjs'))).toBe(false);
-    expect(existsSync(join(root, '.claude/agents'))).toBe(false);
+    expect(existsSync(join(root, '.claude/agents/paqad-planning.md'))).toBe(true);
     expect(output.join('')).toContain(JOIN_TEAM_SETUP_MISSING_MESSAGE);
     expect(JOIN_TEAM_SETUP_MISSING_MESSAGE).toContain('`paqad-ai update`');
+  });
+
+  it('AC-40: a fresh clone with no agents gets the 13 agents and the block, and git shows none of them', async () => {
+    seedOnboardedProject(root);
+    mkdirSync(join(root, '.claude/agents'), { recursive: true });
+    writeFileSync(
+      join(root, '.claude/agents/.gitignore'),
+      '# >>> paqad-ai managed (do not edit between markers) >>>\n# paqad writes and refreshes these files itself. Never commit them.\npaqad-*\n# <<< paqad-ai managed <<<\n',
+    );
+    const git = (...args: string[]) =>
+      execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    git('add', '-A');
+    git(
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-qm',
+      'seed',
+    );
+    const blockBefore = readFileSync(join(root, '.claude/agents/.gitignore'), 'utf8');
+
+    await joinProject({ projectRoot: root, rag: false });
+
+    const agents = readdirSync(join(root, '.claude/agents')).filter((name) =>
+      name.startsWith('paqad-'),
+    );
+    expect(agents).toHaveLength(13);
+    expect(readFileSync(join(root, '.claude/agents/.gitignore'), 'utf8')).toBe(blockBefore);
+    expect(git('status', '--porcelain', '-uall', '--', '.claude/agents')).toBe('');
+    expect(output.join('')).toContain('No tracked files changed.');
   });
 
   it('in a repo the lead has not updated, writes plain npm hook lines to the ignored settings and no launcher line', async () => {
