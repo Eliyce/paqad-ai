@@ -56,6 +56,25 @@ describe('INV-8: paqad reads its own files through one open handle', () => {
     expect(readFileSync(outside, 'utf8')).toBe('theirs\n');
   });
 
+  it('AC-44: reports a symlinked file as a link on every platform', (ctx) => {
+    const outside = join(root, 'outside.txt');
+    writeFileSync(outside, 'theirs\n');
+    const agents = join(root, '.claude/agents');
+    mkdirSync(agents, { recursive: true });
+    try {
+      symlinkSync(outside, join(root, 'link.txt'));
+      symlinkSync(outside, join(agents, '.gitignore'));
+      symlinkSync(outside, join(agents, 'paqad-planning.md'));
+    } catch {
+      ctx.skip();
+    }
+    expect(readFileNoFollow(join(root, 'link.txt'))).toEqual({ kind: 'symlink' });
+    expect(readTextNoFollow(join(root, 'link.txt'))).toBeNull();
+    expect(writeFolderIgnoreBlock(agents, AGENTS_IGNORE_LINES)).toBe(false);
+    expect(syncProjectStageAgents(root).symlinks).toContain('.claude/agents/paqad-planning.md');
+    expect(readFileSync(outside, 'utf8')).toBe('theirs\n');
+  });
+
   it('writes a new file and replaces an existing one', () => {
     const path = join(root, 'w.txt');
     writeFileNoFollow(path, 'one\n');

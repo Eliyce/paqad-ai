@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { refreshPaqadProjectFiles } from '@/stage-isolation/project-refresh.js';
 import { teamSetupNotes, syncTeamSetup } from '@/adapters/claude/team-setup.js';
-import { type GitRunner, untrackLine, untrackPaqadFiles } from '@/update/paqad-files-untrack.js';
+import {
+  type GitRunner,
+  isCiEnvironment,
+  untrackLine,
+  untrackPaqadFiles,
+} from '@/update/paqad-files-untrack.js';
 import { FrameworkUpdater } from '@/update/updater.js';
 
 const saved: Record<string, string | undefined> = {};
@@ -196,5 +201,17 @@ describe('the untrack with an injected git runner (AC-16, AC-47)', () => {
     const { calls, runner } = fakeGit(overrides);
     expect(untrackPaqadFiles(root, { git: runner, env: {} })).toEqual({ untracked: [], notes: [] });
     expect(calls.some((args) => args[0] === 'rm')).toBe(false);
+  });
+});
+
+describe('INV-10: the untrack never runs under CI', () => {
+  it('reads CI and GitHub Actions from the environment', () => {
+    expect(isCiEnvironment({})).toBe(false);
+    expect(isCiEnvironment({ CI: '' })).toBe(false);
+    expect(isCiEnvironment({ CI: 'false' })).toBe(false);
+    expect(isCiEnvironment({ CI: 'true' })).toBe(true);
+    expect(isCiEnvironment({ CI: '1' })).toBe(true);
+    expect(isCiEnvironment({ GITHUB_ACTIONS: 'true' })).toBe(true);
+    expect(isCiEnvironment({ GITHUB_ACTIONS: 'false' })).toBe(false);
   });
 });
