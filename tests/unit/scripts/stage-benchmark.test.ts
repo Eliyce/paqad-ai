@@ -97,12 +97,12 @@ describe('skill-consumer-scan.mjs', () => {
     for (const item of scan.skills) {
       expect(item.consumers === 'none' || item.consumers.length > 0).toBe(true);
     }
-    const review = scan.skills.find((item: { skill: string }) => item.skill === 'review-recipe');
+    const review = scan.skills.find((item: { skill: string }) => item.skill === 'paqad-review-recipe');
     expect(review.copies).toEqual(['adversarial-review']);
     const source = scan.skills.find(
       (item: { skill: string }) => item.skill === 'adversarial-review',
     );
-    expect(source.copied_into).toEqual(['review-recipe']);
+    expect(source.copied_into).toEqual(['paqad-review-recipe']);
     expect(scan.retired).toEqual([]);
   });
 

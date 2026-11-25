@@ -326,7 +326,7 @@ describe('stage agent returns the orchestrator can act on', () => {
 });
 
 describe('AC-30 AC-42 decision text in stage agents and recipes', () => {
-  const recipes = ['development-recipe', 'planning-recipe', 'documentation-sync-recipe'].map(
+  const recipes = ['paqad-development-recipe', 'paqad-planning-recipe', 'paqad-documentation-sync-recipe'].map(
     (name) => readFileSync(join(process.cwd(), 'runtime/base/skills', name, 'SKILL.md'), 'utf8'),
   );
   const bodies = MANDATORY_STAGE_AGENTS.map((def) => buildStageAgentBody(def, 'claude-code'));

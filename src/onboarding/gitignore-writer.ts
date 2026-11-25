@@ -86,6 +86,53 @@ const DEPRECATED_ARTIFACTS = [
   '.paqad/hooks/silent-update.sh',
 ];
 
+export const AGENTS_IGNORE_LINES: readonly string[] = [
+  '# paqad writes and refreshes these files itself. Never commit them.',
+  'paqad-*',
+];
+
+export const SKILLS_IGNORE_LINES: readonly string[] = [
+  '# paqad writes and refreshes these folders itself. Never commit them.',
+  'paqad-*/',
+];
+
+const OLD_RECIPE_BLOCK_BEGIN = '# paqad recipes:';
+const OLD_RECIPE_BLOCK_END = '# end paqad recipes';
+
+function withoutOldRecipeBlock(existing: string): string {
+  const start = existing.indexOf(OLD_RECIPE_BLOCK_BEGIN);
+  if (start === -1) return existing;
+  const endAt = existing.indexOf(OLD_RECIPE_BLOCK_END, start);
+  if (endAt === -1) return existing;
+  let stop = endAt + OLD_RECIPE_BLOCK_END.length;
+  if (existing.startsWith('\r\n', stop)) stop += 2;
+  else if (existing.startsWith('\n', stop)) stop += 1;
+  return `${existing.slice(0, start)}${existing.slice(stop)}`;
+}
+
+// Pure: text in, text out. Lines outside the managed block stay byte for byte,
+// a CRLF file keeps CRLF, and the old name-list recipe block is dropped.
+export function renderFolderIgnoreBlock(existing: string, lines: readonly string[]): string {
+  const base = withoutOldRecipeBlock(existing);
+  const eol = base.includes('\r\n') ? '\r\n' : '\n';
+  const block = [MANAGED_BEGIN, ...lines, MANAGED_END].join(eol);
+  const replaced = replaceMarkerBlock(base, MANAGED_BEGIN, MANAGED_END, block);
+  if (replaced !== null) return replaced.endsWith('\n') ? replaced : `${replaced}${eol}`;
+  const prefix = base === '' || base.endsWith('\n') ? base : `${base}${eol}`;
+  return `${prefix}${block}${eol}`;
+}
+
+// Writes the managed block into folderAbs/.gitignore; true when the file changed.
+export function writeFolderIgnoreBlock(folderAbs: string, lines: readonly string[]): boolean {
+  const path = join(folderAbs, '.gitignore');
+  const existing = readTextOrEmpty(path);
+  const next = renderFolderIgnoreBlock(existing, lines);
+  if (next === existing) return false;
+  mkdirSync(folderAbs, { recursive: true });
+  writeFileSync(path, next);
+  return true;
+}
+
 function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENTRIES): string[] {
   return entries
     .filter((entry) => !entry.startsWith('#'))
@@ -274,7 +321,7 @@ function untrackNowIgnoredPaths(projectRoot: string, paths: string[]): void {
   });
 }
 
-function isGitRepository(projectRoot: string): boolean {
+export function isGitRepository(projectRoot: string): boolean {
   try {
     const out = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
       cwd: projectRoot,
@@ -286,7 +333,7 @@ function isGitRepository(projectRoot: string): boolean {
   }
 }
 
-function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
+export function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
   if (paths.length === 0) {
     return [];
   }

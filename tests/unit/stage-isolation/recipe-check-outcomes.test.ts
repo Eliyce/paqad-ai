@@ -48,7 +48,7 @@ describe('recipe check outcomes', () => {
   };
   const reviewScript = (result: unknown) =>
     script(
-      'review-recipe',
+      'paqad-review-recipe',
       'lint-findings.mjs',
       `console.log('progress');console.log(${JSON.stringify(JSON.stringify(result))});`,
     );
@@ -77,24 +77,24 @@ describe('recipe check outcomes', () => {
     it('is broken with repair advice when the recipe folder is gone', () => {
       const run = runRecipeScript('review', [], undefined, null);
       expect(run.status).toBe('broken');
-      expect(run.errors[0]).toContain('the review-recipe recipe is missing');
+      expect(run.errors[0]).toContain('the paqad-review-recipe recipe is missing');
     });
 
     it('passes without running anything for a recipe with no script', () => {
-      mkdirSync(join(recipes, 'checks-recipe'), { recursive: true });
-      writeFileSync(join(recipes, 'checks-recipe', 'SKILL.md'), 'body');
+      mkdirSync(join(recipes, 'paqad-checks-recipe'), { recursive: true });
+      writeFileSync(join(recipes, 'paqad-checks-recipe', 'SKILL.md'), 'body');
       expect(runRecipeScript('checks', [], undefined, recipes)).toEqual({
         status: 'pass',
         errors: [],
         hash: null,
-        recipe: 'checks-recipe',
+        recipe: 'paqad-checks-recipe',
         script: null,
         root: recipes,
       });
     });
 
     it('is broken when the script crashes before printing JSON', () => {
-      script('review-recipe', 'lint-findings.mjs', "throw new Error('boom');");
+      script('paqad-review-recipe', 'lint-findings.mjs', "throw new Error('boom');");
       const run = runRecipeScript('review', [], undefined, recipes);
       expect(run.status).toBe('broken');
       expect(run.errors[0]).toContain('lint-findings.mjs did not run cleanly');
@@ -147,7 +147,7 @@ describe('recipe check outcomes', () => {
 
     it('passes stdin through to the script', () => {
       script(
-        'review-recipe',
+        'paqad-review-recipe',
         'lint-findings.mjs',
         `import { readFileSync } from 'node:fs';
          const hash = readFileSync(0, 'utf8');
@@ -172,7 +172,7 @@ describe('recipe check outcomes', () => {
 
     it('warns and never refuses when the script is broken', () => {
       dir = open();
-      script('review-recipe', 'lint-findings.mjs', "throw new Error('boom');");
+      script('paqad-review-recipe', 'lint-findings.mjs', "throw new Error('boom');");
       const result = check();
       expect(result.verdict).toBe('warn');
       expect(result.lines[0]).toContain('did not run cleanly');
@@ -187,7 +187,7 @@ describe('recipe check outcomes', () => {
       const result = check();
       expect(result.verdict).toBe('warn');
       expect(result.lines).toEqual([
-        '**▸ paqad** · the review-recipe check found problems (noted only):',
+        '**▸ paqad** · the paqad-review-recipe check found problems (noted only):',
         '- bad finding',
       ]);
     });
@@ -209,7 +209,7 @@ describe('recipe check outcomes', () => {
       const result = check();
       expect(result.verdict).toBe('refuse');
       expect(result.lines).toEqual([
-        '**▸ paqad** · the review-recipe check found problems:',
+        '**▸ paqad** · the paqad-review-recipe check found problems:',
         '- bad finding',
       ]);
       result.record();
@@ -228,7 +228,7 @@ describe('recipe check outcomes', () => {
         stage: 'review',
         agent: 'paqad-review',
         agent_id: 'a-env',
-        recipe: 'review-recipe',
+        recipe: 'paqad-review-recipe',
         script: 'lint-findings.mjs',
         output_hash: HASH,
         source: 'script',
@@ -262,7 +262,7 @@ describe('recipe check outcomes', () => {
       reviewScript({ ok: true, hash: HASH, unchecked: 'no spec' });
       const result = check();
       expect(result.lines).toEqual([
-        '**▸ paqad** · the review-recipe check could not check this: no spec',
+        '**▸ paqad** · the paqad-review-recipe check could not check this: no spec',
       ]);
       result.record();
       expect(skillRows()[0]).toMatchObject({ unchecked: 'no spec' });
@@ -288,8 +288,8 @@ describe('recipe check outcomes', () => {
 
     it('writes no row for a recipe with no script, because no output proves it', () => {
       dir = open();
-      mkdirSync(join(recipes, 'checks-recipe'), { recursive: true });
-      writeFileSync(join(recipes, 'checks-recipe', 'SKILL.md'), 'body');
+      mkdirSync(join(recipes, 'paqad-checks-recipe'), { recursive: true });
+      writeFileSync(join(recipes, 'paqad-checks-recipe', 'SKILL.md'), 'body');
       const result = check({ stage: 'checks' });
       expect(result.verdict).toBe('pass');
       result.record();

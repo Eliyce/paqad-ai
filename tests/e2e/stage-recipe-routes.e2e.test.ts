@@ -117,7 +117,7 @@ describe.each(ROUTES)('the recipe reaches a stage agent on the $name route', ({ 
       .map((line) => JSON.parse(line) as Record<string, unknown>);
     expect(rows.find((row) => row.kind === 'recipe-injected')).toMatchObject({
       stage: 'review',
-      recipe: 'review-recipe',
+      recipe: 'paqad-review-recipe',
       agent_id: 'agent_route',
     });
   }, 60_000);

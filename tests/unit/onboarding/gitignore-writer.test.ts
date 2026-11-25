@@ -437,3 +437,77 @@ describe('unexcludeLocally', () => {
     expect(unexcludeLocally(repo, 'docs/x.yaml')).toBe(false);
   });
 });
+
+describe('the folder ignore block (FR-1, FR-2)', () => {
+  let mod: typeof import('@/onboarding/gitignore-writer');
+  beforeEach(async () => {
+    mod = await import('@/onboarding/gitignore-writer');
+  });
+
+  const NAMES =
+    /planning|specification|development|review|checks|documentation|paqad-[a-z]+-recipe|paqad-planning/u;
+
+  it('AC-8: keeps every line outside the block byte for byte on each kind of file', () => {
+    const cases: Record<string, string> = {
+      missing: '',
+      empty: '',
+      noTrailingNewline: 'ours/\n# keep me',
+      crlf: 'ours/\r\n# keep me\r\n',
+      oldBlock:
+        'ours/\n# paqad recipes: generated on each machine, kept out of git\n/planning-recipe/\n/checks-recipe/\n# end paqad recipes\nmine/\n',
+    };
+    for (const [name, existing] of Object.entries(cases)) {
+      const out = mod.renderFolderIgnoreBlock(existing, mod.SKILLS_IGNORE_LINES);
+      const begin = out.indexOf(BEGIN);
+      const outside = out.slice(0, begin);
+      if (name === 'noTrailingNewline') expect(outside).toBe('ours/\n# keep me\n');
+      else if (name === 'crlf') {
+        expect(outside).toBe(existing);
+        expect(out.slice(begin)).toBe(
+          `${BEGIN}\r\n${mod.SKILLS_IGNORE_LINES.join('\r\n')}\r\n${END}\r\n`,
+        );
+      } else if (name === 'oldBlock') {
+        expect(outside).toBe('ours/\nmine/\n');
+        expect(out).not.toContain('# paqad recipes:');
+      } else expect(outside).toBe('');
+      expect(out).toContain('paqad-*/');
+      expect(NAMES.test(out.replace(/paqad-\*\/?/gu, ''))).toBe(false);
+      expect(mod.renderFolderIgnoreBlock(out, mod.SKILLS_IGNORE_LINES)).toBe(out);
+    }
+  });
+
+  it('AC-8: refreshes the block in place and writes nothing when it is unchanged', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-folder-block-'));
+    try {
+      writeFileSync(join(dir, '.gitignore'), `top\n${BEGIN}\nold\n${END}\nbottom\n`);
+      expect(mod.writeFolderIgnoreBlock(dir, mod.AGENTS_IGNORE_LINES)).toBe(true);
+      expect(read(dir, '.gitignore')).toBe(
+        `top\n${BEGIN}\n# paqad writes and refreshes these files itself. Never commit them.\npaqad-*\n${END}\nbottom\n`,
+      );
+      expect(mod.writeFolderIgnoreBlock(dir, mod.AGENTS_IGNORE_LINES)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AC-4: the agents block ignores paqad-* and leaves a team agent visible to git', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-folder-block-git-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir });
+      mod.writeFolderIgnoreBlock(join(dir, '.claude/agents'), mod.AGENTS_IGNORE_LINES);
+      writeFileSync(join(dir, '.claude/agents/my-agent.md'), 'mine\n');
+      writeFileSync(join(dir, '.claude/agents/paqad-planning.md'), 'paqad\n');
+      const ignoredStatus = (path: string) =>
+        spawnSync('git', ['check-ignore', '-q', path], { cwd: dir }).status;
+      expect(ignoredStatus('.claude/agents/my-agent.md')).toBe(1);
+      expect(ignoredStatus('.claude/agents/paqad-planning.md')).toBe(0);
+      const status = execFileSync('git', ['status', '--porcelain', '-uall'], {
+        cwd: dir,
+      }).toString();
+      expect(status).toContain('.claude/agents/my-agent.md');
+      expect(status).not.toContain('paqad-planning.md');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

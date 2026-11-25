@@ -7,12 +7,12 @@ import { pathToFileURL } from 'node:url';
 const OUTPUT = '.paqad/authoring/stage-recipes/consumer-scan.json';
 
 const RECIPE_SOURCES = {
-  'planning-recipe': ['diff-minimizer'],
-  'specification-recipe': ['acceptance-criteria-gen', 'edge-case-detection'],
-  'development-recipe': ['scope-check', 'test-per-ac-planner'],
-  'review-recipe': ['adversarial-review'],
-  'documentation-sync-recipe': ['diff-doc-sync', 'canonical-doc-sync'],
-  'checks-recipe': ['test-runner-discovery'],
+  'paqad-planning-recipe': ['diff-minimizer'],
+  'paqad-specification-recipe': ['acceptance-criteria-gen', 'edge-case-detection'],
+  'paqad-development-recipe': ['scope-check', 'test-per-ac-planner'],
+  'paqad-review-recipe': ['adversarial-review'],
+  'paqad-documentation-sync-recipe': ['diff-doc-sync', 'canonical-doc-sync'],
+  'paqad-checks-recipe': ['test-runner-discovery'],
 };
 
 const SCANNED_DIRS = [

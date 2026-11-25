@@ -10,12 +10,12 @@ import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 import { PARENT_CALLED_HELPERS } from '../skills/_helpers/parent-called-helpers.js';
 
 const STAGE_RECIPES = [
-  'planning-recipe',
-  'specification-recipe',
-  'development-recipe',
-  'review-recipe',
-  'documentation-sync-recipe',
-  'checks-recipe',
+  'paqad-planning-recipe',
+  'paqad-specification-recipe',
+  'paqad-development-recipe',
+  'paqad-review-recipe',
+  'paqad-documentation-sync-recipe',
+  'paqad-checks-recipe',
 ];
 
 describe('runtime skills', () => {

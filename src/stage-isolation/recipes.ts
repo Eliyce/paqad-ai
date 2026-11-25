@@ -15,20 +15,20 @@ import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 export const RECIPE_BUDGET_CHARS = 9_700;
 
 const RECIPE_BY_STAGE: Readonly<Record<string, string>> = {
-  planning: 'planning-recipe',
-  specification: 'specification-recipe',
-  development: 'development-recipe',
-  review: 'review-recipe',
-  documentation_sync: 'documentation-sync-recipe',
-  checks: 'checks-recipe',
+  planning: 'paqad-planning-recipe',
+  specification: 'paqad-specification-recipe',
+  development: 'paqad-development-recipe',
+  review: 'paqad-review-recipe',
+  documentation_sync: 'paqad-documentation-sync-recipe',
+  checks: 'paqad-checks-recipe',
 };
 
 const RECIPE_SCRIPT: Readonly<Record<string, string>> = {
-  'planning-recipe': 'check-plan.mjs',
-  'specification-recipe': 'check-spec.mjs',
-  'development-recipe': 'check-ac-map.mjs',
-  'review-recipe': 'lint-findings.mjs',
-  'documentation-sync-recipe': 'stale-docs.mjs',
+  'paqad-planning-recipe': 'check-plan.mjs',
+  'paqad-specification-recipe': 'check-spec.mjs',
+  'paqad-development-recipe': 'check-ac-map.mjs',
+  'paqad-review-recipe': 'lint-findings.mjs',
+  'paqad-documentation-sync-recipe': 'stale-docs.mjs',
 };
 
 export const RECIPE_NAMES = RECIPE_FOLDER_NAMES;

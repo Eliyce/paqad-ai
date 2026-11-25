@@ -406,7 +406,7 @@ exports[`rendered agent files > codex-cli paqad-checks.toml 1`] = `
 name = "paqad-checks"
 description = "paqad checks stage: runs lint, typecheck and the test suite once into checks.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/checks-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-checks-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 
@@ -498,7 +498,7 @@ exports[`rendered agent files > codex-cli paqad-development.toml 1`] = `
 name = "paqad-development"
 description = "paqad development stage: implements the frozen spec in source and tests after rules load. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/development-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-development-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 
@@ -542,7 +542,7 @@ exports[`rendered agent files > codex-cli paqad-documentation-sync.toml 1`] = `
 name = "paqad-documentation-sync"
 description = "paqad documentation sync stage: updates the canonical docs whose described behaviour the diff changed. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/documentation-sync-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-documentation-sync-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 
@@ -634,7 +634,7 @@ exports[`rendered agent files > codex-cli paqad-planning.toml 1`] = `
 name = "paqad-planning"
 description = "paqad planning stage: maps reuse candidates and compiles plan.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/planning-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-planning-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 
@@ -678,7 +678,7 @@ exports[`rendered agent files > codex-cli paqad-review.toml 1`] = `
 name = "paqad-review"
 description = "paqad review stage: reads the diff against the spec and records review.json findings. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/review-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-review-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 
@@ -722,7 +722,7 @@ exports[`rendered agent files > codex-cli paqad-specification.toml 1`] = `
 name = "paqad-specification"
 description = "paqad specification stage: drafts acceptance criteria, seats the High Table and freezes specification.json. Dispatched by the paqad orchestrator only."
 developer_instructions = """
-Read \`.agents/skills/specification-recipe/SKILL.md\` first and follow it.
+Read \`.agents/skills/paqad-specification-recipe/SKILL.md\` first and follow it.
 
 ## Objective
 

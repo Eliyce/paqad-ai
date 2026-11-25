@@ -10,7 +10,7 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 vi.mock('@/stage-isolation/recipes.js', async (original) => ({
   ...(await original<typeof import('@/stage-isolation/recipes.js')>()),
   resolveRecipe: () => {
-    throw new Error('the review-recipe recipe is missing; run the named repair');
+    throw new Error('the paqad-review-recipe recipe is missing; run the named repair');
   },
 }));
 
@@ -45,7 +45,7 @@ describe('stage brief with a missing recipe', () => {
       { from: 'user' },
     );
     const printed = lines.join('\n');
-    expect(printed).toContain('the review-recipe recipe is missing; run the named repair');
+    expect(printed).toContain('the paqad-review-recipe recipe is missing; run the named repair');
     expect(printed).not.toContain('## Your recipe');
     expect(process.exitCode).toBeUndefined();
   });

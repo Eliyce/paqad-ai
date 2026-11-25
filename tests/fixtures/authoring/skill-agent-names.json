@@ -97,9 +97,9 @@
       "name": "canonical-doc-sync"
     },
     {
-      "path": "runtime/base/skills/checks-recipe/SKILL.md",
-      "folder": "checks-recipe",
-      "name": "checks-recipe"
+      "path": "runtime/base/skills/paqad-checks-recipe/SKILL.md",
+      "folder": "paqad-checks-recipe",
+      "name": "paqad-checks-recipe"
     },
     {
       "path": "runtime/base/skills/context-budget-planner/SKILL.md",
@@ -117,9 +117,9 @@
       "name": "decision"
     },
     {
-      "path": "runtime/base/skills/development-recipe/SKILL.md",
-      "folder": "development-recipe",
-      "name": "development-recipe"
+      "path": "runtime/base/skills/paqad-development-recipe/SKILL.md",
+      "folder": "paqad-development-recipe",
+      "name": "paqad-development-recipe"
     },
     {
       "path": "runtime/base/skills/diff-doc-sync/SKILL.md",
@@ -137,9 +137,9 @@
       "name": "documentation-sync-engine"
     },
     {
-      "path": "runtime/base/skills/documentation-sync-recipe/SKILL.md",
-      "folder": "documentation-sync-recipe",
-      "name": "documentation-sync-recipe"
+      "path": "runtime/base/skills/paqad-documentation-sync-recipe/SKILL.md",
+      "folder": "paqad-documentation-sync-recipe",
+      "name": "paqad-documentation-sync-recipe"
     },
     {
       "path": "runtime/base/skills/documentation-workflow/SKILL.md",
@@ -237,9 +237,9 @@
       "name": "performance-regression-estimator"
     },
     {
-      "path": "runtime/base/skills/planning-recipe/SKILL.md",
-      "folder": "planning-recipe",
-      "name": "planning-recipe"
+      "path": "runtime/base/skills/paqad-planning-recipe/SKILL.md",
+      "folder": "paqad-planning-recipe",
+      "name": "paqad-planning-recipe"
     },
     {
       "path": "runtime/base/skills/request-classifier/SKILL.md",
@@ -252,9 +252,9 @@
       "name": "requirement-enrichment"
     },
     {
-      "path": "runtime/base/skills/review-recipe/SKILL.md",
-      "folder": "review-recipe",
-      "name": "review-recipe"
+      "path": "runtime/base/skills/paqad-review-recipe/SKILL.md",
+      "folder": "paqad-review-recipe",
+      "name": "paqad-review-recipe"
     },
     {
       "path": "runtime/base/skills/rollback-safety-planner/SKILL.md",
@@ -337,9 +337,9 @@
       "name": "spec-quality-review"
     },
     {
-      "path": "runtime/base/skills/specification-recipe/SKILL.md",
-      "folder": "specification-recipe",
-      "name": "specification-recipe"
+      "path": "runtime/base/skills/paqad-specification-recipe/SKILL.md",
+      "folder": "paqad-specification-recipe",
+      "name": "paqad-specification-recipe"
     },
     {
       "path": "runtime/base/skills/story-and-solution-writer/SKILL.md",

@@ -9,7 +9,7 @@ import { recordRecipeInjected } from '@/stage-isolation/stage-brief.js';
 
 const SESSION = 'ses_injected';
 const INJECTED = {
-  recipe: 'review-recipe',
+  recipe: 'paqad-review-recipe',
   recipe_hash: 'b'.repeat(64),
   recipe_root: '/root',
   truncated: false,
@@ -49,7 +49,7 @@ describe('recording that a recipe reached a stage agent', () => {
     expect(record('a1')).toBe(true);
     expect(record('a2')).toBe(true);
     expect(injectedRows(dir).map((row) => row.agent_id)).toEqual(['a1', 'a2']);
-    expect(injectedRows(dir)[0]).toMatchObject({ agent: 'paqad-review', recipe: 'review-recipe' });
+    expect(injectedRows(dir)[0]).toMatchObject({ agent: 'paqad-review', recipe: 'paqad-review-recipe' });
     expect(injectedRows(dir)[0]).not.toHaveProperty('truncated');
   });
 

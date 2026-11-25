@@ -34,24 +34,24 @@
       "consumers": [
         "runtime/base/skills/diff-minimizer/SKILL.md",
         "runtime/base/skills/diff-minimizer/skill.meta.yaml",
-        "runtime/base/skills/specification-recipe/SKILL.md",
+        "runtime/base/skills/paqad-specification-recipe/SKILL.md",
         "runtime/base/skills/story-and-solution-writer/SKILL.md"
       ],
       "copied_into": [
-        "specification-recipe"
+        "paqad-specification-recipe"
       ]
     },
     {
       "skill": "adversarial-review",
       "consumers": [
-        "runtime/base/skills/review-recipe/SKILL.md",
-        "runtime/base/skills/review-recipe/scripts/lint-findings.mjs",
+        "runtime/base/skills/paqad-review-recipe/SKILL.md",
+        "runtime/base/skills/paqad-review-recipe/scripts/lint-findings.mjs",
         "runtime/base/skills/rule-script-runner/SKILL.md",
         "runtime/base/skills/rule-script-runner/references/run-contract.md",
         "runtime/capabilities/coding/agents/chief-architect.md"
       ],
       "copied_into": [
-        "review-recipe"
+        "paqad-review-recipe"
       ]
     },
     {
@@ -78,15 +78,15 @@
       "consumers": [
         "runtime/base/skills/documentation-sync-engine/assets/routing-table.txt",
         "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md",
-        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/base/skills/paqad-documentation-sync-recipe/SKILL.md",
         "runtime/capabilities/coding/skills/design-system-sync/SKILL.md"
       ],
       "copied_into": [
-        "documentation-sync-recipe"
+        "paqad-documentation-sync-recipe"
       ]
     },
     {
-      "skill": "checks-recipe",
+      "skill": "paqad-checks-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -102,7 +102,7 @@
       "skill": "cross-module-impact-scanner",
       "consumers": [
         "runtime/base/skills/expert-notes/references/lenses/solution-architect.md",
-        "runtime/base/skills/planning-recipe/SKILL.md",
+        "runtime/base/skills/paqad-planning-recipe/SKILL.md",
         "src/pipeline/feature-development-policy.ts"
       ]
     },
@@ -117,9 +117,9 @@
         "runtime/base/skills/analytics-instrumentation/skill.meta.yaml",
         "runtime/base/skills/canonical-doc-sync/SKILL.md",
         "runtime/base/skills/context-budget-planner/SKILL.md",
-        "runtime/base/skills/development-recipe/SKILL.md",
+        "runtime/base/skills/paqad-development-recipe/SKILL.md",
         "runtime/base/skills/diff-minimizer/SKILL.md",
-        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/base/skills/paqad-documentation-sync-recipe/SKILL.md",
         "runtime/base/skills/expert-need-detector/references/roster.md",
         "runtime/base/skills/expert-synthesis/SKILL.md",
         "runtime/base/skills/expert-synthesis/references/synthesis-checklist.md",
@@ -129,7 +129,7 @@
         "runtime/base/skills/module-attribution-extractor/references/pattern-set.md",
         "runtime/base/skills/module-attribution-extractor/scripts/extract.sh",
         "runtime/base/skills/module-attribution-extractor/scripts/needs-decision.sh",
-        "runtime/base/skills/planning-recipe/SKILL.md",
+        "runtime/base/skills/paqad-planning-recipe/SKILL.md",
         "runtime/base/skills/rule-analyzer/SKILL.md",
         "runtime/base/skills/scope-check/SKILL.md",
         "runtime/base/skills/scope-check/assets/output.template.md",
@@ -175,7 +175,7 @@
       ]
     },
     {
-      "skill": "development-recipe",
+      "skill": "paqad-development-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -190,11 +190,11 @@
         "runtime/base/skills/documentation-sync-engine/SKILL.md",
         "runtime/base/skills/documentation-sync-engine/references/orchestration-rules.md",
         "runtime/base/skills/documentation-sync-engine/skill.meta.yaml",
-        "runtime/base/skills/documentation-sync-recipe/SKILL.md",
+        "runtime/base/skills/paqad-documentation-sync-recipe/SKILL.md",
         "runtime/capabilities/coding/agents/doc-maintainer.md"
       ],
       "copied_into": [
-        "documentation-sync-recipe"
+        "paqad-documentation-sync-recipe"
       ]
     },
     {
@@ -203,7 +203,7 @@
         "src/pipeline/feature-development-policy.ts"
       ],
       "copied_into": [
-        "planning-recipe"
+        "paqad-planning-recipe"
       ]
     },
     {
@@ -211,7 +211,7 @@
       "consumers": "none"
     },
     {
-      "skill": "documentation-sync-recipe",
+      "skill": "paqad-documentation-sync-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -231,11 +231,11 @@
       "consumers": [
         "runtime/base/skills/acceptance-criteria-gen/SKILL.md",
         "runtime/base/skills/expert-notes/references/lenses/qa-engineer.md",
-        "runtime/base/skills/specification-recipe/SKILL.md",
+        "runtime/base/skills/paqad-specification-recipe/SKILL.md",
         "runtime/capabilities/coding/agents/qa-engineer.md"
       ],
       "copied_into": [
-        "specification-recipe"
+        "paqad-specification-recipe"
       ]
     },
     {
@@ -365,7 +365,7 @@
       ]
     },
     {
-      "skill": "planning-recipe",
+      "skill": "paqad-planning-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -386,7 +386,7 @@
       ]
     },
     {
-      "skill": "review-recipe",
+      "skill": "paqad-review-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -435,10 +435,10 @@
     {
       "skill": "scope-check",
       "consumers": [
-        "runtime/base/skills/development-recipe/SKILL.md"
+        "runtime/base/skills/paqad-development-recipe/SKILL.md"
       ],
       "copied_into": [
-        "development-recipe"
+        "paqad-development-recipe"
       ]
     },
     {
@@ -468,7 +468,7 @@
       ]
     },
     {
-      "skill": "specification-recipe",
+      "skill": "paqad-specification-recipe",
       "consumers": [
         "src/stage-isolation/recipes.ts"
       ],
@@ -488,23 +488,23 @@
     {
       "skill": "test-per-ac-planner",
       "consumers": [
-        "runtime/base/skills/development-recipe/SKILL.md",
+        "runtime/base/skills/paqad-development-recipe/SKILL.md",
         "runtime/base/skills/expert-notes/references/lenses/qa-engineer.md",
         "runtime/capabilities/coding/agents/qa-engineer.md"
       ],
       "copied_into": [
-        "development-recipe"
+        "paqad-development-recipe"
       ]
     },
     {
       "skill": "test-runner-discovery",
       "consumers": [
-        "runtime/base/skills/checks-recipe/SKILL.md",
+        "runtime/base/skills/paqad-checks-recipe/SKILL.md",
         "runtime/capabilities/coding/rules/feature-development.md",
         "src/pipeline/feature-development-policy.ts"
       ],
       "copied_into": [
-        "checks-recipe"
+        "paqad-checks-recipe"
       ]
     },
     {

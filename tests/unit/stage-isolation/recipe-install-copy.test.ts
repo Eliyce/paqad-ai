@@ -27,7 +27,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-const RECIPE = '.agents/skills/planning-recipe';
+const RECIPE = '.agents/skills/paqad-planning-recipe';
 
 let root: string;
 let source: string;
@@ -42,8 +42,8 @@ beforeEach(() => {
     manifest,
     JSON.stringify({ adapter: 'codex-cli', providers: ['codex-cli'], generated_artifacts: [] }),
   );
-  mkdirSync(join(source, 'planning-recipe'));
-  writeFileSync(join(source, 'planning-recipe/SKILL.md'), 'first\n');
+  mkdirSync(join(source, 'paqad-planning-recipe'));
+  writeFileSync(join(source, 'paqad-planning-recipe/SKILL.md'), 'first\n');
   writeCodexRecipes(root, source);
 });
 
