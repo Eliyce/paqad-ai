@@ -28,16 +28,16 @@ function notAFile(path: string): NoFollowRead {
   return { kind: 'other', error };
 }
 
-export function readFileNoFollow(path: string): NoFollowRead {
+function openedThroughLink(path: string): boolean {
+  if (noFollowFlag() !== 0) return false;
   try {
-    const stat = lstatSync(path);
-    if (stat.isSymbolicLink()) return { kind: 'symlink' };
-    if (!stat.isFile()) return notAFile(path);
-  } catch (error) {
-    return asErrno(error).code === 'ENOENT'
-      ? { kind: 'missing' }
-      : { kind: 'other', error: asErrno(error) };
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
   }
+}
+
+export function readFileNoFollow(path: string): NoFollowRead {
   let fd: number;
   try {
     fd = openSync(path, constants.O_RDONLY | noFollowFlag());
@@ -45,9 +45,11 @@ export function readFileNoFollow(path: string): NoFollowRead {
     const code = asErrno(error).code;
     if (code === 'ELOOP') return { kind: 'symlink' };
     if (code === 'ENOENT') return { kind: 'missing' };
+    if (code === 'EISDIR') return notAFile(path);
     return { kind: 'other', error: asErrno(error) };
   }
   try {
+    if (openedThroughLink(path)) return { kind: 'symlink' };
     if (!fstatSync(fd).isFile()) return notAFile(path);
     return { kind: 'file', text: readFileSync(fd, 'utf8') };
   } finally {
